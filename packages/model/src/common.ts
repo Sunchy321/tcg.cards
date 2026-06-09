@@ -6,4 +6,7 @@ export const updation = z.strictObject({
     newValue: z.any(),
 });
 
+export const nullableText = z.string().nullable();
+
+/** Describes one old/new value pair in a generic update payload. */
 export type Updation = z.infer<typeof updation>;

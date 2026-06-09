@@ -1,12 +1,21 @@
 import { GAMES } from '#shared';
-
-export type Game = (typeof GAMES)[number];
-
-export const GAME_LABELS: Record<Game, string> = {
-  magic:       'Magic: The Gathering',
-  hearthstone: 'Hearthstone',
-};
+import {
+  GAME_LABELS,
+  resolveGameFromPath,
+  type Game,
+} from '@tcg-cards/console-core';
 
 export function useCurrentGame() {
-  return useState<Game>('currentGame', () => GAMES[0]);
+  const route = useRoute();
+  const currentGame = useState<Game>('currentGame', () => resolveGameFromPath(route.path) ?? GAMES[0]);
+
+  watch(() => route.path, path => {
+    const nextGame = resolveGameFromPath(path);
+
+    if (nextGame && nextGame !== currentGame.value) {
+      currentGame.value = nextGame;
+    }
+  }, { immediate: true });
+
+  return currentGame;
 }

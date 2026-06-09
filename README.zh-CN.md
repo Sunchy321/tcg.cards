@@ -15,6 +15,12 @@ TCG Cards 是一个基于 Bun 和 Turborepo 的 monorepo，用于构建覆盖多
 
 英文版：[README.md](./README.md)
 
+## 架构边界
+
+稳定的运行时边界、数据归属规则和本地/远端同步规则以 [docs/project-architecture.zh-CN.md](./docs/project-architecture.zh-CN.md) 为准。
+
+仓库中的其他文档如果涉及项目级架构，应与该文档保持一致，或在需求级设计中显式引用该文档作为上位边界。
+
 ## 技术栈
 
 - [Bun](https://bun.sh/)：workspace 包管理和脚本运行
@@ -30,10 +36,10 @@ TCG Cards 是一个基于 Bun 和 Turborepo 的 monorepo，用于构建覆盖多
 ```text
 apps/
   site-main/        tcg.cards 主站
-  site-magic/       万智牌数据站
-  site-hearthstone/ 炉石传说数据站
-  site-console/     内部控制台和数据工具
-  watcher/          定时自动化 Cloudflare Worker
+  site-{game}/      单游戏公开站点（例如 `site-magic`、`site-hearthstone`）
+  site-console/     低能力 Web 管理界面
+  service-internal/ 面向 app 形态客户端的高能力远端管理后端
+  watcher/          定时运维 Worker 运行时
 
 packages/
   db/               Drizzle schema、migration 和数据库工具
@@ -56,9 +62,9 @@ turbo/              Turborepo generator 和模板
 | Workspace | 用途 | 默认开发端口 |
 |-----------|------|--------------|
 | `site-main` | 主入口站点 | `3000` |
-| `site-magic` | 万智牌数据站 | `3001` |
-| `site-hearthstone` | 炉石传说数据站 | `3002` |
-| `site-console` | 内部数据和管理控制台 | `2999` |
+| `site-{game}` | 单游戏公开站点。当前实例：`site-magic`（`3001`）、`site-hearthstone`（`3002`） | 按具体应用 |
+| `site-console` | 低能力 Web 管理界面 | `2999` |
+| `service-internal` | 面向 app 形态客户端的高能力远端管理后端 | `2998` |
 | `@tcg-cards/watcher` | 定时 Cloudflare Worker | Wrangler 默认端口 |
 
 ## 快速开始
@@ -84,6 +90,7 @@ bun install
 cp apps/site-magic/.env.example apps/site-magic/.env
 cp apps/site-hearthstone/.env.example apps/site-hearthstone/.env
 cp apps/site-console/.env.example apps/site-console/.env
+cp apps/service-internal/.env.example apps/service-internal/.env
 cp apps/watcher/.dev.vars.example apps/watcher/.dev.vars
 cp packages/db/.env.example packages/db/.env
 ```
@@ -105,7 +112,7 @@ cd apps/site-magic
 bun run dev
 ```
 
-`site-main`、`site-hearthstone`、`site-console` 也可以使用同样方式启动。
+`site-main`、`site-hearthstone`、`site-console`、`service-internal` 也可以使用同样方式启动。
 
 ## 常用命令
 
@@ -134,6 +141,8 @@ bun run typecheck
 ## 数据库流程
 
 数据库 schema 代码位于 `packages/db`。
+
+`shared`、`local`、`remote`、`{game}`、`{game}_data`、`{game}_app` 的稳定含义以 [docs/project-architecture.zh-CN.md](./docs/project-architecture.zh-CN.md) 为准。
 
 ```sh
 cd packages/db

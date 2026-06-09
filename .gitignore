@@ -75,5 +75,8 @@ logs
 # script outputs
 /output/
 
+# profiling outputs
+**/profiles/
+
 # raw reference files
 /references/*/raw/

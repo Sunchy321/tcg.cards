@@ -7,7 +7,7 @@ import { QueryError } from '#search/command/error';
 import { and, arrayContains, asc, desc, eq, inArray, not, notInArray, or, sql } from 'drizzle-orm';
 
 import { model } from '#model/hearthstone/search';
-import { CardEntityView } from '#schema/hearthstone/entity';
+import { CardEntityView } from '#schema/shared/hearthstone/entity';
 
 const cs = create
   .with(model)

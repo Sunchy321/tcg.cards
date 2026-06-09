@@ -17,11 +17,11 @@ import { legality } from '#model/magic/schema/game-change';
 // import CardNameExtractor from '../extract-name';
 
 import { db } from '#db/db';
-import { Card, CardLocalization, CardPart, CardPartLocalization, CardView } from '#schema/magic/card';
-import { CardEditorView, Print, PrintPart, CardPrintView } from '#schema/magic/print';
-import { Ruling } from '#schema/magic/ruling';
-import { CardRelation } from '#schema/magic/card-relation';
-import { Format } from '#schema/magic/format';
+import { Card, CardLocalization, CardPart, CardPartLocalization, CardView } from '#schema/shared/magic/card';
+import { CardEditorView, Print, PrintPart, CardPrintView } from '#schema/shared/magic/print';
+import { Ruling } from '#schema/shared/magic/ruling';
+import { CardRelation } from '#schema/shared/magic/card-relation';
+import { Format } from '#schema/shared/magic/format';
 
 // import { generateText, Output } from 'ai';
 // import { createQwen } from 'qwen-ai-provider-v5';

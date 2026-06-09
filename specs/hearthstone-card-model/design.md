@@ -99,6 +99,33 @@
 
 这一层解决“**完整历史**”与“**原始语义可追溯**”。
 
+此外，源归档层还需要维护一份面向控制台的数据源状态摘要：
+
+- `hearthstone/hsdata/state.json`
+
+它不属于数据库建模的一部分，但属于原始归档工作流的配套产物，用于让控制台数据源页及时显示：
+
+- 最近一次上传的 `sourceTag`
+- 对应 `commit / short`
+- 最近同步时间
+- 当前归档计数
+- 最近上传历史
+
+当前约束下，这份摘要由 `apps/site-console/scripts/hsdata-upload.ts` 在上传成功后直接刷新，不再保留独立的全量重建脚本或旧批量同步脚本。
+
+为了降低原始归档排障成本，控制台数据源页还需要直接展示 `hearthstone_data` 侧的导入结果概览。当前确认纳入数据源页观测范围的对象包括：
+
+- `source_versions`
+- `raw_entity_snapshots`
+- `raw_entity_snapshot_tags`
+- `tag_value_view`
+
+这部分观测能力同样不属于数据库 schema 本身，但属于原始归档链路的重要配套，用于快速确认：
+
+- 原始归档是否已经落表
+- 最近一次导入是否已反映到数据层
+- 当前 latest 快照与 Tag 量级是否合理
+
 ### 4.2 Tag 注册与映射层：`hearthstone`
 
 负责记录：
@@ -163,7 +190,7 @@
 - `normalizeConfig`：解析配置，如布尔值集合、枚举映射、语言映射
 - `projectTargetType`：目标层，如 `entity`、`entity_localization`
 - `projectTargetPath`：目标字段，如 `health`、`collectible`、`localization.name`
-- `projectKind`：投影方式，如 `assign_scalar`、`assign_card_ref`、`assign_localized_text`
+- `projectKind`：投影方式，如 `assign_value`、`assign_card_ref`、`assign_localized_text`
 - `projectConfig`：投影配置，如语言选择、空值规则、枚举 fallback
 - `status`：`active`、`discovered`、`deprecated`、`merged`
 - `description`：Tag 说明
@@ -272,6 +299,7 @@ Tag 重命名只修改 `tags`：
 - `identity_string`
 - `identity_loc_string`
 - `identity_card_ref`
+- `card_ref_from_int`
 - `bool_from_int`
 - `enum_from_int`
 - `json_wrap`
@@ -292,6 +320,7 @@ Tag 重命名只修改 `tags`：
 - `HEALTH`：`int_raw -> int`
 - `CARDTEXT`：`loc_string_raw -> loc_string`
 - `HERO_POWER`：`card_raw -> card_ref`
+- `BACON_TRIPLE_UPGRADE_MINION_ID`：`int_raw(dbfId) -> card_ref`
 
 ### 5.6 Tag 字段映射配置
 
@@ -304,17 +333,17 @@ Tag 重命名只修改 `tags`：
 
 `projectKind` 推荐支持：
 
-- `assign_scalar`
-- `assign_enum`
+- `assign_value`
 - `assign_card_ref`
 - `assign_localized_text`
-- `append_array`
+- `append_string_array`
 - `union_array`
 - `merge_json`
 
 `projectConfig` 典型内容：
 
 - `nullValues`
+- `value`：`append_string_array + normalizeKind = bool_from_int` 时必填；规范化结果为 `true` 时追加该固定字符串，例如 dual-race tag 追加指定种族
 - `langSelector`
 - `cardRefField`
 - `enumFallback`
@@ -323,10 +352,82 @@ Tag 重命名只修改 `tags`：
 示例：
 
 - `CARDNAME` -> `entity_localization.name`，`projectionKind = assign_localized_text`
-- `CARDTEXT` -> `entity_localization.text`，`projectionKind = assign_localized_text`
-- `HEALTH` -> `entity.health`，`projectionKind = assign_scalar`
-- `COLLECTIBLE` -> `entity.collectible`，`projectionKind = assign_scalar`
+- `CARDTEXT` -> `entity_localization.richText`，`projectionKind = assign_localized_text`
+- `HEALTH` -> `entity.health`，`projectionKind = assign_value`
+- `COLLECTIBLE` -> `entity.collectible`，`projectionKind = assign_value`
 - `HERO_POWER` -> `entity.heroPower.cardId`，`projectionKind = assign_card_ref`
+
+### 5.7 Set 缺失发现与阻断策略
+
+`CARD_SET` 与普通 `Tag` 不同：它最终会影响 `entities.set`、渲染水印、图片导出以及多个后续流程。因此对于缺失 set，不能像普通未知值一样仅靠原始归档继续放行。
+
+结论如下：
+
+- 导入阶段必须识别当前数据中出现的所有 set `dbf_id`
+- 若 `hearthstone.sets` 缺少对应条目，则自动插入一条占位 set
+- 该占位 set 只用于显式暴露缺口，不代表该 set 已被正确建模
+- 后续投影阶段若解析出的 `setId` 为空，则必须立即报错并拒绝写入默认层
+
+#### 5.7.1 导入阶段
+
+在 `importHsdata` 中，从原始 tags 中识别：
+
+- `rawName = "CARD_SET"` 的 tag
+- 或 `enumId = 183` 的 tag
+
+并提取其整型值作为 set `dbf_id`。
+
+当数据库中不存在该 `dbf_id` 时，自动插入占位记录：
+
+- `set_id = ''`
+- `dbf_id = <导入中发现的数值>`
+- `slug = null`
+- `raw_name = null`
+- `type = 'unknown'`
+- `release_date = ''`
+- `card_count_full = null`
+- `card_count = null`
+- `group = null`
+
+同时，导入结果中必须显式记录这些缺失 set，便于后续在控制台修复。
+
+这里明确约束：
+
+- **不能依赖** `references/hearthstone/raw/` 下的静态映射自动猜测 `setId`、`slug`、`rawName`
+- 自动补齐只做“缺失插入”，不主动覆盖已有 set
+
+这样做的原因是：
+
+- 静态 raw 映射只是参考资料，不应成为导入正确性的前置依赖
+- 一旦用映射猜测成功，就会掩盖“set 尚未人工确认”的真实状态
+
+#### 5.7.2 投影阶段
+
+在 `projectHsdata` 中，`dbf_id -> set_id` 的映射必须满足：
+
+- 存在对应 set 记录
+- 且 `set_id` 不是空字符串
+
+若任一条件不满足，则立即报错，并拒绝写入：
+
+- `hearthstone.entities`
+- `hearthstone.entity_localizations`
+- `hearthstone.entity_relations`
+
+也就是说：
+
+- 占位 set 允许存在于配置层
+- 占位 set **不允许** 流入默认层实体数据
+
+#### 5.7.3 与 Tag 自动发现的区别
+
+`Tag` 的未知发现策略是“自动接住并继续导入”；
+`Set` 的缺失发现策略是“自动插入占位并阻断默认层投影”。
+
+原因是：
+
+- 未知 Tag 仍可稳定保存在原始归档层，后续再补配置
+- 缺失 set 会直接影响卡牌领域主字段与多个下游流程，不能继续放行
 
 好处：
 
@@ -360,7 +461,6 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 
 主要字段：
 
-- `id`
 - `sourceTag`：`hsdata` 历史 tag，数值型
 - `sourceCommit`
 - `build`
@@ -374,6 +474,8 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 - 数据库只保存源文件元数据与校验信息
 - 原始 XML 文件本体继续保存在对象存储或参考目录
 - `sourceHash` 用于幂等校验
+- `sourceTag` 属于导入侧与原始归档层身份，可以保留在 `hearthstone_data`
+- `build` 才是默认层、查询层和前端版本切换使用的版本身份
 
 ### 7.2 原始快照池
 
@@ -384,7 +486,7 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 - `id`
 - `cardId`
 - `dbfId`
-- `sourceSpan`
+- `sourceTags`
 - `entityXmlVersion`
 - `snapshotHash`
 - `extraPayload`
@@ -394,9 +496,9 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 说明：
 
 - `snapshotHash` 基于规范化后的完整 `Entity` 内容生成
-- `extraPayload` 用于存放当前未拆成独立表的结构，如 `Power`、`ReferencedTag`、`EntourageCard`
+- `extraPayload` 用于存放当前未拆成独立表的结构，如 `Power`、`EntourageCard`
 - 完全相同的 `Entity` 内容只保存一份
-- `sourceSpan` 记录这份原始快照在哪些源版本中出现，支持不连续版本集合
+- `sourceTags` 记录这份原始快照在哪些 `sourceTag` 中出现，使用升序、去重、非空的 `int[]` 表达
 
 ### 7.3 原始快照 Tag 事件表
 
@@ -451,6 +553,7 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 - `snapshotId`
 - `cardId`
 - `dbfId`
+- `sourceTags`
 - `enumId`
 - `tagSlug`
 - `tagName`
@@ -485,29 +588,31 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 
 - `entity_revisions`：与 `entities` 语义重叠，可直接用 `entities` 表承载结构修订
 - `entity_revision_localizations`：与 `entity_localizations` 语义重叠，可直接用 `entity_localizations` 表承载本地化修订
-- `card_timelines`：只负责版本区间映射，可把 `sourceSpan` 直接放入 `entities` 和 `entity_localizations`
+- `card_timelines`：只负责版本映射，可把 `version` 直接放入 `entities` 和 `entity_localizations`
 - `render_models`：渲染模型依赖结构修订和本地化修订，可内联到 `entity_localizations`
 
-压缩后的领域层只保留两张核心事实表：
+压缩后的领域层核心事实仍以 `entities`、`entity_localizations` 为中心，同时补一张版本感知的关系表：
 
 - `hearthstone.entities`
 - `hearthstone.entity_localizations`
+- `hearthstone.entity_relations`
 
-### 8.1 `entities`：结构修订与版本范围
+### 8.1 `entities`：结构修订与版本集合
 
 `hearthstone.entities` 一行表示：
 
 **某张卡的一份结构修订，在一组源版本中生效。**
 
+该表使用自然键表达实体修订，不新增独立自增 `id`。
+
 主要字段：
 
-- `id`
 - `cardId`
 - `dbfId`
-- `sourceSpan`
+- `version`
 - `revisionHash`
-- `rawSnapshotId`
 - `isLatest`
+- `legacyPayload`
 - 结构化字段，如：
   - `set`
   - `classes`
@@ -523,35 +628,55 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
   - `elite`
   - `rarity`
   - `artist`
+  - `overrideWatermark`
   - `mechanics`
   - `referencedTags`
-  - `entourages`
   - `heroPower`
+  - `buddy`
+  - `tripleCard`
+  - `raceBucket`
+  - `armorBucket`
+  - `bannedRace`
+  - `mercenaryRole`
+  - `mercenaryFaction`
   - `textBuilderType`
 
 约束建议：
 
 - `(cardId, revisionHash)` 唯一
-- 同一 `cardId` 的 `sourceSpan` 不允许互相重叠
+- 同一 `cardId` 的不同结构记录 `version` 不允许有交集
 
 说明：
 
 - `revisionHash` 只覆盖结构字段，不覆盖本地化字段
-- `sourceSpan` 支持不连续版本集合，因此版本 `123` 和 `678` 相同、版本 `45` 不同的情况可以由一行表示
+- `version` 使用规范化 `int[]` 表示离散 build 集合，因此版本 `123` 和 `678` 相同、版本 `45` 不同的情况可以由一行表示
 - 结构化字段由 `tags` 中的字段映射配置从原始快照投影得出
+- 上游类别字段在数据库中优先使用 `text` 保存，避免因上游新增值阻塞导入；仅 `lang` 这类需要稳定自定义排序且变化极少的字段保留数据库 enum 顺序
+- `legacyPayload` 保存旧版本存在、现在不再升格为核心列但仍需要随领域数据完整导出的字段，如旧 `slug`、`entourages`
+- `localizationNotes` 这类不再保留独立列、但仍需要领域导出的边缘字段也进入 `legacyPayload`
+- `mechanics` 使用结构化 bool / int payload，而不是 `text[]`；`sellValue`、`deckOrder`、`deckSize` 这类可表达为机制的字段统一收敛到 `mechanics`。其中 `sellValue` 对应原始 `BACON_SELL_VALUE`，旧映射中的 `coin` 是误名
+- `ReferencedTag` 不再只保存在 `extraPayload`；它会像 `mechanics` 一样做规范化投影，并写入 `referencedTags`
+- `referencedTags` 使用以 `enumId` 字符串为键的值 map，不直接保存 slug；值类型允许 `bool / int`，导出时再映射为当前 slug
+- 当前本地样本中的 `ReferencedTag.value` 全部为 `1`，但模型仍保留 `int` 值能力，以覆盖特殊情况
+- `overrideWatermark` 保留为独立字段，值使用 set slug，表示覆盖卡牌默认系列名（水印名）
+- 佣兵 / 战棋专属字段继续保持当前平铺独立列，不引入模式前缀，也不引入 `modePayload`
+- `heroPower`、`buddy`、`tripleCard` 这类强单值卡牌关系继续保留独立字段，并同步写入 `entity_relations`
+- `heroicHeroPower` 降级为弱关系，只写入 `entity_relations`
+- `revisionHash` 应包含 `legacyPayload`，但 `renderHash` 默认不包含，除非其中某个字段确认影响渲染
 
 ### 8.2 `entity_localizations`：本地化修订、结构关联与渲染模型
 
 `hearthstone.entity_localizations` 一行表示：
 
-**某张卡、某语言、某结构修订、某文本修订，在一组源版本中生效，并对应一份渲染模型。**
+**某张卡、某语言、某结构修订、某文本修订，在一组 build 中生效，并对应一份渲染模型。**
+
+该表同样使用自然键表达本地化修订，不新增独立自增 `id`。
 
 主要字段：
 
-- `id`
 - `cardId`
 - `lang`
-- `sourceSpan`
+- `version`
 - `revisionHash`
 - `localizationHash`
 - `renderHash`
@@ -559,9 +684,9 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 - `isLatest`
 - 本地化字段：
   - `name`
-  - `text`
+  - `text`（派生字段，由 `richText` 去除格式标记得到）
   - `richText`
-  - `displayText`
+  - `displayText`（派生字段，默认等于 `richText`）
   - `targetText`
   - `textInPlay`
   - `howToEarn`
@@ -571,15 +696,48 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 约束建议：
 
 - `(cardId, lang, revisionHash, localizationHash)` 唯一
-- 同一 `cardId + lang` 的 `sourceSpan` 不允许互相重叠
+- 同一 `cardId + lang` 的不同本地化记录 `version` 不允许有交集
 
 说明：
 
 - `localizationHash` 覆盖 `lang` 和所有本地化字段
+- `text` 和 `displayText` 不作为 Tag 直接投影目标，始终从 `richText` 派生
 - `renderHash` 不使用随机值，而是基于所有影响渲染的字段生成确定性指纹
 - 推荐流程为：先构造稳定的 `renderModel`，再对规范化后的 `renderModel` 做哈希，如 `sha256(canonical_json(renderModel))`
 - `renderModel` 保存渲染所需的规范化 payload，不再单独建 `render_models`
 - 如果结构字段变化但文本未变，也会生成新的 `entity_localizations` 行，因为 `revisionHash` 不同，渲染结果可能不同
+
+### 8.3 `entity_relations`：版本感知的卡牌关系
+
+`hearthstone.entity_relations` 一行表示：
+
+**某张卡的一条关系在某份结构修订上成立，并在一组 build 中生效。**
+
+主要字段：
+
+- `sourceId`
+- `sourceRevisionHash`
+- `relation`
+- `targetId`
+- `version`
+- `isLatest`
+
+约束建议：
+
+- `(sourceId, sourceRevisionHash, relation, targetId)` 唯一
+- `version` 必须与对应 `entities` 结构修订的生效范围一致
+
+说明：
+
+- `entity_relations` 是版本感知的卡牌关系事实表
+- 强单值关系如 `heroPower`、`buddy`、`tripleCard` 同时保留在 `entities` 字段中，并同步投影到 `entity_relations`
+- 弱关系如 `heroicHeroPower` 只写入 `entity_relations`
+- `entity_relations` 负责 related cards 聚合、关系遍历和反向查询
+- 旧 `card_relations` 继续保留为兼容层，但标记为弃用，不再作为新设计的目标表
+
+### 8.4 字段保留与删除决策
+
+字段取舍结论单独记录在 `field-decisions.md`。该文件只记录后续调整方向，不代表立即修改现有 schema。
 
 ---
 
@@ -662,7 +820,7 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 4. 对每个原始 `Tag` 按 `enumID` 查找 `tags`
 5. 若 Tag 未知，则自动注册到 `tags`
 6. 按 `tags` 中的解析配置生成类型化值，并写入 `raw_entity_snapshot_tags`
-7. 生成或复用 `raw_entity_snapshot`，并更新其 `sourceSpan`
+7. 生成或复用 `raw_entity_snapshot`，并更新其 `sourceTags`
 8. 根据 `tags` 中的字段映射配置投影为 `entities`
 9. 生成对应语言的 `entity_localizations`
 10. 计算 `renderHash` 与 `renderModel`，并内联写入 `entity_localizations`
@@ -723,7 +881,7 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 建议逐步调整为：
 
 - 新数据继续写入 `entities`、`entity_localizations`
-- 为这两张表补充 `sourceSpan`、`revisionHash`、`localizationHash`、`renderHash`、`renderModel` 等字段
+- 为这两张表补充 `version`、`revisionHash`、`localizationHash`、`renderHash`、`renderModel` 等字段
 - 旧接口通过兼容视图读取
 
 这样可以避免一次性大迁移导致上层大量改动。
@@ -734,21 +892,33 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 
 ### 14.1 `Power` 等非 Tag 子结构
 
-当前设计把重点放在 `Tag`，但 `Power`、`ReferencedTag`、`EntourageCard` 也可能参与领域投影。
+当前设计把重点放在 `Tag`，但 `Power`、`EntourageCard` 等非 Tag 子结构也可能参与领域投影。
 
 建议：
 
-- v1 先保存在 `raw_entity_snapshots.extraPayload`
+- `ReferencedTag` 直接规范化写入 `entities.referencedTags`
+- `referencedTags` 的内部存储规则与 `mechanics` 一致：使用稳定 `enumId` 身份，而不是 slug，值类型允许 `bool / int`
+- v1 其余非 Tag 子结构先保存在 `raw_entity_snapshots.extraPayload`
 - 当确实出现稳定查询需求时，再为这些子结构补专门的配置字段或独立子结构表
 
-### 14.2 `int4multirange` 的落地成本
+### 14.2 `version int[]` 的落地规则
 
-从模型上看，`int4multirange` 很适合表示版本区间压缩；但如果当前 ORM 支持不足，则可先采用：
+默认层的版本号本质上是高度离散的 build 集合，因此当前更适合直接使用规范化 `int[]`，而不是 `int4multirange`。
 
-- `versionStart`
-- `versionEnd`
+推荐规则：
 
-等 ORM 能力补齐后再切换。
+- `hearthstone_data.source_versions.sourceTag` 保留导入侧身份
+- `hearthstone_data.raw_entity_snapshots.sourceTags` 使用规范化 `sourceTag[]`
+- `hearthstone.entities.version`、`entity_localizations.version`、`entity_relations.version` 使用规范化 `build[]`
+- 数组必须升序
+- 数组必须去重
+- 数组不能为空
+- 版本交集使用数组操作符 `&&`
+- 版本求交使用数组操作符 `&`
+- `&` 依赖 PostgreSQL `intarray` 扩展
+- 指定版本命中优先使用 `version @> ARRAY[x]`
+
+这样可以更贴近真实版本语义，同时保持导出 JSON、接口兼容和查询实现简单。
 
 ### 14.3 渲染字段白名单需要独立评审
 
@@ -769,7 +939,7 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
    - `enumID` 作为 Tag 主键是否正式确认
    - Tag 解析与字段映射是否都合并到 `tags`
    - 是否接受取消 `card_timelines`、`render_models` 等中间表
-   - `sourceSpan` 是否统一使用 `int4multirange`
+   - `version` 是否统一使用规范化 `int[]`
 2. 评审通过后，再补实施计划，分阶段落地：
    - P0：Tag 注册与原始快照层
    - P1：`entities` 与 `entity_localizations` 字段调整

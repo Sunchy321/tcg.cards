@@ -6,7 +6,7 @@ import { desc, eq } from 'drizzle-orm';
 import { patch } from '#model/hearthstone/schema/patch';
 
 import { db } from '#db/db';
-import { Patch } from '#schema/hearthstone/patch';
+import { Patch } from '#schema/shared/hearthstone/patch';
 
 const list = os
   .route({

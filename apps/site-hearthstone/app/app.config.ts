@@ -1,4 +1,4 @@
-import { mainLocale } from '#model/hearthstone/schema/basic';
+import { mainLocale } from '@tcg-cards/model/src/hearthstone/schema/basic';
 
 export default defineAppConfig({
   ui: {

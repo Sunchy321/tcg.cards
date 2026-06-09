@@ -1,60 +1,38 @@
-# Nuxt Starter Template
+# `site-console`
 
-[![Nuxt UI](https://img.shields.io/badge/Made%20with-Nuxt%20UI-00DC82?logo=nuxt&labelColor=020420)](https://ui.nuxt.com)
+Lower-capability web management surface for remote-backed console workflows.
 
-Use this template to get started with [Nuxt UI](https://ui.nuxt.com) quickly.
+Stable runtime and authority boundaries live in [../../docs/project-architecture.md](../../docs/project-architecture.md).
 
-- [Live demo](https://starter-template.nuxt.dev/)
-- [Documentation](https://ui.nuxt.com/docs/getting-started/installation/nuxt)
+## Development
 
-<a href="https://starter-template.nuxt.dev/" target="_blank">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://ui.nuxt.com/assets/templates/nuxt/starter-dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="https://ui.nuxt.com/assets/templates/nuxt/starter-light.png">
-    <img alt="Nuxt Starter Template" src="https://ui.nuxt.com/assets/templates/nuxt/starter-light.png" width="830" height="466">
-  </picture>
-</a>
-
-> The starter template for Vue is on https://github.com/nuxt-ui-templates/starter-vue.
-
-## Quick Start
-
-```bash [Terminal]
-npm create nuxt@latest -- -t github:nuxt-ui-templates/starter
-```
-
-## Deploy your own
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-name=starter&repository-url=https%3A%2F%2Fgithub.com%2Fnuxt-ui-templates%2Fstarter&demo-image=https%3A%2F%2Fui.nuxt.com%2Fassets%2Ftemplates%2Fnuxt%2Fstarter-dark.png&demo-url=https%3A%2F%2Fstarter-template.nuxt.dev%2F&demo-title=Nuxt%20Starter%20Template&demo-description=A%20minimal%20template%20to%20get%20started%20with%20Nuxt%20UI.)
-
-## Setup
-
-Make sure to install the dependencies:
+Install dependencies from the repository root:
 
 ```bash
-pnpm install
+bun install
 ```
 
-## Development Server
-
-Start the development server on `http://localhost:3000`:
+Start the console in development mode:
 
 ```bash
-pnpm dev
+cd apps/site-console
+bun run dev
 ```
 
-## Production
+## hsdata Workflow
 
-Build the application for production:
+site-console runs on Cloudflare Workers.
 
-```bash
-pnpm build
-```
+Because of that runtime boundary, this package does not read a local `hsdata` git checkout and does not provide local git-backed `CardDefs.xml` import or other heavy domain-data execution paths.
 
-Locally preview production build:
+The current hsdata capabilities in site-console are limited to:
 
-```bash
-pnpm preview
-```
+- browsing overview-oriented hsdata console pages
+- performing only lightweight remote-backed management actions that fit the web runtime boundary
 
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+## Notes
+
+- There is no hsdata R2 upload step anymore.
+- There is no `state.json`-based hsdata source sync anymore.
+- Heavy hsdata import, projection, and local repository access belong to the desktop app.
+- Local hsdata repository access is intended to live in the desktop app, not in site-console.

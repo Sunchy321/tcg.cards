@@ -6,11 +6,27 @@ This file must always be written in English.
 
 All code comments must be written in English. When editing files, translate any non-English comments to English.
 
+When code is not obvious at a glance, add comments that explain the local reasoning, invariants, edge cases, or cross-step dependencies that a reader would otherwise have to recover from design documents, specs, or historical context.
+
+Do not rely on proposals, specs, reviews, plans, PR descriptions, or commit history as the only place where non-obvious implementation intent is explained. The relevant code should remain understandable in place.
+
+Keep these comments focused and high-signal. Explain why the code is shaped this way or what must remain true, not line-by-line mechanics that are already obvious from the code itself.
+
+All function and type declarations must include a short English comment that describes their purpose. This applies to exported and local declarations alike.
+
+For function and type comments, describe the behavior or role directly. Do not use meta phrasing such as "This helper...", "This function...", "This interface...", or "This type...".
+
+Do not write comments in forms such as "This is used for..." or "Used to...". State the behavior directly instead.
+
 ## Frontend Code
 
 Prefer the nullish coalescing operator (`??`) over the logical OR operator (`||`) for default values in frontend code.
 
 Only use the logical OR operator (`||`) for frontend fallback behavior when boolean coercion is explicitly intended.
+
+Avoid cross-package relative paths in frontend code. Prefer `node_modules`-based imports and package exports whenever possible.
+
+**In frontend UI text, do not mention specific deployment details or internal design and implementation plans. Keep user-facing copy focused on product behavior and functionality.**
 
 ## Naming
 
@@ -21,6 +37,22 @@ Exported names do not need to be globally unique. Keep exported names as short a
 If a short exported name is ambiguous at the usage site, resolve the ambiguity with an import alias at the usage site.
 
 Zod schema exports must not end with `schema`. Exported zod schemas and their inferred types should differ only by capitalization, for example `card` and `Card`.
+
+Workspace app names under `apps/` must use prefixes that match the deployment shape:
+
+- `site-` for applications deployed as websites
+- `app-` for applications deployed as installable apps
+- `service-` for non-website services
+
+Use these prefixes consistently in new workspace names, proposal examples, specs, and implementation plans.
+
+## Architecture Docs
+
+Use `docs/project-architecture.md` and `docs/project-architecture.zh-CN.md` as the stable reference for project-level runtime boundaries, data ownership, and workspace responsibilities.
+
+When a new requirement changes those stable boundaries, update the architecture docs in both languages together.
+
+Keep project-level architecture in `docs/`. Keep requirement-specific design work in `proposals/`, `specs/`, and `archive/`.
 
 ## Delivery Workflow
 
@@ -44,6 +76,10 @@ Within a proposal or spec package, use these standard filenames:
 - `review.md` for the design review
 - `plan.md` for the implementation plan
 
+When moving a completed spec package into `archive/`, keep the original `design.md`, `review.md`, and `plan.md` files and also add a `summary.md`.
+
+The `summary.md` file must be the primary entry point for future lookup. It should tell readers to check `summary.md` first and only open `design.md`, `review.md`, or `plan.md` when they need detailed design reasoning, review history, or implementation history.
+
 After the related implementation is completed and the spec is no longer active, move the finalized spec package to `archive/`.
 
 Temporary proposals that are only used to reason through a small or discarded idea should be deleted when finished. Do not move temporary proposals to `archive/`.
@@ -55,6 +91,8 @@ Each plan must include a todo list at the beginning of the same file. The todo l
 During implementation, follow the todo list and the plan strictly.
 
 Mark each todo item as completed immediately after finishing it.
+
+After a feature is completed, do not run linting unless the user explicitly asks for it.
 
 If the user explicitly asks for step-by-step execution, implement only one planned step per turn, then pause and wait for the user's next instruction before continuing.
 
@@ -72,15 +110,31 @@ Use this checklist for classification:
 - `{game}_data` for import-related and user-independent tables, including external source data, import state, import configuration, intermediate import cache, and other system-side import projections that do not carry user semantics
 - `{game}_app` for any table that involves users, including user-created data, user behavior data, user settings, review actions, or any other application state tied to users; all user-related tables must go here
 
+After classification, enforce schema dependency direction strictly:
+
+- `{game}` must not depend on `{game}_data` tables
+- `{game}` must not depend on `{game}_app` tables
+- `{game}_data` must not depend on `{game}_app` tables
+- `{game}_data` may depend on `{game}` tables when import-side linkage is needed
+- `{game}_app` may depend on `{game}` and `{game}_data` tables when application features need them
+
 If a table appears to mix multiple responsibilities, split the table first instead of placing it in an ambiguous schema.
+
+## Database Migrations
+
+For Drizzle-managed schema changes, update the schema definitions first and use `drizzle-kit generate` to produce migration SQL and snapshots.
+
+Do not hand-edit Drizzle migration snapshots, indexes, constraints, table definitions, or other schema-derived SQL when `drizzle-kit generate` can produce them.
+
+Only add manual SQL for migration behavior Drizzle cannot infer, such as deterministic backfills, data cleanup, transitional compatibility steps, or extension setup. Keep manual SQL minimal and place it alongside the generated migration it supports.
 
 ## Commit Messages
 
 Use Conventional Commits for all commit messages.
 
-Keep commit messages short and focused on the implemented feature or fixed issue, not on the specific implementation or fix method, unless explicitly requested.
+`fix` commits must describe the problem that was solved, not how it was fixed. State what was broken and why it mattered.
 
-Keep commit messages to a single line unless explicitly requested otherwise.
+Keep commit messages to a single line. Only include body text when explicitly requested.
 
 Do not create commits directly. Always show the proposed commit message to the user first, wait for explicit confirmation, and only then create the commit.
 

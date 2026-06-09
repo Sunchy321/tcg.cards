@@ -1,10 +1,12 @@
 # 统一 API 服务设计文档
 
+> 稳定的运行时边界、能力分层、命名规则和数据归属规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只描述统一 API 服务的需求级设计；若有冲突，以主架构文档为准。
+
 ---
 
 ## 1. 概述
 
-新建一个独立部署的 API 服务（`apps/site-api`），聚合 magic 与 hearthstone 两个游戏的只读数据接口，对外通过 OpenAPI（REST）协议提供服务，内部使用 ORPC 作为实现层。支持 API Key 鉴权，权限按游戏维度划分，部署目标为 Cloudflare Workers。
+新建一个独立部署的 API 服务（`apps/service-api`），聚合 magic 与 hearthstone 两个游戏的只读数据接口，对外通过 OpenAPI（REST）协议提供服务，内部使用 ORPC 作为实现层。支持 API Key 鉴权，权限按游戏维度划分，部署目标为 Cloudflare Workers。
 
 ### 1.1 设计目标
 
@@ -50,7 +52,7 @@
 ## 3. 应用结构
 
 ```
-apps/site-api/
+apps/service-api/
 ├── nuxt.config.ts              # Nuxt 配置，仅启用 server 相关模块
 ├── wrangler.toml               # Cloudflare Workers 部署配置
 ├── package.json
@@ -102,11 +104,16 @@ magic 和 hearthstone 的 ORPC handler 直接复用现有站点中的实现，�
 
 ---
 
-## 4. API Key 权限模型
+## 4. 鉴权与权限模型
 
 ### 4.1 权限粒度
 
-权限按游戏维度划分。每个 API Key 关联一组 `allowedGames`，只能访问被授权的游戏路由。
+v1 提供两种鉴权方式：
+
+- **API Key**：面向外部开发者、第三方脚本、服务端对接。权限按游戏维度划分。
+- **用户 Session Cookie**：面向主站、文档站等第一方网页中的已登录用户访问。仅用于浏览器内的只读访问，不作为第三方集成方式。
+
+匿名请求默认不允许访问业务数据接口；公开文档与 OpenAPI spec 端点除外。
 
 ### 4.2 存储方式
 
@@ -118,23 +125,54 @@ magic 和 hearthstone 的 ORPC handler 直接复用现有站点中的实现，�
 }
 ```
 
+API Key 模式下，权限按 `allowedGames` 控制。
+
+Session Cookie 模式下，不复用 `allowedGames`；v1 仅允许访问公开只读数据接口，鉴权主体为登录用户本身。
+
 ### 4.3 验证流程
 
-1. 从请求头 `Authorization: Bearer <api-key>` 中提取 key
-2. 在数据库中查询 key，校验存在性、`enabled` 状态、过期时间
-3. 解析 `permissions` 字段，提取 `allowedGames`
-4. 根据请求路径判断目标游戏（第一级路由段），校验是否在 `allowedGames` 中
-5. 校验通过后，将 key 信息注入 ORPC context
+1. 若请求命中 `/openapi.json` 等公开文档端点，直接放行
+2. 从请求头 `Authorization: Bearer <api-key>` 中提取 key
+3. 若提供了 key，则进入 API Key 验证流程：
+   - 查询 key，校验存在性、`enabled` 状态、过期时间
+   - 解析 `permissions` 字段，提取 `allowedGames`
+   - 根据请求路径判断目标游戏，校验是否在 `allowedGames` 中
+   - 校验通过后，将 `authMode = apiKey` 与 key 信息注入 ORPC context
+4. 若未提供 key，则检查 better-auth 的用户 session cookie
+5. 若 session 有效，则进入用户模式：
+   - 校验该路由是否属于允许登录用户直接访问的只读接口
+   - 校验通过后，将 `authMode = user` 与用户信息注入 ORPC context
+6. 若 key 与 session 均不存在或校验失败，则返回未授权错误
 
-### 4.4 错误响应
+鉴权优先级为 **API Key 优先，Session Cookie 回退**。这样可以保证外部集成和第一方网页访问共用同一套 API 服务，同时避免浏览器用户必须手动创建 key 才能打开链接。
+
+### 4.4 第一方网页访问约束
+
+Session Cookie 模式仅用于第一方网页中的已登录用户，主要覆盖以下场景：
+
+- 主站中打开 API/JSON 预览链接
+- 文档站中的在线调试与 “Try it”
+- 其他同属 `*.tcg.cards` 的官方网页内只读调用
+
+该模式不作为第三方程序的正式接入方式。第三方脚本、服务端、CLI、自动化任务仍应使用 API Key。
+
+为支持跨子域访问：
+
+- Session Cookie 需配置为适用于 `*.tcg.cards`
+- 跨域请求需显式携带 credentials
+- CORS 仅允许受信任的第一方来源，并开启 credentials 支持
+
+### 4.5 错误响应
 
 | 场景 | HTTP 状态码 | 错误码 |
 |------|-------------|--------|
-| 缺少 API Key | 401 | `UNAUTHORIZED` |
+| 未提供 API Key 且无有效 Session | 401 | `UNAUTHORIZED` |
 | Key 不存在 | 401 | `UNAUTHORIZED` |
 | Key 已禁用 | 403 | `FORBIDDEN` |
 | Key 已过期 | 403 | `FORBIDDEN` |
 | Key 无游戏权限 | 403 | `FORBIDDEN` |
+| Session 无效或已过期 | 401 | `UNAUTHORIZED` |
+| Session 模式访问了不允许的接口 | 403 | `FORBIDDEN` |
 | 触发限流 | 429 | `RATE_LIMITED` |
 | 服务器内部错误 | 500 | `INTERNAL_ERROR` |
 
@@ -144,19 +182,27 @@ magic 和 hearthstone 的 ORPC handler 直接复用现有站点中的实现，�
 
 ### 5.1 机制
 
-复用 `@better-auth/api-key` 内置的限流能力，基于 `apikeys` 表中的字段：
+限流按鉴权主体区分：
 
-- `rateLimitEnabled`：是否启用限流
-- `rateLimitTimeWindow`：时间窗口（毫秒）
-- `rateLimitMax`：窗口内最大请求数
-- `requestCount`：当前窗口已请求数
-- `remaining`：剩余请求数
-- `lastRequest`：最后请求时间
+- **API Key 模式**：按 `apikey:{id}` 限流，复用 `@better-auth/api-key` 内置的限流能力，基于 `apikeys` 表中的字段：
+
+  - `rateLimitEnabled`：是否启用限流
+  - `rateLimitTimeWindow`：时间窗口（毫秒）
+  - `rateLimitMax`：窗口内最大请求数
+  - `requestCount`：当前窗口已请求数
+  - `remaining`：剩余请求数
+  - `lastRequest`：最后请求时间
+
+- **Session Cookie 模式**：按 `user:{id}` 限流。v1 可先采用数据库或兼容存储中的简易计数实现，保持与 API Key 模式相同的响应头格式。
+
+同一个请求只命中一种限流主体，不叠加计算。
 
 ### 5.2 默认值
 
-- 时间窗口：1000ms
-- 最大请求数：100
+- API Key：时间窗口 1000ms，最大请求数 100
+- Session 用户：时间窗口 1000ms，最大请求数 100
+
+如后续观察到网页用户流量模型与第三方程序差异较大，可再拆分不同默认值。
 
 ### 5.3 限流响应头
 
@@ -165,6 +211,8 @@ X-RateLimit-Limit: 100
 X-RateLimit-Remaining: 42
 X-RateLimit-Reset: 1713254400
 ```
+
+响应头始终表示当前实际生效的限流主体结果，无论该请求使用的是 API Key 还是 Session Cookie。
 
 ---
 
@@ -197,7 +245,7 @@ X-RateLimit-Reset: 1713254400
     ┌────────▼─────────┐        ┌────────▼─────────┐
     │  Cloudflare      │        │  Cloudflare      │
     │  Worker          │        │  Worker           │
-    │  (site-api)      │        │  (site-docs,      │
+    │ (service-api)    │        │  (site-docs,      │
     │                  │        │   hybrid SSG+SSR) │
     └────────┬─────────┘        └────────┬─────────┘
              │                           │
@@ -212,14 +260,14 @@ X-RateLimit-Reset: 1713254400
     └──────────────────┘
 ```
 
-- site-api：独立 Worker，域名 `api.tcg.cards`，纯后端 API 服务
+- service-api：独立 Worker，域名 `api.tcg.cards`，纯后端 API 服务
 - site-docs：Hybrid Worker，域名 `docs.tcg.cards`，文档页面预渲染为静态 HTML，`/settings` 走 SSR
 - site-docs 在构建时从 monorepo 内的 router 对象直接生成 OpenAPI spec，无运行时网络依赖
-- site-api 与 site-docs 共享同一数据库，通过 Hyperdrive 提供连接池（site-docs 的 `/settings` 页面需要 auth 查询）
+- service-api 与 site-docs 共享同一数据库，通过 Hyperdrive 提供连接池（site-docs 的 `/settings` 页面需要 auth 查询）
 
 ### 7.1 环境变量
 
-site-api 与 site-docs 共享以下环境变量：
+service-api 与 site-docs 共享以下环境变量：
 
 | 变量名 | 说明 |
 |--------|------|
@@ -266,7 +314,7 @@ v1 仅迁移只读静态数据接口：
 
 | 方案 | 描述 | 不采用的原因 |
 |------|------|-------------|
-| A：放 site-api `/docs` | 在 API 服务中加前端页面 | 需将纯后端服务改为完整 SSR 应用，架构污染，构建体积膨胀，Worker 冷启动变慢 |
+| A：放 service-api `/docs` | 在 API 服务中加前端页面 | 需将纯后端服务改为完整 SSR 应用，架构污染，构建体积膨胀，Worker 冷启动变慢 |
 | B：放 site-main `tcg.cards/api` | 在门户首页加文档页面 | site-main 风格偏展示入口，跨域拉取 spec，扩展空间有限 |
 | D：分散到各 `${game}.tcg.cards/docs` | 各游戏站点各自承载文档 | 接口统一但文档分散，域名与端点不一致，鉴权文档需重复，每新增游戏多一份维护 |
 
@@ -282,7 +330,7 @@ v1 仅迁移只读静态数据接口：
 
 ### 9.3 spec 同步策略
 
-spec 在构建时由 `@orpc/openapi` 的 `OpenAPIGenerator` 从 `site-api/server/orpc/service.ts` 的 router 对象生成。API 变更后需重新构建文档站。可在 CI 中设置：site-api 相关代码变更时自动触发 site-docs 重建。
+spec 在构建时由 `@orpc/openapi` 的 `OpenAPIGenerator` 从 `service-api/server/orpc/service.ts` 的 router 对象生成。API 变更后需重新构建文档站。可在 CI 中设置：service-api 相关代码变更时自动触发 site-docs 重建。
 
 ### 9.4 未来演进
 
@@ -323,8 +371,8 @@ apps/site-docs/
 - Cloudflare Worker，域名 `docs.tcg.cards`
 - 文档页面预渲染为静态 HTML（SSG），`/settings` 走 SSR
 - 需要 Hyperdrive 绑定（`/settings` 页面的 auth 需要查询数据库）
-- 与 site-api 独立部署，互不影响发布节奏
-- CI 中设置 site-api 路由变更时自动触发 site-docs 重建
+- 与 service-api 独立部署，互不影响发布节奏
+- CI 中设置 service-api 路由变更时自动触发 site-docs 重建
 
 ---
 

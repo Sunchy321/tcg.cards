@@ -34,7 +34,17 @@ export async function sendEmail(
     }
 
     const result = await response.json();
-    console.log('Email sent successfully:', result.id);
+    let id: string | undefined;
+
+    if (typeof result === 'object' && result !== null && 'id' in result) {
+      const { id: value } = result;
+
+      if (typeof value === 'string') {
+        id = value;
+      }
+    }
+
+    console.log('Email sent successfully:', id ?? '(missing id)');
   } catch (error) {
     console.error('Error sending email:', error);
     throw error;

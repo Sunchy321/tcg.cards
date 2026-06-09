@@ -1,8 +1,6 @@
-import { createORPCClient } from '@orpc/client';
-import { RPCLink } from '@orpc/client/fetch';
+import { createConsoleApiClient } from '@tcg-cards/console-platform';
 
-import type { RouterClient } from '@orpc/server';
-import type { Router } from '~~/server/orpc/service';
+import type { WebRouter } from '@tcg-cards/console-api';
 
 export default defineNuxtPlugin(() => {
   const event = useRequestEvent();
@@ -11,12 +9,10 @@ export default defineNuxtPlugin(() => {
     ? window.location.origin
     : useRequestURL().origin;
 
-  const link = new RPCLink({
+  const orpc = createConsoleApiClient<WebRouter>({
     url:     `${origin}/rpc`,
     headers: event?.headers,
   });
-
-  const orpc: RouterClient<Router> = createORPCClient(link);
 
   return {
     provide: {

@@ -1,17 +1,20 @@
 # 统一 API 服务实施计划表
 
+> 稳定的运行时边界、能力分层、命名规则和数据归属规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只记录本需求的实施计划；若有冲突，以主架构文档为准。
+
 ## TODO List
 
-- [ ] 创建 `apps/site-api` 应用骨架（Nuxt + Nitro + Cloudflare Workers 配置）
+- [ ] 创建 `apps/service-api` 应用骨架（Nuxt + Nitro + Cloudflare Workers 配置）
 - [ ] 配置 monorepo 集成（package.json、workspace 依赖、turbo 构建）
 - [ ] 创建 ORPC 基础实例与 context 类型定义
 - [ ] 聚合 magic 与 hearthstone 路由到统一 router
 - [ ] 实现 OpenAPI handler 与 spec 端点
-- [ ] 实现 API Key 验证中间件（提取、校验、游戏授权）
+- [ ] 实现 API Key 与 Session 双通道鉴权中间件
 - [ ] 实现统一错误体格式与 requestId 注入
-- [ ] 实现限流响应头输出
+- [ ] 实现按 API Key / 用户主体的限流输出
+- [ ] 配置第一方跨子域 Session Cookie 与 CORS
 - [ ] 配置 wrangler.toml（域名、Hyperdrive、环境变量）
-- [ ] 端到端验证：有效 key 访问、无效 key 拒绝、跨游戏越权、限流触发
+- [ ] 端到端验证：有效 key、有效 session、无效凭证、越权、限流
 - [ ] 创建 `apps/site-docs` 应用骨架（Nuxt + packages/ui + hybrid 配置）
 - [ ] 实现构建时 OpenAPI spec 生成（从 monorepo router 直接生成）
 - [ ] 实现 API 文档渲染页面（Scalar API Reference 组件）
@@ -22,7 +25,7 @@
 
 基于 `docs/api-design.md` 的设计，交付两个独立服务：
 
-1. **site-api**：可独立部署到 Cloudflare Workers 的统一 API 服务，对外提供 OpenAPI 兼容的 REST 接口，支持 API Key 鉴权与按游戏维度授权。
+1. **service-api**：可独立部署到 Cloudflare Workers 的统一 API 服务，对外提供 OpenAPI 兼容的 REST 接口，支持 API Key 鉴权，以及第一方网页登录用户基于 Session Cookie 的只读访问。
 2. **site-docs**：与现有站点风格一致的 API 文档站，部署到 `docs.tcg.cards`。
 
 ## 实施原则
@@ -36,11 +39,11 @@
 
 | 阶段 | 目标 | 核心任务 | 输出物 | 依赖 | 验收标准 |
 |------|------|----------|--------|------|----------|
-| P0 应用骨架 | 建立可运行的空 Nuxt 应用 | 创建 `apps/site-api` 目录；编写 `nuxt.config.ts`（仅 server 模块）；编写 `wrangler.toml`（域名 `api.tcg.cards`、Hyperdrive 绑定）；编写 `package.json`（workspace 依赖）；编写 `tsconfig.json`；添加最小 `app/app.vue` | 可 `bun run dev` 启动的空应用 | 无 | `bun run dev` 启动无报错；`bun run build` 产出 `.output/` |
+| P0 应用骨架 | 建立可运行的空 Nuxt 应用 | 创建 `apps/service-api` 目录；编写 `nuxt.config.ts`（仅 server 模块）；编写 `wrangler.toml`（域名 `api.tcg.cards`、Hyperdrive 绑定）；编写 `package.json`（workspace 依赖）；编写 `tsconfig.json`；添加最小 `app/app.vue` | 可 `bun run dev` 启动的空应用 | 无 | `bun run dev` 启动无报错；`bun run build` 产出 `.output/` |
 | P1 路由聚合 | 聚合 magic + hearthstone handler | 创建 `server/orpc/index.ts`（ORPC 基础实例）；创建 `server/orpc/service.ts`（聚合 router）；将现有站点的 magic handler 和 hearthstone handler 通过 re-export 引入 | 统一 router 对象，可在代码中引用 | P0 | TypeScript 编译通过；router 包含 `magic.*` 和 `hearthstone.*` 路由 |
 | P2 OpenAPI 入口 | 对外暴露 REST 端点 | 创建 `server/routes/api/[...].ts`（OpenAPI handler）；创建 `server/routes/openapi.json.ts`（spec 端点）；安装并配置 `@orpc/openapi` | 可访问的 REST 端点和 OpenAPI spec | P1 | `GET /openapi.json` 返回有效 spec；`GET /api/magic/card/random` 返回数据 |
-| P3 API Key 鉴权 | 实现完整的鉴权链路 | 创建 `server/lib/auth/index.ts`（better-auth 配置）；创建 `server/lib/auth/perms.ts`（权限定义）；创建 `server/middleware/api-key.ts`（验证中间件）；实现 `allowedGames` 解析与游戏路由校验 | 鉴权中间件，注入 ORPC context | P2 | 无 key 返回 401；无效 key 返回 401；禁用 key 返回 403；越权游戏返回 403 |
-| P4 错误与限流 | 统一错误格式和限流输出 | 实现统一错误拦截器（code、message、requestId）；实现 `requestId` 生成（`crypto.randomUUID()`）；实现限流响应头（`X-RateLimit-*`） | 一致的错误响应和限流头 | P3 | 所有错误响应包含 `code`、`message`、`requestId`；触发限流返回 429 并带限流头 |
+| P3 鉴权链路 | 实现 API Key + Session 的完整鉴权链路 | 创建 `server/lib/auth/index.ts`（better-auth 配置）；创建 `server/lib/auth/perms.ts`（权限定义）；创建 `server/middleware/auth.ts`（统一鉴权中间件）；实现 `allowedGames` 解析、游戏路由校验、Session 用户只读放行规则 | 鉴权中间件，注入 ORPC context | P2 | 无凭证返回 401；无效 key 返回 401；禁用 key 返回 403；越权游戏返回 403；有效 session 可访问允许的只读接口 |
+| P4 错误与限流 | 统一错误格式和按主体限流输出 | 实现统一错误拦截器（code、message、requestId）；实现 `requestId` 生成（`crypto.randomUUID()`）；实现按 `apikey:{id}` / `user:{id}` 的限流与 `X-RateLimit-*` 响应头；配置第一方 CORS 与 credentials | 一致的错误响应和限流头 | P3 | 所有错误响应包含 `code`、`message`、`requestId`；触发限流返回 429 并带限流头；第一方网页登录请求可携带 cookie 成功访问 |
 | P5 部署与验证 | 部署到 Cloudflare Workers 并端到端验证 | 配置 Cloudflare secrets（`DATABASE_URL`、`BETTER_AUTH_SECRET`）；执行 `wrangler deploy`；使用内部 API Key 进行端到端测试 | 线上可用的 API 服务 | P4 | `api.tcg.cards/openapi.json` 可访问；有效 key 可查询数据；鉴权和限流行为符合设计 |
 | P6 文档站骨架 | 建立可运行的文档站应用 | 创建 `apps/site-docs` 目录；编写 `nuxt.config.ts`（extend `packages/ui`、hybrid routeRules、better-auth）；编写 `wrangler.toml`（域名 `docs.tcg.cards`、Hyperdrive 绑定）；编写 `package.json`；创建基础页面结构 | 可 `bun run dev` 启动的文档站应用 | P0 | `bun run dev` 启动无报错；页面与现有站点风格一致 |
 | P7 文档内容 | 渲染 OpenAPI spec 并展示文档 | 实现 `lib/spec.ts`（构建时从 router 生成 spec）；实现 `ApiReference.vue`（Scalar 组件包装）；编写首页与基础使用指南内容 | 可浏览的 API 文档页面 | P2, P6 | 文档页面正确展示所有接口；接口参数、返回值、错误码清晰可读 |
@@ -53,12 +56,12 @@
 
 | 序号 | 任务 | 说明 |
 |------|------|------|
-| 0.1 | 创建 `apps/site-api/package.json` | 依赖 `@orpc/server`、`@orpc/openapi`、`@tcg-cards/db`、`@tcg-cards/model`、`@tcg-cards/shared`、`better-auth`、`@better-auth/api-key`、`drizzle-orm`、`zod` |
-| 0.2 | 创建 `apps/site-api/nuxt.config.ts` | 不 extend `packages/ui`（无前端需求）；配置 Nitro preset `cloudflare_module`；配置 alias（`#db`、`#schema`、`#model`、`#shared`） |
-| 0.3 | 创建 `apps/site-api/wrangler.toml` | `name = "api-tcg-cards"`；域名 `api.tcg.cards`；Hyperdrive 绑定 |
-| 0.4 | 创建 `apps/site-api/tsconfig.json` | 继承 `@tcg-cards/tsconfig/nuxt.json` |
-| 0.5 | 创建 `apps/site-api/app/app.vue` | 最小壳：空 `<template>` |
-| 0.6 | 创建 `apps/site-api/eslint.config.mjs` | 沿用现有站点的 eslint 配置 |
+| 0.1 | 创建 `apps/service-api/package.json` | 依赖 `@orpc/server`、`@orpc/openapi`、`@tcg-cards/db`、`@tcg-cards/model`、`@tcg-cards/shared`、`better-auth`、`@better-auth/api-key`、`drizzle-orm`、`zod` |
+| 0.2 | 创建 `apps/service-api/nuxt.config.ts` | 不 extend `packages/ui`（无前端需求）；配置 Nitro preset `cloudflare_module`；配置 alias（`#db`、`#schema`、`#model`、`#shared`） |
+| 0.3 | 创建 `apps/service-api/wrangler.toml` | `name = "api-tcg-cards"`；域名 `api.tcg.cards`；Hyperdrive 绑定 |
+| 0.4 | 创建 `apps/service-api/tsconfig.json` | 继承 `@tcg-cards/tsconfig/nuxt.json` |
+| 0.5 | 创建 `apps/service-api/app/app.vue` | 最小壳：空 `<template>` |
+| 0.6 | 创建 `apps/service-api/eslint.config.mjs` | 沿用现有站点的 eslint 配置 |
 
 ### P1 路由聚合
 
@@ -77,13 +80,15 @@
 | 2.2 | 创建 `server/routes/api/[...].ts` | 使用 `OpenAPIHandler` 处理 REST 请求 |
 | 2.3 | 创建 `server/routes/openapi.json.ts` | 从 router 生成 OpenAPI spec 并返回 |
 
-### P3 API Key 鉴权
+### P3 鉴权链路
 
 | 序号 | 任务 | 说明 |
 |------|------|------|
 | 3.1 | 创建 `server/lib/auth/index.ts` | 配置 better-auth + apiKey 插件 |
 | 3.2 | 创建 `server/lib/auth/perms.ts` | 复用现有权限定义 |
-| 3.3 | 创建 `server/middleware/api-key.ts` | 从 `Authorization` 头提取 key；查询并校验 key；解析 `permissions.allowedGames`；根据请求路径判断目标游戏；校验不通过时返回对应错误 |
+| 3.3 | 创建 `server/middleware/auth.ts` | 实现统一鉴权入口，优先校验 `Authorization` 中的 API Key，缺失时回退到 better-auth Session Cookie |
+| 3.4 | 实现 API Key 路由授权 | 解析 `permissions.allowedGames`；根据请求路径判断目标游戏；校验不通过时返回对应错误 |
+| 3.5 | 实现 Session 用户只读访问规则 | 明确允许 Session 访问的公开只读接口集合；将 `authMode`、user 信息写入 context |
 
 ### P4 错误与限流
 
@@ -91,7 +96,9 @@
 |------|------|------|
 | 4.1 | 实现错误拦截器 | 在 OpenAPI handler 的 `interceptors` 中捕获错误，统一输出 `{ code, message, requestId }` |
 | 4.2 | 实现 requestId 注入 | 在中间件入口生成 `crypto.randomUUID()`，写入 event context |
-| 4.3 | 实现限流响应头 | 在中间件中读取 key 的限流状态，写入 `X-RateLimit-*` 头 |
+| 4.3 | 实现按主体限流 | API Key 请求按 `apikey:{id}` 限流；Session 请求按 `user:{id}` 限流 |
+| 4.4 | 实现限流响应头 | 将当前实际命中的限流状态写入 `X-RateLimit-*` 头 |
+| 4.5 | 配置第一方 CORS 与 cookie | 允许受信任的第一方 origin 携带 credentials 访问；校验跨子域 Session Cookie 配置 |
 
 ### P5 部署与验证
 
@@ -99,7 +106,7 @@
 |------|------|------|
 | 5.1 | 配置 Cloudflare secrets | `wrangler secret put DATABASE_URL`、`wrangler secret put BETTER_AUTH_SECRET` |
 | 5.2 | 执行部署 | `wrangler deploy --env production` |
-| 5.3 | 端到端测试 | 用 curl 或 Postman 验证：OpenAPI spec、有效 key、无效 key、越权、限流 |
+| 5.3 | 端到端测试 | 用 curl、浏览器或 Postman 验证：OpenAPI spec、有效 key、有效 Session、无效凭证、越权、限流 |
 
 ### P6 文档站骨架
 
@@ -116,7 +123,7 @@
 
 | 序号 | 任务 | 说明 |
 |------|------|------|
-| 7.1 | 创建 `lib/spec.ts` | 构建时从 `site-api/server/orpc/service.ts` 的 router 对象生成 OpenAPI spec（`OpenAPIGenerator` + `ZodToJsonSchemaConverter`），输出 JSON 供页面组件引用 |
+| 7.1 | 创建 `lib/spec.ts` | 构建时从 `service-api/server/orpc/service.ts` 的 router 对象生成 OpenAPI spec（`OpenAPIGenerator` + `ZodToJsonSchemaConverter`），输出 JSON 供页面组件引用 |
 | 7.2 | 创建 `app/components/ApiReference.vue` | 包装 `@scalar/api-reference` Vue 组件，传入构建时生成的 spec 对象 |
 | 7.3 | 创建 `app/pages/index.vue` | 文档首页，展示 API 概览、鉴权说明、快速开始 |
 | 7.4 | 创建 `app/pages/reference.vue` | Scalar API Reference 渲染页面 |

@@ -9,7 +9,9 @@
               :card-id="data.cardId"
               :version="minVersion"
               :lang="lang"
+              :render-hash="data.renderHash"
               :variant="variant"
+              :has-premium-mechanic="hasPremium"
               loading="eager"
             />
 
@@ -70,6 +72,30 @@
           <!-- Flavor text -->
           <div v-if="data.localization.flavorText" class="border-l-2 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 italic text-gray-500 dark:text-gray-400 rounded-r-lg p-4 mb-6">
             {{ data.localization.flavorText }}
+          </div>
+
+          <!-- Mechanics + Referenced tags -->
+          <div v-if="mechanics.length > 0 || referencedTags.length > 0" class="flex flex-wrap gap-2 mb-6">
+            <UBadge
+              v-for="m in mechanics"
+              :key="m"
+              color="primary"
+              variant="subtle"
+              class="cursor-pointer"
+              @click="copyTag(m)"
+            >
+              {{ mechanicText(m) }}
+            </UBadge>
+            <UBadge
+              v-for="r in referencedTags"
+              :key="r"
+              color="neutral"
+              variant="subtle"
+              class="cursor-pointer"
+              @click="copyTag(r)"
+            >
+              {{ mechanicText(r) }}
+            </UBadge>
           </div>
 
           <!-- Set -->
@@ -183,7 +209,7 @@
     <!-- Error state -->
     <div v-else class="flex flex-col items-center py-24 text-gray-400 gap-4">
       <UIcon name="lucide:frown" class="text-5xl" />
-      <p>{{ $t('hearthstone.card.notFound') }}</p>
+      <p>{{ $t('hearthstone.card.not-found') }}</p>
     </div>
   </div>
 </template>
@@ -191,10 +217,10 @@
 <script setup lang="ts">
 import { last } from 'lodash-es';
 
-import { locale as localeSchema } from '#model/hearthstone/schema/basic';
-import type { Locale } from '#model/hearthstone/schema/basic';
+import { locale as localeSchema, type Locale } from '#model/hearthstone/schema/basic';
 import type { CardProfile } from '#model/hearthstone/schema/card';
 import type { Patch } from '#model/hearthstone/schema/patch';
+import type { CardImageOption } from '~/utils/card-image';
 
 import { getHearthstoneLabel } from '~/utils/hearthstone-labels';
 
@@ -217,8 +243,7 @@ setActions([actions.random]);
 // Language
 
 const lang = computed<Locale>({
-  get: () => localeSchema.safeParse(route.query.lang as string).data
-    ?? 'zhs',
+  get: () => localeSchema.safeParse(route.query.lang as string).data ?? 'zhs',
   set: (v: string) => { void router.replace({ query: { ...route.query, lang: v } }); },
 });
 
@@ -374,11 +399,48 @@ const stats = computed(() => {
 
 // Mechanics and tags
 
-const mechanics = computed(() =>
-  (data.value?.mechanics ?? []).filter(v => !v.startsWith('?')),
+const mechanicEntries = computed(() =>
+  Object.entries(data.value?.mechanics ?? {}),
 );
 
-// Legalities
+const mechanics = computed(() =>
+  mechanicEntries.value
+    .filter(([key]) => !key.startsWith('?'))
+    .map(([key, value]) => value === true ? key : `${key}:${value}`),
+);
+
+const referencedTags = computed(() =>
+  Object.entries(data.value?.referencedTags ?? {})
+    .filter(([key]) => !key.startsWith('?'))
+    .map(([key, value]) => value === true ? key : `${key}:${value}`),
+);
+
+const hasMechanic = (key: string) =>
+  mechanicEntries.value.some(([name, value]) => name === key && (value === true || (typeof value === 'number' && value !== 0)));
+
+const mechanicText = (m: string) => {
+  if (m.includes(':')) {
+    const sep = m.indexOf(':');
+    const mid = m.slice(0, sep);
+    const arg = m.slice(sep + 1);
+    const key = `hearthstone.tag.${mid}`;
+    return `${te(key) ? t(key) : mid}:${arg}`;
+  }
+  const key = `hearthstone.tag.${m}`;
+  return te(key) ? t(key) : m;
+};
+
+const toast = useToast();
+
+const copyTag = async (tag: string) => {
+  const tagName = /^[^:]+(:|$)/.exec(tag)![0]!;
+  try {
+    await navigator.clipboard.writeText(tagName);
+    toast.add({ title: t('hearthstone.card.tag-copied'), color: 'success' });
+  } catch {
+    // clipboard not available
+  }
+};
 
 const legalityEntries = computed(() =>
   Object.entries(data.value?.legalities ?? {}),
@@ -512,54 +574,70 @@ const relatedLink = (rel: NonNullable<typeof data.value>['relatedCards'][number]
 
 // Variant
 
-const variant = ref('normal');
+const hasPremium = computed(() =>
+  hasMechanic('12') || hasMechanic('premium'),
+);
 
-const hasTechLevel = computed(() => data.value?.techLevel != null);
+const isBattlegrounds = computed(() => {
+  const d = data.value;
+  return d != null && (d.set === 'bgs' || (d.techLevel != null && !d.collectible));
+});
+
+const hasBattlegroundsVariant = computed(() => {
+  const d = data.value;
+  return d != null && (d.set === 'bgs' || d.techLevel != null);
+});
+
+const variant = ref<CardImageOption>(isBattlegrounds.value ? 'battlegrounds' : 'normal');
 
 const variantOptions = computed(() => {
-  const opts = [
+  const opts: Array<{ label: string, value: CardImageOption }> = [
     { label: t('hearthstone.card.variant.normal'), value: 'normal' },
     { label: t('hearthstone.card.variant.golden'), value: 'golden' },
   ];
 
-  if (mechanics.value.includes('has_diamond')) {
+  if (hasMechanic('has_diamond')) {
     opts.push({ label: t('hearthstone.card.variant.diamond'), value: 'diamond' });
   }
-  if (mechanics.value.includes('has_signature')) {
+  if (hasMechanic('has_signature')) {
     opts.push({ label: t('hearthstone.card.variant.signature'), value: 'signature' });
   }
-  if (hasTechLevel.value) {
+  if (hasBattlegroundsVariant.value) {
     opts.push({ label: t('hearthstone.card.variant.battlegrounds'), value: 'battlegrounds' });
   }
 
   return opts;
 });
 
-watch(hasTechLevel, v => {
-  if (!v) variant.value = 'normal';
+watch(isBattlegrounds, v => {
+  if (v) variant.value = 'battlegrounds';
 }, { immediate: true });
+
+watch(hasBattlegroundsVariant, v => {
+  if (!v) variant.value = 'normal';
+});
 
 // Relation icon
 
 const relationIcon = (relation: string): string => ({
   collection_related: 'lucide:refresh-cw',
-  colossal_token: 'lucide:boxes',
-  cataclysm:      'lucide:flame',
-  emblem:         'lucide:shield',
-  intext:         'lucide:search',
-  meld:           'lucide:git-merge',
-  specialization: 'lucide:git-fork',
-  spellbook:      'lucide:book',
-  source:         'lucide:list-tree',
-  stick_on:       'lucide:layers',
-  token:          'lucide:square',
-  entourage:      'lucide:boxes',
-  fabled_related: 'lucide:sparkles',
-  herald_token:   'lucide:sparkles',
-  herald_upgrade: 'lucide:chevrons-up',
-  hero_power:     'lucide:zap',
-  heroic_hero_power: 'lucide:zap',
-  plague_token:   'lucide:biohazard',
-  titan_ability:  'lucide:badge-bolt',
+  colossal_token:     'lucide:boxes',
+  cataclysm:          'lucide:flame',
+  emblem:             'lucide:shield',
+  intext:             'lucide:search',
+  meld:               'lucide:git-merge',
+  specialization:     'lucide:git-fork',
+  spellbook:          'lucide:book',
+  source:             'lucide:list-tree',
+  stick_on:           'lucide:layers',
+  token:              'lucide:square',
+  entourage:          'lucide:boxes',
+  fabled_related:     'lucide:sparkles',
+  herald_token:       'lucide:sparkles',
+  herald_upgrade:     'lucide:chevrons-up',
+  hero_power:         'lucide:zap',
+  heroic_hero_power:  'lucide:zap',
+  plague_token:       'lucide:biohazard',
+  titan_ability:      'lucide:badge-bolt',
 } as Record<string, string>)[relation] ?? 'lucide:copy';
 </script>

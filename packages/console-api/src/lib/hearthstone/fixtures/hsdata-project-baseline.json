@@ -1,0 +1,1109 @@
+{
+  "input": {
+    "sourceVersions": [
+      {
+        "sourceTag": 50001,
+        "build": 31001,
+        "status": "completed",
+        "projectionStatus": "not_started",
+        "projectionError": null,
+        "projectedAt": null
+      }
+    ],
+    "sets": [
+      {
+        "setId": "CORE",
+        "dbfId": 10,
+        "slug": "core",
+        "type": "core",
+        "releaseDate": "2024-01-01",
+        "cardCountFull": 0,
+        "cardCount": 0,
+        "group": null
+      }
+    ],
+    "tags": [
+      {
+        "enumId": 185,
+        "slug": "card_name",
+        "valueKind": "loc_string",
+        "normalizeKind": "identity_loc_string",
+        "normalizeConfig": {},
+        "projectTargetType": "entity_localization",
+        "projectTargetPath": "name",
+        "projectKind": "assign_localized_text",
+        "projectConfig": {}
+      },
+      {
+        "enumId": 184,
+        "slug": "card_text",
+        "valueKind": "loc_string",
+        "normalizeKind": "identity_loc_string",
+        "normalizeConfig": {},
+        "projectTargetType": "entity_localization",
+        "projectTargetPath": "richText",
+        "projectKind": "assign_localized_text",
+        "projectConfig": {}
+      },
+      {
+        "enumId": 351,
+        "slug": "flavor_text",
+        "valueKind": "loc_string",
+        "normalizeKind": "identity_loc_string",
+        "normalizeConfig": {},
+        "projectTargetType": "entity_localization",
+        "projectTargetPath": "flavorText",
+        "projectKind": "assign_localized_text",
+        "projectConfig": {}
+      },
+      {
+        "enumId": 342,
+        "slug": "artist_name",
+        "valueKind": "string",
+        "normalizeKind": "identity_string",
+        "normalizeConfig": {},
+        "projectTargetType": "entity",
+        "projectTargetPath": "artist",
+        "projectKind": "assign_value",
+        "projectConfig": {}
+      },
+      {
+        "enumId": 183,
+        "slug": "card_set",
+        "valueKind": "int",
+        "normalizeKind": "enum_from_int",
+        "normalizeConfig": {
+          "enumMap": "set"
+        },
+        "projectTargetType": "entity",
+        "projectTargetPath": "set",
+        "projectKind": "assign_value",
+        "projectConfig": {}
+      },
+      {
+        "enumId": 199,
+        "slug": "class",
+        "valueKind": "int",
+        "normalizeKind": "enum_from_int",
+        "normalizeConfig": {
+          "enumMap": {
+            "4": "mage",
+            "12": "neutral"
+          }
+        },
+        "projectTargetType": "entity",
+        "projectTargetPath": "classes",
+        "projectKind": "append_string_array",
+        "projectConfig": {}
+      },
+      {
+        "enumId": 200,
+        "slug": "race",
+        "valueKind": "int",
+        "normalizeKind": "enum_from_int",
+        "normalizeConfig": {
+          "enumMap": {
+            "20": "beast"
+          }
+        },
+        "projectTargetType": "entity",
+        "projectTargetPath": "race",
+        "projectKind": "append_string_array",
+        "projectConfig": {}
+      },
+      {
+        "enumId": 2523,
+        "slug": "dual_race_dragon",
+        "valueKind": "int",
+        "normalizeKind": "bool_from_int",
+        "normalizeConfig": {},
+        "projectTargetType": "entity",
+        "projectTargetPath": "race",
+        "projectKind": "append_string_array",
+        "projectConfig": {
+          "value": "dragon"
+        }
+      },
+      {
+        "enumId": 2542,
+        "slug": "dual_race_beast",
+        "valueKind": "int",
+        "normalizeKind": "bool_from_int",
+        "normalizeConfig": {},
+        "projectTargetType": "entity",
+        "projectTargetPath": "race",
+        "projectKind": "append_string_array",
+        "projectConfig": {
+          "value": "beast"
+        }
+      },
+      {
+        "enumId": 202,
+        "slug": "card_type",
+        "valueKind": "int",
+        "normalizeKind": "enum_from_int",
+        "normalizeConfig": {
+          "enumMap": {
+            "4": "minion",
+            "5": "spell"
+          }
+        },
+        "projectTargetType": "entity",
+        "projectTargetPath": "type",
+        "projectKind": "assign_value",
+        "projectConfig": {}
+      },
+      {
+        "enumId": 48,
+        "slug": "cost",
+        "valueKind": "int",
+        "normalizeKind": "identity_int",
+        "normalizeConfig": {},
+        "projectTargetType": "entity",
+        "projectTargetPath": "cost",
+        "projectKind": "assign_value",
+        "projectConfig": {}
+      },
+      {
+        "enumId": 47,
+        "slug": "attack",
+        "valueKind": "int",
+        "normalizeKind": "identity_int",
+        "normalizeConfig": {},
+        "projectTargetType": "entity",
+        "projectTargetPath": "attack",
+        "projectKind": "assign_value",
+        "projectConfig": {}
+      },
+      {
+        "enumId": 45,
+        "slug": "health",
+        "valueKind": "int",
+        "normalizeKind": "identity_int",
+        "normalizeConfig": {},
+        "projectTargetType": "entity",
+        "projectTargetPath": "health",
+        "projectKind": "assign_value",
+        "projectConfig": {}
+      },
+      {
+        "enumId": 203,
+        "slug": "rarity",
+        "valueKind": "int",
+        "normalizeKind": "enum_from_int",
+        "normalizeConfig": {
+          "enumMap": {
+            "3": "rare",
+            "5": "legendary"
+          }
+        },
+        "projectTargetType": "entity",
+        "projectTargetPath": "rarity",
+        "projectKind": "assign_value",
+        "projectConfig": {}
+      },
+      {
+        "enumId": 321,
+        "slug": "collectible",
+        "valueKind": "int",
+        "normalizeKind": "bool_from_int",
+        "normalizeConfig": {},
+        "projectTargetType": "entity",
+        "projectTargetPath": "collectible",
+        "projectKind": "assign_value",
+        "projectConfig": {}
+      },
+      {
+        "enumId": 114,
+        "slug": "elite",
+        "valueKind": "int",
+        "normalizeKind": "bool_from_int",
+        "normalizeConfig": {},
+        "projectTargetType": "entity",
+        "projectTargetPath": "elite",
+        "projectKind": "assign_value",
+        "projectConfig": {}
+      },
+      {
+        "enumId": 684,
+        "slug": "hide_cost",
+        "valueKind": "int",
+        "normalizeKind": "bool_from_int",
+        "normalizeConfig": {},
+        "projectTargetType": "entity",
+        "projectTargetPath": "mechanics",
+        "projectKind": "assign_mechanic",
+        "projectConfig": {}
+      },
+      {
+        "enumId": 9001,
+        "slug": "hero_power",
+        "valueKind": "card_ref",
+        "normalizeKind": "identity_card_ref",
+        "normalizeConfig": {},
+        "projectTargetType": "entity",
+        "projectTargetPath": "heroPower",
+        "projectKind": "assign_card_ref",
+        "projectConfig": {}
+      },
+      {
+        "enumId": 9002,
+        "slug": "heroic_hero_power",
+        "valueKind": "card_ref",
+        "normalizeKind": "identity_card_ref",
+        "normalizeConfig": {},
+        "projectTargetType": "entity_relation",
+        "projectTargetPath": "heroic_hero_power",
+        "projectKind": "emit_relation",
+        "projectConfig": {}
+      },
+      {
+        "enumId": 9003,
+        "slug": "triple_card",
+        "valueKind": "int",
+        "normalizeKind": "card_ref_from_int",
+        "normalizeConfig": {},
+        "projectTargetType": "entity",
+        "projectTargetPath": "tripleCard",
+        "projectKind": "assign_card_ref",
+        "projectConfig": {}
+      },
+      {
+        "enumId": 9999,
+        "slug": "unknown_tag",
+        "valueKind": "int",
+        "normalizeKind": "identity_int",
+        "normalizeConfig": {},
+        "projectTargetType": "entity",
+        "projectTargetPath": null,
+        "projectKind": null,
+        "projectConfig": {}
+      }
+    ],
+    "snapshots": [
+      {
+        "id": "snapshot-main-50001",
+        "cardId": "MAIN_001",
+        "dbfId": 1001,
+        "sourceTags": [50001],
+        "entityXmlVersion": 1,
+        "snapshotHash": "main-50001",
+        "extraPayload": {
+          "referencedTags": {
+            "777": true
+          }
+        }
+      },
+      {
+        "id": "snapshot-token-50001",
+        "cardId": "TOKEN_001",
+        "dbfId": 1002,
+        "sourceTags": [50001],
+        "entityXmlVersion": 1,
+        "snapshotHash": "token-50001",
+        "extraPayload": {
+          "referencedTags": {}
+        }
+      }
+    ],
+    "snapshotTags": [
+      {
+        "snapshotId": "snapshot-main-50001",
+        "enumId": 185,
+        "tagOrder": 0,
+        "rawName": "CARDNAME",
+        "rawType": "LocString",
+        "rawPayload": {
+          "children": {
+            "enUS": "Arcane Construct",
+            "zhCN": "奥术构造体"
+          }
+        },
+        "valueKind": "loc_string",
+        "boolValue": null,
+        "intValue": null,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": {
+          "enUS": "Arcane Construct",
+          "zhCN": "奥术构造体"
+        },
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-main-50001",
+        "enumId": 184,
+        "tagOrder": 1,
+        "rawName": "CARDTEXT",
+        "rawType": "LocString",
+        "rawPayload": {
+          "children": {
+            "enUS": "Spellburst: Gain +2 Attack.",
+            "zhCN": "法术迸发：获得 +2 攻击力。"
+          }
+        },
+        "valueKind": "loc_string",
+        "boolValue": null,
+        "intValue": null,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": {
+          "enUS": "Spellburst: Gain +2 Attack.",
+          "zhCN": "法术迸发：获得 +2 攻击力。"
+        },
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-main-50001",
+        "enumId": 351,
+        "tagOrder": 2,
+        "rawName": "FLAVORTEXT",
+        "rawType": "LocString",
+        "rawPayload": {
+          "children": {
+            "enUS": "Built for precise spellwork.",
+            "zhCN": "为精准施法而造。"
+          }
+        },
+        "valueKind": "loc_string",
+        "boolValue": null,
+        "intValue": null,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": {
+          "enUS": "Built for precise spellwork.",
+          "zhCN": "为精准施法而造。"
+        },
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-main-50001",
+        "enumId": 342,
+        "tagOrder": 3,
+        "rawName": "ARTISTNAME",
+        "rawType": "String",
+        "rawPayload": {
+          "text": "Studio Lantern"
+        },
+        "valueKind": "string",
+        "boolValue": null,
+        "intValue": null,
+        "stringValue": "Studio Lantern",
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-main-50001",
+        "enumId": 183,
+        "tagOrder": 4,
+        "rawName": "CARD_SET",
+        "rawType": "Int",
+        "rawPayload": {
+          "attributes": {
+            "value": "10"
+          }
+        },
+        "valueKind": "int",
+        "boolValue": null,
+        "intValue": 10,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-main-50001",
+        "enumId": 199,
+        "tagOrder": 5,
+        "rawName": "CLASS",
+        "rawType": "Int",
+        "rawPayload": {
+          "attributes": {
+            "value": "4"
+          }
+        },
+        "valueKind": "int",
+        "boolValue": null,
+        "intValue": 4,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-main-50001",
+        "enumId": 200,
+        "tagOrder": 6,
+        "rawName": "CARDRACE",
+        "rawType": "Int",
+        "rawPayload": {
+          "attributes": {
+            "value": "20"
+          }
+        },
+        "valueKind": "int",
+        "boolValue": null,
+        "intValue": 20,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-main-50001",
+        "enumId": 2523,
+        "tagOrder": 7,
+        "rawName": "DUAL_RACE_DRAGON",
+        "rawType": "Int",
+        "rawPayload": {
+          "attributes": {
+            "value": "1"
+          }
+        },
+        "valueKind": "int",
+        "boolValue": null,
+        "intValue": 1,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-main-50001",
+        "enumId": 2542,
+        "tagOrder": 8,
+        "rawName": "DUAL_RACE_BEAST",
+        "rawType": "Int",
+        "rawPayload": {
+          "attributes": {
+            "value": "1"
+          }
+        },
+        "valueKind": "int",
+        "boolValue": null,
+        "intValue": 1,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-main-50001",
+        "enumId": 202,
+        "tagOrder": 9,
+        "rawName": "CARDTYPE",
+        "rawType": "Int",
+        "rawPayload": {
+          "attributes": {
+            "value": "4"
+          }
+        },
+        "valueKind": "int",
+        "boolValue": null,
+        "intValue": 4,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-main-50001",
+        "enumId": 48,
+        "tagOrder": 10,
+        "rawName": "COST",
+        "rawType": "Int",
+        "rawPayload": {
+          "attributes": {
+            "value": "3"
+          }
+        },
+        "valueKind": "int",
+        "boolValue": null,
+        "intValue": 3,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-main-50001",
+        "enumId": 47,
+        "tagOrder": 11,
+        "rawName": "ATK",
+        "rawType": "Int",
+        "rawPayload": {
+          "attributes": {
+            "value": "2"
+          }
+        },
+        "valueKind": "int",
+        "boolValue": null,
+        "intValue": 2,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-main-50001",
+        "enumId": 45,
+        "tagOrder": 12,
+        "rawName": "HEALTH",
+        "rawType": "Int",
+        "rawPayload": {
+          "attributes": {
+            "value": "4"
+          }
+        },
+        "valueKind": "int",
+        "boolValue": null,
+        "intValue": 4,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-main-50001",
+        "enumId": 203,
+        "tagOrder": 13,
+        "rawName": "RARITY",
+        "rawType": "Int",
+        "rawPayload": {
+          "attributes": {
+            "value": "3"
+          }
+        },
+        "valueKind": "int",
+        "boolValue": null,
+        "intValue": 3,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-main-50001",
+        "enumId": 321,
+        "tagOrder": 14,
+        "rawName": "COLLECTIBLE",
+        "rawType": "Int",
+        "rawPayload": {
+          "attributes": {
+            "value": "1"
+          }
+        },
+        "valueKind": "int",
+        "boolValue": null,
+        "intValue": 1,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-main-50001",
+        "enumId": 114,
+        "tagOrder": 15,
+        "rawName": "ELITE",
+        "rawType": "Int",
+        "rawPayload": {
+          "attributes": {
+            "value": "0"
+          }
+        },
+        "valueKind": "int",
+        "boolValue": null,
+        "intValue": 0,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-main-50001",
+        "enumId": 684,
+        "tagOrder": 16,
+        "rawName": "HIDE_COST",
+        "rawType": "Int",
+        "rawPayload": {
+          "attributes": {
+            "value": "1"
+          }
+        },
+        "valueKind": "int",
+        "boolValue": null,
+        "intValue": 1,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-main-50001",
+        "enumId": 9001,
+        "tagOrder": 17,
+        "rawName": "HERO_POWER",
+        "rawType": "Card",
+        "rawPayload": {
+          "attributes": {
+            "cardID": "HERO_POWER_001"
+          }
+        },
+        "valueKind": "card_ref",
+        "boolValue": null,
+        "intValue": null,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": "HERO_POWER_001",
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-main-50001",
+        "enumId": 9002,
+        "tagOrder": 18,
+        "rawName": "HEROIC_HERO_POWER",
+        "rawType": "Card",
+        "rawPayload": {
+          "attributes": {
+            "cardID": "HERO_POWER_002"
+          }
+        },
+        "valueKind": "card_ref",
+        "boolValue": null,
+        "intValue": null,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": "HERO_POWER_002",
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-main-50001",
+        "enumId": 9003,
+        "tagOrder": 19,
+        "rawName": "TRIPLE_CARD",
+        "rawType": "Int",
+        "rawPayload": {
+          "attributes": {
+            "value": "1002"
+          }
+        },
+        "valueKind": "int",
+        "boolValue": null,
+        "intValue": 1002,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-main-50001",
+        "enumId": 9999,
+        "tagOrder": 20,
+        "rawName": "UNKNOWN_TAG",
+        "rawType": "Int",
+        "rawPayload": {
+          "attributes": {
+            "value": "9"
+          }
+        },
+        "valueKind": "int",
+        "boolValue": null,
+        "intValue": 9,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-token-50001",
+        "enumId": 185,
+        "tagOrder": 0,
+        "rawName": "CARDNAME",
+        "rawType": "LocString",
+        "rawPayload": {
+          "children": {
+            "enUS": "Construct Token"
+          }
+        },
+        "valueKind": "loc_string",
+        "boolValue": null,
+        "intValue": null,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": {
+          "enUS": "Construct Token"
+        },
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-token-50001",
+        "enumId": 184,
+        "tagOrder": 1,
+        "rawName": "CARDTEXT",
+        "rawType": "LocString",
+        "rawPayload": {
+          "children": {
+            "enUS": "A fragile helper."
+          }
+        },
+        "valueKind": "loc_string",
+        "boolValue": null,
+        "intValue": null,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": {
+          "enUS": "A fragile helper."
+        },
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-token-50001",
+        "enumId": 342,
+        "tagOrder": 2,
+        "rawName": "ARTISTNAME",
+        "rawType": "String",
+        "rawPayload": {
+          "text": "Studio Lantern"
+        },
+        "valueKind": "string",
+        "boolValue": null,
+        "intValue": null,
+        "stringValue": "Studio Lantern",
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-token-50001",
+        "enumId": 183,
+        "tagOrder": 3,
+        "rawName": "CARD_SET",
+        "rawType": "Int",
+        "rawPayload": {
+          "attributes": {
+            "value": "10"
+          }
+        },
+        "valueKind": "int",
+        "boolValue": null,
+        "intValue": 10,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-token-50001",
+        "enumId": 199,
+        "tagOrder": 4,
+        "rawName": "CLASS",
+        "rawType": "Int",
+        "rawPayload": {
+          "attributes": {
+            "value": "12"
+          }
+        },
+        "valueKind": "int",
+        "boolValue": null,
+        "intValue": 12,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-token-50001",
+        "enumId": 202,
+        "tagOrder": 5,
+        "rawName": "CARDTYPE",
+        "rawType": "Int",
+        "rawPayload": {
+          "attributes": {
+            "value": "4"
+          }
+        },
+        "valueKind": "int",
+        "boolValue": null,
+        "intValue": 4,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-token-50001",
+        "enumId": 48,
+        "tagOrder": 6,
+        "rawName": "COST",
+        "rawType": "Int",
+        "rawPayload": {
+          "attributes": {
+            "value": "1"
+          }
+        },
+        "valueKind": "int",
+        "boolValue": null,
+        "intValue": 1,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-token-50001",
+        "enumId": 47,
+        "tagOrder": 7,
+        "rawName": "ATK",
+        "rawType": "Int",
+        "rawPayload": {
+          "attributes": {
+            "value": "1"
+          }
+        },
+        "valueKind": "int",
+        "boolValue": null,
+        "intValue": 1,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-token-50001",
+        "enumId": 45,
+        "tagOrder": 8,
+        "rawName": "HEALTH",
+        "rawType": "Int",
+        "rawPayload": {
+          "attributes": {
+            "value": "1"
+          }
+        },
+        "valueKind": "int",
+        "boolValue": null,
+        "intValue": 1,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-token-50001",
+        "enumId": 203,
+        "tagOrder": 9,
+        "rawName": "RARITY",
+        "rawType": "Int",
+        "rawPayload": {
+          "attributes": {
+            "value": "3"
+          }
+        },
+        "valueKind": "int",
+        "boolValue": null,
+        "intValue": 3,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      },
+      {
+        "snapshotId": "snapshot-token-50001",
+        "enumId": 321,
+        "tagOrder": 10,
+        "rawName": "COLLECTIBLE",
+        "rawType": "Int",
+        "rawPayload": {
+          "attributes": {
+            "value": "0"
+          }
+        },
+        "valueKind": "int",
+        "boolValue": null,
+        "intValue": 0,
+        "stringValue": null,
+        "enumValue": null,
+        "locStringValue": null,
+        "cardRefCardId": null,
+        "cardRefDbfId": null,
+        "jsonValue": null,
+        "parseStatus": "parsed"
+      }
+    ]
+  },
+  "expected": {
+    "report": {
+      "skipped": false,
+      "build": 31001,
+      "snapshotCount": 2,
+      "insertedEntities": 2,
+      "insertedLocalizations": 3,
+      "insertedRelations": 3,
+      "unprojectedTagCount": 1
+    },
+    "mainEntity": {
+      "cardId": "MAIN_001",
+      "set": "CORE",
+      "classes": ["mage"],
+      "race": ["beast", "dragon"],
+      "type": "minion",
+      "cost": 3,
+      "attack": 2,
+      "health": 4,
+      "heroPower": "HERO_POWER_001",
+      "tripleCard": "TOKEN_001",
+      "collectible": true,
+      "elite": false,
+      "mechanics": {
+        "684": true
+      },
+      "referencedTags": {
+        "777": true
+      },
+      "isLatest": true
+    },
+    "localizations": [
+      {
+        "cardId": "MAIN_001",
+        "lang": "zhs",
+        "name": "奥术构造体",
+        "text": "法术迸发：获得 +2 攻击力。",
+        "richText": "法术迸发：获得 +2 攻击力。",
+        "displayText": "法术迸发：获得 +2 攻击力。",
+        "flavorText": "为精准施法而造。",
+        "isLatest": true,
+        "renderModel": {
+          "cardId": "MAIN_001",
+          "lang": "zhs",
+          "type": "minion",
+          "cost": 3,
+          "classes": ["mage"],
+          "localization": {
+            "name": "奥术构造体",
+            "richText": "法术迸发：获得 +2 攻击力。"
+          },
+          "renderMechanics": {
+            "hide_cost": true
+          }
+        }
+      }
+    ],
+    "relations": [
+      {
+        "sourceId": "MAIN_001",
+        "relation": "hero_power",
+        "targetId": "HERO_POWER_001",
+        "version": [31001],
+        "isLatest": true
+      },
+      {
+        "sourceId": "MAIN_001",
+        "relation": "heroic_hero_power",
+        "targetId": "HERO_POWER_002",
+        "version": [31001],
+        "isLatest": true
+      },
+      {
+        "sourceId": "MAIN_001",
+        "relation": "triple_card",
+        "targetId": "TOKEN_001",
+        "version": [31001],
+        "isLatest": true
+      }
+    ]
+  }
+}

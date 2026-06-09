@@ -1,9 +1,13 @@
 /**
  * Game-level locale stored in a cookie, independent of i18n UI locale.
- * The cookie key and available options are configured via app.config.ts.
+ * Requires `gameId` to be configured in app.config.ts.
  */
 export const useGameLocale = () => {
   const appConfig = useAppConfig();
+
+  if (!appConfig.gameId) {
+    throw new Error('useGameLocale requires `gameId` in app.config.ts');
+  }
 
   const locales = appConfig.locales ?? ['en'];
   const cookieKey = `${appConfig.gameId}_locale`;

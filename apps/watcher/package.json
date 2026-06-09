@@ -14,10 +14,10 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250321.0",
-    "eslint": "^10.0.2",
+    "@cloudflare/workers-types": "^4.20260329.1",
+    "eslint": "^10.2.1",
     "eslint-config-custom": "workspace:*",
     "typescript": "^5.9.3",
-    "wrangler": "^4.71.0"
+    "wrangler": "^4.85.0"
   }
 }

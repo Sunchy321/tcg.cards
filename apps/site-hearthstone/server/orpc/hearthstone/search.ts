@@ -35,8 +35,7 @@ const basic = os
       lang,
       orderBy,
     });
-  })
-  .callable();
+  });
 
 export const searchTrpc = {
   basic,

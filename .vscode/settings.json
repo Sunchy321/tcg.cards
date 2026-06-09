@@ -1,4 +1,7 @@
 {
+    "rust-analyzer.linkedProjects": [
+        "apps/app-console-desktop/src-tauri/Cargo.toml"
+    ],
     "cSpell.words": [
         "alcarin",
         "beleren",
@@ -6,13 +9,17 @@
         "chromana",
         "cnocg",
         "consp",
+        "cwebp",
         "deburr",
         "emph",
         "gantt",
+        "hono",
         "hsdata",
         "iconify",
         "jaccard",
+        "jsquash",
         "kimi",
+        "libwebp",
         "linkify",
         "lsjson",
         "lucide",
@@ -25,13 +32,17 @@
         "punc",
         "tengwar",
         "unfinity",
+        "unprojected",
         "unreviewed",
+        "unsubscribers",
         "updations",
         "vercel",
+        "vite",
         "vnodes",
         "wotc",
         "wubrg",
-        "wubrgct"
+        "wubrgct",
+        "yugioh"
     ],
     "chat.tools.terminal.autoApprove": {
         "git add": true,

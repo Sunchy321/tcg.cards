@@ -1,51 +1,60 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { drizzle } from 'drizzle-orm/postgres-js';
 
 interface HyperdriveBinding {
   connectionString: string;
 }
 
-export function getConnectionString(): string {
-  const binding = (process.env.HYPERDRIVE
+function getHyperdrive(): HyperdriveBinding {
+  const binding = (process.env.HYPERDRIVE as unknown as HyperdriveBinding)
     ?? (globalThis as any).__env__?.HYPERDRIVE
-    ?? (globalThis as any).HYPERDRIVE) as unknown;
+    ?? (globalThis as any).HYPERDRIVE;
 
-  if (process.env.DATABASE_URL != null && process.env.DATABASE_URL.length > 0) {
-    return process.env.DATABASE_URL;
+  if (binding == null) {
+    throw new Error('[db] HYPERDRIVE binding not found');
   }
 
-  if (typeof binding === 'string' && binding.length > 0) {
-    return binding;
-  }
-
-  if (isHyperdriveBinding(binding)) {
-    return binding.connectionString;
-  }
-
-  throw new Error('[db] database connection not found');
-}
-
-function isHyperdriveBinding(value: unknown): value is HyperdriveBinding {
-  return typeof value === 'object'
-    && value != null
-    && 'connectionString' in value
-    && typeof value.connectionString === 'string';
+  return binding;
 }
 
 type Db = ReturnType<typeof drizzle>;
 
 let _db: Db | null = null;
+const dbContext = new AsyncLocalStorage<Db>();
 
-function createDb() {
-  if (process.env.NODE_ENV === 'development') {
-    _db ??= drizzle({ connection: getConnectionString() });
-    return _db;
-  } else {
-    return drizzle({ connection: getConnectionString() });
+export function getConnectionString(): string {
+  return getHyperdrive().connectionString;
+}
+
+export function createDb(connection: string): Db {
+  return drizzle({ connection });
+}
+
+export function runWithDb<T>(database: Db, handler: () => T): T {
+  return dbContext.run(database, handler);
+}
+
+function isDev() {
+  return process.env.NODE_ENV === 'development';
+}
+
+function getDb() {
+  const requestDb = dbContext.getStore();
+
+  if (requestDb) {
+    return requestDb;
   }
+
+  if (isDev()) {
+    _db ??= createDb(getHyperdrive().connectionString);
+    return _db;
+  }
+
+  return createDb(getHyperdrive().connectionString);
 }
 
 export const db: Db = new Proxy({} as Db, {
   get(_, prop: string | symbol) {
-    return createDb()[prop as keyof Db];
+    return getDb()[prop as keyof Db];
   },
 });

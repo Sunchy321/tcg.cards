@@ -9,7 +9,7 @@ import type { RuleDiff, RuleDiffItem, TextDiff } from '#model/magic/schema/rule'
 import { rule, ruleDiff, ruleHistory, ruleItem, ruleSummary } from '#model/magic/schema/rule';
 
 import { db } from '#db/db';
-import { Rule, RuleItem } from '#schema/magic/rule';
+import { Rule, RuleItem } from '#schema/shared/magic/rule';
 
 import { diffString, diffThreeString } from '#server/lib/diff';
 

@@ -15,6 +15,12 @@ The repository currently contains Nuxt applications for Magic: The Gathering, He
 
 Chinese version: [README.zh-CN.md](./README.zh-CN.md)
 
+## Architecture Boundaries
+
+Stable runtime boundaries, data ownership rules, and local/remote sync rules live in [docs/project-architecture.md](./docs/project-architecture.md).
+
+Other repository documents should either align with that document or defer to it when a requirement-specific design needs narrower local decisions.
+
 ## Tech Stack
 
 - [Bun](https://bun.sh/) as the package manager and runtime for workspace scripts
@@ -30,10 +36,10 @@ Chinese version: [README.zh-CN.md](./README.zh-CN.md)
 ```text
 apps/
   site-main/        Main tcg.cards site
-  site-magic/       Magic: The Gathering site
-  site-hearthstone/ Hearthstone site
-  site-console/     Internal console and data tooling
-  watcher/          Cloudflare Worker for scheduled automation
+  site-{game}/      Game-specific public site (for example `site-magic`, `site-hearthstone`)
+  site-console/     Lower-capability web management surface
+  service-internal/ Higher-capability remote management backend for app-shaped clients
+  watcher/          Scheduled operational Worker runtime
 
 packages/
   db/               Drizzle schemas, migrations, and database utilities
@@ -56,9 +62,9 @@ turbo/              Turborepo generators and templates
 | Workspace | Purpose | Default Dev Port |
 |-----------|---------|------------------|
 | `site-main` | Main public entry site | `3000` |
-| `site-magic` | Magic: The Gathering data site | `3001` |
-| `site-hearthstone` | Hearthstone data site | `3002` |
-| `site-console` | Internal console for data and admin workflows | `2999` |
+| `site-{game}` | Game-specific public sites. Current examples: `site-magic` (`3001`), `site-hearthstone` (`3002`) | per app |
+| `site-console` | Lower-capability web management surface | `2999` |
+| `service-internal` | Higher-capability remote management backend for app-shaped clients | `2998` |
 | `@tcg-cards/watcher` | Scheduled Cloudflare Worker | Wrangler default |
 
 ## Getting Started
@@ -84,6 +90,7 @@ Copy the example files for the workspaces you plan to run:
 cp apps/site-magic/.env.example apps/site-magic/.env
 cp apps/site-hearthstone/.env.example apps/site-hearthstone/.env
 cp apps/site-console/.env.example apps/site-console/.env
+cp apps/service-internal/.env.example apps/service-internal/.env
 cp apps/watcher/.dev.vars.example apps/watcher/.dev.vars
 cp packages/db/.env.example packages/db/.env
 ```
@@ -105,7 +112,7 @@ cd apps/site-magic
 bun run dev
 ```
 
-Use the same pattern for `site-main`, `site-hearthstone`, and `site-console`.
+Use the same pattern for `site-main`, `site-hearthstone`, `site-console`, and `service-internal`.
 
 ## Common Commands
 
@@ -134,6 +141,8 @@ bun run typecheck
 ## Database Workflow
 
 Database schema code lives in `packages/db`.
+
+For the stable meanings of `shared`, `local`, `remote`, `{game}`, `{game}_data`, and `{game}_app`, use [docs/project-architecture.md](./docs/project-architecture.md) as the source of truth.
 
 ```sh
 cd packages/db

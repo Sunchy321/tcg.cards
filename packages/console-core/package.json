@@ -1,0 +1,25 @@
+{
+  "name": "@tcg-cards/console-core",
+  "module": "src/index.ts",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "private": true,
+  "scripts": {
+    "build": "echo No build needed",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tcg-cards/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.13",
+    "eslint": "^10.2.1",
+    "eslint-config-custom": "workspace:*"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

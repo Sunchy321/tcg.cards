@@ -1,0 +1,407 @@
+<template>
+  <div class="h-full space-y-4 overflow-y-auto p-4">
+    <div class="rounded-xl border border-slate-200 bg-white p-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="flex items-center gap-2">
+            <UIcon name="i-lucide-folder-open" class="size-5 text-primary-500" />
+            <h1 class="text-xl font-semibold">Set 管理</h1>
+          </div>
+          <p class="mt-1 text-sm text-slate-500">查询和编辑 hearthstone.sets 与 hearthstone.set_localizations。</p>
+        </div>
+        <UButton label="刷新" icon="i-lucide-refresh-cw" color="neutral" variant="ghost" :loading="loading" @click="loadSets()" />
+      </div>
+    </div>
+
+    <div class="grid gap-4 xl:grid-cols-[minmax(0,460px)_1fr]">
+      <div class="space-y-4">
+        <div class="rounded-xl border border-slate-200 bg-white p-4">
+          <div class="mb-3 font-medium text-slate-700">筛选</div>
+          <div class="space-y-3">
+            <UInput v-model="filters.q" icon="i-lucide-search" placeholder="搜索 setId / dbfId / slug / rawName" class="w-full" @keyup.enter="searchSets" />
+            <div class="grid gap-3 md:grid-cols-2">
+              <UInput v-model="filters.type" placeholder="按 type 筛选" class="w-full" @keyup.enter="searchSets" />
+              <UInput v-model="filters.group" placeholder="按 group 筛选" class="w-full" @keyup.enter="searchSets" />
+            </div>
+            <div class="flex justify-end gap-2">
+              <UButton label="清空" color="neutral" variant="ghost" @click="resetFilters" />
+              <UButton label="查询" icon="i-lucide-search" :loading="loading" @click="searchSets" />
+            </div>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-slate-200 bg-white">
+          <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+            <div>
+              <div class="font-medium text-slate-700">Set 列表</div>
+              <p class="text-xs text-slate-400">共 {{ total }} 条，第 {{ page }} / {{ totalPages }} 页</p>
+            </div>
+            <UBadge :label="`${items.length} 条`" color="neutral" variant="soft" />
+          </div>
+
+          <div v-if="loading && items.length === 0" class="flex justify-center py-10">
+            <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-slate-400" />
+          </div>
+          <div v-else-if="items.length === 0" class="py-10 text-center text-sm text-slate-400">没有匹配的 Set</div>
+          <div v-else class="max-h-[36rem] space-y-2 overflow-y-auto p-2">
+            <button
+              v-for="item in items"
+              :key="item.setId"
+              type="button"
+              class="w-full rounded-lg border p-3 text-left transition"
+              :class="selectedSetId === item.setId ? 'border-primary-400 bg-primary-50' : 'border-slate-200 hover:border-primary-200 hover:bg-slate-50'"
+              @click="selectSet(item.setId)"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="truncate font-medium">{{ item.setId }}</span>
+                    <span v-if="item.dbfId != null" class="font-mono text-xs text-slate-400">#{{ item.dbfId }}</span>
+                  </div>
+                  <div class="mt-1 truncate text-xs text-slate-400">{{ preferredName(item) }}</div>
+                </div>
+                <UBadge :label="item.type" color="primary" variant="soft" size="xs" />
+              </div>
+              <div class="mt-2 flex flex-wrap gap-1">
+                <UBadge v-if="item.slug" :label="item.slug" color="neutral" variant="soft" size="xs" />
+                <UBadge v-if="item.rawName" :label="item.rawName" color="neutral" variant="soft" size="xs" />
+                <UBadge v-if="item.group" :label="item.group" color="warning" variant="soft" size="xs" />
+              </div>
+              <div class="mt-2 text-xs text-slate-400">{{ item.releaseDate || '无发售日期' }}</div>
+            </button>
+          </div>
+
+          <div class="flex items-center justify-between border-t border-slate-200 px-4 py-3">
+            <UButton label="上一页" icon="i-lucide-chevron-left" color="neutral" variant="soft" :disabled="page <= 1 || loading" @click="goPage(page - 1)" />
+            <span class="text-xs text-slate-400">{{ page }} / {{ totalPages }}</span>
+            <UButton label="下一页" trailing-icon="i-lucide-chevron-right" color="neutral" variant="soft" :disabled="page >= totalPages || loading" @click="goPage(page + 1)" />
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-xl border border-slate-200 bg-white">
+        <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+          <div>
+            <div class="font-medium text-slate-700">编辑配置</div>
+            <p class="mt-1 text-xs text-slate-400">修改 setId 会同步更新相关引用数据，localization 保存时整组覆盖。</p>
+          </div>
+          <div class="flex gap-2">
+            <UButton
+              label="重新加载"
+              icon="i-lucide-rotate-ccw"
+              color="neutral"
+              variant="ghost"
+              :disabled="selectedSetId == null || detailLoading"
+              :loading="detailLoading"
+              @click="selectedSetId != null && selectSet(selectedSetId)"
+            />
+            <UButton label="保存" icon="i-lucide-save" :loading="saving" :disabled="!canSave" @click="saveSet" />
+          </div>
+        </div>
+
+        <div v-if="form.setId.length === 0" class="py-24 text-center text-sm text-slate-400">请先从左侧选择一个 Set</div>
+        <div v-else class="space-y-5 p-4">
+          <UAlert v-if="formError" color="error" variant="soft" icon="i-lucide-circle-alert" :description="formError" />
+          <div class="grid gap-3 md:grid-cols-2">
+            <div class="space-y-1">
+              <div class="text-xs text-slate-400">setId</div>
+              <UInput v-model="form.setId" class="w-full font-mono" />
+            </div>
+            <div class="space-y-1">
+              <div class="text-xs text-slate-400">dbfId</div>
+              <UInput v-model="form.dbfId" placeholder="整数，可留空" class="w-full font-mono" />
+            </div>
+          </div>
+          <div class="grid gap-3 md:grid-cols-2">
+            <div class="space-y-1">
+              <div class="text-xs text-slate-400">slug</div>
+              <UInput v-model="form.slug" placeholder="set slug，可留空" class="w-full" />
+            </div>
+            <div class="space-y-1">
+              <div class="text-xs text-slate-400">rawName</div>
+              <UInput v-model="form.rawName" placeholder="来源原始名称" class="w-full" />
+            </div>
+          </div>
+          <div class="grid gap-3 md:grid-cols-2">
+            <div class="space-y-1">
+              <div class="text-xs text-slate-400">type</div>
+              <UInput v-model="form.type" placeholder="例如 expansion / mini_set" class="w-full" />
+            </div>
+            <div class="space-y-1">
+              <div class="text-xs text-slate-400">releaseDate</div>
+              <UInput v-model="form.releaseDate" type="date" class="w-full" />
+            </div>
+          </div>
+          <div class="grid gap-3 md:grid-cols-3">
+            <div class="space-y-1">
+              <div class="text-xs text-slate-400">cardCountFull</div>
+              <UInput v-model="form.cardCountFull" placeholder="整数，可留空" class="w-full font-mono" />
+            </div>
+            <div class="space-y-1">
+              <div class="text-xs text-slate-400">cardCount</div>
+              <UInput v-model="form.cardCount" placeholder="整数，可留空" class="w-full font-mono" />
+            </div>
+            <div class="space-y-1">
+              <div class="text-xs text-slate-400">group</div>
+              <UInput v-model="form.group" placeholder="group，可留空" class="w-full" />
+            </div>
+          </div>
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="font-medium text-slate-700">Localization</div>
+                <p class="text-xs text-slate-400">建议至少维护 `zhs` 与 `en`。</p>
+              </div>
+              <UButton label="添加语言" icon="i-lucide-plus" size="sm" variant="ghost" @click="addLocalization" />
+            </div>
+            <div class="space-y-3">
+              <div v-for="item in form.localization" :key="item.key" class="grid gap-3 rounded-lg border border-slate-200 p-3 md:grid-cols-[120px_minmax(0,1fr)_auto]">
+                <UInput v-model="item.lang" placeholder="lang" class="w-full font-mono" />
+                <UInput v-model="item.name" placeholder="本地化名称" class="w-full" />
+                <UButton icon="i-lucide-trash-2" color="error" variant="ghost" @click="removeLocalization(item.key)" />
+              </div>
+              <div v-if="form.localization.length === 0" class="rounded-lg border border-dashed border-slate-200 py-6 text-center text-sm text-slate-400">
+                还没有 localization，点击“添加语言”开始维护。
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+
+definePageMeta({
+  layout: 'admin',
+  title:  'Set 管理',
+});
+import { useConsolePlatform } from '@tcg-cards/console-platform';
+import { computed, onMounted, reactive, ref } from 'vue';
+
+import type { SetLocalization, SetProfile } from '@tcg-cards/model/src/hearthstone/schema/set';
+
+const platform = useConsolePlatform();
+const orpc: any = platform.api.createClient();
+
+/** Editable localization row used by the set form. */
+interface LocalizationFormItem {
+  key: string;
+  lang: string;
+  name: string;
+}
+
+const filters = reactive({ q: '', type: '', group: '' });
+const loading = ref(false);
+const detailLoading = ref(false);
+const saving = ref(false);
+const formError = ref('');
+const items = ref<SetProfile[]>([]);
+const total = ref(0);
+const page = ref(1);
+const limit = ref(50);
+const selectedSetId = ref<string | null>(null);
+const nextLocKey = ref(0);
+
+const form = reactive({
+  originalSetId: '',
+  setId: '',
+  dbfId: '',
+  slug: '',
+  rawName: '',
+  type: '',
+  releaseDate: '',
+  cardCountFull: '',
+  cardCount: '',
+  group: '',
+  localization: [] as LocalizationFormItem[],
+});
+
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / limit.value)));
+const canSave = computed(() => {
+  return form.originalSetId.length > 0
+    && form.setId.trim().length > 0
+    && form.type.trim().length > 0
+    && !saving.value
+    && !detailLoading.value;
+});
+
+/** Toast shown through the shared console platform. */
+function showToast(input: { title: string; description?: string; color?: 'error' | 'success' }) {
+  platform.toast.show(input);
+}
+
+/** Localization form rows created for the editable set profile. */
+function createLocRow(item?: Partial<SetLocalization>): LocalizationFormItem {
+  nextLocKey.value += 1;
+  return { key: `loc-${nextLocKey.value}`, lang: item?.lang ?? '', name: item?.name ?? '' };
+}
+
+/** Preferred display name derived from the available localizations. */
+function preferredName(item: SetProfile) {
+  const zh = item.localization.find(loc => loc.lang === 'zhs');
+  if (zh) return zh.name;
+  const en = item.localization.find(loc => loc.lang === 'en');
+  if (en) return en.name;
+  return item.localization[0]?.name ?? item.rawName ?? item.slug ?? '未命名';
+}
+
+/** Selected set profile copied into the editable form. */
+function applyProfile(item: SetProfile) {
+  form.originalSetId = item.setId;
+  form.setId = item.setId;
+  form.dbfId = item.dbfId == null ? '' : String(item.dbfId);
+  form.slug = item.slug ?? '';
+  form.rawName = item.rawName ?? '';
+  form.type = item.type;
+  form.releaseDate = item.releaseDate;
+  form.cardCountFull = item.cardCountFull == null ? '' : String(item.cardCountFull);
+  form.cardCount = item.cardCount == null ? '' : String(item.cardCount);
+  form.group = item.group ?? '';
+  form.localization = item.localization.map(loc => createLocRow(loc));
+  formError.value = '';
+}
+
+/** Editable form reset when no set is selected. */
+function resetForm() {
+  form.originalSetId = '';
+  form.setId = '';
+  form.dbfId = '';
+  form.slug = '';
+  form.rawName = '';
+  form.type = '';
+  form.releaseDate = '';
+  form.cardCountFull = '';
+  form.cardCount = '';
+  form.group = '';
+  form.localization = [];
+  formError.value = '';
+}
+
+/** Optional integer inputs parsed from the form fields. */
+function parseOptionalInt(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const parsed = Number(trimmed);
+  if (!Number.isInteger(parsed)) {
+    throw new Error(`无效整数: ${value}`);
+  }
+  return parsed;
+}
+
+/** Persisted localization rows normalized from the form. */
+function normalizeLocalizations() {
+  return form.localization
+    .map(item => ({ lang: item.lang.trim(), name: item.name.trim() }))
+    .filter(item => item.lang.length > 0 && item.name.length > 0);
+}
+
+/** Set list loaded for the current filter and page. */
+async function loadSets() {
+  loading.value = true;
+  try {
+    const result = await orpc.hearthstone.set.list({
+      q: filters.q.trim() || undefined,
+      type: filters.type.trim() || undefined,
+      group: filters.group.trim() || undefined,
+      page: page.value,
+      limit: limit.value,
+    });
+    items.value = result.items;
+    total.value = result.total;
+  } catch (error) {
+    showToast({ title: '加载失败', description: error instanceof Error ? error.message : String(error), color: 'error' });
+  } finally {
+    loading.value = false;
+  }
+}
+
+/** Filter submission reset to the first list page. */
+function searchSets() {
+  page.value = 1;
+  void loadSets();
+}
+
+/** All list filters cleared before reloading. */
+function resetFilters() {
+  filters.q = '';
+  filters.type = '';
+  filters.group = '';
+  page.value = 1;
+  void loadSets();
+}
+
+/** List page changed when the requested page is valid. */
+function goPage(nextPage: number) {
+  if (nextPage < 1 || nextPage > totalPages.value || nextPage === page.value) return;
+  page.value = nextPage;
+  void loadSets();
+}
+
+/** One set detail loaded into the editor panel. */
+async function selectSet(setId: string) {
+  selectedSetId.value = setId;
+  detailLoading.value = true;
+  try {
+    const item = await orpc.hearthstone.set.get({ setId });
+    applyProfile(item);
+  } catch (error) {
+    showToast({ title: '加载详情失败', description: error instanceof Error ? error.message : String(error), color: 'error' });
+  } finally {
+    detailLoading.value = false;
+  }
+}
+
+/** Empty localization row appended to the form. */
+function addLocalization() {
+  form.localization.push(createLocRow());
+}
+
+/** One localization row removed from the form. */
+function removeLocalization(key: string) {
+  form.localization = form.localization.filter(item => item.key !== key);
+}
+
+/** Edited set profile persisted through the console API. */
+async function saveSet() {
+  if (!form.originalSetId.trim() || !form.setId.trim()) return;
+  if (!form.type.trim()) {
+    formError.value = 'type 不能为空';
+    return;
+  }
+
+  saving.value = true;
+  formError.value = '';
+  try {
+    const result = await orpc.hearthstone.set.update({
+      originalSetId: form.originalSetId,
+      setId: form.setId.trim(),
+      dbfId: parseOptionalInt(form.dbfId),
+      slug: form.slug.trim() || null,
+      rawName: form.rawName.trim() || null,
+      type: form.type.trim(),
+      releaseDate: form.releaseDate,
+      cardCountFull: parseOptionalInt(form.cardCountFull),
+      cardCount: parseOptionalInt(form.cardCount),
+      group: form.group.trim() || null,
+      localization: normalizeLocalizations(),
+    });
+    showToast({ title: '保存成功', color: 'success' });
+    await loadSets();
+    selectedSetId.value = result.setId;
+    await selectSet(result.setId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    formError.value = message;
+    showToast({ title: '保存失败', description: message, color: 'error' });
+  } finally {
+    saving.value = false;
+  }
+}
+
+onMounted(() => {
+  void loadSets();
+});
+</script>

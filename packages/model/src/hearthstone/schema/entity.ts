@@ -64,6 +64,52 @@ export type Faction = z.infer<typeof faction>;
 export type TextBuilderType = z.infer<typeof textBuilderType>;
 export type ChangeType = z.infer<typeof changeType>;
 
+export const mechanicValue = z.union([z.boolean(), z.int()]);
+export const mechanicMap = z.record(z.string(), mechanicValue);
+export const referencedTagMap = z.record(z.string(), mechanicValue);
+export const renderMechanic = z.enum([
+    'tradable',
+    'forge',
+    'hide_cost',
+    'hide_attack',
+    'hide_health',
+    'in_mini_set',
+    'hide_watermark',
+]);
+export const renderMechanicMap = z.partialRecord(renderMechanic, mechanicValue);
+
+export const renderModel = z.strictObject({
+    cardId: z.string(),
+    lang:   locale,
+
+    variant:         z.string(),
+    templateVersion: z.string(),
+    assetVersion:    z.string(),
+
+    localization: z.strictObject({
+        name:     z.string(),
+        richText: z.string(),
+    }),
+
+    type:              types,
+    cost:              z.int(),
+    attack:            z.int().nullable(),
+    health:            z.int().nullable(),
+    durability:        z.int().nullable(),
+    armor:             z.int().nullable(),
+    classes:           z.array(classes),
+    race:              z.array(race).nullable(),
+    spellSchool:       spellSchool.nullable(),
+    mercenaryFaction:  mercenaryFaction.nullable(),
+    set:               z.string(),
+    overrideWatermark: z.string().nullable(),
+    rarity:            rarity.nullable(),
+    elite:             z.boolean(),
+    techLevel:         z.int().nullable(),
+    rune:              rune.array().nullable(),
+    renderMechanics:   renderMechanicMap,
+});
+
 export const entityLocalization = z.strictObject({
     lang: locale,
 
@@ -84,8 +130,8 @@ export const entity = z.strictObject({
     cardId:  z.string(),
     version: z.number().array().nonempty(),
 
-    dbfId: z.int(),
-    slug:  z.string().nullable(),
+    dbfId:         z.int(),
+    legacyPayload: z.record(z.string(), z.unknown()),
 
     localization: entityLocalization.array(),
 
@@ -104,13 +150,11 @@ export const entity = z.strictObject({
     questProgress:   z.int().nullable(),
     questPart:       z.int().nullable(),
     heroPower:       z.string().nullable(),
-    heroicHeroPower: z.string().nullable(),
 
     techLevel:    z.int().nullable(),
     inBobsTavern: z.boolean(),
     tripleCard:   z.string().nullable(),
     raceBucket:   race.nullable(),
-    coin:         z.int().nullable(),
     armorBucket:  z.int().nullable(),
     buddy:        z.string().nullable(),
     bannedRace:   z.string().nullable(),
@@ -123,18 +167,13 @@ export const entity = z.strictObject({
     elite:       z.boolean(),
     rarity:      rarity.nullable(),
 
-    artist: z.string(),
+    artist:            z.string(),
+    overrideWatermark: z.string().nullable(),
 
     faction: faction.nullable(),
 
-    mechanics:      z.array(z.string()),
-    referencedTags: z.array(z.string()),
-    entourages:     z.array(z.string()).nullable(),
-
-    deckOrder:         z.int().nullable(),
-    overrideWatermark: z.string().nullable(),
-    deckSize:          z.int().nullable(),
-    localizationNotes: z.string().nullable(),
+    mechanics:      mechanicMap,
+    referencedTags: referencedTagMap,
 
     textBuilderType,
 
@@ -161,6 +200,10 @@ export const entityView = entity.extend({
 });
 
 export const cardEntityView = entityView.extend({
+    revisionHash:     z.string(),
+    localizationHash: z.string(),
+    renderHash:       z.string().nullable(),
+
     legalities: card.shape.legalities,
 });
 
@@ -184,3 +227,7 @@ export type Power = z.infer<typeof power>;
 export type EntityView = z.infer<typeof entityView>;
 export type CardEntityView = z.infer<typeof cardEntityView>;
 export type CardFullView = z.infer<typeof cardFullView>;
+export type ReferencedTagMap = z.infer<typeof referencedTagMap>;
+export type RenderMechanic = z.infer<typeof renderMechanic>;
+export type RenderMechanicMap = z.infer<typeof renderMechanicMap>;
+export type RenderModel = z.infer<typeof renderModel>;

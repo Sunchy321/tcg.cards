@@ -1,0 +1,49 @@
+{
+  "name": "tcg-cards-console-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev --port 1420",
+    "build": "nuxt generate",
+    "preview": "nuxt preview --port 1420",
+    "postinstall": "nuxt prepare",
+    "lint": "eslint .",
+    "tauri": "tauri",
+    "db:pull": "bun --env-file=../../packages/db/.env.local-dev scripts/generate-seaorm-entities.ts"
+  },
+  "dependencies": {
+    "@iconify-json/lucide": "^1.2.104",
+    "@iconify/utils": "^3.1.0",
+    "@iconify/vue": "^5.0.0",
+    "@nuxt/icon": "^2.2.1",
+    "@nuxt/ui": "4.5.1",
+    "@orpc/client": "^1.14.0",
+    "@orpc/server": "^1.14.0",
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-opener": "^2",
+    "@tcg-cards/auth": "workspace:*",
+    "@tcg-cards/console-api": "workspace:*",
+    "@tcg-cards/console-core": "workspace:*",
+    "@tcg-cards/console-platform": "workspace:*",
+    "@tcg-cards/console-shell": "workspace:*",
+    "@tcg-cards/model": "workspace:*",
+    "@tcg-cards/shared": "workspace:*",
+    "@tcg-cards/ui": "workspace:*",
+    "better-auth": "^1.5.5",
+    "monaco-editor": "^0.55.1",
+    "nuxt": "4.3.1",
+    "service-desktop-runtime": "workspace:*",
+    "vue": "^3.5.29",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@nuxt/eslint": "^1.15.2",
+    "@tauri-apps/cli": "^2",
+    "eslint": "^10.2.1",
+    "eslint-config-custom": "workspace:*",
+    "tailwindcss": "^4.2.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.59.0"
+  }
+}

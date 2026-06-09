@@ -11,10 +11,10 @@ import { ruleItem } from '#model/magic/schema/rule';
 import type { EvidenceItem } from '#model/magic/schema/agent';
 
 import { db } from '#db/db';
-import { Card, CardView } from '#schema/magic/card';
-import { Ruling } from '#schema/magic/ruling';
-import { CardRelation } from '#schema/magic/card-relation';
-import { Rule, RuleItem } from '#schema/magic/rule';
+import { Card, CardView } from '#schema/shared/magic/card';
+import { Ruling } from '#schema/shared/magic/ruling';
+import { CardRelation } from '#schema/shared/magic/card-relation';
+import { Rule, RuleItem } from '#schema/shared/magic/rule';
 
 import { search } from '~~/server/search';
 

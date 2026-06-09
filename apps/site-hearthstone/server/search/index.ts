@@ -5,7 +5,7 @@ import { model } from '#model/hearthstone/search';
 import * as commands from './command-list';
 import * as actions from './action';
 
-import { CardEntityView } from '#schema/hearthstone/entity';
+import { CardEntityView } from '#schema/shared/hearthstone/entity';
 
 export const search = ss
   .from(model)

@@ -1,0 +1,28 @@
+name = "internal-tcg-cards"
+main = "src/index.ts"
+compatibility_date = "2026-02-19"
+compatibility_flags = ["nodejs_compat"]
+
+workers_dev = false
+
+[[routes]]
+pattern = "internal.tcg.cards"
+custom_domain = true
+
+[observability]
+enabled = true
+
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "34ff130776904528bff88fe51caea444"
+
+[[r2_buckets]]
+binding = "R2_DATA"
+bucket_name = "data"
+
+[[r2_buckets]]
+binding = "R2_ASSET"
+bucket_name = "asset"
+
+[vars]
+R2_ASSET_BUCKET = "asset"

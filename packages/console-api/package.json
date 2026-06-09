@@ -1,0 +1,34 @@
+{
+  "name": "@tcg-cards/console-api",
+  "module": "src/index.ts",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./request-meta": "./src/request-meta.ts",
+    "./lib/*": "./src/lib/*.ts"
+  },
+  "private": true,
+  "scripts": {
+    "build": "echo No build needed",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cloudflare/workers-types": "^4.20260329.1",
+    "@orpc/server": "^1.14.0",
+    "@tcg-cards/auth": "workspace:*",
+    "@tcg-cards/db": "workspace:*",
+    "@tcg-cards/model": "workspace:*",
+    "drizzle-orm": "^1.0.0-beta.22",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.13",
+    "eslint": "^10.2.1",
+    "eslint-config-custom": "workspace:*"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

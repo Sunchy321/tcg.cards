@@ -7,8 +7,8 @@ import { format as formatSchema } from '#model/magic/schema/format';
 import { formatChange as formatChangeSchema } from '#model/magic/schema/game-change';
 
 import { db } from '#db/db';
-import { Format } from '#schema/magic/format';
-import { FormatChange } from '#schema/magic/game-change';
+import { Format } from '#schema/shared/magic/format';
+import { FormatChange } from '#schema/shared/magic/game-change';
 
 const list = os
   .route({

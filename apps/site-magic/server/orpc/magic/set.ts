@@ -10,8 +10,8 @@ import * as cheerio from 'cheerio';
 import { set, setProfile } from '#model/magic/schema/set';
 
 import { db } from '#db/db';
-import { Booster, Pack, PackContent, Set, SetLocalization, Sheet, SheetCard } from '#schema/magic/set';
-import { Print } from '#schema/magic/print';
+import { Booster, Pack, PackContent, Set, SetLocalization, Sheet, SheetCard } from '#schema/shared/magic/set';
+import { Print } from '#schema/shared/magic/print';
 
 const list = os
   .route({

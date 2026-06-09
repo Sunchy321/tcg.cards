@@ -4,10 +4,11 @@ export function vector() {
   return customType<{
     data:       number[];
     driverData: string;
-    config:     { dimensions: number };
+    config:     { dimensions?: number };
   }>({
     dataType(config) {
-      return `vector(${config.dimensions})`;
+      const dimensions = config?.dimensions ?? 1024;
+      return `vector(${dimensions})`;
     },
 
     toDriver(value: number[]): string {
