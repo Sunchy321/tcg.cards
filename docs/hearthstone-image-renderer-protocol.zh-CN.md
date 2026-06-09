@@ -1,5 +1,7 @@
 # 炉石图片渲染器协议
 
+**协议版本：1**
+
 ## 目的
 
 本文档定义一个炉石卡图渲染器的对外 HTTP 契约。
@@ -100,6 +102,224 @@
 
 本规范定义的接口只接收单个渲染请求对象，不接收批量 wrapper 文档。
 
+## Post Body 结构
+
+`POST /render` 请求体是一个 JSON 对象，遵循共享上游模型中定义的 `ImageRequirementRequest` schema。
+
+### 必填与可选字段
+
+渲染器只依赖请求体的一个子集：
+
+- **渲染必需**：`variant`、`output.width`、`output.height`、`renderModel`，以及一个卡牌标识（`card.cardId` 或 `renderModel.cardId`）。
+- **可选 / 渲染器不消费**：`requestId`、`card`（除 `cardId` 外）、`style`、`target`、`output.fileName`、`output.format`、`output.transparentBackground`。
+
+渲染器不消费的字段随请求携带，供调用方追踪和导出/导入流程使用。
+
+### 示例
+
+```json
+{
+  "requestId": "req_abc123",
+  "card": {
+    "cardId": "ABC_123",
+    "lang": "zhs",
+    "version": [35, 4, 0],
+    "revisionHash": "abc123def456",
+    "localizationHash": "loc_hash_001",
+    "renderHash": "render_hash_001"
+  },
+  "variant": {
+    "zone": "play",
+    "template": "normal",
+    "premium": "normal"
+  },
+  "style": {
+    "styleKey": "play_normal_normal_default",
+    "zone": "play",
+    "template": "normal",
+    "premium": "normal",
+    "layout": "default",
+    "width": 512,
+    "height": 768,
+    "transparentBackground": false
+  },
+  "output": {
+    "fileName": "ABC_123_play_normal_normal.png",
+    "format": "png",
+    "width": 512,
+    "height": 768,
+    "transparentBackground": false
+  },
+  "target": {
+    "r2Bucket": "hearthstone-card-images",
+    "r2Key": "v1/play/normal/normal/ab/abc123def456.webp",
+    "contentType": "image/webp"
+  },
+  "renderModel": {
+    "cardId": "ABC_123",
+    "lang": "zhs",
+    "variant": "normal",
+    "templateVersion": "35.4.0",
+    "assetVersion": "35.4.0",
+    "localization": {
+      "name": "炎魔之王拉格纳罗斯",
+      "richText": "<b>战吼：</b>造成8点伤害。"
+    },
+    "type": "minion",
+    "cost": 8,
+    "attack": 8,
+    "health": 8,
+    "durability": null,
+    "armor": null,
+    "classes": ["neutral"],
+    "race": ["elemental"],
+    "spellSchool": null,
+    "mercenaryFaction": null,
+    "set": 3,
+    "overrideWatermark": null,
+    "rarity": "legendary",
+    "elite": false,
+    "techLevel": null,
+    "rune": null,
+    "renderMechanics": {}
+  }
+}
+```
+
+### 字段参考
+
+#### `requestId`
+
+- **类型**：`string`
+- **必填**：否
+
+调用方追踪标识。渲染器不消费。
+
+#### `card`
+
+- **类型**：`object`
+- **必填**：否，但 `card.cardId` 是两种卡牌标识来源之一。
+
+| 字段 | 类型 | 说明 |
+|-------|------|-------------|
+| `cardId` | `string` | 卡牌标识 |
+| `lang` | `string` | 语言代码（如 `zhs`、`enus`） |
+| `version` | `number[]` | 游戏版本，格式为 `[major, minor, patch]` |
+| `revisionHash` | `string` | 内容修订哈希 |
+| `localizationHash` | `string` | 本地化内容哈希 |
+| `renderHash` | `string` | 渲染身份哈希 |
+
+#### `variant`
+
+- **类型**：`object`
+- **必填**：是
+
+| 字段 | 类型 | 可选值 | 说明 |
+|-------|------|--------|-------------|
+| `zone` | `string` | `"hand"`、`"play"` | 卡牌显示区域 |
+| `template` | `string` | `"normal"`、`"battlegrounds"` | 卡牌模板 |
+| `premium` | `string` | `"normal"`、`"golden"`、`"diamond"`、`"signature"` | 卡牌品质 |
+
+#### `style`
+
+- **类型**：`object`
+- **必填**：否
+
+导出/导入流程使用的渲染样式声明。渲染器不消费。
+
+| 字段 | 类型 | 说明 |
+|-------|------|-------------|
+| `styleKey` | `string` | 样式标识 |
+| `zone` | `string` | 同 `variant.zone` |
+| `template` | `string` | 同 `variant.template` |
+| `premium` | `string` | 同 `variant.premium` |
+| `layout` | `string` | 布局标识 |
+| `width` | `number` | 样式宽度（像素） |
+| `height` | `number` | 样式高度（像素） |
+| `transparentBackground` | `boolean` | 是否请求透明背景 |
+
+#### `output`
+
+- **类型**：`object`
+- **必填**：是（至少需要 `width` 和 `height`）
+
+| 字段 | 类型 | 说明 |
+|-------|------|-------------|
+| `fileName` | `string` | 输出 PNG 文件名。渲染器不消费。 |
+| `format` | `"png"` | 输出格式，固定为 `"png"`。 |
+| `width` | `number`（正整数） | 输出图片宽度（像素） |
+| `height` | `number`（正整数） | 输出图片高度（像素） |
+| `transparentBackground` | `boolean` | 输出是否使用透明背景。渲染器不消费。 |
+
+#### `target`
+
+- **类型**：`object`
+- **必填**：否
+
+导入流程使用的存储目标元数据。渲染器不消费。
+
+| 字段 | 类型 | 说明 |
+|-------|------|-------------|
+| `r2Bucket` | `string` | 目标 R2 bucket 名称 |
+| `r2Key` | `string` | 目标 R2 对象 key |
+| `contentType` | `"image/webp"` | 目标内容类型，固定为 `"image/webp"`。 |
+
+#### `renderModel`
+
+- **类型**：`object`
+- **必填**：是
+
+包含卡图渲染所需全部卡牌数据的 canonical render-model 载荷。这是渲染器驱动渲染的主要输入。
+
+| 字段 | 类型 | 说明 |
+|-------|------|-------------|
+| `cardId` | `string` | 卡牌标识 |
+| `lang` | `string` | 语言代码 |
+| `variant` | `string` | 卡牌变体标识 |
+| `templateVersion` | `string` | 模板版本 |
+| `assetVersion` | `string` | 资源版本 |
+| `localization` | `object` | 本地化文本载荷 |
+| `localization.name` | `string` | 卡牌名称 |
+| `localization.richText` | `string` | 带标记的卡牌描述文本 |
+| `type` | `string` | 卡牌类型（如 `minion`、`spell`、`weapon`） |
+| `cost` | `number` | 法力值消耗 |
+| `attack` | `number \| null` | 攻击力 |
+| `health` | `number \| null` | 生命值 |
+| `durability` | `number \| null` | 耐久度（武器） |
+| `armor` | `number \| null` | 护甲值 |
+| `classes` | `string[]` | 职业归属 |
+| `race` | `string[] \| null` | 随从种族 |
+| `spellSchool` | `string \| null` | 法术派系 |
+| `mercenaryFaction` | `string \| null` | 佣兵阵营 |
+| `set` | `number` | 卡牌系列标识 |
+| `overrideWatermark` | `string \| null` | 覆盖水印 |
+| `rarity` | `string \| null` | 稀有度（如 `legendary`、`epic`） |
+| `elite` | `boolean` | 精英标识 |
+| `techLevel` | `number \| null` | 酒馆战棋科技等级 |
+| `rune` | `string[] \| null` | 死亡骑士符文组合（`blood`、`frost`、`unholy`） |
+| `renderMechanics` | `object` | 渲染机制标识。完整 key 列表见下方 `renderMechanics` 小节。 |
+
+#### `renderMechanics`
+
+一个 partial-record 对象，将机制 slug 映射到对应值。只有适用于该卡牌的机制才会出现，每个 key 均为可选。
+
+值类型：`boolean | integer`
+
+一个 partial-record 对象，将机制 slug 映射到对应值。只有适用于该卡牌的机制才会出现，每个 key 均为可选。
+
+值类型：`boolean | integer`
+
+| Slug | Enum ID | 说明 |
+|------|---------|------|
+| `hide-health` | 682 | 在渲染卡面上隐藏生命值 |
+| `hide-attack` | 683 | 在渲染卡面上隐藏攻击力 |
+| `hide-cost` | 684 | 在渲染卡面上隐藏法力值消耗 |
+| `hide-watermark` | 1107 | 在渲染卡面上隐藏职业水印 |
+| `tradeable` | 1720 | 卡牌具有可交易机制 |
+| `in-mini-set` | 1824 | 卡牌属于迷你系列 |
+| `forge` | 2785 | 卡牌具有锻造机制 |
+| `timewarped` | 4503 | 卡牌具有酒馆战棋时空扭曲机制 |
+
 ## 功能约束
 
 渲染器必须满足以下行为约束：
@@ -157,4 +377,4 @@
 
 ## 实现参考
 
-- 共享上游模型：`packages/model/src/hearthstone/schema/data/image.ts`
+- 共享上游模型：[`packages/model/src/hearthstone/schema/data/image.ts`](../packages/model/src/hearthstone/schema/data/image.ts)

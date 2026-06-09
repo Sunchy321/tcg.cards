@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 import type { R2Bucket } from '@cloudflare/workers-types';
 
-import { HAS_DIAMOND, HAS_SIGNATURE, PREMIUM } from '@tcg-cards/model/src/hearthstone/constant/tag';
+import { TAG_ID } from '@tcg-cards/model/src/hearthstone/constant/tag';
 import type { ImageRequirementFile } from '@tcg-cards/model/src/hearthstone/schema/data/image';
 import type { RenderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
 import type { ImageCandidateRow } from './card-image';
@@ -106,9 +106,9 @@ const {
 } = await import('./card-image');
 
 const mechanicIds = {
-  diamond:   String(HAS_DIAMOND),
-  signature: String(HAS_SIGNATURE),
-  premium:   String(PREMIUM),
+  diamond:   String(TAG_ID.HAS_DIAMOND),
+  signature: String(TAG_ID.HAS_SIGNATURE),
+  premium:   String(TAG_ID.PREMIUM),
 } as const;
 
 const renderModel: RenderModel = {
@@ -446,7 +446,7 @@ describe('card image helpers', () => {
         type:      'spell',
         set:       'CORE',
         techLevel: null,
-        mechanics: { [HAS_DIAMOND]: true },
+        mechanics: { [TAG_ID.HAS_DIAMOND]: true },
 
       }, variant, mechanicIds))
       .map(variant => `${variant.zone}.${variant.template}.${variant.premium}`);
@@ -463,8 +463,8 @@ describe('card image helpers', () => {
         set:       'bgs',
         techLevel: 5,
         mechanics: {
-          [HAS_DIAMOND]:   true,
-          [HAS_SIGNATURE]: true,
+          [TAG_ID.HAS_DIAMOND]:   true,
+          [TAG_ID.HAS_SIGNATURE]: true,
         },
 
       }, variant, mechanicIds))

@@ -5,6 +5,7 @@ import { pipeline } from 'node:stream/promises';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '@tcg-cards/db/db';
+import { RENDER_MECHANIC_SLUGS } from '@tcg-cards/model/src/hearthstone/constant/tag';
 import { renderModel as renderModelSchema, type RenderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
 import { mainLocale, type Rarity, rarity as raritySchema, type Types, types as typeSchema } from '@tcg-cards/model/src/hearthstone/schema/basic';
 import {
@@ -315,15 +316,7 @@ const strongRelationFields = [
 
 const weakRelationFields = ['heroicHeroPower'] as const;
 
-const renderMechanicKeys = new Set([
-  'tradable',
-  'forge',
-  'hide_cost',
-  'hide_attack',
-  'hide_health',
-  'in_mini_set',
-  'hide_watermark',
-]);
+const renderMechanicKeys: Set<string> = new Set(RENDER_MECHANIC_SLUGS);
 
 const typeValues = new Set(typeSchema.options);
 const rarityValues = new Set(raritySchema.options);

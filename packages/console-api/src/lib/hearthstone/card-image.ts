@@ -27,11 +27,7 @@ import { CardImageAsset, CardImageExport, CardImageImport } from '@tcg-cards/db/
 import { Entity, EntityLocalization } from '@tcg-cards/db/schema/shared/hearthstone/entity';
 import { Set as HearthstoneSet } from '@tcg-cards/db/schema/shared/hearthstone/set';
 import { Tag } from '@tcg-cards/db/schema/shared/hearthstone/tag';
-import {
-  HAS_DIAMOND_SLUG,
-  HAS_SIGNATURE_SLUG,
-  PREMIUM_SLUG,
-} from '@tcg-cards/model/src/hearthstone/constant/tag';
+import { TAG_SLUG } from '@tcg-cards/model/src/hearthstone/constant/tag';
 
 export const hearthstoneImageSpecVersion = 'v1';
 export const hearthstoneImageRequirementSchema = 'tcg.cards.hearthstone.card-image-requirements.v1';
@@ -497,15 +493,15 @@ export async function loadVariantMechanicIds(
 ): Promise<ImageVariantMechanicIds> {
   const slugs = uniqueValues(variants.flatMap(variant => {
     if (variant.premium === 'diamond') {
-      return [HAS_DIAMOND_SLUG];
+      return [TAG_SLUG.HAS_DIAMOND];
     }
 
     if (variant.premium === 'signature') {
-      return [HAS_SIGNATURE_SLUG];
+      return [TAG_SLUG.HAS_SIGNATURE];
     }
 
     if (variant.template === 'battlegrounds') {
-      return [PREMIUM_SLUG];
+      return [TAG_SLUG.PREMIUM];
     }
 
     return [];
@@ -527,9 +523,9 @@ export async function loadVariantMechanicIds(
     .where(inArray(Tag.slug, slugs));
 
   return {
-    diamond:   String(rows.find(row => row.slug === HAS_DIAMOND_SLUG)?.enumId ?? '') || null,
-    signature: String(rows.find(row => row.slug === HAS_SIGNATURE_SLUG)?.enumId ?? '') || null,
-    premium:   String(rows.find(row => row.slug === PREMIUM_SLUG)?.enumId ?? '') || null,
+    diamond:   String(rows.find(row => row.slug === TAG_SLUG.HAS_DIAMOND)?.enumId ?? '') || null,
+    signature: String(rows.find(row => row.slug === TAG_SLUG.HAS_SIGNATURE)?.enumId ?? '') || null,
+    premium:   String(rows.find(row => row.slug === TAG_SLUG.PREMIUM)?.enumId ?? '') || null,
   };
 }
 

@@ -1,5 +1,7 @@
 # Hearthstone Image Renderer Protocol
 
+**Protocol version: 1**
+
 ## Purpose
 
 This document defines the external HTTP contract for a Hearthstone card image renderer.
@@ -100,6 +102,224 @@ The fields directly required by the renderer are:
 
 The endpoint defined by this specification accepts one render request object and does not accept a batch wrapper document.
 
+## Post Body Structure
+
+The `POST /render` request body is a single JSON object conforming to the `ImageRequirementRequest` schema defined in the shared upstream model.
+
+### Required vs Optional Fields
+
+The renderer depends on a subset of the request body:
+
+- **Required for rendering**: `variant`, `output.width`, `output.height`, `renderModel`, and one card identifier (`card.cardId` or `renderModel.cardId`).
+- **Optional / not consumed by the renderer**: `requestId`, `card` (except `cardId`), `style`, `target`, `output.fileName`, `output.format`, `output.transparentBackground`.
+
+Fields not consumed by the renderer are carried in the request for caller-side tracing and export/import workflows.
+
+### Example
+
+```json
+{
+  "requestId": "req_abc123",
+  "card": {
+    "cardId": "ABC_123",
+    "lang": "zhs",
+    "version": [35, 4, 0],
+    "revisionHash": "abc123def456",
+    "localizationHash": "loc_hash_001",
+    "renderHash": "render_hash_001"
+  },
+  "variant": {
+    "zone": "play",
+    "template": "normal",
+    "premium": "normal"
+  },
+  "style": {
+    "styleKey": "play_normal_normal_default",
+    "zone": "play",
+    "template": "normal",
+    "premium": "normal",
+    "layout": "default",
+    "width": 512,
+    "height": 768,
+    "transparentBackground": false
+  },
+  "output": {
+    "fileName": "ABC_123_play_normal_normal.png",
+    "format": "png",
+    "width": 512,
+    "height": 768,
+    "transparentBackground": false
+  },
+  "target": {
+    "r2Bucket": "hearthstone-card-images",
+    "r2Key": "v1/play/normal/normal/ab/abc123def456.webp",
+    "contentType": "image/webp"
+  },
+  "renderModel": {
+    "cardId": "ABC_123",
+    "lang": "zhs",
+    "variant": "normal",
+    "templateVersion": "35.4.0",
+    "assetVersion": "35.4.0",
+    "localization": {
+      "name": "Ragnaros the Firelord",
+      "richText": "<b>Battlecry:</b> Deal 8 damage."
+    },
+    "type": "minion",
+    "cost": 8,
+    "attack": 8,
+    "health": 8,
+    "durability": null,
+    "armor": null,
+    "classes": ["neutral"],
+    "race": ["elemental"],
+    "spellSchool": null,
+    "mercenaryFaction": null,
+    "set": 3,
+    "overrideWatermark": null,
+    "rarity": "legendary",
+    "elite": false,
+    "techLevel": null,
+    "rune": null,
+    "renderMechanics": {}
+  }
+}
+```
+
+### Field Reference
+
+#### `requestId`
+
+- **Type**: `string`
+- **Required**: No
+
+Caller-side tracing identifier. Not consumed by the renderer.
+
+#### `card`
+
+- **Type**: `object`
+- **Required**: No, but `card.cardId` is one of two accepted card identifier locations.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `cardId` | `string` | Card identifier |
+| `lang` | `string` | Locale code (e.g. `zhs`, `enus`) |
+| `version` | `number[]` | Game version as `[major, minor, patch]` |
+| `revisionHash` | `string` | Content revision hash |
+| `localizationHash` | `string` | Localization content hash |
+| `renderHash` | `string` | Render identity hash |
+
+#### `variant`
+
+- **Type**: `object`
+- **Required**: Yes
+
+| Field | Type | Values | Description |
+|-------|------|--------|-------------|
+| `zone` | `string` | `"hand"`, `"play"` | Card display zone |
+| `template` | `string` | `"normal"`, `"battlegrounds"` | Card template |
+| `premium` | `string` | `"normal"`, `"golden"`, `"diamond"`, `"signature"` | Premium treatment |
+
+#### `style`
+
+- **Type**: `object`
+- **Required**: No
+
+Rendering style declaration used by the export/import pipeline. Not consumed by the renderer.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `styleKey` | `string` | Style identifier |
+| `zone` | `string` | Same as `variant.zone` |
+| `template` | `string` | Same as `variant.template` |
+| `premium` | `string` | Same as `variant.premium` |
+| `layout` | `string` | Layout identifier |
+| `width` | `number` | Styled width in pixels |
+| `height` | `number` | Styled height in pixels |
+| `transparentBackground` | `boolean` | Whether transparent background is requested |
+
+#### `output`
+
+- **Type**: `object`
+- **Required**: Yes (at minimum `width` and `height`)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `fileName` | `string` | Output PNG filename. Not consumed by the renderer. |
+| `format` | `"png"` | Output format. Always `"png"`. |
+| `width` | `number` (positive integer) | Output image width in pixels |
+| `height` | `number` (positive integer) | Output image height in pixels |
+| `transparentBackground` | `boolean` | Whether the output should have a transparent background. Not consumed by the renderer. |
+
+#### `target`
+
+- **Type**: `object`
+- **Required**: No
+
+Storage target metadata used by the import pipeline. Not consumed by the renderer.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `r2Bucket` | `string` | Target R2 bucket name |
+| `r2Key` | `string` | Target R2 object key |
+| `contentType` | `"image/webp"` | Target content type. Always `"image/webp"`. |
+
+#### `renderModel`
+
+- **Type**: `object`
+- **Required**: Yes
+
+Canonical render-model payload containing all card data needed to produce the card image. This is the primary input the renderer consumes to drive rendering.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `cardId` | `string` | Card identifier |
+| `lang` | `string` | Locale code |
+| `variant` | `string` | Card variant identifier |
+| `templateVersion` | `string` | Template version |
+| `assetVersion` | `string` | Asset version |
+| `localization` | `object` | Localized text payload |
+| `localization.name` | `string` | Card name |
+| `localization.richText` | `string` | Card text with markup |
+| `type` | `string` | Card type (e.g. `minion`, `spell`, `weapon`) |
+| `cost` | `number` | Mana cost |
+| `attack` | `number \| null` | Attack value |
+| `health` | `number \| null` | Health value |
+| `durability` | `number \| null` | Durability (weapons) |
+| `armor` | `number \| null` | Armor value |
+| `classes` | `string[]` | Class affiliations |
+| `race` | `string[] \| null` | Minion races |
+| `spellSchool` | `string \| null` | Spell school |
+| `mercenaryFaction` | `string \| null` | Mercenary faction |
+| `set` | `number` | Card set identifier |
+| `overrideWatermark` | `string \| null` | Override watermark |
+| `rarity` | `string \| null` | Rarity (e.g. `legendary`, `epic`) |
+| `elite` | `boolean` | Elite flag |
+| `techLevel` | `number \| null` | Battlegrounds tech level |
+| `rune` | `string[] \| null` | Death knight rune combination (`blood`, `frost`, `unholy`) |
+| `renderMechanics` | `object` | Render mechanic flags. See the `renderMechanics` subsection below for the full key list. |
+
+#### `renderMechanics`
+
+A partial-record object that maps mechanic slugs to values. Only mechanics that apply to the card are present. Each key is optional.
+
+Value type: `boolean | integer`
+
+A partial-record object that maps mechanic slugs to values. Only mechanics that apply to the card are present. Each key is optional.
+
+Value type: `boolean | integer`
+
+| Slug | Enum ID | Description |
+|------|---------|-------------|
+| `hide-health` | 682 | Suppress health value display on the rendered card |
+| `hide-attack` | 683 | Suppress attack value display on the rendered card |
+| `hide-cost` | 684 | Suppress mana cost display on the rendered card |
+| `hide-watermark` | 1107 | Suppress class watermark on the rendered card |
+| `tradeable` | 1720 | Card has the tradeable mechanic |
+| `in-mini-set` | 1824 | Card belongs to the current mini-set |
+| `forge` | 2785 | Card has the forge mechanic |
+| `timewarped` | 4503 | Card has the Battlegrounds timewarped mechanic |
+
 ## Functional Requirements
 
 The renderer must satisfy the following behavior constraints:
@@ -157,4 +377,4 @@ If those capabilities are required, they must be defined by a separate protocol 
 
 ## Implementation References
 
-- Shared upstream model: `packages/model/src/hearthstone/schema/data/image.ts`
+- Shared upstream model: [`packages/model/src/hearthstone/schema/data/image.ts`](../packages/model/src/hearthstone/schema/data/image.ts)

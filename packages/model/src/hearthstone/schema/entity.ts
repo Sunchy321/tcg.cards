@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { classes, locale, race, rarity, spellSchool, types } from './basic';
 
+import { RENDER_MECHANIC_SLUGS } from '../constant/tag';
 import { card } from './card';
 
 export const rune = z.enum(['blood', 'frost', 'unholy']);
@@ -62,20 +63,13 @@ export type MercenaryRole = z.infer<typeof mercenaryRole>;
 export type MercenaryFaction = z.infer<typeof mercenaryFaction>;
 export type Faction = z.infer<typeof faction>;
 export type TextBuilderType = z.infer<typeof textBuilderType>;
+
 export type ChangeType = z.infer<typeof changeType>;
 
 export const mechanicValue = z.union([z.boolean(), z.int()]);
 export const mechanicMap = z.record(z.string(), mechanicValue);
 export const referencedTagMap = z.record(z.string(), mechanicValue);
-export const renderMechanic = z.enum([
-    'tradable',
-    'forge',
-    'hide_cost',
-    'hide_attack',
-    'hide_health',
-    'in_mini_set',
-    'hide_watermark',
-]);
+export const renderMechanic = z.enum(RENDER_MECHANIC_SLUGS);
 export const renderMechanicMap = z.partialRecord(renderMechanic, mechanicValue);
 
 export const renderModel = z.strictObject({

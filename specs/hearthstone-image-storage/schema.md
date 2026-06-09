@@ -255,15 +255,7 @@ hearthstone-card-image-results.{exportId}.zip
 
 ### 9.1 支持的 RenderMechanic
 
-| key | 作用 | 渲染要求 |
-|-----|------|----------|
-| `tradable` | 表示卡牌具有“可交易”机制 | 按当前 `style.layout` 渲染可交易相关视觉元素，例如关键字、图标或布局保留区 |
-| `forge` | 表示卡牌具有“锻造”机制 | 按当前 `style.layout` 渲染锻造相关视觉元素，例如关键字、图标或布局保留区 |
-| `hide_cost` | 隐藏费用 | 不渲染费用水晶、费用数字或等价费用区域 |
-| `hide_attack` | 隐藏攻击力 | 不渲染攻击力宝石、攻击力数字或等价攻击区域 |
-| `hide_health` | 隐藏生命值 / 耐久度 | 不渲染生命值、耐久度或等价右下角数值区域 |
-| `in_mini_set` | 表示卡牌属于迷你系列 | 使用迷你系列对应的系列标识、水印或布局修饰；具体表现由 `style.layout` 定义 |
-| `hide_watermark` | 隐藏系列水印 | 不渲染由 `set` 或 `overrideWatermark` 推导出的水印 |
+完整列表及 enum ID 见 [炉石图片渲染器协议](../../docs/hearthstone-image-renderer-protocol.zh-CN.md) 的 `renderMechanics` 小节，此处不重复枚举。
 
 ### 9.2 示例
 
