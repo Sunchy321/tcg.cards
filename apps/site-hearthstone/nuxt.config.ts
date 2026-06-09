@@ -64,10 +64,19 @@ export default defineNuxtConfig({
         clientFiles: ['./app/**/*.vue'],
       },
     },
+    optimizeDeps: {
+      include: [
+        '@iconify-json/lucide',
+        '@iconify-json/simple-icons',
+      ],
+    },
   },
 
   icon: {
-    provider: 'server',
+    provider:     'server',
+    serverBundle: {
+      collections: ['lucide'],
+    },
   },
 
   i18n: {

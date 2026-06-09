@@ -5,11 +5,6 @@ export interface NumericFieldState {
   operator: NumericOperator;
 }
 
-export interface OrderFieldState {
-  value:     string;
-  direction: '' | '+' | '-';
-}
-
 export interface AdvancedSearchState {
   keyword:      string;
   classes:      string[];
@@ -49,28 +44,6 @@ const createDefaultState = (): AdvancedSearchState => ({
   format:       '',
 });
 
-const quoteValue = (value: string) => {
-  if (value === '') {
-    return '""';
-  }
-
-  if (/[\s"()]/.test(value)) {
-    return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
-  }
-
-  return value;
-};
-
-const buildText = (command: string, value: string) => {
-  const trimmed = value.trim();
-
-  if (trimmed === '') {
-    return null;
-  }
-
-  return `${command}:${quoteValue(trimmed)}`;
-};
-
 const buildNumeric = (command: string, state: NumericFieldState) => {
   if (state.value.trim() === '') {
     return null;
@@ -105,14 +78,6 @@ const buildNumericChips = (command: string, values: string[]) => {
   return `(${queries.join(' | ')})`;
 };
 
-const buildOrder = (state: OrderFieldState) => {
-  if (state.value === '') {
-    return null;
-  }
-
-  return `order:${state.value}${state.direction}`;
-};
-
 export const buildAdvancedSearchDSL = (state: AdvancedSearchState) => {
   const parts = [
     state.keyword.trim() || null,
@@ -143,7 +108,7 @@ export const useAdvancedSearch = () => {
 
   const dsl = computed(() => buildAdvancedSearchDSL(state.value));
 
-  watch(dsl, value => {
+  watch(dsl, (value: string) => {
     searchInput.value = value;
   }, {
     immediate: true,

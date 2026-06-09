@@ -1,26 +1,31 @@
 <template>
+  <!-- eslint-disable-next-line vue/no-v-html -- rendered text is escaped before limited markup is restored -->
   <div class="hs-rich-text" v-html="rendered" />
 </template>
 
 <script setup lang="ts">
+type SlotNode = {
+  children?: unknown;
+};
+
 const props = withDefaults(defineProps<{
-  disableNewline?: boolean;
+  disableNewline?:     boolean;
   preserveLineBreaks?: boolean;
-  flattenLineBreaks?: boolean;
+  flattenLineBreaks?:  boolean;
 }>(), {
-  disableNewline: false,
+  disableNewline:     false,
   preserveLineBreaks: true,
-  flattenLineBreaks: false,
+  flattenLineBreaks:  false,
 });
 
 const slots = defineSlots<{
-  default: () => any[];
+  default: () => SlotNode[];
 }>();
 
 const rawText = computed(() => {
   const nodes = slots.default?.();
   if (!nodes || nodes.length === 0) return '';
-  return nodes.map(n => (typeof n.children === 'string' ? n.children : '')).join('');
+  return nodes.map((n: SlotNode) => (typeof n.children === 'string' ? n.children : '')).join('');
 });
 
 const rendered = computed(() => {
@@ -44,7 +49,7 @@ const rendered = computed(() => {
     .replace(/&lt;\/?(?:b|i)&gt;/gi, '')
     .replace(/\$[a-z]+(\d+)/gi, '$1')
     .replace(/#(\d+)/g, '$1')
-    .replace(/\s*[\(（]?\{\d+\}[\)）]?/g, '')
+    .replace(/\s*[(（]?\{\d+\}[)）]?/g, '')
     .replace(/\s+([.,!?;:。！？；：])/g, '$1')
     .replace(/@/g, '');
 

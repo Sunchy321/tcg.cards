@@ -65,8 +65,14 @@ export type TextBuilderType = z.infer<typeof textBuilderType>;
 export type ChangeType = z.infer<typeof changeType>;
 
 export const mechanicValue = z.union([z.boolean(), z.int()]);
-export const mechanicMap = z.record(z.string(), mechanicValue);
-export const referencedTagMap = z.record(z.string(), mechanicValue);
+export const mechanicMap = z.union([
+  z.record(z.string(), mechanicValue),
+  z.array(z.string()),
+]).default({});
+export const referencedTagMap = z.union([
+  z.record(z.string(), mechanicValue),
+  z.array(z.string()),
+]).default({});
 export const renderMechanic = z.enum([
     'tradable',
     'forge',
@@ -128,7 +134,7 @@ export const entityLocalization = z.strictObject({
 
 export const entity = z.strictObject({
     cardId:  z.string(),
-    version: z.number().array().nonempty(),
+    version: z.number().array(),
 
     dbfId:         z.int(),
     legacyPayload: z.record(z.string(), z.unknown()),

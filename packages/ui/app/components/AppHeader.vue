@@ -111,7 +111,7 @@ const params = getParams();
 
 const actionMeta = route.meta.actions ?? [];
 
-const actions = getActions();
+const actions = getActions() as Ref<Array<{ id: string; handler: () => void }>>;
 
 // Locale switcher
 
@@ -131,7 +131,7 @@ const localeMenuItems = computed(() => {
 });
 
 const getHandler = (id: string) => {
-  const action = actions.value.find(a => a.id === id);
+  const action = actions.value.find((a: { id: string }) => a.id === id);
   return action?.handler ?? (() => {});
 };
 

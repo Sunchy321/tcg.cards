@@ -96,11 +96,17 @@
           <UCard class="hover:ring-2 hover:ring-primary/30 transition">
             <div class="flex flex-col gap-4 sm:flex-row">
               <div class="w-30 shrink-0 self-center sm:self-start">
-                <CardImage
-                  :card-id="card.cardId"
-                  :version="minVersion(card)"
-                  :lang="card.lang"
-                />
+                <ClientOnly>
+                  <CardImage
+                    :card-id="card.cardId"
+                    :version="minVersion(card)"
+                    :lang="card.lang"
+                    :render-hash="card.renderHash"
+                  />
+                  <template #fallback>
+                    <div class="aspect-68/94 w-full rounded-lg bg-gray-100 dark:bg-gray-800 animate-pulse" />
+                  </template>
+                </ClientOnly>
               </div>
 
               <div class="min-w-0 flex-1">
@@ -162,7 +168,6 @@ import type { NormalResult } from '#model/hearthstone/schema/search';
 import { locale as localeSchema } from '#model/hearthstone/schema/basic';
 
 import { explain as model } from '~/search';
-import { hearthstoneSets } from '~/utils/hearthstone-sets';
 
 definePageMeta({
   layout:    'main',
@@ -171,9 +176,9 @@ definePageMeta({
 });
 
 type SearchResponse = {
-  text?: string;
+  text?:   string;
   result?: NormalResult;
-  errors?: Array<{ type?: string; payload?: Record<string, any> }>;
+  errors?: Array<{ type?: string, payload?: Record<string, any> }>;
 };
 
 const { $orpc } = useNuxtApp();
@@ -230,9 +235,8 @@ const explainText = computed(() => {
   return explained.value.text;
 });
 
-const visibleSets = new Set<string>(hearthstoneSets);
 const cards = computed<CardEntityView[]>(() =>
-  (data.value?.result?.result ?? []).filter(card => visibleSets.has(card.set)),
+  data.value?.result?.result ?? [],
 );
 const total = computed(() => data.value?.result?.total ?? 0);
 const pageCount = computed(() => data.value?.result?.totalPage ?? Math.ceil(total.value / pageSize.value));
@@ -252,6 +256,10 @@ const errorText = computed(() => {
     return i18n.te(`search.error.${firstError.type}`)
       ? i18n.t(`search.error.${firstError.type}`, firstError.payload ?? {})
       : i18n.t('hearthstone.search.failed');
+  }
+
+  if (data.value?.errors?.length) {
+    return i18n.t('hearthstone.search.failed');
   }
 
   return null;
@@ -343,7 +351,7 @@ const previewText = (card: CardEntityView) => {
     .replace(/\[\/?[bi]\]/gi, '')
     .replace(/\$[a-z]+(\d+)/gi, '$1')
     .replace(/#(\d+)/g, '$1')
-    .replace(/\s*[\(（]?\{\d+\}[\)）]?/g, '')
+    .replace(/\s*[(（]?\{\d+\}[)）]?/g, '')
     .replace(/\s+([.,!?;:。！？；：])/g, '$1')
     .replace(/\s+/g, ' ')
     .trim()
@@ -371,7 +379,8 @@ const doSearch = async () => {
     if (q.value === route.query.q) {
       data.value = result as SearchResponse;
     }
-  } catch {
+  } catch (error) {
+    console.error('[search] failed:', error);
     data.value = null;
     fetchError.value = i18n.t('hearthstone.search.failed');
   } finally {

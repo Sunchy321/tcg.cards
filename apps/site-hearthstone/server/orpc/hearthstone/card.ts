@@ -174,16 +174,9 @@ const full = os
         latestOrVersion(EntityRelation.version, EntityRelation.isLatest, version),
       ));
 
-    const entourageRelation = (card.entourages ?? []).map(relatedCardId => ({
-      relation: 'entourage',
-      version:  card.version,
-      cardId:   relatedCardId,
-    }));
-
     const relatedBase = dedupeRelatedCards([
       ...sourceRelation,
       ...targetRelation,
-      ...entourageRelation,
     ]);
 
     const relatedIds = [...new Set(relatedBase.map(rel => rel.cardId))];

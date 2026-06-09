@@ -5,16 +5,26 @@ interface HyperdriveBinding {
   connectionString: string;
 }
 
-function getHyperdrive(): HyperdriveBinding {
+const localConnectionString = 'postgres://postgres:postgres@127.0.0.1:5432/tcg_cards';
+
+function isDev() {
+  return process.env.NODE_ENV === 'development';
+}
+
+function getEnvConnectionString() {
+  return process.env.DATABASE_URL?.trim() || null;
+}
+
+function getHyperdriveConnectionString() {
   const binding = (process.env.HYPERDRIVE as unknown as HyperdriveBinding)
     ?? (globalThis as any).__env__?.HYPERDRIVE
     ?? (globalThis as any).HYPERDRIVE;
 
-  if (binding == null) {
-    throw new Error('[db] HYPERDRIVE binding not found');
+  if (typeof binding === 'string') {
+    return binding;
   }
 
-  return binding;
+  return binding?.connectionString ?? null;
 }
 
 type Db = ReturnType<typeof drizzle>;
@@ -23,7 +33,15 @@ let _db: Db | null = null;
 const dbContext = new AsyncLocalStorage<Db>();
 
 export function getConnectionString(): string {
-  return getHyperdrive().connectionString;
+  const connectionString = getEnvConnectionString()
+    ?? getHyperdriveConnectionString()
+    ?? (isDev() ? localConnectionString : null);
+
+  if (connectionString == null) {
+    throw new Error('[db] database connection string not found');
+  }
+
+  return connectionString;
 }
 
 export function createDb(connection: string): Db {
@@ -34,10 +52,6 @@ export function runWithDb<T>(database: Db, handler: () => T): T {
   return dbContext.run(database, handler);
 }
 
-function isDev() {
-  return process.env.NODE_ENV === 'development';
-}
-
 function getDb() {
   const requestDb = dbContext.getStore();
 
@@ -46,11 +60,11 @@ function getDb() {
   }
 
   if (isDev()) {
-    _db ??= createDb(getHyperdrive().connectionString);
+    _db ??= createDb(getConnectionString());
     return _db;
   }
 
-  return createDb(getHyperdrive().connectionString);
+  return createDb(getConnectionString());
 }
 
 export const db: Db = new Proxy({} as Db, {

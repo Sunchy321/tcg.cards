@@ -51,8 +51,10 @@ export function buildLegacyCardImageUrl(
   version: number,
   option: CardImageOption,
   cardId: string,
+  lang?: string,
 ) {
   const baseUrl = trimBaseUrl(assetBaseUrl);
+  const language = lang || 'zhs';
 
   return [
     baseUrl,
@@ -61,7 +63,7 @@ export function buildLegacyCardImageUrl(
     'image',
     'webp',
     String(version),
-    'zhs',
+    language,
     option,
     `${cardId}.webp`,
   ].join('/');

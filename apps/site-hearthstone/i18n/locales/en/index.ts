@@ -40,6 +40,10 @@ export default {
     'zhs:md':  'Simplified Chinese (Master Duel)',
   },
 
+  common: {
+    backToMain: 'Back to TCG Cards',
+  },
+
   search: {
     error: {
       'empty-input':      'please enter a search query',
@@ -47,8 +51,8 @@ export default {
       'invalid-operator': 'unsupported operator',
       'invalid-regex':    'invalid regular expression',
       'no-pattern-match': 'unrecognized query pattern',
-      'unknown-token':   'unknown token',
-      'unknown-command': 'unknown command {name}',
+      'unknown-token':    'unknown token',
+      'unknown-command':  'unknown command {name}',
     },
 
     separator: {
@@ -68,11 +72,11 @@ export default {
       'greater-equal':    ' is greater than or equal to ',
       'greater-or-equal': ' is greater than or equal to ',
 
-      'include':     ' includes ',
-      'not-include': ' doesn\'t include ',
-      'is':          ' is ',
-      'is-not':      ' isn\'t ',
-      'fully-match': ' fully matches ',
+      'include':        ' includes ',
+      'not-include':    ' doesn\'t include ',
+      'is':             ' is ',
+      'is-not':         ' isn\'t ',
+      'fully-match':    ' fully matches ',
       'not-full-match': ' doesn\'t fully match ',
 
       'count-is':               ' count is ',
@@ -159,32 +163,32 @@ export default {
     },
 
     search: {
-      $self:      'Card Search',
-      emptyQuery: 'Enter a keyword or query syntax to search cards',
-      hint:       'Examples: Fireball, class:mage cost<=3, type:minion race:dragon',
-      noResult:   'No cards matched your query',
-      failed:     'Search failed',
+      '$self':      'Card Search',
+      'emptyQuery': 'Enter a keyword or query syntax to search cards',
+      'hint':       'Examples: Fireball, class:mage cost<=3, type:minion race:dragon',
+      'noResult':   'No cards matched your query',
+      'failed':     'Search failed',
 
-      advanced: {
-        $self:            'Advanced Search',
-        entryHint:        'Combine class, cost, type, race, and format filters',
-        browseSets:       'All Sets',
-        browseSetsHint:   'Choose a set to view all cards from it',
-        plainSearch:      'Basic Search',
-        emptyQuery:       'No advanced filters selected yet',
-        reset:            'Reset',
-        search:           'Search',
-        any:              'Any',
-        sectionText:      'Text',
-        sectionIdentity:  'Attributes',
-        sectionStats:     'Stats',
+      'advanced': {
+        $self:               'Advanced Search',
+        entryHint:           'Combine class, cost, type, race, and format filters',
+        browseSets:          'All Sets',
+        browseSetsHint:      'Choose a set to view all cards from it',
+        plainSearch:         'Basic Search',
+        emptyQuery:          'No advanced filters selected yet',
+        reset:               'Reset',
+        search:              'Search',
+        any:                 'Any',
+        sectionText:         'Text',
+        sectionIdentity:     'Attributes',
+        sectionStats:        'Stats',
         sectionOrganization: 'Formats & Sets',
-        sectionSort:      'Sort',
-        keyword:          'Keyword',
-        keywordPlaceholder: 'Card name or rules text...',
-        directionDefault: 'Default',
-        directionAsc:     'Asc',
-        directionDesc:    'Desc',
+        sectionSort:         'Sort',
+        keyword:             'Keyword',
+        keywordPlaceholder:  'Card name or rules text...',
+        directionDefault:    'Default',
+        directionAsc:        'Asc',
+        directionDesc:       'Desc',
       },
 
       'full-command': {
@@ -200,7 +204,7 @@ export default {
         'format-with-status-not': 'status is not {status} in {format}',
       },
 
-      command: {
+      'command': {
         'lang':              'language',
         'name':              'name',
         'text':              'text',
@@ -227,8 +231,8 @@ export default {
         'order':             'order',
       },
 
-      parameter: {
-        class: {
+      'parameter': {
+        'class': {
           death_knight: 'Death Knight',
           druid:        'Druid',
           hunter:       'Hunter',
@@ -245,38 +249,38 @@ export default {
           demon_hunter: 'Demon Hunter',
         },
 
-        type: {
-          null:                   'Unknown',
-          game:                   'Game',
-          player:                 'Player',
-          hero:                   'Hero',
-          minion:                 'Minion',
-          spell:                  'Spell',
-          enchantment:            'Enchantment',
-          weapon:                 'Weapon',
-          item:                   'Item',
-          token:                  'Token',
-          hero_power:             'Hero Power',
-          blank:                  'Blank',
-          game_mode_button:       'Game Mode Button',
+        'type': {
+          null:                     'Unknown',
+          game:                     'Game',
+          player:                   'Player',
+          hero:                     'Hero',
+          minion:                   'Minion',
+          spell:                    'Spell',
+          enchantment:              'Enchantment',
+          weapon:                   'Weapon',
+          item:                     'Item',
+          token:                    'Token',
+          hero_power:               'Hero Power',
+          blank:                    'Blank',
+          game_mode_button:         'Game Mode Button',
           move_minion_hover_target: 'Move Minion Hover Target',
-          mercenary_ability:      'Mercenary Ability',
-          buddy_meter:            'Buddy Meter',
-          location:               'Location',
-          quest_reward:           'Quest Reward',
-          tavern_spell:           'Tavern Spell',
-          anomaly:                'Anomaly',
-          trinket:                'Trinket',
-          pet:                    'Pet',
+          mercenary_ability:        'Mercenary Ability',
+          buddy_meter:              'Buddy Meter',
+          location:                 'Location',
+          quest_reward:             'Quest Reward',
+          tavern_spell:             'Tavern Spell',
+          anomaly:                  'Anomaly',
+          trinket:                  'Trinket',
+          pet:                      'Pet',
         },
 
-        rune: {
+        'rune': {
           blood:  'Blood',
           frost:  'Frost',
           unholy: 'Unholy',
         },
 
-        race: {
+        'race': {
           bloodelf:  'Blood Elf',
           draenei:   'Draenei',
           dwarf:     'Dwarf',
@@ -399,7 +403,7 @@ export default {
           scourge:  'Scourge',
         },
 
-        rarity: {
+        'rarity': {
           unknown:   'Unknown',
           free:      'Free',
           common:    'Common',
@@ -408,7 +412,7 @@ export default {
           legendary: 'Legendary',
         },
 
-        order: {
+        'order': {
           name:   'name',
           cost:   'cost',
           attack: 'attack',
@@ -474,28 +478,28 @@ export default {
       },
 
       type: {
-        null:                   'Unknown',
-        game:                   'Game',
-        player:                 'Player',
-        hero:                   'Hero',
-        minion:                 'Minion',
-        spell:                  'Spell',
-        enchantment:            'Enchantment',
-        weapon:                 'Weapon',
-        item:                   'Item',
-        token:                  'Token',
-        hero_power:             'Hero Power',
-        blank:                  'Blank',
-        game_mode_button:       'Game Mode Button',
+        null:                     'Unknown',
+        game:                     'Game',
+        player:                   'Player',
+        hero:                     'Hero',
+        minion:                   'Minion',
+        spell:                    'Spell',
+        enchantment:              'Enchantment',
+        weapon:                   'Weapon',
+        item:                     'Item',
+        token:                    'Token',
+        hero_power:               'Hero Power',
+        blank:                    'Blank',
+        game_mode_button:         'Game Mode Button',
         move_minion_hover_target: 'Move Minion Hover Target',
-        mercenary_ability:      'Mercenary Ability',
-        buddy_meter:            'Buddy Meter',
-        location:               'Location',
-        quest_reward:           'Quest Reward',
-        tavern_spell:           'Tavern Spell',
-        anomaly:                'Anomaly',
-        trinket:                'Trinket',
-        pet:                    'Pet',
+        mercenary_ability:        'Mercenary Ability',
+        buddy_meter:              'Buddy Meter',
+        location:                 'Location',
+        quest_reward:             'Quest Reward',
+        tavern_spell:             'Tavern Spell',
+        anomaly:                  'Anomaly',
+        trinket:                  'Trinket',
+        pet:                      'Pet',
       },
 
       race: {
@@ -544,19 +548,19 @@ export default {
       },
 
       spellSchool: {
-        arcane:           'Arcane',
-        fire:             'Fire',
-        frost:            'Frost',
-        nature:           'Nature',
-        holy:             'Holy',
-        shadow:           'Shadow',
-        fel:              'Fel',
-        physical_combat:  'Physical Combat',
-        tavern_spell:     'Tavern Spell',
-        spellcraft:       'Spellcraft',
-        lesser_trinket:   'Lesser Trinket',
-        greater_trinket:  'Greater Trinket',
-        upgrade:          'Upgrade',
+        arcane:          'Arcane',
+        fire:            'Fire',
+        frost:           'Frost',
+        nature:          'Nature',
+        holy:            'Holy',
+        shadow:          'Shadow',
+        fel:             'Fel',
+        physical_combat: 'Physical Combat',
+        tavern_spell:    'Tavern Spell',
+        spellcraft:      'Spellcraft',
+        lesser_trinket:  'Lesser Trinket',
+        greater_trinket: 'Greater Trinket',
+        upgrade:         'Upgrade',
       },
     },
 
@@ -565,17 +569,17 @@ export default {
     legality: {
       banned_in_card_pool: 'Banned in Card Pool',
       banned_in_deck:      'Banned in Deck',
-      legal:      'Legal',
-      banned:     'Banned',
-      derived:    'Derived',
-      minor:      'Minor',
-      restricted: 'Restricted',
-      wild:       'Wild',
-      unavailable: 'Unavailable',
+      legal:               'Legal',
+      banned:              'Banned',
+      derived:             'Derived',
+      minor:               'Minor',
+      restricted:          'Restricted',
+      wild:                'Wild',
+      unavailable:         'Unavailable',
     },
 
     set: {
-      $self: 'Sets',
+      $self:    'Sets',
       CORE:     'Core',
       SET_3:    'Classic',
       SET_12:   'Naxxramas',

@@ -94,13 +94,18 @@ export const search = as
     const displayedResult = result.map(card => localizedById.get(card.cardId) ?? card);
 
     const countResult = await db
-      .select({ count: sql`count(distinct card_id)`.as('count') })
+      .select({ count: sql`count(distinct ${CardEntityView.cardId})`.as('count') })
       .from(CardEntityView)
       .where(visibleQuery);
 
     const total = Number(countResult[0]?.count ?? 0);
     const totalPage = Math.ceil(total / pageSize);
     const elapsed = Date.now() - startTime;
+
+    // Debug: log first result to check schema
+    if (displayedResult.length > 0) {
+      console.log('[search] First result sample:', JSON.stringify(displayedResult[0], null, 2).slice(0, 2000));
+    }
 
     return {
       result: displayedResult,

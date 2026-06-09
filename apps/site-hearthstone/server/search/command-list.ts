@@ -4,7 +4,7 @@ import * as builtin from '#search/server/command/builtin';
 
 import { QueryError } from '#search/command/error';
 
-import { and, arrayContains, asc, desc, eq, inArray, not, notInArray, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, not, notInArray, or, sql } from 'drizzle-orm';
 
 import { model } from '#model/hearthstone/search';
 import { CardEntityView } from '#schema/shared/hearthstone/entity';
@@ -23,6 +23,9 @@ const matchStats = (
   qualifier: string[],
   ...queries: Array<ReturnType<typeof builtin.number.call>>
 ) => (!qualifier.includes('!') ? or : and)(...queries)!;
+
+const hasJsonKey = (column: typeof CardEntityView.mechanics, key: string) =>
+  sql`${column} ? ${key}`;
 
 export const raw = cs
   .commands.raw
@@ -98,14 +101,14 @@ export const hash = cs
 
     if (!qualifier.includes('!')) {
       return or(
-        arrayContains(table.mechanics, [tag]),
-        arrayContains(table.referencedTags, [tag]),
+        hasJsonKey(table.mechanics, tag),
+        hasJsonKey(table.referencedTags, tag),
       )!;
     }
 
     return and(
-      not(arrayContains(table.mechanics, [tag])),
-      not(arrayContains(table.referencedTags, [tag])),
+      not(hasJsonKey(table.mechanics, tag)),
+      not(hasJsonKey(table.referencedTags, tag)),
     )!;
   });
 
@@ -233,14 +236,14 @@ export const faction = cs
 
     if (!qualifier.includes('!')) {
       return or(...values.map(faction => or(
-        arrayContains(table.mechanics, [faction]),
-        arrayContains(table.referencedTags, [faction]),
+        hasJsonKey(table.mechanics, faction),
+        hasJsonKey(table.referencedTags, faction),
       )!))!;
     }
 
     return and(...values.map(faction => and(
-      not(arrayContains(table.mechanics, [faction])),
-      not(arrayContains(table.referencedTags, [faction])),
+      not(hasJsonKey(table.mechanics, faction)),
+      not(hasJsonKey(table.referencedTags, faction)),
     )!))!;
   });
 

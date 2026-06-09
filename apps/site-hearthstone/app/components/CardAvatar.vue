@@ -36,7 +36,7 @@ watchEffect(async () => {
 const displayName = computed(() => {
   if (!profile.value) return props.cardId;
   const displayLang = props.lang ?? gameLocale.value;
-  const loc = profile.value.localization.find(l => l.lang === displayLang)
+  const loc = profile.value.localization.find((l: CardProfile['localization'][number]) => l.lang === displayLang)
     ?? profile.value.localization[0];
   return loc?.name ?? props.cardId;
 });

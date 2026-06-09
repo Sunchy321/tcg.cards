@@ -89,7 +89,7 @@
                 <UIcon name="lucide:text" class="w-5 h-5" />
                 <span>{{ $t('hearthstone.search.advanced.sectionText') }}</span>
               </div>
-              <div class="panel-divider"></div>
+              <div class="panel-divider"/>
             </div>
 
             <div class="panel-content">
@@ -111,7 +111,7 @@
                 <UIcon name="lucide:layers" class="w-5 h-5" />
                 <span>{{ $t('hearthstone.search.advanced.sectionIdentity') }}</span>
               </div>
-              <div class="panel-divider"></div>
+              <div class="panel-divider"/>
             </div>
 
             <div class="panel-content space-y-6">
@@ -140,7 +140,7 @@
                       :items="numericOperators"
                       size="sm"
                       class="w-20"
-                      @update:model-value="value => state.cost[0].operator = value as NumericOperator"
+                      @update:model-value="setCostOperator(0, $event)"
                     />
                     <UInput
                       v-model="state.cost[0].value"
@@ -157,7 +157,7 @@
                       :items="numericOperators"
                       size="sm"
                       class="w-20"
-                      @update:model-value="value => state.cost[1].operator = value as NumericOperator"
+                      @update:model-value="setCostOperator(1, $event)"
                     />
                     <UInput
                       v-model="state.cost[1].value"
@@ -186,7 +186,7 @@
                     :style="getClassIconStyle(item.value)"
                     @click="toggleMulti(state.classes, item.value)"
                   >
-                    <span class="chip-icon" :style="getClassColorStyle(item.value)"></span>
+                    <span class="chip-icon" :style="getClassColorStyle(item.value)"/>
                     <span class="chip-label-text">{{ item.label }}</span>
                   </button>
                 </div>
@@ -299,7 +299,7 @@
                 <UIcon name="lucide:bar-chart-2" class="w-5 h-5" />
                 <span>{{ $t('hearthstone.search.advanced.sectionStats') }}</span>
               </div>
-              <div class="panel-divider"></div>
+              <div class="panel-divider"/>
             </div>
 
             <div class="panel-content space-y-6">
@@ -327,7 +327,7 @@
                       :items="numericOperators"
                       size="sm"
                       class="w-20"
-                      @update:model-value="value => state.attack[0].operator = value as NumericOperator"
+                      @update:model-value="setAttackOperator(0, $event)"
                     />
                     <UInput
                       v-model="state.attack[0].value"
@@ -344,7 +344,7 @@
                       :items="numericOperators"
                       size="sm"
                       class="w-20"
-                      @update:model-value="value => state.attack[1].operator = value as NumericOperator"
+                      @update:model-value="setAttackOperator(1, $event)"
                     />
                     <UInput
                       v-model="state.attack[1].value"
@@ -382,7 +382,7 @@
                       :items="numericOperators"
                       size="sm"
                       class="w-20"
-                      @update:model-value="value => state.health[0].operator = value as NumericOperator"
+                      @update:model-value="setHealthOperator(0, $event)"
                     />
                     <UInput
                       v-model="state.health[0].value"
@@ -399,7 +399,7 @@
                       :items="numericOperators"
                       size="sm"
                       class="w-20"
-                      @update:model-value="value => state.health[1].operator = value as NumericOperator"
+                      @update:model-value="setHealthOperator(1, $event)"
                     />
                     <UInput
                       v-model="state.health[1].value"
@@ -422,7 +422,7 @@
                 <UIcon name="lucide:book-open" class="w-5 h-5" />
                 <span>{{ $t('hearthstone.search.advanced.sectionOrganization') }}</span>
               </div>
-              <div class="panel-divider"></div>
+              <div class="panel-divider"/>
             </div>
 
             <div class="panel-content">
@@ -433,7 +433,7 @@
                   size="sm"
                   class="w-full"
                   :placeholder="$t('hearthstone.search.advanced.any')"
-                  @update:model-value="value => state.format = (value as string) ?? ''"
+                  @update:model-value="setFormat"
                 />
               </FieldRow>
             </div>
@@ -446,8 +446,6 @@
 
 <script setup lang="ts">
 import type { NumericOperator } from '~/composables/advanced-search';
-
-import { classes, format, race, rarity, spellSchool, types } from '#model/hearthstone/schema/basic';
 
 import { useAdvancedSearch } from '~/composables/advanced-search';
 
@@ -539,14 +537,38 @@ const toggleMulti = (values: string[], value: string) => {
   }
 };
 
+const setNumericOperator = (
+  field: 'cost' | 'attack' | 'health',
+  index: 0 | 1,
+  value: unknown,
+) => {
+  state.value[field][index].operator = value as NumericOperator;
+};
+
+const setCostOperator = (index: 0 | 1, value: unknown) => {
+  setNumericOperator('cost', index, value);
+};
+
+const setAttackOperator = (index: 0 | 1, value: unknown) => {
+  setNumericOperator('attack', index, value);
+};
+
+const setHealthOperator = (index: 0 | 1, value: unknown) => {
+  setNumericOperator('health', index, value);
+};
+
+const setFormat = (value: unknown) => {
+  state.value.format = (value as string | undefined) ?? '';
+};
+
 // Validate numeric input: only allow non-negative integers (0 and above)
 const validateNumericInput = (event: Event) => {
   const input = event.target as HTMLInputElement;
   const value = input.value;
-  
+
   // Remove any non-digit characters
   const cleaned = value.replace(/[^0-9]/g, '');
-  
+
   // Update the value if it changed
   if (cleaned !== value) {
     input.value = cleaned;
@@ -557,41 +579,43 @@ const validateNumericInput = (event: Event) => {
 
 // Computed properties for selected filters display
 const hasSelectedFilters = computed(() => {
-  return state.value.classes.length > 0 ||
-    state.value.types.length > 0 ||
-    state.value.races.length > 0 ||
-    state.value.factions.length > 0 ||
-    state.value.spellSchools.length > 0 ||
-    state.value.rarities.length > 0 ||
-    state.value.costs.length > 0 ||
-    state.value.attacks.length > 0 ||
-    state.value.healths.length > 0 ||
-    state.value.cost[0].value !== '' ||
-    state.value.cost[1].value !== '' ||
-    state.value.attack[0].value !== '' ||
-    state.value.attack[1].value !== '' ||
-    state.value.health[0].value !== '' ||
-    state.value.health[1].value !== '' ||
-    state.value.format !== '' ||
-    state.value.keyword.trim() !== '';
+  return [
+    state.value.classes.length > 0,
+    state.value.types.length > 0,
+    state.value.races.length > 0,
+    state.value.factions.length > 0,
+    state.value.spellSchools.length > 0,
+    state.value.rarities.length > 0,
+    state.value.costs.length > 0,
+    state.value.attacks.length > 0,
+    state.value.healths.length > 0,
+    state.value.cost[0].value !== '',
+    state.value.cost[1].value !== '',
+    state.value.attack[0].value !== '',
+    state.value.attack[1].value !== '',
+    state.value.health[0].value !== '',
+    state.value.health[1].value !== '',
+    state.value.format !== '',
+    state.value.keyword.trim() !== '',
+  ].some(Boolean);
 });
 
 const selectedFilters = computed(() => {
-  const filters: Array<{ label: string; value: string }> = [];
+  const filters: Array<{ label: string, value: string }> = [];
 
   if (state.value.keyword.trim()) {
     filters.push({ label: t('hearthstone.search.advanced.keyword'), value: state.value.keyword });
   }
 
-  state.value.classes.forEach(v => filters.push({ label: t('hearthstone.search.command.class'), value: t(`hearthstone.class.${v}`) }));
-  state.value.types.forEach(v => filters.push({ label: t('hearthstone.search.command.type'), value: t(`hearthstone.card.type.${v}`) }));
-  state.value.races.forEach(v => filters.push({ label: t('hearthstone.search.command.race'), value: t(`hearthstone.card.race.${v}`) }));
-  state.value.factions.forEach(v => filters.push({ label: t('hearthstone.search.command.faction'), value: factionText(v) }));
-  state.value.spellSchools.forEach(v => filters.push({ label: t('hearthstone.search.command.spell-school'), value: t(`hearthstone.card.spellSchool.${v}`) }));
-  state.value.rarities.forEach(v => filters.push({ label: t('hearthstone.search.command.rarity'), value: t(`hearthstone.search.parameter.rarity.${v}`) }));
-  state.value.costs.forEach(v => filters.push({ label: t('hearthstone.search.command.cost'), value: v }));
-  state.value.attacks.forEach(v => filters.push({ label: t('hearthstone.search.command.attack'), value: v }));
-  state.value.healths.forEach(v => filters.push({ label: t('hearthstone.search.command.health'), value: v }));
+  state.value.classes.forEach((v: string) => filters.push({ label: t('hearthstone.search.command.class'), value: t(`hearthstone.class.${v}`) }));
+  state.value.types.forEach((v: string) => filters.push({ label: t('hearthstone.search.command.type'), value: t(`hearthstone.card.type.${v}`) }));
+  state.value.races.forEach((v: string) => filters.push({ label: t('hearthstone.search.command.race'), value: t(`hearthstone.card.race.${v}`) }));
+  state.value.factions.forEach((v: string) => filters.push({ label: t('hearthstone.search.command.faction'), value: factionText(v) }));
+  state.value.spellSchools.forEach((v: string) => filters.push({ label: t('hearthstone.search.command.spell-school'), value: t(`hearthstone.card.spellSchool.${v}`) }));
+  state.value.rarities.forEach((v: string) => filters.push({ label: t('hearthstone.search.command.rarity'), value: t(`hearthstone.search.parameter.rarity.${v}`) }));
+  state.value.costs.forEach((v: string) => filters.push({ label: t('hearthstone.search.command.cost'), value: v }));
+  state.value.attacks.forEach((v: string) => filters.push({ label: t('hearthstone.search.command.attack'), value: v }));
+  state.value.healths.forEach((v: string) => filters.push({ label: t('hearthstone.search.command.health'), value: v }));
 
   if (state.value.cost[0].value) filters.push({ label: t('hearthstone.search.command.cost'), value: `${state.value.cost[0].operator}${state.value.cost[0].value}` });
   if (state.value.cost[1].value) filters.push({ label: t('hearthstone.search.command.cost'), value: `${state.value.cost[1].operator}${state.value.cost[1].value}` });
@@ -609,16 +633,16 @@ const selectedFilters = computed(() => {
 const classColors: Record<string, string> = {
   death_knight: '#C41E3A',
   demon_hunter: '#A33000',
-  druid: '#FF7D0A',
-  hunter: '#ABD473',
-  mage: '#69CCF0',
-  paladin: '#F58CBA',
-  priest: '#FFFFFF',
-  rogue: '#FFF569',
-  shaman: '#0070DE',
-  warlock: '#9482C9',
-  warrior: '#C79C6E',
-  neutral: '#9E9E9E',
+  druid:        '#FF7D0A',
+  hunter:       '#ABD473',
+  mage:         '#69CCF0',
+  paladin:      '#F58CBA',
+  priest:       '#FFFFFF',
+  rogue:        '#FFF569',
+  shaman:       '#0070DE',
+  warlock:      '#9482C9',
+  warrior:      '#C79C6E',
+  neutral:      '#9E9E9E',
 };
 
 const getClassColorStyle = (className: string) => {
@@ -626,7 +650,7 @@ const getClassColorStyle = (className: string) => {
   return { backgroundColor: color };
 };
 
-const getClassIconStyle = (className: string) => {
+const getClassIconStyle = (_className: string) => {
   return {};
 };
 </script>
@@ -644,7 +668,13 @@ const getClassIconStyle = (className: string) => {
 }
 
 .quick-action-btn {
-  @apply bg-white/10 hover:bg-white/20 text-white/90 border border-white/20;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
 }
 
 // Selected Filters Panel
@@ -657,38 +687,59 @@ const getClassIconStyle = (className: string) => {
 }
 
 .selected-filters-header {
-  @apply flex items-center gap-2 mb-3 text-sm font-semibold text-blue-300;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: #93c5fd;
+  font-size: 14px;
+  font-weight: 600;
 
   .clear-btn {
-    @apply ml-auto text-xs text-red-400 hover:text-red-300 cursor-pointer flex items-center gap-1 transition-colors;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
     background: none;
     border: none;
     padding: 4px 8px;
     border-radius: 6px;
+    color: #f87171;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.2s ease, color 0.2s ease;
 
     &:hover {
       background: rgba(255, 100, 100, 0.1);
+      color: #fca5a5;
     }
   }
 }
 
 .selected-filters-list {
-  @apply flex flex-wrap gap-2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .filter-tag {
-  @apply inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   background: rgba(50, 70, 100, 0.6);
   border: 1px solid rgba(100, 150, 255, 0.3);
+  border-radius: 8px;
   color: #e0e8ff;
+  padding: 6px 12px;
+  font-size: 12px;
 }
 
 .filter-label {
-  @apply text-blue-300/70;
+  color: rgba(147, 197, 253, 0.7);
 }
 
 .filter-value {
-  @apply font-medium;
+  font-weight: 500;
 }
 
 // Filter Panel
@@ -706,7 +757,13 @@ const getClassIconStyle = (className: string) => {
 }
 
 .panel-title {
-  @apply flex items-center gap-2 text-base font-semibold text-blue-200 mb-3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: #bfdbfe;
+  font-size: 16px;
+  font-weight: 600;
 
   svg {
     filter: drop-shadow(0 0 8px rgba(100, 180, 255, 0.5));
@@ -733,10 +790,17 @@ const getClassIconStyle = (className: string) => {
 }
 
 .filter-group-title {
-  @apply flex items-center gap-2 text-sm font-medium text-blue-300/80 mb-2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: rgba(147, 197, 253, 0.8);
+  font-size: 14px;
+  font-weight: 500;
 
   svg {
-    @apply w-4 h-4;
+    width: 16px;
+    height: 16px;
   }
 }
 
@@ -873,11 +937,15 @@ const getClassIconStyle = (className: string) => {
 
 // Numeric Inputs
 .numeric-inputs {
-  @apply flex flex-col gap-2;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .numeric-row {
-  @apply flex gap-2 items-center;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 // Responsive adjustments

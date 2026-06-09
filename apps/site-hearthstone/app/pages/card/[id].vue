@@ -51,11 +51,8 @@
           <div class="flex items-center gap-2 py-2 my-4 bg-gray-50 dark:bg-gray-800 px-3 rounded">
             <span class="font-medium flex-1">
               {{ cardTypeLabel(data.type) }}
-              <template v-if="data.race && data.race.length > 0">
-                ·
-                <span v-for="(r, i) in data.race" :key="r">
-                  {{ raceLabel(r) }}<span v-if="i < data.race.length - 1">/</span>
-                </span>
+              <template v-if="raceText">
+                / {{ raceText }}
               </template>
               <template v-if="data.spellSchool">
                 / {{ spellSchoolLabel(data.spellSchool) }}
@@ -151,17 +148,17 @@
           <!-- Legalities -->
           <div v-if="legalityEntries.length > 0" class="grid grid-cols-2 gap-x-4 gap-y-1 mb-6 text-sm">
             <div
-              v-for="[fmt, status] in legalityEntries"
-              :key="fmt"
+              v-for="entry in legalityEntries"
+              :key="entry.format"
               class="flex items-center justify-between gap-2"
             >
               <span class="text-gray-500 dark:text-gray-400 truncate min-w-0">
-                {{ $te(`hearthstone.format.${fmt}`) ? $t(`hearthstone.format.${fmt}`) : fmt }}
+                {{ formatText(entry.format) }}
               </span>
               <span
                 class="font-medium shrink-0 text-xs"
-                :class="legalityColor(status)"
-              >{{ $t(`hearthstone.legality.${status}`) }}</span>
+                :class="legalityColor(entry.status)"
+              >{{ $t(`hearthstone.legality.${entry.status}`) }}</span>
             </div>
           </div>
         </UCard>
@@ -215,10 +212,9 @@
 </template>
 
 <script setup lang="ts">
-import { last } from 'lodash-es';
-
 import { locale as localeSchema, type Locale } from '#model/hearthstone/schema/basic';
 import type { CardProfile } from '#model/hearthstone/schema/card';
+import type { CardFullView } from '#model/hearthstone/schema/entity';
 import type { Patch } from '#model/hearthstone/schema/patch';
 import type { CardImageOption } from '~/utils/card-image';
 
@@ -276,7 +272,7 @@ const nativeLanguageNames: Record<Locale, string> = {
   zht: '繁體中文',
 };
 
-const languageOptions = computed(() => {
+const languageOptions = computed<CardProfile['localization']>(() => {
   const byLang = new Map<Locale, CardProfile['localization'][number]>();
 
   for (const localization of profile.value?.localization ?? []) {
@@ -289,7 +285,7 @@ const languageOptions = computed(() => {
 });
 
 const languageSelectItems = computed(() =>
-  languageOptions.value.map(option => ({
+  languageOptions.value.map((option: CardProfile['localization'][number]) => ({
     label: nativeLanguageNames[option.lang],
     value: option.lang,
   })),
@@ -322,21 +318,21 @@ useTitle(() => data.value?.localization.name ?? '');
 
 // Version
 
-const versions = computed(() => data.value?.versions ?? []);
+const versions = computed<number[][]>(() => data.value?.versions ?? []);
 
 const version = computed({
   get() {
     const queryVersion = Number.parseInt(route.query.version as string, 10);
 
     if (!Number.isNaN(queryVersion)) {
-      if (data.value == null || versions.value.some(v => v.includes(queryVersion))) {
+      if (data.value == null || versions.value.some((v: number[]) => v.includes(queryVersion))) {
         return queryVersion;
       }
     }
 
     if (data.value != null) {
       const lastVersion = Math.max(...data.value.version);
-      const lastGroup = versions.value.find(v => v.includes(lastVersion)) ?? [];
+      const lastGroup = versions.value.find((v: number[]) => v.includes(lastVersion)) ?? [];
       return lastGroup[0] ?? 0;
     }
 
@@ -353,12 +349,12 @@ const minVersion = computed(() => Math.min(...(data.value?.version ?? [0])));
 
 const patchProfiles = ref<Record<number, Patch>>({});
 
-watch(versions, async values => {
+watch(versions, async (values: number[][]) => {
   patchProfiles.value = {};
 
-  await Promise.all(values.flatMap(group => {
-    const numbers = [group[0]!, last(group)!].filter((v, i, a) => a.indexOf(v) === i);
-    return numbers.map(async n => {
+  await Promise.all(values.flatMap((group: number[]) => {
+    const numbers = [group[0]!, group[group.length - 1]!].filter((v: number, i: number, a: number[]) => a.indexOf(v) === i);
+    return numbers.map(async (n: number) => {
       try {
         const p = await $orpc.hearthstone.patch.full({ buildNumber: n });
         if (p) patchProfiles.value[n] = p;
@@ -369,9 +365,9 @@ watch(versions, async values => {
   }));
 }, { immediate: true });
 
-const versionInfos = computed(() => versions.value.map(v => {
+const versionInfos = computed(() => versions.value.map((v: number[]) => {
   const first = v[0]!;
-  const lastV = last(v)!;
+  const lastV = v[v.length - 1]!;
 
   const firstName = (n: number) => {
     const p = patchProfiles.value[n];
@@ -399,24 +395,31 @@ const stats = computed(() => {
 
 // Mechanics and tags
 
-const mechanicEntries = computed(() =>
+type MechanicEntry = [string, boolean | number];
+type RelatedCard = CardFullView['relatedCards'][number];
+type RelatedGroup = {
+  relation: string;
+  cards:    RelatedCard[];
+};
+
+const mechanicEntries = computed<MechanicEntry[]>(() =>
   Object.entries(data.value?.mechanics ?? {}),
 );
 
 const mechanics = computed(() =>
   mechanicEntries.value
-    .filter(([key]) => !key.startsWith('?'))
-    .map(([key, value]) => value === true ? key : `${key}:${value}`),
+    .filter(([key]: MechanicEntry) => !key.startsWith('?'))
+    .map(([key, value]: MechanicEntry) => value === true ? key : `${key}:${value}`),
 );
 
 const referencedTags = computed(() =>
-  Object.entries(data.value?.referencedTags ?? {})
-    .filter(([key]) => !key.startsWith('?'))
-    .map(([key, value]) => value === true ? key : `${key}:${value}`),
+  (Object.entries(data.value?.referencedTags ?? {}) as MechanicEntry[])
+    .filter(([key]: MechanicEntry) => !key.startsWith('?'))
+    .map(([key, value]: MechanicEntry) => value === true ? key : `${key}:${value}`),
 );
 
 const hasMechanic = (key: string) =>
-  mechanicEntries.value.some(([name, value]) => name === key && (value === true || (typeof value === 'number' && value !== 0)));
+  mechanicEntries.value.some(([name, value]: MechanicEntry) => name === key && (value === true || (typeof value === 'number' && value !== 0)));
 
 const mechanicText = (m: string) => {
   if (m.includes(':')) {
@@ -443,7 +446,10 @@ const copyTag = async (tag: string) => {
 };
 
 const legalityEntries = computed(() =>
-  Object.entries(data.value?.legalities ?? {}),
+  Object.entries(data.value?.legalities ?? {}).map(([format, status]) => ({
+    format,
+    status,
+  })),
 );
 
 const legalityColor = (status: string) => ({
@@ -452,13 +458,16 @@ const legalityColor = (status: string) => ({
   restricted: 'text-yellow-500',
 }[status] ?? 'text-gray-500');
 
+const formatText = (value: string) =>
+  te(`hearthstone.format.${value}`) ? t(`hearthstone.format.${value}`) : value;
+
 // Set
 
 const setText = computed(() => {
   const set = data.value?.set;
   if (!set) return null;
 
-  const setLocale = lang.value === 'zhs' || lang.value === 'zht' ? lang.value : 'en';
+  const setLocale: 'en' | 'zhs' | 'zht' = lang.value === 'zhs' || lang.value === 'zht' ? lang.value : 'en';
   const key = `hearthstone.set.${set}`;
   return nativeSetNames[setLocale][set] ?? (te(key) ? t(key) : set);
 });
@@ -526,8 +535,8 @@ const relationOrder = [
   'source',
 ];
 
-const relatedGroups = computed(() => {
-  const groups = new Map<string, NonNullable<typeof data.value>['relatedCards']>();
+const relatedGroups = computed<RelatedGroup[]>(() => {
+  const groups = new Map<string, RelatedCard[]>();
 
   for (const rel of data.value?.relatedCards ?? []) {
     const cards = groups.get(rel.relation) ?? [];
@@ -541,7 +550,7 @@ const relatedGroups = computed(() => {
       const bi = relationOrder.indexOf(b);
       return (ai === -1 ? relationOrder.length : ai) - (bi === -1 ? relationOrder.length : bi);
     })
-    .map(([relation, cards]) => ({ relation, cards }));
+    .map(([relation, cards]: [string, RelatedCard[]]) => ({ relation, cards }));
 });
 
 const relationText = (relation: string): string => {
@@ -563,8 +572,9 @@ const relationText = (relation: string): string => {
 const cardTypeLabel = (value: string) => getHearthstoneLabel('type', value, lang.value);
 const raceLabel = (value: string) => getHearthstoneLabel('race', value, lang.value);
 const spellSchoolLabel = (value: string) => getHearthstoneLabel('spellSchool', value, lang.value);
+const raceText = computed(() => data.value?.race?.map(raceLabel).join('/') ?? '');
 
-const relatedLink = (rel: NonNullable<typeof data.value>['relatedCards'][number]) => ({
+const relatedLink = (rel: RelatedCard) => ({
   path:  `/card/${rel.cardId}`,
   query: {
     lang: lang.value,
@@ -609,11 +619,11 @@ const variantOptions = computed(() => {
   return opts;
 });
 
-watch(isBattlegrounds, v => {
+watch(isBattlegrounds, (v: boolean) => {
   if (v) variant.value = 'battlegrounds';
 }, { immediate: true });
 
-watch(hasBattlegroundsVariant, v => {
+watch(hasBattlegroundsVariant, (v: boolean) => {
   if (!v) variant.value = 'normal';
 });
 

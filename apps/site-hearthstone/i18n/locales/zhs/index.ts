@@ -40,15 +40,19 @@ export default {
     'zhs:md':  '简体中文（MD）',
   },
 
+  common: {
+    backToMain: '返回 TCG Cards',
+  },
+
   search: {
     error: {
-      'empty-input':     '请输入搜索内容',
-      'invalid-query':   '无效查询',
+      'empty-input':      '请输入搜索内容',
+      'invalid-query':    '无效查询',
       'invalid-operator': '不支持的操作符',
-      'invalid-regex':   '无效正则表达式',
+      'invalid-regex':    '无效正则表达式',
       'no-pattern-match': '无法识别的查询格式',
-      'unknown-token':   '未知符号',
-      'unknown-command': '未知命令{name}',
+      'unknown-token':    '未知符号',
+      'unknown-command':  '未知命令{name}',
     },
 
     separator: {
@@ -68,11 +72,11 @@ export default {
       'greater-equal':    '大于或等于',
       'greater-or-equal': '等于或大于',
 
-      'include':     '包含',
-      'not-include': '不包含',
-      'is':          '是',
-      'is-not':      '不是',
-      'fully-match': '完全匹配',
+      'include':        '包含',
+      'not-include':    '不包含',
+      'is':             '是',
+      'is-not':         '不是',
+      'fully-match':    '完全匹配',
       'not-full-match': '不完全匹配',
 
       'count-is':               '数量是',
@@ -158,34 +162,34 @@ export default {
     },
 
     search: {
-      $self:      '卡牌搜索',
-      emptyQuery: '输入关键词或搜索语法开始查卡',
-      hint:       '例如：火球术、class:mage cost<=3、type:minion race:dragon',
-      noResult:   '没有找到匹配的卡牌',
-      failed:     '搜索失败',
+      '$self':      '卡牌搜索',
+      'emptyQuery': '输入关键词或搜索语法开始查卡',
+      'hint':       '例如：火球术、class:mage cost<=3、type:minion race:dragon',
+      'noResult':   '没有找到匹配的卡牌',
+      'failed':     '搜索失败',
 
-      advanced: {
-        $self:          '高级搜索',
-        entryHint:      '按职业、费用、类型、种族和赛制组合筛选',
-        browseSets:     '所有系列',
-        browseSetsHint: '选择一个系列查看该系列的全部卡牌',
-        plainSearch:    '普通搜索',
-        emptyQuery:     '尚未选择任何高级搜索条件',
-        reset:          '重置',
-        search:         '开始搜索',
-        any:            '不限',
-        sectionText:    '文本',
-        sectionIdentity:'基础属性',
-        sectionStats:   '数值',
+      'advanced': {
+        $self:               '高级搜索',
+        entryHint:           '按职业、费用、类型、种族和赛制组合筛选',
+        browseSets:          '所有系列',
+        browseSetsHint:      '选择一个系列查看该系列的全部卡牌',
+        plainSearch:         '普通搜索',
+        emptyQuery:          '尚未选择任何高级搜索条件',
+        reset:               '重置',
+        search:              '开始搜索',
+        any:                 '不限',
+        sectionText:         '文本',
+        sectionIdentity:     '基础属性',
+        sectionStats:        '数值',
         sectionOrganization: '赛制与系列',
-        sectionSort:    '排序',
-        keyword:        '关键词',
-        keywordPlaceholder: '输入卡牌名称或规则文本...',
-        directionDefault: '默认',
-        directionAsc:   '升序',
-        directionDesc:  '降序',
-        selectedFilters: '已选条件',
-        clearAll:       '清空筛选',
+        sectionSort:         '排序',
+        keyword:             '关键词',
+        keywordPlaceholder:  '输入卡牌名称或规则文本...',
+        directionDefault:    '默认',
+        directionAsc:        '升序',
+        directionDesc:       '降序',
+        selectedFilters:     '已选条件',
+        clearAll:            '清空筛选',
       },
 
       'full-command': {
@@ -201,7 +205,7 @@ export default {
         'format-with-status-not': '在{format}模式中的状态不为{status}',
       },
 
-      command: {
+      'command': {
         'lang':              '语言',
         'name':              '名称',
         'text':              '文本',
@@ -229,8 +233,8 @@ export default {
         'order':             '排序',
       },
 
-      parameter: {
-        class: {
+      'parameter': {
+        'class': {
           death_knight: '死亡骑士',
           druid:        '德鲁伊',
           hunter:       '猎人',
@@ -247,38 +251,38 @@ export default {
           demon_hunter: '恶魔猎手',
         },
 
-        type: {
-          null:                   '无',
-          game:                   '游戏',
-          player:                 '玩家',
-          hero:                   '英雄',
-          minion:                 '随从',
-          spell:                  '法术',
-          enchantment:            '附加效果',
-          weapon:                 '武器',
-          item:                   '物品',
-          token:                  '衍生物',
-          hero_power:             '英雄技能',
-          blank:                  '空白',
-          game_mode_button:       '游戏模式按钮',
+        'type': {
+          null:                     '无',
+          game:                     '游戏',
+          player:                   '玩家',
+          hero:                     '英雄',
+          minion:                   '随从',
+          spell:                    '法术',
+          enchantment:              '附加效果',
+          weapon:                   '武器',
+          item:                     '物品',
+          token:                    '衍生物',
+          hero_power:               '英雄技能',
+          blank:                    '空白',
+          game_mode_button:         '游戏模式按钮',
           move_minion_hover_target: '移动随从悬停目标',
-          mercenary_ability:      '佣兵技能',
-          buddy_meter:            '伙伴计量表',
-          location:               '地标',
-          quest_reward:           '任务奖励',
-          tavern_spell:           '酒馆法术',
-          anomaly:                '异常',
-          trinket:                '饰品',
-          pet:                    '宠物',
+          mercenary_ability:        '佣兵技能',
+          buddy_meter:              '伙伴计量表',
+          location:                 '地标',
+          quest_reward:             '任务奖励',
+          tavern_spell:             '酒馆法术',
+          anomaly:                  '异常',
+          trinket:                  '饰品',
+          pet:                      '宠物',
         },
 
-        rune: {
+        'rune': {
           blood:  '鲜血',
           frost:  '冰霜',
           unholy: '邪恶',
         },
 
-        race: {
+        'race': {
           bloodelf:  '血精灵',
           draenei:   '德莱尼',
           dwarf:     '矮人',
@@ -324,23 +328,23 @@ export default {
         },
 
         'spell-school': {
-          arcane:  '奥术',
-          fire:    '火焰',
-          frost:   '冰霜',
-          nature:  '自然',
-          holy:    '神圣',
-          shadow:  '暗影',
-          fel:     '邪能',
+          arcane: '奥术',
+          fire:   '火焰',
+          frost:  '冰霜',
+          nature: '自然',
+          holy:   '神圣',
+          shadow: '暗影',
+          fel:    '邪能',
         },
 
-        faction: {
-          all:            '全部阵营',
-          grimy_goons:    '污手党',
-          jade_lotus:     '玉莲帮',
-          kabal:          '暗金教',
-          zerg:           '异虫',
-          human:          '人类',
-          protoss:        '星灵',
+        'faction': {
+          all:         '全部阵营',
+          grimy_goons: '污手党',
+          jade_lotus:  '玉莲帮',
+          kabal:       '暗金教',
+          zerg:        '异虫',
+          human:       '人类',
+          protoss:     '星灵',
         },
 
         'race-bucket': {
@@ -405,7 +409,7 @@ export default {
           scourge:  '天灾',
         },
 
-        rarity: {
+        'rarity': {
           unknown:   '未知',
           free:      '基础',
           common:    '普通',
@@ -414,7 +418,7 @@ export default {
           legendary: '传说',
         },
 
-        order: {
+        'order': {
           name:   '名称',
           cost:   '费用',
           attack: '攻击力',
@@ -480,28 +484,28 @@ export default {
       },
 
       type: {
-        null:                   '无',
-        game:                   '游戏',
-        player:                 '玩家',
-        hero:                   '英雄',
-        minion:                 '随从',
-        spell:                  '法术',
-        enchantment:            '附加效果',
-        weapon:                 '武器',
-        item:                   '物品',
-        token:                  '衍生物',
-        hero_power:             '英雄技能',
-        blank:                  '空白',
-        game_mode_button:       '游戏模式按钮',
+        null:                     '无',
+        game:                     '游戏',
+        player:                   '玩家',
+        hero:                     '英雄',
+        minion:                   '随从',
+        spell:                    '法术',
+        enchantment:              '附加效果',
+        weapon:                   '武器',
+        item:                     '物品',
+        token:                    '衍生物',
+        hero_power:               '英雄技能',
+        blank:                    '空白',
+        game_mode_button:         '游戏模式按钮',
         move_minion_hover_target: '移动随从悬停目标',
-        mercenary_ability:      '佣兵技能',
-        buddy_meter:            '伙伴计量表',
-        location:               '地标',
-        quest_reward:           '任务奖励',
-        tavern_spell:           '酒馆法术',
-        anomaly:                '异常',
-        trinket:                '饰品',
-        pet:                    '宠物',
+        mercenary_ability:        '佣兵技能',
+        buddy_meter:              '伙伴计量表',
+        location:                 '地标',
+        quest_reward:             '任务奖励',
+        tavern_spell:             '酒馆法术',
+        anomaly:                  '异常',
+        trinket:                  '饰品',
+        pet:                      '宠物',
       },
 
       race: {
@@ -550,13 +554,13 @@ export default {
       },
 
       spellSchool: {
-        arcane:  '奥术',
-        fire:    '火焰',
-        frost:   '冰霜',
-        nature:  '自然',
-        holy:    '神圣',
-        shadow:  '暗影',
-        fel:     '邪能',
+        arcane: '奥术',
+        fire:   '火焰',
+        frost:  '冰霜',
+        nature: '自然',
+        holy:   '神圣',
+        shadow: '暗影',
+        fel:    '邪能',
       },
     },
 
@@ -565,17 +569,17 @@ export default {
     legality: {
       banned_in_card_pool: '牌池禁用',
       banned_in_deck:      '构筑禁用',
-      legal:       '合法',
-      banned:      '禁止',
-      derived:     '衍生',
-      minor:       '轻微调整',
-      restricted:  '限制',
-      wild:        '狂野',
-      unavailable: '不可用',
+      legal:               '合法',
+      banned:              '禁止',
+      derived:             '衍生',
+      minor:               '轻微调整',
+      restricted:          '限制',
+      wild:                '狂野',
+      unavailable:         '不可用',
     },
 
     set: {
-      $self: '系列',
+      $self:    '系列',
       CORE:     '核心',
       SET_3:    '经典',
       SET_12:   '纳克萨玛斯',
