@@ -54,7 +54,7 @@ export function buildLegacyCardImageUrl(
   lang?: string,
 ) {
   const baseUrl = trimBaseUrl(assetBaseUrl);
-  const language = lang || 'zhs';
+  const language = lang ?? 'zhs';
 
   return [
     baseUrl,

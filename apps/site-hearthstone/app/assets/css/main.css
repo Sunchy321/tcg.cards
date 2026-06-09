@@ -1,8 +1,7 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
-/* ── Hearthstone theme color ─────────────────────────────────────────────── */
-
+/* Hearthstone theme color */
 @theme static {
   --color-hearthstone-50:  #fffbeb;
   --color-hearthstone-100: #fef3c7;
@@ -16,8 +15,15 @@
   --color-hearthstone-900: #78350f;
   --color-hearthstone-950: #451a03;
 }
+
 :root {
   --color-theme-from: var(--color-hearthstone-400);
   --color-theme-via:  var(--color-hearthstone-500);
   --color-theme-to:   var(--color-hearthstone-600);
+}
+
+.dark {
+  --color-theme-from: #050816;
+  --color-theme-via:  #121827;
+  --color-theme-to:   #8a4a05;
 }

@@ -71,30 +71,6 @@
             {{ data.localization.flavorText }}
           </div>
 
-          <!-- Mechanics + Referenced tags -->
-          <div v-if="mechanics.length > 0 || referencedTags.length > 0" class="flex flex-wrap gap-2 mb-6">
-            <UBadge
-              v-for="m in mechanics"
-              :key="m"
-              color="primary"
-              variant="subtle"
-              class="cursor-pointer"
-              @click="copyTag(m)"
-            >
-              {{ mechanicText(m) }}
-            </UBadge>
-            <UBadge
-              v-for="r in referencedTags"
-              :key="r"
-              color="neutral"
-              variant="subtle"
-              class="cursor-pointer"
-              @click="copyTag(r)"
-            >
-              {{ mechanicText(r) }}
-            </UBadge>
-          </div>
-
           <!-- Set -->
           <div v-if="setText" class="flex flex-wrap gap-2 mb-6">
             <UBadge color="primary" variant="subtle" size="lg">
@@ -406,44 +382,8 @@ const mechanicEntries = computed<MechanicEntry[]>(() =>
   Object.entries(data.value?.mechanics ?? {}),
 );
 
-const mechanics = computed(() =>
-  mechanicEntries.value
-    .filter(([key]: MechanicEntry) => !key.startsWith('?'))
-    .map(([key, value]: MechanicEntry) => value === true ? key : `${key}:${value}`),
-);
-
-const referencedTags = computed(() =>
-  (Object.entries(data.value?.referencedTags ?? {}) as MechanicEntry[])
-    .filter(([key]: MechanicEntry) => !key.startsWith('?'))
-    .map(([key, value]: MechanicEntry) => value === true ? key : `${key}:${value}`),
-);
-
 const hasMechanic = (key: string) =>
   mechanicEntries.value.some(([name, value]: MechanicEntry) => name === key && (value === true || (typeof value === 'number' && value !== 0)));
-
-const mechanicText = (m: string) => {
-  if (m.includes(':')) {
-    const sep = m.indexOf(':');
-    const mid = m.slice(0, sep);
-    const arg = m.slice(sep + 1);
-    const key = `hearthstone.tag.${mid}`;
-    return `${te(key) ? t(key) : mid}:${arg}`;
-  }
-  const key = `hearthstone.tag.${m}`;
-  return te(key) ? t(key) : m;
-};
-
-const toast = useToast();
-
-const copyTag = async (tag: string) => {
-  const tagName = /^[^:]+(:|$)/.exec(tag)![0]!;
-  try {
-    await navigator.clipboard.writeText(tagName);
-    toast.add({ title: t('hearthstone.card.tag-copied'), color: 'success' });
-  } catch {
-    // clipboard not available
-  }
-};
 
 const legalityEntries = computed(() =>
   Object.entries(data.value?.legalities ?? {}).map(([format, status]) => ({
