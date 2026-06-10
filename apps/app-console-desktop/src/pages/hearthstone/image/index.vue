@@ -63,8 +63,15 @@
         <div class="space-y-4 xl:col-span-2">
           <UCard>
             <template #header>
-              <div>
+              <div class="flex items-center justify-between">
                 <div class="font-medium">导出与渲染条件</div>
+                <div
+                  v-if="lastTotalEstimate != null"
+                  class="flex items-center gap-2 text-sm text-muted"
+                >
+                  <span>匹配总数：</span>
+                  <span class="font-mono font-semibold text-default">{{ lastTotalEstimate }}</span>
+                </div>
               </div>
             </template>
 
@@ -227,6 +234,7 @@
                 <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
                   <span>{{ elapsedText }}</span>
                   <span v-if="jobEtaText.length > 0">{{ jobEtaText }}</span>
+                  <span v-if="totalMatchingEstimate != null">当前条件匹配总数：{{ totalMatchingEstimate }}</span>
                   <span v-if="currentJob.completedCount != null && currentJob.rejectedCount">
                     rejected: {{ currentJob.rejectedCount }}
                   </span>
@@ -242,6 +250,7 @@
                 <template #description>
                   <div>
                     任务完成
+                    <span v-if="totalMatchingEstimate != null">，当前条件匹配总数：{{ totalMatchingEstimate }}</span>
                     <span v-if="currentJob.writtenCount != null">，写入 {{ currentJob.writtenCount }} 个文件</span>
                     <span v-if="currentJob.skippedCount">，跳过 {{ currentJob.skippedCount }} 个</span>
                   </div>
@@ -257,6 +266,16 @@
               />
 
               <div class="flex flex-wrap justify-end gap-2">
+                <UButton
+                  v-if="!currentJob || isJobTerminal"
+                  label="计算总数"
+                  icon="i-lucide-hash"
+                  color="neutral"
+                  variant="soft"
+                  :loading="counting"
+                  :disabled="!hasImageConfig || counting"
+                  @click="countMatchingImages"
+                />
                 <UButton
                   v-if="!currentJob || isJobTerminal"
                   label="开始本地渲染导入"
@@ -498,6 +517,7 @@ import { getDesktopHearthstoneImageSettings } from '~/composables/useDesktopSett
 import {
   debugDesktopHearthstoneImageRenderRequest,
   detectDesktopHearthstoneImageRenderer,
+  exportDesktopHearthstoneImageRequirements,
   openDesktopPath,
   submitDesktopHearthstoneImageJob,
   submitDesktopHearthstoneReimportByRenderHash,
@@ -639,6 +659,7 @@ function restoreImagePageState() {
 const loadingConfig = ref(false);
 const configError = ref('');
 const submittingJob = ref(false);
+const counting = ref(false);
 const jobError = ref('');
 const currentJob = ref<DesktopHearthstoneImageJob | null>(null);
 const progressClockMs = ref(Date.now());
@@ -757,6 +778,21 @@ const jobProgressPercent = computed(() => {
   return Math.min(100, Math.round((completed / total) * 100));
 });
 
+const totalMatchingEstimate = computed(() => {
+  const req = currentJob.value?.requestCount;
+  const rem = currentJob.value?.remainingEstimate;
+  if (req == null || rem == null) return null;
+  return req + rem;
+});
+
+const lastTotalEstimate = ref<number | null>(null);
+
+watch(totalMatchingEstimate, (val) => {
+  if (val != null) {
+    lastTotalEstimate.value = val;
+  }
+});
+
 const progressCountText = computed(() => {
   const total = currentJob.value?.totalCount;
   const completed = currentJob.value?.completedCount;
@@ -821,6 +857,19 @@ function buildJobInput(): { lang: string; cardId?: string; version?: number; zon
     limit:     Math.min(Number.parseInt(form.limit, 10) || 500, 500),
     ...(cursorRaw.length > 0 ? { cursor: cursorRaw } : {}),
   };
+}
+
+/** Counts total matching images under current form conditions. */
+async function countMatchingImages() {
+  counting.value = true;
+  try {
+    const result = await exportDesktopHearthstoneImageRequirements(buildJobInput());
+    lastTotalEstimate.value = result.requestCount + result.remainingEstimate;
+  } catch (error) {
+    console.error('Failed to count matching images:', error);
+  } finally {
+    counting.value = false;
+  }
 }
 
 /** Submits one local render import job and subscribes to the progress stream. */
