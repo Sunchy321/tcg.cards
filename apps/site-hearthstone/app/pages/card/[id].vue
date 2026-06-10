@@ -536,19 +536,30 @@ const hasPremium = computed(() =>
   hasMechanic(String(TAG_ID.PREMIUM)),
 );
 
+const isBgsOnly = computed(() => {
+  const d = data.value;
+  return d != null && (d.type === 'trinket' || d.type === 'anomaly');
+});
+
 const isBattlegrounds = computed(() => {
   const d = data.value;
-  return d != null && (d.set === 'bgs' || (d.techLevel != null && !d.collectible));
+  return d != null && (d.set === 'bgs' || (d.techLevel != null && !d.collectible) || isBgsOnly.value);
 });
 
 const hasBattlegroundsVariant = computed(() => {
   const d = data.value;
-  return d != null && (d.set === 'bgs' || d.techLevel != null);
+  return d != null && (d.set === 'bgs' || d.techLevel != null || isBgsOnly.value);
 });
 
 const variant = ref<CardImageOption>(isBattlegrounds.value ? 'battlegrounds' : 'normal');
 
 const variantOptions = computed(() => {
+  if (isBgsOnly.value) {
+    return [
+      { label: t('hearthstone.card.variant.battlegrounds'), value: 'battlegrounds' as CardImageOption },
+    ];
+  }
+
   const opts: Array<{ label: string, value: CardImageOption }> = [
     { label: t('hearthstone.card.variant.normal'), value: 'normal' },
     { label: t('hearthstone.card.variant.golden'), value: 'golden' },

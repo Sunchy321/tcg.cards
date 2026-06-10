@@ -308,6 +308,11 @@ export function isCardImageVariantAllowed(
     return false;
   }
 
+  // Battlegrounds-only types should not generate normal-template renders
+  if (row.type === 'trinket' || row.type === 'anomaly') {
+    return false;
+  }
+
   if (variant.premium === 'normal' || variant.premium === 'golden') {
     return true;
   }
