@@ -464,6 +464,8 @@ export function collectImageRequirementRequests(input: {
 }) {
   const requests: ImageRequirementRequest[] = [];
   let missingCount = 0;
+  let totalCount = 0;
+  let readyCount = 0;
 
   for (const row of input.rows) {
     for (const variant of input.variants) {
@@ -471,7 +473,10 @@ export function collectImageRequirementRequests(input: {
         continue;
       }
 
+      totalCount += 1;
+
       if (input.readyKeys.has(imageKey(row.renderHash, variant))) {
+        readyCount += 1;
         continue;
       }
 
@@ -488,6 +493,8 @@ export function collectImageRequirementRequests(input: {
   return {
     requests,
     missingCount,
+    totalCount,
+    readyCount,
   };
 }
 
@@ -1016,12 +1023,16 @@ export async function exportCardImageRequirements(
 
   let rowOffset = 0;
   let seenMissing = 0;
+  let seenTotal = 0;
+  let seenReady = 0;
   const requests: ImageRequirementRequest[] = [];
+
+  const scanAll = input.scanAll ?? false;
 
   while (true) {
     const rows = await loadCandidateRows(database, input, rowOffset, exportBatchSize);
 
-    if (rows.length === 0 || requests.length >= input.limit) {
+    if (rows.length === 0 || (!scanAll && requests.length >= input.limit)) {
       break;
     }
 
@@ -1033,6 +1044,8 @@ export async function exportCardImageRequirements(
       variants,
     );
 
+    const requestFull = requests.length >= input.limit;
+
     const result = collectImageRequirementRequests({
       rows,
       readyKeys,
@@ -1040,12 +1053,17 @@ export async function exportCardImageRequirements(
       mechanicIds,
       r2Bucket,
       offset,
-      limit: input.limit - requests.length,
+      limit: requestFull ? 0 : input.limit - requests.length,
       seenMissing,
     });
 
     seenMissing += result.missingCount;
-    requests.push(...result.requests);
+    seenTotal += result.totalCount;
+    seenReady += result.readyCount;
+
+    if (!requestFull) {
+      requests.push(...result.requests);
+    }
   }
 
   if (requests.length === 0) {
@@ -1121,6 +1139,8 @@ export async function exportCardImageRequirements(
     fileName,
     requestCount:      requests.length,
     remainingEstimate: Math.max(0, seenMissing - nextOffset),
+    totalEstimate:     seenTotal,
+    readyEstimate:     seenReady,
     hasMore,
     nextCursor,
     content,

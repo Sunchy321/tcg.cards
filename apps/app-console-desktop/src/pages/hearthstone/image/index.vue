@@ -66,11 +66,12 @@
               <div class="flex items-center justify-between">
                 <div class="font-medium">导出与渲染条件</div>
                 <div
-                  v-if="lastTotalEstimate != null"
-                  class="flex items-center gap-2 text-sm text-muted"
+                  v-if="lastCounts != null"
+                  class="flex items-center gap-3 text-sm text-muted"
                 >
-                  <span>匹配总数：</span>
-                  <span class="font-mono font-semibold text-default">{{ lastTotalEstimate }}</span>
+                  <span>总数 <span class="font-mono font-semibold text-default">{{ lastCounts.total }}</span></span>
+                  <span>已有 <span class="font-mono font-semibold text-success">{{ lastCounts.ready }}</span></span>
+                  <span>缺失 <span class="font-mono font-semibold text-warning">{{ lastCounts.missing }}</span></span>
                 </div>
               </div>
             </template>
@@ -234,7 +235,6 @@
                 <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
                   <span>{{ elapsedText }}</span>
                   <span v-if="jobEtaText.length > 0">{{ jobEtaText }}</span>
-                  <span v-if="totalMatchingEstimate != null">当前条件匹配总数：{{ totalMatchingEstimate }}</span>
                   <span v-if="currentJob.completedCount != null && currentJob.rejectedCount">
                     rejected: {{ currentJob.rejectedCount }}
                   </span>
@@ -250,7 +250,6 @@
                 <template #description>
                   <div>
                     任务完成
-                    <span v-if="totalMatchingEstimate != null">，当前条件匹配总数：{{ totalMatchingEstimate }}</span>
                     <span v-if="currentJob.writtenCount != null">，写入 {{ currentJob.writtenCount }} 个文件</span>
                     <span v-if="currentJob.skippedCount">，跳过 {{ currentJob.skippedCount }} 个</span>
                   </div>
@@ -581,12 +580,12 @@ const form = reactive({
 const IMAGE_PAGE_STATE_KEY = 'console-desktop-hearthstone-image-page';
 
 interface ImagePageState {
-  lang: string;
+  lang: Locale;
   cardId: string;
   version: string;
-  zones: string[];
-  templates: string[];
-  premiums: string[];
+  zones: ImageZone[];
+  templates: ImageTemplate[];
+  premiums: ImagePremium[];
   limit: string;
   cursor: string;
 }
@@ -609,12 +608,12 @@ function normalizeImagePageState(value: unknown): ImagePageState {
   if (typeof value !== 'object' || value == null) return defaults;
   const data = value as Record<string, unknown>;
   return {
-    lang:      typeof data.lang === 'string' && data.lang.length > 0 ? data.lang : defaults.lang,
+    lang:      typeof data.lang === 'string' && data.lang.length > 0 ? data.lang as Locale : defaults.lang,
     cardId:    typeof data.cardId === 'string' ? data.cardId : defaults.cardId,
     version:   typeof data.version === 'string' && data.version.length > 0 ? data.version : defaults.version,
-    zones:     Array.isArray(data.zones) ? data.zones.filter((z): z is string => typeof z === 'string') : defaults.zones,
-    templates: Array.isArray(data.templates) ? data.templates.filter((t): t is string => typeof t === 'string') : defaults.templates,
-    premiums:  Array.isArray(data.premiums) ? data.premiums.filter((p): p is string => typeof p === 'string') : defaults.premiums,
+    zones:     Array.isArray(data.zones) ? data.zones.filter((z): z is ImageZone => typeof z === 'string') : defaults.zones,
+    templates: Array.isArray(data.templates) ? data.templates.filter((t): t is ImageTemplate => typeof t === 'string') : defaults.templates,
+    premiums:  Array.isArray(data.premiums) ? data.premiums.filter((p): p is ImagePremium => typeof p === 'string') : defaults.premiums,
     limit:     typeof data.limit === 'string' && data.limit.length > 0 ? data.limit : defaults.limit,
     cursor:    typeof data.cursor === 'string' ? data.cursor : defaults.cursor,
   };
@@ -752,6 +751,12 @@ const isJobTerminal = computed(() => (
   currentJob.value?.phase === 'completed' || currentJob.value?.phase === 'failed'
 ));
 
+watch(isJobTerminal, (terminal) => {
+  if (terminal && currentJob.value?.phase === 'completed') {
+    countMatchingImages();
+  }
+});
+
 const phaseLabels: Record<string, string> = {
   exporting_requirements:    '正在导出图片需求清单...',
   submitting_renderer_job:   '正在渲染卡图...',
@@ -778,20 +783,13 @@ const jobProgressPercent = computed(() => {
   return Math.min(100, Math.round((completed / total) * 100));
 });
 
-const totalMatchingEstimate = computed(() => {
-  const req = currentJob.value?.requestCount;
-  const rem = currentJob.value?.remainingEstimate;
-  if (req == null || rem == null) return null;
-  return req + rem;
-});
+interface ImageCounts {
+  total: number;
+  ready: number;
+  missing: number;
+}
 
-const lastTotalEstimate = ref<number | null>(null);
-
-watch(totalMatchingEstimate, (val) => {
-  if (val != null) {
-    lastTotalEstimate.value = val;
-  }
-});
+const lastCounts = ref<ImageCounts | null>(null);
 
 const progressCountText = computed(() => {
   const total = currentJob.value?.totalCount;
@@ -844,7 +842,7 @@ function stopProgressClock() {
 }
 
 /** Builds the API input from the current form values. */
-function buildJobInput(): { lang: string; cardId?: string; version?: number; zones: string[]; templates: string[]; premiums: string[]; limit: number; cursor?: string | null } {
+function buildJobInput(): { lang: Locale; cardId?: string; version?: number; zones: ImageZone[]; templates: ImageTemplate[]; premiums: ImagePremium[]; limit: number; cursor?: string | null } {
   const versionRaw = form.version.trim();
   const cursorRaw = form.cursor.trim();
   return {
@@ -863,8 +861,15 @@ function buildJobInput(): { lang: string; cardId?: string; version?: number; zon
 async function countMatchingImages() {
   counting.value = true;
   try {
-    const result = await exportDesktopHearthstoneImageRequirements(buildJobInput());
-    lastTotalEstimate.value = result.requestCount + result.remainingEstimate;
+    // Always count all rows from the beginning, ignoring any existing cursor
+    const input = { ...buildJobInput(), cursor: undefined, scanAll: true };
+    const result = await exportDesktopHearthstoneImageRequirements(input);
+    const missing = result.requestCount + result.remainingEstimate;
+    lastCounts.value = {
+      total: result.totalEstimate,
+      ready: result.readyEstimate,
+      missing,
+    };
   } catch (error) {
     console.error('Failed to count matching images:', error);
   } finally {

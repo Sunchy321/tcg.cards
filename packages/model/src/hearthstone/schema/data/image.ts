@@ -109,6 +109,7 @@ export const cardImageRequirementExportInput = z.strictObject({
   premiums: z.array(imagePremium).nonempty().default(['normal']),
   limit:    z.int().positive().max(500).default(200),
   cursor:   z.string().trim().min(1).optional().nullable(),
+  scanAll:  z.boolean().optional(),
 });
 
 export const cardImageRequirementExportResult = z.strictObject({
@@ -116,6 +117,8 @@ export const cardImageRequirementExportResult = z.strictObject({
   fileName:          z.string(),
   requestCount:      z.int().nonnegative(),
   remainingEstimate: z.int().nonnegative(),
+  totalEstimate:     z.int().nonnegative(),
+  readyEstimate:     z.int().nonnegative(),
   hasMore:           z.boolean(),
   nextCursor:        z.string().nullable(),
   content:           z.string(),
