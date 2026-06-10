@@ -15,6 +15,8 @@ import {
   buildHsdataPlaceholderSetId,
   isHsdataPlaceholderSetId,
 } from './hsdata-set-placeholder';
+import { importDiscoveredTags } from '@tcg-cards/console-api/lib/hearthstone/tag-commit';
+import { readEditorIdentity } from '../../runtime-config';
 import { createHsdataProfiler } from './hsdata-profile';
 
 // Shared transaction shape for import helpers.
@@ -247,17 +249,6 @@ export function buildParsedEntity(input: HsdataSnapshotInput): ParsedEntity {
   };
 }
 
-// Stable discovered-tag slug.
-function slugify(rawName: string, enumId: number): string {
-  const base = rawName
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-
-  return `${base || 'tag'}-${enumId}`;
-}
-
 // Map key for cardId plus snapshotHash lookups.
 function snapshotKey(cardId: string, snapshotHash: string): string {
   return `${cardId}\u0000${snapshotHash}`;
@@ -462,36 +453,6 @@ async function getSourceVersion(sourceTag: number): Promise<SourceVersionRow | n
     .then(rows => rows[0] ?? null);
 }
 
-// Discovered tag definitions needed by one import batch.
-async function getExistingTags(tx: DbTx, enumIds: number[]): Promise<Map<number, ExistingTagRow>> {
-  const rows: ExistingTagRow[] = [];
-
-  for (const chunk of chunkValues(enumIds)) {
-    if (chunk.length === 0) continue;
-
-    const result = await tx.select({
-      enumId:             Tag.enumId,
-      slug:               Tag.slug,
-      rawName:            Tag.rawName,
-      rawType:            Tag.rawType,
-      rawNames:           Tag.rawNames,
-      valueKind:          Tag.valueKind,
-      normalizeKind:      Tag.normalizeKind,
-      projectTargetType:  Tag.projectTargetType,
-      projectTargetPath:  Tag.projectTargetPath,
-      projectKind:        Tag.projectKind,
-      firstSeenSourceTag: Tag.firstSeenSourceTag,
-      lastSeenSourceTag:  Tag.lastSeenSourceTag,
-    })
-      .from(Tag)
-      .where(inArray(Tag.enumId, chunk));
-
-    rows.push(...result);
-  }
-
-  return new Map(rows.map(row => [row.enumId, row]));
-}
-
 // Existing set ids needed for pre-import validation.
 async function loadExistingSetDbfIds(dbfIds: number[]): Promise<Set<number>> {
   const rows: Array<{ dbfId: number | null, setId: string }> = [];
@@ -593,108 +554,6 @@ async function findMissingSetDbfIds(dbfIds: number[]): Promise<number[]> {
 
   const existingDbfIds = await loadExistingSetDbfIds(dbfIds);
   return dbfIds.filter(dbfId => !existingDbfIds.has(dbfId));
-}
-
-// Discovered tag metadata upserted before snapshot rows are written.
-async function upsertDiscoveredTags(
-  tx: DbTx,
-  sourceTag: number,
-  tags: RawTagInput[],
-  dryRun: boolean,
-): Promise<{ existing: Map<number, ExistingTagRow>, discovered: number[], updated: number }> {
-  const enumIds = sortUniqueIntegers(tags.map(tag => tag.enumId));
-  const existing = await getExistingTags(tx, enumIds);
-  const discovered: number[] = [];
-  let updated = 0;
-
-  const firstSeenByEnum = new Map<number, RawTagInput>();
-  for (const tag of tags) {
-    if (!firstSeenByEnum.has(tag.enumId)) {
-      firstSeenByEnum.set(tag.enumId, tag);
-    }
-  }
-
-  for (const enumId of enumIds) {
-    const input = firstSeenByEnum.get(enumId)!;
-    const row = existing.get(enumId);
-    const guessedKind = guessValueKind(input, row);
-
-    if (!row) {
-      discovered.push(enumId);
-
-      if (!dryRun) {
-        await tx.insert(Tag).values({
-          enumId,
-          slug:               slugify(input.rawName, enumId),
-          name:               input.rawName || null,
-          rawName:            input.rawName || null,
-          rawType:            input.rawType || null,
-          rawNames:           input.rawName ? [input.rawName] : [],
-          valueKind:          guessedKind,
-          normalizeKind:      'identity',
-          normalizeConfig:    {},
-          projectTargetType:  null,
-          projectTargetPath:  null,
-          projectKind:        null,
-          projectConfig:      {},
-          status:             'discovered',
-          description:        null,
-          firstSeenSourceTag: sourceTag,
-          lastSeenSourceTag:  sourceTag,
-        });
-      }
-
-      existing.set(enumId, {
-        enumId,
-        slug:               slugify(input.rawName, enumId),
-        rawName:            input.rawName || null,
-        rawType:            input.rawType || null,
-        rawNames:           input.rawName ? [input.rawName] : [],
-        valueKind:          guessedKind,
-        normalizeKind:      'identity',
-        projectTargetType:  null,
-        projectTargetPath:  null,
-        projectKind:        null,
-        firstSeenSourceTag: sourceTag,
-        lastSeenSourceTag:  sourceTag,
-      });
-      continue;
-    }
-
-    const nextRawNames = input.rawName && !row.rawNames.includes(input.rawName)
-      ? [...row.rawNames, input.rawName].sort()
-      : row.rawNames;
-
-    const needsUpdate = nextRawNames !== row.rawNames
-      || row.lastSeenSourceTag !== sourceTag
-      || row.rawName == null
-      || row.rawType == null;
-
-    if (needsUpdate) {
-      updated += 1;
-    }
-
-    if (needsUpdate && !dryRun) {
-      await tx.update(Tag)
-        .set({
-          rawName:           row.rawName ?? input.rawName ?? null,
-          rawType:           row.rawType ?? input.rawType ?? null,
-          rawNames:          nextRawNames,
-          lastSeenSourceTag: sourceTag,
-        })
-        .where(eq(Tag.enumId, enumId));
-    }
-
-    existing.set(enumId, {
-      ...row,
-      rawName:           row.rawName ?? input.rawName ?? null,
-      rawType:           row.rawType ?? input.rawType ?? null,
-      rawNames:          nextRawNames,
-      lastSeenSourceTag: sourceTag,
-    });
-  }
-
-  return { existing, discovered, updated };
 }
 
 // Reusable snapshots for the given card ids.
@@ -977,11 +836,18 @@ async function applyHsdataImport(
 ): Promise<Omit<ImportHsdataReport, 'build' | 'dryRun' | 'skipped' | 'sourceHash' | 'sourceTag'>> {
   const allTags = input.parsed.entities.flatMap(entity => entity.tags);
   const dbfIdByCardId = new Map(input.parsed.entities.map(entity => [entity.cardId, entity.dbfId]));
-  const { existing, discovered, updated } = await upsertDiscoveredTags(
+  const { existing, discovered, updated } = await importDiscoveredTags(
     tx,
     input.sourceTag,
     allTags,
-    input.dryRun,
+    {
+      syncStatus:     'pending_push',
+      editorRuntime:  'system',
+      editorIdentity: readEditorIdentity(),
+      editorSource:   'hsdata',
+      conflictTarget: { processingSide: 'local', processingStage: 'apply' },
+      dryRun:         input.dryRun,
+    },
   );
 
   const fallbackTagRowCount = input.parsed.entities.reduce((count, entity) => {

@@ -111,3 +111,17 @@ export function hasHearthstonePublishTargetOverride() {
     && target.targetFingerprint != null
     && target.connectionString != null;
 }
+
+const editorIdentityOverride = {
+  current: null as string | null,
+};
+
+/** Stores one runtime-local editor identity override provided by the desktop shell. */
+export function setEditorIdentity(value: string | null) {
+  editorIdentityOverride.current = value?.trim() || null;
+}
+
+/** Resolves the active editor identity from runtime override. Returns 'unknown' if not configured. */
+export function readEditorIdentity() {
+  return editorIdentityOverride.current || 'unknown';
+}

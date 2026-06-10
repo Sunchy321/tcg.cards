@@ -6,6 +6,7 @@ import {
   hasHearthstonePublishTargetOverride,
   hasHsdataRepoPath,
   hasLocalDatabaseUrl,
+  setEditorIdentity,
   setHearthstoneImageOverride,
   setHearthstonePublishTargetOverride,
   setHsdataRepoPathOverride,
@@ -160,10 +161,28 @@ const openPath = os
     return { ok: proc.exitCode === 0 };
   });
 
+const configureEditorIdentityInput = z.strictObject({
+  editorIdentity: z.string().trim().min(1),
+});
+
+const configureEditorIdentity = os
+  .route({
+    method:      'POST',
+    description: 'Set the editor identity used by tag commit operations',
+    tags:        ['Desktop Runtime'],
+  })
+  .input(configureEditorIdentityInput)
+  .output(z.strictObject({ ok: z.boolean() }))
+  .handler(async ({ input }) => {
+    setEditorIdentity(input.editorIdentity);
+    return { ok: true };
+  });
+
 /** Desktop runtime procedures exposed over the local RPC transport. */
 export const runtimeRouter = {
   health,
   configureDesktopState,
+  configureEditorIdentity,
   configureLocalDatabase,
   configureHsdataRepo,
   openPath,

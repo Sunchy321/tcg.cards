@@ -29,7 +29,8 @@ export const FieldCommit = dataSchema.table('field_commits', {
 
   clientMutationId:       text('client_mutation_id').notNull(),
   editorRuntime:          text('editor_runtime').notNull(),
-  editorIdentity:         text('editor_identity'),
+  editorIdentity:         text('editor_identity').notNull(),
+  editorSource:           text('editor_source').notNull(),
   expectedRowRevision:    text('expected_row_revision').notNull(),
   expectedWinnerRevision: text('expected_winner_revision'),
   baseRevision:           text('base_revision').notNull(),

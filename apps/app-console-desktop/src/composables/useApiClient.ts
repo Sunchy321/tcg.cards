@@ -96,6 +96,7 @@ export function createDesktopApiClient<TRouter extends AnyRouter>(): RouterClien
       meta: {
         editorRuntime: 'desktop',
         syncMode:      'local_edit',
+        editorSource:  'manual',
       },
     },
   });

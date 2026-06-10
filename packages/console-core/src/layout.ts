@@ -138,6 +138,11 @@ export function getGameNavItems(game: Game): ConsoleNavItem[][] {
         to: `/${game}/conflict`,
       },
       {
+        label: '推送',
+        icon: 'i-lucide-cloud-upload',
+        to: `/${game}/push`,
+      },
+      {
         label: '发布',
         icon: 'i-lucide-upload',
         to: `/${game}/publish`,

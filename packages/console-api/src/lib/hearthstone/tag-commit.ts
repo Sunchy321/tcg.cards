@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import { ORPCError } from '@orpc/server';
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 
 import { db } from '@tcg-cards/db/db';
 import {
@@ -103,6 +103,7 @@ const supportedCommitKinds = new Set<FieldCommitInsert['commitKind']>([
   'source_edit',
   'conflict_resolution',
   'winner_clear',
+  'row_create',
 ]);
 
 /** Serializes JSON-compatible values with stable key ordering for revision hashing. */
@@ -319,6 +320,89 @@ async function insertConflict(
   } satisfies FieldConflictInsert);
 }
 
+const rowCreateFields: Array<keyof TagWrite> = [
+  'slug', 'name', 'rawName', 'rawType', 'rawNames', 'valueKind',
+  'normalizeKind', 'status',
+];
+
+/** Creates a tag row and field_winners from a row_create commit on the target DB.
+ *
+ * Used when push-to-remote replays a row_create on a DB that doesn't have the row yet.
+ */
+async function createRowFromCommit(
+  tx: DbTx,
+  commit: FieldCommitInsert,
+  enumId: number,
+  rowState: TagWrite,
+): Promise<ApplyTagCommitResult> {
+  const entityKey = toTagEntityKey(enumId);
+  const now = new Date();
+
+  const inserted = await tx.insert(Tag).values({
+    enumId,
+    slug:               rowState.slug,
+    slugAliases:        rowState.slugAliases,
+    name:               rowState.name,
+    rawName:            rowState.rawName,
+    rawType:            rowState.rawType,
+    rawNames:           rowState.rawNames,
+    valueKind:          rowState.valueKind,
+    normalizeKind:      rowState.normalizeKind,
+    normalizeConfig:    rowState.normalizeConfig,
+    projectTargetType:  rowState.projectTargetType,
+    projectTargetPath:  rowState.projectTargetPath,
+    projectKind:        rowState.projectKind,
+    projectConfig:      rowState.projectConfig,
+    status:             rowState.status,
+    description:        rowState.description,
+    firstSeenSourceTag: null,
+    lastSeenSourceTag:  null,
+  }).onConflictDoNothing().returning().then(rows => rows[0]);
+
+  // Tag may already exist on target (web-side edits or partial push). Load it.
+  const tagRow = inserted ?? await tx.select()
+    .from(Tag)
+    .where(eq(Tag.enumId, enumId))
+    .then(rows => rows[0]);
+
+  if (!tagRow) {
+    throw new ORPCError('BAD_REQUEST', { message: `Failed to create tag ${enumId} from row_create` });
+  }
+
+  // Create field_winners for auto-base fields (skip if already active)
+  for (const field of rowCreateFields) {
+    const fieldPath = toTagFieldPath(field);
+    const value = rowState[field];
+
+    await tx.insert(FieldWinner).values({
+      entityType:    'tag',
+      entityKey,
+      fieldPath,
+      winnerValue:   value,
+      winnerSource:  'auto:hsdata',
+      status:        'active',
+      sourceRuntime: commit.editorRuntime,
+      updatedBy:     commit.editorIdentity,
+      baseRevision:  buildFallbackBaseRevision(tagRow, field),
+    }).onConflictDoNothing();
+  }
+
+  const saved = await tx.insert(FieldCommit)
+    .values({
+      ...commit,
+      projectionStatus: 'projected',
+      projectedAt:      now,
+    })
+    .returning()
+    .then(rows => rows[0]);
+
+  if (!saved) {
+    throw new ORPCError('BAD_REQUEST', { message: 'Failed to persist tag commit' });
+  }
+
+  return { status: 'applied', row: tagRow, commit: saved };
+}
+
 /** Applies one incoming tag commit with idempotency, revision checks, merge, and projection. */
 export async function applyTagCommit(
   tx: DbTx,
@@ -361,11 +445,21 @@ export async function applyTagCommit(
   }
 
   const enumId = enumIdFromEntityKey(commit.entityKey);
-  const field = fieldFromPath(commit.fieldPath);
+  const isRowCreate = commit.commitKind === 'row_create';
+  // row_create uses 'tag' as the entity-level fieldPath; other commits must resolve a real field.
+  const field = isRowCreate && commit.fieldPath === 'tag'
+    ? 'slug' // dummy, not used for projection
+    : fieldFromPath(commit.fieldPath);
   const current = await tx.select()
     .from(Tag)
     .where(eq(Tag.enumId, enumId))
     .then(rows => rows[0]);
+
+  // row_create creates the row on the target DB if it doesn't exist yet (push to remote).
+  if (isRowCreate && !current) {
+    const rowState = commit.value as TagWrite;
+    return await createRowFromCommit(tx, commit, enumId, rowState);
+  }
 
   if (!current) {
     throw new ORPCError('NOT_FOUND', { message: 'Tag not found' });
@@ -389,7 +483,8 @@ export async function applyTagCommit(
   } satisfies ApplyTagCommitOptions['conflictTarget'];
   const onConflict = options?.onConflict ?? insertConflict;
 
-  if (commit.expectedRowRevision !== expectedRowRevision) {
+  // row_create commits skip revision checks — they establish the initial baseline.
+  if (!isRowCreate && commit.expectedRowRevision !== expectedRowRevision) {
     await onConflict(tx, {
       commit,
       current,
@@ -404,7 +499,7 @@ export async function applyTagCommit(
     });
   }
 
-  if ((commit.expectedWinnerRevision ?? null) !== (expectedWinnerRevision ?? null)) {
+  if (!isRowCreate && (commit.expectedWinnerRevision ?? null) !== (expectedWinnerRevision ?? null)) {
     await onConflict(tx, {
       commit,
       current,
@@ -420,6 +515,31 @@ export async function applyTagCommit(
   }
 
   const acceptedAt = new Date();
+
+  // row_create when the row already exists: idempotent, just record the commit.
+  if (isRowCreate) {
+    const inserted = await tx.insert(FieldCommit)
+      .values({
+        ...commit,
+        projectionStatus: 'skipped',
+        projectedAt:      null,
+      })
+      .returning()
+      .then(rows => rows[0]);
+
+    if (!inserted) {
+      throw new ORPCError('BAD_REQUEST', {
+        message: 'Failed to persist tag commit',
+      });
+    }
+
+    return {
+      status: 'applied',
+      row:    current,
+      commit: inserted,
+    };
+  }
+
   if (!canProjectCommit(commit)) {
     const pending = await tx.insert(FieldCommit)
       .values({
@@ -504,5 +624,660 @@ export async function applyTagCommit(
     status: 'applied',
     row:    updated,
     commit: inserted,
+  };
+}
+
+// ─── Shared tag service types ───────────────────────────────────────
+
+import type {
+  TagListInput,
+  TagListResult,
+  TagProfile,
+  TagUpdateInput,
+} from '@tcg-cards/model/src/hearthstone/schema/tag';
+
+/** Options that control how one tag edit commit is persisted and synced. */
+export interface TagServiceOptions {
+  syncStatus: 'pending_push' | 'synced' | 'pulled';
+  editorRuntime: string;
+  editorIdentity: string;
+  editorSource: string;
+  conflictTarget: {
+    processingSide: 'local' | 'remote';
+    processingStage: 'apply' | 'replay';
+  };
+}
+
+/** Serializable tag field write shape accepted by shared tag service helpers. */
+type TagWriteInput = {
+  slug: string;
+  slugAliases: string[];
+  name: string | null;
+  rawName: string | null;
+  rawType: string | null;
+  rawNames: string[];
+  valueKind: string;
+  normalizeKind: string;
+  normalizeConfig: Record<string, unknown>;
+  projectTargetType: string | null;
+  projectTargetPath: string | null;
+  projectKind: string | null;
+  projectConfig: Record<string, unknown>;
+  status: string;
+  description: string | null;
+};
+
+const projectKindSet = new Set([
+  'assign_value',
+  'append_string_array',
+  'assign_card_ref',
+  'assign_localized_text',
+  'assign_mechanic',
+  'assign_referenced_tag',
+  'assign_legacy',
+  'emit_relation',
+]);
+
+const projectTargetTypeSet = new Set([
+  'entity',
+  'entity_localization',
+  'entity_relation',
+]);
+
+const enumMapAliasSet = new Set([
+  'set',
+  'rarity',
+  'multiclass',
+  'spell-school',
+  'race',
+]);
+
+/** Stable JSON serialization for revision hashing. */
+function stableJson(value: unknown): string {
+  if (value == null || typeof value !== 'object') {
+    return JSON.stringify(value);
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map(item => stableJson(item)).join(',')}]`;
+  }
+
+  const entries = Object.entries(value as Record<string, unknown>)
+    .sort(([left], [right]) => left.localeCompare(right));
+
+  return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`).join(',')}}`;
+}
+
+/** Trims one nullable string to a non-empty value or null. */
+function trimToNull(value: string | null | undefined) {
+  const text = value?.trim();
+  return text && text.length > 0 ? text : null;
+}
+
+/** Deduplicates and trims one array of strings to non-empty unique values. */
+function uniqueTrimmed(values: string[]) {
+  return [...new Set(values.map(value => value.trim()).filter(Boolean))];
+}
+
+/** Maps one persisted tag row into the public tag profile shape. */
+export function toTagProfile(row: TagRow): TagProfile {
+  return {
+    enumId:             row.enumId,
+    slug:               row.slug,
+    slugAliases:        row.slugAliases,
+    name:               row.name,
+    rawName:            row.rawName,
+    rawType:            row.rawType,
+    rawNames:           row.rawNames,
+    valueKind:          row.valueKind,
+    normalizeKind:      row.normalizeKind,
+    normalizeConfig:    row.normalizeConfig,
+    projectTargetType:  row.projectTargetType,
+    projectTargetPath:  row.projectTargetPath,
+    projectKind:        row.projectKind,
+    projectConfig:      row.projectConfig,
+    status:             row.status,
+    description:        row.description,
+    firstSeenSourceTag: row.firstSeenSourceTag,
+    lastSeenSourceTag:  row.lastSeenSourceTag,
+    createdAt:          row.createdAt instanceof Date ? row.createdAt.toISOString() : new Date(row.createdAt).toISOString(),
+    updatedAt:          row.updatedAt instanceof Date ? row.updatedAt.toISOString() : new Date(row.updatedAt).toISOString(),
+  };
+}
+
+/** Filters one tag profile against list input search criteria. */
+export function matchesTagSearch(tag: TagProfile, input: TagListInput) {
+  const status = input.status?.trim();
+  if (status && tag.status !== status) {
+    return false;
+  }
+
+  const projectKind = input.projectKind?.trim();
+  if (projectKind && tag.projectKind !== projectKind) {
+    return false;
+  }
+
+  const q = input.q?.trim().toLowerCase();
+  if (!q) {
+    return true;
+  }
+
+  const values = [
+    String(tag.enumId),
+    tag.slug,
+    tag.name,
+    tag.rawName,
+    tag.rawType,
+    tag.valueKind,
+    tag.normalizeKind,
+    tag.projectTargetType,
+    tag.projectTargetPath,
+    tag.projectKind,
+    tag.status,
+    tag.description,
+    ...tag.slugAliases,
+    ...tag.rawNames,
+  ];
+
+  return values.some(value => value?.toLowerCase().includes(q));
+}
+
+/** Lists tag configurations with pagination and filtering. */
+export async function listTags(
+  db: DbTx,
+  input: TagListInput,
+): Promise<TagListResult> {
+  const rows = await db.select()
+    .from(Tag)
+    .orderBy(asc(Tag.enumId));
+
+  const profiles = rows.map(toTagProfile).filter(tag => matchesTagSearch(tag, input));
+  const offset = (input.page - 1) * input.limit;
+
+  return {
+    items: profiles.slice(offset, offset + input.limit),
+    total: profiles.length,
+    page:  input.page,
+    limit: input.limit,
+  };
+}
+
+/** Reads one tag by enum id. */
+export async function getTag(
+  db: DbTx,
+  enumId: number,
+): Promise<TagProfile> {
+  const row = await db.select()
+    .from(Tag)
+    .where(eq(Tag.enumId, enumId))
+    .then(rows => rows[0]);
+
+  if (!row) {
+    throw new ORPCError('NOT_FOUND', { message: 'Tag not found' });
+  }
+
+  return toTagProfile(row);
+}
+
+/** Normalizes one incoming tag update payload into the write shape. */
+export function normalizeTagWrite(input: TagUpdateInput): TagWrite {
+  return {
+    slug:              input.slug.trim(),
+    slugAliases:       uniqueTrimmed(input.slugAliases),
+    name:              trimToNull(input.name),
+    rawName:           trimToNull(input.rawName),
+    rawType:           trimToNull(input.rawType),
+    rawNames:          uniqueTrimmed(input.rawNames),
+    valueKind:         input.valueKind.trim(),
+    normalizeKind:     input.normalizeKind.trim(),
+    normalizeConfig:   input.normalizeConfig,
+    projectTargetType: trimToNull(input.projectTargetType),
+    projectTargetPath: trimToNull(input.projectTargetPath),
+    projectKind:       trimToNull(input.projectKind),
+    projectConfig:     input.projectConfig,
+    status:            input.status.trim(),
+    description:       trimToNull(input.description),
+  };
+}
+
+/** Validates one tag update payload against supported business rules. */
+export function assertTagUpdate(input: TagUpdateInput) {
+  if (input.valueKind === 'enum') {
+    throw new ORPCError('BAD_REQUEST', {
+      message: 'valueKind=enum is no longer supported; use int + enum_from_int instead',
+    });
+  }
+
+  if (input.projectTargetPath === 'text' || input.projectTargetPath === 'displayText') {
+    throw new ORPCError('BAD_REQUEST', {
+      message: 'text and displayText are derived fields; use richText as the projection target',
+    });
+  }
+
+  if (input.normalizeKind === 'enum_from_int') {
+    const enumMap = input.normalizeConfig.enumMap;
+
+    if (typeof enumMap === 'string' && !enumMapAliasSet.has(enumMap)) {
+      throw new ORPCError('BAD_REQUEST', {
+        message: 'normalizeConfig.enumMap only supports the string aliases "set", "rarity", "multiclass", "spell-school", and "race"',
+      });
+    }
+
+    if (enumMap != null && typeof enumMap !== 'string' && (typeof enumMap !== 'object' || Array.isArray(enumMap))) {
+      throw new ORPCError('BAD_REQUEST', {
+        message: 'normalizeConfig.enumMap must be an object or one of the supported string aliases',
+      });
+    }
+  }
+
+  if (input.projectKind != null && !projectKindSet.has(input.projectKind)) {
+    throw new ORPCError('BAD_REQUEST', {
+      message: `Unsupported projectKind: ${input.projectKind}`,
+    });
+  }
+
+  if (input.projectTargetType != null && !projectTargetTypeSet.has(input.projectTargetType)) {
+    throw new ORPCError('BAD_REQUEST', {
+      message: `Unsupported projectTargetType: ${input.projectTargetType}`,
+    });
+  }
+
+  if (input.projectKind === 'assign_localized_text' && input.projectTargetType !== 'entity_localization') {
+    throw new ORPCError('BAD_REQUEST', {
+      message: 'assign_localized_text requires projectTargetType=entity_localization',
+    });
+  }
+
+  if (input.projectKind === 'emit_relation' && input.projectTargetType !== 'entity_relation') {
+    throw new ORPCError('BAD_REQUEST', {
+      message: 'emit_relation requires projectTargetType=entity_relation',
+    });
+  }
+}
+
+/** Compares the current row with the incoming write and returns changed fields with winners. */
+function collectTagDiffsShared(current: TagRow, next: TagWrite, winners: FieldWinnerRow[]) {
+  const currentWrite = rowToTagWrite(current);
+  const winnerByField = new Map(winners.map(winner => [winner.fieldPath, winner]));
+
+  return editableFields
+    .filter(field => stableJson(currentWrite[field]) !== stableJson(next[field]))
+    .map(field => {
+      const fieldPath = toTagFieldPath(field);
+
+      return {
+        field,
+        fieldPath,
+        value: next[field],
+        previousWinner: winnerByField.get(fieldPath),
+      };
+    });
+}
+
+/** Builds one idempotency key for a tag field edit. */
+export function buildClientMutationId(enumId: number, fieldPath: string) {
+  const random = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : createHash('sha256')
+      .update(`${enumId}:${fieldPath}:${Date.now()}:${Math.random()}`, 'utf8')
+      .digest('hex');
+
+  return `tag:${enumId}:${fieldPath}:${random}`;
+}
+
+/** Saves one manual tag edit via the field-commit workflow inside a single transaction. */
+export async function saveTagEdit(
+  db: DbTx,
+  input: TagUpdateInput,
+  options: TagServiceOptions,
+): Promise<TagProfile> {
+  assertTagUpdate(input);
+
+  const current = await db.select()
+    .from(Tag)
+    .where(eq(Tag.enumId, input.enumId))
+    .then(rows => rows[0]);
+
+  if (!current) {
+    throw new ORPCError('NOT_FOUND', { message: 'Tag not found' });
+  }
+
+  const next = normalizeTagWrite(input);
+  const fieldPaths = editableFields.map(toTagFieldPath);
+  const entityKey = toTagEntityKey(input.enumId);
+  const existingWinners = await db.select()
+    .from(FieldWinner)
+    .where(and(
+      eq(FieldWinner.entityType, 'tag'),
+      eq(FieldWinner.status, 'active'),
+      eq(FieldWinner.entityKey, entityKey),
+      inArray(FieldWinner.fieldPath, fieldPaths),
+    ));
+
+  const diffs = collectTagDiffsShared(current, next, existingWinners);
+
+  if (diffs.length === 0) {
+    return toTagProfile(current);
+  }
+
+  let currentRow = current;
+
+  for (const diff of diffs) {
+    const commit = {
+      entityType:             'tag',
+      entityKey,
+      fieldPath:              diff.fieldPath,
+      value:                  diff.value,
+      operation:              'set',
+      commitKind:             'source_edit',
+      clientMutationId:       buildClientMutationId(input.enumId, diff.fieldPath),
+      editorRuntime:          options.editorRuntime,
+      editorIdentity:         options.editorIdentity,
+      editorSource:           options.editorSource,
+      expectedRowRevision:    buildTagRowRevision(currentRow),
+      expectedWinnerRevision: buildWinnerRevision(diff.previousWinner),
+      baseRevision:           diff.previousWinner?.baseRevision ?? buildFallbackBaseRevision(currentRow, diff.field),
+      reviewStatus:           'auto_approved',
+      reviewedBy:             null,
+      reviewedAt:             null,
+      reviewReason:           null,
+      projectionStatus:       'pending',
+      syncStatus:             options.syncStatus,
+      createdAt:              new Date(),
+      projectedAt:            null,
+    } satisfies FieldCommitInsert;
+
+    const applied = await applyTagCommit(db, commit, {
+      conflictTarget: options.conflictTarget,
+    });
+    currentRow = applied.row;
+  }
+
+  return toTagProfile(currentRow);
+}
+
+// ─── Auto-import tag discovery helpers ──────────────────────────────
+
+/** One raw tag discovered during hsdata import. */
+export interface DiscoveredTagInput {
+  enumId: number;
+  rawName: string | null;
+  rawType: string | null;
+}
+
+/** Snapshot of an existing tag before import discovery writes. */
+export interface ExistingTagSnapshot {
+  enumId: number;
+  slug: string;
+  rawName: string | null;
+  rawType: string | null;
+  rawNames: string[];
+  valueKind: string;
+  normalizeKind: string;
+  projectTargetType: string | null;
+  projectTargetPath: string | null;
+  projectKind: string | null;
+  firstSeenSourceTag: number | null;
+  lastSeenSourceTag: number | null;
+}
+
+/** Guesses the best tag value kind from raw input and an existing row. */
+function guessValueKind(raw: DiscoveredTagInput, existing: ExistingTagSnapshot | undefined) {
+  if (existing?.valueKind !== 'json' && existing?.valueKind != null) return existing.valueKind;
+  if (raw.rawType === 'Bool') return 'bool';
+  if (raw.rawType === 'Int') return 'int';
+  if (raw.rawType === 'String' || raw.rawType === 'LocString') return 'string';
+  return 'json';
+}
+
+/** Slugifies one raw tag name into a stable identifier. */
+function slugify(rawName: string | null, enumId: number) {
+  const base = rawName?.trim() || `tag_${enumId}`;
+  return base
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '');
+}
+
+/** Builds one row_create commit representing the entire initial row state. */
+function buildRowCreateCommit(
+  enumId: number,
+  row: TagRow,
+  options: TagServiceOptions,
+): FieldCommitInsert {
+  return {
+    entityType:             'tag',
+    entityKey:              toTagEntityKey(enumId),
+    fieldPath:              'tag',
+    value:                  rowToTagWrite(row),
+    operation:              'set',
+    commitKind:             'row_create',
+    clientMutationId:       buildClientMutationId(enumId, `tag:row_create:${Date.now()}`),
+    editorRuntime:          options.editorRuntime,
+    editorIdentity:         options.editorIdentity,
+    editorSource:           options.editorSource,
+    expectedRowRevision:    '',
+    expectedWinnerRevision: null,
+    baseRevision:           hashRevision({
+      entityType:            'tag',
+      entityKey:             toTagEntityKey(enumId),
+      fieldPath:             'tag',
+      resolvedBaseValue:     rowToTagWrite(row),
+      resolvedSource:        'auto:hsdata',
+      resolutionMode:        'rule_auto',
+      resolutionFingerprint: 'hearthstone-tag-hsdata-discovery:v1',
+    }),
+    reviewStatus:       'auto_approved',
+    reviewedBy:         null,
+    reviewedAt:         null,
+    reviewReason:       null,
+    projectionStatus:   'pending',
+    syncStatus:         options.syncStatus,
+    createdAt:          new Date(),
+    projectedAt:        null,
+  };
+}
+
+/** Upserts discovered tags with field-commit workflow during hsdata import.
+ *
+ * - New tags: INSERT the row, then create row_create commits + winners for each field.
+ * - Existing tags: create source_edit commits for changed discovery metadata fields.
+ * - When dryRun is true, only reads and counts without any writes.
+ */
+export async function importDiscoveredTags(
+  tx: DbTx,
+  sourceTag: number,
+  tags: DiscoveredTagInput[],
+  options: TagServiceOptions & { dryRun?: boolean },
+): Promise<{ existing: Map<number, ExistingTagSnapshot>; discovered: number[]; updated: number }> {
+  const dryRun = options.dryRun ?? false;
+  const enumIds = [...new Set(tags.map(tag => tag.enumId))].sort((a, b) => a - b);
+  const existingRows = await tx.select()
+    .from(Tag)
+    .where(inArray(Tag.enumId, enumIds));
+  const existing = new Map(existingRows.map(row => [row.enumId, row as ExistingTagSnapshot]));
+  const discovered: number[] = [];
+  let updated = 0;
+
+  const firstSeenByEnum = new Map<number, DiscoveredTagInput>();
+  for (const tag of tags) {
+    if (!firstSeenByEnum.has(tag.enumId)) {
+      firstSeenByEnum.set(tag.enumId, tag);
+    }
+  }
+
+  for (const enumId of enumIds) {
+    const input = firstSeenByEnum.get(enumId)!;
+    const row = existing.get(enumId);
+    const guessedKind = guessValueKind(input, row);
+
+    if (!row) {
+      discovered.push(enumId);
+      const slug = slugify(input.rawName, enumId);
+
+      if (!dryRun) {
+        // INSERT the tag row first
+        const inserted = await tx.insert(Tag).values({
+          enumId,
+          slug,
+          name:               input.rawName || null,
+          rawName:            input.rawName || null,
+          rawType:            input.rawType || null,
+          rawNames:           input.rawName ? [input.rawName] : [],
+          valueKind:          guessedKind,
+          normalizeKind:      'identity',
+          normalizeConfig:    {},
+          projectTargetType:  null,
+          projectTargetPath:  null,
+          projectKind:        null,
+          projectConfig:      {},
+          status:             'discovered',
+          description:        null,
+          firstSeenSourceTag: sourceTag,
+          lastSeenSourceTag:  sourceTag,
+        }).returning().then(rows => rows[0]);
+
+        if (!inserted) {
+          throw new ORPCError('BAD_REQUEST', { message: `Failed to insert discovered tag ${enumId}` });
+        }
+
+        // Create one row_create commit for the entire row
+        const rowCreateCommit = buildRowCreateCommit(enumId, (inserted as TagRow), options);
+        await applyTagCommit(tx, rowCreateCommit, {
+          conflictTarget: options.conflictTarget,
+        });
+
+        // Create field_winners for auto-base fields
+        const autoFields: Array<keyof TagWrite> = [
+          'slug', 'name', 'rawName', 'rawType', 'rawNames', 'valueKind',
+          'normalizeKind', 'status',
+        ];
+
+        for (const field of autoFields) {
+          const fieldPath = toTagFieldPath(field);
+          await tx.insert(FieldWinner).values({
+            entityType:    'tag',
+            entityKey:     toTagEntityKey(enumId),
+            fieldPath,
+            winnerValue:   (inserted as TagRow)[field],
+            winnerSource:  'auto:hsdata',
+            status:        'active',
+            sourceRuntime: options.editorRuntime,
+            updatedBy:     options.editorIdentity,
+            baseRevision:  buildFallbackBaseRevision(inserted as TagRow, field),
+          });
+        }
+      }
+
+      existing.set(enumId, {
+        enumId,
+        slug,
+        rawName:            input.rawName || null,
+        rawType:            input.rawType || null,
+        rawNames:           input.rawName ? [input.rawName] : [],
+        valueKind:          guessedKind,
+        normalizeKind:      'identity',
+        projectTargetType:  null,
+        projectTargetPath:  null,
+        projectKind:        null,
+        firstSeenSourceTag: sourceTag,
+        lastSeenSourceTag:  sourceTag,
+      });
+      continue;
+    }
+
+    // Check for metadata updates on existing tag
+    const nextRawNames = input.rawName && !row.rawNames.includes(input.rawName)
+      ? [...row.rawNames, input.rawName].sort()
+      : row.rawNames;
+
+    const needsUpdate = nextRawNames !== row.rawNames
+      || row.lastSeenSourceTag !== sourceTag
+      || row.rawName == null
+      || row.rawType == null;
+
+    if (needsUpdate) {
+      updated += 1;
+
+      if (!dryRun) {
+        const rawNameNext = row.rawName ?? input.rawName ?? null;
+        const rawTypeNext = row.rawType ?? input.rawType ?? null;
+
+        // rawName
+        if (rawNameNext !== row.rawName) {
+          try {
+            await applyTagCommit(tx, fieldEditCommit(enumId, 'rawName', rawNameNext, row as unknown as TagRow, options), { conflictTarget: options.conflictTarget });
+          } catch {
+            await tx.update(Tag).set({ rawName: rawNameNext }).where(eq(Tag.enumId, enumId));
+          }
+        }
+
+        // rawType
+        if (rawTypeNext !== row.rawType) {
+          try {
+            await applyTagCommit(tx, fieldEditCommit(enumId, 'rawType', rawTypeNext, row as unknown as TagRow, options), { conflictTarget: options.conflictTarget });
+          } catch {
+            await tx.update(Tag).set({ rawType: rawTypeNext }).where(eq(Tag.enumId, enumId));
+          }
+        }
+
+        // rawNames + lastSeenSourceTag (always update these)
+        await tx.update(Tag)
+          .set({ rawNames: nextRawNames, lastSeenSourceTag: sourceTag })
+          .where(eq(Tag.enumId, enumId));
+      }
+    }
+
+    existing.set(enumId, {
+      ...row,
+      rawName:           row.rawName ?? input.rawName ?? null,
+      rawType:           row.rawType ?? input.rawType ?? null,
+      rawNames:          nextRawNames,
+      lastSeenSourceTag: sourceTag,
+    });
+  }
+
+  return { existing, discovered, updated };
+}
+
+/** Builds one source_edit commit for an auto-import field metadata update. */
+function fieldEditCommit(
+  enumId: number,
+  field: keyof TagWrite,
+  value: unknown,
+  row: TagRow,
+  options: TagServiceOptions,
+): FieldCommitInsert {
+  const fieldPath = toTagFieldPath(field);
+  return {
+    entityType:             'tag',
+    entityKey:              toTagEntityKey(enumId),
+    fieldPath,
+    value,
+    operation:              'set',
+    commitKind:             'source_edit',
+    clientMutationId:       buildClientMutationId(enumId, `${fieldPath}:import:${Date.now()}`),
+    editorRuntime:          options.editorRuntime,
+    editorIdentity:         options.editorIdentity,
+    editorSource:           options.editorSource,
+    expectedRowRevision:    buildTagRowRevision(row),
+    expectedWinnerRevision: null,
+    baseRevision:           hashRevision({
+      entityType:            'tag',
+      entityKey:             toTagEntityKey(enumId),
+      fieldPath,
+      resolvedBaseValue:     value,
+      resolvedSource:        'auto:hsdata',
+      resolutionMode:        'rule_auto',
+      resolutionFingerprint: 'hearthstone-tag-hsdata-discovery:v1',
+    }),
+    reviewStatus:       'auto_approved',
+    reviewedBy:         null,
+    reviewedAt:         null,
+    reviewReason:       null,
+    projectionStatus:   'pending',
+    syncStatus:         options.syncStatus,
+    createdAt:          new Date(),
+    projectedAt:        null,
   };
 }

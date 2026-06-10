@@ -24,6 +24,7 @@ function readRequestMeta(request: Request): ConsoleApiRequestMeta {
     editorRuntime:  request.headers.get('x-tcg-editor-runtime') as ConsoleApiRequestMeta['editorRuntime'] ?? undefined,
     syncMode:       request.headers.get('x-tcg-sync-mode') as ConsoleApiRequestMeta['syncMode'] ?? undefined,
     editorIdentity: request.headers.get('x-tcg-editor-identity'),
+    editorSource:   request.headers.get('x-tcg-editor-source'),
   };
 }
 

@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@tcg-cards/console-api": "workspace:*",
     "@tcg-cards/db": "workspace:*",
     "@tcg-cards/model": "workspace:*",
     "@types/node": "^22.0.0",
