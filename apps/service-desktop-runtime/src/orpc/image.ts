@@ -213,6 +213,8 @@ function toRenderJobError(error: unknown) {
 
 interface RejectedEntry {
   requestId?: string;
+  cardId?: string;
+  renderHash?: string;
   fileName: string;
   message: string;
 }
@@ -425,7 +427,7 @@ async function runRenderJob(jobId: string, input: CardImageRequirementExportInpu
     });
 
     const renderedFiles: Array<{ requestId: string; fileName: string; bytes: Uint8Array }> = [];
-    const failedFiles: Array<{ requestId: string; fileName: string; message: string }> = [];
+    const failedFiles: Array<{ requestId: string; cardId: string; renderHash: string; fileName: string; message: string }> = [];
 
     for (let i = 0; i < requirementsFile.requests.length; i++) {
       const request = requirementsFile.requests[i]!;
@@ -442,6 +444,8 @@ async function runRenderJob(jobId: string, input: CardImageRequirementExportInpu
           const body = await response.text().catch(() => '');
           failedFiles.push({
             requestId: request.requestId,
+            cardId: request.card.cardId,
+            renderHash: request.card.renderHash,
             fileName: request.output.fileName,
             message: body.trim().slice(0, 200) || `HTTP ${response.status}`,
           });
@@ -452,6 +456,8 @@ async function runRenderJob(jobId: string, input: CardImageRequirementExportInpu
       } catch (error) {
         failedFiles.push({
           requestId: request.requestId,
+          cardId: request.card.cardId,
+          renderHash: request.card.renderHash,
           fileName: request.output.fileName,
           message: error instanceof Error ? error.message : String(error),
         });
@@ -650,7 +656,7 @@ async function runReimportByRenderHash(jobId: string, input: z.infer<typeof reim
     });
 
     const renderedFiles: Array<{ requestId: string; fileName: string; bytes: Uint8Array }> = [];
-    const failedFiles: Array<{ requestId: string; fileName: string; message: string }> = [];
+    const failedFiles: Array<{ requestId: string; cardId: string; renderHash: string; fileName: string; message: string }> = [];
 
     for (let i = 0; i < debugResult.requests.length; i++) {
       const request = debugResult.requests[i]!;
@@ -667,6 +673,8 @@ async function runReimportByRenderHash(jobId: string, input: z.infer<typeof reim
           const body = await response.text().catch(() => '');
           failedFiles.push({
             requestId: request.requestId,
+            cardId: request.card.cardId,
+            renderHash: request.card.renderHash,
             fileName: request.output.fileName,
             message: body.trim().slice(0, 200) || `HTTP ${response.status}`,
           });
@@ -677,6 +685,8 @@ async function runReimportByRenderHash(jobId: string, input: z.infer<typeof reim
       } catch (error) {
         failedFiles.push({
           requestId: request.requestId,
+          cardId: request.card.cardId,
+          renderHash: request.card.renderHash,
           fileName: request.output.fileName,
           message: error instanceof Error ? error.message : String(error),
         });
