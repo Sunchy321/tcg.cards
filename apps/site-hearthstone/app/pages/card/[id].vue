@@ -214,11 +214,7 @@ import { last } from 'lodash-es';
 import type { Locale } from '#model/hearthstone/schema/basic';
 import type { CardProfile } from '#model/hearthstone/schema/card';
 import type { Patch } from '#model/hearthstone/schema/patch';
-import {
-  HAS_DIAMOND,
-  HAS_SIGNATURE,
-  PREMIUM,
-} from '#model/hearthstone/constant/tag';
+import { TAG_ID } from '#model/hearthstone/constant/tag';
 import type { CardImageOption } from '~/utils/card-image';
 
 import { getHearthstoneLabel } from '~/utils/hearthstone-labels';
@@ -537,7 +533,7 @@ const relatedLink = (rel: NonNullable<typeof data.value>['relatedCards'][number]
 // Variant
 
 const hasPremium = computed(() =>
-  hasMechanic(String(PREMIUM)),
+  hasMechanic(String(TAG_ID.PREMIUM)),
 );
 
 const isBattlegrounds = computed(() => {
@@ -558,10 +554,10 @@ const variantOptions = computed(() => {
     { label: t('hearthstone.card.variant.golden'), value: 'golden' },
   ];
 
-  if (hasMechanic(String(HAS_DIAMOND))) {
+  if (hasMechanic(String(TAG_ID.HAS_DIAMOND))) {
     opts.push({ label: t('hearthstone.card.variant.diamond'), value: 'diamond' });
   }
-  if (hasMechanic(String(HAS_SIGNATURE))) {
+  if (hasMechanic(String(TAG_ID.HAS_SIGNATURE))) {
     opts.push({ label: t('hearthstone.card.variant.signature'), value: 'signature' });
   }
   if (hasBattlegroundsVariant.value) {
