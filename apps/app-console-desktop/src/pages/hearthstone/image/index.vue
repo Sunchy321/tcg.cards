@@ -221,6 +221,12 @@
                   <div class="flex items-center gap-2">
                     <div class="font-medium text-sm">{{ phaseLabel }}</div>
                     <UBadge :label="phaseBadgeColor" variant="soft" size="sm" />
+                    <UBadge
+                      v-if="isScanAll && currentJob.currentBatchIndex != null && currentJob.totalBatches != null"
+                      :label="`批次 ${currentJob.currentBatchIndex}/${currentJob.totalBatches}`"
+                      variant="soft"
+                      size="sm"
+                    />
                   </div>
                   <div class="text-xs text-muted">{{ progressCountText }}</div>
                 </div>
@@ -232,11 +238,30 @@
                   />
                 </div>
 
+                <div
+                  v-if="isScanAll && currentJob.overallTotalCount != null"
+                  class="space-y-1"
+                >
+                  <div class="flex items-center justify-between text-xs text-muted">
+                    <span>全量进度</span>
+                    <span>{{ overallProgressCountText }}</span>
+                  </div>
+                  <div class="h-1 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      class="h-full rounded-full bg-emerald-500 transition-all duration-300"
+                      :style="{ width: `${overallProgressPercent}%` }"
+                    />
+                  </div>
+                </div>
+
                 <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
                   <span>{{ elapsedText }}</span>
                   <span v-if="jobEtaText.length > 0">{{ jobEtaText }}</span>
                   <span v-if="currentJob.completedCount != null && currentJob.rejectedCount">
                     rejected: {{ currentJob.rejectedCount }}
+                  </span>
+                  <span v-if="isScanAll && currentJob.overallRejectedCount != null && currentJob.overallRejectedCount > 0">
+                    全量 rejected: {{ currentJob.overallRejectedCount }}
                   </span>
                 </div>
               </div>
@@ -252,6 +277,9 @@
                     任务完成
                     <span v-if="currentJob.writtenCount != null">，写入 {{ currentJob.writtenCount }} 个文件</span>
                     <span v-if="currentJob.skippedCount">，跳过 {{ currentJob.skippedCount }} 个</span>
+                    <span v-if="isScanAll && currentJob.currentBatchIndex != null">
+                      ，共 {{ currentJob.currentBatchIndex }} 批次
+                    </span>
                   </div>
                 </template>
               </UAlert>
@@ -280,9 +308,19 @@
                   label="开始本地渲染导入"
                   icon="i-lucide-play"
                   color="primary"
+                  variant="soft"
                   :loading="submittingJob"
                   :disabled="!hasImageConfig || submittingJob"
-                  @click="startJob"
+                  @click="startJob()"
+                />
+                <UButton
+                  v-if="!currentJob || isJobTerminal"
+                  label="全量导入"
+                  icon="i-lucide-list-checks"
+                  color="primary"
+                  :loading="submittingScanAllJob"
+                  :disabled="!hasImageConfig || submittingScanAllJob"
+                  @click="startScanAllJob"
                 />
                 <UButton
                   v-if="currentJob && isJobTerminal"
@@ -658,6 +696,7 @@ function restoreImagePageState() {
 const loadingConfig = ref(false);
 const configError = ref('');
 const submittingJob = ref(false);
+const submittingScanAllJob = ref(false);
 const counting = ref(false);
 const jobError = ref('');
 const currentJob = ref<DesktopHearthstoneImageJob | null>(null);
@@ -747,6 +786,8 @@ const rendererStatusColor = computed(() => {
   return 'neutral';
 });
 
+const isScanAll = computed(() => currentJob.value?.filters?.scanAll === true);
+
 const isJobTerminal = computed(() => (
   currentJob.value?.phase === 'completed' || currentJob.value?.phase === 'failed'
 ));
@@ -781,6 +822,20 @@ const jobProgressPercent = computed(() => {
   const completed = currentJob.value?.completedCount;
   if (total == null || total === 0 || completed == null) return 0;
   return Math.min(100, Math.round((completed / total) * 100));
+});
+
+const overallProgressPercent = computed(() => {
+  const total = currentJob.value?.overallTotalCount;
+  const completed = currentJob.value?.overallCompletedCount;
+  if (total == null || total === 0 || completed == null) return 0;
+  return Math.min(100, Math.round((completed / total) * 100));
+});
+
+const overallProgressCountText = computed(() => {
+  const total = currentJob.value?.overallTotalCount;
+  const completed = currentJob.value?.overallCompletedCount;
+  if (total == null || completed == null) return '';
+  return `${completed} / ${total}`;
 });
 
 interface ImageCounts {
@@ -842,7 +897,7 @@ function stopProgressClock() {
 }
 
 /** Builds the API input from the current form values. */
-function buildJobInput(): { lang: Locale; cardId?: string; version?: number; zones: ImageZone[]; templates: ImageTemplate[]; premiums: ImagePremium[]; limit: number; cursor?: string | null } {
+function buildJobInput(scanAll = false): { lang: Locale; cardId?: string; version?: number; zones: ImageZone[]; templates: ImageTemplate[]; premiums: ImagePremium[]; limit: number; cursor?: string | null; scanAll?: boolean } {
   const versionRaw = form.version.trim();
   const cursorRaw = form.cursor.trim();
   return {
@@ -854,6 +909,7 @@ function buildJobInput(): { lang: Locale; cardId?: string; version?: number; zon
     premiums:  form.premiums,
     limit:     Math.min(Number.parseInt(form.limit, 10) || 500, 500),
     ...(cursorRaw.length > 0 ? { cursor: cursorRaw } : {}),
+    scanAll,
   };
 }
 
@@ -878,13 +934,17 @@ async function countMatchingImages() {
 }
 
 /** Submits one local render import job and subscribes to the progress stream. */
-async function startJob() {
-  submittingJob.value = true;
+async function startJob(scanAll = false) {
+  if (scanAll) {
+    submittingScanAllJob.value = true;
+  } else {
+    submittingJob.value = true;
+  }
   jobError.value = '';
   cleanupJobSubscription();
 
   try {
-    const result = await submitDesktopHearthstoneImageJob(buildJobInput());
+    const result = await submitDesktopHearthstoneImageJob(buildJobInput(scanAll));
     currentJob.value = result.job;
 
     if (!isJobTerminal.value) {
@@ -900,7 +960,13 @@ async function startJob() {
     jobError.value = getConsoleErrorMessage(error, '任务提交失败');
   } finally {
     submittingJob.value = false;
+    submittingScanAllJob.value = false;
   }
+}
+
+/** Submits a scan-all job that processes all missing images in batches. */
+async function startScanAllJob() {
+  await startJob(true);
 }
 
 /** Applies one progress event to the current job ref. */
@@ -920,6 +986,11 @@ function applyProgressEvent(
   state.rejectedCount = event.rejectedCount;
   state.errorMessage = event.errorMessage;
   state.rejectedLogPath = event.rejectedLogPath;
+  state.overallTotalCount = event.overallTotalCount;
+  state.overallCompletedCount = event.overallCompletedCount;
+  state.overallRejectedCount = event.overallRejectedCount;
+  state.currentBatchIndex = event.currentBatchIndex;
+  state.totalBatches = event.totalBatches;
   currentJob.value = { ...state };
   if (isJobTerminal.value) stopProgressClock();
 }

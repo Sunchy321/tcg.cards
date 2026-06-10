@@ -16,6 +16,7 @@ export interface ImageJobFilters {
   premiums: string[];
   limit: number;
   cursor: string | null;
+  scanAll: boolean;
 }
 
 /** One image job snapshot returned to desktop polling callers. */
@@ -43,6 +44,16 @@ export interface ImageJobState {
   skippedCount: number | null;
   errorMessage: string | null;
   rejectedLogPath: string | null;
+  /** Overall total across all batches in scanAll mode. */
+  overallTotalCount: number | null;
+  /** Overall completed count across all batches in scanAll mode. */
+  overallCompletedCount: number | null;
+  /** Overall rejected count across all batches in scanAll mode. */
+  overallRejectedCount: number | null;
+  /** Current batch index (1-based) in scanAll mode. */
+  currentBatchIndex: number | null;
+  /** Estimated total batches in scanAll mode. */
+  totalBatches: number | null;
 }
 
 /** Lightweight progress event pushed to the frontend via the event iterator stream. */
@@ -59,6 +70,11 @@ export interface ImageJobProgressEvent {
   rejectedCount: number | null;
   errorMessage: string | null;
   rejectedLogPath: string | null;
+  overallTotalCount: number | null;
+  overallCompletedCount: number | null;
+  overallRejectedCount: number | null;
+  currentBatchIndex: number | null;
+  totalBatches: number | null;
 }
 
 interface ImageProgressSubscriber {
@@ -74,18 +90,23 @@ function isTerminalPhase(phase: ImageJobPhase | string): boolean {
 
 function buildProgressFromJob(state: ImageJobState): ImageJobProgressEvent {
   return {
-    phase:          state.phase,
-    message:        state.message,
-    startedAt:      state.startedAt,
-    phaseStartedAt: state.phaseStartedAt,
-    finishedAt:     state.finishedAt,
-    completedCount: state.completedCount,
-    totalCount:     state.totalCount,
-    writtenCount:   state.writtenCount,
-    skippedCount:   state.skippedCount,
-    rejectedCount:  state.rejectedCount,
-    errorMessage:   state.errorMessage,
-    rejectedLogPath: state.rejectedLogPath,
+    phase:                state.phase,
+    message:              state.message,
+    startedAt:            state.startedAt,
+    phaseStartedAt:       state.phaseStartedAt,
+    finishedAt:           state.finishedAt,
+    completedCount:       state.completedCount,
+    totalCount:           state.totalCount,
+    writtenCount:         state.writtenCount,
+    skippedCount:         state.skippedCount,
+    rejectedCount:        state.rejectedCount,
+    errorMessage:         state.errorMessage,
+    rejectedLogPath:      state.rejectedLogPath,
+    overallTotalCount:    state.overallTotalCount,
+    overallCompletedCount: state.overallCompletedCount,
+    overallRejectedCount:  state.overallRejectedCount,
+    currentBatchIndex:     state.currentBatchIndex,
+    totalBatches:          state.totalBatches,
   };
 }
 
@@ -165,6 +186,11 @@ export function startImageJob(input: {
     skippedCount: null,
     errorMessage: null,
     rejectedLogPath: null,
+    overallTotalCount: null,
+    overallCompletedCount: null,
+    overallRejectedCount: null,
+    currentBatchIndex: null,
+    totalBatches: null,
   };
 
   currentImageJob = state;

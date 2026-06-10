@@ -64,6 +64,7 @@ export interface DesktopHearthstoneImageJob {
     premiums: string[];
     limit: number;
     cursor: string | null;
+    scanAll: boolean;
   };
   exportId: string | null;
   requestCount: number | null;
@@ -80,6 +81,11 @@ export interface DesktopHearthstoneImageJob {
   skippedCount: number | null;
   errorMessage: string | null;
   rejectedLogPath: string | null;
+  overallTotalCount: number | null;
+  overallCompletedCount: number | null;
+  overallRejectedCount: number | null;
+  currentBatchIndex: number | null;
+  totalBatches: number | null;
 }
 
 /** Renderer health status fields returned from GET /status per the renderer protocol. */
@@ -180,6 +186,11 @@ export interface DesktopImageJobProgressEvent {
   rejectedCount: number | null;
   errorMessage: string | null;
   rejectedLogPath: string | null;
+  overallTotalCount: number | null;
+  overallCompletedCount: number | null;
+  overallRejectedCount: number | null;
+  currentBatchIndex: number | null;
+  totalBatches: number | null;
 }
 
 /** Input payload for the debug render request RPC. */
