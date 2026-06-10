@@ -365,9 +365,9 @@ export function recomputeLatestHsdataProjection() {
 }
 
 /** Current local latest projection published to the configured remote target. */
-export function publishCurrentHsdataToRemote() {
+export function publishCurrentHsdataToRemote(dryRun: boolean) {
   return (async () => {
-    return await useDesktopRuntimeClient().hsdata.publishCurrentToRemote();
+    return await useDesktopRuntimeClient().hsdata.publishCurrentToRemote({ dryRun });
   })();
 }
 

@@ -36,6 +36,7 @@ const incompleteBatch = ref<(HsdataPublishReport & { pendingRowCount?: number })
 const batchListLoading = ref(false);
 const batchList = ref<HsdataPublishReport[]>([]);
 const publishType = ref('card_data');
+const dryRun = ref(false);
 const progressClockMs = ref(Date.now());
 let progressTimer: ReturnType<typeof setInterval> | null = null;
 let stopProgressListener: (() => void) | null = null;
@@ -181,7 +182,7 @@ async function submitPublish() {
   startProgressTimer();
 
   try {
-    const result = await publishCurrentHsdataToRemote();
+    const result = await publishCurrentHsdataToRemote(dryRun.value);
     publishResult.value = result;
     toast.add({
       title: '发布已完成',
@@ -242,7 +243,43 @@ function reconnectPublishProgress() {
   startProgressTimer();
 }
 
+const PUBLISH_PAGE_STATE_KEY = 'console-desktop-hearthstone-publish-page';
+
+interface PublishPageState {
+  dryRun: boolean;
+}
+
+function persistPublishPageState() {
+  const state: PublishPageState = {
+    dryRun: dryRun.value,
+  };
+  window.localStorage.setItem(PUBLISH_PAGE_STATE_KEY, JSON.stringify(state));
+}
+
+function normalizePublishPageState(raw: Partial<PublishPageState>): PublishPageState {
+  return {
+    dryRun: typeof raw.dryRun === 'boolean' ? raw.dryRun : false,
+  };
+}
+
+function restorePublishPageState() {
+  try {
+    const raw = window.localStorage.getItem(PUBLISH_PAGE_STATE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    const state = normalizePublishPageState(parsed);
+    dryRun.value = state.dryRun;
+  } catch {
+    window.localStorage.removeItem(PUBLISH_PAGE_STATE_KEY);
+  }
+}
+
+watch(dryRun, () => {
+  persistPublishPageState();
+});
+
 onMounted(async () => {
+  restorePublishPageState();
   await Promise.all([loadPublishTarget(), loadBatchList()]);
   await loadIncompleteBatch();
 
@@ -333,6 +370,11 @@ onBeforeUnmount(() => {
           />
         </div>
 
+        <label class="flex items-center gap-2 text-sm">
+          <input v-model="dryRun" type="checkbox" :disabled="publishing">
+          Dry Run（仅分析差异，不实际写入）
+        </label>
+
         <div class="flex flex-wrap gap-2">
           <UButton
             label="发布当前本地投影"
@@ -392,7 +434,18 @@ onBeforeUnmount(() => {
       <template #header>
         <div class="flex items-center gap-2">
           <span class="font-medium">发布报告</span>
-          <UBadge label="Success" color="success" variant="soft" />
+          <UBadge
+            v-if="publishResult.status === 'dry_run'"
+            label="Dry Run"
+            color="warning"
+            variant="soft"
+          />
+          <UBadge
+            v-else
+            label="Success"
+            color="success"
+            variant="soft"
+          />
         </div>
       </template>
 

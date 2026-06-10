@@ -474,13 +474,17 @@ const publishCurrentToRemote = os
     description: 'Publish the current local hsdata projection to the configured remote target',
     tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
   })
+  .input(z.strictObject({
+    dryRun: z.boolean().optional(),
+  }))
   .output(publishReport)
-  .handler(async () => {
+  .handler(async ({ input }) => {
     const job = startPublishJob({ publishType: 'card_data', publishTargetId: '' });
 
     try {
       const report = await publishCurrentHsdataToRemote({
         publishType: 'card_data',
+        dryRun: input.dryRun,
         onProgress: (event) => {
           updatePublishJob({
             phase: event.phase,

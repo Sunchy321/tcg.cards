@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 
-import { and, asc, count, desc, eq, inArray, ne } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt, inArray, lte, ne } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { createDb } from '@tcg-cards/db';
@@ -311,53 +311,158 @@ async function loadCurrentRowSnapshots(
 ): Promise<{
     states: PublishRowState[];
     data: CurrentRowData;
+    allEntityVersions: number[][];
   }> {
+  const incrCutoff = lastPublishedAt?.getTime() ?? 0;
+  const hasBaseline = lastPublishedAt != null;
+  const cutoffDate = hasBaseline ? new Date(incrCutoff) : null;
+
+  // --- Entities ---
   onProgress?.({ phase: 'loading_snapshots', message: '正在加载 entities...' });
-  const entityRows = await db.select()
-    .from(LocalEntity)
-    .orderBy(
-      asc(LocalEntity.cardId),
-      asc(LocalEntity.revisionHash),
-    );
 
-  onProgress?.({ phase: 'loading_snapshots', message: '正在加载 localizations...', completed: entityRows.length });
-  const localizationRows = await db.select()
-    .from(LocalEntityLocalization)
-    .orderBy(
-      asc(LocalEntityLocalization.cardId),
-      asc(LocalEntityLocalization.lang),
-      asc(LocalEntityLocalization.revisionHash),
-      asc(LocalEntityLocalization.localizationHash),
-    );
+  let entityChangedRows: (typeof LocalEntity.$inferSelect)[];
+  let entityUnchangedRows: { cardId: string; revisionHash: string; version: number[] }[];
 
-  onProgress?.({ phase: 'loading_snapshots', message: '正在加载 relations...', completed: entityRows.length });
-  const relationRows = await db.select()
-    .from(LocalEntityRelation)
-    .orderBy(
-      asc(LocalEntityRelation.sourceId),
-      asc(LocalEntityRelation.relation),
-      asc(LocalEntityRelation.targetId),
-      asc(LocalEntityRelation.sourceRevisionHash),
-    );
+  if (hasBaseline && cutoffDate) {
+    entityChangedRows = await db.select()
+      .from(LocalEntity)
+      .where(gt(LocalEntity.updatedAt, cutoffDate))
+      .orderBy(asc(LocalEntity.cardId), asc(LocalEntity.revisionHash));
+    entityUnchangedRows = await db.select({
+      cardId: LocalEntity.cardId,
+      revisionHash: LocalEntity.revisionHash,
+      version: LocalEntity.version,
+    })
+      .from(LocalEntity)
+      .where(lte(LocalEntity.updatedAt, cutoffDate));
+  } else {
+    entityChangedRows = await db.select()
+      .from(LocalEntity)
+      .orderBy(asc(LocalEntity.cardId), asc(LocalEntity.revisionHash));
+    entityUnchangedRows = [];
+  }
 
   const cardIds = new Set<string>();
 
-  for (const row of entityRows) {
+  for (const row of entityChangedRows) {
+    cardIds.add(row.cardId);
+  }
+
+  for (const row of entityUnchangedRows) {
     cardIds.add(row.cardId);
   }
 
   if (cardIds.size === 0) {
-    return { states: [], data: { cards: new Map(), entities: new Map(), localizations: new Map(), relations: new Map() } };
+    return { states: [], data: { cards: new Map(), entities: new Map(), localizations: new Map(), relations: new Map() }, allEntityVersions: [] };
   }
 
+  // --- Localizations ---
+  const entityTotal = entityChangedRows.length + entityUnchangedRows.length;
+
+  onProgress?.({ phase: 'loading_snapshots', message: '正在加载 localizations...', completed: entityTotal });
+
+  let localizationChangedRows: (typeof LocalEntityLocalization.$inferSelect)[];
+  let localizationUnchangedRows: { cardId: string; lang: string; revisionHash: string; localizationHash: string }[];
+
+  if (hasBaseline && cutoffDate) {
+    localizationChangedRows = await db.select()
+      .from(LocalEntityLocalization)
+      .where(gt(LocalEntityLocalization.updatedAt, cutoffDate))
+      .orderBy(
+        asc(LocalEntityLocalization.cardId),
+        asc(LocalEntityLocalization.lang),
+        asc(LocalEntityLocalization.revisionHash),
+        asc(LocalEntityLocalization.localizationHash),
+      );
+    localizationUnchangedRows = await db.select({
+      cardId: LocalEntityLocalization.cardId,
+      lang: LocalEntityLocalization.lang,
+      revisionHash: LocalEntityLocalization.revisionHash,
+      localizationHash: LocalEntityLocalization.localizationHash,
+    })
+      .from(LocalEntityLocalization)
+      .where(lte(LocalEntityLocalization.updatedAt, cutoffDate));
+  } else {
+    localizationChangedRows = await db.select()
+      .from(LocalEntityLocalization)
+      .orderBy(
+        asc(LocalEntityLocalization.cardId),
+        asc(LocalEntityLocalization.lang),
+        asc(LocalEntityLocalization.revisionHash),
+        asc(LocalEntityLocalization.localizationHash),
+      );
+    localizationUnchangedRows = [];
+  }
+
+  // --- Relations ---
+  onProgress?.({ phase: 'loading_snapshots', message: '正在加载 relations...', completed: entityTotal });
+
+  let relationChangedRows: (typeof LocalEntityRelation.$inferSelect)[];
+  let relationUnchangedRows: { sourceId: string; sourceRevisionHash: string; relation: string; targetId: string }[];
+
+  if (hasBaseline && cutoffDate) {
+    relationChangedRows = await db.select()
+      .from(LocalEntityRelation)
+      .where(gt(LocalEntityRelation.updatedAt, cutoffDate))
+      .orderBy(
+        asc(LocalEntityRelation.sourceId),
+        asc(LocalEntityRelation.relation),
+        asc(LocalEntityRelation.targetId),
+        asc(LocalEntityRelation.sourceRevisionHash),
+      );
+    relationUnchangedRows = await db.select({
+      sourceId: LocalEntityRelation.sourceId,
+      sourceRevisionHash: LocalEntityRelation.sourceRevisionHash,
+      relation: LocalEntityRelation.relation,
+      targetId: LocalEntityRelation.targetId,
+    })
+      .from(LocalEntityRelation)
+      .where(lte(LocalEntityRelation.updatedAt, cutoffDate));
+  } else {
+    relationChangedRows = await db.select()
+      .from(LocalEntityRelation)
+      .orderBy(
+        asc(LocalEntityRelation.sourceId),
+        asc(LocalEntityRelation.relation),
+        asc(LocalEntityRelation.targetId),
+        asc(LocalEntityRelation.sourceRevisionHash),
+      );
+    relationUnchangedRows = [];
+  }
+
+  // --- Cards ---
   onProgress?.({ phase: 'loading_snapshots', message: '正在加载 cards...' });
   const sortedCardIds = [...cardIds].sort();
-  const cardRows = await db.select()
-    .from(LocalCard)
-    .where(inArray(LocalCard.cardId, sortedCardIds))
-    .orderBy(asc(LocalCard.cardId));
-  const cardRowMap = new Map(cardRows.map(row => [row.cardId, row]));
 
+  let cardChangedRows: (typeof LocalCard.$inferSelect)[];
+  let cardUnchangedRows: { cardId: string }[];
+
+  if (hasBaseline && cutoffDate) {
+    cardChangedRows = await db.select()
+      .from(LocalCard)
+      .where(and(
+        inArray(LocalCard.cardId, sortedCardIds),
+        gt(LocalCard.updatedAt, cutoffDate),
+      ))
+      .orderBy(asc(LocalCard.cardId));
+    cardUnchangedRows = await db.select({ cardId: LocalCard.cardId })
+      .from(LocalCard)
+      .where(and(
+        inArray(LocalCard.cardId, sortedCardIds),
+        lte(LocalCard.updatedAt, cutoffDate),
+      ));
+  } else {
+    cardChangedRows = await db.select()
+      .from(LocalCard)
+      .where(inArray(LocalCard.cardId, sortedCardIds))
+      .orderBy(asc(LocalCard.cardId));
+    cardUnchangedRows = [];
+  }
+
+  const cardChangedMap = new Map(cardChangedRows.map(row => [row.cardId, row]));
+  const cardUnchangedSet = new Set(cardUnchangedRows.map(row => row.cardId));
+
+  // --- Build states and data ---
   const data: CurrentRowData = {
     cards: new Map(),
     entities: new Map(),
@@ -365,28 +470,42 @@ async function loadCurrentRowSnapshots(
     relations: new Map(),
   };
   const states: PublishRowState[] = [];
+  const allEntityVersions: number[][] = [];
+
+  const localizationTotal = localizationChangedRows.length + localizationUnchangedRows.length;
+  const relationTotal = relationChangedRows.length + relationUnchangedRows.length;
+  const hashTotal = entityTotal + localizationTotal + relationTotal + sortedCardIds.length;
 
   let hashCount = 0;
-  const hashTotal = entityRows.length + localizationRows.length + relationRows.length + sortedCardIds.length;
 
   onProgress?.({ phase: 'loading_snapshots', message: '正在计算 entities 行 hash...', completed: 0, total: hashTotal });
 
   const prevEntityHashes = previousHashes?.get('entities');
-  const incrCutoff = lastPublishedAt?.getTime() ?? 0;
 
-  for (const row of entityRows) {
+  for (const row of entityChangedRows) {
     const pk = entitiesRowPk(row);
 
     data.entities.set(pk, row);
-
-    const prevHash = prevEntityHashes?.get(pk);
-    const rowUpdatedAt = row.updatedAt;
-    const isUnchanged = prevHash != null && rowUpdatedAt != null && rowUpdatedAt.getTime() <= incrCutoff;
+    allEntityVersions.push(row.version);
 
     states.push({
       tableName: 'entities',
       rowPk: pk,
-      rowHash: isUnchanged ? prevHash : entityRowHash(row),
+      rowHash: entityRowHash(row),
+    });
+    hashCount += 1;
+  }
+
+  for (const row of entityUnchangedRows) {
+    const pk = serializeRowPk({ cardId: row.cardId, revisionHash: row.revisionHash });
+    const prevHash = prevEntityHashes?.get(pk);
+
+    allEntityVersions.push(row.version);
+
+    states.push({
+      tableName: 'entities',
+      rowPk: pk,
+      rowHash: prevHash ?? '',
     });
     hashCount += 1;
   }
@@ -395,19 +514,27 @@ async function loadCurrentRowSnapshots(
 
   const prevLocalizationHashes = previousHashes?.get('entity_localizations');
 
-  for (const row of localizationRows) {
+  for (const row of localizationChangedRows) {
     const pk = localizationsRowPk(row);
 
     data.localizations.set(pk, row);
 
+    states.push({
+      tableName: 'entity_localizations',
+      rowPk: pk,
+      rowHash: localizationRowHash(row),
+    });
+    hashCount += 1;
+  }
+
+  for (const row of localizationUnchangedRows) {
+    const pk = serializeRowPk({ cardId: row.cardId, lang: row.lang, revisionHash: row.revisionHash, localizationHash: row.localizationHash });
     const prevHash = prevLocalizationHashes?.get(pk);
-    const rowUpdatedAt = row.updatedAt;
-    const isUnchanged = prevHash != null && rowUpdatedAt != null && rowUpdatedAt.getTime() <= incrCutoff;
 
     states.push({
       tableName: 'entity_localizations',
       rowPk: pk,
-      rowHash: isUnchanged ? prevHash : localizationRowHash(row),
+      rowHash: prevHash ?? '',
     });
     hashCount += 1;
   }
@@ -416,19 +543,27 @@ async function loadCurrentRowSnapshots(
 
   const prevRelationHashes = previousHashes?.get('entity_relations');
 
-  for (const row of relationRows) {
+  for (const row of relationChangedRows) {
     const pk = relationsRowPk(row);
 
     data.relations.set(pk, row);
 
+    states.push({
+      tableName: 'entity_relations',
+      rowPk: pk,
+      rowHash: relationRowHash(row),
+    });
+    hashCount += 1;
+  }
+
+  for (const row of relationUnchangedRows) {
+    const pk = serializeRowPk({ sourceId: row.sourceId, sourceRevisionHash: row.sourceRevisionHash, relation: row.relation, targetId: row.targetId });
     const prevHash = prevRelationHashes?.get(pk);
-    const rowUpdatedAt = row.updatedAt;
-    const isUnchanged = prevHash != null && rowUpdatedAt != null && rowUpdatedAt.getTime() <= incrCutoff;
 
     states.push({
       tableName: 'entity_relations',
       rowPk: pk,
-      rowHash: isUnchanged ? prevHash : relationRowHash(row),
+      rowHash: prevHash ?? '',
     });
     hashCount += 1;
   }
@@ -438,27 +573,38 @@ async function loadCurrentRowSnapshots(
   const prevCardHashes = previousHashes?.get('cards');
 
   for (const cardId of sortedCardIds) {
-    const card = cardRowMap.get(cardId) ?? {
+    if (cardUnchangedSet.has(cardId)) {
+      const pk = serializeRowPk({ cardId });
+      const prevHash = prevCardHashes?.get(pk);
+
+      states.push({
+        tableName: 'cards',
+        rowPk: pk,
+        rowHash: prevHash ?? '',
+      });
+      hashCount += 1;
+      continue;
+    }
+
+    const card = cardChangedMap.get(cardId) ?? {
       cardId,
       legalities: {},
+      createdAt: new Date(),
+      updatedAt: new Date(),
     } satisfies typeof LocalCard.$inferSelect;
     const pk = cardsRowPk(card);
 
     data.cards.set(pk, card);
 
-    const prevHash = prevCardHashes?.get(pk);
-    const rowUpdatedAt = card.updatedAt;
-    const isUnchanged = prevHash != null && rowUpdatedAt != null && rowUpdatedAt.getTime() <= incrCutoff;
-
     states.push({
       tableName: 'cards',
       rowPk: pk,
-      rowHash: isUnchanged ? prevHash : cardRowHash(card),
+      rowHash: cardRowHash(card),
     });
     hashCount += 1;
   }
 
-  return { states, data };
+  return { states, data, allEntityVersions };
 }
 
 /** Previous successful per-row hashes loaded from the current local publish baseline. */
@@ -504,9 +650,9 @@ async function loadPreviousRowStates(
 /** Source-tag and build range mapped from the current latest local entity versions. */
 async function derivePublishDatasetRange(
   db: PublishDb,
-  entityRows: (typeof LocalEntity.$inferSelect)[],
+  allEntityVersions: number[][],
 ): Promise<PublishDatasetRange> {
-  const builds = [...new Set(entityRows.flatMap(row => row.version))].sort((left, right) => left - right);
+  const builds = [...new Set(allEntityVersions.flat())].sort((left, right) => left - right);
 
   if (builds.length === 0) {
     throw new Error('Local publish snapshot does not include any Hearthstone build numbers.');
@@ -1124,6 +1270,7 @@ const remoteChunkSize = 5000;
 /** Plan phase: load data, diff, write batch + rows. Returns metadata needed for execution. */
 export async function createPublishPlan(options?: {
   publishType?: string;
+  dryRun?: boolean;
   onProgress?: StepProgress;
 }): Promise<{
     batchId: string;
@@ -1133,6 +1280,7 @@ export async function createPublishPlan(options?: {
     previousManifestHash: string | null;
   }> {
   const publishType = options?.publishType ?? 'card_data';
+  const dryRun = options?.dryRun ?? false;
   const onProgress = options?.onProgress;
   const target = requireHearthstonePublishTarget();
   const localDb = getLocalDb();
@@ -1156,7 +1304,7 @@ export async function createPublishPlan(options?: {
   const previousManifestHash = baseline?.manifestHash ?? null;
   const lastPublishedAt = baseline?.publishedAt ?? null;
 
-  const { states, data } = await loadCurrentRowSnapshots(localDb, onProgress, previous, lastPublishedAt);
+  const { states, data, allEntityVersions } = await loadCurrentRowSnapshots(localDb, onProgress, previous, lastPublishedAt);
 
   if (states.length === 0) {
     throw new Error('No local Hearthstone projection rows are available for publish.');
@@ -1164,14 +1312,17 @@ export async function createPublishPlan(options?: {
 
   onProgress?.({ phase: 'deriving_range', message: '正在推导版本范围...' });
 
-  const entityRows = [...data.entities.values()];
-  const range = await derivePublishDatasetRange(localDb, entityRows);
+  const range = await derivePublishDatasetRange(localDb, allEntityVersions);
 
   onProgress?.({ phase: 'building_diff', message: '正在构建差异计划...', completed: 0, total: states.length });
 
   const { plans, counts, manifestHash } = buildRowPlans(states, previous);
 
   onProgress?.({ phase: 'building_diff', message: '差异计划构建完成', completed: states.length, total: states.length });
+
+  if (dryRun) {
+    return { batchId: '', counts, range, manifestHash, previousManifestHash };
+  }
 
   onProgress?.({ phase: 'writing_batch', message: '正在写入批次元数据...' });
 
@@ -1521,10 +1672,51 @@ export async function executePublishBatch(
 /** Runs plan + execute in one call. Auto-detects and resumes incomplete batches. */
 export async function publishCurrentHsdataToRemote(options?: {
   publishType?: string;
+  dryRun?: boolean;
   onProgress?: (event: { phase: string; message: string; totalRowCount?: number | null; completedRowCount?: number | null }) => void;
 }): Promise<PublishReport> {
   const onProgress = options?.onProgress;
+  const dryRun = options?.dryRun ?? false;
   const localDb = getLocalDb();
+
+  // Dry run: only analyze, skip all writes
+  if (dryRun) {
+    const plan = await createPublishPlan({
+      publishType: options?.publishType,
+      dryRun: true,
+      onProgress: onProgress
+        ? (e) => onProgress({ phase: e.phase, message: e.message, totalRowCount: e.total ?? null, completedRowCount: e.completed ?? null })
+        : undefined,
+    });
+
+    const target = requireHearthstonePublishTarget();
+
+    return {
+      batchId: '',
+      publishTargetId: target.publishTargetId,
+      environment: target.environment,
+      targetFingerprint: target.targetFingerprint,
+      publishType: options?.publishType ?? 'card_data',
+      status: 'dry_run',
+      manifestHash: plan.manifestHash,
+      previousManifestHash: plan.previousManifestHash,
+      sourceTagMin: plan.range.sourceTagMin,
+      sourceTagMax: plan.range.sourceTagMax,
+      buildMin: plan.range.buildMin,
+      buildMax: plan.range.buildMax,
+      totalRowCount: plan.counts.totalRowCount,
+      changedRowCount: plan.counts.changedRowCount,
+      insertedRowCount: plan.counts.insertedRowCount,
+      updatedRowCount: plan.counts.updatedRowCount,
+      deletedRowCount: plan.counts.deletedRowCount,
+      unchangedRowCount: plan.counts.unchangedRowCount,
+      cardRowCount: plan.counts.cardRowCount,
+      entityRowCount: plan.counts.entityRowCount,
+      localizationRowCount: plan.counts.localizationRowCount,
+      relationRowCount: plan.counts.relationRowCount,
+      publishedAt: new Date().toISOString(),
+    };
+  }
 
   // Check for incomplete batches to resume
   const incomplete = await localDb.select()
