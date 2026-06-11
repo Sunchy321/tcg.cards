@@ -1,5 +1,5 @@
 <template>
-  <div class="relative aspect-68/94 w-full overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
+  <div class="hs-card-image-shell relative aspect-68/94 w-full overflow-hidden rounded-lg">
     <img
       v-if="!hasError && imageUrl"
       :src="imageUrl"
@@ -9,7 +9,7 @@
       @load="onLoad"
       @error="onError"
     >
-    <div v-else class="w-full h-full flex items-center justify-center text-gray-400">
+    <div v-else class="hs-subtle-text w-full h-full flex items-center justify-center">
       <UIcon name="lucide:image-off" class="text-3xl" />
     </div>
   </div>

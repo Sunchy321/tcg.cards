@@ -444,6 +444,8 @@ export default {
     card: {
       $self:     'Cards',
       versions:  'Versions',
+      formatAvailability: 'Format availability',
+      playable:  'Available',
       related:   'Related cards',
       noRelated: 'No related cards',
       notFound:  'Card not found',

@@ -8,6 +8,7 @@ import { and, asc, desc, eq, inArray, not, notInArray, or, sql } from 'drizzle-o
 
 import { model } from '#model/hearthstone/search';
 import { CardEntityView } from '#schema/shared/hearthstone/entity';
+import { standardSets } from '~~/server/utils/hearthstone-format';
 
 const cs = create
   .with(model)
@@ -26,6 +27,17 @@ const matchStats = (
 
 const hasJsonKey = (column: typeof CardEntityView.mechanics, key: string) =>
   sql`${column} ? ${key}`;
+
+const activeLegalityStatuses = ['derived', 'legal', 'minor'];
+const currentStandardSetIds = [...standardSets];
+
+// Matches collectible cards that are printed in a currently Standard-legal Hearthstone set.
+const currentStandardSet = (table: typeof CardEntityView) =>
+  and(
+    eq(table.collectible, true),
+    eq(table.inBobsTavern, false),
+    inArray(table.set, currentStandardSetIds),
+  )!;
 
 export const raw = cs
   .commands.raw
@@ -281,18 +293,30 @@ export const format = cs
         throw new QueryError({ type: 'invalid-query' });
       }
 
+      const nativeStatus = eq(sql`${table.legalities} ->> ${formatName}`, status);
+
       if (!qualifier.includes('!')) {
-        return eq(sql`${table.legalities} ->> ${formatName}`, status);
+        return formatName === 'standard' && status === 'legal'
+          ? or(nativeStatus, currentStandardSet(table))!
+          : nativeStatus;
       }
 
-      return not(eq(sql`${table.legalities} ->> ${formatName}`, status));
+      return formatName === 'standard' && status === 'legal'
+        ? and(not(nativeStatus), not(currentStandardSet(table)))!
+        : not(nativeStatus);
     }
+
+    const nativeFormat = inArray(sql`${table.legalities} ->> ${value}`, activeLegalityStatuses);
 
     if (!qualifier.includes('!')) {
-      return inArray(sql`${table.legalities} ->> ${value}`, ['derived', 'legal', 'minor']);
+      return value === 'standard'
+        ? or(nativeFormat, currentStandardSet(table))!
+        : nativeFormat;
     }
 
-    return notInArray(sql`${table.legalities} ->> ${value}`, ['derived', 'legal', 'minor']);
+    return value === 'standard'
+      ? and(not(nativeFormat), not(currentStandardSet(table)))!
+      : not(nativeFormat);
   });
 
 export const order = cs

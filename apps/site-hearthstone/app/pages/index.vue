@@ -16,7 +16,7 @@
 
       <div class="min-w-0 flex-1">
         <div class="text-lg font-semibold">{{ $t('hearthstone.home.randomCard') }}</div>
-        <div class="text-sm text-white/70">{{ $t('hearthstone.home.randomCardHint') }}</div>
+        <div class="entry-card-muted text-sm">{{ $t('hearthstone.home.randomCardHint') }}</div>
       </div>
     </button>
 
@@ -30,7 +30,7 @@
 
       <div class="min-w-0 flex-1">
         <div class="text-lg font-semibold">{{ $t('hearthstone.search.advanced.$self') }}</div>
-        <div class="text-sm text-white/70">{{ $t('hearthstone.search.advanced.entryHint') }}</div>
+        <div class="entry-card-muted text-sm">{{ $t('hearthstone.search.advanced.entryHint') }}</div>
       </div>
     </NuxtLink>
 
@@ -44,7 +44,7 @@
 
       <div class="min-w-0 flex-1">
         <div class="text-lg font-semibold">{{ $t('hearthstone.search.advanced.browseSets') }}</div>
-        <div class="text-sm text-white/70">{{ $t('hearthstone.search.advanced.browseSetsHint') }}</div>
+        <div class="entry-card-muted text-sm">{{ $t('hearthstone.search.advanced.browseSetsHint') }}</div>
       </div>
     </NuxtLink>
   </div>
@@ -68,6 +68,7 @@ setActions([actions.random]);
 
 const randomPending = ref(false);
 
+// Opens a random Hearthstone card while preventing duplicate requests.
 const openRandomCard = async () => {
   if (randomPending.value) return;
 
@@ -89,20 +90,29 @@ const openRandomCard = async () => {
   align-items: center;
   gap: 1rem;
   border-radius: 1rem;
-  border: 1px solid rgb(255 255 255 / 0.1);
-  background: rgb(255 255 255 / 0.1);
+  border: 1px solid var(--color-entry-card-border);
+  background: var(--color-entry-card-bg);
   padding: 1rem;
-  color: white;
-  transition: background 0.2s ease;
+  color: var(--color-entry-card-text);
+  box-shadow: 0 18px 50px var(--color-entry-card-shadow);
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
 }
 
 .entry-card:hover {
-  background: rgb(255 255 255 / 0.16);
+  background: var(--color-entry-card-bg-hover);
+  transform: translateY(-1px);
 }
 
 .entry-card:disabled {
   cursor: progress;
   opacity: 0.8;
+}
+
+.entry-card-muted {
+  color: var(--color-entry-card-muted);
 }
 
 .entry-icon {
@@ -113,6 +123,6 @@ const openRandomCard = async () => {
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
-  background: rgb(255 255 255 / 0.1);
+  background: var(--color-entry-card-icon-bg);
 }
 </style>

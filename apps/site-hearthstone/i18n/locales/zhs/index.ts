@@ -450,6 +450,8 @@ export default {
     card: {
       $self:     '卡牌',
       versions:  '版本历史',
+      formatAvailability: '赛制',
+      playable:  '可用',
       related:   '相关卡牌',
       noRelated: '暂无相关卡牌',
       notFound:  '找不到卡牌',

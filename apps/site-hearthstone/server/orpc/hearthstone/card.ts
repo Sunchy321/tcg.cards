@@ -6,6 +6,7 @@ import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { diff as jsonDiff } from 'jsondiffpatch';
 
 import { db } from '#db/db';
+import { CardRelation } from '#schema/shared/hearthstone/card-relation';
 import { CardEntityView, EntityView } from '#schema/shared/hearthstone/entity';
 import { EntityRelation } from '#schema/shared/hearthstone/entity-relation';
 
@@ -14,7 +15,13 @@ import { cardProfile } from '#model/hearthstone/schema/card';
 import { cardEntityView, cardFullView } from '#model/hearthstone/schema/entity';
 
 import { getRandomCardId } from '~~/server/utils/random-card';
+import { isStandardSet, standardCoreSets } from '~~/server/utils/hearthstone-format';
 
+const dreamCards = ['DREAM_01', 'DREAM_02', 'DREAM_03', 'DREAM_04', 'DREAM_05'];
+const vanillaDreamCards = ['VAN_DREAM_01', 'VAN_DREAM_02', 'VAN_DREAM_03', 'VAN_DREAM_04', 'VAN_DREAM_05'];
+const corruptedDreamCards = ['EDR_846t1', 'EDR_846t2', 'EDR_846t3', 'EDR_846t4', 'EDR_846t5'];
+const marinTreasureCards = ['LOOT_998h', 'LOOT_998j', 'LOOT_998k', 'LOOT_998l'];
+const managerMarinTreasureCards = ['VAC_702t', 'VAC_702t2', 'VAC_702t3', 'VAC_702t4'];
 const maxVersion = (version: typeof CardEntityView.version) => sql<number>`
   (
     SELECT max(value)
@@ -22,13 +29,7 @@ const maxVersion = (version: typeof CardEntityView.version) => sql<number>`
   )
 `;
 
-function byVersion(
-  versionColumn: typeof CardEntityView.version | typeof EntityRelation.version,
-  version: number | undefined,
-) {
-  return version == null ? null : sql`${version} = any(${versionColumn})`;
-}
-
+// Selects either the latest projection or the projection that contains an explicit patch version.
 function latestOrVersion(
   versionColumn: typeof CardEntityView.version | typeof EntityRelation.version,
   latestColumn: typeof CardEntityView.isLatest | typeof EntityRelation.isLatest,
@@ -39,6 +40,12 @@ function latestOrVersion(
     : sql`${version} = any(${versionColumn})`;
 }
 
+// Matches legacy relation rows to the concrete version currently shown by the card page.
+function legacyRelationVersion(version: number | undefined, currentVersion: number) {
+  return sql`${version ?? currentVersion} = any(${CardRelation.version})`;
+}
+
+// Finds a localized card projection for the requested card ID and version mode.
 async function findCardView(input: {
   cardId:   string;
   lang:     z.infer<typeof locale>;
@@ -142,6 +149,8 @@ const full = os
       throw new ORPCError('NOT_FOUND');
     }
 
+    const currentVersion = Math.max(...card.version);
+
     const versions = await db.select({ version: CardEntityView.version })
       .from(CardEntityView)
       .where(and(
@@ -159,8 +168,7 @@ const full = os
       .from(EntityRelation)
       .where(and(
         eq(EntityRelation.sourceId, cardId),
-        eq(EntityRelation.sourceRevisionHash, card.revisionHash),
-        ...version != null ? [byVersion(EntityRelation.version, version)!] : [],
+        latestOrVersion(EntityRelation.version, EntityRelation.isLatest, version),
       ));
 
     const targetRelation = await db.select({
@@ -174,9 +182,35 @@ const full = os
         latestOrVersion(EntityRelation.version, EntityRelation.isLatest, version),
       ));
 
+    const legacySourceRelation = await db.select({
+      relation: CardRelation.relation,
+      version:  CardRelation.version,
+      cardId:   CardRelation.targetId,
+    })
+      .from(CardRelation)
+      .where(and(
+        eq(CardRelation.sourceId, cardId),
+        legacyRelationVersion(version, currentVersion),
+      ));
+
+    const legacyTargetRelation = await db.select({
+      relation: sql<string>`'source'`.as('relation'),
+      version:  CardRelation.version,
+      cardId:   CardRelation.sourceId,
+    })
+      .from(CardRelation)
+      .where(and(
+        eq(CardRelation.targetId, cardId),
+        legacyRelationVersion(version, currentVersion),
+      ));
+
     const relatedBase = dedupeRelatedCards([
       ...sourceRelation,
       ...targetRelation,
+      ...legacySourceRelation,
+      ...legacyTargetRelation,
+      ...inferDreamRelatedCards(card.cardId, card.version),
+      ...inferMarinRelatedCards(card.cardId, card.version),
     ]);
 
     const relatedIds = [...new Set(relatedBase.map(rel => rel.cardId))];
@@ -186,6 +220,7 @@ const full = os
         .where(and(
           eq(CardEntityView.lang, lang),
           inArray(CardEntityView.cardId, relatedIds),
+          latestOrVersion(CardEntityView.version, CardEntityView.isLatest, version),
         ))
         .orderBy(desc(CardEntityView.version));
 
@@ -205,11 +240,15 @@ const full = os
         type:        detail?.type ?? null,
       };
     });
+    const standardSetAvailable = card.collectible && !card.inBobsTavern && isStandardSet(card.set);
+    const standardCoreAvailable = await hasStandardCorePrinting(card);
 
     return {
       ...card,
       versions,
       relatedCards,
+      standardSetAvailable,
+      standardCoreAvailable,
     };
   });
 
@@ -293,6 +332,7 @@ export const cardApi = {
   diff,
 };
 
+// Removes duplicate relation rows emitted by overlapping legacy and version-aware sources.
 function dedupeRelatedCards(cards: Array<{ relation: string, version: number[], cardId: string }>) {
   const seen = new Set<string>();
   const result: Array<{ relation: string, version: number[], cardId: string }> = [];
@@ -305,4 +345,74 @@ function dedupeRelatedCards(cards: Array<{ relation: string, version: number[], 
   }
 
   return result;
+}
+
+// Infers Dream-card generators that hsdata does not expose as explicit relation tags.
+function inferDreamRelatedCards(cardId: string, version: number[]) {
+  const targets = dreamRelatedTargets(cardId);
+
+  return targets.map(targetId => ({
+    relation: 'entourage',
+    version,
+    cardId:   targetId,
+  }));
+}
+
+// Infers Marin treasure links that hsdata does not expose as explicit relation tags.
+function inferMarinRelatedCards(cardId: string, version: number[]) {
+  const targets = marinRelatedTargets(cardId);
+
+  return targets.map(targetId => ({
+    relation: 'entourage',
+    version,
+    cardId:   targetId,
+  }));
+}
+
+// Lists known Dream-card token families generated by classic Ysera variants and Shaladrassil.
+function dreamRelatedTargets(cardId: string): string[] {
+  if (cardId === 'VAN_EX1_572') {
+    return vanillaDreamCards;
+  }
+
+  if (cardId === 'EDR_846') {
+    return [...dreamCards, ...corruptedDreamCards];
+  }
+
+  if (['CORE_VAN_EX1_572', 'CS3_033', 'EX1_572', 'LEG_CS3_033'].includes(cardId)) {
+    return dreamCards;
+  }
+
+  return [];
+}
+
+// Lists known treasure cards created by the collectible Marin cards.
+function marinRelatedTargets(cardId: string): string[] {
+  if (cardId === 'LOOT_357') {
+    return ['LOOT_357l', ...marinTreasureCards];
+  }
+
+  if (cardId === 'VAC_702') {
+    return managerMarinTreasureCards;
+  }
+
+  return [];
+}
+
+// Detects cards whose current Standard legality comes from a same-name Core printing.
+async function hasStandardCorePrinting(card: typeof CardEntityView.$inferSelect) {
+  if (!card.collectible) return false;
+
+  const rows = await db.select({ cardId: CardEntityView.cardId })
+    .from(CardEntityView)
+    .where(and(
+      eq(CardEntityView.lang, card.lang),
+      eq(CardEntityView.localization.name, card.localization.name),
+      eq(CardEntityView.collectible, true),
+      eq(CardEntityView.isLatest, true),
+      inArray(CardEntityView.set, standardCoreSets),
+    ))
+    .limit(1);
+
+  return rows.length > 0;
 }

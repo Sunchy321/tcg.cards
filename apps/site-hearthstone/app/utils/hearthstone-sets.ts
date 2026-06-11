@@ -1,6 +1,6 @@
 export const hearthstoneSets = [
-  'CORE',
-  'SET_3',
+  'SET_1637',
+  'SET_1646',
   'SET_12',
   'SET_13',
   'SET_14',
@@ -26,8 +26,6 @@ export const hearthstoneSets = [
   'SET_1578',
   'SET_1626',
   'SET_1635',
-  'SET_1637',
-  'SET_1646',
   'SET_1658',
   'SET_1691',
   'SET_1776',

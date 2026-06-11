@@ -1,30 +1,40 @@
 <template>
-  <div>
+  <div class="app-header-stack">
     <UHeader
-      class="bg-white/10 backdrop-blur-md border-b border-white/20"
+      class="app-header backdrop-blur-md border-b"
       :title="title"
       :ui="{
+        root: 'app-header backdrop-blur-md border-b',
         left: 'lg:flex-none',
         center: 'flex flex-1',
         right: 'lg:flex-none'
       }"
     >
       <template #title>
+        <NuxtLink
+          v-if="showMainBackButton"
+          :to="mainSiteUrl"
+          target="_blank"
+          class="app-header-back-button"
+          :aria-label="t('common.backToMain')"
+        >
+          <UIcon name="lucide:arrow-left" />
+        </NuxtLink>
         <Icon
           :name="appIcon"
           :size="32"
           class="text-white"
         />
-        </template>
+      </template>
 
       <template v-if="titleType === 'input'">
-          <UInput
-            v-model="searchInput"
-            class="ml-3 flex-1"
-            size="xl"
-            :ui="{ base: 'font-semibold text-white bg-transparent ring-white focus:ring-white w-full' }"
-            @keydown.enter="commitSearch"
-          />
+        <UInput
+          v-model="searchInput"
+          class="ml-3 flex-1"
+          size="xl"
+          :ui="{ base: 'font-semibold text-white bg-transparent ring-white focus:ring-white w-full' }"
+          @keydown.enter="commitSearch"
+        />
       </template>
       <span v-else class="ml-3 font-semibold text-white text-lg flex-1">{{ title }}</span>
 
@@ -41,7 +51,7 @@
               size="md"
               class="w-40"
               trailing-icon=""
-              :ui="{ base: 'text-white bg-white/10 hover:bg-white/20 border-white/20 ring-white/20', content: 'min-w-fit' }"
+              :ui="{ base: 'app-header-control text-white', content: 'min-w-fit' }"
               @update:model-value="p.onChange"
             />
             <UButton
@@ -50,7 +60,7 @@
               :color="(paramValues[p.id] as boolean) ? 'success' : 'neutral'"
               :variant="(paramValues[p.id] as boolean) ? 'solid' : 'ghost'"
               size="md"
-              :class="(paramValues[p.id] as boolean) ? 'text-white hover:opacity-90' : 'text-white hover:bg-white/20'"
+              :class="(paramValues[p.id] as boolean) ? 'text-white hover:opacity-90' : 'app-header-button text-white'"
               @click="p.onChange(!(paramValues[p.id] as boolean))"
             />
           </template>
@@ -61,7 +71,7 @@
             :icon="action.icon"
             color="neutral"
             variant="ghost"
-            class="text-white hover:bg-white/20 hover:text-white"
+            class="app-header-button text-white hover:text-white"
             @click="getHandler(action.id)()"
           />
 
@@ -73,7 +83,7 @@
             <UButton
               color="neutral"
               variant="ghost"
-              class="text-white hover:bg-white/20 hover:text-white font-mono font-semibold"
+              class="app-header-button text-white hover:text-white font-mono font-semibold"
             >
               {{ gameLocale }}
             </UButton>
@@ -83,7 +93,7 @@
             </template>
           </UDropdownMenu>
 
-          <UColorModeButton class="text-white hover:bg-white/20 hover:text-white" />
+          <UColorModeButton class="app-header-button text-white hover:text-white" />
 
           <slot name="right-end" />
         </div>
@@ -97,6 +107,7 @@
 import { useI18n } from 'vue-i18n';
 
 const appConfig = useAppConfig();
+const runtimeConfig = useRuntimeConfig();
 const router = useRouter();
 const route = useRoute();
 const title = useTitle();
@@ -106,12 +117,14 @@ const { getActions } = useActions();
 const searchInput = useSearchInput();
 
 const appIcon = appConfig.appIcon ?? 'i:logo';
+const showMainBackButton = appConfig.showMainBackButton ?? false;
+const mainSiteUrl = runtimeConfig.public.mainSiteUrl ?? 'http://localhost:3000';
 
 const params = getParams();
 
 const actionMeta = route.meta.actions ?? [];
 
-const actions = getActions() as Ref<Array<{ id: string; handler: () => void }>>;
+const actions = getActions() as Ref<Array<{ id: string, handler: () => void }>>;
 
 // Locale switcher
 

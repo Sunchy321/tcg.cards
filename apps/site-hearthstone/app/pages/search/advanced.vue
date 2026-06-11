@@ -181,12 +181,16 @@
                   <button
                     v-for="item in classItems"
                     :key="item.value"
-                    class="chip-btn"
+                    class="chip-btn class-chip-btn"
                     :class="{ active: state.classes.includes(item.value) }"
-                    :style="getClassIconStyle(item.value)"
                     @click="toggleMulti(state.classes, item.value)"
                   >
-                    <span class="chip-icon" :style="getClassColorStyle(item.value)"/>
+                    <span
+                      v-if="classIconUrl(item.value)"
+                      class="class-chip-icon"
+                      :style="{ backgroundImage: `url('${classIconUrl(item.value)}')` }"
+                    />
+                    <span v-else class="chip-icon" :style="getClassColorStyle(item.value)"/>
                     <span class="chip-label-text">{{ item.label }}</span>
                   </button>
                 </div>
@@ -645,13 +649,28 @@ const classColors: Record<string, string> = {
   neutral:      '#9E9E9E',
 };
 
+const classIconPaths: Record<string, string> = {
+  death_knight:  '/icons/hearthstone/classes/death-knight.png',
+  demon_hunter: '/icons/hearthstone/classes/demon-hunter.png',
+  druid:        '/icons/hearthstone/classes/druid.png',
+  hunter:       '/icons/hearthstone/classes/hunter.png',
+  mage:         '/icons/hearthstone/classes/mage.png',
+  neutral:      '/icons/hearthstone/classes/neutral.png',
+  paladin:      '/icons/hearthstone/classes/paladin.png',
+  priest:       '/icons/hearthstone/classes/priest.png',
+  rogue:        '/icons/hearthstone/classes/rogue.png',
+  shaman:       '/icons/hearthstone/classes/shaman.png',
+  warlock:      '/icons/hearthstone/classes/warlock.png',
+  warrior:      '/icons/hearthstone/classes/warrior.png',
+};
+
+// Returns the public image URL for class chips that have supplied Hearthstone art.
+const classIconUrl = (className: string) => classIconPaths[className] ?? null;
+
+// Builds the fallback color swatch for classes without supplied image art.
 const getClassColorStyle = (className: string) => {
   const color = classColors[className] ?? '#9E9E9E';
   return { backgroundColor: color };
-};
-
-const getClassIconStyle = (_className: string) => {
-  return {};
 };
 </script>
 
@@ -838,6 +857,24 @@ const getClassIconStyle = (_className: string) => {
     color: #ffffff;
     box-shadow: 0 0 12px rgba(80, 160, 255, 0.4);
   }
+}
+
+.class-chip-btn {
+  gap: 7px;
+  padding-left: 7px;
+}
+
+.class-chip-icon {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  box-shadow:
+    0 0 0 1px rgb(255 225 154 / 0.32),
+    0 2px 6px rgb(0 0 0 / 0.45);
 }
 
 .chip-icon {

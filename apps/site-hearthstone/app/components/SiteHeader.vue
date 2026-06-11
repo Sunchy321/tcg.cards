@@ -1,10 +1,10 @@
 <template>
-  <header class="sticky top-0 z-50 border-b border-white/10 bg-black/40 backdrop-blur">
-    <div class="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
+  <header class="site-header sticky top-0 z-50 border-b backdrop-blur">
+    <div class="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
       <NuxtLink
         :to="mainSiteUrl"
         target="_blank"
-        class="flex items-center gap-2 text-sm text-white/70 hover:text-white transition"
+        class="site-header-link flex items-center gap-2 text-sm transition"
       >
         <UIcon name="lucide:arrow-left" class="text-base" />
         <span>{{ $t('common.backToMain') ?? 'Back to TCG Cards' }}</span>

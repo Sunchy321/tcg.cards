@@ -1,39 +1,48 @@
 <template>
   <div>
     <Teleport v-if="subheaderReady" to="#subheader-portal">
-      <div class="controller h-12 flex items-center gap-3 px-4 shadow-md">
+      <div class="controller flex min-h-12 flex-wrap items-center gap-3 px-4 py-2 shadow-md">
         <UIcon
           v-show="searching"
           name="lucide:refresh-cw"
           class="animate-spin text-white/80 shrink-0"
         />
 
-        <span class="text-sm text-white/90 truncate">
-          {{ explainText }}
+        <span class="result-count min-w-0 flex-1 truncate">
+          <template v-if="data != null">{{ displayTotal }}</template>
         </span>
 
-        <div class="flex-1" />
+        <div class="result-tools">
+          <USelect
+            v-if="q"
+            :model-value="selectedOrder"
+            :items="sortOptions"
+            :placeholder="$t('hearthstone.search.command.order')"
+            size="sm"
+            class="sort-select shrink-0"
+            trailing-icon="lucide:chevron-down"
+            :ui="{ base: 'sort-select-base font-semibold', content: 'min-w-36' }"
+            @update:model-value="changeOrder($event as string)"
+          />
 
-        <span v-if="data != null" class="font-mono text-sm text-white/70 shrink-0">
-          {{ total }}
-        </span>
-
-        <UPagination
-          v-if="pageCount > 1"
-          :page="page"
-          :total="total"
-          :items-per-page="pageSize"
-          size="sm"
-          @update:page="changePage"
-        />
+          <UPagination
+            v-if="pageCount > 1"
+            :page="page"
+            :total="total"
+            :items-per-page="pageSize"
+            size="sm"
+            @update:page="changePage"
+          />
+        </div>
       </div>
     </Teleport>
 
-    <div class="mx-auto max-w-6xl px-4 py-6 mt-16">
+    <div class="mx-auto max-w-6xl px-4 py-6 mt-6">
       <div class="mb-6 flex flex-wrap gap-3">
         <UButton
           icon="lucide:sliders-horizontal"
           variant="soft"
+          class="search-shortcut"
           to="/search/advanced"
         >
           {{ $t('hearthstone.search.advanced.$self') }}
@@ -42,13 +51,14 @@
         <UButton
           icon="lucide:library"
           variant="soft"
+          class="search-shortcut"
           to="/sets"
         >
           {{ $t('hearthstone.search.advanced.browseSets') }}
         </UButton>
       </div>
 
-      <div v-if="!q" class="flex flex-col items-center justify-center py-24 text-center text-gray-500 gap-3">
+      <div v-if="!q" class="hs-subtle-text flex flex-col items-center justify-center py-24 text-center gap-3">
         <UIcon name="lucide:search" class="text-5xl" />
         <p class="text-lg font-medium">{{ $t('hearthstone.search.emptyQuery') }}</p>
         <p>{{ $t('hearthstone.search.hint') }}</p>
@@ -80,7 +90,7 @@
         />
       </div>
 
-      <div v-else-if="data != null && cards.length === 0" class="flex flex-col items-center justify-center py-24 text-center text-gray-500 gap-3">
+      <div v-else-if="data != null && cards.length === 0" class="hs-subtle-text flex flex-col items-center justify-center py-24 text-center gap-3">
         <UIcon name="lucide:search-x" class="text-5xl" />
         <p class="text-lg font-medium">{{ $t('hearthstone.search.noResult') }}</p>
         <p>{{ q }}</p>
@@ -91,9 +101,10 @@
           v-for="card in cards"
           :key="`${card.cardId}:${card.lang}`"
           :to="cardLink(card)"
+          :prefetch="false"
           class="block"
         >
-          <UCard class="hover:ring-2 hover:ring-primary/30 transition">
+          <article class="hs-surface-card result-card rounded-lg p-4 transition hover:ring-2 hover:ring-primary/30">
             <div class="flex flex-col gap-4 sm:flex-row">
               <div class="w-30 shrink-0 self-center sm:self-start">
                 <ClientOnly>
@@ -104,7 +115,7 @@
                     :render-hash="card.renderHash"
                   />
                   <template #fallback>
-                    <div class="aspect-68/94 w-full rounded-lg bg-gray-100 dark:bg-gray-800 animate-pulse" />
+                    <div class="hs-card-image-shell aspect-68/94 w-full rounded-lg animate-pulse" />
                   </template>
                 </ClientOnly>
               </div>
@@ -124,28 +135,30 @@
                       />
                     </div>
 
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    <p class="hs-subtle-text mt-1 text-sm">
                       {{ subtitle(card) }}
                     </p>
 
                     <p
                       v-if="previewText(card)"
-                      class="mt-3 text-sm leading-6 text-gray-700 dark:text-gray-300 whitespace-pre-wrap"
+                      class="mt-3 text-sm leading-6 whitespace-pre-wrap"
                     >
                       {{ previewText(card) }}
                     </p>
                   </div>
 
                   <div class="flex flex-wrap gap-2 md:max-w-52 md:justify-end">
-                    <UBadge v-if="stats(card)" color="neutral" variant="subtle">
+                    <ArmorValue v-if="card.armor != null" :value="card.armor" :size="30" />
+                    <UBadge v-else-if="stats(card)" class="hs-chip" color="neutral" variant="subtle">
                       {{ stats(card) }}
                     </UBadge>
-                    <UBadge color="neutral" variant="subtle">
+                    <UBadge v-if="setText(card.set)" class="hs-chip" color="neutral" variant="subtle">
                       {{ setText(card.set) }}
                     </UBadge>
                     <UBadge
                       v-for="klass in card.classes"
                       :key="klass"
+                      class="hs-chip"
                       color="primary"
                       variant="soft"
                     >
@@ -155,7 +168,7 @@
                 </div>
               </div>
             </div>
-          </UCard>
+          </article>
         </NuxtLink>
       </div>
     </div>
@@ -232,13 +245,33 @@ const explainText = computed(() => {
     return i18n.t('hearthstone.search.hint');
   }
 
-  return explained.value.text;
+  return replaceSetIds(explained.value.text);
 });
 
-const cards = computed<CardEntityView[]>(() =>
+const rawCards = computed<CardEntityView[]>(() =>
   data.value?.result?.result ?? [],
 );
+
+const cards = computed<CardEntityView[]>(() => {
+  const byKey = new Map<string, CardEntityView>();
+
+  for (const card of rawCards.value) {
+    const key = displayKey(card);
+    const existing = byKey.get(key);
+
+    if (existing != null && hasKnownSet(existing)) {
+      continue;
+    }
+
+    if (existing == null || hasKnownSet(card)) {
+      byKey.set(key, card);
+    }
+  }
+
+  return [...byKey.values()];
+});
 const total = computed(() => data.value?.result?.total ?? 0);
+const displayTotal = computed(() => total.value <= pageSize.value ? cards.value.length : total.value);
 const pageCount = computed(() => data.value?.result?.totalPage ?? Math.ceil(total.value / pageSize.value));
 
 const errorText = computed(() => {
@@ -283,6 +316,56 @@ const changePage = (nextPage: number) => {
   });
 };
 
+// Search result sort choices exposed in the compact sticky toolbar.
+type SortOption = {
+  value: 'cost' | 'attack' | 'health';
+  label: string;
+  icon:  string;
+};
+
+const sortOptions = computed<SortOption[]>(() => [
+  {
+    value: 'cost',
+    label: i18n.t('hearthstone.search.command.cost'),
+    icon:  'lucide:gem',
+  },
+  {
+    value: 'attack',
+    label: i18n.t('hearthstone.search.command.attack'),
+    icon:  'lucide:swords',
+  },
+  {
+    value: 'health',
+    label: i18n.t('hearthstone.search.command.health'),
+    icon:  'lucide:heart',
+  },
+]);
+
+const currentOrder = computed(() => {
+  const order = q.value?.match(/(?:^|\s)order:([^\s]+)/i)?.[1]?.toLowerCase();
+  return order?.replace(/[+-]$/, '') ?? 'name';
+});
+
+const selectedOrder = computed<SortOption['value'] | undefined>(() =>
+  sortOptions.value.some((option: SortOption) => option.value === currentOrder.value) ? currentOrder.value : undefined);
+
+// Replaces the current order token while preserving the rest of the query.
+const changeOrder = (order: string) => {
+  if (order.length === 0) {
+    return;
+  }
+
+  const tokens = (q.value ?? '').split(/\s+/).filter((token: string) => token.length > 0 && !/^order:/i.test(token));
+
+  void router.replace({
+    query: {
+      ...route.query,
+      q:    [...tokens, `order:${order}+`].join(' '),
+      page: undefined,
+    },
+  });
+};
+
 const classText = (value: string) => {
   return i18n.te(`hearthstone.class.${value}`)
     ? i18n.t(`hearthstone.class.${value}`)
@@ -296,10 +379,20 @@ const typeText = (value: string) => {
 };
 
 const setText = (value: string) => {
-  return i18n.te(`hearthstone.set.${value}`)
-    ? i18n.t(`hearthstone.set.${value}`)
-    : value;
+  const key = `hearthstone.set.${value}`;
+
+  if (i18n.te(key)) {
+    return i18n.t(key);
+  }
+
+  return /^SET_\d+$/.test(value) ? null : value;
 };
+
+// Keeps generated explanations user-facing by replacing internal set ids with localized names.
+const replaceSetIds = (text: string) =>
+  text.replace(/\b(?:CORE|SET_\d+)\b/g, value => setText(value) ?? '');
+
+const hasKnownSet = (card: CardEntityView) => setText(card.set) != null;
 
 const subtitle = (card: CardEntityView) => {
   const parts = [
@@ -329,16 +422,28 @@ const stats = (card: CardEntityView) => {
     return `${card.attack}/${card.durability}`;
   }
 
-  if (card.armor != null) {
-    return `[${card.armor}]`;
-  }
-
   if (card.colddown != null) {
     return `#${card.colddown}`;
   }
 
   return null;
 };
+
+// Reprints can have different card IDs while presenting the same playable card.
+const displayKey = (card: CardEntityView) => [
+  card.localization.name,
+  card.type,
+  card.cost ?? '',
+  card.attack ?? '',
+  card.health ?? '',
+  card.durability ?? '',
+  card.armor ?? '',
+  card.colddown ?? '',
+  card.localization.displayText ?? card.localization.text ?? '',
+  card.classes.join('|'),
+  card.race?.join('|') ?? '',
+  card.spellSchool ?? '',
+].join('\u001f');
 
 const minVersion = (card: CardEntityView) => {
   return Math.min(...card.version);
@@ -393,7 +498,45 @@ watch([q, page, pageSize, searchLang], doSearch, { immediate: true });
 
 <style lang="scss" scoped>
 .controller {
-  background-color: rgba(217, 119, 6, 0.88);
+  background-color: var(--color-app-header-bg);
+  border-bottom: 1px solid var(--color-app-header-border);
   backdrop-filter: blur(8px);
+}
+
+.result-count {
+  color: rgb(255 244 218 / 0.86);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.result-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  gap: 0.55rem;
+}
+
+.search-shortcut {
+  border-color: color-mix(in srgb, var(--color-hs-chip-border) 70%, transparent);
+  background: color-mix(in srgb, var(--color-hs-chip-bg) 76%, transparent);
+  color: var(--color-hs-chip-text);
+  font-weight: 700;
+}
+
+.result-card {
+  display: block;
+}
+
+.sort-select {
+  width: 5.7rem;
+}
+
+@media (max-width: 640px) {
+  .result-tools {
+    width: 100%;
+    justify-content: space-between;
+  }
 }
 </style>

@@ -11,6 +11,8 @@ declare module 'nuxt/schema' {
     defaultLocale?: string;
     /** Whether to show the game locale switcher in the shared header. */
     showLocaleSwitcher?: boolean;
+    /** Whether to show a compact main-site back button in the shared header. */
+    showMainBackButton?: boolean;
   }
 
   interface AppConfig {
@@ -19,6 +21,7 @@ declare module 'nuxt/schema' {
     locales?: string[];
     defaultLocale?: string;
     showLocaleSwitcher?: boolean;
+    showMainBackButton?: boolean;
   }
 }
 

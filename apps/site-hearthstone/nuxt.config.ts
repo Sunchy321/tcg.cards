@@ -8,7 +8,7 @@ export default defineNuxtConfig({
 
   devtools: { enabled: true },
 
-  devServer: { port: 3002 },
+  devServer: { port: 3001 },
 
   app: {
     head: {
@@ -60,7 +60,8 @@ export default defineNuxtConfig({
 
   vite: {
     server: {
-      warmup: {
+      strictPort: true,
+      warmup:     {
         clientFiles: ['./app/**/*.vue'],
       },
     },
