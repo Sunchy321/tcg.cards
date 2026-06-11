@@ -1,12 +1,16 @@
 import { eventIterator, ORPCError } from '@orpc/server';
 import { z } from 'zod';
 
+import type { Locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
 import {
   cardImageRequirementExportInput,
   cardImageRequirementExportResult,
   imageRequirementFile,
   imageRequirementRequest,
   type CardImageRequirementExportInput,
+  type ImagePremium,
+  type ImageTemplate,
+  type ImageZone,
 } from '@tcg-cards/model/src/hearthstone/schema/data/image';
 import { CardImageAsset } from '@tcg-cards/db/schema/shared/hearthstone/card-image';
 import {
@@ -27,8 +31,15 @@ import {
   requireHearthstoneImageRendererBaseUrl,
 } from '../lib/hearthstone/image-config';
 import {
+  clearJobController,
+  createJobController,
   getCurrentImageJob,
+  getJobController,
+  JobController,
+  pauseImageJob,
+  resumeImageJob,
   startImageJob,
+  stopImageJob,
   updateImageJob,
   watchImageJob,
 } from '../lib/hearthstone/image-job';
@@ -410,16 +421,19 @@ const importLocalFiles = os
     }
   });
 
-/** Renders one batch of requests via the local renderer and returns rendered + failed files. */
+/** Renders one batch of requests via the local renderer and returns rendered + failed files.
+ * When the controller signals pause or stop, returns partial results immediately. */
 async function renderOneBatch(
   rendererBaseUrl: string,
   jobId: string,
   requests: z.infer<typeof imageRequirementRequest>[],
   overallCompletedSoFar: number,
   overallTotal: number | null,
+  controller: JobController,
 ): Promise<{
   renderedFiles: Array<{ requestId: string; fileName: string; bytes: Uint8Array }>;
   failedFiles: Array<{ requestId: string; cardId: string; renderHash: string; fileName: string; message: string }>;
+  stopped: boolean;
 }> {
   const renderedFiles: Array<{ requestId: string; fileName: string; bytes: Uint8Array }> = [];
   const failedFiles: Array<{ requestId: string; cardId: string; renderHash: string; fileName: string; message: string }> = [];
@@ -434,6 +448,7 @@ async function renderOneBatch(
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: requestJson,
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -450,6 +465,9 @@ async function renderOneBatch(
         renderedFiles.push({ requestId: request.requestId, fileName: request.output.fileName, bytes });
       }
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        break;
+      }
       failedFiles.push({
         requestId: request.requestId,
         cardId: request.card.cardId,
@@ -466,9 +484,12 @@ async function renderOneBatch(
       totalCount,
       overallCompletedCount: overallTotal != null ? overallCompletedSoFar + renderedFiles.length : null,
     });
+
+    if (controller.shouldStop) break;
+    if (controller.shouldPause) break;
   }
 
-  return { renderedFiles, failedFiles };
+  return { renderedFiles, failedFiles, stopped: controller.shouldStop };
 }
 
 /** Upserts CardImageAsset rows into the local DB for one batch of rendered files. */
@@ -530,17 +551,21 @@ async function upsertAssetRows(
 /** Runs the full render-and-import pipeline in the background, publishing progress updates. */
 async function runRenderJob(jobId: string, input: CardImageRequirementExportInput) {
   const scanAll = input.scanAll ?? false;
+  const controller = createJobController();
 
   try {
     const rendererBaseUrl = requireHearthstoneImageRendererBaseUrl();
     const bucketDir = requireHearthstoneImageBucketDir();
 
     if (scanAll) {
-      await runScanAllJob(jobId, input, rendererBaseUrl, bucketDir);
+      await runScanAllJob(jobId, input, rendererBaseUrl, bucketDir, controller);
     } else {
-      await runSingleBatchJob(jobId, input, rendererBaseUrl, bucketDir);
+      await runSingleBatchJob(jobId, input, rendererBaseUrl, bucketDir, controller);
     }
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      return;
+    }
     const message = error instanceof Error ? error.message : String(error);
     updateImageJob(jobId, {
       phase: 'failed',
@@ -548,15 +573,19 @@ async function runRenderJob(jobId: string, input: CardImageRequirementExportInpu
       errorMessage: message,
       finishedAt: new Date().toISOString(),
     });
+  } finally {
+    clearJobController();
   }
 }
 
-/** Runs a single-batch render-and-import job (original behavior). */
+/** Runs a single-batch render-and-import job. When the controller signals pause or stop,
+ * partially rendered images are imported and saved before the phase is set. */
 async function runSingleBatchJob(
   jobId: string,
   input: CardImageRequirementExportInput,
   rendererBaseUrl: string,
   bucketDir: string,
+  controller: JobController,
 ) {
   const exportResult = await exportCardImageRequirements(input, { db: getLocalDb() });
   const requirementsFile = imageRequirementFile.parse(JSON.parse(exportResult.content));
@@ -573,7 +602,64 @@ async function runSingleBatchJob(
     requirementName: exportResult.fileName,
   });
 
-  const { renderedFiles, failedFiles } = await renderOneBatch(rendererBaseUrl, jobId, requirementsFile.requests, 0, null);
+  const { renderedFiles, failedFiles, stopped } = await renderOneBatch(
+    rendererBaseUrl, jobId, requirementsFile.requests, 0, null, controller,
+  );
+
+  if (stopped || controller.shouldPause) {
+    // Save partial results before setting paused/stopped
+    if (renderedFiles.length > 0) {
+      updateImageJob(jobId, {
+        phase: 'importing_local_bucket',
+        message: `Importing ${renderedFiles.length} rendered images to local bucket`,
+        completedCount: renderedFiles.length,
+        rejectedCount: failedFiles.length,
+      });
+
+      await importCardImageFilesToLocalBucket({
+        requirementContent: exportResult.content,
+        requirementName: exportResult.fileName,
+        files: renderedFiles.map(f => ({ fileName: f.fileName, bytes: f.bytes })),
+        bucketDir,
+        force: false,
+        dryRun: false,
+      });
+
+      await upsertAssetRows(requirementsFile, renderedFiles, exportResult.exportId);
+    }
+
+    if (stopped) {
+      const rejectedLogPath = failedFiles.length > 0
+        ? await writeRejectedLog(jobId, failedFiles)
+        : null;
+
+      updateImageJob(jobId, {
+        phase: 'stopped',
+        message: `Stopped: ${renderedFiles.length} written, ${failedFiles.length} failed`,
+        completedCount: renderedFiles.length,
+        rejectedCount: failedFiles.length,
+        writtenCount: renderedFiles.length,
+        errorMessage: failedFiles.length > 0 ? `${failedFiles.length} render failure(s)` : null,
+        rejectedLogPath,
+        finishedAt: new Date().toISOString(),
+      });
+    } else {
+      const rejectedLogPath = failedFiles.length > 0
+        ? await writeRejectedLog(jobId, failedFiles)
+        : null;
+
+      updateImageJob(jobId, {
+        phase: 'paused',
+        message: `Paused: ${renderedFiles.length} written, ${failedFiles.length} failed`,
+        completedCount: renderedFiles.length,
+        rejectedCount: failedFiles.length,
+        writtenCount: renderedFiles.length,
+        errorMessage: failedFiles.length > 0 ? `${failedFiles.length} render failure(s)` : null,
+        rejectedLogPath,
+      });
+    }
+    return;
+  }
 
   if (renderedFiles.length === 0) {
     const rejectedLogPath = await writeRejectedLog(jobId, failedFiles);
@@ -631,12 +717,22 @@ async function runSingleBatchJob(
   });
 }
 
-/** Runs a scan-all batch job that exports, renders, and imports all missing images in multiple batches. */
+/** Runs a scan-all batch job that exports, renders, and imports all missing images in multiple batches.
+ * When the controller signals pause or stop, partial batch results are imported before the phase is set. */
 async function runScanAllJob(
   jobId: string,
   input: CardImageRequirementExportInput,
   rendererBaseUrl: string,
   bucketDir: string,
+  controller: JobController,
+  resumeState?: {
+    cursor: string | null;
+    batchIndex: number;
+    overallWritten: number;
+    overallSkipped: number;
+    overallRejected: number;
+    overallRendered: number;
+  },
 ) {
   // Phase 1: Count total missing images
   updateImageJob(jobId, {
@@ -652,24 +748,24 @@ async function runScanAllJob(
   const batchLimit = input.limit;
   const totalBatches = Math.ceil(totalMissing / batchLimit);
 
+  let cursor = resumeState?.cursor ?? null;
+  let batchIndex = resumeState?.batchIndex ?? 0;
+  let overallWritten = resumeState?.overallWritten ?? 0;
+  let overallSkipped = resumeState?.overallSkipped ?? 0;
+  let overallRejected = resumeState?.overallRejected ?? 0;
+  let overallRendered = resumeState?.overallRendered ?? 0;
+  const allFailedFiles: Array<{ requestId: string; cardId: string; renderHash: string; fileName: string; message: string }> = [];
+
   updateImageJob(jobId, {
     exportId: countResult.exportId,
     requestCount: countResult.requestCount,
     remainingEstimate: countResult.remainingEstimate,
     overallTotalCount: totalMissing,
-    overallCompletedCount: 0,
-    overallRejectedCount: 0,
+    overallCompletedCount: overallWritten + overallSkipped,
+    overallRejectedCount: overallRejected,
     totalBatches,
-    currentBatchIndex: 0,
+    currentBatchIndex: batchIndex,
   });
-
-  let cursor: string | null = null;
-  let batchIndex = 0;
-  let overallWritten = 0;
-  let overallSkipped = 0;
-  let overallRejected = 0;
-  let overallRendered = 0;
-  const allFailedFiles: Array<{ requestId: string; cardId: string; renderHash: string; fileName: string; message: string }> = [];
 
   while (true) {
     batchIndex++;
@@ -703,13 +799,82 @@ async function runScanAllJob(
       currentBatchIndex: batchIndex,
     });
 
-    const { renderedFiles, failedFiles } = await renderOneBatch(
-      rendererBaseUrl, jobId, requirementsFile.requests, overallRendered, totalMissing,
+    const { renderedFiles, failedFiles, stopped } = await renderOneBatch(
+      rendererBaseUrl, jobId, requirementsFile.requests, overallRendered, totalMissing, controller,
     );
 
     overallRendered += renderedFiles.length;
     overallRejected += failedFiles.length;
     allFailedFiles.push(...failedFiles);
+
+    if (stopped || controller.shouldPause) {
+      // Save partial batch results before setting paused/stopped
+      if (renderedFiles.length > 0) {
+        updateImageJob(jobId, {
+          phase: 'importing_local_bucket',
+          message: `Importing batch ${batchIndex}/${totalBatches} (${renderedFiles.length} images)`,
+          completedCount: renderedFiles.length,
+          rejectedCount: failedFiles.length,
+          currentBatchIndex: batchIndex,
+        });
+
+        const importResult = await importCardImageFilesToLocalBucket({
+          requirementContent: exportResult.content,
+          requirementName: exportResult.fileName,
+          files: renderedFiles.map(f => ({ fileName: f.fileName, bytes: f.bytes })),
+          bucketDir,
+          force: false,
+          dryRun: false,
+        });
+
+        await upsertAssetRows(requirementsFile, renderedFiles, exportResult.exportId);
+
+        overallWritten += importResult.summary.writtenCount;
+        overallSkipped += importResult.summary.skippedCount;
+        overallRejected += importResult.summary.rejectedCount;
+      }
+
+      updateImageJob(jobId, {
+        overallCompletedCount: overallWritten + overallSkipped,
+        overallRejectedCount: overallRejected,
+        currentBatchIndex: batchIndex,
+      });
+
+      if (stopped) {
+        const rejectedLogPath = allFailedFiles.length > 0
+          ? await writeRejectedLog(jobId, allFailedFiles)
+          : null;
+
+        updateImageJob(jobId, {
+          phase: 'stopped',
+          message: `Stopped: ${overallWritten} written, ${overallSkipped} skipped, ${overallRejected} rejected across ${batchIndex} batch(es)`,
+          completedCount: overallWritten,
+          rejectedCount: overallRejected,
+          writtenCount: overallWritten,
+          skippedCount: overallSkipped,
+          overallCompletedCount: overallWritten + overallSkipped,
+          overallRejectedCount: overallRejected,
+          currentBatchIndex: batchIndex,
+          errorMessage: overallRejected > 0 ? `${overallRejected} file(s) rejected` : null,
+          rejectedLogPath,
+          finishedAt: new Date().toISOString(),
+        });
+      } else {
+        updateImageJob(jobId, {
+          phase: 'paused',
+          message: `Paused: ${overallWritten} written, ${overallSkipped} skipped, ${overallRejected} rejected across ${batchIndex} batch(es)`,
+          completedCount: overallWritten,
+          rejectedCount: overallRejected,
+          writtenCount: overallWritten,
+          skippedCount: overallSkipped,
+          overallCompletedCount: overallWritten + overallSkipped,
+          overallRejectedCount: overallRejected,
+          currentBatchIndex: batchIndex,
+          errorMessage: overallRejected > 0 ? `${overallRejected} file(s) rejected` : null,
+        });
+      }
+      return;
+    }
 
     if (renderedFiles.length === 0) {
       updateImageJob(jobId, {
@@ -722,35 +887,11 @@ async function runScanAllJob(
       continue;
     }
 
-    // Import batch
-    updateImageJob(jobId, {
-      phase: 'importing_local_bucket',
-      message: `Importing batch ${batchIndex}/${totalBatches} (${renderedFiles.length} images)`,
-      completedCount: renderedFiles.length,
-      rejectedCount: failedFiles.length,
-      currentBatchIndex: batchIndex,
-    });
-
-    const importResult = await importCardImageFilesToLocalBucket({
-      requirementContent: exportResult.content,
-      requirementName: exportResult.fileName,
-      files: renderedFiles.map(f => ({ fileName: f.fileName, bytes: f.bytes })),
-      bucketDir,
-      force: false,
-      dryRun: false,
-    });
-
-    await upsertAssetRows(requirementsFile, renderedFiles, exportResult.exportId);
-
-    overallWritten += importResult.summary.writtenCount;
-    overallSkipped += importResult.summary.skippedCount;
-    overallRejected += importResult.summary.rejectedCount;
-
     updateImageJob(jobId, {
       overallCompletedCount: overallWritten + overallSkipped,
       overallRejectedCount: overallRejected,
-      writtenCount: importResult.summary.writtenCount,
-      skippedCount: importResult.summary.skippedCount,
+      writtenCount: renderedFiles.length,
+      skippedCount: 0,
       currentBatchIndex: batchIndex,
     });
 
@@ -968,6 +1109,9 @@ async function runReimportByRenderHash(jobId: string, input: z.infer<typeof reim
       dryRun: false,
     });
 
+    const requirementsFile = imageRequirementFile.parse(JSON.parse(requirementContent));
+    await upsertAssetRows(requirementsFile, renderedFiles, `reimport-${input.renderHash}`);
+
     const rejectedLogPath = failedFiles.length > 0
       ? await writeRejectedLog(jobId, failedFiles)
       : importResult.problems.length > 0
@@ -1173,6 +1317,116 @@ const detectRenderer = os
     }
   });
 
+/** Resumes a paused render job by re-submitting it with the saved filters and cursor.
+ * Already-imported images are skipped automatically by the export phase. */
+async function resumeRenderJob(jobId: string) {
+  const state = getCurrentImageJob();
+  if (state == null) return;
+
+  const filters = state.filters;
+  const controller = createJobController();
+
+  try {
+    const rendererBaseUrl = requireHearthstoneImageRendererBaseUrl();
+    const bucketDir = requireHearthstoneImageBucketDir();
+
+    const input: CardImageRequirementExportInput = {
+      lang:      filters.lang as Locale,
+      version:   filters.version ?? undefined,
+      cardId:    filters.cardId ?? undefined,
+      zones:     filters.zones as ImageZone[],
+      templates: filters.templates as ImageTemplate[],
+      premiums:  filters.premiums as ImagePremium[],
+      limit:     filters.limit,
+      cursor:    filters.cursor ?? undefined,
+      scanAll:   filters.scanAll,
+    };
+
+    if (filters.scanAll) {
+      await runScanAllJob(jobId, input, rendererBaseUrl, bucketDir, controller, {
+        cursor:          filters.cursor,
+        batchIndex:      state.currentBatchIndex ?? 0,
+        overallWritten:  state.writtenCount ?? 0,
+        overallSkipped:  state.skippedCount ?? 0,
+        overallRejected: state.overallRejectedCount ?? 0,
+        overallRendered: state.overallCompletedCount ?? 0,
+      });
+    } else {
+      await runSingleBatchJob(jobId, input, rendererBaseUrl, bucketDir, controller);
+    }
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      return;
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    updateImageJob(jobId, {
+      phase: 'failed',
+      message,
+      errorMessage: message,
+      finishedAt: new Date().toISOString(),
+    });
+  } finally {
+    clearJobController();
+  }
+}
+
+/** Pauses the current running image render job. Partial results are saved before pausing. */
+const pauseJob = os
+  .route({
+    method:      'POST',
+    description: 'Pause the current Hearthstone image render job',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Image'],
+  })
+  .output(submitRenderJobResult)
+  .handler(async () => {
+    const state = pauseImageJob();
+    if (state == null) {
+      throw new ORPCError('NOT_FOUND', {
+        message: 'No running image job to pause',
+      });
+    }
+    return { job: state };
+  });
+
+/** Stops the current running or paused image render job. Partial results are saved before stopping. */
+const stopJob = os
+  .route({
+    method:      'POST',
+    description: 'Stop the current Hearthstone image render job',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Image'],
+  })
+  .output(submitRenderJobResult)
+  .handler(async () => {
+    const state = stopImageJob();
+    if (state == null) {
+      throw new ORPCError('NOT_FOUND', {
+        message: 'No running image job to stop',
+      });
+    }
+    return { job: state };
+  });
+
+/** Resumes a paused image render job from where it left off. */
+const resumeJob = os
+  .route({
+    method:      'POST',
+    description: 'Resume a paused Hearthstone image render job',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Image'],
+  })
+  .output(submitRenderJobResult)
+  .handler(async () => {
+    const state = resumeImageJob();
+    if (state == null) {
+      throw new ORPCError('NOT_FOUND', {
+        message: 'No paused image job to resume',
+      });
+    }
+
+    void resumeRenderJob(state.jobId);
+
+    return { job: getCurrentImageJob() ?? state };
+  });
+
 /** Groups the desktop runtime Hearthstone image procedures under one router namespace. */
 export const imageRouter = {
   exportRequirements,
@@ -1184,4 +1438,7 @@ export const imageRouter = {
   watchJobProgress,
   debugRenderRequest,
   detectRenderer,
+  pauseJob,
+  stopJob,
+  resumeJob,
 };

@@ -264,6 +264,42 @@
                     全量 rejected: {{ currentJob.overallRejectedCount }}
                   </span>
                 </div>
+
+                <div class="flex flex-wrap gap-2">
+                  <UButton
+                    v-if="isJobRunning"
+                    label="暂停"
+                    icon="i-lucide-pause"
+                    color="warning"
+                    variant="soft"
+                    size="sm"
+                    :loading="pausingJob"
+                    :disabled="pausingJob || stoppingJob"
+                    @click="pauseJob"
+                  />
+                  <UButton
+                    v-if="isJobPaused"
+                    label="继续"
+                    icon="i-lucide-play"
+                    color="success"
+                    variant="soft"
+                    size="sm"
+                    :loading="resumingJob"
+                    :disabled="resumingJob || stoppingJob"
+                    @click="resumeJob"
+                  />
+                  <UButton
+                    v-if="!isJobTerminal"
+                    label="停止"
+                    icon="i-lucide-square"
+                    color="error"
+                    variant="soft"
+                    size="sm"
+                    :loading="stoppingJob"
+                    :disabled="pausingJob || stoppingJob || resumingJob"
+                    @click="stopJob"
+                  />
+                </div>
               </div>
 
               <UAlert
@@ -291,6 +327,24 @@
                 icon="i-lucide-circle-x"
                 :description="currentJob.errorMessage ?? '任务执行失败'"
               />
+
+              <UAlert
+                v-if="currentJob && currentJob.phase === 'stopped'"
+                color="neutral"
+                variant="soft"
+                icon="i-lucide-circle-stop"
+              >
+                <template #description>
+                  <div>
+                    任务已停止
+                    <span v-if="currentJob.writtenCount != null">，写入 {{ currentJob.writtenCount }} 个文件</span>
+                    <span v-if="currentJob.rejectedCount">，失败 {{ currentJob.rejectedCount }} 个</span>
+                    <span v-if="isScanAll && currentJob.currentBatchIndex != null">
+                      ，共 {{ currentJob.currentBatchIndex }} 批次
+                    </span>
+                  </div>
+                </template>
+              </UAlert>
 
               <div class="flex flex-wrap justify-end gap-2">
                 <UButton
@@ -555,7 +609,11 @@ import {
   debugDesktopHearthstoneImageRenderRequest,
   detectDesktopHearthstoneImageRenderer,
   exportDesktopHearthstoneImageRequirements,
+  getCurrentDesktopHearthstoneImageJob,
   openDesktopPath,
+  pauseDesktopHearthstoneImageJob,
+  resumeDesktopHearthstoneImageJob,
+  stopDesktopHearthstoneImageJob,
   submitDesktopHearthstoneImageJob,
   submitDesktopHearthstoneReimportByRenderHash,
   watchDesktopImageJobProgress,
@@ -698,6 +756,9 @@ const configError = ref('');
 const submittingJob = ref(false);
 const submittingScanAllJob = ref(false);
 const counting = ref(false);
+const pausingJob = ref(false);
+const stoppingJob = ref(false);
+const resumingJob = ref(false);
 const jobError = ref('');
 const currentJob = ref<DesktopHearthstoneImageJob | null>(null);
 const progressClockMs = ref(Date.now());
@@ -789,7 +850,13 @@ const rendererStatusColor = computed(() => {
 const isScanAll = computed(() => currentJob.value?.filters?.scanAll === true);
 
 const isJobTerminal = computed(() => (
-  currentJob.value?.phase === 'completed' || currentJob.value?.phase === 'failed'
+  currentJob.value?.phase === 'completed' || currentJob.value?.phase === 'failed' || currentJob.value?.phase === 'stopped'
+));
+
+const isJobPaused = computed(() => currentJob.value?.phase === 'paused');
+
+const isJobRunning = computed(() => (
+  currentJob.value != null && !isJobTerminal.value && !isJobPaused.value
 ));
 
 watch(isJobTerminal, (terminal) => {
@@ -802,6 +869,8 @@ const phaseLabels: Record<string, string> = {
   exporting_requirements:    '正在导出图片需求清单...',
   submitting_renderer_job:   '正在渲染卡图...',
   importing_local_bucket:    '正在导入本地 bucket...',
+  paused:                    '已暂停',
+  stopped:                   '已停止',
   completed:                 '任务完成',
   failed:                    '任务失败',
 };
@@ -814,6 +883,8 @@ const phaseBadgeColor = computed(() => {
   const phase = currentJob.value?.phase;
   if (phase === 'completed') return 'success';
   if (phase === 'failed') return 'error';
+  if (phase === 'paused') return 'warning';
+  if (phase === 'stopped') return 'neutral';
   return 'info';
 });
 
@@ -967,6 +1038,69 @@ async function startJob(scanAll = false) {
 /** Submits a scan-all job that processes all missing images in batches. */
 async function startScanAllJob() {
   await startJob(true);
+}
+
+/** Pauses the current running render job. */
+async function pauseJob() {
+  pausingJob.value = true;
+  try {
+    const result = await pauseDesktopHearthstoneImageJob();
+    applyProgressEvent(currentJob.value, result.job);
+  } catch (error) {
+    jobError.value = getConsoleErrorMessage(error, '暂停失败');
+  } finally {
+    pausingJob.value = false;
+  }
+}
+
+/** Stops the current running or paused render job. */
+async function stopJob() {
+  stoppingJob.value = true;
+  try {
+    const result = await stopDesktopHearthstoneImageJob();
+    applyProgressEvent(currentJob.value, result.job);
+    stopProgressClock();
+  } catch (error) {
+    jobError.value = getConsoleErrorMessage(error, '停止失败');
+  } finally {
+    stoppingJob.value = false;
+  }
+}
+
+/** Resumes a paused render job. */
+async function resumeJob() {
+  resumingJob.value = true;
+  try {
+    cleanupJobSubscription();
+    const result = await resumeDesktopHearthstoneImageJob();
+    currentJob.value = result.job;
+    if (!isJobTerminal.value) {
+      startProgressClock();
+      stopProgressStream = watchDesktopImageJobProgress(event => {
+        applyProgressEvent(currentJob.value, event);
+      });
+    }
+  } catch (error) {
+    jobError.value = getConsoleErrorMessage(error, '恢复失败');
+  } finally {
+    resumingJob.value = false;
+  }
+}
+
+/** Syncs the current job state from the backend (for page refresh recovery). */
+async function syncCurrentJob() {
+  try {
+    const job = await getCurrentDesktopHearthstoneImageJob();
+    if (job) {
+      currentJob.value = job;
+      if (!isJobTerminal.value) {
+        startProgressClock();
+        stopProgressStream = watchDesktopImageJobProgress(event => {
+          applyProgressEvent(currentJob.value, event);
+        });
+      }
+    }
+  } catch { /* no-op */ }
 }
 
 /** Applies one progress event to the current job ref. */
@@ -1208,6 +1342,7 @@ onMounted(() => {
   void loadImageSettings();
   void loadVersionItems();
   void loadRendererHealth();
+  void syncCurrentJob();
 });
 
 onActivated(() => {

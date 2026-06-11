@@ -160,6 +160,21 @@ export function getCurrentDesktopHearthstoneImageJob() {
   return useDesktopRuntimeClient().image.getCurrentJob() as Promise<DesktopHearthstoneImageJob | null>;
 }
 
+/** Pauses the current running desktop Hearthstone image render job. */
+export function pauseDesktopHearthstoneImageJob() {
+  return useDesktopRuntimeClient().image.pauseJob() as Promise<{ job: DesktopHearthstoneImageJob }>;
+}
+
+/** Stops the current running or paused desktop Hearthstone image render job. */
+export function stopDesktopHearthstoneImageJob() {
+  return useDesktopRuntimeClient().image.stopJob() as Promise<{ job: DesktopHearthstoneImageJob }>;
+}
+
+/** Resumes a paused desktop Hearthstone image render job. */
+export function resumeDesktopHearthstoneImageJob() {
+  return useDesktopRuntimeClient().image.resumeJob() as Promise<{ job: DesktopHearthstoneImageJob }>;
+}
+
 /** Refreshes the current desktop Hearthstone image job from the configured local renderer. */
 export function refreshCurrentDesktopHearthstoneImageJob() {
   return useDesktopRuntimeClient().image.refreshCurrentJob() as Promise<DesktopHearthstoneImageJob | null>;

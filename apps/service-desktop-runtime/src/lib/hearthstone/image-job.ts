@@ -3,6 +3,8 @@ export type ImageJobPhase =
   | 'exporting_requirements'
   | 'submitting_renderer_job'
   | 'importing_local_bucket'
+  | 'paused'
+  | 'stopped'
   | 'completed'
   | 'failed';
 
@@ -82,10 +84,28 @@ interface ImageProgressSubscriber {
 }
 
 let currentImageJob: ImageJobState | null = null;
+let currentJobController: JobController | null = null;
 const imageJobSubscribers = new Set<ImageProgressSubscriber>();
 
 function isTerminalPhase(phase: ImageJobPhase | string): boolean {
-  return phase === 'completed' || phase === 'failed';
+  return phase === 'completed' || phase === 'failed' || phase === 'stopped';
+}
+
+/** Per-job controller for signalling pause/stop from the RPC layer into the running render coroutine. */
+export class JobController {
+  private _shouldPause = false;
+  private _shouldStop = false;
+  private _abortController = new AbortController();
+
+  get shouldPause(): boolean { return this._shouldPause; }
+  get shouldStop(): boolean { return this._shouldStop; }
+  get signal(): AbortSignal { return this._abortController.signal; }
+
+  requestPause(): void { this._shouldPause = true; }
+  requestStop(): void {
+    this._shouldStop = true;
+    this._abortController.abort();
+  }
 }
 
 function buildProgressFromJob(state: ImageJobState): ImageJobProgressEvent {
@@ -230,6 +250,43 @@ export function updateImageJob(
   currentImageJob = nextState;
   notifySubscribers(buildProgressFromJob(nextState));
   return nextState;
+}
+
+/** Creates a new JobController for the current job. */
+export function createJobController(): JobController {
+  currentJobController = new JobController();
+  return currentJobController;
+}
+
+/** Returns the current JobController or null. */
+export function getJobController(): JobController | null {
+  return currentJobController;
+}
+
+/** Clears the current JobController. */
+export function clearJobController(): void {
+  currentJobController = null;
+}
+
+/** Requests a pause of the current job. The running coroutine detects this and saves partial progress. */
+export function pauseImageJob(): ImageJobState | null {
+  if (currentImageJob == null || isTerminalPhase(currentImageJob.phase)) return null;
+  currentJobController?.requestPause();
+  return currentImageJob;
+}
+
+/** Requests a stop of the current job. The running coroutine aborts in-flight work and saves partial progress. */
+export function stopImageJob(): ImageJobState | null {
+  if (currentImageJob == null || isTerminalPhase(currentImageJob.phase)) return null;
+  currentJobController?.requestStop();
+  return currentImageJob;
+}
+
+/** Validates that the current job is paused and resets the controller for resume. Returns the job if resumable. */
+export function resumeImageJob(): ImageJobState | null {
+  if (currentImageJob == null || currentImageJob.phase !== 'paused') return null;
+  currentJobController = new JobController();
+  return currentImageJob;
 }
 
 /** Returns the latest image job snapshot kept in runtime memory. */
