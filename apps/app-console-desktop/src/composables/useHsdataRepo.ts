@@ -409,6 +409,20 @@ export function getLocalHsdataOverview() {
   })();
 }
 
+/** Batch resets import status for selected sourceTags. */
+export function resetHsdataImportStatus(sourceTags: number[]) {
+  return (async () => {
+    return await useDesktopRuntimeClient().hsdata.resetImportStatus({ sourceTags }) as { resetCount: number };
+  })();
+}
+
+/** Batch resets projection status for selected sourceTags. */
+export function resetHsdataProjectionStatus(sourceTags: number[]) {
+  return (async () => {
+    return await useDesktopRuntimeClient().hsdata.resetProjectionStatus({ sourceTags }) as { resetCount: number };
+  })();
+}
+
 /** Streams hsdata import progress snapshots from the local Bun runtime. */
 export function listenHsdataImportProgress(
   handler: (event: HsdataImportProgressEvent) => void,

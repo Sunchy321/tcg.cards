@@ -1,6 +1,6 @@
 import { ORPCError, eventIterator } from '@orpc/server';
 import { runWithDb } from '@tcg-cards/db';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { SourceVersion } from '@tcg-cards/db/schema/local/hearthstone';
 
@@ -573,6 +573,66 @@ const getIncompletePublishBatchRoute = os
     }
   });
 
+const batchResetInput = z.strictObject({
+  sourceTags: z.array(z.number().int().nonnegative()).min(1),
+});
+
+const batchResetResult = z.strictObject({
+  resetCount: z.number().int().nonnegative(),
+});
+
+/** Resets import status for selected sourceTags to pending so they can be re-imported. */
+const resetImportStatus = os
+  .route({
+    method:      'POST',
+    description: 'Batch reset import status for selected sourceTags',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
+  })
+  .input(batchResetInput)
+  .output(batchResetResult)
+  .handler(async ({ input }) => {
+    return await runWithDb(getLocalDb(), async () => {
+      const db = getLocalDb();
+
+      const result = await db.update(SourceVersion)
+        .set({
+          status:           'pending',
+          importedAt:       null,
+          projectionStatus: 'not_started',
+          projectedAt:      null,
+        })
+        .where(inArray(SourceVersion.sourceTag, input.sourceTags))
+        .returning({ sourceTag: SourceVersion.sourceTag });
+
+      return { resetCount: result.length };
+    });
+  });
+
+/** Resets projection status for selected sourceTags to not_started. */
+const resetProjectionStatus = os
+  .route({
+    method:      'POST',
+    description: 'Batch reset projection status for selected sourceTags',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
+  })
+  .input(batchResetInput)
+  .output(batchResetResult)
+  .handler(async ({ input }) => {
+    return await runWithDb(getLocalDb(), async () => {
+      const db = getLocalDb();
+
+      const result = await db.update(SourceVersion)
+        .set({
+          projectionStatus: 'not_started',
+          projectedAt:      null,
+        })
+        .where(inArray(SourceVersion.sourceTag, input.sourceTags))
+        .returning({ sourceTag: SourceVersion.sourceTag });
+
+      return { resetCount: result.length };
+    });
+  });
+
 /** Groups the desktop runtime hsdata procedures under one router namespace. */
 export const hsdataRouter = {
   getRepoState,
@@ -590,4 +650,6 @@ export const hsdataRouter = {
   listPublishBatches: listPublishBatchesRoute,
   getIncompletePublishBatch: getIncompletePublishBatchRoute,
   recomputeLatest,
+  resetImportStatus,
+  resetProjectionStatus,
 };

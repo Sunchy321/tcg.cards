@@ -855,6 +855,55 @@
                   sourceListSummaryText
                 }}</span>
               </div>
+
+              <UAlert
+                v-if="resetError.length > 0"
+                color="error"
+                variant="soft"
+                icon="i-lucide-circle-alert"
+                :description="resetError"
+                closable
+                @close="resetError = ''"
+              />
+
+              <!-- Batch reset toolbar -->
+              <div
+                v-if="selectableItems.length > 0"
+                class="flex items-center gap-2 border-t pt-2"
+              >
+                <label class="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    :checked="allSelected"
+                    :indeterminate.prop="selectedSourceTags.size > 0 && !allSelected"
+                    class="size-3.5"
+                    @change="toggleSelectAll"
+                  />
+                  全选
+                </label>
+                <span class="text-xs text-muted">{{
+                  selectedSourceTags.size > 0 ? `已选 ${selectedSourceTags.size}` : ''
+                }}</span>
+                <div class="flex-1" />
+                <UButton
+                  label="重置导入"
+                  icon="i-lucide-rotate-ccw"
+                  size="xs"
+                  color="warning"
+                  variant="soft"
+                  :disabled="resetImportCandidates.length === 0 || resettingImport || batchRunning"
+                  @click="openResetImportModal"
+                />
+                <UButton
+                  label="重置投影"
+                  icon="i-lucide-rotate-ccw"
+                  size="xs"
+                  color="neutral"
+                  variant="soft"
+                  :disabled="resetProjectionCandidates.length === 0 || resettingProjection || batchRunning"
+                  @click="openResetProjectionModal"
+                />
+              </div>
             </div>
           </template>
 
@@ -894,6 +943,13 @@
                 importForm.id === item.file.id ? 'ring-2 ring-primary' : '',
               ]"
             >
+              <input
+                v-if="item.file.sourceTag != null"
+                type="checkbox"
+                class="size-3.5 shrink-0"
+                :checked="selectedSourceTags.has(item.file.sourceTag)"
+                @click.stop="toggleSelectSourceTag(item.file.sourceTag!, $event)"
+              />
               <button
                 type="button"
                 class="min-w-0 flex-1 text-left"
@@ -1111,6 +1167,35 @@
     </UCard>
     </div>
   </div>
+
+  <!-- Batch reset confirmation modal -->
+  <UModal v-model:open="showResetModal">
+    <template #header>
+      <div class="flex items-center gap-2">
+        <UIcon :name="resetModalIcon" class="size-5" />
+        <span class="font-medium">{{ resetModalTitle }}</span>
+      </div>
+    </template>
+    <template #body>
+      <p class="text-sm">{{ resetModalBody }}</p>
+    </template>
+    <template #footer>
+      <div class="flex justify-end gap-2">
+        <UButton
+          label="取消"
+          color="neutral"
+          variant="ghost"
+          @click="showResetModal = false"
+        />
+        <UButton
+          :label="resetModalConfirmLabel"
+          :color="resetModalConfirmColor"
+          :loading="resettingImport || resettingProjection"
+          @click="confirmResetAction"
+        />
+      </div>
+    </template>
+  </UModal>
 </template>
 
 <script setup lang="ts">
@@ -1127,6 +1212,8 @@ import {
   listHsdataSources,
   projectLocalHsdataSourceVersion,
   recomputeLatestHsdataProjection,
+  resetHsdataImportStatus,
+  resetHsdataProjectionStatus,
   syncHsdataRemoteVersions,
   trackHsdataImportSourceProgress,
   trackHsdataProjectSourceProgress,
@@ -1551,6 +1638,173 @@ const batchFailedItem = computed(() => {
 
   return task.items.find(item => item.status === 'failed') ?? null;
 });
+
+// Batch reset state
+const selectedSourceTags = ref<Set<number>>(new Set());
+const resettingImport = ref(false);
+const resettingProjection = ref(false);
+const resetError = ref('');
+
+// Reset confirmation modal
+const showResetModal = ref(false);
+const resetModalAction = ref<'import' | 'projection'>('import');
+
+const resetModalTitle = computed(() =>
+  resetModalAction.value === 'import' ? '重置导入状态' : '重置投影状态',
+);
+const resetModalIcon = computed(() =>
+  resetModalAction.value === 'import' ? 'i-lucide-rotate-ccw' : 'i-lucide-rotate-ccw',
+);
+const resetModalBody = computed(() => {
+  const count = selectedSourceTags.value.size;
+  if (resetModalAction.value === 'import') {
+    return `确认重置 ${count} 个 sourceTag 的导入和投影状态？`;
+  }
+  return `确认重置 ${count} 个 sourceTag 的投影状态？`;
+});
+const resetModalConfirmLabel = computed(() =>
+  resetModalAction.value === 'import' ? '重置导入' : '重置投影',
+);
+const resetModalConfirmColor = computed(() =>
+  resetModalAction.value === 'import' ? 'warning' : 'neutral',
+);
+
+function confirmResetAction() {
+  showResetModal.value = false;
+  if (resetModalAction.value === 'import') {
+    void resetSelectedImport();
+  } else {
+    void resetSelectedProjection();
+  }
+}
+
+const selectableItems = computed(() =>
+  visibleSourceListItems.value.filter(item => item.file.sourceTag != null),
+);
+
+const selectableSourceTagSet = computed(() => {
+  const tags = new Set<number>();
+  for (const item of selectableItems.value) {
+    if (item.file.sourceTag != null) {
+      tags.add(item.file.sourceTag);
+    }
+  }
+  return tags;
+});
+
+const allSelected = computed(() => {
+  const set = selectableSourceTagSet.value;
+  if (set.size === 0) return false;
+  for (const tag of set) {
+    if (!selectedSourceTags.value.has(tag)) return false;
+  }
+  return true;
+});
+
+const resetImportCandidates = computed(() =>
+  selectableItems.value.filter(item =>
+    item.file.sourceTag != null
+    && item.status?.importStatus === 'completed'
+    && selectedSourceTags.value.has(item.file.sourceTag),
+  ),
+);
+
+const resetProjectionCandidates = computed(() =>
+  selectableItems.value.filter(item =>
+    item.file.sourceTag != null
+    && item.status?.projectionStatus === 'completed'
+    && selectedSourceTags.value.has(item.file.sourceTag),
+  ),
+);
+
+const lastClickedIndex = ref<number | null>(null);
+
+function toggleSelectAll() {
+  if (allSelected.value) {
+    selectedSourceTags.value = new Set();
+  } else {
+    selectedSourceTags.value = new Set(selectableSourceTagSet.value);
+  }
+  lastClickedIndex.value = null;
+}
+
+function toggleSelectSourceTag(sourceTag: number, event?: MouseEvent) {
+  const next = new Set(selectedSourceTags.value);
+
+  if (event?.shiftKey && lastClickedIndex.value != null) {
+    const items = selectableItems.value;
+    const currentIndex = items.findIndex(item => item.file.sourceTag === sourceTag);
+    const prevIndex = lastClickedIndex.value;
+    if (currentIndex !== -1) {
+      const [start, end] = prevIndex < currentIndex ? [prevIndex, currentIndex] : [currentIndex, prevIndex];
+      // Select all in range based on the state of the anchor item
+      const anchorSelected = next.has(items[prevIndex]!.file.sourceTag!);
+      for (let i = start; i <= end; i++) {
+        const tag = items[i]!.file.sourceTag;
+        if (tag == null) continue;
+        if (anchorSelected) {
+          next.add(tag);
+        } else {
+          next.delete(tag);
+        }
+      }
+    }
+  } else {
+    if (next.has(sourceTag)) {
+      next.delete(sourceTag);
+    } else {
+      next.add(sourceTag);
+    }
+    const items = selectableItems.value;
+    lastClickedIndex.value = items.findIndex(item => item.file.sourceTag === sourceTag);
+  }
+
+  selectedSourceTags.value = next;
+}
+
+function openResetImportModal() {
+  resetError.value = '';
+  resetModalAction.value = 'import';
+  showResetModal.value = true;
+}
+
+function openResetProjectionModal() {
+  resetError.value = '';
+  resetModalAction.value = 'projection';
+  showResetModal.value = true;
+}
+
+async function resetSelectedImport() {
+  const tags = [...selectedSourceTags.value];
+  if (tags.length === 0) return;
+
+  resettingImport.value = true;
+  try {
+    await resetHsdataImportStatus(tags);
+    selectedSourceTags.value = new Set();
+    await reloadSourceList();
+  } catch (error) {
+    resetError.value = `重置导入失败：${getHsdataErrorMessage(error)}`;
+  } finally {
+    resettingImport.value = false;
+  }
+}
+
+async function resetSelectedProjection() {
+  const tags = [...selectedSourceTags.value];
+  if (tags.length === 0) return;
+
+  resettingProjection.value = true;
+  try {
+    await resetHsdataProjectionStatus(tags);
+    selectedSourceTags.value = new Set();
+    await reloadSourceList();
+  } catch (error) {
+    resetError.value = `重置投影失败：${getHsdataErrorMessage(error)}`;
+  } finally {
+    resettingProjection.value = false;
+  }
+}
 
 const batchStatusBadge = computed<HsdataBatchStatusBadge>(() => {
   const task = batchTask.value;
