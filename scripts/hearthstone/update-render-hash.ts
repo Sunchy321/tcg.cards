@@ -1,28 +1,24 @@
 #!/usr/bin/env bun
 
 /**
- * Updates renderHash for cards affected by a newly added render mechanic.
+ * Updates renderHash for cards affected by render mechanic changes.
  *
- * When a new mechanic slug is added to RENDER_MECHANIC_SLUGS, the renderModel
- * changes for any card that has the corresponding GAME_TAG, which changes the
- * renderHash. This script performs the three updates needed to converge:
+ * Two modes:
  *
- *   1. Update render_hash and render_model in hearthstone.entity_localizations
- *      for affected rows.
- *   2. Delete orphaned rows in hearthstone_data.card_image_assets that still
- *      reference the old renderHash (primary key includes renderHash, so stale
- *      rows must be removed before re-export).
- *   3. Delete the corresponding local .webp files from the asset bucket so
- *      re-import does not skip them as already-present.
+ *   Add mode (default): find cards that have the GAME_TAG but are missing the
+ *   slug in renderMechanics, add it, recompute renderHash.
+ *
+ *   Rename mode: find cards that have an old slug key in renderMechanics,
+ *   rename it to the new slug, recompute renderHash.
+ *
+ * Three-step pipeline in both modes:
+ *   1. Update render_hash and render_model in hearthstone.entity_localizations.
+ *   2. Delete orphaned rows in hearthstone_data.card_image_assets.
+ *   3. Delete local .webp files from the asset bucket.
  *
  * Usage:
- *   bun run scripts/hearthstone-update-render-hash.ts --slug=<slug> [--dry-run] [--bucket-dir=<path>]
- *
- * Options:
- *   --slug          Render mechanic slug as it appears in renderMechanics (e.g. timewarped).
- *                   The corresponding GAME_TAG enum ID is looked up from TAG_ID.
- *   --dry-run       Show what would be done without making changes.
- *   --bucket-dir    Local asset bucket root directory for file cleanup.
+ *   bun run scripts/hearthstone/update-render-hash.ts --slug=<slug>           [--dry-run] [--bucket-dir=<path>]
+ *   bun run scripts/hearthstone/update-render-hash.ts --slug=<slug> --rename-from=<old> [--dry-run] [--bucket-dir=<path>]
  */
 
 import { existsSync } from 'node:fs';
@@ -48,31 +44,8 @@ type UpdateTask = {
   mechanicValue:    unknown;
 };
 
-async function main() {
-  const slug = parseArg('--slug=');
-  const dryRun = isDryRun();
-  const bucketDir = parseArg('--bucket-dir=');
-
-  if (!slug) {
-    console.error('Usage: bun run scripts/hearthstone-update-render-hash.ts --slug=<slug> [--dry-run] [--bucket-dir=<path>]');
-    process.exit(1);
-  }
-
-  const tagKey = (Object.keys(TAG_SLUG) as (keyof typeof TAG_SLUG)[]).find(k => TAG_SLUG[k] === slug);
-  if (!tagKey) {
-    console.error(`Unknown slug "${slug}". Must be one of: ${Object.values(TAG_SLUG).join(', ')}`);
-    process.exit(1);
-  }
-
-  const enumId = String(TAG_ID[tagKey]);
-  const db = getDb();
-
-  if (dryRun) {
-    console.log('[DRY RUN] No changes will be written.\n');
-  }
-
-  console.log(`Mechanic: slug="${slug}" enum ID=${enumId}`);
-  console.log('Finding affected localizations...');
+async function findAddTasks(db: ReturnType<typeof getDb>, slug: string, enumId: string) {
+  console.log('Add mode: finding cards with game tag but missing slug...');
 
   const rawRows = await db
     .select({
@@ -108,7 +81,23 @@ async function main() {
     const mechanics = (model.renderMechanics ?? {}) as Record<string, unknown>;
 
     if (slug in mechanics) {
-      console.log(`  Skipping ${row.cardId}/${row.lang}: already has "${slug}"`);
+      // Key exists, but renderHash may be stale (e.g. after a manual rename).
+      const recomputed = hashCanonicalJson(model);
+      if (recomputed === row.renderHash) {
+        console.log(`  Skipping ${row.cardId}/${row.lang}: already has "${slug}" and hash matches`);
+        continue;
+      }
+      console.log(`  Fixing ${row.cardId}/${row.lang}: has "${slug}" but hash mismatch (${row.renderHash?.slice(0, 12)} -> ${recomputed.slice(0, 12)})`);
+      updates.push({
+        cardId:           row.cardId,
+        lang:             row.lang,
+        revisionHash:     row.revisionHash,
+        localizationHash: row.localizationHash,
+        oldHash:          row.renderHash,
+        newHash:          recomputed,
+        newModel:         model,
+        mechanicValue:    mechanics[slug],
+      });
       continue;
     }
 
@@ -139,6 +128,98 @@ async function main() {
       newModel,
       mechanicValue,
     });
+  }
+
+  return updates;
+}
+
+async function findRenameTasks(db: ReturnType<typeof getDb>, slug: string, renameFrom: string) {
+  console.log(`Rename mode: renaming "${renameFrom}" -> "${slug}"...`);
+
+  const rawRows = await db
+    .select({
+      cardId:           EntityLocalization.cardId,
+      lang:             EntityLocalization.lang,
+      revisionHash:     EntityLocalization.revisionHash,
+      localizationHash: EntityLocalization.localizationHash,
+      renderHash:       EntityLocalization.renderHash,
+      renderModel:      EntityLocalization.renderModel,
+    })
+    .from(EntityLocalization)
+    .where(sql`${EntityLocalization.renderModel}->'renderMechanics' ? ${renameFrom}`);
+
+  console.log(`Found ${rawRows.length} localization rows.`);
+
+  const updates: UpdateTask[] = [];
+
+  for (const row of rawRows) {
+    if (row.renderModel == null) {
+      console.log(`  Skipping ${row.cardId}/${row.lang}: render_model is null`);
+      continue;
+    }
+
+    const model = row.renderModel as Record<string, unknown>;
+    const mechanics = (model.renderMechanics ?? {}) as Record<string, unknown>;
+
+    if (!(renameFrom in mechanics)) {
+      console.log(`  Skipping ${row.cardId}/${row.lang}: missing "${renameFrom}"`);
+      continue;
+    }
+
+    const value = mechanics[renameFrom];
+    delete mechanics[renameFrom];
+    mechanics[slug] = value;
+
+    const newModel = { ...model, renderMechanics: mechanics };
+    const newHash = hashCanonicalJson(newModel);
+
+    updates.push({
+      cardId:           row.cardId,
+      lang:             row.lang,
+      revisionHash:     row.revisionHash,
+      localizationHash: row.localizationHash,
+      oldHash:          row.renderHash,
+      newHash,
+      newModel,
+      mechanicValue:    value,
+    });
+  }
+
+  return updates;
+}
+
+async function main() {
+  const slug = parseArg('--slug=');
+  const renameFrom = parseArg('--rename-from=');
+  const dryRun = isDryRun();
+  const bucketDir = parseArg('--bucket-dir=');
+
+  if (!slug) {
+    console.error('Usage:');
+    console.error('  bun run scripts/hearthstone/update-render-hash.ts --slug=<slug>           [--dry-run] [--bucket-dir=<path>]');
+    console.error('  bun run scripts/hearthstone/update-render-hash.ts --slug=<slug> --rename-from=<old> [--dry-run] [--bucket-dir=<path>]');
+    process.exit(1);
+  }
+
+  const db = getDb();
+
+  if (dryRun) {
+    console.log('[DRY RUN] No changes will be written.\n');
+  }
+
+  let updates: UpdateTask[];
+
+  if (renameFrom) {
+    updates = await findRenameTasks(db, slug, renameFrom);
+  } else {
+    const tagKey = (Object.keys(TAG_SLUG) as (keyof typeof TAG_SLUG)[]).find(k => TAG_SLUG[k] === slug);
+    if (!tagKey) {
+      console.error(`Unknown slug "${slug}". Must be one of: ${Object.values(TAG_SLUG).join(', ')}`);
+      process.exit(1);
+    }
+    const enumId = String(TAG_ID[tagKey]);
+    console.log(`Mechanic: slug="${slug}" enum ID=${enumId}`);
+    updates = await findAddTasks(db, slug, enumId);
   }
 
   if (updates.length === 0) {
