@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { classes, locale, race, rarity, spellSchool, types } from './basic';
 
-import { RENDER_MECHANIC_SLUGS } from '../constant/tag';
+import { RENDER_MECHANIC_IDS } from '../constant/tag';
 import { card } from './card';
 
 export const rune = z.enum(['blood', 'frost', 'unholy']);
@@ -69,7 +69,7 @@ export type ChangeType = z.infer<typeof changeType>;
 export const mechanicValue = z.union([z.boolean(), z.int()]);
 export const mechanicMap = z.record(z.string(), mechanicValue);
 export const referencedTagMap = z.record(z.string(), mechanicValue);
-export const renderMechanic = z.enum(RENDER_MECHANIC_SLUGS);
+export const renderMechanic = z.enum(RENDER_MECHANIC_IDS);
 export const renderMechanicMap = z.partialRecord(renderMechanic, mechanicValue);
 
 export const renderModel = z.strictObject({

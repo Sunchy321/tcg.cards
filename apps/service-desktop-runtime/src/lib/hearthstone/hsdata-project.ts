@@ -5,7 +5,7 @@ import { pipeline } from 'node:stream/promises';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '@tcg-cards/db/db';
-import { RENDER_MECHANIC_SLUGS } from '@tcg-cards/model/src/hearthstone/constant/tag';
+import { RENDER_MECHANIC_IDS } from '@tcg-cards/model/src/hearthstone/constant/tag';
 import { renderModel as renderModelSchema, type RenderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
 import { mainLocale, type Rarity, rarity as raritySchema, type Types, types as typeSchema } from '@tcg-cards/model/src/hearthstone/schema/basic';
 import {
@@ -316,7 +316,7 @@ const strongRelationFields = [
 
 const weakRelationFields = ['heroicHeroPower'] as const;
 
-const renderMechanicKeys: Set<string> = new Set(RENDER_MECHANIC_SLUGS);
+const renderMechanicKeys: Set<string> = new Set(RENDER_MECHANIC_IDS);
 
 const typeValues = new Set(typeSchema.options);
 const rarityValues = new Set(raritySchema.options);
@@ -1311,12 +1311,10 @@ function formatIssuePath(path: PropertyKey[]): string {
 function buildRenderModel(
   entity: LocalizationlessEntityRow,
   localization: LocalizationlessLocalizationRow,
-  slugByEnumId: Map<number, string>,
 ): RenderModel {
   const renderMechanics = Object.fromEntries(
     Object.entries(entity.mechanics)
-      .map(([enumId, value]) => [slugByEnumId.get(Number(enumId)) ?? enumId, value] as const)
-      .filter(([slug, value]) => renderMechanicKeys.has(slug) && isMechanicValue(value)),
+      .filter(([enumId, value]) => renderMechanicKeys.has(enumId) && isMechanicValue(value)),
   );
 
   const payload = {
@@ -1688,7 +1686,7 @@ function finalizeLocalizationRows(
     };
 
     const localizationHash = hashCanonicalJson(buildLocalizationHashPayload(row));
-    const renderModel = buildRenderModel(entity, row, slugByEnumId);
+    const renderModel = buildRenderModel(entity, row);
     const renderHash = hashCanonicalJson(renderModel);
 
     rows.push({

@@ -29,17 +29,18 @@ export const TAG_ID = {
 } as const;
 
 /**
- * Render mechanic slugs, sorted by TAG_ID ascending.
+ * Render mechanic numeric IDs, sorted ascending.
+ * These are the GAME_TAG enum IDs used as keys in renderModel.renderMechanics.
  *
  * Spec: [hearthstone-image-renderer-protocol](../../../../../docs/hearthstone-image-renderer-protocol.md)
  */
-export const RENDER_MECHANIC_SLUGS = [
-  TAG_SLUG.HIDE_HEALTH,
-  TAG_SLUG.HIDE_ATTACK,
-  TAG_SLUG.HIDE_COST,
-  TAG_SLUG.HIDE_WATERMARK,
-  TAG_SLUG.TRADEABLE,
-  TAG_SLUG.IN_MINI_SET,
-  TAG_SLUG.FORGE,
-  TAG_SLUG.TIMEWARPED,
+export const RENDER_MECHANIC_IDS = [
+  String(TAG_ID.HIDE_HEALTH),
+  String(TAG_ID.HIDE_ATTACK),
+  String(TAG_ID.HIDE_COST),
+  String(TAG_ID.HIDE_WATERMARK),
+  String(TAG_ID.TRADEABLE),
+  String(TAG_ID.IN_MINI_SET),
+  String(TAG_ID.FORGE),
+  String(TAG_ID.TIMEWARPED),
 ] as const;

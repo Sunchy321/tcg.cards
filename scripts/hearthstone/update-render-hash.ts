@@ -5,20 +5,24 @@
  *
  * Two modes:
  *
- *   Add mode (default): find cards that have the GAME_TAG but are missing the
- *   slug in renderMechanics, add it, recompute renderHash.
+ *   Add mode: find cards that have the GAME_TAG but are missing the mechanic
+ *   in renderMechanics, add it, recompute renderHash.
  *
- *   Rename mode: find cards that have an old slug key in renderMechanics,
- *   rename it to the new slug, recompute renderHash.
+ *   Rename mode: find cards that have an old mechanic key in renderMechanics,
+ *   rename it to the new key, recompute renderHash.
+ *
+ * Mechanic keys are numeric GAME_TAG enum IDs (e.g. 1720 for TRADEABLE).
  *
  * Three-step pipeline in both modes:
  *   1. Update render_hash and render_model in hearthstone.entity_localizations.
  *   2. Delete orphaned rows in hearthstone_data.card_image_assets.
  *   3. Delete local .webp files from the asset bucket.
  *
+ * Reads DATABASE_URL and BUCKET_DIR from the environment.
+ *
  * Usage:
- *   bun run scripts/hearthstone/update-render-hash.ts --slug=<slug>           [--dry-run] [--bucket-dir=<path>]
- *   bun run scripts/hearthstone/update-render-hash.ts --slug=<slug> --rename-from=<old> [--dry-run] [--bucket-dir=<path>]
+ *   bun --env-file=scripts/.env run scripts/hearthstone/update-render-hash.ts --id=<enumId> [--dry-run]
+ *   bun --env-file=scripts/.env run scripts/hearthstone/update-render-hash.ts --id=<enumId> --rename-from=<oldId> [--dry-run]
  */
 
 import { existsSync } from 'node:fs';
@@ -31,7 +35,6 @@ import { parseArg, isDryRun } from '../lib/args';
 import { hashCanonicalJson } from '../lib/hash';
 import { Entity, EntityLocalization } from '@tcg-cards/db/schema/shared/hearthstone/entity';
 import { CardImageAsset } from '@tcg-cards/db/schema/shared/hearthstone/card-image';
-import { TAG_SLUG, TAG_ID } from '@tcg-cards/model/src/hearthstone/constant/tag';
 
 type UpdateTask = {
   cardId:           string;
@@ -44,8 +47,8 @@ type UpdateTask = {
   mechanicValue:    unknown;
 };
 
-async function findAddTasks(db: ReturnType<typeof getDb>, slug: string, enumId: string) {
-  console.log('Add mode: finding cards with game tag but missing slug...');
+async function findAddTasks(db: ReturnType<typeof getDb>, mechanicId: string) {
+  console.log(`Add mode: finding cards with game tag ${mechanicId} but missing in renderMechanics...`);
 
   const rawRows = await db
     .select({
@@ -65,7 +68,7 @@ async function findAddTasks(db: ReturnType<typeof getDb>, slug: string, enumId: 
         eq(EntityLocalization.revisionHash, Entity.revisionHash),
       ),
     )
-    .where(sql`${Entity.mechanics} ? '${sql.raw(enumId)}'`);
+    .where(sql`${Entity.mechanics} ? '${sql.raw(mechanicId)}'`);
 
   console.log(`Found ${rawRows.length} localization rows.`);
 
@@ -80,14 +83,14 @@ async function findAddTasks(db: ReturnType<typeof getDb>, slug: string, enumId: 
     const model = row.renderModel as Record<string, unknown>;
     const mechanics = (model.renderMechanics ?? {}) as Record<string, unknown>;
 
-    if (slug in mechanics) {
+    if (mechanicId in mechanics) {
       // Key exists, but renderHash may be stale (e.g. after a manual rename).
       const recomputed = hashCanonicalJson(model);
       if (recomputed === row.renderHash) {
-        console.log(`  Skipping ${row.cardId}/${row.lang}: already has "${slug}" and hash matches`);
+        console.log(`  Skipping ${row.cardId}/${row.lang}: already has "${mechanicId}" and hash matches`);
         continue;
       }
-      console.log(`  Fixing ${row.cardId}/${row.lang}: has "${slug}" but hash mismatch (${row.renderHash?.slice(0, 12)} -> ${recomputed.slice(0, 12)})`);
+      console.log(`  Fixing ${row.cardId}/${row.lang}: has "${mechanicId}" but hash mismatch (${row.renderHash?.slice(0, 12)} -> ${recomputed.slice(0, 12)})`);
       updates.push({
         cardId:           row.cardId,
         lang:             row.lang,
@@ -96,13 +99,13 @@ async function findAddTasks(db: ReturnType<typeof getDb>, slug: string, enumId: 
         oldHash:          row.renderHash,
         newHash:          recomputed,
         newModel:         model,
-        mechanicValue:    mechanics[slug],
+        mechanicValue:    mechanics[mechanicId],
       });
       continue;
     }
 
     const rawMechanics = row.mechanicValue as Record<string, unknown>;
-    let mechanicValue: unknown = rawMechanics[enumId];
+    let mechanicValue: unknown = rawMechanics[mechanicId];
     if (typeof mechanicValue === 'string') {
       if (mechanicValue === 'true') mechanicValue = true;
       else if (mechanicValue === 'false') mechanicValue = false;
@@ -114,7 +117,7 @@ async function findAddTasks(db: ReturnType<typeof getDb>, slug: string, enumId: 
 
     const newModel = {
       ...model,
-      renderMechanics: { ...mechanics, [slug]: mechanicValue },
+      renderMechanics: { ...mechanics, [mechanicId]: mechanicValue },
     };
     const newHash = hashCanonicalJson(newModel);
 
@@ -133,8 +136,8 @@ async function findAddTasks(db: ReturnType<typeof getDb>, slug: string, enumId: 
   return updates;
 }
 
-async function findRenameTasks(db: ReturnType<typeof getDb>, slug: string, renameFrom: string) {
-  console.log(`Rename mode: renaming "${renameFrom}" -> "${slug}"...`);
+async function findRenameTasks(db: ReturnType<typeof getDb>, mechanicId: string, renameFrom: string) {
+  console.log(`Rename mode: renaming "${renameFrom}" -> "${mechanicId}" in renderMechanics...`);
 
   const rawRows = await db
     .select({
@@ -168,7 +171,7 @@ async function findRenameTasks(db: ReturnType<typeof getDb>, slug: string, renam
 
     const value = mechanics[renameFrom];
     delete mechanics[renameFrom];
-    mechanics[slug] = value;
+    mechanics[mechanicId] = value;
 
     const newModel = { ...model, renderMechanics: mechanics };
     const newHash = hashCanonicalJson(newModel);
@@ -189,15 +192,15 @@ async function findRenameTasks(db: ReturnType<typeof getDb>, slug: string, renam
 }
 
 async function main() {
-  const slug = parseArg('--slug=');
+  const id = parseArg('--id=');
   const renameFrom = parseArg('--rename-from=');
   const dryRun = isDryRun();
-  const bucketDir = parseArg('--bucket-dir=');
+  const bucketDir = process.env.BUCKET_DIR || null;
 
-  if (!slug) {
+  if (!id) {
     console.error('Usage:');
-    console.error('  bun run scripts/hearthstone/update-render-hash.ts --slug=<slug>           [--dry-run] [--bucket-dir=<path>]');
-    console.error('  bun run scripts/hearthstone/update-render-hash.ts --slug=<slug> --rename-from=<old> [--dry-run] [--bucket-dir=<path>]');
+    console.error('  bun --env-file=scripts/.env run scripts/hearthstone/update-render-hash.ts --id=<enumId> [--dry-run]');
+    console.error('  bun --env-file=scripts/.env run scripts/hearthstone/update-render-hash.ts --id=<enumId> --rename-from=<oldId> [--dry-run]');
     process.exit(1);
   }
 
@@ -210,16 +213,11 @@ async function main() {
   let updates: UpdateTask[];
 
   if (renameFrom) {
-    updates = await findRenameTasks(db, slug, renameFrom);
+    console.log(`Mechanic: rename "${renameFrom}" -> "${id}"`);
+    updates = await findRenameTasks(db, id, renameFrom);
   } else {
-    const tagKey = (Object.keys(TAG_SLUG) as (keyof typeof TAG_SLUG)[]).find(k => TAG_SLUG[k] === slug);
-    if (!tagKey) {
-      console.error(`Unknown slug "${slug}". Must be one of: ${Object.values(TAG_SLUG).join(', ')}`);
-      process.exit(1);
-    }
-    const enumId = String(TAG_ID[tagKey]);
-    console.log(`Mechanic: slug="${slug}" enum ID=${enumId}`);
-    updates = await findAddTasks(db, slug, enumId);
+    console.log(`Mechanic: enum ID=${id}`);
+    updates = await findAddTasks(db, id);
   }
 
   if (updates.length === 0) {
@@ -315,9 +313,9 @@ async function main() {
 
     console.log(`  ${dryRun ? 'Would delete' : 'Deleted'} ${deletedFiles} files, ${missingFiles} already missing.`);
   } else if (!dryRun) {
-    console.log('\n[3/3] Skipping local file deletion (--bucket-dir not provided).');
+    console.log('\n[3/3] Skipping local file deletion (BUCKET_DIR not set).');
   } else {
-    console.log('\n[3/3] Would delete local files (--bucket-dir not provided, cannot enumerate paths).');
+    console.log('\n[3/3] Would delete local files (BUCKET_DIR not set, cannot enumerate paths).');
   }
 
   console.log('\nDone.');

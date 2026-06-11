@@ -301,24 +301,22 @@
 
 #### `renderMechanics`
 
-一个 partial-record 对象，将机制 slug 映射到对应值。只有适用于该卡牌的机制才会出现，每个 key 均为可选。
+一个 partial-record 对象，以 GAME_TAG 枚举 ID 字符串为 key。只有适用于该卡牌的机制才会出现，每个 key 均为可选。
 
 值类型：`boolean | integer`
 
-一个 partial-record 对象，将机制 slug 映射到对应值。只有适用于该卡牌的机制才会出现，每个 key 均为可选。
+使用数字 ID 作为 key 可避免 slug 名称变更导致的 hash 不稳定。
 
-值类型：`boolean | integer`
-
-| Slug | Enum ID | 说明 |
-|------|---------|------|
-| `hide-health` | 682 | 在渲染卡面上隐藏生命值 |
-| `hide-attack` | 683 | 在渲染卡面上隐藏攻击力 |
-| `hide-cost` | 684 | 在渲染卡面上隐藏法力值消耗 |
-| `hide-watermark` | 1107 | 在渲染卡面上隐藏职业水印 |
-| `tradeable` | 1720 | 卡牌具有可交易机制 |
-| `in-mini-set` | 1824 | 卡牌属于迷你系列 |
-| `forge` | 2785 | 卡牌具有锻造机制 |
-| `timewarped` | 4503 | 卡牌具有酒馆战棋时空扭曲机制 |
+| Key (string) | GAME_TAG | Slug | 说明 |
+|-------------|----------|------|------|
+| `"682"` | HIDE_HEALTH | `hide-health` | 在渲染卡面上隐藏生命值 |
+| `"683"` | HIDE_ATTACK | `hide-attack` | 在渲染卡面上隐藏攻击力 |
+| `"684"` | HIDE_COST | `hide-cost` | 在渲染卡面上隐藏法力值消耗 |
+| `"1107"` | HIDE_WATERMARK | `hide-watermark` | 在渲染卡面上隐藏职业水印 |
+| `"1720"` | TRADEABLE | `tradeable` | 卡牌具有可交易机制 |
+| `"1824"` | IN_MINI_SET | `in-mini-set` | 卡牌属于迷你系列 |
+| `"2785"` | FORGE | `forge` | 卡牌具有锻造机制 |
+| `"4503"` | TIMEWARPED | `timewarped` | 卡牌具有酒馆战棋时空扭曲机制 |
 
 ## 功能约束
 

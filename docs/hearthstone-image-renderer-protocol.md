@@ -301,24 +301,22 @@ Canonical render-model payload containing all card data needed to produce the ca
 
 #### `renderMechanics`
 
-A partial-record object that maps mechanic slugs to values. Only mechanics that apply to the card are present. Each key is optional.
+A partial-record object keyed by GAME_TAG enum IDs (as numeric strings). Only mechanics that apply to the card are present. Each key is optional.
 
 Value type: `boolean | integer`
 
-A partial-record object that maps mechanic slugs to values. Only mechanics that apply to the card are present. Each key is optional.
+Hearthstone GAME_TAG enum IDs are used as keys to avoid slug-name instability across data updates.
 
-Value type: `boolean | integer`
-
-| Slug | Enum ID | Description |
-|------|---------|-------------|
-| `hide-health` | 682 | Suppress health value display on the rendered card |
-| `hide-attack` | 683 | Suppress attack value display on the rendered card |
-| `hide-cost` | 684 | Suppress mana cost display on the rendered card |
-| `hide-watermark` | 1107 | Suppress class watermark on the rendered card |
-| `tradeable` | 1720 | Card has the tradeable mechanic |
-| `in-mini-set` | 1824 | Card belongs to the current mini-set |
-| `forge` | 2785 | Card has the forge mechanic |
-| `timewarped` | 4503 | Card has the Battlegrounds timewarped mechanic |
+| Key (string) | GAME_TAG | Slug | Description |
+|-------------|----------|------|-------------|
+| `"682"` | HIDE_HEALTH | `hide-health` | Suppress health value display on the rendered card |
+| `"683"` | HIDE_ATTACK | `hide-attack` | Suppress attack value display on the rendered card |
+| `"684"` | HIDE_COST | `hide-cost` | Suppress mana cost display on the rendered card |
+| `"1107"` | HIDE_WATERMARK | `hide-watermark` | Suppress class watermark on the rendered card |
+| `"1720"` | TRADEABLE | `tradeable` | Card has the tradeable mechanic |
+| `"1824"` | IN_MINI_SET | `in-mini-set` | Card belongs to the current mini-set |
+| `"2785"` | FORGE | `forge` | Card has the forge mechanic |
+| `"4503"` | TIMEWARPED | `timewarped` | Card has the Battlegrounds timewarped mechanic |
 
 ## Functional Requirements
 
