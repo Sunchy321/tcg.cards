@@ -1,3 +1,6 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -19,7 +22,7 @@ import {
   SourceVersion,
   Tag,
 } from '@tcg-cards/db/schema/local/hearthstone';
-import type { HsdataProjectWriteBreakdown } from './hsdata-progress';
+import type { HsdataProjectReconciledCounts, HsdataProjectWriteBreakdown } from './hsdata-progress';
 import { getLocalDb } from './hsdata-local-db';
 import { createHsdataProfiler } from './hsdata-profile';
 
@@ -39,6 +42,7 @@ interface RawSnapshotRow {
   id:               string;
   cardId:           string;
   dbfId:            number;
+  sourceTags:       number[];
   entityXmlVersion: number;
   snapshotHash:     string;
   extraPayload:     JsonMap;
@@ -182,6 +186,7 @@ interface ProjectionContext {
 }
 
 interface ProjectedSnapshot {
+  snapshotId:          string;
   entity:              LocalizationlessEntityRow;
   localizations:       LocalizationRow[];
   relations:           RelationRow[];
@@ -191,7 +196,7 @@ interface ProjectedSnapshot {
 type LocalizationlessEntityRow = Omit<EntityRow, 'version' | 'isLatest'>;
 type LocalizationlessLocalizationRow = Omit<LocalizationRow, 'version' | 'isLatest'>;
 type EntityStateRow = Pick<EntityRow, 'cardId' | 'version' | 'revisionHash' | 'isLatest'>;
-type LocalizationStateRow = Pick<LocalizationRow, 'cardId' | 'version' | 'lang' | 'revisionHash' | 'localizationHash' | 'renderHash' | 'isLatest'>;
+type LocalizationStateRow = Pick<LocalizationRow, 'cardId' | 'version' | 'lang' | 'revisionHash' | 'localizationHash' | 'renderHash' | 'isLatest'> & { renderModel?: RenderModel | null };
 type CopyCapableClient = {
   unsafe(query: string): {
     writable(): Promise<NodeJS.WritableStream>;
@@ -219,10 +224,11 @@ interface SyncPlan<T extends { version: number[], isLatest: boolean }> {
 
 /** Reconciliation hooks that derive row identity groups and lightweight change signatures. */
 interface ReconcileOptions<T extends { version: number[], isLatest: boolean }> {
-  build:    number;
-  keyOf:    (row: T) => RowKey;
-  groupKey: (row: T) => string;
-  stateOf:  (row: T) => string;
+  build:            number;
+  skipLatestUpdate: boolean;
+  keyOf:            (row: T) => RowKey;
+  groupKey:         (row: T) => string;
+  stateOf:          (row: T) => string;
 }
 
 /** Local write profiler injected into projection helpers for sub-step timing. */
@@ -232,11 +238,14 @@ interface ProjectWriteProfiler {
 
 /** Tracks completed row counts for each stacked write-progress segment. */
 interface WriteProgressBreakdown {
-  entity:       number;
-  localization: number;
-  latest:       number;
-  relation:     number;
-  card:         number;
+  entity:               number;
+  localization:         number;
+  latest:               number;
+  relation:             number;
+  card:                 number;
+  entityDelete:         number;
+  localizationDelete:   number;
+  relationDelete:       number;
 }
 
 /** Identifies one stacked write-progress segment. */
@@ -278,6 +287,7 @@ export interface ProjectHsdataInput {
   dryRun?:   boolean;
   force?:    boolean;
   skipLatestUpdate?: boolean;
+  sampleDiff?: boolean;
   onProfileMark?: (step: { step: string; elapsedMs: number; totalMs: number }) => void;
   onProgress?: (input: {
     phase: 'loading_snapshots' | 'loading_tags' | 'projecting_snapshots' | 'summarizing_changes' | 'writing_rows' | 'completed' | 'failed';
@@ -288,7 +298,25 @@ export interface ProjectHsdataInput {
     completedWorkCount?: number | null;
     workLabel?: string | null;
     writeBreakdown?: HsdataProjectWriteBreakdown | null;
+    reconciledCounts?: HsdataProjectReconciledCounts | null;
   }) => void | Promise<void>;
+}
+
+/** Reasons a row entered the upsert plan after merge simulation. */
+export interface DiffBreakdown {
+  versionMatch: number;
+  versionChanged: number;
+  isLatestChanged: number;
+  /** Existing rows without matching target, whose version changed (build removed). */
+  orphanVersionChanged: number;
+  /** Only used for localizations. */
+  renderHashChanged?: number;
+  renderHashNullExisting?: number;
+}
+
+interface WritePlanCounts {
+  upsert: number;
+  delete: number;
 }
 
 export interface ProjectHsdataReport {
@@ -304,8 +332,22 @@ export interface ProjectHsdataReport {
   reusedLocalizations:   number;
   updatedLocalizations:  number;
   insertedRelations:     number;
+  reusedRelations:       number;
   updatedRelations:      number;
+  cardRowCount:          number;
   unprojectedTagCount:   number;
+  /** Sync plan: how many rows would be written (upserted/deleted). */
+  entityPlan:        WritePlanCounts;
+  localizationPlan:  WritePlanCounts;
+  relationPlan:      WritePlanCounts;
+  /** Per-field diff for entities (revisionHash/version/isLatest after merge). */
+  entityDiff:        DiffBreakdown;
+  /** Per-field diff for localizations (includes renderHash after merge). */
+  localizationDiff:  DiffBreakdown;
+  /** Per-field diff for relations after merge. */
+  relationDiff:      DiffBreakdown;
+  /** Absolute path to the diff sample JSON file, if sampleDiff was enabled. */
+  sampleDiffPath:    string | null;
 }
 
 const strongRelationFields = [
@@ -580,20 +622,26 @@ function buildWriteProgressTotals(input: {
 }): WriteProgressBreakdown {
   if (input.ignoreDuplicates) {
     return {
-      entity:       input.targetEntityCount,
-      localization: input.targetLocalizationCount,
-      latest:       0,
-      relation:     input.targetRelationCount,
-      card:         input.targetCardCount,
+      entity:             input.targetEntityCount,
+      localization:       input.targetLocalizationCount,
+      latest:             0,
+      relation:           input.targetRelationCount,
+      card:               input.targetCardCount,
+      entityDelete:       0,
+      localizationDelete: 0,
+      relationDelete:     0,
     };
   }
 
   return {
-    entity:       countEntityWriteRows(input.entity),
-    localization: input.localization.deleteCount + input.localization.upsertCount,
-    latest:       input.skipLatestUpdate ? 0 : input.localization.affectedLatestRowCount,
-    relation:     input.relationDeleteCount + input.relationInsertCount,
-    card:         input.targetCardCount,
+    entity:             input.entity.metaCount + input.entity.insertCount,
+    localization:       input.localization.upsertCount,
+    latest:             input.skipLatestUpdate ? 0 : input.localization.affectedLatestRowCount,
+    relation:           input.relationInsertCount,
+    card:               input.targetCardCount,
+    entityDelete:       input.entity.deleteCount,
+    localizationDelete: input.localization.deleteCount,
+    relationDelete:     input.relationDeleteCount,
   };
 }
 
@@ -618,6 +666,22 @@ function toWriteProgressBreakdown(
     relation: {
       totalRowCount: totals.relation,
       completedRowCount: completed.relation,
+    },
+    card: {
+      totalRowCount: totals.card,
+      completedRowCount: completed.card,
+    },
+    entityDelete: {
+      totalRowCount: totals.entityDelete,
+      completedRowCount: completed.entityDelete,
+    },
+    localizationDelete: {
+      totalRowCount: totals.localizationDelete,
+      completedRowCount: completed.localizationDelete,
+    },
+    relationDelete: {
+      totalRowCount: totals.relationDelete,
+      completedRowCount: completed.relationDelete,
     },
   };
 }
@@ -1445,7 +1509,6 @@ async function reconcileRows<T extends { version: number[], isLatest: boolean }>
   existingRows: T[],
   targetRows: T[],
   options: ReconcileOptions<T>,
-  skipLatestUpdate: boolean,
   onProgress?: SummarizeProgressReporter,
   progressLabel?: string,
 ): Promise<ReconcileResult<T>> {
@@ -1482,7 +1545,7 @@ async function reconcileRows<T extends { version: number[], isLatest: boolean }>
       inserted += 1;
       finalByKey.set(key, {
         ...cloneReconcileRow(row),
-        version:  [options.build],
+        version:  [...row.version],
         isLatest: false,
       });
     } else {
@@ -1495,8 +1558,8 @@ async function reconcileRows<T extends { version: number[], isLatest: boolean }>
       finalByKey.set(key, {
         ...(current ?? cloneReconcileRow(row)),
         ...cloneReconcileRow(row),
-        version:  mergeVersion(current?.version ?? [], options.build),
-        isLatest: false,
+        version:  mergeVersion(current?.version ?? [], ...row.version),
+        isLatest: options.skipLatestUpdate ? existing.isLatest : false,
       });
     }
 
@@ -1518,7 +1581,7 @@ async function reconcileRows<T extends { version: number[], isLatest: boolean }>
     await yieldProgressEventLoop();
   }
 
-  if (!skipLatestUpdate) {
+  if (!options.skipLatestUpdate) {
     recomputeLatest(finalByKey, options.groupKey);
   }
 
@@ -1875,6 +1938,7 @@ function projectSnapshot(
   }
 
   return {
+    snapshotId: snapshot.id,
     entity,
     localizations: localizationRows,
     relations:     relationRows,
@@ -1893,11 +1957,41 @@ async function getSourceVersion(sourceTag: number): Promise<SourceVersionRow | n
     .then(rows => rows[0] ?? null);
 }
 
+/** Loads builds for completed source versions referenced by snapshot source_tags arrays. */
+async function getBuildsBySourceTags(
+  sourceTags: number[],
+): Promise<Map<number, number>> {
+  if (sourceTags.length === 0) {
+    return new Map();
+  }
+
+  const builds = new Map<number, number>();
+  const rows = await db.select({
+    sourceTag: SourceVersion.sourceTag,
+    build:     SourceVersion.build,
+  })
+    .from(SourceVersion)
+    .where(and(
+      inArray(SourceVersion.sourceTag, sourceTags),
+      eq(SourceVersion.status, 'completed'),
+      sql<boolean>`${SourceVersion.build} IS NOT NULL`,
+    ));
+
+  for (const row of rows) {
+    if (row.build != null) {
+      builds.set(row.sourceTag, row.build);
+    }
+  }
+
+  return builds;
+}
+
 async function loadSnapshots(sourceTag: number): Promise<RawSnapshotRow[]> {
   return await db.select({
     id:               RawEntitySnapshot.id,
     cardId:           RawEntitySnapshot.cardId,
     dbfId:            RawEntitySnapshot.dbfId,
+    sourceTags:       RawEntitySnapshot.sourceTags,
     entityXmlVersion: RawEntitySnapshot.entityXmlVersion,
     snapshotHash:     RawEntitySnapshot.snapshotHash,
     extraPayload:     RawEntitySnapshot.extraPayload,
@@ -2013,6 +2107,7 @@ async function loadExistingRowsForProjection(
     revisionHash: string;
     localizationHash: string;
     renderHash: string | null;
+    renderModel: RenderModel | null;
     isLatest: boolean;
   };
   type RelationQueryRow = {
@@ -2114,6 +2209,7 @@ async function loadExistingRowsForProjection(
               target.revision_hash as "revisionHash",
               target.localization_hash as "localizationHash",
               target.render_hash as "renderHash",
+              target.render_model as "renderModel",
               target.is_latest as "isLatest"
             from hearthstone.entity_localizations as target
             inner join hsdata_projection_localization_existing_key_stage as stage
@@ -2146,6 +2242,7 @@ async function loadExistingRowsForProjection(
               target.revision_hash as "revisionHash",
               target.localization_hash as "localizationHash",
               target.render_hash as "renderHash",
+              target.render_model as "renderModel",
               target.is_latest as "isLatest"
             from hearthstone.entity_localizations as target
             inner join hsdata_projection_localization_existing_stage as stage
@@ -2438,6 +2535,8 @@ function encodeLocalizationMetaCopyRow(row: LocalizationStateRow): string {
     encodeCopyCsvField(row.lang),
     encodeCopyCsvField(row.revisionHash),
     encodeCopyCsvField(row.localizationHash),
+    encodeCopyCsvField(row.renderHash ?? null),
+    encodeCopyCsvField(row.renderModel != null ? encodeCopyJson(row.renderModel) : null),
     encodeCopyCsvField(encodeCopyIntArray(row.version)),
   ].join('\t') + '\n';
 }
@@ -2817,6 +2916,8 @@ async function copyLocalizationMetaRowsIntoTable(
       lang,
       revision_hash,
       localization_hash,
+      render_hash,
+      render_model,
       version
     ) from stdin with (
       format csv,
@@ -3224,7 +3325,7 @@ async function syncLocalizations(
       await onProgress?.({
         message: `Deleted obsolete localization rows from the shared tables (${chunk.length} rows)`,
         advance: chunk.length,
-        segment: 'localization',
+        segment: 'localizationDelete',
       });
     }
 
@@ -3283,6 +3384,8 @@ async function syncLocalizations(
         lang,
         revision_hash,
         localization_hash,
+        render_hash,
+        render_model,
         version
       from hearthstone.entity_localizations
       with no data
@@ -3295,7 +3398,8 @@ async function syncLocalizations(
         lang: row.lang,
         revisionHash: row.revisionHash,
         localizationHash: row.localizationHash,
-        renderHash: null,
+        renderHash: (row as typeof metaRows[number]).renderHash ?? null,
+        renderModel: (row as typeof metaRows[number]).renderModel ?? null,
         isLatest: false,
         version: row.isAppend ? [] : (row as typeof metaRows[number]).version,
       } satisfies LocalizationStateRow)), 'hsdata_projection_localization_meta_stage');
@@ -3303,7 +3407,9 @@ async function syncLocalizations(
 
       await tx.session.client.unsafe(`
         update hearthstone.entity_localizations as target
-        set version = stage.version
+        set version = stage.version,
+            render_hash = coalesce(stage.render_hash, target.render_hash),
+            render_model = coalesce(stage.render_model, target.render_model)
         from hsdata_projection_localization_meta_stage as stage
         where target.card_id = stage.card_id
           and target.lang = stage.lang
@@ -3314,7 +3420,9 @@ async function syncLocalizations(
 
       await tx.session.client.unsafe(`
         update hearthstone.entity_localizations as target
-        set version = array_append(target.version, ${build})
+        set version = array_append(target.version, ${build}),
+            render_hash = coalesce(stage.render_hash, target.render_hash),
+            render_model = coalesce(stage.render_model, target.render_model)
         from hsdata_projection_localization_meta_stage as stage
         where target.card_id = stage.card_id
           and target.lang = stage.lang
@@ -3514,6 +3622,131 @@ async function insertRelationsIgnoreDuplicates(tx: DbTx, rows: RelationRow[]) {
   }
 }
 
+interface DiffSample {
+  key: string;
+  existingVersion: number[];
+  targetVersion: number[];
+  mergedVersion: number[];
+  existingIsLatest: boolean;
+  targetIsLatest: boolean;
+  existingRenderHash: string | null;
+  targetRenderHash: string | null;
+  existingRenderModel: unknown;
+  targetRenderModel: unknown;
+  reasons: string[];
+}
+
+const MAX_DIFF_SAMPLES = 10;
+
+interface SummarizeDiffOptions<TE, TT> {
+  build:            number;
+  skipLatestUpdate: boolean;
+  keyOf:            (r: TE | TT) => string;
+  renderHashOf:     (r: TE | TT) => string | null | undefined;
+  renderModelOf?:   (r: TT) => unknown;
+  existingRenderModelOf?: (r: TE) => unknown;
+  label:            string;
+  outSamples:       DiffSample[];
+}
+
+/** Simulates mergeVersion and compares existing vs target state, categorising reasons. */
+function summarizeDiff<TE extends { version: number[]; isLatest: boolean }, TT extends { version: number[]; isLatest: boolean }>(
+  existing: TE[],
+  targets: TT[],
+  opts: SummarizeDiffOptions<TE, TT>,
+): DiffBreakdown {
+  const existingByKey = new Map(existing.map(r => [opts.keyOf(r), r]));
+  let versionMatch = 0;
+  let versionChanged = 0;
+  let isLatestChanged = 0;
+  let renderHashChanged = 0;
+  let renderHashNullExisting = 0;
+  const hasRender = opts.renderHashOf !== noRenderHash;
+
+  let orphanCount = 0;
+  const targetKeySet = new Set(targets.map(t => opts.keyOf(t)));
+
+  for (const t of targets) {
+    const e = existingByKey.get(opts.keyOf(t));
+    if (!e) continue;
+
+    const nextVersion = e.version.filter(v => v !== opts.build);
+    const merged = mergeVersion(nextVersion, ...t.version);
+
+    const verSame = merged.join(',') === e.version.join(',');
+    const resolvedLatest = opts.skipLatestUpdate ? e.isLatest : t.isLatest;
+    const isLatestSame = resolvedLatest === e.isLatest;
+    const renderSame = !hasRender || (opts.renderHashOf(t) ?? null) === (opts.renderHashOf(e) ?? null);
+
+    if (verSame && isLatestSame && renderSame) {
+      versionMatch += 1;
+      continue;
+    }
+
+    if (!verSame) versionChanged += 1;
+    if (!isLatestSame && verSame) isLatestChanged += 1;
+    if (hasRender && !renderSame) {
+      renderHashChanged += 1;
+      if ((opts.renderHashOf(e) ?? null) == null) renderHashNullExisting += 1;
+    }
+
+    if (opts.outSamples.length < MAX_DIFF_SAMPLES) {
+      const reasons: string[] = [];
+      if (!verSame) reasons.push('version');
+      if (!isLatestSame && verSame) reasons.push('isLatest');
+      if (hasRender && !renderSame) reasons.push('renderHash');
+      opts.outSamples.push({
+        key: `${opts.label}:${opts.keyOf(t)}`,
+        existingVersion: e.version,
+        targetVersion: t.version,
+        mergedVersion: merged,
+        existingIsLatest: e.isLatest,
+        targetIsLatest: t.isLatest,
+        existingRenderHash: hasRender ? (opts.renderHashOf(e) ?? null) : null,
+        targetRenderHash: hasRender ? (opts.renderHashOf(t) ?? null) : null,
+        existingRenderModel: opts.existingRenderModelOf?.(e) ?? null,
+        targetRenderModel: opts.renderModelOf?.(t) ?? null,
+        reasons,
+      });
+    }
+  }
+
+  // Existing rows without a matching target: build removed from version, may trigger upsert.
+  for (const e of existing) {
+    if (targetKeySet.has(opts.keyOf(e))) continue;
+    const nextVersion = e.version.filter(v => v !== opts.build);
+    if (nextVersion.length === 0) continue; // would be deleted, not upserted
+    if (nextVersion.join(',') !== e.version.join(',')) {
+      orphanCount += 1;
+      if (opts.outSamples.length < MAX_DIFF_SAMPLES) {
+        opts.outSamples.push({
+          key: `${opts.label}(orphan):${opts.keyOf(e)}`,
+          existingVersion: e.version,
+          targetVersion: [],
+          mergedVersion: nextVersion,
+          existingIsLatest: e.isLatest,
+          targetIsLatest: e.isLatest,
+          existingRenderHash: hasRender ? (opts.renderHashOf(e) ?? null) : null,
+          targetRenderHash: null,
+          existingRenderModel: opts.existingRenderModelOf?.(e) ?? null,
+          targetRenderModel: null,
+          reasons: ['version(removed build)'],
+        });
+      }
+    }
+  }
+
+  return {
+    versionMatch,
+    versionChanged,
+    isLatestChanged,
+    orphanVersionChanged: orphanCount,
+    ...(hasRender ? { renderHashChanged, renderHashNullExisting } : {}),
+  };
+}
+
+function noRenderHash(_r: unknown): null { return null; }
+
 export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectHsdataReport> {
   const dryRun = input.dryRun ?? false;
   const force = input.force ?? false;
@@ -3562,6 +3795,26 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     if (snapshots.length === 0) {
       throw new Error(`[hearthstone][hsdata-project] no raw snapshots found for sourceTag ${input.sourceTag}`);
     }
+
+  // Collect all sourceTags referenced by the loaded snapshots and resolve their builds.
+  // Each snapshot may belong to multiple sourceTags. Writing all builds at once lets later
+  // projections skip rows whose builds are already present in the version array.
+  const allSourceTags = [...new Set(snapshots.flatMap(s => s.sourceTags))];
+  const buildsBySourceTag = await getBuildsBySourceTags(allSourceTags);
+  const buildsBySnapshotId = new Map<string, number[]>();
+  for (const snapshot of snapshots) {
+    const builds = snapshot.sourceTags
+      .map(st => buildsBySourceTag.get(st))
+      .filter((b): b is number => b != null);
+    if (builds.length > 0) {
+      buildsBySnapshotId.set(snapshot.id, mergeVersion(...builds));
+    }
+  }
+  profiler.mark('resolve_source_tag_builds', {
+    sourceTagCount: allSourceTags.length,
+    resolvedCount:  buildsBySourceTag.size,
+    skippedCount:   allSourceTags.length - buildsBySourceTag.size,
+  });
 
   await input.onProgress?.({
     phase:                   'loading_tags',
@@ -3673,7 +3926,7 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
 
   const targetEntities = projected.map(item => ({
     ...item.entity,
-    version:  [sourceVersion.build!],
+    version:  buildsBySnapshotId.get(item.snapshotId) ?? [sourceVersion.build!],
     isLatest: false,
   }));
   const targetEntityStates: EntityStateRow[] = targetEntities.map(row => ({
@@ -3684,7 +3937,7 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
   }));
   const targetLocalizations = projected.flatMap(item => item.localizations.map(row => ({
     ...row,
-    version:  [sourceVersion.build!],
+    version:  buildsBySnapshotId.get(item.snapshotId) ?? [sourceVersion.build!],
     isLatest: false,
   })));
   const targetLocalizationStates: LocalizationStateRow[] = targetLocalizations.map(row => ({
@@ -3698,7 +3951,7 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
   }));
   const targetRelations = projected.flatMap(item => item.relations.map(row => ({
     ...row,
-    version:  [sourceVersion.build!],
+    version:  buildsBySnapshotId.get(item.snapshotId) ?? [sourceVersion.build!],
     isLatest: false,
   })));
   const entityCardIds = [...new Set(targetEntities.map(row => row.cardId))].sort();
@@ -3767,11 +4020,12 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
   await reportSummarizeProgress('Reconciling projected rows against the shared tables');
 
   const entityResult = await reconcileRows(existingEntities, targetEntityStates, {
-    build:    sourceVersion.build,
-    keyOf:    entityKey,
-    groupKey: row => row.cardId,
-    stateOf:  entityState,
-  }, skipLatestUpdate, reportSummarizeProgress, 'entity');
+    build:            sourceVersion.build,
+    skipLatestUpdate,
+    keyOf:            entityKey,
+    groupKey:         row => row.cardId,
+    stateOf:          entityState,
+  }, reportSummarizeProgress, 'entity');
   profiler.mark('reconcile_entities', {
     insertedEntities: entityResult.inserted,
     reusedEntities:   entityResult.reused,
@@ -3780,11 +4034,12 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     changed:          entityResult.changed,
   });
   const localizationResult = await reconcileRows(existingLocalizations, targetLocalizationStates, {
-    build:    sourceVersion.build,
-    keyOf:    localizationKey,
-    groupKey: localizationGroupKey,
-    stateOf:  localizationState,
-  }, skipLatestUpdate, reportSummarizeProgress, 'localization');
+    build:            sourceVersion.build,
+    skipLatestUpdate,
+    keyOf:            localizationKey,
+    groupKey:         localizationGroupKey,
+    stateOf:          localizationState,
+  }, reportSummarizeProgress, 'localization');
   profiler.mark('reconcile_localizations', {
     insertedLocalizations: localizationResult.inserted,
     reusedLocalizations:   localizationResult.reused,
@@ -3793,11 +4048,12 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     changed:               localizationResult.changed,
   });
   const relationResult = await reconcileRows(existingRelations, targetRelations, {
-    build:    sourceVersion.build,
-    keyOf:    relationKey,
-    groupKey: row => row.sourceId,
-    stateOf:  relationState,
-  }, skipLatestUpdate, reportSummarizeProgress, 'relation');
+    build:            sourceVersion.build,
+    skipLatestUpdate,
+    keyOf:            relationKey,
+    groupKey:         row => row.sourceId,
+    stateOf:          relationState,
+  }, reportSummarizeProgress, 'relation');
   profiler.mark('reconcile_relations', {
     insertedRelations: relationResult.inserted,
     reusedRelations:   relationResult.reused,
@@ -3807,8 +4063,61 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
   });
   await reportSummarizeProgress('Reconciled projected rows against the shared tables');
 
+  // Surface reconciled counts so the frontend can show how many rows were skipped.
+  await input.onProgress?.({
+    phase:                   'summarizing_changes',
+    message:                 'Reconciled projected rows against the shared tables',
+    totalSnapshotCount:      snapshots.length,
+    completedSnapshotCount:  snapshots.length,
+    totalWorkCount:          summarizeTotalWork,
+    completedWorkCount:      summarizeTotalWork,
+    workLabel:               'row',
+    writeBreakdown:          null,
+    reconciledCounts: {
+      reusedEntities:        entityResult.reused,
+      reusedLocalizations:   localizationResult.reused,
+      reusedRelations:       relationResult.reused,
+      insertedEntities:      entityResult.inserted,
+      insertedLocalizations: localizationResult.inserted,
+      insertedRelations:     relationResult.inserted,
+      updatedEntities:       entityResult.updated,
+      updatedLocalizations:  localizationResult.updated,
+      updatedRelations:      relationResult.updated,
+    },
+  });
+
+  // Compute per-field diff breakdowns (simulating mergeVersion, for dry-run diagnostics).
+  const entitySamples: DiffSample[] = [];
+  const locSamples: DiffSample[] = [];
+  const relSamples: DiffSample[] = [];
+  const entityDiff = summarizeDiff(existingEntities, targetEntities, {
+    build: sourceVersion.build, skipLatestUpdate,
+    keyOf: r => entityKey(r), renderHashOf: noRenderHash, label: 'entity', outSamples: entitySamples,
+  });
+  const localizationDiff = summarizeDiff(existingLocalizations, targetLocalizations, {
+    build: sourceVersion.build, skipLatestUpdate,
+    keyOf: r => localizationKey(r), renderHashOf: r => r.renderHash,
+    renderModelOf: r => (r as LocalizationRow).renderModel,
+    existingRenderModelOf: r => (r as LocalizationStateRow).renderModel ?? null,
+    label: 'localization', outSamples: locSamples,
+  });
+  const relationDiff = summarizeDiff(existingRelations, targetRelations, {
+    build: sourceVersion.build, skipLatestUpdate,
+    keyOf: r => relationKey(r), renderHashOf: noRenderHash, label: 'relation', outSamples: relSamples,
+  });
+  const diffSamples = [...locSamples, ...entitySamples, ...relSamples];
+  let sampleDiffPath: string | null = null;
+  if (input.sampleDiff && diffSamples.length > 0) {
+    const dir = join(tmpdir(), 'hsdata-diff-samples');
+    mkdirSync(dir, { recursive: true });
+    sampleDiffPath = join(dir, `diff-${sourceVersion.sourceTag}-${Date.now()}.json`);
+    writeFileSync(sampleDiffPath, JSON.stringify(diffSamples, null, 2), 'utf-8');
+    console.log(`[hsdata-project] wrote ${diffSamples.length} diff samples to ${sampleDiffPath}`);
+  }
+
   const entityPlan = entityResult.syncPlan;
   const localizationPlan = localizationResult.syncPlan;
+  const relationPlan = relationResult.syncPlan;
   const entityWriteBreakdown = buildEntityWriteBreakdown(
     entityPlan,
     existingEntityRowsByKey,
@@ -3852,7 +4161,10 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
       + writeProgressTotals.localization
       + writeProgressTotals.latest
       + writeProgressTotals.relation
-      + writeProgressTotals.card;
+      + writeProgressTotals.card
+      + writeProgressTotals.entityDelete
+      + writeProgressTotals.localizationDelete
+      + writeProgressTotals.relationDelete;
     await input.onProgress?.({
       phase:                   'writing_rows',
       message:                 'Preparing to write projected rows into the shared tables',
@@ -3862,22 +4174,28 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
       completedWorkCount:      0,
       workLabel:               'row',
       writeBreakdown:          toWriteProgressBreakdown(writeProgressTotals, {
-        entity:       0,
-        localization: 0,
-        latest:       0,
-        relation:     0,
-        card:         0,
+        entity:             0,
+        localization:       0,
+        latest:             0,
+        relation:           0,
+        card:               0,
+        entityDelete:       0,
+        localizationDelete: 0,
+        relationDelete:     0,
       }),
     });
 
     await db.transaction(async tx => {
       let completedWriteRows = 0;
       const completedWriteBreakdown: WriteProgressBreakdown = {
-        entity:       0,
-        localization: 0,
-        latest:       0,
-        relation:     0,
-        card:         0,
+        entity:             0,
+        localization:       0,
+        latest:             0,
+        relation:           0,
+        card:               0,
+        entityDelete:       0,
+        localizationDelete: 0,
+        relationDelete:     0,
       };
       const reportWriteProgress = async (
         message: string,
@@ -3908,7 +4226,7 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
           rowCount: entityPlan.deleted,
         });
         if (entityPlan.deleted > 0) {
-          await reportWriteProgress('Deleted obsolete entity rows from the shared tables', entityPlan.deleted, 'entity');
+          await reportWriteProgress('Deleted obsolete entity rows from the shared tables', entityPlan.deleted, 'entityDelete');
         }
         await deleteBySourceIds(tx, sourceIds);
         profiler.mark('write_delete_relations', {
@@ -3916,7 +4234,7 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
           deletedRowCount: existingRelations.length,
         });
         if (existingRelations.length > 0) {
-          await reportWriteProgress('Deleted stale relation rows for the projected source cards', existingRelations.length, 'relation');
+          await reportWriteProgress('Deleted stale relation rows for the projected source cards', existingRelations.length, 'relationDelete');
         }
       }
 
@@ -4012,9 +4330,17 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
       reusedLocalizations:   localizationResult.reused,
       updatedLocalizations:  localizationResult.updated,
       insertedRelations:     relationResult.inserted,
+      reusedRelations:       relationResult.reused,
       updatedRelations:      relationResult.updated,
       cardRowCount:          publishedCardIds.length,
       unprojectedTagCount:   projected.reduce((count, item) => count + item.unprojectedTagCount, 0),
+      entityPlan:            { upsert: entityPlan.upsertRows.length, delete: entityPlan.deleteRows.length },
+      localizationPlan:      { upsert: localizationPlan.upsertRows.length, delete: localizationPlan.deleteRows.length },
+      relationPlan:          { upsert: relationPlan.upsertRows.length, delete: relationPlan.deleteRows.length },
+      entityDiff,
+      localizationDiff,
+      relationDiff,
+      sampleDiffPath,
     };
 
     profiler.done({
@@ -4135,3 +4461,4 @@ export async function recomputeLatestProjection(): Promise<{
     relationUpdatedCount,
   };
 }
+

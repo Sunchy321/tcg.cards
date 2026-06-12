@@ -614,6 +614,22 @@
                       >
                     </span>
                   </label>
+
+                  <label
+                    class="flex items-start gap-3 rounded-lg border border-default p-3"
+                  >
+                    <input
+                      v-model="projectForm.sampleDiff"
+                      type="checkbox"
+                      class="mt-0.5 size-4 rounded border-default"
+                    >
+                    <span>
+                      <span class="block text-sm font-medium">收集差异样本</span>
+                      <span class="text-xs text-muted"
+                        >将调和前后的差异行采样写入临时目录，用于诊断写入原因。</span
+                      >
+                    </span>
+                  </label>
                 </div>
 
                 <UAlert
@@ -740,6 +756,45 @@
                       </div>
                     </div>
                   </div>
+
+                  <div
+                    v-if="projectProgress.reconciledCounts"
+                    class="grid gap-3 rounded-lg border border-default p-3 md:grid-cols-3"
+                  >
+                    <div>
+                      <div class="text-xs text-muted">已跳过 (复用)</div>
+                      <div class="mt-1 text-sm font-medium text-green-600 dark:text-green-400">
+                        {{ (projectProgress.reconciledCounts.reusedEntities + projectProgress.reconciledCounts.reusedLocalizations + projectProgress.reconciledCounts.reusedRelations).toLocaleString() }}
+                      </div>
+                      <div class="mt-0.5 text-[11px] text-muted">
+                        实体 {{ projectProgress.reconciledCounts.reusedEntities.toLocaleString() }}
+                        · 本地化 {{ projectProgress.reconciledCounts.reusedLocalizations.toLocaleString() }}
+                        · 关系 {{ projectProgress.reconciledCounts.reusedRelations.toLocaleString() }}
+                      </div>
+                    </div>
+                    <div>
+                      <div class="text-xs text-muted">新增</div>
+                      <div class="mt-1 text-sm font-medium text-blue-600 dark:text-blue-400">
+                        {{ (projectProgress.reconciledCounts.insertedEntities + projectProgress.reconciledCounts.insertedLocalizations + projectProgress.reconciledCounts.insertedRelations).toLocaleString() }}
+                      </div>
+                      <div class="mt-0.5 text-[11px] text-muted">
+                        实体 {{ projectProgress.reconciledCounts.insertedEntities.toLocaleString() }}
+                        · 本地化 {{ projectProgress.reconciledCounts.insertedLocalizations.toLocaleString() }}
+                        · 关系 {{ projectProgress.reconciledCounts.insertedRelations.toLocaleString() }}
+                      </div>
+                    </div>
+                    <div>
+                      <div class="text-xs text-muted">更新</div>
+                      <div class="mt-1 text-sm font-medium text-orange-600 dark:text-orange-400">
+                        {{ (projectProgress.reconciledCounts.updatedEntities + projectProgress.reconciledCounts.updatedLocalizations + projectProgress.reconciledCounts.updatedRelations).toLocaleString() }}
+                      </div>
+                      <div class="mt-0.5 text-[11px] text-muted">
+                        实体 {{ projectProgress.reconciledCounts.updatedEntities.toLocaleString() }}
+                        · 本地化 {{ projectProgress.reconciledCounts.updatedLocalizations.toLocaleString() }}
+                        · 关系 {{ projectProgress.reconciledCounts.updatedRelations.toLocaleString() }}
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div class="flex flex-wrap justify-end gap-2">
@@ -783,6 +838,7 @@
                     @click="submitRecomputeLatest"
                   />
                 </div>
+
               </div>
             </template>
           </UTabs>
@@ -1119,6 +1175,14 @@
               color="warning"
               variant="soft"
             />
+            <UButton
+              label="打开采样文件夹"
+              icon="i-lucide-folder-open"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              @click="openSampleDiffFolder()"
+            />
           </div>
         </div>
       </template>
@@ -1131,6 +1195,56 @@
         >
           <div class="text-xs text-muted">{{ metric.label }}</div>
           <div class="mt-1 break-all font-mono text-sm">{{ metric.value }}</div>
+        </div>
+      </div>
+
+      <!-- Write plan + diff breakdown -->
+      <div class="rounded-lg border border-default p-3">
+        <div class="text-xs text-muted">写入计划 & 差异根源（合并版本后）</div>
+        <div class="mt-2 grid gap-2 text-xs md:grid-cols-3">
+          <div class="rounded bg-muted px-2 py-1">
+            <div class="flex justify-between">
+              <span class="font-medium">实体</span>
+              <span class="font-mono">写入 {{ (projectResult.entityPlan.upsert + projectResult.entityPlan.delete).toLocaleString() }}</span>
+            </div>
+            <div class="mt-1 grid grid-cols-2 gap-x-2 text-[11px] text-muted">
+              <span>新增/更新 {{ projectResult.entityPlan.upsert.toLocaleString() }}</span>
+              <span>删除 {{ projectResult.entityPlan.delete.toLocaleString() }}</span>
+              <span>一致跳过 {{ projectResult.entityDiff.versionMatch.toLocaleString() }}</span>
+              <span>版本变更 {{ projectResult.entityDiff.versionChanged.toLocaleString() }}</span>
+              <span>仅 isLatest {{ projectResult.entityDiff.isLatestChanged.toLocaleString() }}</span>
+              <span>孤儿行(build移除) {{ projectResult.entityDiff.orphanVersionChanged.toLocaleString() }}</span>
+            </div>
+          </div>
+          <div class="rounded bg-muted px-2 py-1 md:col-span-2">
+            <div class="flex justify-between">
+              <span class="font-medium">本地化</span>
+              <span class="font-mono">写入 {{ (projectResult.localizationPlan.upsert + projectResult.localizationPlan.delete).toLocaleString() }}</span>
+            </div>
+            <div class="mt-1 grid grid-cols-2 gap-x-2 text-[11px] text-muted">
+              <span>新增/更新 {{ projectResult.localizationPlan.upsert.toLocaleString() }}</span>
+              <span>删除 {{ projectResult.localizationPlan.delete.toLocaleString() }}</span>
+              <span class="text-green-600">一致跳过 {{ projectResult.localizationDiff.versionMatch.toLocaleString() }}</span>
+              <span class="text-orange-600">版本变更 {{ projectResult.localizationDiff.versionChanged.toLocaleString() }}</span>
+              <span class="text-yellow-600">仅 isLatest {{ projectResult.localizationDiff.isLatestChanged.toLocaleString() }}</span>
+              <span class="text-blue-600">renderHash {{ projectResult.localizationDiff.renderHashChanged?.toLocaleString() ?? '0' }}（null: {{ projectResult.localizationDiff.renderHashNullExisting?.toLocaleString() ?? '0' }}）</span>
+              <span class="text-red-600">孤儿行(build移除) {{ projectResult.localizationDiff.orphanVersionChanged.toLocaleString() }}</span>
+            </div>
+          </div>
+          <div class="rounded bg-muted px-2 py-1">
+            <div class="flex justify-between">
+              <span class="font-medium">关系</span>
+              <span class="font-mono">写入 {{ (projectResult.relationPlan.upsert + projectResult.relationPlan.delete).toLocaleString() }}</span>
+            </div>
+            <div class="mt-1 grid grid-cols-2 gap-x-2 text-[11px] text-muted">
+              <span>新增/更新 {{ projectResult.relationPlan.upsert.toLocaleString() }}</span>
+              <span>删除 {{ projectResult.relationPlan.delete.toLocaleString() }}</span>
+              <span>一致跳过 {{ projectResult.relationDiff.versionMatch.toLocaleString() }}</span>
+              <span>版本变更 {{ projectResult.relationDiff.versionChanged.toLocaleString() }}</span>
+              <span>仅 isLatest {{ projectResult.relationDiff.isLatestChanged.toLocaleString() }}</span>
+              <span>孤儿行(build移除) {{ projectResult.relationDiff.orphanVersionChanged.toLocaleString() }}</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1218,10 +1332,12 @@ import {
   trackHsdataImportSourceProgress,
   trackHsdataProjectSourceProgress,
 } from '~/composables/useHsdataRepo';
+import { openDesktopPath } from '~/composables/useDesktopRuntimeClient';
 import type {
   HsdataFile,
   HsdataImportProgressEvent,
   HsdataImportReport,
+  HsdataProjectOptions,
   HsdataRecomputeLatestReport,
   HsdataProjectProgressEvent,
   HsdataSourceVersionStatus,
@@ -1291,8 +1407,9 @@ interface HsdataBatchTaskState {
   dryRun:          boolean;
   force:           boolean;
   skipLatestUpdate: boolean;
-  items:           HsdataBatchTaskItem[];
-  activeKey:       string | null;
+  sampleDiff:       boolean;
+  items:            HsdataBatchTaskItem[];
+  activeKey:        string | null;
   startedAt:       string;
   updatedAt:       string;
 }
@@ -1397,6 +1514,7 @@ const projectForm = reactive({
   dryRun:    true,
   force:     false,
   skipLatestUpdate: false,
+  sampleDiff: false,
 });
 
 const sourceError = computed(() => {
@@ -2299,11 +2417,25 @@ const projectWriteSegments = computed(() => {
       completedRowCount: breakdown.entity.completedRowCount,
     },
     {
+      key:               'entityDelete',
+      label:             'Entity 删除',
+      colorClass:        'bg-sky-300',
+      totalRowCount:     breakdown.entityDelete.totalRowCount,
+      completedRowCount: breakdown.entityDelete.completedRowCount,
+    },
+    {
       key:               'localization',
       label:             'Localization',
       colorClass:        'bg-amber-500',
       totalRowCount:     breakdown.localization.totalRowCount,
       completedRowCount: breakdown.localization.completedRowCount,
+    },
+    {
+      key:               'localizationDelete',
+      label:             'Localization 删除',
+      colorClass:        'bg-amber-300',
+      totalRowCount:     breakdown.localizationDelete.totalRowCount,
+      completedRowCount: breakdown.localizationDelete.completedRowCount,
     },
     {
       key:               'latest',
@@ -2320,6 +2452,13 @@ const projectWriteSegments = computed(() => {
       completedRowCount: breakdown.relation.completedRowCount,
     },
     {
+      key:               'relationDelete',
+      label:             'Relation 删除',
+      colorClass:        'bg-slate-300',
+      totalRowCount:     breakdown.relationDelete.totalRowCount,
+      completedRowCount: breakdown.relationDelete.completedRowCount,
+    },
+    {
       key:               'card',
       label:             'Card',
       colorClass:        'bg-indigo-500',
@@ -2328,10 +2467,11 @@ const projectWriteSegments = computed(() => {
     },
   ];
 
-  const totalRows = items.reduce((count, item) => count + item.totalRowCount, 0);
-  const completedRows = items.reduce((count, item) => count + item.completedRowCount, 0);
+  const visibleItems = items.filter(item => item.totalRowCount > 0);
+  const totalRows = visibleItems.reduce((count, item) => count + item.totalRowCount, 0);
+  const completedRows = visibleItems.reduce((count, item) => count + item.completedRowCount, 0);
 
-  return items.map(item => ({
+  return visibleItems.map(item => ({
     ...item,
     completedWidthPercent: completedRows === 0 ? 0 : (item.completedRowCount / completedRows) * 100,
     totalWidthPercent: totalRows === 0 ? 0 : (item.totalRowCount / totalRows) * 100,
@@ -2805,6 +2945,9 @@ function normalizeBatchTaskState(value: unknown): HsdataBatchTaskState | null {
   const skipLatestUpdate = typeof data.skipLatestUpdate === 'boolean'
     ? data.skipLatestUpdate
     : false;
+  const sampleDiff = typeof data.sampleDiff === 'boolean'
+    ? data.sampleDiff
+    : false;
 
   return {
     version: 1,
@@ -2816,6 +2959,7 @@ function normalizeBatchTaskState(value: unknown): HsdataBatchTaskState | null {
     dryRun:  data.dryRun,
     force:   data.force,
     skipLatestUpdate,
+    sampleDiff,
     items,
     activeKey,
     startedAt,
@@ -3269,9 +3413,7 @@ function useSelectedSourceTag() {
 function createBatchTask(
   kind: HsdataBatchTaskKind,
   items: HsdataBatchTaskItem[],
-  dryRun: boolean,
-  force: boolean,
-  skipLatestUpdate?: boolean,
+  options: HsdataProjectOptions,
 ): HsdataBatchTaskState {
   const now = new Date().toISOString();
 
@@ -3282,9 +3424,10 @@ function createBatchTask(
     status:          'paused',
     requestedAction: null,
     order:           sourceSortOrder.value,
-    dryRun,
-    force,
-    skipLatestUpdate: skipLatestUpdate ?? false,
+    dryRun:           options.dryRun ?? true,
+    force:            options.force ?? false,
+    skipLatestUpdate: options.skipLatestUpdate ?? false,
+    sampleDiff:       options.sampleDiff ?? false,
     items,
     activeKey:       null,
     startedAt:       now,
@@ -3353,9 +3496,7 @@ async function runImportForSource(
 /** Single sourceTag projection executed with explicit parameters so the batch runner can reuse it safely. */
 async function runProjectForSourceTag(
   sourceTag: number,
-  dryRun: boolean,
-  force: boolean,
-  skipLatestUpdate?: boolean,
+  options: HsdataProjectOptions,
 ): Promise<HsdataProjectReport> {
   activeWorkflowTab.value = 'project';
   const file = findSourceByTag(sourceTag);
@@ -3372,7 +3513,7 @@ async function runProjectForSourceTag(
   projectResult.value = null;
 
   try {
-    const result = await projectLocalHsdataSourceVersion(sourceTag, dryRun, force, skipLatestUpdate);
+    const result = await projectLocalHsdataSourceVersion(sourceTag, options);
     projectResult.value = result;
     return result;
   } catch (error) {
@@ -3660,7 +3801,7 @@ async function runBatchTask(task: HsdataBatchTaskState) {
       try {
         const report = currentTask.kind === 'import'
           ? await runImportForSource(item.sourceId!, currentTask.dryRun, currentTask.force)
-          : await runProjectForSourceTag(item.sourceTag!, currentTask.dryRun, currentTask.force, currentTask.skipLatestUpdate);
+          : await runProjectForSourceTag(item.sourceTag!, { dryRun: currentTask.dryRun, force: currentTask.force, skipLatestUpdate: currentTask.skipLatestUpdate, sampleDiff: currentTask.sampleDiff });
 
         setBatchTaskItemState(
           currentTask,
@@ -3704,7 +3845,7 @@ async function startBatchImport() {
     return;
   }
 
-  await runBatchTask(createBatchTask('import', items, importForm.dryRun, importForm.force));
+  await runBatchTask(createBatchTask('import', items, { dryRun: importForm.dryRun, force: importForm.force }));
 }
 
 /** New projection batch started from the current visible projection candidates. */
@@ -3716,7 +3857,7 @@ async function startBatchProject() {
     return;
   }
 
-  await runBatchTask(createBatchTask('project', items, projectForm.dryRun, projectForm.force, projectForm.skipLatestUpdate));
+  await runBatchTask(createBatchTask('project', items, { dryRun: projectForm.dryRun, force: projectForm.force, skipLatestUpdate: projectForm.skipLatestUpdate, sampleDiff: projectForm.sampleDiff }));
 }
 
 /** Durable batch resumed from the remaining unresolved items in the stored task snapshot. */
@@ -3868,15 +4009,25 @@ async function submitProject() {
     return;
   }
 
-  await runProjectForSourceTag(
-    projectForm.sourceTag,
-    projectForm.dryRun,
-    projectForm.force,
-    projectForm.skipLatestUpdate,
-  );
+  await runProjectForSourceTag(projectForm.sourceTag!, {
+    dryRun:           projectForm.dryRun,
+    force:            projectForm.force,
+    skipLatestUpdate: projectForm.skipLatestUpdate,
+    sampleDiff:       projectForm.sampleDiff,
+  });
 }
 
 /** Current local latest projection published to the configured remote target. */
+
+async function openSampleDiffFolder() {
+  try {
+    const p = projectResult.value?.sampleDiffPath ?? '/tmp/hsdata-diff-samples';
+    const dir = p.lastIndexOf('/') > 0 ? p.substring(0, p.lastIndexOf('/')) : p;
+    await openDesktopPath(dir);
+  } catch (error) {
+    console.error('Failed to open sample folder:', error);
+  }
+}
 
 async function submitRecomputeLatest() {
   recomputingLatest.value = true;
@@ -3966,9 +4117,11 @@ onMounted(async () => {
         && progress.sourceTag !== projectForm.sourceTag
         && progress.sourceTag !== projectProgress.value?.sourceTag
       ) {
+        console.log('[page] filtered out progress', progress.sourceTag, 'active:', activeProjectSourceTag.value, 'form:', projectForm.sourceTag, 'prev:', projectProgress.value?.sourceTag);
         return;
       }
 
+      console.log('[page] applying progress', progress.phase, progress.message?.slice(0, 40));
       projectProgress.value = progress;
     },
   );

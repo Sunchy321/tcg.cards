@@ -182,11 +182,27 @@ export interface HsdataProjectWriteSegment {
 
 /** Writing breakdown mirrored into the frontend stacked progress bar. */
 export interface HsdataProjectWriteBreakdown {
-  entity:       HsdataProjectWriteSegment;
-  localization: HsdataProjectWriteSegment;
-  latest:       HsdataProjectWriteSegment;
-  relation:     HsdataProjectWriteSegment;
-  card:         HsdataProjectWriteSegment;
+  entity:             HsdataProjectWriteSegment;
+  localization:       HsdataProjectWriteSegment;
+  latest:             HsdataProjectWriteSegment;
+  relation:           HsdataProjectWriteSegment;
+  card:               HsdataProjectWriteSegment;
+  entityDelete:       HsdataProjectWriteSegment;
+  localizationDelete: HsdataProjectWriteSegment;
+  relationDelete:     HsdataProjectWriteSegment;
+}
+
+/** Projection reconciled counts surfaced from the summarization phase. */
+export interface HsdataProjectReconciledCounts {
+  reusedEntities:        number;
+  reusedLocalizations:   number;
+  reusedRelations:       number;
+  insertedEntities:      number;
+  insertedLocalizations: number;
+  insertedRelations:     number;
+  updatedEntities:       number;
+  updatedLocalizations:  number;
+  updatedRelations:      number;
 }
 
 /** Desktop hsdata projection progress event payload. */
@@ -203,6 +219,7 @@ export interface HsdataProjectProgressEvent {
   completedWorkCount:      number | null;
   workLabel:               string | null;
   writeBreakdown:          HsdataProjectWriteBreakdown | null;
+  reconciledCounts:        HsdataProjectReconciledCounts | null;
 }
 
 export interface HsdataProjectReport {
@@ -218,10 +235,27 @@ export interface HsdataProjectReport {
   reusedLocalizations:   number;
   updatedLocalizations:  number;
   insertedRelations:     number;
+  reusedRelations:       number;
   updatedRelations:      number;
   cardRowCount:          number;
   unprojectedTagCount:   number;
   unprojectedTags:       HsdataUnprojectedTagReportRow[];
+  entityPlan:            { upsert: number; delete: number };
+  localizationPlan:      { upsert: number; delete: number };
+  relationPlan:          { upsert: number; delete: number };
+  entityDiff:            HsdataDiffBreakdown;
+  localizationDiff:      HsdataDiffBreakdown;
+  relationDiff:          HsdataDiffBreakdown;
+  sampleDiffPath:        string | null;
+}
+
+export interface HsdataDiffBreakdown {
+  versionMatch:           number;
+  versionChanged:         number;
+  isLatestChanged:        number;
+  orphanVersionChanged:   number;
+  renderHashChanged?:     number;
+  renderHashNullExisting?: number;
 }
 
 /** Recompute-latest report returned after recalculating isLatest flags. */
@@ -338,21 +372,25 @@ export async function importHsdataSource(id: string, dryRun: boolean, force: boo
   }) as HsdataImportReport;
 }
 
+/** Options for a single projection run. */
+export interface HsdataProjectOptions {
+  dryRun?:           boolean;
+  force?:            boolean;
+  skipLatestUpdate?: boolean;
+  sampleDiff?:       boolean;
+}
+
 /** Local Bun runtime projection command executed against the configured desktop database. */
 export function projectLocalHsdataSourceVersion(
   sourceTag: number,
-  dryRun: boolean,
-  force: boolean,
-  skipLatestUpdate?: boolean,
+  options: HsdataProjectOptions,
 ) {
   return (async () => {
     trackHsdataProjectSourceProgress(sourceTag);
 
     return await useDesktopRuntimeClient().hsdata.projectSourceVersion({
       sourceTag,
-      dryRun,
-      force,
-      skipLatestUpdate,
+      ...options,
     }) as HsdataProjectReport;
   })();
 }
@@ -531,9 +569,11 @@ export function listenHsdataProjectProgress(
 
     for (const sourceTag of trackedProjectSourceTags) {
       if (unsubscribers.has(sourceTag)) {
+        console.log('[hsdata] subscription already exists for', sourceTag, '- skipping');
         continue;
       }
 
+      console.log('[hsdata] creating subscription for', sourceTag);
       const unsubscribe = consumeEventIterator(
         runtimeClient.hsdata.watchProjectJob({ sourceTag }),
         {
@@ -544,12 +584,22 @@ export function listenHsdataProjectProgress(
               return;
             }
 
+            console.log('[hsdata] terminal event for', sourceTag, 'phase:', event.phase);
+            // Remove from tracking maps synchronously so the next projection
+            // for the same sourceTag can immediately re-subscribe.
             trackedProjectSourceTags.delete(sourceTag);
+            const cleanup = unsubscribers.get(sourceTag);
+            unsubscribers.delete(sourceTag);
             notifyProjectTrackingChanged();
-            void closeProjectSubscription(sourceTag);
+
+            // Close the underlying SSE connection asynchronously.
+            if (cleanup) {
+              cleanup().catch(() => {});
+            }
           },
           onError() {
             trackedProjectSourceTags.delete(sourceTag);
+            unsubscribers.delete(sourceTag);
             notifyProjectTrackingChanged();
           },
           onFinish() {

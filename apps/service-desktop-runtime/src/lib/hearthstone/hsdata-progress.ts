@@ -25,11 +25,14 @@ export interface HsdataProjectWriteSegment {
 
 /** Writing breakdown mirrored into the frontend stacked progress bar. */
 export interface HsdataProjectWriteBreakdown {
-  entity:       HsdataProjectWriteSegment;
-  localization: HsdataProjectWriteSegment;
-  latest:       HsdataProjectWriteSegment;
-  relation:     HsdataProjectWriteSegment;
-  card:         HsdataProjectWriteSegment;
+  entity:             HsdataProjectWriteSegment;
+  localization:       HsdataProjectWriteSegment;
+  latest:             HsdataProjectWriteSegment;
+  relation:           HsdataProjectWriteSegment;
+  card:               HsdataProjectWriteSegment;
+  entityDelete:       HsdataProjectWriteSegment;
+  localizationDelete: HsdataProjectWriteSegment;
+  relationDelete:     HsdataProjectWriteSegment;
 }
 
 /** Import progress payload mirrored by the frontend runtime polling adapter. */
@@ -52,6 +55,19 @@ export interface HsdataImportProgressEvent {
   workLabel: string | null;
 }
 
+/** Project projection reconciled counts surfaced to the frontend after summarization. */
+export interface HsdataProjectReconciledCounts {
+  reusedEntities:      number;
+  reusedLocalizations: number;
+  reusedRelations:     number;
+  insertedEntities:      number;
+  insertedLocalizations: number;
+  insertedRelations:     number;
+  updatedEntities:      number;
+  updatedLocalizations: number;
+  updatedRelations:     number;
+}
+
 /** Projection progress payload mirrored by the frontend runtime polling adapter. */
 export interface HsdataProjectProgressEvent {
   sourceTag: number;
@@ -66,6 +82,7 @@ export interface HsdataProjectProgressEvent {
   completedWorkCount: number | null;
   workLabel: string | null;
   writeBreakdown: HsdataProjectWriteBreakdown | null;
+  reconciledCounts: HsdataProjectReconciledCounts | null;
 }
 
 /** Import job snapshot returned to polling callers. */
@@ -320,6 +337,7 @@ export const startProjectJob = (input: {
     completedWorkCount:      null,
     workLabel:               null,
     writeBreakdown:          null,
+    reconciledCounts:        null,
   };
 
   const state: HsdataProjectJobState = {

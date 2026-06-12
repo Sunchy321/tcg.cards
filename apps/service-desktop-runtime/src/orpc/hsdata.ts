@@ -52,6 +52,7 @@ const projectSourceVersionInput = z.strictObject({
   dryRun: z.boolean().optional(),
   force: z.boolean().optional(),
   skipLatestUpdate: z.boolean().optional(),
+  sampleDiff: z.boolean().optional(),
 });
 
 const importJobInput = z.strictObject({
@@ -372,6 +373,7 @@ const projectSourceVersion = os
         dryRun: input.dryRun,
         force: input.force,
         skipLatestUpdate: input.skipLatestUpdate,
+        sampleDiff: input.sampleDiff,
         onProgress(progress) {
           updateProjectJob(input.sourceTag, progress);
         },
@@ -396,6 +398,17 @@ const projectSourceVersion = os
         completedWorkCount: report.snapshotCount,
         workLabel: 'snapshot',
         writeBreakdown: null,
+        reconciledCounts: {
+          reusedEntities:        report.reusedEntities,
+          reusedLocalizations:   report.reusedLocalizations,
+          reusedRelations:       report.reusedRelations,
+          insertedEntities:      report.insertedEntities,
+          insertedLocalizations: report.insertedLocalizations,
+          insertedRelations:     report.insertedRelations,
+          updatedEntities:       report.updatedEntities,
+          updatedLocalizations:  report.updatedLocalizations,
+          updatedRelations:      report.updatedRelations,
+        },
       });
 
       return report;
