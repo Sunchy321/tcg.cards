@@ -13,8 +13,12 @@ import {
   updateProjectJob,
   watchImportJobBySourceId,
   watchProjectJobBySourceTag,
+  startRecomputeLatestJob,
+  updateRecomputeLatestJob,
+  watchRecomputeLatestJob,
   type HsdataImportProgressEvent,
   type HsdataProjectProgressEvent,
+  type HsdataRecomputeLatestProgressEvent,
 } from '../lib/hearthstone/hsdata-progress';
 import { projectHsdata, recomputeLatestProjection } from '../lib/hearthstone/hsdata-project';
 import {
@@ -548,10 +552,46 @@ const recomputeLatest = os
   .output(recomputeLatestOutput)
   .handler(async () => {
     try {
-      return await recomputeLatestProjection();
+      startRecomputeLatestJob({
+        message: 'Loading entity rows from local database',
+        totalRowCount: null,
+      });
+
+      const result = await recomputeLatestProjection({
+        onProgress(event) {
+          updateRecomputeLatestJob({
+            phase: event.phase,
+            message: event.message,
+            totalRowCount: event.totalRowCount,
+            completedRowCount: event.completedRowCount,
+            updatedCount: event.updatedCount,
+          });
+        },
+      });
+
+      updateRecomputeLatestJob({
+        phase: 'completed',
+        message: 'Recompute latest completed',
+      });
+
+      return result;
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      updateRecomputeLatestJob({ phase: 'failed', message });
       throw toRuntimeError(error);
     }
+  });
+
+/** Streams real-time recompute-latest progress events. */
+const watchRecomputeLatest = os
+  .route({
+    method:      'GET',
+    description: 'Watch recompute latest progress events',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
+  })
+  .output(eventIterator(z.custom<HsdataRecomputeLatestProgressEvent>()))
+  .handler(async function* () {
+    yield* watchRecomputeLatestJob();
   });
 
 /** Lists publish batches for the current target. */
@@ -689,6 +729,7 @@ export const hsdataRouter = {
   getIncompletePublishBatch: getIncompletePublishBatchRoute,
   publishSingleCard: publishSingleCardRoute,
   recomputeLatest,
+  watchRecomputeLatest,
   resetImportStatus,
   resetProjectionStatus,
 };

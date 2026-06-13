@@ -259,6 +259,18 @@ export interface HsdataDiffBreakdown {
   renderHashNullExisting?: number;
 }
 
+/** Recompute-latest progress event streamed from the local runtime. */
+export interface HsdataRecomputeLatestProgressEvent {
+  phase: string;
+  message: string;
+  startedAt: string;
+  phaseStartedAt: string;
+  finishedAt: string | null;
+  totalRowCount: number | null;
+  completedRowCount: number | null;
+  updatedCount: number | null;
+}
+
 /** Recompute-latest report returned after recalculating isLatest flags. */
 export interface HsdataRecomputeLatestReport {
   entityRowCount: number;
@@ -440,6 +452,16 @@ export function listenHsdataPublishProgress(
 ): () => void {
   return consumeEventIterator(
     useDesktopRuntimeClient().hsdata.watchPublishJob(),
+    { onEvent: handler },
+  );
+}
+
+/** Streams recompute-latest progress events from the local Bun runtime. */
+export function listenHsdataRecomputeLatestProgress(
+  handler: (event: HsdataRecomputeLatestProgressEvent) => void,
+): () => void {
+  return consumeEventIterator(
+    useDesktopRuntimeClient().hsdata.watchRecomputeLatest(),
     { onEvent: handler },
   );
 }

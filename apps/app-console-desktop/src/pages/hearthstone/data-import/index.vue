@@ -877,7 +877,17 @@
                 <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-default p-3">
                   <div>
                     <div class="text-sm font-medium">手动更新latest</div>
-                    <p class="mt-1 text-xs text-muted">
+                    <template v-if="recomputingLatest && recomputeLatestProgress">
+                      <div class="mt-1 text-xs text-muted">{{ recomputeLatestProgress.message }}</div>
+                      <UProgress
+                        v-if="recomputeLatestProgress.totalRowCount && recomputeLatestProgress.completedRowCount != null"
+                        class="mt-1 max-w-60"
+                        size="xs"
+                        :value="recomputeLatestProgress.completedRowCount"
+                        :max="recomputeLatestProgress.totalRowCount"
+                      />
+                    </template>
+                    <p v-else class="mt-1 text-xs text-muted">
                       重新扫描本地投影表，计算并更新 isLatest 标记。
                       <template v-if="recomputeLatestResult">
                         上次更新：
@@ -1385,6 +1395,7 @@ import {
   listHsdataSources,
   projectLocalHsdataSourceVersion,
   recomputeLatestHsdataProjection,
+  listenHsdataRecomputeLatestProgress,
   resetHsdataImportStatus,
   resetHsdataProjectionStatus,
   syncHsdataRemoteVersions,
@@ -1398,6 +1409,7 @@ import type {
   HsdataImportReport,
   HsdataProjectOptions,
   HsdataRecomputeLatestReport,
+  HsdataRecomputeLatestProgressEvent,
   HsdataProjectProgressEvent,
   HsdataSourceVersionStatus,
   HsdataProjectReport,
@@ -1530,6 +1542,7 @@ const projectResult = ref<HsdataProjectReport | null>(null);
 const batchReports = ref<(HsdataImportReport | HsdataProjectReport)[]>([]);
 const recomputingLatest = ref(false);
 const recomputeLatestResult = ref<HsdataRecomputeLatestReport | null>(null);
+const recomputeLatestProgress = ref<HsdataRecomputeLatestProgressEvent | null>(null);
 const syncing = ref(false);
 const sourceSortOrder = ref<SourceListSortOrder>('desc');
 const hideImportedSources = ref(false);
@@ -4096,6 +4109,11 @@ async function openSampleDiffFolder() {
 async function submitRecomputeLatest() {
   recomputingLatest.value = true;
   recomputeLatestResult.value = null;
+  recomputeLatestProgress.value = null;
+
+  const stopListening = listenHsdataRecomputeLatestProgress(event => {
+    recomputeLatestProgress.value = event;
+  });
 
   try {
     const result = await recomputeLatestHsdataProjection();
@@ -4113,6 +4131,7 @@ async function submitRecomputeLatest() {
       color:       'error',
     });
   } finally {
+    stopListening();
     recomputingLatest.value = false;
   }
 }

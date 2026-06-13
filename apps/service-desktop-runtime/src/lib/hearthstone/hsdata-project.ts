@@ -4419,7 +4419,15 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
   }
 }
 
-export async function recomputeLatestProjection(): Promise<{
+export async function recomputeLatestProjection(options?: {
+  onProgress?: (event: {
+    phase: string;
+    message: string;
+    totalRowCount: number | null;
+    completedRowCount: number | null;
+    updatedCount: number | null;
+  }) => void;
+}): Promise<{
   entityRowCount: number;
   localizationRowCount: number;
   relationRowCount: number;
@@ -4437,7 +4445,16 @@ export async function recomputeLatestProjection(): Promise<{
     entityByCardId.set(row.cardId, group);
   }
 
+  options?.onProgress?.({
+    phase: 'entity',
+    message: `Scanning ${entityByCardId.size} entity groups`,
+    totalRowCount: entityByCardId.size,
+    completedRowCount: 0,
+    updatedCount: 0,
+  });
+
   let entityUpdatedCount = 0;
+  let entityCompleted = 0;
   for (const [, rows] of entityByCardId) {
     const maxVersion = Math.max(...rows.flatMap(r => r.version));
     for (const row of rows) {
@@ -4449,6 +4466,26 @@ export async function recomputeLatestProjection(): Promise<{
         entityUpdatedCount += 1;
       }
     }
+    entityCompleted += 1;
+    if (options?.onProgress && entityCompleted % 200 === 0) {
+      options.onProgress({
+        phase: 'entity',
+        message: `Updating entity isLatest (${entityCompleted}/${entityByCardId.size})`,
+        totalRowCount: entityByCardId.size,
+        completedRowCount: entityCompleted,
+        updatedCount: entityUpdatedCount,
+      });
+    }
+  }
+
+  if (options?.onProgress) {
+    options.onProgress({
+      phase: 'entity',
+      message: `Entity isLatest updated (${entityUpdatedCount} changed)`,
+      totalRowCount: entityByCardId.size,
+      completedRowCount: entityByCardId.size,
+      updatedCount: entityUpdatedCount,
+    });
   }
 
   const localizationRows = await localDb.select().from(EntityLocalization);
@@ -4460,7 +4497,16 @@ export async function recomputeLatestProjection(): Promise<{
     localizationByGroup.set(key, group);
   }
 
+  options?.onProgress?.({
+    phase: 'localization',
+    message: `Scanning ${localizationByGroup.size} localization groups`,
+    totalRowCount: localizationByGroup.size,
+    completedRowCount: 0,
+    updatedCount: 0,
+  });
+
   let localizationUpdatedCount = 0;
+  let localizationCompleted = 0;
   for (const [, rows] of localizationByGroup) {
     const maxVersion = Math.max(...rows.flatMap(r => r.version));
     for (const row of rows) {
@@ -4477,6 +4523,26 @@ export async function recomputeLatestProjection(): Promise<{
         localizationUpdatedCount += 1;
       }
     }
+    localizationCompleted += 1;
+    if (options?.onProgress && localizationCompleted % 200 === 0) {
+      options.onProgress({
+        phase: 'localization',
+        message: `Updating localization isLatest (${localizationCompleted}/${localizationByGroup.size})`,
+        totalRowCount: localizationByGroup.size,
+        completedRowCount: localizationCompleted,
+        updatedCount: localizationUpdatedCount,
+      });
+    }
+  }
+
+  if (options?.onProgress) {
+    options.onProgress({
+      phase: 'localization',
+      message: `Localization isLatest updated (${localizationUpdatedCount} changed)`,
+      totalRowCount: localizationByGroup.size,
+      completedRowCount: localizationByGroup.size,
+      updatedCount: localizationUpdatedCount,
+    });
   }
 
   const relationRows = await localDb.select().from(EntityRelation);
@@ -4487,7 +4553,16 @@ export async function recomputeLatestProjection(): Promise<{
     relationBySourceId.set(row.sourceId, group);
   }
 
+  options?.onProgress?.({
+    phase: 'relation',
+    message: `Scanning ${relationBySourceId.size} relation groups`,
+    totalRowCount: relationBySourceId.size,
+    completedRowCount: 0,
+    updatedCount: 0,
+  });
+
   let relationUpdatedCount = 0;
+  let relationCompleted = 0;
   for (const [, rows] of relationBySourceId) {
     const maxVersion = Math.max(...rows.flatMap(r => r.version));
     for (const row of rows) {
@@ -4504,6 +4579,26 @@ export async function recomputeLatestProjection(): Promise<{
         relationUpdatedCount += 1;
       }
     }
+    relationCompleted += 1;
+    if (options?.onProgress && relationCompleted % 200 === 0) {
+      options.onProgress({
+        phase: 'relation',
+        message: `Updating relation isLatest (${relationCompleted}/${relationBySourceId.size})`,
+        totalRowCount: relationBySourceId.size,
+        completedRowCount: relationCompleted,
+        updatedCount: relationUpdatedCount,
+      });
+    }
+  }
+
+  if (options?.onProgress) {
+    options.onProgress({
+      phase: 'relation',
+      message: `Relation isLatest updated (${relationUpdatedCount} changed)`,
+      totalRowCount: relationBySourceId.size,
+      completedRowCount: relationBySourceId.size,
+      updatedCount: relationUpdatedCount,
+    });
   }
 
   return {
