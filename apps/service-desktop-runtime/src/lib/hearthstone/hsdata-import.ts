@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 
 import { eq, inArray, sql } from 'drizzle-orm';
 
@@ -186,9 +185,17 @@ export interface ImportParsedHsdataInput {
   }) => void | Promise<void>;
 }
 
+function toHex(hash: Uint8Array): string {
+  let hex = '';
+  for (let i = 0; i < hash.length; i++) {
+    hex += hash[i]!.toString(16).padStart(2, '0');
+  }
+  return hex;
+}
+
 // Stable sha256 digest.
 function sha256(input: string): string {
-  return createHash('sha256').update(input, 'utf8').digest('hex');
+  return toHex(Bun.SHA256.hash(input) as Uint8Array);
 }
 
 // Deterministic JSON serialization for snapshot hashing.

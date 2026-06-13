@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { SaxesParser, type SaxesTagPlain } from 'saxes';
 
 import {
@@ -51,9 +50,17 @@ export const normalizeHsdataXmlSource = (input: string) => {
     .replace(/\r/g, '\n');
 };
 
+function toHex(hash: Uint8Array): string {
+  let hex = '';
+  for (let i = 0; i < hash.length; i++) {
+    hex += hash[i]!.toString(16).padStart(2, '0');
+  }
+  return hex;
+}
+
 /** Computes the stable source hash used by raw import guards. */
 export const computeHsdataSourceHash = (input: string) => {
-  return createHash('sha256').update(input, 'utf8').digest('hex');
+  return toHex(Bun.SHA256.hash(input) as Uint8Array);
 };
 
 /** Yields normalized XML text chunks from one UTF-8 byte stream. */
@@ -527,7 +534,7 @@ export const parseHsdataXmlStream = async (
 ): Promise<ParsedHsdataStreamResult> => {
   const collector = createParsedXmlDocumentCollector();
   const parser = new SaxesParser({ xmlns: false, position: false });
-  const sourceHash = createHash('sha256');
+  const sourceHash = new Bun.CryptoHasher('sha256');
 
   parser.on('opentag', collector.handleOpenTag);
   parser.on('text', collector.handleText);
@@ -539,7 +546,7 @@ export const parseHsdataXmlStream = async (
   });
 
   for await (const chunk of normalizeHsdataXmlChunks(stream)) {
-    sourceHash.update(chunk, 'utf8');
+    sourceHash.update(chunk);
     parser.write(chunk);
   }
 
@@ -562,6 +569,6 @@ export const parseHsdataXmlStream = async (
       build,
       entities: validateAndDedupeEntities(entities),
     },
-    sourceHash: sourceHash.digest('hex'),
+    sourceHash: toHex(sourceHash.digest()),
   };
 };

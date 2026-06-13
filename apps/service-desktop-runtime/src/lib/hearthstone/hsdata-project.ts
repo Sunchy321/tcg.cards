@@ -1,7 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
@@ -434,8 +433,16 @@ const localeMap: Record<string, string> = {
   zhTW: 'zht',
 };
 
+function toHex(hash: Uint8Array): string {
+  let hex = '';
+  for (let i = 0; i < hash.length; i++) {
+    hex += hash[i]!.toString(16).padStart(2, '0');
+  }
+  return hex;
+}
+
 function sha256(input: string): string {
-  return createHash('sha256').update(input, 'utf8').digest('hex');
+  return toHex(Bun.SHA256.hash(input) as Uint8Array);
 }
 
 function canonicalizeJson(value: unknown): string {

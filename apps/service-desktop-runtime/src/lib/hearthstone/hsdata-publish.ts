@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 
 import { and, asc, count, desc, eq, gt, inArray, lte, ne } from 'drizzle-orm';
 import { z } from 'zod';
@@ -108,20 +108,28 @@ interface PublishApplyFailure {
   message: string;
 }
 
-const emptyHash = sha256Hex(Buffer.from('[]'));
+function toHex(hash: Uint8Array): string {
+  let hex = '';
+  for (let i = 0; i < hash.length; i++) {
+    hex += hash[i]!.toString(16).padStart(2, '0');
+  }
+  return hex;
+}
+
+function sha256Hex(input: string): string {
+  return toHex(Bun.SHA256.hash(input) as Uint8Array);
+}
+
+const emptyHash = sha256Hex('[]');
 
 const writeBatchSize = 500;
-
-function sha256Hex(bytes: Uint8Array): string {
-  return createHash('sha256').update(bytes).digest('hex');
-}
 
 async function closePublishDb(db: PublishDb) {
   await db.$client.end({ timeout: 1 });
 }
 
 function hashJson(value: unknown): string {
-  return sha256Hex(Buffer.from(JSON.stringify(value)));
+  return sha256Hex(JSON.stringify(value));
 }
 
 function getErrorMessage(error: unknown): string {
@@ -477,6 +485,15 @@ async function loadCurrentRowSnapshots(
   const hashTotal = entityTotal + localizationTotal + relationTotal + sortedCardIds.length;
 
   let hashCount = 0;
+  let lastReport = 0;
+  const reportEvery = 2000;
+
+  function maybeReport() {
+    if (hashCount - lastReport >= reportEvery && onProgress) {
+      onProgress({ phase: 'loading_snapshots', message: '正在计算行 hash...', completed: hashCount, total: hashTotal });
+      lastReport = hashCount;
+    }
+  }
 
   onProgress?.({ phase: 'loading_snapshots', message: '正在计算 entities 行 hash...', completed: 0, total: hashTotal });
 
@@ -494,6 +511,7 @@ async function loadCurrentRowSnapshots(
       rowHash: entityRowHash(row),
     });
     hashCount += 1;
+    maybeReport();
   }
 
   for (const row of entityUnchangedRows) {
@@ -508,6 +526,7 @@ async function loadCurrentRowSnapshots(
       rowHash: prevHash ?? '',
     });
     hashCount += 1;
+    maybeReport();
   }
 
   onProgress?.({ phase: 'loading_snapshots', message: '正在计算 localizations 行 hash...', completed: hashCount, total: hashTotal });
@@ -525,6 +544,7 @@ async function loadCurrentRowSnapshots(
       rowHash: localizationRowHash(row),
     });
     hashCount += 1;
+    maybeReport();
   }
 
   for (const row of localizationUnchangedRows) {
@@ -537,6 +557,7 @@ async function loadCurrentRowSnapshots(
       rowHash: prevHash ?? '',
     });
     hashCount += 1;
+    maybeReport();
   }
 
   onProgress?.({ phase: 'loading_snapshots', message: '正在计算 relations 行 hash...', completed: hashCount, total: hashTotal });
@@ -554,6 +575,7 @@ async function loadCurrentRowSnapshots(
       rowHash: relationRowHash(row),
     });
     hashCount += 1;
+    maybeReport();
   }
 
   for (const row of relationUnchangedRows) {
@@ -566,6 +588,7 @@ async function loadCurrentRowSnapshots(
       rowHash: prevHash ?? '',
     });
     hashCount += 1;
+    maybeReport();
   }
 
   onProgress?.({ phase: 'loading_snapshots', message: '正在计算 cards 行 hash...', completed: hashCount, total: hashTotal });
@@ -583,6 +606,7 @@ async function loadCurrentRowSnapshots(
         rowHash: prevHash ?? '',
       });
       hashCount += 1;
+      maybeReport();
       continue;
     }
 
@@ -602,6 +626,12 @@ async function loadCurrentRowSnapshots(
       rowHash: cardRowHash(card),
     });
     hashCount += 1;
+    maybeReport();
+  }
+
+  // Final report to ensure the frontend reaches 100%
+  if (hashCount !== lastReport) {
+    onProgress?.({ phase: 'loading_snapshots', message: '行 hash 计算完成', completed: hashCount, total: hashTotal });
   }
 
   return { states, data, allEntityVersions };
