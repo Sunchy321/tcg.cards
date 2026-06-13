@@ -2563,11 +2563,6 @@ const reportMetrics = computed<ReportMetric[]>(() => {
       label: 'fallback rows',
       value: report.fallbackTagRowCount,
     },
-    {
-      key:   'latestSnapshotCount',
-      label: 'latest snapshots',
-      value: report.latestSnapshotCount,
-    },
     { key: 'sourceHash', label: 'sourceHash', value: report.sourceHash },
   ];
 });
@@ -2582,7 +2577,9 @@ const projectReportMetrics = computed<ReportMetric[]>(() => {
   return [
     { key: 'sourceTag', label: 'sourceTag', value: report.sourceTag },
     { key: 'build', label: 'version', value: report.build },
-    { key: 'snapshotCount', label: 'snapshots', value: report.snapshotCount },
+    { key: 'snapshotCount', label: 'loaded snapshots', value: report.snapshotCount },
+    { key: 'skippedSnapshotCount', label: 'skipped snapshots', value: report.skippedSnapshotCount },
+    { key: 'totalSnapshotCount', label: 'total snapshots', value: report.totalSnapshotCount },
     {
       key:   'insertedEntities',
       label: 'inserted entities',

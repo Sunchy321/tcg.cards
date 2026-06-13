@@ -325,6 +325,8 @@ export interface ProjectHsdataReport {
   sourceTag:             number;
   build:                 number;
   snapshotCount:         number;
+  totalSnapshotCount:    number;
+  skippedSnapshotCount:  number;
   insertedEntities:      number;
   reusedEntities:        number;
   updatedEntities:       number;
@@ -1986,7 +1988,11 @@ async function getBuildsBySourceTags(
   return builds;
 }
 
-async function loadSnapshots(sourceTag: number): Promise<RawSnapshotRow[]> {
+async function loadSnapshots(sourceTag: number, includeProjected = false): Promise<RawSnapshotRow[]> {
+  const conditions = [sql<boolean>`${sourceTag} = ANY(${RawEntitySnapshot.sourceTags})`];
+  if (!includeProjected) {
+    conditions.push(eq(RawEntitySnapshot.projected, false));
+  }
   return await db.select({
     id:               RawEntitySnapshot.id,
     cardId:           RawEntitySnapshot.cardId,
@@ -1997,7 +2003,7 @@ async function loadSnapshots(sourceTag: number): Promise<RawSnapshotRow[]> {
     extraPayload:     RawEntitySnapshot.extraPayload,
   })
     .from(RawEntitySnapshot)
-    .where(sql<boolean>`${sourceTag} = ANY(${RawEntitySnapshot.sourceTags})`);
+    .where(and(...conditions));
 }
 
 async function loadSnapshotTags(
@@ -3786,14 +3792,61 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     workLabel:               'snapshot',
   });
 
-  const snapshots = await loadSnapshots(input.sourceTag);
+  const snapshots = await loadSnapshots(input.sourceTag, force);
+  const [{ count: totalSnapshotCount }] = await db.select({
+    count: sql<number>`count(*)`,
+  }).from(RawEntitySnapshot)
+    .where(sql<boolean>`${input.sourceTag} = ANY(${RawEntitySnapshot.sourceTags})`);
   profiler.mark('load_snapshots', {
     build:         sourceVersion.build,
     snapshotCount: snapshots.length,
   });
 
     if (snapshots.length === 0) {
-      throw new Error(`[hearthstone][hsdata-project] no raw snapshots found for sourceTag ${input.sourceTag}`);
+      if (totalSnapshotCount === 0) {
+        throw new Error(`[hearthstone][hsdata-project] no raw snapshots found for sourceTag ${input.sourceTag}`);
+      }
+
+      await input.onProgress?.({
+        phase:                   'completed',
+        message:                 'All snapshots already projected, nothing to do',
+        totalSnapshotCount:      totalSnapshotCount,
+        completedSnapshotCount:  totalSnapshotCount,
+        totalWorkCount:          totalSnapshotCount,
+        completedWorkCount:      totalSnapshotCount,
+        workLabel:               'snapshot',
+        writeBreakdown:          null,
+      });
+
+      profiler.done({ outcome: 'skipped', snapshotCount: 0 });
+
+      return {
+        dryRun,
+        skipped:               true,
+        sourceTag:             input.sourceTag,
+        build:                 sourceVersion.build,
+        snapshotCount:         0,
+        totalSnapshotCount,
+        skippedSnapshotCount:  totalSnapshotCount,
+        insertedEntities:      0,
+        reusedEntities:        0,
+        updatedEntities:       0,
+        insertedLocalizations: 0,
+        reusedLocalizations:   0,
+        updatedLocalizations:  0,
+        insertedRelations:     0,
+        reusedRelations:       0,
+        updatedRelations:      0,
+        cardRowCount:          0,
+        unprojectedTagCount:   0,
+        entityPlan:            { upsert: 0, delete: 0 },
+        localizationPlan:      { upsert: 0, delete: 0 },
+        relationPlan:          { upsert: 0, delete: 0 },
+        entityDiff:            { versionMatch: 0, versionChanged: 0, isLatestChanged: 0, orphanVersionChanged: 0 },
+        localizationDiff:      { versionMatch: 0, versionChanged: 0, isLatestChanged: 0, orphanVersionChanged: 0, renderHashChanged: 0, renderHashNullExisting: 0 },
+        relationDiff:          { versionMatch: 0, versionChanged: 0, isLatestChanged: 0, orphanVersionChanged: 0 },
+        sampleDiffPath:        null,
+      };
     }
 
   // Collect all sourceTags referenced by the loaded snapshots and resolve their builds.
@@ -4306,6 +4359,12 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     profiler.mark('write_transaction_committed');
   }
 
+  if (!dryRun && !skipped && snapshots.length > 0) {
+    await db.update(RawEntitySnapshot)
+      .set({ projected: true })
+      .where(inArray(RawEntitySnapshot.id, snapshots.map(s => s.id)));
+  }
+
   await input.onProgress?.({
     phase:                   'completed',
     message:                 'Completed hsdata projection',
@@ -4323,6 +4382,8 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
       sourceTag:             input.sourceTag,
       build:                 sourceVersion.build,
       snapshotCount:         snapshots.length,
+      totalSnapshotCount:    totalSnapshotCount,
+      skippedSnapshotCount:  totalSnapshotCount - snapshots.length,
       insertedEntities:      entityResult.inserted,
       reusedEntities:        entityResult.reused,
       updatedEntities:       entityResult.updated,

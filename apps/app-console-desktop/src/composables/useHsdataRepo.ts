@@ -48,7 +48,6 @@ export interface HsdataImportReport {
   discoveredTagCount:    number;
   updatedDiscoveredTags: number;
   fallbackTagRowCount:   number;
-  latestSnapshotCount:   number;
   discoveredTags:        number[];
 }
 
@@ -94,7 +93,8 @@ export interface HsdataRawEntitySnapshotOverview {
   name:              'raw_entity_snapshots';
   kind:              'table';
   rows:              number;
-  latestRows:        number;
+  projectedRows:     number;
+  unprojectedRows:   number;
   distinctCardCount: number;
   updatedAt?:        string;
 }
@@ -124,7 +124,6 @@ export interface HsdataOverview {
     completedSourceVersionCount: number;
     failedSourceVersionCount:    number;
     snapshotCount:               number;
-    latestSnapshotCount:         number;
     tagRowCount:                 number;
   };
   tables: {
@@ -228,6 +227,8 @@ export interface HsdataProjectReport {
   sourceTag:             number;
   build:                 number;
   snapshotCount:         number;
+  totalSnapshotCount:    number;
+  skippedSnapshotCount:  number;
   insertedEntities:      number;
   reusedEntities:        number;
   updatedEntities:       number;

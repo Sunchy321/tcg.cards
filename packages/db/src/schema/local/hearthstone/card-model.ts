@@ -64,7 +64,7 @@ export const RawEntitySnapshot = dataSchema.table('raw_entity_snapshots', {
   snapshotHash: text('snapshot_hash').notNull(),
   extraPayload: jsonb('extra_payload').$type<JsonMap>().notNull().default({}),
 
-  isLatest: boolean('is_latest').notNull().default(false),
+  projected: boolean('projected').notNull().default(false),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at')
@@ -76,8 +76,8 @@ export const RawEntitySnapshot = dataSchema.table('raw_entity_snapshots', {
   index('raw_entity_snapshots_card_id_idx').on(table.cardId),
   index('raw_entity_snapshots_dbf_id_idx').on(table.dbfId),
   index('raw_entity_snapshots_snapshot_hash_idx').on(table.snapshotHash),
-  index('raw_entity_snapshots_latest_idx').on(table.isLatest),
   index('raw_entity_snapshots_source_tags_gin_idx').using('gin', table.sourceTags),
+  index('raw_entity_snapshots_projected_idx').on(table.projected).where(sql`${table.projected} = false`),
   check('raw_entity_snapshots_source_tags_nonempty_chk', sql`cardinality(${table.sourceTags}) > 0`),
 ]);
 

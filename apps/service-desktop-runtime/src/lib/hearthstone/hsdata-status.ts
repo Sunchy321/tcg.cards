@@ -46,7 +46,8 @@ export interface HsdataRawEntitySnapshotOverview {
   name: 'raw_entity_snapshots';
   kind: 'table';
   rows: number;
-  latestRows: number;
+  projectedRows: number;
+  unprojectedRows: number;
   distinctCardCount: number;
   updatedAt?: string;
 }
@@ -76,7 +77,6 @@ export interface HsdataOverview {
     completedSourceVersionCount: number;
     failedSourceVersionCount: number;
     snapshotCount: number;
-    latestSnapshotCount: number;
     tagRowCount: number;
   };
   tables: {
@@ -178,7 +178,8 @@ export const getLocalHsdataOverview = async () => {
       .then(rows => rows[0] ?? null),
     db.select({
       rows:              sql<number>`count(*)`,
-      latestRows:        sql<number>`coalesce(sum(case when ${RawEntitySnapshot.isLatest} then 1 else 0 end), 0)`,
+      projectedRows:     sql<number>`coalesce(sum(case when ${RawEntitySnapshot.projected} then 1 else 0 end), 0)`,
+      unprojectedRows:   sql<number>`coalesce(sum(case when not ${RawEntitySnapshot.projected} then 1 else 0 end), 0)`,
       distinctCardCount: sql<number>`count(distinct ${RawEntitySnapshot.cardId})`,
       updatedAt:         sql<Date | string | null>`max(${RawEntitySnapshot.updatedAt})`,
     }).from(RawEntitySnapshot).then(rows => rows[0]),
@@ -200,7 +201,6 @@ export const getLocalHsdataOverview = async () => {
       completedSourceVersionCount: sourceVersionSummary?.completed ?? 0,
       failedSourceVersionCount:    sourceVersionSummary?.failed ?? 0,
       snapshotCount:               rawSnapshotSummary?.rows ?? 0,
-      latestSnapshotCount:         rawSnapshotSummary?.latestRows ?? 0,
       tagRowCount:                 rawSnapshotTagSummary?.rows ?? 0,
     },
     tables: {
@@ -221,7 +221,8 @@ export const getLocalHsdataOverview = async () => {
         name:              'raw_entity_snapshots',
         kind:              'table',
         rows:              rawSnapshotSummary?.rows ?? 0,
-        latestRows:        rawSnapshotSummary?.latestRows ?? 0,
+        projectedRows:     rawSnapshotSummary?.projectedRows ?? 0,
+        unprojectedRows:   rawSnapshotSummary?.unprojectedRows ?? 0,
         distinctCardCount: rawSnapshotSummary?.distinctCardCount ?? 0,
         updatedAt:         toIsoString(rawSnapshotSummary?.updatedAt ?? null) ?? undefined,
       },

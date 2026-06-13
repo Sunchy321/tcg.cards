@@ -288,7 +288,6 @@ const overviewSummaryCards = computed(() => {
     { key: 'completedSourceVersionCount', label: '完成版本', value: summary.completedSourceVersionCount },
     { key: 'failedSourceVersionCount', label: '失败版本', value: summary.failedSourceVersionCount },
     { key: 'snapshotCount', label: '快照总数', value: summary.snapshotCount },
-    { key: 'latestSnapshotCount', label: '最新快照行数', value: summary.latestSnapshotCount },
     { key: 'tagRowCount', label: '标签归档行数', value: summary.tagRowCount },
   ];
 });
@@ -321,7 +320,8 @@ const overviewTableCards = computed(() => {
       kind:    tables.rawEntitySnapshots.kind,
       metrics: [
         { label: '总行数', value: tables.rawEntitySnapshots.rows },
-        { label: '最新快照行数', value: tables.rawEntitySnapshots.latestRows },
+        { label: '已投影', value: tables.rawEntitySnapshots.projectedRows },
+        { label: '待投影', value: tables.rawEntitySnapshots.unprojectedRows },
         { label: '去重卡牌数', value: tables.rawEntitySnapshots.distinctCardCount },
         { label: '更新时间', value: formatHsdataDate(tables.rawEntitySnapshots.updatedAt) },
       ],

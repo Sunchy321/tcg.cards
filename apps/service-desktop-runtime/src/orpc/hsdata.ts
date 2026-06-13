@@ -1,8 +1,8 @@
 import { ORPCError, eventIterator } from '@orpc/server';
 import { runWithDb } from '@tcg-cards/db';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { SourceVersion } from '@tcg-cards/db/schema/local/hearthstone';
+import { RawEntitySnapshot, SourceVersion } from '@tcg-cards/db/schema/local/hearthstone';
 
 import { os } from './index';
 import { importParsedHsdata } from '../lib/hearthstone/hsdata-import';
@@ -641,6 +641,12 @@ const resetProjectionStatus = os
         })
         .where(inArray(SourceVersion.sourceTag, input.sourceTags))
         .returning({ sourceTag: SourceVersion.sourceTag });
+
+      for (const sourceTag of input.sourceTags) {
+        await db.update(RawEntitySnapshot)
+          .set({ projected: false })
+          .where(sql<boolean>`${sourceTag} = ANY(${RawEntitySnapshot.sourceTags})`);
+      }
 
       return { resetCount: result.length };
     });

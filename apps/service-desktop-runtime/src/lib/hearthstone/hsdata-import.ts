@@ -159,7 +159,6 @@ export interface ImportHsdataReport {
   discoveredTagCount:    number;
   updatedDiscoveredTags: number;
   fallbackTagRowCount:   number;
-  latestSnapshotCount:   number;
   discoveredTags:        number[];
 }
 
@@ -925,7 +924,6 @@ async function applyHsdataImport(
             entityXmlVersion: entity.entityXmlVersion,
             snapshotHash:     entity.snapshotHash,
             extraPayload:     entity.extraPayload,
-            isLatest:         false,
           })))
           .returning({
             id:           RawEntitySnapshot.id,
@@ -1023,10 +1021,7 @@ async function applyHsdataImport(
       }
 
       await tx.update(RawEntitySnapshot)
-        .set({
-          sourceTags: nextSourceTags,
-          isLatest:   false,
-        })
+        .set({ sourceTags: nextSourceTags })
         .where(eq(RawEntitySnapshot.id, previousSnapshot.id));
       completedWriteWorkCount += 1;
 
@@ -1047,13 +1042,6 @@ async function applyHsdataImport(
           workLabel:            'operation',
         });
       }
-    }
-
-    if (previousSnapshotIds.size > 0) {
-      await tx.update(RawEntitySnapshot)
-        .set({ isLatest: false })
-        .where(inArray(RawEntitySnapshot.id, [...previousSnapshotIds]));
-      completedWriteWorkCount += 1;
     }
 
     if (input.force) {
@@ -1087,7 +1075,7 @@ async function applyHsdataImport(
 
     if (uniqueTargetSnapshotIds.length > 0) {
       await tx.update(RawEntitySnapshot)
-        .set({ isLatest: true })
+        .set({ projected: false })
         .where(inArray(RawEntitySnapshot.id, uniqueTargetSnapshotIds));
       completedWriteWorkCount += 1;
     }
@@ -1103,7 +1091,6 @@ async function applyHsdataImport(
     discoveredTagCount:    discovered.length,
     updatedDiscoveredTags: updated,
     fallbackTagRowCount,
-    latestSnapshotCount:   uniqueTargetSnapshotIds.length,
     discoveredTags:        discovered,
   };
 }
@@ -1170,7 +1157,6 @@ export async function importParsedHsdata(input: ImportParsedHsdataInput): Promis
       discoveredTagCount:    0,
       updatedDiscoveredTags: 0,
       fallbackTagRowCount:   0,
-      latestSnapshotCount:   0,
       discoveredTags:        [],
     };
   }
