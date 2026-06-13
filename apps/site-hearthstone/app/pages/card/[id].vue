@@ -284,14 +284,14 @@ const version = computed({
     const queryVersion = Number.parseInt(route.query.version as string, 10);
 
     if (!Number.isNaN(queryVersion)) {
-      if (data.value == null || versions.value.some(v => v.includes(queryVersion))) {
+      if (data.value == null || splitVersionGroups.value.some(v => v.includes(queryVersion))) {
         return queryVersion;
       }
     }
 
     if (data.value != null) {
       const lastVersion = Math.max(...data.value.version);
-      const lastGroup = versions.value.find(v => v.includes(lastVersion)) ?? [];
+      const lastGroup = splitVersionGroups.value.find(v => v.includes(lastVersion)) ?? [];
       return lastGroup[0] ?? 0;
     }
 
@@ -304,32 +304,70 @@ const version = computed({
 
 const minVersion = computed(() => Math.min(...(data.value?.version ?? [0])));
 
-// Patch profiles
+// Split version history into chronological segments. Each version array
+// represents one card revision. When interleaved arrays exist (e.g. revision A
+// in [1,2,3,20,30,40] and revision B in [5,6,7,8]), split at points where the
+// active revision changes: [1,2,3], [5,6,7,8], [20,30,40].
+function splitByRevision(versionArrays: number[][]): number[][] {
+  const allBuilds = [...new Set(versionArrays.flat())].sort((a, b) => a - b);
+  if (allBuilds.length === 0) return [];
 
-const patchProfiles = ref<Record<number, Patch>>({});
+  const buildToArrays = new Map<number, string>();
+  for (const build of allBuilds) {
+    const indices = versionArrays
+      .map((v, i) => (v.includes(build) ? i : -1))
+      .filter(i => i !== -1);
+    buildToArrays.set(build, indices.join(','));
+  }
 
-watch(versions, async values => {
-  patchProfiles.value = {};
+  const groups: number[][] = [];
+  let current: number[] = [allBuilds[0]!];
+  let currentKey = buildToArrays.get(allBuilds[0]!)!;
 
-  await Promise.all(values.flatMap(group => {
-    const numbers = [group[0]!, last(group)!].filter((v, i, a) => a.indexOf(v) === i);
-    return numbers.map(async n => {
+  for (let i = 1; i < allBuilds.length; i++) {
+    const build = allBuilds[i]!;
+    const key = buildToArrays.get(build)!;
+    if (key !== currentKey) {
+      groups.push(current);
+      current = [build];
+      currentKey = key;
+    } else {
+      current.push(build);
+    }
+  }
+  groups.push(current);
+
+  return groups.reverse();
+}
+
+const splitVersionGroups = computed(() => splitByRevision(versions.value));
+
+// Patch profiles — fetched via useAsyncData so they participate in SSR serialization
+
+const { data: patchProfiles } = await useAsyncData(
+  () => `hearthstone-patches:${splitVersionGroups.value.map(g => g[0]!).join(',')}`,
+  async () => {
+    const builds = [...new Set(splitVersionGroups.value.flat())];
+    const result: Record<number, Patch> = {};
+    await Promise.all(builds.map(async n => {
       try {
         const p = await $orpc.hearthstone.patch.full({ buildNumber: n });
-        if (p) patchProfiles.value[n] = p;
+        if (p) result[n] = p;
       } catch {
         // Patch info can be unavailable for older imported builds.
       }
-    });
-  }));
-}, { immediate: true });
+    }));
+    return result;
+  },
+  { watch: [splitVersionGroups] },
+);
 
-const versionInfos = computed(() => versions.value.map(v => {
+const versionInfos = computed(() => splitVersionGroups.value.map(v => {
   const first = v[0]!;
   const lastV = last(v)!;
 
   const firstName = (n: number) => {
-    const p = patchProfiles.value[n];
+    const p = patchProfiles.value?.[n];
     return p?.shortName ? `${p.shortName} (${n})` : `${n}`;
   };
 
