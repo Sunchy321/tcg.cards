@@ -1800,3 +1800,57 @@ export const hsdataPublishTestUtils = {
   localizationRowHash,
   relationRowHash,
 };
+
+export const singleCardPublishReport = z.object({
+  cardId: z.string(),
+  entityCount: z.number(),
+  localizationCount: z.number(),
+  relationCount: z.number(),
+  cardCount: z.number(),
+});
+
+export type SingleCardPublishReport = z.infer<typeof singleCardPublishReport>;
+
+/** Publishes a single card from local projection tables to the remote target. */
+export async function publishSingleCard(cardId: string): Promise<SingleCardPublishReport> {
+  const target = requireHearthstonePublishTarget();
+  const localDb = getLocalDb();
+  const remoteDb = createDb(target.connectionString);
+
+  try {
+    const entities = await localDb.select().from(LocalEntity).where(eq(LocalEntity.cardId, cardId));
+    const localizations = await localDb.select().from(LocalEntityLocalization).where(eq(LocalEntityLocalization.cardId, cardId));
+    const relations = await localDb.select().from(LocalEntityRelation).where(eq(LocalEntityRelation.sourceId, cardId));
+    const cards = await localDb.select().from(LocalCard).where(eq(LocalCard.cardId, cardId));
+
+    await remoteDb.transaction(async tx => {
+      await tx.delete(RemoteEntity).where(eq(RemoteEntity.cardId, cardId));
+      for (const row of entities) {
+        await tx.insert(RemoteEntity).values(row);
+      }
+
+      await tx.delete(RemoteEntityLocalization).where(eq(RemoteEntityLocalization.cardId, cardId));
+      for (const row of localizations) {
+        await tx.insert(RemoteEntityLocalization).values(row);
+      }
+
+      await tx.delete(RemoteEntityRelation).where(eq(RemoteEntityRelation.sourceId, cardId));
+      for (const row of relations) {
+        await tx.insert(RemoteEntityRelation).values(row);
+      }
+
+      if (cards.length > 0) {
+        const card = cards[0]!;
+        await tx.insert(RemoteCard).values(card)
+          .onConflictDoUpdate({
+            target: RemoteCard.cardId,
+            set: { legalities: card.legalities },
+          });
+      }
+    });
+
+    return { cardId, entityCount: entities.length, localizationCount: localizations.length, relationCount: relations.length, cardCount: cards.length };
+  } finally {
+    await remoteDb.$client.end({ timeout: 1 });
+  }
+}

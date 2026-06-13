@@ -3248,7 +3248,7 @@ async function upsertEntities(
 
 /** Updates only entity version/isLatest metadata for historical rows whose payload did not change. */
 async function updateEntityMetaRows(
-  tx: CopyTx,
+  tx: DbTx,
   rows: EntityStateRow[],
   profiler?: ProjectWriteProfiler,
   onProgress?: WriteProgressReporter,
@@ -3257,32 +3257,15 @@ async function updateEntityMetaRows(
     return;
   }
 
-  await tx.session.client.unsafe(`
-    create temp table hsdata_projection_entity_meta_stage
-    on commit drop as
-    select
-      card_id,
-      revision_hash,
-      version,
-      is_latest
-    from hearthstone.entities
-    with no data
-  `);
-
   for (const chunk of chunkValues(rows, writeRowBatchSize)) {
-    await tx.session.client.unsafe(`truncate hsdata_projection_entity_meta_stage`);
-    await copyEntityMetaRowsIntoTable(tx, chunk, 'hsdata_projection_entity_meta_stage');
-    await analyzeTempTable(tx, 'hsdata_projection_entity_meta_stage');
-
-    await tx.session.client.unsafe(`
-      update hearthstone.entities as target
-      set
-        version = stage.version,
-        is_latest = stage.is_latest
-      from hsdata_projection_entity_meta_stage as stage
-      where target.card_id = stage.card_id
-        and target.revision_hash = stage.revision_hash
-    `);
+    for (const row of chunk) {
+      await tx.update(Entity)
+        .set({ version: row.version, isLatest: row.isLatest })
+        .where(and(
+          eq(Entity.cardId, row.cardId),
+          eq(Entity.revisionHash, row.revisionHash),
+        ));
+    }
 
     await onProgress?.({
       message: `Updated entity metadata rows (${Math.min(rows.length, chunk.length)} rows in current batch)`,
@@ -3396,67 +3379,44 @@ async function syncLocalizations(
     });
   }
 
-  const combinedMetaRows = [
-    ...metaRows.map(row => ({ ...row, isAppend: false as const })),
-    ...appendRows.map(row => ({ ...row, isAppend: true as const })),
+  const combinedMetaRows: Array<LocalizationStateRow & { isAppend: boolean }> = [
+    ...metaRows.map(row => ({ ...row, isAppend: false }) as LocalizationStateRow & { isAppend: boolean }),
+    ...appendRows.map(row => ({ ...row, isAppend: true }) as LocalizationStateRow & { isAppend: boolean }),
   ];
 
   if (combinedMetaRows.length > 0) {
-    await tx.session.client.unsafe(`
-      create temp table hsdata_projection_localization_meta_stage
-      on commit drop as
-      select
-        card_id,
-        lang,
-        revision_hash,
-        localization_hash,
-        render_hash,
-        render_model,
-        version
-      from hearthstone.entity_localizations
-      with no data
-    `);
-
     for (const chunk of chunkValues(combinedMetaRows, writeRowBatchSize)) {
-      await tx.session.client.unsafe(`truncate hsdata_projection_localization_meta_stage`);
-      await copyLocalizationMetaRowsIntoTable(tx, chunk.map(row => ({
-        cardId: row.cardId,
-        lang: row.lang,
-        revisionHash: row.revisionHash,
-        localizationHash: row.localizationHash,
-        renderHash: (row as typeof metaRows[number]).renderHash ?? null,
-        renderModel: (row as typeof metaRows[number]).renderModel ?? null,
-        isLatest: false,
-        version: row.isAppend ? [] : (row as typeof metaRows[number]).version,
-      } satisfies LocalizationStateRow)), 'hsdata_projection_localization_meta_stage');
-      await analyzeTempTable(tx, 'hsdata_projection_localization_meta_stage');
-
-      await tx.session.client.unsafe(`
-        update hearthstone.entity_localizations as target
-        set version = stage.version,
-            render_hash = coalesce(stage.render_hash, target.render_hash),
-            render_model = coalesce(stage.render_model, target.render_model)
-        from hsdata_projection_localization_meta_stage as stage
-        where target.card_id = stage.card_id
-          and target.lang = stage.lang
-          and target.revision_hash = stage.revision_hash
-          and target.localization_hash = stage.localization_hash
-          and stage.version <> '{}'
-      `);
-
-      await tx.session.client.unsafe(`
-        update hearthstone.entity_localizations as target
-        set version = array_append(target.version, ${build}),
-            render_hash = coalesce(stage.render_hash, target.render_hash),
-            render_model = coalesce(stage.render_model, target.render_model)
-        from hsdata_projection_localization_meta_stage as stage
-        where target.card_id = stage.card_id
-          and target.lang = stage.lang
-          and target.revision_hash = stage.revision_hash
-          and target.localization_hash = stage.localization_hash
-          and stage.version = '{}'
-          and not (${build} = any(target.version))
-      `);
+      for (const row of chunk) {
+        if (row.isAppend) {
+          await tx.update(EntityLocalization)
+            .set({
+              version: sql`array_append(${EntityLocalization.version}, ${build})`,
+              renderHash: sql`coalesce(${row.renderHash ?? null}, ${EntityLocalization.renderHash})`,
+              renderModel: sql`coalesce(${row.renderModel ?? null}, ${EntityLocalization.renderModel})`,
+            })
+            .where(and(
+              eq(EntityLocalization.cardId, row.cardId),
+              sql`${EntityLocalization.lang} = ${row.lang}`,
+              eq(EntityLocalization.revisionHash, row.revisionHash),
+              eq(EntityLocalization.localizationHash, row.localizationHash),
+              sql`NOT (${build} = any(${EntityLocalization.version}))`,
+            ));
+        } else {
+          const metaRow = row as typeof metaRows[number];
+          await tx.update(EntityLocalization)
+            .set({
+              version: metaRow.version,
+              renderHash: sql`coalesce(${metaRow.renderHash ?? null}, ${EntityLocalization.renderHash})`,
+              renderModel: sql`coalesce(${metaRow.renderModel ?? null}, ${EntityLocalization.renderModel})`,
+            })
+            .where(and(
+              eq(EntityLocalization.cardId, metaRow.cardId),
+              sql`${EntityLocalization.lang} = ${metaRow.lang}`,
+              eq(EntityLocalization.revisionHash, metaRow.revisionHash),
+              eq(EntityLocalization.localizationHash, metaRow.localizationHash),
+            ));
+        }
+      }
 
       await onProgress?.({
         message: `Updated localization metadata rows (${chunk.length} rows)`,
@@ -3561,7 +3521,7 @@ async function syncLocalizations(
 
 /** Recomputes one affected localization family's latest flag after version-only changes have been written. */
 async function refreshLocalizationLatestRows(
-  tx: CopyTx,
+  tx: DbTx,
   rows: Array<Pick<LocalizationStateRow, 'cardId' | 'lang'>>,
   profiler?: ProjectWriteProfiler,
   onProgress?: WriteProgressReporter,
@@ -3571,42 +3531,46 @@ async function refreshLocalizationLatestRows(
     return;
   }
 
-  await tx.session.client.unsafe(`
-    create temp table hsdata_projection_localization_latest_group_stage
-    on commit drop as
-    select
-      card_id,
-      lang
-    from hearthstone.entity_localizations
-    with no data
-  `);
+  const uniqueGroups = [...new Map(rows.map(r => [localizationGroupKey(r), r])).values()];
 
-  for (const chunk of chunkValues(rows, writeRowBatchSize)) {
-    await tx.session.client.unsafe(`truncate hsdata_projection_localization_latest_group_stage`);
-    await copyLocalizationGroupIdsIntoTable(tx, chunk, 'hsdata_projection_localization_latest_group_stage');
-    await analyzeTempTable(tx, 'hsdata_projection_localization_latest_group_stage');
+  for (const chunk of chunkValues(uniqueGroups, writeRowBatchSize)) {
+    for (const group of chunk) {
+      const groupRows = await tx.select({
+        cardId: EntityLocalization.cardId,
+        lang: EntityLocalization.lang,
+        revisionHash: EntityLocalization.revisionHash,
+        localizationHash: EntityLocalization.localizationHash,
+        version: EntityLocalization.version,
+        isLatest: EntityLocalization.isLatest,
+      })
+        .from(EntityLocalization)
+        .where(and(
+          eq(EntityLocalization.cardId, group.cardId),
+          sql`${EntityLocalization.lang} = ${group.lang}`,
+        ));
 
-    await tx.session.client.unsafe(`
-      with latest_version as (
-        select
-          target.card_id,
-          target.lang,
-          max(target.version[array_upper(target.version, 1)]) as latest_version
-        from hearthstone.entity_localizations as target
-        inner join hsdata_projection_localization_latest_group_stage as stage
-          on target.card_id = stage.card_id
-         and target.lang = stage.lang
-        group by
-          target.card_id,
-          target.lang
-      )
-      update hearthstone.entity_localizations as target
-      set is_latest = latest_version.latest_version = any(target.version)
-      from latest_version
-      where target.card_id = latest_version.card_id
-        and target.lang = latest_version.lang
-        and target.is_latest is distinct from (latest_version.latest_version = any(target.version))
-    `);
+      if (groupRows.length === 0) continue;
+
+      let maxBuild = 0;
+      for (const r of groupRows) {
+        const last = r.version[r.version.length - 1];
+        if (last !== undefined && last > maxBuild) maxBuild = last;
+      }
+
+      for (const r of groupRows) {
+        const shouldBeLatest = maxBuild > 0 && r.version.includes(maxBuild);
+        if (r.isLatest !== shouldBeLatest) {
+          await tx.update(EntityLocalization)
+            .set({ isLatest: shouldBeLatest })
+            .where(and(
+              eq(EntityLocalization.cardId, r.cardId),
+              sql`${EntityLocalization.lang} = ${r.lang}`,
+              eq(EntityLocalization.revisionHash, r.revisionHash),
+              eq(EntityLocalization.localizationHash, r.localizationHash),
+            ));
+        }
+      }
+    }
 
     const chunkAdvance = chunk.reduce((count, row) => {
       const groupKey = localizationGroupKey(row);

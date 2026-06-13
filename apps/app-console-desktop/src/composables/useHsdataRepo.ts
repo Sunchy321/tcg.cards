@@ -1,5 +1,5 @@
 import { consumeEventIterator } from '@orpc/client';
-import type { PublishReport } from 'service-desktop-runtime/lib/hearthstone/hsdata-publish';
+import type { PublishReport, SingleCardPublishReport } from 'service-desktop-runtime/lib/hearthstone/hsdata-publish';
 import { getConsoleErrorMessage } from '@tcg-cards/console-core';
 
 import { useDesktopRuntimeClient } from './useDesktopRuntimeClient';
@@ -272,6 +272,9 @@ export interface HsdataRecomputeLatestReport {
 /** Publish report type from the server zod schema. */
 export type HsdataPublishReport = PublishReport;
 
+/** Single-card publish report type from the server zod schema. */
+export type HsdataSingleCardPublishReport = SingleCardPublishReport;
+
 /** Publish progress event streamed from the desktop runtime. */
 export interface PublishJobProgressEvent {
   batchId: string;
@@ -421,6 +424,13 @@ export function listPublishBatches() {
 export function getIncompletePublishBatch() {
   return (async () => {
     return await useDesktopRuntimeClient().hsdata.getIncompletePublishBatch();
+  })();
+}
+
+/** Publishes a single card to the remote target (dev tool). */
+export function publishSingleCard(cardId: string) {
+  return (async () => {
+    return await useDesktopRuntimeClient().hsdata.publishSingleCard({ cardId });
   })();
 }
 

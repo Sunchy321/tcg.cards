@@ -29,7 +29,7 @@ import {
   listLocalHsdataSourceVersions,
 } from '../lib/hearthstone/hsdata-status';
 import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
-import { getIncompletePublishBatch, listPublishBatches, publishCurrentHsdataToRemote, publishReport } from '../lib/hearthstone/hsdata-publish';
+import { getIncompletePublishBatch, listPublishBatches, publishCurrentHsdataToRemote, publishReport, publishSingleCard, singleCardPublishReport } from '../lib/hearthstone/hsdata-publish';
 import {
   startPublishJob,
   updatePublishJob,
@@ -586,6 +586,25 @@ const getIncompletePublishBatchRoute = os
     }
   });
 
+/** Publishes a single card from the local projection to the remote target (dev tool). */
+const publishSingleCardRoute = os
+  .route({
+    method:      'POST',
+    description: 'Publish a single card to the remote target',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
+  })
+  .input(z.strictObject({
+    cardId: z.string().trim().min(1),
+  }))
+  .output(singleCardPublishReport)
+  .handler(async ({ input }) => {
+    try {
+      return await publishSingleCard(input.cardId);
+    } catch (error) {
+      throw toRuntimeError(error);
+    }
+  });
+
 const batchResetInput = z.strictObject({
   sourceTags: z.array(z.number().int().nonnegative()).min(1),
 });
@@ -668,6 +687,7 @@ export const hsdataRouter = {
   watchPublishJob: watchPublishJobRoute,
   listPublishBatches: listPublishBatchesRoute,
   getIncompletePublishBatch: getIncompletePublishBatchRoute,
+  publishSingleCard: publishSingleCardRoute,
   recomputeLatest,
   resetImportStatus,
   resetProjectionStatus,

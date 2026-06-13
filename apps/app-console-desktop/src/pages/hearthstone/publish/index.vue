@@ -8,9 +8,11 @@ import {
   listenHsdataPublishProgress,
   listPublishBatches,
   publishCurrentHsdataToRemote,
+  publishSingleCard,
 } from '~/composables/useHsdataRepo';
 import type {
   HsdataPublishReport,
+  HsdataSingleCardPublishReport,
   PublishJobProgressEvent,
 } from '~/composables/useHsdataRepo';
 
@@ -40,6 +42,31 @@ const dryRun = ref(false);
 const progressClockMs = ref(Date.now());
 let progressTimer: ReturnType<typeof setInterval> | null = null;
 let stopProgressListener: (() => void) | null = null;
+
+// Single-card dev publish
+const singleCardId = ref('');
+const singleCardPublishing = ref(false);
+const singleCardResult = ref<HsdataSingleCardPublishReport | null>(null);
+const singleCardError = ref('');
+
+async function submitSingleCardPublish() {
+  const cardId = singleCardId.value.trim();
+  if (!cardId) return;
+
+  singleCardPublishing.value = true;
+  singleCardError.value = '';
+  singleCardResult.value = null;
+
+  try {
+    const result = await publishSingleCard(cardId);
+    singleCardResult.value = result;
+  } catch (error) {
+    console.error('Failed to publish single card:', error);
+    singleCardError.value = getHsdataErrorMessage(error);
+  } finally {
+    singleCardPublishing.value = false;
+  }
+}
 
 const hasPublishTarget = computed(() => {
   return Boolean(
@@ -555,6 +582,63 @@ onBeforeUnmount(() => {
             </tr>
           </tbody>
         </table>
+      </div>
+    </UCard>
+
+    <UCard>
+      <template #header>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-wrench" class="size-4 text-warning-500" />
+          <span class="font-medium">Dev: 单卡发布</span>
+        </div>
+      </template>
+
+      <div class="space-y-3">
+        <div class="flex items-center gap-2">
+          <UInput
+            v-model="singleCardId"
+            placeholder="输入 cardId"
+            :disabled="singleCardPublishing"
+            class="max-w-xs"
+          />
+          <UButton
+            label="发布单张卡牌"
+            icon="i-lucide-send"
+            :loading="singleCardPublishing"
+            :disabled="!hasPublishTarget || !singleCardId.trim()"
+            @click="submitSingleCardPublish"
+          />
+        </div>
+
+        <UAlert
+          v-if="singleCardError"
+          color="error"
+          variant="soft"
+          icon="i-lucide-circle-alert"
+          :description="singleCardError"
+        />
+
+        <div
+          v-if="singleCardResult"
+          class="grid gap-2 sm:grid-cols-4"
+        >
+          <div class="rounded border border-default p-2 text-center">
+            <div class="text-xs text-muted">Entities</div>
+            <div class="font-mono text-lg">{{ singleCardResult.entityCount }}</div>
+          </div>
+          <div class="rounded border border-default p-2 text-center">
+            <div class="text-xs text-muted">Localizations</div>
+            <div class="font-mono text-lg">{{ singleCardResult.localizationCount }}</div>
+          </div>
+          <div class="rounded border border-default p-2 text-center">
+            <div class="text-xs text-muted">Relations</div>
+            <div class="font-mono text-lg">{{ singleCardResult.relationCount }}</div>
+          </div>
+          <div class="rounded border border-default p-2 text-center">
+            <div class="text-xs text-muted">Cards</div>
+            <div class="font-mono text-lg">{{ singleCardResult.cardCount }}</div>
+          </div>
+        </div>
       </div>
     </UCard>
   </div>
