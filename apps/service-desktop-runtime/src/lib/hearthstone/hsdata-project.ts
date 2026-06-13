@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, SQL, sql } from 'drizzle-orm';
 
 import { db } from '@tcg-cards/db/db';
 import { RENDER_MECHANIC_IDS } from '@tcg-cards/model/src/hearthstone/constant/tag';
@@ -1519,8 +1519,27 @@ async function reconcileRows<T extends { version: number[], isLatest: boolean }>
   const existingByKey = new Map(existingRows.map(row => [options.keyOf(row), row]));
   const finalByKey = new Map<RowKey, T>();
 
+  // Collect target builds per group so existing rows whose version includes those builds
+  // are also pruned. This handles the case where projecting source version A drags in
+  // snapshots from source version B, and B already has rows for the same card.
+  const targetBuildsByGroup = new Map<string, Set<number>>();
+  for (const row of targetRows) {
+    const group = options.groupKey(row);
+    const builds = targetBuildsByGroup.get(group);
+    if (builds) {
+      for (const v of row.version) builds.add(v);
+    } else {
+      targetBuildsByGroup.set(group, new Set(row.version));
+    }
+  }
+
   for (const row of existingRows) {
-    const nextVersion = row.version.filter(value => value !== options.build);
+    const groupTargetBuilds = targetBuildsByGroup.get(options.groupKey(row));
+    const nextVersion = row.version.filter(value => {
+      if (value === options.build) return false;
+      if (groupTargetBuilds?.has(value)) return false;
+      return true;
+    });
 
     if (nextVersion.length === 0) {
       continue;
@@ -1989,7 +2008,7 @@ async function getBuildsBySourceTags(
 }
 
 async function loadSnapshots(sourceTag: number, includeProjected = false): Promise<RawSnapshotRow[]> {
-  const conditions = [sql<boolean>`${sourceTag} = ANY(${RawEntitySnapshot.sourceTags})`];
+  const conditions: SQL[] = [sql<boolean>`${sourceTag} = ANY(${RawEntitySnapshot.sourceTags})`];
   if (!includeProjected) {
     conditions.push(eq(RawEntitySnapshot.projected, false));
   }
@@ -2092,6 +2111,7 @@ async function loadExistingRowsForProjection(
   entityCardIds: string[],
   localizationGroups: Array<Pick<LocalizationStateRow, 'cardId' | 'lang'>>,
   localizationKeys: Array<Pick<LocalizationStateRow, 'cardId' | 'lang' | 'revisionHash' | 'localizationHash'>>,
+  localizationBuilds: number[],
   relationSourceIds: string[],
   profiler?: ProjectWriteProfiler,
   onProgress?: SummarizeProgressReporter,
@@ -2254,7 +2274,7 @@ async function loadExistingRowsForProjection(
             inner join hsdata_projection_localization_existing_stage as stage
               on target.card_id = stage.card_id
              and target.lang = stage.lang
-            where ${build} = any(target.version)
+            where target.version && ARRAY[${sql.join(localizationBuilds.map(v => sql`${v}`), sql`, `)}]::integer[]
           `);
           buildRows.push(...rows);
           await onProgress?.(
@@ -4044,6 +4064,7 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
 
   const cardIds = entityCardIds;
   const sourceIds = [...cardIds];
+  const localizationTargetBuilds = [...new Set(targetLocalizationStates.flatMap(row => row.version))];
   await reportSummarizeProgress('Loading existing shared rows for the projected result set');
   const {
     entities: existingEntities,
@@ -4054,6 +4075,7 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     entityCardIds,
     localizationGroups,
     targetLocalizationStates,
+    localizationTargetBuilds,
     sourceIds,
     profiler,
     reportSummarizeProgress,
@@ -4359,7 +4381,7 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     profiler.mark('write_transaction_committed');
   }
 
-  if (!dryRun && !skipped && snapshots.length > 0) {
+  if (!dryRun && snapshots.length > 0) {
     await db.update(RawEntitySnapshot)
       .set({ projected: true })
       .where(inArray(RawEntitySnapshot.id, snapshots.map(s => s.id)));

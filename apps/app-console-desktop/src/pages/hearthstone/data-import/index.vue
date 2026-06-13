@@ -218,6 +218,65 @@
             @click="clearBatchTask"
           />
         </div>
+
+        <!-- Batch report table -->
+        <div v-if="batchReports.length > 0" class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead>
+              <tr class="border-b border-default text-left text-muted">
+                <th class="px-2 py-1 font-medium">sourceTag</th>
+                <th class="px-2 py-1 font-medium">状态</th>
+                <template v-if="batchTask?.kind === 'import'">
+                  <th class="px-2 py-1 font-medium">Entities</th>
+                  <th class="px-2 py-1 font-medium">Inserted</th>
+                  <th class="px-2 py-1 font-medium">Reused</th>
+                  <th class="px-2 py-1 font-medium">Tags</th>
+                </template>
+                <template v-else>
+                  <th class="px-2 py-1 font-medium">Snapshots</th>
+                  <th class="px-2 py-1 font-medium">Entity I/R/U</th>
+                  <th class="px-2 py-1 font-medium">E Up/Del/O</th>
+                  <th class="px-2 py-1 font-medium">Loc I/R/U</th>
+                  <th class="px-2 py-1 font-medium">L Up/Del/O</th>
+                  <th class="px-2 py-1 font-medium">Rel I/R/U</th>
+                  <th class="px-2 py-1 font-medium">R Up/Del/O</th>
+                </template>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="(report, index) in batchReports"
+                :key="index"
+                class="border-b border-default"
+                :class="report.skipped ? 'text-muted' : ''"
+              >
+                <td class="px-2 py-1 font-mono">{{ report.sourceTag }}</td>
+                <td class="px-2 py-1">
+                  <span
+                    class="inline-block h-1.5 w-1.5 rounded-full align-middle"
+                    :class="report.skipped ? 'bg-yellow-500' : 'bg-green-500'"
+                  />
+                  <span class="ml-1">{{ report.skipped ? 'skipped' : 'ok' }}</span>
+                </td>
+                <template v-if="batchTask?.kind === 'import' && 'entityCount' in report">
+                  <td class="px-2 py-1 font-mono">{{ report.entityCount.toLocaleString() }}</td>
+                  <td class="px-2 py-1 font-mono">{{ report.insertedSnapshots.toLocaleString() }}</td>
+                  <td class="px-2 py-1 font-mono">{{ report.reusedSnapshots.toLocaleString() }}</td>
+                  <td class="px-2 py-1 font-mono">{{ report.discoveredTagCount.toLocaleString() }}</td>
+                </template>
+                <template v-else-if="batchTask?.kind === 'project' && 'snapshotCount' in report">
+                  <td class="px-2 py-1 font-mono">{{ report.snapshotCount.toLocaleString() }}</td>
+                  <td class="px-2 py-1 font-mono">{{ report.insertedEntities }}/{{ report.reusedEntities }}/{{ report.updatedEntities }}</td>
+                  <td class="px-2 py-1 font-mono">{{ report.entityPlan.upsert }}/{{ report.entityPlan.delete }}/{{ report.entityDiff.orphanVersionChanged }}</td>
+                  <td class="px-2 py-1 font-mono">{{ report.insertedLocalizations }}/{{ report.reusedLocalizations }}/{{ report.updatedLocalizations }}</td>
+                  <td class="px-2 py-1 font-mono">{{ report.localizationPlan.upsert }}/{{ report.localizationPlan.delete }}/{{ report.localizationDiff.orphanVersionChanged }}</td>
+                  <td class="px-2 py-1 font-mono">{{ report.insertedRelations }}/{{ report.reusedRelations }}/{{ report.updatedRelations }}</td>
+                  <td class="px-2 py-1 font-mono">{{ report.relationPlan.upsert }}/{{ report.relationPlan.delete }}/{{ report.relationDiff.orphanVersionChanged }}</td>
+                </template>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </UCard>
 
@@ -1468,6 +1527,7 @@ const projecting = ref(false);
 const activeProjectSourceTag = ref<number | null>(null);
 const projectProgress = ref<HsdataProjectProgressEvent | null>(null);
 const projectResult = ref<HsdataProjectReport | null>(null);
+const batchReports = ref<(HsdataImportReport | HsdataProjectReport)[]>([]);
 const recomputingLatest = ref(false);
 const recomputeLatestResult = ref<HsdataRecomputeLatestReport | null>(null);
 const syncing = ref(false);
@@ -3606,6 +3666,10 @@ function resolveBatchProjectDecision(
 
 /** Batch controller state updated after one explicit user discard action. */
 function clearBatchTask() {
+  batchReports.value = [];
+  batchTask.value = null;
+  clearBatchRuntimeExecutionId(currentBatchExecutionId.value);
+  currentBatchExecutionId.value = null;
   clearBatchTaskState();
   refreshBatchTaskPolling();
   toast.add({
@@ -3721,13 +3785,7 @@ function applyRequestedBatchTaskAction(task: HsdataBatchTaskState) {
   }
 
   if (task.requestedAction === 'clear') {
-    clearBatchTaskState();
-    refreshBatchTaskPolling();
-    toast.add({
-      title:       task.kind === 'import' ? '批量导入已停止' : '批量投影已停止',
-      description: '当前项已结束，本轮批量状态已清除。',
-      color:       'success',
-    });
+    clearBatchTask();
     return true;
   }
 
@@ -3814,6 +3872,7 @@ async function runBatchTask(task: HsdataBatchTaskState) {
           report.skipped ? 'skipped' : 'completed',
           report.skipped ? '本项按当前参数被跳过。' : null,
         );
+        batchReports.value.push(report);
 
         if (applyRequestedBatchTaskAction(currentTask)) {
           return;
