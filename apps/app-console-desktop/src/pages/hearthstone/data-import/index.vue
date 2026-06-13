@@ -15,6 +15,24 @@
 
         <div class="flex flex-wrap items-center gap-2">
           <UButton
+            label="批量导入当前筛选结果"
+            icon="i-lucide-arrow-down-to-line"
+            color="primary"
+            variant="soft"
+            :disabled="!canStartBatchImport"
+            :loading="batchRunning && batchTask?.kind === 'import'"
+            @click="startBatchImport"
+          />
+          <UButton
+            label="批量投影当前筛选结果"
+            icon="i-lucide-waypoints"
+            color="neutral"
+            variant="soft"
+            :disabled="!canStartBatchProject"
+            :loading="batchRunning && batchTask?.kind === 'project'"
+            @click="startBatchProject"
+          />
+          <UButton
             label="同步远端版本"
             icon="i-lucide-cloud-sync"
             color="primary"
@@ -83,7 +101,7 @@
       :description="`sourceTag 状态加载失败：${sourceVersionError}`"
       />
 
-      <UCard>
+      <UCard v-if="batchTask">
       <template #header>
         <div class="flex items-center justify-between gap-3">
           <div>
@@ -198,24 +216,6 @@
             variant="ghost"
             :disabled="batchRunning"
             @click="clearBatchTask"
-          />
-          <UButton
-            label="批量导入当前筛选结果"
-            icon="i-lucide-arrow-down-to-line"
-            color="primary"
-            variant="soft"
-            :disabled="!canStartBatchImport"
-            :loading="batchRunning && batchTask?.kind === 'import'"
-            @click="startBatchImport"
-          />
-          <UButton
-            label="批量投影当前筛选结果"
-            icon="i-lucide-waypoints"
-            color="neutral"
-            variant="soft"
-            :disabled="!canStartBatchProject"
-            :loading="batchRunning && batchTask?.kind === 'project'"
-            @click="startBatchProject"
           />
         </div>
       </div>
@@ -1421,6 +1421,7 @@ interface HsdataImportPageState {
   sourceSortOrder:      SourceListSortOrder;
   hideImportedSources:  boolean;
   hideProjectedSources: boolean;
+  activeWorkflowTab:    'import' | 'project';
   importDryRun:         boolean;
   importForce:          boolean;
   projectSourceTag:     number | null;
@@ -2648,6 +2649,7 @@ function createDefaultImportPageState(): HsdataImportPageState {
     sourceSortOrder:      'desc',
     hideImportedSources:  false,
     hideProjectedSources: false,
+    activeWorkflowTab:    'import' as const,
     importDryRun:         true,
     importForce:          false,
     projectSourceTag:     null,
@@ -2693,6 +2695,10 @@ function normalizeImportPageState(value: unknown): HsdataImportPageState {
       typeof data.hideProjectedSources === 'boolean'
         ? data.hideProjectedSources
         : defaults.hideProjectedSources,
+    activeWorkflowTab:
+      data.activeWorkflowTab === 'import' || data.activeWorkflowTab === 'project'
+        ? data.activeWorkflowTab
+        : defaults.activeWorkflowTab,
     importDryRun:
       typeof data.importDryRun === 'boolean'
         ? data.importDryRun
@@ -2754,6 +2760,7 @@ function persistImportPageState() {
     sourceSortOrder:      sourceSortOrder.value,
     hideImportedSources:  hideImportedSources.value,
     hideProjectedSources: hideProjectedSources.value,
+    activeWorkflowTab:    activeWorkflowTab.value,
     importDryRun:         importForm.dryRun,
     importForce:          importForm.force,
     projectSourceTag:     projectForm.sourceTag,
@@ -2776,6 +2783,7 @@ function restoreImportPageState() {
   sourceSortOrder.value = state.sourceSortOrder;
   hideImportedSources.value = state.hideImportedSources;
   hideProjectedSources.value = state.hideProjectedSources;
+  activeWorkflowTab.value = state.activeWorkflowTab;
   importForm.dryRun = state.importDryRun;
   importForm.force = state.importForce;
   projectForm.sourceTag = state.projectSourceTag;
@@ -4076,6 +4084,7 @@ watch(
     sourceSortOrder,
     hideImportedSources,
     hideProjectedSources,
+    activeWorkflowTab,
     () => importForm.id,
     () => importForm.dryRun,
     () => importForm.force,
