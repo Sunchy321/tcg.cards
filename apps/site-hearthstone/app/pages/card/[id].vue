@@ -347,16 +347,12 @@ const splitVersionGroups = computed(() => splitByRevision(versions.value));
 const { data: patchProfiles } = await useAsyncData(
   () => `hearthstone-patches:${splitVersionGroups.value.map(g => g[0]!).join(',')}`,
   async () => {
-    const builds = [...new Set(splitVersionGroups.value.flat())];
+    const builds = [...new Set(splitVersionGroups.value.flatMap(v => [v[0]!, v[v.length - 1]!]))];
+    const patches = await $orpc.hearthstone.patch.batch({ buildNumbers: builds });
     const result: Record<number, Patch> = {};
-    await Promise.all(builds.map(async n => {
-      try {
-        const p = await $orpc.hearthstone.patch.full({ buildNumber: n });
-        if (p) result[n] = p;
-      } catch {
-        // Patch info can be unavailable for older imported builds.
-      }
-    }));
+    for (const p of patches) {
+      result[p.buildNumber] = p;
+    }
     return result;
   },
   { watch: [splitVersionGroups] },
