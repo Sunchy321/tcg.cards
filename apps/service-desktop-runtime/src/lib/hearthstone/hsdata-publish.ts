@@ -868,7 +868,7 @@ async function insertPublishBatchRows(
     rowHash: plan.rowHash,
     previousRowHash: plan.previousRowHash,
     action: plan.action,
-    status: 'pending' as const,
+    status: plan.action === 'unchanged' ? 'skipped' as const : 'pending' as const,
     error: null,
     createdAt: now,
     updatedAt: now,

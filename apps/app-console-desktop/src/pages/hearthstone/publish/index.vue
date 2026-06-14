@@ -200,10 +200,18 @@ async function submitPublish() {
   publishResult.value = null;
   publishProgress.value = null;
 
+  let terminalReached: (() => void) | null = null;
+  const terminalSignal = new Promise<void>(resolve => { terminalReached = resolve; });
+
   stopProgressListener = listenHsdataPublishProgress((event) => {
     publishProgress.value = event;
     if (event.report) {
       publishResult.value = event.report;
+    }
+    if (event.phase === 'completed' || event.phase === 'failed') {
+      publishing.value = false;
+      stopProgressTimer();
+      terminalReached?.();
     }
   });
   startProgressTimer();
@@ -225,10 +233,16 @@ async function submitPublish() {
       color: 'error',
     });
   } finally {
+    // Wait for the event stream to deliver the terminal event.
+    // Falls back to 800ms timeout in case the stream event is lost.
+    await Promise.race([
+      terminalSignal,
+      new Promise(resolve => setTimeout(resolve, 800)),
+    ]);
     publishing.value = false;
+    stopProgressTimer();
     stopProgressListener?.();
     stopProgressListener = null;
-    stopProgressTimer();
   }
 }
 

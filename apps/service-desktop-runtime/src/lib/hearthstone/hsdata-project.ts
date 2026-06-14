@@ -3399,7 +3399,7 @@ async function syncLocalizations(
             .set({
               version: sql`array_append(${EntityLocalization.version}, ${build})`,
               renderHash: sql`coalesce(${row.renderHash ?? null}, ${EntityLocalization.renderHash})`,
-              renderModel: sql`coalesce(${row.renderModel ?? null}, ${EntityLocalization.renderModel})`,
+              renderModel: sql`coalesce(${row.renderModel != null ? JSON.stringify(row.renderModel) : null}::jsonb, ${EntityLocalization.renderModel})`,
             })
             .where(and(
               eq(EntityLocalization.cardId, row.cardId),
@@ -3414,7 +3414,7 @@ async function syncLocalizations(
             .set({
               version: metaRow.version,
               renderHash: sql`coalesce(${metaRow.renderHash ?? null}, ${EntityLocalization.renderHash})`,
-              renderModel: sql`coalesce(${metaRow.renderModel ?? null}, ${EntityLocalization.renderModel})`,
+              renderModel: sql`coalesce(${metaRow.renderModel != null ? JSON.stringify(metaRow.renderModel) : null}::jsonb, ${EntityLocalization.renderModel})`,
             })
             .where(and(
               eq(EntityLocalization.cardId, metaRow.cardId),
