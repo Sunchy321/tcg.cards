@@ -11,6 +11,15 @@ export const TAG_SLUG = {
   IN_MINI_SET: 'in-mini-set',
   FORGE: 'forge',
   TIMEWARPED: 'timewarped',
+  LETTUCE_ABILITY_SUMMONED_MINION: 'lettuce-ability-summoned-minion',
+  LETTUCE_EQUIPMENT: 'lettuce-equipment',
+  LETTUCE_ROLE: 'mercenary-role',
+  LETTUCE_FACTION: 'mercenary-faction',
+  LETTUCE_ABILITY_TIER: 'lettuce-ability-tier',
+  LETTUCE_EQUIPMENT_TIER: 'lettuce-equipment-tier',
+  LETTUCE_MERCENARY_EXPERIENCE: 'lettuce-mercenary-experience',
+  LETTUCE_PASSIVE_ABILITY: 'lettuce-passive-ability',
+  LETTUCE_IS_TREASURE_CARD: 'lettuce-is-treasure-card',
 } as const;
 
 /** GAME_TAG enum IDs. Keys match TAG_SLUG. */
@@ -26,6 +35,15 @@ export const TAG_ID = {
   IN_MINI_SET: 1824,
   FORGE: 2785,
   TIMEWARPED: 4503,
+  LETTUCE_EQUIPMENT: 1855,
+  LETTUCE_ABILITY_SUMMONED_MINION: 1676,
+  LETTUCE_ROLE: 1666,
+  LETTUCE_FACTION: 2720,
+  LETTUCE_ABILITY_TIER: 2493,
+  LETTUCE_EQUIPMENT_TIER: 2494,
+  LETTUCE_MERCENARY_EXPERIENCE: 1852,
+  LETTUCE_PASSIVE_ABILITY: 1671,
+  LETTUCE_IS_TREASURE_CARD: 2170,
 } as const;
 
 /**
@@ -43,4 +61,11 @@ export const RENDER_MECHANIC_IDS = [
   String(TAG_ID.IN_MINI_SET),
   String(TAG_ID.FORGE),
   String(TAG_ID.TIMEWARPED),
+  String(TAG_ID.LETTUCE_EQUIPMENT),
+  String(TAG_ID.LETTUCE_ABILITY_SUMMONED_MINION),
+  String(TAG_ID.LETTUCE_ABILITY_TIER),
+  String(TAG_ID.LETTUCE_EQUIPMENT_TIER),
+  String(TAG_ID.LETTUCE_MERCENARY_EXPERIENCE),
+  String(TAG_ID.LETTUCE_PASSIVE_ABILITY),
+  String(TAG_ID.LETTUCE_IS_TREASURE_CARD),
 ] as const;

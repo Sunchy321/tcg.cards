@@ -133,6 +133,7 @@ Fields not consumed by the renderer are carried in the request for caller-side t
     "template": "normal",
     "premium": "normal"
   },
+  "renderMode": "full-set",
   "style": {
     "styleKey": "play_normal_normal_default",
     "zone": "play",
@@ -169,18 +170,11 @@ Fields not consumed by the renderer are carried in the request for caller-side t
     "cost": 8,
     "attack": 8,
     "health": 8,
-    "durability": null,
-    "armor": null,
     "classes": ["neutral"],
     "race": ["elemental"],
-    "spellSchool": null,
-    "mercenaryFaction": null,
     "set": 3,
-    "overrideWatermark": null,
     "rarity": "legendary",
     "elite": false,
-    "techLevel": null,
-    "rune": null,
     "renderMechanics": {}
   }
 }
@@ -219,6 +213,24 @@ Caller-side tracing identifier. Not consumed by the renderer.
 | `zone` | `string` | `"hand"`, `"play"` | Card display zone |
 | `template` | `string` | `"normal"`, `"battlegrounds"` | Card template |
 | `premium` | `string` | `"normal"`, `"golden"`, `"diamond"`, `"signature"` | Premium treatment |
+
+#### `renderMode`
+
+- **Type**: `string`
+- **Required**: Yes
+- **Default**: `"full-set"`
+- **Values**: `"full-set"`, `"partial-update"`
+
+Declares the field-presence semantics for `renderModel` optional fields.
+
+| Value | Absent field | Explicit `null` |
+|-------|-------------|-----------------|
+| `"full-set"` | Clear / reset to default | Clear / reset to default |
+| `"partial-update"` | Leave unchanged | Clear / reset to default |
+
+When `"partial-update"`, optional fields marked `?` in `renderModel` may be absent. The renderer must not modify card elements whose corresponding fields are absent.
+
+When `"full-set"`, all fields are expected to be present.
 
 #### `style`
 
@@ -271,6 +283,8 @@ Storage target metadata used by the import pipeline. Not consumed by the rendere
 
 Canonical render-model payload containing all card data needed to produce the card image. This is the primary input the renderer consumes to drive rendering.
 
+Fields marked `?` are optional and omitted when null or not applicable. See `renderMode` for field-presence semantics.
+
 | Field | Type | Description |
 |-------|------|-------------|
 | `cardId` | `string` | Card identifier |
@@ -283,20 +297,22 @@ Canonical render-model payload containing all card data needed to produce the ca
 | `localization.richText` | `string` | Card text with markup |
 | `type` | `string` | Card type (e.g. `minion`, `spell`, `weapon`) |
 | `cost` | `number` | Mana cost |
-| `attack` | `number \| null` | Attack value |
-| `health` | `number \| null` | Health value |
-| `durability` | `number \| null` | Durability (weapons) |
-| `armor` | `number \| null` | Armor value |
-| `classes` | `string[]` | Class affiliations |
-| `race` | `string[] \| null` | Minion races |
-| `spellSchool` | `string \| null` | Spell school |
-| `mercenaryFaction` | `string \| null` | Mercenary faction |
-| `set` | `number` | Card set identifier |
-| `overrideWatermark` | `string \| null` | Override watermark |
-| `rarity` | `string \| null` | Rarity (e.g. `legendary`, `epic`) |
-| `elite` | `boolean` | Elite flag |
-| `techLevel` | `number \| null` | Battlegrounds tech level |
-| `rune` | `string[] \| null` | Death knight rune combination (`blood`, `frost`, `unholy`) |
+| `attack` | `number?` | Attack value. |
+| `health` | `number?` | Health value. |
+| `durability` | `number?` | Durability (weapons). |
+| `armor` | `number?` | Armor value. |
+| `classes` | `string[]` | Class affiliations. |
+| `race` | `string[]?` | Minion races. |
+| `spellSchool` | `string?` | Spell school. |
+| `mercenaryRole` | `string?` | Mercenary role (`protector`, `fighter`, `caster`, `neutral`). |
+| `mercenaryFaction` | `string?` | Mercenary faction (`alliance`, `horde`, `empire`, `explorer`, `legion`, `pirate`, `scourge`). |
+| `colddown` | `number?` | Mercenary ability cooldown (speed value). |
+| `set` | `number` | Card set identifier. |
+| `overrideWatermark` | `string?` | Override watermark. |
+| `rarity` | `string?` | Rarity (e.g. `legendary`, `epic`). |
+| `elite` | `boolean` | Elite flag. |
+| `techLevel` | `number?` | Battlegrounds tech level. |
+| `rune` | `string[]?` | Death knight rune combination (`blood`, `frost`, `unholy`). |
 | `renderMechanics` | `object` | Render mechanic flags. See the `renderMechanics` subsection below for the full key list. |
 
 #### `renderMechanics`
@@ -317,6 +333,13 @@ Hearthstone GAME_TAG enum IDs are used as keys to avoid slug-name instability ac
 | `"1824"` | IN_MINI_SET | `in-mini-set` | Card belongs to the current mini-set |
 | `"2785"` | FORGE | `forge` | Card has the forge mechanic |
 | `"4503"` | TIMEWARPED | `timewarped` | Card has the Battlegrounds timewarped mechanic |
+| `"1676"` | LETTUCE_ABILITY_SUMMONED_MINION | `lettuce-ability-summoned-minion` | Mercenary ability summons a minion |
+| `"1855"` | LETTUCE_EQUIPMENT | `lettuce-equipment` | Mercenary card is an equipment |
+| `"2493"` | LETTUCE_ABILITY_TIER | `lettuce-ability-tier` | Mercenary ability tier (1–3) |
+| `"2494"` | LETTUCE_EQUIPMENT_TIER | `lettuce-equipment-tier` | Mercenary equipment tier (1–4) |
+| `"1671"` | LETTUCE_PASSIVE_ABILITY | `lettuce-passive-ability` | Mercenary ability is passive |
+| `"1852"` | LETTUCE_MERCENARY_EXPERIENCE | `lettuce-mercenary-experience` | Mercenary experience (converted to level) |
+| `"2170"` | LETTUCE_IS_TREASURE_CARD | `lettuce-is-treasure-card` | Mercenary card is a treasure |
 
 ## Functional Requirements
 

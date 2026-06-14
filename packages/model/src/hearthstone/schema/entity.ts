@@ -72,7 +72,7 @@ export const referencedTagMap = z.record(z.string(), mechanicValue);
 export const renderMechanic = z.enum(RENDER_MECHANIC_IDS);
 export const renderMechanicMap = z.partialRecord(renderMechanic, mechanicValue);
 
-export const renderModel = z.strictObject({
+export const renderModel = z.object({
     cardId: z.string(),
     lang:   locale,
 
@@ -87,20 +87,22 @@ export const renderModel = z.strictObject({
 
     type:              types,
     cost:              z.int(),
-    attack:            z.int().nullable(),
-    health:            z.int().nullable(),
-    durability:        z.int().nullable(),
-    armor:             z.int().nullable(),
+    attack:            z.int().optional(),
+    health:            z.int().optional(),
+    durability:        z.int().optional(),
+    armor:             z.int().optional(),
     classes:           z.array(classes),
-    race:              z.array(race).nullable(),
-    spellSchool:       spellSchool.nullable(),
-    mercenaryFaction:  mercenaryFaction.nullable(),
+    race:              z.array(race).optional(),
+    spellSchool:       spellSchool.optional(),
+    mercenaryRole:     mercenaryRole.optional(),
+    mercenaryFaction:  mercenaryFaction.optional(),
+    colddown:          z.int().optional(),
     set:               z.string(),
-    overrideWatermark: z.string().nullable(),
-    rarity:            rarity.nullable(),
+    overrideWatermark: z.string().optional(),
+    rarity:            rarity.optional(),
     elite:             z.boolean(),
-    techLevel:         z.int().nullable(),
-    rune:              rune.array().nullable(),
+    techLevel:         z.int().optional(),
+    rune:              rune.array().optional(),
     renderMechanics:   renderMechanicMap,
 });
 

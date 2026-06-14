@@ -133,6 +133,7 @@
     "template": "normal",
     "premium": "normal"
   },
+  "renderMode": "full-set",
   "style": {
     "styleKey": "play_normal_normal_default",
     "zone": "play",
@@ -169,18 +170,11 @@
     "cost": 8,
     "attack": 8,
     "health": 8,
-    "durability": null,
-    "armor": null,
     "classes": ["neutral"],
     "race": ["elemental"],
-    "spellSchool": null,
-    "mercenaryFaction": null,
     "set": 3,
-    "overrideWatermark": null,
     "rarity": "legendary",
     "elite": false,
-    "techLevel": null,
-    "rune": null,
     "renderMechanics": {}
   }
 }
@@ -219,6 +213,24 @@
 | `zone` | `string` | `"hand"`、`"play"` | 卡牌显示区域 |
 | `template` | `string` | `"normal"`、`"battlegrounds"` | 卡牌模板 |
 | `premium` | `string` | `"normal"`、`"golden"`、`"diamond"`、`"signature"` | 卡牌品质 |
+
+#### `renderMode`
+
+- **类型**：`string`
+- **必填**：是
+- **默认值**：`"full-set"`
+- **可选值**：`"full-set"`、`"partial-update"`
+
+声明 `renderModel` 可选字段的字段存在性语义。
+
+| 值 | 字段缺失 | 显式 `null` |
+|----|---------|-------------|
+| `"full-set"` | 清除 / 重置为默认值 | 清除 / 重置为默认值 |
+| `"partial-update"` | 保持不变 | 清除 / 重置为默认值 |
+
+当为 `"partial-update"` 时，`renderModel` 中标 `?` 的可选字段可以缺失，渲染器不得修改缺失字段对应的卡牌元素。
+
+当为 `"full-set"` 时，所有字段均应存在。
 
 #### `style`
 
@@ -271,6 +283,8 @@
 
 包含卡图渲染所需全部卡牌数据的 canonical render-model 载荷。这是渲染器驱动渲染的主要输入。
 
+标记为 `?` 的字段为可选，当值为 null 或不适用时省略。字段存在性语义见 `renderMode`。
+
 | 字段 | 类型 | 说明 |
 |-------|------|-------------|
 | `cardId` | `string` | 卡牌标识 |
@@ -283,20 +297,22 @@
 | `localization.richText` | `string` | 带标记的卡牌描述文本 |
 | `type` | `string` | 卡牌类型（如 `minion`、`spell`、`weapon`） |
 | `cost` | `number` | 法力值消耗 |
-| `attack` | `number \| null` | 攻击力 |
-| `health` | `number \| null` | 生命值 |
-| `durability` | `number \| null` | 耐久度（武器） |
-| `armor` | `number \| null` | 护甲值 |
-| `classes` | `string[]` | 职业归属 |
-| `race` | `string[] \| null` | 随从种族 |
-| `spellSchool` | `string \| null` | 法术派系 |
-| `mercenaryFaction` | `string \| null` | 佣兵阵营 |
-| `set` | `number` | 卡牌系列标识 |
-| `overrideWatermark` | `string \| null` | 覆盖水印 |
-| `rarity` | `string \| null` | 稀有度（如 `legendary`、`epic`） |
-| `elite` | `boolean` | 精英标识 |
-| `techLevel` | `number \| null` | 酒馆战棋科技等级 |
-| `rune` | `string[] \| null` | 死亡骑士符文组合（`blood`、`frost`、`unholy`） |
+| `attack` | `number?` | 攻击力。 |
+| `health` | `number?` | 生命值。 |
+| `durability` | `number?` | 耐久度（武器）。 |
+| `armor` | `number?` | 护甲值。 |
+| `classes` | `string[]` | 职业归属。 |
+| `race` | `string[]?` | 随从种族。 |
+| `spellSchool` | `string?` | 法术派系。 |
+| `mercenaryRole` | `string?` | 佣兵角色（`protector`、`fighter`、`caster`、`neutral`）。 |
+| `mercenaryFaction` | `string?` | 佣兵阵营（`alliance`、`horde`、`empire`、`explorer`、`legion`、`pirate`、`scourge`）。 |
+| `colddown` | `number?` | 佣兵技能冷却（速度值）。 |
+| `set` | `number` | 卡牌系列标识。 |
+| `overrideWatermark` | `string?` | 覆盖水印。 |
+| `rarity` | `string?` | 稀有度（如 `legendary`、`epic`）。 |
+| `elite` | `boolean` | 精英标识。 |
+| `techLevel` | `number?` | 酒馆战棋科技等级。 |
+| `rune` | `string[]?` | 死亡骑士符文组合（`blood`、`frost`、`unholy`）。 |
 | `renderMechanics` | `object` | 渲染机制标识。完整 key 列表见下方 `renderMechanics` 小节。 |
 
 #### `renderMechanics`
@@ -317,6 +333,13 @@
 | `"1824"` | IN_MINI_SET | `in-mini-set` | 卡牌属于迷你系列 |
 | `"2785"` | FORGE | `forge` | 卡牌具有锻造机制 |
 | `"4503"` | TIMEWARPED | `timewarped` | 卡牌具有酒馆战棋时空扭曲机制 |
+| `"1676"` | LETTUCE_ABILITY_SUMMONED_MINION | `lettuce-ability-summoned-minion` | 佣兵技能召唤随从 |
+| `"1855"` | LETTUCE_EQUIPMENT | `lettuce-equipment` | 佣兵卡牌为装备 |
+| `"2493"` | LETTUCE_ABILITY_TIER | `lettuce-ability-tier` | 佣兵技能等级（1–3） |
+| `"2494"` | LETTUCE_EQUIPMENT_TIER | `lettuce-equipment-tier` | 佣兵装备等级（1–4） |
+| `"1671"` | LETTUCE_PASSIVE_ABILITY | `lettuce-passive-ability` | 佣兵技能为被动 |
+| `"1852"` | LETTUCE_MERCENARY_EXPERIENCE | `lettuce-mercenary-experience` | 佣兵经验值（转为等级显示） |
+| `"2170"` | LETTUCE_IS_TREASURE_CARD | `lettuce-is-treasure-card` | 佣兵卡牌为宝藏 |
 
 ## 功能约束
 

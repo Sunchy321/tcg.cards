@@ -7,6 +7,7 @@ export const imageZone = z.enum(['hand', 'play']);
 export const imageTemplate = z.enum(['normal', 'battlegrounds']);
 export const imagePremium = z.enum(['normal', 'golden', 'diamond', 'signature']);
 export const imageAssetStatus = z.enum(['ready', 'failed', 'stale']);
+export const imageRenderMode = z.enum(['full-set', 'partial-update']);
 
 export const imageVariant = z.strictObject({
   zone:     imageZone,
@@ -58,6 +59,7 @@ export const imageRequirementRequest = z.strictObject({
   requestId:   z.string(),
   card:        imageRequestCard,
   variant:     imageVariant,
+  renderMode:  imageRenderMode.default('full-set'),
   style:       imageStyle,
   output:      imageRequestOutput,
   target:      imageRequestTarget,

@@ -1412,7 +1412,9 @@ function buildRenderModel(
     classes:           entity.classes,
     race:              entity.race,
     spellSchool:       entity.spellSchool,
+    mercenaryRole:     entity.mercenaryRole,
     mercenaryFaction:  entity.mercenaryFaction,
+    colddown:          entity.colddown,
     set:               entity.set,
     overrideWatermark: entity.overrideWatermark,
     rarity:            entity.rarity,
@@ -1421,7 +1423,11 @@ function buildRenderModel(
     rune:              entity.rune,
     renderMechanics,
   };
-  const result = renderModelSchema.safeParse(payload);
+  // Omit null/undefined fields so absent optional fields don't change the render hash.
+  const stripped = Object.fromEntries(
+    Object.entries(payload).filter(([, v]) => v != null),
+  );
+  const result = renderModelSchema.safeParse(stripped);
 
   if (!result.success) {
     const issues = result.error.issues.map(issue => ({

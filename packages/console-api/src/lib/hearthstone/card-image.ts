@@ -435,6 +435,7 @@ export function buildRequest(
       renderHash:       row.renderHash,
     },
     variant,
+    renderMode: 'full-set',
     style,
     output: {
       fileName:              buildCardImagePngFileName(requestId),
