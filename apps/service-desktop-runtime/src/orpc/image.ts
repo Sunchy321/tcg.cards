@@ -954,6 +954,7 @@ const submitRenderJob = os
       filters: {
         lang: input.lang,
         version: input.version ?? null,
+        allVersions: input.allVersions,
         cardId: input.cardId ?? null,
         zones: [...input.zones],
         templates: [...input.templates],
@@ -970,12 +971,13 @@ const submitRenderJob = os
   });
 
 const reimportByRenderHashInput = z.strictObject({
-  cardId:     z.string().trim().min(1).optional(),
-  renderHash: z.string().trim().min(1).optional(),
-  lang:       locale.optional(),
-  zones:      z.array(imageZone).optional(),
-  templates:  z.array(imageTemplate).optional(),
-  premiums:   z.array(imagePremium).optional(),
+  cardId:      z.string().trim().min(1).optional(),
+  renderHash:  z.string().trim().min(1).optional(),
+  lang:        locale.optional(),
+  zones:       z.array(imageZone).optional(),
+  templates:   z.array(imageTemplate).optional(),
+  premiums:    z.array(imagePremium).optional(),
+  allVersions: z.boolean().optional(),
 });
 
 /** Runs the full reimport pipeline in the background for one cardId or renderHash. */
@@ -988,10 +990,11 @@ async function runReimportByRenderHash(jobId: string, input: z.infer<typeof reim
     const cardId = input.cardId?.trim() || undefined;
     const renderHash = input.renderHash?.trim() || undefined;
     const options = {
-      lang:      input.lang,
-      zones:     input.zones,
-      templates: input.templates,
-      premiums:  input.premiums,
+      lang:        input.lang,
+      zones:       input.zones,
+      templates:   input.templates,
+      premiums:    input.premiums,
+      allVersions: input.allVersions,
     };
 
     updateImageJob(jobId, {
@@ -1564,14 +1567,15 @@ const previewRender = os
   });
 
 const downloadArchiveInput = z.strictObject({
-  cardId:     z.string().trim().min(1).optional(),
-  renderHash: z.string().trim().min(1).optional(),
-  lang:       locale.optional(),
-  zones:      z.array(imageZone).optional(),
-  templates:  z.array(imageTemplate).optional(),
-  premiums:   z.array(imagePremium).optional(),
-  version:    z.number().int().positive().optional(),
-  limit:      z.number().int().positive().optional(),
+  cardId:      z.string().trim().min(1).optional(),
+  renderHash:  z.string().trim().min(1).optional(),
+  lang:        locale.optional(),
+  zones:       z.array(imageZone).optional(),
+  templates:   z.array(imageTemplate).optional(),
+  premiums:    z.array(imagePremium).optional(),
+  version:     z.number().int().positive().optional(),
+  allVersions: z.boolean().optional(),
+  limit:       z.number().int().positive().optional(),
 });
 
 const downloadArchiveSyncOutput = z.strictObject({
@@ -1598,10 +1602,11 @@ const downloadArchive = os
       const rendererBaseUrl = requireHearthstoneImageRendererBaseUrl();
       const db = getLocalDb();
       const options = {
-        lang:      input.lang,
-        zones:     input.zones,
-        templates: input.templates,
-        premiums:  input.premiums,
+        lang:        input.lang,
+        zones:       input.zones,
+        templates:   input.templates,
+        premiums:    input.premiums,
+        allVersions: input.allVersions,
       };
 
       const result = cardId != null
@@ -1665,27 +1670,29 @@ const downloadArchive = os
     }
 
     const exportInput: CardImageRequirementExportInput = {
-      lang:      (input.lang as Locale) ?? 'zhs',
-      version:   input.version,
-      zones:     (input.zones ?? ['hand']) as ImageZone[],
-      templates: (input.templates ?? ['normal', 'battlegrounds']) as ImageTemplate[],
-      premiums:  (input.premiums ?? ['normal', 'golden', 'diamond', 'signature']) as ImagePremium[],
-      limit:     input.limit ?? 500,
-      scanAll:   false,
+      lang:        (input.lang as Locale) ?? 'zhs',
+      version:     input.version,
+      allVersions: input.allVersions,
+      zones:       (input.zones ?? ['hand']) as ImageZone[],
+      templates:   (input.templates ?? ['normal', 'battlegrounds']) as ImageTemplate[],
+      premiums:    (input.premiums ?? ['normal', 'golden', 'diamond', 'signature']) as ImagePremium[],
+      limit:       input.limit ?? 500,
+      scanAll:     false,
     };
 
     const job = startImageJob({
       message: 'Exporting requirements for batch download',
       filters: {
-        lang:      exportInput.lang,
-        version:   exportInput.version ?? null,
-        cardId:    exportInput.cardId ?? null,
-        zones:     [...exportInput.zones],
-        templates: [...exportInput.templates],
-        premiums:  [...exportInput.premiums],
-        limit:     exportInput.limit,
-        cursor:    exportInput.cursor ?? null,
-        scanAll:   false,
+        lang:        exportInput.lang,
+        version:     exportInput.version ?? null,
+        allVersions: exportInput.allVersions,
+        cardId:      exportInput.cardId ?? null,
+        zones:       [...exportInput.zones],
+        templates:   [...exportInput.templates],
+        premiums:    [...exportInput.premiums],
+        limit:       exportInput.limit,
+        cursor:      exportInput.cursor ?? null,
+        scanAll:     false,
       },
       outputMode: 'download',
     });

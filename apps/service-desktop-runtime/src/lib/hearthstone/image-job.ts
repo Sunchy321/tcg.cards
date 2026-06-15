@@ -18,6 +18,7 @@ export type ImageJobOutputMode = 'write' | 'download';
 export interface ImageJobFilters {
   lang: Locale;
   version: number | null;
+  allVersions?: boolean;
   cardId: string | null;
   zones: ImageZone[];
   templates: ImageTemplate[];

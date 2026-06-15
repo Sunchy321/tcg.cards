@@ -40,6 +40,7 @@ export interface DebugRenderRequestOptions {
   templates?: ImageTemplate[];
   premiums?: ImagePremium[];
   r2Bucket?: string;
+  allVersions?: boolean;
 }
 
 /** Builds render requests for a given renderHash, one per applicable variant. */
@@ -128,7 +129,8 @@ export async function buildDebugRenderRequests(
   };
 }
 
-/** Builds render requests for a given cardId, one per applicable variant. */
+/** Builds render requests for a given cardId, one per applicable variant.
+ * When allVersions is true, returns requests for all localizations of the card. */
 export async function buildCardIdRenderRequests(
   db: ImageDebugDb,
   cardId: string,
@@ -139,8 +141,9 @@ export async function buildCardIdRenderRequests(
   const templates = options?.templates ?? ['normal'];
   const premiums = options?.premiums ?? ['normal'];
   const r2Bucket = options?.r2Bucket ?? defaultR2AssetBucket;
+  const allVersions = options?.allVersions ?? false;
 
-  const rows = await db.select({
+  const query = db.select({
     cardId:           Entity.cardId,
     version:          sql<number[]>`${Entity.version} & ${EntityLocalization.version}`.as('version'),
     lang:             EntityLocalization.lang,
@@ -165,50 +168,59 @@ export async function buildCardIdRenderRequests(
       eq(Entity.cardId, cardId),
       eq(EntityLocalization.lang, lang),
     ))
-    .orderBy(asc(EntityLocalization.localizationHash))
-    .limit(1);
+    .orderBy(asc(EntityLocalization.localizationHash));
 
-  const row = rows[0];
-
-  if (!row || row.renderHash == null || row.renderModel == null) {
-    throw new Error(`No card found with cardId ${cardId} and lang ${lang}`);
+  if (!allVersions) {
+    query.limit(1);
   }
 
-  const candidate: ImageCandidateRow = {
-    cardId:           row.cardId,
-    version:          row.version,
-    lang:             row.lang,
-    revisionHash:     row.revisionHash,
-    localizationHash: row.localizationHash,
-    renderHash:       row.renderHash,
-    renderModel:      stripNulls(row.renderModel),
-    type:             row.type,
-    set:              row.set,
-    setDbfId:         row.setDbfId ?? 0,
-    techLevel:        row.techLevel,
-    mechanics:        row.mechanics as ImageCandidateRow['mechanics'],
-  };
+  const rows = await query;
+
+  if (rows.length === 0 || rows[0]!.renderHash == null || rows[0]!.renderModel == null) {
+    throw new Error(`No card found with cardId ${cardId} and lang ${lang}`);
+  }
 
   const variants = buildImageVariants({ zones, templates, premiums });
   const mechanicIds = await loadVariantMechanicIds(db, variants);
 
   const requests = [];
 
-  for (const variant of variants) {
-    if (!isCardImageVariantAllowed(candidate, variant, mechanicIds)) {
-      continue;
-    }
+  for (const row of rows) {
+    if (row.renderHash == null || row.renderModel == null) continue;
 
-    requests.push(buildRequest(candidate, variant, r2Bucket));
+    const candidate: ImageCandidateRow = {
+      cardId:           row.cardId,
+      version:          row.version,
+      lang:             row.lang,
+      revisionHash:     row.revisionHash,
+      localizationHash: row.localizationHash,
+      renderHash:       row.renderHash,
+      renderModel:      stripNulls(row.renderModel),
+      type:             row.type,
+      set:              row.set,
+      setDbfId:         row.setDbfId ?? 0,
+      techLevel:        row.techLevel,
+      mechanics:        row.mechanics as ImageCandidateRow['mechanics'],
+    };
+
+    for (const variant of variants) {
+      if (!isCardImageVariantAllowed(candidate, variant, mechanicIds)) {
+        continue;
+      }
+
+      requests.push(buildRequest(candidate, variant, r2Bucket));
+    }
   }
 
+  const firstRow = rows[0]!;
+
   return {
-    cardId:          candidate.cardId,
-    lang:            candidate.lang,
-    renderHash:      candidate.renderHash,
-    set:             candidate.set,
-    type:            candidate.type,
-    techLevel:       candidate.techLevel,
+    cardId:          firstRow.cardId,
+    lang:            firstRow.lang,
+    renderHash:      firstRow.renderHash,
+    set:             firstRow.set,
+    type:            firstRow.type,
+    techLevel:       firstRow.techLevel,
     variantCount:    requests.length,
     requests,
   };

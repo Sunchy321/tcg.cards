@@ -556,12 +556,15 @@ async function loadCandidateRows(
 ) {
   const filters = [
     eq(EntityLocalization.lang, input.lang),
-    latestOrVersion(Entity.version, Entity.isLatest, input.version),
-    latestOrVersion(EntityLocalization.version, EntityLocalization.isLatest, input.version),
     sql<boolean>`${EntityLocalization.renderHash} is not null`,
     sql<boolean>`${EntityLocalization.renderModel} is not null`,
     sql<boolean>`${Entity.type} <> 'enchantment'`,
   ];
+
+  if (!input.allVersions) {
+    filters.push(latestOrVersion(Entity.version, Entity.isLatest, input.version));
+    filters.push(latestOrVersion(EntityLocalization.version, EntityLocalization.isLatest, input.version));
+  }
 
   if (input.cardId) {
     filters.push(eq(Entity.cardId, input.cardId));

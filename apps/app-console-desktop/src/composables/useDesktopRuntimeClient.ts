@@ -319,6 +319,20 @@ export function triggerDownload(base64Zip: string, fileName: string) {
   URL.revokeObjectURL(url);
 }
 
+/** Downloads JSON data as a file in the browser via a temporary blob URL. */
+export function triggerJsonDownload(data: unknown, fileName: string) {
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 /** Opens a file or directory path in the OS-native file manager via the desktop runtime. */
 export function openDesktopPath(filePath: string) {
   return useDesktopRuntimeClient().runtime.openPath({ path: filePath }) as Promise<{ ok: boolean }>;

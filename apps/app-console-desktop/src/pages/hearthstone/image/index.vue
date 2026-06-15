@@ -336,7 +336,7 @@
                 </template>
               </UAlert>
 
-              <!-- Export requests JSON display -->
+              <!-- Export requests JSON display (single-card non-all only) -->
               <div v-if="debugRequestResult" class="space-y-2">
                 <div class="flex flex-wrap items-center gap-2 text-xs text-muted">
                   <span>{{ debugRequestResult.cardId }}</span>
@@ -368,15 +368,6 @@
                 </div>
               </div>
 
-              <!-- Download result -->
-              <UAlert
-                v-if="downloadResult"
-                color="success"
-                variant="soft"
-                icon="i-lucide-package-check"
-                :description="`已触发浏览器下载：${downloadResult.fileName}`"
-              />
-
               <!-- Action buttons -->
               <div class="flex flex-wrap justify-end gap-2">
                 <UButton
@@ -396,7 +387,7 @@
                   color="primary"
                   variant="soft"
                   :loading="actionLoading === 'preview'"
-                  :disabled="!hasImageConfig || actionLoading !== null || scale !== 'single' || singleCardInput.trim().length === 0"
+                  :disabled="!hasImageConfig || actionLoading !== null || scale !== 'single' || singleCardInput.trim().length === 0 || form.version === 'all'"
                   @click="executeAction('preview')"
                 />
                 <UButton
@@ -567,6 +558,7 @@
 import type { ImagePremium, ImageTemplate, ImageZone } from '#model/hearthstone/schema/data/image';
 import type { Locale } from '#model/hearthstone/schema/basic';
 
+import { useToast } from '@nuxt/ui/composables';
 import { getConsoleErrorMessage } from '@tcg-cards/console-core';
 
 import { listLocalHsdataSourceVersions, type HsdataSourceVersionStatus } from '~/composables/useHsdataRepo';
@@ -580,6 +572,7 @@ import {
   getDesktopHearthstoneImageArchive,
   openDesktopPath,
   triggerDownload,
+  triggerJsonDownload,
   pauseDesktopHearthstoneImageJob,
   previewDesktopHearthstoneImage,
   resumeDesktopHearthstoneImageJob,
@@ -599,6 +592,8 @@ definePageMeta({
   layout: 'admin',
   title:  '卡牌图片导入',
 });
+
+const toast = useToast();
 
 // ── Scale ──
 
@@ -785,7 +780,7 @@ watch(isJobTerminal, (terminal) => {
         try {
           const archive = await getDesktopHearthstoneImageArchive(currentJob.value!.downloadArchivePath!);
           triggerDownload(archive.base64Zip, archive.fileName);
-          downloadResult.value = archive;
+          toast.add({ title: '下载完成', description: archive.fileName, color: 'success' });
         } catch { /* ignore */ }
       })();
     }
@@ -900,15 +895,16 @@ function stopProgressClock() {
 
 // ── buildJobInput ──
 
-function buildJobInput(scanAll = false): { lang: Locale; version?: number; zones: ImageZone[]; templates: ImageTemplate[]; premiums: ImagePremium[]; limit: number; scanAll?: boolean } {
+function buildJobInput(scanAll = false) {
   const versionRaw = form.version.trim();
   return {
-    lang:      form.lang,
-    ...(versionRaw.length > 0 && versionRaw !== 'latest' ? { version: Number.parseInt(versionRaw, 10) } : {}),
-    zones:     form.zones,
-    templates: form.templates,
-    premiums:  form.premiums,
-    limit:     Math.min(Number.parseInt(form.limit, 10) || 500, 500),
+    lang:        form.lang,
+    ...(versionRaw.length > 0 && versionRaw !== 'latest' && versionRaw !== 'all' ? { version: Number.parseInt(versionRaw, 10) } : {}),
+    ...(versionRaw === 'all' ? { allVersions: true } : {}),
+    zones:       form.zones,
+    templates:   form.templates,
+    premiums:    form.premiums,
+    limit:       Math.min(Number.parseInt(form.limit, 10) || 500, 500),
     scanAll,
   };
 }
@@ -968,10 +964,11 @@ async function executeSingleAction(outputType: ImageOutputType) {
       zones,
       templates,
       premiums,
+      ...(form.version === 'all' ? { allVersions: true } : {}),
     });
     if ('base64Zip' in result) {
       triggerDownload(result.base64Zip, result.fileName);
-      downloadResult.value = result;
+      toast.add({ title: '下载完成', description: result.fileName, color: 'success' });
     }
     return;
   }
@@ -986,6 +983,7 @@ async function executeSingleAction(outputType: ImageOutputType) {
         zones,
         templates,
         premiums,
+        ...(form.version === 'all' ? { allVersions: true } : {}),
       });
       currentJob.value = result.job;
 
@@ -1005,13 +1003,28 @@ async function executeSingleAction(outputType: ImageOutputType) {
 
   if (outputType === 'export') {
     try {
-      debugRequestResult.value = await debugDesktopHearthstoneImageRenderRequest({
-        ...(singleCardMode.value === 'cardId' ? { cardId: input } : { renderHash: input }),
-        lang,
-        zones,
-        templates,
-        premiums,
-      });
+      if (form.version === 'all' && singleCardMode.value === 'cardId') {
+        // All versions: export request file (batch-style)
+        const result = await exportDesktopHearthstoneImageRequirements({
+          lang:        form.lang,
+          cardId:      input,
+          zones:       form.zones,
+          templates:   form.templates,
+          premiums:    form.premiums,
+          allVersions: true,
+          limit:       Math.min(Number.parseInt(form.limit, 10) || 500, 500),
+        });
+        triggerJsonDownload(JSON.parse(result.content), result.fileName);
+        toast.add({ title: '生成完成', description: result.fileName, color: 'success' });
+      } else {
+        debugRequestResult.value = await debugDesktopHearthstoneImageRenderRequest({
+          ...(singleCardMode.value === 'cardId' ? { cardId: input } : { renderHash: input }),
+          lang,
+          zones,
+          templates,
+          premiums,
+        });
+      }
     } catch (error) {
       debugRequestError.value = getConsoleErrorMessage(error, '生成失败');
     }
@@ -1025,12 +1038,13 @@ async function executeBatchAction(outputType: ImageOutputType) {
 
     const versionRaw = form.version.trim();
     const result = await downloadDesktopHearthstoneImageArchive({
-      lang:      form.lang,
-      zones:     form.zones,
-      templates: form.templates,
-      premiums:  form.premiums,
-      version:   versionRaw.length > 0 && versionRaw !== 'latest' ? Number.parseInt(versionRaw, 10) : undefined,
-      limit:     Math.min(Number.parseInt(form.limit, 10) || 500, 500),
+      lang:        form.lang,
+      zones:       form.zones,
+      templates:   form.templates,
+      premiums:    form.premiums,
+      version:     versionRaw.length > 0 && versionRaw !== 'latest' && versionRaw !== 'all' ? Number.parseInt(versionRaw, 10) : undefined,
+      allVersions: versionRaw === 'all' ? true : undefined,
+      limit:       Math.min(Number.parseInt(form.limit, 10) || 500, 500),
     });
 
     if ('job' in result) {
@@ -1055,15 +1069,8 @@ async function executeBatchAction(outputType: ImageOutputType) {
 
   if (outputType === 'export') {
     const result = await exportDesktopHearthstoneImageRequirements(buildJobInput());
-    const blob = new Blob([result.content], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = result.fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    triggerJsonDownload(JSON.parse(result.content), result.fileName);
+    toast.add({ title: '生成完成', description: result.fileName, color: 'success' });
     return;
   }
 }
@@ -1290,6 +1297,7 @@ async function loadVersionItems() {
 
     versionItems.value = [
       { label: 'latest', value: 'latest' },
+      { label: 'all', value: 'all' },
       ...uniqueBuilds.map(build => ({
         label: `build ${build}`,
         value: String(build),
