@@ -455,7 +455,9 @@ function canonicalizeJson(value: unknown): string {
   }
 
   const object = value as Record<string, unknown>;
-  const keys = Object.keys(object).sort();
+  const keys = Object.keys(object)
+    .filter(key => object[key] !== undefined)
+    .sort();
   return `{${keys.map(key => `${JSON.stringify(key)}:${canonicalizeJson(object[key])}`).join(',')}}`;
 }
 
@@ -1639,7 +1641,15 @@ async function reconcileRows<T extends { version: number[], isLatest: boolean }>
     const currentState = options.stateOf(row);
     const previousState = existing == null ? null : options.stateOf(existing);
 
-    if (currentState === previousState) {
+    // When the old metadata-update path set renderHash but the stored renderModel
+    // is stale (null or contains null fields), detect and backfill even when
+    // hashes match.
+    const existingRM = existing != null ? (existing as Record<string, unknown>).renderModel : undefined;
+    const targetRM = (row as Record<string, unknown>).renderModel;
+    const renderModelCanonicalMismatch = targetRM != null
+      && (existingRM == null || canonicalizeJson(existingRM) !== canonicalizeJson(targetRM));
+
+    if (currentState === previousState && !renderModelCanonicalMismatch) {
       continue;
     }
 
@@ -3361,7 +3371,7 @@ async function syncLocalizations(
   }
 
   const insertRows: LocalizationRow[] = [];
-  const appendRows: Array<Pick<LocalizationStateRow, 'cardId' | 'lang' | 'revisionHash' | 'localizationHash'>> = [];
+  const appendRows: LocalizationStateRow[] = [];
   const metaRows: LocalizationStateRow[] = [];
 
   for (const row of plan.upsertRows) {
@@ -3680,15 +3690,20 @@ function summarizeDiff<TE extends { version: number[]; isLatest: boolean }, TT e
     const resolvedLatest = opts.skipLatestUpdate ? e.isLatest : t.isLatest;
     const isLatestSame = resolvedLatest === e.isLatest;
     const renderSame = !hasRender || (opts.renderHashOf(t) ?? null) === (opts.renderHashOf(e) ?? null);
+    // The metadata-update path can set renderHash without renderModel, causing
+    // hash match even when the stored model is stale. Check model content too.
+    const renderModelSame = !opts.renderModelOf || !opts.existingRenderModelOf
+      || canonicalizeJson(opts.renderModelOf(t)) === canonicalizeJson(opts.existingRenderModelOf(e) ?? null);
+    const renderReallySame = renderSame && renderModelSame;
 
-    if (verSame && isLatestSame && renderSame) {
+    if (verSame && isLatestSame && renderReallySame) {
       versionMatch += 1;
       continue;
     }
 
     if (!verSame) versionChanged += 1;
     if (!isLatestSame && verSame) isLatestChanged += 1;
-    if (hasRender && !renderSame) {
+    if (hasRender && (!renderSame || !renderModelSame)) {
       renderHashChanged += 1;
       if ((opts.renderHashOf(e) ?? null) == null) renderHashNullExisting += 1;
     }
@@ -3697,7 +3712,7 @@ function summarizeDiff<TE extends { version: number[]; isLatest: boolean }, TT e
       const reasons: string[] = [];
       if (!verSame) reasons.push('version');
       if (!isLatestSame && verSame) reasons.push('isLatest');
-      if (hasRender && !renderSame) reasons.push('renderHash');
+      if (hasRender && (!renderSame || !renderModelSame)) reasons.push('renderHash');
       opts.outSamples.push({
         key: `${opts.label}:${opts.keyOf(t)}`,
         existingVersion: e.version,
@@ -3997,6 +4012,7 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     revisionHash:     row.revisionHash,
     localizationHash: row.localizationHash,
     renderHash:       row.renderHash,
+    renderModel:      row.renderModel,
     isLatest:         row.isLatest,
   }));
   const targetRelations = projected.flatMap(item => item.relations.map(row => ({
