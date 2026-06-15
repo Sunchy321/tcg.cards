@@ -1,12 +1,16 @@
 import { eventIterator, ORPCError } from '@orpc/server';
 import { z } from 'zod';
 
+import { locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
 import type { Locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
 import {
   cardImageRequirementExportInput,
   cardImageRequirementExportResult,
+  imagePremium,
   imageRequirementFile,
   imageRequirementRequest,
+  imageTemplate,
+  imageZone,
   type CardImageRequirementExportInput,
   type ImagePremium,
   type ImageTemplate,
@@ -43,7 +47,7 @@ import {
   updateImageJob,
   watchImageJob,
 } from '../lib/hearthstone/image-job';
-import { buildDebugRenderRequests } from '../lib/hearthstone/image-debug';
+import { buildCardIdRenderRequests, buildDebugRenderRequests } from '../lib/hearthstone/image-debug';
 
 const localImportFileInput = z.strictObject({
   fileName: z.string().trim().min(1),
@@ -92,12 +96,12 @@ const imageJobState = z.strictObject({
   finishedAt: z.string().nullable(),
   updatedAt: z.string(),
   filters: z.strictObject({
-    lang: z.string(),
+    lang: locale,
     version: z.number().int().positive().nullable(),
     cardId: z.string().nullable(),
-    zones: z.array(z.string()),
-    templates: z.array(z.string()),
-    premiums: z.array(z.string()),
+    zones: z.array(imageZone),
+    templates: z.array(imageTemplate),
+    premiums: z.array(imagePremium),
     limit: z.number().int().positive(),
     cursor: z.string().nullable(),
     scanAll: z.boolean(),
@@ -122,6 +126,8 @@ const imageJobState = z.strictObject({
   overallRejectedCount: z.number().int().nonnegative().nullable(),
   currentBatchIndex: z.number().int().nonnegative().nullable(),
   totalBatches: z.number().int().nonnegative().nullable(),
+  outputMode: z.enum(['write', 'download']),
+  downloadArchivePath: z.string().nullable(),
 });
 
 const submitRenderJobResult = z.strictObject({
@@ -377,7 +383,7 @@ const exportRequirements = os
   })
   .input(cardImageRequirementExportInput)
   .output(cardImageRequirementExportResult)
-  .handler(async ({ input }: { input: CardImageRequirementExportInput }) => {
+  .handler(async ({ input }) => {
     try {
       return await exportCardImageRequirements(input, {
         db: getLocalDb(),
@@ -933,7 +939,7 @@ const submitRenderJob = os
   })
   .input(cardImageRequirementExportInput)
   .output(submitRenderJobResult)
-  .handler(async ({ input }: { input: CardImageRequirementExportInput }) => {
+  .handler(async ({ input }) => {
     const current = getCurrentImageJob();
 
     if (current != null && current.finishedAt == null) {
@@ -964,31 +970,38 @@ const submitRenderJob = os
   });
 
 const reimportByRenderHashInput = z.strictObject({
-  renderHash: z.string().trim().min(1),
-  lang:       z.string().trim().min(1).optional(),
-  zones:      z.array(z.string()).optional(),
-  templates:  z.array(z.string()).optional(),
-  premiums:   z.array(z.string()).optional(),
+  cardId:     z.string().trim().min(1).optional(),
+  renderHash: z.string().trim().min(1).optional(),
+  lang:       locale.optional(),
+  zones:      z.array(imageZone).optional(),
+  templates:  z.array(imageTemplate).optional(),
+  premiums:   z.array(imagePremium).optional(),
 });
 
-/** Runs the full reimport pipeline in the background for one renderHash. */
+/** Runs the full reimport pipeline in the background for one cardId or renderHash. */
 async function runReimportByRenderHash(jobId: string, input: z.infer<typeof reimportByRenderHashInput>) {
   try {
     const rendererBaseUrl = requireHearthstoneImageRendererBaseUrl();
     const bucketDir = requireHearthstoneImageBucketDir();
     const db = getLocalDb();
 
-    updateImageJob(jobId, {
-      phase: 'exporting_requirements',
-      message: 'Building requests from renderHash',
-    });
-
-    const debugResult = await buildDebugRenderRequests(db, input.renderHash, {
+    const cardId = input.cardId?.trim() || undefined;
+    const renderHash = input.renderHash?.trim() || undefined;
+    const options = {
       lang:      input.lang,
       zones:     input.zones,
       templates: input.templates,
       premiums:  input.premiums,
+    };
+
+    updateImageJob(jobId, {
+      phase: 'exporting_requirements',
+      message: cardId != null ? 'Building requests from cardId' : 'Building requests from renderHash',
     });
+
+    const debugResult = cardId != null
+      ? await buildCardIdRenderRequests(db, cardId, options)
+      : await buildDebugRenderRequests(db, renderHash ?? '', options);
 
     const totalCount = debugResult.requests.length;
 
@@ -1164,11 +1177,11 @@ const reimportByRenderHash = os
     }
 
     const job = startImageJob({
-      message: 'Building reimport requests from renderHash',
+      message: 'Building reimport requests',
       filters: {
         lang:      input.lang ?? 'zhs',
         version:   null,
-        cardId:    input.renderHash,
+        cardId:    (input.cardId ?? input.renderHash) ?? null,
         zones:     input.zones ?? ['hand'],
         templates: input.templates ?? ['normal', 'battlegrounds'],
         premiums:  input.premiums ?? ['normal', 'golden', 'diamond', 'signature'],
@@ -1238,11 +1251,12 @@ const watchJobProgress = os
   });
 
 const debugRenderRequestInput = z.strictObject({
-  renderHash: z.string().trim().min(1),
-  lang:       z.string().trim().min(1).optional(),
-  zones:      z.array(z.string()).optional(),
-  templates:  z.array(z.string()).optional(),
-  premiums:   z.array(z.string()).optional(),
+  cardId:     z.string().trim().min(1).optional(),
+  renderHash: z.string().trim().min(1).optional(),
+  lang:       locale.optional(),
+  zones:      z.array(imageZone).optional(),
+  templates:  z.array(imageTemplate).optional(),
+  premiums:   z.array(imagePremium).optional(),
 });
 
 const debugRenderRequestOutput = z.strictObject({
@@ -1266,14 +1280,30 @@ const debugRenderRequest = os
   .input(debugRenderRequestInput)
   .output(debugRenderRequestOutput)
   .handler(async ({ input }) => {
-    const result = await buildDebugRenderRequests(getLocalDb(), input.renderHash, {
+    const cardId = input.cardId?.trim() || undefined;
+    const renderHash = input.renderHash?.trim() || undefined;
+    const options = {
       lang:      input.lang,
       zones:     input.zones,
       templates: input.templates,
       premiums:  input.premiums,
-    });
+    };
+    const result = cardId != null
+      ? await buildCardIdRenderRequests(getLocalDb(), cardId, options)
+      : await buildDebugRenderRequests(getLocalDb(), renderHash ?? '', options);
 
-    return result;
+    const parsed = debugRenderRequestOutput.safeParse(result);
+    if (!parsed.success) {
+      const issues = parsed.error.issues.map(i => ({
+        path: i.path.join('.'),
+        message: i.message,
+      }));
+      console.error('debugRenderRequest output validation failed:', JSON.stringify(issues, null, 2));
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: `Output validation: ${issues.slice(0, 5).map(i => `${i.path}: ${i.message}`).join('; ')}`,
+      });
+    }
+    return parsed.data;
   });
 
 /** Detects whether the configured Hearthstone image renderer is reachable and reports its health status. */
@@ -1427,6 +1457,378 @@ const resumeJob = os
     return { job: getCurrentImageJob() ?? state };
   });
 
+const previewRenderInput = z.strictObject({
+  cardId:     z.string().trim().min(1).optional(),
+  renderHash: z.string().trim().min(1).optional(),
+  lang:       locale.optional(),
+  zones:      z.array(imageZone).optional(),
+  templates:  z.array(imageTemplate).optional(),
+  premiums:   z.array(imagePremium).optional(),
+});
+
+const previewVariant = z.strictObject({
+  zone:      imageZone,
+  template:  imageTemplate,
+  premium:   imagePremium,
+  base64Png: z.string(),
+  requestId: z.string(),
+});
+
+const previewRenderOutput = z.strictObject({
+  cardId:       z.string(),
+  renderHash:   z.string(),
+  set:          z.string(),
+  type:         z.string(),
+  techLevel:    z.number().int().nullable(),
+  variantCount: z.number().int().nonnegative(),
+  previews:     z.array(previewVariant),
+});
+
+/** Maximum number of variants to render in one preview request. */
+const MAX_PREVIEW_VARIANTS = 20;
+
+/** Renders one card (by cardId or renderHash) and returns base64 PNG previews without writing to disk or DB. */
+const previewRender = os
+  .route({
+    method:      'POST',
+    description: 'Preview rendered card images for one card without writing to disk',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Image'],
+  })
+  .input(previewRenderInput)
+  .output(previewRenderOutput)
+  .handler(async ({ input }) => {
+    const cardId = input.cardId?.trim() || undefined;
+    const renderHash = input.renderHash?.trim() || undefined;
+
+    if (!cardId && !renderHash) {
+      throw new ORPCError('BAD_REQUEST', {
+        message: 'Either cardId or renderHash is required',
+      });
+    }
+
+    if (cardId && renderHash) {
+      throw new ORPCError('BAD_REQUEST', {
+        message: 'Provide either cardId or renderHash, not both',
+      });
+    }
+
+    const rendererBaseUrl = requireHearthstoneImageRendererBaseUrl();
+    const db = getLocalDb();
+    const options = {
+      lang:      input.lang,
+      zones:     input.zones,
+      templates: input.templates,
+      premiums:  input.premiums,
+    };
+
+    const result = cardId != null
+      ? await buildCardIdRenderRequests(db, cardId, options)
+      : await buildDebugRenderRequests(db, renderHash!, options);
+
+    const requests = result.requests.slice(0, MAX_PREVIEW_VARIANTS);
+    const previews: z.infer<typeof previewRenderOutput>['previews'] = [];
+
+    for (const request of requests) {
+      try {
+        const response = await fetch(buildRendererSubmitUrl(rendererBaseUrl), {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(request),
+        });
+
+        if (response.ok) {
+          const bytes = new Uint8Array(await response.arrayBuffer());
+          const base64Png = Buffer.from(bytes).toString('base64');
+          previews.push({
+            zone:      request.variant.zone,
+            template:  request.variant.template,
+            premium:   request.variant.premium,
+            base64Png,
+            requestId: request.requestId,
+          });
+        }
+      } catch {
+        // Skip failed variants in preview mode
+      }
+    }
+
+    return {
+      cardId:       result.cardId,
+      renderHash:   result.renderHash,
+      set:          result.set,
+      type:         result.type,
+      techLevel:    result.techLevel,
+      variantCount: previews.length,
+      previews,
+    };
+  });
+
+const downloadArchiveInput = z.strictObject({
+  cardId:     z.string().trim().min(1).optional(),
+  renderHash: z.string().trim().min(1).optional(),
+  lang:       locale.optional(),
+  zones:      z.array(imageZone).optional(),
+  templates:  z.array(imageTemplate).optional(),
+  premiums:   z.array(imagePremium).optional(),
+  version:    z.number().int().positive().optional(),
+  limit:      z.number().int().positive().optional(),
+});
+
+const downloadArchiveSyncOutput = z.strictObject({
+  fileName:  z.string(),
+  base64Zip: z.string(),
+});
+
+/** Renders and packages card images into a ZIP archive. Returns the archive path for single-card mode,
+ *  or submits a background job for batch mode. */
+const downloadArchive = os
+  .route({
+    method:      'POST',
+    description: 'Render card images and package them into a downloadable ZIP archive',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Image'],
+  })
+  .input(downloadArchiveInput)
+  .output(z.union([downloadArchiveSyncOutput, submitRenderJobResult]))
+  .handler(async ({ input }) => {
+    const cardId = input.cardId?.trim() || undefined;
+    const renderHash = input.renderHash?.trim() || undefined;
+
+    // Single-card mode: synchronous render and zip
+    if (cardId || renderHash) {
+      const rendererBaseUrl = requireHearthstoneImageRendererBaseUrl();
+      const db = getLocalDb();
+      const options = {
+        lang:      input.lang,
+        zones:     input.zones,
+        templates: input.templates,
+        premiums:  input.premiums,
+      };
+
+      const result = cardId != null
+        ? await buildCardIdRenderRequests(db, cardId, options)
+        : await buildDebugRenderRequests(db, renderHash!, options);
+
+      const requests = result.requests;
+      const tempDir = join(tmpdir(), `hs-download-${crypto.randomUUID()}`);
+      await Bun.spawn(['mkdir', '-p', tempDir]).exited;
+
+      const pngPaths: string[] = [];
+
+      for (const request of requests) {
+        try {
+          const response = await fetch(buildRendererSubmitUrl(rendererBaseUrl), {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(request),
+          });
+
+          if (response.ok) {
+            const bytes = new Uint8Array(await response.arrayBuffer());
+            const pngPath = join(tempDir, request.output.fileName);
+            await Bun.write(pngPath, bytes);
+            pngPaths.push(pngPath);
+          }
+        } catch {
+          // Skip failed renders in download mode
+        }
+      }
+
+      if (pngPaths.length === 0) {
+        throw new ORPCError('BAD_REQUEST', {
+          message: `All ${requests.length} render requests failed`,
+        });
+      }
+
+      const archiveName = `${result.cardId}-renders.zip`;
+      const archivePath = join(tempDir, archiveName);
+      await Bun.spawn(['zip', '-j', archivePath, ...pngPaths]).exited;
+
+      const zipBytes = await Bun.file(archivePath).arrayBuffer();
+      const base64Zip = Buffer.from(new Uint8Array(zipBytes)).toString('base64');
+
+      // Clean up temp files
+      await Bun.spawn(['rm', '-rf', tempDir]).exited.catch(() => {});
+
+      return {
+        fileName:  archiveName,
+        base64Zip,
+      };
+    }
+
+    // Batch mode: submit a background render job with outputMode 'download'
+    const current = getCurrentImageJob();
+
+    if (current != null && current.finishedAt == null) {
+      throw new ORPCError('CONFLICT', {
+        message: 'Another Hearthstone image job is already running',
+      });
+    }
+
+    const exportInput: CardImageRequirementExportInput = {
+      lang:      (input.lang as Locale) ?? 'zhs',
+      version:   input.version,
+      zones:     (input.zones ?? ['hand']) as ImageZone[],
+      templates: (input.templates ?? ['normal', 'battlegrounds']) as ImageTemplate[],
+      premiums:  (input.premiums ?? ['normal', 'golden', 'diamond', 'signature']) as ImagePremium[],
+      limit:     input.limit ?? 500,
+      scanAll:   false,
+    };
+
+    const job = startImageJob({
+      message: 'Exporting requirements for batch download',
+      filters: {
+        lang:      exportInput.lang,
+        version:   exportInput.version ?? null,
+        cardId:    exportInput.cardId ?? null,
+        zones:     [...exportInput.zones],
+        templates: [...exportInput.templates],
+        premiums:  [...exportInput.premiums],
+        limit:     exportInput.limit,
+        cursor:    exportInput.cursor ?? null,
+        scanAll:   false,
+      },
+      outputMode: 'download',
+    });
+
+    void runDownloadArchiveJob(job.jobId, exportInput);
+    return { job: getCurrentImageJob() ?? job };
+  });
+
+/** Runs a batch render-and-zip job. Renders images to a temp directory and creates a ZIP archive on completion. */
+async function runDownloadArchiveJob(jobId: string, input: CardImageRequirementExportInput) {
+  const controller = createJobController();
+
+  try {
+    const rendererBaseUrl = requireHearthstoneImageRendererBaseUrl();
+
+    updateImageJob(jobId, {
+      phase: 'exporting_requirements',
+      message: 'Exporting missing image requirements...',
+    });
+
+    const exportResult = await exportCardImageRequirements(input, { db: getLocalDb() });
+    const requirementsFile = imageRequirementFile.parse(JSON.parse(exportResult.content));
+    const totalCount = requirementsFile.requests.length;
+
+    updateImageJob(jobId, {
+      phase: 'submitting_renderer_job',
+      message: `Rendering ${totalCount} images`,
+      exportId: exportResult.exportId,
+      requestCount: totalCount,
+      totalCount,
+      remainingEstimate: exportResult.remainingEstimate,
+    });
+
+    const tempDir = join(tmpdir(), `hs-download-${jobId}`);
+    await Bun.spawn(['mkdir', '-p', tempDir]).exited;
+
+    const pngPaths: string[] = [];
+    let renderedCount = 0;
+    let failedCount = 0;
+
+    for (const request of requirementsFile.requests) {
+      if (controller.shouldStop) break;
+
+      try {
+        const response = await fetch(buildRendererSubmitUrl(rendererBaseUrl), {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(request),
+          signal: controller.signal,
+        });
+
+        if (response.ok) {
+          const bytes = new Uint8Array(await response.arrayBuffer());
+          const pngPath = join(tempDir, request.output.fileName);
+          await Bun.write(pngPath, bytes);
+          pngPaths.push(pngPath);
+          renderedCount++;
+        } else {
+          failedCount++;
+        }
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') break;
+        failedCount++;
+      }
+
+      updateImageJob(jobId, {
+        message: `Rendered ${renderedCount + failedCount}/${totalCount} (${renderedCount} ok, ${failedCount} failed)`,
+        completedCount: renderedCount,
+        rejectedCount: failedCount,
+      });
+    }
+
+    if (pngPaths.length === 0) {
+      updateImageJob(jobId, {
+        phase: 'failed',
+        message: 'All render requests failed',
+        errorMessage: `0 of ${totalCount} rendered successfully`,
+        finishedAt: new Date().toISOString(),
+      });
+      return;
+    }
+
+    updateImageJob(jobId, {
+      phase: 'building_archive',
+      message: `Creating ZIP archive with ${pngPaths.length} files`,
+      completedCount: renderedCount,
+      rejectedCount: failedCount,
+    });
+
+    const archiveName = `hearthstone-renders-${jobId.slice(0, 8)}.zip`;
+    const archivePath = join(tempDir, archiveName);
+    await Bun.spawn(['zip', '-j', archivePath, ...pngPaths]).exited;
+
+    updateImageJob(jobId, {
+      phase: 'completed',
+      message: `Completed: ${pngPaths.length} files in archive`,
+      completedCount: pngPaths.length,
+      rejectedCount: failedCount,
+      downloadArchivePath: archivePath,
+      finishedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') return;
+    const message = error instanceof Error ? error.message : String(error);
+    updateImageJob(jobId, {
+      phase: 'failed',
+      message,
+      errorMessage: message,
+      finishedAt: new Date().toISOString(),
+    });
+  } finally {
+    clearJobController();
+  }
+}
+
+const getArchiveInput = z.strictObject({
+  filePath: z.string().trim().min(1),
+});
+
+/** Returns the base64-encoded ZIP file at the given path for browser download. */
+const getArchive = os
+  .route({
+    method:      'POST',
+    description: 'Get a generated ZIP archive as base64 for browser download',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Image'],
+  })
+  .input(getArchiveInput)
+  .output(downloadArchiveSyncOutput)
+  .handler(async ({ input }) => {
+    const file = Bun.file(input.filePath.trim());
+    if (!(await file.exists())) {
+      throw new ORPCError('NOT_FOUND', {
+        message: `Archive not found: ${input.filePath}`,
+      });
+    }
+    const zipBytes = await file.arrayBuffer();
+    const base64Zip = Buffer.from(new Uint8Array(zipBytes)).toString('base64');
+    return {
+      fileName:  input.filePath.split(/[/\\]/).pop() ?? 'archive.zip',
+      base64Zip,
+    };
+  });
+
 /** Groups the desktop runtime Hearthstone image procedures under one router namespace. */
 export const imageRouter = {
   exportRequirements,
@@ -1441,4 +1843,7 @@ export const imageRouter = {
   pauseJob,
   stopJob,
   resumeJob,
+  previewRender,
+  downloadArchive,
+  getArchive,
 };

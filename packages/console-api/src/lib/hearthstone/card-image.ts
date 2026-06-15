@@ -313,6 +313,11 @@ export function isCardImageVariantAllowed(
     return false;
   }
 
+  // Mercenary abilities have no golden variant
+  if (row.type === 'mercenary_ability' && variant.premium === 'golden') {
+    return false;
+  }
+
   if (variant.premium === 'normal' || variant.premium === 'golden') {
     return true;
   }

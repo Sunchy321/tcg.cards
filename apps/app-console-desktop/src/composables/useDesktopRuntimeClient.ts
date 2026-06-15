@@ -3,7 +3,8 @@ import { RPCLink } from '@orpc/client/fetch';
 
 import type { RouterClient } from '@orpc/server';
 import type { Router } from 'service-desktop-runtime/orpc';
-import type { CardImageRequirementExportInput, CardImageRequirementExportResult, ImageRequirementRequest } from '#model/hearthstone/schema/data/image';
+import type { Locale } from '#model/hearthstone/schema/basic';
+import type { CardImageRequirementExportInput, CardImageRequirementExportResult, ImagePremium, ImageRequirementRequest, ImageTemplate, ImageZone } from '#model/hearthstone/schema/data/image';
 
 const defaultDesktopRuntimeRpcUrl = 'http://localhost:4318/rpc';
 
@@ -56,12 +57,12 @@ export interface DesktopHearthstoneImageJob {
   finishedAt: string | null;
   updatedAt: string;
   filters: {
-    lang: string;
+    lang: Locale;
     version: number | null;
     cardId: string | null;
-    zones: string[];
-    templates: string[];
-    premiums: string[];
+    zones: ImageZone[];
+    templates: ImageTemplate[];
+    premiums: ImagePremium[];
     limit: number;
     cursor: string | null;
     scanAll: boolean;
@@ -86,6 +87,8 @@ export interface DesktopHearthstoneImageJob {
   overallRejectedCount: number | null;
   currentBatchIndex: number | null;
   totalBatches: number | null;
+  outputMode: string;
+  downloadArchivePath: string | null;
 }
 
 /** Renderer health status fields returned from GET /status per the renderer protocol. */
@@ -143,11 +146,12 @@ export function submitDesktopHearthstoneImageJob(input: CardImageRequirementExpo
 }
 
 export type DesktopReimportByRenderHashInput = {
-  renderHash: string;
-  lang?: string;
-  zones?: string[];
-  templates?: string[];
-  premiums?: string[];
+  cardId?: string;
+  renderHash?: string;
+  lang?: Locale;
+  zones?: ImageZone[];
+  templates?: ImageTemplate[];
+  premiums?: ImagePremium[];
 };
 
 /** Reimports card images for one renderHash: builds requests, renders, and force-imports. */
@@ -206,15 +210,17 @@ export interface DesktopImageJobProgressEvent {
   overallRejectedCount: number | null;
   currentBatchIndex: number | null;
   totalBatches: number | null;
+  downloadArchivePath: string | null;
 }
 
 /** Input payload for the debug render request RPC. */
 export interface DesktopDebugRenderRequestInput {
-  renderHash: string;
-  lang?: string;
-  zones?: string[];
-  templates?: string[];
-  premiums?: string[];
+  cardId?: string;
+  renderHash?: string;
+  lang?: Locale;
+  zones?: ImageZone[];
+  templates?: ImageTemplate[];
+  premiums?: ImagePremium[];
 }
 
 /** Debug render request result returned by the desktop runtime. */
@@ -232,6 +238,85 @@ export interface DesktopDebugRenderRequestResult {
 /** Generates debug render request POST bodies for a given renderHash. */
 export function debugDesktopHearthstoneImageRenderRequest(input: DesktopDebugRenderRequestInput) {
   return useDesktopRuntimeClient().image.debugRenderRequest(input) as Promise<DesktopDebugRenderRequestResult>;
+}
+
+/** Input for the preview render RPC. */
+export interface DesktopPreviewRenderInput {
+  cardId?: string;
+  renderHash?: string;
+  lang?: Locale;
+  zones?: ImageZone[];
+  templates?: ImageTemplate[];
+  premiums?: ImagePremium[];
+}
+
+/** One preview variant returned by the preview render RPC. */
+export interface DesktopPreviewVariant {
+  zone: ImageZone;
+  template: ImageTemplate;
+  premium: ImagePremium;
+  base64Png: string;
+  requestId: string;
+}
+
+/** Result returned by the preview render RPC. */
+export interface DesktopPreviewRenderResult {
+  cardId: string;
+  renderHash: string;
+  set: string;
+  type: string;
+  techLevel: number | null;
+  variantCount: number;
+  previews: DesktopPreviewVariant[];
+}
+
+/** Renders one card for preview and returns base64 PNG data without writing to disk. */
+export function previewDesktopHearthstoneImage(input: DesktopPreviewRenderInput) {
+  return useDesktopRuntimeClient().image.previewRender(input) as Promise<DesktopPreviewRenderResult>;
+}
+
+/** Input for the download archive RPC. */
+export interface DesktopDownloadArchiveInput {
+  cardId?: string;
+  renderHash?: string;
+  lang?: Locale;
+  zones?: ImageZone[];
+  templates?: ImageTemplate[];
+  premiums?: ImagePremium[];
+  version?: number;
+  limit?: number;
+}
+
+/** Synchronous download archive result (single-card mode). */
+export interface DesktopDownloadArchiveSyncResult {
+  fileName: string;
+  base64Zip: string;
+}
+
+/** Renders card images and packages them into a ZIP archive for download. */
+export function downloadDesktopHearthstoneImageArchive(input: DesktopDownloadArchiveInput) {
+  return useDesktopRuntimeClient().image.downloadArchive(input) as Promise<
+    DesktopDownloadArchiveSyncResult | { job: DesktopHearthstoneImageJob }
+  >;
+}
+
+/** Fetches a previously generated ZIP archive as base64 for browser download. */
+export function getDesktopHearthstoneImageArchive(filePath: string) {
+  return useDesktopRuntimeClient().image.getArchive({ filePath }) as Promise<DesktopDownloadArchiveSyncResult>;
+}
+
+/** Triggers a browser download from a base64-encoded ZIP. */
+export function triggerDownload(base64Zip: string, fileName: string) {
+  const bytes = Uint8Array.from(atob(base64Zip), c => c.charCodeAt(0));
+  const blob = new Blob([bytes], { type: 'application/zip' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 /** Opens a file or directory path in the OS-native file manager via the desktop runtime. */

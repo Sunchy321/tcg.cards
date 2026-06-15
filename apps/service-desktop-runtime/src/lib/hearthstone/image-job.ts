@@ -1,21 +1,27 @@
+import type { Locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
+import type { ImagePremium, ImageTemplate, ImageZone } from '@tcg-cards/model/src/hearthstone/schema/data/image';
+
 /** Desktop image job phases exposed to the frontend polling UI. */
 export type ImageJobPhase =
   | 'exporting_requirements'
   | 'submitting_renderer_job'
   | 'importing_local_bucket'
+  | 'building_archive'
   | 'paused'
   | 'stopped'
   | 'completed'
   | 'failed';
 
+export type ImageJobOutputMode = 'write' | 'download';
+
 /** Filters snapshot stored alongside one submitted desktop image job. */
 export interface ImageJobFilters {
-  lang: string;
+  lang: Locale;
   version: number | null;
   cardId: string | null;
-  zones: string[];
-  templates: string[];
-  premiums: string[];
+  zones: ImageZone[];
+  templates: ImageTemplate[];
+  premiums: ImagePremium[];
   limit: number;
   cursor: string | null;
   scanAll: boolean;
@@ -56,6 +62,10 @@ export interface ImageJobState {
   currentBatchIndex: number | null;
   /** Estimated total batches in scanAll mode. */
   totalBatches: number | null;
+  /** Output mode: write to local bucket or download archive. */
+  outputMode: ImageJobOutputMode;
+  /** Path to the generated ZIP archive when outputMode is 'download'. */
+  downloadArchivePath: string | null;
 }
 
 /** Lightweight progress event pushed to the frontend via the event iterator stream. */
@@ -77,6 +87,7 @@ export interface ImageJobProgressEvent {
   overallRejectedCount: number | null;
   currentBatchIndex: number | null;
   totalBatches: number | null;
+  downloadArchivePath: string | null;
 }
 
 interface ImageProgressSubscriber {
@@ -127,6 +138,7 @@ function buildProgressFromJob(state: ImageJobState): ImageJobProgressEvent {
     overallRejectedCount:  state.overallRejectedCount,
     currentBatchIndex:     state.currentBatchIndex,
     totalBatches:          state.totalBatches,
+    downloadArchivePath:   state.downloadArchivePath,
   };
 }
 
@@ -180,6 +192,7 @@ export async function* watchImageJob(): AsyncGenerator<ImageJobProgressEvent> {
 export function startImageJob(input: {
   message: string;
   filters: ImageJobFilters;
+  outputMode?: ImageJobOutputMode;
 }) {
   const now = new Date().toISOString();
   const state: ImageJobState = {
@@ -211,6 +224,8 @@ export function startImageJob(input: {
     overallRejectedCount: null,
     currentBatchIndex: null,
     totalBatches: null,
+    outputMode: input.outputMode ?? 'write',
+    downloadArchivePath: null,
   };
 
   currentImageJob = state;
