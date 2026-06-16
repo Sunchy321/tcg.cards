@@ -26,7 +26,7 @@ const publishTypes = [
 ];
 
 const toast = useToast();
-const publishTargetId = ref<string | null>(null);
+const publishTarget = ref<string | null>(null);
 const publishTargetEnvironment = ref<string | null>(null);
 const publishTargetFingerprint = ref<string | null>(null);
 const publishTargetError = ref('');
@@ -70,7 +70,7 @@ async function submitSingleCardPublish() {
 
 const hasPublishTarget = computed(() => {
   return Boolean(
-    publishTargetId.value
+    publishTarget.value
     && publishTargetEnvironment.value
     && publishTargetFingerprint.value,
   );
@@ -180,13 +180,13 @@ async function loadPublishTarget() {
 
   try {
     const target = await getDesktopHearthstonePublishTarget();
-    publishTargetId.value = target.publishTargetId ?? null;
+    publishTarget.value = target.publishTarget ?? null;
     publishTargetEnvironment.value = target.environment ?? null;
     publishTargetFingerprint.value = target.targetFingerprint ?? null;
   } catch (error) {
     console.error('Failed to load Hearthstone publish target:', error);
     publishTargetError.value = getHsdataErrorMessage(error);
-    publishTargetId.value = null;
+    publishTarget.value = null;
     publishTargetEnvironment.value = null;
     publishTargetFingerprint.value = null;
   }
@@ -221,7 +221,7 @@ async function submitPublish() {
     publishResult.value = result;
     toast.add({
       title: '发布已完成',
-      description: `${result.publishTargetId} / ${result.environment} / changed=${result.changedRowCount}`,
+      description: `${result.publishTarget} / ${result.environment} / changed=${result.changedRowCount}`,
       color: 'success',
     });
   } catch (error) {
@@ -347,7 +347,7 @@ onBeforeUnmount(() => {
         </div>
         <div class="flex items-center gap-3 text-xs">
           <template v-if="hasPublishTarget">
-            <span class="text-muted">{{ publishTargetId }}</span>
+            <span class="text-muted">{{ publishTarget }}</span>
             <span class="text-muted">·</span>
             <span class="text-muted">{{ publishTargetEnvironment }}</span>
             <UBadge :label="publishTargetFingerprint?.slice(0, 12) ?? ''" color="neutral" variant="soft" size="xs" />

@@ -31,7 +31,7 @@ impl Default for HearthstonePublishTargetConnectionStringCache {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct DesktopHearthstonePublishTargetSettings {
-    pub(crate) publish_target_id: Option<String>,
+    pub(crate) publish_target: Option<String>,
     pub(crate) environment: Option<String>,
     pub(crate) target_fingerprint: Option<String>,
     pub(crate) connection_string: Option<String>,
@@ -41,7 +41,7 @@ pub(crate) struct DesktopHearthstonePublishTargetSettings {
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct DesktopHearthstonePublishTargetTestResult {
-    publish_target_id: String,
+    publish_target: String,
     environment: String,
     target_fingerprint: String,
     database_name: String,
@@ -57,7 +57,7 @@ pub(crate) struct DesktopHearthstonePublishTargetTestResult {
 pub(crate) struct DesktopHearthstonePublishTargetValidationResult {
     is_valid: bool,
     reasons: Vec<String>,
-    current_publish_target_id: Option<String>,
+    current_publish_target: Option<String>,
     current_environment: Option<String>,
     current_target_fingerprint: Option<String>,
 }
@@ -66,7 +66,7 @@ pub(crate) struct DesktopHearthstonePublishTargetValidationResult {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ResolvedHearthstonePublishTarget {
-    pub(crate) publish_target_id: String,
+    pub(crate) publish_target: String,
     pub(crate) environment: String,
     pub(crate) target_fingerprint: String,
     pub(crate) database_name: String,
@@ -154,7 +154,7 @@ fn build_publish_target_settings(
     connection_string: Option<String>,
 ) -> DesktopHearthstonePublishTargetSettings {
     DesktopHearthstonePublishTargetSettings {
-        publish_target_id: profile.map(|profile| profile.publish_target_id.clone()),
+        publish_target: profile.map(|profile| profile.publish_target.clone()),
         environment: profile.map(|profile| profile.environment.clone()),
         target_fingerprint: profile.map(|profile| profile.target_fingerprint.clone()),
         connection_string,
@@ -218,38 +218,38 @@ fn load_publish_target_settings(
 
 /// Publish target fields normalized from one explicit frontend request.
 fn resolve_requested_target_fields(
-    publish_target_id: Option<String>,
+    publish_target: Option<String>,
     environment: Option<String>,
     connection_string: Option<String>,
 ) -> Result<Option<(String, String, String)>, String> {
-    let publish_target_id = trim_non_empty(publish_target_id);
+    let publish_target = trim_non_empty(publish_target);
     let environment = trim_non_empty(environment);
     let connection_string = trim_non_empty(connection_string);
 
-    if publish_target_id.is_none() && environment.is_none() && connection_string.is_none() {
+    if publish_target.is_none() && environment.is_none() && connection_string.is_none() {
         return Ok(None);
     }
 
-    let publish_target_id = publish_target_id
-        .ok_or_else(|| "Hearthstone publish target id is required.".to_string())?;
+    let publish_target = publish_target
+        .ok_or_else(|| "Hearthstone publish target is required.".to_string())?;
     let environment = environment
         .ok_or_else(|| "Hearthstone publish target environment is required.".to_string())?;
     let connection_string = connection_string
         .ok_or_else(|| "Hearthstone publish target connection string is required.".to_string())?;
 
-    Ok(Some((publish_target_id, environment, connection_string)))
+    Ok(Some((publish_target, environment, connection_string)))
 }
 
 /// Live publish target identity resolved from one explicit profile and connection string.
 async fn resolve_publish_target(
-    publish_target_id: String,
+    publish_target: String,
     environment: String,
     connection_string: String,
 ) -> Result<ResolvedHearthstonePublishTarget, String> {
     post_runtime_json(
         "desktop/test-hearthstone-publish-target",
         json!({
-            "publishTargetId": publish_target_id,
+            "publishTarget": publish_target,
             "environment": environment,
             "connectionString": connection_string,
         }),
@@ -267,7 +267,7 @@ pub(crate) async fn require_resolved_publish_target(
         "Hearthstone publish target connection string is not configured.".to_string()
     })?;
     let target = resolve_publish_target(
-        profile.publish_target_id.clone(),
+        profile.publish_target.clone(),
         profile.environment.clone(),
         connection_string,
     )
@@ -294,18 +294,18 @@ pub(crate) fn desktop_get_hearthstone_publish_target(
 /// Publish target connection tested without mutating stored desktop settings.
 #[tauri::command]
 pub(crate) async fn desktop_test_hearthstone_publish_target(
-    publish_target_id: Option<String>,
+    publish_target: Option<String>,
     environment: Option<String>,
     connection_string: Option<String>,
 ) -> Result<DesktopHearthstonePublishTargetTestResult, String> {
-    let (publish_target_id, environment, connection_string) =
-        resolve_requested_target_fields(publish_target_id, environment, connection_string)?
+    let (publish_target, environment, connection_string) =
+        resolve_requested_target_fields(publish_target, environment, connection_string)?
             .ok_or_else(|| "Hearthstone publish target settings are required.".to_string())?;
     let started_at = Instant::now();
-    let target = resolve_publish_target(publish_target_id, environment, connection_string).await?;
+    let target = resolve_publish_target(publish_target, environment, connection_string).await?;
 
     Ok(DesktopHearthstonePublishTargetTestResult {
-        publish_target_id: target.publish_target_id,
+        publish_target: target.publish_target,
         environment: target.environment,
         target_fingerprint: target.target_fingerprint,
         database_name: target.database_name,
@@ -320,19 +320,19 @@ pub(crate) async fn desktop_test_hearthstone_publish_target(
 #[tauri::command]
 pub(crate) async fn desktop_set_hearthstone_publish_target(
     app: AppHandle,
-    publish_target_id: Option<String>,
+    publish_target: Option<String>,
     environment: Option<String>,
     connection_string: Option<String>,
 ) -> Result<DesktopHearthstonePublishTargetSettings, String> {
     let requested =
-        resolve_requested_target_fields(publish_target_id, environment, connection_string)?;
+        resolve_requested_target_fields(publish_target, environment, connection_string)?;
 
-    let Some((publish_target_id, environment, connection_string)) = requested else {
+    let Some((publish_target, environment, connection_string)) = requested else {
         store_publish_target_profile(&app, None)?;
         store_publish_target_connection_string(&app, None)?;
         schedule_desktop_runtime_config_sync(app.clone());
         return Ok(DesktopHearthstonePublishTargetSettings {
-            publish_target_id: None,
+            publish_target: None,
             environment: None,
             target_fingerprint: None,
             connection_string: None,
@@ -340,7 +340,7 @@ pub(crate) async fn desktop_set_hearthstone_publish_target(
     };
 
     let target = resolve_publish_target(
-        publish_target_id.clone(),
+        publish_target.clone(),
         environment.clone(),
         connection_string.clone(),
     )
@@ -350,7 +350,7 @@ pub(crate) async fn desktop_set_hearthstone_publish_target(
     store_publish_target_profile(
         &app,
         Some(StoredHearthstonePublishTargetProfile {
-            publish_target_id,
+            publish_target,
             environment,
             target_fingerprint: target.target_fingerprint.clone(),
         }),
@@ -358,7 +358,7 @@ pub(crate) async fn desktop_set_hearthstone_publish_target(
     schedule_desktop_runtime_config_sync(app.clone());
 
     Ok(DesktopHearthstonePublishTargetSettings {
-        publish_target_id: Some(target.publish_target_id),
+        publish_target: Some(target.publish_target),
         environment: Some(target.environment),
         target_fingerprint: Some(target.target_fingerprint),
         connection_string: Some(connection_string),
@@ -369,12 +369,12 @@ pub(crate) async fn desktop_set_hearthstone_publish_target(
 #[tauri::command]
 pub(crate) async fn desktop_validate_hearthstone_publish_target_binding(
     app: AppHandle,
-    publish_target_id: String,
+    publish_target: String,
     environment: String,
     target_fingerprint: String,
 ) -> Result<DesktopHearthstonePublishTargetValidationResult, String> {
-    let expected_publish_target_id = trim_non_empty(Some(publish_target_id))
-        .ok_or_else(|| "Expected Hearthstone publish target id is required.".to_string())?;
+    let expected_publish_target = trim_non_empty(Some(publish_target))
+        .ok_or_else(|| "Expected Hearthstone publish target is required.".to_string())?;
     let expected_environment = trim_non_empty(Some(environment)).ok_or_else(|| {
         "Expected Hearthstone publish target environment is required.".to_string()
     })?;
@@ -386,20 +386,20 @@ pub(crate) async fn desktop_validate_hearthstone_publish_target_binding(
     let profile = load_publish_target_profile(&app)?;
     let connection_string = load_publish_target_connection_string(&app)?;
     let mut reasons = Vec::new();
-    let current_publish_target_id = profile
+    let current_publish_target = profile
         .as_ref()
-        .map(|profile| profile.publish_target_id.clone());
+        .map(|profile| profile.publish_target.clone());
     let current_environment = profile.as_ref().map(|profile| profile.environment.clone());
     let mut current_target_fingerprint = profile
         .as_ref()
         .map(|profile| profile.target_fingerprint.clone());
 
-    match current_publish_target_id.as_deref() {
-        Some(current_publish_target_id) if current_publish_target_id == expected_publish_target_id => {}
-        Some(current_publish_target_id) => reasons.push(format!(
-            "Configured publish target id changed: expected {expected_publish_target_id}, current {current_publish_target_id}."
+    match current_publish_target.as_deref() {
+        Some(current_publish_target) if current_publish_target == expected_publish_target => {}
+        Some(current_publish_target) => reasons.push(format!(
+            "Configured publish target changed: expected {expected_publish_target}, current {current_publish_target}."
         )),
-        None => reasons.push("Configured publish target id is missing.".to_string()),
+        None => reasons.push("Configured publish target is missing.".to_string()),
     }
 
     match current_environment.as_deref() {
@@ -421,15 +421,15 @@ pub(crate) async fn desktop_validate_hearthstone_publish_target_binding(
 
     match connection_string {
         Some(connection_string) => {
-            let live_publish_target_id = current_publish_target_id
+            let live_publish_target = current_publish_target
                 .clone()
-                .unwrap_or_else(|| expected_publish_target_id.clone());
+                .unwrap_or_else(|| expected_publish_target.clone());
             let live_environment = current_environment
                 .clone()
                 .unwrap_or_else(|| expected_environment.clone());
 
             match resolve_publish_target(
-                live_publish_target_id,
+                live_publish_target,
                 live_environment,
                 connection_string,
             )
@@ -458,7 +458,7 @@ pub(crate) async fn desktop_validate_hearthstone_publish_target_binding(
     Ok(DesktopHearthstonePublishTargetValidationResult {
         is_valid: reasons.is_empty(),
         reasons,
-        current_publish_target_id,
+        current_publish_target,
         current_environment,
         current_target_fingerprint,
     })

@@ -13,7 +13,7 @@ export type PublishPhase =
 export interface PublishJobProgressEvent {
   batchId: string;
   publishType: string;
-  publishTargetId: string;
+  publishTarget: string;
   phase: PublishPhase | string;
   message: string;
   startedAt: string;
@@ -28,7 +28,7 @@ export interface PublishJobProgressEvent {
 export interface PublishJobState {
   batchId: string;
   publishType: string;
-  publishTargetId: string;
+  publishTarget: string;
   progress: PublishJobProgressEvent;
   updatedAt: string;
 }
@@ -108,7 +108,7 @@ async function* streamPublishProgress(): AsyncGenerator<PublishJobProgressEvent>
 /** Starts a publish job entry and stores its first progress payload. */
 export function startPublishJob(input: {
   publishType: string;
-  publishTargetId: string;
+  publishTarget: string;
   totalRowCount?: number | null;
 }): PublishJobState {
   const batchId = crypto.randomUUID();
@@ -116,7 +116,7 @@ export function startPublishJob(input: {
   const progress: PublishJobProgressEvent = {
     batchId,
     publishType: input.publishType,
-    publishTargetId: input.publishTargetId,
+    publishTarget: input.publishTarget,
     phase: 'loading_snapshots',
     message: '正在加载本地快照...',
     startedAt,
@@ -130,7 +130,7 @@ export function startPublishJob(input: {
   const state: PublishJobState = {
     batchId,
     publishType: input.publishType,
-    publishTargetId: input.publishTargetId,
+    publishTarget: input.publishTarget,
     progress,
     updatedAt: new Date().toISOString(),
   };

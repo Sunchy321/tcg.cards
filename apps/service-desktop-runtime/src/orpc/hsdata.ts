@@ -496,7 +496,7 @@ const publishCurrentToRemote = os
   }))
   .output(publishReport)
   .handler(async ({ input }) => {
-    const job = startPublishJob({ publishType: 'card_data', publishTargetId: '' });
+    const job = startPublishJob({ publishType: 'card_data', publishTarget: '' });
 
     try {
       const report = await publishCurrentHsdataToRemote({

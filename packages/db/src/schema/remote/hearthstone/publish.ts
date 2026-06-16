@@ -2,6 +2,7 @@ import {
   check,
   index,
   integer,
+  primaryKey,
   text,
   timestamp,
   uuid,
@@ -10,11 +11,12 @@ import { sql } from 'drizzle-orm';
 
 import { dataSchema } from '../../shared/hearthstone/schema';
 
-// Remote publish ledger keeps the last successful batch per publish target so serving-side
+// Remote publish ledger keeps the last successful batch per publish stream so serving-side
 // environments can be reconciled without treating the remote database as a build authority.
 export const PublishLedger = dataSchema.table('publish_ledgers', {
-  publishTargetId: text('publish_target_id').primaryKey(),
+  publishTarget: text('publish_target').notNull(),
   environment:     text('environment').notNull(),
+  publishType:     text('publish_type').notNull().default('card_data'),
 
   targetFingerprint: text('target_fingerprint').notNull(),
   batchId:           uuid('batch_id').notNull(),
@@ -35,7 +37,9 @@ export const PublishLedger = dataSchema.table('publish_ledgers', {
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
 }, table => [
+  primaryKey({ columns: [table.publishTarget, table.environment, table.publishType] }),
   index('publish_ledgers_environment_idx').on(table.environment),
+  index('publish_ledgers_stream_idx').on(table.publishTarget, table.environment, table.publishType),
   index('publish_ledgers_published_at_idx').on(table.publishedAt),
   check('publish_ledgers_source_tag_range_chk', sql`${table.sourceTagMin} <= ${table.sourceTagMax}`),
   check('publish_ledgers_build_range_chk', sql`${table.buildMin} <= ${table.buildMax}`),

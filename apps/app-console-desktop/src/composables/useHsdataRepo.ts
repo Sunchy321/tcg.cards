@@ -291,7 +291,7 @@ export type HsdataSingleCardPublishReport = SingleCardPublishReport;
 export interface PublishJobProgressEvent {
   batchId: string;
   publishType: string;
-  publishTargetId: string;
+  publishTarget: string;
   phase: string;
   message: string;
   startedAt: string;

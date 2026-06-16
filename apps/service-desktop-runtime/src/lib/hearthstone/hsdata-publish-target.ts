@@ -4,7 +4,7 @@ import { readHearthstonePublishTargetOverride } from '../../runtime-config';
 
 /** Complete Hearthstone publish target state required by the Bun publish workflow. */
 export interface HsdataPublishTarget {
-  publishTargetId: string;
+  publishTarget: string;
   environment: string;
   targetFingerprint: string;
   connectionString: string;
@@ -22,8 +22,8 @@ const listMissingFields = (
 ) => {
   const missing: string[] = [];
 
-  if (trimToNull(target?.publishTargetId) == null) {
-    missing.push('publishTargetId');
+  if (trimToNull(target?.publishTarget) == null) {
+    missing.push('publishTarget');
   }
 
   if (trimToNull(target?.environment) == null) {
@@ -44,17 +44,17 @@ const listMissingFields = (
 /** Reads the current runtime-injected publish target when all required fields are present. */
 export const getHearthstonePublishTarget = () => {
   const target = readHearthstonePublishTargetOverride();
-  const publishTargetId = trimToNull(target?.publishTargetId);
+  const publishTarget = trimToNull(target?.publishTarget);
   const environment = trimToNull(target?.environment);
   const targetFingerprint = trimToNull(target?.targetFingerprint);
   const connectionString = trimToNull(target?.connectionString);
 
-  if (publishTargetId == null || environment == null || targetFingerprint == null || connectionString == null) {
+  if (publishTarget == null || environment == null || targetFingerprint == null || connectionString == null) {
     return null;
   }
 
   return {
-    publishTargetId,
+    publishTarget,
     environment,
     targetFingerprint,
     connectionString,

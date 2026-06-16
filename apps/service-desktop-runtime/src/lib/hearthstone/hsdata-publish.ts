@@ -2,6 +2,12 @@ import { randomUUID } from 'node:crypto';
 
 import { and, asc, count, desc, eq, gt, inArray, lte, ne } from 'drizzle-orm';
 import { z } from 'zod';
+import {
+  publishOperationKind as publishOperationKindSchema,
+  type PublishOperationKind,
+  type PublishStream,
+} from '@tcg-cards/model/src/game-data-sync';
+import type { Locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
 
 import { createDb } from '@tcg-cards/db';
 import {
@@ -60,6 +66,11 @@ interface PublishDatasetRange {
   buildMax: number;
 }
 
+/** Describes one publish-owned stream identity used by baseline and ledger state. */
+interface PublishStreamIdentity extends PublishStream {
+  targetFingerprint: string;
+}
+
 interface PublishBatchCounts {
   totalRowCount: number;
   changedRowCount: number;
@@ -75,7 +86,7 @@ interface PublishBatchCounts {
 
 export const publishReport = z.object({
   batchId: z.string(),
-  publishTargetId: z.string(),
+  publishTarget: z.string(),
   environment: z.string(),
   targetFingerprint: z.string(),
   publishType: z.string(),
@@ -640,14 +651,18 @@ async function loadCurrentRowSnapshots(
 /** Previous successful per-row hashes loaded from the current local publish baseline. */
 async function loadPreviousRowStates(
   db: PublishDb,
-  publishTargetId: string,
+  stream: PublishStream,
 ): Promise<{
     baseline: typeof PublishBaseline.$inferSelect | null;
     previous: Map<TableName, Map<string, string>>;
   }> {
   const baseline = await db.select()
     .from(PublishBaseline)
-    .where(eq(PublishBaseline.publishTargetId, publishTargetId))
+    .where(and(
+      eq(PublishBaseline.publishTarget, stream.publishTarget),
+      eq(PublishBaseline.environment, stream.environment),
+      eq(PublishBaseline.publishType, stream.publishType),
+    ))
     .then(rows => rows[0] ?? null);
 
   const previous = new Map<TableName, Map<string, string>>();
@@ -809,10 +824,11 @@ async function insertPublishBatch(
   db: PublishDb,
   input: {
     batchId: string;
-    publishTargetId: string;
+    publishTarget: string;
     environment: string;
     targetFingerprint: string;
     publishType: string;
+    operationKind: PublishOperationKind;
     range: PublishDatasetRange;
     manifestHash: string;
     previousManifestHash: string | null;
@@ -823,10 +839,11 @@ async function insertPublishBatch(
 
   await db.insert(PublishBatch).values({
     id: input.batchId,
-    publishTargetId: input.publishTargetId,
+    publishTarget: input.publishTarget,
     environment: input.environment,
     targetFingerprint: input.targetFingerprint,
     publishType: input.publishType,
+    operationKind: input.operationKind,
     sourceTagMin: input.range.sourceTagMin,
     sourceTagMax: input.range.sourceTagMax,
     buildMin: input.range.buildMin,
@@ -912,9 +929,10 @@ async function finalizePublishBatchSuccess(
   db: PublishDb,
   input: {
     batchId: string;
-    publishTargetId: string;
+    publishTarget: string;
     environment: string;
     targetFingerprint: string;
+    publishType: string;
     range: PublishDatasetRange;
     counts: PublishBatchCounts;
     manifestHash: string;
@@ -924,7 +942,7 @@ async function finalizePublishBatchSuccess(
 ): Promise<void> {
   const summary = {
     batchId: input.batchId,
-    publishTargetId: input.publishTargetId,
+    publishTarget: input.publishTarget,
     environment: input.environment,
     totalRowCount: input.counts.totalRowCount,
     changedRowCount: input.counts.changedRowCount,
@@ -965,8 +983,9 @@ async function finalizePublishBatchSuccess(
     .where(eq(PublishBatch.id, input.batchId));
 
   await db.insert(PublishBaseline).values({
-    publishTargetId: input.publishTargetId,
+    publishTarget: input.publishTarget,
     environment: input.environment,
+    publishType: input.publishType,
     targetFingerprint: input.targetFingerprint,
     batchId: input.batchId,
     sourceTagMin: input.range.sourceTagMin,
@@ -980,9 +999,14 @@ async function finalizePublishBatchSuccess(
     updatedAt: input.publishedAt,
   })
     .onConflictDoUpdate({
-      target: PublishBaseline.publishTargetId,
+      target: [
+        PublishBaseline.publishTarget,
+        PublishBaseline.environment,
+        PublishBaseline.publishType,
+      ],
       set: {
         environment: input.environment,
+        publishType: input.publishType,
         targetFingerprint: input.targetFingerprint,
         batchId: input.batchId,
         sourceTagMin: input.range.sourceTagMin,
@@ -996,11 +1020,13 @@ async function finalizePublishBatchSuccess(
       },
     });
 
-    // Clean up batch rows from old completed batches for this target
+    // Clean up batch rows from old completed batches for this publish stream.
     const oldBatchIds = await db.select({ id: PublishBatch.id })
       .from(PublishBatch)
       .where(and(
-        eq(PublishBatch.publishTargetId, input.publishTargetId),
+        eq(PublishBatch.publishTarget, input.publishTarget),
+        eq(PublishBatch.environment, input.environment),
+        eq(PublishBatch.publishType, input.publishType),
         eq(PublishBatch.status, 'completed'),
         ne(PublishBatch.id, input.batchId),
       ))
@@ -1049,9 +1075,10 @@ async function upsertRemotePublishLedger(
   tx: PublishDbTx,
   input: {
     batchId: string;
-    publishTargetId: string;
+    publishTarget: string;
     environment: string;
     targetFingerprint: string;
+    publishType: string;
     range: PublishDatasetRange;
     counts: PublishBatchCounts;
     manifestHash: string;
@@ -1059,8 +1086,9 @@ async function upsertRemotePublishLedger(
   },
 ): Promise<void> {
   await tx.insert(PublishLedger).values({
-    publishTargetId: input.publishTargetId,
+    publishTarget: input.publishTarget,
     environment: input.environment,
+    publishType: input.publishType,
     targetFingerprint: input.targetFingerprint,
     batchId: input.batchId,
     sourceTagMin: input.range.sourceTagMin,
@@ -1075,9 +1103,14 @@ async function upsertRemotePublishLedger(
     updatedAt: input.publishedAt,
   })
     .onConflictDoUpdate({
-      target: PublishLedger.publishTargetId,
+      target: [
+        PublishLedger.publishTarget,
+        PublishLedger.environment,
+        PublishLedger.publishType,
+      ],
       set: {
         environment: input.environment,
+        publishType: input.publishType,
         targetFingerprint: input.targetFingerprint,
         batchId: input.batchId,
         sourceTagMin: input.range.sourceTagMin,
@@ -1112,7 +1145,7 @@ async function deleteRemoteRow(
     case 'entity_localizations':
       await tx.delete(RemoteEntityLocalization).where(and(
         eq(RemoteEntityLocalization.cardId, rowPk.cardId!),
-        eq(RemoteEntityLocalization.lang, rowPk.lang!),
+        eq(RemoteEntityLocalization.lang, rowPk.lang! as Locale),
         eq(RemoteEntityLocalization.revisionHash, rowPk.revisionHash!),
         eq(RemoteEntityLocalization.localizationHash, rowPk.localizationHash!),
       ));
@@ -1200,9 +1233,10 @@ async function applyRowPlansToRemote(
     data: CurrentRowData;
     plans: PublishBatchRowPlan[];
     batchId: string;
-    publishTargetId: string;
+    publishTarget: string;
     environment: string;
     targetFingerprint: string;
+    publishType: string;
     range: PublishDatasetRange;
     counts: PublishBatchCounts;
     manifestHash: string;
@@ -1273,9 +1307,10 @@ async function applyRowPlansToRemote(
       try {
         await upsertRemotePublishLedger(tx, {
           batchId: input.batchId,
-          publishTargetId: input.publishTargetId,
+          publishTarget: input.publishTarget,
           environment: input.environment,
           targetFingerprint: input.targetFingerprint,
+          publishType: input.publishType,
           range: input.range,
           counts: input.counts,
           manifestHash: input.manifestHash,
@@ -1313,13 +1348,21 @@ export async function createPublishPlan(options?: {
   const dryRun = options?.dryRun ?? false;
   const onProgress = options?.onProgress;
   const target = requireHearthstonePublishTarget();
+  const stream: PublishStreamIdentity = {
+    publishTarget: target.publishTarget,
+    environment: target.environment,
+    publishType,
+    targetFingerprint: target.targetFingerprint,
+  };
   const localDb = getLocalDb();
 
   // Prevent creating a new plan while another is still applying
   const active = await localDb.select()
     .from(PublishBatch)
     .where(and(
-      eq(PublishBatch.publishTargetId, target.publishTargetId),
+      eq(PublishBatch.publishTarget, stream.publishTarget),
+      eq(PublishBatch.environment, stream.environment),
+      eq(PublishBatch.publishType, stream.publishType),
       eq(PublishBatch.status, 'applying'),
     ))
     .then(rows => rows[0] ?? null);
@@ -1330,7 +1373,7 @@ export async function createPublishPlan(options?: {
 
   onProgress?.({ phase: 'loading_baseline', message: '正在加载上次发布基线...' });
 
-  const { baseline, previous } = await loadPreviousRowStates(localDb, target.publishTargetId);
+  const { baseline, previous } = await loadPreviousRowStates(localDb, stream);
   const previousManifestHash = baseline?.manifestHash ?? null;
   const lastPublishedAt = baseline?.publishedAt ?? null;
 
@@ -1360,10 +1403,11 @@ export async function createPublishPlan(options?: {
 
   await insertPublishBatch(localDb, {
     batchId,
-    publishTargetId: target.publishTargetId,
+    publishTarget: target.publishTarget,
     environment: target.environment,
     targetFingerprint: target.targetFingerprint,
     publishType,
+    operationKind: publishOperationKindSchema.enum.publish,
     range,
     manifestHash,
     previousManifestHash,
@@ -1424,7 +1468,7 @@ async function loadRowDataChunk(
 
       if (cardIds.length === 0) break;
 
-      const langs = [...new Set(pks.map(p => p.lang!))];
+      const langs = [...new Set(pks.map(p => p.lang! as Locale))];
       const revisionHashes = [...new Set(pks.map(p => p.revisionHash!))];
       const localizationHashes = [...new Set(pks.map(p => p.localizationHash!))];
 
@@ -1480,7 +1524,7 @@ function buildPublishReport(
 
   return {
     batchId: batch.id,
-    publishTargetId: batch.publishTargetId,
+    publishTarget: batch.publishTarget,
     environment: batch.environment,
     targetFingerprint: batch.targetFingerprint,
     publishType: batch.publishType,
@@ -1645,9 +1689,10 @@ export async function executePublishBatch(
     await remoteDb.transaction(async tx => {
       await upsertRemotePublishLedger(tx, {
         batchId,
-        publishTargetId: batch.publishTargetId,
+        publishTarget: batch.publishTarget,
         environment: batch.environment,
         targetFingerprint: batch.targetFingerprint,
+        publishType: batch.publishType,
         range: { sourceTagMin: batch.sourceTagMin, sourceTagMax: batch.sourceTagMax, buildMin: batch.buildMin, buildMax: batch.buildMax },
         counts: {
           totalRowCount: batch.totalRowCount,
@@ -1668,9 +1713,10 @@ export async function executePublishBatch(
 
     await finalizePublishBatchSuccess(localDb, {
       batchId,
-      publishTargetId: batch.publishTargetId,
+      publishTarget: batch.publishTarget,
       environment: batch.environment,
       targetFingerprint: batch.targetFingerprint,
+      publishType: batch.publishType,
       range: { sourceTagMin: batch.sourceTagMin, sourceTagMax: batch.sourceTagMax, buildMin: batch.buildMin, buildMax: batch.buildMax },
       counts: {
         totalRowCount: batch.totalRowCount,
@@ -1708,6 +1754,8 @@ export async function publishCurrentHsdataToRemote(options?: {
   const onProgress = options?.onProgress;
   const dryRun = options?.dryRun ?? false;
   const localDb = getLocalDb();
+  const target = requireHearthstonePublishTarget();
+  const publishType = options?.publishType ?? 'card_data';
 
   // Dry run: only analyze, skip all writes
   if (dryRun) {
@@ -1719,14 +1767,12 @@ export async function publishCurrentHsdataToRemote(options?: {
         : undefined,
     });
 
-    const target = requireHearthstonePublishTarget();
-
     return {
       batchId: '',
-      publishTargetId: target.publishTargetId,
+      publishTarget: target.publishTarget,
       environment: target.environment,
       targetFingerprint: target.targetFingerprint,
-      publishType: options?.publishType ?? 'card_data',
+      publishType,
       status: 'dry_run',
       manifestHash: plan.manifestHash,
       previousManifestHash: plan.previousManifestHash,
@@ -1751,9 +1797,12 @@ export async function publishCurrentHsdataToRemote(options?: {
   // Check for incomplete batches to resume
   const incomplete = await localDb.select()
     .from(PublishBatch)
-    .where(
+    .where(and(
       inArray(PublishBatch.status, ['planning', 'applying']),
-    )
+      eq(PublishBatch.publishTarget, target.publishTarget),
+      eq(PublishBatch.environment, target.environment),
+      eq(PublishBatch.publishType, publishType),
+    ))
     .orderBy(asc(PublishBatch.createdAt))
     .then(rows => rows[rows.length - 1] ?? null);
 
@@ -1780,7 +1829,10 @@ export async function listPublishBatches(): Promise<PublishReport[]> {
 
   const batches = await localDb.select()
     .from(PublishBatch)
-    .where(eq(PublishBatch.publishTargetId, target.publishTargetId))
+    .where(and(
+      eq(PublishBatch.publishTarget, target.publishTarget),
+      eq(PublishBatch.environment, target.environment),
+    ))
     .orderBy(desc(PublishBatch.createdAt))
     .limit(50);
 

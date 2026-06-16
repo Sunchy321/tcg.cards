@@ -36,7 +36,7 @@ const testLocalDatabaseInput = z.strictObject({
 });
 
 const testHearthstonePublishTargetInput = z.strictObject({
-  publishTargetId: z.string().trim().min(1),
+  publishTarget: z.string().trim().min(1),
   environment: z.string().trim().min(1),
   connectionString: z.string().trim().min(1),
 });
@@ -110,7 +110,7 @@ hono.post('/desktop/test-hearthstone-publish-target', async c => {
 
   if (!parsed.success) {
     return c.json({
-      message: 'Publish target id, environment, and connection string are required.',
+      message: 'Publish target, environment, and connection string are required.',
     }, 400);
   }
 

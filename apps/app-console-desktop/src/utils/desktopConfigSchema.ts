@@ -32,7 +32,7 @@ export const desktopConfigSchema = {
               type:                 'object',
               additionalProperties: true,
               properties:           {
-                publishTargetId: {
+                publishTarget: {
                   type:        'string',
                   description: 'Bound publish target identifier.',
                 },

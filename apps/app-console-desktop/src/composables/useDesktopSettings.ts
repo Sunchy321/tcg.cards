@@ -14,7 +14,7 @@ export interface DesktopDatabaseConnectionTestResult {
 
 /** Hearthstone publish target settings returned by the desktop runtime. */
 export interface DesktopHearthstonePublishTargetSettings {
-  publishTargetId:   string | null;
+  publishTarget:     string | null;
   environment:       string | null;
   targetFingerprint: string | null;
   connectionString:  string | null;
@@ -28,7 +28,7 @@ export interface DesktopHearthstoneImageSettings {
 
 /** Hearthstone publish target test result returned by the desktop runtime. */
 export interface DesktopHearthstonePublishTargetTestResult {
-  publishTargetId:   string;
+  publishTarget:     string;
   environment:       string;
   targetFingerprint: string;
   databaseName:      string;
@@ -42,7 +42,7 @@ export interface DesktopHearthstonePublishTargetTestResult {
 export interface DesktopHearthstonePublishTargetValidationResult {
   isValid:                  boolean;
   reasons:                  string[];
-  currentPublishTargetId:   string | null;
+  currentPublishTarget:     string | null;
   currentEnvironment:       string | null;
   currentTargetFingerprint: string | null;
 }
@@ -131,12 +131,12 @@ export function setDesktopHearthstoneImageSettings(
 
 /** Hearthstone publish target settings persisted in the desktop runtime. */
 export function setDesktopHearthstonePublishTarget(
-  publishTargetId: string | null,
+  publishTarget: string | null,
   environment: string | null,
   connectionString: string | null,
 ) {
   return invoke<DesktopHearthstonePublishTargetSettings>('desktop_set_hearthstone_publish_target', {
-    publishTargetId,
+    publishTarget,
     environment,
     connectionString,
   });
@@ -144,12 +144,12 @@ export function setDesktopHearthstonePublishTarget(
 
 /** Hearthstone publish target connection tested by the desktop runtime. */
 export function testDesktopHearthstonePublishTarget(
-  publishTargetId: string | null,
+  publishTarget: string | null,
   environment: string | null,
   connectionString: string | null,
 ) {
   return invoke<DesktopHearthstonePublishTargetTestResult>('desktop_test_hearthstone_publish_target', {
-    publishTargetId,
+    publishTarget,
     environment,
     connectionString,
   });
@@ -157,14 +157,14 @@ export function testDesktopHearthstonePublishTarget(
 
 /** Expected Hearthstone publish target binding validated by the desktop runtime. */
 export function validateDesktopHearthstonePublishTargetBinding(
-  publishTargetId: string,
+  publishTarget: string,
   environment: string,
   targetFingerprint: string,
 ) {
   return invoke<DesktopHearthstonePublishTargetValidationResult>(
     'desktop_validate_hearthstone_publish_target_binding',
     {
-      publishTargetId,
+      publishTarget,
       environment,
       targetFingerprint,
     },

@@ -101,7 +101,7 @@
                   <label for="publish-target-id" class="text-sm font-medium text-default">Target ID</label>
                   <input
                     id="publish-target-id"
-                    v-model="publishTargetIdInput"
+                    v-model="publishTargetInput"
                     class="w-full rounded-lg border border-default bg-default px-3 py-2 text-sm text-default"
                     placeholder="hearthstone-remote-dev"
                     :disabled="loadingPublishTarget || savingPublishTarget || testingPublishTarget || validatingPublishTarget"
@@ -180,7 +180,7 @@
                 color="success"
                 variant="soft"
                 icon="i-lucide-circle-check-big"
-                :description="`当前已保存目标：${savedPublishTargetId ?? '-'} / ${savedPublishTargetEnvironment ?? '-'} / fingerprint=${savedPublishTargetFingerprint}`"
+                :description="`当前已保存目标：${savedPublishTarget ?? '-'} / ${savedPublishTargetEnvironment ?? '-'} / fingerprint=${savedPublishTargetFingerprint}`"
               />
               <UAlert
                 v-else
@@ -202,7 +202,7 @@
                 color="success"
                 variant="soft"
                 icon="i-lucide-badge-check"
-                :description="`连接成功：target=${publishTargetTestResult.publishTargetId}，env=${publishTargetTestResult.environment}，database=${publishTargetTestResult.databaseName}，user=${publishTargetTestResult.userName}，host=${publishTargetTestResult.serverHost}:${publishTargetTestResult.serverPort}，latency=${publishTargetTestResult.latencyMs}ms，fingerprint=${publishTargetTestResult.targetFingerprint}`"
+                :description="`连接成功：target=${publishTargetTestResult.publishTarget}，env=${publishTargetTestResult.environment}，database=${publishTargetTestResult.databaseName}，user=${publishTargetTestResult.userName}，host=${publishTargetTestResult.serverHost}:${publishTargetTestResult.serverPort}，latency=${publishTargetTestResult.latencyMs}ms，fingerprint=${publishTargetTestResult.targetFingerprint}`"
               />
 
               <UAlert
@@ -375,10 +375,10 @@ const loadingHsdataRepoPath = ref(false);
 const pickingHsdataRepoPath = ref(false);
 const savingHsdataRepoPath = ref(false);
 const hsdataRepoPathError = ref('');
-const publishTargetIdInput = ref('');
+const publishTargetInput = ref('');
 const publishTargetEnvironmentInput = ref('');
 const publishTargetConnectionStringInput = ref('');
-const savedPublishTargetId = ref<string | null>(null);
+const savedPublishTarget = ref<string | null>(null);
 const savedPublishTargetEnvironment = ref<string | null>(null);
 const savedPublishTargetFingerprint = ref<string | null>(null);
 const loadingPublishTarget = ref(false);
@@ -391,7 +391,7 @@ const publishTargetValidationError = ref('');
 const publishTargetValidationMessage = ref('');
 const publishTargetValidationOk = ref(false);
 const publishTargetTestResult = ref<{
-  publishTargetId:   string;
+  publishTarget:   string;
   environment:       string;
   targetFingerprint: string;
   databaseName:      string;
@@ -439,10 +439,10 @@ async function loadHearthstoneSettings() {
 
     savedHsdataRepoPath.value = repoPath;
     hsdataRepoPathInput.value = repoPath ?? '';
-    savedPublishTargetId.value = publishTarget.publishTargetId ?? null;
+    savedPublishTarget.value = publishTarget.publishTarget ?? null;
     savedPublishTargetEnvironment.value = publishTarget.environment ?? null;
     savedPublishTargetFingerprint.value = publishTarget.targetFingerprint ?? null;
-    publishTargetIdInput.value = publishTarget.publishTargetId ?? '';
+    publishTargetInput.value = publishTarget.publishTarget ?? '';
     publishTargetEnvironmentInput.value = publishTarget.environment ?? '';
     publishTargetConnectionStringInput.value = publishTarget.connectionString ?? '';
     savedImageRendererBaseUrl.value = imageSettings.rendererBaseUrl ?? null;
@@ -615,15 +615,15 @@ async function savePublishTarget() {
 
   try {
     const settings = await setDesktopHearthstonePublishTarget(
-      publishTargetIdInput.value.trim().length > 0 ? publishTargetIdInput.value.trim() : null,
+      publishTargetInput.value.trim().length > 0 ? publishTargetInput.value.trim() : null,
       publishTargetEnvironmentInput.value.trim().length > 0 ? publishTargetEnvironmentInput.value.trim() : null,
       publishTargetConnectionStringInput.value.trim().length > 0 ? publishTargetConnectionStringInput.value.trim() : null,
     );
 
-    savedPublishTargetId.value = settings.publishTargetId ?? null;
+    savedPublishTarget.value = settings.publishTarget ?? null;
     savedPublishTargetEnvironment.value = settings.environment ?? null;
     savedPublishTargetFingerprint.value = settings.targetFingerprint ?? null;
-    publishTargetIdInput.value = settings.publishTargetId ?? '';
+    publishTargetInput.value = settings.publishTarget ?? '';
     publishTargetEnvironmentInput.value = settings.environment ?? '';
     publishTargetConnectionStringInput.value = settings.connectionString ?? '';
     publishTargetValidationMessage.value = '';
@@ -643,10 +643,10 @@ async function clearPublishTarget() {
   try {
     const settings = await setDesktopHearthstonePublishTarget(null, null, null);
 
-    savedPublishTargetId.value = settings.publishTargetId ?? null;
+    savedPublishTarget.value = settings.publishTarget ?? null;
     savedPublishTargetEnvironment.value = settings.environment ?? null;
     savedPublishTargetFingerprint.value = settings.targetFingerprint ?? null;
-    publishTargetIdInput.value = settings.publishTargetId ?? '';
+    publishTargetInput.value = settings.publishTarget ?? '';
     publishTargetEnvironmentInput.value = settings.environment ?? '';
     publishTargetConnectionStringInput.value = settings.connectionString ?? '';
     publishTargetValidationMessage.value = '';
@@ -666,7 +666,7 @@ async function testPublishTarget() {
 
   try {
     const result = await testDesktopHearthstonePublishTarget(
-      publishTargetIdInput.value.trim().length > 0 ? publishTargetIdInput.value.trim() : null,
+      publishTargetInput.value.trim().length > 0 ? publishTargetInput.value.trim() : null,
       publishTargetEnvironmentInput.value.trim().length > 0 ? publishTargetEnvironmentInput.value.trim() : null,
       publishTargetConnectionStringInput.value.trim().length > 0 ? publishTargetConnectionStringInput.value.trim() : null,
     );
@@ -682,11 +682,11 @@ async function testPublishTarget() {
 
 /** Validates that the saved Hearthstone publish target still matches its bound fingerprint. */
 async function validatePublishTargetBinding() {
-  const publishTargetId = savedPublishTargetId.value;
+  const publishTarget = savedPublishTarget.value;
   const environment = savedPublishTargetEnvironment.value;
   const targetFingerprint = savedPublishTargetFingerprint.value;
 
-  if (!publishTargetId || !environment || !targetFingerprint) {
+  if (!publishTarget || !environment || !targetFingerprint) {
     publishTargetValidationOk.value = false;
     publishTargetValidationMessage.value = '';
     publishTargetValidationError.value = '缺少已保存的 publish target 绑定信息。';
@@ -699,14 +699,14 @@ async function validatePublishTargetBinding() {
 
   try {
     const result = await validateDesktopHearthstonePublishTargetBinding(
-      publishTargetId,
+      publishTarget,
       environment,
       targetFingerprint,
     );
 
     publishTargetValidationOk.value = result.isValid;
     publishTargetValidationMessage.value = result.isValid
-      ? `当前目标绑定一致：${result.currentPublishTargetId ?? '-'} / ${result.currentEnvironment ?? '-'} / fingerprint=${result.currentTargetFingerprint ?? '-'}`
+      ? `当前目标绑定一致：${result.currentPublishTarget ?? '-'} / ${result.currentEnvironment ?? '-'} / fingerprint=${result.currentTargetFingerprint ?? '-'}`
       : result.reasons.join(' ');
   } catch (error) {
     console.error('Failed to validate Hearthstone publish target binding:', error);
@@ -721,7 +721,7 @@ onMounted(() => {
 });
 
 watch([
-  publishTargetIdInput,
+  publishTargetInput,
   publishTargetEnvironmentInput,
   publishTargetConnectionStringInput,
 ], () => {

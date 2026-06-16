@@ -61,7 +61,7 @@ const configureDesktopStateInput = z.strictObject({
         bucketDir: z.string().trim().min(1).nullable(),
       }),
       publish: z.strictObject({
-        publishTargetId: z.string().trim().min(1).nullable(),
+        publishTarget: z.string().trim().min(1).nullable(),
         environment: z.string().trim().min(1).nullable(),
         targetFingerprint: z.string().trim().min(1).nullable(),
         connectionString: z.string().trim().min(1).nullable(),

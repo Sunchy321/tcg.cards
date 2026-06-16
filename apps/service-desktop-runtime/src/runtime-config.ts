@@ -18,7 +18,7 @@ const hearthstoneImageOverride = {
 
 /** Publish-target override payload injected by the desktop shell. */
 export interface HearthstonePublishTargetOverride {
-  publishTargetId: string | null;
+  publishTarget: string | null;
   environment: string | null;
   targetFingerprint: string | null;
   connectionString: string | null;
@@ -90,7 +90,7 @@ export function setHearthstonePublishTargetOverride(value: HearthstonePublishTar
   }
 
   hearthstonePublishTargetOverride.current = {
-    publishTargetId: value.publishTargetId?.trim() ?? null,
+    publishTarget: value.publishTarget?.trim() ?? null,
     environment: value.environment?.trim() ?? null,
     targetFingerprint: value.targetFingerprint?.trim() ?? null,
     connectionString: value.connectionString?.trim() ?? null,
@@ -106,7 +106,7 @@ export function readHearthstonePublishTargetOverride() {
 export function hasHearthstonePublishTargetOverride() {
   const target = readHearthstonePublishTargetOverride();
 
-  return target?.publishTargetId != null
+  return target?.publishTarget != null
     && target.environment != null
     && target.targetFingerprint != null
     && target.connectionString != null;

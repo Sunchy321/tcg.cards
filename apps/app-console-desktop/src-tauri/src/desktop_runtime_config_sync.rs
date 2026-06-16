@@ -58,7 +58,7 @@ fn build_desktop_state_payload(app: &AppHandle) -> Result<serde_json::Value, Str
                     "bucketDir": image_settings.bucket_dir,
                 },
                 "publish": {
-                    "publishTargetId": publish_target.as_ref().map(|profile| profile.publish_target_id.clone()),
+                    "publishTarget": publish_target.as_ref().map(|profile| profile.publish_target.clone()),
                     "environment": publish_target.as_ref().map(|profile| profile.environment.clone()),
                     "targetFingerprint": publish_target.as_ref().map(|profile| profile.target_fingerprint.clone()),
                     "connectionString": publish_connection_string,

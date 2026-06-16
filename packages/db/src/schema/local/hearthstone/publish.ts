@@ -19,6 +19,13 @@ export const publishBatchStatus = dataSchema.enum('publish_batch_status', [
   'failed',
 ]);
 
+export const publishOperationKind = dataSchema.enum('publish_operation_kind', [
+  'publish',
+  'repair',
+  'rollback',
+  'baseline_repair',
+]);
+
 export const publishBatchRowAction = dataSchema.enum('publish_batch_row_action', [
   'insert',
   'update',
@@ -36,10 +43,11 @@ export const publishBatchRowStatus = dataSchema.enum('publish_batch_row_status',
 export const PublishBatch = dataSchema.table('publish_batches', {
   id: uuid('id').primaryKey().defaultRandom(),
 
-  publishTargetId:   text('publish_target_id').notNull(),
+  publishTarget:     text('publish_target').notNull(),
   environment:       text('environment').notNull(),
   targetFingerprint: text('target_fingerprint').notNull(),
   publishType:       text('publish_type').notNull().default('card_data'),
+  operationKind:     publishOperationKind('operation_kind').notNull().default('publish'),
 
   sourceTagMin: integer('source_tag_min').notNull(),
   sourceTagMax: integer('source_tag_max').notNull(),
@@ -73,7 +81,12 @@ export const PublishBatch = dataSchema.table('publish_batches', {
   startedAt:   timestamp('started_at'),
   completedAt: timestamp('completed_at'),
 }, table => [
-  index('publish_batches_target_status_idx').on(table.publishTargetId, table.status),
+  index('publish_batches_stream_status_idx').on(
+    table.publishTarget,
+    table.environment,
+    table.publishType,
+    table.status,
+  ),
   index('publish_batches_created_at_idx').on(table.createdAt),
   index('publish_batches_manifest_hash_idx').on(table.manifestHash),
   check('publish_batches_source_tag_range_chk', sql`${table.sourceTagMin} <= ${table.sourceTagMax}`),
@@ -120,8 +133,9 @@ export const PublishBatchRow = dataSchema.table('publish_batch_rows', {
 ]);
 
 export const PublishBaseline = dataSchema.table('publish_baselines', {
-  publishTargetId: text('publish_target_id').primaryKey(),
+  publishTarget: text('publish_target').notNull(),
   environment:     text('environment').notNull(),
+  publishType:     text('publish_type').notNull().default('card_data'),
 
   targetFingerprint: text('target_fingerprint').notNull(),
   batchId:           uuid('batch_id')
@@ -143,6 +157,7 @@ export const PublishBaseline = dataSchema.table('publish_baselines', {
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
 }, table => [
+  primaryKey({ columns: [table.publishTarget, table.environment, table.publishType] }),
   index('publish_baselines_batch_id_idx').on(table.batchId),
   check('publish_baselines_source_tag_range_chk', sql`${table.sourceTagMin} <= ${table.sourceTagMax}`),
   check('publish_baselines_build_range_chk', sql`${table.buildMin} <= ${table.buildMax}`),

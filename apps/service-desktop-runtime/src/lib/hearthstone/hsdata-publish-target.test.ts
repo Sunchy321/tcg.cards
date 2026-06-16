@@ -14,14 +14,14 @@ afterEach(() => {
 describe('hsdata publish target', () => {
   test('returns one trimmed publish target when all required fields are present', () => {
     setHearthstonePublishTargetOverride({
-      publishTargetId: '  target-dev  ',
+      publishTarget: '  target-dev  ',
       environment: '  dev  ',
       targetFingerprint: '  fp-123  ',
       connectionString: '  postgres://user:pass@127.0.0.1:5432/cards  ',
     });
 
     expect(getHearthstonePublishTarget()).toEqual({
-      publishTargetId: 'target-dev',
+      publishTarget: 'target-dev',
       environment: 'dev',
       targetFingerprint: 'fp-123',
       connectionString: 'postgres://user:pass@127.0.0.1:5432/cards',
@@ -30,7 +30,7 @@ describe('hsdata publish target', () => {
 
   test('reports every missing field when the runtime target is incomplete', () => {
     setHearthstonePublishTargetOverride({
-      publishTargetId: 'target-dev',
+      publishTarget: 'target-dev',
       environment: null,
       targetFingerprint: '   ',
       connectionString: null,

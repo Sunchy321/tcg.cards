@@ -22,7 +22,7 @@ export interface DesktopDatabaseConnectionTestResult {
 
 /** Publish target resolution result returned from one live PostgreSQL session. */
 export interface ResolvedHearthstonePublishTarget {
-  publishTargetId: string;
+  publishTarget: string;
   environment: string;
   targetFingerprint: string;
   databaseName: string;
@@ -199,7 +199,7 @@ export async function testDesktopDatabaseConnection(connectionString: string): P
 
 /** Publish target identity and fingerprint resolved from one explicit connection string. */
 export async function resolveHearthstonePublishTarget(input: {
-  publishTargetId: string;
+  publishTarget: string;
   environment: string;
   connectionString: string;
 }): Promise<ResolvedHearthstonePublishTarget> {
@@ -207,7 +207,7 @@ export async function resolveHearthstonePublishTarget(input: {
   const endpoint = resolveTargetEndpoint(identity, input.connectionString);
 
   return {
-    publishTargetId: input.publishTargetId,
+    publishTarget: input.publishTarget,
     environment: input.environment,
     targetFingerprint: computeTargetFingerprint(endpoint, identity),
     databaseName: identity.databaseName,

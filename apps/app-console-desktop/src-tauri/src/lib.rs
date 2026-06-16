@@ -228,7 +228,7 @@ struct StoredRepoPath {
 #[serde(rename_all = "camelCase")]
 /// Publish target profile persisted for one Hearthstone environment binding.
 struct StoredHearthstonePublishTargetProfile {
-    publish_target_id: String,
+    publish_target: String,
     environment: String,
     target_fingerprint: String,
 }
