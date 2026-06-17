@@ -33,8 +33,10 @@ export const PublishBatch = dataSchema.table('publish_batches', {
   buildMin:     integer('build_min').notNull(),
   buildMax:     integer('build_max').notNull(),
 
-  manifestHash:         text('manifest_hash').notNull(),
-  previousManifestHash: text('previous_manifest_hash'),
+  generationFingerprint: text('generation_fingerprint').notNull().default('card-data-projector/v1'),
+  generationOrder:       integer('generation_order').notNull().default(1),
+  manifestHash:          text('manifest_hash').notNull(),
+  previousManifestHash:  text('previous_manifest_hash'),
 
   totalRowCount:     integer('total_row_count').notNull().default(0),
   changedRowCount:   integer('changed_row_count').notNull().default(0),
@@ -72,6 +74,7 @@ export const PublishBatch = dataSchema.table('publish_batches', {
   check('publish_batches_build_range_chk', sql`${table.buildMin} <= ${table.buildMax}`),
   check('publish_batches_source_tag_min_positive_chk', sql`${table.sourceTagMin} > 0`),
   check('publish_batches_build_min_positive_chk', sql`${table.buildMin} > 0`),
+  check('publish_batches_generation_order_positive_chk', sql`${table.generationOrder} > 0`),
   check('publish_batches_total_row_count_nonnegative_chk', sql`${table.totalRowCount} >= 0`),
   check('publish_batches_changed_row_count_nonnegative_chk', sql`${table.changedRowCount} >= 0`),
   check('publish_batches_inserted_row_count_nonnegative_chk', sql`${table.insertedRowCount} >= 0`),
@@ -126,8 +129,10 @@ export const PublishBaseline = dataSchema.table('publish_baselines', {
   buildMin:     integer('build_min').notNull(),
   buildMax:     integer('build_max').notNull(),
 
-  manifestHash:  text('manifest_hash').notNull(),
-  totalRowCount: integer('total_row_count').notNull(),
+  generationFingerprint: text('generation_fingerprint').notNull().default('card-data-projector/v1'),
+  generationOrder:       integer('generation_order').notNull().default(1),
+  manifestHash:          text('manifest_hash').notNull(),
+  totalRowCount:         integer('total_row_count').notNull(),
 
   publishedAt: timestamp('published_at').notNull(),
   createdAt:   timestamp('created_at').defaultNow().notNull(),
@@ -142,6 +147,7 @@ export const PublishBaseline = dataSchema.table('publish_baselines', {
   check('publish_baselines_build_range_chk', sql`${table.buildMin} <= ${table.buildMax}`),
   check('publish_baselines_source_tag_min_positive_chk', sql`${table.sourceTagMin} > 0`),
   check('publish_baselines_build_min_positive_chk', sql`${table.buildMin} > 0`),
+  check('publish_baselines_generation_order_positive_chk', sql`${table.generationOrder} > 0`),
   check('publish_baselines_total_row_count_nonnegative_chk', sql`${table.totalRowCount} >= 0`),
 ]);
 

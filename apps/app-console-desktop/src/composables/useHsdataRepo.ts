@@ -693,5 +693,15 @@ export function formatHsdataBytes(value: number) {
 }
 
 export function getHsdataErrorMessage(error: unknown) {
-  return getConsoleErrorMessage(error, '操作失败');
+  const message = getConsoleErrorMessage(error, '操作失败');
+
+  if (message.includes('is already leased by another publish batch')) {
+    return '当前 publish stream 正在被另一批发布占用，请稍后重试。';
+  }
+
+  if (message.includes('lease could not be renewed')) {
+    return '当前发布在执行过程中失去了 publish stream lease，已被中止。';
+  }
+
+  return message;
 }

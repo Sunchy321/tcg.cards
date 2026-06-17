@@ -829,6 +829,23 @@ site 侧产生的远端人工提交直接进入 remote。
 - 把“首次建基线”错误混同为“普通增量”
 - 把“大范围重建”伪装成大量零散候选事件
 
+#### 7A.6.3.A 多个 remote 的首轮处理方式
+
+当同一游戏需要向多个 remote 发布时，首轮固定采用“多个独立 publish stream”而不是“单轮 fan-out publish”的处理方式。
+
+固定规则为：
+
+- 不同 remote 若代表不同环境面，则分别落在不同 `environment`
+- 每个 remote 继续拥有独立的 baseline、ledger、gate 和发布历史
+- 桌面端通过显式切换当前 publish stream 来选择发布目标
+- 首轮不把多个 remote 视为同一次 publish 的多个物理落点
+
+这意味着首轮重点是：
+
+- 让 stream 切换明确可见
+- 让每条 stream 独立发布、独立失败、独立审计
+- 不引入跨 remote 的原子 fan-out 语义
+
 #### 7A.6.4 bootstrap / rebuild 的通用收敛规则
 
 总文档首轮只固定 bootstrap / rebuild 的通用原则，不引入 `hsdata` 特化的对象级重建算法。
@@ -911,6 +928,20 @@ bootstrap / rebuild 首轮必须支持失败后重跑。
 - 这份注册信息可以是专用表，也可以是等价的受限配置来源
 - 但普通 publish 不得把“未注册 stream”自动提升为“已注册 stream”
 
+当前首轮实现采用专用远端表：
+
+- `PublishStreamRegistration`
+  - 主键为 `publishTarget + environment + publishType`
+  - 保存受控 `targetFingerprint`
+  - 保存 `normalPublishEnabled`
+
+普通 publish 的 gate 固定在任何远端行写入前执行：
+
+- 未登记 stream 直接拒绝
+- `normalPublishEnabled = false` 直接拒绝
+- `targetFingerprint` 不匹配直接拒绝
+- 本地绑定的 `previousManifestHash` 与远端当前 ledger 不一致时直接拒绝
+
 如果后续引入专用远端表，最小登记信息至少应覆盖：
 
 - `publishTarget`
@@ -962,6 +993,24 @@ bootstrap / rebuild 首轮必须支持失败后重跑。
 - 首轮实现可以继续直接使用三元组作为唯一键组成部分
 - 若跨边界需要单字段传递，可使用确定性字符串投影，但不得改写其三元组语义
 
+这组三元组的职责边界固定为：
+
+- `publishTarget`
+  - 表达发布流所属的主业务分区
+  - 首轮默认用于区分不同游戏或同级业务面
+- `environment`
+  - 表达发布流面向的环境边界
+  - 用于区分开发、预发、生产或等价环境面
+- `publishType`
+  - 表达同一主业务分区内的具体发布数据面
+  - 用于区分 `card_data`、`image_data` 或其他后续发布小类
+
+因此首轮约束为：
+
+- 不把游戏名和数据面类型压进同一个 `publishType`
+- 不把 remote 连接身份本身建模为 `publishTarget`
+- 不把本应独立存在的主业务分区折叠成同一 `publishTarget` 下的很多 `publishType`
+
 #### 7A.7.4 compare-and-swap 以当前已发布状态摘要为锚点
 
 首轮 `publish-owned` 的 compare-and-swap 不以整轮 publish plan 自身作为主锚点，而以当前 publish stream 的已发布状态摘要作为主锚点。
@@ -983,14 +1032,13 @@ bootstrap / rebuild 首轮必须支持失败后重跑。
 - 两个客户端基于同一个旧远端状态并发生成计划
 - 后到达的旧计划静默覆盖先到达的新计划
 
-#### 7A.7.4.1 同 generation 下不允许 source/build 静默倒退
+#### 7A.7.4.1 同 generation 下不允许 sourceTag 静默倒退
 
-当 incoming publish plan 与 remote 当前 baseline 属于同一 generation 时，source/build 范围默认必须单调前进。
+当 incoming publish plan 与 remote 当前 baseline 属于同一 generation 时，sourceTag 范围默认必须单调前进。
 
 首轮至少需要支持以下判断：
 
 - `sourceTagMax` 或等价来源边界不得倒退
-- `buildMax` 或等价构建边界不得倒退
 
 可接受情况：
 
@@ -1000,7 +1048,6 @@ bootstrap / rebuild 首轮必须支持失败后重跑。
 默认拒绝情况：
 
 - incoming 来源边界明显落后于 remote 当前 baseline
-- incoming 构建边界明显落后于 remote 当前 baseline
 
 这类倒退只有在显式 `rollback`、`repair` 或等价高风险入口下才允许。
 
@@ -1009,7 +1056,7 @@ bootstrap / rebuild 首轮必须支持失败后重跑。
 若 incoming 与 remote 当前 baseline 同时满足：
 
 - generation 相同
-- source/build 范围相同
+- sourceTag 范围相同
 
 则普通 publish 不允许仅凭“本地重算结果不同”静默覆盖远端。
 
@@ -1033,7 +1080,7 @@ bootstrap / rebuild 首轮必须支持失败后重跑。
 原因是：
 
 - 时间不等于 generation 更高
-- 时间不等于 source/build 更新
+- 时间不等于 sourceTag 更新
 - 长时间本地构建、重试补发和时钟误差都会让 wall clock 时间失真
 
 #### 7A.7.5 publish plan 自身摘要不作为主 gate
@@ -1078,6 +1125,42 @@ publish plan 本身仍然可以拥有自己的摘要，例如：
 - 高风险 publish 不能只靠静态本地配置长期放权
 - 远端必须能够按 publish stream 和 operation kind 约束操作范围
 
+#### 7A.7.7.A 首轮信任模型与数据库凭据假设
+
+当 desktop 能直接访问 remote PostgreSQL 时，首轮不把“数据库连接凭据绝对保密”当作 publish 系统的核心安全前提。
+
+首轮固定假设为：
+
+- 持有 remote 数据库写凭据的 desktop 终端属于受信任执行面
+- 同级可信终端之间共享同一类数据库写权限时，系统主要解决的是工作流约束、误操作控制、并发协调和审计问题
+- 不把 `PublishStreamRegistration`、`targetFingerprint`、compare-and-swap 或 lease 设计成针对恶意数据库写入者的强安全边界
+
+因此这些机制在首轮的职责固定为：
+
+- 约束普通 publish 只能沿受控 stream 推进
+- 避免误推到错误 remote 目标
+- 避免基于过期 baseline 覆盖新结果
+- 为后续并发协调、lease 和审计保留稳定锚点
+
+在此前提下，首轮进一步固定为：
+
+- 普通 publish gate 不区分 local 发布者身份
+- 当多个 local 被视为等价权威源时，优先通过 stream 级 lease / lock 解决并发重复 publish
+- 密钥授权、publisher identity 和更细粒度的 local allowlist 留待更强的 service-side 控制面建立后再引入
+
+首轮 ordinary publish 的 lease 运行时约束进一步固定为：
+
+- lease 状态直接保存在远端 `PublishStreamRegistration` 上
+- `leaseHolderId` 首轮直接使用当前 `PublishBatch.id`
+- 同一批次重试或断点续跑时，允许继续续租同一条 lease
+- 不同批次即使来自同一个 local，也必须互斥
+- 首轮 lease TTL 固定为 5 分钟
+- 普通 publish 在任何远端行写入前必须先尝试抢占或续租 lease
+- publish 每成功完成一个 remote chunk 后，必须立刻续租一次
+- publish 成功结束后必须主动释放 lease
+- 若进程异常退出，则依赖 TTL 过期回收
+- 若开始时无法抢占 lease，或执行过程中续租失败，普通 publish 必须立即中止，并向调用方返回明确冲突错误
+
 #### 7A.7.8 `publish-owned` 需要确定性构建契约
 
 总文档中的 `publish-owned` 首轮不采用对象级 manifest 骨架，但仍然必须保留确定性构建契约。
@@ -1086,7 +1169,7 @@ publish plan 本身仍然可以拥有自己的摘要，例如：
 
 - 同一条 publish stream
 - 同一个 `generationFingerprint`
-- 同一 source/build 范围
+- 同一 sourceTag 范围
 
 默认应导出同一组发布摘要与同一组行级变更结果。
 
@@ -1095,6 +1178,14 @@ publish plan 本身仍然可以拥有自己的摘要，例如：
 - `generationFingerprint` 不能只表达业务规则版本号
 - 凡是会影响发布结果稳定性的生成规则、排序规则、归一化规则和序列化规则，都必须被纳入 generation identity 或等价稳定契约
 - 若同 lineage 结果发生分叉，系统必须优先暴露确定性问题，而不是长期依赖 repair 兜底
+
+当前首轮实现先采用最小落地：
+
+- `generationFingerprint` 作为 publish batch / baseline / ledger 的显式字段持久化
+- `generationOrder` 作为 publish batch / baseline / ledger 的显式字段持久化
+- 首轮先写入稳定常量版本串，用于把“生成代次”从 `sourceTag` 中解耦
+- 首轮先写入固定正整数顺序值，用于把“代次先后关系”从 `generationFingerprint` 本身中拆出来
+- 后续再把它扩展为真正覆盖 projector 规则输入的稳定签名
 
 ### 8. 最小状态机与状态语义
 

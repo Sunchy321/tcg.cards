@@ -177,6 +177,24 @@
   - `rollback`
   - `baseline_repair`
 
+首轮同时固定 publish stream 三元组的职责边界：
+
+- `publishTarget`
+  - 表达一条发布流所属的主业务分区
+  - 首轮默认用于区分不同游戏或同级业务面
+- `environment`
+  - 表达该发布流面向的环境边界
+  - 用于区分开发、预发、生产或等价环境面
+- `publishType`
+  - 表达同一主业务分区内的具体发布数据面
+  - 用于区分 `card_data`、`image_data` 或其他后续发布小类
+
+因此首轮不把以下语义混入 `publishType`：
+
+- 不把游戏名与数据面类型拼成一个混合字段
+- 不把 remote 连接身份编码进 `publishTarget`
+- 不把多个独立业务面伪装成同一 `publishTarget` 下的不同 `publishType`
+
 同时需要检查：
 
 - `hsdata-publish.ts` 中所有按 `publishTarget` 查询 baseline/ledger/旧批次的代码
@@ -466,7 +484,7 @@ publish 读取统一变更日志时固定规则为：
 
 - `targetFingerprint`
 - manifest hash
-- source/build 范围
+- sourceTag 范围
 - 本地 baseline
 - 远端 ledger
 
@@ -484,7 +502,7 @@ publish 读取统一变更日志时固定规则为：
 - 普通发布不得自动创建新的 `publish stream`，未登记的 `publishTarget + environment + publishType` 必须拒绝
 - 远端必须对已登记 stream 校验 `targetFingerprint` 约束，不能只检查字段非空
 - 普通发布必须显式绑定 previous baseline 摘要
-- 同 generation 下 source/build 不得静默倒退
+- 同 generation 下 sourceTag 不得静默倒退
 - 同 lineage 摘要分叉必须拒绝普通发布
 - `repair / rollback / baseline_repair` 必须走显式入口，不能复用普通 publish 开关
 - 时间只用于提示、日志和 lease 语义，不参与硬拒绝
@@ -495,6 +513,43 @@ publish 读取统一变更日志时固定规则为：
 - 在入口层做显式预留
 - 在普通 publish 中拒绝需要高风险入口处理的情况
 - 为后续远端 stream allowlist / bootstrap approval 预留受控校验点
+
+当前已完成的第 5 步收口：
+
+- 远端新增 `PublishStreamRegistration`
+  - 用于登记允许普通 publish 推进的 publish stream
+  - 绑定 `publishTarget + environment + publishType`
+  - 绑定唯一允许的 `targetFingerprint`
+  - 通过 `normalPublishEnabled` 显式控制普通 publish 是否允许
+- `hsdata-publish.ts`
+  - 在任何远端行写入前先执行 stream gate
+  - 未登记 stream 直接拒绝
+  - `targetFingerprint` 不匹配直接拒绝
+  - `previousManifestHash` 与远端当前 ledger 不一致时直接拒绝
+- 当前普通 publish 语义固定为：
+  - 只能推进远端已登记且允许普通 publish 的 stream
+  - 不能隐式创建新 stream
+  - 不能静默接管远端已变化的 baseline
+
+本阶段同时固定一条信任模型前提：
+
+- 当 desktop 能直接访问 remote PostgreSQL 时，数据库连接凭据不再被视为首要安全边界
+- 同级可信的 desktop 终端共享同一类数据库写权限时，系统重点不再是“彻底隐藏数据库凭据”，而是：
+  - 约束正常 publish 工作流
+  - 降低误操作与并发冲突
+  - 保留清晰的审计与运维边界
+- 因此 `PublishStreamRegistration`、`targetFingerprint`、previous baseline compare-and-swap 和后续 lease 语义，首轮都按流程约束设计，而不是按零信任对抗模型设计
+- 首轮不把“local 发布者身份”纳入普通 publish gate
+- 当多个 local 被视为等价权威源时，首轮优先通过 stream 级 lease / lock 协调并发，而不是先引入 local 身份认证
+- 若后续引入更强的 service-side 控制面，再补密钥授权、publisher identity 和更细粒度的 allowlist
+- 当前 ordinary publish 的最小 lease 实现已固定为：
+  - lease 状态直接挂在远端 `PublishStreamRegistration`
+  - `leaseHolderId` 直接使用 `PublishBatch.id`
+  - TTL 固定为 5 分钟
+  - 进入远端 gate 前先抢占或续租 lease
+  - 每成功完成一个 remote chunk 后续租一次
+  - 完成时主动释放，异常退出时依赖 TTL 过期
+  - 抢占失败或续租失败时，以明确冲突错误中止普通 publish
 
 ### 6. 明确 `publish-owned` 的统一写入口与重建入口
 
@@ -598,6 +653,13 @@ publish 读取统一变更日志时固定规则为：
 
 - remote 管理入口仍属于 remote 历史，不自动并入 local
 - desktop 集成 remote 能力不等于混同两端 authority
+
+本阶段额外固定一条入口要求：
+
+- 当同一游戏存在多个独立 publish stream（例如不同环境对应不同 remote）时，桌面端必须提供显式切换入口
+- 切换的对象是 publish stream，而不是在一次 publish 中同时 fan-out 到多个 remote
+- 每个 remote 继续视为独立 publish，分别维护自己的 baseline、ledger、gate 和历史
+- 首轮至少支持在已配置 stream 之间明确切换，并让页面与运行时都能显示当前选中的 stream
 
 ### 10. 验证、迁移与回退
 

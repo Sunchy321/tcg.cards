@@ -171,3 +171,368 @@ describe('hsdata publish row plans', () => {
     expect(planOrder[2]).toContain('entity_relations');
   });
 });
+
+describe('hsdata publish remote gate', () => {
+  test('rejects unregistered publish stream', async () => {
+    const remoteDb = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            then: (resolve: (rows: unknown[]) => unknown) => resolve([]),
+          }),
+        }),
+      }),
+      update: () => ({
+        set: () => ({
+          where: () => ({
+            returning: () => Promise.resolve([]),
+          }),
+        }),
+      }),
+    } as any;
+
+    await expect(hsdataPublishTestUtils.assertRemotePublishGate(remoteDb, {
+      publishTarget: 'target-dev',
+      environment: 'dev',
+      publishType: 'card_data',
+      targetFingerprint: 'fp-1',
+      manifestHash: 'incoming-manifest',
+      previousManifestHash: null,
+      sourceTagMax: 100,
+      leaseHolderId: 'batch-1',
+    })).rejects.toThrow('is not registered for normal publish');
+  });
+
+  test('rejects fingerprint mismatch before any remote write', async () => {
+    const rows = [
+      {
+        publishTarget: 'target-dev',
+        environment: 'dev',
+        publishType: 'card_data',
+        targetFingerprint: 'fp-remote',
+        normalPublishEnabled: true,
+      },
+    ];
+    let selectCount = 0;
+    const remoteDb = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            then: (resolve: (value: unknown[]) => unknown) => {
+              selectCount += 1;
+              return resolve(selectCount === 1 ? rows : []);
+            },
+          }),
+        }),
+      }),
+      update: () => ({
+        set: () => ({
+          where: () => ({
+            returning: () => Promise.resolve([]),
+          }),
+        }),
+      }),
+    } as any;
+
+    await expect(hsdataPublishTestUtils.assertRemotePublishGate(remoteDb, {
+      publishTarget: 'target-dev',
+      environment: 'dev',
+      publishType: 'card_data',
+      targetFingerprint: 'fp-local',
+      manifestHash: 'incoming-manifest',
+      previousManifestHash: null,
+      sourceTagMax: 100,
+      leaseHolderId: 'batch-1',
+    })).rejects.toThrow('rejected target fingerprint');
+  });
+
+  test('rejects stale previous manifest hash', async () => {
+    const registrationRows = [
+      {
+        publishTarget: 'target-dev',
+        environment: 'dev',
+        publishType: 'card_data',
+        targetFingerprint: 'fp-1',
+        normalPublishEnabled: true,
+      },
+    ];
+    const ledgerRows = [
+      {
+        manifestHash: 'remote-manifest',
+        sourceTagMax: 100,
+      },
+    ];
+    let selectCount = 0;
+    const remoteDb = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            then: (resolve: (value: unknown[]) => unknown) => {
+              selectCount += 1;
+              return resolve(selectCount === 1 ? registrationRows : ledgerRows);
+            },
+          }),
+        }),
+      }),
+      update: () => ({
+        set: () => ({
+          where: () => ({
+            returning: () => Promise.resolve([{
+              ...registrationRows[0],
+              leaseHolderId: 'batch-1',
+              leaseExpiresAt: new Date('2026-06-17T00:05:00.000Z'),
+            }]),
+          }),
+        }),
+      }),
+    } as any;
+
+    await expect(hsdataPublishTestUtils.assertRemotePublishGate(remoteDb, {
+      publishTarget: 'target-dev',
+      environment: 'dev',
+      publishType: 'card_data',
+      targetFingerprint: 'fp-1',
+      manifestHash: 'incoming-manifest',
+      previousManifestHash: 'local-manifest',
+      sourceTagMax: 100,
+      leaseHolderId: 'batch-1',
+    })).rejects.toThrow('baseline changed');
+  });
+
+  test('rejects publish when another batch still holds the stream lease', async () => {
+    const registrationRows = [
+      {
+        publishTarget: 'target-dev',
+        environment: 'dev',
+        publishType: 'card_data',
+        targetFingerprint: 'fp-1',
+        normalPublishEnabled: true,
+        leaseHolderId: 'batch-other',
+        leaseExpiresAt: new Date('2099-01-01T00:00:00.000Z'),
+      },
+    ];
+    let selectCount = 0;
+    const remoteDb = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            then: (resolve: (value: unknown[]) => unknown) => {
+              selectCount += 1;
+              return resolve(selectCount === 1 ? registrationRows : []);
+            },
+          }),
+        }),
+      }),
+      update: () => ({
+        set: () => ({
+          where: () => ({
+            returning: () => Promise.resolve([]),
+          }),
+        }),
+      }),
+    } as any;
+
+    await expect(hsdataPublishTestUtils.assertRemotePublishGate(remoteDb, {
+      publishTarget: 'target-dev',
+      environment: 'dev',
+      publishType: 'card_data',
+      targetFingerprint: 'fp-1',
+      manifestHash: 'incoming-manifest',
+      previousManifestHash: null,
+      sourceTagMax: 100,
+      generationFingerprint: 'card-data-projector/v1',
+      generationOrder: 1,
+      leaseHolderId: 'batch-1',
+    })).rejects.toThrow('is already leased by another publish batch');
+  });
+
+  test('rejects publish when incoming sourceTagMax regresses behind remote ledger', async () => {
+    const registrationRows = [
+      {
+        publishTarget: 'target-dev',
+        environment: 'dev',
+        publishType: 'card_data',
+        targetFingerprint: 'fp-1',
+        normalPublishEnabled: true,
+      },
+    ];
+    const ledgerRows = [
+      {
+        manifestHash: null,
+        sourceTagMax: 101,
+        generationFingerprint: 'card-data-projector/v1',
+        generationOrder: 1,
+      },
+    ];
+    let selectCount = 0;
+    const remoteDb = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            then: (resolve: (value: unknown[]) => unknown) => {
+              selectCount += 1;
+              return resolve(selectCount === 1 ? registrationRows : ledgerRows);
+            },
+          }),
+        }),
+      }),
+      update: () => ({
+        set: () => ({
+          where: () => ({
+            returning: () => Promise.resolve([{
+              ...registrationRows[0],
+              leaseHolderId: 'batch-1',
+              leaseExpiresAt: new Date('2026-06-17T00:05:00.000Z'),
+            }]),
+          }),
+        }),
+      }),
+    } as any;
+
+    await expect(hsdataPublishTestUtils.assertRemotePublishGate(remoteDb, {
+      publishTarget: 'target-dev',
+      environment: 'dev',
+      publishType: 'card_data',
+      targetFingerprint: 'fp-1',
+      manifestHash: 'incoming-manifest',
+      previousManifestHash: null,
+      sourceTagMax: 100,
+      generationFingerprint: 'card-data-projector/v1',
+      generationOrder: 1,
+      leaseHolderId: 'batch-1',
+    })).rejects.toThrow('sourceTagMax regressed');
+  });
+
+  test('rejects publish when generationOrder regresses behind remote ledger', async () => {
+    const registrationRows = [
+      {
+        publishTarget: 'target-dev',
+        environment: 'dev',
+        publishType: 'card_data',
+        targetFingerprint: 'fp-1',
+        normalPublishEnabled: true,
+      },
+    ];
+    const ledgerRows = [
+      {
+        manifestHash: 'remote-manifest',
+        sourceTagMax: 100,
+        generationFingerprint: 'card-data-projector/v2',
+        generationOrder: 2,
+      },
+    ];
+    let selectCount = 0;
+    const remoteDb = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            then: (resolve: (value: unknown[]) => unknown) => {
+              selectCount += 1;
+              return resolve(selectCount === 1 ? registrationRows : ledgerRows);
+            },
+          }),
+        }),
+      }),
+      update: () => ({
+        set: () => ({
+          where: () => ({
+            returning: () => Promise.resolve([{
+              ...registrationRows[0],
+              leaseHolderId: 'batch-1',
+              leaseExpiresAt: new Date('2026-06-17T00:05:00.000Z'),
+            }]),
+          }),
+        }),
+      }),
+    } as any;
+
+    await expect(hsdataPublishTestUtils.assertRemotePublishGate(remoteDb, {
+      publishTarget: 'target-dev',
+      environment: 'dev',
+      publishType: 'card_data',
+      targetFingerprint: 'fp-1',
+      manifestHash: 'incoming-manifest',
+      previousManifestHash: 'remote-manifest',
+      sourceTagMax: 100,
+      generationFingerprint: 'card-data-projector/v1',
+      generationOrder: 1,
+      leaseHolderId: 'batch-1',
+    })).rejects.toThrow('generationOrder regressed');
+  });
+
+  test('rejects publish when manifest hash diverges on the same generation lineage', async () => {
+    const registrationRows = [
+      {
+        publishTarget: 'target-dev',
+        environment: 'dev',
+        publishType: 'card_data',
+        targetFingerprint: 'fp-1',
+        normalPublishEnabled: true,
+      },
+    ];
+    const ledgerRows = [
+      {
+        manifestHash: 'remote-manifest',
+        sourceTagMax: 100,
+        generationFingerprint: 'card-data-projector/v1',
+        generationOrder: 1,
+      },
+    ];
+    let selectCount = 0;
+    const remoteDb = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            then: (resolve: (value: unknown[]) => unknown) => {
+              selectCount += 1;
+              return resolve(selectCount === 1 ? registrationRows : ledgerRows);
+            },
+          }),
+        }),
+      }),
+      update: () => ({
+        set: () => ({
+          where: () => ({
+            returning: () => Promise.resolve([{
+              ...registrationRows[0],
+              leaseHolderId: 'batch-1',
+              leaseExpiresAt: new Date('2026-06-17T00:05:00.000Z'),
+            }]),
+          }),
+        }),
+      }),
+    } as any;
+
+    await expect(hsdataPublishTestUtils.assertRemotePublishGate(remoteDb, {
+      publishTarget: 'target-dev',
+      environment: 'dev',
+      publishType: 'card_data',
+      targetFingerprint: 'fp-1',
+      manifestHash: 'incoming-manifest',
+      previousManifestHash: 'remote-manifest',
+      sourceTagMax: 100,
+      generationFingerprint: 'card-data-projector/v1',
+      generationOrder: 1,
+      leaseHolderId: 'batch-1',
+    })).rejects.toThrow('manifest diverged on the same lineage');
+  });
+
+  test('rejects lease renewal when the current batch no longer holds the stream lease', async () => {
+    const remoteDb = {
+      update: () => ({
+        set: () => ({
+          where: () => ({
+            returning: () => Promise.resolve([]),
+          }),
+        }),
+      }),
+    } as any;
+
+    await expect(hsdataPublishTestUtils.renewRemotePublishLease(remoteDb, {
+      publishTarget: 'target-dev',
+      environment: 'dev',
+      publishType: 'card_data',
+      leaseHolderId: 'batch-1',
+    })).rejects.toThrow('lease could not be renewed');
+  });
+});

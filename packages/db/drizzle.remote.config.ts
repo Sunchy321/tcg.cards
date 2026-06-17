@@ -9,7 +9,7 @@ export default defineConfig({
   dialect: 'postgresql',
   out:     './migrations/remote',
   schema:  [
-    './src/schema/remote/auth.ts',
+    './src/schema/remote/index.ts',
     './src/schema/remote/hearthstone/index.ts',
     './src/schema/remote/magic/index.ts',
   ],

@@ -198,6 +198,17 @@ const toRuntimeError = (error: unknown) => {
     return error;
   }
 
+  if (error instanceof Error) {
+    if (
+      error.message.includes('is already leased by another publish batch')
+      || error.message.includes('lease could not be renewed')
+    ) {
+      return new ORPCError('CONFLICT', {
+        message: error.message,
+      });
+    }
+  }
+
   return new ORPCError('INTERNAL_SERVER_ERROR', {
     message: formatRuntimeErrorMessage(error),
   });

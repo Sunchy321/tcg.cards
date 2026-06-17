@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, asc, count, desc, eq, gt, inArray, lte, ne } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt, inArray, isNotNull, lte, ne, or, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   publishOperationKind as publishOperationKindSchema,
@@ -27,9 +27,16 @@ import {
   Entity as RemoteEntity,
   EntityLocalization as RemoteEntityLocalization,
   EntityRelation as RemoteEntityRelation,
-  PublishLedger,
 } from '@tcg-cards/db/schema/remote/hearthstone';
+import {
+  PublishLedger,
+  PublishStreamRegistration,
+} from '@tcg-cards/db/schema/remote/publish';
 
+import {
+  publishCardDataGeneration,
+  type PublishGeneration,
+} from './publish-generation';
 import { getLocalDb } from './hsdata-local-db';
 import { getCurrentPublishJob } from './hsdata-publish-progress';
 import { requireHearthstonePublishTarget } from './hsdata-publish-target';
@@ -67,6 +74,9 @@ interface PublishDatasetRange {
   buildMin: number;
   buildMax: number;
 }
+
+type GenerationFingerprint = PublishGeneration['fingerprint'];
+type GenerationOrder = PublishGeneration['order'];
 
 /** Describes one publish-owned stream identity used by baseline and ledger state. */
 interface PublishStreamIdentity extends PublishStream {
@@ -121,6 +131,18 @@ interface PublishApplyFailure {
   message: string;
 }
 
+/** Stream-level gate state loaded from the remote serving database. */
+interface RemotePublishGateState {
+  registration: typeof PublishStreamRegistration.$inferSelect;
+  ledger: typeof PublishLedger.$inferSelect | null;
+}
+
+/** Lease acquisition result for one ordinary publish batch. */
+interface RemotePublishLease {
+  holderId: string;
+  expiresAt: Date;
+}
+
 function toHex(hash: Uint8Array): string {
   let hex = '';
   for (let i = 0; i < hash.length; i++) {
@@ -136,6 +158,7 @@ function sha256Hex(input: string): string {
 const emptyHash = sha256Hex('[]');
 
 const writeBatchSize = 500;
+const remotePublishLeaseTtlMs = 5 * 60 * 1000;
 
 async function closePublishDb(db: PublishDb) {
   await db.$client.end({ timeout: 1 });
@@ -157,6 +180,182 @@ function chunkValues<T>(values: T[], size = writeBatchSize): T[][] {
   }
 
   return chunks;
+}
+
+/** Remote publish gate rejects unregistered streams, fingerprint mismatches, and stale baselines. */
+async function assertRemotePublishGate(
+  remoteDb: PublishDb,
+  input: {
+    publishTarget: string;
+    environment: string;
+    publishType: string;
+    targetFingerprint: string;
+    manifestHash: string;
+    previousManifestHash: string | null;
+    sourceTagMax: number;
+    generationFingerprint: GenerationFingerprint;
+    generationOrder: GenerationOrder;
+    leaseHolderId: string;
+  },
+): Promise<RemotePublishGateState> {
+  const registration = await remoteDb.select()
+    .from(PublishStreamRegistration)
+    .where(and(
+      eq(PublishStreamRegistration.publishTarget, input.publishTarget),
+      eq(PublishStreamRegistration.environment, input.environment),
+      eq(PublishStreamRegistration.publishType, input.publishType),
+    ))
+    .then(rows => rows[0] ?? null);
+
+  if (registration == null) {
+    throw new Error(
+      `Remote publish stream ${input.publishTarget}/${input.environment}/${input.publishType} is not registered for normal publish.`,
+    );
+  }
+
+  if (!registration.normalPublishEnabled) {
+    throw new Error(
+      `Remote publish stream ${input.publishTarget}/${input.environment}/${input.publishType} does not allow normal publish.`,
+    );
+  }
+
+  if (registration.targetFingerprint !== input.targetFingerprint) {
+    throw new Error(
+      `Remote publish stream ${input.publishTarget}/${input.environment}/${input.publishType} rejected target fingerprint ${input.targetFingerprint}.`,
+    );
+  }
+
+  const now = new Date();
+  const leaseExpiresAt = new Date(now.getTime() + remotePublishLeaseTtlMs);
+
+  const leased = await remoteDb.update(PublishStreamRegistration)
+    .set({
+      leaseHolderId: input.leaseHolderId,
+      leaseExpiresAt,
+      updatedAt: now,
+    })
+    .where(and(
+      eq(PublishStreamRegistration.publishTarget, input.publishTarget),
+      eq(PublishStreamRegistration.environment, input.environment),
+      eq(PublishStreamRegistration.publishType, input.publishType),
+      or(
+        isNull(PublishStreamRegistration.leaseHolderId),
+        isNull(PublishStreamRegistration.leaseExpiresAt),
+        lte(PublishStreamRegistration.leaseExpiresAt, now),
+        eq(PublishStreamRegistration.leaseHolderId, input.leaseHolderId),
+      ),
+    ))
+    .returning()
+    .then(rows => rows[0] ?? null);
+
+  if (leased == null) {
+    throw new Error(
+      `Remote publish stream ${input.publishTarget}/${input.environment}/${input.publishType} is already leased by another publish batch.`,
+    );
+  }
+
+  const ledger = await remoteDb.select()
+    .from(PublishLedger)
+    .where(and(
+      eq(PublishLedger.publishTarget, input.publishTarget),
+      eq(PublishLedger.environment, input.environment),
+      eq(PublishLedger.publishType, input.publishType),
+    ))
+    .then(rows => rows[0] ?? null);
+
+  const remoteManifestHash = ledger?.manifestHash ?? null;
+
+  if (remoteManifestHash !== input.previousManifestHash) {
+    throw new Error(
+      `Remote publish stream ${input.publishTarget}/${input.environment}/${input.publishType} baseline changed: expected ${input.previousManifestHash ?? 'null'}, got ${remoteManifestHash ?? 'null'}.`,
+    );
+  }
+
+  if (ledger != null && ledger.sourceTagMax > input.sourceTagMax) {
+    throw new Error(
+      `Remote publish stream ${input.publishTarget}/${input.environment}/${input.publishType} sourceTagMax regressed: incoming ${input.sourceTagMax}, remote ${ledger.sourceTagMax}.`,
+    );
+  }
+
+  if (ledger != null && ledger.generationOrder > input.generationOrder) {
+    throw new Error(
+      `Remote publish stream ${input.publishTarget}/${input.environment}/${input.publishType} generationOrder regressed: incoming ${input.generationOrder}, remote ${ledger.generationOrder}.`,
+    );
+  }
+
+  if (
+    ledger != null
+    && ledger.generationOrder === input.generationOrder
+    && ledger.generationFingerprint === input.generationFingerprint
+    && ledger.sourceTagMax === input.sourceTagMax
+    && ledger.manifestHash !== input.manifestHash
+  ) {
+    throw new Error(
+      `Remote publish stream ${input.publishTarget}/${input.environment}/${input.publishType} manifest diverged on the same lineage: incoming ${input.manifestHash}, remote ${ledger.manifestHash}.`,
+    );
+  }
+
+  return { registration: leased, ledger };
+}
+
+/** Release one ordinary publish lease after the batch reaches a terminal state in this process. */
+async function releaseRemotePublishLease(
+  remoteDb: PublishDb,
+  input: {
+    publishTarget: string;
+    environment: string;
+    publishType: string;
+    leaseHolderId: string;
+  },
+) {
+  await remoteDb.update(PublishStreamRegistration)
+    .set({
+      leaseHolderId: null,
+      leaseExpiresAt: null,
+      updatedAt: new Date(),
+    })
+    .where(and(
+      eq(PublishStreamRegistration.publishTarget, input.publishTarget),
+      eq(PublishStreamRegistration.environment, input.environment),
+      eq(PublishStreamRegistration.publishType, input.publishType),
+      eq(PublishStreamRegistration.leaseHolderId, input.leaseHolderId),
+    ));
+}
+
+/** Extend one ordinary publish lease while the same batch keeps making progress. */
+async function renewRemotePublishLease(
+  remoteDb: PublishDb,
+  input: {
+    publishTarget: string;
+    environment: string;
+    publishType: string;
+    leaseHolderId: string;
+  },
+) {
+  const now = new Date();
+  const leaseExpiresAt = new Date(now.getTime() + remotePublishLeaseTtlMs);
+
+  const renewed = await remoteDb.update(PublishStreamRegistration)
+    .set({
+      leaseExpiresAt,
+      updatedAt: now,
+    })
+    .where(and(
+      eq(PublishStreamRegistration.publishTarget, input.publishTarget),
+      eq(PublishStreamRegistration.environment, input.environment),
+      eq(PublishStreamRegistration.publishType, input.publishType),
+      eq(PublishStreamRegistration.leaseHolderId, input.leaseHolderId),
+      isNotNull(PublishStreamRegistration.leaseExpiresAt),
+      gt(PublishStreamRegistration.leaseExpiresAt, now),
+    ))
+    .returning()
+    .then(rows => rows[0] ?? null);
+
+  if (renewed == null) {
+    throw new Error(
+      `Remote publish stream ${input.publishTarget}/${input.environment}/${input.publishType} lease could not be renewed for batch ${input.leaseHolderId}.`,
+    );
+  }
 }
 
 /** Build a deterministic JSON string from a row-key record with alphabetically sorted keys. */
@@ -781,6 +980,8 @@ async function insertPublishBatch(
     publishType: string;
     operationKind: PublishOperationKind;
     range: PublishDatasetRange;
+    generationFingerprint: GenerationFingerprint;
+    generationOrder: GenerationOrder;
     manifestHash: string;
     previousManifestHash: string | null;
     counts: PublishBatchCounts;
@@ -799,6 +1000,8 @@ async function insertPublishBatch(
     sourceTagMax: input.range.sourceTagMax,
     buildMin: input.range.buildMin,
     buildMax: input.range.buildMax,
+    generationFingerprint: input.generationFingerprint,
+    generationOrder: input.generationOrder,
     manifestHash: input.manifestHash,
     previousManifestHash: input.previousManifestHash,
     totalRowCount: input.counts.totalRowCount,
@@ -885,6 +1088,8 @@ async function finalizePublishBatchSuccess(
     targetFingerprint: string;
     publishType: string;
     range: PublishDatasetRange;
+    generationFingerprint: GenerationFingerprint;
+    generationOrder: GenerationOrder;
     counts: PublishBatchCounts;
     manifestHash: string;
     plans: PublishBatchRowPlan[];
@@ -991,6 +1196,8 @@ async function finalizePublishBatchSuccess(
     sourceTagMax: input.range.sourceTagMax,
     buildMin: input.range.buildMin,
     buildMax: input.range.buildMax,
+    generationFingerprint: input.generationFingerprint,
+    generationOrder: input.generationOrder,
     manifestHash: input.manifestHash,
     totalRowCount: input.counts.totalRowCount,
     publishedAt: input.publishedAt,
@@ -1012,6 +1219,8 @@ async function finalizePublishBatchSuccess(
         sourceTagMax: input.range.sourceTagMax,
         buildMin: input.range.buildMin,
         buildMax: input.range.buildMax,
+        generationFingerprint: input.generationFingerprint,
+        generationOrder: input.generationOrder,
         manifestHash: input.manifestHash,
         totalRowCount: input.counts.totalRowCount,
         publishedAt: input.publishedAt,
@@ -1079,6 +1288,8 @@ async function upsertRemotePublishLedger(
     targetFingerprint: string;
     publishType: string;
     range: PublishDatasetRange;
+    generationFingerprint: GenerationFingerprint;
+    generationOrder: GenerationOrder;
     counts: PublishBatchCounts;
     manifestHash: string;
     publishedAt: Date;
@@ -1094,6 +1305,8 @@ async function upsertRemotePublishLedger(
     sourceTagMax: input.range.sourceTagMax,
     buildMin: input.range.buildMin,
     buildMax: input.range.buildMax,
+    generationFingerprint: input.generationFingerprint,
+    generationOrder: input.generationOrder,
     manifestHash: input.manifestHash,
     totalRowCount: input.counts.totalRowCount,
     changedRowCount: input.counts.changedRowCount,
@@ -1116,6 +1329,8 @@ async function upsertRemotePublishLedger(
         sourceTagMax: input.range.sourceTagMax,
         buildMin: input.range.buildMin,
         buildMax: input.range.buildMax,
+        generationFingerprint: input.generationFingerprint,
+        generationOrder: input.generationOrder,
         manifestHash: input.manifestHash,
         totalRowCount: input.counts.totalRowCount,
         changedRowCount: input.counts.changedRowCount,
@@ -1311,6 +1526,8 @@ async function applyRowPlansToRemote(
           targetFingerprint: input.targetFingerprint,
           publishType: input.publishType,
           range: input.range,
+          generationFingerprint: input.generationFingerprint,
+          generationOrder: input.generationOrder,
           counts: input.counts,
           manifestHash: input.manifestHash,
           publishedAt: input.publishedAt,
@@ -1413,6 +1630,8 @@ export async function createPublishPlan(options?: {
     publishType,
     operationKind: publishOperationKindSchema.enum.publish,
     range,
+    generationFingerprint: publishCardDataGeneration.fingerprint,
+    generationOrder: publishCardDataGeneration.order,
     manifestHash,
     previousManifestHash,
     counts,
@@ -1560,6 +1779,18 @@ function buildPublishReport(
  * re-calling this function will skip already-applied rows and resume from the
  * first pending row.
  */
+
+/** Rejects batches that require explicit high-risk publish entrypoints. */
+function assertNormalPublishBatch(batch: Pick<typeof PublishBatch.$inferSelect, 'id' | 'operationKind'>): void {
+  if (batch.operationKind === publishOperationKindSchema.enum.publish) {
+    return;
+  }
+
+  throw new Error(
+    `Publish batch ${batch.id} uses high-risk operation ${batch.operationKind} and must be executed through an explicit ${batch.operationKind} entrypoint.`,
+  );
+}
+
 export async function executePublishBatch(
   batchId: string,
   options?: {
@@ -1570,6 +1801,8 @@ export async function executePublishBatch(
   const target = requireHearthstonePublishTarget();
   const localDb = getLocalDb();
   const remoteDb = createDb(target.connectionString);
+  let leaseHolderId: string | null = null;
+  let leaseStream: Pick<typeof PublishStreamRegistration.$inferSelect, 'publishTarget' | 'environment' | 'publishType'> | null = null;
 
   try {
     const batch = await localDb.select().from(PublishBatch).where(eq(PublishBatch.id, batchId)).then(r => r[0]);
@@ -1577,6 +1810,8 @@ export async function executePublishBatch(
     if (!batch) {
       throw new Error(`Publish batch ${batchId} not found.`);
     }
+
+    assertNormalPublishBatch(batch);
 
     if (batch.status === 'completed') {
       return buildPublishReport(batch, batch.completedAt ?? batch.updatedAt);
@@ -1587,6 +1822,27 @@ export async function executePublishBatch(
         .set({ status: 'applying', startedAt: new Date(), updatedAt: new Date() })
         .where(eq(PublishBatch.id, batchId));
     }
+
+    onProgress?.({ phase: 'checking_remote_gate', message: '正在校验远端 publish stream gate...', totalRowCount: null, completedRowCount: null });
+
+    await assertRemotePublishGate(remoteDb, {
+      publishTarget: batch.publishTarget,
+      environment: batch.environment,
+      publishType: batch.publishType,
+      targetFingerprint: batch.targetFingerprint,
+      manifestHash: batch.manifestHash,
+      previousManifestHash: batch.previousManifestHash ?? null,
+      sourceTagMax: batch.sourceTagMax,
+      generationFingerprint: batch.generationFingerprint,
+      generationOrder: batch.generationOrder,
+      leaseHolderId: batch.id,
+    });
+    leaseHolderId = batch.id;
+    leaseStream = {
+      publishTarget: batch.publishTarget,
+      environment: batch.environment,
+      publishType: batch.publishType,
+    };
 
     // Load pending rows, sorted by table then PK for deterministic order
     const pendingRows = await localDb.select()
@@ -1671,6 +1927,15 @@ export async function executePublishBatch(
               eq(PublishBatchRow.rowKey, row.rowKey),
             ));
         }
+
+        if (leaseHolderId != null && leaseStream != null) {
+          await renewRemotePublishLease(remoteDb, {
+            publishTarget: leaseStream.publishTarget,
+            environment: leaseStream.environment,
+            publishType: leaseStream.publishType,
+            leaseHolderId,
+          });
+        }
       } catch (error) {
         const message = getErrorMessage(error);
 
@@ -1698,6 +1963,8 @@ export async function executePublishBatch(
         targetFingerprint: batch.targetFingerprint,
         publishType: batch.publishType,
         range: { sourceTagMin: batch.sourceTagMin, sourceTagMax: batch.sourceTagMax, buildMin: batch.buildMin, buildMax: batch.buildMax },
+        generationFingerprint: batch.generationFingerprint,
+        generationOrder: batch.generationOrder,
         counts: {
           totalRowCount: batch.totalRowCount,
           changedRowCount: batch.changedRowCount,
@@ -1722,6 +1989,8 @@ export async function executePublishBatch(
       targetFingerprint: batch.targetFingerprint,
       publishType: batch.publishType,
       range: { sourceTagMin: batch.sourceTagMin, sourceTagMax: batch.sourceTagMax, buildMin: batch.buildMin, buildMax: batch.buildMax },
+      generationFingerprint: batch.generationFingerprint,
+      generationOrder: batch.generationOrder,
       counts: {
         totalRowCount: batch.totalRowCount,
         changedRowCount: batch.changedRowCount,
@@ -1743,8 +2012,26 @@ export async function executePublishBatch(
       .set({ status: 'completed', updatedAt: new Date() })
       .where(eq(PublishBatch.id, batchId));
 
+    await releaseRemotePublishLease(remoteDb, {
+      publishTarget: batch.publishTarget,
+      environment: batch.environment,
+      publishType: batch.publishType,
+      leaseHolderId: batch.id,
+    });
+    leaseHolderId = null;
+    leaseStream = null;
+
     return buildPublishReport(batch, publishedAt);
   } finally {
+    if (leaseHolderId != null && leaseStream != null) {
+      await releaseRemotePublishLease(remoteDb, {
+        publishTarget: leaseStream.publishTarget,
+        environment: leaseStream.environment,
+        publishType: leaseStream.publishType,
+        leaseHolderId,
+      });
+    }
+
     await closePublishDb(remoteDb);
   }
 }
@@ -1811,6 +2098,8 @@ export async function publishCurrentHsdataToRemote(options?: {
     .then(rows => rows[rows.length - 1] ?? null);
 
   if (incomplete) {
+    assertNormalPublishBatch(incomplete);
+
     onProgress?.({ phase: 'loading_snapshots', message: `检测到未完成的批次 ${incomplete.id}，将从断点继续...`, totalRowCount: null, completedRowCount: null });
 
     return await executePublishBatch(incomplete.id, options);
@@ -1873,6 +2162,8 @@ export async function getIncompletePublishBatch(): Promise<PublishReport | null>
 /** Test-only publish helpers that lock row-level diff semantics in place. */
 export const hsdataPublishTestUtils = {
   emptyHash,
+  assertRemotePublishGate,
+  renewRemotePublishLease,
   buildBatchRowPlans,
   loadRowDataChunk,
   serializeRowKey,
