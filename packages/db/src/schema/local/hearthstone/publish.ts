@@ -11,34 +11,13 @@ import {
 import { sql } from 'drizzle-orm';
 
 import { dataSchema } from '../../shared/hearthstone/schema';
-
-export const publishBatchStatus = dataSchema.enum('publish_batch_status', [
-  'planning',
-  'applying',
-  'completed',
-  'failed',
-]);
-
-export const publishOperationKind = dataSchema.enum('publish_operation_kind', [
-  'publish',
-  'repair',
-  'rollback',
-  'baseline_repair',
-]);
-
-export const publishBatchRowAction = dataSchema.enum('publish_batch_row_action', [
-  'insert',
-  'update',
-  'delete',
-  'unchanged',
-]);
-
-export const publishBatchRowStatus = dataSchema.enum('publish_batch_row_status', [
-  'pending',
-  'applied',
-  'skipped',
-  'failed',
-]);
+import {
+  publishBatchRowAction,
+  publishBatchRowStatus,
+  publishBatchStatus,
+  publishOperationKind,
+  publishRowChangeOperation,
+} from '../publish';
 
 export const PublishBatch = dataSchema.table('publish_batches', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -111,7 +90,7 @@ export const PublishBatchRow = dataSchema.table('publish_batch_rows', {
     .references(() => PublishBatch.id, { onDelete: 'cascade' }),
 
   tableName:       text('table_name').notNull(),
-  rowPk:           text('row_pk').notNull(),
+  rowKey:          text('row_key').notNull(),
   rowHash:         text('row_hash').notNull(),
   previousRowHash: text('previous_row_hash'),
 
@@ -126,7 +105,7 @@ export const PublishBatchRow = dataSchema.table('publish_batch_rows', {
     .notNull(),
   appliedAt: timestamp('applied_at'),
 }, table => [
-  primaryKey({ columns: [table.batchId, table.tableName, table.rowPk] }),
+  primaryKey({ columns: [table.batchId, table.tableName, table.rowKey] }),
   index('publish_batch_rows_batch_action_idx').on(table.batchId, table.action),
   index('publish_batch_rows_batch_status_idx').on(table.batchId, table.status),
   index('publish_batch_rows_batch_table_idx').on(table.batchId, table.tableName),
@@ -134,8 +113,8 @@ export const PublishBatchRow = dataSchema.table('publish_batch_rows', {
 
 export const PublishBaseline = dataSchema.table('publish_baselines', {
   publishTarget: text('publish_target').notNull(),
-  environment:     text('environment').notNull(),
-  publishType:     text('publish_type').notNull().default('card_data'),
+  environment:   text('environment').notNull(),
+  publishType:   text('publish_type').notNull().default('card_data'),
 
   targetFingerprint: text('target_fingerprint').notNull(),
   batchId:           uuid('batch_id')
@@ -164,4 +143,60 @@ export const PublishBaseline = dataSchema.table('publish_baselines', {
   check('publish_baselines_source_tag_min_positive_chk', sql`${table.sourceTagMin} > 0`),
   check('publish_baselines_build_min_positive_chk', sql`${table.buildMin} > 0`),
   check('publish_baselines_total_row_count_nonnegative_chk', sql`${table.totalRowCount} >= 0`),
+]);
+
+export const PublishRowBaseline = dataSchema.table('publish_row_baselines', {
+  publishTarget: text('publish_target').notNull(),
+  environment:   text('environment').notNull(),
+  publishType:   text('publish_type').notNull().default('card_data'),
+
+  tableName: text('table_name').notNull(),
+  rowKey:    text('row_key').notNull(),
+  rowHash:   text('row_hash').notNull(),
+
+  sourceBatchId: uuid('source_batch_id')
+    .references(() => PublishBatch.id),
+  publishedAt: timestamp('published_at').notNull(),
+  createdAt:   timestamp('created_at').defaultNow().notNull(),
+  updatedAt:   timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
+}, table => [
+  primaryKey({
+    columns: [
+      table.publishTarget,
+      table.environment,
+      table.publishType,
+      table.tableName,
+      table.rowKey,
+    ],
+  }),
+  index('publish_row_baselines_stream_idx').on(
+    table.publishTarget,
+    table.environment,
+    table.publishType,
+  ),
+  index('publish_row_baselines_source_batch_idx').on(table.sourceBatchId),
+]);
+
+export const PublishRowChangeLog = dataSchema.table('publish_row_change_logs', {
+  tableName: text('table_name').notNull(),
+  rowKey:    text('row_key').notNull(),
+
+  operation:   publishRowChangeOperation('operation').notNull(),
+  sourceBuild: integer('source_build'),
+  sourceTag:   integer('source_tag'),
+  sourceRunId: uuid('source_run_id'),
+  changedAt:   timestamp('changed_at').notNull(),
+  createdAt:   timestamp('created_at').defaultNow().notNull(),
+  updatedAt:   timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
+}, table => [
+  primaryKey({ columns: [table.tableName, table.rowKey, table.changedAt] }),
+  index('publish_row_change_logs_changed_at_idx').on(table.changedAt),
+  index('publish_row_change_logs_table_row_idx').on(table.tableName, table.rowKey),
+  index('publish_row_change_logs_operation_idx').on(table.operation),
 ]);

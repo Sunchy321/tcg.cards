@@ -659,8 +659,6 @@ site 侧产生的远端人工提交直接进入 remote。
   - 唯一标识发布表中的一行
 - `rowHash`
   - 标识该行上次成功发布时的稳定内容摘要
-- `exists`
-  - 标识该行在该 publish stream 的当前已发布基线中是否存在
 - `publishTarget + environment + publishType`
   - 标识这条基线属于哪条 publish stream
 - 少量审计字段
@@ -690,31 +688,80 @@ site 侧产生的远端人工提交直接进入 remote。
 
 首轮固定为：
 
-- 删除检测必须由受控写入口统一处理
-- 该入口默认是本地 service API
-- 如果某条发布链路已有稳定数据库钩子，也允许由数据库钩子承担同等职责
+- 行级变更检测由数据库 trigger 统一记录
+- trigger 记录 `insert / update / delete`
+- 变更日志不携带 `publishTarget / environment / publishType`
 
 这意味着：
 
-- 所有会影响 `publish-owned` 结果表的写入，都必须经过本地 service API 或数据库钩子
-- 删除检测依赖这个受控入口掌握的本轮结果变化，而不是依赖裸数据库层的事后全表扫描
-- 行级 baseline 继续保存“上次发布过什么”，但删除集合的产出由受控入口负责
+- 删除检测与 publish stream 归属必须分离
+- 变更事实由数据库层稳定产出，而不是依赖事后全表扫描
+- 行级 baseline 继续保存“上次发布过什么”，publish 动作由“变更日志 + 当前状态 + baseline”共同判定
 
-#### 7A.5 本地 service API 是首轮实现的统一写入口
+#### 7A.5 统一变更日志与 publish stream 归属分离
 
-首轮推荐把 `publish-owned` 的本地写路径收束到少数受控 service API。
+首轮固定把行级变更检测拆成两层：
 
-这些入口至少负责：
+- 变更日志层
+  - 由数据库 trigger 写入 stream-agnostic 变更日志
+  - 只表达本地行发生过 `insert / update / delete`
+  - 不表达 stream 归属
+- publish 归属层
+  - publish plan 构建时按具体 stream 的 `PublishRowBaseline` 和当前状态解释最终动作
+  - trigger 记录的事件类型只是候选事实，不直接等价于最终 publish 动作
 
-- 执行结果表写入
-- 产出新增与更新候选
-- 识别删除候选
-- 更新本地发布计划所需的基线或中间事实
+这样可以满足：
 
-如果采用数据库钩子实现同等能力，也必须满足同一条要求：
+- 同一份变更日志可供多个 stream 复用
+- trigger 不需要了解 publish stream 配置
+- publish 不需要扫当前结果全表
 
-- 发布结果写入与删除检测必须共用同一套受控入口语义
-- 不允许一部分链路绕过该入口，直接在数据库里静默写结果表
+首轮不引入 cursor、顺序号或额外 stream 级中间表。
+
+#### 7A.5.1 统一变更日志的最小结构
+
+首轮将删除专用日志进一步收敛为统一的 `PublishRowChangeLog`。
+
+该表固定保存：
+
+- `tableName`
+- `rowKey`
+- `operation`
+  - `insert`
+  - `update`
+  - `delete`
+- `changedAt`
+- `sourceBuild`
+- `sourceTag`
+- `sourceRunId`
+- 基本审计字段
+
+这张表的职责固定为：
+
+- 承载本地结果表的统一行级变更事实
+- 为 publish 提供上次发布之后的候选 row key 集合
+- 不承担 stream 当前态存储
+- 不直接承担最终 publish 动作判定
+
+与 `PublishRowBaseline` 的分工固定为：
+
+- `PublishRowChangeLog` 表示“本地哪些 row key 在某个时间窗口内发生过变化”
+- `PublishRowBaseline` 表示“某条 publish stream 当前已经发布过哪些 row key 以及对应 row hash”
+
+#### 7A.5.2 baseline 不能被统一变更日志替代
+
+即使已经能通过 trigger 直接跟踪行级 `insert / update / delete`，也不能直接移除 `PublishRowBaseline`。
+
+原因固定为：
+
+- 变更日志只回答“本地发生过什么事件”
+- baseline 才回答“某条 publish stream 当前已发布的状态是什么”
+
+因此：
+
+- `changedAt >= baseline.publishedAt` 只用于筛选候选变更
+- 最终 `insert / update / delete` 必须由“当前状态 + baseline”判定
+- trigger 记录到的 `insert / update / delete` 不能直接作为最终 publish 动作使用
 
 #### 7A.6 publish plan 允许两类生成路径
 
@@ -738,10 +785,16 @@ site 侧产生的远端人工提交直接进入 remote。
 
 日常增量路径的处理顺序固定为：
 
-1. 各关联表根据 `updatedAt` 或等价变化标记筛选候选行
-2. 本地 service API 或数据库钩子补充删除候选
-3. 候选行与行级 baseline 比较，判断新增、更新和删除
-4. 各表产出的行级变更合并为同一轮 publish plan
+1. 数据库 trigger 将本地结果表的 `insert / update / delete` 写入统一的 `PublishRowChangeLog`
+2. publish 读取 `changedAt >= baseline.publishedAt` 的变更日志
+3. 按 `tableName + rowKey` 去重，得到候选 row key 集合
+4. 按候选 row key 回查当前仍然存在的本地行，并计算当前 row hash
+5. 将候选当前状态与当前 stream 的行级 baseline 比较，判定最终行级变更：
+   - 当前有、baseline 无 => `insert`
+   - 当前有、baseline 有且 hash 不同 => `update`
+   - 当前无、baseline 有 => `delete`
+   - 当前有、baseline 有且 hash 相同 => `unchanged`
+6. 各表产出的最终行级变更合并为同一轮 publish plan
 
 这条路径的目标是最小化正常增量发布成本。
 
@@ -832,6 +885,45 @@ bootstrap / rebuild 首轮必须支持失败后重跑。
 - 远端主要回答“这轮 publish plan 是否可以推进这条 publish stream”
 - 远端不需要知道每条行级变更此前是否已经逐行发布过
 - 行级增量正确性主要由本地 baseline 与本地 publish plan 负责
+
+#### 7A.7.1.A 远端必须阻止普通 publish 任意创建新 stream
+
+首轮必须明确禁止“调用方随意填写一个新的 `publishTarget`，然后让普通 publish 自动在远端落出一条新 stream”。
+
+固定规则为：
+
+- 普通 publish 只能推进远端已经登记的 `publish stream`
+- `publish stream` 的受控身份至少包括：
+  - `publishTarget + environment + publishType`
+- 每条已登记 stream 必须绑定受控的 `targetFingerprint` 约束
+- 远端必须先判断该 stream 是否已登记、是否允许普通 publish，再继续 compare-and-swap 与 generation 校验
+- 未登记 stream 必须直接拒绝，不能通过“远端当前还没有 baseline”来视为可自动创建
+
+因此首轮语义固定为：
+
+- “远端是否已有 baseline” 与 “该 stream 是否允许存在” 是两个不同问题
+- 空 baseline 只表示该 stream 尚未完成首次已接受发布
+- 是否允许这条 stream 首次启用，必须由显式 bootstrap / approval 流程决定，而不是由普通 publish 隐式决定
+
+首轮允许的最小实现形态为：
+
+- 远端持有一份受控 stream 注册信息
+- 这份注册信息可以是专用表，也可以是等价的受限配置来源
+- 但普通 publish 不得把“未注册 stream”自动提升为“已注册 stream”
+
+如果后续引入专用远端表，最小登记信息至少应覆盖：
+
+- `publishTarget`
+- `environment`
+- `publishType`
+- `allowedTargetFingerprint` 或等价 fingerprint 约束
+- stream 当前是否允许普通 publish
+
+这条规则的目标不是把远端变成重型对象级审核中心，而是防止：
+
+- 调用方随意伪造一个新的 `publishTarget`
+- 调用方误把本不属于当前部署面的 stream 推到远端
+- 普通 publish 静默接管本应走 bootstrap / repair / approval 的首次启用场景
 
 #### 7A.7.2 远端可保留表级摘要，但不做逐行 gate
 

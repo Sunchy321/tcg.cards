@@ -5,7 +5,7 @@
 - [x] 固定首轮实施范围与分期，明确哪些现有链路直接复用，哪些只做抽象收口
 - [x] 将 `game-data-local-remote-sync` 设计包迁入 `specs/` 并作为后续实现主入口
 - [x] 为 `publish-owned` 固定通用 publish stream 身份、行级 baseline 最小模型与高风险操作枚举
-- [ ] 让现有 `hsdata publish` 链路对齐 `publish-owned` 通用语义，而不是继续保留 `hearthstone-card` 特化命名
+- [x] 让现有 `hsdata publish` 链路对齐 `publish-owned` 通用语义，而不是继续保留 `hearthstone-card` 特化命名
 - [ ] 为 `collaborative` 固定通用字段 policy registry 与 `commit / field entry / winner` 共享术语
 - [ ] 将现有 `hearthstone tag` 协作同步从 tag 特化规则中抽出通用同步骨架
 - [ ] 为 desktop runtime、console API 与前端页面补齐统一入口和术语
@@ -189,32 +189,276 @@
 
 ### 4. 固定行级 baseline 的最小语义并压瘦本地持久化
 
-设计已经明确：
+为便于逐步执行，本阶段拆成以下小步：
 
-- baseline 只需要 `rowKey`、`rowHash`、`exists` 和少量审计字段
-- 更新按整行发送
+- 4.A 固定第四步的目标结构，明确要保留什么、要删除什么
+- 4.B 盘点当前结构与目标结构的差异，列出必须收敛的职责
+- 4.C 固定共享 row baseline 最小语义，并删除多余抽象
+- 4.D 重构本地 publish 持久化结构到单一 row baseline 模型
+- 4.E 重构 `hsdata-publish.ts` 读写路径，让 diff 直接基于 row baseline，而不是绕经 batch 回放
+- 4.F 明确删除状态来源约束，并补充必要注释与测试
 
-现有实现中：
+执行要求：
 
-- 本地 `PublishBaseline` 只保存批次级摘要
-- 行级状态事实主要依附在 `PublishBatchRow`
-- 读取 previous row state 时通过当前 baseline 指向的 batch 回放 `PublishBatchRow`
+- 每次只完成一个最小子步骤
+- 每个子步骤完成后立即汇报并停下，等待下一步指示
 
-首轮允许保留“baseline 指向 batch、batch rows 承载逐行状态”的结构，但必须把语义明确为：
+本阶段新的实现原则：
 
+- 不把当前表结构当成必须保留的前提
+- 如果现有 `PublishBaseline / PublishBatch / PublishBatchRow` 分工导致语义绕行，可以为保持框架简洁而重构
+- 判断标准优先看“语义是否直接、边界是否清楚、运行路径是否简单”，而不是“是否最少改表”
+- 第四步目标已经固定为直接 row baseline 模型，不再保留 batch-row 回放当前态
+
+#### 4.A 第四步目标结构固定
+
+第四步后，`publish-owned` 的本地结构收敛为以下简化模型：
+
+- `PublishBatch`
+  - 只表达一次 publish 执行批次
+  - 保存批次级元数据、范围、统计、状态与审计信息
+- `PublishRowBaseline`
+  - 直接表达某条 publish stream 当前已发布的行级基线与删除判断锚点
+  - 每行直接保存：
+    - `publishTarget + environment + publishType`
+    - `tableName`
+    - `rowKey`
+    - `rowHash`
+    - 少量审计字段
+
+第四步额外固定一条约束：
+
+- delete 候选不能依赖“当前快照 vs baseline 的全表 key 差集”生成
+- delete 候选必须来自受控写入口、删除日志或等价增量事实
+- row baseline 负责保存“上次发布过什么”和“当前删除判断锚点”，但不替代删除候选来源
+
+第四步明确不再保留的绕行语义：
+
+- 不再使用“`PublishBaseline` 指向某个 accepted batch，再从该 batch 的 rows 回放当前行级状态”的结构
+- 不再让 `PublishBatchRow` 同时承担“执行计划事实”和“长期 row baseline 存储”两层职责
+
+第四步后的职责边界固定为：
+
+- batch 是 batch
+- row baseline 是 row baseline
+- insert / update diff 可以比较“当前快照”与“当前 row baseline”
+- delete diff 必须消费受控入口产出的删除候选，而不是依赖全表扫描
+
+本小步结论：
+
+- 第四步的重构目标已经从“显式化现有语义”改为“收敛到更简单、但不依赖全表扫描的 row baseline 模型”
+
+#### 4.B 当前结构与目标结构的差异盘点
+
+当前结构与目标结构之间，已确认的主要差异如下：
+
+- 当前 `PublishBaseline`
+  - 只保存 stream 级锚点
+  - 通过 `batchId` 间接引用当前已接受状态
+  - 不直接保存每行 baseline
+- 目标结构中的 `PublishRowBaseline`
+  - 直接保存某条 stream 的每行当前 baseline
+  - 不需要先跳到 batch 再回放 rows
+
+- 当前 `PublishBatchRow`
+  - 同时承担：
+    - 本轮 publish 计划
+    - 本轮 apply 状态
+    - 长期 row baseline 物理承载
+- 目标结构中的 batch row
+  - 只承担一次 batch 的执行计划与执行状态
+  - 不再承担长期 baseline 存储
+
+- 当前 diff 路径
+  - `loadBaselineRowHashes()`
+  - 先查 `PublishBaseline`
+  - 再查 baseline 指向的 `PublishBatchRow`
+  - 再组装 `baselineRowHashes`
+- 目标结构中的 diff 路径
+  - insert / update 直接查询 `PublishRowBaseline`
+  - delete 读取受控入口产出的删除候选
+  - 不再有“通过 accepted batch 回放当前状态”的绕行
+
+- 当前成功收口路径
+  - 先把本轮 `PublishBatchRow` 标记成 applied/skipped
+  - 再更新 `PublishBaseline.batchId`
+  - 再删除旧 completed batch rows
+- 目标结构中的成功收口路径
+  - 先收口 batch 执行状态
+  - 再直接 upsert 当前 stream 的 `PublishRowBaseline`
+  - 不再依赖“保留哪一批 batch rows 才能知道当前 baseline”
+
+基于以上差异，第四步必须收敛的职责固定为：
+
+- 把“当前已发布行级状态”从 `PublishBatchRow` 中拆出来
+- 让 batch 只表达执行，不再表达长期当前态
+- 让 baseline 成为可直接读取的当前态，而不是间接引用
+- 让 insert / update diff 直接依赖 row baseline，而不是 batch 回放
+- 让 delete diff 依赖受控入口候选，而不是全表 key 差集
+- 让 batch 清理策略不再影响当前 baseline 可读性
+
+本小步结论：
+
+- 当前结构真正复杂的根源不是表数量，而是“长期当前态”和“批次执行态”耦合在同一条链路上
+- 第四步后续实现应优先拆开这两类职责，而不是继续围绕 batch 引用关系补语义
+
+#### 4.D 本地持久化已收敛到单一 row baseline 模型
+
+第四步完成后，本地 publish 持久化的职责边界固定为：
+
+- `PublishBatch`
+  - 表达一次 publish 执行批次
+  - 保存批次级元数据、范围、统计、状态与审计信息
 - `PublishBatchRow`
-  - 是 publish plan 和记账事实
-  - 也是当前首轮行级 baseline 的物理承载
+  - 只表达本轮 batch 的执行计划与执行状态
+  - 不再承担长期 row baseline 存储
 - `PublishBaseline`
-  - 是某条 publish stream 当前已接受批次的 stream 级锚点
+  - 只表达 publish stream 级锚点和摘要
+  - 不再承担行级状态恢复
+- `PublishRowBaseline`
+  - 直接保存某条 publish stream 当前已发布的 `tableName + rowKey + rowHash`
+  - 作为后续 diff 的唯一行级基线来源
 
-本阶段需要补充：
+当前实现状态固定为：
 
-- 在 `packages/model/src/game-data-sync.ts` 或等价位置定义通用 row baseline 语义类型
-- 在 `apps/service-desktop-runtime/src/lib/hearthstone/hsdata-publish.ts` 中增加清晰注释和辅助函数命名，避免继续让 batch row 与 baseline 语义混淆
-- 明确删除状态只由受控写入口或重建入口产出，不由远端逐行状态回推
+- schema 已新增 `PublishRowBaseline`
+- `hsdata-publish.ts` 读取 baseline 时只查询 `PublishRowBaseline`
+- publish 成功后会直接 upsert / delete `PublishRowBaseline`
+- 旧的 `PublishBaseline + PublishBatchRow` 行级回放路径已删除
 
-若实现中发现 `PublishBatchRow` 过度承担长期状态，可在本阶段评估是否新增轻量 row baseline 表；但首轮默认不拆表。
+本小步结论：
+
+- 本地长期当前态已经从批次执行态中拆出
+- batch 清理策略不再影响后续 publish 的 baseline 可读性
+- 第四步后续无需再保留“旧路径兼容”描述
+
+#### 4.D.4 删除检测与 publish stream 归属分离
+
+第四步中，删除检测不再绑定某条 publish stream，也不再复用 projection 的瞬时 `deleteRows` 作为 publish-side 中间态。
+
+固定改为两层语义：
+
+- 删除检测层
+  - 由数据库 trigger 负责
+  - 只记录“哪张表的哪一行被删除了”
+  - 不携带 `publishTarget / environment / publishType`
+- stream 归属层
+  - 由 publish plan 构建时负责
+  - 按具体 stream 的 `PublishRowBaseline` 做交集
+  - 只有该 stream 之前确实发布过的行，才会生成 delete plan
+
+本小步结论：
+
+- delete 候选不再从“当前快照 vs baseline 全量差集”推导
+- delete 检测与 stream 归属彻底分离
+- 同一份删除日志可被多个 publish stream 复用
+
+#### 4.D.5 新增 stream-agnostic 删除日志表
+
+本阶段进一步将删除专用日志收敛为统一行级变更日志。
+
+- 在 `packages/db/src/schema/local/hearthstone/publish.ts` 新增 `PublishRowChangeLog`
+- 该表保存：
+  - `tableName`
+  - `rowKey`
+  - `operation`
+    - `insert`
+    - `update`
+    - `delete`
+  - `changedAt`
+  - `sourceBuild`
+  - `sourceTag`
+  - `sourceRunId`
+  - 基本审计字段
+
+这张表的职责固定为：
+
+- 承载数据库 trigger 检测到的统一行级变更事实
+- 保持与 publish stream 无关
+- 供后续 publish plan 在不扫全表的前提下读取候选 row key 集合
+
+与 `PublishRowBaseline` 的分工固定为：
+
+- `PublishRowBaseline` 表示某条 publish stream 当前已发布的行
+- `PublishRowChangeLog` 表示与 stream 无关的行级变更事实日志
+
+publish 读取统一变更日志时固定规则为：
+
+- 读取 `changedAt >= baseline.publishedAt` 的变更日志
+- 按 `tableName + rowKey` 去重，得到候选 row key 集合
+- 按候选 key 回查当前本地状态
+- 用“当前状态 + baseline”判定最终 `insert / update / delete`
+
+本小步明确不做：
+
+- 不给统一变更日志附加 stream 字段
+- 不引入 `lastChangeLogId`、`cursor` 或额外顺序列
+- 不直接把 trigger 记录到的 `operation` 当成最终 publish 动作
+- 不生成 migration
+
+本小步结论：
+
+- 行级变更检测已收敛为 trigger + 统一变更日志
+- publish 动作判定已收敛为“时间窗口 + 当前状态 + baseline”
+
+#### 4.D.6 第四步实施结果
+
+第四步当前已完成以下收口：
+
+1. 删除专用日志已收束为统一的 `PublishRowChangeLog`
+2. `PublishRowChangeLog` 的 schema、migration 与 trigger SQL 已补齐
+3. `cards / entities / entity_localizations / entity_relations` 四张表都已接入 `AFTER INSERT / UPDATE / DELETE` trigger
+4. publish 候选构建已全面切到 `change log + baseline`
+5. 旧的 delete-only 设计残留、batch-row 回放路径和相关注释已清理
+6. 本地单测已覆盖当前 `row baseline + change log` 的行级计划构建语义
+
+#### 4.E `hsdata-publish.ts` 已改为直接基于 row baseline diff
+
+第四步完成后，`hsdata-publish.ts` 的核心读写路径固定为：
+
+- `loadBaselineRowHashes()`
+  - 直接查询 `PublishRowBaseline`
+  - 不再通过 `PublishBaseline.batchId` 回放旧 `PublishBatchRow`
+- `loadCurrentRowSnapshots()`
+  - 有 baseline 时，先用 `PublishRowChangeLog.changedAt >= baseline.publishedAt` 读取候选 row key
+  - 再按候选 key 回查当前本地行
+  - 用 baseline 叠加出当前 diff 输入
+- `buildBatchRowPlans()`
+  - 只根据“当前状态 + baseline row hashes”判定 `insert / update / delete / unchanged`
+- `finalizePublishBatchSuccess()`
+  - 更新 batch / batch row 状态
+  - 直接维护 `PublishRowBaseline`
+  - 同步更新 `PublishBaseline` 的 stream 级摘要
+
+本小步结论：
+
+- diff 已不再绕经 batch 回放
+- `PublishBatchRow` 已只剩执行期职责
+- 第四步要求的“直接 row baseline diff”已经达成
+
+#### 4.F 删除状态来源约束、注释与测试
+
+第四步完成后，删除状态来源固定为：
+
+- 数据库 trigger 记录统一的 `PublishRowChangeLog`
+- publish 只把它当作候选事实
+- 最终 delete 仍由“当前状态为空 + baseline 存在”判定
+
+当前已完成的收尾包括：
+
+- 增加 `publish-trigger.sql` 作为 trigger 维护源文件
+- 在 schema、runtime 注释与 spec 中明确 `PublishRowChangeLog` 不等于最终 publish 动作
+- `hsdata-publish.test.ts` 已覆盖：
+  - `insert / update / delete / unchanged` 判定
+  - baseline overlay 语义
+  - 空 baseline / 空 current 的边界场景
+  - plan 排序与 manifest hash 稳定性
+
+本小步结论：
+
+- 第四步的删除来源约束已经固定
+- 相关注释与单测已经补齐
+- 第四步可以视为完成
 
 ### 5. 收口 `publish-owned` gate 与高风险入口
 
@@ -237,6 +481,8 @@
 
 固定要求：
 
+- 普通发布不得自动创建新的 `publish stream`，未登记的 `publishTarget + environment + publishType` 必须拒绝
+- 远端必须对已登记 stream 校验 `targetFingerprint` 约束，不能只检查字段非空
 - 普通发布必须显式绑定 previous baseline 摘要
 - 同 generation 下 source/build 不得静默倒退
 - 同 lineage 摘要分叉必须拒绝普通发布
@@ -248,6 +494,7 @@
 - 补共享类型和状态枚举
 - 在入口层做显式预留
 - 在普通 publish 中拒绝需要高风险入口处理的情况
+- 为后续远端 stream allowlist / bootstrap approval 预留受控校验点
 
 ### 6. 明确 `publish-owned` 的统一写入口与重建入口
 

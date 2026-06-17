@@ -9,12 +9,14 @@ export default defineConfig({
   dialect: 'postgresql',
   out:     './migrations/local',
   schema:  [
+    './src/schema/local/index.ts',
     './src/schema/local/hearthstone/index.ts',
     './src/schema/local/magic/index.ts',
   ],
   casing: 'snake_case',
 
   schemaFilter: [
+    'public',
     ...GAMES,
     ...GAMES.map(g => `${g}_data`),
   ],

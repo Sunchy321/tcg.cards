@@ -6,12 +6,12 @@ type TableName = 'cards' | 'entities' | 'entity_localizations' | 'entity_relatio
 
 interface PublishRowState {
   tableName: TableName;
-  rowPk: string;
+  rowKey: string;
   rowHash: string;
 }
 
-function rowState(tableName: TableName, rowPk: string, rowHash: string): PublishRowState {
-  return { tableName, rowPk, rowHash };
+function rowState(tableName: TableName, rowKey: string, rowHash: string): PublishRowState {
+  return { tableName, rowKey, rowHash };
 }
 
 function createPreviousMap(rows: PublishRowState[]): Map<TableName, Map<string, string>> {
@@ -22,7 +22,7 @@ function createPreviousMap(rows: PublishRowState[]): Map<TableName, Map<string, 
       map.set(row.tableName, new Map());
     }
 
-    map.get(row.tableName)!.set(row.rowPk, row.rowHash);
+    map.get(row.tableName)!.set(row.rowKey, row.rowHash);
   }
 
   return map;
@@ -44,7 +44,7 @@ describe('hsdata publish row plans', () => {
       rowState('cards', 'card-a', 'card-a-hash'),
     ];
 
-    const result = hsdataPublishTestUtils.buildRowPlans(current, previous);
+    const result = hsdataPublishTestUtils.buildBatchRowPlans(current, previous);
 
     // Previous: entities(card-b, card-c), localizations(card-b), cards(card-d) = 4 rows
     // Current: entities(card-a, card-b, card-c), localizations(card-b), cards(card-a) = 5 rows
@@ -71,12 +71,12 @@ describe('hsdata publish row plans', () => {
     const previous = createPreviousMap([
       rowState('entities', 'card-z|hash-z1', 'gone-hash'),
     ]);
-    const ordered = hsdataPublishTestUtils.buildRowPlans([
+    const ordered = hsdataPublishTestUtils.buildBatchRowPlans([
       rowState('entities', 'card-a|hash-a1', 'hash-a'),
       rowState('entities', 'card-b|hash-b1', 'hash-b'),
       rowState('cards', 'card-a', 'card-a-hash'),
     ], previous);
-    const reversed = hsdataPublishTestUtils.buildRowPlans([
+    const reversed = hsdataPublishTestUtils.buildBatchRowPlans([
       rowState('cards', 'card-a', 'card-a-hash'),
       rowState('entities', 'card-b|hash-b1', 'hash-b'),
       rowState('entities', 'card-a|hash-a1', 'hash-a'),
@@ -87,18 +87,18 @@ describe('hsdata publish row plans', () => {
     expect(ordered.manifestHash.length).toBeGreaterThan(0);
   });
 
-  test('serializeRowPk produces deterministic output regardless of key order', () => {
-    const pk1 = hsdataPublishTestUtils.serializeRowPk({ cardId: 'x', revisionHash: 'y', lang: 'z' });
-    const pk2 = hsdataPublishTestUtils.serializeRowPk({ lang: 'z', cardId: 'x', revisionHash: 'y' });
+  test('serializeRowKey produces deterministic output regardless of key order', () => {
+    const pk1 = hsdataPublishTestUtils.serializeRowKey({ cardId: 'x', revisionHash: 'y', lang: 'z' });
+    const pk2 = hsdataPublishTestUtils.serializeRowKey({ lang: 'z', cardId: 'x', revisionHash: 'y' });
 
     expect(pk1).toBe(pk2);
     expect(pk1).toBe('{"cardId":"x","lang":"z","revisionHash":"y"}');
   });
 
-  test('parseRowPk round-trips through serializeRowPk', () => {
+  test('parseRowKey round-trips through serializeRowKey', () => {
     const original = { sourceId: 'a', relation: 'b', sourceRevisionHash: 'c', targetId: 'd' };
-    const serialized = hsdataPublishTestUtils.serializeRowPk(original);
-    const parsed = hsdataPublishTestUtils.parseRowPk(serialized);
+    const serialized = hsdataPublishTestUtils.serializeRowKey(original);
+    const parsed = hsdataPublishTestUtils.parseRowKey(serialized);
 
     expect(parsed).toEqual(original);
   });
@@ -110,7 +110,7 @@ describe('hsdata publish row plans', () => {
     ]);
     const current: PublishRowState[] = [];
 
-    const result = hsdataPublishTestUtils.buildRowPlans(current, previous);
+    const result = hsdataPublishTestUtils.buildBatchRowPlans(current, previous);
 
     expect(result.counts.totalRowCount).toBe(2);
     expect(result.counts.deletedRowCount).toBe(2);
@@ -125,7 +125,7 @@ describe('hsdata publish row plans', () => {
       rowState('cards', 'card-a', 'card-a-hash'),
     ];
 
-    const result = hsdataPublishTestUtils.buildRowPlans(current, previous);
+    const result = hsdataPublishTestUtils.buildBatchRowPlans(current, previous);
 
     expect(result.counts.totalRowCount).toBe(2);
     expect(result.counts.insertedRowCount).toBe(2);
@@ -133,7 +133,28 @@ describe('hsdata publish row plans', () => {
     expect(result.counts.deletedRowCount).toBe(0);
   });
 
-  test('plans are sorted by tableName then rowPk', () => {
+  test('baseline-overlay current rows keep unchanged rows without turning them into deletes', () => {
+    const previous = createPreviousMap([
+      rowState('entities', 'card-b|hash-b1', 'same-hash'),
+      rowState('cards', 'card-b', 'card-b-hash'),
+    ]);
+    const current = [
+      rowState('entities', 'card-b|hash-b1', 'same-hash'),
+      rowState('entities', 'card-a|hash-a1', 'card-a-hash'),
+      rowState('cards', 'card-a', 'card-a-card-hash'),
+      rowState('cards', 'card-b', 'card-b-hash-next'),
+    ];
+
+    const result = hsdataPublishTestUtils.buildBatchRowPlans(current, previous);
+
+    expect(result.counts.totalRowCount).toBe(4);
+    expect(result.counts.insertedRowCount).toBe(2);
+    expect(result.counts.updatedRowCount).toBe(1);
+    expect(result.counts.deletedRowCount).toBe(0);
+    expect(result.counts.unchangedRowCount).toBe(1);
+  });
+
+  test('plans are sorted by tableName then rowKey', () => {
     const previous = createPreviousMap([]);
     const current = [
       rowState('entity_relations', 'r2', 'hash-r2'),
@@ -141,9 +162,9 @@ describe('hsdata publish row plans', () => {
       rowState('entities', 'e1', 'hash-e1'),
     ];
 
-    const result = hsdataPublishTestUtils.buildRowPlans(current, previous);
+    const result = hsdataPublishTestUtils.buildBatchRowPlans(current, previous);
 
-    const planOrder = result.plans.map(p => `${p.tableName}:${p.rowPk}`);
+    const planOrder = result.plans.map(p => `${p.tableName}:${p.rowKey}`);
 
     expect(planOrder[0]).toContain('cards');
     expect(planOrder[1]).toContain('entities');

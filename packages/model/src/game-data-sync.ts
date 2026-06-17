@@ -20,7 +20,6 @@ export const publishStream = z.strictObject({
 export const publishRowBaseline = z.strictObject({
   rowKey: z.string().trim().min(1),
   rowHash: z.string(),
-  exists: z.boolean(),
 });
 
 /** Describes one code-defined policy for a synced game-data field. */
