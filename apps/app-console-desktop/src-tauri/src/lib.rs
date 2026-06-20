@@ -7,7 +7,7 @@ mod desktop_database_settings;
 #[allow(dead_code)]
 mod desktop_hearthstone_image;
 #[allow(dead_code)]
-mod desktop_hearthstone_publish_target;
+mod desktop_publish_target;
 #[allow(dead_code)]
 mod desktop_runtime_config_sync;
 
@@ -22,10 +22,10 @@ use crate::desktop_database_settings::DesktopDatabaseConnectionStringCache;
 use crate::desktop_hearthstone_image::{
     desktop_get_hearthstone_image_settings, desktop_set_hearthstone_image_settings,
 };
-use crate::desktop_hearthstone_publish_target::{
-    desktop_get_hearthstone_publish_target, desktop_set_hearthstone_publish_target,
-    desktop_test_hearthstone_publish_target, desktop_validate_hearthstone_publish_target_binding,
-    HearthstonePublishTargetConnectionStringCache,
+use crate::desktop_publish_target::{
+    desktop_get_publish_target, desktop_get_publish_targets,
+    desktop_set_publish_target, desktop_set_publish_targets,
+    desktop_test_publish_target, desktop_validate_publish_target_binding,
 };
 use crate::desktop_runtime_config_sync::{
     schedule_desktop_runtime_config_sync, start_desktop_runtime_config_sync_loop,
@@ -169,6 +169,8 @@ pub(crate) struct DesktopConfig {
     version: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
     external_database_connection_string: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    publish: Vec<StoredPublishTargetProfile>,
     #[serde(default, skip_serializing_if = "DesktopGamesSettings::is_empty")]
     games: DesktopGamesSettings,
 }
@@ -178,6 +180,7 @@ impl Default for DesktopConfig {
         Self {
             version: desktop_config_version(),
             external_database_connection_string: None,
+            publish: Vec::new(),
             games: DesktopGamesSettings::default(),
         }
     }
@@ -205,15 +208,13 @@ struct StoredHearthstoneSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     hsdata: Option<StoredRepoPath>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    publish: Option<StoredHearthstonePublishTargetProfile>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     image: Option<StoredHearthstoneImageSettings>,
 }
 
 impl StoredHearthstoneSettings {
     /// Whether the Hearthstone settings currently contain any persisted values.
     fn is_empty(&self) -> bool {
-        self.hsdata.is_none() && self.publish.is_none() && self.image.is_none()
+        self.hsdata.is_none() && self.image.is_none()
     }
 }
 
@@ -226,11 +227,16 @@ struct StoredRepoPath {
 
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-/// Publish target profile persisted for one Hearthstone environment binding.
-struct StoredHearthstonePublishTargetProfile {
-    publish_target: String,
-    environment: String,
-    target_fingerprint: String,
+/// Publish target profile persisted for one remote binding.
+struct StoredPublishTargetProfile {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    publish_target: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    environment: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    target_fingerprint: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    credential_key: Option<String>,
 }
 
 #[derive(Default, Deserialize, Serialize)]
@@ -1040,7 +1046,6 @@ pub fn run() {
     tauri::Builder::default()
         .manage(AuthState::default())
         .manage(DesktopDatabaseConnectionStringCache::default())
-        .manage(HearthstonePublishTargetConnectionStringCache::default())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             sync_desktop_runtime_config_blocking(&app.handle().clone());
@@ -1061,10 +1066,12 @@ pub fn run() {
             desktop_test_database_connection,
             desktop_get_hearthstone_image_settings,
             desktop_set_hearthstone_image_settings,
-            desktop_get_hearthstone_publish_target,
-            desktop_set_hearthstone_publish_target,
-            desktop_test_hearthstone_publish_target,
-            desktop_validate_hearthstone_publish_target_binding,
+            desktop_get_publish_target,
+            desktop_get_publish_targets,
+            desktop_set_publish_target,
+            desktop_set_publish_targets,
+            desktop_test_publish_target,
+            desktop_validate_publish_target_binding,
             desktop_get_game_repo,
             desktop_set_game_repo,
             desktop_pick_directory,

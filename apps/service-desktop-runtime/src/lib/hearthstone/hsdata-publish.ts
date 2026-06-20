@@ -39,7 +39,14 @@ import {
 } from './publish-generation';
 import { getLocalDb } from './hsdata-local-db';
 import { getCurrentPublishJob } from './hsdata-publish-progress';
-import { requireHearthstonePublishTarget } from './hsdata-publish-target';
+import {
+  requireHearthstonePublishTarget,
+  requireHearthstonePublishTargetByIdentity,
+} from './hsdata-publish-target';
+import {
+  getPublishJobController,
+  PublishJobInterruptedError,
+} from './hsdata-publish-progress';
 
 type PublishDb = ReturnType<typeof createDb>;
 
@@ -60,6 +67,14 @@ interface CurrentRowData {
   relations: Map<string, typeof LocalEntityRelation.$inferSelect>;
 }
 
+interface ReanchorCounts {
+  totalRowCount: number;
+  cardRowCount: number;
+  entityRowCount: number;
+  localizationRowCount: number;
+  relationRowCount: number;
+}
+
 interface PublishBatchRowPlan {
   tableName: TableName;
   rowKey: string;
@@ -77,6 +92,23 @@ interface PublishDatasetRange {
 
 type GenerationFingerprint = PublishGeneration['fingerprint'];
 type GenerationOrder = PublishGeneration['order'];
+
+interface PublishTargetSelector {
+  publishTarget?: string;
+  environment?: string;
+}
+
+/** Publish target resolved from one explicit stream identity when provided. */
+function resolvePublishTargetSelector(selector?: PublishTargetSelector) {
+  if (selector?.publishTarget != null && selector.environment != null) {
+    return requireHearthstonePublishTargetByIdentity(
+      selector.publishTarget,
+      selector.environment,
+    );
+  }
+
+  return requireHearthstonePublishTarget();
+}
 
 /** Describes one publish-owned stream identity used by baseline and ledger state. */
 interface PublishStreamIdentity extends PublishStream {
@@ -102,6 +134,7 @@ export const publishReport = z.object({
   environment: z.string(),
   targetFingerprint: z.string(),
   publishType: z.string(),
+  operationKind: z.string(),
   status: z.string(),
   manifestHash: z.string(),
   previousManifestHash: z.string().nullable(),
@@ -158,7 +191,25 @@ function sha256Hex(input: string): string {
 const emptyHash = sha256Hex('[]');
 
 const writeBatchSize = 500;
+const reanchorReadBatchSize = 5_000;
 const remotePublishLeaseTtlMs = 5 * 60 * 1000;
+
+/** Returns one active local batch for the same publish stream, regardless of operation kind. */
+async function findActiveStreamBatch(
+  db: PublishDb,
+  stream: Pick<PublishStreamIdentity, 'publishTarget' | 'environment' | 'publishType'>,
+): Promise<typeof PublishBatch.$inferSelect | null> {
+  return await db.select()
+    .from(PublishBatch)
+    .where(and(
+      eq(PublishBatch.publishTarget, stream.publishTarget),
+      eq(PublishBatch.environment, stream.environment),
+      eq(PublishBatch.publishType, stream.publishType),
+      inArray(PublishBatch.status, ['planning', 'applying']),
+    ))
+    .orderBy(desc(PublishBatch.createdAt))
+    .then(rows => rows[0] ?? null);
+}
 
 async function closePublishDb(db: PublishDb) {
   await db.$client.end({ timeout: 1 });
@@ -180,6 +231,292 @@ function chunkValues<T>(values: T[], size = writeBatchSize): T[][] {
   }
 
   return chunks;
+}
+
+/** Total row counts loaded once before chunked reanchor starts so the progress bar can advance deterministically. */
+async function loadReanchorRowCounts(db: PublishDb): Promise<ReanchorCounts> {
+  const [entityRowCount, localizationRowCount, relationRowCount, cardRowCount] = await Promise.all([
+    db.$count(LocalEntity),
+    db.$count(LocalEntityLocalization),
+    db.$count(LocalEntityRelation),
+    db.$count(LocalCard),
+  ]);
+
+  return {
+    totalRowCount: entityRowCount + localizationRowCount + relationRowCount + cardRowCount,
+    entityRowCount,
+    localizationRowCount,
+    relationRowCount,
+    cardRowCount,
+  };
+}
+
+/** One manifest line appended to the streamed reanchor digest in stable row order. */
+function buildManifestLine(state: PublishRowState): string {
+  return `${state.tableName}\t${state.rowKey}\t${state.rowHash}\n`;
+}
+
+/** Writes one streamed reanchor baseline by scanning local projection tables in stable chunks. */
+async function rebuildReanchorBaseline(
+  db: PublishDb,
+  input: {
+    batchId: string;
+    publishTarget: string;
+    environment: string;
+    publishType: string;
+    previousRange: PublishDatasetRange | null;
+    publishedAt: Date;
+    onProgress?: StepProgress;
+  },
+): Promise<{
+    counts: PublishBatchCounts;
+    range: PublishDatasetRange;
+    manifestHash: string;
+  }> {
+  const countsByTable = await loadReanchorRowCounts(db);
+  const totalRowCount = countsByTable.totalRowCount;
+  const manifest = new Bun.CryptoHasher('sha256');
+  const collectedBuilds = new Set<number>();
+  let completedRowCount = 0;
+
+  const updateProgress = (message: string) => {
+    input.onProgress?.({
+      phase: 'loading_snapshots',
+      message,
+      completed: completedRowCount,
+      total: totalRowCount,
+    });
+  };
+
+  const checkJobControl = () => {
+    const controller = getPublishJobController();
+
+    if (controller?.shouldStop) {
+      throw new PublishJobInterruptedError('stopped', '发布已停止');
+    }
+  };
+
+  await db.delete(PublishRowBaseline)
+    .where(and(
+      eq(PublishRowBaseline.publishTarget, input.publishTarget),
+      eq(PublishRowBaseline.environment, input.environment),
+      eq(PublishRowBaseline.publishType, input.publishType),
+    ));
+
+  updateProgress('正在重建本地 baseline...');
+
+  async function processChunks<T extends typeof LocalEntity.$inferSelect | typeof LocalEntityLocalization.$inferSelect | typeof LocalEntityRelation.$inferSelect | typeof LocalCard.$inferSelect>(
+    tableName: TableName,
+    loadChunk: (cursor: T | null) => Promise<T[]>,
+    getRowKey: (row: T) => string,
+    getRowHash: (row: T) => string,
+    collectBuilds?: (row: T) => void,
+  ) {
+    let cursor: T | null = null;
+
+    while (true) {
+      checkJobControl();
+      const rows = await loadChunk(cursor);
+
+      if (rows.length === 0) {
+        break;
+      }
+
+      const baselineRows = rows.map((row) => {
+        const rowKey = getRowKey(row);
+        const rowHash = getRowHash(row);
+
+        manifest.update(buildManifestLine({ tableName, rowKey, rowHash }));
+        collectBuilds?.(row);
+
+        return {
+          publishTarget: input.publishTarget,
+          environment: input.environment,
+          publishType: input.publishType,
+          tableName,
+          rowKey,
+          rowHash,
+          sourceBatchId: input.batchId,
+          publishedAt: input.publishedAt,
+          createdAt: input.publishedAt,
+          updatedAt: input.publishedAt,
+        };
+      });
+
+      for (const chunk of chunkValues(baselineRows)) {
+        checkJobControl();
+        await db.insert(PublishRowBaseline).values(chunk);
+      }
+
+      completedRowCount += rows.length;
+      updateProgress(`正在重建 ${tableName} baseline...`);
+      cursor = rows[rows.length - 1] ?? null;
+    }
+  }
+
+  await processChunks(
+    'entities',
+    cursor => db.select()
+      .from(LocalEntity)
+      .where(cursor == null
+        ? undefined
+        : or(
+            gt(LocalEntity.cardId, cursor.cardId),
+            and(
+              eq(LocalEntity.cardId, cursor.cardId),
+              gt(LocalEntity.revisionHash, cursor.revisionHash),
+            ),
+          ))
+      .orderBy(asc(LocalEntity.cardId), asc(LocalEntity.revisionHash))
+      .limit(reanchorReadBatchSize),
+    entitiesRowKey,
+    entityRowHash,
+    row => {
+      for (const build of row.version) {
+        collectedBuilds.add(build);
+      }
+    },
+  );
+
+  await processChunks(
+    'entity_localizations',
+    cursor => db.select()
+      .from(LocalEntityLocalization)
+      .where(cursor == null
+        ? undefined
+        : or(
+            gt(LocalEntityLocalization.cardId, cursor.cardId),
+            and(
+              eq(LocalEntityLocalization.cardId, cursor.cardId),
+              gt(LocalEntityLocalization.lang, cursor.lang),
+            ),
+            and(
+              eq(LocalEntityLocalization.cardId, cursor.cardId),
+              eq(LocalEntityLocalization.lang, cursor.lang),
+              gt(LocalEntityLocalization.revisionHash, cursor.revisionHash),
+            ),
+            and(
+              eq(LocalEntityLocalization.cardId, cursor.cardId),
+              eq(LocalEntityLocalization.lang, cursor.lang),
+              eq(LocalEntityLocalization.revisionHash, cursor.revisionHash),
+              gt(LocalEntityLocalization.localizationHash, cursor.localizationHash),
+            ),
+          ))
+      .orderBy(
+        asc(LocalEntityLocalization.cardId),
+        asc(LocalEntityLocalization.lang),
+        asc(LocalEntityLocalization.revisionHash),
+        asc(LocalEntityLocalization.localizationHash),
+      )
+      .limit(reanchorReadBatchSize),
+    localizationsRowKey,
+    localizationRowHash,
+  );
+
+  await processChunks(
+    'entity_relations',
+    cursor => db.select()
+      .from(LocalEntityRelation)
+      .where(cursor == null
+        ? undefined
+        : or(
+            gt(LocalEntityRelation.sourceId, cursor.sourceId),
+            and(
+              eq(LocalEntityRelation.sourceId, cursor.sourceId),
+              gt(LocalEntityRelation.relation, cursor.relation),
+            ),
+            and(
+              eq(LocalEntityRelation.sourceId, cursor.sourceId),
+              eq(LocalEntityRelation.relation, cursor.relation),
+              gt(LocalEntityRelation.targetId, cursor.targetId),
+            ),
+            and(
+              eq(LocalEntityRelation.sourceId, cursor.sourceId),
+              eq(LocalEntityRelation.relation, cursor.relation),
+              eq(LocalEntityRelation.targetId, cursor.targetId),
+              gt(LocalEntityRelation.sourceRevisionHash, cursor.sourceRevisionHash),
+            ),
+          ))
+      .orderBy(
+        asc(LocalEntityRelation.sourceId),
+        asc(LocalEntityRelation.relation),
+        asc(LocalEntityRelation.targetId),
+        asc(LocalEntityRelation.sourceRevisionHash),
+      )
+      .limit(reanchorReadBatchSize),
+    relationsRowKey,
+    relationRowHash,
+  );
+
+  await processChunks(
+    'cards',
+    cursor => db.select()
+      .from(LocalCard)
+      .where(cursor == null ? undefined : gt(LocalCard.cardId, cursor.cardId))
+      .orderBy(asc(LocalCard.cardId))
+      .limit(reanchorReadBatchSize),
+    cardsRowKey,
+    cardRowHash,
+  );
+
+  updateProgress('本地 baseline 行重建完成');
+
+  const builds = [...collectedBuilds].sort((left, right) => left - right);
+
+  if (builds.length === 0) {
+    throw new Error('Local publish snapshot does not include any Hearthstone build numbers.');
+  }
+
+  const sourceVersionRows = await db.select({
+    sourceTag: SourceVersion.sourceTag,
+    build: SourceVersion.build,
+  })
+    .from(SourceVersion)
+    .where(and(
+      inArray(SourceVersion.build, builds),
+      eq(SourceVersion.status, 'completed'),
+      eq(SourceVersion.projectionStatus, 'completed'),
+    ));
+  const sourceTags = [...new Set(
+    sourceVersionRows
+      .filter(row => row.build != null)
+      .map(row => row.sourceTag),
+  )].sort((left, right) => left - right);
+
+  if (sourceTags.length === 0) {
+    throw new Error('Local publish snapshot could not resolve source tags for the current build set.');
+  }
+
+  const range = input.previousRange != null
+    ? {
+        sourceTagMin: Math.min(input.previousRange.sourceTagMin, sourceTags[0]!),
+        sourceTagMax: Math.max(input.previousRange.sourceTagMax, sourceTags[sourceTags.length - 1]!),
+        buildMin: Math.min(input.previousRange.buildMin, builds[0]!),
+        buildMax: Math.max(input.previousRange.buildMax, builds[builds.length - 1]!),
+      }
+    : {
+        sourceTagMin: sourceTags[0]!,
+        sourceTagMax: sourceTags[sourceTags.length - 1]!,
+        buildMin: builds[0]!,
+        buildMax: builds[builds.length - 1]!,
+      };
+
+  return {
+    counts: {
+      totalRowCount,
+      changedRowCount: 0,
+      insertedRowCount: 0,
+      updatedRowCount: 0,
+      deletedRowCount: 0,
+      unchangedRowCount: totalRowCount,
+      cardRowCount: countsByTable.cardRowCount,
+      entityRowCount: countsByTable.entityRowCount,
+      localizationRowCount: countsByTable.localizationRowCount,
+      relationRowCount: countsByTable.relationRowCount,
+    },
+    range,
+    manifestHash: manifest.digest('hex'),
+  };
 }
 
 /** Remote publish gate rejects unregistered streams, fingerprint mismatches, and stale baselines. */
@@ -1024,6 +1361,64 @@ async function insertPublishBatch(
   });
 }
 
+/** Draft reanchor batch inserted before the local baseline rebuild starts. */
+async function insertDraftReanchorBatch(
+  db: PublishDb,
+  input: {
+    batchId: string;
+    publishTarget: string;
+    environment: string;
+    targetFingerprint: string;
+    publishType: string;
+    previousRange: PublishDatasetRange | null;
+    previousManifestHash: string | null;
+    generationFingerprint: GenerationFingerprint;
+    generationOrder: GenerationOrder;
+  },
+): Promise<void> {
+  const range = input.previousRange ?? {
+    sourceTagMin: 1,
+    sourceTagMax: 1,
+    buildMin: 1,
+    buildMax: 1,
+  };
+  const now = new Date();
+
+  await db.insert(PublishBatch).values({
+    id: input.batchId,
+    publishTarget: input.publishTarget,
+    environment: input.environment,
+    targetFingerprint: input.targetFingerprint,
+    publishType: input.publishType,
+    operationKind: publishOperationKindSchema.enum.reanchor,
+    sourceTagMin: range.sourceTagMin,
+    sourceTagMax: range.sourceTagMax,
+    buildMin: range.buildMin,
+    buildMax: range.buildMax,
+    generationFingerprint: input.generationFingerprint,
+    generationOrder: input.generationOrder,
+    manifestHash: 'pending',
+    previousManifestHash: input.previousManifestHash,
+    totalRowCount: 0,
+    changedRowCount: 0,
+    insertedRowCount: 0,
+    updatedRowCount: 0,
+    deletedRowCount: 0,
+    unchangedRowCount: 0,
+    cardRowCount: 0,
+    entityRowCount: 0,
+    localizationRowCount: 0,
+    relationRowCount: 0,
+    status: 'planning',
+    error: null,
+    summary: null,
+    createdAt: now,
+    updatedAt: now,
+    startedAt: now,
+    completedAt: null,
+  });
+}
+
 /** Per-row publish batch rows inserted before the remote transaction starts. */
 async function insertPlannedBatchRows(
   db: PublishDb,
@@ -1130,6 +1525,24 @@ async function finalizePublishBatchSuccess(
 
   await db.update(PublishBatch)
     .set({
+      targetFingerprint: input.targetFingerprint,
+      sourceTagMin: input.range.sourceTagMin,
+      sourceTagMax: input.range.sourceTagMax,
+      buildMin: input.range.buildMin,
+      buildMax: input.range.buildMax,
+      generationFingerprint: input.generationFingerprint,
+      generationOrder: input.generationOrder,
+      manifestHash: input.manifestHash,
+      totalRowCount: input.counts.totalRowCount,
+      changedRowCount: input.counts.changedRowCount,
+      insertedRowCount: input.counts.insertedRowCount,
+      updatedRowCount: input.counts.updatedRowCount,
+      deletedRowCount: input.counts.deletedRowCount,
+      unchangedRowCount: input.counts.unchangedRowCount,
+      cardRowCount: input.counts.cardRowCount,
+      entityRowCount: input.counts.entityRowCount,
+      localizationRowCount: input.counts.localizationRowCount,
+      relationRowCount: input.counts.relationRowCount,
       status: 'completed',
       error: null,
       summary,
@@ -1247,6 +1660,92 @@ async function finalizePublishBatchSuccess(
   }
 
 /** Failed batch state persisted after the remote apply aborts. */
+async function finalizeReanchorBatchSuccess(
+  db: PublishDb,
+  input: {
+    batchId: string;
+    publishTarget: string;
+    environment: string;
+    targetFingerprint: string;
+    publishType: string;
+    range: PublishDatasetRange;
+    generationFingerprint: GenerationFingerprint;
+    generationOrder: GenerationOrder;
+    counts: PublishBatchCounts;
+    manifestHash: string;
+    publishedAt: Date;
+  },
+): Promise<void> {
+  const summary = {
+    batchId: input.batchId,
+    publishTarget: input.publishTarget,
+    environment: input.environment,
+    operationKind: publishOperationKindSchema.enum.reanchor,
+    totalRowCount: input.counts.totalRowCount,
+    changedRowCount: input.counts.changedRowCount,
+    insertedRowCount: input.counts.insertedRowCount,
+    updatedRowCount: input.counts.updatedRowCount,
+    deletedRowCount: input.counts.deletedRowCount,
+    unchangedRowCount: input.counts.unchangedRowCount,
+    cardRowCount: input.counts.cardRowCount,
+    entityRowCount: input.counts.entityRowCount,
+    localizationRowCount: input.counts.localizationRowCount,
+    relationRowCount: input.counts.relationRowCount,
+    publishedAt: input.publishedAt.toISOString(),
+  };
+
+  await db.insert(PublishBaseline).values({
+    publishTarget: input.publishTarget,
+    environment: input.environment,
+    publishType: input.publishType,
+    targetFingerprint: input.targetFingerprint,
+    batchId: input.batchId,
+    sourceTagMin: input.range.sourceTagMin,
+    sourceTagMax: input.range.sourceTagMax,
+    buildMin: input.range.buildMin,
+    buildMax: input.range.buildMax,
+    generationFingerprint: input.generationFingerprint,
+    generationOrder: input.generationOrder,
+    manifestHash: input.manifestHash,
+    totalRowCount: input.counts.totalRowCount,
+    publishedAt: input.publishedAt,
+    createdAt: input.publishedAt,
+    updatedAt: input.publishedAt,
+  })
+    .onConflictDoUpdate({
+      target: [
+        PublishBaseline.publishTarget,
+        PublishBaseline.environment,
+        PublishBaseline.publishType,
+      ],
+      set: {
+        targetFingerprint: input.targetFingerprint,
+        batchId: input.batchId,
+        sourceTagMin: input.range.sourceTagMin,
+        sourceTagMax: input.range.sourceTagMax,
+        buildMin: input.range.buildMin,
+        buildMax: input.range.buildMax,
+        generationFingerprint: input.generationFingerprint,
+        generationOrder: input.generationOrder,
+        manifestHash: input.manifestHash,
+        totalRowCount: input.counts.totalRowCount,
+        publishedAt: input.publishedAt,
+        updatedAt: input.publishedAt,
+      },
+    });
+
+  await db.update(PublishBatch)
+    .set({
+      status: 'completed',
+      error: null,
+      summary,
+      completedAt: input.publishedAt,
+      updatedAt: input.publishedAt,
+    })
+    .where(eq(PublishBatch.id, input.batchId));
+}
+
+/** Failed batch state persisted after the remote apply aborts. */
 async function finalizePublishBatchFailure(
   db: PublishDb,
   batchId: string,
@@ -1276,6 +1775,70 @@ async function finalizePublishBatchFailure(
       updatedAt: now,
     })
     .where(eq(PublishBatch.id, batchId));
+}
+
+/** Stopped batch state persisted after a cooperative stop request interrupts execution. */
+async function finalizePublishBatchStopped(
+  db: PublishDb,
+  batchId: string,
+  message: string,
+): Promise<void> {
+  const now = new Date();
+
+  await db.update(PublishBatch)
+    .set({
+      status: 'stopped',
+      error: message,
+      completedAt: now,
+      updatedAt: now,
+    })
+    .where(eq(PublishBatch.id, batchId));
+}
+
+/** Cancels one residual local batch when no in-memory publish job is still executing it. */
+export async function cancelIncompletePublishBatch(input: {
+  batchId: string;
+  publishTarget?: string;
+  environment?: string;
+}): Promise<PublishReport> {
+  const target = resolvePublishTargetSelector(input);
+  const localDb = getLocalDb();
+  const batch = await localDb.select()
+    .from(PublishBatch)
+    .where(and(
+      eq(PublishBatch.id, input.batchId),
+      eq(PublishBatch.publishTarget, target.publishTarget),
+      eq(PublishBatch.environment, target.environment),
+    ))
+    .then(rows => rows[0] ?? null);
+
+  if (!batch) {
+    throw new Error(`Publish batch ${input.batchId} not found for ${target.publishTarget}/${target.environment}.`);
+  }
+
+  if (batch.status !== 'planning' && batch.status !== 'applying') {
+    throw new Error(`Publish batch ${input.batchId} is already ${batch.status} and cannot be canceled.`);
+  }
+
+  const currentJob = getCurrentPublishJob();
+
+  if (currentJob?.batchId === batch.id) {
+    throw new Error(`Publish batch ${batch.id} is still running in the desktop runtime. Stop the active job first.`);
+  }
+
+  const message = '批次已由用户从数据库残留状态中取消。';
+  await finalizePublishBatchStopped(localDb, batch.id, message);
+
+  const stoppedBatch = await localDb.select()
+    .from(PublishBatch)
+    .where(eq(PublishBatch.id, batch.id))
+    .then(rows => rows[0] ?? null);
+
+  if (!stoppedBatch) {
+    throw new Error(`Publish batch ${batch.id} disappeared after cancellation.`);
+  }
+
+  return buildPublishReport(stoppedBatch, stoppedBatch.completedAt ?? stoppedBatch.updatedAt);
 }
 
 /** Publish ledger upsert executed inside the remote publish transaction. */
@@ -1452,6 +2015,8 @@ async function applyRowPlansToRemote(
     targetFingerprint: string;
     publishType: string;
     range: PublishDatasetRange;
+    generationFingerprint: GenerationFingerprint;
+    generationOrder: GenerationOrder;
     counts: PublishBatchCounts;
     manifestHash: string;
     publishedAt: Date;
@@ -1553,6 +2118,8 @@ export async function createPublishPlan(options?: {
   publishType?: string;
   dryRun?: boolean;
   onProgress?: StepProgress;
+  publishTarget?: string;
+  environment?: string;
 }): Promise<{
     batchId: string;
     counts: PublishBatchCounts;
@@ -1563,7 +2130,7 @@ export async function createPublishPlan(options?: {
   const publishType = options?.publishType ?? 'card_data';
   const dryRun = options?.dryRun ?? false;
   const onProgress = options?.onProgress;
-  const target = requireHearthstonePublishTarget();
+  const target = resolvePublishTargetSelector(options);
   const stream: PublishStreamIdentity = {
     publishTarget: target.publishTarget,
     environment: target.environment,
@@ -1572,19 +2139,10 @@ export async function createPublishPlan(options?: {
   };
   const localDb = getLocalDb();
 
-  // Prevent creating a new plan while another is still applying
-  const active = await localDb.select()
-    .from(PublishBatch)
-    .where(and(
-      eq(PublishBatch.publishTarget, stream.publishTarget),
-      eq(PublishBatch.environment, stream.environment),
-      eq(PublishBatch.publishType, stream.publishType),
-      eq(PublishBatch.status, 'applying'),
-    ))
-    .then(rows => rows[0] ?? null);
+  const active = await findActiveStreamBatch(localDb, stream);
 
   if (active) {
-    throw new Error(`已有执行中的发布批次 ${active.id}，请先完成或等待其结束后再开始新的发布。`);
+    throw new Error(`当前 publish stream 已有未完成批次 ${active.id} (${active.operationKind})，请先完成或停止后再开始新的操作。`);
   }
 
   onProgress?.({ phase: 'loading_baseline', message: '正在加载上次发布基线...' });
@@ -1643,6 +2201,134 @@ export async function createPublishPlan(options?: {
     .where(eq(PublishBatch.id, batchId));
 
   return { batchId, counts, range, manifestHash, previousManifestHash };
+}
+
+/** Rebuilds the local publish baseline from the current local projection without touching remote state. */
+export async function reanchorCurrentHsdataPublishBaseline(options?: {
+  publishType?: string;
+  onProgress?: StepProgress;
+  publishTarget?: string;
+  environment?: string;
+}): Promise<PublishReport> {
+  const publishType = options?.publishType ?? 'card_data';
+  const onProgress = options?.onProgress;
+  const target = resolvePublishTargetSelector(options);
+  const stream: PublishStreamIdentity = {
+    publishTarget: target.publishTarget,
+    environment: target.environment,
+    publishType,
+    targetFingerprint: target.targetFingerprint,
+  };
+  const localDb = getLocalDb();
+
+  onProgress?.({ phase: 'loading_baseline', message: '正在加载当前本地 baseline...' });
+
+  const { baseline } = await loadBaselineRowHashes(localDb, stream);
+  const previousRange = baseline == null ? null : {
+    sourceTagMin: baseline.sourceTagMin,
+    sourceTagMax: baseline.sourceTagMax,
+    buildMin: baseline.buildMin,
+    buildMax: baseline.buildMax,
+  };
+  const batchId = randomUUID();
+  const publishedAt = new Date();
+
+  const active = await findActiveStreamBatch(localDb, stream);
+
+  if (active) {
+    throw new Error(`当前 publish stream 已有未完成批次 ${active.id} (${active.operationKind})，请先完成或停止后再开始新的操作。`);
+  }
+
+  try {
+    await insertDraftReanchorBatch(localDb, {
+      batchId,
+      publishTarget: target.publishTarget,
+      environment: target.environment,
+      targetFingerprint: target.targetFingerprint,
+      publishType,
+      previousRange,
+      previousManifestHash: baseline?.manifestHash ?? null,
+      generationFingerprint: publishCardDataGeneration.fingerprint,
+      generationOrder: publishCardDataGeneration.order,
+    });
+    await markPublishBatchApplying(localDb, batchId);
+
+    onProgress?.({ phase: 'loading_snapshots', message: '正在统计本地 publish 行数...', completed: 0 });
+
+    const { counts, range, manifestHash } = await rebuildReanchorBaseline(localDb, {
+      batchId,
+      publishTarget: target.publishTarget,
+      environment: target.environment,
+      publishType,
+      previousRange,
+      publishedAt,
+      onProgress,
+    });
+
+    if (counts.totalRowCount === 0) {
+      throw new Error('No local Hearthstone projection rows are available for reanchor.');
+    }
+
+    onProgress?.({
+      phase: 'finalizing',
+      message: '正在写入本地 publish baseline 元数据...',
+      completed: counts.totalRowCount,
+      total: counts.totalRowCount,
+    });
+
+    await finalizeReanchorBatchSuccess(localDb, {
+      batchId,
+      publishTarget: target.publishTarget,
+      environment: target.environment,
+      targetFingerprint: target.targetFingerprint,
+      publishType,
+      range,
+      generationFingerprint: publishCardDataGeneration.fingerprint,
+      generationOrder: publishCardDataGeneration.order,
+      counts,
+      manifestHash,
+      publishedAt,
+    });
+
+    return {
+      batchId,
+      publishTarget: target.publishTarget,
+      environment: target.environment,
+      targetFingerprint: target.targetFingerprint,
+      publishType,
+      operationKind: publishOperationKindSchema.enum.reanchor,
+      status: 'completed',
+      manifestHash,
+      previousManifestHash: baseline?.manifestHash ?? null,
+      sourceTagMin: range.sourceTagMin,
+      sourceTagMax: range.sourceTagMax,
+      buildMin: range.buildMin,
+      buildMax: range.buildMax,
+      totalRowCount: counts.totalRowCount,
+      changedRowCount: counts.changedRowCount,
+      insertedRowCount: counts.insertedRowCount,
+      updatedRowCount: counts.updatedRowCount,
+      deletedRowCount: counts.deletedRowCount,
+      unchangedRowCount: counts.unchangedRowCount,
+      cardRowCount: counts.cardRowCount,
+      entityRowCount: counts.entityRowCount,
+      localizationRowCount: counts.localizationRowCount,
+      relationRowCount: counts.relationRowCount,
+      publishedAt: publishedAt.toISOString(),
+    };
+  } catch (error) {
+    if (error instanceof PublishJobInterruptedError && error.phase === 'stopped') {
+      await finalizePublishBatchStopped(localDb, batchId, error.message);
+    } else {
+      await finalizePublishBatchFailure(localDb, batchId, {
+        tableName: null,
+        rowKey: null,
+        message: getErrorMessage(error),
+      });
+    }
+
+    throw error;
+  }
 }
 
 /** Load one chunk of local row data keyed by rowKey for a given table. */
@@ -1751,6 +2437,7 @@ function buildPublishReport(
     environment: batch.environment,
     targetFingerprint: batch.targetFingerprint,
     publishType: batch.publishType,
+    operationKind: batch.operationKind,
     status: batch.status,
     manifestHash: batch.manifestHash,
     previousManifestHash: batch.previousManifestHash ?? null,
@@ -1795,10 +2482,12 @@ export async function executePublishBatch(
   batchId: string,
   options?: {
     onProgress?: (event: { phase: string; message: string; totalRowCount?: number | null; completedRowCount?: number | null }) => void;
+    publishTarget?: string;
+    environment?: string;
   },
 ): Promise<PublishReport> {
   const onProgress = options?.onProgress;
-  const target = requireHearthstonePublishTarget();
+  const target = resolvePublishTargetSelector(options);
   const localDb = getLocalDb();
   const remoteDb = createDb(target.connectionString);
   let leaseHolderId: string | null = null;
@@ -2041,11 +2730,13 @@ export async function publishCurrentHsdataToRemote(options?: {
   publishType?: string;
   dryRun?: boolean;
   onProgress?: (event: { phase: string; message: string; totalRowCount?: number | null; completedRowCount?: number | null }) => void;
+  publishTarget?: string;
+  environment?: string;
 }): Promise<PublishReport> {
   const onProgress = options?.onProgress;
   const dryRun = options?.dryRun ?? false;
   const localDb = getLocalDb();
-  const target = requireHearthstonePublishTarget();
+  const target = resolvePublishTargetSelector(options);
   const publishType = options?.publishType ?? 'card_data';
 
   // Dry run: only analyze, skip all writes
@@ -2064,6 +2755,7 @@ export async function publishCurrentHsdataToRemote(options?: {
       environment: target.environment,
       targetFingerprint: target.targetFingerprint,
       publishType,
+      operationKind: publishOperationKindSchema.enum.publish,
       status: 'dry_run',
       manifestHash: plan.manifestHash,
       previousManifestHash: plan.previousManifestHash,
@@ -2093,6 +2785,7 @@ export async function publishCurrentHsdataToRemote(options?: {
       eq(PublishBatch.publishTarget, target.publishTarget),
       eq(PublishBatch.environment, target.environment),
       eq(PublishBatch.publishType, publishType),
+      eq(PublishBatch.operationKind, publishOperationKindSchema.enum.publish),
     ))
     .orderBy(asc(PublishBatch.createdAt))
     .then(rows => rows[rows.length - 1] ?? null);
@@ -2116,8 +2809,11 @@ export async function publishCurrentHsdataToRemote(options?: {
 }
 
 /** Lists all publish batches for the current target, newest first. */
-export async function listPublishBatches(): Promise<PublishReport[]> {
-  const target = requireHearthstonePublishTarget();
+export async function listPublishBatches(options?: {
+  publishTarget?: string;
+  environment?: string;
+}): Promise<PublishReport[]> {
+  const target = resolvePublishTargetSelector(options);
   const localDb = getLocalDb();
 
   const batches = await localDb.select()
@@ -2133,7 +2829,10 @@ export async function listPublishBatches(): Promise<PublishReport[]> {
 }
 
 /** Checks whether a publish job is currently running in this server process. */
-export async function getIncompletePublishBatch(): Promise<PublishReport | null> {
+export async function getIncompletePublishBatch(options?: {
+  publishTarget?: string;
+  environment?: string;
+}): Promise<PublishReport | null> {
   const job = getCurrentPublishJob();
 
   if (!job) return null;
@@ -2145,6 +2844,12 @@ export async function getIncompletePublishBatch(): Promise<PublishReport | null>
     .then(rows => rows[0] ?? null);
 
   if (!batch) return null;
+
+  const target = resolvePublishTargetSelector(options);
+
+  if (batch.publishTarget !== target.publishTarget || batch.environment !== target.environment) {
+    return null;
+  }
 
   const pendingCount = await localDb.select({ count: count() })
     .from(PublishBatchRow)
@@ -2189,8 +2894,14 @@ export const singleCardPublishReport = z.object({
 export type SingleCardPublishReport = z.infer<typeof singleCardPublishReport>;
 
 /** Publishes a single card from local projection tables to the remote target. */
-export async function publishSingleCard(cardId: string): Promise<SingleCardPublishReport> {
-  const target = requireHearthstonePublishTarget();
+export async function publishSingleCard(
+  cardId: string,
+  options?: {
+    publishTarget?: string;
+    environment?: string;
+  },
+): Promise<SingleCardPublishReport> {
+  const target = resolvePublishTargetSelector(options);
   const localDb = getLocalDb();
   const remoteDb = createDb(target.connectionString);
 

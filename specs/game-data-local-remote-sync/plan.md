@@ -175,7 +175,7 @@
   - `publish`
   - `repair`
   - `rollback`
-  - `baseline_repair`
+  - `reanchor`
 
 首轮同时固定 publish stream 三元组的职责边界：
 
@@ -504,7 +504,7 @@ publish 读取统一变更日志时固定规则为：
 - 普通发布必须显式绑定 previous baseline 摘要
 - 同 generation 下 sourceTag 不得静默倒退
 - 同 lineage 摘要分叉必须拒绝普通发布
-- `repair / rollback / baseline_repair` 必须走显式入口，不能复用普通 publish 开关
+- `repair / rollback / reanchor` 必须走显式入口，不能复用普通 publish 开关
 - 时间只用于提示、日志和 lease 语义，不参与硬拒绝
 
 若当前 runtime 还没有高风险发布入口，本阶段至少要先：
@@ -513,6 +513,13 @@ publish 读取统一变更日志时固定规则为：
 - 在入口层做显式预留
 - 在普通 publish 中拒绝需要高风险入口处理的情况
 - 为后续远端 stream allowlist / bootstrap approval 预留受控校验点
+
+当前对 `reanchor` 的最小实现边界固定为：
+
+- `reanchor` 只重建本地 `PublishBaseline` 与 `PublishRowBaseline`
+- `reanchor` 只使用当前本地投影作为输入，不把远端状态作为成功前置条件
+- `reanchor` 不写远端业务表、不写远端 `PublishLedger`、不申请远端 lease
+- `reanchor` 完成后，后续普通 publish 是否可继续成功，仍由远端 compare-and-swap gate 决定
 
 当前已完成的第 5 步收口：
 

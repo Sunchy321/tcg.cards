@@ -302,6 +302,23 @@ export interface PublishJobProgressEvent {
   report: HsdataPublishReport | null;
 }
 
+/** Raw publish progress event shape inferred from the runtime watch stream. */
+interface RawPublishJobProgressEvent {
+  batchId?: string;
+  publishType?: string;
+  publishTarget?: string;
+  phase: string;
+  message: string;
+  startedAt?: string;
+  phaseStartedAt?: string;
+  finishedAt?: string | null;
+  total?: number | null;
+  completed?: number | null;
+  totalRowCount?: number | null;
+  completedRowCount?: number | null;
+  report?: HsdataPublishReport | null;
+}
+
 export interface HsdataUnprojectedTagReportRow {
   enumId: number;
   slug:   string;
@@ -396,6 +413,17 @@ export interface HsdataProjectOptions {
   sampleDiff?:       boolean;
 }
 
+/** Explicit publish stream selector used by the Hearthstone publish page. */
+export interface HsdataPublishStreamInput {
+  publishTarget: 'hearthstone';
+  environment: string;
+}
+
+/** Publish job control result returned after a cooperative pause or stop request. */
+export interface HsdataPublishJobControlResult {
+  batchId: string;
+}
+
 /** Local Bun runtime projection command executed against the configured desktop database. */
 export function projectLocalHsdataSourceVersion(
   sourceTag: number,
@@ -419,30 +447,56 @@ export function recomputeLatestHsdataProjection() {
 }
 
 /** Current local latest projection published to the configured remote target. */
-export function publishCurrentHsdataToRemote(dryRun: boolean) {
+export function publishCurrentHsdataToRemote(
+  input: HsdataPublishStreamInput & { dryRun: boolean },
+) {
   return (async () => {
-    return await useDesktopRuntimeClient().hsdata.publishCurrentToRemote({ dryRun });
+    return await useDesktopRuntimeClient().hsdata.publishCurrentToRemote(input);
+  })();
+}
+
+/** Current local latest projection reanchored into the local publish baseline. */
+export function reanchorCurrentHsdataPublishBaseline(
+  input: HsdataPublishStreamInput,
+) {
+  return (async () => {
+    return await useDesktopRuntimeClient().hsdata.reanchorCurrentPublishBaseline(input);
   })();
 }
 
 /** Lists recent publish batches for the current target. */
-export function listPublishBatches() {
+export function listPublishBatches(input: HsdataPublishStreamInput) {
   return (async () => {
-    return await useDesktopRuntimeClient().hsdata.listPublishBatches();
+    return await useDesktopRuntimeClient().hsdata.listPublishBatches(input);
   })();
 }
 
 /** Checks for an incomplete publish batch that can be resumed. */
-export function getIncompletePublishBatch() {
+export function getIncompletePublishBatch(input: HsdataPublishStreamInput) {
   return (async () => {
-    return await useDesktopRuntimeClient().hsdata.getIncompletePublishBatch();
+    return await useDesktopRuntimeClient().hsdata.getIncompletePublishBatch(input);
+  })();
+}
+
+/** Cancels one incomplete publish batch that remains only as local database state. */
+export function cancelIncompleteHsdataPublishBatch(
+  input: HsdataPublishStreamInput & { batchId: string },
+) {
+  return (async () => {
+    return await useDesktopRuntimeClient().hsdata.cancelIncompletePublishBatch(input) as HsdataPublishReport;
   })();
 }
 
 /** Publishes a single card to the remote target (dev tool). */
-export function publishSingleCard(cardId: string) {
+export function publishSingleCard(
+  cardId: string,
+  input: HsdataPublishStreamInput,
+) {
   return (async () => {
-    return await useDesktopRuntimeClient().hsdata.publishSingleCard({ cardId });
+    return await useDesktopRuntimeClient().hsdata.publishSingleCard({
+      cardId,
+      ...input,
+    });
   })();
 }
 
@@ -452,8 +506,31 @@ export function listenHsdataPublishProgress(
 ): () => void {
   return consumeEventIterator(
     useDesktopRuntimeClient().hsdata.watchPublishJob(),
-    { onEvent: handler },
+    {
+      onEvent(event: RawPublishJobProgressEvent) {
+        handler({
+          batchId: event.batchId ?? '',
+          publishType: event.publishType ?? '',
+          publishTarget: event.publishTarget ?? '',
+          phase: event.phase,
+          message: event.message,
+          startedAt: event.startedAt ?? '',
+          phaseStartedAt: event.phaseStartedAt ?? '',
+          finishedAt: event.finishedAt ?? null,
+          totalRowCount: event.totalRowCount ?? event.total ?? null,
+          completedRowCount: event.completedRowCount ?? event.completed ?? null,
+          report: event.report ?? null,
+        });
+      },
+    },
   );
+}
+
+/** Requests a cooperative stop of the current publish or reanchor job. */
+export function stopHsdataPublishJob() {
+  return (async () => {
+    return await useDesktopRuntimeClient().hsdata.stopPublishJob() as HsdataPublishJobControlResult;
+  })();
 }
 
 /** Streams recompute-latest progress events from the local Bun runtime. */

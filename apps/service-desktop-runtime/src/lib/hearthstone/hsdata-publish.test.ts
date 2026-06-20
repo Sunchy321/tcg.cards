@@ -199,6 +199,8 @@ describe('hsdata publish remote gate', () => {
       manifestHash: 'incoming-manifest',
       previousManifestHash: null,
       sourceTagMax: 100,
+      generationFingerprint: 'card-data-projector/v1',
+      generationOrder: 1,
       leaseHolderId: 'batch-1',
     })).rejects.toThrow('is not registered for normal publish');
   });
@@ -242,6 +244,8 @@ describe('hsdata publish remote gate', () => {
       manifestHash: 'incoming-manifest',
       previousManifestHash: null,
       sourceTagMax: 100,
+      generationFingerprint: 'card-data-projector/v1',
+      generationOrder: 1,
       leaseHolderId: 'batch-1',
     })).rejects.toThrow('rejected target fingerprint');
   });
@@ -295,6 +299,8 @@ describe('hsdata publish remote gate', () => {
       manifestHash: 'incoming-manifest',
       previousManifestHash: 'local-manifest',
       sourceTagMax: 100,
+      generationFingerprint: 'card-data-projector/v1',
+      generationOrder: 1,
       leaseHolderId: 'batch-1',
     })).rejects.toThrow('baseline changed');
   });

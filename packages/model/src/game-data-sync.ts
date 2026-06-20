@@ -7,7 +7,7 @@ export const gameDataSyncTrack = z.enum(['publish-owned', 'collaborative']);
 export const manualOverrideMode = z.enum(['manual_sticky', 'manual_until_source_change']);
 
 /** Describes the publish-owned operation kind accepted by stream-level publish control. */
-export const publishOperationKind = z.enum(['publish', 'repair', 'rollback', 'baseline_repair']);
+export const publishOperationKind = z.enum(['publish', 'repair', 'rollback', 'reanchor']);
 
 /** Describes one stable publish stream identity shared by local and remote publish state. */
 export const publishStream = z.strictObject({

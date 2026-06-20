@@ -24,8 +24,8 @@ export interface HearthstonePublishTargetOverride {
   connectionString: string | null;
 }
 
-const hearthstonePublishTargetOverride = {
-  current: null as HearthstonePublishTargetOverride | null,
+const hearthstonePublishTargetOverrides = {
+  current: [] as HearthstonePublishTargetOverride[],
 };
 
 /** Stores one runtime-local database URL override provided by the desktop shell. */
@@ -84,32 +84,37 @@ export function hasHearthstoneImageOverride() {
 
 /** Stores one runtime-local Hearthstone publish target override provided by the desktop shell. */
 export function setHearthstonePublishTargetOverride(value: HearthstonePublishTargetOverride | null) {
-  if (value == null) {
-    hearthstonePublishTargetOverride.current = null;
-    return;
-  }
-
-  hearthstonePublishTargetOverride.current = {
-    publishTarget: value.publishTarget?.trim() ?? null,
-    environment: value.environment?.trim() ?? null,
-    targetFingerprint: value.targetFingerprint?.trim() ?? null,
-    connectionString: value.connectionString?.trim() ?? null,
-  };
+  setHearthstonePublishTargetOverrides(value == null ? [] : [value]);
 }
 
-/** Resolves the active Hearthstone publish target override from runtime memory. */
+/** Stores runtime-local Hearthstone publish target overrides provided by the desktop shell. */
+export function setHearthstonePublishTargetOverrides(value: HearthstonePublishTargetOverride[]) {
+  hearthstonePublishTargetOverrides.current = value.map(item => ({
+    publishTarget: item.publishTarget?.trim() ?? null,
+    environment: item.environment?.trim() ?? null,
+    targetFingerprint: item.targetFingerprint?.trim() ?? null,
+    connectionString: item.connectionString?.trim() ?? null,
+  }));
+}
+
+/** Resolves runtime-local Hearthstone publish target overrides from runtime memory. */
+export function readHearthstonePublishTargetOverrides() {
+  return hearthstonePublishTargetOverrides.current;
+}
+
+/** Resolves the primary Hearthstone publish target override from runtime memory. */
 export function readHearthstonePublishTargetOverride() {
-  return hearthstonePublishTargetOverride.current;
+  return hearthstonePublishTargetOverrides.current[0] ?? null;
 }
 
-/** Reports whether the runtime currently has a complete Hearthstone publish target override. */
+/** Reports whether the runtime currently has any complete Hearthstone publish target override. */
 export function hasHearthstonePublishTargetOverride() {
-  const target = readHearthstonePublishTargetOverride();
-
-  return target?.publishTarget != null
-    && target.environment != null
-    && target.targetFingerprint != null
-    && target.connectionString != null;
+  return readHearthstonePublishTargetOverrides().some(target => {
+    return target.publishTarget != null
+      && target.environment != null
+      && target.targetFingerprint != null
+      && target.connectionString != null;
+  });
 }
 
 const editorIdentityOverride = {

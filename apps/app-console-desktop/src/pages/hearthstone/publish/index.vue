@@ -1,14 +1,21 @@
 <script setup lang="ts">
 import { useToast } from '@nuxt/ui/composables';
-import { getDesktopHearthstonePublishTarget } from '~/composables/useDesktopSettings';
 import {
+  getDesktopPublishTargets,
+  type DesktopPublishTarget,
+} from '~/composables/useDesktopSettings';
+import {
+  cancelIncompleteHsdataPublishBatch,
   formatHsdataDate,
   getHsdataErrorMessage,
   getIncompletePublishBatch,
+  type HsdataPublishStreamInput,
   listenHsdataPublishProgress,
   listPublishBatches,
   publishCurrentHsdataToRemote,
   publishSingleCard,
+  reanchorCurrentHsdataPublishBaseline,
+  stopHsdataPublishJob,
 } from '~/composables/useHsdataRepo';
 import type {
   HsdataPublishReport,
@@ -24,19 +31,21 @@ definePageMeta({
 const publishTypes = [
   { label: '卡牌数据 (card_data)', value: 'card_data' },
 ];
+const publishTarget = 'hearthstone' as const;
 
 const toast = useToast();
-const publishTarget = ref<string | null>(null);
-const publishTargetEnvironment = ref<string | null>(null);
-const publishTargetFingerprint = ref<string | null>(null);
+const publishTargets = ref<DesktopPublishTarget[]>([]);
+const selectedEnvironment = ref('');
 const publishTargetError = ref('');
 const publishError = ref('');
 const publishing = ref(false);
+const stoppingPublish = ref(false);
 const publishResult = ref<HsdataPublishReport | null>(null);
 const publishProgress = ref<PublishJobProgressEvent | null>(null);
 const incompleteBatch = ref<(HsdataPublishReport & { pendingRowCount?: number }) | null>(null);
 const batchListLoading = ref(false);
 const batchList = ref<HsdataPublishReport[]>([]);
+const cancelingBatchId = ref('');
 const publishType = ref('card_data');
 const dryRun = ref(false);
 const progressClockMs = ref(Date.now());
@@ -49,16 +58,45 @@ const singleCardPublishing = ref(false);
 const singleCardResult = ref<HsdataSingleCardPublishReport | null>(null);
 const singleCardError = ref('');
 
+const environmentItems = computed(() => {
+  return publishTargets.value.map(target => ({
+    label: target.environment,
+    value: target.environment,
+    onSelect: () => {
+      selectedEnvironment.value = target.environment;
+    },
+  }));
+});
+
+const hasMultiplePublishTargets = computed(() => publishTargets.value.length > 1);
+
+const selectedPublishTarget = computed(() => {
+  return publishTargets.value.find(target => target.environment === selectedEnvironment.value) ?? null;
+});
+
+const selectedPublishStream = computed<HsdataPublishStreamInput | null>(() => {
+  if (selectedEnvironment.value.length === 0) {
+    return null;
+  }
+
+  return {
+    publishTarget,
+    environment: selectedEnvironment.value,
+  };
+});
+
 async function submitSingleCardPublish() {
   const cardId = singleCardId.value.trim();
-  if (!cardId) return;
+  const stream = selectedPublishStream.value;
+
+  if (!cardId || !stream) return;
 
   singleCardPublishing.value = true;
   singleCardError.value = '';
   singleCardResult.value = null;
 
   try {
-    const result = await publishSingleCard(cardId);
+    const result = await publishSingleCard(cardId, stream);
     singleCardResult.value = result;
   } catch (error) {
     console.error('Failed to publish single card:', error);
@@ -69,19 +107,64 @@ async function submitSingleCardPublish() {
 }
 
 const hasPublishTarget = computed(() => {
-  return Boolean(
-    publishTarget.value
-    && publishTargetEnvironment.value
-    && publishTargetFingerprint.value,
-  );
+  return selectedPublishTarget.value != null;
 });
 
 const canPublish = computed(() => {
   return hasPublishTarget.value && !publishing.value;
 });
 
+function formatPublishTargetFingerprint(fingerprint: string | null) {
+  return fingerprint?.slice(0, 8) ?? '';
+}
+
+function formatPublishOperationKind(kind: string) {
+  switch (kind) {
+    case 'publish': return '发布';
+    case 'reanchor': return '重建基线';
+    case 'repair': return '修复';
+    case 'rollback': return '回滚';
+    default: return kind;
+  }
+}
+
+function formatPublishType(type: string) {
+  switch (type) {
+    case 'card_data': return '卡牌数据';
+    default: return type;
+  }
+}
+
+function statusBadgeColor(status: string) {
+  switch (status) {
+    case 'completed': return 'success';
+    case 'failed': return 'error';
+    case 'stopped': return 'warning';
+    default: return 'primary';
+  }
+}
+
+function formatPublishStatus(status: string) {
+  switch (status) {
+    case 'planning': return '规划中';
+    case 'applying': return '执行中';
+    case 'paused': return '已暂停';
+    case 'stopped': return '已停止';
+    case 'completed': return '已完成';
+    case 'failed': return '失败';
+    default: return status;
+  }
+}
+
+/** Returns whether one history row can be canceled from residual local database state. */
+function isCancelableBatch(batch: HsdataPublishReport) {
+  return batch.status === 'planning' || batch.status === 'applying';
+}
+
 const progressPercent = computed(() => {
   if (!publishProgress.value) return null;
+  const phase = publishProgress.value.phase;
+  if (phase === 'completed' || phase === 'failed' || phase === 'stopped') return null;
   const total = publishProgress.value.totalRowCount;
   const completed = publishProgress.value.completedRowCount;
   if (total == null || total === 0) return null;
@@ -110,8 +193,18 @@ const phaseColor = computed(() => {
   if (!publishProgress.value) return 'primary';
   const phase = publishProgress.value.phase;
   if (phase === 'completed') return 'success';
+  if (phase === 'stopped') return 'warning';
   if (phase === 'failed') return 'error';
   return 'primary';
+});
+
+const canStopPublish = computed(() => {
+  if (!publishing.value || stoppingPublish.value) {
+    return false;
+  }
+
+  const phase = publishProgress.value?.phase;
+  return phase !== 'stopped' && phase !== 'completed' && phase !== 'failed';
 });
 
 function startProgressTimer() {
@@ -179,21 +272,29 @@ async function loadPublishTarget() {
   publishTargetError.value = '';
 
   try {
-    const target = await getDesktopHearthstonePublishTarget();
-    publishTarget.value = target.publishTarget ?? null;
-    publishTargetEnvironment.value = target.environment ?? null;
-    publishTargetFingerprint.value = target.targetFingerprint ?? null;
+    const targets = await getDesktopPublishTargets();
+    publishTargets.value = targets.filter(target => target.publishTarget === publishTarget);
+
+    if (publishTargets.value.length === 0) {
+      selectedEnvironment.value = '';
+      return;
+    }
+
+    if (!publishTargets.value.some(target => target.environment === selectedEnvironment.value)) {
+      selectedEnvironment.value = publishTargets.value[0]!.environment;
+    }
   } catch (error) {
-    console.error('Failed to load Hearthstone publish target:', error);
+    console.error('Failed to load publish target:', error);
     publishTargetError.value = getHsdataErrorMessage(error);
-    publishTarget.value = null;
-    publishTargetEnvironment.value = null;
-    publishTargetFingerprint.value = null;
+    publishTargets.value = [];
+    selectedEnvironment.value = '';
   }
 }
 
 async function submitPublish() {
-  if (!canPublish.value) return;
+  const stream = selectedPublishStream.value;
+
+  if (!canPublish.value || !stream) return;
 
   publishing.value = true;
   publishError.value = '';
@@ -208,7 +309,7 @@ async function submitPublish() {
     if (event.report) {
       publishResult.value = event.report;
     }
-    if (event.phase === 'completed' || event.phase === 'failed') {
+    if (event.phase === 'completed' || event.phase === 'failed' || event.phase === 'stopped') {
       publishing.value = false;
       stopProgressTimer();
       terminalReached?.();
@@ -217,7 +318,10 @@ async function submitPublish() {
   startProgressTimer();
 
   try {
-    const result = await publishCurrentHsdataToRemote(dryRun.value);
+    const result = await publishCurrentHsdataToRemote({
+      ...stream,
+      dryRun: dryRun.value,
+    });
     publishResult.value = result;
     toast.add({
       title: '发布已完成',
@@ -240,24 +344,170 @@ async function submitPublish() {
       new Promise(resolve => setTimeout(resolve, 800)),
     ]);
     publishing.value = false;
+    stoppingPublish.value = false;
     stopProgressTimer();
     stopProgressListener?.();
     stopProgressListener = null;
+    await refreshPublishState();
+  }
+}
+
+async function submitReanchor() {
+  const stream = selectedPublishStream.value;
+
+  if (!canPublish.value || !stream) return;
+
+  publishing.value = true;
+  publishError.value = '';
+  publishResult.value = null;
+  publishProgress.value = null;
+
+  let terminalReached: (() => void) | null = null;
+  const terminalSignal = new Promise<void>(resolve => { terminalReached = resolve; });
+
+  stopProgressListener = listenHsdataPublishProgress((event) => {
+    publishProgress.value = event;
+    if (event.report) {
+      publishResult.value = event.report;
+    }
+    if (event.phase === 'completed' || event.phase === 'failed' || event.phase === 'stopped') {
+      publishing.value = false;
+      stopProgressTimer();
+      terminalReached?.();
+    }
+  });
+  startProgressTimer();
+
+  try {
+    const result = await reanchorCurrentHsdataPublishBaseline(stream);
+    publishResult.value = result;
+    toast.add({
+      title: '本地基线重建完成',
+      description: `${result.publishTarget} / ${result.environment} / rows=${result.totalRowCount}`,
+      color: 'success',
+    });
+  } catch (error) {
+    console.error('Failed to reanchor local hsdata publish baseline:', error);
+    publishError.value = getHsdataErrorMessage(error);
+    toast.add({
+      title: '本地基线重建失败',
+      description: publishError.value,
+      color: 'error',
+    });
+  } finally {
+    await Promise.race([
+      terminalSignal,
+      new Promise(resolve => setTimeout(resolve, 800)),
+    ]);
+    publishing.value = false;
+    stoppingPublish.value = false;
+    stopProgressTimer();
+    stopProgressListener?.();
+    stopProgressListener = null;
+    await refreshPublishState();
+  }
+}
+
+async function stopCurrentPublish() {
+  if (!canStopPublish.value) return;
+
+  stoppingPublish.value = true;
+
+  try {
+    await stopHsdataPublishJob();
+  } catch (error) {
+    console.error('Failed to stop publish job:', error);
+    publishError.value = getHsdataErrorMessage(error);
+    toast.add({
+      title: '停止失败',
+      description: publishError.value,
+      color: 'error',
+    });
+  } finally {
+    if (publishProgress.value?.phase === 'completed' || publishProgress.value?.phase === 'failed' || publishProgress.value?.phase === 'stopped') {
+      stoppingPublish.value = false;
+    }
+  }
+}
+
+/** Cancels one incomplete batch row when it is no longer backed by a live runtime job. */
+async function cancelBatch(batch: HsdataPublishReport) {
+  const stream = selectedPublishStream.value;
+
+  if (!stream || !isCancelableBatch(batch) || cancelingBatchId.value.length > 0) {
+    return;
+  }
+
+  cancelingBatchId.value = batch.batchId;
+
+  try {
+    const result = await cancelIncompleteHsdataPublishBatch({
+      ...stream,
+      batchId: batch.batchId,
+    });
+
+    if (publishProgress.value?.batchId === batch.batchId) {
+      publishProgress.value = null;
+      publishing.value = false;
+      stoppingPublish.value = false;
+      stopProgressTimer();
+      stopProgressListener?.();
+      stopProgressListener = null;
+    }
+
+    if (incompleteBatch.value?.batchId === batch.batchId) {
+      incompleteBatch.value = null;
+    }
+
+    publishResult.value = result;
+    publishError.value = '';
+    toast.add({
+      title: '批次已取消',
+      description: `${result.batchId} 已标记为已停止`,
+      color: 'success',
+    });
+    await refreshPublishState();
+  } catch (error) {
+    console.error('Failed to cancel incomplete publish batch:', error);
+    publishError.value = getHsdataErrorMessage(error);
+    toast.add({
+      title: '取消失败',
+      description: publishError.value,
+      color: 'error',
+    });
+  } finally {
+    cancelingBatchId.value = '';
   }
 }
 
 async function loadIncompleteBatch() {
+  const stream = selectedPublishStream.value;
+
+  if (!stream) {
+    incompleteBatch.value = null;
+    return;
+  }
+
   try {
-    incompleteBatch.value = await getIncompletePublishBatch();
+    incompleteBatch.value = await getIncompletePublishBatch(stream);
   } catch {
     incompleteBatch.value = null;
   }
 }
 
 async function loadBatchList() {
+  const stream = selectedPublishStream.value;
+
   batchListLoading.value = true;
+
+  if (!stream) {
+    batchList.value = [];
+    batchListLoading.value = false;
+    return;
+  }
+
   try {
-    batchList.value = await listPublishBatches();
+    batchList.value = await listPublishBatches(stream);
   } catch {
     batchList.value = [];
   } finally {
@@ -265,20 +515,27 @@ async function loadBatchList() {
   }
 }
 
+async function refreshPublishState() {
+  await Promise.all([loadBatchList(), loadIncompleteBatch()]);
+}
+
 function reconnectPublishProgress() {
-  publishing.value = true;
+  const phase = publishProgress.value?.phase;
+
+  publishing.value = phase !== 'completed' && phase !== 'failed' && phase !== 'stopped';
   publishError.value = '';
   publishResult.value = null;
-  publishProgress.value = null;
 
   stopProgressListener = listenHsdataPublishProgress((event) => {
     publishProgress.value = event;
     if (event.report) {
       publishResult.value = event.report;
     }
-    if (event.phase === 'completed' || event.phase === 'failed') {
+    if (event.phase === 'completed' || event.phase === 'failed' || event.phase === 'stopped') {
       publishing.value = false;
+      stoppingPublish.value = false;
       stopProgressTimer();
+      void refreshPublishState();
     }
   });
   startProgressTimer();
@@ -288,11 +545,13 @@ const PUBLISH_PAGE_STATE_KEY = 'console-desktop-hearthstone-publish-page';
 
 interface PublishPageState {
   dryRun: boolean;
+  environment: string;
 }
 
 function persistPublishPageState() {
   const state: PublishPageState = {
     dryRun: dryRun.value,
+    environment: selectedEnvironment.value,
   };
   window.localStorage.setItem(PUBLISH_PAGE_STATE_KEY, JSON.stringify(state));
 }
@@ -300,6 +559,7 @@ function persistPublishPageState() {
 function normalizePublishPageState(raw: Partial<PublishPageState>): PublishPageState {
   return {
     dryRun: typeof raw.dryRun === 'boolean' ? raw.dryRun : false,
+    environment: typeof raw.environment === 'string' ? raw.environment : '',
   };
 }
 
@@ -310,19 +570,28 @@ function restorePublishPageState() {
     const parsed = JSON.parse(raw);
     const state = normalizePublishPageState(parsed);
     dryRun.value = state.dryRun;
+    selectedEnvironment.value = state.environment;
   } catch {
     window.localStorage.removeItem(PUBLISH_PAGE_STATE_KEY);
   }
 }
 
-watch(dryRun, () => {
+watch([dryRun, selectedEnvironment], () => {
   persistPublishPageState();
+});
+
+watch(selectedPublishStream, async () => {
+  publishError.value = '';
+  publishResult.value = null;
+  singleCardError.value = '';
+  singleCardResult.value = null;
+  await refreshPublishState();
 });
 
 onMounted(async () => {
   restorePublishPageState();
-  await Promise.all([loadPublishTarget(), loadBatchList()]);
-  await loadIncompleteBatch();
+  await loadPublishTarget();
+  await refreshPublishState();
 
   // If there's an active publish job, reconnect the progress listener
   if (incompleteBatch.value) {
@@ -349,8 +618,27 @@ onBeforeUnmount(() => {
           <template v-if="hasPublishTarget">
             <span class="text-muted">{{ publishTarget }}</span>
             <span class="text-muted">·</span>
-            <span class="text-muted">{{ publishTargetEnvironment }}</span>
-            <UBadge :label="publishTargetFingerprint?.slice(0, 12) ?? ''" color="neutral" variant="soft" size="xs" />
+            <UDropdownMenu
+              v-if="hasMultiplePublishTargets"
+              :items="environmentItems"
+              :disabled="publishing || publishTargets.length === 0"
+              :content="{ align: 'end' }"
+            >
+              <button
+                type="button"
+                class="inline-flex items-center gap-1 text-muted transition-colors hover:text-default disabled:cursor-default disabled:hover:text-muted"
+              >
+                {{ selectedPublishTarget?.environment ?? '' }}
+                <UIcon
+                  name="i-lucide-chevron-down"
+                  class="size-3 opacity-70"
+                />
+              </button>
+            </UDropdownMenu>
+            <span v-else class="text-muted">
+              {{ selectedPublishTarget?.environment ?? '' }}
+            </span>
+            <UBadge :label="formatPublishTargetFingerprint(selectedPublishTarget?.targetFingerprint ?? null)" color="neutral" variant="soft" size="xs" />
           </template>
           <span v-else class="text-muted">未配置</span>
           <UButton
@@ -370,7 +658,7 @@ onBeforeUnmount(() => {
         variant="soft"
         icon="i-lucide-triangle-alert"
         title="未配置发布目标"
-        description="请在 设置 → Games → Hearthstone 中配置发布目标的连接信息。"
+        description="请在 设置 → 发布配置 中配置 Hearthstone 的发布环境。"
         class="mt-2"
       />
 
@@ -424,6 +712,24 @@ onBeforeUnmount(() => {
             :disabled="!canPublish"
             @click="submitPublish"
           />
+          <UButton
+            label="重建本地基线"
+            icon="i-lucide-anchor"
+            color="warning"
+            variant="soft"
+            :loading="publishing"
+            :disabled="!canPublish"
+            @click="submitReanchor"
+          />
+          <UButton
+            label="停止"
+            icon="i-lucide-square"
+            color="error"
+            variant="soft"
+            :loading="stoppingPublish"
+            :disabled="!canStopPublish"
+            @click="stopCurrentPublish"
+          />
         </div>
 
         <UAlert
@@ -450,7 +756,7 @@ onBeforeUnmount(() => {
           <UProgress
             :model-value="progressPercent"
             :color="phaseColor"
-            animation="carousel"
+            :animation="publishing ? 'carousel' : 'swing'"
             size="md"
           />
 
@@ -501,6 +807,29 @@ onBeforeUnmount(() => {
           <div class="text-xs text-muted">Manifest</div>
           <div class="mt-1 break-all font-mono text-sm">
             {{ publishResult.manifestHash }}
+          </div>
+        </div>
+        <div class="rounded-lg border border-default p-3">
+          <div class="text-xs text-muted">操作</div>
+          <div class="mt-1 flex flex-wrap items-center gap-2">
+            <UBadge
+              :label="formatPublishOperationKind(publishResult.operationKind)"
+              color="primary"
+              variant="soft"
+              size="xs"
+            />
+            <UBadge
+              :label="formatPublishType(publishResult.publishType)"
+              color="neutral"
+              variant="soft"
+              size="xs"
+            />
+            <UBadge
+              :label="formatPublishStatus(publishResult.status)"
+              :color="statusBadgeColor(publishResult.status)"
+              variant="soft"
+              size="xs"
+            />
           </div>
         </div>
         <div class="rounded-lg border border-default p-3">
@@ -565,9 +894,11 @@ onBeforeUnmount(() => {
           <thead>
             <tr class="border-b border-default text-left text-xs text-muted">
               <th class="px-3 py-2 font-normal">批次 ID</th>
+              <th class="px-3 py-2 font-normal">操作</th>
               <th class="px-3 py-2 font-normal">状态</th>
               <th class="px-3 py-2 font-normal">变化行数</th>
               <th class="px-3 py-2 font-normal">发布时间</th>
+              <th class="px-3 py-2 font-normal">操作</th>
             </tr>
           </thead>
           <tbody>
@@ -580,9 +911,25 @@ onBeforeUnmount(() => {
                 {{ batch.batchId }}
               </td>
               <td class="px-3 py-2">
+                <div class="flex flex-wrap items-center gap-1">
+                  <UBadge
+                    :label="formatPublishOperationKind(batch.operationKind)"
+                    color="primary"
+                    variant="soft"
+                    size="xs"
+                  />
+                  <UBadge
+                    :label="formatPublishType(batch.publishType)"
+                    color="neutral"
+                    variant="soft"
+                    size="xs"
+                  />
+                </div>
+              </td>
+              <td class="px-3 py-2">
                 <UBadge
-                  :label="batch.status"
-                  :color="batch.status === 'completed' ? 'success' : batch.status === 'failed' ? 'error' : 'warning'"
+                  :label="formatPublishStatus(batch.status)"
+                  :color="statusBadgeColor(batch.status)"
                   variant="soft"
                   size="xs"
                 />
@@ -592,6 +939,19 @@ onBeforeUnmount(() => {
               </td>
               <td class="px-3 py-2 text-xs text-muted">
                 {{ formatHsdataDate(batch.publishedAt) }}
+              </td>
+              <td class="px-3 py-2">
+                <UButton
+                  v-if="isCancelableBatch(batch)"
+                  label="取消"
+                  icon="i-lucide-x"
+                  color="error"
+                  variant="soft"
+                  size="xs"
+                  :loading="cancelingBatchId === batch.batchId"
+                  :disabled="cancelingBatchId.length > 0"
+                  @click="cancelBatch(batch)"
+                />
               </td>
             </tr>
           </tbody>

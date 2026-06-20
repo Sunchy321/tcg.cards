@@ -35,6 +35,14 @@
                 to="/settings/database"
               />
               <UButton
+                label="发布配置"
+                icon="i-lucide-upload"
+                color="neutral"
+                variant="soft"
+                class="justify-start"
+                to="/settings/publish"
+              />
+              <UButton
                 v-for="item in gameButtons"
                 :key="item.to"
                 :label="item.buttonLabel"

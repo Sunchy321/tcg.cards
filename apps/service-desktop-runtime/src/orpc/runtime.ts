@@ -8,7 +8,7 @@ import {
   hasLocalDatabaseUrl,
   setEditorIdentity,
   setHearthstoneImageOverride,
-  setHearthstonePublishTargetOverride,
+  setHearthstonePublishTargetOverrides,
   setHsdataRepoPathOverride,
   setLocalDatabaseUrlOverride,
 } from '../runtime-config';
@@ -60,12 +60,12 @@ const configureDesktopStateInput = z.strictObject({
         rendererBaseUrl: z.string().trim().min(1).nullable(),
         bucketDir: z.string().trim().min(1).nullable(),
       }),
-      publish: z.strictObject({
+      publish: z.array(z.strictObject({
         publishTarget: z.string().trim().min(1).nullable(),
         environment: z.string().trim().min(1).nullable(),
         targetFingerprint: z.string().trim().min(1).nullable(),
         connectionString: z.string().trim().min(1).nullable(),
-      }),
+      })),
     }),
   }),
 });
@@ -77,7 +77,7 @@ function applyDesktopState(
   setLocalDatabaseUrlOverride(input.localDatabase.connectionString);
   setHsdataRepoPathOverride(input.games.hearthstone.hsdata.repoPath);
   setHearthstoneImageOverride(input.games.hearthstone.image);
-  setHearthstonePublishTargetOverride(input.games.hearthstone.publish);
+  setHearthstonePublishTargetOverrides(input.games.hearthstone.publish);
 }
 
 const health = os

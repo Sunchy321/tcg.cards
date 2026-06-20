@@ -4,6 +4,8 @@ import { pgEnum } from 'drizzle-orm/pg-core';
 export const publishBatchStatus = pgEnum('publish_batch_status', [
   'planning',
   'applying',
+  'paused',
+  'stopped',
   'completed',
   'failed',
 ]);
@@ -13,7 +15,7 @@ export const publishOperationKind = pgEnum('publish_operation_kind', [
   'publish',
   'repair',
   'rollback',
-  'baseline_repair',
+  'reanchor',
 ]);
 
 /** Shared row-level plan actions produced by local publish-owned diff planning. */

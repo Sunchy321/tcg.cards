@@ -90,141 +90,6 @@
           <UCard>
             <template #header>
               <div>
-                <div class="font-medium">Publish Target</div>
-                <div class="mt-1 text-xs text-muted">配置远端发布目标，并固定批次绑定所需的目标身份。</div>
-              </div>
-            </template>
-
-            <div class="space-y-4">
-              <div class="grid gap-4 md:grid-cols-2">
-                <div class="space-y-2">
-                  <label for="publish-target-id" class="text-sm font-medium text-default">Target ID</label>
-                  <input
-                    id="publish-target-id"
-                    v-model="publishTargetInput"
-                    class="w-full rounded-lg border border-default bg-default px-3 py-2 text-sm text-default"
-                    placeholder="hearthstone-remote-dev"
-                    :disabled="loadingPublishTarget || savingPublishTarget || testingPublishTarget || validatingPublishTarget"
-                  >
-                </div>
-
-                <div class="space-y-2">
-                  <label for="publish-target-environment" class="text-sm font-medium text-default">Environment</label>
-                  <input
-                    id="publish-target-environment"
-                    v-model="publishTargetEnvironmentInput"
-                    class="w-full rounded-lg border border-default bg-default px-3 py-2 text-sm text-default"
-                    placeholder="dev"
-                    :disabled="loadingPublishTarget || savingPublishTarget || testingPublishTarget || validatingPublishTarget"
-                  >
-                </div>
-              </div>
-
-              <div class="space-y-2">
-                <label for="publish-target-connection" class="text-sm font-medium text-default">Connection String</label>
-                <input
-                  id="publish-target-connection"
-                  v-model="publishTargetConnectionStringInput"
-                  class="w-full rounded-lg border border-default bg-default px-3 py-2 text-sm text-default"
-                  placeholder="postgres://user:password@127.0.0.1:5432/tcg_cards_remote_dev"
-                  :disabled="loadingPublishTarget || savingPublishTarget || testingPublishTarget || validatingPublishTarget"
-                >
-              </div>
-
-              <div class="flex flex-wrap gap-2">
-                <UButton
-                  label="保存 Publish Target"
-                  icon="i-lucide-save"
-                  color="primary"
-                  :loading="savingPublishTarget"
-                  :disabled="loadingPublishTarget || testingPublishTarget || validatingPublishTarget"
-                  @click="savePublishTarget"
-                />
-                <UButton
-                  label="测试目标"
-                  icon="i-lucide-plug"
-                  color="neutral"
-                  variant="soft"
-                  :loading="testingPublishTarget"
-                  :disabled="loadingPublishTarget || savingPublishTarget || validatingPublishTarget"
-                  @click="testPublishTarget"
-                />
-                <UButton
-                  label="校验绑定"
-                  icon="i-lucide-shield-check"
-                  color="neutral"
-                  variant="soft"
-                  :loading="validatingPublishTarget"
-                  :disabled="loadingPublishTarget || savingPublishTarget || testingPublishTarget || !savedPublishTargetFingerprint"
-                  @click="validatePublishTargetBinding"
-                />
-                <UButton
-                  label="清空目标"
-                  icon="i-lucide-trash"
-                  color="error"
-                  variant="soft"
-                  :disabled="loadingPublishTarget || savingPublishTarget || testingPublishTarget || validatingPublishTarget"
-                  @click="clearPublishTarget"
-                />
-              </div>
-
-              <UAlert
-                v-if="publishTargetError.length > 0"
-                color="error"
-                variant="soft"
-                icon="i-lucide-circle-alert"
-                :description="publishTargetError"
-              />
-              <UAlert
-                v-else-if="savedPublishTargetFingerprint"
-                color="success"
-                variant="soft"
-                icon="i-lucide-circle-check-big"
-                :description="`当前已保存目标：${savedPublishTarget ?? '-'} / ${savedPublishTargetEnvironment ?? '-'} / fingerprint=${savedPublishTargetFingerprint}`"
-              />
-              <UAlert
-                v-else
-                color="warning"
-                variant="soft"
-                icon="i-lucide-plug-zap"
-                description="尚未配置远端 publish target。"
-              />
-
-              <UAlert
-                v-if="publishTargetTestError.length > 0"
-                color="error"
-                variant="soft"
-                icon="i-lucide-plug-zap"
-                :description="publishTargetTestError"
-              />
-              <UAlert
-                v-else-if="publishTargetTestResult"
-                color="success"
-                variant="soft"
-                icon="i-lucide-badge-check"
-                :description="`连接成功：target=${publishTargetTestResult.publishTarget}，env=${publishTargetTestResult.environment}，database=${publishTargetTestResult.databaseName}，user=${publishTargetTestResult.userName}，host=${publishTargetTestResult.serverHost}:${publishTargetTestResult.serverPort}，latency=${publishTargetTestResult.latencyMs}ms，fingerprint=${publishTargetTestResult.targetFingerprint}`"
-              />
-
-              <UAlert
-                v-if="publishTargetValidationError.length > 0"
-                color="error"
-                variant="soft"
-                icon="i-lucide-shield-x"
-                :description="publishTargetValidationError"
-              />
-              <UAlert
-                v-else-if="publishTargetValidationMessage.length > 0"
-                :color="publishTargetValidationOk ? 'success' : 'warning'"
-                variant="soft"
-                :icon="publishTargetValidationOk ? 'i-lucide-shield-check' : 'i-lucide-shield-alert'"
-                :description="publishTargetValidationMessage"
-              />
-            </div>
-          </UCard>
-
-          <UCard>
-            <template #header>
-              <div>
                 <div class="font-medium">Image</div>
                 <div class="mt-1 text-xs text-muted">配置本地渲染端地址和本地图片 bucket 根目录。</div>
               </div>
@@ -353,14 +218,10 @@ import { getConsoleErrorMessage } from '@tcg-cards/console-core';
 
 import {
   getDesktopHearthstoneImageSettings,
-  getDesktopHearthstonePublishTarget,
   getDesktopGameRepo,
   pickDesktopDirectory,
   setDesktopHearthstoneImageSettings,
-  setDesktopHearthstonePublishTarget,
   setDesktopGameRepo,
-  testDesktopHearthstonePublishTarget,
-  validateDesktopHearthstonePublishTargetBinding,
 } from '~/composables/useDesktopSettings';
 import { detectDesktopHearthstoneImageRenderer } from '~/composables/useDesktopRuntimeClient';
 
@@ -375,31 +236,6 @@ const loadingHsdataRepoPath = ref(false);
 const pickingHsdataRepoPath = ref(false);
 const savingHsdataRepoPath = ref(false);
 const hsdataRepoPathError = ref('');
-const publishTargetInput = ref('');
-const publishTargetEnvironmentInput = ref('');
-const publishTargetConnectionStringInput = ref('');
-const savedPublishTarget = ref<string | null>(null);
-const savedPublishTargetEnvironment = ref<string | null>(null);
-const savedPublishTargetFingerprint = ref<string | null>(null);
-const loadingPublishTarget = ref(false);
-const savingPublishTarget = ref(false);
-const testingPublishTarget = ref(false);
-const validatingPublishTarget = ref(false);
-const publishTargetError = ref('');
-const publishTargetTestError = ref('');
-const publishTargetValidationError = ref('');
-const publishTargetValidationMessage = ref('');
-const publishTargetValidationOk = ref(false);
-const publishTargetTestResult = ref<{
-  publishTarget:   string;
-  environment:       string;
-  targetFingerprint: string;
-  databaseName:      string;
-  userName:          string;
-  serverHost:        string;
-  serverPort:        number;
-  latencyMs:         number;
-} | null>(null);
 
 const defaultRendererBaseUrl = 'http://localhost:58437';
 const imageRendererBaseUrlInput = ref('');
@@ -426,25 +262,16 @@ const imageRendererTestOk = ref(false);
 /** Loads the configured hsdata repository path. */
 async function loadHearthstoneSettings() {
   loadingHsdataRepoPath.value = true;
-  loadingPublishTarget.value = true;
   loadingImageSettings.value = true;
   hsdataRepoPathError.value = '';
-  publishTargetError.value = '';
   imageSettingsError.value = '';
 
   try {
     const repoPath = await getDesktopGameRepo('hearthstone', 'hsdata');
-    const publishTarget = await getDesktopHearthstonePublishTarget();
     const imageSettings = await getDesktopHearthstoneImageSettings();
 
     savedHsdataRepoPath.value = repoPath;
     hsdataRepoPathInput.value = repoPath ?? '';
-    savedPublishTarget.value = publishTarget.publishTarget ?? null;
-    savedPublishTargetEnvironment.value = publishTarget.environment ?? null;
-    savedPublishTargetFingerprint.value = publishTarget.targetFingerprint ?? null;
-    publishTargetInput.value = publishTarget.publishTarget ?? '';
-    publishTargetEnvironmentInput.value = publishTarget.environment ?? '';
-    publishTargetConnectionStringInput.value = publishTarget.connectionString ?? '';
     savedImageRendererBaseUrl.value = imageSettings.rendererBaseUrl ?? null;
     savedImageBucketDir.value = imageSettings.bucketDir ?? null;
     imageRendererBaseUrlInput.value = imageSettings.rendererBaseUrl ?? '';
@@ -452,11 +279,9 @@ async function loadHearthstoneSettings() {
   } catch (error) {
     console.error('Failed to load desktop Hearthstone settings:', error);
     hsdataRepoPathError.value = getConsoleErrorMessage(error, '设置读取失败');
-    publishTargetError.value = getConsoleErrorMessage(error, '设置读取失败');
     imageSettingsError.value = getConsoleErrorMessage(error, '设置读取失败');
   } finally {
     loadingHsdataRepoPath.value = false;
-    loadingPublishTarget.value = false;
     loadingImageSettings.value = false;
   }
 }
@@ -608,129 +433,8 @@ async function testImageRenderer() {
   }
 }
 
-/** Persists the Hearthstone publish target settings. */
-async function savePublishTarget() {
-  savingPublishTarget.value = true;
-  publishTargetError.value = '';
-
-  try {
-    const settings = await setDesktopHearthstonePublishTarget(
-      publishTargetInput.value.trim().length > 0 ? publishTargetInput.value.trim() : null,
-      publishTargetEnvironmentInput.value.trim().length > 0 ? publishTargetEnvironmentInput.value.trim() : null,
-      publishTargetConnectionStringInput.value.trim().length > 0 ? publishTargetConnectionStringInput.value.trim() : null,
-    );
-
-    savedPublishTarget.value = settings.publishTarget ?? null;
-    savedPublishTargetEnvironment.value = settings.environment ?? null;
-    savedPublishTargetFingerprint.value = settings.targetFingerprint ?? null;
-    publishTargetInput.value = settings.publishTarget ?? '';
-    publishTargetEnvironmentInput.value = settings.environment ?? '';
-    publishTargetConnectionStringInput.value = settings.connectionString ?? '';
-    publishTargetValidationMessage.value = '';
-  } catch (error) {
-    console.error('Failed to save Hearthstone publish target settings:', error);
-    publishTargetError.value = getConsoleErrorMessage(error, 'Publish target 保存失败');
-  } finally {
-    savingPublishTarget.value = false;
-  }
-}
-
-/** Clears the configured Hearthstone publish target settings. */
-async function clearPublishTarget() {
-  savingPublishTarget.value = true;
-  publishTargetError.value = '';
-
-  try {
-    const settings = await setDesktopHearthstonePublishTarget(null, null, null);
-
-    savedPublishTarget.value = settings.publishTarget ?? null;
-    savedPublishTargetEnvironment.value = settings.environment ?? null;
-    savedPublishTargetFingerprint.value = settings.targetFingerprint ?? null;
-    publishTargetInput.value = settings.publishTarget ?? '';
-    publishTargetEnvironmentInput.value = settings.environment ?? '';
-    publishTargetConnectionStringInput.value = settings.connectionString ?? '';
-    publishTargetValidationMessage.value = '';
-  } catch (error) {
-    console.error('Failed to clear Hearthstone publish target settings:', error);
-    publishTargetError.value = getConsoleErrorMessage(error, 'Publish target 清理失败');
-  } finally {
-    savingPublishTarget.value = false;
-  }
-}
-
-/** Tests the current Hearthstone publish target without persisting it. */
-async function testPublishTarget() {
-  testingPublishTarget.value = true;
-  publishTargetTestError.value = '';
-  publishTargetTestResult.value = null;
-
-  try {
-    const result = await testDesktopHearthstonePublishTarget(
-      publishTargetInput.value.trim().length > 0 ? publishTargetInput.value.trim() : null,
-      publishTargetEnvironmentInput.value.trim().length > 0 ? publishTargetEnvironmentInput.value.trim() : null,
-      publishTargetConnectionStringInput.value.trim().length > 0 ? publishTargetConnectionStringInput.value.trim() : null,
-    );
-
-    publishTargetTestResult.value = result;
-  } catch (error) {
-    console.error('Failed to test Hearthstone publish target settings:', error);
-    publishTargetTestError.value = getConsoleErrorMessage(error, 'Publish target 测试失败');
-  } finally {
-    testingPublishTarget.value = false;
-  }
-}
-
-/** Validates that the saved Hearthstone publish target still matches its bound fingerprint. */
-async function validatePublishTargetBinding() {
-  const publishTarget = savedPublishTarget.value;
-  const environment = savedPublishTargetEnvironment.value;
-  const targetFingerprint = savedPublishTargetFingerprint.value;
-
-  if (!publishTarget || !environment || !targetFingerprint) {
-    publishTargetValidationOk.value = false;
-    publishTargetValidationMessage.value = '';
-    publishTargetValidationError.value = '缺少已保存的 publish target 绑定信息。';
-    return;
-  }
-
-  validatingPublishTarget.value = true;
-  publishTargetValidationError.value = '';
-  publishTargetValidationMessage.value = '';
-
-  try {
-    const result = await validateDesktopHearthstonePublishTargetBinding(
-      publishTarget,
-      environment,
-      targetFingerprint,
-    );
-
-    publishTargetValidationOk.value = result.isValid;
-    publishTargetValidationMessage.value = result.isValid
-      ? `当前目标绑定一致：${result.currentPublishTarget ?? '-'} / ${result.currentEnvironment ?? '-'} / fingerprint=${result.currentTargetFingerprint ?? '-'}`
-      : result.reasons.join(' ');
-  } catch (error) {
-    console.error('Failed to validate Hearthstone publish target binding:', error);
-    publishTargetValidationError.value = getConsoleErrorMessage(error, 'Publish target 绑定校验失败');
-  } finally {
-    validatingPublishTarget.value = false;
-  }
-}
-
 onMounted(() => {
   void loadHearthstoneSettings();
-});
-
-watch([
-  publishTargetInput,
-  publishTargetEnvironmentInput,
-  publishTargetConnectionStringInput,
-], () => {
-  publishTargetError.value = '';
-  publishTargetTestError.value = '';
-  publishTargetValidationError.value = '';
-  publishTargetValidationMessage.value = '';
-  publishTargetValidationOk.value = false;
-  publishTargetTestResult.value = null;
 });
 
 watch([

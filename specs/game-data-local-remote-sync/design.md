@@ -1104,13 +1104,31 @@ publish plan 本身仍然可以拥有自己的摘要，例如：
 - 普通 publish
 - repair
 - rollback
-- baseline repair 或等价修复动作
+- reanchor 或等价基线重锚动作
 
 固定规则为：
 
 - 普通 publish 走默认 gate
-- repair / rollback / baseline repair 只能通过显式受控入口执行
+- repair / rollback / reanchor 只能通过显式受控入口执行
 - 能绕过普通 gate 的情况，必须被限制在这些高风险操作级别中，而不是悄悄混进普通 publish
+
+`reanchor` 在首轮进一步固定为一条纯本地运维动作：
+
+- 只根据当前本地投影重建本地 `PublishBaseline` 与 `PublishRowBaseline`
+- 只记录本地批次审计信息，不推进远端业务表
+- 不更新远端 `PublishLedger`
+- 不以远端当前状态作为成功前置条件
+
+因此 `reanchor` 的职责不是“让下一次普通 publish 必然成功”，而是：
+
+- 在本地已有完整当前数据、但缺少或损坏本地 baseline 时，重建本地已发布判断基础
+- 让后续普通 publish 至少能够基于明确的本地 baseline 继续工作
+
+若 `reanchor` 后本地 baseline 与远端当前 ledger 仍不一致：
+
+- `reanchor` 仍可成功
+- 后续普通 publish 继续由 compare-and-swap gate 决定是否拒绝
+- 这类远端不一致问题应进入 `repair` 或其他显式远端修复入口，而不是混入 `reanchor`
 
 #### 7A.7.7 生产环境高风险操作建议绑定短时 lease
 
@@ -1118,7 +1136,7 @@ publish plan 本身仍然可以拥有自己的摘要，例如：
 
 - 开发环境可以采用较弱授权
 - 生产环境的普通 publish 应使用短时授权或等价受控凭证
-- 生产环境的 repair / rollback / baseline repair 应使用更严格的短时 lease、额外确认或审批
+- 生产环境的 repair / rollback / reanchor 应使用更严格的短时 lease、额外确认或审批
 
 首轮总文档不强制具体密钥实现，但固定要求：
 

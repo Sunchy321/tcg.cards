@@ -33,9 +33,13 @@ import {
   listLocalHsdataSourceVersions,
 } from '../lib/hearthstone/hsdata-status';
 import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
-import { getIncompletePublishBatch, listPublishBatches, publishCurrentHsdataToRemote, publishReport, publishSingleCard, singleCardPublishReport } from '../lib/hearthstone/hsdata-publish';
+import { cancelIncompletePublishBatch, getIncompletePublishBatch, listPublishBatches, publishCurrentHsdataToRemote, publishReport, publishSingleCard, reanchorCurrentHsdataPublishBaseline, singleCardPublishReport } from '../lib/hearthstone/hsdata-publish';
 import {
+  clearPublishJobController,
+  createPublishJobController,
+  PublishJobInterruptedError,
   startPublishJob,
+  stopPublishJob,
   updatePublishJob,
   watchPublishJob,
   type PublishJobProgressEvent,
@@ -65,6 +69,11 @@ const importJobInput = z.strictObject({
 
 const projectJobInput = z.strictObject({
   sourceTag: z.number().int().nonnegative(),
+});
+
+const publishStreamInput = z.strictObject({
+  publishTarget: z.literal('hearthstone'),
+  environment: z.string().trim().min(1),
 });
 
 const sourceFile = z.object({
@@ -503,15 +512,23 @@ const publishCurrentToRemote = os
     tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
   })
   .input(z.strictObject({
+    publishTarget: z.literal('hearthstone'),
+    environment: z.string().trim().min(1),
     dryRun: z.boolean().optional(),
   }))
   .output(publishReport)
   .handler(async ({ input }) => {
-    const job = startPublishJob({ publishType: 'card_data', publishTarget: '' });
+    const job = startPublishJob({
+      publishType: 'card_data',
+      publishTarget: `${input.publishTarget}/${input.environment}`,
+    });
+    createPublishJobController();
 
     try {
       const report = await publishCurrentHsdataToRemote({
         publishType: 'card_data',
+        publishTarget: input.publishTarget,
+        environment: input.environment,
         dryRun: input.dryRun,
         onProgress: (event) => {
           updatePublishJob({
@@ -527,8 +544,72 @@ const publishCurrentToRemote = os
 
       return report;
     } catch (error) {
+      if (error instanceof PublishJobInterruptedError) {
+        updatePublishJob({
+          phase: error.phase,
+          message: error.message,
+        });
+        throw new ORPCError('BAD_REQUEST', {
+          message: error.message,
+        });
+      }
+
       updatePublishJob({ phase: 'failed', message: error instanceof Error ? error.message : String(error) });
       throw toRuntimeError(error);
+    } finally {
+      clearPublishJobController();
+    }
+  });
+
+/** Reanchors the local publish baseline from the current local projection without touching remote state. */
+const reanchorCurrentPublishBaseline = os
+  .route({
+    method:      'POST',
+    description: 'Reanchor the local publish baseline from the current local projection',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
+  })
+  .input(publishStreamInput)
+  .output(publishReport)
+  .handler(async ({ input }) => {
+    const job = startPublishJob({
+      publishType: 'card_data',
+      publishTarget: `${input.publishTarget}/${input.environment}`,
+    });
+    createPublishJobController();
+
+    try {
+      const report = await reanchorCurrentHsdataPublishBaseline({
+        publishType: 'card_data',
+        publishTarget: input.publishTarget,
+        environment: input.environment,
+        onProgress: (event) => {
+          updatePublishJob({
+            phase: event.phase,
+            message: event.message,
+            totalRowCount: event.total ?? null,
+            completedRowCount: event.completed ?? null,
+          });
+        },
+      });
+
+      updatePublishJob({ phase: 'completed', message: '本地 baseline 重锚完成', report });
+
+      return report;
+    } catch (error) {
+      if (error instanceof PublishJobInterruptedError) {
+        updatePublishJob({
+          phase: error.phase,
+          message: error.message,
+        });
+        throw new ORPCError('BAD_REQUEST', {
+          message: error.message,
+        });
+      }
+
+      updatePublishJob({ phase: 'failed', message: error instanceof Error ? error.message : String(error) });
+      throw toRuntimeError(error);
+    } finally {
+      clearPublishJobController();
     }
   });
 
@@ -542,6 +623,51 @@ const watchPublishJobRoute = os
   .output(eventIterator(z.custom<PublishJobProgressEvent>()))
   .handler(async function* () {
     yield* watchPublishJob();
+  });
+
+const publishJobControlResult = z.strictObject({
+  batchId: z.string(),
+});
+
+const cancelPublishBatchInput = publishStreamInput.extend({
+  batchId: z.string().uuid(),
+});
+
+/** Requests a cooperative stop of the current publish or reanchor job. */
+const stopPublishJobRoute = os
+  .route({
+    method:      'POST',
+    description: 'Stop the current Hearthstone publish job',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
+  })
+  .output(publishJobControlResult)
+  .handler(async () => {
+    const state = stopPublishJob();
+
+    if (state == null) {
+      throw new ORPCError('NOT_FOUND', {
+        message: 'No running publish job to stop',
+      });
+    }
+
+    return { batchId: state.batchId };
+  });
+
+/** Cancels one residual publish batch row that is still marked running in the local database. */
+const cancelIncompletePublishBatchRoute = os
+  .route({
+    method:      'POST',
+    description: 'Cancel one incomplete Hearthstone publish batch left in the local database',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
+  })
+  .input(cancelPublishBatchInput)
+  .output(publishReport)
+  .handler(async ({ input }) => {
+    try {
+      return await cancelIncompletePublishBatch(input);
+    } catch (error) {
+      throw toRuntimeError(error);
+    }
   });
 
 const recomputeLatestOutput = z.object({
@@ -612,10 +738,11 @@ const listPublishBatchesRoute = os
     description: 'List publish batches for the current target',
     tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
   })
+  .input(publishStreamInput)
   .output(z.array(publishReport))
-  .handler(async () => {
+  .handler(async ({ input }) => {
     try {
-      return await listPublishBatches();
+      return await listPublishBatches(input);
     } catch (error) {
       throw toRuntimeError(error);
     }
@@ -628,10 +755,11 @@ const getIncompletePublishBatchRoute = os
     description: 'Check for an incomplete publish batch',
     tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
   })
+  .input(publishStreamInput)
   .output(publishReport.nullable())
-  .handler(async () => {
+  .handler(async ({ input }) => {
     try {
-      return await getIncompletePublishBatch();
+      return await getIncompletePublishBatch(input);
     } catch (error) {
       throw toRuntimeError(error);
     }
@@ -646,11 +774,13 @@ const publishSingleCardRoute = os
   })
   .input(z.strictObject({
     cardId: z.string().trim().min(1),
+    publishTarget: z.literal('hearthstone'),
+    environment: z.string().trim().min(1),
   }))
   .output(singleCardPublishReport)
   .handler(async ({ input }) => {
     try {
-      return await publishSingleCard(input.cardId);
+      return await publishSingleCard(input.cardId, input);
     } catch (error) {
       throw toRuntimeError(error);
     }
@@ -735,7 +865,10 @@ export const hsdataRouter = {
   watchImportJob,
   watchProjectJob,
   publishCurrentToRemote,
+  reanchorCurrentPublishBaseline,
   watchPublishJob: watchPublishJobRoute,
+  stopPublishJob: stopPublishJobRoute,
+  cancelIncompletePublishBatch: cancelIncompletePublishBatchRoute,
   listPublishBatches: listPublishBatchesRoute,
   getIncompletePublishBatch: getIncompletePublishBatchRoute,
   publishSingleCard: publishSingleCardRoute,
