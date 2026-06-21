@@ -40,10 +40,16 @@ import {
   PublishJobInterruptedError,
   startPublishJob,
   stopPublishJob,
+  type PublishJobProgressEvent,
   updatePublishJob,
   watchPublishJob,
-  type PublishJobProgressEvent,
 } from '../lib/hearthstone/hsdata-publish-progress';
+import {
+  createPublishTask,
+  stopActivePublishTask,
+  waitForPublishTask,
+  watchPublishTaskProgressEvents,
+} from '../lib/tasks/publish';
 
 const sourceIdInput = z.strictObject({
   id: z.string().trim().min(1),
@@ -518,47 +524,21 @@ const publishCurrentToRemote = os
   }))
   .output(publishReport)
   .handler(async ({ input }) => {
-    const job = startPublishJob({
-      publishType: 'card_data',
-      publishTarget: `${input.publishTarget}/${input.environment}`,
-    });
-    createPublishJobController();
-
-    try {
-      const report = await publishCurrentHsdataToRemote({
-        publishType: 'card_data',
+    const control = await createPublishTask({
+      taskType: 'hsdata_publish',
+      scope: {
         publishTarget: input.publishTarget,
         environment: input.environment,
+        publishType: 'card_data',
+      },
+      params: {
+        publishType: 'card_data',
         dryRun: input.dryRun,
-        onProgress: (event) => {
-          updatePublishJob({
-            phase: event.phase,
-            message: event.message,
-            totalRowCount: event.totalRowCount,
-            completedRowCount: event.completedRowCount,
-          });
-        },
-      });
+        operationKind: 'publish',
+      },
+    });
 
-      updatePublishJob({ phase: 'completed', message: '发布完成', report });
-
-      return report;
-    } catch (error) {
-      if (error instanceof PublishJobInterruptedError) {
-        updatePublishJob({
-          phase: error.phase,
-          message: error.message,
-        });
-        throw new ORPCError('BAD_REQUEST', {
-          message: error.message,
-        });
-      }
-
-      updatePublishJob({ phase: 'failed', message: error instanceof Error ? error.message : String(error) });
-      throw toRuntimeError(error);
-    } finally {
-      clearPublishJobController();
-    }
+    return await waitForPublishTask(control.taskRunId);
   });
 
 /** Reanchors the local publish baseline from the current local projection without touching remote state. */
@@ -622,7 +602,12 @@ const watchPublishJobRoute = os
   })
   .output(eventIterator(z.custom<PublishJobProgressEvent>()))
   .handler(async function* () {
-    yield* watchPublishJob();
+    try {
+      yield* watchPublishTaskProgressEvents();
+      return;
+    } catch {
+      yield* watchPublishJob();
+    }
   });
 
 const publishJobControlResult = z.strictObject({
@@ -642,15 +627,17 @@ const stopPublishJobRoute = os
   })
   .output(publishJobControlResult)
   .handler(async () => {
-    const state = stopPublishJob();
+    try {
+      return await stopActivePublishTask();
+    } catch (error) {
+      const state = stopPublishJob();
 
-    if (state == null) {
-      throw new ORPCError('NOT_FOUND', {
-        message: 'No running publish job to stop',
-      });
+      if (state != null) {
+        return { batchId: state.batchId };
+      }
+
+      throw toRuntimeError(error);
     }
-
-    return { batchId: state.batchId };
   });
 
 /** Cancels one residual publish batch row that is still marked running in the local database. */

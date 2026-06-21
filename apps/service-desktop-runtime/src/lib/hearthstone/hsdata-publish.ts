@@ -98,6 +98,11 @@ interface PublishTargetSelector {
   environment?: string;
 }
 
+/** Reads whether one caller has requested a cooperative stop for the current publish flow. */
+interface PublishStopSignal {
+  readonly aborted: boolean;
+}
+
 /** Publish target resolved from one explicit stream identity when provided. */
 function resolvePublishTargetSelector(selector?: PublishTargetSelector) {
   if (selector?.publishTarget != null && selector.environment != null) {
@@ -1425,6 +1430,7 @@ async function insertPlannedBatchRows(
   batchId: string,
   plans: PublishBatchRowPlan[],
   onProgress?: StepProgress,
+  signal?: PublishStopSignal,
 ): Promise<void> {
   const now = new Date();
   const rows = plans.map(plan => ({
@@ -1447,6 +1453,10 @@ async function insertPlannedBatchRows(
   for (const chunk of chunks) {
     if (chunk.length === 0) {
       continue;
+    }
+
+    if (signal?.aborted) {
+      throw new PublishJobInterruptedError('stopped', '发布已停止');
     }
 
     await db.insert(PublishBatchRow).values(chunk);
@@ -2120,6 +2130,7 @@ export async function createPublishPlan(options?: {
   onProgress?: StepProgress;
   publishTarget?: string;
   environment?: string;
+  signal?: PublishStopSignal;
 }): Promise<{
     batchId: string;
     counts: PublishBatchCounts;
@@ -2130,6 +2141,7 @@ export async function createPublishPlan(options?: {
   const publishType = options?.publishType ?? 'card_data';
   const dryRun = options?.dryRun ?? false;
   const onProgress = options?.onProgress;
+  const signal = options?.signal;
   const target = resolvePublishTargetSelector(options);
   const stream: PublishStreamIdentity = {
     publishTarget: target.publishTarget,
@@ -2145,6 +2157,10 @@ export async function createPublishPlan(options?: {
     throw new Error(`当前 publish stream 已有未完成批次 ${active.id} (${active.operationKind})，请先完成或停止后再开始新的操作。`);
   }
 
+  if (signal?.aborted) {
+    throw new PublishJobInterruptedError('stopped', '发布已停止');
+  }
+
   onProgress?.({ phase: 'loading_baseline', message: '正在加载上次发布基线...' });
 
   const { baseline, baselineRowHashes } = await loadBaselineRowHashes(localDb, stream);
@@ -2152,6 +2168,10 @@ export async function createPublishPlan(options?: {
   const lastPublishedAt = baseline?.publishedAt ?? null;
 
   const { states, data, allEntityVersions } = await loadCurrentRowSnapshots(localDb, onProgress, baselineRowHashes, lastPublishedAt);
+
+  if (signal?.aborted) {
+    throw new PublishJobInterruptedError('stopped', '发布已停止');
+  }
 
   if (states.length === 0) {
     throw new Error('No local Hearthstone projection rows are available for publish.');
@@ -2169,6 +2189,10 @@ export async function createPublishPlan(options?: {
   onProgress?.({ phase: 'building_diff', message: '正在构建差异计划...', completed: 0, total: states.length });
 
   const { plans, counts, manifestHash } = buildBatchRowPlans(states, baselineRowHashes);
+
+  if (signal?.aborted) {
+    throw new PublishJobInterruptedError('stopped', '发布已停止');
+  }
 
   onProgress?.({ phase: 'building_diff', message: '差异计划构建完成', completed: states.length, total: states.length });
 
@@ -2194,7 +2218,7 @@ export async function createPublishPlan(options?: {
     previousManifestHash,
     counts,
   });
-  await insertPlannedBatchRows(localDb, batchId, plans, onProgress);
+  await insertPlannedBatchRows(localDb, batchId, plans, onProgress, signal);
 
   await localDb.update(PublishBatch)
     .set({ status: 'applying', updatedAt: new Date() })
@@ -2484,9 +2508,11 @@ export async function executePublishBatch(
     onProgress?: (event: { phase: string; message: string; totalRowCount?: number | null; completedRowCount?: number | null }) => void;
     publishTarget?: string;
     environment?: string;
+    signal?: PublishStopSignal;
   },
 ): Promise<PublishReport> {
   const onProgress = options?.onProgress;
+  const signal = options?.signal;
   const target = resolvePublishTargetSelector(options);
   const localDb = getLocalDb();
   const remoteDb = createDb(target.connectionString);
@@ -2513,6 +2539,10 @@ export async function executePublishBatch(
     }
 
     onProgress?.({ phase: 'checking_remote_gate', message: '正在校验远端 publish stream gate...', totalRowCount: null, completedRowCount: null });
+
+    if (signal?.aborted) {
+      throw new PublishJobInterruptedError('stopped', '发布已停止');
+    }
 
     await assertRemotePublishGate(remoteDb, {
       publishTarget: batch.publishTarget,
@@ -2554,6 +2584,10 @@ export async function executePublishBatch(
     const totalChunks = Math.ceil(totalPending / remoteChunkSize);
 
     for (let i = 0; i < pendingRows.length; i += remoteChunkSize) {
+      if (signal?.aborted) {
+        throw new PublishJobInterruptedError('stopped', '发布已停止');
+      }
+
       const chunkIndex = i / remoteChunkSize + 1;
       const chunk = pendingRows.slice(i, i + remoteChunkSize);
 
@@ -2732,9 +2766,11 @@ export async function publishCurrentHsdataToRemote(options?: {
   onProgress?: (event: { phase: string; message: string; totalRowCount?: number | null; completedRowCount?: number | null }) => void;
   publishTarget?: string;
   environment?: string;
+  signal?: PublishStopSignal;
 }): Promise<PublishReport> {
   const onProgress = options?.onProgress;
   const dryRun = options?.dryRun ?? false;
+  const signal = options?.signal;
   const localDb = getLocalDb();
   const target = resolvePublishTargetSelector(options);
   const publishType = options?.publishType ?? 'card_data';
@@ -2744,6 +2780,7 @@ export async function publishCurrentHsdataToRemote(options?: {
     const plan = await createPublishPlan({
       publishType: options?.publishType,
       dryRun: true,
+      signal,
       onProgress: onProgress
         ? (e) => onProgress({ phase: e.phase, message: e.message, totalRowCount: e.total ?? null, completedRowCount: e.completed ?? null })
         : undefined,
@@ -2795,17 +2832,24 @@ export async function publishCurrentHsdataToRemote(options?: {
 
     onProgress?.({ phase: 'loading_snapshots', message: `检测到未完成的批次 ${incomplete.id}，将从断点继续...`, totalRowCount: null, completedRowCount: null });
 
-    return await executePublishBatch(incomplete.id, options);
+    return await executePublishBatch(incomplete.id, {
+      ...options,
+      signal,
+    });
   }
 
   const plan = await createPublishPlan({
     publishType: options?.publishType,
+    signal,
     onProgress: onProgress
       ? (e) => onProgress({ phase: e.phase, message: e.message, totalRowCount: e.total ?? null, completedRowCount: e.completed ?? null })
       : undefined,
   });
 
-  return await executePublishBatch(plan.batchId, options);
+  return await executePublishBatch(plan.batchId, {
+    ...options,
+    signal,
+  });
 }
 
 /** Lists all publish batches for the current target, newest first. */
