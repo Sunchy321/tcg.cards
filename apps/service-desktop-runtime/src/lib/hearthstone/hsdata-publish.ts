@@ -52,7 +52,7 @@ type PublishDb = ReturnType<typeof createDb>;
 
 type PublishDbTx = Parameters<Parameters<PublishDb['transaction']>[0]>[0];
 
-type TableName = 'cards' | 'entities' | 'entity_localizations' | 'entity_relations';
+export type TableName = 'cards' | 'entities' | 'entity_localizations' | 'entity_relations';
 
 interface PublishRowState {
   tableName: TableName;
@@ -99,7 +99,7 @@ interface PublishTargetSelector {
 }
 
 /** Reads whether one caller has requested a cooperative stop for the current publish flow. */
-interface PublishStopSignal {
+export interface PublishStopSignal {
   readonly aborted: boolean;
 }
 
@@ -712,7 +712,7 @@ function serializeRowKey(pk: Record<string, string>): string {
 }
 
 /** Parse a serialized row key back into a record. */
-function parseRowKey(serialized: string): Record<string, string> {
+export function parseRowKey(serialized: string): Record<string, string> {
   return JSON.parse(serialized) as Record<string, string>;
 }
 
@@ -858,6 +858,7 @@ type StepProgress = (event: {
   message: string;
   completed?: number;
   total?: number;
+  segments?: { name: string; done: number; total: number }[];
 }) => void;
 
 /** All local rows loaded from all four publish tables and indexed by PK.
@@ -1914,7 +1915,7 @@ async function upsertRemotePublishLedger(
 }
 
 /** Delete one row from the remote table using the parsed PK. */
-async function deleteRemoteRow(
+export async function deleteRemoteRow(
   tx: PublishDbTx,
   tableName: TableName,
   rowKey: Record<string, string>,
@@ -1949,7 +1950,7 @@ async function deleteRemoteRow(
 }
 
 /** Insert one row into the remote table. For cards, uses upsert semantics. */
-async function insertRemoteRow(
+export async function insertRemoteRow(
   tx: PublishDbTx,
   tableName: TableName,
   row: unknown,
@@ -2194,7 +2195,12 @@ export async function createPublishPlan(options?: {
     throw new PublishJobInterruptedError('stopped', '发布已停止');
   }
 
-  onProgress?.({ phase: 'building_diff', message: '差异计划构建完成', completed: states.length, total: states.length });
+  onProgress?.({ phase: 'building_diff', message: '差异计划构建完成', completed: states.length, total: states.length, segments: [
+    { name: 'cards', done: counts.cardRowCount, total: counts.cardRowCount },
+    { name: 'entities', done: counts.entityRowCount, total: counts.entityRowCount },
+    { name: 'localizations', done: counts.localizationRowCount, total: counts.localizationRowCount },
+    { name: 'relations', done: counts.relationRowCount, total: counts.relationRowCount },
+  ] });
 
   if (dryRun) {
     return { batchId: '', counts, range, manifestHash, previousManifestHash };
@@ -2356,7 +2362,7 @@ export async function reanchorCurrentHsdataPublishBaseline(options?: {
 }
 
 /** Load one chunk of local row data keyed by rowKey for a given table. */
-async function loadRowDataChunk(
+export async function loadRowDataChunk(
   db: PublishDb,
   tableName: TableName,
   rowKeys: string[],
@@ -2505,7 +2511,7 @@ function assertNormalPublishBatch(batch: Pick<typeof PublishBatch.$inferSelect, 
 export async function executePublishBatch(
   batchId: string,
   options?: {
-    onProgress?: (event: { phase: string; message: string; totalRowCount?: number | null; completedRowCount?: number | null }) => void;
+    onProgress?: (event: { phase: string; message: string; totalRowCount?: number | null; completedRowCount?: number | null; segments?: { name: string; done: number; total: number }[] }) => void;
     publishTarget?: string;
     environment?: string;
     signal?: PublishStopSignal;
@@ -2763,7 +2769,7 @@ export async function executePublishBatch(
 export async function publishCurrentHsdataToRemote(options?: {
   publishType?: string;
   dryRun?: boolean;
-  onProgress?: (event: { phase: string; message: string; totalRowCount?: number | null; completedRowCount?: number | null }) => void;
+  onProgress?: (event: { phase: string; message: string; totalRowCount?: number | null; completedRowCount?: number | null; segments?: { name: string; done: number; total: number }[] }) => void;
   publishTarget?: string;
   environment?: string;
   signal?: PublishStopSignal;
@@ -2782,7 +2788,7 @@ export async function publishCurrentHsdataToRemote(options?: {
       dryRun: true,
       signal,
       onProgress: onProgress
-        ? (e) => onProgress({ phase: e.phase, message: e.message, totalRowCount: e.total ?? null, completedRowCount: e.completed ?? null })
+        ? (e) => onProgress({ phase: e.phase, message: e.message, totalRowCount: e.total ?? null, completedRowCount: e.completed ?? null, segments: e.segments })
         : undefined,
     });
 
@@ -2842,7 +2848,7 @@ export async function publishCurrentHsdataToRemote(options?: {
     publishType: options?.publishType,
     signal,
     onProgress: onProgress
-      ? (e) => onProgress({ phase: e.phase, message: e.message, totalRowCount: e.total ?? null, completedRowCount: e.completed ?? null })
+      ? (e) => onProgress({ phase: e.phase, message: e.message, totalRowCount: e.total ?? null, completedRowCount: e.completed ?? null, segments: e.segments })
       : undefined,
   });
 

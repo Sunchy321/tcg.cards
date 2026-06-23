@@ -6,7 +6,7 @@
     "baseUrl": ".",
     "paths": {
       "#model/*": ["../../packages/model/src/*"],
-      "@tcg-cards/model/src/*": ["../../packages/model/src/*"]
+      "#task/*": ["./src/lib/task/*"]
     },
     "strict": true,
     "skipLibCheck": true,

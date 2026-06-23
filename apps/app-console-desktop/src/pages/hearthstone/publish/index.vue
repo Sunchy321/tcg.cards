@@ -10,18 +10,20 @@ import {
   getHsdataErrorMessage,
   getIncompletePublishBatch,
   type HsdataPublishStreamInput,
-  listenHsdataPublishProgress,
   listPublishBatches,
-  publishCurrentHsdataToRemote,
+  createPublishTask,
+  getPublishTaskSnapshot,
+  cancelPublishTask,
+  listenHsdataPublishProgress,
   publishSingleCard,
   reanchorCurrentHsdataPublishBaseline,
-  stopHsdataPublishJob,
 } from '~/composables/useHsdataRepo';
 import type {
   HsdataPublishReport,
   HsdataSingleCardPublishReport,
   PublishJobProgressEvent,
 } from '~/composables/useHsdataRepo';
+import type { TaskPageSnapshot, TaskStage } from '@tcg-cards/model/src/task';
 
 definePageMeta({
   layout: 'admin',
@@ -29,7 +31,7 @@ definePageMeta({
 });
 
 const publishTypes = [
-  { label: '卡牌数据 (card_data)', value: 'card_data' },
+  { label: 'card_data', value: 'card_data' },
 ];
 const publishTarget = 'hearthstone' as const;
 
@@ -42,6 +44,7 @@ const publishing = ref(false);
 const stoppingPublish = ref(false);
 const publishResult = ref<HsdataPublishReport | null>(null);
 const publishProgress = ref<PublishJobProgressEvent | null>(null);
+const taskSnapshot = ref<TaskPageSnapshot | null>(null);
 const incompleteBatch = ref<(HsdataPublishReport & { pendingRowCount?: number }) | null>(null);
 const batchListLoading = ref(false);
 const batchList = ref<HsdataPublishReport[]>([]);
@@ -268,6 +271,22 @@ const progressTimeLabel = computed(() => {
   return `${elapsed} / ${estimated}`;
 });
 
+/** Reads the pageTask from the task snapshot, or idle when none exists. */
+const taskCardPageTask = computed(() => taskSnapshot.value?.pageTask ?? { kind: 'idle' });
+
+/** Reads the stages from the task snapshot. */
+const taskCardStages = computed<TaskStage[]>(() => taskSnapshot.value?.stages ?? []);
+
+/** Computes elapsed seconds from the snapshot's startedAt. */
+const taskCardElapsedSec = computed(() => {
+  const t = taskSnapshot.value;
+  if (t?.pageTask.kind !== 'attached' || !t.pageTask.startedAt) return 0;
+  const startedMs = new Date(t.pageTask.startedAt).getTime();
+  if (!Number.isFinite(startedMs)) return 0;
+  const endMs = t.pageTask.finishedAt ? new Date(t.pageTask.finishedAt).getTime() : Date.now();
+  return Math.max(0, Math.floor((endMs - startedMs) / 1000));
+});
+
 async function loadPublishTarget() {
   publishTargetError.value = '';
 
@@ -299,37 +318,40 @@ async function submitPublish() {
   publishing.value = true;
   publishError.value = '';
   publishResult.value = null;
-  publishProgress.value = null;
-
-  let terminalReached: (() => void) | null = null;
-  const terminalSignal = new Promise<void>(resolve => { terminalReached = resolve; });
-
-  stopProgressListener = listenHsdataPublishProgress((event) => {
-    publishProgress.value = event;
-    if (event.report) {
-      publishResult.value = event.report;
-    }
-    if (event.phase === 'completed' || event.phase === 'failed' || event.phase === 'stopped') {
-      publishing.value = false;
-      stopProgressTimer();
-      terminalReached?.();
-    }
-  });
-  startProgressTimer();
+  taskSnapshot.value = null;
 
   try {
-    const result = await publishCurrentHsdataToRemote({
+    taskSnapshot.value = await createPublishTask({
       ...stream,
       dryRun: dryRun.value,
     });
-    publishResult.value = result;
-    toast.add({
-      title: '发布已完成',
-      description: `${result.publishTarget} / ${result.environment} / changed=${result.changedRowCount}`,
-      color: 'success',
-    });
+
+    // Poll snapshot until terminal
+    while (true) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      const snapshot = await getPublishTaskSnapshot(stream);
+      taskSnapshot.value = snapshot;
+
+      if (snapshot.pageTask.kind === 'attached') {
+        const s = snapshot.pageTask.status;
+        if (['completed', 'failed', 'canceled', 'abandoned'].includes(s)) {
+          break;
+        }
+      } else {
+        break;
+      }
+    }
+
+    const final = taskSnapshot.value;
+    if (final?.pageTask.kind === 'attached' && final.pageTask.status === 'completed') {
+      toast.add({
+        title: '发布已完成',
+        color: 'success',
+      });
+    }
   } catch (error) {
-    console.error('Failed to publish hsdata projection to remote:', error);
+    console.error('Publish failed:', error);
     publishError.value = getHsdataErrorMessage(error);
     toast.add({
       title: '发布失败',
@@ -337,17 +359,8 @@ async function submitPublish() {
       color: 'error',
     });
   } finally {
-    // Wait for the event stream to deliver the terminal event.
-    // Falls back to 800ms timeout in case the stream event is lost.
-    await Promise.race([
-      terminalSignal,
-      new Promise(resolve => setTimeout(resolve, 800)),
-    ]);
     publishing.value = false;
     stoppingPublish.value = false;
-    stopProgressTimer();
-    stopProgressListener?.();
-    stopProgressListener = null;
     await refreshPublishState();
   }
 }
@@ -409,12 +422,17 @@ async function submitReanchor() {
 }
 
 async function stopCurrentPublish() {
-  if (!canStopPublish.value) return;
+  const snap = taskSnapshot.value;
+  if (snap?.pageTask.kind !== 'attached') return;
 
   stoppingPublish.value = true;
 
   try {
-    await stopHsdataPublishJob();
+    await cancelPublishTask(snap.pageTask.taskRunId);
+    taskSnapshot.value = await getPublishTaskSnapshot({
+      publishTarget,
+      environment: selectedEnvironment.value,
+    });
   } catch (error) {
     console.error('Failed to stop publish job:', error);
     publishError.value = getHsdataErrorMessage(error);
@@ -424,9 +442,7 @@ async function stopCurrentPublish() {
       color: 'error',
     });
   } finally {
-    if (publishProgress.value?.phase === 'completed' || publishProgress.value?.phase === 'failed' || publishProgress.value?.phase === 'stopped') {
-      stoppingPublish.value = false;
-    }
+    stoppingPublish.value = false;
   }
 }
 
@@ -593,15 +609,17 @@ onMounted(async () => {
   await loadPublishTarget();
   await refreshPublishState();
 
-  // If there's an active publish job, reconnect the progress listener
-  if (incompleteBatch.value) {
-    reconnectPublishProgress();
+  // Check for an active task snapshot on page load
+  const stream = selectedPublishStream.value;
+  if (stream) {
+    const snap = await getPublishTaskSnapshot(stream);
+    if (snap.pageTask.kind !== 'idle') {
+      taskSnapshot.value = snap;
+    }
   }
 });
 
 onBeforeUnmount(() => {
-  stopProgressListener?.();
-  stopProgressTimer();
   publishing.value = false;
 });
 </script>
@@ -683,99 +701,55 @@ onBeforeUnmount(() => {
       class="mb-0"
     />
 
-    <UCard>
-      <template #header>
-        <span class="font-medium">发布操作</span>
-      </template>
+    <UAlert
+      v-if="publishError.length > 0"
+      color="error"
+      variant="soft"
+      icon="i-lucide-circle-alert"
+      :description="publishError"
+    />
 
-      <div class="space-y-4">
-        <div class="max-w-xs">
-          <div class="mb-1 text-xs text-muted">发布类型</div>
+    <TaskCard
+      title="发布到 production"
+      :page-task="taskCardPageTask"
+      :stages="taskCardStages"
+      :elapsed-sec="taskCardElapsedSec"
+      :segment-progress="publishProgress?.segments ?? null"
+      @cancel="stopCurrentPublish"
+    >
+      <div class="flex items-center gap-6">
+        <UFormField label="发布类型" orientation="horizontal">
           <USelect
             v-model="publishType"
             :items="publishTypes"
             :disabled="publishing"
             option-attribute="label"
           />
-        </div>
-
-        <label class="flex items-center gap-2 text-sm">
-          <input v-model="dryRun" type="checkbox" :disabled="publishing">
-          Dry Run（仅分析差异，不实际写入）
-        </label>
-
-        <div class="flex flex-wrap gap-2">
-          <UButton
-            label="发布当前本地投影"
-            icon="i-lucide-upload"
-            :loading="publishing"
-            :disabled="!canPublish"
-            @click="submitPublish"
-          />
-          <UButton
-            label="重建本地基线"
-            icon="i-lucide-anchor"
-            color="warning"
-            variant="soft"
-            :loading="publishing"
-            :disabled="!canPublish"
-            @click="submitReanchor"
-          />
-          <UButton
-            label="停止"
-            icon="i-lucide-square"
-            color="error"
-            variant="soft"
-            :loading="stoppingPublish"
-            :disabled="!canStopPublish"
-            @click="stopCurrentPublish"
-          />
-        </div>
-
-        <UAlert
-          v-if="publishError.length > 0"
-          color="error"
-          variant="soft"
-          icon="i-lucide-circle-alert"
-          :description="publishError"
-        />
-
-        <div
-          v-if="publishing || publishProgress"
-          class="rounded-lg border border-default p-4"
-        >
-          <div class="mb-3 flex items-center justify-between">
-            <UBadge
-              :label="phaseLabel"
-              :color="phaseColor"
-              variant="soft"
-            />
-            <span class="text-xs text-muted">{{ progressTimeLabel }}</span>
-          </div>
-
-          <UProgress
-            :model-value="progressPercent"
-            :color="phaseColor"
-            :animation="publishing ? 'carousel' : 'swing'"
-            size="md"
-          />
-
-          <div
-            v-if="publishProgress?.message"
-            class="mt-2 text-sm text-muted"
-          >
-            {{ publishProgress.message }}
-          </div>
-
-          <div
-            v-if="publishProgress?.totalRowCount && publishProgress.totalRowCount > 0"
-            class="mt-1 text-xs text-muted"
-          >
-            {{ publishProgress.completedRowCount ?? 0 }} / {{ publishProgress.totalRowCount }} 行
-          </div>
-        </div>
+        </UFormField>
+        <UCheckbox v-model="dryRun" label="Dry Run" :disabled="publishing" />
       </div>
-    </UCard>
+
+      <template #actions>
+        <UButton
+          icon="i-lucide-upload"
+          :loading="publishing"
+          :disabled="!canPublish"
+          @click="submitPublish"
+        >
+          发布
+        </UButton>
+        <UButton
+          icon="i-lucide-anchor"
+          color="warning"
+          variant="soft"
+          :loading="publishing"
+          :disabled="!canPublish"
+          @click="submitReanchor"
+        >
+          重建基线
+        </UButton>
+      </template>
+    </TaskCard>
 
     <UCard v-if="publishResult">
       <template #header>

@@ -133,7 +133,7 @@ export const TaskRun = pgTable('task_runs', {
   ),
   check(
     'task_runs_terminal_reason_required_chk',
-    sql`${table.status} = 'completed' or ${table.terminalReason} is not null`,
+    sql`${table.status} not in ('canceled', 'failed', 'abandoned') or ${table.terminalReason} is not null`,
   ),
   check(
     'task_runs_finished_at_terminal_only_chk',
@@ -197,7 +197,7 @@ export const TaskStage = pgTable('task_stages', {
   ),
   check(
     'task_stages_bounded_requires_total_done_chk',
-    sql`${table.progressMode} <> 'bounded' or (${table.total} is not null and ${table.done} is not null)`,
+    sql`${table.progressMode} <> 'bounded' or ${table.status} = 'pending' or (${table.total} is not null and ${table.done} is not null)`,
   ),
   check(
     'task_stages_unbound_requires_done_chk',

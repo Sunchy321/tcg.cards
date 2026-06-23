@@ -9,9 +9,9 @@ export type TaskResumeMode = 'none' | 'durable' | 'session_bound';
 
 /** Identifies one business scope that a task run operates on. */
 export interface TaskScope {
-  taskScopeType: string;
-  taskScopeKey: string;
-  taskScopeSnapshot?: Record<string, unknown>;
+  type: string;
+  key: string;
+  snapshot?: Record<string, unknown>;
 }
 
 /** Captures the immutable creation input stored on one task run. */
@@ -36,6 +36,8 @@ export interface TaskStageState extends TaskStagePlan {
   status: 'pending' | 'running' | 'paused' | 'canceled' | 'failed' | 'completed' | 'abandoned';
   total: number | null;
   done: number | null;
+  startedAt: string | null;
+  finishedAt: string | null;
   resumeToken: Record<string, unknown> | null;
   selectionAnchor: Record<string, unknown> | null;
 }

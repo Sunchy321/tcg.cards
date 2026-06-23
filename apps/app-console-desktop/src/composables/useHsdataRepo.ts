@@ -1,5 +1,6 @@
 import { consumeEventIterator } from '@orpc/client';
 import type { PublishReport, SingleCardPublishReport } from 'service-desktop-runtime/lib/hearthstone/hsdata-publish';
+import type { ProgressSegment } from '@tcg-cards/model/src/task';
 import { getConsoleErrorMessage } from '@tcg-cards/console-core';
 
 import { useDesktopRuntimeClient } from './useDesktopRuntimeClient';
@@ -299,6 +300,7 @@ export interface PublishJobProgressEvent {
   finishedAt: string | null;
   totalRowCount: number | null;
   completedRowCount: number | null;
+  segments?: ProgressSegment[];
   report: HsdataPublishReport | null;
 }
 
@@ -767,6 +769,35 @@ export function formatHsdataBytes(value: number) {
 
   const digits = size >= 10 ? 1 : 2;
   return `${size.toFixed(digits)} ${units[unitIndex]}`;
+}
+
+import type { TaskPageSnapshot, TaskPageEvent } from '@tcg-cards/model/src/task';
+
+/** Creates a publish task through the generic task framework and returns the initial snapshot. */
+export function createPublishTask(input: {
+  publishTarget: string;
+  environment: string;
+  dryRun?: boolean;
+}): Promise<TaskPageSnapshot> {
+  return useDesktopRuntimeClient().hsdata.task.publish.create(input) as Promise<TaskPageSnapshot>;
+}
+
+/** Returns the current publish task snapshot. */
+export function getPublishTaskSnapshot(input: {
+  publishTarget: string;
+  environment: string;
+}): Promise<TaskPageSnapshot> {
+  return useDesktopRuntimeClient().hsdata.task.publish.snapshot(input) as Promise<TaskPageSnapshot>;
+}
+
+/** Streams publish task snapshot events. */
+export function watchPublishTaskEvents(): AsyncGenerator<TaskPageEvent> {
+  return useDesktopRuntimeClient().hsdata.task.publish.watch() as AsyncGenerator<TaskPageEvent>;
+}
+
+/** Cancels one publish task by its run ID. */
+export function cancelPublishTask(taskRunId: string): Promise<TaskPageSnapshot> {
+  return useDesktopRuntimeClient().hsdata.task.publish.cancel({ taskRunId }) as Promise<TaskPageSnapshot>;
 }
 
 export function getHsdataErrorMessage(error: unknown) {

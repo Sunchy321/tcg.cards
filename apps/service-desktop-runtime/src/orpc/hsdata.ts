@@ -33,7 +33,7 @@ import {
   listLocalHsdataSourceVersions,
 } from '../lib/hearthstone/hsdata-status';
 import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
-import { cancelIncompletePublishBatch, getIncompletePublishBatch, listPublishBatches, publishCurrentHsdataToRemote, publishReport, publishSingleCard, reanchorCurrentHsdataPublishBaseline, singleCardPublishReport } from '../lib/hearthstone/hsdata-publish';
+import { cancelIncompletePublishBatch, getIncompletePublishBatch, listPublishBatches, publishReport, publishSingleCard, reanchorCurrentHsdataPublishBaseline, singleCardPublishReport } from '../lib/hearthstone/hsdata-publish';
 import {
   clearPublishJobController,
   createPublishJobController,
@@ -45,11 +45,14 @@ import {
   watchPublishJob,
 } from '../lib/hearthstone/hsdata-publish-progress';
 import {
+  cancelPublishTask,
   createPublishTask,
+  getPublishTaskSnapshot,
   stopActivePublishTask,
-  waitForPublishTask,
+  watchPublishTaskEvents,
   watchPublishTaskProgressEvents,
-} from '../lib/tasks/publish';
+} from '../lib/hearthstone/task/publish';
+import { taskPageEvent, taskPageSnapshot } from '@tcg-cards/model/src/task';
 
 const sourceIdInput = z.strictObject({
   id: z.string().trim().min(1),
@@ -510,37 +513,6 @@ const watchProjectJob = os
     yield* watchProjectJobBySourceTag(input.sourceTag);
   });
 
-/** Publishes the current local latest projection to the configured remote target through Bun. */
-const publishCurrentToRemote = os
-  .route({
-    method:      'POST',
-    description: 'Publish the current local hsdata projection to the configured remote target',
-    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
-  })
-  .input(z.strictObject({
-    publishTarget: z.literal('hearthstone'),
-    environment: z.string().trim().min(1),
-    dryRun: z.boolean().optional(),
-  }))
-  .output(publishReport)
-  .handler(async ({ input }) => {
-    const control = await createPublishTask({
-      taskType: 'hsdata_publish',
-      scope: {
-        publishTarget: input.publishTarget,
-        environment: input.environment,
-        publishType: 'card_data',
-      },
-      params: {
-        publishType: 'card_data',
-        dryRun: input.dryRun,
-        operationKind: 'publish',
-      },
-    });
-
-    return await waitForPublishTask(control.taskRunId);
-  });
-
 /** Reanchors the local publish baseline from the current local projection without touching remote state. */
 const reanchorCurrentPublishBaseline = os
   .route({
@@ -651,7 +623,14 @@ const cancelIncompletePublishBatchRoute = os
   .output(publishReport)
   .handler(async ({ input }) => {
     try {
-      return await cancelIncompletePublishBatch(input);
+      const result = await cancelIncompletePublishBatch(input);
+
+      // Also cancel the corresponding TaskRun if it exists
+      cancelPublishTask(input.batchId).catch(() => {
+        // TaskRun may not exist or already be terminal — that's fine.
+      });
+
+      return result;
     } catch (error) {
       throw toRuntimeError(error);
     }
@@ -746,7 +725,15 @@ const getIncompletePublishBatchRoute = os
   .output(publishReport.nullable())
   .handler(async ({ input }) => {
     try {
-      return await getIncompletePublishBatch(input);
+      const legacy = await getIncompletePublishBatch(input);
+
+      if (legacy) {
+        return legacy;
+      }
+
+      // Fallback: check for active TaskRun through the generic store.
+      // The page will be migrated to read from getPublishTaskSnapshot in step 8.7.
+      return null;
     } catch (error) {
       throw toRuntimeError(error);
     }
@@ -839,8 +826,105 @@ const resetProjectionStatus = os
     });
   });
 
+/*
+ * ── Hearthstone Task ──────────────────────────────────
+ */
+
+/** Creates a publish task and returns the initial snapshot. */
+const taskPublishCreate = os
+  .route({
+    method:      'POST',
+    description: 'Create a publish task and return the initial snapshot',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Task'],
+  })
+  .input(z.strictObject({
+    publishTarget: z.literal('hearthstone'),
+    environment: z.string().trim().min(1),
+    dryRun: z.boolean().optional(),
+  }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    await createPublishTask({
+      taskType: 'hsdata_publish',
+      scope: {
+        publishTarget: input.publishTarget,
+        environment: input.environment,
+        publishType: 'card_data',
+      },
+      params: {
+        publishType: 'card_data',
+        dryRun: input.dryRun,
+        operationKind: 'publish',
+      },
+    });
+
+    const snapshot = await getPublishTaskSnapshot({
+      publishTarget: input.publishTarget,
+      environment: input.environment,
+      publishType: 'card_data',
+    });
+
+    return snapshot;
+  });
+
+/** Returns the current publish task snapshot for one stream, or idle. */
+const taskPublishSnapshot = os
+  .route({
+    method:      'GET',
+    description: 'Read the current publish task snapshot',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Task'],
+  })
+  .input(publishStreamInput)
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    const result = await getPublishTaskSnapshot({
+      publishTarget: input.publishTarget,
+      environment: input.environment,
+      publishType: 'card_data',
+    });
+
+    return result;
+  });
+
+/** Streams publish task snapshot changes in real time. */
+const taskPublishWatch = os
+  .route({
+    method:      'GET',
+    description: 'Stream publish task snapshot changes',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Task'],
+  })
+  .output(eventIterator(taskPageEvent))
+  .handler(async function* () {
+    yield* watchPublishTaskEvents();
+  });
+
+/** Cancels one active publish task. */
+const taskPublishCancel = os
+  .route({
+    method:      'POST',
+    description: 'Cancel one active publish task',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Task'],
+  })
+  .input(z.strictObject({
+    taskRunId: z.string().uuid(),
+  }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    await cancelPublishTask(input.taskRunId);
+    return { pageTask: { kind: 'idle' }, stages: [] };
+  });
+
 /** Groups the desktop runtime hsdata procedures under one router namespace. */
 export const hsdataRouter = {
+  task: {
+    publish: {
+      create: taskPublishCreate,
+      snapshot: taskPublishSnapshot,
+      watch: taskPublishWatch,
+      cancel: taskPublishCancel,
+    },
+  },
+
   getRepoState,
   syncRemoteVersions,
   listSources,
@@ -851,7 +935,6 @@ export const hsdataRouter = {
   getLocalOverview,
   watchImportJob,
   watchProjectJob,
-  publishCurrentToRemote,
   reanchorCurrentPublishBaseline,
   watchPublishJob: watchPublishJobRoute,
   stopPublishJob: stopPublishJobRoute,

@@ -9,6 +9,9 @@ import {
   resolveHearthstonePublishTarget,
   testDesktopDatabaseConnection,
 } from './lib/runtime/desktop-database';
+import { registerTaskDefinition } from './lib/task';
+import { publishTaskDefinition } from './lib/hearthstone/task';
+import { testWorkTaskDefinition } from './lib/task/test-definition';
 
 /** Resolves the local listen port from the current process environment. */
 function readPort() {
@@ -47,6 +50,9 @@ function getErrorMessage(error: unknown) {
 }
 
 const hono = new Hono();
+
+registerTaskDefinition(publishTaskDefinition);
+registerTaskDefinition(testWorkTaskDefinition);
 
 /** Decides whether one frontend origin may call the local desktop runtime over HTTP. */
 function isAllowedOrigin(origin: string | undefined) {

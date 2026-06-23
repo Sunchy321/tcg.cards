@@ -59,6 +59,12 @@ export const taskScope = z.strictObject({
   taskScopeSnapshot: jsonRecord.optional(),
 });
 
+export const segmentsItem = z.strictObject({
+  name: z.string(),
+  done: z.int().nonnegative(),
+  total: z.int().nonnegative(),
+});
+
 export const taskStage = z.strictObject({
   stageKey: z.string().trim().min(1),
   stageIndex: z.int().nonnegative(),
@@ -70,10 +76,11 @@ export const taskStage = z.strictObject({
   done: z.int().nonnegative().nullable(),
   startedAt: z.string().nullable(),
   finishedAt: z.string().nullable(),
+  segments: z.array(segmentsItem).optional(),
 });
 
 export const taskControlResult = z.strictObject({
-  taskRunId: z.string().uuid(),
+  taskRunId: z.uuid(),
   runRevision: z.int().nonnegative(),
   status: taskRunStatus,
 });
@@ -84,13 +91,14 @@ export const taskPageTaskIdle = z.strictObject({
 
 export const taskPageTaskAttached = z.strictObject({
   kind: z.literal('attached'),
-  taskRunId: z.string().uuid(),
+  taskRunId: z.uuid(),
   runRevision: z.int().nonnegative(),
   taskType: z.string().trim().min(1),
   taskScopeType: z.string().trim().min(1),
   taskScopeKey: z.string().trim().min(1),
   taskScopeSnapshot: jsonRecord.optional(),
   status: taskRunStatus,
+  supportsResume: z.boolean(),
   currentStageKey: z.string().nullable(),
   currentStageIndex: z.int().nonnegative().nullable(),
   currentResumeMode: taskResumeMode.nullable(),
@@ -107,7 +115,7 @@ export const taskPageTaskAttached = z.strictObject({
 
 export const taskPageTaskBlocking = z.strictObject({
   kind: z.literal('blocking'),
-  taskRunId: z.string().uuid(),
+  taskRunId: z.uuid(),
   taskType: z.string().trim().min(1),
   taskScopeType: z.string().trim().min(1),
   taskScopeKey: z.string().trim().min(1),
@@ -139,6 +147,7 @@ export type TaskProgressMode = z.infer<typeof taskProgressMode>;
 export type TaskResumeMode = z.infer<typeof taskResumeMode>;
 export type TaskTerminalReason = z.infer<typeof taskTerminalReason>;
 export type TaskScope = z.infer<typeof taskScope>;
+export type ProgressSegment = z.infer<typeof segmentsItem>;
 export type TaskStage = z.infer<typeof taskStage>;
 export type TaskControlResult = z.infer<typeof taskControlResult>;
 export type TaskPageTask = z.infer<typeof taskPageTask>;

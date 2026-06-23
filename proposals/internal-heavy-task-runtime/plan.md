@@ -8,7 +8,7 @@
 - [x] 为重量级任务框架新增本地数据库 schema、迁移和终态原因枚举
 - [x] 在 desktop runtime 中建立通用任务定义、任务仓储、调度器与执行器骨架
 - [x] 建立统一的快照读取、控制写入与实时推送协议
-- [ ] 将 `publish` 迁入通用框架，作为首个 `reconcilable` 任务接入
+- [x] 将 `publish` 迁入通用框架，作为首个 `reconcilable` 任务接入（含定义、持久化、控制链路、阶段映射、块边界控制、残留批次关联、桥接清理共 7 个子步）
 - [ ] 将 `reanchor` 迁入通用框架，作为首个 `atomic` 任务接入
 - [ ] 将 desktop publish 页面切换到新的 `pageTask` 快照与控制模型
 - [ ] 为重任务前端建立统一组件，并新增标题栏任务按钮与全局 popup 检视入口
@@ -335,31 +335,42 @@
 
 ### 10. 切换 desktop publish 页面到新模型
 
-- 在 `apps/app-console-desktop/src/composables/` 下新增通用任务 composable
-- 在 console 共享层新增统一任务组件，至少覆盖：
-  - 当前任务状态卡
-  - 阶段进度列表
-  - 操作按钮条
-  - 阻塞提示
-  - popup 任务摘要卡
+- 在 `apps/app-console-desktop/src/composables/` 下新增通用任务 composable `useTaskCard`，负责：
+  - 轮询后端 pageTask 快照
+  - 根据 `startedAt` 前端实时计算已用时间
+  - 根据阶段进度比例估算剩余时间
+  - 推导 `canPause` / `canResume` / `canCancel` 能力位
+  - 管理 stage 折叠/展开状态
 - 将 `apps/app-console-desktop/src/pages/hearthstone/publish/index.vue` 从专用 publish job 状态切换到：
-  - `pageTask`
+  - `pageTask`（判别联合：`idle` / `attached` / `blocking`）
   - 阶段列表
   - 能力位按钮
   - 统一实时通道
 - 页面先拉快照，再接实时流
 - 页面按 `activeScope` 解析当前主任务：
-  - `attached`
-  - `blocking`
-  - `idle`
+  - `attached` — 页面附着到匹配 scope 的主任务
+  - `blocking` — 另一 scope 的同类型任务占槽
+  - `idle` — 无活跃任务
 - 页面不再自己重建状态机，不再直接推导是否可暂停、可继续、可取消
-- 对 `paused` 的“继续”按钮按“发起继续尝试”展示，不宣传必然成功
+- 对 `paused` 的”继续”按钮按”发起继续尝试”展示，不宣传必然成功
 - 若当前被别的 scope 的同类任务占槽，页面明确展示阻塞来源
 
 ### 11. 建立统一任务组件与全局检视入口
 
-- 在 console 共享层新增一组重任务专用组件，而不是只在 publish 页面局部实现
-- 组件优先放到 `packages/console-shell` 或等价 console 共享层
+- 在 `packages/console-shell/app/components/task/` 下建立统一任务组件：
+
+```
+TaskCard（容器组件，三行无分割线水平长条布局）
+├── TaskTitleBar     ← 第一行：标题 + 状态标签 + 已用时间
+├── TaskProgressBar  ← 第二行：进度条 + 计数器 + 阶段已用/剩余时间
+└── TaskStepsRow     ← 第三行：水平 step 指示器 + 操作按钮
+    ├── TaskStepIndicator  ← 步骤列表，当前 ±2 折叠，可展开
+    └── TaskActionBar      ← 暂停/继续/取消/重试按钮
+```
+
+  - 组件覆盖以下所有状态且保持三行高度一致：`idle / pending / running / pausing / paused / resuming / canceling / completed / failed / canceled / abandoned / blocking`
+  - 每行状态表现按 `specs/ui-task-card/design.md` 的状态对应表实现
+  - 步骤指示器默认折叠为当前阶段前后各 2 个，超出部分显示 `… N` 点击展开全部，展开后显示 `▲ 收起` 按钮
 - 新增标题栏任务按钮，负责：
   - 显示当前是否存在占槽任务
   - 在有任务时给出明确提醒
