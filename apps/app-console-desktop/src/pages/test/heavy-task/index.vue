@@ -89,14 +89,6 @@ async function cancelTask() {
 
 const pageTask = computed(() => snapshot.value?.pageTask ?? { kind: 'idle' as const });
 const stages = computed(() => snapshot.value?.stages ?? []);
-const elapsedSec = computed(() => {
-  const pt = pageTask.value;
-  if (pt.kind !== 'attached' || !pt.startedAt) return 0;
-  const start = new Date(pt.startedAt).getTime();
-  if (!Number.isFinite(start)) return 0;
-  const end = pt.finishedAt ? new Date(pt.finishedAt).getTime() : Date.now();
-  return Math.max(0, Math.floor((end - start) / 1000));
-});
 </script>
 
 <template>
@@ -118,7 +110,6 @@ const elapsedSec = computed(() => {
       title="Heavy Task Test"
       :page-task="pageTask"
       :stages="stages"
-      :elapsed-sec="elapsedSec"
       @cancel="cancelTask"
       @pause="pauseTask"
       @resume="resumeTask"

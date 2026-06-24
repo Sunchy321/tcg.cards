@@ -289,22 +289,6 @@ export type HsdataPublishReport = PublishReport;
 export type HsdataSingleCardPublishReport = SingleCardPublishReport;
 
 /** Publish progress event streamed from the desktop runtime. */
-export interface PublishJobProgressEvent {
-  batchId: string;
-  publishType: string;
-  publishTarget: string;
-  phase: string;
-  message: string;
-  startedAt: string;
-  phaseStartedAt: string;
-  finishedAt: string | null;
-  totalRowCount: number | null;
-  completedRowCount: number | null;
-  segments?: ProgressSegment[];
-  report: HsdataPublishReport | null;
-}
-
-/** Raw publish progress event shape inferred from the runtime watch stream. */
 interface RawPublishJobProgressEvent {
   batchId?: string;
   publishType?: string;
@@ -422,10 +406,6 @@ export interface HsdataPublishStreamInput {
 }
 
 /** Publish job control result returned after a cooperative pause or stop request. */
-export interface HsdataPublishJobControlResult {
-  batchId: string;
-}
-
 /** Local Bun runtime projection command executed against the configured desktop database. */
 export function projectLocalHsdataSourceVersion(
   sourceTag: number,
@@ -449,23 +429,7 @@ export function recomputeLatestHsdataProjection() {
 }
 
 /** Current local latest projection published to the configured remote target. */
-export function publishCurrentHsdataToRemote(
-  input: HsdataPublishStreamInput & { dryRun: boolean },
-) {
-  return (async () => {
-    return await useDesktopRuntimeClient().hsdata.publishCurrentToRemote(input);
-  })();
-}
-
 /** Current local latest projection reanchored into the local publish baseline. */
-export function reanchorCurrentHsdataPublishBaseline(
-  input: HsdataPublishStreamInput,
-) {
-  return (async () => {
-    return await useDesktopRuntimeClient().hsdata.reanchorCurrentPublishBaseline(input);
-  })();
-}
-
 /** Lists recent publish batches for the current target. */
 export function listPublishBatches(input: HsdataPublishStreamInput) {
   return (async () => {
@@ -529,12 +493,6 @@ export function listenHsdataPublishProgress(
 }
 
 /** Requests a cooperative stop of the current publish or reanchor job. */
-export function stopHsdataPublishJob() {
-  return (async () => {
-    return await useDesktopRuntimeClient().hsdata.stopPublishJob() as HsdataPublishJobControlResult;
-  })();
-}
-
 /** Streams recompute-latest progress events from the local Bun runtime. */
 export function listenHsdataRecomputeLatestProgress(
   handler: (event: HsdataRecomputeLatestProgressEvent) => void,
@@ -771,7 +729,7 @@ export function formatHsdataBytes(value: number) {
   return `${size.toFixed(digits)} ${units[unitIndex]}`;
 }
 
-import type { TaskPageSnapshot, TaskPageEvent } from '@tcg-cards/model/src/task';
+import type { TaskPageSnapshot } from '@tcg-cards/model/src/task';
 
 /** Creates a publish task through the generic task framework and returns the initial snapshot. */
 export function createPublishTask(input: {
@@ -779,7 +737,7 @@ export function createPublishTask(input: {
   environment: string;
   dryRun?: boolean;
 }): Promise<TaskPageSnapshot> {
-  return useDesktopRuntimeClient().hsdata.task.publish.create(input) as Promise<TaskPageSnapshot>;
+  return useDesktopRuntimeClient().hearthstone.task.publish.create(input) as Promise<TaskPageSnapshot>;
 }
 
 /** Returns the current publish task snapshot. */
@@ -787,17 +745,28 @@ export function getPublishTaskSnapshot(input: {
   publishTarget: string;
   environment: string;
 }): Promise<TaskPageSnapshot> {
-  return useDesktopRuntimeClient().hsdata.task.publish.snapshot(input) as Promise<TaskPageSnapshot>;
-}
-
-/** Streams publish task snapshot events. */
-export function watchPublishTaskEvents(): AsyncGenerator<TaskPageEvent> {
-  return useDesktopRuntimeClient().hsdata.task.publish.watch() as AsyncGenerator<TaskPageEvent>;
+  return useDesktopRuntimeClient().hearthstone.task.publish.snapshot(input) as Promise<TaskPageSnapshot>;
 }
 
 /** Cancels one publish task by its run ID. */
 export function cancelPublishTask(taskRunId: string): Promise<TaskPageSnapshot> {
-  return useDesktopRuntimeClient().hsdata.task.publish.cancel({ taskRunId }) as Promise<TaskPageSnapshot>;
+  return useDesktopRuntimeClient().hearthstone.task.publish.cancel({ taskRunId }) as Promise<TaskPageSnapshot>;
+}
+
+/** Creates a reanchor task and returns the initial snapshot. */
+export function createReanchorTask(input: {
+  publishTarget: string;
+  environment: string;
+}): Promise<TaskPageSnapshot> {
+  return useDesktopRuntimeClient().hearthstone.task.reanchor.create(input) as Promise<TaskPageSnapshot>;
+}
+
+/** Returns the current reanchor task snapshot. */
+export function getReanchorTaskSnapshot(input: {
+  publishTarget: string;
+  environment: string;
+}): Promise<TaskPageSnapshot> {
+  return useDesktopRuntimeClient().hearthstone.task.reanchor.snapshot(input) as Promise<TaskPageSnapshot>;
 }
 
 export function getHsdataErrorMessage(error: unknown) {

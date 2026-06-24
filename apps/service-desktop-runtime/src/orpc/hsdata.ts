@@ -33,26 +33,9 @@ import {
   listLocalHsdataSourceVersions,
 } from '../lib/hearthstone/hsdata-status';
 import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
-import { cancelIncompletePublishBatch, getIncompletePublishBatch, listPublishBatches, publishReport, publishSingleCard, reanchorCurrentHsdataPublishBaseline, singleCardPublishReport } from '../lib/hearthstone/hsdata-publish';
-import {
-  clearPublishJobController,
-  createPublishJobController,
-  PublishJobInterruptedError,
-  startPublishJob,
-  stopPublishJob,
-  type PublishJobProgressEvent,
-  updatePublishJob,
-  watchPublishJob,
-} from '../lib/hearthstone/hsdata-publish-progress';
-import {
-  cancelPublishTask,
-  createPublishTask,
-  getPublishTaskSnapshot,
-  stopActivePublishTask,
-  watchPublishTaskEvents,
-  watchPublishTaskProgressEvents,
-} from '../lib/hearthstone/task/publish';
-import { taskPageEvent, taskPageSnapshot } from '@tcg-cards/model/src/task';
+import { cancelIncompletePublishBatch, getIncompletePublishBatch, listPublishBatches, publishReport, publishSingleCard, singleCardPublishReport } from '../lib/hearthstone/hsdata-publish';
+import { createTaskStore } from '#task/store';
+import { taskPageSnapshot } from '@tcg-cards/model/src/task';
 
 const sourceIdInput = z.strictObject({
   id: z.string().trim().min(1),
@@ -513,104 +496,9 @@ const watchProjectJob = os
     yield* watchProjectJobBySourceTag(input.sourceTag);
   });
 
-/** Reanchors the local publish baseline from the current local projection without touching remote state. */
-const reanchorCurrentPublishBaseline = os
-  .route({
-    method:      'POST',
-    description: 'Reanchor the local publish baseline from the current local projection',
-    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
-  })
-  .input(publishStreamInput)
-  .output(publishReport)
-  .handler(async ({ input }) => {
-    const job = startPublishJob({
-      publishType: 'card_data',
-      publishTarget: `${input.publishTarget}/${input.environment}`,
-    });
-    createPublishJobController();
-
-    try {
-      const report = await reanchorCurrentHsdataPublishBaseline({
-        publishType: 'card_data',
-        publishTarget: input.publishTarget,
-        environment: input.environment,
-        onProgress: (event) => {
-          updatePublishJob({
-            phase: event.phase,
-            message: event.message,
-            totalRowCount: event.total ?? null,
-            completedRowCount: event.completed ?? null,
-          });
-        },
-      });
-
-      updatePublishJob({ phase: 'completed', message: '本地 baseline 重锚完成', report });
-
-      return report;
-    } catch (error) {
-      if (error instanceof PublishJobInterruptedError) {
-        updatePublishJob({
-          phase: error.phase,
-          message: error.message,
-        });
-        throw new ORPCError('BAD_REQUEST', {
-          message: error.message,
-        });
-      }
-
-      updatePublishJob({ phase: 'failed', message: error instanceof Error ? error.message : String(error) });
-      throw toRuntimeError(error);
-    } finally {
-      clearPublishJobController();
-    }
-  });
-
-/** Streams real-time publish job progress events. */
-const watchPublishJobRoute = os
-  .route({
-    method:      'GET',
-    description: 'Watch publish job progress events',
-    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
-  })
-  .output(eventIterator(z.custom<PublishJobProgressEvent>()))
-  .handler(async function* () {
-    try {
-      yield* watchPublishTaskProgressEvents();
-      return;
-    } catch {
-      yield* watchPublishJob();
-    }
-  });
-
-const publishJobControlResult = z.strictObject({
-  batchId: z.string(),
-});
-
 const cancelPublishBatchInput = publishStreamInput.extend({
   batchId: z.string().uuid(),
 });
-
-/** Requests a cooperative stop of the current publish or reanchor job. */
-const stopPublishJobRoute = os
-  .route({
-    method:      'POST',
-    description: 'Stop the current Hearthstone publish job',
-    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
-  })
-  .output(publishJobControlResult)
-  .handler(async () => {
-    try {
-      return await stopActivePublishTask();
-    } catch (error) {
-      const state = stopPublishJob();
-
-      if (state != null) {
-        return { batchId: state.batchId };
-      }
-
-      throw toRuntimeError(error);
-    }
-  });
 
 /** Cancels one residual publish batch row that is still marked running in the local database. */
 const cancelIncompletePublishBatchRoute = os
@@ -626,7 +514,8 @@ const cancelIncompletePublishBatchRoute = os
       const result = await cancelIncompletePublishBatch(input);
 
       // Also cancel the corresponding TaskRun if it exists
-      cancelPublishTask(input.batchId).catch(() => {
+      // Inline cancel: update task run via store if one exists for this batch
+      createTaskStore(getLocalDb()).updateTaskRun(input.batchId, { controlRequestKind: 'cancel' }).catch(() => {
         // TaskRun may not exist or already be terminal — that's fine.
       });
 
@@ -830,101 +719,8 @@ const resetProjectionStatus = os
  * ── Hearthstone Task ──────────────────────────────────
  */
 
-/** Creates a publish task and returns the initial snapshot. */
-const taskPublishCreate = os
-  .route({
-    method:      'POST',
-    description: 'Create a publish task and return the initial snapshot',
-    tags:        ['Desktop Runtime', 'Hearthstone', 'Task'],
-  })
-  .input(z.strictObject({
-    publishTarget: z.literal('hearthstone'),
-    environment: z.string().trim().min(1),
-    dryRun: z.boolean().optional(),
-  }))
-  .output(taskPageSnapshot)
-  .handler(async ({ input }) => {
-    await createPublishTask({
-      taskType: 'hsdata_publish',
-      scope: {
-        publishTarget: input.publishTarget,
-        environment: input.environment,
-        publishType: 'card_data',
-      },
-      params: {
-        publishType: 'card_data',
-        dryRun: input.dryRun,
-        operationKind: 'publish',
-      },
-    });
-
-    const snapshot = await getPublishTaskSnapshot({
-      publishTarget: input.publishTarget,
-      environment: input.environment,
-      publishType: 'card_data',
-    });
-
-    return snapshot;
-  });
-
-/** Returns the current publish task snapshot for one stream, or idle. */
-const taskPublishSnapshot = os
-  .route({
-    method:      'GET',
-    description: 'Read the current publish task snapshot',
-    tags:        ['Desktop Runtime', 'Hearthstone', 'Task'],
-  })
-  .input(publishStreamInput)
-  .output(taskPageSnapshot)
-  .handler(async ({ input }) => {
-    const result = await getPublishTaskSnapshot({
-      publishTarget: input.publishTarget,
-      environment: input.environment,
-      publishType: 'card_data',
-    });
-
-    return result;
-  });
-
-/** Streams publish task snapshot changes in real time. */
-const taskPublishWatch = os
-  .route({
-    method:      'GET',
-    description: 'Stream publish task snapshot changes',
-    tags:        ['Desktop Runtime', 'Hearthstone', 'Task'],
-  })
-  .output(eventIterator(taskPageEvent))
-  .handler(async function* () {
-    yield* watchPublishTaskEvents();
-  });
-
-/** Cancels one active publish task. */
-const taskPublishCancel = os
-  .route({
-    method:      'POST',
-    description: 'Cancel one active publish task',
-    tags:        ['Desktop Runtime', 'Hearthstone', 'Task'],
-  })
-  .input(z.strictObject({
-    taskRunId: z.string().uuid(),
-  }))
-  .output(taskPageSnapshot)
-  .handler(async ({ input }) => {
-    await cancelPublishTask(input.taskRunId);
-    return { pageTask: { kind: 'idle' }, stages: [] };
-  });
-
 /** Groups the desktop runtime hsdata procedures under one router namespace. */
 export const hsdataRouter = {
-  task: {
-    publish: {
-      create: taskPublishCreate,
-      snapshot: taskPublishSnapshot,
-      watch: taskPublishWatch,
-      cancel: taskPublishCancel,
-    },
-  },
-
   getRepoState,
   syncRemoteVersions,
   listSources,
@@ -935,9 +731,6 @@ export const hsdataRouter = {
   getLocalOverview,
   watchImportJob,
   watchProjectJob,
-  reanchorCurrentPublishBaseline,
-  watchPublishJob: watchPublishJobRoute,
-  stopPublishJob: stopPublishJobRoute,
   cancelIncompletePublishBatch: cancelIncompletePublishBatchRoute,
   listPublishBatches: listPublishBatchesRoute,
   getIncompletePublishBatch: getIncompletePublishBatchRoute,

@@ -12,6 +12,7 @@ import {
 import { registerTaskDefinition } from './lib/task';
 import { publishTaskDefinition } from './lib/hearthstone/task';
 import { testWorkTaskDefinition } from './lib/task/test-definition';
+import { reanchorTaskDefinition } from './lib/hearthstone/task/reanchor';
 
 /** Resolves the local listen port from the current process environment. */
 function readPort() {
@@ -53,6 +54,7 @@ const hono = new Hono();
 
 registerTaskDefinition(publishTaskDefinition);
 registerTaskDefinition(testWorkTaskDefinition);
+registerTaskDefinition(reanchorTaskDefinition);
 
 /** Decides whether one frontend origin may call the local desktop runtime over HTTP. */
 function isAllowedOrigin(origin: string | undefined) {

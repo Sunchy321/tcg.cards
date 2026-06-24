@@ -103,7 +103,6 @@ const props = defineProps<{
   activeScopeLabel?: string;
   pageTask:          TaskPageTask;
   stages:            TaskStage[];
-  elapsedSec:        number;
 }>();
 
 const emit = defineEmits<{

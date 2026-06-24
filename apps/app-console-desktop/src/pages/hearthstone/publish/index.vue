@@ -6,22 +6,21 @@ import {
 } from '~/composables/useDesktopSettings';
 import {
   cancelIncompleteHsdataPublishBatch,
+  createPublishTask,
+  createReanchorTask,
   formatHsdataDate,
   getHsdataErrorMessage,
   getIncompletePublishBatch,
+  getPublishTaskSnapshot,
+  getReanchorTaskSnapshot,
   type HsdataPublishStreamInput,
   listPublishBatches,
-  createPublishTask,
-  getPublishTaskSnapshot,
   cancelPublishTask,
-  listenHsdataPublishProgress,
   publishSingleCard,
-  reanchorCurrentHsdataPublishBaseline,
 } from '~/composables/useHsdataRepo';
 import type {
   HsdataPublishReport,
   HsdataSingleCardPublishReport,
-  PublishJobProgressEvent,
 } from '~/composables/useHsdataRepo';
 import type { TaskPageSnapshot, TaskStage } from '@tcg-cards/model/src/task';
 
@@ -43,7 +42,6 @@ const publishError = ref('');
 const publishing = ref(false);
 const stoppingPublish = ref(false);
 const publishResult = ref<HsdataPublishReport | null>(null);
-const publishProgress = ref<PublishJobProgressEvent | null>(null);
 const taskSnapshot = ref<TaskPageSnapshot | null>(null);
 const incompleteBatch = ref<(HsdataPublishReport & { pendingRowCount?: number }) | null>(null);
 const batchListLoading = ref(false);
@@ -51,9 +49,6 @@ const batchList = ref<HsdataPublishReport[]>([]);
 const cancelingBatchId = ref('');
 const publishType = ref('card_data');
 const dryRun = ref(false);
-const progressClockMs = ref(Date.now());
-let progressTimer: ReturnType<typeof setInterval> | null = null;
-let stopProgressListener: (() => void) | null = null;
 
 // Single-card dev publish
 const singleCardId = ref('');
@@ -164,128 +159,11 @@ function isCancelableBatch(batch: HsdataPublishReport) {
   return batch.status === 'planning' || batch.status === 'applying';
 }
 
-const progressPercent = computed(() => {
-  if (!publishProgress.value) return null;
-  const phase = publishProgress.value.phase;
-  if (phase === 'completed' || phase === 'failed' || phase === 'stopped') return null;
-  const total = publishProgress.value.totalRowCount;
-  const completed = publishProgress.value.completedRowCount;
-  if (total == null || total === 0) return null;
-  return (completed ?? 0) / total * 100;
-});
-
-const phaseLabel = computed(() => {
-  if (!publishProgress.value) return '';
-  const phase = publishProgress.value.phase;
-  switch (phase) {
-    case 'loading_snapshots': return '加载快照';
-    case 'deriving_range': return '推导版本范围';
-    case 'loading_baseline': return '加载基线';
-    case 'building_diff': return '构建差异';
-    case 'writing_batch': return '写入批次元数据';
-    case 'writing_batch_rows': return '写入批次行';
-    case 'applying_remote': return '应用远程';
-    case 'finalizing': return '完成发布';
-    case 'completed': return '发布完成';
-    case 'failed': return '发布失败';
-    default: return phase;
-  }
-});
-
-const phaseColor = computed(() => {
-  if (!publishProgress.value) return 'primary';
-  const phase = publishProgress.value.phase;
-  if (phase === 'completed') return 'success';
-  if (phase === 'stopped') return 'warning';
-  if (phase === 'failed') return 'error';
-  return 'primary';
-});
-
-const canStopPublish = computed(() => {
-  if (!publishing.value || stoppingPublish.value) {
-    return false;
-  }
-
-  const phase = publishProgress.value?.phase;
-  return phase !== 'stopped' && phase !== 'completed' && phase !== 'failed';
-});
-
-function startProgressTimer() {
-  progressClockMs.value = Date.now();
-  progressTimer = setInterval(() => {
-    progressClockMs.value = Date.now();
-  }, 500);
-}
-
-function stopProgressTimer() {
-  if (progressTimer) {
-    clearInterval(progressTimer);
-    progressTimer = null;
-  }
-}
-
-function formatElapsedDuration(startedAt: string | null | undefined, nowMs: number, finishedAt?: string | null) {
-  if (!startedAt) return '-';
-  const startedMs = new Date(startedAt).getTime();
-  const endMs = finishedAt ? new Date(finishedAt).getTime() : nowMs;
-  if (!Number.isFinite(startedMs) || !Number.isFinite(endMs)) return '-';
-  const seconds = Math.max(0, Math.floor((endMs - startedMs) / 1000));
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
-
-function formatDurationMs(durationMs: number | null | undefined) {
-  if (durationMs == null || !Number.isFinite(durationMs) || durationMs < 0) return '-';
-  const seconds = Math.max(0, Math.floor(durationMs / 1000));
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
-
-const estimatedTotalMs = computed(() => {
-  const p = publishProgress.value;
-  if (!p || p.phase === 'completed') return null;
-  if (!p.phaseStartedAt) return null;
-  const startedMs = new Date(p.phaseStartedAt).getTime();
-  if (!Number.isFinite(startedMs)) return null;
-  const elapsedMs = Math.max(0, progressClockMs.value - startedMs);
-  const total = p.totalRowCount ?? null;
-  const completed = p.completedRowCount ?? null;
-  if (total == null || completed == null || total <= 0 || completed <= 0 || completed >= total) return null;
-  if (elapsedMs < 2000) return null;
-  const ratio = completed / total;
-  if (ratio < 0.02) return null;
-  return Math.round(elapsedMs / ratio);
-});
-
-const progressTimeLabel = computed(() => {
-  const p = publishProgress.value;
-  const elapsed = formatElapsedDuration(p?.startedAt, progressClockMs.value, p?.finishedAt);
-  const estimated = formatDurationMs(estimatedTotalMs.value);
-  if (estimated === '-') return elapsed;
-  return `${elapsed} / ${estimated}`;
-});
-
 /** Reads the pageTask from the task snapshot, or idle when none exists. */
 const taskCardPageTask = computed(() => taskSnapshot.value?.pageTask ?? { kind: 'idle' });
 
 /** Reads the stages from the task snapshot. */
 const taskCardStages = computed<TaskStage[]>(() => taskSnapshot.value?.stages ?? []);
-
-/** Computes elapsed seconds from the snapshot's startedAt. */
-const taskCardElapsedSec = computed(() => {
-  const t = taskSnapshot.value;
-  if (t?.pageTask.kind !== 'attached' || !t.pageTask.startedAt) return 0;
-  const startedMs = new Date(t.pageTask.startedAt).getTime();
-  if (!Number.isFinite(startedMs)) return 0;
-  const endMs = t.pageTask.finishedAt ? new Date(t.pageTask.finishedAt).getTime() : Date.now();
-  return Math.max(0, Math.floor((endMs - startedMs) / 1000));
-});
 
 async function loadPublishTarget() {
   publishTargetError.value = '';
@@ -373,50 +251,34 @@ async function submitReanchor() {
   publishing.value = true;
   publishError.value = '';
   publishResult.value = null;
-  publishProgress.value = null;
-
-  let terminalReached: (() => void) | null = null;
-  const terminalSignal = new Promise<void>(resolve => { terminalReached = resolve; });
-
-  stopProgressListener = listenHsdataPublishProgress((event) => {
-    publishProgress.value = event;
-    if (event.report) {
-      publishResult.value = event.report;
-    }
-    if (event.phase === 'completed' || event.phase === 'failed' || event.phase === 'stopped') {
-      publishing.value = false;
-      stopProgressTimer();
-      terminalReached?.();
-    }
-  });
-  startProgressTimer();
 
   try {
-    const result = await reanchorCurrentHsdataPublishBaseline(stream);
-    publishResult.value = result;
-    toast.add({
-      title: '本地基线重建完成',
-      description: `${result.publishTarget} / ${result.environment} / rows=${result.totalRowCount}`,
-      color: 'success',
-    });
+    taskSnapshot.value = await createReanchorTask(stream);
+
+    // Poll snapshot until terminal
+    while (true) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      const snap = await getReanchorTaskSnapshot(stream);
+      taskSnapshot.value = snap;
+
+      if (snap.pageTask.kind === 'attached') {
+        if (['completed', 'failed', 'canceled', 'abandoned'].includes(snap.pageTask.status)) {
+          break;
+        }
+      } else {
+        break;
+      }
+    }
+
+    toast.add({ title: '本地基线重建完成', color: 'success' });
   } catch (error) {
-    console.error('Failed to reanchor local hsdata publish baseline:', error);
+    console.error('Failed to reanchor:', error);
     publishError.value = getHsdataErrorMessage(error);
-    toast.add({
-      title: '本地基线重建失败',
-      description: publishError.value,
-      color: 'error',
-    });
+    toast.add({ title: '本地基线重建失败', description: publishError.value, color: 'error' });
   } finally {
-    await Promise.race([
-      terminalSignal,
-      new Promise(resolve => setTimeout(resolve, 800)),
-    ]);
     publishing.value = false;
     stoppingPublish.value = false;
-    stopProgressTimer();
-    stopProgressListener?.();
-    stopProgressListener = null;
     await refreshPublishState();
   }
 }
@@ -461,15 +323,6 @@ async function cancelBatch(batch: HsdataPublishReport) {
       ...stream,
       batchId: batch.batchId,
     });
-
-    if (publishProgress.value?.batchId === batch.batchId) {
-      publishProgress.value = null;
-      publishing.value = false;
-      stoppingPublish.value = false;
-      stopProgressTimer();
-      stopProgressListener?.();
-      stopProgressListener = null;
-    }
 
     if (incompleteBatch.value?.batchId === batch.batchId) {
       incompleteBatch.value = null;
@@ -533,28 +386,6 @@ async function loadBatchList() {
 
 async function refreshPublishState() {
   await Promise.all([loadBatchList(), loadIncompleteBatch()]);
-}
-
-function reconnectPublishProgress() {
-  const phase = publishProgress.value?.phase;
-
-  publishing.value = phase !== 'completed' && phase !== 'failed' && phase !== 'stopped';
-  publishError.value = '';
-  publishResult.value = null;
-
-  stopProgressListener = listenHsdataPublishProgress((event) => {
-    publishProgress.value = event;
-    if (event.report) {
-      publishResult.value = event.report;
-    }
-    if (event.phase === 'completed' || event.phase === 'failed' || event.phase === 'stopped') {
-      publishing.value = false;
-      stoppingPublish.value = false;
-      stopProgressTimer();
-      void refreshPublishState();
-    }
-  });
-  startProgressTimer();
 }
 
 const PUBLISH_PAGE_STATE_KEY = 'console-desktop-hearthstone-publish-page';
@@ -713,8 +544,6 @@ onBeforeUnmount(() => {
       title="发布到 production"
       :page-task="taskCardPageTask"
       :stages="taskCardStages"
-      :elapsed-sec="taskCardElapsedSec"
-      :segment-progress="publishProgress?.segments ?? null"
       @cancel="stopCurrentPublish"
     >
       <div class="flex items-center gap-6">
