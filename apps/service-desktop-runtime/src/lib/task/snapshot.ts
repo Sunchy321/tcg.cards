@@ -47,6 +47,10 @@ function buildPageTask(snapshot: TaskRunSnapshot): TaskPageSnapshot['pageTask'] 
     return { kind: 'idle' };
   }
 
+  const currentStage = snapshot.stages.find(
+    s => s.stageKey === run.currentStageKey && s.stageIndex === run.currentStageIndex,
+  );
+
   return {
     kind: 'attached',
     taskRunId: run.id,
@@ -61,6 +65,7 @@ function buildPageTask(snapshot: TaskRunSnapshot): TaskPageSnapshot['pageTask'] 
     currentStageIndex: run.currentStageIndex,
     currentResumeMode: run.currentResumeMode,
     pausedResumeMode: run.pausedResumeMode,
+    progressMode: currentStage?.progressMode ?? null,
     startedAt: run.startedAt,
     finishedAt: run.finishedAt,
     errorCode: run.errorCode,

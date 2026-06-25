@@ -1,12 +1,21 @@
 import type { TaskStore, TaskRunSnapshot, TaskRunRecord } from './store';
 import type { TaskDefinition, TaskStageState, TaskRunInput, TaskBlock } from './definition';
 import { getTaskDefinition } from './registry';
+import { runtimeBootId, generateResumeContextKey } from './runtime';
+import { buildTaskPageSnapshot } from './snapshot';
+import type { TaskEventPublisher } from './events';
 
 /** Full store access for the executor. */
 export interface TaskExecutorStore {
   getTaskRun(taskRunId: string): Promise<TaskRunSnapshot | null>;
   updateTaskRun(taskRunId: string, patch: Record<string, unknown>): Promise<TaskRunRecord>;
   updateStage(taskRunId: string, stageKey: string, patch: Record<string, unknown>): Promise<TaskStageState>;
+  transitionStage(
+    taskRunId: string,
+    stageKey: string,
+    runPatch: Record<string, unknown>,
+    stagePatch: Record<string, unknown>,
+  ): Promise<void>;
 }
 
 /** Describes the executor surface that drives one claimed task run. */
@@ -16,14 +25,47 @@ export interface TaskExecutor {
 
 /** Transitions the current stage and task run into the paused state. */
 async function enterPaused(store: TaskExecutorStore, taskRunId: string, stageKey: string, resumeMode: string): Promise<void> {
-  await store.updateStage(taskRunId, stageKey, { status: 'paused' });
-  await store.updateTaskRun(taskRunId, { status: 'paused', controlRequestKind: null, currentStageKey: stageKey, pausedResumeMode: resumeMode });
+  const runPatch: Record<string, unknown> = {
+    status: 'paused',
+    controlRequestKind: null,
+    currentStageKey: stageKey,
+    pausedResumeMode: resumeMode,
+  };
+  if (resumeMode === 'session_bound') {
+    runPatch.runtimeBootId = runtimeBootId;
+    runPatch.resumeContextKey = generateResumeContextKey();
+  }
+  await store.transitionStage(taskRunId, stageKey, runPatch, { status: 'paused' });
 }
 
 /** Transitions the current stage and task run into the canceled state. */
 async function enterCanceled(store: TaskExecutorStore, taskRunId: string, stageKey: string): Promise<void> {
   await store.updateStage(taskRunId, stageKey, { status: 'canceled' });
   await store.updateTaskRun(taskRunId, { status: 'canceled', terminalReason: 'manual_cancel', finishedAt: new Date(), controlRequestKind: null, currentStageKey: null, currentStageIndex: null, currentResumeMode: null, pausedResumeMode: null });
+}
+
+/** Transitions the current stage and task run into the failed state with error details. */
+async function enterFailed(store: TaskExecutorStore, taskRunId: string, stageKey: string, err: unknown): Promise<void> {
+  await store.updateStage(taskRunId, stageKey, { status: 'failed' });
+  await store.updateTaskRun(taskRunId, {
+    status: 'failed',
+    terminalReason: 'execution_failed',
+    errorMessage: (err as Error)?.message ?? String(err),
+    finishedAt: new Date(),
+    controlRequestKind: null,
+    currentStageKey: null,
+    currentStageIndex: null,
+    currentResumeMode: null,
+    pausedResumeMode: null,
+  });
+}
+
+/** Reads the latest snapshot and publishes it as a TaskPageEvent if a publisher is available. */
+async function publishCurrentEvent(store: TaskExecutorStore, taskRunId: string, publisher?: TaskEventPublisher): Promise<void> {
+  if (!publisher) return;
+  const snap = await store.getTaskRun(taskRunId);
+  if (!snap) return;
+  publisher.publish(buildTaskPageSnapshot(snap));
 }
 
 /** Runs one atomic block: execute, refresh heartbeat, persist progress, check controls. */
@@ -34,8 +76,13 @@ async function runBlock(
   stage: TaskStageState,
   block: TaskBlock,
   definition: TaskDefinition,
-): Promise<'ok' | 'pause' | 'cancel'> {
-  await definition.executeBlock({ run: runInput, stage, block });
+): Promise<'ok' | 'pause' | 'cancel' | 'fail'> {
+  try {
+    await definition.executeBlock({ run: runInput, stage, block });
+  } catch (err) {
+    await enterFailed(store, taskRunId, stage.stageKey, err);
+    return 'fail';
+  }
   await store.updateTaskRun(taskRunId, { heartbeatAt: new Date() });
 
   const current = await store.getTaskRun(taskRunId);
@@ -48,15 +95,22 @@ async function runBlock(
 }
 
 /** Builds one task executor that drives the full stage lifecycle automatically. */
-export function createTaskExecutor(store: TaskExecutorStore): TaskExecutor {
+export function createTaskExecutor(store: TaskExecutorStore, publisher?: TaskEventPublisher): TaskExecutor {
   return {
     async runTask(snapshot): Promise<void> {
       const { run, stages } = snapshot;
       const taskRunId = run.id;
+
+      // Re-read the task run status to guard against races (cancel/pause between
+      // scheduler read and executor start)
+      const fresh = await store.getTaskRun(taskRunId);
+      if (!fresh) return;
+      if (fresh.run.status !== 'pending' && fresh.run.status !== 'resuming') return;
+
       const runInput = toTaskRunInput(snapshot);
       const definition = getTaskDefinition(run.taskType);
 
-      const isResume = run.status === 'resuming';
+      const isResume = fresh.run.status === 'resuming';
       let startedAtSet = !!run.startedAt;
       const startIdx = isResume ? (run.currentStageIndex ?? 0) : 0;
 
@@ -66,20 +120,34 @@ export function createTaskExecutor(store: TaskExecutorStore): TaskExecutor {
 
         const entry = await definition.prepareStageEntry({ run: runInput, stage: stageState, resume: isResume });
 
-        // Enter the stage atomically
-        await store.updateTaskRun(taskRunId, { currentStageKey: entry.stageKey, currentStageIndex: entry.stageIndex, currentResumeMode: entry.resumeMode, controlRequestKind: null });
-        await store.updateStage(taskRunId, entry.stageKey, {
+        // Enter the stage atomically (single transaction)
+        const stagePatch: Record<string, unknown> = {
           status: 'running',
           total: entry.progressMode === 'simple' ? null : entry.total,
           done: entry.progressMode === 'simple' ? null : 0,
           startedAt: new Date(),
-        });
-        if (!startedAtSet) {
-          await store.updateTaskRun(taskRunId, { status: 'running', startedAt: new Date() });
-          startedAtSet = true;
-        } else {
-          await store.updateTaskRun(taskRunId, { status: 'running' });
+        };
+        if (entry.selectionAnchor != null) {
+          stagePatch.selectionAnchor = entry.selectionAnchor;
         }
+        const runPatch: Record<string, unknown> = {
+          currentStageKey: entry.stageKey,
+          currentStageIndex: entry.stageIndex,
+          currentResumeMode: entry.resumeMode,
+          controlRequestKind: null,
+          status: 'running',
+        };
+        if (!startedAtSet) {
+          runPatch.startedAt = new Date();
+          startedAtSet = true;
+        }
+        if (isResume) {
+          runPatch.pausedResumeMode = null;
+          runPatch.runtimeBootId = null;
+          runPatch.resumeContextKey = null;
+        }
+
+        await store.transitionStage(taskRunId, entry.stageKey, runPatch, stagePatch);
 
         // Generate and iterate blocks
         const blocks = definition.buildBlocks({ run: runInput, stage: { ...stageState, ...entry } });
@@ -90,10 +158,16 @@ export function createTaskExecutor(store: TaskExecutorStore): TaskExecutor {
 
           if (result === 'cancel') {
             await enterCanceled(store, taskRunId, entry.stageKey);
+            await publishCurrentEvent(store, taskRunId, publisher);
             return;
           }
           if (result === 'pause') {
             await enterPaused(store, taskRunId, entry.stageKey, entry.resumeMode);
+            await publishCurrentEvent(store, taskRunId, publisher);
+            return;
+          }
+          if (result === 'fail') {
+            await publishCurrentEvent(store, taskRunId, publisher);
             return;
           }
 
@@ -101,16 +175,19 @@ export function createTaskExecutor(store: TaskExecutorStore): TaskExecutor {
           if (entry.progressMode !== 'simple') {
             await store.updateStage(taskRunId, entry.stageKey, { done, total: entry.total });
           }
+          await publishCurrentEvent(store, taskRunId, publisher);
         }
 
-        const stagePatch: Record<string, unknown> = { status: 'completed', finishedAt: new Date() };
+        const completePatch: Record<string, unknown> = { status: 'completed', finishedAt: new Date() };
         if (entry.progressMode !== 'simple') {
-          stagePatch.done = done;
+          completePatch.done = done;
         }
-        await store.updateStage(taskRunId, entry.stageKey, stagePatch);
+        await store.updateStage(taskRunId, entry.stageKey, completePatch);
+        await publishCurrentEvent(store, taskRunId, publisher);
       }
 
       await store.updateTaskRun(taskRunId, { status: 'completed', finishedAt: new Date(), currentStageKey: null, currentStageIndex: null, currentResumeMode: null, pausedResumeMode: null });
+      await publishCurrentEvent(store, taskRunId, publisher);
     },
   };
 }

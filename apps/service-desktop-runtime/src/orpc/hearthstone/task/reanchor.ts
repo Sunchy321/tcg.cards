@@ -3,60 +3,50 @@ import { z } from 'zod';
 import { taskPageSnapshot } from '@tcg-cards/model/src/task';
 
 import { os } from '../../index';
-import { createTaskStore, createTaskController, createTaskScheduler, buildTaskPageSnapshot } from '#task/index';
+import { createTaskStore, createTaskController, createTaskScheduler, createTaskExecutor, createTaskEventPublisher, buildTaskPageSnapshot } from '#task/index';
 import { getLocalDb } from '../../../lib/hearthstone/hsdata-local-db';
-import { reanchorTaskType, reanchorDefinitionVersion, buildReanchorTaskRunInput, reanchorTaskDefinition } from '../../../lib/hearthstone/task/reanchor';
+import { reanchorTaskType, reanchorDefinitionVersion, buildReanchorTaskRunInput, reanchorTaskDefinition, setCurrentReanchorCtx } from '../../../lib/hearthstone/task/reanchor';
 
 const publishStreamInput = z.strictObject({
   publishTarget: z.literal('hearthstone'),
   environment: z.string().trim().min(1),
 });
 
-const store = createTaskStore(getLocalDb());
-const controller = createTaskController(store, createTaskScheduler(store));
+let _store: ReturnType<typeof createTaskStore>;
+function getStore() {
+  if (!_store) _store = createTaskStore(getLocalDb());
+  return _store;
+}
+function getController() {
+  const s = getStore();
+  return createTaskController(s, createTaskScheduler(s));
+}
 
 const create = os
-  .route({
-    method:      'POST',
-    description: 'Create a reanchor task and return the initial snapshot',
-    tags:        ['Desktop Runtime', 'Hearthstone', 'Task'],
-  })
   .input(publishStreamInput)
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
     const runInput = buildReanchorTaskRunInput(input);
-    const controlResult = await controller.createTask(runInput, reanchorTaskDefinition);
-    const snapshot = await store.getTaskRun(controlResult.taskRunId);
+    const controlResult = await getController().createTask(runInput, reanchorTaskDefinition);
+    const snapshot = await getStore().getTaskRun(controlResult.taskRunId);
     if (!snapshot) return { pageTask: { kind: 'idle' }, stages: [] };
 
-    const { createTaskExecutor } = await import('#task/executor');
-    const { executeReanchorStageBlock } = await import('../../../lib/hearthstone/task/reanchor/definition');
+    setCurrentReanchorCtx(controlResult.taskRunId, getStore());
 
-    const def = await import('#task/registry').then(m => m.getTaskDefinition(reanchorTaskType));
-    def.buildBlocks = ({ stage }) => [{ blockKey: `${stage.stageKey}:run`, effectModel: 'atomic', payload: { stageKey: stage.stageKey } }];
-    def.executeBlock = async (input: any) => {
-      await executeReanchorStageBlock(input, store, controlResult.taskRunId);
-    };
-
-    const executor = createTaskExecutor(store);
+    const executor = createTaskExecutor(getStore(), createTaskEventPublisher());
     void executor.runTask(snapshot);
 
     return buildTaskPageSnapshot(snapshot);
   });
 
 const snapshot = os
-  .route({
-    method:      'GET',
-    description: 'Read the current reanchor task snapshot',
-    tags:        ['Desktop Runtime', 'Hearthstone', 'Task'],
-  })
   .input(publishStreamInput)
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
     const runInput = buildReanchorTaskRunInput(input);
-    const active = await store.getActiveTaskRun(reanchorTaskType, runInput.scope.type, runInput.scope.key);
+    const active = await getStore().getActiveTaskRun(reanchorTaskType, runInput.scope.type, runInput.scope.key);
     if (!active) return { pageTask: { kind: 'idle' }, stages: [] };
-    const snap = await store.getTaskRun(active.id);
+    const snap = await getStore().getTaskRun(active.id);
     if (!snap) return { pageTask: { kind: 'idle' }, stages: [] };
     return buildTaskPageSnapshot(snap);
   });

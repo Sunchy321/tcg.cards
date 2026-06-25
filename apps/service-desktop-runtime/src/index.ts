@@ -9,7 +9,7 @@ import {
   resolveHearthstonePublishTarget,
   testDesktopDatabaseConnection,
 } from './lib/runtime/desktop-database';
-import { registerTaskDefinition } from './lib/task';
+import { createTaskStore, createTaskScheduler, createTaskCleanup, registerTaskDefinition } from './lib/task';
 import { publishTaskDefinition } from './lib/hearthstone/task';
 import { testWorkTaskDefinition } from './lib/task/test-definition';
 import { reanchorTaskDefinition } from './lib/hearthstone/task/reanchor';
@@ -55,6 +55,19 @@ const hono = new Hono();
 registerTaskDefinition(publishTaskDefinition);
 registerTaskDefinition(testWorkTaskDefinition);
 registerTaskDefinition(reanchorTaskDefinition);
+
+// Startup cleanup + background scheduler
+import('./runtime-config').then(async ({ hasLocalDatabaseUrl }) => {
+  if (!hasLocalDatabaseUrl()) return;
+  const { getLocalDb } = await import('./lib/hearthstone/hsdata-local-db');
+  const store = createTaskStore(getLocalDb());
+  const scheduler = createTaskScheduler(store);
+
+  // Abandon stale tasks left by a previous runtime boot before accepting new work
+  await createTaskCleanup(store, scheduler).cleanupStartupState();
+
+  setInterval(() => { void scheduler.trigger(); }, 30_000);
+});
 
 /** Decides whether one frontend origin may call the local desktop runtime over HTTP. */
 function isAllowedOrigin(origin: string | undefined) {

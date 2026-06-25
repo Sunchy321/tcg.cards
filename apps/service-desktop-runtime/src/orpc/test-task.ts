@@ -1,11 +1,12 @@
-import { ORPCError, eventIterator } from '@orpc/server';
+import { ORPCError } from '@orpc/server';
 import { z } from 'zod';
 
-import { taskPageEvent, taskPageSnapshot } from '@tcg-cards/model/src/task';
+import { taskPageSnapshot } from '@tcg-cards/model/src/task';
 
 import { os } from './index';
 import { createTaskStore } from '#task/store';
 import { buildTaskPageSnapshot } from '#task/snapshot';
+import { createTaskEventPublisher } from '#task/events';
 import { createTaskController } from '#task/control';
 import { createTaskScheduler } from '#task/scheduler';
 import {
@@ -32,11 +33,6 @@ const testWorkInput = z.strictObject({
 
 /** Creates a test heavy-work task and starts execution through the generic executor. */
 const create = os
-  .route({
-    method:      'POST',
-    description: 'Create a test heavy-task and start execution',
-    tags:        ['Desktop Runtime', 'Test'],
-  })
   .input(testWorkInput)
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
@@ -51,7 +47,7 @@ const create = os
     const snapshot = await getStore().getTaskRun(controlResult.taskRunId);
     if (!snapshot) throw new ORPCError('INTERNAL_SERVER_ERROR', { message: 'Task was not created' });
 
-    const executor = createTaskExecutor(getStore());
+    const executor = createTaskExecutor(getStore(), createTaskEventPublisher());
 
     // Run the task in background via the generic executor
     void executor.runTask(snapshot);
@@ -61,13 +57,8 @@ const create = os
 
 /** Returns the current snapshot for one test-work task. */
 const snapshot = os
-  .route({
-    method:      'GET',
-    description: 'Read the current test-work task snapshot',
-    tags:        ['Desktop Runtime', 'Test'],
-  })
   .input(z.strictObject({
-    taskRunId: z.string().uuid(),
+    taskRunId: z.uuid(),
   }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
@@ -76,74 +67,32 @@ const snapshot = os
     return buildTaskPageSnapshot(snap);
   });
 
-/** Streams test-work task snapshot changes. */
-const watch = os
-  .route({
-    method:      'GET',
-    description: 'Stream test-work task snapshot changes',
-    tags:        ['Desktop Runtime', 'Test'],
-  })
-  .output(eventIterator(taskPageEvent))
-  .handler(async function* () {
-    // The watch endpoint is a polling placeholder.
-    // Real-time event streaming will be added with the generic event publisher.
-    while (true) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-  });
-
 /** Pauses one running test-work task. */
 const pause = os
-  .route({
-    method:      'POST',
-    description: 'Pause one running test-work task',
-    tags:        ['Desktop Runtime', 'Test'],
-  })
-  .input(z.strictObject({ taskRunId: z.string().uuid() }))
+  .input(z.strictObject({ taskRunId: z.uuid() }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
-    const snap = await getStore().getTaskRun(input.taskRunId);
-    if (!snap) throw new ORPCError('NOT_FOUND', { message: 'Task not found' });
-
-    await getStore().updateTaskRun(input.taskRunId, { controlRequestKind: 'pause' });
-
+    await getController().pauseTask(input.taskRunId);
     const updated = await getStore().getTaskRun(input.taskRunId);
     return buildTaskPageSnapshot(updated!);
   });
 
 /** Resumes one paused test-work task. */
 const resume = os
-  .route({
-    method:      'POST',
-    description: 'Resume one paused test-work task',
-    tags:        ['Desktop Runtime', 'Test'],
-  })
-  .input(z.strictObject({ taskRunId: z.string().uuid() }))
+  .input(z.strictObject({ taskRunId: z.uuid() }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
-    const snap = await getStore().getTaskRun(input.taskRunId);
-    if (!snap) throw new ORPCError('NOT_FOUND', { message: 'Task not found' });
-
-    await getStore().updateTaskRun(input.taskRunId, { controlRequestKind: 'resume' });
-
+    await getController().resumeTask(input.taskRunId);
     const updated = await getStore().getTaskRun(input.taskRunId);
     return buildTaskPageSnapshot(updated!);
   });
 
 /** Cancels one test-work task through the generic executor's control mechanism. */
 const cancel = os
-  .route({
-    method:      'POST',
-    description: 'Cancel one running test-work task',
-    tags:        ['Desktop Runtime', 'Test'],
-  })
-  .input(z.strictObject({ taskRunId: z.string().uuid() }))
+  .input(z.strictObject({ taskRunId: z.uuid() }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
-    await getStore().updateTaskRun(input.taskRunId, {
-      controlRequestKind: 'cancel',
-    });
-
+    await getController().cancelTask(input.taskRunId);
     const updated = await getStore().getTaskRun(input.taskRunId);
     return buildTaskPageSnapshot(updated!);
   });
@@ -152,7 +101,6 @@ const cancel = os
 export const testRouter = {
   create,
   snapshot,
-  watch,
   pause,
   resume,
   cancel,

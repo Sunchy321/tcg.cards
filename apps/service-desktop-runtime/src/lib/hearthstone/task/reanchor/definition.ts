@@ -7,6 +7,16 @@ import type {
   TaskStageState,
 } from '#task/definition';
 import type { TaskStore } from '#task/store';
+import { reanchorCurrentHsdataPublishBaseline } from '../../hsdata-publish';
+
+let currentTaskRunId = '';
+let currentStore: TaskStore | null = null;
+
+/** Called by the ORPC handler before block iteration to set the current run context. */
+export function setCurrentReanchorCtx(id: string, store: TaskStore): void {
+  currentTaskRunId = id;
+  currentStore = store;
+}
 
 export const reanchorTaskType = 'hsdata_reanchor';
 export const reanchorDefinitionVersion = '2026-06-23:v1';
@@ -52,7 +62,6 @@ export async function executeReanchorStageBlock(
   }
 
   if (stageKey === 'loading_snapshots') {
-    const { reanchorCurrentHsdataPublishBaseline } = await import('../../hsdata-publish');
     await reanchorCurrentHsdataPublishBaseline({
       ...scope,
       publishType: 'card_data',
@@ -92,7 +101,8 @@ export const reanchorTaskDefinition: TaskDefinition = {
   buildBlocks({ stage }: { run: TaskRunInput; stage: TaskStageState }): Iterable<TaskBlock> {
     return buildReanchorBlocks(stage);
   },
-  executeBlock(_input) {
-    throw new Error('Reanchor block execution is dispatched through the bridge');
+  async executeBlock(input) {
+    if (!currentStore || !currentTaskRunId) throw new Error('Reanchor execution context not set. Call setCurrentReanchorCtx first.');
+    await executeReanchorStageBlock(input, currentStore, currentTaskRunId);
   },
 };

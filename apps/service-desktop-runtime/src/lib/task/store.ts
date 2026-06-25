@@ -28,6 +28,9 @@ export interface TaskRunRecord extends TaskRunInput {
   errorMessage: string | null;
   terminalReason: TaskTerminalReason | null;
   controlRequestKind: TaskControlRequestKind | null;
+  runtimeBootId: string | null;
+  resumeContextKey: string | null;
+  retryOfTaskRunId: string | null;
 }
 
 /** Aggregates one task run snapshot together with all persisted stage rows. */
@@ -41,6 +44,7 @@ export interface TaskRunCreateInput {
   run: TaskRunInput;
   supportsResume: boolean;
   stages: TaskStagePlan[];
+  retryOfTaskRunId?: string | null;
 }
 
 /** Fields that can be patched on an existing task run. */
@@ -57,6 +61,8 @@ export interface TaskRunUpdatePatch {
   errorCode?: string | null;
   errorMessage?: string | null;
   terminalReason?: TaskTerminalReason | null;
+  runtimeBootId?: string | null;
+  resumeContextKey?: string | null;
 }
 
 /** Fields that can be patched on one task stage row. */
@@ -84,6 +90,8 @@ export interface TaskRunStorePatch {
   errorCode?: string | null;
   errorMessage?: string | null;
   terminalReason?: TaskTerminalReason | null;
+  runtimeBootId?: string | null;
+  resumeContextKey?: string | null;
 }
 
 /** Defines the persistence contract consumed by the task framework. */
@@ -104,6 +112,12 @@ export interface TaskStore {
     stageKey: string,
     patch: TaskStageUpdatePatch,
   ): Promise<TaskStageState>;
+  transitionStage(
+    taskRunId: string,
+    stageKey: string,
+    runPatch: TaskRunStorePatch,
+    stagePatch: TaskStageUpdatePatch,
+  ): Promise<void>;
 }
 
 /** Active statuses that indicate a task run still occupies its slot. */
@@ -142,6 +156,9 @@ function toTaskRunRecord(row: typeof TaskRun.$inferSelect): TaskRunRecord {
     errorMessage: row.errorMessage,
     terminalReason: row.terminalReason as TaskTerminalReason | null,
     controlRequestKind: row.controlRequestKind as TaskControlRequestKind | null,
+    runtimeBootId: row.runtimeBootId,
+    resumeContextKey: row.resumeContextKey,
+    retryOfTaskRunId: row.retryOfTaskRunId,
   };
 }
 
@@ -202,7 +219,7 @@ export function createTaskStore(db: {
           errorCode: null,
           errorMessage: null,
           terminalReason: null,
-          retryOfTaskRunId: null,
+          retryOfTaskRunId: input.retryOfTaskRunId ?? null,
         })
         .returning();
 
@@ -350,6 +367,27 @@ export function createTaskStore(db: {
       }
 
       return toTaskStageState(updated);
+    },
+
+    async transitionStage(taskRunId, stageKey, runPatch, stagePatch): Promise<void> {
+      const txDb = db as unknown as { transaction: Function };
+      if (typeof txDb.transaction !== 'function') {
+        throw new Error('Store does not support atomic transitions');
+      }
+      await txDb.transaction(async (tx: any) => {
+        const [run] = await tx
+          .update(TaskRun)
+          .set({ ...runPatch, runRevision: sql`${TaskRun.runRevision} + 1` })
+          .where(eq(TaskRun.id, taskRunId))
+          .returning();
+        if (!run) throw new Error(`Task run ${taskRunId} does not exist`);
+        const [stage] = await tx
+          .update(TaskStage)
+          .set(stagePatch)
+          .where(and(eq(TaskStage.taskRunId, taskRunId), eq(TaskStage.stageKey, stageKey)))
+          .returning();
+        if (!stage) throw new Error(`Stage "${stageKey}" does not exist on task run ${taskRunId}`);
+      });
     },
   };
 }

@@ -749,8 +749,9 @@ export function getPublishTaskSnapshot(input: {
 }
 
 /** Cancels one publish task by its run ID. */
-export function cancelPublishTask(taskRunId: string): Promise<TaskPageSnapshot> {
-  return useDesktopRuntimeClient().hearthstone.task.publish.cancel({ taskRunId }) as Promise<TaskPageSnapshot>;
+/** Cancels any task by run ID through the generic task endpoint. */
+export function cancelTask(taskRunId: string): Promise<TaskPageSnapshot> {
+  return useDesktopRuntimeClient().task.cancel({ taskRunId }) as Promise<TaskPageSnapshot>;
 }
 
 /** Creates a reanchor task and returns the initial snapshot. */

@@ -1,9 +1,10 @@
+import { eventIterator } from '@orpc/server';
 import { z } from 'zod';
 
-import { taskPageSnapshot } from '@tcg-cards/model/src/task';
+import { taskPageEvent, taskPageSnapshot } from '@tcg-cards/model/src/task';
 
 import { os } from '../../index';
-import { createTaskStore, buildTaskPageSnapshot, getTaskDefinition } from '#task/index';
+import { createTaskStore, createTaskController, createTaskScheduler, createTaskExecutor, createTaskEventPublisher, buildTaskPageSnapshot, getTaskDefinition } from '#task/index';
 import { getLocalDb } from '../../../lib/hearthstone/hsdata-local-db';
 import {
   buildPublishTaskScopeKey,
@@ -11,20 +12,24 @@ import {
   publishTaskDefinitionVersion,
   publishTaskScopeType,
   publishTaskType,
+  setCurrentTaskRunCtx,
 } from '../../../lib/hearthstone/task/publish/definition';
 
-const store = createTaskStore(getLocalDb());
+let _store: ReturnType<typeof createTaskStore>;
+function getStore() {
+  if (!_store) _store = createTaskStore(getLocalDb());
+  return _store;
+}
+function getController() {
+  const s = getStore();
+  return createTaskController(s, createTaskScheduler(s));
+}
 const publishStreamInput = z.strictObject({
   publishTarget: z.literal('hearthstone'),
   environment: z.string().trim().min(1),
 });
 
 const create = os
-  .route({
-    method:      'POST',
-    description: 'Create a publish task and return the initial snapshot',
-    tags:        ['Desktop Runtime', 'Hearthstone', 'Task'],
-  })
   .input(z.strictObject({
     publishTarget: z.literal('hearthstone'),
     environment: z.string().trim().min(1),
@@ -34,7 +39,7 @@ const create = os
   .handler(async ({ input }) => {
     const ctx = { publishTarget: input.publishTarget, environment: input.environment, publishType: 'card_data' as const };
     const scopeKey = buildPublishTaskScopeKey(ctx);
-    const active = await store.getActiveTaskRun(publishTaskType, publishTaskScopeType, scopeKey);
+    const active = await getStore().getActiveTaskRun(publishTaskType, publishTaskScopeType, scopeKey);
     if (active) throw new Error(`Publish task already exists for stream ${scopeKey}`);
 
     const definition = getTaskDefinition(publishTaskType);
@@ -46,53 +51,47 @@ const create = os
     };
 
     const stagePlans = await definition.buildStagePlan(runInput);
-    const snap = await store.createTaskRun({ run: runInput, supportsResume: false, stages: stagePlans });
+    const snap = await getStore().createTaskRun({ run: runInput, supportsResume: false, stages: stagePlans });
 
-    const { createTaskExecutor } = await import('#task/executor');
-    const { setCurrentTaskRunCtx } = await import('../../../lib/hearthstone/task/publish/definition');
     setCurrentTaskRunCtx(snap.run.id, store);
-    void createTaskExecutor(store).runTask(snap);
+    void createTaskExecutor(store, createTaskEventPublisher()).runTask(snap);
 
     return buildTaskPageSnapshot(snap);
   });
 
 const snapshot = os
-  .route({
-    method:      'GET',
-    description: 'Read the current publish task snapshot',
-    tags:        ['Desktop Runtime', 'Hearthstone', 'Task'],
-  })
   .input(publishStreamInput)
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
     const ctx = { publishTarget: input.publishTarget, environment: input.environment, publishType: 'card_data' as const };
     const scopeKey = buildPublishTaskScopeKey(ctx);
-    const active = await store.getActiveTaskRun(publishTaskType, publishTaskScopeType, scopeKey);
+    const active = await getStore().getActiveTaskRun(publishTaskType, publishTaskScopeType, scopeKey);
     if (!active) return { pageTask: { kind: 'idle' }, stages: [] };
-    const snap = await store.getTaskRun(active.id);
+    const snap = await getStore().getTaskRun(active.id);
     if (!snap) return { pageTask: { kind: 'idle' }, stages: [] };
     return buildTaskPageSnapshot(snap);
   });
 
+/** Streams real-time publish task events for one publish stream. */
+const watch = os
+  .input(publishStreamInput)
+  .output(eventIterator(taskPageEvent))
+  .handler(async function* ({ input }) {
+    const ctx = { publishTarget: input.publishTarget, environment: input.environment, publishType: 'card_data' as const };
+    const scopeKey = buildPublishTaskScopeKey(ctx);
+    const active = await getStore().getActiveTaskRun(publishTaskType, publishTaskScopeType, scopeKey);
+    if (!active) return;
+    const snap = await getStore().getTaskRun(active.id);
+    if (snap) yield buildTaskPageSnapshot(snap);
+    yield* createTaskEventPublisher().watch(active.id);
+  });
+
 const cancel = os
-  .route({
-    method:      'POST',
-    description: 'Cancel one active publish task',
-    tags:        ['Desktop Runtime', 'Hearthstone', 'Task'],
-  })
-  .input(z.strictObject({ taskRunId: z.string().uuid() }))
+  .input(z.strictObject({ taskRunId: z.uuid() }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
-    const snap = await store.getTaskRun(input.taskRunId);
-    if (!snap) throw new Error(`Task run ${input.taskRunId} does not exist`);
-
-    const cancelable: readonly string[] = ['pending', 'running', 'pausing', 'paused', 'resuming'];
-    if (!cancelable.includes(snap.run.status)) {
-      throw new Error(`Task run ${input.taskRunId} is in status "${snap.run.status}" and cannot be canceled`);
-    }
-
-    await store.updateTaskRun(input.taskRunId, { status: 'canceling', controlRequestKind: 'cancel' });
+    await getController().cancelTask(input.taskRunId);
     return { pageTask: { kind: 'idle' }, stages: [] } as const;
   });
 
-export const publishRouter = { create, snapshot, cancel };
+export const publishRouter = { create, snapshot, watch, cancel };

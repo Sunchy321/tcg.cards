@@ -12,6 +12,7 @@ export interface TaskController {
   resumeTask(taskRunId: string): Promise<TaskControlResult>;
   cancelTask(taskRunId: string): Promise<TaskControlResult>;
   retryTask(taskRunId: string): Promise<TaskControlResult>;
+  abandonTask(taskRunId: string, terminalReason?: string): Promise<TaskControlResult>;
 }
 
 /** Builds one task controller backed by the given store and scheduler. */
@@ -32,12 +33,57 @@ export function createTaskController(
       return toTaskControlResult(snapshot);
     },
 
-    async pauseTask(_taskRunId): Promise<TaskControlResult> {
-      throw new Error('Task pause is not implemented yet');
+    async pauseTask(taskRunId: string): Promise<TaskControlResult> {
+      const snapshot = await store.getTaskRun(taskRunId);
+
+      if (!snapshot) {
+        throw new Error(`Task run ${taskRunId} does not exist`);
+      }
+
+      const pausable: readonly string[] = ['running'];
+
+      if (!pausable.includes(snapshot.run.status)) {
+        throw new Error(
+          `Task run ${taskRunId} is in status "${snapshot.run.status}" and cannot be paused`,
+        );
+      }
+
+      // running → pausing, executor will pick it up at the next block boundary
+      const updated = await store.updateTaskRun(taskRunId, {
+        status: 'pausing',
+        controlRequestKind: 'pause',
+      });
+
+      return {
+        taskRunId: updated.id,
+        runRevision: updated.runRevision,
+        status: updated.status,
+      };
     },
 
-    async resumeTask(_taskRunId): Promise<TaskControlResult> {
-      throw new Error('Task resume is not implemented yet');
+    async resumeTask(taskRunId: string): Promise<TaskControlResult> {
+      const snapshot = await store.getTaskRun(taskRunId);
+
+      if (!snapshot) {
+        throw new Error(`Task run ${taskRunId} does not exist`);
+      }
+
+      if (snapshot.run.status !== 'paused') {
+        throw new Error(
+          `Task run ${taskRunId} is in status "${snapshot.run.status}" and cannot be resumed`,
+        );
+      }
+
+      const updated = await store.updateTaskRun(taskRunId, {
+        status: 'resuming',
+        controlRequestKind: null,
+      });
+
+      return {
+        taskRunId: updated.id,
+        runRevision: updated.runRevision,
+        status: updated.status,
+      };
     },
 
     async cancelTask(taskRunId: string): Promise<TaskControlResult> {
@@ -90,8 +136,78 @@ export function createTaskController(
       };
     },
 
-    async retryTask(_taskRunId): Promise<TaskControlResult> {
-      throw new Error('Task retry is not implemented yet');
+    async retryTask(taskRunId: string): Promise<TaskControlResult> {
+      const snapshot = await store.getTaskRun(taskRunId);
+
+      if (!snapshot) {
+        throw new Error(`Task run ${taskRunId} does not exist`);
+      }
+
+      const retryable: readonly string[] = ['failed', 'canceled', 'abandoned'];
+
+      if (!retryable.includes(snapshot.run.status)) {
+        throw new Error(
+          `Task run ${taskRunId} is in status "${snapshot.run.status}" and cannot be retried`,
+        );
+      }
+
+      const definition = getTaskDefinition(snapshot.run.taskType);
+      const stagePlans = await definition.buildStagePlan({
+        taskType: snapshot.run.taskType,
+        definitionVersion: snapshot.run.definitionVersion,
+        scope: snapshot.run.scope,
+        params: snapshot.run.params,
+      });
+
+      const newSnapshot = await store.createTaskRun({
+        run: {
+          taskType: snapshot.run.taskType,
+          definitionVersion: snapshot.run.definitionVersion,
+          scope: snapshot.run.scope,
+          params: snapshot.run.params,
+        },
+        supportsResume: definition.supportsResume,
+        stages: stagePlans,
+        retryOfTaskRunId: taskRunId,
+      });
+
+      return toTaskControlResult(newSnapshot);
+    },
+
+    async abandonTask(taskRunId: string, terminalReason: string = 'abandoned_stale_run'): Promise<TaskControlResult> {
+      const snapshot = await store.getTaskRun(taskRunId);
+
+      if (!snapshot) {
+        throw new Error(`Task run ${taskRunId} does not exist`);
+      }
+
+      // Only active statuses can be abandoned
+      const abandonable: readonly string[] = ['pending', 'running', 'pausing', 'paused', 'resuming', 'canceling'];
+
+      if (!abandonable.includes(snapshot.run.status)) {
+        throw new Error(
+          `Task run ${taskRunId} is in status "${snapshot.run.status}" and cannot be abandoned`,
+        );
+      }
+
+      // Abandon transitions directly — assumes the executor is already dead,
+      // no need to set controlRequestKind or wait for acknowledgment
+      const updated = await store.updateTaskRun(taskRunId, {
+        status: 'abandoned',
+        terminalReason: terminalReason as any,
+        finishedAt: new Date(),
+        controlRequestKind: null,
+        currentStageKey: null,
+        currentStageIndex: null,
+        currentResumeMode: null,
+        pausedResumeMode: null,
+      });
+
+      return {
+        taskRunId: updated.id,
+        runRevision: updated.runRevision,
+        status: updated.status,
+      };
     },
   };
 }

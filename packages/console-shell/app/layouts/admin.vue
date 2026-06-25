@@ -52,6 +52,8 @@
         </div>
 
         <div class="flex items-center gap-2">
+          <component :is="headerRightComponent" v-if="headerRightComponent" />
+
           <span
             v-if="session"
             class="text-sm text-gray-500 dark:text-gray-400"
@@ -140,6 +142,9 @@ const route = useRoute();
 const router = useRouter();
 const platform = useConsolePlatform<ConsoleSessionLike>();
 const host = inject(consoleAdminHostKey, null);
+
+/** Optional Vue component injected by the consumer (desktop app) for the header right area. */
+const headerRightComponent: any = inject('admin-header-right', null);
 
 const initializing = ref(false);
 const signingOut = ref(false);

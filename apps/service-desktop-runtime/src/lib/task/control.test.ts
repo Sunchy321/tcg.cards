@@ -24,6 +24,9 @@ function run(overrides: Partial<TaskRunRecord> & { id: string; status: TaskRunRe
     errorMessage: null,
     terminalReason: null,
     controlRequestKind: null,
+    runtimeBootId: null,
+    resumeContextKey: null,
+    retryOfTaskRunId: null,
     ...overrides,
   };
 }

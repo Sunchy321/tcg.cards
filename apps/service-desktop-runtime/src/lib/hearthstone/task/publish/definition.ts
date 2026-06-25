@@ -10,8 +10,12 @@ import type {
   TaskStageState,
 } from '#task/definition';
 import type { TaskStore } from '#task/store';
+import { and, eq, asc } from 'drizzle-orm';
+import { createDb } from '@tcg-cards/db';
+import { PublishBatchRow, PublishBatch } from '@tcg-cards/db/schema/local/hearthstone';
 import { createPublishPlan, loadRowDataChunk, insertRemoteRow, deleteRemoteRow, parseRowKey } from '../../hsdata-publish';
 import type { TableName } from '../../hsdata-publish';
+import { requireHearthstonePublishTargetByIdentity } from '../../hsdata-publish-target';
 import { PublishJobInterruptedError } from '../../hsdata-publish-progress';
 import { getLocalDb } from '../../hsdata-local-db';
 
@@ -133,16 +137,12 @@ export async function executePublishStageBlock(
 
     // Load pending rows + create remote DB on first applying_remote block
     if (!ctx.pendingRows) {
-      const { and, eq, asc } = await import('drizzle-orm');
-      const { PublishBatchRow, PublishBatch } = await import('@tcg-cards/db/schema/local/hearthstone');
       ctx.pendingRows = await ctx.db.select()
         .from(PublishBatchRow)
         .where(and(eq(PublishBatchRow.batchId, ctx.batchId), eq(PublishBatchRow.status, 'pending')))
         .orderBy(asc(PublishBatchRow.tableName), asc(PublishBatchRow.rowKey));
 
       if (ctx.pendingRows.length > 0) {
-        const { createDb } = await import('@tcg-cards/db');
-        const { requireHearthstonePublishTargetByIdentity } = await import('../../hsdata-publish-target');
         const target = requireHearthstonePublishTargetByIdentity(scope.publishTarget, scope.environment);
         ctx.remoteDb = createDb(target.connectionString);
       }
@@ -171,8 +171,6 @@ export async function executePublishStageBlock(
 
     // Apply chunk to remote
     const remoteDb = ctx.remoteDb!;
-    const PBR = (await import('@tcg-cards/db/schema/local/hearthstone')).PublishBatchRow;
-    const { and: and2, eq: eq2 } = await import('drizzle-orm');
 
     await (remoteDb as any).transaction(async (tx: any) => {
       for (const row of chunk) {
@@ -189,9 +187,9 @@ export async function executePublishStageBlock(
 
     // Mark chunk rows as applied locally
     for (const row of chunk) {
-      await ctx.db.update(PBR)
+      await ctx.db.update(PublishBatchRow)
         .set({ status: row.action === 'unchanged' ? 'skipped' : 'applied', updatedAt: new Date(), appliedAt: new Date() })
-        .where(and2(eq2(PBR.batchId, ctx.batchId), eq2(PBR.tableName, row.tableName as any), eq2(PBR.rowKey, row.rowKey)));
+        .where(and(eq(PublishBatchRow.batchId, ctx.batchId), eq(PublishBatchRow.tableName, row.tableName as any), eq(PublishBatchRow.rowKey, row.rowKey)));
     }
     return;
   }

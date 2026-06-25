@@ -497,7 +497,7 @@ const watchProjectJob = os
   });
 
 const cancelPublishBatchInput = publishStreamInput.extend({
-  batchId: z.string().uuid(),
+  batchId: z.uuid(),
 });
 
 /** Cancels one residual publish batch row that is still marked running in the local database. */

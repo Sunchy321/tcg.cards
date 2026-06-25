@@ -106,7 +106,7 @@ export const tagConflictResolution = z.enum([
 ]);
 
 export const tagConflictProfile = z.strictObject({
-  id:                 z.string().uuid(),
+  id:                 z.uuid(),
   processingSide:     z.string(),
   processingStage:    z.string(),
   conflictKind:       z.string(),
@@ -143,7 +143,7 @@ export const tagConflictListResult = z.strictObject({
 });
 
 export const tagConflictGetInput = z.strictObject({
-  id: z.string().uuid(),
+  id: z.uuid(),
 });
 
 export const tagConflictResolveInput = tagConflictGetInput.extend({

@@ -103,6 +103,7 @@ export const taskPageTaskAttached = z.strictObject({
   currentStageIndex: z.int().nonnegative().nullable(),
   currentResumeMode: taskResumeMode.nullable(),
   pausedResumeMode: taskResumeMode.nullable(),
+  progressMode: taskProgressMode.nullable(),
   startedAt: z.string().nullable(),
   finishedAt: z.string().nullable(),
   errorCode: z.string().nullable(),

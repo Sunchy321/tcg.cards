@@ -15,14 +15,15 @@ import {
   getReanchorTaskSnapshot,
   type HsdataPublishStreamInput,
   listPublishBatches,
-  cancelPublishTask,
+  cancelTask,
   publishSingleCard,
 } from '~/composables/useHsdataRepo';
 import type {
   HsdataPublishReport,
   HsdataSingleCardPublishReport,
 } from '~/composables/useHsdataRepo';
-import type { TaskPageSnapshot, TaskStage } from '@tcg-cards/model/src/task';
+import type { TaskPageSnapshot, TaskStage, TaskPageEvent } from '@tcg-cards/model/src/task';
+import { registerTask } from '~/composables/useTaskRegistry';
 
 definePageMeta({
   layout: 'admin',
@@ -199,10 +200,12 @@ async function submitPublish() {
   taskSnapshot.value = null;
 
   try {
-    taskSnapshot.value = await createPublishTask({
+    const snap = await createPublishTask({
       ...stream,
       dryRun: dryRun.value,
     });
+    taskSnapshot.value = snap;
+    registerTask(snap);
 
     // Poll snapshot until terminal
     while (true) {
@@ -253,7 +256,9 @@ async function submitReanchor() {
   publishResult.value = null;
 
   try {
-    taskSnapshot.value = await createReanchorTask(stream);
+    const snap = await createReanchorTask(stream);
+    taskSnapshot.value = snap;
+    registerTask(snap);
 
     // Poll snapshot until terminal
     while (true) {
@@ -290,7 +295,7 @@ async function stopCurrentPublish() {
   stoppingPublish.value = true;
 
   try {
-    await cancelPublishTask(snap.pageTask.taskRunId);
+    await cancelTask(snap.pageTask.taskRunId);
     taskSnapshot.value = await getPublishTaskSnapshot({
       publishTarget,
       environment: selectedEnvironment.value,
@@ -446,6 +451,7 @@ onMounted(async () => {
     const snap = await getPublishTaskSnapshot(stream);
     if (snap.pageTask.kind !== 'idle') {
       taskSnapshot.value = snap;
+      registerTask(snap);
     }
   }
 });
