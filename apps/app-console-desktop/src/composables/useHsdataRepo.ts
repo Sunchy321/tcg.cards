@@ -729,47 +729,6 @@ export function formatHsdataBytes(value: number) {
   return `${size.toFixed(digits)} ${units[unitIndex]}`;
 }
 
-import type { TaskPageSnapshot } from '@tcg-cards/model/src/task';
-
-/** Creates a publish task through the generic task framework and returns the initial snapshot. */
-export function createPublishTask(input: {
-  publishTarget: string;
-  environment: string;
-  dryRun?: boolean;
-}): Promise<TaskPageSnapshot> {
-  return useDesktopRuntimeClient().hearthstone.task.publish.create(input) as Promise<TaskPageSnapshot>;
-}
-
-/** Returns the current publish task snapshot. */
-export function getPublishTaskSnapshot(input: {
-  publishTarget: string;
-  environment: string;
-}): Promise<TaskPageSnapshot> {
-  return useDesktopRuntimeClient().hearthstone.task.publish.snapshot(input) as Promise<TaskPageSnapshot>;
-}
-
-/** Cancels one publish task by its run ID. */
-/** Cancels any task by run ID through the generic task endpoint. */
-export function cancelTask(taskRunId: string): Promise<TaskPageSnapshot> {
-  return useDesktopRuntimeClient().task.cancel({ taskRunId }) as Promise<TaskPageSnapshot>;
-}
-
-/** Creates a reanchor task and returns the initial snapshot. */
-export function createReanchorTask(input: {
-  publishTarget: string;
-  environment: string;
-}): Promise<TaskPageSnapshot> {
-  return useDesktopRuntimeClient().hearthstone.task.reanchor.create(input) as Promise<TaskPageSnapshot>;
-}
-
-/** Returns the current reanchor task snapshot. */
-export function getReanchorTaskSnapshot(input: {
-  publishTarget: string;
-  environment: string;
-}): Promise<TaskPageSnapshot> {
-  return useDesktopRuntimeClient().hearthstone.task.reanchor.snapshot(input) as Promise<TaskPageSnapshot>;
-}
-
 export function getHsdataErrorMessage(error: unknown) {
   const message = getConsoleErrorMessage(error, '操作失败');
 

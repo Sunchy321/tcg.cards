@@ -1,6 +1,11 @@
 /** Distinguishes whether one task block commits inside one consistency boundary. */
 export type TaskEffectModel = 'atomic' | 'reconcilable';
 
+/** Minimal store surface needed by executeBlock. */
+export interface TaskExecuteStore {
+  updateStage(taskRunId: string, stageKey: string, patch: Record<string, unknown>): Promise<TaskStageState>;
+}
+
 /** Describes the progress representation used by one stage. */
 export type TaskProgressMode = 'bounded' | 'unbound' | 'simple';
 
@@ -74,10 +79,13 @@ export interface TaskDefinition {
   buildBlocks(input: {
     run: TaskRunInput;
     stage: TaskStageState;
+    taskRunId: string;
   }): AsyncIterable<TaskBlock> | Iterable<TaskBlock>;
   executeBlock(input: {
     run: TaskRunInput;
     stage: TaskStageState;
     block: TaskBlock;
+    store: TaskExecuteStore;
+    taskRunId: string;
   }): Promise<void> | void;
 }

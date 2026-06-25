@@ -4,7 +4,8 @@ import { z } from 'zod';
 import { taskPageEvent, taskPageSnapshot } from '@tcg-cards/model/src/task';
 
 import { os } from './index';
-import { createTaskStore, createTaskController, createTaskScheduler } from '#task/index';
+import type { TaskRunInput } from '#task/index';
+import { createTaskStore, createTaskController, createTaskScheduler, createTaskExecutor, createTaskEventPublisher, getTaskDefinition } from '#task/index';
 import { buildTaskPageSnapshot } from '#task/snapshot';
 import { createTaskEventPublisher } from '#task/events';
 import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
@@ -18,6 +19,33 @@ function getController() {
   const s = getStore();
   return createTaskController(s, createTaskScheduler(s));
 }
+
+/** Exposed for task-type-specific ORPC handlers that need store access (e.g., active checks). */
+export { getStore };
+
+/** Creates a task run and starts the executor. Shared by all task-type-specific handlers. */
+export async function createAndRunTask(
+  taskType: string,
+  runInput: TaskRunInput,
+): Promise<TaskPageSnapshot> {
+  const definition = getTaskDefinition(taskType);
+  const controlResult = await getController().createTask(runInput, definition);
+  const snap = await getStore().getTaskRun(controlResult.taskRunId);
+  if (!snap) throw new Error(`Task ${controlResult.taskRunId} was not created`);
+  const executor = createTaskExecutor(getStore(), createTaskEventPublisher());
+  void executor.runTask(snap);
+  return buildTaskPageSnapshot(snap);
+}
+
+/** Returns the current snapshot for one task run. */
+const snapshot = os
+  .input(z.strictObject({ taskRunId: z.uuid() }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    const snap = await getStore().getTaskRun(input.taskRunId);
+    if (!snap) return { pageTask: { kind: 'idle' as const }, stages: [] };
+    return buildTaskPageSnapshot(snap);
+  });
 
 /** Cancels any active task by its run ID. */
 const cancel = os
@@ -48,4 +76,24 @@ const retry = os
     return buildTaskPageSnapshot(snap!);
   });
 
-export const taskRouter = { cancel, watch, retry };
+/** Pauses a running task. */
+const pause = os
+  .input(z.strictObject({ taskRunId: z.uuid() }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    await getController().pauseTask(input.taskRunId);
+    const snap = await getStore().getTaskRun(input.taskRunId);
+    return buildTaskPageSnapshot(snap!);
+  });
+
+/** Resumes a paused task. */
+const resume = os
+  .input(z.strictObject({ taskRunId: z.uuid() }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    await getController().resumeTask(input.taskRunId);
+    const snap = await getStore().getTaskRun(input.taskRunId);
+    return buildTaskPageSnapshot(snap!);
+  });
+
+export const taskRouter = { snapshot, cancel, watch, retry, pause, resume };

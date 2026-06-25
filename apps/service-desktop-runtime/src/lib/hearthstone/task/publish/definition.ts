@@ -3,13 +3,13 @@ import type { PublishTaskCreateInput, PublishTaskParams } from '@tcg-cards/model
 import type {
   TaskBlock,
   TaskDefinition,
+  TaskExecuteStore,
   TaskRunInput,
   TaskScope,
   TaskStageEntry,
   TaskStagePlan,
   TaskStageState,
 } from '#task/definition';
-import type { TaskStore } from '#task/store';
 import { and, eq, asc } from 'drizzle-orm';
 import { createDb } from '@tcg-cards/db';
 import { PublishBatchRow, PublishBatch } from '@tcg-cards/db/schema/local/hearthstone';
@@ -82,19 +82,10 @@ interface PublishCtx {
 
 const publishCtxMap = new Map<string, PublishCtx>();
 
-let currentTaskRunId = '';
-let currentStore: TaskStore | null = null;
-
-/** Called by the bridge before block iteration to set the current run context. */
-export function setCurrentTaskRunCtx(id: string, store: TaskStore): void {
-  currentTaskRunId = id;
-  currentStore = store;
-}
-
 /** Returns chunk blocks for applying_remote, or a single block for other stages. */
-export function buildPublishTaskBlocks(stage: TaskStageState): TaskBlock[] {
+export function buildPublishTaskBlocks(stage: TaskStageState, taskRunId: string): TaskBlock[] {
   if (stage.stageKey === 'applying_remote') {
-    const ctx = publishCtxMap.get(currentTaskRunId);
+    const ctx = publishCtxMap.get(taskRunId);
     const rows = ctx?.pendingRows ?? [];
     const n = Math.ceil(rows.length / REMOTE_CHUNK_SIZE);
     if (n <= 1) {
@@ -110,11 +101,14 @@ export function buildPublishTaskBlocks(stage: TaskStageState): TaskBlock[] {
 }
 
 /** Executes one publish stage block. Called by the bridge's executor loop. */
-export async function executePublishStageBlock(
-  input: { run: TaskRunInput; stage: TaskStageState; block: TaskBlock },
-  store: TaskStore,
-  taskRunId: string,
-): Promise<void> {
+export async function executePublishStageBlock(input: {
+  run: TaskRunInput;
+  stage: TaskStageState;
+  block: TaskBlock;
+  store: TaskExecuteStore;
+  taskRunId: string;
+}): Promise<void> {
+  const { store, taskRunId } = input;
   const params = readPublishTaskParams(input.run);
   const scope = {
     publishTarget: (input.run.scope.snapshot as any)?.publishTarget ?? 'hearthstone',
@@ -207,9 +201,8 @@ export const publishTaskDefinition: TaskDefinition = {
   effectModel: 'reconcilable',
   buildStagePlan(input) { assertPublishTaskRunInput(input); return buildPublishTaskStagePlan(); },
   prepareStageEntry({ stage }) { return buildPublishTaskStageEntry(stage); },
-  buildBlocks({ stage }) { return buildPublishTaskBlocks(stage); },
+  buildBlocks({ stage, taskRunId }) { return buildPublishTaskBlocks(stage, taskRunId); },
   async executeBlock(input) {
-    if (!currentStore || !currentTaskRunId) throw new Error('Publish execution context not set. Call setCurrentTaskRunCtx first.');
-    await executePublishStageBlock(input, currentStore, currentTaskRunId);
+    await executePublishStageBlock(input);
   },
 };

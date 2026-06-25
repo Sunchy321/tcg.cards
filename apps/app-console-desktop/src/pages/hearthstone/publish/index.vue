@@ -6,24 +6,20 @@ import {
 } from '~/composables/useDesktopSettings';
 import {
   cancelIncompleteHsdataPublishBatch,
-  createPublishTask,
-  createReanchorTask,
   formatHsdataDate,
   getHsdataErrorMessage,
   getIncompletePublishBatch,
-  getPublishTaskSnapshot,
-  getReanchorTaskSnapshot,
   type HsdataPublishStreamInput,
   listPublishBatches,
-  cancelTask,
   publishSingleCard,
 } from '~/composables/useHsdataRepo';
 import type {
   HsdataPublishReport,
   HsdataSingleCardPublishReport,
 } from '~/composables/useHsdataRepo';
-import type { TaskPageSnapshot, TaskStage, TaskPageEvent } from '@tcg-cards/model/src/task';
-import { registerTask } from '~/composables/useTaskRegistry';
+import type { TaskPageSnapshot } from '@tcg-cards/model/src/task';
+import type { TaskOperation } from '~/components/task/TaskController';
+import { orpc } from '~/lib/orpc';
 
 definePageMeta({
   layout: 'admin',
@@ -40,10 +36,7 @@ const publishTargets = ref<DesktopPublishTarget[]>([]);
 const selectedEnvironment = ref('');
 const publishTargetError = ref('');
 const publishError = ref('');
-const publishing = ref(false);
-const stoppingPublish = ref(false);
 const publishResult = ref<HsdataPublishReport | null>(null);
-const taskSnapshot = ref<TaskPageSnapshot | null>(null);
 const incompleteBatch = ref<(HsdataPublishReport & { pendingRowCount?: number }) | null>(null);
 const batchListLoading = ref(false);
 const batchList = ref<HsdataPublishReport[]>([]);
@@ -109,10 +102,6 @@ const hasPublishTarget = computed(() => {
   return selectedPublishTarget.value != null;
 });
 
-const canPublish = computed(() => {
-  return hasPublishTarget.value && !publishing.value;
-});
-
 function formatPublishTargetFingerprint(fingerprint: string | null) {
   return fingerprint?.slice(0, 8) ?? '';
 }
@@ -160,11 +149,61 @@ function isCancelableBatch(batch: HsdataPublishReport) {
   return batch.status === 'planning' || batch.status === 'applying';
 }
 
-/** Reads the pageTask from the task snapshot, or idle when none exists. */
-const taskCardPageTask = computed(() => taskSnapshot.value?.pageTask ?? { kind: 'idle' });
+const controller = ref<{ attach(snapshot: TaskPageSnapshot): void; currentTaskRunId: { value: string | null } }>();
 
-/** Reads the stages from the task snapshot. */
-const taskCardStages = computed<TaskStage[]>(() => taskSnapshot.value?.stages ?? []);
+const operations: TaskOperation[] = [
+  {
+    key: 'publish',
+    label: '发布',
+    icon: 'i-lucide-upload',
+    create: async () => orpc.hearthstone.createTask.publish({
+      publishTarget: 'hearthstone',
+      environment: selectedEnvironment.value,
+      dryRun: dryRun.value,
+    }) as Promise<TaskPageSnapshot>,
+  },
+  {
+    key: 'reanchor',
+    label: '重建基线',
+    icon: 'i-lucide-anchor',
+    color: 'warning',
+    create: async () => orpc.hearthstone.createTask.reanchor({
+      publishTarget: 'hearthstone',
+      environment: selectedEnvironment.value,
+    }) as Promise<TaskPageSnapshot>,
+  },
+];
+
+function onCompleted(snap: TaskPageSnapshot) {
+  persistedTaskRunId = null;
+  persistPublishPageState();
+  if (snap.pageTask.kind === 'attached' && snap.pageTask.status === 'completed') {
+    const label = snap.pageTask.taskType === 'hsdata_publish' ? '发布' : '基线重建';
+    toast.add({ title: `${label}已完成`, color: 'success' });
+  }
+  refreshPublishState();
+}
+
+function onFailed(_taskRunId: string, _errorCode: string | null, errorMessage: string | null) {
+  persistedTaskRunId = null;
+  persistPublishPageState();
+  publishError.value = errorMessage ?? '操作失败';
+  toast.add({ title: '操作失败', description: publishError.value, color: 'error' });
+}
+
+function onCreateError(_opKey: string, message: string) {
+  publishError.value = message;
+  toast.add({ title: '操作失败', description: publishError.value, color: 'error' });
+}
+
+// Save taskRunId whenever the controller starts/restores a task
+watch(controller, (ctrl) => {
+  if (!ctrl) return;
+  watch(() => ctrl.currentTaskRunId.value, (id) => {
+    persistedTaskRunId = id;
+    persistPublishPageState();
+  });
+});
 
 async function loadPublishTarget() {
   publishTargetError.value = '';
@@ -186,130 +225,6 @@ async function loadPublishTarget() {
     publishTargetError.value = getHsdataErrorMessage(error);
     publishTargets.value = [];
     selectedEnvironment.value = '';
-  }
-}
-
-async function submitPublish() {
-  const stream = selectedPublishStream.value;
-
-  if (!canPublish.value || !stream) return;
-
-  publishing.value = true;
-  publishError.value = '';
-  publishResult.value = null;
-  taskSnapshot.value = null;
-
-  try {
-    const snap = await createPublishTask({
-      ...stream,
-      dryRun: dryRun.value,
-    });
-    taskSnapshot.value = snap;
-    registerTask(snap);
-
-    // Poll snapshot until terminal
-    while (true) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      const snapshot = await getPublishTaskSnapshot(stream);
-      taskSnapshot.value = snapshot;
-
-      if (snapshot.pageTask.kind === 'attached') {
-        const s = snapshot.pageTask.status;
-        if (['completed', 'failed', 'canceled', 'abandoned'].includes(s)) {
-          break;
-        }
-      } else {
-        break;
-      }
-    }
-
-    const final = taskSnapshot.value;
-    if (final?.pageTask.kind === 'attached' && final.pageTask.status === 'completed') {
-      toast.add({
-        title: '发布已完成',
-        color: 'success',
-      });
-    }
-  } catch (error) {
-    console.error('Publish failed:', error);
-    publishError.value = getHsdataErrorMessage(error);
-    toast.add({
-      title: '发布失败',
-      description: publishError.value,
-      color: 'error',
-    });
-  } finally {
-    publishing.value = false;
-    stoppingPublish.value = false;
-    await refreshPublishState();
-  }
-}
-
-async function submitReanchor() {
-  const stream = selectedPublishStream.value;
-
-  if (!canPublish.value || !stream) return;
-
-  publishing.value = true;
-  publishError.value = '';
-  publishResult.value = null;
-
-  try {
-    const snap = await createReanchorTask(stream);
-    taskSnapshot.value = snap;
-    registerTask(snap);
-
-    // Poll snapshot until terminal
-    while (true) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      const snap = await getReanchorTaskSnapshot(stream);
-      taskSnapshot.value = snap;
-
-      if (snap.pageTask.kind === 'attached') {
-        if (['completed', 'failed', 'canceled', 'abandoned'].includes(snap.pageTask.status)) {
-          break;
-        }
-      } else {
-        break;
-      }
-    }
-
-    toast.add({ title: '本地基线重建完成', color: 'success' });
-  } catch (error) {
-    console.error('Failed to reanchor:', error);
-    publishError.value = getHsdataErrorMessage(error);
-    toast.add({ title: '本地基线重建失败', description: publishError.value, color: 'error' });
-  } finally {
-    publishing.value = false;
-    stoppingPublish.value = false;
-    await refreshPublishState();
-  }
-}
-
-async function stopCurrentPublish() {
-  const snap = taskSnapshot.value;
-  if (snap?.pageTask.kind !== 'attached') return;
-
-  stoppingPublish.value = true;
-
-  try {
-    await cancelTask(snap.pageTask.taskRunId);
-    taskSnapshot.value = await getPublishTaskSnapshot({
-      publishTarget,
-      environment: selectedEnvironment.value,
-    });
-  } catch (error) {
-    console.error('Failed to stop publish job:', error);
-    publishError.value = getHsdataErrorMessage(error);
-    toast.add({
-      title: '停止失败',
-      description: publishError.value,
-      color: 'error',
-    });
-  } finally {
-    stoppingPublish.value = false;
   }
 }
 
@@ -398,12 +313,16 @@ const PUBLISH_PAGE_STATE_KEY = 'console-desktop-hearthstone-publish-page';
 interface PublishPageState {
   dryRun: boolean;
   environment: string;
+  taskRunId?: string | null;
 }
+
+let persistedTaskRunId: string | null = null;
 
 function persistPublishPageState() {
   const state: PublishPageState = {
     dryRun: dryRun.value,
     environment: selectedEnvironment.value,
+    taskRunId: persistedTaskRunId,
   };
   window.localStorage.setItem(PUBLISH_PAGE_STATE_KEY, JSON.stringify(state));
 }
@@ -412,6 +331,7 @@ function normalizePublishPageState(raw: Partial<PublishPageState>): PublishPageS
   return {
     dryRun: typeof raw.dryRun === 'boolean' ? raw.dryRun : false,
     environment: typeof raw.environment === 'string' ? raw.environment : '',
+    taskRunId: typeof raw.taskRunId === 'string' ? raw.taskRunId : null,
   };
 }
 
@@ -423,6 +343,7 @@ function restorePublishPageState() {
     const state = normalizePublishPageState(parsed);
     dryRun.value = state.dryRun;
     selectedEnvironment.value = state.environment;
+    persistedTaskRunId = state.taskRunId ?? null;
   } catch {
     window.localStorage.removeItem(PUBLISH_PAGE_STATE_KEY);
   }
@@ -445,19 +366,17 @@ onMounted(async () => {
   await loadPublishTarget();
   await refreshPublishState();
 
-  // Check for an active task snapshot on page load
-  const stream = selectedPublishStream.value;
-  if (stream) {
-    const snap = await getPublishTaskSnapshot(stream);
-    if (snap.pageTask.kind !== 'idle') {
-      taskSnapshot.value = snap;
-      registerTask(snap);
+  // Restore active task from persisted taskRunId
+  if (persistedTaskRunId) {
+    try {
+      const snap = await orpc.task.snapshot({ taskRunId: persistedTaskRunId });
+      if (snap.pageTask.kind !== 'idle') {
+        controller.value?.attach(snap);
+      }
+    } catch {
+      persistedTaskRunId = null;
     }
   }
-});
-
-onBeforeUnmount(() => {
-  publishing.value = false;
 });
 </script>
 
@@ -476,7 +395,7 @@ onBeforeUnmount(() => {
             <UDropdownMenu
               v-if="hasMultiplePublishTargets"
               :items="environmentItems"
-              :disabled="publishing || publishTargets.length === 0"
+              :disabled="publishTargets.length === 0"
               :content="{ align: 'end' }"
             >
               <button
@@ -501,7 +420,6 @@ onBeforeUnmount(() => {
             color="neutral"
             variant="ghost"
             size="xs"
-            :disabled="publishing"
             @click="loadPublishTarget"
           />
         </div>
@@ -546,45 +464,28 @@ onBeforeUnmount(() => {
       :description="publishError"
     />
 
-    <TaskCard
-      title="发布到 production"
-      :page-task="taskCardPageTask"
-      :stages="taskCardStages"
-      @cancel="stopCurrentPublish"
+    <TaskController
+      ref="controller"
+      title="Hearthstone 发布"
+      :operations="operations"
+      @completed="onCompleted"
+      @failed="onFailed"
+      @create-error="onCreateError"
     >
-      <div class="flex items-center gap-6">
-        <UFormField label="发布类型" orientation="horizontal">
-          <USelect
-            v-model="publishType"
-            :items="publishTypes"
-            :disabled="publishing"
-            option-attribute="label"
-          />
-        </UFormField>
-        <UCheckbox v-model="dryRun" label="Dry Run" :disabled="publishing" />
-      </div>
-
-      <template #actions>
-        <UButton
-          icon="i-lucide-upload"
-          :loading="publishing"
-          :disabled="!canPublish"
-          @click="submitPublish"
-        >
-          发布
-        </UButton>
-        <UButton
-          icon="i-lucide-anchor"
-          color="warning"
-          variant="soft"
-          :loading="publishing"
-          :disabled="!canPublish"
-          @click="submitReanchor"
-        >
-          重建基线
-        </UButton>
+      <template #params="{ disabled }">
+        <div class="flex items-center gap-6">
+          <UFormField label="发布类型" orientation="horizontal">
+            <USelect
+              v-model="publishType"
+              :items="publishTypes"
+              :disabled="disabled"
+              option-attribute="label"
+            />
+          </UFormField>
+          <UCheckbox v-model="dryRun" label="Dry Run" :disabled="disabled" />
+        </div>
       </template>
-    </TaskCard>
+    </TaskController>
 
     <UCard v-if="publishResult">
       <template #header>

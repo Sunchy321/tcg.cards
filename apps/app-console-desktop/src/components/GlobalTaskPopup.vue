@@ -10,8 +10,9 @@
 </template>
 
 <script setup lang="ts">
+import { orpc } from '~/lib/orpc';
+
 const { taskEvents, activeTaskCount, register: registerTask } = useTaskRegistry();
-const client = useDesktopRuntimeClient();
 
 async function handlePause(_taskRunId: string) {
   // Pause is not exposed as a generic endpoint yet
@@ -22,11 +23,11 @@ async function handleResume(_taskRunId: string) {
 }
 
 async function handleCancel(taskRunId: string) {
-  await client.task.cancel({ taskRunId });
+  await orpc.task.cancel({ taskRunId });
 }
 
 async function handleRetry(taskRunId: string) {
-  const result = await client.task.retry({ taskRunId }) as any;
+  const result = await orpc.task.retry({ taskRunId }) as any;
   if (result?.pageTask?.kind === 'attached') {
     registerTask(result);
   }

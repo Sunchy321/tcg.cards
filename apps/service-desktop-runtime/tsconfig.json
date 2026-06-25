@@ -3,7 +3,6 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "baseUrl": ".",
     "paths": {
       "#model/*": ["../../packages/model/src/*"],
       "#task/*": ["./src/lib/task/*"]

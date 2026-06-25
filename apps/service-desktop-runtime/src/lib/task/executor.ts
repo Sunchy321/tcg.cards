@@ -78,7 +78,7 @@ async function runBlock(
   definition: TaskDefinition,
 ): Promise<'ok' | 'pause' | 'cancel' | 'fail'> {
   try {
-    await definition.executeBlock({ run: runInput, stage, block });
+    await definition.executeBlock({ run: runInput, stage, block, store, taskRunId });
   } catch (err) {
     await enterFailed(store, taskRunId, stage.stageKey, err);
     return 'fail';
@@ -150,7 +150,7 @@ export function createTaskExecutor(store: TaskExecutorStore, publisher?: TaskEve
         await store.transitionStage(taskRunId, entry.stageKey, runPatch, stagePatch);
 
         // Generate and iterate blocks
-        const blocks = definition.buildBlocks({ run: runInput, stage: { ...stageState, ...entry } });
+        const blocks = definition.buildBlocks({ run: runInput, stage: { ...stageState, ...entry }, taskRunId });
         let done = 0;
 
         for await (const block of blocks) {

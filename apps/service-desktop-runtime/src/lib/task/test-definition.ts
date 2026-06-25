@@ -1,6 +1,7 @@
 import type {
   TaskBlock,
   TaskDefinition,
+  TaskExecuteStore,
   TaskRunInput,
   TaskStageEntry,
   TaskStagePlan,
@@ -62,11 +63,11 @@ export const testWorkTaskDefinition: TaskDefinition = {
       selectionAnchor: null,
     };
   },
-  buildBlocks({ run, stage }: { run: TaskRunInput; stage: TaskStageState }): Iterable<TaskBlock> {
+  buildBlocks({ run, stage }: { run: TaskRunInput; stage: TaskStageState; taskRunId: string }): Iterable<TaskBlock> {
     const workload = run.params.workload as number ?? 100;
     return buildTestWorkBlocks(stage, workload);
   },
-  executeBlock(): Promise<void> {
+  executeBlock(_input: { run: TaskRunInput; stage: TaskStageState; block: TaskBlock; store: TaskExecuteStore; taskRunId: string }): Promise<void> {
     return executeTestWorkBlock();
   },
 };

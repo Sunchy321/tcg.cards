@@ -1,1 +1,1 @@
-export { reanchorTaskDefinition, reanchorTaskType, reanchorDefinitionVersion, buildReanchorTaskRunInput, executeReanchorStageBlock, setCurrentReanchorCtx } from './definition';
+export { reanchorTaskDefinition, reanchorTaskType, reanchorDefinitionVersion, buildReanchorTaskRunInput, executeReanchorStageBlock } from './definition';

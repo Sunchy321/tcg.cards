@@ -1,22 +1,13 @@
 import type {
   TaskBlock,
   TaskDefinition,
+  TaskExecuteStore,
   TaskRunInput,
   TaskStageEntry,
   TaskStagePlan,
   TaskStageState,
 } from '#task/definition';
-import type { TaskStore } from '#task/store';
 import { reanchorCurrentHsdataPublishBaseline } from '../../hsdata-publish';
-
-let currentTaskRunId = '';
-let currentStore: TaskStore | null = null;
-
-/** Called by the ORPC handler before block iteration to set the current run context. */
-export function setCurrentReanchorCtx(id: string, store: TaskStore): void {
-  currentTaskRunId = id;
-  currentStore = store;
-}
 
 export const reanchorTaskType = 'hsdata_reanchor';
 export const reanchorDefinitionVersion = '2026-06-23:v1';
@@ -48,13 +39,16 @@ export function* buildReanchorBlocks(stage: TaskStageState): Generator<TaskBlock
 }
 
 /** Runs one reanchor stage block. Called by the executor. */
-export async function executeReanchorStageBlock(
-  _input: { run: TaskRunInput; stage: TaskStageState; block: TaskBlock },
-  store: TaskStore,
-  taskRunId: string,
-): Promise<void> {
-  const scope = getScope(_input.run);
-  const stageKey = _input.block.payload?.stageKey as string;
+export async function executeReanchorStageBlock(input: {
+  run: TaskRunInput;
+  stage: TaskStageState;
+  block: TaskBlock;
+  store: TaskExecuteStore;
+  taskRunId: string;
+}): Promise<void> {
+  const { store, taskRunId } = input;
+  const scope = getScope(input.run);
+  const stageKey = input.block.payload?.stageKey as string;
 
   if (stageKey === 'loading_baseline') {
     // handled internally by reanchorCurrentHsdataPublishBaseline
@@ -98,11 +92,10 @@ export const reanchorTaskDefinition: TaskDefinition = {
       selectionAnchor: stage.selectionAnchor,
     };
   },
-  buildBlocks({ stage }: { run: TaskRunInput; stage: TaskStageState }): Iterable<TaskBlock> {
+  buildBlocks({ stage }: { run: TaskRunInput; stage: TaskStageState; taskRunId: string }): Iterable<TaskBlock> {
     return buildReanchorBlocks(stage);
   },
   async executeBlock(input) {
-    if (!currentStore || !currentTaskRunId) throw new Error('Reanchor execution context not set. Call setCurrentReanchorCtx first.');
-    await executeReanchorStageBlock(input, currentStore, currentTaskRunId);
+    await executeReanchorStageBlock(input);
   },
 };
