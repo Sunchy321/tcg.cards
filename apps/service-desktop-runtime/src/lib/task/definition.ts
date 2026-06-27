@@ -75,6 +75,7 @@ export interface TaskDefinition {
     run: TaskRunInput;
     stage: TaskStageState;
     resume: boolean;
+    taskRunId: string;
   }): Promise<TaskStageEntry> | TaskStageEntry;
   buildBlocks(input: {
     run: TaskRunInput;

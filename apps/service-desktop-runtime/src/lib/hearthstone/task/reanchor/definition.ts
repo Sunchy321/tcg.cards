@@ -82,7 +82,7 @@ export const reanchorTaskDefinition: TaskDefinition = {
   buildStagePlan(_input: TaskRunInput): TaskStagePlan[] {
     return reanchorStagePlans.map(s => ({ ...s }));
   },
-  prepareStageEntry({ stage }: { run: TaskRunInput; stage: TaskStageState; resume: boolean }): TaskStageEntry {
+  prepareStageEntry({ stage }: { run: TaskRunInput; stage: TaskStageState; resume: boolean; taskRunId: string }): TaskStageEntry {
     return {
       stageKey: stage.stageKey,
       stageIndex: stage.stageIndex,

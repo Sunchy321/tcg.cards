@@ -198,7 +198,7 @@ function onCreateError(_opKey: string, message: string) {
 
 // Save taskRunId whenever the controller starts/restores a task
 watch(controller, (ctrl) => {
-  if (!ctrl) return;
+  if (!ctrl?.currentTaskRunId) return;
   watch(() => ctrl.currentTaskRunId.value, (id) => {
     persistedTaskRunId = id;
     persistPublishPageState();

@@ -52,7 +52,7 @@ export const testWorkTaskDefinition: TaskDefinition = {
   buildStagePlan(_input: TaskRunInput): TaskStagePlan[] {
     return testWorkStagePlans.map(s => ({ ...s }));
   },
-  prepareStageEntry({ run, stage }: { run: TaskRunInput; stage: TaskStageState; resume: boolean }): TaskStageEntry {
+  prepareStageEntry({ run, stage }: { run: TaskRunInput; stage: TaskStageState; resume: boolean; taskRunId: string }): TaskStageEntry {
     const workload = (run.params.workload as number) ?? 100;
     return {
       stageKey: stage.stageKey,
@@ -67,7 +67,12 @@ export const testWorkTaskDefinition: TaskDefinition = {
     const workload = run.params.workload as number ?? 100;
     return buildTestWorkBlocks(stage, workload);
   },
-  executeBlock(_input: { run: TaskRunInput; stage: TaskStageState; block: TaskBlock; store: TaskExecuteStore; taskRunId: string }): Promise<void> {
-    return executeTestWorkBlock();
+  async executeBlock(input: { run: TaskRunInput; stage: TaskStageState; block: TaskBlock; store: TaskExecuteStore; taskRunId: string }): Promise<void> {
+    await executeTestWorkBlock();
+    const workload = (input.run.params.workload as number) ?? 100;
+    const total = stageItemCount(input.stage.stageKey, workload);
+    const match = input.block.blockKey.match(/item_(\d+)$/);
+    const done = match ? parseInt(match[1]!) : (total > 0 ? total : 0);
+    await input.store.updateStage(input.taskRunId, input.stage.stageKey, { done, total });
   },
 };

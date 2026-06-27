@@ -16,6 +16,8 @@ export interface TaskExecutorStore {
     runPatch: Record<string, unknown>,
     stagePatch: Record<string, unknown>,
   ): Promise<void>;
+  /** Publish the current task snapshot to event subscribers. Set by the executor. */
+  publishSnapshot?(): Promise<void>;
 }
 
 /** Describes the executor surface that drives one claimed task run. */
@@ -101,6 +103,13 @@ export function createTaskExecutor(store: TaskExecutorStore, publisher?: TaskEve
       const { run, stages } = snapshot;
       const taskRunId = run.id;
 
+      // Wire publishSnapshot so definitions can push events mid-block
+      if (!store.publishSnapshot && publisher) {
+        store.publishSnapshot = async () => {
+          await publishCurrentEvent(store, taskRunId, publisher);
+        };
+      }
+
       // Re-read the task run status to guard against races (cancel/pause between
       // scheduler read and executor start)
       const fresh = await store.getTaskRun(taskRunId);
@@ -118,7 +127,7 @@ export function createTaskExecutor(store: TaskExecutorStore, publisher?: TaskEve
         const stageState = stages[si]!;
         if (stageState.status === 'completed') continue;
 
-        const entry = await definition.prepareStageEntry({ run: runInput, stage: stageState, resume: isResume });
+        const entry = await definition.prepareStageEntry({ run: runInput, stage: stageState, resume: isResume, taskRunId });
 
         // Enter the stage atomically (single transaction)
         const stagePatch: Record<string, unknown> = {
@@ -148,10 +157,10 @@ export function createTaskExecutor(store: TaskExecutorStore, publisher?: TaskEve
         }
 
         await store.transitionStage(taskRunId, entry.stageKey, runPatch, stagePatch);
+        await publishCurrentEvent(store, taskRunId, publisher);
 
         // Generate and iterate blocks
         const blocks = definition.buildBlocks({ run: runInput, stage: { ...stageState, ...entry }, taskRunId });
-        let done = 0;
 
         for await (const block of blocks) {
           const result = await runBlock(store, taskRunId, runInput, stageState, block, definition);
@@ -171,18 +180,10 @@ export function createTaskExecutor(store: TaskExecutorStore, publisher?: TaskEve
             return;
           }
 
-          done++;
-          if (entry.progressMode !== 'simple') {
-            await store.updateStage(taskRunId, entry.stageKey, { done, total: entry.total });
-          }
           await publishCurrentEvent(store, taskRunId, publisher);
         }
 
-        const completePatch: Record<string, unknown> = { status: 'completed', finishedAt: new Date() };
-        if (entry.progressMode !== 'simple') {
-          completePatch.done = done;
-        }
-        await store.updateStage(taskRunId, entry.stageKey, completePatch);
+        await store.updateStage(taskRunId, entry.stageKey, { status: 'completed', finishedAt: new Date() });
         await publishCurrentEvent(store, taskRunId, publisher);
       }
 
