@@ -470,6 +470,21 @@ const normalizeExtraPayload = (entity: XmlElement) => {
   } satisfies JsonMap;
 };
 
+/** Resolves the dbfId for one entity from its ID attribute or falls back to 0. */
+const resolveEntityDbfId = (entity: XmlElement): number => {
+  const rawId = entity.attributes.ID;
+
+  if (rawId != null) {
+    const parsed = Number.parseInt(rawId, 10);
+
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+
+  return 0;
+};
+
 /** Builds one normalized entity snapshot from the parsed XML node tree. */
 const normalizeEntitySnapshot = (entity: XmlElement) => {
   const cardId = entity.attributes.CardID ?? '';
@@ -479,7 +494,7 @@ const normalizeEntitySnapshot = (entity: XmlElement) => {
 
   const snapshot: HsdataSnapshotInput = {
     cardId,
-    dbfId:            toInt(entity.attributes.ID, 'Entity.ID'),
+    dbfId:            resolveEntityDbfId(entity),
     entityXmlVersion: toInt(entity.attributes.version, 'Entity.version'),
     tags:             getElements(entity, 'Tag').map((tag, index) => normalizeRawTag(tag, index)),
     extraPayload:     normalizeExtraPayload(entity),

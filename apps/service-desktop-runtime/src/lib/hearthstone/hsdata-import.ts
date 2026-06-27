@@ -841,6 +841,34 @@ async function applyHsdataImport(
   },
 ): Promise<Omit<ImportHsdataReport, 'build' | 'dryRun' | 'skipped' | 'sourceHash' | 'sourceTag'>> {
   const allTags = input.parsed.entities.flatMap(entity => entity.tags);
+
+  // Build a cardId→dbfId map from the XML entities. Legacy entities without
+  // an ID attribute get dbfId=0 from the parser; try to resolve those from
+  // previously imported snapshots in the database.
+  const legacyCardIds = input.parsed.entities
+    .filter(e => e.dbfId === 0)
+    .map(e => e.cardId)
+    .filter(Boolean);
+
+  const dbDbfIdByCardId = legacyCardIds.length > 0
+    ? await tx
+        .select({ cardId: RawEntitySnapshot.cardId, dbfId: RawEntitySnapshot.dbfId })
+        .from(RawEntitySnapshot)
+        .where(inArray(RawEntitySnapshot.cardId, legacyCardIds))
+    : [];
+
+  const legacyDbfIdByCardId = new Map<string, number>(
+    dbDbfIdByCardId
+      .filter(row => row.dbfId > 0)
+      .map(row => [row.cardId, row.dbfId]),
+  );
+
+  for (const entity of input.parsed.entities) {
+    if (entity.dbfId === 0) {
+      entity.dbfId = legacyDbfIdByCardId.get(entity.cardId) ?? 0;
+    }
+  }
+
   const dbfIdByCardId = new Map(input.parsed.entities.map(entity => [entity.cardId, entity.dbfId]));
   const { existing, discovered, updated } = await importDiscoveredTags(
     tx,
