@@ -6,6 +6,8 @@ import type { ConsoleApiClientContext } from '@tcg-cards/console-platform';
 
 export const PLACEHOLDER_RPC_URL = 'http://desktop.invalid/rpc';
 
+const desktopRuntimeRpcUrl = 'http://localhost:4318';
+
 interface DesktopHttpResponse {
   body:    ArrayLike<number>;
   headers: Array<[string, string]>;
@@ -27,6 +29,25 @@ export async function authFetch(input: RequestInfo | URL, init?: RequestInit): P
 
   for (const [name, value] of new Headers(init?.headers).entries()) {
     mergedHeaders.set(name, value);
+  }
+
+  // Route RPC requests directly to the local Bun runtime so that
+  // local-only endpoints (e.g. hearthstone.set.*) are reachable.
+  // Falls back to Tauri when the local runtime does not serve the path.
+  if (path.startsWith('/rpc/')) {
+    const bodyText = init?.body != null
+      ? await readBody(init.body)
+      : await readRequestBody(request);
+
+    const localResponse = await fetch(`${desktopRuntimeRpcUrl}${path}`, {
+      method,
+      headers: mergedHeaders,
+      body: bodyText,
+    });
+
+    if (localResponse.status !== 404) {
+      return localResponse;
+    }
   }
 
   const headers = [...mergedHeaders.entries()];
