@@ -1030,13 +1030,18 @@ function guessValueKind(raw: DiscoveredTagInput, existing: ExistingTagSnapshot |
   return 'json';
 }
 
-/** Slugifies one raw tag name into a stable identifier. */
-function slugify(rawName: string | null, enumId: number) {
-  const base = rawName?.trim() || `tag_${enumId}`;
-  return base
+/** Slugifies one raw tag name into a stable identifier, avoiding duplicates. */
+function slugify(rawName: string | null, enumId: number, conflicts: ReadonlySet<string>) {
+  const base = (rawName?.trim() || `tag_${enumId}`)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_|_$/g, '');
+
+  if (!conflicts.has(base)) {
+    return base;
+  }
+
+  return `${base}_${enumId}`;
 }
 
 /** Builds one row_create commit representing the entire initial row state. */
@@ -1099,6 +1104,8 @@ export async function importDiscoveredTags(
   const discovered: number[] = [];
   let updated = 0;
 
+  const slugConflicts = new Set(existingRows.map(row => row.slug));
+
   const firstSeenByEnum = new Map<number, DiscoveredTagInput>();
   for (const tag of tags) {
     if (!firstSeenByEnum.has(tag.enumId)) {
@@ -1113,7 +1120,8 @@ export async function importDiscoveredTags(
 
     if (!row) {
       discovered.push(enumId);
-      const slug = slugify(input.rawName, enumId);
+      const slug = slugify(input.rawName, enumId, slugConflicts);
+      slugConflicts.add(slug);
 
       if (!dryRun) {
         // INSERT the tag row first
