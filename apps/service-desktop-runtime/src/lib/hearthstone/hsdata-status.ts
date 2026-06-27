@@ -5,7 +5,6 @@ import {
   RawEntitySnapshot,
   RawEntitySnapshotTag,
   SourceVersion,
-  TagValueView,
 } from '@tcg-cards/db/schema/local/hearthstone';
 
 import { getLocalDb } from './hsdata-local-db';
@@ -158,7 +157,6 @@ export const getLocalHsdataOverview = async () => {
     latestCompletedSourceVersion,
     rawSnapshotSummary,
     rawSnapshotTagSummary,
-    tagValueViewSummary,
   ] = await Promise.all([
     db.select({
       rows:       sql<number>`count(*)`,
@@ -188,11 +186,6 @@ export const getLocalHsdataOverview = async () => {
       distinctSnapshotCount: sql<number>`count(distinct ${RawEntitySnapshotTag.snapshotId})`,
       distinctEnumCount:     sql<number>`count(distinct ${RawEntitySnapshotTag.enumId})`,
     }).from(RawEntitySnapshotTag).then(rows => rows[0]),
-    db.select({
-      rows:                  sql<number>`count(*)`,
-      distinctSnapshotCount: sql<number>`count(distinct ${TagValueView.snapshotId})`,
-      distinctEnumCount:     sql<number>`count(distinct ${TagValueView.enumId})`,
-    }).from(TagValueView).then(rows => rows[0]),
   ]);
 
   return {
@@ -236,9 +229,9 @@ export const getLocalHsdataOverview = async () => {
       tagValueView: {
         name:                  'tag_value_view',
         kind:                  'view',
-        rows:                  tagValueViewSummary?.rows ?? 0,
-        distinctSnapshotCount: tagValueViewSummary?.distinctSnapshotCount ?? 0,
-        distinctEnumCount:     tagValueViewSummary?.distinctEnumCount ?? 0,
+        rows:                  rawSnapshotTagSummary?.rows ?? 0,
+        distinctSnapshotCount: rawSnapshotTagSummary?.distinctSnapshotCount ?? 0,
+        distinctEnumCount:     rawSnapshotTagSummary?.distinctEnumCount ?? 0,
       },
     },
   } satisfies HsdataOverview;
