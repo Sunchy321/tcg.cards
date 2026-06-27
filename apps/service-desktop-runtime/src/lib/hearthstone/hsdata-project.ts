@@ -2400,13 +2400,27 @@ async function loadExistingRowsForProjection(
   });
 }
 
-async function deleteBySourceIds(tx: DbTx, sourceIds: string[]) {
-  for (const chunk of chunkValues(sourceIds)) {
+/** Deletes one chunk of relation rows by their full composite key. */
+async function deleteRelationsByKey(tx: DbTx, rows: RelationRow[]) {
+  for (const chunk of chunkValues(rows)) {
     if (chunk.length === 0) {
       continue;
     }
 
-    await tx.delete(EntityRelation).where(inArray(EntityRelation.sourceId, chunk));
+    const placeholders = chunk.map((_, i) => {
+      const base = i * 4;
+      return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4})`;
+    }).join(', ');
+
+    const values: unknown[] = [];
+    for (const row of chunk) {
+      values.push(row.sourceId, row.relation, row.targetId, row.sourceRevisionHash);
+    }
+
+    await tx.session.client.unsafe(
+      `DELETE FROM hearthstone.entity_relations WHERE (source_id, relation, target_id, source_revision_hash) IN (${placeholders})`,
+      ...values,
+    );
   }
 }
 
@@ -3618,7 +3632,9 @@ async function insertRelations(tx: DbTx, rows: RelationRow[]) {
       continue;
     }
 
-    await tx.insert(EntityRelation).values(chunk as (typeof EntityRelation.$inferInsert)[]);
+    await tx.insert(EntityRelation)
+      .values(chunk)
+      .onConflictDoNothing();
   }
 }
 
@@ -4218,8 +4234,8 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
       skipLatestUpdate,
       entity: entityWriteBreakdown,
       localization: localizationWriteBreakdown,
-      relationDeleteCount: ignoreDuplicates ? 0 : existingRelations.length,
-      relationInsertCount: ignoreDuplicates ? targetRelations.length : relationResult.finalRows.length,
+      relationDeleteCount: ignoreDuplicates ? 0 : relationPlan.deleteRows.length,
+      relationInsertCount: ignoreDuplicates ? targetRelations.length : relationPlan.upsertRows.length,
       targetEntityCount: targetEntities.length,
       targetLocalizationCount: targetLocalizations.length,
       targetRelationCount: targetRelations.length,
@@ -4296,13 +4312,14 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
         if (entityPlan.deleted > 0) {
           await reportWriteProgress('Deleted obsolete entity rows from the shared tables', entityPlan.deleted, 'entityDelete');
         }
-        await deleteBySourceIds(tx, sourceIds);
+        if (relationPlan.deleteRows.length > 0) {
+          await deleteRelationsByKey(tx, relationPlan.deleteRows);
+        }
         profiler.mark('write_delete_relations', {
-          sourceCount: sourceIds.length,
-          deletedRowCount: existingRelations.length,
+          deletedRowCount: relationPlan.deleted,
         });
-        if (existingRelations.length > 0) {
-          await reportWriteProgress('Deleted stale relation rows for the projected source cards', existingRelations.length, 'relationDelete');
+        if (relationPlan.deleted > 0) {
+          await reportWriteProgress('Deleted stale relation rows for the projected source cards', relationPlan.deleted, 'relationDelete');
         }
       }
 
@@ -4350,14 +4367,14 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
       if (ignoreDuplicates) {
         await insertRelationsIgnoreDuplicates(tx, targetRelations);
       } else {
-        await insertRelations(tx, relationResult.finalRows);
+        await insertRelations(tx, relationPlan.upsertRows);
       }
       profiler.mark('write_insert_relations', {
-        rowCount: ignoreDuplicates ? targetRelations.length : relationResult.finalRows.length,
+        rowCount: ignoreDuplicates ? targetRelations.length : relationPlan.upsertRows.length,
       });
       await reportWriteProgress(
         'Wrote projected relation rows into the shared tables',
-        ignoreDuplicates ? targetRelations.length : relationResult.finalRows.length,
+        ignoreDuplicates ? targetRelations.length : relationPlan.upsertRows.length,
         'relation',
       );
 
