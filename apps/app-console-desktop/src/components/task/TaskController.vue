@@ -177,8 +177,12 @@ async function handleResume() {
 
 async function handleCancel() {
   if (!currentTaskRunId.value) return;
+  // Optimistically show canceling so the UI updates immediately
+  if (pageTask.value.kind === 'attached') {
+    pageTask.value = { ...pageTask.value, status: 'canceling' };
+  }
   await orpc.task.cancel({ taskRunId: currentTaskRunId.value });
-  // Event stream will update pageTask/stages
+  // Event stream will send final event when executor transitions to canceled
 }
 
 async function handleRetry() {

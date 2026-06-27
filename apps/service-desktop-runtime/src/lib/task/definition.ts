@@ -4,6 +4,7 @@ export type TaskEffectModel = 'atomic' | 'reconcilable';
 /** Minimal store surface needed by executeBlock. */
 export interface TaskExecuteStore {
   updateStage(taskRunId: string, stageKey: string, patch: Record<string, unknown>): Promise<TaskStageState>;
+  publishSnapshot?(): Promise<void>;
 }
 
 /** Describes the progress representation used by one stage. */

@@ -105,6 +105,7 @@ export const imageRequirementFile = z.strictObject({
 export const cardImageRequirementExportInput = z.strictObject({
   lang:        locale.default('zhs'),
   cardId:      z.string().trim().min(1).max(256).optional(),
+  renderHash:  z.string().trim().min(1).max(256).optional(),
   version:     z.int().positive().optional(),
   allVersions: z.boolean().optional(),
   zones:       z.array(imageZone).nonempty().default(['hand']),
@@ -113,6 +114,7 @@ export const cardImageRequirementExportInput = z.strictObject({
   limit:       z.int().positive().max(500).default(200),
   cursor:      z.string().trim().min(1).optional().nullable(),
   scanAll:     z.boolean().optional(),
+  outputMode:  z.enum(['import', 'download']).default('import'),
 });
 
 export const cardImageRequirementExportResult = z.strictObject({

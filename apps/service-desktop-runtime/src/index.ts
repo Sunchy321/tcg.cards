@@ -13,6 +13,7 @@ import { createTaskStore, createTaskScheduler, createTaskCleanup, registerTaskDe
 import { publishTaskDefinition } from './lib/hearthstone/task';
 import { testWorkTaskDefinition } from './lib/task/test-definition';
 import { reanchorTaskDefinition } from './lib/hearthstone/task/reanchor';
+import { imageRenderTaskDefinition } from './lib/hearthstone/task/image-render';
 
 /** Resolves the local listen port from the current process environment. */
 function readPort() {
@@ -55,6 +56,7 @@ const hono = new Hono();
 registerTaskDefinition(publishTaskDefinition);
 registerTaskDefinition(testWorkTaskDefinition);
 registerTaskDefinition(reanchorTaskDefinition);
+registerTaskDefinition(imageRenderTaskDefinition);
 
 // Startup cleanup + background scheduler
 import('./runtime-config').then(async ({ hasLocalDatabaseUrl }) => {

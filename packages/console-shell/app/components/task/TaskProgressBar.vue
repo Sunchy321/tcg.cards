@@ -39,6 +39,12 @@
     >
       <div class="h-full rounded-full bg-primary animate-pulse w-1/3" />
     </div>
+    <div
+      v-else-if="stage && stage.progressMode === 'simple'"
+      class="h-1.5 mt-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden opacity-50"
+    >
+      <div class="h-full rounded-full bg-primary animate-pulse w-full" />
+    </div>
     <!-- Counters row -->
     <div v-if="rightText || stage?.segments || stageTimeText" class="flex items-center justify-between mt-1 flex-wrap gap-x-4">
       <div v-if="rightText || stage?.segments" class="flex items-center gap-3 text-xs text-muted">

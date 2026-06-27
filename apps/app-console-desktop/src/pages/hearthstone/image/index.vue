@@ -61,384 +61,89 @@
 
       <div class="grid gap-4 xl:grid-cols-3">
         <div class="space-y-4 xl:col-span-2">
-          <UCard>
-            <template #header>
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-1.5">
-                  <span class="font-medium">导入规模与筛选条件</span>
-                  <UTooltip text="普通/金卡仅 hand.normal；钻石/异画需卡牌具备对应 mechanic；战棋仅 hand.battlegrounds.normal；对战区 play 暂不导出。">
-                    <UIcon name="i-lucide-info" class="size-3.5 cursor-help text-muted" />
-                  </UTooltip>
+          <TaskController
+            title="图片渲染"
+            :operations="operations"
+            @completed="onTaskCompleted"
+            @failed="onTaskFailed"
+          >
+            <template #title>
+              <div v-if="lastCounts != null" class="flex items-center gap-3 text-sm text-muted ml-auto">
+                <span>总数 <span class="font-mono font-semibold text-default">{{ lastCounts.total }}</span></span>
+                <span>已有 <span class="font-mono font-semibold text-success">{{ lastCounts.ready }}</span></span>
+                <span>缺失 <span class="font-mono font-semibold text-warning">{{ lastCounts.missing }}</span></span>
+              </div>
+            </template>
+
+            <template #params="{ disabled }">
+              <div class="space-y-4">
+                <UFormField label="导入规模" orientation="horizontal" :ui="{ root: '!justify-start' }">
+                  <UFieldGroup>
+                    <UButton v-for="item in scaleItems" :key="item.value" :label="item.label" :color="scale === item.value ? 'primary' : 'neutral'" :variant="scale === item.value ? 'solid' : 'outline'" size="sm" :disabled="disabled" @click="onScaleChange(item.value)" />
+                  </UFieldGroup>
+                </UFormField>
+                <div class="grid gap-4 md:grid-cols-3">
+                  <UFormField label="语言" orientation="horizontal" :ui="{ root: '!justify-start' }"><USelect v-model="form.lang" :items="langItems" class="w-40" :disabled="disabled" /></UFormField>
+                  <UFormField label="版本" orientation="horizontal" :ui="{ root: '!justify-start' }"><USelect v-model="form.version" :items="versionItems" class="w-40" :disabled="disabled" /></UFormField>
+                  <UFormField orientation="horizontal" :ui="{ root: '!justify-start' }">
+                    <template #label><span class="cursor-pointer select-none" @click="singleCardMode = singleCardMode === 'cardId' ? 'renderHash' : 'cardId'">{{ singleCardMode === 'cardId' ? 'Card ID' : 'Render Hash' }}</span></template>
+                    <UInput v-model="singleCardInput" :placeholder="singleCardMode === 'cardId' ? '输入 cardId...' : '输入 renderHash...'" :disabled="disabled || scale !== 'single'" class="flex-1" />
+                  </UFormField>
                 </div>
-                <div
-                  v-if="lastCounts != null"
-                  class="flex items-center gap-3 text-sm text-muted"
-                >
-                  <span>总数 <span class="font-mono font-semibold text-default">{{ lastCounts.total }}</span></span>
-                  <span>已有 <span class="font-mono font-semibold text-success">{{ lastCounts.ready }}</span></span>
-                  <span>缺失 <span class="font-mono font-semibold text-warning">{{ lastCounts.missing }}</span></span>
+                <div class="grid gap-4 md:grid-cols-3">
+                  <UFormField label="展示区域" orientation="horizontal" :ui="{ root: '!justify-start' }">
+                    <UFieldGroup>
+                      <UButton v-for="item in zoneItems" :key="item.value" :label="item.label" :color="item.disabled ? 'neutral' : form.zones.includes(item.value) ? 'primary' : 'neutral'" :variant="form.zones.includes(item.value) ? 'solid' : 'outline'" size="sm" :disabled="disabled || item.disabled === true" @click="toggleValue(form.zones, item.value)" />
+                    </UFieldGroup>
+                  </UFormField>
+                  <UFormField label="渲染模板" orientation="horizontal" :ui="{ root: '!justify-start' }">
+                    <UFieldGroup>
+                      <UButton v-for="item in templateItems" :key="item.value" :label="item.label" :color="form.templates.includes(item.value) ? 'primary' : 'neutral'" :variant="form.templates.includes(item.value) ? 'solid' : 'outline'" size="sm" :disabled="disabled" @click="toggleValue(form.templates, item.value)" />
+                    </UFieldGroup>
+                  </UFormField>
+                  <UFormField label="外观品质" orientation="horizontal" :ui="{ root: '!justify-start' }">
+                    <UFieldGroup>
+                      <UButton v-for="item in premiumItems" :key="item.value" :label="item.label" :color="form.premiums.includes(item.value) ? 'primary' : 'neutral'" :variant="form.premiums.includes(item.value) ? 'solid' : 'outline'" size="sm" :disabled="disabled" @click="toggleValue(form.premiums, item.value)" />
+                    </UFieldGroup>
+                  </UFormField>
+                </div>
+                <div class="grid gap-4 md:grid-cols-3">
+                  <div /><div />
+                  <UFormField label="单次导出数量" orientation="horizontal" :ui="{ root: '!justify-start' }">
+                    <UInput v-model="form.limit" type="number" inputmode="numeric" placeholder="默认500，最大2000" :disabled="disabled || scale === 'full'" class="w-40" />
+                  </UFormField>
                 </div>
               </div>
             </template>
 
-            <div class="space-y-4">
-              <UFormField label="导入规模" orientation="horizontal" :ui="{ root: '!justify-start' }">
-                <UFieldGroup>
-                  <UButton
-                    v-for="item in scaleItems"
-                    :key="item.value"
-                    :label="item.label"
-                    :color="scale === item.value ? 'primary' : 'neutral'"
-                    :variant="scale === item.value ? 'solid' : 'outline'"
-                    size="sm"
-                    @click="onScaleChange(item.value)"
-                  />
-                </UFieldGroup>
-              </UFormField>
+            <template #actions>
+              <UButton v-if="scale !== 'single'" label="计算总数" icon="i-lucide-hash" color="neutral" variant="soft" :loading="counting" :disabled="!hasImageConfig || counting" @click="countMatchingImages" />
+              <UButton label="渲染预览" icon="i-lucide-eye" color="primary" variant="soft" :loading="actionLoading === 'preview'" :disabled="!hasImageConfig || actionLoading !== null || scale !== 'single' || singleCardInput.trim().length === 0 || form.version === 'all'" @click="executeAction('preview')" />
+              <UButton :label="scale === 'batch' ? '导出请求文件' : '生成请求'" icon="i-lucide-code" color="primary" variant="soft" :loading="actionLoading === 'export'" :disabled="!hasImageConfig || actionLoading !== null || scale === 'full' || (scale === 'single' && singleCardInput.trim().length === 0)" @click="executeAction('export')" />
+            </template>
+          </TaskController>
 
-              <!-- Row 1: lang | version | single-card value -->
-              <div class="grid gap-4 md:grid-cols-3">
-                <UFormField label="语言" orientation="horizontal" :ui="{ root: '!justify-start' }">
-                  <USelect v-model="form.lang" :items="langItems" class="w-40" />
-                </UFormField>
-                <UFormField label="版本" orientation="horizontal" :ui="{ root: '!justify-start' }">
-                  <USelect v-model="form.version" :items="versionItems" class="w-40" />
-                </UFormField>
-                <UFormField orientation="horizontal" :ui="{ root: '!justify-start' }">
-                  <template #label>
-                    <span
-                      class="cursor-pointer select-none"
-                      @click="singleCardMode = singleCardMode === 'cardId' ? 'renderHash' : 'cardId'"
-                    >{{ singleCardMode === 'cardId' ? 'Card ID' : 'Render Hash' }}</span>
-                  </template>
-                  <UInput
-                    v-model="singleCardInput"
-                    :placeholder="singleCardMode === 'cardId' ? '输入 cardId...' : '输入 renderHash...'"
-                    :disabled="scale !== 'single'"
-                    class="flex-1"
-                  />
-                </UFormField>
-              </div>
+          <UAlert v-if="taskError" color="error" variant="soft" icon="i-lucide-circle-alert" class="mt-2">
+            <pre class="whitespace-pre-wrap text-xs select-all">{{ taskError }}</pre>
+          </UAlert>
 
-              <!-- Row 2: zones | templates | premiums -->
-              <div class="grid gap-4 md:grid-cols-3">
-                <UFormField label="展示区域" orientation="horizontal" :ui="{ root: '!justify-start' }">
-                  <UFieldGroup>
-                    <UButton
-                      v-for="item in zoneItems"
-                      :key="item.value"
-                      :label="item.label"
-                      :color="item.disabled ? 'neutral' : form.zones.includes(item.value) ? 'primary' : 'neutral'"
-                      :variant="form.zones.includes(item.value) ? 'solid' : 'outline'"
-                      size="sm"
-                      :disabled="item.disabled === true"
-                      @click="toggleValue(form.zones, item.value)"
-                    />
-                  </UFieldGroup>
-                </UFormField>
-                <UFormField label="渲染模板" orientation="horizontal" :ui="{ root: '!justify-start' }">
-                  <UFieldGroup>
-                    <UButton
-                      v-for="item in templateItems"
-                      :key="item.value"
-                      :label="item.label"
-                      :color="form.templates.includes(item.value) ? 'primary' : 'neutral'"
-                      :variant="form.templates.includes(item.value) ? 'solid' : 'outline'"
-                      size="sm"
-                      @click="toggleValue(form.templates, item.value)"
-                    />
-                  </UFieldGroup>
-                </UFormField>
-                <UFormField label="外观品质" orientation="horizontal" :ui="{ root: '!justify-start' }">
-                  <UFieldGroup>
-                    <UButton
-                      v-for="item in premiumItems"
-                      :key="item.value"
-                      :label="item.label"
-                      :color="form.premiums.includes(item.value) ? 'primary' : 'neutral'"
-                      :variant="form.premiums.includes(item.value) ? 'solid' : 'outline'"
-                      size="sm"
-                      @click="toggleValue(form.premiums, item.value)"
-                    />
-                  </UFieldGroup>
-                </UFormField>
-              </div>
-
-              <!-- Row 3: limit -->
-              <div class="grid gap-4 md:grid-cols-3">
-                <div />
-                <div />
-                <UFormField label="单次导出数量" orientation="horizontal" :ui="{ root: '!justify-start' }">
-                  <UInput
-                    v-model="form.limit"
-                    type="number"
-                    inputmode="numeric"
-                    placeholder="默认500，最大2000"
-                    :disabled="scale === 'full'"
-                    class="w-40"
-                  />
-                </UFormField>
-              </div>
-
-            <UAlert
-              v-if="jobError.length > 0"
-                color="error"
-                variant="soft"
-                icon="i-lucide-circle-alert"
-                :description="jobError"
-              />
-
-              <!-- Progress bar -->
-              <div
-                v-if="currentJob && !isJobTerminal"
-                class="space-y-3 rounded-lg border border-default p-4"
-              >
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <div class="font-medium text-sm">{{ phaseLabel }}</div>
-                    <UBadge :label="phaseBadgeColor" variant="soft" size="sm" />
-                    <UBadge
-                      v-if="isScanAll && currentJob.currentBatchIndex != null && currentJob.totalBatches != null"
-                      :label="`批次 ${currentJob.currentBatchIndex}/${currentJob.totalBatches}`"
-                      variant="soft"
-                      size="sm"
-                    />
-                  </div>
-                  <div class="text-xs text-muted">{{ progressCountText }}</div>
-                </div>
-
-                <div class="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    class="h-full rounded-full bg-primary transition-all duration-300"
-                    :style="{ width: `${jobProgressPercent}%` }"
-                  />
-                </div>
-
-                <div
-                  v-if="isScanAll && currentJob.overallTotalCount != null"
-                  class="space-y-1"
-                >
-                  <div class="flex items-center justify-between text-xs text-muted">
-                    <span>全量进度</span>
-                    <span>{{ overallProgressCountText }}</span>
-                  </div>
-                  <div class="h-1 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                      class="h-full rounded-full bg-emerald-500 transition-all duration-300"
-                      :style="{ width: `${overallProgressPercent}%` }"
-                    />
-                  </div>
-                </div>
-
-                <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
-                  <span>{{ elapsedText }}</span>
-                  <span v-if="jobEtaText.length > 0">{{ jobEtaText }}</span>
-                  <span v-if="currentJob.completedCount != null && currentJob.rejectedCount">
-                    rejected: {{ currentJob.rejectedCount }}
-                  </span>
-                  <span v-if="isScanAll && currentJob.overallRejectedCount != null && currentJob.overallRejectedCount > 0">
-                    全量 rejected: {{ currentJob.overallRejectedCount }}
-                  </span>
-                </div>
-
-                <div class="flex flex-wrap gap-2">
-                  <UButton
-                    v-if="isJobRunning"
-                    label="暂停"
-                    icon="i-lucide-pause"
-                    color="warning"
-                    variant="soft"
-                    size="sm"
-                    :loading="pausingJob"
-                    :disabled="pausingJob || stoppingJob"
-                    @click="pauseJob"
-                  />
-                  <UButton
-                    v-if="isJobPaused"
-                    label="继续"
-                    icon="i-lucide-play"
-                    color="success"
-                    variant="soft"
-                    size="sm"
-                    :loading="resumingJob"
-                    :disabled="resumingJob || stoppingJob"
-                    @click="resumeJob"
-                  />
-                  <UButton
-                    v-if="!isJobTerminal"
-                    label="停止"
-                    icon="i-lucide-square"
-                    color="error"
-                    variant="soft"
-                    size="sm"
-                    :loading="stoppingJob"
-                    :disabled="pausingJob || stoppingJob || resumingJob"
-                    @click="stopJob"
-                  />
-                </div>
-              </div>
-
-              <!-- Job alerts -->
-              <UAlert
-                v-if="currentJob && currentJob.phase === 'completed' && currentJob.outputMode !== 'download'"
-                color="success"
-                variant="soft"
-                icon="i-lucide-badge-check"
-              >
-                <template #description>
-                  <div>
-                    任务完成
-                    <span v-if="currentJob.writtenCount != null">，写入 {{ currentJob.writtenCount }} 个文件</span>
-                    <span v-if="currentJob.skippedCount">，跳过 {{ currentJob.skippedCount }} 个</span>
-                    <span v-if="isScanAll && currentJob.currentBatchIndex != null">
-                      ，共 {{ currentJob.currentBatchIndex }} 批次
-                    </span>
-                  </div>
-                </template>
-              </UAlert>
-
-              <UAlert
-                v-if="currentJob && currentJob.phase === 'completed' && currentJob.outputMode === 'download'"
-                color="success"
-                variant="soft"
-                icon="i-lucide-package-check"
-              >
-                <template #description>
-                  <span>打包完成
-                    <span v-if="currentJob.completedCount != null">，{{ currentJob.completedCount }} 个文件，已触发浏览器下载</span>
-                  </span>
-                </template>
-              </UAlert>
-
-              <UAlert
-                v-if="currentJob && currentJob.phase === 'failed'"
-                color="error"
-                variant="soft"
-                icon="i-lucide-circle-x"
-                :description="currentJob.errorMessage ?? '任务执行失败'"
-              />
-
-              <UAlert
-                v-if="currentJob && currentJob.phase === 'stopped'"
-                color="neutral"
-                variant="soft"
-                icon="i-lucide-circle-stop"
-              >
-                <template #description>
-                  <div>
-                    任务已停止
-                    <span v-if="currentJob.writtenCount != null">，写入 {{ currentJob.writtenCount }} 个文件</span>
-                    <span v-if="currentJob.rejectedCount">，失败 {{ currentJob.rejectedCount }} 个</span>
-                    <span v-if="isScanAll && currentJob.currentBatchIndex != null">
-                      ，共 {{ currentJob.currentBatchIndex }} 批次
-                    </span>
-                  </div>
-                </template>
-              </UAlert>
-
-              <!-- Export requests JSON display (single-card non-all only) -->
-              <div v-if="debugRequestResult" class="space-y-2">
-                <div class="flex flex-wrap items-center gap-2 text-xs text-muted">
-                  <span>{{ debugRequestResult.cardId }}</span>
-                  <UBadge :label="`set: ${debugRequestResult.set}`" variant="soft" size="xs" />
-                  <UBadge :label="`type: ${debugRequestResult.type}`" variant="soft" size="xs" />
-                  <UBadge :label="`techLevel: ${debugRequestResult.techLevel ?? '-'}`" variant="soft" size="xs" />
-                  <UBadge :label="`${debugRequestResult.variantCount} variant(s)`" variant="soft" size="xs" />
-                </div>
-
-                <div
-                  v-for="(req, index) in debugRequestResult.requests"
-                  :key="req.requestId"
-                  class="space-y-1"
-                >
-                  <div class="flex items-center justify-between">
-                    <div class="text-xs font-medium">
-                      {{ req.variant.zone }}.{{ req.variant.template }}.{{ req.variant.premium }}
-                    </div>
-                    <UButton
-                      :label="copiedIndex === index ? '已复制' : '复制'"
-                      :icon="copiedIndex === index ? 'i-lucide-check' : 'i-lucide-copy'"
-                      :color="copiedIndex === index ? 'success' : 'neutral'"
-                      variant="ghost"
-                      size="xs"
-                      @click="copyDebugRequest(index)"
-                    />
-                  </div>
-                  <pre class="max-h-48 overflow-auto rounded-lg border border-default bg-muted p-2 text-xs"><code>{{ formatDebugRequestJson(req) }}</code></pre>
-                </div>
-              </div>
-
-              <!-- Action buttons -->
-              <div class="flex flex-wrap justify-end gap-2">
-                <UButton
-                  v-if="(!currentJob || isJobTerminal) && scale !== 'single'"
-                  label="计算总数"
-                  icon="i-lucide-hash"
-                  color="neutral"
-                  variant="soft"
-                  :loading="counting"
-                  :disabled="!hasImageConfig || counting"
-                  @click="countMatchingImages"
-                />
-                <UButton
-                  v-if="!currentJob || isJobTerminal"
-                  label="渲染预览"
-                  icon="i-lucide-eye"
-                  color="primary"
-                  variant="soft"
-                  :loading="actionLoading === 'preview'"
-                  :disabled="!hasImageConfig || actionLoading !== null || scale !== 'single' || singleCardInput.trim().length === 0 || form.version === 'all'"
-                  @click="executeAction('preview')"
-                />
-                <UButton
-                  v-if="!currentJob || isJobTerminal"
-                  :label="scale === 'batch' ? '导出请求文件' : '生成请求'"
-                  icon="i-lucide-code"
-                  color="primary"
-                  variant="soft"
-                  :loading="actionLoading === 'export'"
-                  :disabled="!hasImageConfig || actionLoading !== null || scale === 'full' || (scale === 'single' && singleCardInput.trim().length === 0)"
-                  @click="executeAction('export')"
-                />
-                <UButton
-                  v-if="!currentJob || isJobTerminal"
-                  label="打包下载"
-                  icon="i-lucide-download"
-                  color="primary"
-                  variant="soft"
-                  :loading="actionLoading === 'download'"
-                  :disabled="!hasImageConfig || actionLoading !== null || scale === 'full' || (scale === 'single' && singleCardInput.trim().length === 0)"
-                  @click="executeAction('download')"
-                />
-                <UButton
-                  v-if="!currentJob || isJobTerminal"
-                  :label="scale === 'full' ? '全量渲染写入' : scale === 'batch' ? '批量渲染写入' : '渲染写入存储'"
-                  icon="i-lucide-play"
-                  color="primary"
-                  variant="soft"
-                  :loading="actionLoading === 'write'"
-                  :disabled="!hasImageConfig || actionLoading !== null || (scale === 'single' && singleCardInput.trim().length === 0)"
-                  @click="executeAction('write')"
-                />
-                <UButton
-                  v-if="currentJob && isJobTerminal"
-                  label="重新开始"
-                  icon="i-lucide-rotate-ccw"
-                  color="neutral"
-                  variant="soft"
-                  @click="resetJob"
-                />
-                <UButton
-                  v-if="currentJob && isJobTerminal && rejectedLogDir"
-                  label="打开拒收日志文件夹"
-                  icon="i-lucide-folder-open"
-                  color="neutral"
-                  variant="soft"
-                  @click="openRejectedLogFolder"
-                />
-              </div>
+          <!-- Export requests JSON display -->
+          <div v-if="debugRequestResult" class="space-y-2">
+            <div class="flex flex-wrap items-center gap-2 text-xs text-muted">
+              <span>{{ debugRequestResult.cardId }}</span>
+              <UBadge :label="`set: ${debugRequestResult.set}`" variant="soft" size="xs" />
+              <UBadge :label="`type: ${debugRequestResult.type}`" variant="soft" size="xs" />
+              <UBadge :label="`techLevel: ${debugRequestResult.techLevel ?? '-'}`" variant="soft" size="xs" />
+              <UBadge :label="`${debugRequestResult.variantCount} variant(s)`" variant="soft" size="xs" />
             </div>
-          </UCard>
+            <div v-for="(req, index) in debugRequestResult.requests" :key="req.requestId" class="space-y-1">
+              <div class="flex items-center justify-between">
+                <div class="text-xs font-medium">{{ req.variant.zone }}.{{ req.variant.template }}.{{ req.variant.premium }}</div>
+                <UButton :label="copiedIndex === index ? '已复制' : '复制'" :icon="copiedIndex === index ? 'i-lucide-check' : 'i-lucide-copy'" :color="copiedIndex === index ? 'success' : 'neutral'" variant="ghost" size="xs" @click="copyDebugRequest(index)" />
+              </div>
+              <pre class="max-h-48 overflow-auto rounded-lg border border-default bg-muted p-2 text-xs"><code>{{ formatDebugRequestJson(req) }}</code></pre>
+            </div>
+          </div>
         </div>
 
         <!-- Right column -->
@@ -503,7 +208,7 @@
                 <span class="ml-2 truncate font-mono text-default">{{ imageSettings.bucketDir ?? '-' }}</span>
               </div>
 
-              <UDivider class="my-1!" />
+              <USeparator class="my-1!" />
 
               <div class="flex items-center justify-between">
                 <span class="text-muted">配置状态</span>
@@ -540,11 +245,11 @@
                 {{ rendererHealthError }}
               </div>
 
-              <UDivider class="my-1!" />
+              <USeparator class="my-1!" />
 
-              <div class="flex items-center justify-between">
-                <span class="text-muted">筛选</span>
-                <span class="text-default">{{ summaryText }}</span>
+              <div class="flex items-center justify-between gap-2 overflow-hidden">
+                <span class="text-muted shrink-0">筛选</span>
+                <span class="text-default truncate text-right">{{ summaryText }}</span>
               </div>
             </div>
           </UCard>
@@ -557,9 +262,12 @@
 <script setup lang="ts">
 import type { ImagePremium, ImageTemplate, ImageZone } from '#model/hearthstone/schema/data/image';
 import type { Locale } from '#model/hearthstone/schema/basic';
+import type { TaskPageSnapshot } from '@tcg-cards/model/src/task';
+import type { TaskOperation } from '~/components/task/TaskController';
 
 import { useToast } from '@nuxt/ui/composables';
 import { getConsoleErrorMessage } from '@tcg-cards/console-core';
+import { orpc } from '~/lib/orpc';
 
 import { listLocalHsdataSourceVersions, type HsdataSourceVersionStatus } from '~/composables/useHsdataRepo';
 import { getDesktopHearthstoneImageSettings } from '~/composables/useDesktopSettings';
@@ -568,22 +276,14 @@ import {
   detectDesktopHearthstoneImageRenderer,
   downloadDesktopHearthstoneImageArchive,
   exportDesktopHearthstoneImageRequirements,
-  getCurrentDesktopHearthstoneImageJob,
   getDesktopHearthstoneImageArchive,
   openDesktopPath,
   triggerDownload,
   triggerJsonDownload,
-  pauseDesktopHearthstoneImageJob,
   previewDesktopHearthstoneImage,
-  resumeDesktopHearthstoneImageJob,
-  stopDesktopHearthstoneImageJob,
-  submitDesktopHearthstoneImageJob,
   submitDesktopHearthstoneReimportByRenderHash,
-  watchDesktopImageJobProgress,
   type DesktopDebugRenderRequestResult,
   type DesktopDownloadArchiveSyncResult,
-  type DesktopHearthstoneImageJob,
-  type DesktopImageJobProgressEvent,
   type DesktopPreviewRenderResult,
   type DesktopRendererHealthResult,
 } from '~/composables/useDesktopRuntimeClient';
@@ -679,17 +379,8 @@ const debugRequestError = ref('');
 const actionLoading = ref<ImageOutputType | null>(null);
 const loadingConfig = ref(false);
 const configError = ref('');
-const submittingJob = ref(false);
-const submittingScanAllJob = ref(false);
 const counting = ref(false);
-const pausingJob = ref(false);
-const stoppingJob = ref(false);
-const resumingJob = ref(false);
-const jobError = ref('');
-const currentJob = ref<DesktopHearthstoneImageJob | null>(null);
-const progressClockMs = ref(Date.now());
-let progressClockHandle: ReturnType<typeof setInterval> | null = null;
-let stopProgressStream: (() => void) | null = null;
+const pageError = ref('');
 const loadingRendererHealth = ref(false);
 const rendererHealthError = ref('');
 const rendererHealth = ref<DesktopRendererHealthResult | null>(null);
@@ -759,79 +450,74 @@ const rendererStatusText = computed(() => {
   return '就绪';
 });
 
-// ── Job derived state ──
+// ── TaskController ──
 
-const isScanAll = computed(() => currentJob.value?.filters?.scanAll === true);
+function buildTaskInput() {
+  const versionRaw = form.version.trim();
+  return {
+    lang: form.lang,
+    ...(versionRaw.length > 0 && versionRaw !== 'latest' && versionRaw !== 'all' ? { version: Number.parseInt(versionRaw, 10) } : {}),
+    ...(versionRaw === 'all' ? { allVersions: true } : {}),
+    zones: form.zones,
+    templates: form.templates,
+    premiums: form.premiums,
+    limit: Math.min(Number.parseInt(form.limit, 10) || 500, 500),
+  };
+}
 
-const isJobTerminal = computed(() => (
-  currentJob.value?.phase === 'completed' || currentJob.value?.phase === 'failed' || currentJob.value?.phase === 'stopped'
-));
+function buildSingleCardInput() {
+  const input = singleCardInput.value.trim();
+  if (!input) return {};
+  return singleCardMode.value === 'cardId' ? { cardId: input } : { renderHash: input };
+}
 
-const isJobPaused = computed(() => currentJob.value?.phase === 'paused');
+const operations: TaskOperation[] = [
+  {
+    key: 'render',
+    label: '渲染写入存储',
+    icon: 'i-lucide-download',
+    create: () => orpc.hearthstone.createTask.imageRender({
+      ...buildTaskInput(),
+      ...(scale.value === 'single' ? buildSingleCardInput() : {}),
+      scanAll: scale.value === 'full',
+    }) as Promise<TaskPageSnapshot>,
+  },
+  {
+    key: 'download',
+    label: '打包下载',
+    icon: 'i-lucide-archive',
+    color: 'warning',
+    create: () => orpc.hearthstone.createTask.imageDownload({
+      ...buildTaskInput(),
+      ...(scale.value === 'single' ? buildSingleCardInput() : {}),
+      scanAll: scale.value === 'full',
+    }) as Promise<TaskPageSnapshot>,
+  },
+];
 
-const isJobRunning = computed(() => (
-  currentJob.value != null && !isJobTerminal.value && !isJobPaused.value
-));
-
-watch(isJobTerminal, (terminal) => {
-  if (terminal && currentJob.value?.phase === 'completed') {
-    if (currentJob.value?.outputMode === 'download' && currentJob.value.downloadArchivePath) {
-      void (async () => {
-        try {
-          const archive = await getDesktopHearthstoneImageArchive(currentJob.value!.downloadArchivePath!);
-          triggerDownload(archive.base64Zip, archive.fileName);
-          toast.add({ title: '下载完成', description: archive.fileName, color: 'success' });
-        } catch { /* ignore */ }
-      })();
-    }
-    countMatchingImages();
+async function onTaskCompleted(snap: TaskPageSnapshot) {
+  if (snap.pageTask.kind === 'attached') {
+    // Check if this was a download task — try to get the archive
+    try {
+      const { archivePath, archiveName } = await orpc.image.getTaskArchive({ taskRunId: snap.pageTask.taskRunId });
+      if (archivePath && archiveName) {
+        const result = await orpc.image.getArchive({ filePath: archivePath });
+        triggerDownload(result.base64Zip, result.fileName);
+        toast.add({ title: '下载完成', description: result.fileName, color: 'success' });
+        return;
+      }
+    } catch { /* import task or no archive */ }
   }
-});
+  toast.add({ title: '渲染任务完成', color: 'success' });
+  countMatchingImages();
+}
 
-const phaseLabels: Record<string, string> = {
-  exporting_requirements:    '正在导出图片需求清单...',
-  submitting_renderer_job:   '正在渲染卡图...',
-  importing_local_bucket:    '正在导入本地 bucket...',
-  building_archive:          '正在打包 ZIP 文件...',
-  paused:                    '已暂停',
-  stopped:                   '已停止',
-  completed:                 '任务完成',
-  failed:                    '任务失败',
-};
+const taskError = ref('');
 
-const phaseLabel = computed(() => (
-  phaseLabels[currentJob.value?.phase ?? ''] ?? (currentJob.value?.phase ?? '')
-));
-
-const phaseBadgeColor = computed(() => {
-  const phase = currentJob.value?.phase;
-  if (phase === 'completed') return 'success';
-  if (phase === 'failed') return 'error';
-  if (phase === 'paused') return 'warning';
-  if (phase === 'stopped') return 'neutral';
-  return 'info';
-});
-
-const jobProgressPercent = computed(() => {
-  const total = currentJob.value?.totalCount;
-  const completed = currentJob.value?.completedCount;
-  if (total == null || total === 0 || completed == null) return 0;
-  return Math.min(100, Math.round((completed / total) * 100));
-});
-
-const overallProgressPercent = computed(() => {
-  const total = currentJob.value?.overallTotalCount;
-  const completed = currentJob.value?.overallCompletedCount;
-  if (total == null || total === 0 || completed == null) return 0;
-  return Math.min(100, Math.round((completed / total) * 100));
-});
-
-const overallProgressCountText = computed(() => {
-  const total = currentJob.value?.overallTotalCount;
-  const completed = currentJob.value?.overallCompletedCount;
-  if (total == null || completed == null) return '';
-  return `${completed} / ${total}`;
-});
+function onTaskFailed(_taskRunId: string, _errorCode: string | null, errorMessage: string | null) {
+  taskError.value = errorMessage ?? '未知错误';
+  toast.add({ title: '渲染任务失败', color: 'error' });
+}
 
 interface ImageCounts {
   total: number;
@@ -841,79 +527,11 @@ interface ImageCounts {
 
 const lastCounts = ref<ImageCounts | null>(null);
 
-const progressCountText = computed(() => {
-  const total = currentJob.value?.totalCount;
-  const completed = currentJob.value?.completedCount;
-  if (total == null || completed == null) return '';
-  return `${completed} / ${total}`;
-});
-
-const elapsedSeconds = computed(() => {
-  const started = currentJob.value?.startedAt;
-  if (!started) return 0;
-  return Math.max(0, Math.floor((progressClockMs.value - new Date(started).getTime()) / 1000));
-});
-
-const elapsedText = computed(() => {
-  const seconds = elapsedSeconds.value;
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
-  if (hours > 0) return `耗时 ${hours}h ${minutes}m ${secs}s`;
-  if (minutes > 0) return `耗时 ${minutes}m ${secs}s`;
-  return `耗时 ${secs}s`;
-});
-
-const jobEtaText = computed(() => {
-  if (isJobTerminal.value) return '';
-  const pct = jobProgressPercent.value;
-  if (pct <= 0) return '';
-  const elapsed = elapsedSeconds.value;
-  const total = Math.round(elapsed / (pct / 100));
-  const remaining = Math.max(0, total - elapsed);
-  const minutes = Math.floor(remaining / 60);
-  const secs = remaining % 60;
-  return `预计剩余 ${minutes}m ${secs}s`;
-});
-
-// ── Progress clock ──
-
-function startProgressClock() {
-  stopProgressClock();
-  progressClockMs.value = Date.now();
-  progressClockHandle = setInterval(() => {
-    progressClockMs.value = Date.now();
-  }, 500);
-}
-
-function stopProgressClock() {
-  if (progressClockHandle != null) {
-    clearInterval(progressClockHandle);
-    progressClockHandle = null;
-  }
-}
-
-// ── buildJobInput ──
-
-function buildJobInput(scanAll = false) {
-  const versionRaw = form.version.trim();
-  return {
-    lang:        form.lang,
-    ...(versionRaw.length > 0 && versionRaw !== 'latest' && versionRaw !== 'all' ? { version: Number.parseInt(versionRaw, 10) } : {}),
-    ...(versionRaw === 'all' ? { allVersions: true } : {}),
-    zones:       form.zones,
-    templates:   form.templates,
-    premiums:    form.premiums,
-    limit:       Math.min(Number.parseInt(form.limit, 10) || 500, 500),
-    scanAll,
-  };
-}
-
 // ── Action dispatcher ──
 
 async function executeAction(outputType: ImageOutputType) {
   actionLoading.value = outputType;
-  jobError.value = '';
+  pageError.value = '';
   previewResult.value = null;
   selectedPreviewIndex.value = 0;
   downloadResult.value = null;
@@ -930,7 +548,7 @@ async function executeAction(outputType: ImageOutputType) {
     }
   } catch (error) {
     console.error('Action failed:', error);
-    jobError.value = getConsoleErrorMessage(error, '操作失败');
+    pageError.value = getConsoleErrorMessage(error, '操作失败');
   } finally {
     actionLoading.value = null;
   }
@@ -973,34 +591,6 @@ async function executeSingleAction(outputType: ImageOutputType) {
     return;
   }
 
-  if (outputType === 'write') {
-    cleanupJobSubscription();
-
-    try {
-      const result = await submitDesktopHearthstoneReimportByRenderHash({
-        ...(singleCardMode.value === 'cardId' ? { cardId: input } : { renderHash: input }),
-        lang,
-        zones,
-        templates,
-        premiums,
-        ...(form.version === 'all' ? { allVersions: true } : {}),
-      });
-      currentJob.value = result.job;
-
-      if (!isJobTerminal.value) {
-        startProgressClock();
-        stopProgressStream = watchDesktopImageJobProgress(event => {
-          applyProgressEvent(currentJob.value, event);
-        });
-      } else {
-        stopProgressClock();
-      }
-    } catch (error) {
-      jobError.value = getConsoleErrorMessage(error, '任务提交失败');
-    }
-    return;
-  }
-
   if (outputType === 'export') {
     try {
       if (form.version === 'all' && singleCardMode.value === 'cardId') {
@@ -1033,62 +623,43 @@ async function executeSingleAction(outputType: ImageOutputType) {
 }
 
 async function executeBatchAction(outputType: ImageOutputType) {
-  if (outputType === 'download') {
-    cleanupJobSubscription();
-
-    const versionRaw = form.version.trim();
-    const result = await downloadDesktopHearthstoneImageArchive({
-      lang:        form.lang,
-      zones:       form.zones,
-      templates:   form.templates,
-      premiums:    form.premiums,
-      version:     versionRaw.length > 0 && versionRaw !== 'latest' && versionRaw !== 'all' ? Number.parseInt(versionRaw, 10) : undefined,
-      allVersions: versionRaw === 'all' ? true : undefined,
-      limit:       Math.min(Number.parseInt(form.limit, 10) || 500, 500),
-    });
-
-    if ('job' in result) {
-      currentJob.value = result.job;
-      if (!isJobTerminal.value) {
-        startProgressClock();
-        stopProgressStream = watchDesktopImageJobProgress(event => {
-          applyProgressEvent(currentJob.value, event);
-        });
-      }
-    } else {
-      triggerDownload(result.base64Zip, result.fileName);
-      downloadResult.value = result;
-    }
-    return;
-  }
-
-  if (outputType === 'write') {
-    await startJob(false);
-    return;
-  }
-
   if (outputType === 'export') {
-    const result = await exportDesktopHearthstoneImageRequirements(buildJobInput());
+    const versionRaw = form.version.trim();
+    const result = await exportDesktopHearthstoneImageRequirements({
+      lang: form.lang,
+      ...(versionRaw.length > 0 && versionRaw !== 'latest' && versionRaw !== 'all' ? { version: Number.parseInt(versionRaw, 10) } : {}),
+      ...(versionRaw === 'all' ? { allVersions: true } : {}),
+      zones: form.zones,
+      templates: form.templates,
+      premiums: form.premiums,
+      limit: Math.min(Number.parseInt(form.limit, 10) || 500, 500),
+    });
     triggerJsonDownload(JSON.parse(result.content), result.fileName);
     toast.add({ title: '生成完成', description: result.fileName, color: 'success' });
     return;
   }
 }
 
-async function executeFullAction(outputType: ImageOutputType) {
-  if (outputType === 'write') {
-    await startScanAllJob();
-    return;
-  }
+async function executeFullAction(_outputType: ImageOutputType) {
+  // full mode 'write' is handled by TaskController
 }
 
-// ── Job operations ──
+// ── Counting ──
 
 async function countMatchingImages() {
   counting.value = true;
   try {
-    const input = { ...buildJobInput(), scanAll: true };
-    const result = await exportDesktopHearthstoneImageRequirements(input);
+    const versionRaw = form.version.trim();
+    const result = await exportDesktopHearthstoneImageRequirements({
+      lang: form.lang,
+      ...(versionRaw.length > 0 && versionRaw !== 'latest' && versionRaw !== 'all' ? { version: Number.parseInt(versionRaw, 10) } : {}),
+      ...(versionRaw === 'all' ? { allVersions: true } : {}),
+      zones: form.zones,
+      templates: form.templates,
+      premiums: form.premiums,
+      limit: Math.min(Number.parseInt(form.limit, 10) || 500, 500),
+      scanAll: true,
+    });
     const missing = result.requestCount + result.remainingEstimate;
     lastCounts.value = {
       total: result.totalEstimate,
@@ -1100,160 +671,6 @@ async function countMatchingImages() {
   } finally {
     counting.value = false;
   }
-}
-
-async function startJob(scanAll = false) {
-  if (scanAll) {
-    submittingScanAllJob.value = true;
-  } else {
-    submittingJob.value = true;
-  }
-  jobError.value = '';
-  cleanupJobSubscription();
-
-  try {
-    const result = await submitDesktopHearthstoneImageJob(buildJobInput(scanAll));
-    currentJob.value = result.job;
-
-    if (!isJobTerminal.value) {
-      startProgressClock();
-      stopProgressStream = watchDesktopImageJobProgress(event => {
-        applyProgressEvent(currentJob.value, event);
-      });
-    } else {
-      stopProgressClock();
-    }
-  } catch (error) {
-    console.error('Failed to submit job:', error);
-    jobError.value = getConsoleErrorMessage(error, '任务提交失败');
-  } finally {
-    submittingJob.value = false;
-    submittingScanAllJob.value = false;
-  }
-}
-
-async function startScanAllJob() {
-  await startJob(true);
-}
-
-async function pauseJob() {
-  pausingJob.value = true;
-  try {
-    const result = await pauseDesktopHearthstoneImageJob();
-    applyProgressEvent(currentJob.value, result.job);
-  } catch (error) {
-    jobError.value = getConsoleErrorMessage(error, '暂停失败');
-  } finally {
-    pausingJob.value = false;
-  }
-}
-
-async function stopJob() {
-  stoppingJob.value = true;
-  try {
-    const result = await stopDesktopHearthstoneImageJob();
-    applyProgressEvent(currentJob.value, result.job);
-    stopProgressClock();
-  } catch (error) {
-    jobError.value = getConsoleErrorMessage(error, '停止失败');
-  } finally {
-    stoppingJob.value = false;
-  }
-}
-
-async function resumeJob() {
-  resumingJob.value = true;
-  try {
-    cleanupJobSubscription();
-    const result = await resumeDesktopHearthstoneImageJob();
-    currentJob.value = result.job;
-    if (!isJobTerminal.value) {
-      startProgressClock();
-      stopProgressStream = watchDesktopImageJobProgress(event => {
-        applyProgressEvent(currentJob.value, event);
-      });
-    }
-  } catch (error) {
-    jobError.value = getConsoleErrorMessage(error, '恢复失败');
-  } finally {
-    resumingJob.value = false;
-  }
-}
-
-async function syncCurrentJob() {
-  try {
-    const job = await getCurrentDesktopHearthstoneImageJob();
-    if (job) {
-      currentJob.value = job;
-      if (!isJobTerminal.value) {
-        startProgressClock();
-        stopProgressStream = watchDesktopImageJobProgress(event => {
-          applyProgressEvent(currentJob.value, event);
-        });
-      }
-    }
-  } catch { /* no-op */ }
-}
-
-function applyProgressEvent(
-  state: DesktopHearthstoneImageJob | null,
-  event: DesktopImageJobProgressEvent,
-) {
-  if (state == null) return;
-  state.phase = event.phase;
-  state.message = event.message;
-  state.phaseStartedAt = event.phaseStartedAt;
-  state.finishedAt = event.finishedAt;
-  state.completedCount = event.completedCount;
-  state.totalCount = event.totalCount;
-  state.writtenCount = event.writtenCount;
-  state.skippedCount = event.skippedCount;
-  state.rejectedCount = event.rejectedCount;
-  state.errorMessage = event.errorMessage;
-  state.rejectedLogPath = event.rejectedLogPath;
-  state.overallTotalCount = event.overallTotalCount;
-  state.overallCompletedCount = event.overallCompletedCount;
-  state.overallRejectedCount = event.overallRejectedCount;
-  state.currentBatchIndex = event.currentBatchIndex;
-  state.totalBatches = event.totalBatches;
-  state.downloadArchivePath = event.downloadArchivePath;
-  currentJob.value = { ...state };
-  if (isJobTerminal.value) stopProgressClock();
-}
-
-function cleanupJobSubscription() {
-  stopProgressClock();
-  if (stopProgressStream != null) {
-    stopProgressStream();
-    stopProgressStream = null;
-  }
-}
-
-const rejectedLogDir = computed(() => {
-  const path = currentJob.value?.rejectedLogPath;
-  if (!path) return null;
-  const separator = path.includes('\\') ? '\\' : '/';
-  return path.slice(0, path.lastIndexOf(separator));
-});
-
-async function openRejectedLogFolder() {
-  if (!rejectedLogDir.value) return;
-  try {
-    await openDesktopPath(rejectedLogDir.value);
-  } catch (error) {
-    console.error('Failed to open rejected log folder:', error);
-  }
-}
-
-function resetJob() {
-  cleanupJobSubscription();
-  currentJob.value = null;
-  jobError.value = '';
-  previewResult.value = null;
-  selectedPreviewIndex.value = 0;
-  downloadResult.value = null;
-  debugRequestResult.value = null;
-  debugRequestError.value = '';
 }
 
 // ── Settings & health ──
@@ -1395,7 +812,7 @@ function normalizeImagePageState(value: unknown): ImagePageState {
     zones:     Array.isArray(data.zones) ? data.zones.filter((z): z is ImageZone => typeof z === 'string') : defaults.zones,
     templates: Array.isArray(data.templates) ? data.templates.filter((t): t is ImageTemplate => typeof t === 'string') : defaults.templates,
     premiums:  Array.isArray(data.premiums) ? data.premiums.filter((p): p is ImagePremium => typeof p === 'string') : defaults.premiums,
-    limit:     typeof data.limit === 'string' && data.limit.length > 0 ? data.limit : defaults.limit,
+    limit:     (typeof data.limit === 'string' || typeof data.limit === 'number') ? String(data.limit) : defaults.limit,
     scale:     typeof data.scale === 'string' && ['single', 'batch', 'full'].includes(data.scale) ? data.scale as ImageScale : defaults.scale,
     singleCardMode: typeof data.singleCardMode === 'string' && ['cardId', 'renderHash'].includes(data.singleCardMode) ? data.singleCardMode as SingleCardMode : defaults.singleCardMode,
     singleCardInput: typeof data.singleCardInput === 'string' ? data.singleCardInput : defaults.singleCardInput,
@@ -1410,7 +827,7 @@ function persistImagePageState() {
       zones:     form.zones,
       templates: form.templates,
       premiums:  form.premiums,
-      limit:     form.limit,
+      limit:     String(form.limit),
       scale:     scale.value,
       singleCardMode: singleCardMode.value,
       singleCardInput: singleCardInput.value,
@@ -1465,16 +882,11 @@ onMounted(() => {
   void loadImageSettings();
   void loadVersionItems();
   void loadRendererHealth();
-  void syncCurrentJob();
 });
 
 onActivated(() => {
   void loadImageSettings();
   void loadVersionItems();
   void loadRendererHealth();
-});
-
-onUnmounted(() => {
-  cleanupJobSubscription();
 });
 </script>
