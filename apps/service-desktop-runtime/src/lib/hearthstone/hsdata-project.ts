@@ -2400,28 +2400,34 @@ async function loadExistingRowsForProjection(
   });
 }
 
-/** Deletes one chunk of relation rows by their full composite key. */
-async function deleteRelationsByKey(tx: DbTx, rows: RelationRow[]) {
-  for (const chunk of chunkValues(rows)) {
-    if (chunk.length === 0) {
-      continue;
-    }
-
-    const placeholders = chunk.map((_, i) => {
-      const base = i * 4;
-      return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4})`;
-    }).join(', ');
-
-    const values: unknown[] = [];
-    for (const row of chunk) {
-      values.push(row.sourceId, row.relation, row.targetId, row.sourceRevisionHash);
-    }
-
-    await tx.session.client.unsafe(
-      `DELETE FROM hearthstone.entity_relations WHERE (source_id, relation, target_id, source_revision_hash) IN (${placeholders})`,
-      ...values,
-    );
+/** Deletes relation rows by their full composite key via a temp table. */
+async function deleteRelationsByKey(tx: CopyTx, rows: RelationRow[]) {
+  if (rows.length === 0) {
+    return;
   }
+
+  await tx.session.client.unsafe(`
+    create temp table hsdata_projection_relation_delete_stage
+    on commit drop as
+    select
+      source_id,
+      relation,
+      target_id,
+      source_revision_hash
+    from hearthstone.entity_relations
+    with no data
+  `);
+
+  await copyRelationKeysIntoTable(tx, rows, 'hsdata_projection_relation_delete_stage');
+
+  await tx.session.client.unsafe(`
+    delete from hearthstone.entity_relations as target
+    using hsdata_projection_relation_delete_stage as stage
+    where target.source_id = stage.source_id
+      and target.relation = stage.relation
+      and target.target_id = stage.target_id
+      and target.source_revision_hash = stage.source_revision_hash
+  `);
 }
 
 /** Loads duplicate entity rows into a temp table, then inserts only missing primary keys into the shared table. */
@@ -2608,6 +2614,16 @@ function encodeLocalizationMetaCopyRow(row: LocalizationStateRow): string {
 function encodeRelationSourceIdCopyRow(sourceId: string): string {
   return [
     encodeCopyCsvField(sourceId),
+  ].join('\t') + '\n';
+}
+
+/** Renders one relation composite key into one COPY-compatible line for temp staging tables. */
+function encodeRelationKeyCopyRow(row: RelationRow): string {
+  return [
+    encodeCopyCsvField(row.sourceId),
+    encodeCopyCsvField(row.relation),
+    encodeCopyCsvField(row.targetId),
+    encodeCopyCsvField(row.sourceRevisionHash),
   ].join('\t') + '\n';
 }
 
@@ -3027,6 +3043,37 @@ async function copyRelationSourceIdsIntoTable(
 
   await pipeline(
     Readable.from(generateRelationSourceKeyCopyLines()),
+    writable,
+  );
+}
+
+/** Copies relation composite keys into one temp table ready for DELETE JOIN. */
+async function copyRelationKeysIntoTable(
+  tx: CopyTx,
+  rows: RelationRow[],
+  targetTable: string,
+) {
+  const writable = await tx.session.client.unsafe(`
+    copy ${targetTable} (
+      source_id,
+      relation,
+      target_id,
+      source_revision_hash
+    ) from stdin with (
+      format csv,
+      delimiter E'\\t',
+      null '\\N'
+    )
+  `).writable();
+
+  async function* generateRelationKeyCopyLines() {
+    for (const row of rows) {
+      yield encodeRelationKeyCopyRow(row);
+    }
+  }
+
+  await pipeline(
+    Readable.from(generateRelationKeyCopyLines()),
     writable,
   );
 }
@@ -4313,7 +4360,7 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
           await reportWriteProgress('Deleted obsolete entity rows from the shared tables', entityPlan.deleted, 'entityDelete');
         }
         if (relationPlan.deleteRows.length > 0) {
-          await deleteRelationsByKey(tx, relationPlan.deleteRows);
+          await deleteRelationsByKey(tx as CopyTx, relationPlan.deleteRows);
         }
         profiler.mark('write_delete_relations', {
           deletedRowCount: relationPlan.deleted,
