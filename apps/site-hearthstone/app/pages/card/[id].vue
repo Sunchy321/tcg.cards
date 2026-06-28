@@ -158,6 +158,31 @@
               >{{ $t(`hearthstone.legality.${status}`) }}</span>
             </div>
           </div>
+
+          <!-- Hashes -->
+          <div class="border-t pt-4 space-y-1 text-xs font-mono">
+            <div
+              class="flex items-center gap-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 cursor-pointer select-all"
+              @click="copyHash('revisionHash', data.revisionHash)"
+            >
+              <span class="shrink-0 w-24 text-gray-500 dark:text-gray-400">revision</span>
+              <span class="truncate">{{ data.revisionHash }}</span>
+            </div>
+            <div
+              class="flex items-center gap-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 cursor-pointer select-all"
+              @click="copyHash('localizationHash', data.localizationHash)"
+            >
+              <span class="shrink-0 w-24 text-gray-500 dark:text-gray-400">localization</span>
+              <span class="truncate">{{ data.localizationHash }}</span>
+            </div>
+            <div
+              class="flex items-center gap-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 cursor-pointer select-all"
+              @click="copyHash('renderHash', data.renderHash ?? '')"
+            >
+              <span class="shrink-0 w-24 text-gray-500 dark:text-gray-400">render</span>
+              <span class="truncate">{{ data.renderHash ?? '—' }}</span>
+            </div>
+          </div>
         </UCard>
       </div>
 
@@ -432,6 +457,15 @@ const copyTag = async (tag: string) => {
   try {
     await navigator.clipboard.writeText(tagName);
     toast.add({ title: t('hearthstone.card.tag-copied'), color: 'success' });
+  } catch {
+    // clipboard not available
+  }
+};
+
+const copyHash = async (label: string, hash: string) => {
+  try {
+    await navigator.clipboard.writeText(hash);
+    toast.add({ title: `${label} copied`, color: 'success' });
   } catch {
     // clipboard not available
   }
