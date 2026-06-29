@@ -161,6 +161,27 @@
 
           <!-- Hashes -->
           <div class="border-t pt-4 space-y-1 text-xs font-mono">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-sm text-gray-500 dark:text-gray-400">Card JSON</span>
+              <UButton
+                size="xs"
+                variant="outline"
+                icon="lucide:external-link"
+                :to="`/api/hearthstone/card?cardId=${data.cardId}&lang=${lang}&version=${version}`"
+                target="_blank"
+              >
+                Card
+              </UButton>
+              <UButton
+                size="xs"
+                variant="outline"
+                icon="lucide:external-link"
+                :to="`/api/hearthstone/render-model?cardId=${data.cardId}&lang=${lang}&version=${version}`"
+                target="_blank"
+              >
+                Render
+              </UButton>
+            </div>
             <div
               class="flex items-center gap-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 cursor-pointer select-all"
               @click="copyHash('revisionHash', data.revisionHash)"
