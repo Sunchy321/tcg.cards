@@ -230,6 +230,7 @@ interface ReconcileOptions<T extends { version: number[], isLatest: boolean }> {
   keyOf:            (row: T) => RowKey;
   groupKey:         (row: T) => string;
   stateOf:          (row: T) => string;
+  globalLatest:     number;
 }
 
 /** Local write profiler injected into projection helpers for sub-step timing. */
@@ -1446,21 +1447,10 @@ function cloneReconcileRow<T extends { version: number[], isLatest: boolean }>(r
 
 function recomputeLatest<T extends { version: number[], isLatest: boolean }>(
   rows: Map<RowKey, T>,
-  groupKey: (row: T) => string,
+  globalLatest: number,
 ) {
-  const latestByGroup = new Map<string, number>();
-
   for (const row of rows.values()) {
-    const maxVersion = Math.max(...row.version);
-    const current = latestByGroup.get(groupKey(row));
-    if (current == null || maxVersion > current) {
-      latestByGroup.set(groupKey(row), maxVersion);
-    }
-  }
-
-  for (const row of rows.values()) {
-    const latest = latestByGroup.get(groupKey(row));
-    row.isLatest = latest != null && row.version.includes(latest);
+    row.isLatest = row.version.includes(globalLatest);
   }
 }
 
@@ -1587,7 +1577,7 @@ async function reconcileRows<T extends { version: number[], isLatest: boolean }>
   }
 
   if (!options.skipLatestUpdate) {
-    recomputeLatest(finalByKey, options.groupKey);
+    recomputeLatest(finalByKey, options.globalLatest);
   }
 
   const finalRows = [...finalByKey.values()];
@@ -4119,12 +4109,18 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
 
   await reportSummarizeProgress('Reconciling projected rows against the shared tables');
 
+  const [maxBuildRow] = await db.select({ maxBuild: sql<number>`MAX(${SourceVersion.build})` })
+    .from(SourceVersion)
+    .where(eq(SourceVersion.projectionStatus, 'completed'));
+  const globalLatest = maxBuildRow?.maxBuild ?? sourceVersion.build;
+
   const entityResult = await reconcileRows(existingEntities, targetEntityStates, {
     build:            sourceVersion.build,
     skipLatestUpdate,
     keyOf:            entityKey,
     groupKey:         row => row.cardId,
     stateOf:          entityState,
+    globalLatest,
   }, reportSummarizeProgress, 'entity');
   profiler.mark('reconcile_entities', {
     insertedEntities: entityResult.inserted,
@@ -4139,6 +4135,7 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     keyOf:            localizationKey,
     groupKey:         localizationGroupKey,
     stateOf:          localizationState,
+    globalLatest,
   }, reportSummarizeProgress, 'localization');
   profiler.mark('reconcile_localizations', {
     insertedLocalizations: localizationResult.inserted,
@@ -4153,6 +4150,7 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     keyOf:            relationKey,
     groupKey:         row => row.sourceId,
     stateOf:          relationState,
+    globalLatest,
   }, reportSummarizeProgress, 'relation');
   profiler.mark('reconcile_relations', {
     insertedRelations: relationResult.inserted,
@@ -4492,6 +4490,15 @@ export async function recomputeLatestProjection(options?: {
 }> {
   const localDb = getLocalDb();
 
+  const [maxBuildRow] = await localDb.select({ maxBuild: sql<number>`MAX(${SourceVersion.build})` })
+    .from(SourceVersion)
+    .where(eq(SourceVersion.projectionStatus, 'completed'));
+  const globalLatest = maxBuildRow?.maxBuild;
+
+  if (globalLatest == null) {
+    throw new Error('No completed source versions found for isLatest recomputation.');
+  }
+
   const entityRows = await localDb.select().from(Entity);
   const entityByCardId = new Map<string, typeof entityRows>();
   for (const row of entityRows) {
@@ -4502,7 +4509,7 @@ export async function recomputeLatestProjection(options?: {
 
   options?.onProgress?.({
     phase: 'entity',
-    message: `Scanning ${entityByCardId.size} entity groups`,
+    message: `Scanning ${entityByCardId.size} entity groups (global latest build ${globalLatest})`,
     totalRowCount: entityByCardId.size,
     completedRowCount: 0,
     updatedCount: 0,
@@ -4511,9 +4518,8 @@ export async function recomputeLatestProjection(options?: {
   let entityUpdatedCount = 0;
   let entityCompleted = 0;
   for (const [, rows] of entityByCardId) {
-    const maxVersion = Math.max(...rows.flatMap(r => r.version));
     for (const row of rows) {
-      const latest = row.version.includes(maxVersion);
+      const latest = row.version.includes(globalLatest);
       if (row.isLatest !== latest) {
         await localDb.update(Entity)
           .set({ isLatest: latest })
@@ -4522,7 +4528,7 @@ export async function recomputeLatestProjection(options?: {
       }
     }
     entityCompleted += 1;
-    if (options?.onProgress && entityCompleted % 200 === 0) {
+    if (options?.onProgress && entityCompleted % 5000 === 0) {
       options.onProgress({
         phase: 'entity',
         message: `Updating entity isLatest (${entityCompleted}/${entityByCardId.size})`,
@@ -4563,9 +4569,8 @@ export async function recomputeLatestProjection(options?: {
   let localizationUpdatedCount = 0;
   let localizationCompleted = 0;
   for (const [, rows] of localizationByGroup) {
-    const maxVersion = Math.max(...rows.flatMap(r => r.version));
     for (const row of rows) {
-      const latest = row.version.includes(maxVersion);
+      const latest = row.version.includes(globalLatest);
       if (row.isLatest !== latest) {
         await localDb.update(EntityLocalization)
           .set({ isLatest: latest })
@@ -4579,7 +4584,7 @@ export async function recomputeLatestProjection(options?: {
       }
     }
     localizationCompleted += 1;
-    if (options?.onProgress && localizationCompleted % 200 === 0) {
+    if (options?.onProgress && localizationCompleted % 5000 === 0) {
       options.onProgress({
         phase: 'localization',
         message: `Updating localization isLatest (${localizationCompleted}/${localizationByGroup.size})`,
@@ -4635,7 +4640,7 @@ export async function recomputeLatestProjection(options?: {
       }
     }
     relationCompleted += 1;
-    if (options?.onProgress && relationCompleted % 200 === 0) {
+    if (options?.onProgress && relationCompleted % 5000 === 0) {
       options.onProgress({
         phase: 'relation',
         message: `Updating relation isLatest (${relationCompleted}/${relationBySourceId.size})`,
