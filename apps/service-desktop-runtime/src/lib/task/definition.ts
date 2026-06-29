@@ -44,6 +44,8 @@ export interface TaskStageState extends TaskStagePlan {
   done: number | null;
   startedAt: string | null;
   finishedAt: string | null;
+  /** May be set on updateStage calls to pass transient segments to event streams. */
+  segments?: { name: string; done: number; total: number }[] | null;
   resumeToken: Record<string, unknown> | null;
   selectionAnchor: Record<string, unknown> | null;
 }

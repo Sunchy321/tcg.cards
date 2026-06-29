@@ -92,6 +92,12 @@ const rpcHandler = new RPCHandler(router as any, {
   interceptors: [
     onError(error => {
       console.error('[orpc] error:', error);
+      const cause = (error as any)?.cause;
+      if (cause?.issues) {
+        for (const issue of cause.issues) {
+          console.error('[orpc] validation issue:', JSON.stringify(issue));
+        }
+      }
     }),
   ],
 });

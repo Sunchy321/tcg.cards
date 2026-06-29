@@ -72,6 +72,7 @@ export interface TaskStageUpdatePatch {
   done?: number | null;
   resumeToken?: Record<string, unknown> | null;
   selectionAnchor?: Record<string, unknown> | null;
+  segments?: { name: string; done: number; total: number }[] | null;
   startedAt?: Date | string | null;
   finishedAt?: Date | string | null;
 }
@@ -177,6 +178,7 @@ function toTaskStageState(row: typeof TaskStage.$inferSelect): TaskStageState {
     finishedAt: row.finishedAt?.toISOString() ?? null,
     resumeToken: row.resumeToken,
     selectionAnchor: row.selectionAnchor,
+    segments: row.segments ?? undefined,
   };
 }
 

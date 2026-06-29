@@ -79,7 +79,7 @@ function buildPageTask(snapshot: TaskRunSnapshot): TaskPageSnapshot['pageTask'] 
 
 /** Converts one framework stage state to the model TaskStage type. */
 function toTaskStageModel(stage: TaskRunSnapshot['stages'][number]): TaskStage {
-  return {
+  const model: TaskStage = {
     stageKey: stage.stageKey,
     stageIndex: stage.stageIndex,
     label: stage.label,
@@ -91,6 +91,10 @@ function toTaskStageModel(stage: TaskRunSnapshot['stages'][number]): TaskStage {
     startedAt: stage.startedAt,
     finishedAt: stage.finishedAt,
   };
+  if (stage.segments) {
+    model.segments = stage.segments;
+  }
+  return model;
 }
 
 /** Builds one full page snapshot from a framework task-run snapshot. */

@@ -1,3 +1,7 @@
+**NEVER make design decisions on your own. Always ask the user before deciding.**
+
+**NEVER revert design decisions previously made without the user's explicit request.**
+
 ## Code Style
 
 For code style (comments, frontend code, naming), see [docs/code-style.md](./docs/code-style.md).

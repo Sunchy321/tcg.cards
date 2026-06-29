@@ -13,11 +13,11 @@
         v-for="(seg, segIdx) in stage.segments"
         :key="seg.name"
         class="h-full transition-all duration-500 ease-out first:rounded-l-full last:rounded-r-full"
-        :class="segmentColor(segIdx)"
         :style="{ width: segmentsTotal > 0 ? `${seg.total / segmentsTotal * 100}%` : '0%' }"
       >
         <div
           class="h-full transition-all duration-500 ease-out"
+          :class="segmentColor(segIdx)"
           :style="{ width: seg.total > 0 ? `${Math.min(seg.done / seg.total * 100, 100)}%` : '0%' }"
         />
       </div>

@@ -10,7 +10,9 @@ import type {
   TaskStagePlan,
   TaskStageState,
 } from '#task/definition';
-import { and, eq, ne, or, asc, count, gt, inArray } from 'drizzle-orm';
+import { and, eq, ne, or, asc, count, gt, inArray, sql } from 'drizzle-orm';
+
+// const TEST_BUILD = 245096;
 import { createDb } from '@tcg-cards/db';
 import { PublishBaseline, PublishRowBaseline, PublishRowChangeLog, PublishBatchRow, PublishBatch, SourceVersion } from '@tcg-cards/db/schema/local/hearthstone';
 import { Entity as LocalEntity, EntityLocalization as LocalEntityLocalization, EntityRelation as LocalEntityRelation, Card as LocalCard } from '@tcg-cards/db/schema/local/hearthstone';
@@ -93,10 +95,11 @@ interface LoadingCtx {
   builds: number[];
   touchedKeys: Set<string>;
   processed: number;
-  done: boolean;
   stream: { publishTarget: string; environment: string; publishType: string };
   /** Full-scan cursor: (tableName → last cursor value). null = not started. undefined = table exhausted. */
-  scanCursors?: Map<string, string | null>;
+  scanCursors?: Map<TableName, string | null>;
+  tableTotals?: Record<TableName, number>;
+  tableProcessed?: Record<TableName, number>;
   dryRun: boolean;
 }
 
@@ -200,7 +203,7 @@ export function buildPublishTaskBlocks(stage: TaskStageState, taskRunId: string)
   if (stage.stageKey === 'loading_snapshots') {
     const loader = publishCtxMap.get(taskRunId)?.loader;
     if (!loader) return [{ blockKey: 'load:run', effectModel: 'reconcilable', payload: { stageKey: 'loading_snapshots' } }];
-    const n = Math.ceil(loader.totalRows / LOAD_CHUNK_SIZE);
+    const n = Math.ceil(loader.totalRows / LOAD_CHUNK_SIZE) + 4;
     if (n <= 1) return [{ blockKey: 'load:run', effectModel: 'reconcilable', payload: { stageKey: 'loading_snapshots', chunkIndex: 0 } }];
     return Array.from({ length: n }, (_, i) => ({
       blockKey: `load:chunk_${i + 1}`,
@@ -259,7 +262,7 @@ export async function executePublishStageBlock(input: {
     if (!rs) return;
 
     const tables: TableName[] = ['entities', 'entity_localizations', 'entity_relations', 'cards'];
-    let tableName: string | null = null;
+    let tableName: TableName | null = null;
     for (const tn of tables) { if (rs.scanCursors.get(tn) !== undefined) { tableName = tn; break; } }
     if (!tableName) { return; }
 
@@ -334,8 +337,57 @@ export async function executePublishStageBlock(input: {
   }
   if (stageKey === 'finalizing') {
     const ctx = publishCtxMap.get(input.taskRunId);
+    const loader = ctx?.loader;
+    if (loader) {
+      const c = loader.counts;
+      console.log(`[publish done] dryRun=${loader.dryRun} total=${c.totalRowCount} insert=${c.insertedRowCount} update=${c.updatedRowCount} delete=${c.deletedRowCount} unchanged=${c.unchangedRowCount} | entities=${c.entityRowCount} localizations=${c.localizationRowCount} relations=${c.relationRowCount} cards=${c.cardRowCount}`);
+      if (!loader.dryRun && ctx.batchId) {
+        const db = getLocalDb() as unknown as PublishDb;
+        const builds = [...new Set(loader.builds)].sort((l, r) => l - r);
+        const sourceVersionRows = await db.select({ sourceTag: SourceVersion.sourceTag, build: SourceVersion.build })
+          .from(SourceVersion)
+          .where(and(inArray(SourceVersion.build, builds as any), eq(SourceVersion.projectionStatus, 'completed' as any)));
+        const sourceTags = [...new Set(sourceVersionRows.filter(r => r.build != null).map(r => r.sourceTag))].sort((l, r) => l - r);
+        const range = {
+          sourceTagMin: sourceTags[0] ?? 0,
+          sourceTagMax: sourceTags[sourceTags.length - 1] ?? 0,
+          buildMin: builds[0] ?? 0,
+          buildMax: builds[builds.length - 1] ?? 0,
+        };
+        await db.insert(PublishBaseline).values({
+          publishTarget: loader.stream.publishTarget,
+          environment: loader.stream.environment,
+          publishType: loader.stream.publishType,
+          targetFingerprint: loader.stream.publishTarget,
+          batchId: ctx.batchId,
+          sourceTagMin: range.sourceTagMin,
+          sourceTagMax: range.sourceTagMax,
+          buildMin: range.buildMin,
+          buildMax: range.buildMax,
+          generationFingerprint: 'card-data-projector/v1',
+          generationOrder: 1 as any,
+          manifestHash: '',
+          totalRowCount: c.totalRowCount,
+          publishedAt: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }).onConflictDoUpdate({
+          target: [PublishBaseline.publishTarget, PublishBaseline.environment, PublishBaseline.publishType],
+          set: {
+            sourceTagMin: range.sourceTagMin,
+            sourceTagMax: range.sourceTagMax,
+            buildMin: range.buildMin,
+            buildMax: range.buildMax,
+            totalRowCount: c.totalRowCount,
+            publishedAt: new Date(),
+            updatedAt: new Date(),
+          } as any,
+        });
+      }
+    }
     if (ctx?.batchId) {
-      await getLocalDb().update(PublishBatch)
+      const db = getLocalDb();
+      await db.update(PublishBatch)
         .set({ status: 'completed' as any, completedAt: new Date() as any, updatedAt: new Date() })
         .where(eq(PublishBatch.id, ctx.batchId));
     }
@@ -354,7 +406,7 @@ async function executeLoadingChunk(
   const { store, taskRunId } = input;
   const ctx = publishCtxMap.get(taskRunId);
   const loader = ctx?.loader;
-  if (!loader || loader.done) return;
+  if (!loader) return;
 
   const plans: PlanEntry[] = [];
 
@@ -368,11 +420,20 @@ async function executeLoadingChunk(
     await flushPlans(getLocalDb() as unknown as PublishDb, loader.batchId, plans);
   }
 
-  if (loader.done) {
+  if (loader.processed >= loader.totalRows) {
     if (loader.dryRun) {
+      const c = loader.counts;
       store.updateStage(taskRunId, 'loading_snapshots', {
         done: loader.totalRows, total: loader.totalRows,
-        segments: segments(loader.counts),
+        segments: [
+          { name: 'insert', done: c.insertedRowCount, total: Math.max(c.insertedRowCount, 1) },
+          { name: 'update', done: c.updatedRowCount, total: Math.max(c.updatedRowCount, 1) },
+          { name: 'delete', done: c.deletedRowCount, total: Math.max(c.deletedRowCount, 1) },
+          { name: 'unchanged', done: c.unchangedRowCount, total: Math.max(c.unchangedRowCount, 1) },
+          { name: 'entities', done: c.entityRowCount, total: Math.max(c.entityRowCount, 1) },
+          { name: 'localizations', done: c.localizationRowCount, total: Math.max(c.localizationRowCount, 1) },
+          { name: 'cards', done: c.cardRowCount, total: Math.max(c.cardRowCount, 1) },
+        ],
       }).catch(() => {});
     } else {
       const db = getLocalDb() as unknown as PublishDb;
@@ -432,7 +493,13 @@ async function executeLoadingChunk(
 
   store.updateStage(taskRunId, 'loading_snapshots', {
     done: loader.processed, total: loader.totalRows,
-    segments: segments(loader.counts),
+    segments: loader.tableTotals && loader.tableProcessed
+      ? Object.entries(loader.tableTotals).map(([name, total]) => ({
+          name,
+          done: loader.tableProcessed![name as TableName]! ?? 0,
+          total,
+        }))
+      : segments(loader.counts),
   }).catch(() => {});
 }
 
@@ -491,25 +558,43 @@ async function processFullScanChunk(
   // Find active table
   let tableName: string | null = null;
   for (const tn of FULL_SCAN_TABLES) { if (cursors.get(tn) !== undefined) { tableName = tn; break; } }
-  if (!tableName) { loader.done = true; return; }
-
-  const tbl = tableName === 'entities' ? LocalEntity
-    : tableName === 'entity_localizations' ? LocalEntityLocalization
-    : tableName === 'entity_relations' ? LocalEntityRelation
-    : LocalCard;
-  const orderCol = tableName === 'entities' ? LocalEntity.cardId
-    : tableName === 'entity_localizations' ? LocalEntityLocalization.cardId
-    : tableName === 'entity_relations' ? LocalEntityRelation.sourceId
-    : LocalCard.cardId;
-  const propKey = tableName === 'entities' ? 'cardId'
-    : tableName === 'entity_localizations' ? 'cardId'
-    : tableName === 'entity_relations' ? 'sourceId'
-    : 'cardId';
+  if (!tableName) return;
 
   const cursor = cursors.get(tableName)!;
-  const qb = db.select().from(tbl).orderBy(asc(orderCol)).limit(LOAD_CHUNK_SIZE) as any;
-  if (cursor != null) qb.where((gt as any)(orderCol, cursor));
-  const rawRows: any[] = await qb;
+  let rawRows: any[];
+
+  if (tableName === 'entities') {
+    const tbl = LocalEntity;
+    rawRows = await db.select().from(tbl)
+      .where(/*and(
+        sql`${TEST_BUILD} = ANY(${tbl.version})`,
+        cursor == null ? undefined : or(gt(tbl.cardId, cursor.cardId), and(eq(tbl.cardId, cursor.cardId), gt(tbl.revisionHash, cursor.revisionHash))),
+      )*/
+        cursor == null ? undefined : or(gt(tbl.cardId, cursor.cardId), and(eq(tbl.cardId, cursor.cardId), gt(tbl.revisionHash, cursor.revisionHash)))
+      )
+      .orderBy(asc(tbl.cardId), asc(tbl.revisionHash)).limit(LOAD_CHUNK_SIZE) as any[];
+  } else if (tableName === 'entity_localizations') {
+    const tbl = LocalEntityLocalization;
+    rawRows = await db.select().from(tbl)
+      .where(/*and(
+        sql`${TEST_BUILD} = ANY(${tbl.version})`,
+        eq(tbl.lang, 'zhs'),
+        cursor == null ? undefined : or(gt(tbl.cardId, cursor.cardId), and(eq(tbl.cardId, cursor.cardId), gt(tbl.lang, cursor.lang)), and(eq(tbl.cardId, cursor.cardId), eq(tbl.lang, cursor.lang), gt(tbl.revisionHash, cursor.revisionHash)), and(eq(tbl.cardId, cursor.cardId), eq(tbl.lang, cursor.lang), eq(tbl.revisionHash, cursor.revisionHash), gt(tbl.localizationHash, cursor.localizationHash))),
+      )*/
+        cursor == null ? undefined : or(gt(tbl.cardId, cursor.cardId), and(eq(tbl.cardId, cursor.cardId), gt(tbl.lang, cursor.lang)), and(eq(tbl.cardId, cursor.cardId), eq(tbl.lang, cursor.lang), gt(tbl.revisionHash, cursor.revisionHash)), and(eq(tbl.cardId, cursor.cardId), eq(tbl.lang, cursor.lang), eq(tbl.revisionHash, cursor.revisionHash), gt(tbl.localizationHash, cursor.localizationHash)))
+      )
+      .orderBy(asc(tbl.cardId), asc(tbl.lang), asc(tbl.revisionHash), asc(tbl.localizationHash)).limit(LOAD_CHUNK_SIZE) as any[];
+  } else if (tableName === 'entity_relations') {
+    const tbl = LocalEntityRelation;
+    rawRows = await db.select().from(tbl)
+      .where(cursor == null ? undefined : or(gt(tbl.sourceId, cursor.sourceId), and(eq(tbl.sourceId, cursor.sourceId), gt(tbl.relation, cursor.relation)), and(eq(tbl.sourceId, cursor.sourceId), eq(tbl.relation, cursor.relation), gt(tbl.targetId, cursor.targetId)), and(eq(tbl.sourceId, cursor.sourceId), eq(tbl.relation, cursor.relation), eq(tbl.targetId, cursor.targetId), gt(tbl.sourceRevisionHash, cursor.sourceRevisionHash))))
+      .orderBy(asc(tbl.sourceId), asc(tbl.relation), asc(tbl.targetId), asc(tbl.sourceRevisionHash)).limit(LOAD_CHUNK_SIZE) as any[];
+  } else {
+    const tbl = LocalCard;
+    rawRows = await db.select().from(tbl)
+      .where(cursor == null ? undefined : gt(tbl.cardId, (cursor as Record<string, unknown>).cardId ?? cursor))
+      .orderBy(asc(tbl.cardId)).limit(LOAD_CHUNK_SIZE) as any[];
+  }
 
   if (rawRows.length === 0) { cursors.set(tableName, undefined!); return; }
 
@@ -524,10 +609,10 @@ async function processFullScanChunk(
     }
   }
 
-  cursors.set(tableName, String(rawRows[rawRows.length - 1][propKey]));
+  cursors.set(tableName, rawRows[rawRows.length - 1]);
   loader.builds = [...buildsSet];
   loader.processed += rawRows.length;
-  loader.done = !FULL_SCAN_TABLES.some(tn => cursors.get(tn) !== undefined);
+  if (loader.tableProcessed) loader.tableProcessed[tableName]! += rawRows.length;
 }
 
 /*
@@ -638,9 +723,16 @@ export const publishTaskDefinition: TaskDefinition = {
         total = Number(row!.count);
         isChangelog = total > 0;
       }
-      if (total === 0) {
-        const cnt = await Promise.all([db.select({ count: count() }).from(LocalEntity), db.select({ count: count() }).from(LocalEntityLocalization), db.select({ count: count() }).from(LocalEntityRelation), db.select({ count: count() }).from(LocalCard)]);
-        total = cnt.reduce((s, r) => s + Number(r[0]!.count), 0);
+      let tableTotals: Record<string, number> | undefined;
+      if (total === 0 || !isChangelog) {
+        const cnt = await Promise.all([
+          db.select({ count: count() }).from(LocalEntity)/*.where(sql`${TEST_BUILD} = ANY(${LocalEntity.version})`)*/,
+          db.select({ count: count() }).from(LocalEntityLocalization)/*.where(and(sql`${TEST_BUILD} = ANY(${LocalEntityLocalization.version})`, eq(LocalEntityLocalization.lang, 'zhs')))*/,
+          db.select({ count: count() }).from(LocalEntityRelation),
+          db.select({ count: count() }).from(LocalCard),
+        ]);
+        if (total === 0) total = cnt.reduce((s, r) => s + Number(r[0]!.count), 0);
+        tableTotals = { entities: Number(cnt[0]![0]!.count), 'entity_localizations': Number(cnt[1]![0]!.count), 'entity_relations': Number(cnt[2]![0]!.count), cards: Number(cnt[3]![0]!.count) };
       }
 
       const batchId = randomUUID();
@@ -648,9 +740,11 @@ export const publishTaskDefinition: TaskDefinition = {
         baselineRowHashes, previousManifestHash: baseline?.manifestHash ?? null, publishedAt,
         totalRows: total, isChangelog, batchId, range: null,
         counts: { totalRowCount: 0, changedRowCount: 0, insertedRowCount: 0, updatedRowCount: 0, deletedRowCount: 0, unchangedRowCount: 0, cardRowCount: 0, entityRowCount: 0, localizationRowCount: 0, relationRowCount: 0 },
-        builds: [], touchedKeys: new Set(), processed: 0, done: total === 0,
+        builds: [], touchedKeys: new Set(), processed: 0,
         stream,
         scanCursors: isChangelog ? undefined : new Map([['entities', null], ['entity_localizations', null], ['entity_relations', null], ['cards', null]]),
+        tableTotals,
+        tableProcessed: tableTotals ? { entities: 0, entity_localizations: 0, entity_relations: 0, cards: 0 } : undefined,
         dryRun: (run.params as any)?.dryRun === true,
       };
       getOrInitCtx(taskRunId).loader = loader;

@@ -1,0 +1,1 @@
+ALTER TABLE "task_stages" ADD COLUMN "segments" jsonb;
