@@ -1499,7 +1499,6 @@ async function finalizePublishBatchSuccess(
     generationOrder: GenerationOrder;
     counts: PublishBatchCounts;
     manifestHash: string;
-    plans: PublishBatchRowPlan[];
     publishedAt: Date;
   },
 ): Promise<void> {
@@ -1520,20 +1519,14 @@ async function finalizePublishBatchSuccess(
     publishedAt: input.publishedAt.toISOString(),
   };
 
-  for (const plan of input.plans) {
-    await db.update(PublishBatchRow)
-      .set({
-        status: plan.action === 'unchanged' ? 'skipped' : 'applied',
-        error: null,
-        appliedAt: input.publishedAt,
-        updatedAt: input.publishedAt,
-      })
-      .where(and(
-        eq(PublishBatchRow.batchId, input.batchId),
-        eq(PublishBatchRow.tableName, plan.tableName),
-        eq(PublishBatchRow.rowKey, plan.rowKey),
-      ));
-  }
+  const batchRows = await db.select({
+    tableName: PublishBatchRow.tableName,
+    rowKey:    PublishBatchRow.rowKey,
+    rowHash:   PublishBatchRow.rowHash,
+    action:    PublishBatchRow.action,
+  })
+    .from(PublishBatchRow)
+    .where(eq(PublishBatchRow.batchId, input.batchId));
 
   await db.update(PublishBatch)
     .set({
@@ -1563,22 +1556,24 @@ async function finalizePublishBatchSuccess(
     })
     .where(eq(PublishBatch.id, input.batchId));
 
-  const nextBaselineDeletes = input.plans
-    .filter(plan => plan.action === 'delete')
-    .map(plan => plan.rowKey);
+  const nextBaselineDeletes = batchRows
+    .filter(row => row.action === 'delete')
+    .map(row => row.rowKey);
 
   if (nextBaselineDeletes.length > 0) {
-    await db.delete(PublishRowBaseline)
-      .where(and(
-        eq(PublishRowBaseline.publishTarget, input.publishTarget),
-        eq(PublishRowBaseline.environment, input.environment),
-        eq(PublishRowBaseline.publishType, input.publishType),
-        inArray(PublishRowBaseline.rowKey, nextBaselineDeletes),
-      ));
+    for (const chunk of chunkValues(nextBaselineDeletes, 1000)) {
+      await db.delete(PublishRowBaseline)
+        .where(and(
+          eq(PublishRowBaseline.publishTarget, input.publishTarget),
+          eq(PublishRowBaseline.environment, input.environment),
+          eq(PublishRowBaseline.publishType, input.publishType),
+          inArray(PublishRowBaseline.rowKey, chunk),
+        ));
+    }
   }
 
-  for (const plan of input.plans) {
-    if (plan.action === 'delete') {
+  for (const row of batchRows) {
+    if (row.action === 'delete') {
       continue;
     }
 
@@ -1586,9 +1581,9 @@ async function finalizePublishBatchSuccess(
       publishTarget: input.publishTarget,
       environment: input.environment,
       publishType: input.publishType,
-      tableName: plan.tableName,
-      rowKey: plan.rowKey,
-      rowHash: plan.rowHash,
+      tableName: row.tableName,
+      rowKey: row.rowKey,
+      rowHash: row.rowHash,
       sourceBatchId: input.batchId,
       publishedAt: input.publishedAt,
       createdAt: input.publishedAt,
@@ -1603,7 +1598,7 @@ async function finalizePublishBatchSuccess(
           PublishRowBaseline.rowKey,
         ],
         set: {
-          rowHash: plan.rowHash,
+          rowHash: row.rowHash,
           sourceBatchId: input.batchId,
           publishedAt: input.publishedAt,
           updatedAt: input.publishedAt,
@@ -2968,7 +2963,6 @@ export async function executePublishBatch(
         relationRowCount: batch.relationRowCount,
       },
       manifestHash: batch.manifestHash,
-      plans: [],
       publishedAt,
     });
 
