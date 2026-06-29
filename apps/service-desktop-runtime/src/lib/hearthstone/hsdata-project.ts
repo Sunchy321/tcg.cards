@@ -1,3 +1,5 @@
+import canonicalize from 'canonicalize';
+
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -433,36 +435,8 @@ const localeMap: Record<string, string> = {
   zhTW: 'zht',
 };
 
-function toHex(hash: Uint8Array): string {
-  let hex = '';
-  for (let i = 0; i < hash.length; i++) {
-    hex += hash[i]!.toString(16).padStart(2, '0');
-  }
-  return hex;
-}
-
-function sha256(input: string): string {
-  return toHex(Bun.SHA256.hash(input) as Uint8Array);
-}
-
-function canonicalizeJson(value: unknown): string {
-  if (value == null) return 'null';
-  if (typeof value === 'string') return JSON.stringify(value);
-  if (typeof value === 'number' || typeof value === 'boolean') return JSON.stringify(value);
-
-  if (Array.isArray(value)) {
-    return `[${value.map(item => canonicalizeJson(item)).join(',')}]`;
-  }
-
-  const object = value as Record<string, unknown>;
-  const keys = Object.keys(object)
-    .filter(key => object[key] !== undefined)
-    .sort();
-  return `{${keys.map(key => `${JSON.stringify(key)}:${canonicalizeJson(object[key])}`).join(',')}}`;
-}
-
 function hashCanonicalJson(value: unknown): string {
-  return sha256(canonicalizeJson(value));
+  return Bun.SHA256.hash(canonicalize(value)!, 'hex') as string;
 }
 
 function chunkValues<T>(values: T[], size = 1000): T[][] {
@@ -1344,24 +1318,20 @@ function buildRevisionHashPayload(row: LocalizationlessEntityRow): JsonMap {
     faction:           row.faction,
     mechanics:         row.mechanics,
     referencedTags:    row.referencedTags,
-    textBuilderType:   row.textBuilderType,
-    changeType:        row.changeType,
   };
 }
 
 function buildLocalizationHashPayload(row: LocalizationlessLocalizationRow): JsonMap {
   return {
+    cardId:          row.cardId,
     lang:            row.lang,
     name:            row.name,
-    text:            row.text,
     richText:        row.richText,
-    displayText:     row.displayText,
     targetText:      row.targetText,
     textInPlay:      row.textInPlay,
     howToEarn:       row.howToEarn,
     howToEarnGolden: row.howToEarnGolden,
     flavorText:      row.flavorText,
-    locChangeType:   row.locChangeType,
   };
 }
 
@@ -1396,7 +1366,6 @@ function buildRenderModel(
     cardId: entity.cardId,
     lang:   localization.lang,
 
-    variant:         'normal',
     templateVersion: 'v1',
     assetVersion:    'v1',
 
@@ -1647,7 +1616,7 @@ async function reconcileRows<T extends { version: number[], isLatest: boolean }>
     const existingRM = existing != null ? (existing as Record<string, unknown>).renderModel : undefined;
     const targetRM = (row as Record<string, unknown>).renderModel;
     const renderModelCanonicalMismatch = targetRM != null
-      && (existingRM == null || canonicalizeJson(existingRM) !== canonicalizeJson(targetRM));
+      && (existingRM == null || canonicalize(existingRM) !== canonicalize(targetRM));
 
     if (currentState === previousState && !renderModelCanonicalMismatch) {
       continue;
@@ -3756,7 +3725,7 @@ function summarizeDiff<TE extends { version: number[]; isLatest: boolean }, TT e
     // The metadata-update path can set renderHash without renderModel, causing
     // hash match even when the stored model is stale. Check model content too.
     const renderModelSame = !opts.renderModelOf || !opts.existingRenderModelOf
-      || canonicalizeJson(opts.renderModelOf(t)) === canonicalizeJson(opts.existingRenderModelOf(e) ?? null);
+      || canonicalize(opts.renderModelOf(t)) === canonicalize(opts.existingRenderModelOf(e) ?? null);
     const renderReallySame = renderSame && renderModelSame;
 
     if (verSame && isLatestSame && renderReallySame) {

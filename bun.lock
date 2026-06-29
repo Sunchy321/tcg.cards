@@ -61,6 +61,7 @@
         "@tcg-cards/console-api": "workspace:*",
         "@tcg-cards/db": "workspace:*",
         "@tcg-cards/model": "workspace:*",
+        "canonicalize": "^3.0.0",
         "hono": "^4.10.5",
         "lodash-es": "^4.18.1",
         "saxes": "^6.0.0",
@@ -478,6 +479,7 @@
         "@tcg-cards/db": "workspace:*",
         "@tcg-cards/model": "workspace:*",
         "@types/node": "^22.0.0",
+        "canonicalize": "^3.0.0",
         "drizzle-orm": "^1.0.0-beta.22",
         "postgres": "^3.4.5",
       },
@@ -1793,6 +1795,8 @@
     "caniuse-api": ["caniuse-api@3.0.0", "", { "dependencies": { "browserslist": "^4.0.0", "caniuse-lite": "^1.0.0", "lodash.memoize": "^4.1.2", "lodash.uniq": "^4.5.0" } }, "sha512-bsTwuIg/BZZK/vreVTYYbSWoe2F+71P7K5QGEX+pT250DZbfU1MQ5prOKpPR+LL6uWKK3KMwMCAS74QB3Um1uw=="],
 
     "caniuse-lite": ["caniuse-lite@1.0.30001776", "", {}, "sha512-sg01JDPzZ9jGshqKSckOQthXnYwOEP50jeVFhaSFbZcOy05TiuuaffDOfcwtCisJ9kNQuLBFibYywv2Bgm9osw=="],
+
+    "canonicalize": ["canonicalize@3.0.0", "", { "bin": { "canonicalize": "bin/canonicalize.js" } }, "sha512-yYLfHyDMIXRyRqsKBRLX023riFLpXY2YOfdtqKXZRZy9qsfOJ9U+4F9YZL7MEzL5+ziN2x2nlBvY/Voi3EBljA=="],
 
     "chalk": ["chalk@4.1.2", "", { "dependencies": { "ansi-styles": "^4.1.0", "supports-color": "^7.1.0" } }, "sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA=="],
 

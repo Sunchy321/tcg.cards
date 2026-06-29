@@ -1,3 +1,4 @@
+import canonicalize from 'canonicalize';
 
 import { eq, inArray, sql } from 'drizzle-orm';
 
@@ -185,37 +186,8 @@ export interface ImportParsedHsdataInput {
   }) => void | Promise<void>;
 }
 
-function toHex(hash: Uint8Array): string {
-  let hex = '';
-  for (let i = 0; i < hash.length; i++) {
-    hex += hash[i]!.toString(16).padStart(2, '0');
-  }
-  return hex;
-}
-
-// Stable sha256 digest.
-function sha256(input: string): string {
-  return toHex(Bun.SHA256.hash(input) as Uint8Array);
-}
-
-// Deterministic JSON serialization for snapshot hashing.
-function canonicalizeJson(value: unknown): string {
-  if (value == null) return 'null';
-  if (typeof value === 'string') return JSON.stringify(value);
-  if (typeof value === 'number' || typeof value === 'boolean') return JSON.stringify(value);
-
-  if (Array.isArray(value)) {
-    return `[${value.map(item => canonicalizeJson(item)).join(',')}]`;
-  }
-
-  const object = value as Record<string, unknown>;
-  const keys = Object.keys(object).sort();
-  return `{${keys.map(key => `${JSON.stringify(key)}:${canonicalizeJson(object[key])}`).join(',')}}`;
-}
-
-// Hash of canonical JSON payloads.
 function hashCanonicalJson(value: unknown): string {
-  return sha256(canonicalizeJson(value));
+  return Bun.SHA256.hash(canonicalize(value)!, 'hex') as string;
 }
 
 // Snapshot hash payload reduced from one normalized entity.

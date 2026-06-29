@@ -79,7 +79,6 @@ describe('hearthstone image import helpers', () => {
       renderModel: {
         cardId:          'CORE_EXAMPLE_001',
         lang:            'zhs',
-        variant:         'normal',
         templateVersion: 'v1',
         assetVersion:    'v1',
         localization:    {

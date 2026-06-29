@@ -20,6 +20,7 @@
     "@tcg-cards/console-api": "workspace:*",
     "@tcg-cards/db": "workspace:*",
     "@tcg-cards/model": "workspace:*",
+    "canonicalize": "^3.0.0",
     "hono": "^4.10.5",
     "lodash-es": "^4.18.1",
     "saxes": "^6.0.0",

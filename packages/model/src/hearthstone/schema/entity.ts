@@ -76,7 +76,6 @@ export const renderModel = z.object({
     cardId: z.string(),
     lang:   locale,
 
-    variant:         z.string(),
     templateVersion: z.string(),
     assetVersion:    z.string(),
 

@@ -114,7 +114,6 @@ const mechanicIds = {
 const renderModel: RenderModel = {
   cardId:          'CORE_EXAMPLE_001',
   lang:            'zhs',
-  variant:         'normal',
   templateVersion: 'v1',
   assetVersion:    'v1',
   localization:    {
