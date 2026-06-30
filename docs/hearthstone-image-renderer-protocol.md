@@ -325,21 +325,32 @@ Hearthstone GAME_TAG enum IDs are used as keys to avoid slug-name instability ac
 
 | Key (string) | GAME_TAG | Slug | Description |
 |-------------|----------|------|-------------|
+| `"2"` | DATA_NUM_1 | `data-num-1` | {0} replacement |
+| `"3"` | DATA_NUM_2 | `data-num-2` | {1} replacement |
 | `"682"` | HIDE_HEALTH | `hide-health` | Suppress health value display on the rendered card |
 | `"683"` | HIDE_ATTACK | `hide-attack` | Suppress attack value display on the rendered card |
 | `"684"` | HIDE_COST | `hide-cost` | Suppress mana cost display on the rendered card |
+| `"955"` | USE_ALTERNATE_CARD_TEXT | `use-alternate-card-text` | Select N-th alternate text segment (split by `@`) |
 | `"1107"` | HIDE_WATERMARK | `hide-watermark` | Suppress class watermark on the rendered card |
+| `"1671"` | LETTUCE_PASSIVE_ABILITY | `lettuce-passive-ability` | Mercenary ability is passive |
+| `"1676"` | LETTUCE_ABILITY_SUMMONED_MINION | `lettuce-ability-summoned-minion` | Mercenary ability summons a minion |
 | `"1720"` | TRADEABLE | `tradeable` | Card has the tradeable mechanic |
 | `"1824"` | IN_MINI_SET | `in-mini-set` | Card belongs to the current mini-set |
-| `"2785"` | FORGE | `forge` | Card has the forge mechanic |
-| `"4503"` | TIMEWARPED | `timewarped` | Card has the Battlegrounds timewarped mechanic |
-| `"1676"` | LETTUCE_ABILITY_SUMMONED_MINION | `lettuce-ability-summoned-minion` | Mercenary ability summons a minion |
+| `"1852"` | LETTUCE_MERCENARY_EXPERIENCE | `lettuce-mercenary-experience` | Mercenary experience (converted to level) |
 | `"1855"` | LETTUCE_EQUIPMENT | `lettuce-equipment` | Mercenary card is an equipment |
+| `"2170"` | LETTUCE_IS_TREASURE_CARD | `lettuce-is-treasure-card` | Mercenary card is a treasure |
 | `"2493"` | LETTUCE_ABILITY_TIER | `lettuce-ability-tier` | Mercenary ability tier (1–3) |
 | `"2494"` | LETTUCE_EQUIPMENT_TIER | `lettuce-equipment-tier` | Mercenary equipment tier (1–4) |
-| `"1671"` | LETTUCE_PASSIVE_ABILITY | `lettuce-passive-ability` | Mercenary ability is passive |
-| `"1852"` | LETTUCE_MERCENARY_EXPERIENCE | `lettuce-mercenary-experience` | Mercenary experience (converted to level) |
-| `"2170"` | LETTUCE_IS_TREASURE_CARD | `lettuce-is-treasure-card` | Mercenary card is a treasure |
+| `"2785"` | FORGE | `forge` | Card has the forge mechanic |
+| `"2889"` | DATA_NUM_3 | `data-num-3` | {2} replacement |
+| `"2890"` | CARD_NAME_DATA_1 | `card-name-data-1` | Card name {0} replacement |
+| `"2919"` | DATA_NUM_4 | `data-num-4` | {3} replacement |
+| `"2920"` | DATA_NUM_5 | `data-num-5` | {4} replacement |
+| `"2921"` | DATA_NUM_6 | `data-num-6` | {5} replacement (optional CardDBID reference) |
+| `"4354"` | PREPARE | `prepare` | Card has the prepare mechanic |
+| `"4503"` | TIMEWARPED | `timewarped` | Card has the Battlegrounds timewarped mechanic |
+| `"4519"` | BACON_ALT_TAVERN_SYSTEM_ACTIVE | `bacon-alt-tavern-system-active` | Timewarped tavern system active |
+| `"4579"` | HAS_TIMEWARPED_TAVERN_ALT_TEXT | `has-timewarped-tavern-alt-text` | Timewarped alt text index |
 
 ## Functional Requirements
 

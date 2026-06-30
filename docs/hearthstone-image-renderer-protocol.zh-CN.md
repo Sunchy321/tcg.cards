@@ -325,21 +325,32 @@
 
 | Key (string) | GAME_TAG | Slug | 说明 |
 |-------------|----------|------|------|
+| `"2"` | DATA_NUM_1 | `data-num-1` | {0} 替换 |
+| `"3"` | DATA_NUM_2 | `data-num-2` | {1} 替换 |
 | `"682"` | HIDE_HEALTH | `hide-health` | 在渲染卡面上隐藏生命值 |
 | `"683"` | HIDE_ATTACK | `hide-attack` | 在渲染卡面上隐藏攻击力 |
 | `"684"` | HIDE_COST | `hide-cost` | 在渲染卡面上隐藏法力值消耗 |
+| `"955"` | USE_ALTERNATE_CARD_TEXT | `use-alternate-card-text` | @ 分隔选第 N 段可选文本 |
 | `"1107"` | HIDE_WATERMARK | `hide-watermark` | 在渲染卡面上隐藏职业水印 |
+| `"1671"` | LETTUCE_PASSIVE_ABILITY | `lettuce-passive-ability` | 佣兵技能为被动 |
+| `"1676"` | LETTUCE_ABILITY_SUMMONED_MINION | `lettuce-ability-summoned-minion` | 佣兵技能召唤随从 |
 | `"1720"` | TRADEABLE | `tradeable` | 卡牌具有可交易机制 |
 | `"1824"` | IN_MINI_SET | `in-mini-set` | 卡牌属于迷你系列 |
-| `"2785"` | FORGE | `forge` | 卡牌具有锻造机制 |
-| `"4503"` | TIMEWARPED | `timewarped` | 卡牌具有酒馆战棋时空扭曲机制 |
-| `"1676"` | LETTUCE_ABILITY_SUMMONED_MINION | `lettuce-ability-summoned-minion` | 佣兵技能召唤随从 |
+| `"1852"` | LETTUCE_MERCENARY_EXPERIENCE | `lettuce-mercenary-experience` | 佣兵经验值（转为等级显示） |
 | `"1855"` | LETTUCE_EQUIPMENT | `lettuce-equipment` | 佣兵卡牌为装备 |
+| `"2170"` | LETTUCE_IS_TREASURE_CARD | `lettuce-is-treasure-card` | 佣兵卡牌为宝藏 |
 | `"2493"` | LETTUCE_ABILITY_TIER | `lettuce-ability-tier` | 佣兵技能等级（1–3） |
 | `"2494"` | LETTUCE_EQUIPMENT_TIER | `lettuce-equipment-tier` | 佣兵装备等级（1–4） |
-| `"1671"` | LETTUCE_PASSIVE_ABILITY | `lettuce-passive-ability` | 佣兵技能为被动 |
-| `"1852"` | LETTUCE_MERCENARY_EXPERIENCE | `lettuce-mercenary-experience` | 佣兵经验值（转为等级显示） |
-| `"2170"` | LETTUCE_IS_TREASURE_CARD | `lettuce-is-treasure-card` | 佣兵卡牌为宝藏 |
+| `"2785"` | FORGE | `forge` | 卡牌具有锻造机制 |
+| `"2889"` | DATA_NUM_3 | `data-num-3` | {2} 替换 |
+| `"2890"` | CARD_NAME_DATA_1 | `card-name-data-1` | 卡名 {0} 替换 |
+| `"2919"` | DATA_NUM_4 | `data-num-4` | {3} 替换 |
+| `"2920"` | DATA_NUM_5 | `data-num-5` | {4} 替换 |
+| `"2921"` | DATA_NUM_6 | `data-num-6` | {5} 替换，可选 CardDBID 引用 |
+| `"4354"` | PREPARE | `prepare` | 卡牌具有预备机制 |
+| `"4503"` | TIMEWARPED | `timewarped` | 卡牌具有酒馆战棋时空扭曲机制 |
+| `"4519"` | BACON_ALT_TAVERN_SYSTEM_ACTIVE | `bacon-alt-tavern-system-active` | 是否时空扭曲酒馆 |
+| `"4579"` | HAS_TIMEWARPED_TAVERN_ALT_TEXT | `has-timewarped-tavern-alt-text` | 时空扭曲下 alt text 索引 |
 
 ## 功能约束
 

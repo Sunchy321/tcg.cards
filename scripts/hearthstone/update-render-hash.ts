@@ -21,7 +21,7 @@
  * Reads DATABASE_URL and BUCKET_DIR from the environment.
  *
  * Usage:
- *   bun --env-file=scripts/.env run scripts/hearthstone/update-render-hash.ts --id=<enumId> [--dry-run]
+ *   bun --env-file=scripts/.env run scripts/hearthstone/update-render-hash.ts --id=<enumId> [--id=<enumId2> ...] [--dry-run]
  *   bun --env-file=scripts/.env run scripts/hearthstone/update-render-hash.ts --id=<enumId> --rename-from=<oldId> [--dry-run]
  */
 
@@ -31,7 +31,7 @@ import { unlink } from 'node:fs/promises';
 import { sql, eq, and, inArray } from 'drizzle-orm';
 
 import { getDb } from '../lib/db';
-import { parseArg, isDryRun } from '../lib/args';
+import { parseArg, parseArgs, isDryRun } from '../lib/args';
 import { hashCanonicalJson } from '../lib/hash';
 import { Entity, EntityLocalization } from '@tcg-cards/db/schema/shared/hearthstone/entity';
 import { CardImageAsset } from '@tcg-cards/db/schema/shared/hearthstone/card-image';
@@ -192,14 +192,15 @@ async function findRenameTasks(db: ReturnType<typeof getDb>, mechanicId: string,
 }
 
 async function main() {
-  const id = parseArg('--id=');
   const renameFrom = parseArg('--rename-from=');
   const dryRun = isDryRun();
   const bucketDir = process.env.BUCKET_DIR || null;
 
-  if (!id) {
+  const ids = parseArgs('--id=');
+
+  if (ids.length === 0) {
     console.error('Usage:');
-    console.error('  bun --env-file=scripts/.env run scripts/hearthstone/update-render-hash.ts --id=<enumId> [--dry-run]');
+    console.error('  bun --env-file=scripts/.env run scripts/hearthstone/update-render-hash.ts --id=<enumId> [--id=<enumId2> ...] [--dry-run]');
     console.error('  bun --env-file=scripts/.env run scripts/hearthstone/update-render-hash.ts --id=<enumId> --rename-from=<oldId> [--dry-run]');
     process.exit(1);
   }
@@ -210,14 +211,28 @@ async function main() {
     console.log('[DRY RUN] No changes will be written.\n');
   }
 
-  let updates: UpdateTask[];
+  let allUpdates: UpdateTask[] = [];
 
   if (renameFrom) {
+    const id = ids[0]!;
     console.log(`Mechanic: rename "${renameFrom}" -> "${id}"`);
-    updates = await findRenameTasks(db, id, renameFrom);
+    allUpdates = await findRenameTasks(db, id, renameFrom);
   } else {
-    console.log(`Mechanic: enum ID=${id}`);
-    updates = await findAddTasks(db, id);
+    console.log(`Mechanics: ${ids.join(', ')}\n`);
+    for (const id of ids) {
+      const updates = await findAddTasks(db, id);
+      allUpdates.push(...updates);
+    }
+  }
+
+  // Deduplicate by composite key
+  const seen = new Set<string>();
+  const updates: UpdateTask[] = [];
+  for (const u of allUpdates) {
+    const key = `${u.cardId}\0${u.lang}\0${u.revisionHash}\0${u.localizationHash}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    updates.push(u);
   }
 
   if (updates.length === 0) {
@@ -227,10 +242,11 @@ async function main() {
 
   const oldHashes = [...new Set(updates.map(u => u.oldHash).filter(Boolean))] as string[];
 
-  console.log(`\n${updates.length} localization rows to update (${oldHashes.length} distinct renderHashes):`);
-  for (const u of updates) {
-    console.log(`  ${u.cardId}/${u.lang}  ${slug}=${u.mechanicValue}  ${u.oldHash?.slice(0, 12)} -> ${u.newHash.slice(0, 12)}`);
+  console.log(`\n${updates.length} localization rows to update (${oldHashes.length} distinct renderHashes).`);
+  for (const u of updates.slice(0, 20)) {
+    console.log(`  ${u.cardId}/${u.lang}  ${JSON.stringify(u.mechanicValue)}  ${u.oldHash?.slice(0, 12) ?? 'null'} -> ${u.newHash.slice(0, 12)}`);
   }
+  if (updates.length > 20) console.log(`  ... and ${updates.length - 20} more.`);
 
   // Step 1: Update entity_localizations
   console.log(`\n[1/3] ${dryRun ? 'Would update' : 'Updating'} entity_localizations...`);
@@ -258,30 +274,39 @@ async function main() {
 
   // Step 2: Delete orphaned card_image_assets
   console.log(`\n[2/3] ${dryRun ? 'Would delete' : 'Deleting'} orphaned card_image_assets...`);
-  const oldAssets = await db
-    .select({
-      imageSpecVersion: CardImageAsset.imageSpecVersion,
-      renderHash:       CardImageAsset.renderHash,
-      zone:             CardImageAsset.zone,
-      template:         CardImageAsset.template,
-      premium:          CardImageAsset.premium,
-      r2Key:            CardImageAsset.r2Key,
-    })
-    .from(CardImageAsset)
-    .where(inArray(CardImageAsset.renderHash, oldHashes));
-
-  console.log(`  Found ${oldAssets.length} asset rows to delete:`);
-  for (const a of oldAssets) {
-    console.log(`    ${a.zone}/${a.template}/${a.premium}  ${a.renderHash.slice(0, 12)}`);
+  const CHUNK = 1000;
+  let oldAssets: Array<{ imageSpecVersion: string; renderHash: string; zone: string; template: string; premium: string; r2Key: string }> = [];
+  for (let i = 0; i < oldHashes.length; i += CHUNK) {
+    const chunk = oldHashes.slice(i, i + CHUNK);
+    const rows = await db
+      .select({
+        imageSpecVersion: CardImageAsset.imageSpecVersion,
+        renderHash:       CardImageAsset.renderHash,
+        zone:             CardImageAsset.zone,
+        template:         CardImageAsset.template,
+        premium:          CardImageAsset.premium,
+        r2Key:            CardImageAsset.r2Key,
+      })
+      .from(CardImageAsset)
+      .where(inArray(CardImageAsset.renderHash, chunk));
+    oldAssets.push(...rows);
   }
 
-  if (oldAssets.length > 0) {
-    if (!dryRun) {
-      await db
-        .delete(CardImageAsset)
-        .where(inArray(CardImageAsset.renderHash, oldHashes));
+  console.log(`  Found ${oldAssets.length} asset rows to delete.`);
+  for (const a of oldAssets.slice(0, 10)) {
+    console.log(`    ${a.zone}/${a.template}/${a.premium}  ${a.renderHash.slice(0, 12)}`);
+  }
+  if (oldAssets.length > 10) console.log(`    ... and ${oldAssets.length - 10} more.`);
+
+  if (oldAssets.length > 0 && !dryRun) {
+    const hashesToDelete = [...new Set(oldAssets.map(a => a.renderHash))];
+    for (let i = 0; i < hashesToDelete.length; i += CHUNK) {
+      const chunk = hashesToDelete.slice(i, i + CHUNK);
+      await db.delete(CardImageAsset).where(inArray(CardImageAsset.renderHash, chunk));
     }
-    console.log(`  ${dryRun ? 'Would delete' : 'Deleted'} ${oldAssets.length} rows.`);
+    console.log(`  Deleted ${oldAssets.length} rows.`);
+  } else if (dryRun) {
+    console.log(`  Would delete ${oldAssets.length} rows.`);
   }
 
   // Step 3: Delete local files
