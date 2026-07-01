@@ -11,6 +11,10 @@ import type { Locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
 
 import { createDb } from '@tcg-cards/db';
 import {
+  BaseCard as LocalBaseCard,
+  BaseEntity as LocalBaseEntity,
+  BaseEntityLocalization as LocalBaseEntityLocalization,
+  BaseEntityRelation as LocalBaseEntityRelation,
   Card as LocalCard,
   Entity as LocalEntity,
   EntityLocalization as LocalEntityLocalization,
@@ -19,11 +23,14 @@ import {
   PublishBatch,
   PublishBatchRow,
   PublishRowBaseline,
-  PublishRowChangeLog,
   SourceVersion,
 } from '@tcg-cards/db/schema/local/hearthstone';
 import { TaskRun } from '@tcg-cards/db/schema/local/task';
 import {
+  BaseCard as RemoteBaseCard,
+  BaseEntity as RemoteBaseEntity,
+  BaseEntityLocalization as RemoteBaseEntityLocalization,
+  BaseEntityRelation as RemoteBaseEntityRelation,
   Card as RemoteCard,
   Entity as RemoteEntity,
   EntityLocalization as RemoteEntityLocalization,
@@ -85,8 +92,6 @@ interface PublishBatchRowPlan {
 }
 
 interface PublishDatasetRange {
-  sourceTagMin: number;
-  sourceTagMax: number;
   buildMin: number;
   buildMax: number;
 }
@@ -144,8 +149,6 @@ export const publishReport = z.object({
   status: z.string(),
   manifestHash: z.string(),
   previousManifestHash: z.string().nullable(),
-  sourceTagMin: z.number(),
-  sourceTagMax: z.number(),
   buildMin: z.number(),
   buildMax: z.number(),
   totalRowCount: z.number(),
@@ -473,39 +476,15 @@ export async function rebuildReanchorBaseline(
     throw new Error('Local publish snapshot does not include any Hearthstone build numbers.');
   }
 
-  const sourceVersionRows = await db.select({
-    sourceTag: SourceVersion.sourceTag,
-    build: SourceVersion.build,
-  })
-    .from(SourceVersion)
-    .where(and(
-      inArray(SourceVersion.build, builds),
-      eq(SourceVersion.status, 'completed'),
-      eq(SourceVersion.projectionStatus, 'completed'),
-    ));
-  const sourceTags = [...new Set(
-    sourceVersionRows
-      .filter(row => row.build != null)
-      .map(row => row.sourceTag),
-  )].sort((left, right) => left - right);
-
-  if (sourceTags.length === 0) {
-    throw new Error('Local publish snapshot could not resolve source tags for the current build set.');
-  }
+  const buildMin = builds[0]!;
+  const buildMax = builds[builds.length - 1]!;
 
   const range = input.previousRange != null
     ? {
-        sourceTagMin: Math.min(input.previousRange.sourceTagMin, sourceTags[0]!),
-        sourceTagMax: Math.max(input.previousRange.sourceTagMax, sourceTags[sourceTags.length - 1]!),
-        buildMin: Math.min(input.previousRange.buildMin, builds[0]!),
-        buildMax: Math.max(input.previousRange.buildMax, builds[builds.length - 1]!),
+        buildMin: Math.min(input.previousRange.buildMin, buildMin),
+        buildMax: Math.max(input.previousRange.buildMax, buildMax),
       }
-    : {
-        sourceTagMin: sourceTags[0]!,
-        sourceTagMax: sourceTags[sourceTags.length - 1]!,
-        buildMin: builds[0]!,
-        buildMax: builds[builds.length - 1]!,
-      };
+    : { buildMin, buildMax };
 
   return {
     counts: {
@@ -535,7 +514,7 @@ async function assertRemotePublishGate(
     targetFingerprint: string;
     manifestHash: string;
     previousManifestHash: string | null;
-    sourceTagMax: number;
+    buildMax: number;
     generationFingerprint: GenerationFingerprint;
     generationOrder: GenerationOrder;
     leaseHolderId: string;
@@ -614,9 +593,9 @@ async function assertRemotePublishGate(
     );
   }
 
-  if (ledger != null && ledger.sourceTagMax > input.sourceTagMax) {
+  if (ledger != null && ledger.buildMax > input.buildMax) {
     throw new Error(
-      `Remote publish stream ${input.publishTarget}/${input.environment}/${input.publishType} sourceTagMax regressed: incoming ${input.sourceTagMax}, remote ${ledger.sourceTagMax}.`,
+      `Remote publish stream ${input.publishTarget}/${input.environment}/${input.publishType} buildMax regressed: incoming ${input.buildMax}, remote ${ledger.buildMax}.`,
     );
   }
 
@@ -630,7 +609,7 @@ async function assertRemotePublishGate(
     ledger != null
     && ledger.generationOrder === input.generationOrder
     && ledger.generationFingerprint === input.generationFingerprint
-    && ledger.sourceTagMax === input.sourceTagMax
+    && ledger.buildMax === input.buildMax
     && ledger.manifestHash !== input.manifestHash
   ) {
     throw new Error(
@@ -862,276 +841,6 @@ type StepProgress = (event: {
   segments?: { name: string; done: number; total: number }[];
 }) => void;
 
-/** All local rows loaded from all four publish tables and indexed by PK.
- *
- * When `previousHashes` and `lastPublishedAt` are provided, the baseline becomes the
- * unchanged current-state anchor and only row keys seen in PublishRowChangeLog are reloaded.
- */
-async function loadCurrentRowSnapshots(
-  db: PublishDb,
-  onProgress: StepProgress | undefined,
-  previousHashes: Map<TableName, Map<string, string>> | undefined,
-  lastPublishedAt: Date | null | undefined,
-): Promise<{
-    states: PublishRowState[];
-    data: CurrentRowData;
-    allEntityVersions: number[][];
-  }> {
-  const hasBaseline = lastPublishedAt != null;
-
-  if (hasBaseline && lastPublishedAt) {
-    onProgress?.({ phase: 'loading_snapshots', message: '正在加载变更日志候选...' });
-
-    const changedRows = await db.select({
-      tableName: PublishRowChangeLog.tableName,
-      rowKey: PublishRowChangeLog.rowKey,
-    })
-      .from(PublishRowChangeLog)
-      .where(gt(PublishRowChangeLog.changedAt, lastPublishedAt));
-
-    const changedKeysByTable = new Map<TableName, Set<string>>();
-
-    for (const row of changedRows) {
-      const tableName = row.tableName as TableName;
-
-      if (!changedKeysByTable.has(tableName)) {
-        changedKeysByTable.set(tableName, new Set());
-      }
-
-      changedKeysByTable.get(tableName)!.add(row.rowKey);
-    }
-
-    const data: CurrentRowData = {
-      cards: new Map(),
-      entities: new Map(),
-      localizations: new Map(),
-      relations: new Map(),
-    };
-    const states: PublishRowState[] = [];
-    const allEntityVersions: number[][] = [];
-
-    if (previousHashes) {
-      // Baseline rows remain the accepted current state until a newer local write supersedes them.
-      for (const [tableName, rows] of previousHashes) {
-        for (const [rowKey, rowHash] of rows) {
-          states.push({ tableName, rowKey, rowHash });
-        }
-      }
-    }
-
-    const changedKeyTotal = [...changedKeysByTable.values()].reduce((sum, keys) => sum + keys.size, 0);
-    let processed = 0;
-
-    for (const tableName of ['entities', 'entity_localizations', 'entity_relations', 'cards'] as const) {
-      const rowKeys = [...(changedKeysByTable.get(tableName) ?? new Set())];
-
-      onProgress?.({
-        phase: 'loading_snapshots',
-        message: `正在回查 ${tableName} 变更行...`,
-        completed: processed,
-        total: changedKeyTotal,
-      });
-
-      const rows = await loadRowDataChunk(db, tableName, rowKeys);
-
-      for (const rowKey of rowKeys) {
-        const row = rows.get(rowKey) ?? null;
-
-        if (row == null) {
-          processed += 1;
-          continue;
-        }
-
-        switch (tableName) {
-          case 'entities': {
-            const entity = row as typeof LocalEntity.$inferSelect;
-            data.entities.set(rowKey, entity);
-            allEntityVersions.push(entity.version);
-            states.push({ tableName, rowKey, rowHash: entityRowHash(entity) });
-            break;
-          }
-          case 'entity_localizations': {
-            const localization = row as typeof LocalEntityLocalization.$inferSelect;
-            data.localizations.set(rowKey, localization);
-            states.push({ tableName, rowKey, rowHash: localizationRowHash(localization) });
-            break;
-          }
-          case 'entity_relations': {
-            const relation = row as typeof LocalEntityRelation.$inferSelect;
-            data.relations.set(rowKey, relation);
-            states.push({ tableName, rowKey, rowHash: relationRowHash(relation) });
-            break;
-          }
-          case 'cards': {
-            const card = row as typeof LocalCard.$inferSelect;
-            data.cards.set(rowKey, card);
-            states.push({ tableName, rowKey, rowHash: cardRowHash(card) });
-            break;
-          }
-        }
-
-        processed += 1;
-      }
-    }
-
-    if (processed > 0) {
-      onProgress?.({
-        phase: 'loading_snapshots',
-        message: '变更日志候选加载完成',
-        completed: processed,
-        total: changedKeyTotal,
-      });
-    }
-
-    return { states, data, allEntityVersions };
-  }
-
-  // --- Entities ---
-  onProgress?.({ phase: 'loading_snapshots', message: '正在加载 entities...' });
-
-  let entityChangedRows: (typeof LocalEntity.$inferSelect)[];
-
-  entityChangedRows = await db.select()
-    .from(LocalEntity)
-    .orderBy(asc(LocalEntity.cardId), asc(LocalEntity.revisionHash));
-
-  // --- Localizations ---
-  const entityTotal = entityChangedRows.length;
-
-  onProgress?.({ phase: 'loading_snapshots', message: '正在加载 localizations...', completed: entityTotal });
-
-  let localizationChangedRows: (typeof LocalEntityLocalization.$inferSelect)[];
-
-  localizationChangedRows = await db.select()
-    .from(LocalEntityLocalization)
-    .orderBy(
-      asc(LocalEntityLocalization.cardId),
-      asc(LocalEntityLocalization.lang),
-      asc(LocalEntityLocalization.revisionHash),
-      asc(LocalEntityLocalization.localizationHash),
-    );
-
-  // --- Relations ---
-  onProgress?.({ phase: 'loading_snapshots', message: '正在加载 relations...', completed: entityTotal });
-
-  let relationChangedRows: (typeof LocalEntityRelation.$inferSelect)[];
-
-  relationChangedRows = await db.select()
-    .from(LocalEntityRelation)
-    .orderBy(
-      asc(LocalEntityRelation.sourceId),
-      asc(LocalEntityRelation.relation),
-      asc(LocalEntityRelation.targetId),
-      asc(LocalEntityRelation.sourceRevisionHash),
-    );
-
-  // --- Cards ---
-  onProgress?.({ phase: 'loading_snapshots', message: '正在加载 cards...' });
-
-  let cardChangedRows: (typeof LocalCard.$inferSelect)[];
-
-  cardChangedRows = await db.select()
-    .from(LocalCard)
-    .orderBy(asc(LocalCard.cardId));
-
-  // --- Build states and data ---
-  const data: CurrentRowData = {
-    cards: new Map(),
-    entities: new Map(),
-    localizations: new Map(),
-    relations: new Map(),
-  };
-  const states: PublishRowState[] = [];
-  const allEntityVersions: number[][] = [];
-
-  const localizationTotal = localizationChangedRows.length;
-  const relationTotal = relationChangedRows.length;
-  const hashTotal = entityTotal + localizationTotal + relationTotal + cardChangedRows.length;
-
-  let hashCount = 0;
-  let lastReport = 0;
-  const reportEvery = 2000;
-
-  function maybeReport() {
-    if (hashCount - lastReport >= reportEvery && onProgress) {
-      onProgress({ phase: 'loading_snapshots', message: '正在计算行 hash...', completed: hashCount, total: hashTotal });
-      lastReport = hashCount;
-    }
-  }
-
-  onProgress?.({ phase: 'loading_snapshots', message: '正在计算 entities 行 hash...', completed: 0, total: hashTotal });
-
-  for (const row of entityChangedRows) {
-    const pk = entitiesRowKey(row);
-
-    data.entities.set(pk, row);
-    allEntityVersions.push(row.version);
-
-    states.push({
-      tableName: 'entities',
-      rowKey: pk,
-      rowHash: entityRowHash(row),
-    });
-    hashCount += 1;
-    maybeReport();
-  }
-
-  onProgress?.({ phase: 'loading_snapshots', message: '正在计算 localizations 行 hash...', completed: hashCount, total: hashTotal });
-
-  for (const row of localizationChangedRows) {
-    const pk = localizationsRowKey(row);
-
-    data.localizations.set(pk, row);
-
-    states.push({
-      tableName: 'entity_localizations',
-      rowKey: pk,
-      rowHash: localizationRowHash(row),
-    });
-    hashCount += 1;
-    maybeReport();
-  }
-
-  onProgress?.({ phase: 'loading_snapshots', message: '正在计算 relations 行 hash...', completed: hashCount, total: hashTotal });
-
-  for (const row of relationChangedRows) {
-    const pk = relationsRowKey(row);
-
-    data.relations.set(pk, row);
-
-    states.push({
-      tableName: 'entity_relations',
-      rowKey: pk,
-      rowHash: relationRowHash(row),
-    });
-    hashCount += 1;
-    maybeReport();
-  }
-
-  onProgress?.({ phase: 'loading_snapshots', message: '正在计算 cards 行 hash...', completed: hashCount, total: hashTotal });
-
-  for (const card of cardChangedRows) {
-    const pk = cardsRowKey(card);
-
-    data.cards.set(pk, card);
-
-    states.push({
-      tableName: 'cards',
-      rowKey: pk,
-      rowHash: cardRowHash(card),
-    });
-    hashCount += 1;
-    maybeReport();
-  }
-
-  // Final report to ensure the frontend reaches 100%
-  if (hashCount !== lastReport) {
-    onProgress?.({ phase: 'loading_snapshots', message: '行 hash 计算完成', completed: hashCount, total: hashTotal });
-  }
-
-  return { states, data, allEntityVersions };
-}
-
 /** Current accepted row hashes loaded directly from the row baseline table. */
 export async function loadBaselineRowHashes(
   db: PublishDb,
@@ -1174,7 +883,7 @@ export async function loadBaselineRowHashes(
 
 /** Source-tag and build range mapped from the current latest local entity versions. */
 export async function derivePublishDatasetRange(
-  db: PublishDb,
+  _db: PublishDb,
   allEntityVersions: number[][],
   previousRange?: PublishDatasetRange | null,
 ): Promise<PublishDatasetRange> {
@@ -1184,45 +893,20 @@ export async function derivePublishDatasetRange(
     if (previousRange != null) {
       return previousRange;
     }
-
     throw new Error('Local publish snapshot does not include any Hearthstone build numbers.');
   }
 
-  const sourceVersionRows = await db.select({
-    sourceTag: SourceVersion.sourceTag,
-    build: SourceVersion.build,
-  })
-    .from(SourceVersion)
-    .where(and(
-      inArray(SourceVersion.build, builds),
-      eq(SourceVersion.status, 'completed'),
-      eq(SourceVersion.projectionStatus, 'completed'),
-    ));
-  const sourceTags = [...new Set(
-    sourceVersionRows
-      .filter(row => row.build != null)
-      .map(row => row.sourceTag),
-  )].sort((left, right) => left - right);
-
-  if (sourceTags.length === 0) {
-    throw new Error('Local publish snapshot could not resolve source tags for the current build set.');
-  }
+  const buildMin = builds[0]!;
+  const buildMax = builds[builds.length - 1]!;
 
   if (previousRange != null) {
     return {
-      sourceTagMin: Math.min(previousRange.sourceTagMin, sourceTags[0]!),
-      sourceTagMax: Math.max(previousRange.sourceTagMax, sourceTags[sourceTags.length - 1]!),
-      buildMin: Math.min(previousRange.buildMin, builds[0]!),
-      buildMax: Math.max(previousRange.buildMax, builds[builds.length - 1]!),
+      buildMin: Math.min(previousRange.buildMin, buildMin),
+      buildMax: Math.max(previousRange.buildMax, buildMax),
     };
   }
 
-  return {
-    sourceTagMin: sourceTags[0]!,
-    sourceTagMax: sourceTags[sourceTags.length - 1]!,
-    buildMin: builds[0]!,
-    buildMax: builds[builds.length - 1]!,
-  };
+  return { buildMin, buildMax };
 }
 
 /** Batch-row plans and aggregate counts derived from current states and baseline row hashes. */
@@ -1340,8 +1024,6 @@ export async function insertPublishBatch(
     targetFingerprint: input.targetFingerprint,
     publishType: input.publishType,
     operationKind: input.operationKind,
-    sourceTagMin: input.range.sourceTagMin,
-    sourceTagMax: input.range.sourceTagMax,
     buildMin: input.range.buildMin,
     buildMax: input.range.buildMax,
     generationFingerprint: input.generationFingerprint,
@@ -1384,8 +1066,6 @@ export async function insertDraftReanchorBatch(
   },
 ): Promise<void> {
   const range = input.previousRange ?? {
-    sourceTagMin: 1,
-    sourceTagMax: 1,
     buildMin: 1,
     buildMax: 1,
   };
@@ -1398,8 +1078,6 @@ export async function insertDraftReanchorBatch(
     targetFingerprint: input.targetFingerprint,
     publishType: input.publishType,
     operationKind: publishOperationKindSchema.enum.reanchor,
-    sourceTagMin: range.sourceTagMin,
-    sourceTagMax: range.sourceTagMax,
     buildMin: range.buildMin,
     buildMax: range.buildMax,
     generationFingerprint: input.generationFingerprint,
@@ -1531,8 +1209,6 @@ async function finalizePublishBatchSuccess(
   await db.update(PublishBatch)
     .set({
       targetFingerprint: input.targetFingerprint,
-      sourceTagMin: input.range.sourceTagMin,
-      sourceTagMax: input.range.sourceTagMax,
       buildMin: input.range.buildMin,
       buildMax: input.range.buildMax,
       generationFingerprint: input.generationFingerprint,
@@ -1612,8 +1288,6 @@ async function finalizePublishBatchSuccess(
     publishType: input.publishType,
     targetFingerprint: input.targetFingerprint,
     batchId: input.batchId,
-    sourceTagMin: input.range.sourceTagMin,
-    sourceTagMax: input.range.sourceTagMax,
     buildMin: input.range.buildMin,
     buildMax: input.range.buildMax,
     generationFingerprint: input.generationFingerprint,
@@ -1635,8 +1309,6 @@ async function finalizePublishBatchSuccess(
         publishType: input.publishType,
         targetFingerprint: input.targetFingerprint,
         batchId: input.batchId,
-        sourceTagMin: input.range.sourceTagMin,
-        sourceTagMax: input.range.sourceTagMax,
         buildMin: input.range.buildMin,
         buildMax: input.range.buildMax,
         generationFingerprint: input.generationFingerprint,
@@ -1707,8 +1379,6 @@ export async function finalizeReanchorBatchSuccess(
     publishType: input.publishType,
     targetFingerprint: input.targetFingerprint,
     batchId: input.batchId,
-    sourceTagMin: input.range.sourceTagMin,
-    sourceTagMax: input.range.sourceTagMax,
     buildMin: input.range.buildMin,
     buildMax: input.range.buildMax,
     generationFingerprint: input.generationFingerprint,
@@ -1728,8 +1398,6 @@ export async function finalizeReanchorBatchSuccess(
       set: {
         targetFingerprint: input.targetFingerprint,
         batchId: input.batchId,
-        sourceTagMin: input.range.sourceTagMin,
-        sourceTagMax: input.range.sourceTagMax,
         buildMin: input.range.buildMin,
         buildMax: input.range.buildMax,
         generationFingerprint: input.generationFingerprint,
@@ -1871,8 +1539,6 @@ async function upsertRemotePublishLedger(
     publishType: input.publishType,
     targetFingerprint: input.targetFingerprint,
     batchId: input.batchId,
-    sourceTagMin: input.range.sourceTagMin,
-    sourceTagMax: input.range.sourceTagMax,
     buildMin: input.range.buildMin,
     buildMax: input.range.buildMax,
     generationFingerprint: input.generationFingerprint,
@@ -1895,8 +1561,6 @@ async function upsertRemotePublishLedger(
         publishType: input.publishType,
         targetFingerprint: input.targetFingerprint,
         batchId: input.batchId,
-        sourceTagMin: input.range.sourceTagMin,
-        sourceTagMax: input.range.sourceTagMax,
         buildMin: input.range.buildMin,
         buildMax: input.range.buildMax,
         generationFingerprint: input.generationFingerprint,
@@ -1918,28 +1582,28 @@ export async function deleteRemoteRow(
 ): Promise<void> {
   switch (tableName) {
     case 'cards':
-      await tx.delete(RemoteCard).where(eq(RemoteCard.cardId, rowKey.cardId!));
+      await tx.delete(RemoteBaseCard).where(eq(RemoteBaseCard.cardId, rowKey.cardId!));
       return;
     case 'entities':
-      await tx.delete(RemoteEntity).where(and(
-        eq(RemoteEntity.cardId, rowKey.cardId!),
-        eq(RemoteEntity.revisionHash, rowKey.revisionHash!),
+      await tx.delete(RemoteBaseEntity).where(and(
+        eq(RemoteBaseEntity.cardId, rowKey.cardId!),
+        eq(RemoteBaseEntity.revisionHash, rowKey.revisionHash!),
       ));
       return;
     case 'entity_localizations':
-      await tx.delete(RemoteEntityLocalization).where(and(
-        eq(RemoteEntityLocalization.cardId, rowKey.cardId!),
-        eq(RemoteEntityLocalization.lang, rowKey.lang! as Locale),
-        eq(RemoteEntityLocalization.revisionHash, rowKey.revisionHash!),
-        eq(RemoteEntityLocalization.localizationHash, rowKey.localizationHash!),
+      await tx.delete(RemoteBaseEntityLocalization).where(and(
+        eq(RemoteBaseEntityLocalization.cardId, rowKey.cardId!),
+        eq(RemoteBaseEntityLocalization.lang, rowKey.lang! as Locale),
+        eq(RemoteBaseEntityLocalization.revisionHash, rowKey.revisionHash!),
+        eq(RemoteBaseEntityLocalization.localizationHash, rowKey.localizationHash!),
       ));
       return;
     case 'entity_relations':
-      await tx.delete(RemoteEntityRelation).where(and(
-        eq(RemoteEntityRelation.sourceId, rowKey.sourceId!),
-        eq(RemoteEntityRelation.sourceRevisionHash, rowKey.sourceRevisionHash!),
-        eq(RemoteEntityRelation.relation, rowKey.relation!),
-        eq(RemoteEntityRelation.targetId, rowKey.targetId!),
+      await tx.delete(RemoteBaseEntityRelation).where(and(
+        eq(RemoteBaseEntityRelation.sourceId, rowKey.sourceId!),
+        eq(RemoteBaseEntityRelation.sourceRevisionHash, rowKey.sourceRevisionHash!),
+        eq(RemoteBaseEntityRelation.relation, rowKey.relation!),
+        eq(RemoteBaseEntityRelation.targetId, rowKey.targetId!),
       ));
       return;
   }
@@ -1956,21 +1620,21 @@ export async function insertRemoteRow(
     const cardRow = row as typeof LocalCard.$inferSelect;
 
     if (action === 'update') {
-      await tx.insert(RemoteCard).values({
+      await tx.insert(RemoteBaseCard).values({
         cardId: cardRow.cardId,
         legalities: cardRow.legalities,
       })
         .onConflictDoUpdate({
-          target: RemoteCard.cardId,
+          target: RemoteBaseCard.cardId,
           set: { legalities: cardRow.legalities },
         });
     } else {
-      await tx.insert(RemoteCard).values({
+      await tx.insert(RemoteBaseCard).values({
         cardId: cardRow.cardId,
         legalities: cardRow.legalities,
       })
         .onConflictDoUpdate({
-          target: RemoteCard.cardId,
+          target: RemoteBaseCard.cardId,
           set: { legalities: cardRow.legalities },
         });
     }
@@ -1983,9 +1647,9 @@ export async function insertRemoteRow(
   if (tableName === 'entities') {
     const entityRow = row as typeof LocalEntity.$inferSelect;
 
-    await tx.insert(RemoteEntity).values({ ...entityRow, updatedAt: now })
+    await tx.insert(RemoteBaseEntity).values({ ...entityRow, updatedAt: now })
       .onConflictDoUpdate({
-        target: [RemoteEntity.cardId, RemoteEntity.revisionHash],
+        target: [RemoteBaseEntity.cardId, RemoteBaseEntity.revisionHash],
         set: { ...entityRow, updatedAt: now },
       });
     return;
@@ -1994,9 +1658,9 @@ export async function insertRemoteRow(
   if (tableName === 'entity_localizations') {
     const locRow = row as typeof LocalEntityLocalization.$inferSelect;
 
-    await tx.insert(RemoteEntityLocalization).values({ ...locRow, updatedAt: now })
+    await tx.insert(RemoteBaseEntityLocalization).values({ ...locRow, updatedAt: now })
       .onConflictDoUpdate({
-        target: [RemoteEntityLocalization.cardId, RemoteEntityLocalization.lang, RemoteEntityLocalization.revisionHash, RemoteEntityLocalization.localizationHash],
+        target: [RemoteBaseEntityLocalization.cardId, RemoteBaseEntityLocalization.lang, RemoteBaseEntityLocalization.revisionHash, RemoteBaseEntityLocalization.localizationHash],
         set: { ...locRow, updatedAt: now },
       });
     return;
@@ -2004,9 +1668,9 @@ export async function insertRemoteRow(
 
   const relRow = row as typeof LocalEntityRelation.$inferSelect;
 
-  await tx.insert(RemoteEntityRelation).values({ ...relRow, updatedAt: now })
+  await tx.insert(RemoteBaseEntityRelation).values({ ...relRow, updatedAt: now })
     .onConflictDoUpdate({
-      target: [RemoteEntityRelation.sourceId, RemoteEntityRelation.sourceRevisionHash, RemoteEntityRelation.relation, RemoteEntityRelation.targetId],
+      target: [RemoteBaseEntityRelation.sourceId, RemoteBaseEntityRelation.sourceRevisionHash, RemoteBaseEntityRelation.relation, RemoteBaseEntityRelation.targetId],
       set: { ...relRow, updatedAt: now },
     });
 }
@@ -2222,6 +1886,7 @@ export async function loadTableChunkAndHash(
   builds: Set<number>,
   offset: number,
   limit: number,
+  since?: Date | null,
 ): Promise<Map<string, string>> {
   const tbl = tableName === 'entities' ? LocalEntity
     : tableName === 'entity_localizations' ? LocalEntityLocalization
@@ -2233,13 +1898,15 @@ export async function loadTableChunkAndHash(
     : tableName === 'entity_relations' ? [asc(LocalEntityRelation.sourceId), asc(LocalEntityRelation.relation), asc(LocalEntityRelation.targetId), asc(LocalEntityRelation.sourceRevisionHash)]
     : [asc(LocalCard.cardId)];
 
-  const rawRows: any[] = await db.select().from(tbl).orderBy(...order).limit(limit).offset(offset);
+  let qb = db.select().from(tbl);
+  if (since) qb = qb.where(or(gt(tbl.createdAt, since), gt(tbl.updatedAt, since))) as any;
+  const rawRows: any[] = await qb.orderBy(...order).limit(limit).offset(offset);
   const hashes = new Map<string, string>();
   for (const row of rawRows) {
     const rowKey = rowKeyOf(row, tableName);
     const hash = rowHashOf(row, tableName);
     hashes.set(rowKey, hash);
-    if (tableName === 'entities') {
+    if (tableName !== 'cards') {
       const versions = row.version as number[];
       if (versions) versions.forEach(v => builds.add(v));
     }
@@ -2290,30 +1957,25 @@ export async function createPublishPlan(options?: {
 
   const { baseline, baselineRowHashes } = await loadBaselineRowHashes(localDb, stream);
   const previousManifestHash = baseline?.manifestHash ?? null;
-  const publishedAt = baseline?.publishedAt ?? null;
 
   if (signal?.aborted) {
     throw new PublishJobInterruptedError('stopped', '发布已停止');
   }
 
-  // Count total rows to process
-  let totalRows: number;
-  if (publishedAt) {
-    const [row] = await localDb.select({ count: count() }).from(PublishRowChangeLog)
-      .where(gt(PublishRowChangeLog.changedAt, publishedAt));
-    totalRows = Number(row!.count);
-  } else {
-    const countQueries = await Promise.all(
-      ['entities', 'entity_localizations', 'entity_relations', 'cards'].map(table => {
-        const tbl = table === 'entities' ? LocalEntity
-          : table === 'entity_localizations' ? LocalEntityLocalization
-          : table === 'entity_relations' ? LocalEntityRelation
-          : LocalCard;
-        return localDb.select({ count: count() }).from(tbl);
-      }),
-    );
-    totalRows = countQueries.reduce((s, r) => s + Number(r[0]!.count), 0);
-  }
+  // Count total rows to process. Incremental path uses timestamp filter.
+  const since = baseline?.publishedAt ?? null;
+  const countQueries = await Promise.all(
+    ['entities', 'entity_localizations', 'entity_relations', 'cards'].map(table => {
+      const tbl = table === 'entities' ? LocalEntity
+        : table === 'entity_localizations' ? LocalEntityLocalization
+        : table === 'entity_relations' ? LocalEntityRelation
+        : LocalCard;
+      return since
+        ? localDb.select({ count: count() }).from(tbl).where(or(gt(tbl.createdAt, since), gt(tbl.updatedAt, since)))
+        : localDb.select({ count: count() }).from(tbl);
+    }),
+  );
+  const totalRows = countQueries.reduce((s, r) => s + Number(r[0]!.count), 0);
 
   if (totalRows === 0) {
     throw new Error('No local Hearthstone projection rows are available for publish.');
@@ -2327,10 +1989,10 @@ export async function createPublishPlan(options?: {
   const CHUNK_SIZE = 1000;
   let processed = 0;
 
-  if (publishedAt) {
-    const touchedKeys = new Set<string>();
+  const touchedKeys = new Set<string>();
+  for (const tableName of ['entities', 'entity_localizations', 'entity_relations', 'cards'] as const) {
     let offset = 0;
-    while (offset < totalRows) {
+    while (true) {
       if (signal?.aborted) throw new PublishJobInterruptedError('stopped', '发布已停止');
       if (options?.taskRunId) {
         const [task] = await localDb.select({ status: TaskRun.status, controlRequestKind: TaskRun.controlRequestKind }).from(TaskRun).where(eq(TaskRun.id, options.taskRunId));
@@ -2339,32 +2001,27 @@ export async function createPublishPlan(options?: {
         }
       }
 
-      const rows = await localDb.select({
-        tableName: PublishRowChangeLog.tableName,
-        rowKey: PublishRowChangeLog.rowKey,
-      })
-        .from(PublishRowChangeLog)
-        .where(gt(PublishRowChangeLog.changedAt, publishedAt))
-        .orderBy(asc(PublishRowChangeLog.tableName), asc(PublishRowChangeLog.rowKey))
-        .limit(CHUNK_SIZE)
-        .offset(offset);
+      const tbl = tableName === 'entities' ? LocalEntity
+        : tableName === 'entity_localizations' ? LocalEntityLocalization
+        : tableName === 'entity_relations' ? LocalEntityRelation
+        : LocalCard;
 
-      if (rows.length === 0) break;
+      const order = tableName === 'entities' ? [asc(LocalEntity.cardId), asc(LocalEntity.revisionHash)]
+        : tableName === 'entity_localizations' ? [asc(LocalEntityLocalization.cardId), asc(LocalEntityLocalization.lang), asc(LocalEntityLocalization.revisionHash), asc(LocalEntityLocalization.localizationHash)]
+        : tableName === 'entity_relations' ? [asc(LocalEntityRelation.sourceId), asc(LocalEntityRelation.relation), asc(LocalEntityRelation.targetId), asc(LocalEntityRelation.sourceRevisionHash)]
+        : [asc(LocalCard.cardId)];
 
-      for (const r of rows) touchedKeys.add(`${r.tableName}:${r.rowKey}`);
+      const chunkHashes = await loadTableChunkAndHash(localDb, tableName, builds, offset, CHUNK_SIZE, baseline?.publishedAt);
+      if (chunkHashes.size === 0) break;
 
-      const byTable = groupKeysByTable(rows);
-      const chunkHashes = await loadChunkDataAndHash(localDb, byTable, builds);
-
-      for (const [tableName, curRows] of chunkHashes) {
-        for (const [rowKey, curHash] of curRows) {
-          const prevHash = baselineRowHashes!.get(tableName)?.get(rowKey) ?? null;
-          emitPlan(tableName, rowKey, curHash, prevHash, counts, manifestEntries);
-        }
+      for (const [rowKey, curHash] of chunkHashes) {
+        touchedKeys.add(`${tableName}:${rowKey}`);
+        const prevHash = baselineRowHashes?.get(tableName)?.get(rowKey) ?? null;
+        emitPlan(tableName, rowKey, curHash, prevHash, counts, manifestEntries);
       }
 
-      processed += rows.length;
-      onProgress?.({ phase: 'loading_snapshots', message: `正在处理变更 ${processed}/${totalRows}...`, completed: processed, total: totalRows, segments: [
+      processed += chunkHashes.size;
+      onProgress?.({ phase: 'loading_snapshots', message: `正在处理 ${tableName} ${processed}/${totalRows}...`, completed: processed, total: totalRows, segments: [
         { name: 'cards', done: counts.cardRowCount, total: Math.max(counts.cardRowCount, 1) },
         { name: 'entities', done: counts.entityRowCount, total: Math.max(counts.entityRowCount, 1) },
         { name: 'localizations', done: counts.localizationRowCount, total: Math.max(counts.localizationRowCount, 1) },
@@ -2372,60 +2029,30 @@ export async function createPublishPlan(options?: {
       ] });
       offset += CHUNK_SIZE;
     }
+  }
 
-    // Baseline rows not in change_log remain unchanged
-    if (baselineRowHashes) {
-      for (const [tableName, rows] of baselineRowHashes) {
-        for (const [rowKey, rowHash] of rows) {
-          if (!touchedKeys.has(`${tableName}:${rowKey}`)) {
-            emitPlan(tableName, rowKey, rowHash, rowHash, counts, manifestEntries);
-          }
-        }
-      }
-    }
-  } else {
-    for (const tableName of ['entities', 'entity_localizations', 'entity_relations', 'cards'] as const) {
-      let offset = 0;
-      while (true) {
-        if (signal?.aborted) throw new PublishJobInterruptedError('stopped', '发布已停止');
-        if (options?.taskRunId) {
-          const [task] = await localDb.select({ status: TaskRun.status, controlRequestKind: TaskRun.controlRequestKind }).from(TaskRun).where(eq(TaskRun.id, options.taskRunId));
-          if (task && (task.status === 'canceling' || task.controlRequestKind === 'cancel')) {
-            throw new PublishJobInterruptedError('stopped', '发布已取消');
-          }
-        }
-
-        const tbl = tableName === 'entities' ? LocalEntity
-          : tableName === 'entity_localizations' ? LocalEntityLocalization
-          : tableName === 'entity_relations' ? LocalEntityRelation
-          : LocalCard;
-
-        const order = tableName === 'entities' ? [asc(LocalEntity.cardId), asc(LocalEntity.revisionHash)]
-          : tableName === 'entity_localizations' ? [asc(LocalEntityLocalization.cardId), asc(LocalEntityLocalization.lang), asc(LocalEntityLocalization.revisionHash), asc(LocalEntityLocalization.localizationHash)]
-          : tableName === 'entity_relations' ? [asc(LocalEntityRelation.sourceId), asc(LocalEntityRelation.relation), asc(LocalEntityRelation.targetId), asc(LocalEntityRelation.sourceRevisionHash)]
-          : [asc(LocalCard.cardId)];
-
-        const chunkHashes = await loadTableChunkAndHash(localDb, tableName, builds, offset, CHUNK_SIZE);
-        if (chunkHashes.size === 0) break;
-
-        for (const [rowKey, curHash] of chunkHashes) {
-          const prevHash = baselineRowHashes?.get(tableName)?.get(rowKey) ?? null;
-          emitPlan(tableName, rowKey, curHash, prevHash, counts, manifestEntries);
-        }
-
-        processed += chunkHashes.size;
-        onProgress?.({ phase: 'loading_snapshots', message: `正在处理 ${tableName} ${processed}/${totalRows}...`, completed: processed, total: totalRows, segments: [
-          { name: 'cards', done: counts.cardRowCount, total: Math.max(counts.cardRowCount, 1) },
-          { name: 'entities', done: counts.entityRowCount, total: Math.max(counts.entityRowCount, 1) },
-          { name: 'localizations', done: counts.localizationRowCount, total: Math.max(counts.localizationRowCount, 1) },
-          { name: 'relations', done: counts.relationRowCount, total: Math.max(counts.relationRowCount, 1) },
-        ] });
-        offset += CHUNK_SIZE;
+  // Soft-deleted rows detected via deleted_at column on base tables
+  if (baseline?.publishedAt) {
+    const since = baseline.publishedAt;
+    const tables = [
+      { name: 'entities' as TableName, tbl: LocalBaseEntity },
+      { name: 'entity_localizations' as TableName, tbl: LocalBaseEntityLocalization },
+      { name: 'entity_relations' as TableName, tbl: LocalBaseEntityRelation },
+      { name: 'cards' as TableName, tbl: LocalBaseCard },
+    ];
+    for (const { name, tbl } of tables) {
+      const rows = await localDb.select().from(tbl)
+        .where(gt(tbl.deletedAt, since)) as any[];
+      for (const row of rows) {
+        const rowKey = rowKeyOf(row, name);
+        touchedKeys.add(`${name}:${rowKey}`);
+        const prevHash = baselineRowHashes?.get(name)?.get(rowKey) ?? null;
+        emitPlan(name, rowKey, null, prevHash, counts, manifestEntries);
       }
     }
   }
 
-  const range = await derivePublishDatasetRange(localDb, [[...builds]], baseline ? { sourceTagMin: baseline.sourceTagMin, sourceTagMax: baseline.sourceTagMax, buildMin: baseline.buildMin, buildMax: baseline.buildMax } : null);
+  const range = await derivePublishDatasetRange(localDb, [[...builds]], baseline ? { buildMin: baseline.buildMin, buildMax: baseline.buildMax } : null);
   const manifestHash = hashJson(manifestEntries.sort((a, b) => a.tableName.localeCompare(b.tableName) || a.rowKey.localeCompare(b.rowKey)));
 
   onProgress?.({ phase: 'loading_snapshots', message: '批次计划构建完成', completed: totalRows, total: totalRows, segments: [
@@ -2485,8 +2112,6 @@ export async function reanchorCurrentHsdataPublishBaseline(options?: {
 
   const { baseline } = await loadBaselineRowHashes(localDb, stream);
   const previousRange = baseline == null ? null : {
-    sourceTagMin: baseline.sourceTagMin,
-    sourceTagMax: baseline.sourceTagMax,
     buildMin: baseline.buildMin,
     buildMax: baseline.buildMax,
   };
@@ -2560,8 +2185,6 @@ export async function reanchorCurrentHsdataPublishBaseline(options?: {
       status: 'completed',
       manifestHash,
       previousManifestHash: baseline?.manifestHash ?? null,
-      sourceTagMin: range.sourceTagMin,
-      sourceTagMax: range.sourceTagMax,
       buildMin: range.buildMin,
       buildMax: range.buildMax,
       totalRowCount: counts.totalRowCount,
@@ -2621,7 +2244,7 @@ export async function loadRowDataChunk(
       const revisionHashes = [...new Set(keys.map(p => p.revisionHash!))];
       const rows = await db.select().from(LocalEntity)
         .where(and(
-          inArray(LocalEntity.cardId, cardIds),
+                    inArray(LocalEntity.cardId, cardIds),
           inArray(LocalEntity.revisionHash, revisionHashes),
         ));
 
@@ -2643,7 +2266,7 @@ export async function loadRowDataChunk(
 
       const rows = await db.select().from(LocalEntityLocalization)
         .where(and(
-          inArray(LocalEntityLocalization.cardId, cardIds),
+                    inArray(LocalEntityLocalization.cardId, cardIds),
           inArray(LocalEntityLocalization.lang, langs),
           inArray(LocalEntityLocalization.revisionHash, revisionHashes),
           inArray(LocalEntityLocalization.localizationHash, localizationHashes),
@@ -2667,7 +2290,7 @@ export async function loadRowDataChunk(
 
       const rows = await db.select().from(LocalEntityRelation)
         .where(and(
-          inArray(LocalEntityRelation.sourceId, sourceIds),
+                    inArray(LocalEntityRelation.sourceId, sourceIds),
           inArray(LocalEntityRelation.sourceRevisionHash, sourceRevisionHashes),
           inArray(LocalEntityRelation.relation, relations),
           inArray(LocalEntityRelation.targetId, targetIds),
@@ -2701,8 +2324,6 @@ function buildPublishReport(
     status: batch.status,
     manifestHash: batch.manifestHash,
     previousManifestHash: batch.previousManifestHash ?? null,
-    sourceTagMin: batch.sourceTagMin,
-    sourceTagMax: batch.sourceTagMax,
     buildMin: batch.buildMin,
     buildMax: batch.buildMax,
     totalRowCount: batch.totalRowCount,
@@ -2787,7 +2408,7 @@ export async function executePublishBatch(
       targetFingerprint: batch.targetFingerprint,
       manifestHash: batch.manifestHash,
       previousManifestHash: batch.previousManifestHash ?? null,
-      sourceTagMax: batch.sourceTagMax,
+      buildMax: batch.buildMax,
       generationFingerprint: batch.generationFingerprint,
       generationOrder: batch.generationOrder,
       leaseHolderId: batch.id,
@@ -2921,7 +2542,7 @@ export async function executePublishBatch(
         environment: batch.environment,
         targetFingerprint: batch.targetFingerprint,
         publishType: batch.publishType,
-        range: { sourceTagMin: batch.sourceTagMin, sourceTagMax: batch.sourceTagMax, buildMin: batch.buildMin, buildMax: batch.buildMax },
+        range: { buildMin: batch.buildMin, buildMax: batch.buildMax },
         generationFingerprint: batch.generationFingerprint,
         generationOrder: batch.generationOrder,
         counts: {
@@ -2947,7 +2568,7 @@ export async function executePublishBatch(
       environment: batch.environment,
       targetFingerprint: batch.targetFingerprint,
       publishType: batch.publishType,
-      range: { sourceTagMin: batch.sourceTagMin, sourceTagMax: batch.sourceTagMax, buildMin: batch.buildMin, buildMax: batch.buildMax },
+      range: { buildMin: batch.buildMin, buildMax: batch.buildMax },
       generationFingerprint: batch.generationFingerprint,
       generationOrder: batch.generationOrder,
       counts: {
@@ -3031,8 +2652,6 @@ export async function publishCurrentHsdataToRemote(options?: {
       status: 'dry_run',
       manifestHash: plan.manifestHash,
       previousManifestHash: plan.previousManifestHash,
-      sourceTagMin: plan.range.sourceTagMin,
-      sourceTagMax: plan.range.sourceTagMax,
       buildMin: plan.range.buildMin,
       buildMax: plan.range.buildMax,
       totalRowCount: plan.counts.totalRowCount,
@@ -3191,26 +2810,26 @@ export async function publishSingleCard(
     const cards = await localDb.select().from(LocalCard).where(eq(LocalCard.cardId, cardId));
 
     await remoteDb.transaction(async tx => {
-      await tx.delete(RemoteEntity).where(eq(RemoteEntity.cardId, cardId));
+      await tx.delete(RemoteBaseEntity).where(eq(RemoteBaseEntity.cardId, cardId));
       for (const row of entities) {
-        await tx.insert(RemoteEntity).values(row);
+        await tx.insert(RemoteBaseEntity).values(row);
       }
 
-      await tx.delete(RemoteEntityLocalization).where(eq(RemoteEntityLocalization.cardId, cardId));
+      await tx.delete(RemoteBaseEntityLocalization).where(eq(RemoteBaseEntityLocalization.cardId, cardId));
       for (const row of localizations) {
-        await tx.insert(RemoteEntityLocalization).values(row);
+        await tx.insert(RemoteBaseEntityLocalization).values(row);
       }
 
-      await tx.delete(RemoteEntityRelation).where(eq(RemoteEntityRelation.sourceId, cardId));
+      await tx.delete(RemoteBaseEntityRelation).where(eq(RemoteBaseEntityRelation.sourceId, cardId));
       for (const row of relations) {
-        await tx.insert(RemoteEntityRelation).values(row);
+        await tx.insert(RemoteBaseEntityRelation).values(row);
       }
 
       if (cards.length > 0) {
         const card = cards[0]!;
-        await tx.insert(RemoteCard).values(card)
+        await tx.insert(RemoteBaseCard).values(card)
           .onConflictDoUpdate({
-            target: RemoteCard.cardId,
+            target: RemoteBaseCard.cardId,
             set: { legalities: card.legalities },
           });
       }

@@ -16,7 +16,6 @@ import {
   publishBatchRowStatus,
   publishBatchStatus,
   publishOperationKind,
-  publishRowChangeOperation,
 } from '../publish';
 
 export const PublishBatch = dataSchema.table('publish_batches', {
@@ -28,10 +27,8 @@ export const PublishBatch = dataSchema.table('publish_batches', {
   publishType:       text('publish_type').notNull().default('card_data'),
   operationKind:     publishOperationKind('operation_kind').notNull().default('publish'),
 
-  sourceTagMin: integer('source_tag_min').notNull(),
-  sourceTagMax: integer('source_tag_max').notNull(),
-  buildMin:     integer('build_min').notNull(),
-  buildMax:     integer('build_max').notNull(),
+  buildMin: integer('build_min').notNull(),
+  buildMax: integer('build_max').notNull(),
 
   generationFingerprint: text('generation_fingerprint').notNull().default('card-data-projector/v1'),
   generationOrder:       integer('generation_order').notNull().default(1),
@@ -70,9 +67,7 @@ export const PublishBatch = dataSchema.table('publish_batches', {
   ),
   index('publish_batches_created_at_idx').on(table.createdAt),
   index('publish_batches_manifest_hash_idx').on(table.manifestHash),
-  check('publish_batches_source_tag_range_chk', sql`${table.sourceTagMin} <= ${table.sourceTagMax}`),
   check('publish_batches_build_range_chk', sql`${table.buildMin} <= ${table.buildMax}`),
-  check('publish_batches_source_tag_min_positive_chk', sql`${table.sourceTagMin} > 0`),
   check('publish_batches_build_min_positive_chk', sql`${table.buildMin} > 0`),
   check('publish_batches_generation_order_positive_chk', sql`${table.generationOrder} > 0`),
   check('publish_batches_total_row_count_nonnegative_chk', sql`${table.totalRowCount} >= 0`),
@@ -124,10 +119,8 @@ export const PublishBaseline = dataSchema.table('publish_baselines', {
     .notNull()
     .references(() => PublishBatch.id),
 
-  sourceTagMin: integer('source_tag_min').notNull(),
-  sourceTagMax: integer('source_tag_max').notNull(),
-  buildMin:     integer('build_min').notNull(),
-  buildMax:     integer('build_max').notNull(),
+  buildMin: integer('build_min').notNull(),
+  buildMax: integer('build_max').notNull(),
 
   generationFingerprint: text('generation_fingerprint').notNull().default('card-data-projector/v1'),
   generationOrder:       integer('generation_order').notNull().default(1),
@@ -143,9 +136,7 @@ export const PublishBaseline = dataSchema.table('publish_baselines', {
 }, table => [
   primaryKey({ columns: [table.publishTarget, table.environment, table.publishType] }),
   index('publish_baselines_batch_id_idx').on(table.batchId),
-  check('publish_baselines_source_tag_range_chk', sql`${table.sourceTagMin} <= ${table.sourceTagMax}`),
   check('publish_baselines_build_range_chk', sql`${table.buildMin} <= ${table.buildMax}`),
-  check('publish_baselines_source_tag_min_positive_chk', sql`${table.sourceTagMin} > 0`),
   check('publish_baselines_build_min_positive_chk', sql`${table.buildMin} > 0`),
   check('publish_baselines_generation_order_positive_chk', sql`${table.generationOrder} > 0`),
   check('publish_baselines_total_row_count_nonnegative_chk', sql`${table.totalRowCount} >= 0`),
@@ -184,25 +175,4 @@ export const PublishRowBaseline = dataSchema.table('publish_row_baselines', {
     table.publishType,
   ),
   index('publish_row_baselines_source_batch_idx').on(table.sourceBatchId),
-]);
-
-export const PublishRowChangeLog = dataSchema.table('publish_row_change_logs', {
-  tableName: text('table_name').notNull(),
-  rowKey:    text('row_key').notNull(),
-
-  operation:   publishRowChangeOperation('operation').notNull(),
-  sourceBuild: integer('source_build'),
-  sourceTag:   integer('source_tag'),
-  sourceRunId: uuid('source_run_id'),
-  changedAt:   timestamp('changed_at').notNull(),
-  createdAt:   timestamp('created_at').defaultNow().notNull(),
-  updatedAt:   timestamp('updated_at')
-    .defaultNow()
-    .$onUpdate(() => /* @__PURE__ */ new Date())
-    .notNull(),
-}, table => [
-  primaryKey({ columns: [table.tableName, table.rowKey, table.changedAt] }),
-  index('publish_row_change_logs_changed_at_idx').on(table.changedAt),
-  index('publish_row_change_logs_table_row_idx').on(table.tableName, table.rowKey),
-  index('publish_row_change_logs_operation_idx').on(table.operation),
 ]);

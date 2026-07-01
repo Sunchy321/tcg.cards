@@ -13,6 +13,10 @@ import { RENDER_MECHANIC_IDS } from '@tcg-cards/model/src/hearthstone/constant/t
 import { renderModel as renderModelSchema, type RenderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
 import { mainLocale, type Rarity, rarity as raritySchema, type Types, types as typeSchema } from '@tcg-cards/model/src/hearthstone/schema/basic';
 import {
+  BaseCard,
+  BaseEntity,
+  BaseEntityLocalization,
+  BaseEntityRelation,
   Card,
   Entity,
   EntityLocalization,
@@ -2154,7 +2158,7 @@ async function loadExistingRowsForProjection(
           from hearthstone.entities as target
           inner join hsdata_projection_entity_existing_stage as stage
             on target.card_id = stage.card_id
-        `);
+                  `);
         entities.push(...rows);
         await onProgress?.(
           `Loaded existing entity rows for ${Math.min(entities.length, entityCardIds.length)} projected cards`,
@@ -2225,7 +2229,7 @@ async function loadExistingRowsForProjection(
              and target.lang = stage.lang
              and target.revision_hash = stage.revision_hash
              and target.localization_hash = stage.localization_hash
-          `);
+                    `);
           exactRows.push(...rows);
           await onProgress?.(
             `Loaded exact localization rows for ${Math.min(exactRows.length, localizationKeys.length)} projected revision keys`,
@@ -2257,7 +2261,7 @@ async function loadExistingRowsForProjection(
               on target.card_id = stage.card_id
              and target.lang = stage.lang
             where target.version && ARRAY[${sql.join(localizationBuilds.map(v => sql`${v}`), sql`, `)}]::integer[]
-          `);
+                        `);
           buildRows.push(...rows);
           await onProgress?.(
             `Loaded current-build localization groups for ${Math.min(buildRows.length, localizationGroups.length)} projected card-language families`,
@@ -2327,7 +2331,7 @@ async function loadExistingRowsForProjection(
           from hearthstone.entity_relations as target
           inner join hsdata_projection_relation_existing_stage as stage
             on target.source_id = stage.source_id
-        `);
+                  `);
         relations.push(...rows);
         await onProgress?.(
           `Loaded existing relation rows for ${Math.min(relations.length, relationSourceIds.length)} projected source cards`,
@@ -2380,8 +2384,9 @@ async function deleteRelationsByKey(tx: CopyTx, rows: RelationRow[]) {
   await copyRelationKeysIntoTable(tx, rows, 'hsdata_projection_relation_delete_stage');
 
   await tx.session.client.unsafe(`
-    delete from hearthstone.entity_relations as target
-    using hsdata_projection_relation_delete_stage as stage
+    update hearthstone.entity_relations as target
+    set deleted_at = now()
+    from hsdata_projection_relation_delete_stage as stage
     where target.source_id = stage.source_id
       and target.relation = stage.relation
       and target.target_id = stage.target_id
@@ -3115,8 +3120,9 @@ async function deleteEntities(
   await copyEntityKeysIntoTable(tx, rows, 'hsdata_projection_entity_delete_stage');
 
   await tx.session.client.unsafe(`
-    delete from hearthstone.entities as target
-    using hsdata_projection_entity_delete_stage as stage
+    update hearthstone.entities as target
+    set deleted_at = now()
+    from hsdata_projection_entity_delete_stage as stage
     where target.card_id = stage.card_id
       and target.revision_hash = stage.revision_hash
   `);
@@ -3274,7 +3280,7 @@ async function upsertEntities(
         from hearthstone.entities as target
         where target.card_id = stage.card_id
           and target.revision_hash = stage.revision_hash
-      )
+                )
     `);
 
     await onProgress?.({
@@ -3302,7 +3308,7 @@ async function updateEntityMetaRows(
 
   for (const chunk of chunkValues(rows, writeRowBatchSize)) {
     for (const row of chunk) {
-      await tx.update(Entity)
+      await tx.update(BaseEntity)
         .set({ version: row.version, isLatest: row.isLatest })
         .where(and(
           eq(Entity.cardId, row.cardId),
@@ -3366,8 +3372,9 @@ async function syncLocalizations(
       await analyzeTempTable(tx, 'hsdata_projection_localization_delete_stage');
 
       await tx.session.client.unsafe(`
-        delete from hearthstone.entity_localizations as target
-        using hsdata_projection_localization_delete_stage as stage
+        update hearthstone.entity_localizations as target
+        set deleted_at = now()
+        from hsdata_projection_localization_delete_stage as stage
         where target.card_id = stage.card_id
           and target.lang = stage.lang
           and target.revision_hash = stage.revision_hash
@@ -3431,7 +3438,7 @@ async function syncLocalizations(
     for (const chunk of chunkValues(combinedMetaRows, writeRowBatchSize)) {
       for (const row of chunk) {
         if (row.isAppend) {
-          await tx.update(EntityLocalization)
+          await tx.update(BaseEntityLocalization)
             .set({
               version: sql`array_append(${EntityLocalization.version}, ${build})`,
               renderHash: sql`coalesce(${row.renderHash ?? null}, ${EntityLocalization.renderHash})`,
@@ -3446,7 +3453,7 @@ async function syncLocalizations(
             ));
         } else {
           const metaRow = row as typeof metaRows[number];
-          await tx.update(EntityLocalization)
+          await tx.update(BaseEntityLocalization)
             .set({
               version: metaRow.version,
               renderHash: sql`coalesce(${metaRow.renderHash ?? null}, ${EntityLocalization.renderHash})`,
@@ -3536,7 +3543,7 @@ async function syncLocalizations(
             and target.lang = stage.lang
             and target.revision_hash = stage.revision_hash
             and target.localization_hash = stage.localization_hash
-        )
+                    )
       `);
 
       await onProgress?.({
@@ -3590,7 +3597,7 @@ async function refreshLocalizationLatestRows(
         .where(and(
           eq(EntityLocalization.cardId, group.cardId),
           sql`${EntityLocalization.lang} = ${group.lang}`,
-        ));
+                  ));
 
       if (groupRows.length === 0) continue;
 
@@ -3603,7 +3610,7 @@ async function refreshLocalizationLatestRows(
       for (const r of groupRows) {
         const shouldBeLatest = maxBuild > 0 && r.version.includes(maxBuild);
         if (r.isLatest !== shouldBeLatest) {
-          await tx.update(EntityLocalization)
+          await tx.update(BaseEntityLocalization)
             .set({ isLatest: shouldBeLatest })
             .where(and(
               eq(EntityLocalization.cardId, r.cardId),
@@ -3638,7 +3645,7 @@ async function insertRelations(tx: DbTx, rows: RelationRow[]) {
       continue;
     }
 
-    await tx.insert(EntityRelation)
+    await tx.insert(BaseEntityRelation)
       .values(chunk)
       .onConflictDoNothing();
   }
@@ -3651,8 +3658,8 @@ async function insertRelationsIgnoreDuplicates(tx: DbTx, rows: RelationRow[]) {
       continue;
     }
 
-    await tx.insert(EntityRelation)
-      .values(chunk as (typeof EntityRelation.$inferInsert)[])
+    await tx.insert(BaseEntityRelation)
+      .values(chunk)
       .onConflictDoNothing();
   }
 }
@@ -4394,7 +4401,7 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
 
       if (!dryRun && !skipped) {
         if (publishedCardIds.length > 0) {
-          await tx.insert(Card).values(
+          await tx.insert(BaseCard).values(
             publishedCardIds.map(cardId => ({ cardId, legalities: {} })),
           ).onConflictDoNothing();
           profiler.mark('write_ensure_cards', { rowCount: publishedCardIds.length });
@@ -4521,7 +4528,7 @@ export async function recomputeLatestProjection(options?: {
     for (const row of rows) {
       const latest = row.version.includes(globalLatest);
       if (row.isLatest !== latest) {
-        await localDb.update(Entity)
+        await localDb.update(BaseEntity)
           .set({ isLatest: latest })
           .where(and(eq(Entity.cardId, row.cardId), eq(Entity.revisionHash, row.revisionHash)));
         entityUpdatedCount += 1;
@@ -4572,7 +4579,7 @@ export async function recomputeLatestProjection(options?: {
     for (const row of rows) {
       const latest = row.version.includes(globalLatest);
       if (row.isLatest !== latest) {
-        await localDb.update(EntityLocalization)
+        await localDb.update(BaseEntityLocalization)
           .set({ isLatest: latest })
           .where(and(
             eq(EntityLocalization.cardId, row.cardId),
@@ -4628,7 +4635,7 @@ export async function recomputeLatestProjection(options?: {
     for (const row of rows) {
       const latest = row.version.includes(maxVersion);
       if (row.isLatest !== latest) {
-        await localDb.update(EntityRelation)
+        await localDb.update(BaseEntityRelation)
           .set({ isLatest: latest })
           .where(and(
             eq(EntityRelation.sourceId, row.sourceId),

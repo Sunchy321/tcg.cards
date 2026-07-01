@@ -50,10 +50,8 @@ export const PublishLedger = pgTable('publish_ledgers', {
   targetFingerprint: text('target_fingerprint').notNull(),
   batchId:           uuid('batch_id').notNull(),
 
-  sourceTagMin: integer('source_tag_min').notNull(),
-  sourceTagMax: integer('source_tag_max').notNull(),
-  buildMin:     integer('build_min').notNull(),
-  buildMax:     integer('build_max').notNull(),
+  buildMin: integer('build_min').notNull(),
+  buildMax: integer('build_max').notNull(),
 
   generationFingerprint: text('generation_fingerprint').notNull().default('card-data-projector/v1'),
   generationOrder:       integer('generation_order').notNull().default(1),
@@ -72,9 +70,7 @@ export const PublishLedger = pgTable('publish_ledgers', {
   index('publish_ledgers_environment_idx').on(table.environment),
   index('publish_ledgers_stream_idx').on(table.publishTarget, table.environment, table.publishType),
   index('publish_ledgers_published_at_idx').on(table.publishedAt),
-  check('publish_ledgers_source_tag_range_chk', sql`${table.sourceTagMin} <= ${table.sourceTagMax}`),
   check('publish_ledgers_build_range_chk', sql`${table.buildMin} <= ${table.buildMax}`),
-  check('publish_ledgers_source_tag_min_positive_chk', sql`${table.sourceTagMin} > 0`),
   check('publish_ledgers_build_min_positive_chk', sql`${table.buildMin} > 0`),
   check('publish_ledgers_generation_order_positive_chk', sql`${table.generationOrder} > 0`),
   check('publish_ledgers_total_row_count_nonnegative_chk', sql`${table.totalRowCount} >= 0`),

@@ -14,8 +14,9 @@ import { and, eq, ne, or, asc, count, gt, inArray, sql } from 'drizzle-orm';
 
 // const TEST_BUILD = 245096;
 import { createDb } from '@tcg-cards/db';
-import { PublishBaseline, PublishRowBaseline, PublishRowChangeLog, PublishBatchRow, PublishBatch, SourceVersion } from '@tcg-cards/db/schema/local/hearthstone';
+import { PublishBaseline, PublishRowBaseline, PublishBatchRow, PublishBatch, SourceVersion } from '@tcg-cards/db/schema/local/hearthstone';
 import { Entity as LocalEntity, EntityLocalization as LocalEntityLocalization, EntityRelation as LocalEntityRelation, Card as LocalCard } from '@tcg-cards/db/schema/local/hearthstone';
+import { Entity as RemoteEntity, EntityLocalization as RemoteEntityLocalization, EntityRelation as RemoteEntityRelation, Card as RemoteCard } from '@tcg-cards/db/schema/remote/hearthstone';
 import { loadRowDataChunk, insertRemoteRow, deleteRemoteRow, parseRowKey, loadReanchorRowCounts, reanchorReadBatchSize, buildManifestLine } from '../../hsdata-publish';
 import { hashJson, derivePublishDatasetRange, rowKeyOf, rowHashOf, loadBaselineRowHashes, loadChunkDataAndHash, chunkValues } from '../../hsdata-publish';
 import type { TableName, PublishDb } from '../../hsdata-publish';
@@ -88,16 +89,14 @@ interface LoadingCtx {
   previousManifestHash: string | null;
   publishedAt: Date | null;
   totalRows: number;
-  isChangelog: boolean;
   batchId: string;
-  range: { sourceTagMin: number; sourceTagMax: number; buildMin: number; buildMax: number } | null;
+  range: { buildMin: number; buildMax: number } | null;
   counts: { totalRowCount: number; changedRowCount: number; insertedRowCount: number; updatedRowCount: number; deletedRowCount: number; unchangedRowCount: number; cardRowCount: number; entityRowCount: number; localizationRowCount: number; relationRowCount: number };
   builds: number[];
-  touchedKeys: Set<string>;
   processed: number;
   stream: { publishTarget: string; environment: string; publishType: string };
-  /** Full-scan cursor: (tableName → last cursor value). null = not started. undefined = table exhausted. */
-  scanCursors?: Map<TableName, string | null>;
+  /** Full-scan cursor: (tableName → last cursor row). null = not started. undefined = table exhausted. */
+  scanCursors?: Map<TableName, any>;
   tableTotals?: Record<TableName, number>;
   tableProcessed?: Record<TableName, number>;
   dryRun: boolean;
@@ -312,23 +311,20 @@ export async function executePublishStageBlock(input: {
     // Finalize after all tables exhausted
     if (!tables.some(tn => rs.scanCursors.get(tn) !== undefined)) {
       const builds = [...rs.builds].sort((l, r) => l - r);
-      const sourceVersionRows = await db.select({ sourceTag: SourceVersion.sourceTag, build: SourceVersion.build })
-        .from(SourceVersion).where(and(inArray(SourceVersion.build, builds as any), eq(SourceVersion.status, 'completed' as any), eq(SourceVersion.projectionStatus, 'completed' as any)));
-      const sourceTags = [...new Set(sourceVersionRows.filter(r => r.build != null).map(r => r.sourceTag))].sort((l, r) => l - r);
-      const range = { sourceTagMin: sourceTags[0]!, sourceTagMax: sourceTags[sourceTags.length - 1]!, buildMin: builds[0]!, buildMax: builds[builds.length - 1]! };
+      const range = { buildMin: builds[0]!, buildMax: builds[builds.length - 1]! };
       const manifestHash = rs.manifest.digest('hex') as string;
 
       await db.insert(PublishBaseline).values({
         publishTarget: rs.target.publishTarget, environment: rs.target.environment, publishType: rs.target.publishType,
         targetFingerprint: rs.target.publishTarget,
         batchId: ctx.batchId!,
-        sourceTagMin: range.sourceTagMin, sourceTagMax: range.sourceTagMax, buildMin: range.buildMin, buildMax: range.buildMax,
+        buildMin: range.buildMin, buildMax: range.buildMax,
         generationFingerprint: 'draft' as any, generationOrder: 1 as any,
         manifestHash, totalRowCount: rs.totalRowCount, publishedAt: rs.publishedAt,
       } as any)
         .onConflictDoUpdate({ target: [PublishBaseline.publishTarget, PublishBaseline.environment, PublishBaseline.publishType], set: {
           batchId: ctx.batchId!,
-          sourceTagMin: range.sourceTagMin, sourceTagMax: range.sourceTagMax, buildMin: range.buildMin, buildMax: range.buildMax,
+          buildMin: range.buildMin, buildMax: range.buildMax,
           manifestHash, totalRowCount: rs.totalRowCount, publishedAt: rs.publishedAt,
           updatedAt: rs.publishedAt,
         } as any });
@@ -337,31 +333,23 @@ export async function executePublishStageBlock(input: {
   }
   if (stageKey === 'finalizing') {
     const ctx = publishCtxMap.get(input.taskRunId);
-    const loader = ctx?.loader;
+    if (!ctx) return;
+    const loader = ctx.loader;
     if (loader) {
       const c = loader.counts;
       console.log(`[publish done] dryRun=${loader.dryRun} total=${c.totalRowCount} insert=${c.insertedRowCount} update=${c.updatedRowCount} delete=${c.deletedRowCount} unchanged=${c.unchangedRowCount} | entities=${c.entityRowCount} localizations=${c.localizationRowCount} relations=${c.relationRowCount} cards=${c.cardRowCount}`);
       if (!loader.dryRun && ctx.batchId) {
         const db = getLocalDb() as unknown as PublishDb;
         const builds = [...new Set(loader.builds)].sort((l, r) => l - r);
-        const sourceVersionRows = await db.select({ sourceTag: SourceVersion.sourceTag, build: SourceVersion.build })
-          .from(SourceVersion)
-          .where(and(inArray(SourceVersion.build, builds as any), eq(SourceVersion.projectionStatus, 'completed' as any)));
-        const sourceTags = [...new Set(sourceVersionRows.filter(r => r.build != null).map(r => r.sourceTag))].sort((l, r) => l - r);
-        const range = {
-          sourceTagMin: sourceTags[0] ?? 0,
-          sourceTagMax: sourceTags[sourceTags.length - 1] ?? 0,
-          buildMin: builds[0] ?? 0,
-          buildMax: builds[builds.length - 1] ?? 0,
-        };
+        const { baseline } = await loadBaselineRowHashes(db, loader.stream);
+        const previousRange = baseline ? { buildMin: baseline.buildMin, buildMax: baseline.buildMax } : null;
+        const range = await derivePublishDatasetRange(db, [builds], previousRange);
         await db.insert(PublishBaseline).values({
           publishTarget: loader.stream.publishTarget,
           environment: loader.stream.environment,
           publishType: loader.stream.publishType,
           targetFingerprint: loader.stream.publishTarget,
           batchId: ctx.batchId,
-          sourceTagMin: range.sourceTagMin,
-          sourceTagMax: range.sourceTagMax,
           buildMin: range.buildMin,
           buildMax: range.buildMax,
           generationFingerprint: 'card-data-projector/v1',
@@ -374,8 +362,6 @@ export async function executePublishStageBlock(input: {
         }).onConflictDoUpdate({
           target: [PublishBaseline.publishTarget, PublishBaseline.environment, PublishBaseline.publishType],
           set: {
-            sourceTagMin: range.sourceTagMin,
-            sourceTagMax: range.sourceTagMax,
             buildMin: range.buildMin,
             buildMax: range.buildMax,
             totalRowCount: c.totalRowCount,
@@ -383,6 +369,22 @@ export async function executePublishStageBlock(input: {
             updatedAt: new Date(),
           } as any,
         });
+      }
+    }
+    if (!loader?.dryRun && ctx.remoteDb) {
+      const localDb = getLocalDb();
+      const remoteDb = ctx.remoteDb as any;
+      for (const [tableName, localTbl, remoteTbl] of [
+        ['entities', LocalEntity, RemoteEntity],
+        ['entity_localizations', LocalEntityLocalization, RemoteEntityLocalization],
+        ['entity_relations', LocalEntityRelation, RemoteEntityRelation],
+        ['cards', LocalCard, RemoteCard],
+      ] as const) {
+        const [localRow] = await localDb.select({ count: count() }).from(localTbl);
+        const [remoteRow] = await remoteDb.select({ count: count() }).from(remoteTbl);
+        if (Number(localRow!.count) !== Number(remoteRow!.count)) {
+          throw new Error(`[publish finalize] row count mismatch for ${tableName}: local=${localRow!.count} remote=${remoteRow!.count}`);
+        }
       }
     }
     if (ctx?.batchId) {
@@ -410,11 +412,7 @@ async function executeLoadingChunk(
 
   const plans: PlanEntry[] = [];
 
-  if (loader.isChangelog) {
-    await processChangelogChunk(input, loader, plans);
-  } else {
-    await processFullScanChunk(input, loader, plans);
-  }
+  await processFullScanChunk(input, loader, plans);
 
   if (!loader.dryRun) {
     await flushPlans(getLocalDb() as unknown as PublishDb, loader.batchId, plans);
@@ -460,8 +458,6 @@ async function executeLoadingChunk(
       await localDb.update(PublishBatch)
         .set({
           operationKind: 'publish' as any,
-          sourceTagMin: range.sourceTagMin,
-          sourceTagMax: range.sourceTagMax,
           buildMin: range.buildMin,
           buildMax: range.buildMax,
           generationFingerprint: 'draft',
@@ -503,48 +499,6 @@ async function executeLoadingChunk(
   }).catch(() => {});
 }
 
-async function processChangelogChunk(
-  input: { run: TaskRunInput; stage: TaskStageState; block: TaskBlock; store: TaskExecuteStore; taskRunId: string },
-  loader: LoadingCtx,
-  plans: PlanEntry[],
-): Promise<void> {
-  const db = getLocalDb() as unknown as PublishDb;
-  const chunkIndex = (input.block.payload?.chunkIndex as number) ?? 0;
-  const offset = chunkIndex * LOAD_CHUNK_SIZE;
-
-  const rows = await db.select({ tableName: PublishRowChangeLog.tableName, rowKey: PublishRowChangeLog.rowKey })
-    .from(PublishRowChangeLog)
-    .where(gt(PublishRowChangeLog.changedAt, loader.publishedAt!))
-    .orderBy(asc(PublishRowChangeLog.tableName), asc(PublishRowChangeLog.rowKey))
-    .limit(LOAD_CHUNK_SIZE)
-    .offset(offset);
-
-  if (rows.length === 0) { loader.done = true; return; }
-
-  for (const r of rows) loader.touchedKeys.add(`${r.tableName}:${r.rowKey}`);
-
-  const byTable = new Map<TableName, string[]>();
-  for (const r of rows) {
-    const tn = r.tableName as TableName;
-    if (!byTable.has(tn)) byTable.set(tn, []);
-    byTable.get(tn)!.push(r.rowKey);
-  }
-
-  const buildsSet = new Set<number>(loader.builds);
-  const chunkHashes = await loadChunkDataAndHash(db, byTable, buildsSet);
-  loader.builds = [...buildsSet];
-
-  for (const [tableName, curRows] of chunkHashes) {
-    for (const [rowKey, curHash] of curRows) {
-      const prevHash = loader.baselineRowHashes?.get(tableName)?.get(rowKey) ?? null;
-      addPlan(tableName, rowKey, curHash, prevHash, plans, loader.counts);
-    }
-  }
-
-  loader.processed += rows.length;
-  loader.done = (offset + LOAD_CHUNK_SIZE) >= loader.totalRows;
-}
-
 const FULL_SCAN_TABLES: TableName[] = ['entities', 'entity_localizations', 'entity_relations', 'cards'];
 
 async function processFullScanChunk(
@@ -556,43 +510,45 @@ async function processFullScanChunk(
   const cursors = loader.scanCursors!;
 
   // Find active table
-  let tableName: string | null = null;
+  let tableName: TableName | null = null;
   for (const tn of FULL_SCAN_TABLES) { if (cursors.get(tn) !== undefined) { tableName = tn; break; } }
   if (!tableName) return;
 
   const cursor = cursors.get(tableName)!;
   let rawRows: any[];
 
+  const since = loader.publishedAt;
   if (tableName === 'entities') {
     const tbl = LocalEntity;
     rawRows = await db.select().from(tbl)
-      .where(/*and(
-        sql`${TEST_BUILD} = ANY(${tbl.version})`,
+      .where(and(
+        since ? or(gt(tbl.createdAt, since), gt(tbl.updatedAt, since)) : undefined,
         cursor == null ? undefined : or(gt(tbl.cardId, cursor.cardId), and(eq(tbl.cardId, cursor.cardId), gt(tbl.revisionHash, cursor.revisionHash))),
-      )*/
-        cursor == null ? undefined : or(gt(tbl.cardId, cursor.cardId), and(eq(tbl.cardId, cursor.cardId), gt(tbl.revisionHash, cursor.revisionHash)))
-      )
+      ))
       .orderBy(asc(tbl.cardId), asc(tbl.revisionHash)).limit(LOAD_CHUNK_SIZE) as any[];
   } else if (tableName === 'entity_localizations') {
     const tbl = LocalEntityLocalization;
     rawRows = await db.select().from(tbl)
-      .where(/*and(
-        sql`${TEST_BUILD} = ANY(${tbl.version})`,
-        eq(tbl.lang, 'zhs'),
+      .where(and(
+        since ? or(gt(tbl.createdAt, since), gt(tbl.updatedAt, since)) : undefined,
         cursor == null ? undefined : or(gt(tbl.cardId, cursor.cardId), and(eq(tbl.cardId, cursor.cardId), gt(tbl.lang, cursor.lang)), and(eq(tbl.cardId, cursor.cardId), eq(tbl.lang, cursor.lang), gt(tbl.revisionHash, cursor.revisionHash)), and(eq(tbl.cardId, cursor.cardId), eq(tbl.lang, cursor.lang), eq(tbl.revisionHash, cursor.revisionHash), gt(tbl.localizationHash, cursor.localizationHash))),
-      )*/
-        cursor == null ? undefined : or(gt(tbl.cardId, cursor.cardId), and(eq(tbl.cardId, cursor.cardId), gt(tbl.lang, cursor.lang)), and(eq(tbl.cardId, cursor.cardId), eq(tbl.lang, cursor.lang), gt(tbl.revisionHash, cursor.revisionHash)), and(eq(tbl.cardId, cursor.cardId), eq(tbl.lang, cursor.lang), eq(tbl.revisionHash, cursor.revisionHash), gt(tbl.localizationHash, cursor.localizationHash)))
-      )
+      ))
       .orderBy(asc(tbl.cardId), asc(tbl.lang), asc(tbl.revisionHash), asc(tbl.localizationHash)).limit(LOAD_CHUNK_SIZE) as any[];
   } else if (tableName === 'entity_relations') {
     const tbl = LocalEntityRelation;
     rawRows = await db.select().from(tbl)
-      .where(cursor == null ? undefined : or(gt(tbl.sourceId, cursor.sourceId), and(eq(tbl.sourceId, cursor.sourceId), gt(tbl.relation, cursor.relation)), and(eq(tbl.sourceId, cursor.sourceId), eq(tbl.relation, cursor.relation), gt(tbl.targetId, cursor.targetId)), and(eq(tbl.sourceId, cursor.sourceId), eq(tbl.relation, cursor.relation), eq(tbl.targetId, cursor.targetId), gt(tbl.sourceRevisionHash, cursor.sourceRevisionHash))))
+      .where(and(
+        since ? or(gt(tbl.createdAt, since), gt(tbl.updatedAt, since)) : undefined,
+        cursor == null ? undefined : or(gt(tbl.sourceId, cursor.sourceId), and(eq(tbl.sourceId, cursor.sourceId), gt(tbl.relation, cursor.relation)), and(eq(tbl.sourceId, cursor.sourceId), eq(tbl.relation, cursor.relation), gt(tbl.targetId, cursor.targetId)), and(eq(tbl.sourceId, cursor.sourceId), eq(tbl.relation, cursor.relation), eq(tbl.targetId, cursor.targetId), gt(tbl.sourceRevisionHash, cursor.sourceRevisionHash))),
+      ))
       .orderBy(asc(tbl.sourceId), asc(tbl.relation), asc(tbl.targetId), asc(tbl.sourceRevisionHash)).limit(LOAD_CHUNK_SIZE) as any[];
   } else {
     const tbl = LocalCard;
     rawRows = await db.select().from(tbl)
-      .where(cursor == null ? undefined : gt(tbl.cardId, (cursor as Record<string, unknown>).cardId ?? cursor))
+      .where(and(
+        since ? or(gt(tbl.createdAt, since), gt(tbl.updatedAt, since)) : undefined,
+        cursor == null ? undefined : gt(tbl.cardId, (cursor as Record<string, unknown>).cardId ?? cursor),
+      ))
       .orderBy(asc(tbl.cardId)).limit(LOAD_CHUNK_SIZE) as any[];
   }
 
@@ -604,7 +560,7 @@ async function processFullScanChunk(
     const hash = rowHashOf(row, tableName);
     const prevHash = loader.baselineRowHashes?.get(tableName as TableName)?.get(rowKey) ?? null;
     addPlan(tableName, rowKey, hash, prevHash, plans, loader.counts);
-    if (tableName === 'entities' && row.version) {
+    if (tableName !== 'cards' && row.version) {
       (row.version as number[]).forEach(v => buildsSet.add(v));
     }
   }
@@ -636,7 +592,7 @@ async function executeApplyChunk(
     whereClauses.push(or(
       gt(PublishBatchRow.tableName, cursor.tableName),
       and(eq(PublishBatchRow.tableName, cursor.tableName), gt(PublishBatchRow.rowKey, cursor.rowKey)),
-    ));
+    )!);
   }
   const chunk = await ctx.db.select()
     .from(PublishBatchRow)
@@ -716,68 +672,56 @@ export const publishTaskDefinition: TaskDefinition = {
       const db = getLocalDb();
       const { baseline, baselineRowHashes } = await loadBaselineRowHashes(db, stream);
       const publishedAt = baseline?.publishedAt ?? null;
-      let total = 0;
-      let isChangelog = false;
-      if (publishedAt) {
-        const [row] = await db.select({ count: count() }).from(PublishRowChangeLog).where(gt(PublishRowChangeLog.changedAt, publishedAt));
-        total = Number(row!.count);
-        isChangelog = total > 0;
-      }
-      let tableTotals: Record<string, number> | undefined;
-      if (total === 0 || !isChangelog) {
-        const cnt = await Promise.all([
-          db.select({ count: count() }).from(LocalEntity)/*.where(sql`${TEST_BUILD} = ANY(${LocalEntity.version})`)*/,
-          db.select({ count: count() }).from(LocalEntityLocalization)/*.where(and(sql`${TEST_BUILD} = ANY(${LocalEntityLocalization.version})`, eq(LocalEntityLocalization.lang, 'zhs')))*/,
-          db.select({ count: count() }).from(LocalEntityRelation),
-          db.select({ count: count() }).from(LocalCard),
-        ]);
-        if (total === 0) total = cnt.reduce((s, r) => s + Number(r[0]!.count), 0);
-        tableTotals = { entities: Number(cnt[0]![0]!.count), 'entity_localizations': Number(cnt[1]![0]!.count), 'entity_relations': Number(cnt[2]![0]!.count), cards: Number(cnt[3]![0]!.count) };
-      }
+      const isIncremental = publishedAt != null;
+      const since = publishedAt!;
+      const cnt = await Promise.all([
+        isIncremental
+          ? db.select({ count: count() }).from(LocalEntity).where(or(gt(LocalEntity.createdAt, since), gt(LocalEntity.updatedAt, since)))
+          : db.select({ count: count() }).from(LocalEntity),
+        isIncremental
+          ? db.select({ count: count() }).from(LocalEntityLocalization).where(or(gt(LocalEntityLocalization.createdAt, since), gt(LocalEntityLocalization.updatedAt, since)))
+          : db.select({ count: count() }).from(LocalEntityLocalization),
+        isIncremental
+          ? db.select({ count: count() }).from(LocalEntityRelation).where(or(gt(LocalEntityRelation.createdAt, since), gt(LocalEntityRelation.updatedAt, since)))
+          : db.select({ count: count() }).from(LocalEntityRelation),
+        isIncremental
+          ? db.select({ count: count() }).from(LocalCard).where(or(gt(LocalCard.createdAt, since), gt(LocalCard.updatedAt, since)))
+          : db.select({ count: count() }).from(LocalCard),
+      ]);
+      const total = cnt.reduce((s, r) => s + Number(r[0]!.count), 0);
+      const tableTotals: Record<string, number> = { entities: Number(cnt[0]![0]!.count), 'entity_localizations': Number(cnt[1]![0]!.count), 'entity_relations': Number(cnt[2]![0]!.count), cards: Number(cnt[3]![0]!.count) };
 
-      const batchId = randomUUID();
+      const dryRun = (run.params as any)?.dryRun === true;
+      let batchId = dryRun ? randomUUID() : '';
+      if (!dryRun) {
+        const [created] = await db.insert(PublishBatch).values({
+          publishTarget: stream.publishTarget,
+          environment: stream.environment,
+          targetFingerprint: scope.publishTarget ?? null,
+          publishType: 'card_data',
+          operationKind: 'publish',
+          buildMin: 1,
+          buildMax: 1,
+          generationFingerprint: 'draft',
+          generationOrder: 1,
+          manifestHash: '',
+          previousManifestHash: baseline?.manifestHash ?? null,
+          status: 'applying',
+        }).returning({ id: PublishBatch.id });
+        batchId = created!.id;
+      }
       const loader: LoadingCtx = {
         baselineRowHashes, previousManifestHash: baseline?.manifestHash ?? null, publishedAt,
-        totalRows: total, isChangelog, batchId, range: null,
+        totalRows: total, batchId, range: null,
         counts: { totalRowCount: 0, changedRowCount: 0, insertedRowCount: 0, updatedRowCount: 0, deletedRowCount: 0, unchangedRowCount: 0, cardRowCount: 0, entityRowCount: 0, localizationRowCount: 0, relationRowCount: 0 },
-        builds: [], touchedKeys: new Set(), processed: 0,
+        builds: [], processed: 0,
         stream,
-        scanCursors: isChangelog ? undefined : new Map([['entities', null], ['entity_localizations', null], ['entity_relations', null], ['cards', null]]),
+        scanCursors: new Map([['entities', null], ['entity_localizations', null], ['entity_relations', null], ['cards', null]]),
         tableTotals,
         tableProcessed: tableTotals ? { entities: 0, entity_localizations: 0, entity_relations: 0, cards: 0 } : undefined,
-        dryRun: (run.params as any)?.dryRun === true,
+        dryRun,
       };
       getOrInitCtx(taskRunId).loader = loader;
-
-      // Create a draft batch record so PublishBatchRow FK is satisfied
-      if (!loader.dryRun) {
-        await db.insert(PublishBatch).values({
-        id: batchId,
-        publishTarget: stream.publishTarget,
-        environment: stream.environment,
-        publishType: 'card_data',
-        operationKind: 'publish' as any,
-        targetFingerprint: scope.publishTarget ?? null,
-        status: 'applying' as any,
-        sourceTagMin: 1 as any,
-        sourceTagMax: 1 as any,
-        buildMin: 1 as any,
-        buildMax: 1 as any,
-        generationFingerprint: 'draft',
-        generationOrder: 1,
-        manifestHash: '',
-        previousManifestHash: loader.previousManifestHash ?? null,
-        totalRowCount: 0,
-        changedRowCount: 0,
-        insertedRowCount: 0,
-        updatedRowCount: 0,
-        deletedRowCount: 0,
-        unchangedRowCount: 0,
-        publishedAt: null as any,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-      }
 
       return { ...buildPublishTaskStageEntry(stage), total };
     }
