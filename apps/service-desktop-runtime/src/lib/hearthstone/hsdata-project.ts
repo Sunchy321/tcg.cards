@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
-import { and, eq, inArray, SQL, sql } from 'drizzle-orm';
+import { and, eq, ne, inArray, SQL, sql } from 'drizzle-orm';
 
 import { db } from '@tcg-cards/db/db';
 import { RENDER_MECHANIC_IDS } from '@tcg-cards/model/src/hearthstone/constant/tag';
@@ -51,6 +51,7 @@ interface RawSnapshotRow {
   entityXmlVersion: number;
   snapshotHash:     string;
   extraPayload:     JsonMap;
+  projectionState:  'not_projected' | 'version_only' | 'projected';
 }
 
 interface RawSnapshotTagRow {
@@ -229,12 +230,11 @@ interface SyncPlan<T extends { version: number[], isLatest: boolean }> {
 
 /** Reconciliation hooks that derive row identity groups and lightweight change signatures. */
 interface ReconcileOptions<T extends { version: number[], isLatest: boolean }> {
-  build:            number;
-  skipLatestUpdate: boolean;
-  keyOf:            (row: T) => RowKey;
-  groupKey:         (row: T) => string;
-  stateOf:          (row: T) => string;
-  globalLatest:     number;
+  build:        number;
+  keyOf:        (row: T) => RowKey;
+  groupKey:     (row: T) => string;
+  stateOf:      (row: T) => string;
+  globalLatest: number;
 }
 
 /** Local write profiler injected into projection helpers for sub-step timing. */
@@ -296,7 +296,7 @@ export interface ProjectHsdataInput {
   sampleDiff?: boolean;
   onProfileMark?: (step: { step: string; elapsedMs: number; totalMs: number }) => void;
   onProgress?: (input: {
-    phase: 'loading_snapshots' | 'loading_tags' | 'projecting_snapshots' | 'summarizing_changes' | 'writing_rows' | 'completed' | 'failed';
+    phase: 'loading_snapshots' | 'loading_tags' | 'projecting_snapshots' | 'summarizing_changes' | 'writing_rows' | 'recomputing_latest' | 'completed' | 'failed';
     message: string;
     totalSnapshotCount?: number | null;
     completedSnapshotCount?: number | null;
@@ -600,7 +600,6 @@ function countIgnoreDuplicateWriteRows(input: {
 /** Builds stacked write-progress totals for entity, localization, latest, and relation work. */
 function buildWriteProgressTotals(input: {
   ignoreDuplicates: boolean;
-  skipLatestUpdate: boolean;
   entity: EntityWriteBreakdown;
   localization: LocalizationWriteBreakdown;
   relationDeleteCount: number;
@@ -626,7 +625,7 @@ function buildWriteProgressTotals(input: {
   return {
     entity:             input.entity.metaCount + input.entity.insertCount,
     localization:       input.localization.upsertCount,
-    latest:             input.skipLatestUpdate ? 0 : input.localization.affectedLatestRowCount,
+    latest:             0,
     relation:           input.relationInsertCount,
     card:               input.targetCardCount,
     entityDelete:       input.entity.deleteCount,
@@ -1449,15 +1448,6 @@ function cloneReconcileRow<T extends { version: number[], isLatest: boolean }>(r
   };
 }
 
-function recomputeLatest<T extends { version: number[], isLatest: boolean }>(
-  rows: Map<RowKey, T>,
-  globalLatest: number,
-) {
-  for (const row of rows.values()) {
-    row.isLatest = row.version.includes(globalLatest);
-  }
-}
-
 /** Builds one lightweight entity state signature so reconciliation compares hashes and version flags instead of full-row JSON. */
 function entityState(row: Pick<EntityRow, 'revisionHash' | 'version' | 'isLatest'>): string {
   return `${row.revisionHash}\u0000${row.version.join(',')}\u0000${row.isLatest ? 1 : 0}`;
@@ -1558,7 +1548,7 @@ async function reconcileRows<T extends { version: number[], isLatest: boolean }>
         ...(current ?? cloneReconcileRow(row)),
         ...cloneReconcileRow(row),
         version:  mergeVersion(current?.version ?? [], ...row.version),
-        isLatest: options.skipLatestUpdate ? existing.isLatest : false,
+        isLatest: false,
       });
     }
 
@@ -1578,10 +1568,6 @@ async function reconcileRows<T extends { version: number[], isLatest: boolean }>
       completedTargetRows % summarizeProgressBatchSize,
     );
     await yieldProgressEventLoop();
-  }
-
-  if (!options.skipLatestUpdate) {
-    recomputeLatest(finalByKey, options.globalLatest);
   }
 
   const finalRows = [...finalByKey.values()];
@@ -1996,7 +1982,7 @@ async function getBuildsBySourceTags(
 async function loadSnapshots(sourceTag: number, includeProjected = false): Promise<RawSnapshotRow[]> {
   const conditions: SQL[] = [sql<boolean>`${sourceTag} = ANY(${RawEntitySnapshot.sourceTags})`];
   if (!includeProjected) {
-    conditions.push(eq(RawEntitySnapshot.projected, false));
+    conditions.push(ne(RawEntitySnapshot.projectionState, 'projected'));
   }
   return await db.select({
     id:               RawEntitySnapshot.id,
@@ -2006,6 +1992,7 @@ async function loadSnapshots(sourceTag: number, includeProjected = false): Promi
     entityXmlVersion: RawEntitySnapshot.entityXmlVersion,
     snapshotHash:     RawEntitySnapshot.snapshotHash,
     extraPayload:     RawEntitySnapshot.extraPayload,
+    projectionState:  RawEntitySnapshot.projectionState,
   })
     .from(RawEntitySnapshot)
     .where(and(...conditions));
@@ -3311,8 +3298,8 @@ async function updateEntityMetaRows(
       await tx.update(BaseEntity)
         .set({ version: row.version, isLatest: row.isLatest })
         .where(and(
-          eq(Entity.cardId, row.cardId),
-          eq(Entity.revisionHash, row.revisionHash),
+          eq(BaseEntity.cardId, row.cardId),
+          eq(BaseEntity.revisionHash, row.revisionHash),
         ));
     }
 
@@ -3335,7 +3322,6 @@ async function syncLocalizations(
   existingRowsByKey: Map<RowKey, LocalizationStateRow>,
   targetRowsByKey: Map<RowKey, LocalizationRow>,
   build: number,
-  skipLatestUpdate: boolean,
   profiler?: ProjectWriteProfiler,
   onProgress?: WriteProgressReporter,
   latestRowCountByGroup?: Map<RowKey, number>,
@@ -3343,15 +3329,6 @@ async function syncLocalizations(
   if (plan.deleteRows.length === 0 && plan.upsertRows.length === 0) {
     return;
   }
-
-  const affectedGroups = [
-    ...new Map(
-      [...plan.deleteRows, ...plan.upsertRows].map(row => [localizationGroupKey(row), {
-        cardId: row.cardId,
-        lang:   row.lang,
-      }]),
-    ).values(),
-  ];
 
   if (plan.deleteRows.length > 0) {
     await tx.session.client.unsafe(`
@@ -3445,10 +3422,10 @@ async function syncLocalizations(
               renderModel: sql`coalesce(${row.renderModel != null ? JSON.stringify(row.renderModel) : null}::jsonb, ${EntityLocalization.renderModel})`,
             })
             .where(and(
-              eq(EntityLocalization.cardId, row.cardId),
+              eq(BaseEntityLocalization.cardId, row.cardId),
               sql`${EntityLocalization.lang} = ${row.lang}`,
-              eq(EntityLocalization.revisionHash, row.revisionHash),
-              eq(EntityLocalization.localizationHash, row.localizationHash),
+              eq(BaseEntityLocalization.revisionHash, row.revisionHash),
+              eq(BaseEntityLocalization.localizationHash, row.localizationHash),
               sql`NOT (${build} = any(${EntityLocalization.version}))`,
             ));
         } else {
@@ -3460,10 +3437,10 @@ async function syncLocalizations(
               renderModel: sql`coalesce(${metaRow.renderModel != null ? JSON.stringify(metaRow.renderModel) : null}::jsonb, ${EntityLocalization.renderModel})`,
             })
             .where(and(
-              eq(EntityLocalization.cardId, metaRow.cardId),
+              eq(BaseEntityLocalization.cardId, metaRow.cardId),
               sql`${EntityLocalization.lang} = ${metaRow.lang}`,
-              eq(EntityLocalization.revisionHash, metaRow.revisionHash),
-              eq(EntityLocalization.localizationHash, metaRow.localizationHash),
+              eq(BaseEntityLocalization.revisionHash, metaRow.revisionHash),
+              eq(BaseEntityLocalization.localizationHash, metaRow.localizationHash),
             ));
         }
       }
@@ -3558,85 +3535,6 @@ async function syncLocalizations(
     });
   }
 
-  if (!skipLatestUpdate) {
-    await refreshLocalizationLatestRows(
-      tx,
-      affectedGroups,
-      profiler,
-      onProgress,
-      latestRowCountByGroup,
-    );
-  }
-}
-
-/** Recomputes one affected localization family's latest flag after version-only changes have been written. */
-async function refreshLocalizationLatestRows(
-  tx: DbTx,
-  rows: Array<Pick<LocalizationStateRow, 'cardId' | 'lang'>>,
-  profiler?: ProjectWriteProfiler,
-  onProgress?: WriteProgressReporter,
-  latestRowCountByGroup?: Map<RowKey, number>,
-) {
-  if (rows.length === 0) {
-    return;
-  }
-
-  const uniqueGroups = [...new Map(rows.map(r => [localizationGroupKey(r), r])).values()];
-
-  for (const chunk of chunkValues(uniqueGroups, writeRowBatchSize)) {
-    for (const group of chunk) {
-      const groupRows = await tx.select({
-        cardId: EntityLocalization.cardId,
-        lang: EntityLocalization.lang,
-        revisionHash: EntityLocalization.revisionHash,
-        localizationHash: EntityLocalization.localizationHash,
-        version: EntityLocalization.version,
-        isLatest: EntityLocalization.isLatest,
-      })
-        .from(EntityLocalization)
-        .where(and(
-          eq(EntityLocalization.cardId, group.cardId),
-          sql`${EntityLocalization.lang} = ${group.lang}`,
-                  ));
-
-      if (groupRows.length === 0) continue;
-
-      let maxBuild = 0;
-      for (const r of groupRows) {
-        const last = r.version[r.version.length - 1];
-        if (last !== undefined && last > maxBuild) maxBuild = last;
-      }
-
-      for (const r of groupRows) {
-        const shouldBeLatest = maxBuild > 0 && r.version.includes(maxBuild);
-        if (r.isLatest !== shouldBeLatest) {
-          await tx.update(BaseEntityLocalization)
-            .set({ isLatest: shouldBeLatest })
-            .where(and(
-              eq(EntityLocalization.cardId, r.cardId),
-              sql`${EntityLocalization.lang} = ${r.lang}`,
-              eq(EntityLocalization.revisionHash, r.revisionHash),
-              eq(EntityLocalization.localizationHash, r.localizationHash),
-            ));
-        }
-      }
-    }
-
-    const chunkAdvance = chunk.reduce((count, row) => {
-      const groupKey = localizationGroupKey(row);
-      return count + (latestRowCountByGroup?.get(groupKey) ?? 0);
-    }, 0);
-
-    await onProgress?.({
-      message: `Refreshed localization latest flags for affected card-language groups (${chunk.length} groups)`,
-      advance: chunkAdvance,
-      segment: 'latest',
-    });
-  }
-
-  profiler?.mark('write_localizations_refresh_latest_rows', {
-    rowCount: rows.length,
-  });
 }
 
 async function insertRelations(tx: DbTx, rows: RelationRow[]) {
@@ -3647,7 +3545,15 @@ async function insertRelations(tx: DbTx, rows: RelationRow[]) {
 
     await tx.insert(BaseEntityRelation)
       .values(chunk)
-      .onConflictDoNothing();
+      .onConflictDoUpdate({
+        target: [BaseEntityRelation.sourceId, BaseEntityRelation.sourceRevisionHash, BaseEntityRelation.relation, BaseEntityRelation.targetId],
+        set: {
+          version:   sql`excluded.version`,
+          isLatest:  sql`excluded.is_latest`,
+          deletedAt: null,
+          updatedAt: new Date(),
+        },
+      });
   }
 }
 
@@ -3660,7 +3566,15 @@ async function insertRelationsIgnoreDuplicates(tx: DbTx, rows: RelationRow[]) {
 
     await tx.insert(BaseEntityRelation)
       .values(chunk)
-      .onConflictDoNothing();
+      .onConflictDoUpdate({
+        target: [BaseEntityRelation.sourceId, BaseEntityRelation.sourceRevisionHash, BaseEntityRelation.relation, BaseEntityRelation.targetId],
+        set: {
+          version:   sql`excluded.version`,
+          isLatest:  sql`excluded.is_latest`,
+          deletedAt: null,
+          updatedAt: new Date(),
+        },
+      });
   }
 }
 
@@ -3681,9 +3595,8 @@ interface DiffSample {
 const MAX_DIFF_SAMPLES = 10;
 
 interface SummarizeDiffOptions<TE, TT> {
-  build:            number;
-  skipLatestUpdate: boolean;
-  keyOf:            (r: TE | TT) => string;
+  build:        number;
+  keyOf:        (r: TE | TT) => string;
   renderHashOf:     (r: TE | TT) => string | null | undefined;
   renderModelOf?:   (r: TT) => unknown;
   existingRenderModelOf?: (r: TE) => unknown;
@@ -3716,7 +3629,7 @@ function summarizeDiff<TE extends { version: number[]; isLatest: boolean }, TT e
     const merged = mergeVersion(nextVersion, ...t.version);
 
     const verSame = merged.join(',') === e.version.join(',');
-    const resolvedLatest = opts.skipLatestUpdate ? e.isLatest : t.isLatest;
+    const resolvedLatest = e.isLatest;
     const isLatestSame = resolvedLatest === e.isLatest;
     const renderSame = !hasRender || (opts.renderHashOf(t) ?? null) === (opts.renderHashOf(e) ?? null);
     // The metadata-update path can set renderHash without renderModel, causing
@@ -3802,7 +3715,6 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     sourceTag: input.sourceTag,
     dryRun,
     force,
-    skipLatestUpdate,
   }, {
     onMark: input.onProfileMark,
     silent: input.onProfileMark != null,
@@ -3842,6 +3754,13 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     build:         sourceVersion.build,
     snapshotCount: snapshots.length,
   });
+
+  const versionOnlySnapshots = force
+    ? []
+    : snapshots.filter(s => s.projectionState === 'version_only');
+  const notProjectedSnapshots = force
+    ? snapshots
+    : snapshots.filter(s => s.projectionState === 'not_projected');
 
     if (snapshots.length === 0) {
       if (totalSnapshotCount === 0) {
@@ -3920,7 +3839,7 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     workLabel:               'snapshot',
   });
 
-  const snapshotIdSet = new Set(snapshots.map(snapshot => snapshot.id));
+  const snapshotIdSet = new Set(notProjectedSnapshots.map(snapshot => snapshot.id));
   const rawTags = await loadSnapshotTags([...snapshotIdSet], async (completedSnapshotCount, totalSnapshotCount) => {
     await input.onProgress?.({
       phase:                   'loading_tags',
@@ -3950,7 +3869,7 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     rawTagsBySnapshotId.set(row.snapshotId, rows);
   }
 
-  const cardIdByDbfId = new Map(snapshots.map(snapshot => [snapshot.dbfId, snapshot.cardId]));
+  const cardIdByDbfId = new Map(notProjectedSnapshots.map(snapshot => [snapshot.dbfId, snapshot.cardId]));
   const slugByEnumId = new Map(
     [...tagMap.values()].map(tag => [tag.enumId, tag.slug]),
   );
@@ -3978,8 +3897,8 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
 
   const projected: ProjectedSnapshot[] = [];
 
-  for (let index = 0; index < snapshots.length; index += 1) {
-    const snapshot = snapshots[index]!;
+  for (let index = 0; index < notProjectedSnapshots.length; index += 1) {
+    const snapshot = notProjectedSnapshots[index]!;
     projected.push(projectSnapshot(
       snapshot,
       rawTagsBySnapshotId.get(snapshot.id) ?? [],
@@ -4123,7 +4042,6 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
 
   const entityResult = await reconcileRows(existingEntities, targetEntityStates, {
     build:            sourceVersion.build,
-    skipLatestUpdate,
     keyOf:            entityKey,
     groupKey:         row => row.cardId,
     stateOf:          entityState,
@@ -4138,7 +4056,6 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
   });
   const localizationResult = await reconcileRows(existingLocalizations, targetLocalizationStates, {
     build:            sourceVersion.build,
-    skipLatestUpdate,
     keyOf:            localizationKey,
     groupKey:         localizationGroupKey,
     stateOf:          localizationState,
@@ -4153,7 +4070,6 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
   });
   const relationResult = await reconcileRows(existingRelations, targetRelations, {
     build:            sourceVersion.build,
-    skipLatestUpdate,
     keyOf:            relationKey,
     groupKey:         row => row.sourceId,
     stateOf:          relationState,
@@ -4196,18 +4112,18 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
   const locSamples: DiffSample[] = [];
   const relSamples: DiffSample[] = [];
   const entityDiff = summarizeDiff(existingEntities, targetEntities, {
-    build: sourceVersion.build, skipLatestUpdate,
+    build: sourceVersion.build,
     keyOf: r => entityKey(r), renderHashOf: noRenderHash, label: 'entity', outSamples: entitySamples,
   });
   const localizationDiff = summarizeDiff(existingLocalizations, targetLocalizations, {
-    build: sourceVersion.build, skipLatestUpdate,
+    build: sourceVersion.build,
     keyOf: r => localizationKey(r), renderHashOf: r => r.renderHash,
     renderModelOf: r => (r as LocalizationRow).renderModel,
     existingRenderModelOf: r => (r as LocalizationStateRow).renderModel ?? null,
     label: 'localization', outSamples: locSamples,
   });
   const relationDiff = summarizeDiff(existingRelations, targetRelations, {
-    build: sourceVersion.build, skipLatestUpdate,
+    build: sourceVersion.build,
     keyOf: r => relationKey(r), renderHashOf: noRenderHash, label: 'relation', outSamples: relSamples,
   });
   const diffSamples = [...locSamples, ...entitySamples, ...relSamples];
@@ -4252,7 +4168,6 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
   if (!dryRun && shouldWrite) {
     const writeProgressTotals = buildWriteProgressTotals({
       ignoreDuplicates,
-      skipLatestUpdate,
       entity: entityWriteBreakdown,
       localization: localizationWriteBreakdown,
       relationDeleteCount: ignoreDuplicates ? 0 : relationPlan.deleteRows.length,
@@ -4373,7 +4288,6 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
           existingLocalizationRowsByKey,
           targetLocalizationRowsByKey,
           sourceVersion.build!,
-          skipLatestUpdate,
           profiler,
           async update => {
             await reportWriteProgress(update.message, update.advance ?? 0, update.segment);
@@ -4412,9 +4326,58 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     profiler.mark('write_transaction_committed');
   }
 
+  if (!dryRun && versionOnlySnapshots.length > 0) {
+    const versionOnlyCardIds = [...new Set(versionOnlySnapshots.map(s => s.cardId))];
+
+    for (const snapshot of versionOnlySnapshots) {
+      const builds = buildsBySnapshotId.get(snapshot.id);
+      if (!builds || builds.length === 0) continue;
+
+      await db.update(BaseEntity)
+        .set({ version: builds })
+        .where(sql`${BaseEntity.cardId} = ${snapshot.cardId}`);
+
+      await db.update(BaseEntityLocalization)
+        .set({ version: builds })
+        .where(sql`${BaseEntityLocalization.cardId} = ${snapshot.cardId}`);
+
+      await db.update(BaseEntityRelation)
+        .set({ version: builds })
+        .where(sql`${BaseEntityRelation.sourceId} = ${snapshot.cardId}`);
+    }
+
+    await db.insert(BaseCard).values(
+      versionOnlyCardIds.map(cardId => ({ cardId, legalities: {} })),
+    ).onConflictDoNothing();
+  }
+
+  if (!dryRun && !skipLatestUpdate && snapshots.length > 0) {
+    await input.onProgress?.({
+      phase:                   'recomputing_latest',
+      message:                 'Recomputing isLatest flags across all projection tables',
+      totalSnapshotCount:      snapshots.length,
+      completedSnapshotCount:  snapshots.length,
+      totalWorkCount:          1,
+      completedWorkCount:      0,
+      workLabel:               'table',
+    });
+
+    await recomputeLatestProjection();
+
+    await input.onProgress?.({
+      phase:                   'recomputing_latest',
+      message:                 'Recomputed isLatest flags',
+      totalSnapshotCount:      snapshots.length,
+      completedSnapshotCount:  snapshots.length,
+      totalWorkCount:          1,
+      completedWorkCount:      1,
+      workLabel:               'table',
+    });
+  }
+
   if (!dryRun && snapshots.length > 0) {
     await db.update(RawEntitySnapshot)
-      .set({ projected: true })
+      .set({ projectionState: 'projected' })
       .where(inArray(RawEntitySnapshot.id, snapshots.map(s => s.id)));
   }
 
@@ -4530,7 +4493,7 @@ export async function recomputeLatestProjection(options?: {
       if (row.isLatest !== latest) {
         await localDb.update(BaseEntity)
           .set({ isLatest: latest })
-          .where(and(eq(Entity.cardId, row.cardId), eq(Entity.revisionHash, row.revisionHash)));
+          .where(and(eq(BaseEntity.cardId, row.cardId), eq(BaseEntity.revisionHash, row.revisionHash)));
         entityUpdatedCount += 1;
       }
     }
@@ -4582,10 +4545,10 @@ export async function recomputeLatestProjection(options?: {
         await localDb.update(BaseEntityLocalization)
           .set({ isLatest: latest })
           .where(and(
-            eq(EntityLocalization.cardId, row.cardId),
-            eq(EntityLocalization.lang, row.lang),
-            eq(EntityLocalization.revisionHash, row.revisionHash),
-            eq(EntityLocalization.localizationHash, row.localizationHash),
+            eq(BaseEntityLocalization.cardId, row.cardId),
+            eq(BaseEntityLocalization.lang, row.lang),
+            eq(BaseEntityLocalization.revisionHash, row.revisionHash),
+            eq(BaseEntityLocalization.localizationHash, row.localizationHash),
           ));
         localizationUpdatedCount += 1;
       }
@@ -4638,10 +4601,10 @@ export async function recomputeLatestProjection(options?: {
         await localDb.update(BaseEntityRelation)
           .set({ isLatest: latest })
           .where(and(
-            eq(EntityRelation.sourceId, row.sourceId),
-            eq(EntityRelation.sourceRevisionHash, row.sourceRevisionHash),
-            eq(EntityRelation.relation, row.relation),
-            eq(EntityRelation.targetId, row.targetId),
+            eq(BaseEntityRelation.sourceId, row.sourceId),
+            eq(BaseEntityRelation.sourceRevisionHash, row.sourceRevisionHash),
+            eq(BaseEntityRelation.relation, row.relation),
+            eq(BaseEntityRelation.targetId, row.targetId),
           ));
         relationUpdatedCount += 1;
       }

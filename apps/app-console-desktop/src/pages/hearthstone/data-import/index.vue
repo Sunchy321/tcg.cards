@@ -2427,6 +2427,8 @@ const projectProgressPhaseLabel = computed(() => {
     return '汇总变更';
   case 'writing_rows':
     return '写入结果';
+  case 'recomputing_latest':
+    return '重算最新';
   case 'completed':
     return '已完成';
   case 'failed':
@@ -2447,6 +2449,8 @@ const projectProgressStageText = computed(() => {
     return '正在比对现有投影结果并汇总写入差异。';
   case 'writing_rows':
     return '正在把本轮投影结果写入本地 Hearthstone 表。';
+  case 'recomputing_latest':
+    return '正在重算所有投影表的 isLatest 标记。';
   case 'completed':
     return '投影任务已经完成，可以复查结果或继续发布。';
   case 'failed':

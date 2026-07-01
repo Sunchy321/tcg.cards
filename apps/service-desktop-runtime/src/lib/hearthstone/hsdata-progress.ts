@@ -14,6 +14,7 @@ export type HsdataProjectPhase =
   | 'projecting_snapshots'
   | 'summarizing_changes'
   | 'writing_rows'
+  | 'recomputing_latest'
   | 'completed'
   | 'failed';
 

@@ -26,6 +26,12 @@ export const hsdataProjectionStatus = dataSchema.enum('hsdata_projection_status'
   'failed',
 ]);
 
+export const hsdataSnapshotProjectionState = dataSchema.enum('hsdata_snapshot_projection_state', [
+  'not_projected',
+  'version_only',
+  'projected',
+]);
+
 export const SourceVersion = dataSchema.table('source_versions', {
   sourceTag:           integer('source_tag').primaryKey(),
   sourceCommit:        text('source_commit').notNull().default(''),
@@ -64,7 +70,7 @@ export const RawEntitySnapshot = dataSchema.table('raw_entity_snapshots', {
   snapshotHash: text('snapshot_hash').notNull(),
   extraPayload: jsonb('extra_payload').$type<JsonMap>().notNull().default({}),
 
-  projected: boolean('projected').notNull().default(false),
+  projectionState: hsdataSnapshotProjectionState('projection_state').notNull().default('not_projected'),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at')
@@ -77,7 +83,7 @@ export const RawEntitySnapshot = dataSchema.table('raw_entity_snapshots', {
   index('raw_entity_snapshots_dbf_id_idx').on(table.dbfId),
   index('raw_entity_snapshots_snapshot_hash_idx').on(table.snapshotHash),
   index('raw_entity_snapshots_source_tags_gin_idx').using('gin', table.sourceTags),
-  index('raw_entity_snapshots_projected_idx').on(table.projected).where(sql`${table.projected} = false`),
+  index('raw_entity_snapshots_projection_state_idx').on(table.projectionState).where(sql`${table.projectionState} != 'projected'`),
   check('raw_entity_snapshots_source_tags_nonempty_chk', sql`cardinality(${table.sourceTags}) > 0`),
 ]);
 

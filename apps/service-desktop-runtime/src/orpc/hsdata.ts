@@ -707,7 +707,7 @@ const resetProjectionStatus = os
 
       for (const sourceTag of input.sourceTags) {
         await db.update(RawEntitySnapshot)
-          .set({ projected: false })
+          .set({ projectionState: 'not_projected' })
           .where(sql<boolean>`${sourceTag} = ANY(${RawEntitySnapshot.sourceTags})`);
       }
 

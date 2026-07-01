@@ -983,7 +983,7 @@ async function applyHsdataImport(
     + (newEntities.length > 0 ? 1 : 0)
     + (previousSnapshotIds.size > 0 ? 1 : 0)
     + (input.force ? 1 : 0)
-    + (uniqueTargetSnapshotIds.length > 0 ? 1 : 0);
+    + ((input.force && uniqueTargetSnapshotIds.length > 0) || (!input.force && sourceTagUpdates.length > 0) ? 1 : 0);
   let completedWriteWorkCount = 0;
 
   if (input.onProgress) {
@@ -1080,10 +1080,15 @@ async function applyHsdataImport(
       }
     }
 
-    if (uniqueTargetSnapshotIds.length > 0) {
+    if (input.force && uniqueTargetSnapshotIds.length > 0) {
       await tx.update(RawEntitySnapshot)
-        .set({ projected: false })
+        .set({ projectionState: 'not_projected' })
         .where(inArray(RawEntitySnapshot.id, uniqueTargetSnapshotIds));
+      completedWriteWorkCount += 1;
+    } else if (sourceTagUpdates.length > 0) {
+      await tx.update(RawEntitySnapshot)
+        .set({ projectionState: 'version_only' })
+        .where(inArray(RawEntitySnapshot.id, sourceTagUpdates.map(u => u.id)));
       completedWriteWorkCount += 1;
     }
   } else {

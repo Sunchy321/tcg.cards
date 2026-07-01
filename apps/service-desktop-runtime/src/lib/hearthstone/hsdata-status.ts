@@ -176,8 +176,8 @@ export const getLocalHsdataOverview = async () => {
       .then(rows => rows[0] ?? null),
     db.select({
       rows:              sql<number>`count(*)`,
-      projectedRows:     sql<number>`coalesce(sum(case when ${RawEntitySnapshot.projected} then 1 else 0 end), 0)`,
-      unprojectedRows:   sql<number>`coalesce(sum(case when not ${RawEntitySnapshot.projected} then 1 else 0 end), 0)`,
+      projectedRows:     sql<number>`coalesce(sum(case when ${RawEntitySnapshot.projectionState} = 'projected' then 1 else 0 end), 0)`,
+      unprojectedRows:   sql<number>`coalesce(sum(case when ${RawEntitySnapshot.projectionState} != 'projected' then 1 else 0 end), 0)`,
       distinctCardCount: sql<number>`count(distinct ${RawEntitySnapshot.cardId})`,
       updatedAt:         sql<Date | string | null>`max(${RawEntitySnapshot.updatedAt})`,
     }).from(RawEntitySnapshot).then(rows => rows[0]),
