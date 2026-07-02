@@ -37,7 +37,6 @@ export type TagWrite = {
   rawName: string | null;
   rawType: string | null;
   rawNames: string[];
-  valueKind: string;
   normalizeKind: string;
   normalizeConfig: Record<string, unknown>;
   projectTargetType: string | null;
@@ -81,7 +80,6 @@ const editableFields: Array<keyof TagWrite> = [
   'rawName',
   'rawType',
   'rawNames',
-  'valueKind',
   'normalizeKind',
   'normalizeConfig',
   'projectTargetType',
@@ -96,7 +94,6 @@ const autoBaseFields = new Set<keyof TagWrite>([
   'rawName',
   'rawType',
   'rawNames',
-  'valueKind',
 ]);
 
 const supportedCommitKinds = new Set<FieldCommitInsert['commitKind']>([
@@ -136,7 +133,6 @@ function rowToTagWrite(row: TagRow): TagWrite {
     rawName:           row.rawName,
     rawType:           row.rawType,
     rawNames:          row.rawNames,
-    valueKind:         row.valueKind,
     normalizeKind:     row.normalizeKind,
     normalizeConfig:   row.normalizeConfig,
     projectTargetType: row.projectTargetType,
@@ -168,7 +164,6 @@ export function buildTagRowRevision(row: TagRow) {
     rawName:            row.rawName,
     rawType:            row.rawType,
     rawNames:           row.rawNames,
-    valueKind:          row.valueKind,
     normalizeKind:      row.normalizeKind,
     normalizeConfig:    row.normalizeConfig,
     projectTargetType:  row.projectTargetType,
@@ -321,7 +316,6 @@ async function insertConflict(
 }
 
 const rowCreateFields: Array<keyof TagWrite> = [
-  'slug', 'name', 'rawName', 'rawType', 'rawNames', 'valueKind',
   'normalizeKind', 'status',
 ];
 
@@ -346,7 +340,6 @@ async function createRowFromCommit(
     rawName:            rowState.rawName,
     rawType:            rowState.rawType,
     rawNames:           rowState.rawNames,
-    valueKind:          rowState.valueKind,
     normalizeKind:      rowState.normalizeKind,
     normalizeConfig:    rowState.normalizeConfig,
     projectTargetType:  rowState.projectTargetType,
@@ -656,7 +649,6 @@ type TagWriteInput = {
   rawName: string | null;
   rawType: string | null;
   rawNames: string[];
-  valueKind: string;
   normalizeKind: string;
   normalizeConfig: Record<string, unknown>;
   projectTargetType: string | null;
@@ -729,7 +721,6 @@ export function toTagProfile(row: TagRow): TagProfile {
     rawName:            row.rawName,
     rawType:            row.rawType,
     rawNames:           row.rawNames,
-    valueKind:          row.valueKind,
     normalizeKind:      row.normalizeKind,
     normalizeConfig:    row.normalizeConfig,
     projectTargetType:  row.projectTargetType,
@@ -768,7 +759,6 @@ export function matchesTagSearch(tag: TagProfile, input: TagListInput) {
     tag.name,
     tag.rawName,
     tag.rawType,
-    tag.valueKind,
     tag.normalizeKind,
     tag.projectTargetType,
     tag.projectTargetPath,
@@ -828,7 +818,6 @@ export function normalizeTagWrite(input: TagUpdateInput): TagWrite {
     rawName:           trimToNull(input.rawName),
     rawType:           trimToNull(input.rawType),
     rawNames:          uniqueTrimmed(input.rawNames),
-    valueKind:         input.valueKind.trim(),
     normalizeKind:     input.normalizeKind.trim(),
     normalizeConfig:   input.normalizeConfig,
     projectTargetType: trimToNull(input.projectTargetType),
@@ -842,12 +831,6 @@ export function normalizeTagWrite(input: TagUpdateInput): TagWrite {
 
 /** Validates one tag update payload against supported business rules. */
 export function assertTagUpdate(input: TagUpdateInput) {
-  if (input.valueKind === 'enum') {
-    throw new ORPCError('BAD_REQUEST', {
-      message: 'valueKind=enum is no longer supported; use int + enum_from_int instead',
-    });
-  }
-
   if (input.projectTargetPath === 'text' || input.projectTargetPath === 'displayText') {
     throw new ORPCError('BAD_REQUEST', {
       message: 'text and displayText are derived fields; use richText as the projection target',
@@ -1012,7 +995,6 @@ export interface ExistingTagSnapshot {
   rawName: string | null;
   rawType: string | null;
   rawNames: string[];
-  valueKind: string;
   normalizeKind: string;
   projectTargetType: string | null;
   projectTargetPath: string | null;
@@ -1021,14 +1003,7 @@ export interface ExistingTagSnapshot {
   lastSeenSourceTag: number | null;
 }
 
-/** Guesses the best tag value kind from raw input and an existing row. */
-function guessValueKind(raw: DiscoveredTagInput, existing: ExistingTagSnapshot | undefined) {
-  if (existing?.valueKind !== 'json' && existing?.valueKind != null) return existing.valueKind;
-  if (raw.rawType === 'Bool') return 'bool';
-  if (raw.rawType === 'Int') return 'int';
-  if (raw.rawType === 'String' || raw.rawType === 'LocString') return 'string';
-  return 'json';
-}
+
 
 /** Slugifies one raw tag name into a stable identifier, avoiding duplicates. */
 function slugify(rawName: string | null, enumId: number, conflicts: ReadonlySet<string>) {
@@ -1116,7 +1091,6 @@ export async function importDiscoveredTags(
   for (const enumId of enumIds) {
     const input = firstSeenByEnum.get(enumId)!;
     const row = existing.get(enumId);
-    const guessedKind = guessValueKind(input, row);
 
     if (!row) {
       discovered.push(enumId);
@@ -1132,7 +1106,6 @@ export async function importDiscoveredTags(
           rawName:            input.rawName || null,
           rawType:            input.rawType || null,
           rawNames:           input.rawName ? [input.rawName] : [],
-          valueKind:          guessedKind,
           normalizeKind:      'identity_int',
           normalizeConfig:    {},
           projectTargetType:  'entity',
@@ -1157,7 +1130,6 @@ export async function importDiscoveredTags(
 
         // Create field_winners for auto-base fields
         const autoFields: Array<keyof TagWrite> = [
-          'slug', 'name', 'rawName', 'rawType', 'rawNames', 'valueKind',
           'normalizeKind', 'status',
         ];
 
@@ -1183,7 +1155,6 @@ export async function importDiscoveredTags(
         rawName:            input.rawName || null,
         rawType:            input.rawType || null,
         rawNames:           input.rawName ? [input.rawName] : [],
-        valueKind:          guessedKind,
         normalizeKind:      'identity_int',
         projectTargetType:  'entity',
         projectTargetPath:  'mechanics',

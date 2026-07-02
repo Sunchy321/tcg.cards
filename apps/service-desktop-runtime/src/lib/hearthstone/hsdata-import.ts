@@ -8,7 +8,6 @@ import {
   RawEntitySnapshotTag,
   Set as HearthstoneSet,
   SourceVersion,
-  Tag,
 } from '@tcg-cards/db/schema/local/hearthstone';
 
 import {
@@ -28,7 +27,7 @@ export type JsonMap = Record<string, unknown>;
 // Normalized tag value shapes used by raw tag storage.
 type TagValueKind
   = | 'bool'
-    | 'card_ref'
+    | 'card'
     | 'int'
     | 'json'
     | 'loc_string'
@@ -42,7 +41,7 @@ export interface RawTagInput {
   rawPayload:     JsonMap;
   rawValue:       string | null;
   locStringValue: Record<string, string> | null;
-  cardRefCardId:  string | null;
+  cardValue:  string | null;
   tagOrder:       number;
 }
 
@@ -69,22 +68,6 @@ export interface ParsedEntity {
 export interface ParsedHsdata {
   build:    number;
   entities: ParsedEntity[];
-}
-
-// Discovered-tag data already stored in the database.
-interface ExistingTagRow {
-  enumId:             number;
-  slug:               string;
-  rawName:            string | null;
-  rawType:            string | null;
-  rawNames:           string[];
-  valueKind:          string;
-  normalizeKind:      string;
-  projectTargetType:  string | null;
-  projectTargetPath:  string | null;
-  projectKind:        string | null;
-  firstSeenSourceTag: number | null;
-  lastSeenSourceTag:  number | null;
 }
 
 // Existing raw snapshot row used for reuse checks.
@@ -202,7 +185,7 @@ function normalizeSnapshotPayload(input: HsdataSnapshotInput) {
       rawType:        tag.rawType,
       rawValue:       tag.rawValue,
       locStringValue: tag.locStringValue,
-      cardRefCardId:  tag.cardRefCardId,
+      cardValue:  tag.cardValue,
       tagOrder:       tag.tagOrder,
       rawPayload:     tag.rawPayload,
     })),
@@ -326,29 +309,17 @@ function collectSetDbfIds(entities: ParsedEntity[]): number[] {
 }
 
 // Projected value kind for one raw tag.
-function guessValueKind(tag: RawTagInput, existing: ExistingTagRow | undefined): TagValueKind {
-  const configured = existing?.valueKind;
-
-  if (configured === 'bool'
-    || configured === 'card_ref'
-    || configured === 'int'
-    || configured === 'json'
-    || configured === 'loc_string'
-    || configured === 'string') {
-    return configured;
-  }
-
+function guessValueKind(tag: RawTagInput): TagValueKind {
   if (tag.rawType === 'LocString') return 'loc_string';
-  if (tag.rawType === 'Card') return 'card_ref';
-  if (tag.rawType === 'Int') return 'int';
+  if (tag.rawType === 'Card') return 'card';
   if (tag.rawType === 'String') return 'string';
 
-  return 'json';
+  return 'int';
 }
 
 // Typed storage representation resolved from one raw tag.
-function resolveTagValue(tag: RawTagInput, existing: ExistingTagRow | undefined) {
-  const valueKind = guessValueKind(tag, existing);
+function resolveTagValue(tag: RawTagInput) {
+  const valueKind = guessValueKind(tag);
   const parsedInt = tag.rawValue != null ? Number.parseInt(tag.rawValue, 10) : null;
   const isInt = parsedInt != null && Number.isFinite(parsedInt);
 
@@ -392,12 +363,24 @@ function resolveTagValue(tag: RawTagInput, existing: ExistingTagRow | undefined)
     };
   }
 
-  if (valueKind === 'card_ref') {
+  if (valueKind === 'card') {
+    const parsedInt = tag.rawValue != null ? Number.parseInt(tag.rawValue, 10) : null;
+    const dbfId = parsedInt != null && Number.isFinite(parsedInt) ? parsedInt : null;
+
+    if (tag.cardValue) {
+      return dbfId != null
+        ? { valueKind, parseStatus: 'parsed' as const, cardValue: tag.cardValue, intValue: dbfId }
+        : { valueKind, parseStatus: 'parsed' as const, cardValue: tag.cardValue };
+    }
+
+    if (dbfId != null) {
+      return { valueKind, parseStatus: 'parsed' as const, intValue: dbfId };
+    }
+
     return {
       valueKind,
-      parseStatus:   tag.cardRefCardId ? 'parsed' as const : 'fallback' as const,
-      cardRefCardId: tag.cardRefCardId,
-      jsonValue:     tag.cardRefCardId ? null : { value: tag.rawValue },
+      parseStatus: 'fallback' as const,
+      jsonValue:   { value: tag.rawValue },
     };
   }
 
@@ -573,16 +556,14 @@ async function insertSnapshotTags(
   tx: DbTx,
   snapshotId: string,
   tags: RawTagInput[],
-  tagMap: Map<number, ExistingTagRow>,
-  dbfIdByCardId: Map<string, number>,
 ): Promise<number> {
   if (tags.length === 0) {
     return 0;
   }
 
   const rows = tags.map(tag => {
-    const resolved = resolveTagValue(tag, tagMap.get(tag.enumId));
-    const cardRefCardId = 'cardRefCardId' in resolved ? resolved.cardRefCardId ?? null : null;
+    const resolved = resolveTagValue(tag);
+    const cardValue = 'cardValue' in resolved ? resolved.cardValue ?? null : null;
 
     return {
       snapshotId,
@@ -597,8 +578,7 @@ async function insertSnapshotTags(
       stringValue:    'stringValue' in resolved ? resolved.stringValue ?? null : null,
       enumValue:      null,
       locStringValue: 'locStringValue' in resolved ? resolved.locStringValue ?? null : null,
-      cardRefCardId,
-      cardRefDbfId:   cardRefCardId ? dbfIdByCardId.get(cardRefCardId) ?? null : null,
+      cardValue,
       jsonValue:      'jsonValue' in resolved ? resolved.jsonValue ?? null : null,
       parseStatus:    resolved.parseStatus,
     };
@@ -841,8 +821,7 @@ async function applyHsdataImport(
     }
   }
 
-  const dbfIdByCardId = new Map(input.parsed.entities.map(entity => [entity.cardId, entity.dbfId]));
-  const { existing, discovered, updated } = await importDiscoveredTags(
+  const { discovered, updated } = await importDiscoveredTags(
     tx,
     input.sourceTag,
     allTags,
@@ -858,7 +837,7 @@ async function applyHsdataImport(
 
   const fallbackTagRowCount = input.parsed.entities.reduce((count, entity) => {
     return count + entity.tags.filter(tag => {
-      const resolved = resolveTagValue(tag, existing.get(tag.enumId));
+      const resolved = resolveTagValue(tag);
       return resolved.parseStatus === 'fallback';
     }).length;
   }, 0);
@@ -1058,7 +1037,7 @@ async function applyHsdataImport(
 
     for (const [index, entity] of tagEntities.entries()) {
       const snapshotId = snapshotIdByKey.get(snapshotKey(entity.cardId, entity.snapshotHash))!;
-      insertedTagRows += await insertSnapshotTags(tx, snapshotId, entity.tags, existing, dbfIdByCardId);
+      insertedTagRows += await insertSnapshotTags(tx, snapshotId, entity.tags);
       completedWriteWorkCount += 1;
 
       if (

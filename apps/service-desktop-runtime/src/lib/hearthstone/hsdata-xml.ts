@@ -396,7 +396,7 @@ const normalizeRawTag = (tag: XmlElement, tagOrder: number): RawTagInput => {
   const rawName = tag.attributes.name ?? '';
   const rawType = tag.attributes.type ?? '';
   const rawValue = tag.attributes.value ?? null;
-  const cardRefCardId = tag.attributes.cardID ?? null;
+  const cardValue = tag.attributes.cardID ?? null;
 
   const rawPayload: JsonMap = {
     attributes: { ...tag.attributes },
@@ -422,7 +422,7 @@ const normalizeRawTag = (tag: XmlElement, tagOrder: number): RawTagInput => {
     rawPayload,
     rawValue,
     locStringValue,
-    cardRefCardId,
+    cardValue,
     tagOrder,
   };
 };

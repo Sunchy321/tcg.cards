@@ -67,8 +67,7 @@ interface RawSnapshotTagRow {
   stringValue:    string | null;
   enumValue:      string | null;
   locStringValue: LocalizedText | null;
-  cardRefCardId:  string | null;
-  cardRefDbfId:   number | null;
+  cardValue:  string | null;
   jsonValue:      unknown;
   parseStatus:    string;
 }
@@ -76,7 +75,6 @@ interface RawSnapshotTagRow {
 interface TagRow {
   enumId:            number;
   slug:              string;
-  valueKind:         string;
   normalizeKind:     string;
   normalizeConfig:   JsonMap;
   projectTargetType: string | null;
@@ -814,10 +812,10 @@ function normalizeScalarValue(row: RawSnapshotTagRow): NormalizedValue {
   if (row.intValue != null) return row.intValue;
   if (row.stringValue != null) return row.stringValue;
   if (row.locStringValue != null) return row.locStringValue;
-  if (row.cardRefCardId != null || row.cardRefDbfId != null) {
+  if (row.cardValue != null) {
     return {
-      cardId: row.cardRefCardId,
-      dbfId:  row.cardRefDbfId,
+      cardId: row.cardValue,
+      dbfId:  row.intValue ?? null,
     };
   }
 
@@ -869,15 +867,6 @@ function normalizeTagValue(
 
   if (normalizeKind === 'identity_loc_string') {
     return row.locStringValue;
-  }
-
-  if (normalizeKind === 'identity_card_ref') {
-    return row.cardRefCardId == null && row.cardRefDbfId == null
-      ? null
-      : {
-        cardId: row.cardRefCardId,
-        dbfId:  row.cardRefDbfId,
-      };
   }
 
   if (normalizeKind === 'bool_from_int') {
@@ -935,10 +924,10 @@ function normalizeTagValue(
   }
 
   if (normalizeKind === 'card_ref_from_int') {
-    if (row.cardRefCardId != null || row.cardRefDbfId != null) {
+    if (row.cardValue != null) {
       return {
-        cardId: row.cardRefCardId,
-        dbfId:  row.cardRefDbfId,
+        cardId: row.cardValue,
+        dbfId:  row.intValue ?? null,
       };
     }
 
@@ -2023,8 +2012,7 @@ async function loadSnapshotTags(
       stringValue:    RawEntitySnapshotTag.stringValue,
       enumValue:      RawEntitySnapshotTag.enumValue,
       locStringValue: RawEntitySnapshotTag.locStringValue,
-      cardRefCardId:  RawEntitySnapshotTag.cardRefCardId,
-      cardRefDbfId:   RawEntitySnapshotTag.cardRefDbfId,
+      cardValue:  RawEntitySnapshotTag.cardValue,
       jsonValue:      RawEntitySnapshotTag.jsonValue,
       parseStatus:    RawEntitySnapshotTag.parseStatus,
     })
@@ -2050,7 +2038,6 @@ async function loadTagRows(enumIds: number[]): Promise<Map<number, TagRow>> {
     const result = await db.select({
       enumId:            Tag.enumId,
       slug:              Tag.slug,
-      valueKind:         Tag.valueKind,
       normalizeKind:     Tag.normalizeKind,
       normalizeConfig:   Tag.normalizeConfig,
       projectTargetType: Tag.projectTargetType,
@@ -3417,28 +3404,28 @@ async function syncLocalizations(
         if (row.isAppend) {
           await tx.update(BaseEntityLocalization)
             .set({
-              version: sql`array_append(${EntityLocalization.version}, ${build})`,
-              renderHash: sql`coalesce(${row.renderHash ?? null}, ${EntityLocalization.renderHash})`,
-              renderModel: sql`coalesce(${row.renderModel != null ? JSON.stringify(row.renderModel) : null}::jsonb, ${EntityLocalization.renderModel})`,
+              version: sql`array_append(${BaseEntityLocalization.version}, ${build})`,
+              renderHash: sql`coalesce(${row.renderHash ?? null}, ${BaseEntityLocalization.renderHash})`,
+              renderModel: sql`coalesce(${row.renderModel != null ? JSON.stringify(row.renderModel) : null}::jsonb, ${BaseEntityLocalization.renderModel})`,
             })
             .where(and(
               eq(BaseEntityLocalization.cardId, row.cardId),
-              sql`${EntityLocalization.lang} = ${row.lang}`,
+              sql`${BaseEntityLocalization.lang} = ${row.lang}`,
               eq(BaseEntityLocalization.revisionHash, row.revisionHash),
               eq(BaseEntityLocalization.localizationHash, row.localizationHash),
-              sql`NOT (${build} = any(${EntityLocalization.version}))`,
+              sql`NOT (${build} = any(${BaseEntityLocalization.version}))`,
             ));
         } else {
           const metaRow = row as typeof metaRows[number];
           await tx.update(BaseEntityLocalization)
             .set({
               version: metaRow.version,
-              renderHash: sql`coalesce(${metaRow.renderHash ?? null}, ${EntityLocalization.renderHash})`,
-              renderModel: sql`coalesce(${metaRow.renderModel != null ? JSON.stringify(metaRow.renderModel) : null}::jsonb, ${EntityLocalization.renderModel})`,
+              renderHash: sql`coalesce(${metaRow.renderHash ?? null}, ${BaseEntityLocalization.renderHash})`,
+              renderModel: sql`coalesce(${metaRow.renderModel != null ? JSON.stringify(metaRow.renderModel) : null}::jsonb, ${BaseEntityLocalization.renderModel})`,
             })
             .where(and(
               eq(BaseEntityLocalization.cardId, metaRow.cardId),
-              sql`${EntityLocalization.lang} = ${metaRow.lang}`,
+              sql`${BaseEntityLocalization.lang} = ${metaRow.lang}`,
               eq(BaseEntityLocalization.revisionHash, metaRow.revisionHash),
               eq(BaseEntityLocalization.localizationHash, metaRow.localizationHash),
             ));

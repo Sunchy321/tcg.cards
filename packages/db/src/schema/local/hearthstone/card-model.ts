@@ -106,8 +106,7 @@ export const RawEntitySnapshotTag = dataSchema.table('raw_entity_snapshot_tags',
   stringValue:    text('string_value'),
   enumValue:      text('enum_value'),
   locStringValue: jsonb('loc_string_value').$type<LocalizedText>(),
-  cardRefCardId:  text('card_ref_card_id'),
-  cardRefDbfId:   integer('card_ref_dbf_id'),
+  cardValue:      text('card_value'),
   jsonValue:      jsonb('json_value').$type<JsonValue>(),
 
   parseStatus: text('parse_status').notNull().default('parsed'),
@@ -128,8 +127,8 @@ export const RawEntitySnapshotTag = dataSchema.table('raw_entity_snapshot_tags',
     .on(table.enumId, table.enumValue)
     .where(sql`${table.enumValue} is not null`),
   index('raw_entity_snapshot_tags_enum_card_idx')
-    .on(table.enumId, table.cardRefCardId)
-    .where(sql`${table.cardRefCardId} is not null`),
+    .on(table.enumId, table.cardValue)
+    .where(sql`${table.cardValue} is not null`),
 ]);
 
 export const TagValueView = dataSchema.view('tag_value_view').as(qb => {
@@ -148,8 +147,7 @@ export const TagValueView = dataSchema.view('tag_value_view').as(qb => {
       stringValue:    RawEntitySnapshotTag.stringValue,
       enumValue:      RawEntitySnapshotTag.enumValue,
       locStringValue: RawEntitySnapshotTag.locStringValue,
-      cardRefCardId:  RawEntitySnapshotTag.cardRefCardId,
-      cardRefDbfId:   RawEntitySnapshotTag.cardRefDbfId,
+      cardValue:      RawEntitySnapshotTag.cardValue,
       jsonValue:      RawEntitySnapshotTag.jsonValue,
     })
     .from(RawEntitySnapshotTag)

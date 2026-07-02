@@ -1,0 +1,1 @@
+ALTER TABLE "hearthstone"."tags" DROP COLUMN "value_kind";
