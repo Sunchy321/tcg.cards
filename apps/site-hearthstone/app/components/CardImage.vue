@@ -1,11 +1,11 @@
 <template>
-  <div class="relative aspect-68/94 w-full overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
+  <div class="relative aspect-68/94 w-full overflow-visible rounded-lg">
     <img
       v-if="!hasError && imageUrl"
       :key="imageUrl"
       :src="imageUrl"
       :alt="cardId"
-      class="w-full h-full object-contain"
+      class="w-full h-full object-contain scale-125"
       :loading="loading"
       @error="onError"
     >

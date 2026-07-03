@@ -14,6 +14,17 @@
 
         <div class="flex-1" />
 
+        <UButton
+          icon="lucide:sliders-horizontal"
+          variant="outline"
+          size="sm"
+          color="primary"
+          class="!text-white !ring-white"
+          to="/search/advanced"
+        >
+          {{ $t('hearthstone.search.advanced.$self') }}
+        </UButton>
+
         <span v-if="data != null" class="font-mono text-sm text-white/70 shrink-0">
           {{ total }}
         </span>
@@ -30,44 +41,11 @@
     </Teleport>
 
     <div class="mx-auto max-w-6xl px-4 py-6 mt-16">
-      <div class="mb-6 flex flex-wrap gap-3">
-        <UButton
-          icon="lucide:sliders-horizontal"
-          variant="soft"
-          to="/search/advanced"
-        >
-          {{ $t('hearthstone.search.advanced.$self') }}
-        </UButton>
-
-        <UButton
-          icon="lucide:library"
-          variant="soft"
-          to="/sets"
-        >
-          {{ $t('hearthstone.search.advanced.browseSets') }}
-        </UButton>
-      </div>
 
       <div v-if="!q" class="flex flex-col items-center justify-center py-24 text-center text-gray-500 gap-3">
         <UIcon name="lucide:search" class="text-5xl" />
         <p class="text-lg font-medium">{{ $t('hearthstone.search.emptyQuery') }}</p>
         <p>{{ $t('hearthstone.search.hint') }}</p>
-        <div class="mt-3 flex flex-wrap justify-center gap-3">
-          <UButton
-            icon="lucide:sliders-horizontal"
-            to="/search/advanced"
-          >
-            {{ $t('hearthstone.search.advanced.$self') }}
-          </UButton>
-
-          <UButton
-            icon="lucide:library"
-            variant="soft"
-            to="/sets"
-          >
-            {{ $t('hearthstone.search.advanced.browseSets') }}
-          </UButton>
-        </div>
       </div>
 
       <div v-else-if="errorText" class="mb-6">
@@ -93,13 +71,14 @@
           :to="cardLink(card)"
           class="block"
         >
-          <UCard class="hover:ring-2 hover:ring-primary/30 transition">
+          <UCard class="hover:ring-2 hover:ring-primary/30 transition !overflow-visible">
             <div class="flex flex-col gap-4 sm:flex-row">
               <div class="w-30 shrink-0 self-center sm:self-start">
                 <CardImage
                   :card-id="card.cardId"
                   :version="minVersion(card)"
                   :lang="card.lang"
+                  :render-hash="card.renderHash"
                 />
               </div>
 
@@ -162,7 +141,6 @@ import type { NormalResult } from '#model/hearthstone/schema/search';
 import { locale as localeSchema } from '#model/hearthstone/schema/basic';
 
 import { explain as model } from '~/search';
-import { hearthstoneSets } from '~/utils/hearthstone-sets';
 
 definePageMeta({
   layout:    'main',
@@ -171,9 +149,9 @@ definePageMeta({
 });
 
 type SearchResponse = {
-  text?: string;
+  text?:   string;
   result?: NormalResult;
-  errors?: Array<{ type?: string; payload?: Record<string, any> }>;
+  errors?: Array<{ type?: string, payload?: Record<string, any> }>;
 };
 
 const { $orpc } = useNuxtApp();
@@ -230,10 +208,7 @@ const explainText = computed(() => {
   return explained.value.text;
 });
 
-const visibleSets = new Set<string>(hearthstoneSets);
-const cards = computed<CardEntityView[]>(() =>
-  (data.value?.result?.result ?? []).filter(card => visibleSets.has(card.set)),
-);
+const cards = computed<CardEntityView[]>(() => data.value?.result?.result ?? []);
 const total = computed(() => data.value?.result?.total ?? 0);
 const pageCount = computed(() => data.value?.result?.totalPage ?? Math.ceil(total.value / pageSize.value));
 
