@@ -133,6 +133,14 @@
                     <td class="px-3 py-3">
                       <div class="flex flex-nowrap gap-2">
                         <UButton
+                          label="注册"
+                          icon="i-lucide-bookmark-plus"
+                          color="primary"
+                          variant="soft"
+                          :loading="target.registering"
+                          @click="registerDraftTarget(target.id)"
+                        />
+                        <UButton
                           label="测试"
                           icon="i-lucide-plug"
                           color="neutral"
@@ -201,6 +209,7 @@ type PublishTargetDraft = {
   connectionString:  string;
   targetFingerprint: string;
   testing:           boolean;
+  registering:       boolean;
   testError:         string;
 };
 
@@ -214,6 +223,7 @@ function createDraftTarget(target?: DesktopPublishTarget): PublishTargetDraft {
     connectionString:  target?.connectionString ?? '',
     targetFingerprint: target?.targetFingerprint ?? '',
     testing:           false,
+    registering:       false,
     testError:         '',
   };
 }
@@ -267,6 +277,39 @@ async function testDraftTarget(id: string) {
     });
   } finally {
     target.testing = false;
+  }
+}
+
+/** Registers one remote publish stream so the gate check does not reject it. */
+async function registerDraftTarget(id: string) {
+  const target = draftTargets.value.find(item => item.id === id);
+
+  if (!target) return;
+
+  target.registering = true;
+
+  try {
+    const { registerRemotePublishStream } = await import('~/composables/useHsdataRepo');
+    await registerRemotePublishStream({
+      connectionString: target.connectionString.trim(),
+      publishTarget: target.publishTarget.trim(),
+      environment: target.environment.trim(),
+      targetFingerprint: target.targetFingerprint,
+    });
+
+    toast.add({
+      title: '注册成功',
+      color: 'success',
+    });
+  } catch (error) {
+    console.error('Failed to register remote publish stream:', error);
+    toast.add({
+      title: '注册失败',
+      description: getConsoleErrorMessage(error, '注册远程发布目标失败'),
+      color: 'error',
+    });
+  } finally {
+    target.registering = false;
   }
 }
 

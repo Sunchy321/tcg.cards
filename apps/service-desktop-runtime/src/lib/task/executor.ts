@@ -1,5 +1,5 @@
-import type { TaskStore, TaskRunSnapshot, TaskRunRecord } from './store';
-import type { TaskDefinition, TaskStageState, TaskRunInput, TaskBlock } from './definition';
+import type { TaskRunSnapshot, TaskRunRecord } from './store';
+import type { TaskDefinition, TaskStageEntry, TaskStageState, TaskRunInput, TaskBlock } from './definition';
 import { getTaskDefinition } from './registry';
 import { runtimeBootId, generateResumeContextKey } from './runtime';
 import { buildTaskPageSnapshot } from './snapshot';
@@ -128,7 +128,13 @@ export function createTaskExecutor(store: TaskExecutorStore, publisher?: TaskEve
         const stageState = stages[si]!;
         if (stageState.status === 'completed') continue;
 
-        const entry = await definition.prepareStageEntry({ run: runInput, stage: stageState, resume: isResume, taskRunId });
+        let entry: TaskStageEntry;
+        try {
+          entry = await definition.prepareStageEntry({ run: runInput, stage: stageState, resume: isResume, taskRunId });
+        } catch (err) {
+          await enterFailed(store, taskRunId, stageState.stageKey, err);
+          return;
+        }
 
         // Enter the stage atomically (single transaction)
         const stagePatch: Record<string, unknown> = {

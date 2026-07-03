@@ -33,7 +33,7 @@ import {
   listLocalHsdataSourceVersions,
 } from '../lib/hearthstone/hsdata-status';
 import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
-import { cancelIncompletePublishBatch, getIncompletePublishBatch, listPublishBatches, publishReport, publishSingleCard, singleCardPublishReport } from '../lib/hearthstone/hsdata-publish';
+import { cancelIncompletePublishBatch, getIncompletePublishBatch, listPublishBatches, publishReport, publishSingleCard, singleCardPublishReport, ensureRemotePublishRegistration } from '../lib/hearthstone/hsdata-publish';
 import { createTaskStore } from '#task/store';
 import { taskPageSnapshot } from '@tcg-cards/model/src/task';
 
@@ -649,6 +649,39 @@ const publishSingleCardRoute = os
     }
   });
 
+const registerPublishStreamInput = z.strictObject({
+  connectionString: z.string().trim().min(1),
+  publishTarget: z.string().trim().min(1),
+  environment: z.string().trim().min(1),
+  targetFingerprint: z.string().trim().min(1),
+});
+
+const registerPublishStreamResult = z.strictObject({
+  success: z.boolean(),
+});
+
+const registerPublishStreamRoute = os
+  .route({
+    method:      'POST',
+    description: 'Register one remote publish stream so the gate check does not reject it',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
+  })
+  .input(registerPublishStreamInput)
+  .output(registerPublishStreamResult)
+  .handler(async ({ input }) => {
+    try {
+      await ensureRemotePublishRegistration(input.connectionString, {
+        publishTarget: input.publishTarget,
+        environment: input.environment,
+        publishType: 'card_data',
+        targetFingerprint: input.targetFingerprint,
+      });
+      return { success: true };
+    } catch (error) {
+      throw toRuntimeError(error);
+    }
+  });
+
 const batchResetInput = z.strictObject({
   sourceTags: z.array(z.number().int().nonnegative()).min(1),
 });
@@ -735,6 +768,7 @@ export const hsdataRouter = {
   listPublishBatches: listPublishBatchesRoute,
   getIncompletePublishBatch: getIncompletePublishBatchRoute,
   publishSingleCard: publishSingleCardRoute,
+  registerPublishStream: registerPublishStreamRoute,
   recomputeLatest,
   watchRecomputeLatest,
   resetImportStatus,

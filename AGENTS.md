@@ -1,5 +1,7 @@
 **NEVER make design decisions on your own. Always ask the user before deciding.**
 
+**All modules use hot reload. Do not worry about stale code not being picked up.**
+
 **NEVER revert design decisions previously made without the user's explicit request.**
 
 ## Code Style

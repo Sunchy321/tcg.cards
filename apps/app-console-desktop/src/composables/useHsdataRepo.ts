@@ -467,30 +467,16 @@ export function publishSingleCard(
   })();
 }
 
-/** Streams publish job progress snapshots from the local Bun runtime. */
-export function listenHsdataPublishProgress(
-  handler: (event: PublishJobProgressEvent) => void,
-): () => void {
-  return consumeEventIterator(
-    useDesktopRuntimeClient().hsdata.watchPublishJob(),
-    {
-      onEvent(event: RawPublishJobProgressEvent) {
-        handler({
-          batchId: event.batchId ?? '',
-          publishType: event.publishType ?? '',
-          publishTarget: event.publishTarget ?? '',
-          phase: event.phase,
-          message: event.message,
-          startedAt: event.startedAt ?? '',
-          phaseStartedAt: event.phaseStartedAt ?? '',
-          finishedAt: event.finishedAt ?? null,
-          totalRowCount: event.totalRowCount ?? event.total ?? null,
-          completedRowCount: event.completedRowCount ?? event.completed ?? null,
-          report: event.report ?? null,
-        });
-      },
-    },
-  );
+/** Registers one remote publish stream so the gate check does not reject it. */
+export function registerRemotePublishStream(input: {
+  connectionString: string;
+  publishTarget: string;
+  environment: string;
+  targetFingerprint: string;
+}) {
+  return (async () => {
+    return await useDesktopRuntimeClient().hsdata.registerPublishStream(input);
+  })();
 }
 
 /** Requests a cooperative stop of the current publish or reanchor job. */

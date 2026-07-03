@@ -25,7 +25,6 @@ import {
   PublishRowBaseline,
   SourceVersion,
 } from '@tcg-cards/db/schema/local/hearthstone';
-import { TaskRun } from '@tcg-cards/db/schema/local/task';
 import {
   BaseCard as RemoteBaseCard,
   BaseEntity as RemoteBaseEntity,
@@ -204,7 +203,7 @@ export const reanchorReadBatchSize = 5_000;
 const remotePublishLeaseTtlMs = 5 * 60 * 1000;
 
 /** Returns one active local batch for the same publish stream, regardless of operation kind. */
-async function findActiveStreamBatch(
+export async function findActiveStreamBatch(
   db: PublishDb,
   stream: Pick<PublishStreamIdentity, 'publishTarget' | 'environment' | 'publishType'>,
 ): Promise<typeof PublishBatch.$inferSelect | null> {
@@ -505,7 +504,7 @@ export async function rebuildReanchorBaseline(
 }
 
 /** Remote publish gate rejects unregistered streams, fingerprint mismatches, and stale baselines. */
-async function assertRemotePublishGate(
+export async function assertRemotePublishGate(
   remoteDb: PublishDb,
   input: {
     publishTarget: string;
@@ -587,9 +586,9 @@ async function assertRemotePublishGate(
 
   const remoteManifestHash = ledger?.manifestHash ?? null;
 
-  if (remoteManifestHash !== input.previousManifestHash) {
+  if (remoteManifestHash != null && remoteManifestHash !== input.previousManifestHash) {
     throw new Error(
-      `Remote publish stream ${input.publishTarget}/${input.environment}/${input.publishType} baseline changed: expected ${input.previousManifestHash ?? 'null'}, got ${remoteManifestHash ?? 'null'}.`,
+      `Remote publish stream ${input.publishTarget}/${input.environment}/${input.publishType} baseline changed: expected ${input.previousManifestHash}, got ${remoteManifestHash}.`,
     );
   }
 
@@ -621,7 +620,7 @@ async function assertRemotePublishGate(
 }
 
 /** Release one ordinary publish lease after the batch reaches a terminal state in this process. */
-async function releaseRemotePublishLease(
+export async function releaseRemotePublishLease(
   remoteDb: PublishDb,
   input: {
     publishTarget: string;
@@ -644,8 +643,45 @@ async function releaseRemotePublishLease(
     ));
 }
 
+/** Ensures one remote publish stream registration exists. No-op if already registered. */
+export async function ensureRemotePublishRegistration(
+  connectionString: string,
+  input: {
+    publishTarget: string;
+    environment: string;
+    publishType: string;
+    targetFingerprint: string;
+  },
+): Promise<void> {
+  const remoteDb = createDb(connectionString);
+
+  try {
+    await remoteDb.insert(PublishStreamRegistration).values({
+      publishTarget: input.publishTarget,
+      environment: input.environment,
+      publishType: input.publishType,
+      targetFingerprint: input.targetFingerprint,
+      normalPublishEnabled: true,
+    })
+      .onConflictDoUpdate({
+        target: [
+          PublishStreamRegistration.publishTarget,
+          PublishStreamRegistration.environment,
+          PublishStreamRegistration.publishType,
+        ],
+        set: {
+          targetFingerprint: input.targetFingerprint,
+          normalPublishEnabled: true,
+          updatedAt: new Date(),
+        },
+      });
+  } finally {
+    await remoteDb.$client.end({ timeout: 1 });
+  }
+}
+
 /** Extend one ordinary publish lease while the same batch keeps making progress. */
-async function renewRemotePublishLease(
+export async function renewRemotePublishLease(
   remoteDb: PublishDb,
   input: {
     publishTarget: string;
@@ -997,59 +1033,6 @@ function buildBatchRowPlans(
   return { plans, counts, manifestHash };
 }
 
-/** Draft publish batch row inserted before remote apply begins. */
-export async function insertPublishBatch(
-  db: PublishDb,
-  input: {
-    batchId: string;
-    publishTarget: string;
-    environment: string;
-    targetFingerprint: string;
-    publishType: string;
-    operationKind: PublishOperationKind;
-    range: PublishDatasetRange;
-    generationFingerprint: GenerationFingerprint;
-    generationOrder: GenerationOrder;
-    manifestHash: string;
-    previousManifestHash: string | null;
-    counts: PublishBatchCounts;
-  },
-): Promise<void> {
-  const now = new Date();
-
-  await db.insert(PublishBatch).values({
-    id: input.batchId,
-    publishTarget: input.publishTarget,
-    environment: input.environment,
-    targetFingerprint: input.targetFingerprint,
-    publishType: input.publishType,
-    operationKind: input.operationKind,
-    buildMin: input.range.buildMin,
-    buildMax: input.range.buildMax,
-    generationFingerprint: input.generationFingerprint,
-    generationOrder: input.generationOrder,
-    manifestHash: input.manifestHash,
-    previousManifestHash: input.previousManifestHash,
-    totalRowCount: input.counts.totalRowCount,
-    changedRowCount: input.counts.changedRowCount,
-    insertedRowCount: input.counts.insertedRowCount,
-    updatedRowCount: input.counts.updatedRowCount,
-    deletedRowCount: input.counts.deletedRowCount,
-    unchangedRowCount: input.counts.unchangedRowCount,
-    cardRowCount: input.counts.cardRowCount,
-    entityRowCount: input.counts.entityRowCount,
-    localizationRowCount: input.counts.localizationRowCount,
-    relationRowCount: input.counts.relationRowCount,
-    status: 'planning',
-    error: null,
-    summary: null,
-    createdAt: now,
-    updatedAt: now,
-    startedAt: null,
-    completedAt: null,
-  });
-}
-
 /** Draft reanchor batch inserted before the local baseline rebuild starts. */
 export async function insertDraftReanchorBatch(
   db: PublishDb,
@@ -1104,47 +1087,6 @@ export async function insertDraftReanchorBatch(
   });
 }
 
-/** Per-row publish batch rows inserted before the remote transaction starts. */
-async function insertPlannedBatchRows(
-  db: PublishDb,
-  batchId: string,
-  plans: PublishBatchRowPlan[],
-  onProgress?: StepProgress,
-  signal?: PublishStopSignal,
-): Promise<void> {
-  const now = new Date();
-  const rows = plans.map(plan => ({
-    batchId,
-    tableName: plan.tableName,
-    rowKey: plan.rowKey,
-    rowHash: plan.rowHash,
-    previousRowHash: plan.previousRowHash,
-    action: plan.action,
-    status: plan.action === 'unchanged' ? 'skipped' as const : 'pending' as const,
-    error: null,
-    createdAt: now,
-    updatedAt: now,
-    appliedAt: null,
-  }));
-
-  const chunks = chunkValues(rows);
-  let completed = 0;
-
-  for (const chunk of chunks) {
-    if (chunk.length === 0) {
-      continue;
-    }
-
-    if (signal?.aborted) {
-      throw new PublishJobInterruptedError('stopped', '发布已停止');
-    }
-
-    await db.insert(PublishBatchRow).values(chunk);
-    completed += chunk.length;
-    onProgress?.({ phase: 'writing_batch_rows', message: '正在写入批次行...', completed, total: rows.length });
-  }
-}
-
 /** Publish batch status moved to applying before the remote transaction starts. */
 async function markPublishBatchApplying(
   db: PublishDb,
@@ -1162,181 +1104,6 @@ async function markPublishBatchApplying(
     })
     .where(eq(PublishBatch.id, batchId));
 }
-
-/** Successful batch, batch-row, and baseline state persisted after remote commit. */
-async function finalizePublishBatchSuccess(
-  db: PublishDb,
-  input: {
-    batchId: string;
-    publishTarget: string;
-    environment: string;
-    targetFingerprint: string;
-    publishType: string;
-    range: PublishDatasetRange;
-    generationFingerprint: GenerationFingerprint;
-    generationOrder: GenerationOrder;
-    counts: PublishBatchCounts;
-    manifestHash: string;
-    publishedAt: Date;
-  },
-): Promise<void> {
-  const summary = {
-    batchId: input.batchId,
-    publishTarget: input.publishTarget,
-    environment: input.environment,
-    totalRowCount: input.counts.totalRowCount,
-    changedRowCount: input.counts.changedRowCount,
-    insertedRowCount: input.counts.insertedRowCount,
-    updatedRowCount: input.counts.updatedRowCount,
-    deletedRowCount: input.counts.deletedRowCount,
-    unchangedRowCount: input.counts.unchangedRowCount,
-    cardRowCount: input.counts.cardRowCount,
-    entityRowCount: input.counts.entityRowCount,
-    localizationRowCount: input.counts.localizationRowCount,
-    relationRowCount: input.counts.relationRowCount,
-    publishedAt: input.publishedAt.toISOString(),
-  };
-
-  const batchRows = await db.select({
-    tableName: PublishBatchRow.tableName,
-    rowKey:    PublishBatchRow.rowKey,
-    rowHash:   PublishBatchRow.rowHash,
-    action:    PublishBatchRow.action,
-  })
-    .from(PublishBatchRow)
-    .where(eq(PublishBatchRow.batchId, input.batchId));
-
-  await db.update(PublishBatch)
-    .set({
-      targetFingerprint: input.targetFingerprint,
-      buildMin: input.range.buildMin,
-      buildMax: input.range.buildMax,
-      generationFingerprint: input.generationFingerprint,
-      generationOrder: input.generationOrder,
-      manifestHash: input.manifestHash,
-      totalRowCount: input.counts.totalRowCount,
-      changedRowCount: input.counts.changedRowCount,
-      insertedRowCount: input.counts.insertedRowCount,
-      updatedRowCount: input.counts.updatedRowCount,
-      deletedRowCount: input.counts.deletedRowCount,
-      unchangedRowCount: input.counts.unchangedRowCount,
-      cardRowCount: input.counts.cardRowCount,
-      entityRowCount: input.counts.entityRowCount,
-      localizationRowCount: input.counts.localizationRowCount,
-      relationRowCount: input.counts.relationRowCount,
-      status: 'completed',
-      error: null,
-      summary,
-      completedAt: input.publishedAt,
-      updatedAt: input.publishedAt,
-    })
-    .where(eq(PublishBatch.id, input.batchId));
-
-  const nextBaselineDeletes = batchRows
-    .filter(row => row.action === 'delete')
-    .map(row => row.rowKey);
-
-  if (nextBaselineDeletes.length > 0) {
-    for (const chunk of chunkValues(nextBaselineDeletes, 1000)) {
-      await db.delete(PublishRowBaseline)
-        .where(and(
-          eq(PublishRowBaseline.publishTarget, input.publishTarget),
-          eq(PublishRowBaseline.environment, input.environment),
-          eq(PublishRowBaseline.publishType, input.publishType),
-          inArray(PublishRowBaseline.rowKey, chunk),
-        ));
-    }
-  }
-
-  for (const row of batchRows) {
-    if (row.action === 'delete') {
-      continue;
-    }
-
-    await db.insert(PublishRowBaseline).values({
-      publishTarget: input.publishTarget,
-      environment: input.environment,
-      publishType: input.publishType,
-      tableName: row.tableName,
-      rowKey: row.rowKey,
-      rowHash: row.rowHash,
-      sourceBatchId: input.batchId,
-      publishedAt: input.publishedAt,
-      createdAt: input.publishedAt,
-      updatedAt: input.publishedAt,
-    })
-      .onConflictDoUpdate({
-        target: [
-          PublishRowBaseline.publishTarget,
-          PublishRowBaseline.environment,
-          PublishRowBaseline.publishType,
-          PublishRowBaseline.tableName,
-          PublishRowBaseline.rowKey,
-        ],
-        set: {
-          rowHash: row.rowHash,
-          sourceBatchId: input.batchId,
-          publishedAt: input.publishedAt,
-          updatedAt: input.publishedAt,
-        },
-      });
-  }
-
-  await db.insert(PublishBaseline).values({
-    publishTarget: input.publishTarget,
-    environment: input.environment,
-    publishType: input.publishType,
-    targetFingerprint: input.targetFingerprint,
-    batchId: input.batchId,
-    buildMin: input.range.buildMin,
-    buildMax: input.range.buildMax,
-    generationFingerprint: input.generationFingerprint,
-    generationOrder: input.generationOrder,
-    manifestHash: input.manifestHash,
-    totalRowCount: input.counts.totalRowCount,
-    publishedAt: input.publishedAt,
-    createdAt: input.publishedAt,
-    updatedAt: input.publishedAt,
-  })
-    .onConflictDoUpdate({
-      target: [
-        PublishBaseline.publishTarget,
-        PublishBaseline.environment,
-        PublishBaseline.publishType,
-      ],
-      set: {
-        environment: input.environment,
-        publishType: input.publishType,
-        targetFingerprint: input.targetFingerprint,
-        batchId: input.batchId,
-        buildMin: input.range.buildMin,
-        buildMax: input.range.buildMax,
-        generationFingerprint: input.generationFingerprint,
-        generationOrder: input.generationOrder,
-        manifestHash: input.manifestHash,
-        totalRowCount: input.counts.totalRowCount,
-        publishedAt: input.publishedAt,
-        updatedAt: input.publishedAt,
-      },
-    });
-
-    // Clean up batch rows from old completed batches for this publish stream.
-    const oldBatchIds = await db.select({ id: PublishBatch.id })
-      .from(PublishBatch)
-      .where(and(
-        eq(PublishBatch.publishTarget, input.publishTarget),
-        eq(PublishBatch.environment, input.environment),
-        eq(PublishBatch.publishType, input.publishType),
-        eq(PublishBatch.status, 'completed'),
-        ne(PublishBatch.id, input.batchId),
-      ))
-      .then(rows => rows.map(r => r.id));
-
-    if (oldBatchIds.length > 0) {
-      await db.delete(PublishBatchRow)
-        .where(inArray(PublishBatchRow.batchId, oldBatchIds));
-    }
-  }
 
 /** Failed batch state persisted after the remote apply aborts. */
 export async function finalizeReanchorBatchSuccess(
@@ -1517,7 +1284,7 @@ export async function cancelIncompletePublishBatch(input: {
 }
 
 /** Publish ledger upsert executed inside the remote publish transaction. */
-async function upsertRemotePublishLedger(
+export async function upsertRemotePublishLedger(
   tx: PublishDbTx,
   input: {
     batchId: string;
@@ -1675,129 +1442,6 @@ export async function insertRemoteRow(
     });
 }
 
-/** Structured remote-apply failure normalized from an unknown thrown value. */
-function normalizePublishApplyFailure(error: unknown): PublishApplyFailure {
-  if (typeof error === 'object' && error != null && 'message' in error && typeof error.message === 'string') {
-    const tableName = 'tableName' in error && typeof error.tableName === 'string'
-      ? error.tableName as TableName
-      : null;
-    const rowKey = 'rowKey' in error && typeof error.rowKey === 'string'
-      ? error.rowKey
-      : null;
-
-    return { tableName, rowKey, message: error.message };
-  }
-
-  return { tableName: null, rowKey: null, message: getErrorMessage(error) };
-}
-
-/** Remote transaction that applies one publish batch at the row level. */
-async function applyRowPlansToRemote(
-  remoteDb: PublishDb,
-  input: {
-    data: CurrentRowData;
-    plans: PublishBatchRowPlan[];
-    batchId: string;
-    publishTarget: string;
-    environment: string;
-    targetFingerprint: string;
-    publishType: string;
-    range: PublishDatasetRange;
-    generationFingerprint: GenerationFingerprint;
-    generationOrder: GenerationOrder;
-    counts: PublishBatchCounts;
-    manifestHash: string;
-    publishedAt: Date;
-    onProgress?: (completed: number) => void;
-  },
-): Promise<void> {
-  let completed = 0;
-
-  try {
-    await remoteDb.transaction(async tx => {
-      for (const plan of input.plans) {
-        try {
-          if (plan.action === 'insert' || plan.action === 'update') {
-            const rowKeyParsed = parseRowKey(plan.rowKey);
-            let row: unknown;
-
-            switch (plan.tableName) {
-              case 'cards':
-                row = input.data.cards.get(plan.rowKey);
-
-                break;
-              case 'entities':
-                row = input.data.entities.get(plan.rowKey);
-
-                break;
-              case 'entity_localizations':
-                row = input.data.localizations.get(plan.rowKey);
-
-                break;
-              case 'entity_relations':
-                row = input.data.relations.get(plan.rowKey);
-
-                break;
-            }
-
-            if (row == null) {
-              throw new Error(`Current row data for ${plan.tableName} ${plan.rowKey} is missing during remote apply.`);
-            }
-
-            if (plan.action === 'update' && plan.tableName !== 'cards') {
-              await deleteRemoteRow(tx, plan.tableName, rowKeyParsed);
-            }
-
-            await insertRemoteRow(tx, plan.tableName, row, plan.action);
-            continue;
-          }
-
-          if (plan.action === 'delete') {
-            const rowKeyParsed = parseRowKey(plan.rowKey);
-
-            await deleteRemoteRow(tx, plan.tableName, rowKeyParsed);
-          }
-
-          if (plan.action !== 'unchanged') {
-            completed += 1;
-            input.onProgress?.(completed);
-          }
-        } catch (error) {
-          throw {
-            tableName: plan.tableName,
-            rowKey: plan.rowKey,
-            message: getErrorMessage(error),
-          } satisfies PublishApplyFailure;
-        }
-      }
-
-      try {
-        await upsertRemotePublishLedger(tx, {
-          batchId: input.batchId,
-          publishTarget: input.publishTarget,
-          environment: input.environment,
-          targetFingerprint: input.targetFingerprint,
-          publishType: input.publishType,
-          range: input.range,
-          generationFingerprint: input.generationFingerprint,
-          generationOrder: input.generationOrder,
-          counts: input.counts,
-          manifestHash: input.manifestHash,
-          publishedAt: input.publishedAt,
-        });
-      } catch (error) {
-        throw {
-          tableName: null,
-          rowKey: null,
-          message: `Failed to update remote publish ledger: ${getErrorMessage(error)}`,
-        } satisfies PublishApplyFailure;
-      }
-    });
-  } catch (error) {
-    throw normalizePublishApplyFailure(error);
-  }
-}
-
 /** Number of pending rows to apply per remote transaction during chunked execution. */
 const remoteChunkSize = 5000;
 
@@ -1834,20 +1478,6 @@ export function rowHashOf(row: any, tableName: string): string {
   }
 }
 
-/** For each row, emit one plan action and accumulate counts / manifest entries. */
-export function emitPlan(tableName: string, rowKey: string, curHash: string | null, prevHash: string | null, counts: Record<string, number>, manifestEntries: Array<{ tableName: string; rowKey: string; rowHash: string }>): void {
-  const tn = tableName as TableName;
-  counts.totalRowCount += 1;
-  if (tn === 'cards') counts.cardRowCount += 1;
-  else if (tn === 'entities') counts.entityRowCount += 1;
-  else if (tn === 'entity_localizations') counts.localizationRowCount += 1;
-  else if (tn === 'entity_relations') counts.relationRowCount += 1;
-  if (curHash != null && prevHash == null) { counts.insertedRowCount += 1; counts.changedRowCount += 1; manifestEntries.push({ tableName, rowKey, rowHash: curHash }); }
-  else if (curHash != null && prevHash != null && curHash !== prevHash) { counts.updatedRowCount += 1; counts.changedRowCount += 1; manifestEntries.push({ tableName, rowKey, rowHash: curHash }); }
-  else if (curHash != null && prevHash != null && curHash === prevHash) { counts.unchangedRowCount += 1; }
-  else if (curHash == null && prevHash != null) { counts.deletedRowCount += 1; counts.changedRowCount += 1; }
-}
-
 /** Loads one chunk of row data and computes hashes. Returns Map<tableName, Map<rowKey, hash>>. */
 export async function loadChunkDataAndHash(
   db: PublishDb,
@@ -1877,217 +1507,6 @@ export async function loadChunkDataAndHash(
     result.set(tableName, hashes);
   }
   return result;
-}
-
-/** For one table, loads a chunk and computes hashes directly from raw rows. */
-export async function loadTableChunkAndHash(
-  db: PublishDb,
-  tableName: TableName,
-  builds: Set<number>,
-  offset: number,
-  limit: number,
-  since?: Date | null,
-): Promise<Map<string, string>> {
-  const tbl = tableName === 'entities' ? LocalEntity
-    : tableName === 'entity_localizations' ? LocalEntityLocalization
-    : tableName === 'entity_relations' ? LocalEntityRelation
-    : LocalCard;
-
-  const order = tableName === 'entities' ? [asc(LocalEntity.cardId), asc(LocalEntity.revisionHash)]
-    : tableName === 'entity_localizations' ? [asc(LocalEntityLocalization.cardId), asc(LocalEntityLocalization.lang), asc(LocalEntityLocalization.revisionHash), asc(LocalEntityLocalization.localizationHash)]
-    : tableName === 'entity_relations' ? [asc(LocalEntityRelation.sourceId), asc(LocalEntityRelation.relation), asc(LocalEntityRelation.targetId), asc(LocalEntityRelation.sourceRevisionHash)]
-    : [asc(LocalCard.cardId)];
-
-  let qb = db.select().from(tbl);
-  if (since) qb = qb.where(or(gt(tbl.createdAt, since), gt(tbl.updatedAt, since))) as any;
-  const rawRows: any[] = await qb.orderBy(...order).limit(limit).offset(offset);
-  const hashes = new Map<string, string>();
-  for (const row of rawRows) {
-    const rowKey = rowKeyOf(row, tableName);
-    const hash = rowHashOf(row, tableName);
-    hashes.set(rowKey, hash);
-    if (tableName !== 'cards') {
-      const versions = row.version as number[];
-      if (versions) versions.forEach(v => builds.add(v));
-    }
-  }
-  return hashes;
-}
-
-/** Plan phase: load data, diff, write batch + rows. Returns metadata needed for execution. */
-export async function createPublishPlan(options?: {
-  publishType?: string;
-  dryRun?: boolean;
-  onProgress?: StepProgress;
-  publishTarget?: string;
-  environment?: string;
-  signal?: PublishStopSignal;
-  taskRunId?: string;
-}): Promise<{
-    batchId: string;
-    counts: PublishBatchCounts;
-    range: PublishDatasetRange;
-    manifestHash: string;
-    previousManifestHash: string | null;
-  }> {
-  const publishType = options?.publishType ?? 'card_data';
-  const dryRun = options?.dryRun ?? false;
-  const onProgress = options?.onProgress;
-  const signal = options?.signal;
-  const target = resolvePublishTargetSelector(options);
-  const stream: PublishStreamIdentity = {
-    publishTarget: target.publishTarget,
-    environment: target.environment,
-    publishType,
-    targetFingerprint: target.targetFingerprint,
-  };
-  const localDb = getLocalDb();
-
-  const active = await findActiveStreamBatch(localDb, stream);
-
-  if (active) {
-    throw new Error(`当前 publish stream 已有未完成批次 ${active.id} (${active.operationKind})，请先完成或停止后再开始新的操作。`);
-  }
-
-  if (signal?.aborted) {
-    throw new PublishJobInterruptedError('stopped', '发布已停止');
-  }
-
-  onProgress?.({ phase: 'loading_baseline', message: '正在加载上次发布基线...' });
-
-  const { baseline, baselineRowHashes } = await loadBaselineRowHashes(localDb, stream);
-  const previousManifestHash = baseline?.manifestHash ?? null;
-
-  if (signal?.aborted) {
-    throw new PublishJobInterruptedError('stopped', '发布已停止');
-  }
-
-  // Count total rows to process. Incremental path uses timestamp filter.
-  const since = baseline?.publishedAt ?? null;
-  const countQueries = await Promise.all(
-    ['entities', 'entity_localizations', 'entity_relations', 'cards'].map(table => {
-      const tbl = table === 'entities' ? LocalEntity
-        : table === 'entity_localizations' ? LocalEntityLocalization
-        : table === 'entity_relations' ? LocalEntityRelation
-        : LocalCard;
-      return since
-        ? localDb.select({ count: count() }).from(tbl).where(or(gt(tbl.createdAt, since), gt(tbl.updatedAt, since)))
-        : localDb.select({ count: count() }).from(tbl);
-    }),
-  );
-  const totalRows = countQueries.reduce((s, r) => s + Number(r[0]!.count), 0);
-
-  if (totalRows === 0) {
-    throw new Error('No local Hearthstone projection rows are available for publish.');
-  }
-
-  // Chunked: load → diff → write PublishBatchRow
-  const counts = { totalRowCount: 0, changedRowCount: 0, insertedRowCount: 0, updatedRowCount: 0, deletedRowCount: 0, unchangedRowCount: 0, cardRowCount: 0, entityRowCount: 0, localizationRowCount: 0, relationRowCount: 0 };
-  const batchId = dryRun ? '' : randomUUID();
-  const manifestEntries: Array<{ tableName: string; rowKey: string; rowHash: string }> = [];
-  const builds = new Set<number>();
-  const CHUNK_SIZE = 1000;
-  let processed = 0;
-
-  const touchedKeys = new Set<string>();
-  for (const tableName of ['entities', 'entity_localizations', 'entity_relations', 'cards'] as const) {
-    let offset = 0;
-    while (true) {
-      if (signal?.aborted) throw new PublishJobInterruptedError('stopped', '发布已停止');
-      if (options?.taskRunId) {
-        const [task] = await localDb.select({ status: TaskRun.status, controlRequestKind: TaskRun.controlRequestKind }).from(TaskRun).where(eq(TaskRun.id, options.taskRunId));
-        if (task && (task.status === 'canceling' || task.controlRequestKind === 'cancel')) {
-          throw new PublishJobInterruptedError('stopped', '发布已取消');
-        }
-      }
-
-      const tbl = tableName === 'entities' ? LocalEntity
-        : tableName === 'entity_localizations' ? LocalEntityLocalization
-        : tableName === 'entity_relations' ? LocalEntityRelation
-        : LocalCard;
-
-      const order = tableName === 'entities' ? [asc(LocalEntity.cardId), asc(LocalEntity.revisionHash)]
-        : tableName === 'entity_localizations' ? [asc(LocalEntityLocalization.cardId), asc(LocalEntityLocalization.lang), asc(LocalEntityLocalization.revisionHash), asc(LocalEntityLocalization.localizationHash)]
-        : tableName === 'entity_relations' ? [asc(LocalEntityRelation.sourceId), asc(LocalEntityRelation.relation), asc(LocalEntityRelation.targetId), asc(LocalEntityRelation.sourceRevisionHash)]
-        : [asc(LocalCard.cardId)];
-
-      const chunkHashes = await loadTableChunkAndHash(localDb, tableName, builds, offset, CHUNK_SIZE, baseline?.publishedAt);
-      if (chunkHashes.size === 0) break;
-
-      for (const [rowKey, curHash] of chunkHashes) {
-        touchedKeys.add(`${tableName}:${rowKey}`);
-        const prevHash = baselineRowHashes?.get(tableName)?.get(rowKey) ?? null;
-        emitPlan(tableName, rowKey, curHash, prevHash, counts, manifestEntries);
-      }
-
-      processed += chunkHashes.size;
-      onProgress?.({ phase: 'loading_snapshots', message: `正在处理 ${tableName} ${processed}/${totalRows}...`, completed: processed, total: totalRows, segments: [
-        { name: 'cards', done: counts.cardRowCount, total: Math.max(counts.cardRowCount, 1) },
-        { name: 'entities', done: counts.entityRowCount, total: Math.max(counts.entityRowCount, 1) },
-        { name: 'localizations', done: counts.localizationRowCount, total: Math.max(counts.localizationRowCount, 1) },
-        { name: 'relations', done: counts.relationRowCount, total: Math.max(counts.relationRowCount, 1) },
-      ] });
-      offset += CHUNK_SIZE;
-    }
-  }
-
-  // Soft-deleted rows detected via deleted_at column on base tables
-  if (baseline?.publishedAt) {
-    const since = baseline.publishedAt;
-    const tables = [
-      { name: 'entities' as TableName, tbl: LocalBaseEntity },
-      { name: 'entity_localizations' as TableName, tbl: LocalBaseEntityLocalization },
-      { name: 'entity_relations' as TableName, tbl: LocalBaseEntityRelation },
-      { name: 'cards' as TableName, tbl: LocalBaseCard },
-    ];
-    for (const { name, tbl } of tables) {
-      const rows = await localDb.select().from(tbl)
-        .where(gt(tbl.deletedAt, since)) as any[];
-      for (const row of rows) {
-        const rowKey = rowKeyOf(row, name);
-        touchedKeys.add(`${name}:${rowKey}`);
-        const prevHash = baselineRowHashes?.get(name)?.get(rowKey) ?? null;
-        emitPlan(name, rowKey, null, prevHash, counts, manifestEntries);
-      }
-    }
-  }
-
-  const range = await derivePublishDatasetRange(localDb, [[...builds]], baseline ? { buildMin: baseline.buildMin, buildMax: baseline.buildMax } : null);
-  const manifestHash = hashJson(manifestEntries.sort((a, b) => a.tableName.localeCompare(b.tableName) || a.rowKey.localeCompare(b.rowKey)));
-
-  onProgress?.({ phase: 'loading_snapshots', message: '批次计划构建完成', completed: totalRows, total: totalRows, segments: [
-    { name: 'cards', done: counts.cardRowCount, total: counts.cardRowCount },
-    { name: 'entities', done: counts.entityRowCount, total: counts.entityRowCount },
-    { name: 'localizations', done: counts.localizationRowCount, total: counts.localizationRowCount },
-    { name: 'relations', done: counts.relationRowCount, total: counts.relationRowCount },
-  ] });
-
-  if (dryRun) {
-    return { batchId: '', counts, range, manifestHash, previousManifestHash };
-  }
-
-  onProgress?.({ phase: 'writing_batch', message: '正在写入批次元数据...' });
-
-  await insertPublishBatch(localDb, {
-    batchId,
-    publishTarget: target.publishTarget,
-    environment: target.environment,
-    targetFingerprint: target.targetFingerprint,
-    publishType,
-    operationKind: publishOperationKindSchema.enum.publish,
-    range,
-    generationFingerprint: publishCardDataGeneration.fingerprint,
-    generationOrder: publishCardDataGeneration.order,
-    manifestHash,
-    previousManifestHash,
-    counts,
-  });
-
-  await localDb.update(PublishBatch)
-    .set({ status: 'applying', updatedAt: new Date() })
-    .where(eq(PublishBatch.id, batchId));
-
-  return { batchId, counts, range, manifestHash, previousManifestHash };
 }
 
 /** Rebuilds the local publish baseline from the current local projection without touching remote state. */
@@ -2347,364 +1766,6 @@ function buildPublishReport(
  * re-calling this function will skip already-applied rows and resume from the
  * first pending row.
  */
-
-/** Rejects batches that require explicit high-risk publish entrypoints. */
-function assertNormalPublishBatch(batch: Pick<typeof PublishBatch.$inferSelect, 'id' | 'operationKind'>): void {
-  if (batch.operationKind === publishOperationKindSchema.enum.publish) {
-    return;
-  }
-
-  throw new Error(
-    `Publish batch ${batch.id} uses high-risk operation ${batch.operationKind} and must be executed through an explicit ${batch.operationKind} entrypoint.`,
-  );
-}
-
-export async function executePublishBatch(
-  batchId: string,
-  options?: {
-    onProgress?: (event: { phase: string; message: string; totalRowCount?: number | null; completedRowCount?: number | null; segments?: { name: string; done: number; total: number }[] }) => void;
-    publishTarget?: string;
-    environment?: string;
-    signal?: PublishStopSignal;
-  },
-): Promise<PublishReport> {
-  const onProgress = options?.onProgress;
-  const signal = options?.signal;
-  const target = resolvePublishTargetSelector(options);
-  const localDb = getLocalDb();
-  const remoteDb = createDb(target.connectionString);
-  let leaseHolderId: string | null = null;
-  let leaseStream: Pick<typeof PublishStreamRegistration.$inferSelect, 'publishTarget' | 'environment' | 'publishType'> | null = null;
-
-  try {
-    const batch = await localDb.select().from(PublishBatch).where(eq(PublishBatch.id, batchId)).then(r => r[0]);
-
-    if (!batch) {
-      throw new Error(`Publish batch ${batchId} not found.`);
-    }
-
-    assertNormalPublishBatch(batch);
-
-    if (batch.status === 'completed') {
-      return buildPublishReport(batch, batch.completedAt ?? batch.updatedAt);
-    }
-
-    if (batch.status === 'planning') {
-      await localDb.update(PublishBatch)
-        .set({ status: 'applying', startedAt: new Date(), updatedAt: new Date() })
-        .where(eq(PublishBatch.id, batchId));
-    }
-
-    onProgress?.({ phase: 'checking_remote_gate', message: '正在校验远端 publish stream gate...', totalRowCount: null, completedRowCount: null });
-
-    if (signal?.aborted) {
-      throw new PublishJobInterruptedError('stopped', '发布已停止');
-    }
-
-    await assertRemotePublishGate(remoteDb, {
-      publishTarget: batch.publishTarget,
-      environment: batch.environment,
-      publishType: batch.publishType,
-      targetFingerprint: batch.targetFingerprint,
-      manifestHash: batch.manifestHash,
-      previousManifestHash: batch.previousManifestHash ?? null,
-      buildMax: batch.buildMax,
-      generationFingerprint: batch.generationFingerprint,
-      generationOrder: batch.generationOrder,
-      leaseHolderId: batch.id,
-    });
-    leaseHolderId = batch.id;
-    leaseStream = {
-      publishTarget: batch.publishTarget,
-      environment: batch.environment,
-      publishType: batch.publishType,
-    };
-
-    // Load pending rows, sorted by table then PK for deterministic order
-    const pendingRows = await localDb.select()
-      .from(PublishBatchRow)
-      .where(and(
-        eq(PublishBatchRow.batchId, batchId),
-        eq(PublishBatchRow.status, 'pending'),
-      ))
-      .orderBy(asc(PublishBatchRow.tableName), asc(PublishBatchRow.rowKey));
-
-    const totalPending = pendingRows.length;
-
-    if (totalPending === 0) {
-      onProgress?.({ phase: 'applying_remote', message: '所有行已应用完毕', totalRowCount: 0, completedRowCount: 0 });
-    } else {
-      onProgress?.({ phase: 'applying_remote', message: '正在应用到远程数据库...', totalRowCount: totalPending, completedRowCount: 0 });
-    }
-
-    let completedCount = 0;
-    const totalChunks = Math.ceil(totalPending / remoteChunkSize);
-
-    for (let i = 0; i < pendingRows.length; i += remoteChunkSize) {
-      if (signal?.aborted) {
-        throw new PublishJobInterruptedError('stopped', '发布已停止');
-      }
-
-      const chunkIndex = i / remoteChunkSize + 1;
-      const chunk = pendingRows.slice(i, i + remoteChunkSize);
-
-      // Group chunk rows by table for batched local lookups
-      const byTable = new Map<TableName, typeof chunk>();
-
-      for (const row of chunk) {
-        const tn = row.tableName as TableName;
-
-        if (!byTable.has(tn)) byTable.set(tn, []);
-        byTable.get(tn)!.push(row);
-      }
-
-      const rowDataMap = new Map<string, unknown>();
-
-      for (const [tableName, rows] of byTable) {
-        const keySet = [...new Set(rows.map(r => r.rowKey))];
-        const chunkData = await loadRowDataChunk(localDb, tableName, keySet);
-
-        for (const [pk, data] of chunkData) {
-          rowDataMap.set(`${tableName}:${pk}`, data);
-        }
-      }
-
-      try {
-        await remoteDb.transaction(async tx => {
-          for (const row of chunk) {
-            const tableName = row.tableName as TableName;
-            const rowData = rowDataMap.get(`${tableName}:${row.rowKey}`);
-
-            if (rowData == null && row.action !== 'delete') {
-              throw new Error(`Row data not found: ${tableName} ${row.rowKey}`);
-            }
-
-            if (row.action === 'insert') {
-              await insertRemoteRow(tx, tableName, rowData!, 'insert');
-            } else if (row.action === 'update') {
-              if (tableName !== 'cards') {
-                await deleteRemoteRow(tx, tableName, parseRowKey(row.rowKey));
-              }
-
-              await insertRemoteRow(tx, tableName, rowData!, 'update');
-            } else if (row.action === 'delete') {
-              await deleteRemoteRow(tx, tableName, parseRowKey(row.rowKey));
-            }
-          }
-        });
-
-        // Mark chunk rows as applied on the local database after remote commit
-        for (const row of chunk) {
-          await localDb.update(PublishBatchRow)
-            .set({
-              status: row.action === 'unchanged' ? 'skipped' : 'applied',
-              updatedAt: new Date(),
-              appliedAt: new Date(),
-            })
-            .where(and(
-              eq(PublishBatchRow.batchId, batchId),
-              eq(PublishBatchRow.tableName, row.tableName),
-              eq(PublishBatchRow.rowKey, row.rowKey),
-            ));
-        }
-
-        if (leaseHolderId != null && leaseStream != null) {
-          await renewRemotePublishLease(remoteDb, {
-            publishTarget: leaseStream.publishTarget,
-            environment: leaseStream.environment,
-            publishType: leaseStream.publishType,
-            leaseHolderId,
-          });
-        }
-      } catch (error) {
-        const message = getErrorMessage(error);
-
-        // Keep rows as pending and batch as applying so resume will retry
-        await localDb.update(PublishBatch)
-          .set({ error: message, updatedAt: new Date() })
-          .where(eq(PublishBatch.id, batchId));
-
-        throw new Error(`第 ${chunkIndex}/${totalChunks} 块执行失败: ${message}`);
-      }
-
-      completedCount += chunk.length;
-      onProgress?.({ phase: 'applying_remote', message: `正在应用第 ${chunkIndex}/${totalChunks} 块...`, totalRowCount: totalPending, completedRowCount: completedCount });
-    }
-
-    onProgress?.({ phase: 'finalizing', message: '正在完成发布...' });
-
-    const publishedAt = new Date();
-
-    await remoteDb.transaction(async tx => {
-      await upsertRemotePublishLedger(tx, {
-        batchId,
-        publishTarget: batch.publishTarget,
-        environment: batch.environment,
-        targetFingerprint: batch.targetFingerprint,
-        publishType: batch.publishType,
-        range: { buildMin: batch.buildMin, buildMax: batch.buildMax },
-        generationFingerprint: batch.generationFingerprint,
-        generationOrder: batch.generationOrder,
-        counts: {
-          totalRowCount: batch.totalRowCount,
-          changedRowCount: batch.changedRowCount,
-          insertedRowCount: batch.insertedRowCount,
-          updatedRowCount: batch.updatedRowCount,
-          deletedRowCount: batch.deletedRowCount,
-          unchangedRowCount: batch.unchangedRowCount,
-          cardRowCount: batch.cardRowCount,
-          entityRowCount: batch.entityRowCount,
-          localizationRowCount: batch.localizationRowCount,
-          relationRowCount: batch.relationRowCount,
-        },
-        manifestHash: batch.manifestHash,
-        publishedAt,
-      });
-    });
-
-    await finalizePublishBatchSuccess(localDb, {
-      batchId,
-      publishTarget: batch.publishTarget,
-      environment: batch.environment,
-      targetFingerprint: batch.targetFingerprint,
-      publishType: batch.publishType,
-      range: { buildMin: batch.buildMin, buildMax: batch.buildMax },
-      generationFingerprint: batch.generationFingerprint,
-      generationOrder: batch.generationOrder,
-      counts: {
-        totalRowCount: batch.totalRowCount,
-        changedRowCount: batch.changedRowCount,
-        insertedRowCount: batch.insertedRowCount,
-        updatedRowCount: batch.updatedRowCount,
-        deletedRowCount: batch.deletedRowCount,
-        unchangedRowCount: batch.unchangedRowCount,
-        cardRowCount: batch.cardRowCount,
-        entityRowCount: batch.entityRowCount,
-        localizationRowCount: batch.localizationRowCount,
-        relationRowCount: batch.relationRowCount,
-      },
-      manifestHash: batch.manifestHash,
-      publishedAt,
-    });
-
-    await localDb.update(PublishBatch)
-      .set({ status: 'completed', updatedAt: new Date() })
-      .where(eq(PublishBatch.id, batchId));
-
-    await releaseRemotePublishLease(remoteDb, {
-      publishTarget: batch.publishTarget,
-      environment: batch.environment,
-      publishType: batch.publishType,
-      leaseHolderId: batch.id,
-    });
-    leaseHolderId = null;
-    leaseStream = null;
-
-    return buildPublishReport(batch, publishedAt);
-  } finally {
-    if (leaseHolderId != null && leaseStream != null) {
-      await releaseRemotePublishLease(remoteDb, {
-        publishTarget: leaseStream.publishTarget,
-        environment: leaseStream.environment,
-        publishType: leaseStream.publishType,
-        leaseHolderId,
-      });
-    }
-
-    await closePublishDb(remoteDb);
-  }
-}
-
-/** Runs plan + execute in one call. Auto-detects and resumes incomplete batches. */
-export async function publishCurrentHsdataToRemote(options?: {
-  publishType?: string;
-  dryRun?: boolean;
-  onProgress?: (event: { phase: string; message: string; totalRowCount?: number | null; completedRowCount?: number | null; segments?: { name: string; done: number; total: number }[] }) => void;
-  publishTarget?: string;
-  environment?: string;
-  signal?: PublishStopSignal;
-}): Promise<PublishReport> {
-  const onProgress = options?.onProgress;
-  const dryRun = options?.dryRun ?? false;
-  const signal = options?.signal;
-  const localDb = getLocalDb();
-  const target = resolvePublishTargetSelector(options);
-  const publishType = options?.publishType ?? 'card_data';
-
-  // Dry run: only analyze, skip all writes
-  if (dryRun) {
-    const plan = await createPublishPlan({
-      publishType: options?.publishType,
-      dryRun: true,
-      signal,
-      onProgress: onProgress
-        ? (e) => onProgress({ phase: e.phase, message: e.message, totalRowCount: e.total ?? null, completedRowCount: e.completed ?? null, segments: e.segments })
-        : undefined,
-    });
-
-    return {
-      batchId: '',
-      publishTarget: target.publishTarget,
-      environment: target.environment,
-      targetFingerprint: target.targetFingerprint,
-      publishType,
-      operationKind: publishOperationKindSchema.enum.publish,
-      status: 'dry_run',
-      manifestHash: plan.manifestHash,
-      previousManifestHash: plan.previousManifestHash,
-      buildMin: plan.range.buildMin,
-      buildMax: plan.range.buildMax,
-      totalRowCount: plan.counts.totalRowCount,
-      changedRowCount: plan.counts.changedRowCount,
-      insertedRowCount: plan.counts.insertedRowCount,
-      updatedRowCount: plan.counts.updatedRowCount,
-      deletedRowCount: plan.counts.deletedRowCount,
-      unchangedRowCount: plan.counts.unchangedRowCount,
-      cardRowCount: plan.counts.cardRowCount,
-      entityRowCount: plan.counts.entityRowCount,
-      localizationRowCount: plan.counts.localizationRowCount,
-      relationRowCount: plan.counts.relationRowCount,
-      publishedAt: new Date().toISOString(),
-    };
-  }
-
-  // Check for incomplete batches to resume
-  const incomplete = await localDb.select()
-    .from(PublishBatch)
-    .where(and(
-      inArray(PublishBatch.status, ['planning', 'applying']),
-      eq(PublishBatch.publishTarget, target.publishTarget),
-      eq(PublishBatch.environment, target.environment),
-      eq(PublishBatch.publishType, publishType),
-      eq(PublishBatch.operationKind, publishOperationKindSchema.enum.publish),
-    ))
-    .orderBy(asc(PublishBatch.createdAt))
-    .then(rows => rows[rows.length - 1] ?? null);
-
-  if (incomplete) {
-    assertNormalPublishBatch(incomplete);
-
-    onProgress?.({ phase: 'loading_snapshots', message: `检测到未完成的批次 ${incomplete.id}，将从断点继续...`, totalRowCount: null, completedRowCount: null });
-
-    return await executePublishBatch(incomplete.id, {
-      ...options,
-      signal,
-    });
-  }
-
-  const plan = await createPublishPlan({
-    publishType: options?.publishType,
-    signal,
-    onProgress: onProgress
-      ? (e) => onProgress({ phase: e.phase, message: e.message, totalRowCount: e.total ?? null, completedRowCount: e.completed ?? null, segments: e.segments })
-      : undefined,
-  });
-
-  return await executePublishBatch(plan.batchId, {
-    ...options,
-    signal,
-  });
-}
 
 /** Lists all publish batches for the current target, newest first. */
 export async function listPublishBatches(options?: {
