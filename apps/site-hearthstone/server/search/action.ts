@@ -21,6 +21,7 @@ type SearchOption = {
 
 const defaultVisibleCardQuery = and(
   eq(CardEntityView.collectible, true),
+  eq(CardEntityView.isLatest, true),
   eq(CardEntityView.inBobsTavern, false),
   sql`${CardEntityView.type} in ('minion', 'spell', 'weapon', 'location', 'hero')`,
   sql`(
@@ -72,6 +73,7 @@ export const search = as
         desc(CardEntityView.version),
       );
 
+    console.log('[search] SQL:', JSON.stringify(subquery.toSQL()));
     const result = await db
       .select()
       .from(subquery.as('card_entity_view'))

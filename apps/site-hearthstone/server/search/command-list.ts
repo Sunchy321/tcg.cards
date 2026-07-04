@@ -22,7 +22,7 @@ const matchText = (
 const matchStats = (
   qualifier: string[],
   ...queries: Array<ReturnType<typeof builtin.number.call>>
-) => (!qualifier.includes('!') ? or : and)(...queries)!;
+) => (!qualifier.includes('!') ? and : or)(...queries)!;
 
 export const raw = cs
   .commands.raw
