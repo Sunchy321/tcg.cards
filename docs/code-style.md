@@ -20,6 +20,8 @@ Do not write comments in forms such as "This is used for..." or "Used to...". St
 
 Prefer the nullish coalescing operator (`??`) over the logical OR operator (`||`) for default values in frontend code.
 
+Prefer Tailwind utility classes over custom SCSS for styling. Only use custom SCSS when the styling cannot be expressed with Tailwind (e.g. CSS pseudo-elements, complex animations, CSS variables in calc()).
+
 Only use the logical OR operator (`||`) for frontend fallback behavior when boolean coercion is explicitly intended.
 
 Avoid cross-package relative paths in frontend code. Prefer `node_modules`-based imports and package exports whenever possible.

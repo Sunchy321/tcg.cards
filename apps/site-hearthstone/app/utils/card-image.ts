@@ -45,24 +45,3 @@ export function buildCardImageUrl(
     `${renderHash}.webp`,
   ].join('/');
 }
-
-export function buildLegacyCardImageUrl(
-  assetBaseUrl: string,
-  version: number,
-  option: CardImageOption,
-  cardId: string,
-) {
-  const baseUrl = trimBaseUrl(assetBaseUrl);
-
-  return [
-    baseUrl,
-    'hearthstone',
-    'card',
-    'image',
-    'webp',
-    String(version),
-    'zhs',
-    option,
-    `${cardId}.webp`,
-  ].join('/');
-}

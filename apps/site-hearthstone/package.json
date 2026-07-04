@@ -24,6 +24,7 @@
     "@tcg-cards/model": "workspace:*",
     "@tcg-cards/search": "workspace:*",
     "@tcg-cards/shared": "workspace:*",
+    "@vueuse/router": "^14.3.0",
     "axios": "^1.13.6",
     "better-auth": "^1.5.5",
     "cheerio": "^1.2.0",
