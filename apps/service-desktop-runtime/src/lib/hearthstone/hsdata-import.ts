@@ -1,6 +1,6 @@
 import canonicalize from 'canonicalize';
 
-import { eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '@tcg-cards/db/db';
 import {
@@ -1067,7 +1067,10 @@ async function applyHsdataImport(
     } else if (sourceTagUpdates.length > 0) {
       await tx.update(RawEntitySnapshot)
         .set({ projectionState: 'version_only' })
-        .where(inArray(RawEntitySnapshot.id, sourceTagUpdates.map(u => u.id)));
+        .where(and(
+          inArray(RawEntitySnapshot.id, sourceTagUpdates.map(u => u.id)),
+          eq(RawEntitySnapshot.projectionState, 'projected'),
+        ));
       completedWriteWorkCount += 1;
     }
   } else {

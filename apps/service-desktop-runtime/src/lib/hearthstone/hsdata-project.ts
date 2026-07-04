@@ -11,7 +11,7 @@ import { and, eq, ne, inArray, SQL, sql } from 'drizzle-orm';
 import { db } from '@tcg-cards/db/db';
 import { RENDER_MECHANIC_IDS } from '@tcg-cards/model/src/hearthstone/constant/tag';
 import { renderModel as renderModelSchema, type RenderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
-import { mainLocale, type Rarity, rarity as raritySchema, type Types, types as typeSchema } from '@tcg-cards/model/src/hearthstone/schema/basic';
+import { Locale, mainLocale, type Rarity, rarity as raritySchema, type Types, types as typeSchema } from '@tcg-cards/model/src/hearthstone/schema/basic';
 import {
   BaseCard,
   BaseEntity,
@@ -145,7 +145,7 @@ interface EntityRow {
 interface LocalizationRow {
   cardId:           string;
   version:          number[];
-  lang:             string;
+  lang:             Locale;
   revisionHash:     string;
   localizationHash: string;
   renderHash:       string | null;
@@ -184,7 +184,6 @@ interface LocalizationDraft {
 }
 
 interface ProjectionContext {
-  slugByEnumId:  Map<number, string>;
   cardIdByDbfId: Map<number, string>;
   setIdByDbfId:  Map<number, string>;
 }
@@ -418,7 +417,7 @@ const rarityByInt: Record<number, string> = {
   5: 'legendary',
 };
 
-const localeMap: Record<string, string> = {
+const localeMap: Record<string, Locale> = {
   deDE: 'de',
   enGB: 'en',
   enUS: 'en',
@@ -673,9 +672,9 @@ function toWriteProgressBreakdown(
   };
 }
 
-function normalizeLocaleKey(raw: string, override?: Record<string, string>): string | null {
+function normalizeLocaleKey(raw: string, override?: Record<string, string>): Locale | null {
   const mapped = override?.[raw] ?? localeMap[raw] ?? raw;
-  return mainLocale.options.includes(mapped as typeof mainLocale.options[number]) ? mapped : null;
+  return mainLocale.options.includes(mapped as Locale) ? mapped as Locale : null;
 }
 
 function asJsonMap(value: unknown): JsonMap {
@@ -1701,8 +1700,7 @@ function finalizeEntityDraft(
 
 function finalizeLocalizationRows(
   entity: LocalizationlessEntityRow,
-  localizationMap: Map<string, LocalizationDraft>,
-  slugByEnumId: Map<number, string>,
+  localizationMap: Map<Locale, LocalizationDraft>,
 ): LocalizationRow[] {
   const rows: LocalizationRow[] = [];
 
@@ -1762,7 +1760,7 @@ function projectSnapshot(
   context: ProjectionContext,
 ): ProjectedSnapshot {
   const entityDraft = createEntityDraft(snapshot);
-  const localizations = new Map<string, LocalizationDraft>();
+  const localizations = new Map<Locale, LocalizationDraft>();
   const weakRelationTargets = new Map<string, string>();
   let unprojectedTagCount = 0;
 
@@ -1881,7 +1879,7 @@ function projectSnapshot(
   }
 
   const entity = finalizeEntityDraft(entityDraft);
-  const localizationRows = finalizeLocalizationRows(entity, localizations, context.slugByEnumId);
+  const localizationRows = finalizeLocalizationRows(entity, localizations);
 
   const relationRows: RelationRow[] = [];
 
@@ -2089,7 +2087,7 @@ async function loadExistingRowsForProjection(
   type LocalizationStateQueryRow = {
     cardId: string;
     version: number[];
-    lang: string;
+    lang: Locale;
     revisionHash: string;
     localizationHash: string;
     renderHash: string | null;
@@ -3826,7 +3824,11 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     workLabel:               'snapshot',
   });
 
-  const snapshotIdSet = new Set(notProjectedSnapshots.map(snapshot => snapshot.id));
+  const snapshotIdSet = new Set([
+    ...notProjectedSnapshots.map(snapshot => snapshot.id),
+    ...versionOnlySnapshots.map(snapshot => snapshot.id),
+  ]);
+
   const rawTags = await loadSnapshotTags([...snapshotIdSet], async (completedSnapshotCount, totalSnapshotCount) => {
     await input.onProgress?.({
       phase:                   'loading_tags',
@@ -3838,16 +3840,21 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
       workLabel:               'snapshot',
     });
   });
+
   profiler.mark('load_snapshot_tags', {
     snapshotCount: snapshots.length,
     rawTagCount:   rawTags.length,
   });
+
   const enumIds = [...new Set(rawTags.map(row => row.enumId))].sort((left, right) => left - right);
+
   const tagMap = await loadTagRows(enumIds);
+
   profiler.mark('load_tag_rows', {
     enumIdCount: enumIds.length,
     tagRuleCount: tagMap.size,
   });
+  
   const rawTagsBySnapshotId = new Map<string, RawSnapshotTagRow[]>();
 
   for (const row of rawTags) {
@@ -3856,18 +3863,16 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     rawTagsBySnapshotId.set(row.snapshotId, rows);
   }
 
-  const cardIdByDbfId = new Map(notProjectedSnapshots.map(snapshot => [snapshot.dbfId, snapshot.cardId]));
-  const slugByEnumId = new Map(
-    [...tagMap.values()].map(tag => [tag.enumId, tag.slug]),
-  );
+  const cardIdByDbfId = new Map([
+    ...notProjectedSnapshots,
+    ...versionOnlySnapshots,
+  ].map(snapshot => [snapshot.dbfId, snapshot.cardId]));
   const setIdByDbfId = await loadSetIdByDbfId();
   profiler.mark('build_projection_context', {
     cardRefCount: cardIdByDbfId.size,
-    slugCount:    slugByEnumId.size,
     setCount:     setIdByDbfId.size,
   });
   const context: ProjectionContext = {
-    slugByEnumId,
     cardIdByDbfId,
     setIdByDbfId,
   };
@@ -4320,17 +4325,41 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
       const builds = buildsBySnapshotId.get(snapshot.id);
       if (!builds || builds.length === 0) continue;
 
+      const projected = projectSnapshot(
+        snapshot,
+        rawTagsBySnapshotId.get(snapshot.id) ?? [],
+        tagMap,
+        context,
+      );
+
       await db.update(BaseEntity)
         .set({ version: builds })
-        .where(sql`${BaseEntity.cardId} = ${snapshot.cardId}`);
+        .where(and(
+          eq(BaseEntity.cardId, projected.entity.cardId),
+          eq(BaseEntity.revisionHash, projected.entity.revisionHash),
+        ));
 
-      await db.update(BaseEntityLocalization)
-        .set({ version: builds })
-        .where(sql`${BaseEntityLocalization.cardId} = ${snapshot.cardId}`);
+      for (const loc of projected.localizations) {
+        await db.update(BaseEntityLocalization)
+          .set({ version: builds })
+          .where(and(
+            eq(BaseEntityLocalization.cardId, loc.cardId),
+            eq(BaseEntityLocalization.lang, loc.lang),
+            eq(BaseEntityLocalization.revisionHash, loc.revisionHash),
+            eq(BaseEntityLocalization.localizationHash, loc.localizationHash),
+          ));
+      }
 
-      await db.update(BaseEntityRelation)
-        .set({ version: builds })
-        .where(sql`${BaseEntityRelation.sourceId} = ${snapshot.cardId}`);
+      for (const rel of projected.relations) {
+        await db.update(BaseEntityRelation)
+          .set({ version: builds })
+          .where(and(
+            eq(BaseEntityRelation.sourceId, rel.sourceId),
+            eq(BaseEntityRelation.sourceRevisionHash, rel.sourceRevisionHash),
+            eq(BaseEntityRelation.relation, rel.relation),
+            eq(BaseEntityRelation.targetId, rel.targetId),
+          ));
+      }
     }
 
     await db.insert(BaseCard).values(
