@@ -34,6 +34,7 @@ const basic = os
       pageSize,
       lang,
       orderBy,
+      dsl: q,
     });
   });
 

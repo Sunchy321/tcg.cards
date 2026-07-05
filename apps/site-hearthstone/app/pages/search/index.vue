@@ -140,8 +140,8 @@
                         size="sm"
                         class="w-24"
                         inputmode="numeric"
-                        @input="validateNumericInput"
                         :placeholder="$t('hearthstone.search.command.cost')"
+                        @input="validateNumericInput"
                       />
                     </div>
                     <div class="flex gap-2 items-center">
@@ -157,8 +157,8 @@
                         size="sm"
                         class="w-24"
                         inputmode="numeric"
-                        @input="validateNumericInput"
                         :placeholder="$t('hearthstone.search.command.cost')"
+                        @input="validateNumericInput"
                       />
                     </div>
                   </div>
@@ -496,6 +496,7 @@
                   :version="minVersion(card)"
                   :lang="card.lang"
                   :render-hash="card.renderHash"
+                  :variant="resultVariant"
                 />
               </div>
 
@@ -645,6 +646,7 @@ const dslExplained = computed(() => {
 const cards = computed<CardEntityView[]>(() => data.value?.result?.result ?? []);
 const total = computed(() => data.value?.result?.total ?? 0);
 const pageCount = computed(() => data.value?.result?.totalPage ?? Math.ceil(total.value / pageSize.value));
+const resultVariant = computed(() => data.value?.result?.variant ?? 'normal');
 
 const errorText = computed(() => {
   if (fetchError.value != null) {

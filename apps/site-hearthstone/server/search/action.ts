@@ -8,15 +8,96 @@ import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '#db/db';
 import { CardEntityView } from '#schema/shared/hearthstone/entity';
 
+import Parser from '#search/parser';
+import { simplify } from '#search/parser/simplify';
+import type { Expression } from '#search/parser';
+
 import { order } from './command-list';
 
 const as = create;
+
+let hashTagToVariantPromise: Promise<Record<string, string>> | null = null;
+
+async function getHashTagToVariant(): Promise<Record<string, string>> {
+  if (hashTagToVariantPromise != null) return hashTagToVariantPromise;
+
+  hashTagToVariantPromise = (async () => {
+    const { Tag } = await import('#schema/shared/hearthstone/tag');
+    const rows = await db
+      .select({ slug: Tag.slug, enumId: Tag.enumId })
+      .from(Tag)
+      .where(inArray(Tag.slug, ['has-diamond', 'has-signature']));
+
+    const map: Record<string, string> = {};
+    for (const row of rows) {
+      const variant = row.slug === 'has-diamond' ? 'diamond' : 'signature';
+      map[row.slug] = variant;
+      map[String(row.enumId)] = variant;
+    }
+    return map;
+  })();
+
+  return hashTagToVariantPromise;
+}
+
+type VariantValue = 'normal' | 'golden' | 'diamond' | 'signature' | 'battlegrounds';
+
+const variantValues: readonly VariantValue[] = ['normal', 'golden', 'diamond', 'signature', 'battlegrounds'];
+
+async function detectVariant(dsl: string): Promise<VariantValue> {
+  try {
+    const expr = new Parser(dsl).parse();
+    const simplified = simplify(expr);
+
+    const tagToVariant = await getHashTagToVariant();
+    const variants = new Set<string>();
+
+    const walk = (node: Expression): void => {
+      if (node.type === 'not') return;
+
+      if (node.type === 'simple') {
+        if (node.qual?.includes('!')) return;
+
+        if (node.cmd === 'hash') {
+          const v = tagToVariant[node.args];
+          if (v != null) variants.add(v);
+        }
+
+        if (node.cmd === 'set') {
+          const val = node.args.toLowerCase();
+          if (val === 'bgs' || val === 'battlegrounds') variants.add('battlegrounds');
+        }
+      }
+
+      if (node.type === 'hash') {
+        const v = tagToVariant[node.args];
+        if (v != null) variants.add(v);
+      }
+
+      if (node.type === 'paren') {
+        walk(node.expr);
+      }
+
+      if (node.type === 'logic') {
+        for (const child of node.exprs) walk(child);
+      }
+    };
+
+    walk(simplified);
+
+    const detected = variants.size === 1 ? [...variants][0] : undefined;
+    return variantValues.find(v => v === detected) ?? 'normal';
+  } catch {
+    return 'normal';
+  }
+}
 
 type SearchOption = {
   page:     number;
   pageSize: number;
   lang:     Locale;
   orderBy:  string;
+  dsl:      string;
 };
 
 const defaultVisibleCardQuery = and(
@@ -46,6 +127,7 @@ export const search = as
       pageSize,
       lang,
       orderBy,
+      dsl,
     } = options;
 
     const orderByAction = post.find(p => p.phase === 'order-by')?.action
@@ -106,10 +188,11 @@ export const search = as
     const elapsed = Date.now() - startTime;
 
     return {
-      result: displayedResult,
+      result:  displayedResult,
       total,
       page,
       totalPage,
       elapsed,
+      variant: await detectVariant(dsl),
     };
   });

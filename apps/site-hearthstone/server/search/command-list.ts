@@ -4,15 +4,23 @@ import * as builtin from '#search/server/command/builtin';
 
 import { QueryError } from '#search/command/error';
 
-import { and, arrayContains, asc, desc, eq, inArray, not, notInArray, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, not, notInArray, or, sql } from 'drizzle-orm';
 
 import { model } from '#model/hearthstone/search';
 import { CardEntityView } from '#schema/shared/hearthstone/entity';
+import { TAG_SLUG, TAG_ID } from '#model/hearthstone/constant/tag';
 
 const cs = create
   .with(model)
   .table([CardEntityView])
   .use({ ...builtin });
+
+const tagSlugToId = Object.fromEntries(
+  (Object.keys(TAG_SLUG) as Array<keyof typeof TAG_SLUG>).map(key => [
+    TAG_SLUG[key],
+    String(TAG_ID[key]),
+  ])
+);
 
 const matchText = (
   qualifier: string[],
@@ -94,18 +102,18 @@ export const stats = cs
 export const hash = cs
   .commands.hash
   .handler(({ value, pattern, qualifier }, { table }) => {
-    const tag = pattern?.tag ?? value;
+    const tag = tagSlugToId[pattern?.tag ?? value] ?? (pattern?.tag ?? value);
 
     if (!qualifier.includes('!')) {
       return or(
-        arrayContains(table.mechanics, [tag]),
-        arrayContains(table.referencedTags, [tag]),
+        sql`${table.mechanics} ? ${tag}`,
+        sql`${table.referencedTags} ? ${tag}`,
       )!;
     }
 
     return and(
-      not(arrayContains(table.mechanics, [tag])),
-      not(arrayContains(table.referencedTags, [tag])),
+      not(sql`${table.mechanics} ? ${tag}`),
+      not(sql`${table.referencedTags} ? ${tag}`),
     )!;
   });
 
@@ -233,14 +241,14 @@ export const faction = cs
 
     if (!qualifier.includes('!')) {
       return or(...values.map(faction => or(
-        arrayContains(table.mechanics, [faction]),
-        arrayContains(table.referencedTags, [faction]),
+        sql`${table.mechanics} ? ${faction}`,
+        sql`${table.referencedTags} ? ${faction}`,
       )!))!;
     }
 
     return and(...values.map(faction => and(
-      not(arrayContains(table.mechanics, [faction])),
-      not(arrayContains(table.referencedTags, [faction])),
+      not(sql`${table.mechanics} ? ${faction}`),
+      not(sql`${table.referencedTags} ? ${faction}`),
     )!))!;
   });
 
