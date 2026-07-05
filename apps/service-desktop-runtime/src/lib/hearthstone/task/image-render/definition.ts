@@ -10,6 +10,8 @@ import type {
 import type { CardImageRequirementExportInput } from '@tcg-cards/model/src/hearthstone/schema/data/image';
 import { imageRequirementFile } from '@tcg-cards/model/src/hearthstone/schema/data/image';
 import { CardImageAsset } from '@tcg-cards/db/schema/shared/hearthstone/card-image';
+import { TaskRun } from '@tcg-cards/db/schema/local/task';
+import { eq } from 'drizzle-orm';
 import { exportCardImageRequirements } from '@tcg-cards/console-api/lib/hearthstone/card-image';
 import { importCardImageFilesToLocalBucket } from '@tcg-cards/console-api/lib/hearthstone/card-image-local-import';
 import { buildDebugRenderRequests, buildCardIdRenderRequests } from '../../image-debug';
@@ -75,7 +77,8 @@ export function buildImageRenderBlocks(stage: TaskStageState, taskRunId: string)
     return [{ blockKey: `${stage.stageKey}:run`, effectModel: 'atomic', payload: { stageKey: stage.stageKey } }];
   }
   const ctx = ctxMap.get(taskRunId);
-  const n = ctx ? Math.ceil(ctx.totalMissing / CHUNK_SIZE) : 1;
+  const chunkSize = ctx?.filters.limit ?? CHUNK_SIZE;
+  const n = ctx ? Math.ceil(ctx.totalMissing / chunkSize) : 1;
   if (n <= 1) return [{ blockKey: 'proc:run', effectModel: 'reconcilable', payload: { stageKey: 'processing' } }];
   return Array.from({ length: n }, (_, i) => ({
     blockKey: `proc:chunk_${i + 1}`,
@@ -156,7 +159,7 @@ export async function executeImageRenderBlock(input: {
     exportResult = { exportId, fileName: `${exportId}.json`, content: JSON.stringify(fileObj), hasMore: false, nextCursor: null };
   } else {
     exportResult = await exportCardImageRequirements(
-      { ...omit(filters, 'renderHash'), scanAll: filters.scanAll ?? false, cursor, limit: Math.min(CHUNK_SIZE, filters.limit ?? CHUNK_SIZE) },
+      { ...omit(filters, 'renderHash'), scanAll: filters.scanAll ?? false, cursor, limit: filters.limit ?? CHUNK_SIZE },
       { db: getLocalDb() },
     );
     requirementsFile = imageRequirementFile.parse(JSON.parse(exportResult.content));
@@ -191,6 +194,13 @@ export async function executeImageRenderBlock(input: {
     }
     await store.updateStage(taskRunId, 'processing', { done: ctx.overallWritten + renderedFiles.length + failedFiles.length, total: ctx.totalMissing }).catch(() => {});
     await store.publishSnapshot?.().catch(() => {});
+
+    // Detect cancellation mid-block. Break (not throw/return) so
+    // already-fetched images are written to storage before exiting.
+    const [taskRow] = await getLocalDb().select({ status: TaskRun.status, controlRequestKind: TaskRun.controlRequestKind })
+      .from(TaskRun)
+      .where(eq(TaskRun.id, taskRunId));
+    if (taskRow && (taskRow.status === 'canceling' || taskRow.controlRequestKind === 'cancel')) break;
   }
 
   if (renderedFiles.length > 0) {
