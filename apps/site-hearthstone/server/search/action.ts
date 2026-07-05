@@ -89,6 +89,7 @@ export const search = as
         .where(and(
           inArray(CardEntityView.cardId, cardIds),
           eq(CardEntityView.lang, lang),
+          eq(CardEntityView.isLatest, true),
         ))
         .orderBy(CardEntityView.cardId, desc(CardEntityView.version))
       : [];
