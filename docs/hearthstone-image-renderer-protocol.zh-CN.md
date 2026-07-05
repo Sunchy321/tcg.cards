@@ -153,7 +153,7 @@
   },
   "target": {
     "r2Bucket": "hearthstone-card-images",
-    "r2Key": "v1/play/normal/normal/ab/abc123def456.webp",
+    "r2Key": "base/play/normal/normal/ab/abc123def456.webp",
     "contentType": "image/webp"
   },
   "renderModel": {

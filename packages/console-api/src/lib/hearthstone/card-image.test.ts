@@ -20,15 +20,15 @@ const dbState = {
 
 const schemaMock = {
   CardImageAsset: {
-    imageSpecVersion: 'imageSpecVersion',
-    renderHash:       'renderHash',
-    zone:             'zone',
-    template:         'template',
-    premium:          'premium',
-    r2Key:            'r2Key',
-    sha256:           'sha256',
-    status:           'status',
-    lang:             'lang',
+    renderHash: 'renderHash',
+    category:   'category',
+    zone:       'zone',
+    template:   'template',
+    premium:    'premium',
+    r2Key:      'r2Key',
+    sha256:     'sha256',
+    status:     'status',
+    lang:       'lang',
   },
   CardImageExport: {},
   CardImageImport: {},
@@ -122,20 +122,20 @@ const renderModel: RenderModel = {
   },
   type:              'spell',
   cost:              2,
-  attack:            null,
-  health:            null,
-  durability:        null,
-  armor:             null,
+  attack:            undefined,
+  health:            undefined,
+  durability:        undefined,
+  armor:             undefined,
   classes:           ['mage'],
-  race:              null,
+  race:              undefined,
   spellSchool:       'fire',
-  mercenaryFaction:  null,
+  mercenaryFaction:  undefined,
   set:               'CORE',
-  overrideWatermark: null,
+  overrideWatermark: undefined,
   rarity:            'common',
   elite:             false,
-  techLevel:         null,
-  rune:              null,
+  techLevel:         undefined,
+  rune:              undefined,
   renderMechanics:   {},
 };
 
@@ -169,6 +169,7 @@ function buildWebp(width: number, height: number) {
 function buildSingleRequestRequirementFile(input?: {
   renderHash?: string;
   variant?: {
+    category: 'base' | 'glow';
     zone:     'hand' | 'play';
     template: 'normal' | 'battlegrounds';
     premium:  'normal' | 'golden' | 'diamond' | 'signature';
@@ -176,6 +177,7 @@ function buildSingleRequestRequirementFile(input?: {
 }): ImageRequirementFile {
   const renderHash = input?.renderHash ?? '9f2c0f6e4e0c7f4d0f0b8c2e9c8d7a1a3c6b4e5f60123456789abcdef01';
   const variant = input?.variant ?? {
+    category: 'base',
     zone:     'hand',
     template: 'normal',
     premium:  'normal',
@@ -226,7 +228,8 @@ function buildSingleRequestRequirementFile(input?: {
         renderHash,
       },
       variant,
-      style:  buildCardImageStyle(variant),
+      renderMode: 'full-set',
+      style:      buildCardImageStyle(variant),
       output: {
         fileName:              buildCardImagePngFileName(requestId),
         format:                'png',
@@ -249,6 +252,7 @@ function buildSingleRequestRequirementFile(input?: {
 
 function buildMultiRequestRequirementFile(renderHashes: string[]): ImageRequirementFile {
   const variant = {
+    category: 'base',
     zone:     'hand',
     template: 'normal',
     premium:  'normal',
@@ -301,6 +305,7 @@ function buildMultiRequestRequirementFile(renderHashes: string[]): ImageRequirem
           renderHash,
         },
         variant,
+        renderMode: 'full-set',
         style:  buildCardImageStyle(variant),
         output: {
           fileName:              buildCardImagePngFileName(requestId),
@@ -334,6 +339,7 @@ beforeEach(() => {
 describe('card image helpers', () => {
   test('builds stable request ids and png file names', () => {
     const variant = {
+      category: 'base',
       zone:     'hand',
       template: 'normal',
       premium:  'normal',
@@ -347,13 +353,15 @@ describe('card image helpers', () => {
 
   test('builds style and r2 key from variant', () => {
     const variant = {
+      category: 'base',
       zone:     'play',
       template: 'battlegrounds',
       premium:  'golden',
     } as const;
 
     expect(buildCardImageStyle(variant)).toEqual({
-      styleKey:              'play.battlegrounds.golden',
+      styleKey:              'base.play.battlegrounds.golden',
+      category:              'base',
       zone:                  'play',
       template:              'battlegrounds',
       premium:               'golden',
@@ -364,7 +372,7 @@ describe('card image helpers', () => {
     });
 
     expect(buildCardImageR2Key('9f2c0f6e4e0c7f4d0f0b8c2e9c8d7a1a3c6b4e5f60123456789abcdef01', variant))
-      .toBe('hearthstone/card/v1/play/battlegrounds/golden/9f/9f2c0f6e4e0c7f4d0f0b8c2e9c8d7a1a3c6b4e5f60123456789abcdef01.webp');
+      .toBe('hearthstone/card/base/play/battlegrounds/golden/9f/9f2c0f6e4e0c7f4d0f0b8c2e9c8d7a1a3c6b4e5f60123456789abcdef01.webp');
   });
 
   test('collects missing requests with offset and ready filtering', () => {
@@ -491,6 +499,7 @@ describe('card image helpers', () => {
 
   test('builds import plan with accepted, missing and rejected files', () => {
     const variant = {
+      category: 'base',
       zone:     'hand',
       template: 'normal',
       premium:  'normal',
@@ -542,6 +551,7 @@ describe('card image helpers', () => {
             renderHash,
           },
           variant,
+          renderMode: 'full-set',
           style:  buildCardImageStyle(variant),
           output: {
             fileName:              buildCardImagePngFileName(requestId),
@@ -571,6 +581,7 @@ describe('card image helpers', () => {
             renderHash:       `${renderHash.slice(0, -1)}2`,
           },
           variant,
+          renderMode: 'full-set',
           style:  buildCardImageStyle(variant),
           output: {
             fileName:              `${buildCardImageRequestId(`${renderHash.slice(0, -1)}2`, variant).replace('sha256:', '')}.png`,

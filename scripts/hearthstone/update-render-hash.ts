@@ -275,14 +275,13 @@ async function main() {
   // Step 2: Delete orphaned card_image_assets
   console.log(`\n[2/3] ${dryRun ? 'Would delete' : 'Deleting'} orphaned card_image_assets...`);
   const CHUNK = 1000;
-  let oldAssets: Array<{ imageSpecVersion: string; renderHash: string; zone: string; template: string; premium: string; r2Key: string }> = [];
+  let oldAssets: Array<{ renderHash: string; category: string; zone: string; template: string; premium: string; r2Key: string }> = [];
   for (let i = 0; i < oldHashes.length; i += CHUNK) {
     const chunk = oldHashes.slice(i, i + CHUNK);
     const rows = await db
       .select({
-        imageSpecVersion: CardImageAsset.imageSpecVersion,
-        renderHash:       CardImageAsset.renderHash,
-        zone:             CardImageAsset.zone,
+        renderHash: CardImageAsset.renderHash,
+        zone:       CardImageAsset.zone,
         template:         CardImageAsset.template,
         premium:          CardImageAsset.premium,
         r2Key:            CardImageAsset.r2Key,

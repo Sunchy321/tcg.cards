@@ -129,13 +129,15 @@ Fields not consumed by the renderer are carried in the request for caller-side t
     "renderHash": "render_hash_001"
   },
   "variant": {
+    "category": "base",
     "zone": "play",
     "template": "normal",
     "premium": "normal"
   },
   "renderMode": "full-set",
   "style": {
-    "styleKey": "play_normal_normal_default",
+    "styleKey": "base.play_normal_normal_default",
+    "category": "base",
     "zone": "play",
     "template": "normal",
     "premium": "normal",
@@ -153,7 +155,7 @@ Fields not consumed by the renderer are carried in the request for caller-side t
   },
   "target": {
     "r2Bucket": "hearthstone-card-images",
-    "r2Key": "v1/play/normal/normal/ab/abc123def456.webp",
+    "r2Key": "base/play/normal/normal/ab/abc123def456.webp",
     "contentType": "image/webp"
   },
   "renderModel": {
@@ -210,6 +212,7 @@ Caller-side tracing identifier. Not consumed by the renderer.
 
 | Field | Type | Values | Description |
 |-------|------|--------|-------------|
+| `category` | `string` | `"base"`, `"glow"` | Image category |
 | `zone` | `string` | `"hand"`, `"play"` | Card display zone |
 | `template` | `string` | `"normal"`, `"battlegrounds"` | Card template |
 | `premium` | `string` | `"normal"`, `"golden"`, `"diamond"`, `"signature"` | Premium treatment |

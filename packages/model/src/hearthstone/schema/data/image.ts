@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { locale } from '../basic';
 import { renderModel } from '../entity';
 
+export const imageCategory = z.enum(['base', 'glow']);
 export const imageZone = z.enum(['hand', 'play']);
 export const imageTemplate = z.enum(['normal', 'battlegrounds']);
 export const imagePremium = z.enum(['normal', 'golden', 'diamond', 'signature']);
@@ -10,6 +11,7 @@ export const imageAssetStatus = z.enum(['ready', 'failed', 'stale']);
 export const imageRenderMode = z.enum(['full-set', 'partial-update']);
 
 export const imageVariant = z.strictObject({
+  category: imageCategory,
   zone:     imageZone,
   template: imageTemplate,
   premium:  imagePremium,
@@ -17,6 +19,7 @@ export const imageVariant = z.strictObject({
 
 export const imageStyle = z.strictObject({
   styleKey:              z.string(),
+  category:              imageCategory,
   zone:                  imageZone,
   template:              imageTemplate,
   premium:               imagePremium,
@@ -165,6 +168,7 @@ export const cardImageImportResult = cardImageImportReport.extend({
   problems: z.array(cardImageImportProblem),
 });
 
+export type ImageCategory = z.infer<typeof imageCategory>;
 export type ImageZone = z.infer<typeof imageZone>;
 export type ImageTemplate = z.infer<typeof imageTemplate>;
 export type ImagePremium = z.infer<typeof imagePremium>;

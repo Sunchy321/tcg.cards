@@ -36,6 +36,7 @@ describe('hearthstone image import helpers', () => {
 
   test('validates request identity fields', () => {
     const variant = {
+      category: 'base',
       zone:     'hand',
       template: 'normal',
       premium:  'golden',
@@ -55,7 +56,8 @@ describe('hearthstone image import helpers', () => {
       },
       variant,
       style: {
-        styleKey:              'hand.normal.golden',
+        styleKey:              'base.hand.normal.golden',
+        category:              'base',
         zone:                  'hand',
         template:              'normal',
         premium:               'golden',
@@ -108,12 +110,13 @@ describe('hearthstone image import helpers', () => {
     expect(() => validateRequirementRequest(request)).not.toThrow();
   });
 
-  test('builds v1 storage key with updated prefix', () => {
+  test('builds base storage key', () => {
     expect(buildCardImageR2Key('abcdef0123456789', {
+      category: 'base',
       zone:     'hand',
       template: 'normal',
       premium:  'golden',
-    })).toBe('hearthstone/card/v1/hand/normal/golden/ab/abcdef0123456789.webp');
+    })).toBe('hearthstone/card/base/hand/normal/golden/ab/abcdef0123456789.webp');
   });
 
   test('does not fail import for missing files only', () => {

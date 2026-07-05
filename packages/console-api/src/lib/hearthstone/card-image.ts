@@ -240,7 +240,7 @@ function decodeCursor(cursor: string | null | undefined) {
 }
 
 function imageKey(renderHash: string, variant: ImageVariant) {
-  return `${renderHash}\u0000${variant.zone}\u0000${variant.template}\u0000${variant.premium}`;
+  return `${renderHash}\u0000${variant.category}\u0000${variant.zone}\u0000${variant.template}\u0000${variant.premium}`;
 }
 
 function isMechanicEnabled(value: unknown) {
@@ -259,6 +259,7 @@ export function buildImageVariants(input: Pick<CardImageRequirementExportInput, 
   return zones.flatMap(zone =>
     templates.flatMap(template =>
       premiums.map(premium => ({
+        category: 'base' as const,
         zone,
         template,
         premium,
@@ -268,7 +269,8 @@ export function buildImageVariants(input: Pick<CardImageRequirementExportInput, 
 
 export function buildCardImageStyle(variant: ImageVariant): ImageStyle {
   return {
-    styleKey:              `${variant.zone}.${variant.template}.${variant.premium}`,
+    styleKey:              `${variant.category}.${variant.zone}.${variant.template}.${variant.premium}`,
+    category:              variant.category,
     zone:                  variant.zone,
     template:              variant.template,
     premium:               variant.premium,
@@ -335,8 +337,8 @@ export function isCardImageVariantAllowed(
 
 export function buildCardImageRequestId(renderHash: string, variant: ImageVariant) {
   const digest = sha256([
-    hearthstoneImageSpecVersion,
     renderHash,
+    variant.category,
     variant.zone,
     variant.template,
     variant.premium,
@@ -353,7 +355,7 @@ export function buildCardImageR2Key(renderHash: string, variant: ImageVariant) {
   return [
     'hearthstone',
     'card',
-    hearthstoneImageSpecVersion,
+    variant.category,
     variant.zone,
     variant.template,
     variant.premium,
@@ -623,28 +625,30 @@ async function loadReadyKeys(
     return new Set<string>();
   }
 
+  const categories = uniqueValues(variants.map(variant => variant.category));
   const zones = uniqueValues(variants.map(variant => variant.zone));
   const templates = uniqueValues(variants.map(variant => variant.template));
   const premiums = uniqueValues(variants.map(variant => variant.premium));
 
   const rows = await database.select({
     renderHash: CardImageAsset.renderHash,
+    category:   CardImageAsset.category,
     zone:       CardImageAsset.zone,
     template:   CardImageAsset.template,
     premium:    CardImageAsset.premium,
   })
     .from(CardImageAsset)
     .where(and(
-      eq(CardImageAsset.imageSpecVersion, hearthstoneImageSpecVersion),
       eq(CardImageAsset.status, 'ready'),
       inArray(CardImageAsset.renderHash, renderHashes),
       inArray(CardImageAsset.zone, zones),
       inArray(CardImageAsset.template, templates),
+      inArray(CardImageAsset.category, categories),
       inArray(CardImageAsset.premium, premiums),
     ));
 
   return new Set(rows.map(row => (
-    `${row.renderHash}\u0000${row.zone}\u0000${row.template}\u0000${row.premium}`
+    `${row.renderHash}\u0000${row.category}\u0000${row.zone}\u0000${row.template}\u0000${row.premium}`
   )));
 }
 
@@ -950,8 +954,8 @@ export async function importCardImageArchiveFromBrowser(input: {
       for (const file of plan.acceptedFiles) {
         await tx.insert(CardImageAsset)
           .values({
-            imageSpecVersion: requirementFile.imageSpecVersion,
             renderHash:       file.request.card.renderHash,
+            category:         file.request.variant.category,
             lang:             file.request.card.lang,
             zone:             file.request.variant.zone,
             template:         file.request.variant.template,
@@ -970,7 +974,7 @@ export async function importCardImageArchiveFromBrowser(input: {
             verifiedAt:       now,
           })
           .onConflictDoUpdate({
-            target: [CardImageAsset.imageSpecVersion, CardImageAsset.renderHash, CardImageAsset.zone, CardImageAsset.template, CardImageAsset.premium],
+            target: [CardImageAsset.renderHash, CardImageAsset.category, CardImageAsset.zone, CardImageAsset.template, CardImageAsset.premium],
             set:    {
               lang:           file.request.card.lang,
               r2Bucket,

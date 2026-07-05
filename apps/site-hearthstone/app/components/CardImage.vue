@@ -17,6 +17,7 @@
 
 <script setup lang="ts">
 import type { CardImageOption } from '~/utils/card-image';
+import type { ImageCategory } from '#model/hearthstone/schema/data/image';
 import { buildCardImageUrl } from '~/utils/card-image';
 
 const props = withDefaults(defineProps<{
@@ -24,10 +25,12 @@ const props = withDefaults(defineProps<{
   version:             number;
   renderHash?:         string | null;
   variant?:            CardImageOption;
+  category?:           ImageCategory;
   hasPremiumMechanic?: boolean;
   loading?:            'eager' | 'lazy';
 }>(), {
   variant:            'normal',
+  category:           'base',
   renderHash:         null,
   hasPremiumMechanic: false,
   loading:            'lazy',
@@ -42,10 +45,10 @@ const imageUrl = computed(() => {
     return null;
   }
 
-  return buildCardImageUrl(assetBaseUrl, props.renderHash, props.variant, props.hasPremiumMechanic);
+  return buildCardImageUrl(assetBaseUrl, props.renderHash, props.variant, props.hasPremiumMechanic, props.category);
 });
 
-watch(() => [props.cardId, props.version, props.renderHash, props.variant, props.hasPremiumMechanic], () => {
+watch(() => [props.cardId, props.version, props.renderHash, props.variant, props.category, props.hasPremiumMechanic], () => {
   hasError.value = false;
 });
 </script>

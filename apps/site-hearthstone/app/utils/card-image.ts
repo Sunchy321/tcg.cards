@@ -1,8 +1,6 @@
-import type { ImagePremium, ImageVariant } from '#model/hearthstone/schema/data/image';
+import type { ImageCategory, ImagePremium, ImageVariant } from '#model/hearthstone/schema/data/image';
 
 export type CardImageOption = ImagePremium | 'battlegrounds';
-
-const imageSpecVersion = 'v1';
 
 function trimBaseUrl(url: string) {
   return url.endsWith('/') ? url.slice(0, -1) : url;
@@ -11,6 +9,7 @@ function trimBaseUrl(url: string) {
 export function buildCardImageVariant(option: CardImageOption, hasPremiumMechanic?: boolean): ImageVariant {
   if (option === 'battlegrounds') {
     return {
+      category: 'base',
       zone:     'hand',
       template: 'battlegrounds',
       premium:  hasPremiumMechanic ? 'golden' : 'normal',
@@ -18,6 +17,7 @@ export function buildCardImageVariant(option: CardImageOption, hasPremiumMechani
   }
 
   return {
+    category: 'base',
     zone:     'hand',
     template: 'normal',
     premium:  option,
@@ -29,15 +29,17 @@ export function buildCardImageUrl(
   renderHash: string,
   option: CardImageOption,
   hasPremiumMechanic?: boolean,
+  category?: ImageCategory,
 ) {
   const baseUrl = trimBaseUrl(assetBaseUrl);
   const variant = buildCardImageVariant(option, hasPremiumMechanic);
+  if (category != null) variant.category = category;
 
   return [
     baseUrl,
     'hearthstone',
     'card',
-    imageSpecVersion,
+    variant.category,
     variant.zone,
     variant.template,
     variant.premium,

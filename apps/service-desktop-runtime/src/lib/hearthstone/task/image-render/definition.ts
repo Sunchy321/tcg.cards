@@ -218,8 +218,8 @@ export async function executeImageRenderBlock(input: {
         if (!rendered) continue;
         try {
           await db.insert(CardImageAsset).values({
-            imageSpecVersion: requirementsFile.imageSpecVersion ?? 'v1',
             renderHash: request.card.renderHash,
+            category: request.variant.category,
             lang: request.card.lang,
             zone: request.variant.zone,
             template: request.variant.template,
@@ -233,7 +233,7 @@ export async function executeImageRenderBlock(input: {
             status: 'ready' as const,
             verifiedAt: new Date(),
           }).onConflictDoUpdate({
-            target: [CardImageAsset.imageSpecVersion, CardImageAsset.renderHash, CardImageAsset.zone, CardImageAsset.template, CardImageAsset.premium],
+            target: [CardImageAsset.renderHash, CardImageAsset.category, CardImageAsset.zone, CardImageAsset.template, CardImageAsset.premium],
             set: { status: 'ready' as const, verifiedAt: new Date() },
           });
         } catch { /* best-effort */ }
