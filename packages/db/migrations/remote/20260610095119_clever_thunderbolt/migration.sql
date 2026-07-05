@@ -1,2 +1,0 @@
-ALTER TABLE "hearthstone_data"."field_commits" ADD COLUMN "editor_source" text NOT NULL;--> statement-breakpoint
-ALTER TABLE "hearthstone_data"."field_commits" ALTER COLUMN "editor_identity" SET NOT NULL;

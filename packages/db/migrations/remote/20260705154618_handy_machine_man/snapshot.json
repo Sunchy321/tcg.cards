@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "6bd8b388-abcf-4cd3-a582-0971c9780503",
+  "id": "315672be-4061-40d5-a1fe-5c5597900cbd",
   "prevIds": [
-    "a94ef06f-0517-4fec-bdcb-24d0cbd826c0"
+    "00000000-0000-0000-0000-000000000000"
   ],
   "ddl": [
     {
@@ -1837,32 +1837,6 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "source_tag_min",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "publish_ledgers"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "source_tag_max",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "publish_ledgers"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
       "name": "build_min",
       "entityType": "columns",
       "schema": "public",
@@ -2428,17 +2402,17 @@
       "table": "cards"
     },
     {
-      "type": "text",
+      "type": "timestamp",
       "typeSchema": null,
-      "notNull": true,
+      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "image_spec_version",
+      "name": "deleted_at",
       "entityType": "columns",
-      "schema": "hearthstone_data",
-      "table": "card_image_assets"
+      "schema": "hearthstone",
+      "table": "cards"
     },
     {
       "type": "text",
@@ -2449,6 +2423,19 @@
       "generated": null,
       "identity": null,
       "name": "render_hash",
+      "entityType": "columns",
+      "schema": "hearthstone_data",
+      "table": "card_image_assets"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'base'",
+      "generated": null,
+      "identity": null,
+      "name": "category",
       "entityType": "columns",
       "schema": "hearthstone_data",
       "table": "card_image_assets"
@@ -3156,6 +3143,19 @@
       "table": "entity_relations"
     },
     {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "deleted_at",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "entity_relations"
+    },
+    {
       "type": "text",
       "typeSchema": null,
       "notNull": true,
@@ -3715,6 +3715,19 @@
       "table": "entities"
     },
     {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "deleted_at",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "entities"
+    },
+    {
       "type": "text",
       "typeSchema": null,
       "notNull": true,
@@ -3970,6 +3983,19 @@
       "generated": null,
       "identity": null,
       "name": "updated_at",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "entity_localizations"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "deleted_at",
       "entityType": "columns",
       "schema": "hearthstone",
       "table": "entity_localizations"
@@ -5660,19 +5686,6 @@
       "generated": null,
       "identity": null,
       "name": "raw_names",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "tags"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "'json'",
-      "generated": null,
-      "identity": null,
-      "name": "value_kind",
       "entityType": "columns",
       "schema": "hearthstone",
       "table": "tags"
@@ -12851,6 +12864,27 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "deleted_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": "\"deleted_at\" is not null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "cards_deleted_at_idx",
+      "entityType": "indexes",
+      "schema": "hearthstone",
+      "table": "cards"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "r2_key",
           "isExpression": false,
           "asc": true,
@@ -12920,6 +12954,13 @@
     {
       "nameExplicit": true,
       "columns": [
+        {
+          "value": "category",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
         {
           "value": "zone",
           "isExpression": false,
@@ -13068,6 +13109,27 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "deleted_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": "\"deleted_at\" is not null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "entity_relations_deleted_at_idx",
+      "entityType": "indexes",
+      "schema": "hearthstone",
+      "table": "entity_relations"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "source_id",
           "isExpression": false,
           "asc": true,
@@ -13076,7 +13138,7 @@
         }
       ],
       "isUnique": false,
-      "where": null,
+      "where": "\"deleted_at\" is null",
       "with": "",
       "method": "btree",
       "concurrently": false,
@@ -13097,7 +13159,7 @@
         }
       ],
       "isUnique": false,
-      "where": null,
+      "where": "\"deleted_at\" is null",
       "with": "",
       "method": "btree",
       "concurrently": false,
@@ -13125,7 +13187,7 @@
         }
       ],
       "isUnique": false,
-      "where": null,
+      "where": "\"deleted_at\" is null",
       "with": "",
       "method": "btree",
       "concurrently": false,
@@ -13153,7 +13215,7 @@
         }
       ],
       "isUnique": false,
-      "where": null,
+      "where": "\"deleted_at\" is null",
       "with": "",
       "method": "btree",
       "concurrently": false,
@@ -13174,7 +13236,7 @@
         }
       ],
       "isUnique": false,
-      "where": null,
+      "where": "\"deleted_at\" is null",
       "with": "",
       "method": "btree",
       "concurrently": false,
@@ -13195,7 +13257,7 @@
         }
       ],
       "isUnique": false,
-      "where": null,
+      "where": "\"deleted_at\" is null",
       "with": "",
       "method": "gin",
       "concurrently": false,
@@ -13216,7 +13278,7 @@
         }
       ],
       "isUnique": false,
-      "where": null,
+      "where": "\"deleted_at\" is null",
       "with": "",
       "method": "btree",
       "concurrently": false,
@@ -13237,11 +13299,32 @@
         }
       ],
       "isUnique": false,
-      "where": null,
+      "where": "\"deleted_at\" is null",
       "with": "",
       "method": "gin",
       "concurrently": false,
       "name": "entities_version_gin_idx",
+      "entityType": "indexes",
+      "schema": "hearthstone",
+      "table": "entities"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "deleted_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": "\"deleted_at\" is not null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "entities_deleted_at_idx",
       "entityType": "indexes",
       "schema": "hearthstone",
       "table": "entities"
@@ -13265,7 +13348,7 @@
         }
       ],
       "isUnique": false,
-      "where": null,
+      "where": "\"deleted_at\" is null",
       "with": "",
       "method": "btree",
       "concurrently": false,
@@ -13286,7 +13369,7 @@
         }
       ],
       "isUnique": false,
-      "where": null,
+      "where": "\"deleted_at\" is null",
       "with": "",
       "method": "btree",
       "concurrently": false,
@@ -13307,7 +13390,7 @@
         }
       ],
       "isUnique": false,
-      "where": null,
+      "where": "\"deleted_at\" is null",
       "with": "",
       "method": "gin",
       "concurrently": false,
@@ -13328,11 +13411,32 @@
         }
       ],
       "isUnique": false,
-      "where": "\"render_hash\" is not null",
+      "where": "(\"render_hash\" is not null and \"deleted_at\" is null)",
       "with": "",
       "method": "btree",
       "concurrently": false,
       "name": "entity_localizations_render_hash_idx",
+      "entityType": "indexes",
+      "schema": "hearthstone",
+      "table": "entity_localizations"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "deleted_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": "\"deleted_at\" is not null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "entity_localizations_deleted_at_idx",
       "entityType": "indexes",
       "schema": "hearthstone",
       "table": "entity_localizations"
@@ -16082,8 +16186,8 @@
     },
     {
       "columns": [
-        "image_spec_version",
         "render_hash",
+        "category",
         "zone",
         "template",
         "premium"
@@ -16893,22 +16997,8 @@
       "entityType": "uniques"
     },
     {
-      "value": "\"source_tag_min\" <= \"source_tag_max\"",
-      "name": "publish_ledgers_source_tag_range_chk",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "publish_ledgers"
-    },
-    {
       "value": "\"build_min\" <= \"build_max\"",
       "name": "publish_ledgers_build_range_chk",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "publish_ledgers"
-    },
-    {
-      "value": "\"source_tag_min\" > 0",
-      "name": "publish_ledgers_source_tag_min_positive_chk",
       "entityType": "checks",
       "schema": "public",
       "table": "publish_ledgers"
@@ -16974,7 +17064,29 @@
       "schema": "hearthstone"
     },
     {
-      "definition": "select \"hearthstone\".\"entities\".\"card_id\", \"hearthstone\".\"entities\".\"version\" & \"hearthstone\".\"entity_localizations\".\"version\" as \"version\", \"hearthstone\".\"entity_localizations\".\"lang\", \"hearthstone\".\"entities\".\"revision_hash\", \"hearthstone\".\"entity_localizations\".\"localization_hash\", \"hearthstone\".\"entity_localizations\".\"render_hash\", \"hearthstone\".\"entities\".\"dbf_id\", \"hearthstone\".\"entities\".\"legacy_payload\", \"hearthstone\".\"entities\".\"set\", \"hearthstone\".\"entities\".\"class\", \"hearthstone\".\"entities\".\"type\", \"hearthstone\".\"entities\".\"cost\", \"hearthstone\".\"entities\".\"attack\", \"hearthstone\".\"entities\".\"health\", \"hearthstone\".\"entities\".\"durability\", \"hearthstone\".\"entities\".\"armor\", \"hearthstone\".\"entities\".\"rune\", \"hearthstone\".\"entities\".\"race\", \"hearthstone\".\"entities\".\"spell_school\", \"hearthstone\".\"entities\".\"quest_type\", \"hearthstone\".\"entities\".\"quest_progress\", \"hearthstone\".\"entities\".\"quest_part\", \"hearthstone\".\"entities\".\"hero_power\", \"hearthstone\".\"entities\".\"tech_level\", \"hearthstone\".\"entities\".\"in_bobs_tavern\", \"hearthstone\".\"entities\".\"triple_card\", \"hearthstone\".\"entities\".\"race_bucket\", \"hearthstone\".\"entities\".\"armor_bucket\", \"hearthstone\".\"entities\".\"buddy\", \"hearthstone\".\"entities\".\"banned_race\", \"hearthstone\".\"entities\".\"mercenary_role\", \"hearthstone\".\"entities\".\"mercenary_faction\", \"hearthstone\".\"entities\".\"colddown\", \"hearthstone\".\"entities\".\"collectible\", \"hearthstone\".\"entities\".\"elite\", \"hearthstone\".\"entities\".\"rarity\", \"hearthstone\".\"entities\".\"artist\", \"hearthstone\".\"entities\".\"override_watermark\", \"hearthstone\".\"entities\".\"faction\", \"hearthstone\".\"entities\".\"mechanics\", \"hearthstone\".\"entities\".\"referenced_tags\", \"hearthstone\".\"entities\".\"text_builder_type\", \"hearthstone\".\"entities\".\"change_type\", \"hearthstone\".\"entities\".\"is_latest\", \"hearthstone\".\"entity_localizations\".\"name\", \"hearthstone\".\"entity_localizations\".\"text\", \"hearthstone\".\"entity_localizations\".\"rich_text\", \"hearthstone\".\"entity_localizations\".\"display_text\", \"hearthstone\".\"entity_localizations\".\"target_text\", \"hearthstone\".\"entity_localizations\".\"text_in_play\", \"hearthstone\".\"entity_localizations\".\"how_to_earn\", \"hearthstone\".\"entity_localizations\".\"how_to_earn_golden\", \"hearthstone\".\"entity_localizations\".\"flavor_text\", \"hearthstone\".\"entity_localizations\".\"loc_change_type\", \"hearthstone\".\"cards\".\"legalities\" from \"hearthstone\".\"entities\" inner join \"hearthstone\".\"entity_localizations\" on (\"hearthstone\".\"entities\".\"card_id\" = \"hearthstone\".\"entity_localizations\".\"card_id\" and \"hearthstone\".\"entities\".\"revision_hash\" = \"hearthstone\".\"entity_localizations\".\"revision_hash\" and \"hearthstone\".\"entities\".\"version\" && \"hearthstone\".\"entity_localizations\".\"version\") inner join \"hearthstone\".\"cards\" on \"hearthstone\".\"entities\".\"card_id\" = \"hearthstone\".\"cards\".\"card_id\"",
+      "definition": "select \"card_id\", \"legalities\", \"created_at\", \"updated_at\", \"deleted_at\" from \"hearthstone\".\"cards\" where \"hearthstone\".\"cards\".\"deleted_at\" is null",
+      "with": null,
+      "withNoData": null,
+      "using": null,
+      "tablespace": null,
+      "materialized": false,
+      "name": "active_cards",
+      "entityType": "views",
+      "schema": "hearthstone"
+    },
+    {
+      "definition": "select \"source_id\", \"source_revision_hash\", \"relation\", \"target_id\", \"version\", \"is_latest\", \"created_at\", \"updated_at\", \"deleted_at\" from \"hearthstone\".\"entity_relations\" where \"hearthstone\".\"entity_relations\".\"deleted_at\" is null",
+      "with": null,
+      "withNoData": null,
+      "using": null,
+      "tablespace": null,
+      "materialized": false,
+      "name": "active_entity_relations",
+      "entityType": "views",
+      "schema": "hearthstone"
+    },
+    {
+      "definition": "select \"hearthstone\".\"entities\".\"card_id\", \"hearthstone\".\"entities\".\"version\" & \"hearthstone\".\"entity_localizations\".\"version\" as \"version\", \"hearthstone\".\"entity_localizations\".\"lang\", \"hearthstone\".\"entities\".\"revision_hash\", \"hearthstone\".\"entity_localizations\".\"localization_hash\", \"hearthstone\".\"entity_localizations\".\"render_hash\", \"hearthstone\".\"entities\".\"dbf_id\", \"hearthstone\".\"entities\".\"legacy_payload\", \"hearthstone\".\"entities\".\"set\", \"hearthstone\".\"entities\".\"class\", \"hearthstone\".\"entities\".\"type\", \"hearthstone\".\"entities\".\"cost\", \"hearthstone\".\"entities\".\"attack\", \"hearthstone\".\"entities\".\"health\", \"hearthstone\".\"entities\".\"durability\", \"hearthstone\".\"entities\".\"armor\", \"hearthstone\".\"entities\".\"rune\", \"hearthstone\".\"entities\".\"race\", \"hearthstone\".\"entities\".\"spell_school\", \"hearthstone\".\"entities\".\"quest_type\", \"hearthstone\".\"entities\".\"quest_progress\", \"hearthstone\".\"entities\".\"quest_part\", \"hearthstone\".\"entities\".\"hero_power\", \"hearthstone\".\"entities\".\"tech_level\", \"hearthstone\".\"entities\".\"in_bobs_tavern\", \"hearthstone\".\"entities\".\"triple_card\", \"hearthstone\".\"entities\".\"race_bucket\", \"hearthstone\".\"entities\".\"armor_bucket\", \"hearthstone\".\"entities\".\"buddy\", \"hearthstone\".\"entities\".\"banned_race\", \"hearthstone\".\"entities\".\"mercenary_role\", \"hearthstone\".\"entities\".\"mercenary_faction\", \"hearthstone\".\"entities\".\"colddown\", \"hearthstone\".\"entities\".\"collectible\", \"hearthstone\".\"entities\".\"elite\", \"hearthstone\".\"entities\".\"rarity\", \"hearthstone\".\"entities\".\"artist\", \"hearthstone\".\"entities\".\"override_watermark\", \"hearthstone\".\"entities\".\"faction\", \"hearthstone\".\"entities\".\"mechanics\", \"hearthstone\".\"entities\".\"referenced_tags\", \"hearthstone\".\"entities\".\"text_builder_type\", \"hearthstone\".\"entities\".\"change_type\", \"hearthstone\".\"entities\".\"is_latest\", \"hearthstone\".\"entity_localizations\".\"name\", \"hearthstone\".\"entity_localizations\".\"text\", \"hearthstone\".\"entity_localizations\".\"rich_text\", \"hearthstone\".\"entity_localizations\".\"display_text\", \"hearthstone\".\"entity_localizations\".\"target_text\", \"hearthstone\".\"entity_localizations\".\"text_in_play\", \"hearthstone\".\"entity_localizations\".\"how_to_earn\", \"hearthstone\".\"entity_localizations\".\"how_to_earn_golden\", \"hearthstone\".\"entity_localizations\".\"flavor_text\", \"hearthstone\".\"entity_localizations\".\"loc_change_type\", \"hearthstone\".\"cards\".\"legalities\" from \"hearthstone\".\"entities\" inner join \"hearthstone\".\"entity_localizations\" on (\"hearthstone\".\"entities\".\"card_id\" = \"hearthstone\".\"entity_localizations\".\"card_id\" and \"hearthstone\".\"entities\".\"revision_hash\" = \"hearthstone\".\"entity_localizations\".\"revision_hash\" and \"hearthstone\".\"entities\".\"version\" && \"hearthstone\".\"entity_localizations\".\"version\") inner join \"hearthstone\".\"cards\" on \"hearthstone\".\"entities\".\"card_id\" = \"hearthstone\".\"cards\".\"card_id\" where \"hearthstone\".\"entities\".\"deleted_at\" is null and \"hearthstone\".\"entity_localizations\".\"deleted_at\" is null",
       "with": null,
       "withNoData": null,
       "using": null,
@@ -16985,7 +17097,29 @@
       "schema": "hearthstone"
     },
     {
-      "definition": "select \"hearthstone\".\"entities\".\"card_id\", \"hearthstone\".\"entities\".\"version\" & \"hearthstone\".\"entity_localizations\".\"version\" as \"version\", \"hearthstone\".\"entity_localizations\".\"lang\", \"hearthstone\".\"entities\".\"dbf_id\", \"hearthstone\".\"entities\".\"legacy_payload\", \"hearthstone\".\"entities\".\"set\", \"hearthstone\".\"entities\".\"class\", \"hearthstone\".\"entities\".\"type\", \"hearthstone\".\"entities\".\"cost\", \"hearthstone\".\"entities\".\"attack\", \"hearthstone\".\"entities\".\"health\", \"hearthstone\".\"entities\".\"durability\", \"hearthstone\".\"entities\".\"armor\", \"hearthstone\".\"entities\".\"rune\", \"hearthstone\".\"entities\".\"race\", \"hearthstone\".\"entities\".\"spell_school\", \"hearthstone\".\"entities\".\"quest_type\", \"hearthstone\".\"entities\".\"quest_progress\", \"hearthstone\".\"entities\".\"quest_part\", \"hearthstone\".\"entities\".\"hero_power\", \"hearthstone\".\"entities\".\"tech_level\", \"hearthstone\".\"entities\".\"in_bobs_tavern\", \"hearthstone\".\"entities\".\"triple_card\", \"hearthstone\".\"entities\".\"race_bucket\", \"hearthstone\".\"entities\".\"armor_bucket\", \"hearthstone\".\"entities\".\"buddy\", \"hearthstone\".\"entities\".\"banned_race\", \"hearthstone\".\"entities\".\"mercenary_role\", \"hearthstone\".\"entities\".\"mercenary_faction\", \"hearthstone\".\"entities\".\"colddown\", \"hearthstone\".\"entities\".\"collectible\", \"hearthstone\".\"entities\".\"elite\", \"hearthstone\".\"entities\".\"rarity\", \"hearthstone\".\"entities\".\"artist\", \"hearthstone\".\"entities\".\"override_watermark\", \"hearthstone\".\"entities\".\"faction\", \"hearthstone\".\"entities\".\"mechanics\", \"hearthstone\".\"entities\".\"referenced_tags\", \"hearthstone\".\"entities\".\"text_builder_type\", \"hearthstone\".\"entities\".\"change_type\", \"hearthstone\".\"entities\".\"is_latest\", \"hearthstone\".\"entity_localizations\".\"name\", \"hearthstone\".\"entity_localizations\".\"text\", \"hearthstone\".\"entity_localizations\".\"rich_text\", \"hearthstone\".\"entity_localizations\".\"display_text\", \"hearthstone\".\"entity_localizations\".\"target_text\", \"hearthstone\".\"entity_localizations\".\"text_in_play\", \"hearthstone\".\"entity_localizations\".\"how_to_earn\", \"hearthstone\".\"entity_localizations\".\"how_to_earn_golden\", \"hearthstone\".\"entity_localizations\".\"flavor_text\", \"hearthstone\".\"entity_localizations\".\"loc_change_type\" from \"hearthstone\".\"entities\" inner join \"hearthstone\".\"entity_localizations\" on (\"hearthstone\".\"entities\".\"card_id\" = \"hearthstone\".\"entity_localizations\".\"card_id\" and \"hearthstone\".\"entities\".\"revision_hash\" = \"hearthstone\".\"entity_localizations\".\"revision_hash\" and \"hearthstone\".\"entities\".\"version\" && \"hearthstone\".\"entity_localizations\".\"version\")",
+      "definition": "select \"card_id\", \"version\", \"revision_hash\", \"dbf_id\", \"legacy_payload\", \"set\", \"class\", \"type\", \"cost\", \"attack\", \"health\", \"durability\", \"armor\", \"rune\", \"race\", \"spell_school\", \"quest_type\", \"quest_progress\", \"quest_part\", \"hero_power\", \"tech_level\", \"in_bobs_tavern\", \"triple_card\", \"race_bucket\", \"armor_bucket\", \"buddy\", \"banned_race\", \"mercenary_role\", \"mercenary_faction\", \"colddown\", \"collectible\", \"elite\", \"rarity\", \"artist\", \"override_watermark\", \"faction\", \"mechanics\", \"referenced_tags\", \"text_builder_type\", \"change_type\", \"is_latest\", \"created_at\", \"updated_at\", \"deleted_at\" from \"hearthstone\".\"entities\" where \"hearthstone\".\"entities\".\"deleted_at\" is null",
+      "with": null,
+      "withNoData": null,
+      "using": null,
+      "tablespace": null,
+      "materialized": false,
+      "name": "active_entities",
+      "entityType": "views",
+      "schema": "hearthstone"
+    },
+    {
+      "definition": "select \"card_id\", \"version\", \"lang\", \"revision_hash\", \"localization_hash\", \"render_hash\", \"render_model\", \"is_latest\", \"name\", \"text\", \"rich_text\", \"display_text\", \"target_text\", \"text_in_play\", \"how_to_earn\", \"how_to_earn_golden\", \"flavor_text\", \"loc_change_type\", \"created_at\", \"updated_at\", \"deleted_at\" from \"hearthstone\".\"entity_localizations\" where \"hearthstone\".\"entity_localizations\".\"deleted_at\" is null",
+      "with": null,
+      "withNoData": null,
+      "using": null,
+      "tablespace": null,
+      "materialized": false,
+      "name": "active_entity_localizations",
+      "entityType": "views",
+      "schema": "hearthstone"
+    },
+    {
+      "definition": "select \"hearthstone\".\"entities\".\"card_id\", \"hearthstone\".\"entities\".\"version\" & \"hearthstone\".\"entity_localizations\".\"version\" as \"version\", \"hearthstone\".\"entity_localizations\".\"lang\", \"hearthstone\".\"entities\".\"dbf_id\", \"hearthstone\".\"entities\".\"legacy_payload\", \"hearthstone\".\"entities\".\"set\", \"hearthstone\".\"entities\".\"class\", \"hearthstone\".\"entities\".\"type\", \"hearthstone\".\"entities\".\"cost\", \"hearthstone\".\"entities\".\"attack\", \"hearthstone\".\"entities\".\"health\", \"hearthstone\".\"entities\".\"durability\", \"hearthstone\".\"entities\".\"armor\", \"hearthstone\".\"entities\".\"rune\", \"hearthstone\".\"entities\".\"race\", \"hearthstone\".\"entities\".\"spell_school\", \"hearthstone\".\"entities\".\"quest_type\", \"hearthstone\".\"entities\".\"quest_progress\", \"hearthstone\".\"entities\".\"quest_part\", \"hearthstone\".\"entities\".\"hero_power\", \"hearthstone\".\"entities\".\"tech_level\", \"hearthstone\".\"entities\".\"in_bobs_tavern\", \"hearthstone\".\"entities\".\"triple_card\", \"hearthstone\".\"entities\".\"race_bucket\", \"hearthstone\".\"entities\".\"armor_bucket\", \"hearthstone\".\"entities\".\"buddy\", \"hearthstone\".\"entities\".\"banned_race\", \"hearthstone\".\"entities\".\"mercenary_role\", \"hearthstone\".\"entities\".\"mercenary_faction\", \"hearthstone\".\"entities\".\"colddown\", \"hearthstone\".\"entities\".\"collectible\", \"hearthstone\".\"entities\".\"elite\", \"hearthstone\".\"entities\".\"rarity\", \"hearthstone\".\"entities\".\"artist\", \"hearthstone\".\"entities\".\"override_watermark\", \"hearthstone\".\"entities\".\"faction\", \"hearthstone\".\"entities\".\"mechanics\", \"hearthstone\".\"entities\".\"referenced_tags\", \"hearthstone\".\"entities\".\"text_builder_type\", \"hearthstone\".\"entities\".\"change_type\", \"hearthstone\".\"entities\".\"is_latest\", \"hearthstone\".\"entities\".\"deleted_at\", \"hearthstone\".\"entity_localizations\".\"name\", \"hearthstone\".\"entity_localizations\".\"text\", \"hearthstone\".\"entity_localizations\".\"rich_text\", \"hearthstone\".\"entity_localizations\".\"display_text\", \"hearthstone\".\"entity_localizations\".\"target_text\", \"hearthstone\".\"entity_localizations\".\"text_in_play\", \"hearthstone\".\"entity_localizations\".\"how_to_earn\", \"hearthstone\".\"entity_localizations\".\"how_to_earn_golden\", \"hearthstone\".\"entity_localizations\".\"flavor_text\", \"hearthstone\".\"entity_localizations\".\"loc_change_type\" from \"hearthstone\".\"entities\" inner join \"hearthstone\".\"entity_localizations\" on (\"hearthstone\".\"entities\".\"card_id\" = \"hearthstone\".\"entity_localizations\".\"card_id\" and \"hearthstone\".\"entities\".\"revision_hash\" = \"hearthstone\".\"entity_localizations\".\"revision_hash\" and \"hearthstone\".\"entities\".\"version\" && \"hearthstone\".\"entity_localizations\".\"version\") where \"hearthstone\".\"entities\".\"deleted_at\" is null and \"hearthstone\".\"entity_localizations\".\"deleted_at\" is null",
       "with": null,
       "withNoData": null,
       "using": null,
@@ -17073,7 +17207,5 @@
       "schema": "magic"
     }
   ],
-  "renames": [
-    "hearthstone_data.publish_ledgers->public.publish_ledgers"
-  ]
+  "renames": []
 }

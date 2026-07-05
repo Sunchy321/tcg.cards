@@ -1,2 +1,0 @@
-ALTER TABLE "task_runs" DROP CONSTRAINT "task_runs_terminal_reason_required_chk", ADD CONSTRAINT "task_runs_terminal_reason_required_chk" CHECK ("status" not in ('canceled', 'failed', 'abandoned') or "terminal_reason" is not null);--> statement-breakpoint
-ALTER TABLE "task_stages" DROP CONSTRAINT "task_stages_bounded_requires_total_done_chk", ADD CONSTRAINT "task_stages_bounded_requires_total_done_chk" CHECK ("progress_mode" <> 'bounded' or "status" = 'pending' or ("total" is not null and "done" is not null));
