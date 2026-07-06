@@ -82,6 +82,7 @@ export function buildPublishTaskStageEntry(stage: TaskStageState): TaskStageEntr
 
 const LOAD_CHUNK_SIZE = 1000;
 const REMOTE_CHUNK_SIZE = 500;
+const FULL_SCAN_TABLES: TableName[] = ['entities', 'entity_localizations', 'entity_relations', 'cards'];
 
 type PlanAction = typeof PublishBatchRow.$inferSelect['action'];
 type PlanEntry = { tableName: string; rowKey: string; action: PlanAction; rowHash: string | null; previousRowHash: string | null };
@@ -138,6 +139,18 @@ function getOrInitCtx(taskRunId: string): PublishCtx {
   let ctx = publishCtxMap.get(taskRunId);
   if (!ctx) { ctx = { db: getLocalDb() as unknown as PublishDb, pendingRowCount: 0 }; publishCtxMap.set(taskRunId, ctx); }
   return ctx;
+}
+
+export function countPublishLoadingBlocks(tableTotals?: Record<string, number>): number {
+  if (!tableTotals) return 1;
+  return FULL_SCAN_TABLES.reduce((total, tableName) => {
+    const rowCount = Math.max(Number(tableTotals[tableName] ?? 0), 0);
+    return total + Math.ceil(rowCount / LOAD_CHUNK_SIZE) + 1;
+  }, 0);
+}
+
+function isLoadingScanComplete(loader: LoadingCtx): boolean {
+  return FULL_SCAN_TABLES.every(tableName => loader.scanCursors?.get(tableName) === undefined);
 }
 
 /*
@@ -208,8 +221,7 @@ export function buildPublishTaskBlocks(stage: TaskStageState, taskRunId: string)
   if (stage.stageKey === 'loading_snapshots') {
     const loader = publishCtxMap.get(taskRunId)?.loader;
     if (!loader) return [{ blockKey: 'load:run', effectModel: 'reconcilable', payload: { stageKey: 'loading_snapshots' } }];
-    const n = Math.ceil(loader.totalRows / LOAD_CHUNK_SIZE) + 4;
-    if (n <= 1) return [{ blockKey: 'load:run', effectModel: 'reconcilable', payload: { stageKey: 'loading_snapshots', chunkIndex: 0 } }];
+    const n = countPublishLoadingBlocks(loader.tableTotals);
     return Array.from({ length: n }, (_, i) => ({
       blockKey: `load:chunk_${i + 1}`,
       effectModel: 'reconcilable' as const,
@@ -218,7 +230,9 @@ export function buildPublishTaskBlocks(stage: TaskStageState, taskRunId: string)
   }
   if (stage.stageKey === 'applying_remote') {
     const ctx = publishCtxMap.get(taskRunId);
-    const n = ctx ? Math.ceil(ctx.pendingRowCount / REMOTE_CHUNK_SIZE) : 1;
+    const pendingRowCount = ctx?.pendingRowCount ?? 0;
+    if (ctx && pendingRowCount === 0) return [];
+    const n = ctx ? Math.ceil(pendingRowCount / REMOTE_CHUNK_SIZE) : 1;
     if (n <= 1) return [{ blockKey: 'apply:run', effectModel: 'reconcilable', payload: { stageKey: 'applying_remote' } }];
     return Array.from({ length: n }, (_, i) => ({
       blockKey: `apply:chunk_${i + 1}`,
@@ -278,19 +292,19 @@ export async function executePublishStageBlock(input: {
     let rawRows: any[];
     if (tableName === 'entities') {
       rawRows = await db.select().from(LocalEntity)
-        .where(cursor == null ? undefined : or(gt(LocalEntity.cardId, cursor.cardId), and(eq(LocalEntity.cardId, cursor.cardId), gt(LocalEntity.revisionHash, cursor.revisionHash))))
+        .where(cursor == null ? undefined : sql`(${LocalEntity.cardId}, ${LocalEntity.revisionHash}) > (${cursor.cardId}, ${cursor.revisionHash})`)
         .orderBy(asc(LocalEntity.cardId), asc(LocalEntity.revisionHash)).limit(reanchorReadBatchSize) as any[];
     } else if (tableName === 'entity_localizations') {
       rawRows = await db.select().from(LocalEntityLocalization)
-        .where(cursor == null ? undefined : or(gt(LocalEntityLocalization.cardId, cursor.cardId), and(eq(LocalEntityLocalization.cardId, cursor.cardId), gt(LocalEntityLocalization.lang, cursor.lang)), and(eq(LocalEntityLocalization.cardId, cursor.cardId), eq(LocalEntityLocalization.lang, cursor.lang), gt(LocalEntityLocalization.revisionHash, cursor.revisionHash)), and(eq(LocalEntityLocalization.cardId, cursor.cardId), eq(LocalEntityLocalization.lang, cursor.lang), eq(LocalEntityLocalization.revisionHash, cursor.revisionHash), gt(LocalEntityLocalization.localizationHash, cursor.localizationHash))))
+        .where(cursor == null ? undefined : sql`(${LocalEntityLocalization.cardId}, ${LocalEntityLocalization.lang}, ${LocalEntityLocalization.revisionHash}, ${LocalEntityLocalization.localizationHash}) > (${cursor.cardId}, ${cursor.lang}, ${cursor.revisionHash}, ${cursor.localizationHash})`)
         .orderBy(asc(LocalEntityLocalization.cardId), asc(LocalEntityLocalization.lang), asc(LocalEntityLocalization.revisionHash), asc(LocalEntityLocalization.localizationHash)).limit(reanchorReadBatchSize) as any[];
     } else if (tableName === 'entity_relations') {
       rawRows = await db.select().from(LocalEntityRelation)
-        .where(cursor == null ? undefined : or(gt(LocalEntityRelation.sourceId, cursor.sourceId), and(eq(LocalEntityRelation.sourceId, cursor.sourceId), gt(LocalEntityRelation.relation, cursor.relation)), and(eq(LocalEntityRelation.sourceId, cursor.sourceId), eq(LocalEntityRelation.relation, cursor.relation), gt(LocalEntityRelation.targetId, cursor.targetId)), and(eq(LocalEntityRelation.sourceId, cursor.sourceId), eq(LocalEntityRelation.relation, cursor.relation), eq(LocalEntityRelation.targetId, cursor.targetId), gt(LocalEntityRelation.sourceRevisionHash, cursor.sourceRevisionHash))))
+        .where(cursor == null ? undefined : sql`(${LocalEntityRelation.sourceId}, ${LocalEntityRelation.relation}, ${LocalEntityRelation.targetId}, ${LocalEntityRelation.sourceRevisionHash}) > (${cursor.sourceId}, ${cursor.relation}, ${cursor.targetId}, ${cursor.sourceRevisionHash})`)
         .orderBy(asc(LocalEntityRelation.sourceId), asc(LocalEntityRelation.relation), asc(LocalEntityRelation.targetId), asc(LocalEntityRelation.sourceRevisionHash)).limit(reanchorReadBatchSize) as any[];
     } else {
       rawRows = await db.select().from(LocalCard)
-        .where(cursor == null ? undefined : gt(LocalCard.cardId, cursor.cardId))
+        .where(cursor == null ? undefined : sql`(${LocalCard.cardId}) > (${cursor.cardId})`)
         .orderBy(asc(LocalCard.cardId)).limit(reanchorReadBatchSize) as any[];
     }
 
@@ -506,11 +520,12 @@ async function executeLoadingChunk(
     await flushPlans(getLocalDb() as unknown as PublishDb, loader.batchId, plans);
   }
 
-  if (loader.processed >= loader.totalRows) {
+  if (isLoadingScanComplete(loader)) {
+    const finalTotal = loader.processed;
     if (loader.dryRun) {
       const c = loader.counts;
       store.updateStage(taskRunId, 'loading_snapshots', {
-        done: loader.totalRows, total: loader.totalRows,
+        done: finalTotal, total: finalTotal,
         segments: [
           { name: 'insert', done: c.insertedRowCount, total: Math.max(c.insertedRowCount, 1) },
           { name: 'update', done: c.updatedRowCount, total: Math.max(c.updatedRowCount, 1) },
@@ -569,10 +584,12 @@ async function executeLoadingChunk(
       pctx.pendingRowCount = Number(pendingRow!.count);
 
       store.updateStage(taskRunId, 'loading_snapshots', {
-        done: loader.totalRows, total: loader.totalRows,
+        done: finalTotal, total: finalTotal,
         segments: segments(loader.counts),
       }).catch(() => {});
     }
+
+    return;
   }
 
   store.updateStage(taskRunId, 'loading_snapshots', {
@@ -586,8 +603,6 @@ async function executeLoadingChunk(
       : segments(loader.counts),
   }).catch(() => {});
 }
-
-const FULL_SCAN_TABLES: TableName[] = ['entities', 'entity_localizations', 'entity_relations', 'cards'];
 
 async function processFullScanChunk(
   input: { run: TaskRunInput; stage: TaskStageState; block: TaskBlock; store: TaskExecuteStore; taskRunId: string },
@@ -624,7 +639,7 @@ async function processFullScanChunk(
               gt(tbl.deletedAt, since),
             )
           : sql`${tbl.deletedAt} is null`,
-        cursor == null ? undefined : or(gt(tbl.cardId, cursor.cardId), and(eq(tbl.cardId, cursor.cardId), gt(tbl.revisionHash, cursor.revisionHash))),
+        cursor == null ? undefined : sql`(${tbl.cardId}, ${tbl.revisionHash}) > (${cursor.cardId}, ${cursor.revisionHash})`,
       ))
       .orderBy(asc(tbl.cardId), asc(tbl.revisionHash)).limit(LOAD_CHUNK_SIZE) as any[];
   } else if (tableName === 'entity_localizations') {
@@ -637,7 +652,7 @@ async function processFullScanChunk(
               gt(tbl.deletedAt, since),
             )
           : sql`${tbl.deletedAt} is null`,
-        cursor == null ? undefined : or(gt(tbl.cardId, cursor.cardId), and(eq(tbl.cardId, cursor.cardId), gt(tbl.lang, cursor.lang)), and(eq(tbl.cardId, cursor.cardId), eq(tbl.lang, cursor.lang), gt(tbl.revisionHash, cursor.revisionHash)), and(eq(tbl.cardId, cursor.cardId), eq(tbl.lang, cursor.lang), eq(tbl.revisionHash, cursor.revisionHash), gt(tbl.localizationHash, cursor.localizationHash))),
+        cursor == null ? undefined : sql`(${tbl.cardId}, ${tbl.lang}, ${tbl.revisionHash}, ${tbl.localizationHash}) > (${cursor.cardId}, ${cursor.lang}, ${cursor.revisionHash}, ${cursor.localizationHash})`,
       ))
       .orderBy(asc(tbl.cardId), asc(tbl.lang), asc(tbl.revisionHash), asc(tbl.localizationHash)).limit(LOAD_CHUNK_SIZE) as any[];
   } else if (tableName === 'entity_relations') {
@@ -650,7 +665,7 @@ async function processFullScanChunk(
               gt(tbl.deletedAt, since),
             )
           : sql`${tbl.deletedAt} is null`,
-        cursor == null ? undefined : or(gt(tbl.sourceId, cursor.sourceId), and(eq(tbl.sourceId, cursor.sourceId), gt(tbl.relation, cursor.relation)), and(eq(tbl.sourceId, cursor.sourceId), eq(tbl.relation, cursor.relation), gt(tbl.targetId, cursor.targetId)), and(eq(tbl.sourceId, cursor.sourceId), eq(tbl.relation, cursor.relation), eq(tbl.targetId, cursor.targetId), gt(tbl.sourceRevisionHash, cursor.sourceRevisionHash))),
+        cursor == null ? undefined : sql`(${tbl.sourceId}, ${tbl.relation}, ${tbl.targetId}, ${tbl.sourceRevisionHash}) > (${cursor.sourceId}, ${cursor.relation}, ${cursor.targetId}, ${cursor.sourceRevisionHash})`,
       ))
       .orderBy(asc(tbl.sourceId), asc(tbl.relation), asc(tbl.targetId), asc(tbl.sourceRevisionHash)).limit(LOAD_CHUNK_SIZE) as any[];
   } else {
@@ -663,7 +678,7 @@ async function processFullScanChunk(
               gt(tbl.deletedAt, since),
             )
           : sql`${tbl.deletedAt} is null`,
-        cursor == null ? undefined : gt(tbl.cardId, (cursor as Record<string, unknown>).cardId ?? cursor),
+        cursor == null ? undefined : sql`(${tbl.cardId}) > (${cursor.cardId ?? cursor})`,
       ))
       .orderBy(asc(tbl.cardId)).limit(LOAD_CHUNK_SIZE) as any[];
   }
@@ -945,17 +960,38 @@ export const publishTaskDefinition: TaskDefinition = {
         tableProcessed: tableTotals ? { entities: 0, entity_localizations: 0, entity_relations: 0, cards: 0 } : undefined,
         dryRun,
       };
-      getOrInitCtx(taskRunId).loader = loader;
+      const pctx = getOrInitCtx(taskRunId);
+      pctx.batchId = batchId;
+      pctx.loader = loader;
 
       return { ...buildPublishTaskStageEntry(stage), total };
     }
     if (stage.stageKey === 'applying_remote') {
+      const ctx = publishCtxMap.get(taskRunId);
+      if (ctx?.batchId != null) {
+        const [pendingRow] = await getLocalDb().select({ count: count() }).from(PublishBatchRow)
+          .where(and(eq(PublishBatchRow.batchId, ctx.batchId), eq(PublishBatchRow.status, 'pending')));
+        ctx.pendingRowCount = Number(pendingRow!.count);
+      }
+
       return { ...buildPublishTaskStageEntry(stage), total: publishCtxMap.get(taskRunId)?.pendingRowCount ?? 0 };
     }
     if (stage.stageKey === 'update_baseline') {
       const scope = (run.scope.snapshot ?? {}) as any;
       const target = { publishTarget: scope?.publishTarget ?? 'hearthstone', environment: scope?.environment ?? '' };
       const db = getLocalDb() as unknown as PublishDb;
+      const ctx = publishCtxMap.get(taskRunId);
+
+      if (ctx?.batchId == null) {
+        throw new Error('Publish batch is not prepared before baseline update.');
+      }
+
+      const [pendingRow] = await db.select({ count: count() }).from(PublishBatchRow)
+        .where(and(eq(PublishBatchRow.batchId, ctx.batchId), eq(PublishBatchRow.status, 'pending')));
+      const pendingRowCount = Number(pendingRow!.count);
+      if (pendingRowCount > 0) {
+        throw new Error(`Publish batch ${ctx.batchId} still has ${pendingRowCount} pending remote rows before baseline update.`);
+      }
 
       const counts = await loadReanchorRowCounts(db);
       await db.delete(PublishRowBaseline)
