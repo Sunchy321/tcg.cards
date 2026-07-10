@@ -35,8 +35,7 @@ const toast = useToast();
 const publishTargets = ref<DesktopPublishTarget[]>([]);
 const selectedEnvironment = ref('');
 const publishTargetError = ref('');
-const publishError = ref('');
-const publishResult = ref<HsdataPublishReport | null>(null);
+const taskResult = ref<Record<string, unknown> | null>(null);
 const incompleteBatch = ref<(HsdataPublishReport & { pendingRowCount?: number }) | null>(null);
 const batchListLoading = ref(false);
 const batchList = ref<HsdataPublishReport[]>([]);
@@ -177,23 +176,16 @@ const operations: TaskOperation[] = [
 function onCompleted(snap: TaskPageSnapshot) {
   persistedTaskRunId = null;
   persistPublishPageState();
-  if (snap.pageTask.kind === 'attached' && snap.pageTask.status === 'completed') {
-    const label = snap.pageTask.taskType === 'hsdata_publish' ? '发布' : '基线重建';
-    toast.add({ title: `${label}已完成`, color: 'success' });
-  }
+  taskResult.value = snap.result ?? null;
   refreshPublishState();
 }
 
-function onFailed(_taskRunId: string, _errorCode: string | null, errorMessage: string | null) {
+function onFailed(_taskRunId: string, _errorCode: string | null, _errorMessage: string | null) {
   persistedTaskRunId = null;
   persistPublishPageState();
-  publishError.value = errorMessage ?? '操作失败';
-  toast.add({ title: '操作失败', description: publishError.value, color: 'error' });
 }
 
-function onCreateError(_opKey: string, message: string) {
-  publishError.value = message;
-  toast.add({ title: '操作失败', description: publishError.value, color: 'error' });
+function onCreateError(_opKey: string, _message: string) {
 }
 
 // Save taskRunId whenever the controller starts/restores a task
@@ -248,8 +240,6 @@ async function cancelBatch(batch: HsdataPublishReport) {
       incompleteBatch.value = null;
     }
 
-    publishResult.value = result;
-    publishError.value = '';
     toast.add({
       title: '批次已取消',
       description: `${result.batchId} 已标记为已停止`,
@@ -258,10 +248,9 @@ async function cancelBatch(batch: HsdataPublishReport) {
     await refreshPublishState();
   } catch (error) {
     console.error('Failed to cancel incomplete publish batch:', error);
-    publishError.value = getHsdataErrorMessage(error);
     toast.add({
       title: '取消失败',
-      description: publishError.value,
+      description: getHsdataErrorMessage(error),
       color: 'error',
     });
   } finally {
@@ -354,8 +343,7 @@ watch([dryRun, selectedEnvironment], () => {
 });
 
 watch(selectedPublishStream, async () => {
-  publishError.value = '';
-  publishResult.value = null;
+  taskResult.value = null;
   singleCardError.value = '';
   singleCardResult.value = null;
   await refreshPublishState();
@@ -456,14 +444,6 @@ onMounted(async () => {
       class="mb-0"
     />
 
-    <UAlert
-      v-if="publishError.length > 0"
-      color="error"
-      variant="soft"
-      icon="i-lucide-circle-alert"
-      :description="publishError"
-    />
-
     <TaskController
       ref="controller"
       title="Hearthstone 发布"
@@ -487,12 +467,12 @@ onMounted(async () => {
       </template>
     </TaskController>
 
-    <UCard v-if="publishResult">
+    <UCard v-if="taskResult">
       <template #header>
         <div class="flex items-center gap-2">
           <span class="font-medium">发布报告</span>
           <UBadge
-            v-if="publishResult.status === 'dry_run'"
+            v-if="taskResult.dryRun"
             label="Dry Run"
             color="warning"
             variant="soft"
@@ -510,33 +490,33 @@ onMounted(async () => {
         <div class="rounded-lg border border-default p-3">
           <div class="text-xs text-muted">批次</div>
           <div class="mt-1 break-all font-mono text-sm">
-            {{ publishResult.batchId }}
+            {{ taskResult.batchId }}
           </div>
         </div>
         <div class="rounded-lg border border-default p-3">
           <div class="text-xs text-muted">Manifest</div>
           <div class="mt-1 break-all font-mono text-sm">
-            {{ publishResult.manifestHash }}
+            {{ taskResult.manifestHash }}
           </div>
         </div>
         <div class="rounded-lg border border-default p-3">
           <div class="text-xs text-muted">操作</div>
           <div class="mt-1 flex flex-wrap items-center gap-2">
             <UBadge
-              :label="formatPublishOperationKind(publishResult.operationKind)"
+              :label="formatPublishOperationKind(taskResult.operationKind as string)"
               color="primary"
               variant="soft"
               size="xs"
             />
             <UBadge
-              :label="formatPublishType(publishResult.publishType)"
+              :label="formatPublishType(taskResult.publishType as string)"
               color="neutral"
               variant="soft"
               size="xs"
             />
             <UBadge
-              :label="formatPublishStatus(publishResult.status)"
-              :color="statusBadgeColor(publishResult.status)"
+              :label="formatPublishStatus(taskResult.status as string)"
+              :color="statusBadgeColor(taskResult.status as string)"
               variant="soft"
               size="xs"
             />
@@ -545,19 +525,19 @@ onMounted(async () => {
         <div class="rounded-lg border border-default p-3">
           <div class="text-xs text-muted">变化统计</div>
           <div class="mt-1 font-mono text-sm">
-            {{ publishResult.changedRowCount }} / {{ publishResult.totalRowCount }}
+            {{ taskResult.changedRowCount }} / {{ taskResult.totalRowCount }}
           </div>
           <div class="mt-1 text-xs text-muted">
-            +{{ publishResult.insertedRowCount }}
-            ~{{ publishResult.updatedRowCount }}
-            -{{ publishResult.deletedRowCount }}
-            ={{ publishResult.unchangedRowCount }}
+            +{{ taskResult.insertedRowCount }}
+            ~{{ taskResult.updatedRowCount }}
+            -{{ taskResult.deletedRowCount }}
+            ={{ taskResult.unchangedRowCount }}
           </div>
         </div>
         <div class="rounded-lg border border-default p-3">
           <div class="text-xs text-muted">发布时间</div>
           <div class="mt-1 break-all font-mono text-sm">
-            {{ formatHsdataDate(publishResult.publishedAt) }}
+            {{ formatHsdataDate(taskResult.publishedAt as string) }}
           </div>
         </div>
         <div class="rounded-lg border border-default p-3 sm:col-span-2">
@@ -565,19 +545,19 @@ onMounted(async () => {
           <div class="mt-1 grid grid-cols-4 gap-2 text-sm">
             <div>
               <span class="text-muted">Cards</span>
-              <span class="ml-1 font-mono">{{ publishResult.cardRowCount }}</span>
+              <span class="ml-1 font-mono">{{ taskResult.cardRowCount }}</span>
             </div>
             <div>
               <span class="text-muted">Entities</span>
-              <span class="ml-1 font-mono">{{ publishResult.entityRowCount }}</span>
+              <span class="ml-1 font-mono">{{ taskResult.entityRowCount }}</span>
             </div>
             <div>
               <span class="text-muted">Localizations</span>
-              <span class="ml-1 font-mono">{{ publishResult.localizationRowCount }}</span>
+              <span class="ml-1 font-mono">{{ taskResult.localizationRowCount }}</span>
             </div>
             <div>
               <span class="text-muted">Relations</span>
-              <span class="ml-1 font-mono">{{ publishResult.relationRowCount }}</span>
+              <span class="ml-1 font-mono">{{ taskResult.relationRowCount }}</span>
             </div>
           </div>
         </div>

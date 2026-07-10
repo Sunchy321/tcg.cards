@@ -1,9 +1,14 @@
-import type { TaskDefinition } from './definition';
+import type { TaskDefinition, AnyTaskDefinition } from './definition';
 
 const taskDefinitions = new Map<string, TaskDefinition>();
 
 /** Registers one task definition under its stable task type. */
 export function registerTaskDefinition(definition: TaskDefinition): void {
+  taskDefinitions.set(definition.taskType, definition);
+}
+
+/** Registers a typed task definition. */
+export function registerTypedTaskDefinition(definition: AnyTaskDefinition): void {
   taskDefinitions.set(definition.taskType, definition);
 }
 
@@ -16,6 +21,13 @@ export function getTaskDefinition(taskType: string): TaskDefinition {
   }
 
   return definition;
+}
+
+/** Returns a typed task definition for the requested task type. */
+export function getTypedTaskDefinition(taskType: string): AnyTaskDefinition {
+  const def = getTaskDefinition(taskType);
+  // AnyTaskDefinition is structurally compatible with TaskDefinition
+  return def as unknown as AnyTaskDefinition;
 }
 
 /** Lists all currently registered task definitions. */

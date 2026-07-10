@@ -24,7 +24,6 @@ function fakeDefinition(taskType: string): TaskDefinition {
         progressMode: stage.progressMode,
         resumeMode: stage.resumeMode,
         total: stage.total,
-        selectionAnchor: stage.selectionAnchor,
       };
     },
     buildBlocks() {

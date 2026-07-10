@@ -162,9 +162,9 @@ describe('snapshot', () => {
 
     test('maps stages with correct fields', () => {
       const stages: TaskStageState[] = [
-        { stageKey: 'a', stageIndex: 0, label: 'Stage A', status: 'completed', progressMode: 'simple', resumeMode: 'none', total: null, done: null, startedAt: null, finishedAt: null, resumeToken: null, selectionAnchor: null },
-        { stageKey: 'b', stageIndex: 1, label: 'Stage B', status: 'running', progressMode: 'bounded', resumeMode: 'none', total: 200, done: 75, startedAt: null, finishedAt: null, resumeToken: null, selectionAnchor: null },
-        { stageKey: 'c', stageIndex: 2, label: 'Stage C', status: 'pending', progressMode: 'bounded', resumeMode: 'none', total: 50, done: 0, startedAt: null, finishedAt: null, resumeToken: null, selectionAnchor: null },
+        { stageKey: 'a', stageIndex: 0, label: 'Stage A', status: 'completed', progressMode: 'simple', resumeMode: 'none', total: null, done: null, startedAt: null, finishedAt: null, resumeToken: null },
+        { stageKey: 'b', stageIndex: 1, label: 'Stage B', status: 'running', progressMode: 'bounded', resumeMode: 'none', total: 200, done: 75, startedAt: null, finishedAt: null, resumeToken: null },
+        { stageKey: 'c', stageIndex: 2, label: 'Stage C', status: 'pending', progressMode: 'bounded', resumeMode: 'none', total: 50, done: 0, startedAt: null, finishedAt: null, resumeToken: null },
       ];
 
       const result = buildTaskPageSnapshot(snapshot(

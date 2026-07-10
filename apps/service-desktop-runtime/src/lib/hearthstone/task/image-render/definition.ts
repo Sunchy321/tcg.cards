@@ -287,16 +287,16 @@ export const imageRenderTaskDefinition: TaskDefinition = {
         outputMode: (params as any).outputMode ?? 'import',
       });
 
-      return { stageKey: stage.stageKey, stageIndex: stage.stageIndex, progressMode: 'simple', resumeMode: 'none', total: null, selectionAnchor: null };
+      return { stageKey: stage.stageKey, stageIndex: stage.stageIndex, progressMode: 'simple', resumeMode: 'none', total: null };
     }
     if (stage.stageKey === 'processing') {
       const total = ctxMap.get(taskRunId)?.totalMissing ?? 1;
-      return { stageKey: stage.stageKey, stageIndex: stage.stageIndex, progressMode: 'bounded', resumeMode: 'none', total, selectionAnchor: null };
+      return { stageKey: stage.stageKey, stageIndex: stage.stageIndex, progressMode: 'bounded', resumeMode: 'none', total };
     }
     if (stage.stageKey === 'finalizing') {
-      return { stageKey: stage.stageKey, stageIndex: stage.stageIndex, progressMode: 'simple', resumeMode: 'none', total: null, selectionAnchor: null };
+      return { stageKey: stage.stageKey, stageIndex: stage.stageIndex, progressMode: 'simple', resumeMode: 'none', total: null };
     }
-    return { stageKey: stage.stageKey, stageIndex: stage.stageIndex, progressMode: stage.progressMode, resumeMode: stage.resumeMode, total: null, selectionAnchor: null };
+    return { stageKey: stage.stageKey, stageIndex: stage.stageIndex, progressMode: stage.progressMode, resumeMode: stage.resumeMode, total: null };
   },
   buildBlocks({ stage, taskRunId }) { return buildImageRenderBlocks(stage, taskRunId); },
   async executeBlock(input) { await executeImageRenderBlock(input); },

@@ -1,13 +1,12 @@
 import { eventIterator } from '@orpc/server';
 import { z } from 'zod';
 
-import { taskPageEvent, taskPageSnapshot } from '@tcg-cards/model/src/task';
+import { taskPageEvent, TaskPageSnapshot, taskPageSnapshot } from '@tcg-cards/model/src/task';
 
 import { os } from './index';
 import type { TaskRunInput } from '#task/index';
 import { createTaskStore, createTaskController, createTaskScheduler, createTaskExecutor, createTaskEventPublisher, getTaskDefinition } from '#task/index';
 import { buildTaskPageSnapshot } from '#task/snapshot';
-import { createTaskEventPublisher } from '#task/events';
 import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
 
 let _store: ReturnType<typeof createTaskStore>;

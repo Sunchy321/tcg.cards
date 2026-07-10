@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import type { TaskPageTask, TaskStage } from '@tcg-cards/model/src/task'
+import type { TaskPageSnapshot, TaskPageTask, TaskStage } from '@tcg-cards/model/src/task'
+import { orpc } from '~/lib/orpc';
 
-definePageMeta({ layout: false, title: 'TaskCard Dev Test' })
+definePageMeta({ layout: 'admin', title: 'Task 测试' })
+
+// --- TaskCard state preview ---
 
 const stageTemplates: Omit<TaskStage, 'status' | 'done' | 'total'>[] = [
   { stageKey: 'loading_baseline', stageIndex: 0, label: 'Load baseline', progressMode: 'simple', resumeMode: 'none', startedAt: null, finishedAt: null },
@@ -94,40 +97,134 @@ const mock = computed(() => {
 
 function next() { currentIdx.value = (currentIdx.value + 1) % allStates.length }
 function prev() { currentIdx.value = (currentIdx.value - 1 + allStates.length) % allStates.length }
+
+// --- Heavy task runner ---
+
+const workload = ref(30)
+const shouldError = ref(false)
+const taskResult = ref<Record<string, unknown> | null>(null)
+
+function onTaskCompleted(snapshot: TaskPageSnapshot) {
+  taskResult.value = snapshot.result ?? null
+}
+
+const operations = [
+  {
+    key: 'create',
+    label: '开始',
+    icon: 'i-lucide-play',
+    create: async () => orpc.test.createTask({ workload: workload.value, shouldError: shouldError.value }) as Promise<TaskPageSnapshot>,
+  },
+]
 </script>
 
 <template>
-  <div class="tc-container">
-    <div class="tc-header">
-      <h1>TaskCard 测试</h1>
-      <div class="tc-header-right">
-        <span>状态：<strong>{{ currentState }}</strong></span>
-        <button class="tc-btn" @click="prev">← 上一步</button>
-        <button class="tc-btn tc-btn-primary" @click="next">下一步 →</button>
+  <div class="page">
+    <section class="section">
+      <h2 class="section-title">TaskCard 状态预览</h2>
+      <div class="card-controls">
+        <div class="state-indicator">
+          状态：<strong>{{ currentState }}</strong>
+        </div>
+        <div class="state-nav">
+          <button class="btn" @click="prev">← 上一步</button>
+          <button class="btn btn-primary" @click="next">下一步 →</button>
+        </div>
       </div>
-    </div>
 
-    <TaskCard
-      title="发布到 production"
-      :page-task="mock.pageTask"
-      :stages="mock.stages"
-      :elapsed-sec="mock.elapsedSec"
-    />
+      <TaskCard
+        title="发布到 production"
+        :page-task="mock.pageTask"
+        :stages="mock.stages"
+        :elapsed-sec="mock.elapsedSec"
+      />
 
-    <div class="tc-state-switcher">
-      <button v-for="s in allStates" :key="s" :class="{ active: s === currentState }" @click="currentIdx = allStates.indexOf(s)">{{ s }}</button>
-    </div>
+      <div class="state-grid">
+        <button
+          v-for="s in allStates"
+          :key="s"
+          :class="{ active: s === currentState }"
+          @click="currentIdx = allStates.indexOf(s)"
+        >{{ s }}</button>
+      </div>
+    </section>
+
+    <hr class="divider">
+
+    <section class="section">
+      <h2 class="section-title">重量任务运行</h2>
+
+      <TaskController
+        title="Heavy Task Test"
+        :operations="operations"
+        @completed="onTaskCompleted"
+      >
+        <template #params="{ disabled }">
+          <div class="workload-control">
+            <label>
+              Workload:
+              <input v-model.number="workload" type="range" min="5" max="100" :disabled="disabled">
+              {{ workload }}
+            </label>
+          </div>
+          <label class="error-toggle">
+            <input v-model="shouldError" type="checkbox" :disabled="disabled">
+            运行时报错（约 50% 处抛出）
+          </label>
+        </template>
+      </TaskController>
+
+      <div v-if="taskResult" class="result-card">
+        <h3 class="result-title">执行结果</h3>
+        <div class="result-grid">
+          <div class="result-item">
+            <span class="result-label">完成</span>
+            <span class="result-value">{{ taskResult.completed ? '是' : '否' }}</span>
+          </div>
+          <div class="result-item">
+            <span class="result-label">总 Block 数</span>
+            <span class="result-value">{{ taskResult.totalBlocks }}</span>
+          </div>
+          <div class="result-item">
+            <span class="result-label">耗时</span>
+            <span class="result-value">{{ taskResult.elapsedMs }}ms</span>
+          </div>
+          <div class="result-item">
+            <span class="result-label">触发报错</span>
+            <span class="result-value">{{ taskResult.errorTriggered ? '是' : '否' }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 
 <style scoped>
-.tc-container { max-width: 900px; margin: 24px auto; padding: 0 16px; }
-.tc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-.tc-header h1 { font-size: 18px; font-weight: 600; margin: 0; }
-.tc-header-right { display: flex; align-items: center; gap: 12px; font-size: 14px; }
-.tc-btn { padding: 4px 12px; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; background: #fff; color: #374151; }
-.tc-btn-primary { background: #3b82f6; color: #fff; border-color: #3b82f6; }
-.tc-state-switcher { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 24px; }
-.tc-state-switcher button { padding: 4px 12px; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; background: #fff; color: #374151; }
-.tc-state-switcher button.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+.page { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
+
+.section { margin-bottom: 32px; }
+.section-title { font-size: 17px; font-weight: 600; margin: 0 0 16px; }
+
+.card-controls { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; font-size: 14px; }
+
+.state-nav { display: flex; gap: 8px; }
+.btn { padding: 4px 12px; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; background: #fff; color: #374151; font-size: 13px; }
+.btn-primary { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+
+.state-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 16px; }
+.state-grid button { padding: 4px 12px; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; background: #fff; color: #374151; font-size: 13px; }
+.state-grid button.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+
+.divider { border: none; border-top: 1px solid #e5e7eb; margin: 24px 0; }
+
+.workload-control { margin-bottom: 16px; }
+.workload-control label { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.error-toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+
+.result-card { margin-top: 16px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; background: #fff; }
+.result-title { font-size: 14px; font-weight: 600; margin: 0 0 12px; }
+.result-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.result-item { display: flex; flex-direction: column; gap: 2px; }
+.result-label { font-size: 12px; color: #6b7280; }
+.result-value { font-size: 14px; font-weight: 500; font-family: monospace; }
 </style>

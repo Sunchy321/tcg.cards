@@ -134,11 +134,13 @@ export const taskPageTask = z.discriminatedUnion('kind', [
 export const taskPageSnapshot = z.strictObject({
   pageTask: taskPageTask,
   stages: z.array(taskStage),
+  result: jsonRecord.optional(),
 });
 
 export const taskPageEvent = z.strictObject({
   pageTask: taskPageTask,
   stages: z.array(taskStage),
+  result: jsonRecord.optional(),
 });
 
 export type TaskRunStatus = z.infer<typeof taskRunStatus>;

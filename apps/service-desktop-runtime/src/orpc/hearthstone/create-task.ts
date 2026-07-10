@@ -3,13 +3,7 @@ import { z } from 'zod';
 import { taskPageSnapshot } from '@tcg-cards/model/src/task';
 import { os } from '../index';
 import { createAndRunTask, getStore } from '../task';
-import {
-  buildPublishTaskScopeKey,
-  buildPublishTaskScope,
-  publishTaskDefinitionVersion,
-  publishTaskScopeType,
-  publishTaskType,
-} from '../../lib/hearthstone/task/publish/definition';
+import { publishTaskDefinition } from '../../lib/hearthstone/task/publish/definition';
 import {
   reanchorTaskType,
   reanchorDefinitionVersion,
@@ -45,16 +39,16 @@ const publish = os
   }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
-    const ctx = { publishTarget: input.publishTarget, environment: input.environment, publishType: 'card_data' as const };
-    const scopeKey = buildPublishTaskScopeKey(ctx);
-    await abandonStaleTask(publishTaskType, publishTaskScopeType, scopeKey);
-    const active = await getStore().getActiveTaskRun(publishTaskType, publishTaskScopeType, scopeKey);
-    if (active) throw new Error(`Publish task already exists for stream ${scopeKey}`);
+    const scope = { publishTarget: input.publishTarget, environment: input.environment, publishType: 'card_data' as const };
+    const resolved = publishTaskDefinition.resolveScope(scope);
+    await abandonStaleTask(publishTaskDefinition.taskType, publishTaskDefinition.scopeType, resolved.key);
+    const active = await getStore().getActiveTaskRun(publishTaskDefinition.taskType, publishTaskDefinition.scopeType, resolved.key);
+    if (active) throw new Error(`Publish task already exists for stream ${resolved.key}`);
 
-    return createAndRunTask(publishTaskType, {
-      taskType: publishTaskType,
-      definitionVersion: publishTaskDefinitionVersion,
-      scope: buildPublishTaskScope(ctx),
+    return createAndRunTask(publishTaskDefinition.taskType, {
+      taskType: publishTaskDefinition.taskType,
+      definitionVersion: publishTaskDefinition.definitionVersion,
+      scope: { type: publishTaskDefinition.scopeType, key: resolved.key, snapshot: resolved.snapshot as Record<string, unknown> },
       params: { publishType: 'card_data', dryRun: input.dryRun, operationKind: 'publish' },
     });
   });
@@ -66,7 +60,7 @@ const reanchor = os
   }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
-    await abandonStaleTask(reanchorTaskType, publishTaskScopeType, `${input.publishTarget}:${input.environment}:reanchor`);
+    await abandonStaleTask(reanchorTaskType, publishTaskDefinition.scopeType, `${input.publishTarget}:${input.environment}:reanchor`);
     return createAndRunTask(reanchorTaskType, buildReanchorTaskRunInput(input));
   });
 

@@ -89,7 +89,6 @@ export const reanchorTaskDefinition: TaskDefinition = {
       progressMode: stage.progressMode,
       resumeMode: stage.resumeMode,
       total: stage.total,
-      selectionAnchor: stage.selectionAnchor,
     };
   },
   buildBlocks({ stage }: { run: TaskRunInput; stage: TaskStageState; taskRunId: string }): Iterable<TaskBlock> {

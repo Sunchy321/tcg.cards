@@ -1,78 +1,77 @@
-import type {
-  TaskBlock,
-  TaskDefinition,
-  TaskExecuteStore,
-  TaskRunInput,
-  TaskStageEntry,
-  TaskStagePlan,
-  TaskStageState,
-} from './definition';
+import { z } from 'zod';
 
-export const testWorkTaskType = 'test_work';
-export const testWorkDefinitionVersion = '2026-06-23:v1';
+import { createDefinition } from '#task/definition';
 
-export const testWorkStagePlans: TaskStagePlan[] = [
-  { stageKey: 'phase_1', stageIndex: 0, label: 'Phase 1 — Setup', progressMode: 'bounded', resumeMode: 'durable' },
-  { stageKey: 'phase_2', stageIndex: 1, label: 'Phase 2 — Processing', progressMode: 'bounded', resumeMode: 'durable' },
-  { stageKey: 'phase_3', stageIndex: 2, label: 'Phase 3 — Cleanup', progressMode: 'simple', resumeMode: 'none' },
-];
+const DELAY_MS = 500;
 
-/** Returns the number of work items for each stage. */
-function stageItemCount(stageKey: string, workload: number): number {
-  if (stageKey === 'phase_1') return 20;
-  if (stageKey === 'phase_2') return workload;
-  return 0;
+function sleep(ms: number): Promise<void> {
+  return new Promise(r => setTimeout(r, ms));
 }
 
-/** Builds blocks for every work item in the current stage. */
-export function* buildTestWorkBlocks(
-  stage: TaskStageState,
-  workload: number,
-): Generator<TaskBlock> {
-  const count = stageItemCount(stage.stageKey, workload);
-  if (count <= 0) {
-    yield { blockKey: `${stage.stageKey}:run`, effectModel: 'atomic' };
-    return;
-  }
-  for (let i = 0; i < count; i++) {
-    yield { blockKey: `${stage.stageKey}:item_${i + 1}`, effectModel: 'atomic' };
-  }
-}
+export const testWorkTaskDefinition = createDefinition('test_work', { version: '2026-06-23:v1', effectModel: 'atomic' })
+  .scope(
+    z.object({}),
+    { type: 'test' as const, resolve: () => ({ key: 'default', snapshot: {} }) },
+  )
+  .input(z.object({
+    workload: z.number().default(100),
+    shouldError: z.boolean().optional().default(false),
+  }))
+  .output(z.object({
+    completed: z.boolean(),
+    totalBlocks: z.number(),
+    elapsedMs: z.number(),
+    errorTriggered: z.boolean(),
+  }))
+  .context({
+    init: (input) => ({ workload: input.workload, shouldError: input.shouldError ?? false, startedAt: Date.now() }),
+  })
 
-/** Simulates one work item by sleeping. */
-export async function executeTestWorkBlock(): Promise<void> {
-  await new Promise(r => setTimeout(r, 300));
-}
+  // setup: 10 items, chunked, bounded
+  .stage('setup', { label: 'Phase 1 — Setup', progressMode: 'bounded', resumeMode: 'durable' })
+    .entry(async ({ input }) => ({
+      total: 10,
+      blockInput: { done: 0 },
+    }))
+    .block(async ({ blockInput, progress, done }) => {
+      await sleep(DELAY_MS);
+      const next = blockInput.done + 1;
+      progress({ done: next, total: 10 });
+      if (next >= 10) return done({ done: next });
+      return { done: next };
+    })
+    .exit(() => ({}))
 
-export const testWorkTaskDefinition: TaskDefinition = {
-  taskType: testWorkTaskType,
-  definitionVersion: testWorkDefinitionVersion,
-  supportsResume: true,
-  effectModel: 'atomic',
-  buildStagePlan(_input: TaskRunInput): TaskStagePlan[] {
-    return testWorkStagePlans.map(s => ({ ...s }));
-  },
-  prepareStageEntry({ run, stage }: { run: TaskRunInput; stage: TaskStageState; resume: boolean; taskRunId: string }): TaskStageEntry {
-    const workload = (run.params.workload as number) ?? 100;
-    return {
-      stageKey: stage.stageKey,
-      stageIndex: stage.stageIndex,
-      progressMode: stage.progressMode,
-      resumeMode: stage.resumeMode,
-      total: stageItemCount(stage.stageKey, workload),
-      selectionAnchor: null,
-    };
-  },
-  buildBlocks({ run, stage }: { run: TaskRunInput; stage: TaskStageState; taskRunId: string }): Iterable<TaskBlock> {
-    const workload = run.params.workload as number ?? 100;
-    return buildTestWorkBlocks(stage, workload);
-  },
-  async executeBlock(input: { run: TaskRunInput; stage: TaskStageState; block: TaskBlock; store: TaskExecuteStore; taskRunId: string }): Promise<void> {
-    await executeTestWorkBlock();
-    const workload = (input.run.params.workload as number) ?? 100;
-    const total = stageItemCount(input.stage.stageKey, workload);
-    const match = input.block.blockKey.match(/item_(\d+)$/);
-    const done = match ? parseInt(match[1]!) : (total > 0 ? total : 0);
-    await input.store.updateStage(input.taskRunId, input.stage.stageKey, { done, total });
-  },
-};
+  // process: workload items, chunked, bounded
+  .stage('process', { label: 'Phase 2 — Processing', progressMode: 'bounded', resumeMode: 'durable' })
+    .entry(async ({ ctx }) => ({
+      total: ctx.workload,
+      blockInput: { done: 0, total: ctx.workload },
+    }))
+    .block(async ({ ctx, blockInput, progress, done }) => {
+      await sleep(DELAY_MS);
+      const next = blockInput.done + 1;
+
+      if (ctx.shouldError && next === Math.ceil(ctx.workload / 2)) {
+        throw new Error('Simulated error for testing');
+      }
+
+      progress({ done: next, total: blockInput.total });
+      if (next >= blockInput.total) return done({ done: next, total: blockInput.total });
+      return { done: next, total: blockInput.total };
+    })
+    .exit(() => ({}))
+
+  // cleanup: simple
+  .stage('cleanup', { label: 'Phase 3 — Cleanup', progressMode: 'simple' })
+    .handler(async ({ ctx }) => {
+      await sleep(DELAY_MS);
+      const totalBlocks = 10 + ctx.workload + 1; // setup + process + cleanup
+      return {
+        completed: true,
+        totalBlocks,
+        elapsedMs: Date.now() - ctx.startedAt,
+        errorTriggered: ctx.shouldError,
+      };
+    })
+  .build();

@@ -79,7 +79,6 @@ function createMemStore() {
         startedAt: s.startedAt,
         finishedAt: s.finishedAt,
         resumeToken: null,
-        selectionAnchor: null,
       });
     }
     stageList.sort((a, b) => a.stageIndex - b.stageIndex);
@@ -144,7 +143,6 @@ function createMemStore() {
         startedAt: s.startedAt,
         finishedAt: s.finishedAt,
         resumeToken: null,
-        selectionAnchor: null,
       };
     },
     async transitionStage(taskRunId, stageKey, runPatch, stagePatch) {
@@ -230,7 +228,6 @@ function makeDefinition(workload?: { failAfter?: number }): TaskDefinition {
         progressMode: stage.progressMode,
         resumeMode: stage.resumeMode,
         total: stage.total,
-        selectionAnchor: stage.selectionAnchor,
       };
     },
     buildBlocks({ stage }: { run: TaskRunInput; stage: TaskStageState }): Iterable<TaskBlock> {
@@ -308,7 +305,7 @@ describe('executor state machine', () => {
         { stageKey: 'a', stageIndex: 0, label: 'A', progressMode: 'simple', resumeMode: 'none' },
       ],
       prepareStageEntry({ stage }) {
-        return { stageKey: stage.stageKey, stageIndex: stage.stageIndex, progressMode: stage.progressMode, resumeMode: stage.resumeMode, total: stage.total, selectionAnchor: stage.selectionAnchor };
+        return { stageKey: stage.stageKey, stageIndex: stage.stageIndex, progressMode: stage.progressMode, resumeMode: stage.resumeMode, total: stage.total };
       },
       buildBlocks() {
         return [{ blockKey: 'b1' }, { blockKey: 'b2' }];
@@ -359,7 +356,7 @@ describe('executor state machine', () => {
         { stageKey: 'a', stageIndex: 0, label: 'A', progressMode: 'simple', resumeMode: 'none' },
       ],
       prepareStageEntry({ stage }) {
-        return { stageKey: stage.stageKey, stageIndex: stage.stageIndex, progressMode: stage.progressMode, resumeMode: stage.resumeMode, total: stage.total, selectionAnchor: stage.selectionAnchor };
+        return { stageKey: stage.stageKey, stageIndex: stage.stageIndex, progressMode: stage.progressMode, resumeMode: stage.resumeMode, total: stage.total };
       },
       buildBlocks() {
         return [{ blockKey: 'b1' }, { blockKey: 'b2' }];

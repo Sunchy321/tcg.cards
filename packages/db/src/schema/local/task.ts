@@ -87,7 +87,6 @@ export const TaskRun = pgTable('task_runs', {
   currentStageIndex:  integer('current_stage_index'),
   currentResumeMode:  taskResumeMode('current_resume_mode'),
   pausedResumeMode:   taskResumeMode('paused_resume_mode'),
-  selectionAnchor:    jsonb('selection_anchor').$type<Record<string, unknown>>(),
   resumeToken:        jsonb('resume_token').$type<Record<string, unknown>>(),
   runtimeBootId:      text('runtime_boot_id'),
   resumeContextKey:   text('resume_context_key'),
@@ -100,6 +99,7 @@ export const TaskRun = pgTable('task_runs', {
   errorMessage:       text('error_message'),
   terminalReason:     taskTerminalReason('terminal_reason'),
   retryOfTaskRunId:   uuid('retry_of_task_run_id'),
+  result:             jsonb('result').$type<Record<string, unknown>>(),
   createdAt:          timestamp('created_at').defaultNow().notNull(),
   updatedAt:          timestamp('updated_at')
     .defaultNow()
@@ -166,20 +166,19 @@ export const TaskStage = pgTable('task_stages', {
   taskRunId: uuid('task_run_id')
     .notNull()
     .references(() => TaskRun.id, { onDelete: 'cascade' }),
-  stageKey:        text('stage_key').notNull(),
-  stageIndex:      integer('stage_index').notNull(),
-  status:          taskStageStatus('status').notNull().default('pending'),
-  label:           text('label').notNull(),
-  progressMode:    taskProgressMode('progress_mode').notNull(),
-  resumeMode:      taskResumeMode('resume_mode').notNull().default('none'),
-  total:           integer('total'),
-  done:            integer('done'),
-  resumeToken:     jsonb('resume_token').$type<Record<string, unknown>>(),
-  selectionAnchor: jsonb('selection_anchor').$type<Record<string, unknown>>(),
-  segments:        jsonb('segments').$type<{ name: string, done: number, total: number }[]>(),
-  startedAt:       timestamp('started_at'),
-  finishedAt:      timestamp('finished_at'),
-  updatedAt:       timestamp('updated_at')
+  stageKey:     text('stage_key').notNull(),
+  stageIndex:   integer('stage_index').notNull(),
+  status:       taskStageStatus('status').notNull().default('pending'),
+  label:        text('label').notNull(),
+  progressMode: taskProgressMode('progress_mode').notNull(),
+  resumeMode:   taskResumeMode('resume_mode').notNull().default('none'),
+  total:        integer('total'),
+  done:         integer('done'),
+  resumeToken:  jsonb('resume_token').$type<Record<string, unknown>>(),
+  segments:     jsonb('segments').$type<{ name: string, done: number, total: number }[]>(),
+  startedAt:    timestamp('started_at'),
+  finishedAt:   timestamp('finished_at'),
+  updatedAt:    timestamp('updated_at')
     .defaultNow()
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),

@@ -1,6 +1,7 @@
 import type { TaskRunSnapshot, TaskRunRecord } from './store';
 import type { TaskDefinition, TaskStageEntry, TaskStageState, TaskRunInput, TaskBlock } from './definition';
 import { getTaskDefinition } from './registry';
+import { getTaskResult, getPerRunState } from './definition';
 import { runtimeBootId, generateResumeContextKey } from './runtime';
 import { buildTaskPageSnapshot } from './snapshot';
 import type { TaskEventPublisher } from './events';
@@ -136,6 +137,14 @@ export function createTaskExecutor(store: TaskExecutorStore, publisher?: TaskEve
           return;
         }
 
+        // Skipped stage: mark as completed and continue
+        const typedState = getPerRunState(taskRunId);
+        if (typedState?.skipped) {
+          await store.updateStage(taskRunId, entry.stageKey, { status: 'completed' });
+          await publishCurrentEvent(store, taskRunId, publisher);
+          continue;
+        }
+
         // Enter the stage atomically (single transaction)
         const stagePatch: Record<string, unknown> = {
           status: 'running',
@@ -143,9 +152,6 @@ export function createTaskExecutor(store: TaskExecutorStore, publisher?: TaskEve
           done: entry.progressMode === 'simple' ? null : 0,
           startedAt: new Date(),
         };
-        if (entry.selectionAnchor != null) {
-          stagePatch.selectionAnchor = entry.selectionAnchor;
-        }
         const runPatch: Record<string, unknown> = {
           currentStageKey: entry.stageKey,
           currentStageIndex: entry.stageIndex,
@@ -194,7 +200,19 @@ export function createTaskExecutor(store: TaskExecutorStore, publisher?: TaskEve
         await publishCurrentEvent(store, taskRunId, publisher);
       }
 
-      await store.updateTaskRun(taskRunId, { status: 'completed', finishedAt: new Date(), currentStageKey: null, currentStageIndex: null, currentResumeMode: null, pausedResumeMode: null });
+      const completionPatch: Record<string, unknown> = {
+        status: 'completed',
+        finishedAt: new Date(),
+        currentStageKey: null,
+        currentStageIndex: null,
+        currentResumeMode: null,
+        pausedResumeMode: null,
+      };
+      const taskResult = getTaskResult(taskRunId);
+      if (taskResult !== undefined) {
+        completionPatch.result = taskResult;
+      }
+      await store.updateTaskRun(taskRunId, completionPatch);
       await publishCurrentEvent(store, taskRunId, publisher);
     },
   };

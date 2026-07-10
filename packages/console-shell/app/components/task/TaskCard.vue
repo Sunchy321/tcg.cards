@@ -71,6 +71,15 @@
         :status="run.status"
         class="px-4 py-2"
       />
+
+      <!-- Terminal message: failed / canceled / abandoned -->
+      <div
+        v-if="errorText"
+        class="rounded-md px-3 py-2 text-sm"
+        :class="errorBannerClass"
+      >
+        {{ errorText }}
+      </div>
     </template>
 
     <template #footer>
@@ -95,6 +104,7 @@
 
 <script setup lang="ts">
 import type { TaskPageTask, TaskStage } from '@tcg-cards/model/src/task';
+import { useToast } from '@nuxt/ui/composables';
 
 type BlockingPageTask = Extract<TaskPageTask, { kind: 'blocking' }>;
 
@@ -174,6 +184,27 @@ const statusMeta = computed<StatusMeta>(() => {
 
 const statusLabel = computed(() => statusMeta.value.label);
 const statusColor = computed(() => statusMeta.value.color);
+
+const errorText = computed(() => {
+  if (!run.value) return null;
+  if (run.value.status === 'failed') return run.value.errorMessage || '任务执行失败';
+  if (run.value.status === 'canceled') return run.value.terminalReason === 'manual_cancel' ? '已取消' : `已取消（${run.value.terminalReason ?? 'system_cancel'}）`;
+  if (run.value.status === 'abandoned') return run.value.terminalReason === 'abandoned_stale_run' ? '已放弃（服务重启）' : `已放弃（${run.value.terminalReason ?? 'unknown'}）`;
+  return null;
+});
+
+const errorBannerClass = computed(() => {
+  if (run.value?.status === 'failed') return 'bg-error/5 text-error';
+  return 'bg-warning/5 text-warning';
+});
+
+const toast = useToast();
+
+watch(() => run.value?.status, (status, prev) => {
+  if (status === 'failed' && prev && prev !== 'failed') {
+    toast.add({ title: '任务失败', description: errorText.value ?? '', color: 'error' });
+  }
+});
 
 const rightInfo = computed(() => {
   // eslint-disable-next-line @typescript-eslint/no-unused-expressions

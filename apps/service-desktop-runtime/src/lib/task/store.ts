@@ -31,6 +31,7 @@ export interface TaskRunRecord extends TaskRunInput {
   runtimeBootId: string | null;
   resumeContextKey: string | null;
   retryOfTaskRunId: string | null;
+  result: Record<string, unknown> | null;
 }
 
 /** Aggregates one task run snapshot together with all persisted stage rows. */
@@ -71,7 +72,6 @@ export interface TaskStageUpdatePatch {
   total?: number | null;
   done?: number | null;
   resumeToken?: Record<string, unknown> | null;
-  selectionAnchor?: Record<string, unknown> | null;
   segments?: { name: string; done: number; total: number }[] | null;
   startedAt?: Date | string | null;
   finishedAt?: Date | string | null;
@@ -160,6 +160,7 @@ function toTaskRunRecord(row: typeof TaskRun.$inferSelect): TaskRunRecord {
     runtimeBootId: row.runtimeBootId,
     resumeContextKey: row.resumeContextKey,
     retryOfTaskRunId: row.retryOfTaskRunId,
+    result: row.result,
   };
 }
 
@@ -177,7 +178,6 @@ function toTaskStageState(row: typeof TaskStage.$inferSelect): TaskStageState {
     startedAt: row.startedAt?.toISOString() ?? null,
     finishedAt: row.finishedAt?.toISOString() ?? null,
     resumeToken: row.resumeToken,
-    selectionAnchor: row.selectionAnchor,
     segments: row.segments ?? undefined,
   };
 }
@@ -209,7 +209,6 @@ export function createTaskStore(db: {
           currentStageIndex: null,
           currentResumeMode: null,
           pausedResumeMode: null,
-          selectionAnchor: null,
           resumeToken: null,
           runtimeBootId: null,
           resumeContextKey: null,
@@ -246,7 +245,6 @@ export function createTaskStore(db: {
               total: null,
               done: null,
               resumeToken: null,
-              selectionAnchor: null,
               startedAt: null,
               finishedAt: null,
             })),

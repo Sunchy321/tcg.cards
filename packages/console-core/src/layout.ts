@@ -162,3 +162,13 @@ export function getUserNavItems(): ConsoleNavItem[][] {
     },
   ]];
 }
+
+export function getDevNavItems(): ConsoleNavItem[][] {
+  return [[
+    {
+      label: 'Task 测试',
+      icon: 'i-lucide-flask-conical',
+      to: '/test/task-card',
+    },
+  ]];
+}

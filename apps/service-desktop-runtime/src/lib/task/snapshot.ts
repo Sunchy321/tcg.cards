@@ -40,6 +40,13 @@ function canResumeStatus(status: TaskRunStatus): boolean {
 }
 
 /** Builds one generic page-task from a framework task-run snapshot. */
+function toSnapshotResult(raw: unknown): Record<string, unknown> | undefined {
+  if (raw == null) return undefined;
+  if (typeof raw === 'object') return raw as Record<string, unknown>;
+  return undefined;
+}
+
+/** Builds one generic page-task from a framework task-run snapshot. */
 function buildPageTask(snapshot: TaskRunSnapshot): TaskPageSnapshot['pageTask'] {
   const { run } = snapshot;
 
@@ -102,5 +109,6 @@ export function buildTaskPageSnapshot(snapshot: TaskRunSnapshot): TaskPageSnapsh
   return {
     pageTask: buildPageTask(snapshot),
     stages: snapshot.stages.map(toTaskStageModel),
+    result: toSnapshotResult(snapshot.run.result),
   };
 }

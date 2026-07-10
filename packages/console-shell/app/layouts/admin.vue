@@ -27,6 +27,13 @@
           </div>
           <UNavigationMenu :items="userNavItems" orientation="vertical" class="w-full" />
         </template>
+
+        <template v-if="devNavItems.length > 0">
+          <div class="px-2 py-2">
+            <p class="mb-1 px-1 text-xs font-medium text-gray-400 dark:text-gray-500">开发</p>
+          </div>
+          <UNavigationMenu :items="devNavItems" orientation="vertical" class="w-full" />
+        </template>
       </nav>
 
       <div class="shrink-0 border-t border-gray-200 p-3 dark:border-gray-800">
@@ -119,6 +126,7 @@
 import {
   canManageUsers,
   getAccessibleGames,
+  getDevNavItems,
   getGameNavItems,
   getGameSelectItems,
   getUserNavItems,
@@ -158,6 +166,11 @@ const accessibleGames = computed(() => getAccessibleGames(userRole.value));
 const showUserManagement = computed(() => canManageUsers(userRole.value));
 const gameSelectItems = computed(() => getGameSelectItems(accessibleGames.value));
 const userNavItems = getUserNavItems();
+const devNavItems = computed(() => {
+  return getDevNavItems()
+    .map(group => group.filter(item => isRouteAccessible(item.to)))
+    .filter(group => group.length > 0);
+});
 
 const currentGame = useState<Game | null>('console-admin-current-game', () =>
   resolveGameFromPath(route.path) ?? accessibleGames.value[0] ?? null,
@@ -183,6 +196,7 @@ const currentTitle = computed(() => {
   const items = [
     ...gameNavItems.value.flat(),
     ...userNavItems.flat(),
+    ...devNavItems.value.flat(),
     { label: '设置', to: '/settings' },
   ];
 
@@ -237,6 +251,10 @@ function isRouteAccessible(path: string) {
 
   if (path === '/user') {
     return showUserManagement.value;
+  }
+
+  if (getDevNavItems().flat().some(item => item.to === path)) {
+    return true;
   }
 
   return path === '/' || path === '/settings';
