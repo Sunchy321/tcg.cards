@@ -19,7 +19,7 @@
           variant="outline"
           size="sm"
           color="primary"
-          class="!text-white !ring-white"
+          class="text-white! ring-white!"
           @click="openAdvanced"
         >
           {{ $t('hearthstone.search.advanced.$self') }}
@@ -27,6 +27,10 @@
 
         <span v-if="data != null" class="font-mono text-sm text-white/70 shrink-0">
           {{ total }}
+        </span>
+
+        <span v-if="elapsed > 0" class="font-mono text-xs text-white/50 shrink-0">
+          {{ formatElapsed(elapsed) }}
         </span>
 
         <UPagination
@@ -55,7 +59,7 @@
               variant="outline"
               color="primary"
               size="sm"
-              class="!text-white !ring-white"
+              class="text-white! ring-white!"
               @click="reset"
             >
               {{ $t('hearthstone.search.advanced.reset') }}
@@ -83,7 +87,7 @@
           <div class="columns-1 gap-x-4 lg:columns-2 xl:columns-3">
 
               <!-- Text Section -->
-              <div class="rounded-2xl overflow-hidden backdrop-blur-sm shadow-[0_4px_16px_rgba(0,0,0,0.3)] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] border border-[rgba(180,120,50,0.25)] bg-[rgba(50,28,8,0.75)] break-inside-avoid mb-4">
+              <div class="rounded-2xl overflow-hidden backdrop-blur-sm shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)] border border-[rgba(180,120,50,0.25)] bg-[rgba(50,28,8,0.75)] break-inside-avoid mb-4">
                 <div class="px-5 pt-4">
                   <div class="flex items-center gap-2 text-base font-semibold text-amber-200 mb-3 [&_svg]:drop-shadow-[0_0_8px_rgba(255,160,50,0.4)]">
                     <UIcon name="lucide:text" class="w-5 h-5" />
@@ -105,7 +109,7 @@
               </div>
 
               <!-- Cost -->
-              <div class="rounded-2xl overflow-hidden backdrop-blur-sm shadow-[0_4px_16px_rgba(0,0,0,0.3)] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] border border-[rgba(180,120,50,0.25)] bg-[rgba(50,28,8,0.75)] break-inside-avoid mb-4">
+              <div class="rounded-2xl overflow-hidden backdrop-blur-sm shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)] border border-[rgba(180,120,50,0.25)] bg-[rgba(50,28,8,0.75)] break-inside-avoid mb-4">
                 <div class="px-5 pt-4">
                   <div class="flex items-center gap-2 text-sm font-medium text-amber-300/80 mb-2 [&_svg]:size-4">
                     <UIcon name="i:hearthstone-cost" class="w-5 h-5" />
@@ -166,7 +170,7 @@
               </div>
 
               <!-- Class -->
-              <div class="rounded-2xl overflow-hidden backdrop-blur-sm shadow-[0_4px_16px_rgba(0,0,0,0.3)] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] border border-[rgba(180,120,50,0.25)] bg-[rgba(50,28,8,0.75)] break-inside-avoid mb-4">
+              <div class="rounded-2xl overflow-hidden backdrop-blur-sm shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)] border border-[rgba(180,120,50,0.25)] bg-[rgba(50,28,8,0.75)] break-inside-avoid mb-4">
                 <div class="px-5 pt-4">
                   <div class="flex items-center gap-2 text-sm font-medium text-amber-300/80 mb-2 [&_svg]:size-4">
                     <UIcon name="i:hearthstone-class-neutral" class="w-5 h-5" />
@@ -191,7 +195,7 @@
               </div>
 
               <!-- Type -->
-              <div class="rounded-2xl overflow-hidden backdrop-blur-sm shadow-[0_4px_16px_rgba(0,0,0,0.3)] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] border border-[rgba(180,120,50,0.25)] bg-[rgba(50,28,8,0.75)] break-inside-avoid mb-4">
+              <div class="rounded-2xl overflow-hidden backdrop-blur-sm shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)] border border-[rgba(180,120,50,0.25)] bg-[rgba(50,28,8,0.75)] break-inside-avoid mb-4">
                 <div class="px-5 pt-4">
                   <div class="flex items-center gap-2 text-sm font-medium text-amber-300/80 mb-2 [&_svg]:size-4">
                     <UIcon name="lucide:tag" class="w-5 h-5" />
@@ -215,7 +219,7 @@
               </div>
 
               <!-- Race -->
-              <div class="rounded-2xl overflow-hidden backdrop-blur-sm shadow-[0_4px_16px_rgba(0,0,0,0.3)] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] border border-[rgba(180,120,50,0.25)] bg-[rgba(50,28,8,0.75)] break-inside-avoid mb-4">
+              <div class="rounded-2xl overflow-hidden backdrop-blur-sm shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)] border border-[rgba(180,120,50,0.25)] bg-[rgba(50,28,8,0.75)] break-inside-avoid mb-4">
                 <div class="px-5 pt-4">
                   <div class="flex items-center gap-2 text-sm font-medium text-amber-300/80 mb-2 [&_svg]:size-4">
                     <UIcon name="lucide:paw-print" class="w-5 h-5" />
@@ -239,7 +243,7 @@
               </div>
 
               <!-- Faction -->
-              <div class="rounded-2xl overflow-hidden backdrop-blur-sm shadow-[0_4px_16px_rgba(0,0,0,0.3)] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] border border-[rgba(180,120,50,0.25)] bg-[rgba(50,28,8,0.75)] break-inside-avoid mb-4">
+              <div class="rounded-2xl overflow-hidden backdrop-blur-sm shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)] border border-[rgba(180,120,50,0.25)] bg-[rgba(50,28,8,0.75)] break-inside-avoid mb-4">
                 <div class="px-5 pt-4">
                   <div class="flex items-center gap-2 text-sm font-medium text-amber-300/80 mb-2 [&_svg]:size-4">
                     <UIcon name="lucide:shield" class="w-5 h-5" />
@@ -263,7 +267,7 @@
               </div>
 
               <!-- Spell School -->
-              <div class="rounded-2xl overflow-hidden backdrop-blur-sm shadow-[0_4px_16px_rgba(0,0,0,0.3)] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] border border-[rgba(180,120,50,0.25)] bg-[rgba(50,28,8,0.75)] break-inside-avoid mb-4">
+              <div class="rounded-2xl overflow-hidden backdrop-blur-sm shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)] border border-[rgba(180,120,50,0.25)] bg-[rgba(50,28,8,0.75)] break-inside-avoid mb-4">
                 <div class="px-5 pt-4">
                   <div class="flex items-center gap-2 text-sm font-medium text-amber-300/80 mb-2 [&_svg]:size-4">
                     <UIcon name="lucide:sparkles" class="w-5 h-5" />
@@ -287,7 +291,7 @@
               </div>
 
               <!-- Rarity -->
-              <div class="rounded-2xl overflow-hidden backdrop-blur-sm shadow-[0_4px_16px_rgba(0,0,0,0.3)] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] border border-[rgba(180,120,50,0.25)] bg-[rgba(50,28,8,0.75)] break-inside-avoid mb-4">
+              <div class="rounded-2xl overflow-hidden backdrop-blur-sm shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)] border border-[rgba(180,120,50,0.25)] bg-[rgba(50,28,8,0.75)] break-inside-avoid mb-4">
                 <div class="px-5 pt-4">
                   <div class="flex items-center gap-2 text-sm font-medium text-amber-300/80 mb-2 [&_svg]:size-4">
                     <UIcon name="lucide:star" class="w-5 h-5" />
@@ -311,7 +315,7 @@
               </div>
 
           <!-- Stats Section -->
-          <div class="rounded-2xl overflow-hidden backdrop-blur-sm shadow-[0_4px_16px_rgba(0,0,0,0.3)] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] border border-[rgba(180,120,50,0.25)] bg-[rgba(50,28,8,0.75)] break-inside-avoid mb-4">
+          <div class="rounded-2xl overflow-hidden backdrop-blur-sm shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)] border border-[rgba(180,120,50,0.25)] bg-[rgba(50,28,8,0.75)] break-inside-avoid mb-4">
             <div class="px-5 pt-4">
               <div class="flex items-center gap-2 text-base font-semibold text-amber-200 mb-3 [&_svg]:drop-shadow-[0_0_8px_rgba(255,160,50,0.4)]">
                 <UIcon name="lucide:bar-chart-2" class="w-5 h-5" />
@@ -430,7 +434,7 @@
           </div>
 
           <!-- Format / Organization -->
-          <div class="rounded-2xl overflow-hidden backdrop-blur-sm shadow-[0_4px_16px_rgba(0,0,0,0.3)] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] border border-[rgba(180,120,50,0.25)] bg-[rgba(50,28,8,0.75)] break-inside-avoid mb-4">
+          <div class="rounded-2xl overflow-hidden backdrop-blur-sm shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)] border border-[rgba(180,120,50,0.25)] bg-[rgba(50,28,8,0.75)] break-inside-avoid mb-4">
             <div class="px-5 pt-4">
               <div class="flex items-center gap-2 text-base font-semibold text-amber-200 mb-3 [&_svg]:drop-shadow-[0_0_8px_rgba(255,160,50,0.4)]">
                 <UIcon name="lucide:book-open" class="w-5 h-5" />
@@ -457,7 +461,7 @@
       </div>
     </Transition>
 
-    <div class="mx-auto max-w-6xl px-4 py-6 mt-16">
+    <div class="mx-auto max-w-6xl px-4 py-6">
 
       <div v-if="!q" class="flex flex-col items-center justify-center py-24 text-center text-gray-500 gap-3">
         <UIcon name="lucide:search" class="text-5xl" />
@@ -488,7 +492,7 @@
           :to="cardLink(card)"
           class="block"
         >
-          <UCard class="hover:ring-2 hover:ring-primary/30 transition !overflow-visible">
+          <UCard class="hover:ring-2 hover:ring-primary/30 transition overflow-visible!">
             <div class="flex flex-col gap-4 sm:flex-row">
               <div class="w-30 shrink-0 self-center sm:self-start">
                 <CardImage
@@ -504,7 +508,7 @@
                 <div class="flex flex-col gap-3 md:flex-row md:items-start">
                   <div class="min-w-0 flex-1">
                     <div class="flex items-start gap-3">
-                      <h2 class="text-xl font-semibold leading-tight break-words">
+                      <h2 class="text-xl font-semibold leading-tight wrap-break-word">
                         {{ card.localization.name }}
                       </h2>
 
@@ -645,6 +649,7 @@ const dslExplained = computed(() => {
 
 const cards = computed<CardEntityView[]>(() => data.value?.result?.result ?? []);
 const total = computed(() => data.value?.result?.total ?? 0);
+const elapsed = computed(() => data.value?.result?.elapsed ?? 0);
 const pageCount = computed(() => data.value?.result?.totalPage ?? Math.ceil(total.value / pageSize.value));
 const resultVariant = computed(() => data.value?.result?.variant ?? 'normal');
 
@@ -745,6 +750,11 @@ const stats = (card: CardEntityView) => {
 
 const minVersion = (card: CardEntityView) => {
   return Math.min(...card.version);
+};
+
+const formatElapsed = (ms: number) => {
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(3)}s`;
 };
 
 const previewText = (card: CardEntityView) => {

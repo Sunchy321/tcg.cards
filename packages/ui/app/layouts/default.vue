@@ -1,11 +1,11 @@
 <template>
   <div
-    class="h-dvh flex flex-col overflow-hidden bg-linear-to-br"
+    class="min-h-dvh flex flex-col bg-linear-to-br"
     :class="props.ui?.full ?? ''"
   >
     <AppHeader />
 
-    <UMain class="flex-1 overflow-y-auto container mx-auto items-center justify-center px-4 py-8">
+    <UMain class="flex-1 container mx-auto px-4 py-8">
       <slot />
     </UMain>
 
