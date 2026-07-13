@@ -112,6 +112,7 @@ const titleType = useTitleType();
 const { getParams, paramItems, paramValues } = useParams();
 const { getActions } = useActions();
 const searchInput = useSearchInput();
+const gameLocale = useGameLocale();
 
 const appIcon = appConfig.appIcon ?? 'i:logo';
 
@@ -144,7 +145,7 @@ const getHandler = (id: string) => {
 const commitSearch = () => {
   router.push({
     path:  `/search`,
-    query: { q: searchInput.value },
+    query: { q: searchInput.value, lang: gameLocale.value },
   });
 };
 </script>

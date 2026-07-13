@@ -7,7 +7,19 @@ import { QueryError } from '#search/command/error';
 import { and, asc, desc, eq, inArray, not, notInArray, or, sql } from 'drizzle-orm';
 
 import { model } from '#model/hearthstone/search';
+import { types as typeSchema } from '#model/hearthstone/schema/basic';
 import { CardEntityView } from '#schema/shared/hearthstone/entity';
+
+const typeOrderMap: Record<string, number> = {};
+typeSchema.options.forEach((t, i) => { typeOrderMap[t] = i; });
+
+function typeOrderCase(column: typeof CardEntityView.type) {
+  const whens = typeSchema.options
+    .filter(t => t !== 'null')
+    .map(t => sql`WHEN ${t} THEN ${typeOrderMap[t]}`);
+
+  return sql`CASE ${column} ${sql.join(whens, ' ')} ELSE 99 END`;
+}
 import { TAG_SLUG, TAG_ID } from '#model/hearthstone/constant/tag';
 
 const cs = create
@@ -19,7 +31,7 @@ const tagSlugToId = Object.fromEntries(
   (Object.keys(TAG_SLUG) as Array<keyof typeof TAG_SLUG>).map(key => [
     TAG_SLUG[key],
     String(TAG_ID[key]),
-  ])
+  ]),
 );
 
 const matchText = (
@@ -324,6 +336,10 @@ export const order = cs
       case 'name':
         sorter.push(sort(table.localization.name));
         break;
+      case 'type':
+        sorter.push(sort(typeOrderCase(table.type)));
+        sorter.push(asc(table.localization.name));
+        break;
       case 'cost':
         sorter.push(sort(table.cost));
         sorter.push(asc(table.localization.name));
@@ -336,6 +352,16 @@ export const order = cs
         sorter.push(sort(table.health));
         sorter.push(asc(table.localization.name));
         break;
+      case 'stats': {
+        const secondStat = sql`COALESCE(${table.health}, ${table.durability}, ${table.armor}, 0)`;
+        const sumExpr = sql`(${table.attack} + ${secondStat})`;
+        const nullsLast = (e: ReturnType<typeof sql>) =>
+          dir === 1 ? sql`${e} ASC NULLS LAST` : sql`${e} DESC NULLS LAST`;
+        sorter.push(nullsLast(sumExpr));
+        sorter.push(nullsLast(table.attack));
+        sorter.push(asc(table.localization.name));
+        break;
+      }
       case 'set':
         sorter.push(sort(table.set));
         sorter.push(asc(table.localization.name));

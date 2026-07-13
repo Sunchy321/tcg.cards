@@ -139,7 +139,10 @@ export const search = as
         meta:  {},
         table: CardEntityView,
       });
-    const visibleQuery = and(query, defaultVisibleCardQuery);
+    const hasLangCommand = /\blang[:=]/.test(dsl ?? '');
+    const visibleQuery = hasLangCommand
+      ? and(query, defaultVisibleCardQuery)
+      : and(query, eq(CardEntityView.lang, lang), defaultVisibleCardQuery);
 
     const subquery = db
       .selectDistinctOn([CardEntityView.cardId])
@@ -155,7 +158,6 @@ export const search = as
         desc(CardEntityView.version),
       );
 
-    console.log('[search] SQL:', JSON.stringify(subquery.toSQL()));
     const result = await db
       .select()
       .from(subquery.as('card_entity_view'))

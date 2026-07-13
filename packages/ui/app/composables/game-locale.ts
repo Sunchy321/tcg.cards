@@ -1,5 +1,5 @@
 /**
- * Game-level locale stored in a cookie, independent of i18n UI locale.
+ * Game-level locale read from global config gameLocales.
  * Requires `gameId` to be configured in app.config.ts.
  */
 export const useGameLocale = () => {
@@ -9,19 +9,8 @@ export const useGameLocale = () => {
     throw new Error('useGameLocale requires `gameId` in app.config.ts');
   }
 
-  const locales = appConfig.locales ?? ['en'];
-  const cookieKey = `${appConfig.gameId}_locale`;
-  const defaultLocale = appConfig.defaultLocale ?? locales[0] ?? '';
+  const defaultLocale = appConfig.defaultLocale ?? appConfig.locales?.[0] ?? 'en';
+  const { config: globalConfig } = useGlobalConfig();
 
-  const resolveLocale = (value: string): string =>
-    locales.find(l => l === value) ?? locales[0] ?? value;
-
-  const locale = useCookie<string>(cookieKey, {
-    domain:  import.meta.dev ? undefined : '.tcg.cards',
-    default: () => defaultLocale,
-    decode:  value => resolveLocale(value),
-    encode:  value => resolveLocale(value),
-  });
-
-  return locale;
+  return computed(() => (globalConfig.value.gameLocales[appConfig.gameId as string] as string) ?? defaultLocale);
 };

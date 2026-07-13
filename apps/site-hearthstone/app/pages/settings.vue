@@ -274,6 +274,8 @@
 </template>
 
 <script setup lang="ts">
+import type { HearthstoneConfig } from '@tcg-cards/model/src/user-config';
+
 definePageMeta({ layout: 'main' });
 
 const { t, locale, setLocale, availableLocales } = useI18n();
@@ -320,7 +322,7 @@ const settingsTabs = computed(() => [
 // ── User config ────────────────────────────────────────────────────────────────
 
 const { config: globalConfig, setConfig: setGlobalConfig, syncStatus: globalSyncStatus } = useGlobalConfig();
-const { config: gameConfig, setConfig: setGameConfig, syncStatus: gameSyncStatus } = useUserConfig();
+const { config: gameConfig, setConfig: setGameConfig, syncStatus: gameSyncStatus } = useUserConfig<HearthstoneConfig>();
 
 // Keep i18n locale in sync with global config lang
 const appLocale = computed({
@@ -390,15 +392,15 @@ const searchLayoutValue = computed({
 });
 
 const isSearchLayoutDefault = computed(() =>
-  gameConfig.value.searchLayout === globalConfig.value.searchLayout,
+  gameConfig.value.searchLayout === (globalConfig.value as Record<string, unknown>).searchLayout,
 );
 
 function setSearchLayoutAsDefault() {
-  setGlobalConfig('searchLayout', gameConfig.value.searchLayout);
+  setGlobalConfig('searchLayout' as never, gameConfig.value.searchLayout);
 }
 
 function resetSearchLayoutToDefault() {
-  setGameConfig('searchLayout', globalConfig.value.searchLayout);
+  setGameConfig('searchLayout', (globalConfig.value as Record<string, unknown>).searchLayout);
 }
 
 // ── Login ─────────────────────────────────────────────────────────────────────

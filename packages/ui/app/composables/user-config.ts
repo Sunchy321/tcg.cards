@@ -4,23 +4,21 @@ import type { z } from 'zod';
 
 declare const authClient: { useSession(): { data: Ref<{ user: { id: string } | null } | null> } };
 
-type GameConfig = Record<string, unknown>;
-
 const configSchemas: Record<string, z.ZodType> = {
   global:      globalConfig,
   hearthstone: hearthstoneConfig,
   magic:       magicConfig,
 };
 
-function getDefaultConfig(schema: z.ZodType): GameConfig {
+function getDefaultConfig<T>(schema: z.ZodType<T>): T {
   const result = schema.safeParse({});
-  if (result.success) return result.data as GameConfig;
-  return {};
+  if (result.success) return result.data;
+  return {} as T;
 }
 
-function mergeDefaults(raw: unknown, schema: z.ZodType): GameConfig {
+function mergeDefaults<T>(raw: unknown, schema: z.ZodType<T>): T {
   const result = schema.safeParse(raw ?? {});
-  if (result.success) return result.data as GameConfig;
+  if (result.success) return result.data;
   return getDefaultConfig(schema);
 }
 
@@ -71,7 +69,7 @@ export function useGlobalConfig() {
     maxAge:  60 * 60 * 24 * 365,
   });
 
-  const config = computed<GameConfig>(() =>
+  const config = computed(() =>
     mergeDefaults(globalCookie.value, globalConfig),
   ) as ComputedRef<GlobalConfig>;
 
@@ -137,7 +135,7 @@ export function useGlobalConfig() {
 
 // ── useUserConfig ──────────────────────────────────────────────────────────────
 
-export function useUserConfig(gameId?: string) {
+export function useUserConfig<TConfig extends Record<string, unknown> = Record<string, unknown>>(gameId?: string) {
   const appConfig = useAppConfig();
   const resolvedGameId = gameId ?? appConfig.gameId as string;
 
@@ -152,18 +150,18 @@ export function useUserConfig(gameId?: string) {
 
   const { $orpc } = useNuxtApp() as any;
 
-  const config = computed<GameConfig>(() =>
+  const config = computed(() =>
     mergeDefaults(rawLocal.value, schema),
-  );
+  ) as ComputedRef<TConfig>;
 
-  function writeLocal(data: Record<string, unknown>) {
-    rawLocal.value = data;
+  function writeLocal(data: unknown) {
+    rawLocal.value = data as Record<string, unknown>;
     if (import.meta.client) {
       localStorage.setItem(`tcg_config`, JSON.stringify(data));
     }
   }
 
-  function debouncedPush(data: Record<string, unknown>) {
+  function debouncedPush(data: unknown) {
     if (!session?.data?.value?.user) return;
     if (pushTimers[resolvedGameId]) clearTimeout(pushTimers[resolvedGameId]!);
     pushTimers[resolvedGameId] = setTimeout(async () => {

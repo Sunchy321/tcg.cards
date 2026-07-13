@@ -689,6 +689,7 @@
 </template>
 
 <script setup lang="ts">
+import type { HearthstoneConfig } from '@tcg-cards/model/src/user-config';
 import type { CardEntityView } from '#model/hearthstone/schema/entity';
 import type { NormalResult } from '#model/hearthstone/schema/search';
 import { locale as localeSchema } from '#model/hearthstone/schema/basic';
@@ -724,7 +725,7 @@ useTitle(() => i18n.t('hearthstone.search.$self'));
 
 // ── Layout toggle ───────────────────────────────────────────────────────────
 
-const { config: gameConfig, setConfig: setGameConfig } = useUserConfig();
+const { config: gameConfig, setConfig: setGameConfig } = useUserConfig<HearthstoneConfig>();
 
 const searchLayout = computed(() => (gameConfig.value.searchLayout as string) ?? 'grid');
 
@@ -779,6 +780,13 @@ const pageSize = computed(() => {
 const searchLang = computed(() =>
   localeSchema.safeParse(route.query.lang as string).data ?? 'zhs',
 );
+
+const gameLocale = useGameLocale();
+watch(gameLocale, locale => {
+  if (locale !== searchLang.value) {
+    void router.replace({ query: { ...route.query, lang: locale } });
+  }
+});
 
 const explained = computed(() => model.explain(q.value ?? '', (key: string, named?: Record<string, any>) => {
   const realKey = key.startsWith('$.')
@@ -980,9 +988,9 @@ interface TableColumn {
 const tableColumns = computed<TableColumn[]>(() => [
   { key: 'name', label: t('hearthstone.search.table.columnName'), sortable: true, sortField: 'name' },
   { key: 'cost', label: t('hearthstone.search.table.columnCost'), sortable: true, sortField: 'cost' },
-  { key: 'type', label: t('hearthstone.search.table.columnType'), sortable: false },
+  { key: 'type', label: t('hearthstone.search.table.columnType'), sortable: true, sortField: 'type' },
   { key: 'class', label: t('hearthstone.search.table.columnClass'), sortable: false },
-  { key: 'attackHealth', label: t('hearthstone.search.table.columnAttackHealth'), sortable: true, sortField: 'attack' },
+  { key: 'attackHealth', label: t('hearthstone.search.table.columnAttackHealth'), sortable: true, sortField: 'stats' },
   { key: 'set', label: t('hearthstone.search.table.columnSet'), sortable: true, sortField: 'set' },
   { key: 'text', label: t('hearthstone.search.table.columnText'), sortable: false },
   { key: 'detail', label: t('hearthstone.search.table.columnDetail'), sortable: false },
