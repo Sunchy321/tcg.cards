@@ -616,7 +616,7 @@
 
         <UCard>
           <div class="overflow-x-auto">
-            <table class="w-full text-sm">
+            <table class="w-full">
               <thead>
                 <tr class="border-b border-gray-200 dark:border-gray-700">
                   <th
@@ -666,7 +666,29 @@
                   <td class="px-3 py-2 text-gray-700 dark:text-gray-300">{{ card.classes.map(classText).join(', ') }}</td>
                   <td class="px-3 py-2 text-gray-700 dark:text-gray-300">{{ stats(card) }}</td>
                   <td class="px-3 py-2 text-gray-700 dark:text-gray-300">{{ setText(card.set) }}</td>
-                  <td class="px-3 py-2 text-gray-700 dark:text-gray-300 max-w-80 truncate">{{ previewText(card) }}</td>
+                  <td class="px-3 py-2 max-w-80 truncate">
+                    <UPopover
+                      v-if="fullText(card)"
+                      :open="textPopoverOpen[`${card.cardId}:${card.lang}`]"
+                      :ui="{ content: 'max-w-lg p-3' }"
+                      side="top"
+                      align="center"
+                    >
+                      <span
+                        class="text-gray-700 dark:text-gray-300 cursor-default"
+                        @mouseenter="textPopoverOpen[`${card.cardId}:${card.lang}`] = true"
+                        @mouseleave="textPopoverLeave(`${card.cardId}:${card.lang}`)"
+                      >{{ previewText(card) }}</span>
+                      <template #content>
+                        <div
+                          class="whitespace-pre-wrap"
+                          @mouseenter="textPopoverOpen[`${card.cardId}:${card.lang}`] = true"
+                          @mouseleave="textPopoverLeave(`${card.cardId}:${card.lang}`)"
+                        >{{ fullText(card) }}</div>
+                      </template>
+                    </UPopover>
+                    <span v-else class="text-gray-700 dark:text-gray-300">{{ previewText(card) }}</span>
+                  </td>
                   <td class="px-3 py-2">
                     <UButton
                       size="xs"
@@ -933,7 +955,7 @@ const formatElapsed = (ms: number) => {
   return `${(ms / 1000).toFixed(3)}s`;
 };
 
-const previewText = (card: CardEntityView) => {
+const cleanCardText = (card: CardEntityView) => {
   const text = card.localization.displayText ?? card.localization.text ?? '';
   return text
     .replace(/<[^>]+>/g, '')
@@ -943,9 +965,14 @@ const previewText = (card: CardEntityView) => {
     .replace(/\s*[(（]?\{\d+\}[)）]?/g, '')
     .replace(/\s+([.,!?;:。！？；：])/g, '$1')
     .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 180);
+    .trim();
 };
+
+const previewText = (card: CardEntityView) =>
+  cleanCardText(card).slice(0, 180);
+
+const fullText = (card: CardEntityView) =>
+  cleanCardText(card);
 
 const doSearch = async () => {
   if (!q.value) {
@@ -989,7 +1016,7 @@ const tableColumns = computed<TableColumn[]>(() => [
   { key: 'name', label: t('hearthstone.search.table.columnName'), sortable: true, sortField: 'name' },
   { key: 'cost', label: t('hearthstone.search.table.columnCost'), sortable: true, sortField: 'cost' },
   { key: 'type', label: t('hearthstone.search.table.columnType'), sortable: true, sortField: 'type' },
-  { key: 'class', label: t('hearthstone.search.table.columnClass'), sortable: false },
+  { key: 'class', label: t('hearthstone.search.table.columnClass'), sortable: true, sortField: 'class' },
   { key: 'attackHealth', label: t('hearthstone.search.table.columnAttackHealth'), sortable: true, sortField: 'stats' },
   { key: 'set', label: t('hearthstone.search.table.columnSet'), sortable: true, sortField: 'set' },
   { key: 'text', label: t('hearthstone.search.table.columnText'), sortable: false },
@@ -1025,6 +1052,15 @@ function toggleSort(col: TableColumn) {
 }
 
 const selectedColumns = ref(['name', 'cost', 'type', 'class', 'attackHealth', 'set', 'text']);
+
+const textPopoverOpen = reactive<Record<string, boolean>>({});
+const textPopoverTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+
+function textPopoverLeave(key: string) {
+  textPopoverTimers[key] = setTimeout(() => {
+    textPopoverOpen[key] = false;
+  }, 120);
+}
 
 function toggleColumn(key: string) {
   if (selectedColumns.value.includes(key)) {

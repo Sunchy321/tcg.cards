@@ -7,20 +7,25 @@ import { QueryError } from '#search/command/error';
 import { and, asc, desc, eq, inArray, not, notInArray, or, sql } from 'drizzle-orm';
 
 import { model } from '#model/hearthstone/search';
-import { types as typeSchema } from '#model/hearthstone/schema/basic';
+import { classes as classSchema, types as typeSchema } from '#model/hearthstone/schema/basic';
 import { CardEntityView } from '#schema/shared/hearthstone/entity';
+import { TAG_SLUG, TAG_ID } from '#model/hearthstone/constant/tag';
 
-const typeOrderMap: Record<string, number> = {};
-typeSchema.options.forEach((t, i) => { typeOrderMap[t] = i; });
+function classOrderCase(column: ReturnType<typeof sql>) {
+  const whenClauses = classSchema.options
+    .map((c, i) => `WHEN '${c}' THEN ${i}`)
+    .join(' ');
+
+  return sql`CASE ${column} ${sql.raw(whenClauses)} ELSE 99 END`;
+}
 
 function typeOrderCase(column: typeof CardEntityView.type) {
-  const whens = typeSchema.options
-    .filter(t => t !== 'null')
-    .map(t => sql`WHEN ${t} THEN ${typeOrderMap[t]}`);
+  const whenClauses = typeSchema.options
+    .flatMap((t, i) => t === 'null' ? [] : `WHEN '${t}' THEN ${i}`)
+    .join(' ');
 
-  return sql`CASE ${column} ${sql.join(whens, ' ')} ELSE 99 END`;
+  return sql`CASE ${column} ${sql.raw(whenClauses)} ELSE 99 END`;
 }
-import { TAG_SLUG, TAG_ID } from '#model/hearthstone/constant/tag';
 
 const cs = create
   .with(model)
@@ -340,6 +345,10 @@ export const order = cs
         sorter.push(sort(typeOrderCase(table.type)));
         sorter.push(asc(table.localization.name));
         break;
+      case 'class':
+        sorter.push(sort(classOrderCase(sql`${table.classes}[1]`)));
+        sorter.push(asc(table.localization.name));
+        break;
       case 'cost':
         sorter.push(sort(table.cost));
         sorter.push(asc(table.localization.name));
@@ -354,11 +363,14 @@ export const order = cs
         break;
       case 'stats': {
         const secondStat = sql`COALESCE(${table.health}, ${table.durability}, ${table.armor}, 0)`;
-        const sumExpr = sql`(${table.attack} + ${secondStat})`;
+        const sumExpr = sql`CASE WHEN ${table.type} = 'hero'
+          THEN NULL
+          ELSE (${table.attack} + ${secondStat})
+        END`;
         const nullsLast = (e: ReturnType<typeof sql>) =>
           dir === 1 ? sql`${e} ASC NULLS LAST` : sql`${e} DESC NULLS LAST`;
         sorter.push(nullsLast(sumExpr));
-        sorter.push(nullsLast(table.attack));
+        sorter.push(nullsLast(sql`${table.attack}`));
         sorter.push(asc(table.localization.name));
         break;
       }
