@@ -1,5 +1,5 @@
 <template>
-  <div class="relative aspect-68/94 w-full overflow-visible rounded-lg">
+  <div class="relative aspect-68/94 overflow-visible rounded-lg">
     <img
       v-if="!hasError && imageUrl"
       :key="imageUrl"

@@ -149,9 +149,10 @@ export default {
     game: {
       $self:    '游戏',
       language: '游戏语言',
-      searchLayout:     '搜索布局',
-      searchLayoutGrid: '网格',
-      searchLayoutList: '列表',
+      searchLayout:      '搜索布局',
+      searchLayoutGrid:  '网格',
+      searchLayoutList:  '列表',
+      searchLayoutTable: '表格',
       setAsDefault:     '设为默认',
       resetToDefault:   '重置为默认',
     },
@@ -172,6 +173,25 @@ export default {
       hint:       '例如：火球术、class:mage cost<=3、type:minion race:dragon',
       noResult:   '没有找到匹配的卡牌',
       failed:     '搜索失败',
+
+      layoutGrid:  '图片',
+      layoutList:  '列表',
+      layoutTable: '表格',
+
+      table: {
+        columnName:        '名称',
+        columnCost:        '费用',
+        columnType:        '类型',
+        columnClass:       '职业',
+        columnAttackHealth:'攻击/生命',
+        columnSet:         '系列',
+        columnText:        '效果文本',
+        columnDetail:      '详情',
+        selectColumns:     '选择列',
+        copy:              '复制',
+        export:            '导出',
+        copied:            '已复制到剪贴板',
+      },
 
       advanced: {
         $self:          '高级搜索',

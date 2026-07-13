@@ -25,6 +25,17 @@
           {{ $t('hearthstone.search.advanced.$self') }}
         </UButton>
 
+        <UButton
+          :icon="layoutIcon"
+          variant="outline"
+          size="sm"
+          color="primary"
+          class="text-white! ring-white!"
+          @click="cycleLayout"
+        >
+          {{ layoutLabel }}
+        </UButton>
+
         <span v-if="data != null" class="font-mono text-sm text-white/70 shrink-0">
           {{ total }}
         </span>
@@ -461,8 +472,7 @@
       </div>
     </Transition>
 
-    <div class="mx-auto max-w-6xl px-4 py-6">
-
+    <div v-if="!showResults" class="mx-auto max-w-6xl px-4 py-6">
       <div v-if="!q" class="flex flex-col items-center justify-center py-24 text-center text-gray-500 gap-3">
         <UIcon name="lucide:search" class="text-5xl" />
         <p class="text-lg font-medium">{{ $t('hearthstone.search.emptyQuery') }}</p>
@@ -484,13 +494,40 @@
         <p class="text-lg font-medium">{{ $t('hearthstone.search.noResult') }}</p>
         <p>{{ q }}</p>
       </div>
+    </div>
 
-      <div v-else class="flex flex-col gap-4">
+    <!-- Grid view: full width -->
+    <div v-else-if="searchLayout === 'grid'" class="px-4 py-6">
+      <div class="grid grid-cols-[repeat(auto-fill,200px)] gap-2">
+        <NuxtLink
+          v-for="card in cards"
+          :key="`${card.cardId}:${card.lang}`"
+          :to="cardLink(card)"
+          target="_blank"
+        >
+          <CardImage
+            :card-id="card.cardId"
+            :version="minVersion(card)"
+            :lang="card.lang"
+            :render-hash="card.renderHash"
+            :variant="resultVariant"
+            class="w-50"
+          />
+        </NuxtLink>
+      </div>
+    </div>
+
+      <!-- List and Table views: constrained width -->
+      <div v-else class="mx-auto max-w-7xl px-4 py-6">
+
+      <!-- List view -->
+      <div v-if="searchLayout === 'list'" class="flex flex-col gap-4">
         <NuxtLink
           v-for="card in cards"
           :key="`${card.cardId}:${card.lang}`"
           :to="cardLink(card)"
           class="block"
+          target="_blank"
         >
           <UCard class="hover:ring-2 hover:ring-primary/30 transition overflow-visible!">
             <div class="flex flex-col gap-4 sm:flex-row">
@@ -553,6 +590,100 @@
           </UCard>
         </NuxtLink>
       </div>
+
+      <!-- Table view -->
+      <div v-else-if="searchLayout === 'table'" class="flex flex-col gap-3">
+        <div class="flex items-center justify-end gap-2">
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            icon="lucide:copy"
+            @click="copyTableData"
+          >
+            {{ $t('hearthstone.search.table.copy') }}
+          </UButton>
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            icon="lucide:download"
+            @click="exportTableData"
+          >
+            {{ $t('hearthstone.search.table.export') }}
+          </UButton>
+        </div>
+
+        <UCard>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-gray-200 dark:border-gray-700">
+                  <th
+                    v-for="col in tableColumns"
+                    :key="col.key"
+                    class="px-3 py-2 text-left font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap"
+                    :class="{ 'cursor-pointer hover:text-gray-700 dark:hover:text-white select-none': col.sortable }"
+                    @click="col.sortable && toggleSort(col)"
+                  >
+                    <span class="inline-flex items-center gap-1.5">
+                      <input
+                        v-if="col.key !== 'detail'"
+                        type="checkbox"
+                        :checked="selectedColumns.includes(col.key)"
+                        class="size-3 rounded"
+                        @click.stop
+                        @change="toggleColumn(col.key)"
+                      >
+                      {{ col.label }}
+                      <template v-if="col.sortable && tableSortField === col.sortField">
+                        <UIcon :name="tableSortDir === 'asc' ? 'lucide:arrow-up' : 'lucide:arrow-down'" class="w-3.5 h-3.5" />
+                      </template>
+                    </span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="card in cards"
+                  :key="`${card.cardId}:${card.lang}`"
+                  class="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-white/5 transition"
+                >
+                  <td class="px-3 py-2">
+                    <CardAvatar
+                      :card-id="card.cardId"
+                      :version="minVersion(card)"
+                      :lang="card.lang"
+                      :render-hash="card.renderHash"
+                      no-link
+                      class="no-underline"
+                    />
+                  </td>
+                  <td class="px-3 py-2 text-gray-700 dark:text-gray-300">
+                    <ManaCost v-if="card.cost != null" :value="card.cost" size="sm" />
+                  </td>
+                  <td class="px-3 py-2 text-gray-700 dark:text-gray-300">{{ typeText(card.type) }}</td>
+                  <td class="px-3 py-2 text-gray-700 dark:text-gray-300">{{ card.classes.map(classText).join(', ') }}</td>
+                  <td class="px-3 py-2 text-gray-700 dark:text-gray-300">{{ stats(card) }}</td>
+                  <td class="px-3 py-2 text-gray-700 dark:text-gray-300">{{ setText(card.set) }}</td>
+                  <td class="px-3 py-2 text-gray-700 dark:text-gray-300 max-w-80 truncate">{{ previewText(card) }}</td>
+                  <td class="px-3 py-2">
+                    <UButton
+                      size="xs"
+                      variant="outline"
+                      color="primary"
+                      :to="cardLink(card)"
+                      target="_blank"
+                    >
+                      {{ $t('hearthstone.search.table.columnDetail') }}
+                    </UButton>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </UCard>
+      </div>
     </div>
   </div>
 </template>
@@ -586,9 +717,42 @@ const { setActions } = useActions();
 const actions = useHearthstoneActions();
 const i18n = useI18n();
 const { t, te } = i18n;
+const toast = useToast();
 
 setActions([actions.random]);
 useTitle(() => i18n.t('hearthstone.search.$self'));
+
+// ── Layout toggle ───────────────────────────────────────────────────────────
+
+const { config: gameConfig, setConfig: setGameConfig } = useUserConfig();
+
+const searchLayout = computed(() => (gameConfig.value.searchLayout as string) ?? 'grid');
+
+const layoutCycle = ['grid', 'list', 'table'] as const;
+
+function cycleLayout() {
+  const idx = layoutCycle.indexOf(searchLayout.value as typeof layoutCycle[number]);
+  const next = layoutCycle[(idx + 1) % layoutCycle.length];
+  setGameConfig('searchLayout', next);
+}
+
+const layoutIcon = computed(() => {
+  switch (searchLayout.value) {
+  case 'grid': return 'lucide:layout-grid';
+  case 'list': return 'lucide:layout-list';
+  case 'table': return 'lucide:table';
+  default: return 'lucide:layout-grid';
+  }
+});
+
+const layoutLabel = computed(() => {
+  switch (searchLayout.value) {
+  case 'grid': return i18n.t('hearthstone.search.layoutGrid');
+  case 'list': return i18n.t('hearthstone.search.layoutList');
+  case 'table': return i18n.t('hearthstone.search.layoutTable');
+  default: return '';
+  }
+});
 
 const subheaderReady = ref(false);
 
@@ -652,6 +816,10 @@ const total = computed(() => data.value?.result?.total ?? 0);
 const elapsed = computed(() => data.value?.result?.elapsed ?? 0);
 const pageCount = computed(() => data.value?.result?.totalPage ?? Math.ceil(total.value / pageSize.value));
 const resultVariant = computed(() => data.value?.result?.variant ?? 'normal');
+
+const showResults = computed(() =>
+  !!q.value && !errorText.value && data.value != null && cards.value.length > 0,
+);
 
 const errorText = computed(() => {
   if (fetchError.value != null) {
@@ -799,6 +967,121 @@ const doSearch = async () => {
     searching.value = false;
   }
 };
+
+// ── Table view ──────────────────────────────────────────────────────────────
+
+interface TableColumn {
+  key:        string;
+  label:      string;
+  sortable:   boolean;
+  sortField?: string;
+}
+
+const tableColumns = computed<TableColumn[]>(() => [
+  { key: 'name', label: t('hearthstone.search.table.columnName'), sortable: true, sortField: 'name' },
+  { key: 'cost', label: t('hearthstone.search.table.columnCost'), sortable: true, sortField: 'cost' },
+  { key: 'type', label: t('hearthstone.search.table.columnType'), sortable: false },
+  { key: 'class', label: t('hearthstone.search.table.columnClass'), sortable: false },
+  { key: 'attackHealth', label: t('hearthstone.search.table.columnAttackHealth'), sortable: true, sortField: 'attack' },
+  { key: 'set', label: t('hearthstone.search.table.columnSet'), sortable: true, sortField: 'set' },
+  { key: 'text', label: t('hearthstone.search.table.columnText'), sortable: false },
+  { key: 'detail', label: t('hearthstone.search.table.columnDetail'), sortable: false },
+]);
+
+const tableSortField = ref<string | null>(null);
+const tableSortDir = ref<'asc' | 'desc' | null>(null);
+
+function toggleSort(col: TableColumn) {
+  if (!col.sortField) return;
+
+  if (tableSortField.value !== col.sortField) {
+    tableSortField.value = col.sortField;
+    tableSortDir.value = 'asc';
+  } else if (tableSortDir.value === 'asc') {
+    tableSortDir.value = 'desc';
+  } else {
+    tableSortField.value = null;
+    tableSortDir.value = null;
+  }
+
+  const currentQ = q.value ?? '';
+  let newQ = currentQ.replace(/\s*\border:\S+/g, '').trim();
+  if (tableSortField.value && tableSortDir.value) {
+    const suffix = tableSortDir.value === 'desc' ? '-' : '';
+    newQ = `${newQ} order:${tableSortField.value}${suffix}`.trim();
+  }
+
+  if (newQ !== currentQ) {
+    void router.replace({ query: { ...route.query, q: newQ || undefined, page: 1 } });
+  }
+}
+
+const selectedColumns = ref(['name', 'cost', 'type', 'class', 'attackHealth', 'set', 'text']);
+
+function toggleColumn(key: string) {
+  if (selectedColumns.value.includes(key)) {
+    selectedColumns.value = selectedColumns.value.filter(k => k !== key);
+  } else {
+    selectedColumns.value = [...selectedColumns.value, key];
+  }
+}
+
+function getCellValue(card: CardEntityView, key: string): string {
+  switch (key) {
+  case 'name': return card.localization.name;
+  case 'cost': return card.cost != null ? String(card.cost) : '';
+  case 'type': return typeText(card.type);
+  case 'class': return card.classes.map(classText).join(', ');
+  case 'attackHealth': return stats(card) ?? '';
+  case 'set': return setText(card.set);
+  case 'text': return previewText(card);
+  default: return '';
+  }
+}
+
+function buildTSV(): string {
+  const cols = selectedColumns.value;
+  const header = cols.map(k => {
+    const col = tableColumns.value.find(c => c.key === k);
+    return col?.label ?? k;
+  }).join('\t');
+  const rows = cards.value.map(card =>
+    cols.map(k => getCellValue(card, k).replace(/\t/g, ' ')).join('\t'),
+  );
+  return [header, ...rows].join('\n');
+}
+
+function buildCSV(): string {
+  const cols = selectedColumns.value;
+  const header = cols.map(k => {
+    const col = tableColumns.value.find(c => c.key === k);
+    return `"${(col?.label ?? k).replace(/"/g, '""')}"`;
+  }).join(',');
+  const rows = cards.value.map(card =>
+    cols.map(k => `"${getCellValue(card, k).replace(/"/g, '""')}"`).join(','),
+  );
+  return [header, ...rows].join('\n');
+}
+
+async function copyTableData() {
+  try {
+    await navigator.clipboard.writeText(buildTSV());
+    toast.add({ title: t('hearthstone.search.table.copied'), color: 'success' });
+  } catch {
+    // clipboard API may fail; silently ignore
+  }
+}
+
+function exportTableData() {
+  const csv = buildCSV();
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'search-results.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 watch([q, page, pageSize, searchLang], doSearch, { immediate: true });
 

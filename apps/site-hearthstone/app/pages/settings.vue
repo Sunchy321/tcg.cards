@@ -244,6 +244,7 @@
                 :items="[
                   { value: 'grid', label: t('settings.game.searchLayoutGrid') },
                   { value: 'list', label: t('settings.game.searchLayoutList') },
+                  { value: 'table', label: t('settings.game.searchLayoutTable') },
                 ]"
                 class="w-44"
               />

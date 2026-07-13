@@ -150,9 +150,10 @@ export default {
     game: {
       $self:    'Game',
       language: 'Game Language',
-      searchLayout:     'Search Layout',
-      searchLayoutGrid: 'Grid',
-      searchLayoutList: 'List',
+      searchLayout:      'Search Layout',
+      searchLayoutGrid:  'Grid',
+      searchLayoutList:  'List',
+      searchLayoutTable: 'Table',
       setAsDefault:     'Set as Default',
       resetToDefault:   'Reset to Default',
     },
@@ -173,6 +174,25 @@ export default {
       hint:       'Examples: Fireball, class:mage cost<=3, type:minion race:dragon',
       noResult:   'No cards matched your query',
       failed:     'Search failed',
+
+      layoutGrid:  'Grid',
+      layoutList:  'List',
+      layoutTable: 'Table',
+
+      table: {
+        columnName:        'Name',
+        columnCost:        'Cost',
+        columnType:        'Type',
+        columnClass:       'Class',
+        columnAttackHealth:'Attack/Health',
+        columnSet:         'Set',
+        columnText:        'Text',
+        columnDetail:      'Detail',
+        selectColumns:     'Select Columns',
+        copy:              'Copy',
+        export:            'Export',
+        copied:            'Copied to clipboard',
+      },
 
       advanced: {
         $self:            'Advanced Search',

@@ -15,14 +15,14 @@ export type GlobalConfig = z.infer<typeof globalConfig>;
 
 export const magicConfig = z.strictObject({
   locale:       magicLocale.default('en'),
-  searchLayout: z.enum(['grid', 'list']).default('grid'),
+  searchLayout: z.enum(['grid', 'list', 'table']).default('grid'),
 }).strip();
 
 export type MagicConfig = z.infer<typeof magicConfig>;
 
 export const hearthstoneConfig = z.strictObject({
   locale:       hearthstoneLocale.default('zhs'),
-  searchLayout: z.enum(['grid', 'list']).default('grid'),
+  searchLayout: z.enum(['grid', 'list', 'table']).default('grid'),
 }).strip();
 
 export type HearthstoneConfig = z.infer<typeof hearthstoneConfig>;
