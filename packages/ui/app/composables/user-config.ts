@@ -193,11 +193,24 @@ export function useUserConfig<TConfig extends Record<string, unknown> = Record<s
           writeLocal(parsed);
           await $orpc[resolvedGameId].userConfig.put({ gameId: resolvedGameId, config: parsed });
         }
+        syncLocale();
         syncStatus.value = 'synced';
       } catch {
         syncStatus.value = 'failed';
       }
     }, { immediate: true });
+  }
+
+  function syncLocale() {
+    const locale = config.value.locale;
+    if (locale == null) return;
+    const { config: globalCfg, setConfig: setGlobal } = useGlobalConfig();
+    if (globalCfg.value.gameLocales[resolvedGameId] !== locale) {
+      setGlobal('gameLocales', {
+        ...globalCfg.value.gameLocales,
+        [resolvedGameId]: locale as string,
+      });
+    }
   }
 
   function setConfig(key: string, value: unknown) {

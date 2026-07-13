@@ -11,6 +11,11 @@ export const useGameLocale = () => {
 
   const defaultLocale = appConfig.defaultLocale ?? appConfig.locales?.[0] ?? 'en';
   const { config: globalConfig } = useGlobalConfig();
+  const legacyCookie = useCookie<string>(`${appConfig.gameId}_locale`);
 
-  return computed(() => (globalConfig.value.gameLocales[appConfig.gameId as string] as string) ?? defaultLocale);
+  return computed(() =>
+    (globalConfig.value.gameLocales[appConfig.gameId as string] as string)
+    ?? legacyCookie.value
+    ?? defaultLocale,
+  );
 };
