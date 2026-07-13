@@ -20,6 +20,7 @@
     "@orpc/client": "^1.14.0",
     "@orpc/server": "^1.14.0",
     "@tcg-cards/auth": "workspace:*",
+    "@tcg-cards/console-api": "workspace:*",
     "@tcg-cards/db": "workspace:*",
     "@tcg-cards/model": "workspace:*",
     "@tcg-cards/search": "workspace:*",

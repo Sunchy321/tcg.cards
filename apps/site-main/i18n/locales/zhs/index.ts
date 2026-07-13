@@ -131,6 +131,10 @@ export default {
     general: {
       $self:      '通用',
       uiLanguage: '界面语言',
+      theme:      '主题',
+      themeLight: '浅色',
+      themeDark:  '深色',
+      themeAuto:  '自动',
     },
 
     game: {

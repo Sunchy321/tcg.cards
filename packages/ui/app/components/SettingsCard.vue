@@ -1,9 +1,12 @@
 <template>
   <UCard>
     <template #header>
-      <h2 class="text-base font-semibold text-gray-900 dark:text-white">
-        {{ title }}
-      </h2>
+      <div class="flex items-center justify-between">
+        <h2 class="text-base font-semibold text-gray-900 dark:text-white">
+          {{ title }}
+        </h2>
+        <slot name="header-extra" />
+      </div>
     </template>
     <div class="flex flex-col gap-4">
       <slot />

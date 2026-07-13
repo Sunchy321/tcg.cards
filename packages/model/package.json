@@ -9,7 +9,9 @@
   },
   "devDependencies": {
     "@types/bun": "^1.3.13",
-    "@types/lodash-es": "^4.17.12"
+    "@types/lodash-es": "^4.17.12",
+    "eslint": "^10.2.1",
+    "eslint-config-custom": "workspace:*"
   },
   "peerDependencies": {
     "typescript": "^5"
@@ -17,7 +19,6 @@
   "dependencies": {
     "@tcg-cards/search": "workspace:*",
     "@tcg-cards/shared": "workspace:*",
-    "eslint-config-custom": "workspace:*",
     "zod": "^4.3.6"
   }
 }

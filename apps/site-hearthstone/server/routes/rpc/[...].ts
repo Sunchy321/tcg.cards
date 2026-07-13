@@ -2,6 +2,7 @@ import { RPCHandler } from '@orpc/server/fetch';
 import { onError } from '@orpc/server';
 
 import { router } from '~~/server/orpc/service';
+import { auth } from '~~/server/lib/auth';
 
 const handler = new RPCHandler(router, {
   interceptors: [
@@ -14,9 +15,14 @@ const handler = new RPCHandler(router, {
 export default defineEventHandler(async event => {
   const request = toWebRequest(event);
 
+  const session = await auth.api.getSession({ headers: request.headers });
+
   const { response } = await handler.handle(request, {
     prefix:  '/rpc',
-    context: {},
+    context: {
+      user:    session?.user ?? null,
+      session: session?.session ?? null,
+    },
   });
 
   if (response) {

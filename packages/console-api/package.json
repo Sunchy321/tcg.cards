@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./request-meta": "./src/request-meta.ts",
-    "./lib/*": "./src/lib/*.ts"
+    "./lib/*": "./src/lib/*.ts",
+    "./user-config": "./src/orpc/user-config.ts"
   },
   "private": true,
   "scripts": {

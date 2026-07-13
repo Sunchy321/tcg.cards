@@ -147,6 +147,7 @@
         "@orpc/client": "^1.14.0",
         "@orpc/server": "^1.14.0",
         "@tcg-cards/auth": "workspace:*",
+        "@tcg-cards/console-api": "workspace:*",
         "@tcg-cards/db": "workspace:*",
         "@tcg-cards/model": "workspace:*",
         "@tcg-cards/search": "workspace:*",
@@ -192,6 +193,7 @@
         "@orpc/server": "^1.14.0",
         "@tailwindcss/typography": "^0.5.19",
         "@tcg-cards/auth": "workspace:*",
+        "@tcg-cards/console-api": "workspace:*",
         "@tcg-cards/db": "workspace:*",
         "@tcg-cards/model": "workspace:*",
         "@tcg-cards/search": "workspace:*",
@@ -399,12 +401,13 @@
       "dependencies": {
         "@tcg-cards/search": "workspace:*",
         "@tcg-cards/shared": "workspace:*",
-        "eslint-config-custom": "workspace:*",
         "zod": "^4.3.6",
       },
       "devDependencies": {
         "@types/bun": "^1.3.13",
         "@types/lodash-es": "^4.17.12",
+        "eslint": "^10.2.1",
+        "eslint-config-custom": "workspace:*",
       },
       "peerDependencies": {
         "typescript": "^5",

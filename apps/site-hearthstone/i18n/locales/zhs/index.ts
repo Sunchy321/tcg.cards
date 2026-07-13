@@ -140,11 +140,20 @@ export default {
     general: {
       $self:      '通用',
       uiLanguage: '界面语言',
+      theme:      '主题',
+      themeLight: '浅色',
+      themeDark:  '深色',
+      themeAuto:  '自动',
     },
 
     game: {
       $self:    '游戏',
       language: '游戏语言',
+      searchLayout:     '搜索布局',
+      searchLayoutGrid: '网格',
+      searchLayoutList: '列表',
+      setAsDefault:     '设为默认',
+      resetToDefault:   '重置为默认',
     },
   },
 

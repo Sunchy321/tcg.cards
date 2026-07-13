@@ -75,13 +75,21 @@
               variant="ghost"
               class="text-white hover:bg-white/20 hover:text-white font-mono font-semibold"
             >
-              {{ gameLocale }}
+              {{ gameConfig.locale }}
             </UButton>
             <template #locale-item="{ item }">
               <span class="font-mono shrink-0 min-w-10">{{ item.code }}</span>
               <span class="text-muted-foreground">{{ item.label }}</span>
             </template>
           </UDropdownMenu>
+
+          <UButton
+            icon="lucide:settings"
+            color="neutral"
+            variant="ghost"
+            class="text-white hover:bg-white/20 hover:text-white"
+            @click="router.push('/settings')"
+          />
 
           <UColorModeButton class="text-white hover:bg-white/20 hover:text-white" />
 
@@ -116,7 +124,7 @@ const actions = getActions();
 // Locale switcher
 
 const gameLocales = appConfig.locales ?? [];
-const gameLocale = useGameLocale();
+const { config: gameConfig, setConfig: setGameConfig } = useUserConfig();
 const { t } = useI18n();
 
 const localeMenuItems = computed(() => {
@@ -124,7 +132,7 @@ const localeMenuItems = computed(() => {
     code:     l,
     label:    t(`locale.${l}`, l),
     slot:     'locale-item' as const,
-    onSelect: () => { gameLocale.value = l; },
+    onSelect: () => { setGameConfig('locale', l); },
   }));
 });
 

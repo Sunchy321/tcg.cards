@@ -141,11 +141,20 @@ export default {
     general: {
       $self:      'General',
       uiLanguage: 'Interface Language',
+      theme:      'Theme',
+      themeLight: 'Light',
+      themeDark:  'Dark',
+      themeAuto:  'Auto',
     },
 
     game: {
       $self:    'Game',
       language: 'Game Language',
+      searchLayout:     'Search Layout',
+      searchLayoutGrid: 'Grid',
+      searchLayoutList: 'List',
+      setAsDefault:     'Set as Default',
+      resetToDefault:   'Reset to Default',
     },
   },
 
