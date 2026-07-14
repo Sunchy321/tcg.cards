@@ -243,6 +243,7 @@
         "@nuxt/eslint": "^1.15.2",
         "eslint": "^10.2.1",
         "eslint-config-custom": "workspace:*",
+        "nitro-cloudflare-dev": "^0.2.2",
         "typescript": "^5.9.3",
         "vue-tsc": "^3.2.5",
         "wrangler": "^4.85.0",

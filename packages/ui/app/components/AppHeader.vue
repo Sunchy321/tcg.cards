@@ -65,23 +65,10 @@
             @click="getHandler(action.id)()"
           />
 
-          <UDropdownMenu
-            v-if="gameLocales.length > 1"
-            :items="localeMenuItems"
-            :ui="{ content: 'min-w-fit' }"
-          >
-            <UButton
-              color="neutral"
-              variant="ghost"
-              class="text-white hover:bg-white/20 hover:text-white font-mono font-semibold"
-            >
-              {{ gameConfig.locale }}
-            </UButton>
-            <template #locale-item="{ item }">
-              <span class="font-mono shrink-0 min-w-10">{{ item.code }}</span>
-              <span class="text-muted-foreground">{{ item.label }}</span>
-            </template>
-          </UDropdownMenu>
+          <AppHeaderLocale
+            v-if="appConfig.gameId"
+            ref="headerLocaleRef"
+          />
 
           <UButton
             icon="lucide:settings"
@@ -102,8 +89,6 @@
 </template>
 
 <script setup lang="ts">
-import { useI18n } from 'vue-i18n';
-
 const appConfig = useAppConfig();
 const router = useRouter();
 const route = useRoute();
@@ -112,8 +97,6 @@ const titleType = useTitleType();
 const { getParams, paramItems, paramValues } = useParams();
 const { getActions } = useActions();
 const searchInput = useSearchInput();
-const gameLocale = useGameLocale();
-
 const appIcon = appConfig.appIcon ?? 'i:logo';
 
 const params = getParams();
@@ -122,20 +105,7 @@ const actionMeta = route.meta.actions ?? [];
 
 const actions = getActions();
 
-// Locale switcher
-
-const gameLocales = appConfig.locales ?? [];
-const { config: gameConfig, setConfig: setGameConfig } = useUserConfig();
-const { t } = useI18n();
-
-const localeMenuItems = computed(() => {
-  return gameLocales.map(l => ({
-    code:     l,
-    label:    t(`locale.${l}`, l),
-    slot:     'locale-item' as const,
-    onSelect: () => { setGameConfig('locale', l); },
-  }));
-});
+const headerLocaleRef = ref<InstanceType<typeof AppHeaderLocale>>();
 
 const getHandler = (id: string) => {
   const action = actions.value.find(a => a.id === id);
@@ -145,7 +115,7 @@ const getHandler = (id: string) => {
 const commitSearch = () => {
   router.push({
     path:  `/search`,
-    query: { q: searchInput.value, lang: gameLocale.value },
+    query: { q: searchInput.value, lang: headerLocaleRef.value?.gameLocale.value },
   });
 };
 </script>

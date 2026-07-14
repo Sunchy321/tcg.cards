@@ -3,12 +3,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "nuxt build",
+    "build": "nuxt build --dotenv .env.production",
     "dev": "nuxt dev",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
-    "typecheck": "nuxt typecheck"
+    "typecheck": "nuxt typecheck",
+    "deploy": "wrangler deploy"
   },
   "dependencies": {
     "@iconify-json/lucide": "^1.2.104",
@@ -24,6 +25,7 @@
     "@nuxt/eslint": "^1.15.2",
     "eslint": "^10.2.1",
     "eslint-config-custom": "workspace:*",
+    "nitro-cloudflare-dev": "^0.2.2",
     "typescript": "^5.9.3",
     "vue-tsc": "^3.2.5",
     "wrangler": "^4.85.0"
