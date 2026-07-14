@@ -1,7 +1,7 @@
 # For more details on how to configure Wrangler, refer to:
 # https://developers.cloudflare.com/workers/wrangler/configuration/
 
-name = "tcg-cards"
+name = "hearthstone-tcg-cards"
 main = "./.output/server/index.mjs"
 compatibility_date = "2026-02-19"
 compatibility_flags = ["nodejs_compat"]
@@ -9,7 +9,7 @@ compatibility_flags = ["nodejs_compat"]
 workers_dev = false
 
 [[routes]]
-pattern = ".tcg.cards"
+pattern = "hearthstone.tcg.cards"
 custom_domain = true
 
 [observability]
@@ -33,8 +33,8 @@ directory = "./.output/public/"
 # https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
 # Note: Use secrets to store sensitive data.
 # https://developers.cloudflare.com/workers/configuration/secrets/
-# [vars]
-# MY_VARIABLE = "production_value"
+[vars]
+BETTER_AUTH_URL = "https://hearthstone.tcg.cards"
 
 # Service Bindings (communicate between multiple Workers)
 # https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings

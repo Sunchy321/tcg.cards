@@ -719,7 +719,6 @@ import { locale as localeSchema } from '#model/hearthstone/schema/basic';
 import { explain as model } from '~/search';
 import type { NumericOperator } from '~/composables/advanced-search';
 import { useAdvancedSearch, parseIntoState } from '~/composables/advanced-search';
-import { useRouteQuery } from '@vueuse/router';
 
 definePageMeta({
   layout:    'main',
@@ -1129,19 +1128,22 @@ function exportTableData() {
 
 watch([q, page, pageSize, searchLang], doSearch, { immediate: true });
 
-const advanced = useRouteQuery('advanced');
-const isAdvancedOpen = computed(() => advanced.value !== undefined);
+const isAdvancedOpen = computed(() => route.query.advanced !== undefined);
 
 const { state, dsl, reset } = useAdvancedSearch();
 
+/** Opens the advanced search panel through the route query. */
 function openAdvanced() {
   reset();
   parseIntoState(route.query.q as string ?? '', state.value);
-  advanced.value = null;
+  void router.replace({ query: { ...route.query, advanced: null } });
 }
 
+/** Closes the advanced search panel by removing its route query. */
 function closeAdvanced() {
-  advanced.value = undefined;
+  const query = { ...route.query };
+  delete query.advanced;
+  void router.replace({ query });
 }
 
 function commitAdvancedSearch() {
