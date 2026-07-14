@@ -4,11 +4,7 @@ import { taskPageSnapshot } from '@tcg-cards/model/src/task';
 import { os } from '../index';
 import { createAndRunTask, getStore } from '../task';
 import { publishTaskDefinition } from '../../lib/hearthstone/task/publish/definition';
-import {
-  reanchorTaskType,
-  reanchorDefinitionVersion,
-  buildReanchorTaskRunInput,
-} from '../../lib/hearthstone/task/reanchor';
+import { pinTaskDefinition } from '../../lib/hearthstone/task/pin';
 import { cardImageRequirementExportInput } from '@tcg-cards/model/src/hearthstone/schema/data/image';
 import {
   imageRenderTaskType,
@@ -53,15 +49,25 @@ const publish = os
     });
   });
 
-const reanchor = os
+const pin = os
   .input(z.strictObject({
     publishTarget: z.literal('hearthstone'),
     environment: z.string().trim().min(1),
   }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
-    await abandonStaleTask(reanchorTaskType, publishTaskDefinition.scopeType, `${input.publishTarget}:${input.environment}:reanchor`);
-    return createAndRunTask(reanchorTaskType, buildReanchorTaskRunInput(input));
+    const scope = { publishTarget: input.publishTarget, environment: input.environment };
+    const resolved = pinTaskDefinition.resolveScope(scope);
+    await abandonStaleTask(pinTaskDefinition.taskType, pinTaskDefinition.scopeType, resolved.key);
+    const active = await getStore().getActiveTaskRun(pinTaskDefinition.taskType, pinTaskDefinition.scopeType, resolved.key);
+    if (active) throw new Error(`Pin task already exists for stream ${resolved.key}`);
+
+    return createAndRunTask(pinTaskDefinition.taskType, {
+      taskType: pinTaskDefinition.taskType,
+      definitionVersion: pinTaskDefinition.definitionVersion,
+      scope: { type: pinTaskDefinition.scopeType, key: resolved.key, snapshot: resolved.snapshot as Record<string, unknown> },
+      params: { publishTarget: input.publishTarget, environment: input.environment },
+    });
   });
 
 const imageRender = os
@@ -87,4 +93,4 @@ const imageDownload = os
     }));
   });
 
-export const createTask = { publish, reanchor, imageRender, imageDownload };
+export const createTask = { publish, pin, imageRender, imageDownload };

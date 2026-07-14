@@ -430,7 +430,7 @@ export function recomputeLatestHsdataProjection() {
 }
 
 /** Current local latest projection published to the configured remote target. */
-/** Current local latest projection reanchored into the local publish baseline. */
+/** Current local latest projection pinned into the local publish baseline. */
 /** Lists recent publish batches for the current target. */
 export function listPublishBatches(input: HsdataPublishStreamInput) {
   return (async () => {
@@ -479,7 +479,7 @@ export function registerRemotePublishStream(input: {
   })();
 }
 
-/** Requests a cooperative stop of the current publish or reanchor job. */
+/** Requests a cooperative stop of the current publish or pin job. */
 /** Streams recompute-latest progress events from the local Bun runtime. */
 export function listenHsdataRecomputeLatestProgress(
   handler: (event: HsdataRecomputeLatestProgressEvent) => void,

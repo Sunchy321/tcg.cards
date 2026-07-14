@@ -15,7 +15,7 @@ export const publishOperationKind = pgEnum('publish_operation_kind', [
   'publish',
   'repair',
   'rollback',
-  'reanchor',
+  'pin',
 ]);
 
 /** Shared row-level plan actions produced by local publish-owned diff planning. */

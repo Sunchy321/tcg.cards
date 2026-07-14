@@ -108,7 +108,7 @@ function formatPublishTargetFingerprint(fingerprint: string | null) {
 function formatPublishOperationKind(kind: string) {
   switch (kind) {
     case 'publish': return '发布';
-    case 'reanchor': return '重建基线';
+    case 'pin': return 'Pin';
     case 'repair': return '修复';
     case 'rollback': return '回滚';
     default: return kind;
@@ -150,6 +150,27 @@ function isCancelableBatch(batch: HsdataPublishReport) {
 
 const controller = ref<{ attach(snapshot: TaskPageSnapshot): void; currentTaskRunId: { value: string | null } }>();
 
+const showPinConfirm = ref(false);
+let resolvePinCreate: ((value: TaskPageSnapshot) => void) | null = null;
+let rejectPinCreate: ((reason: Error) => void) | null = null;
+
+function confirmPin() {
+  showPinConfirm.value = false;
+  orpc.hearthstone.createTask.pin({
+    publishTarget: 'hearthstone',
+    environment: selectedEnvironment.value,
+  }).then((result) => {
+    resolvePinCreate?.(result as TaskPageSnapshot);
+  }).catch((e) => {
+    rejectPinCreate?.(e as Error);
+  });
+}
+
+function cancelPin() {
+  showPinConfirm.value = false;
+  rejectPinCreate?.(new Error('Cancelled'));
+}
+
 const operations: TaskOperation[] = [
   {
     key: 'publish',
@@ -162,14 +183,17 @@ const operations: TaskOperation[] = [
     }) as Promise<TaskPageSnapshot>,
   },
   {
-    key: 'reanchor',
-    label: '重建基线',
-    icon: 'i-lucide-anchor',
+    key: 'pin',
+    label: 'Pin',
+    icon: 'i-lucide-pin',
     color: 'warning',
-    create: async () => orpc.hearthstone.createTask.reanchor({
-      publishTarget: 'hearthstone',
-      environment: selectedEnvironment.value,
-    }) as Promise<TaskPageSnapshot>,
+    create: async () => {
+      return new Promise<TaskPageSnapshot>((resolve, reject) => {
+        resolvePinCreate = resolve;
+        rejectPinCreate = reject;
+        showPinConfirm.value = true;
+      });
+    },
   },
 ];
 
@@ -470,17 +494,10 @@ onMounted(async () => {
     <UCard v-if="taskResult">
       <template #header>
         <div class="flex items-center gap-2">
-          <span class="font-medium">发布报告</span>
+          <span class="font-medium">{{ taskResult.operationKind === 'pin' ? 'Pin 报告' : '发布报告' }}</span>
           <UBadge
-            v-if="taskResult.dryRun"
-            label="Dry Run"
-            color="warning"
-            variant="soft"
-          />
-          <UBadge
-            v-else
-            label="Success"
-            color="success"
+            :label="taskResult.operationKind === 'pin' ? 'Pin' : taskResult.dryRun ? 'Dry Run' : 'Success'"
+            :color="taskResult.operationKind === 'pin' ? 'warning' : taskResult.dryRun ? 'warning' : 'success'"
             variant="soft"
           />
         </div>
@@ -706,4 +723,28 @@ onMounted(async () => {
       </div>
     </UCard>
   </div>
+
+  <!-- Pin confirmation modal -->
+  <UModal v-model:open="showPinConfirm">
+    <template #header>
+      <div class="flex items-center gap-2">
+        <UIcon name="i-lucide-pin" class="size-5" />
+        <span class="font-medium">确认 Pin</span>
+      </div>
+    </template>
+    <template #body>
+      <p class="text-sm">
+        即将对 <strong>{{ selectedEnvironment }}</strong> 环境执行 Pin 操作。
+      </p>
+      <p class="mt-2 text-sm text-muted">
+        Pin 会将当前本地投影标记为已同步状态，更新本地 baseline 和远程 ledger，不会传输任何数据。Pin 之后执行 Publish 应为空操作。
+      </p>
+    </template>
+    <template #footer>
+      <div class="flex justify-end gap-2">
+        <UButton label="取消" color="neutral" variant="ghost" @click="cancelPin" />
+        <UButton label="确认 Pin" color="warning" @click="confirmPin" />
+      </div>
+    </template>
+  </UModal>
 </template>

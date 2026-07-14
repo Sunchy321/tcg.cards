@@ -17,7 +17,7 @@ import { Entity as RemoteEntity, EntityLocalization as RemoteEntityLocalization,
 import { PublishStreamRegistration } from '@tcg-cards/db/schema/remote/publish';
 import {
   loadRowDataChunk, insertRemoteRow, deleteRemoteRow, parseRowKey,
-  loadReanchorRowCounts, reanchorReadBatchSize, buildManifestLine,
+  loadPinRowCounts, pinReadBatchSize, buildManifestLine,
   upsertRemotePublishLedger, assertRemotePublishGate, renewRemotePublishLease,
   findActiveStreamBatch, hashJson, derivePublishDatasetRange, rowKeyOf, rowHashOf,
   loadBaselineRowHashes, chunkValues,
@@ -100,7 +100,7 @@ interface PublishCtx {
   /** Mutable state for loading_snapshots block loop. */
   loader?: LoaderState;
   /** Mutable state for update_baseline block loop. */
-  reanchor?: ReanchorState;
+  pin?: PinState;
 }
 
 interface LoaderState {
@@ -399,7 +399,7 @@ async function applyingBlock(
 
 // ── update_baseline block ──
 
-interface ReanchorState {
+interface PinState {
   manifest: Bun.CryptoHasher;
   builds: Set<number>;
   totalRowCount: number;
@@ -409,53 +409,53 @@ interface ReanchorState {
 }
 
 async function baselineBlock(
-  ctx: PublishCtx, batchId: string, reanchor: ReanchorState, blockInput: BaselineBlockInput, progress: ProgressFn<'bounded'>,
+  ctx: PublishCtx, batchId: string, pinState: PinState, blockInput: BaselineBlockInput, progress: ProgressFn<'bounded'>,
   done: (finalBlockInput: any) => BlockDone,
 ): Promise<BaselineBlockInput | BlockDone> {
   const tables: TableName[] = ['entities', 'entity_localizations', 'entity_relations', 'cards'];
   const db = getLocalDb() as unknown as PublishDb;
 
   let tableName: TableName | null = null;
-  for (const tn of tables) { if (reanchor.scanCursors.get(tn) !== undefined) { tableName = tn; break; } }
+  for (const tn of tables) { if (pinState.scanCursors.get(tn) !== undefined) { tableName = tn; break; } }
   if (!tableName) return done(blockInput);
 
-  const cursor = reanchor.scanCursors.get(tableName)!;
+  const cursor = pinState.scanCursors.get(tableName)!;
   let rawRows: any[];
   if (tableName === 'entities') {
     rawRows = await db.select().from(LocalEntity).where(cursor == null ? undefined : sql`(${LocalEntity.cardId}, ${LocalEntity.revisionHash}) > (${cursor.cardId}, ${cursor.revisionHash})`)
-      .orderBy(asc(LocalEntity.cardId), asc(LocalEntity.revisionHash)).limit(reanchorReadBatchSize) as any[];
+      .orderBy(asc(LocalEntity.cardId), asc(LocalEntity.revisionHash)).limit(pinReadBatchSize) as any[];
   } else if (tableName === 'entity_localizations') {
     rawRows = await db.select().from(LocalEntityLocalization).where(cursor == null ? undefined : sql`(${LocalEntityLocalization.cardId}, ${LocalEntityLocalization.lang}, ${LocalEntityLocalization.revisionHash}, ${LocalEntityLocalization.localizationHash}) > (${cursor.cardId}, ${cursor.lang}, ${cursor.revisionHash}, ${cursor.localizationHash})`)
-      .orderBy(asc(LocalEntityLocalization.cardId), asc(LocalEntityLocalization.lang), asc(LocalEntityLocalization.revisionHash), asc(LocalEntityLocalization.localizationHash)).limit(reanchorReadBatchSize) as any[];
+      .orderBy(asc(LocalEntityLocalization.cardId), asc(LocalEntityLocalization.lang), asc(LocalEntityLocalization.revisionHash), asc(LocalEntityLocalization.localizationHash)).limit(pinReadBatchSize) as any[];
   } else if (tableName === 'entity_relations') {
     rawRows = await db.select().from(LocalEntityRelation).where(cursor == null ? undefined : sql`(${LocalEntityRelation.sourceId}, ${LocalEntityRelation.relation}, ${LocalEntityRelation.targetId}, ${LocalEntityRelation.sourceRevisionHash}) > (${cursor.sourceId}, ${cursor.relation}, ${cursor.targetId}, ${cursor.sourceRevisionHash})`)
-      .orderBy(asc(LocalEntityRelation.sourceId), asc(LocalEntityRelation.relation), asc(LocalEntityRelation.targetId), asc(LocalEntityRelation.sourceRevisionHash)).limit(reanchorReadBatchSize) as any[];
+      .orderBy(asc(LocalEntityRelation.sourceId), asc(LocalEntityRelation.relation), asc(LocalEntityRelation.targetId), asc(LocalEntityRelation.sourceRevisionHash)).limit(pinReadBatchSize) as any[];
   } else {
     rawRows = await db.select().from(LocalCard).where(cursor == null ? undefined : sql`(${LocalCard.cardId}) > (${cursor.cardId})`)
-      .orderBy(asc(LocalCard.cardId)).limit(reanchorReadBatchSize) as any[];
+      .orderBy(asc(LocalCard.cardId)).limit(pinReadBatchSize) as any[];
   }
 
   if (rawRows.length > 0) {
     const baselineRows = rawRows.map((row: any) => {
       const rk = rowKeyOf(row, tableName!);
       const rh = rowHashOf(row, tableName!);
-      reanchor.manifest.update(buildManifestLine({ tableName: tableName!, rowKey: rk, rowHash: rh }));
-      if (tableName === 'entities' && row.version) (row.version as number[]).forEach(v => reanchor.builds.add(v));
+      pinState.manifest.update(buildManifestLine({ tableName: tableName!, rowKey: rk, rowHash: rh }));
+      if (tableName === 'entities' && row.version) (row.version as number[]).forEach(v => pinState.builds.add(v));
       return {
         publishTarget: ctx.stream.publishTarget, environment: ctx.stream.environment, publishType: ctx.stream.publishType,
         tableName: tableName!, rowKey: rk, rowHash: rh,
-        publishedAt: reanchor.publishedAt, createdAt: reanchor.publishedAt, updatedAt: reanchor.publishedAt,
+        publishedAt: pinState.publishedAt, createdAt: pinState.publishedAt, updatedAt: pinState.publishedAt,
       };
     });
     await db.insert(PublishRowBaseline).values(baselineRows);
-    reanchor.scanCursors.set(tableName, rawRows[rawRows.length - 1]);
-    reanchor.completed += rawRows.length;
-    progress({ done: reanchor.completed, total: reanchor.totalRowCount });
+    pinState.scanCursors.set(tableName, rawRows[rawRows.length - 1]);
+    pinState.completed += rawRows.length;
+    progress({ done: pinState.completed, total: pinState.totalRowCount });
   } else {
-    reanchor.scanCursors.set(tableName, undefined!);
+    pinState.scanCursors.set(tableName, undefined!);
   }
 
-  return { tableName, cursor: rawRows.length > 0 ? rawRows[rawRows.length - 1] : blockInput.cursor, processed: reanchor.completed };
+  return { tableName, cursor: rawRows.length > 0 ? rawRows[rawRows.length - 1] : blockInput.cursor, processed: pinState.completed };
 }
 
 // ── DSL definition ──
@@ -654,14 +654,14 @@ export const publishTaskDefinition = createDefinition('hsdata_publish', { versio
         throw new Error(`Publish batch ${batchId} has ${pendingRow!.count} pending rows before baseline update.`);
       }
 
-      const counts = await loadReanchorRowCounts(db);
+      const counts = await loadPinRowCounts(db);
       await db.delete(PublishRowBaseline).where(and(
         eq(PublishRowBaseline.publishTarget, ctx.stream.publishTarget),
         eq(PublishRowBaseline.environment, ctx.stream.environment),
         eq(PublishRowBaseline.publishType, ctx.stream.publishType),
       ));
 
-      ctx.reanchor = {
+      ctx.pin = {
         manifest: new Bun.CryptoHasher('sha256'), builds: new Set(),
         totalRowCount: counts.totalRowCount, completed: 0,
         publishedAt: new Date(),
@@ -674,8 +674,8 @@ export const publishTaskDefinition = createDefinition('hsdata_publish', { versio
       };
     })
     .block(async ({ ctx, blockInput, progress, done }) => {
-      if (!ctx.reanchor) return done(blockInput);
-      return baselineBlock(ctx, ctx.batchId!, ctx.reanchor, blockInput, progress, done);
+      if (!ctx.pin) return done(blockInput);
+      return baselineBlock(ctx, ctx.batchId!, ctx.pin, blockInput, progress, done);
     })
     .exit(async ({ input }) => {
       return {

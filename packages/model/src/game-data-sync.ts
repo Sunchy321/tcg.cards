@@ -7,29 +7,29 @@ export const gameDataSyncTrack = z.enum(['publish-owned', 'collaborative']);
 export const manualOverrideMode = z.enum(['manual_sticky', 'manual_until_source_change']);
 
 /** Describes the publish-owned operation kind accepted by stream-level publish control. */
-export const publishOperationKind = z.enum(['publish', 'repair', 'rollback', 'reanchor']);
+export const publishOperationKind = z.enum(['publish', 'repair', 'rollback', 'pin']);
 
 /** Describes one stable publish stream identity shared by local and remote publish state. */
 export const publishStream = z.strictObject({
   publishTarget: z.string().trim().min(1),
-  environment: z.string().trim().min(1),
-  publishType: z.string().trim().min(1),
+  environment:   z.string().trim().min(1),
+  publishType:   z.string().trim().min(1),
 });
 
 /** Describes one minimal row baseline entry stored for one publish stream. */
 export const publishRowBaseline = z.strictObject({
-  rowKey: z.string().trim().min(1),
+  rowKey:  z.string().trim().min(1),
   rowHash: z.string(),
 });
 
 /** Describes one code-defined policy for a synced game-data field. */
 export const gameDataFieldPolicy = z.strictObject({
-  track: gameDataSyncTrack,
-  allowManualEdit: z.boolean(),
+  track:              gameDataSyncTrack,
+  allowManualEdit:    z.boolean(),
   allowedAutoSources: z.array(z.string()),
-  autoAcceptSources: z.array(z.string()),
+  autoAcceptSources:  z.array(z.string()),
   manualOverrideMode,
-  requiresReview: z.boolean(),
+  requiresReview:     z.boolean(),
 });
 
 /** Builds one deterministic string key from a publish stream identity. */

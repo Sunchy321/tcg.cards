@@ -12,7 +12,7 @@ import {
 import { createTaskStore, createTaskScheduler, createTaskCleanup, registerTaskDefinition } from './lib/task';
 import { publishTaskDefinition } from './lib/hearthstone/task';
 import { testWorkTaskDefinition } from './lib/task/test-definition';
-import { reanchorTaskDefinition } from './lib/hearthstone/task/reanchor';
+import { pinTaskDefinition } from './lib/hearthstone/task/pin';
 import { imageRenderTaskDefinition } from './lib/hearthstone/task/image-render';
 
 /** Resolves the local listen port from the current process environment. */
@@ -55,7 +55,7 @@ const hono = new Hono();
 
 registerTaskDefinition(publishTaskDefinition);
 registerTaskDefinition(testWorkTaskDefinition);
-registerTaskDefinition(reanchorTaskDefinition);
+registerTaskDefinition(pinTaskDefinition);
 registerTaskDefinition(imageRenderTaskDefinition);
 
 // Startup cleanup + background scheduler
