@@ -5,6 +5,7 @@ use serde::de::DeserializeOwned;
 use serde_json::json;
 use tauri::AppHandle;
 
+use crate::desktop_ai_config::load_ai_config;
 use crate::desktop_database_settings::load_desktop_database_connection_string;
 use crate::desktop_hearthstone_image::load_image_settings;
 use crate::desktop_publish_target::load_publish_target_rows;
@@ -40,6 +41,7 @@ fn build_desktop_state_payload(app: &AppHandle) -> Result<serde_json::Value, Str
     let repo_path = load_desktop_game_repo_path(app, "hearthstone", "hsdata")?;
     let image_settings = load_image_settings(app)?;
     let publish_targets = load_publish_target_rows(app)?;
+    let ai_config = load_ai_config(app)?;
 
     Ok(json!({
         "localDatabase": {
@@ -63,6 +65,11 @@ fn build_desktop_state_payload(app: &AppHandle) -> Result<serde_json::Value, Str
                     })
                 }).collect::<Vec<_>>(),
             },
+        },
+        "ai": {
+            "apiKey": ai_config.api_key,
+            "baseUrl": ai_config.base_url,
+            "model": ai_config.model,
         },
     }))
 }

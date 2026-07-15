@@ -1,4 +1,6 @@
 #[allow(dead_code)]
+mod desktop_ai_config;
+#[allow(dead_code)]
 mod desktop_config_commands;
 #[allow(dead_code)]
 mod desktop_database_commands;
@@ -11,6 +13,9 @@ mod desktop_publish_target;
 #[allow(dead_code)]
 mod desktop_runtime_config_sync;
 
+use crate::desktop_ai_config::{
+    desktop_get_ai_config, desktop_set_ai_config,
+};
 use crate::desktop_config_commands::{
     desktop_get_config_file_info, desktop_get_raw_config, desktop_open_config_directory,
     desktop_set_raw_config,
@@ -173,6 +178,8 @@ pub(crate) struct DesktopConfig {
     publish: Vec<StoredPublishTargetProfile>,
     #[serde(default, skip_serializing_if = "DesktopGamesSettings::is_empty")]
     games: DesktopGamesSettings,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    ai: Option<StoredAiConfig>,
 }
 
 impl Default for DesktopConfig {
@@ -182,6 +189,7 @@ impl Default for DesktopConfig {
             external_database_connection_string: None,
             publish: Vec::new(),
             games: DesktopGamesSettings::default(),
+            ai: None,
         }
     }
 }
@@ -247,6 +255,18 @@ struct StoredHearthstoneImageSettings {
     renderer_base_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     bucket_dir: Option<String>,
+}
+
+#[derive(Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// AI config persisted in the desktop config file (global, not game-specific).
+pub(crate) struct StoredAiConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) api_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) base_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) model: Option<String>,
 }
 
 const DEFAULT_AUTH_BASE_URL: &str = "http://127.0.0.1:2998";
@@ -1066,6 +1086,8 @@ pub fn run() {
             desktop_test_database_connection,
             desktop_get_hearthstone_image_settings,
             desktop_set_hearthstone_image_settings,
+            desktop_get_ai_config,
+            desktop_set_ai_config,
             desktop_get_publish_target,
             desktop_get_publish_targets,
             desktop_set_publish_target,

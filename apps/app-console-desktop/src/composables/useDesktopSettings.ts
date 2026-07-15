@@ -208,6 +208,31 @@ export function setDesktopGameRepo(
   return invoke<string | null>('desktop_set_game_repo', { game, repoKey, repoPath });
 }
 
+/** AI config returned by the desktop runtime. */
+export interface DesktopAiConfig {
+  apiKey: string | null;
+  baseUrl: string | null;
+  model: string | null;
+}
+
+/** AI config loaded from the desktop runtime. */
+export function getDesktopAiConfig() {
+  return invoke<DesktopAiConfig>('desktop_get_ai_config');
+}
+
+/** AI config persisted in the desktop runtime. */
+export function setDesktopAiConfig(
+  apiKey: string | null,
+  baseUrl: string | null,
+  model: string | null,
+) {
+  return invoke<DesktopAiConfig>('desktop_set_ai_config', {
+    apiKey,
+    baseUrl,
+    model,
+  });
+}
+
 /** Native directory picker opened by the desktop runtime. */
 export function pickDesktopDirectory(directory: string | null) {
   return invoke<string | null>('desktop_pick_directory', { directory });

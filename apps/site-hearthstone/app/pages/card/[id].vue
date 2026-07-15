@@ -237,6 +237,22 @@
               </div>
             </div>
           </UCard>
+
+          <UCard v-if="changeItems.length > 0" class="mt-4">
+            <h2 class="text-xl font-semibold mb-4">{{ $t('hearthstone.card.changeHistory') }}</h2>
+            <div class="divide-y">
+              <div
+                v-for="item in changeItems"
+                :key="item.id"
+                class="py-2 first:pt-0 text-sm"
+              >
+                <div class="flex items-center gap-1.5">
+                  <TypeBadge :type="item.type" :status="item.status ?? undefined" size="xs" />
+                </div>
+                <div class="text-xs text-gray-500 mt-0.5">{{ item.date }} &middot; {{ item.name }}</div>
+              </div>
+            </div>
+          </UCard>
         </div>
       </div>
     </div>
@@ -320,6 +336,23 @@ const { data, status } = await useAsyncData(
 );
 
 useTitle(() => data.value?.localization.name ?? '');
+
+// Change history
+
+const changeHistoryKey = computed(() => `hearthstone-card-changes:${route.params.id}`);
+
+const { data: changeItems } = await useAsyncData(
+  changeHistoryKey,
+  () => $orpc.hearthstone.announcement.cardHistory({ cardId: route.params.id as string }) as Promise<Array<{
+    id:     string;
+    type:   string;
+    status: string | null;
+    date:   string;
+    name:   string;
+    delta:  Record<string, unknown> | null;
+  }>>,
+  { default: () => [] },
+);
 
 // Version
 

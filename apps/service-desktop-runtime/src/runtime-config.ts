@@ -117,6 +117,32 @@ export function hasHearthstonePublishTargetOverride() {
   });
 }
 
+export interface AiConfig {
+  apiKey: string | null;
+  baseUrl: string | null;
+  model: string | null;
+}
+
+const aiConfigOverride = {
+  current: null as AiConfig | null,
+};
+
+/** Stores one runtime-local AI config override provided by the desktop shell. */
+export function setAiConfig(value: AiConfig | null) {
+  aiConfigOverride.current = value;
+}
+
+/** Resolves the active AI config from runtime override. */
+export function readAiConfig(): AiConfig {
+  return aiConfigOverride.current ?? { apiKey: null, baseUrl: null, model: null };
+}
+
+/** Reports whether the runtime currently has usable AI config. */
+export function hasAiConfig() {
+  const config = readAiConfig();
+  return config.apiKey != null;
+}
+
 const editorIdentityOverride = {
   current: null as string | null,
 };

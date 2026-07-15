@@ -23,6 +23,7 @@ export const set = z.strictObject({
   cardCountFull: nullableInt,
   cardCount:     nullableInt,
   group:         nullableText,
+  year:          nullableText,
 });
 
 export const setProfile = set;

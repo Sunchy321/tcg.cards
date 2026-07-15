@@ -1,5 +1,5 @@
 <template>
-  <div class="flex h-full min-h-0 gap-4 overflow-hidden">
+  <div class="flex h-full gap-4 overflow-hidden p-4">
     <div class="flex w-64 shrink-0 flex-col rounded-xl border border-slate-200 bg-white">
       <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
         <span class="text-sm font-medium text-slate-700">公告列表</span>
@@ -55,13 +55,23 @@
               size="sm"
               @click="toggleYamlMode"
             />
+            <UButton
+              v-if="form.id"
+              icon="i-lucide-wand"
+              label="投影"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              :loading="projecting"
+              @click="handleProject"
+            />
             <UButton label="取消" color="neutral" variant="ghost" size="sm" @click="resetForm" />
             <UButton label="保存" size="sm" :loading="saving" @click="handleSubmit" />
           </div>
         </div>
         <YamlEditor v-if="isYamlMode" v-model="yamlContent" :error="yamlError" />
         <div v-else class="flex-1 overflow-y-auto p-5 space-y-4">
-          <div class="grid grid-cols-3 gap-4">
+          <div class="grid grid-cols-4 gap-4">
             <UFormField label="来源" required>
               <USelect v-model="form.source" :items="sourceOptions" placeholder="选择来源" class="w-full" />
             </UFormField>
@@ -77,13 +87,15 @@
           </UFormField>
           <UFormField label="链接">
             <div class="space-y-2">
-              <div v-for="(_, index) in form.link" :key="index" class="flex gap-2">
-                <UInput v-model="form.link[index]" placeholder="链接地址" class="flex-1" />
+              <div v-for="(link, index) in form.link" :key="index" class="flex gap-2">
+                <UInput v-model="link.url" placeholder="URL" class="flex-1" />
+                <UInput v-model="link.label" placeholder="标签 (可选)" class="w-32" />
                 <UButton icon="i-lucide-x" color="error" variant="ghost" size="sm" @click="removeLink(index)" />
               </div>
               <UButton icon="i-lucide-plus" label="添加链接" variant="ghost" size="sm" @click="addLink" />
             </div>
           </UFormField>
+
           <div class="border-t border-slate-200 pt-4">
             <div class="mb-3 flex items-center justify-between">
               <span class="text-sm font-medium text-slate-700">公告条目</span>
@@ -103,19 +115,33 @@
                   <UFormField label="类型" required>
                     <USelect v-model="item.type" :items="itemTypeOptions" placeholder="选择类型" class="w-full" />
                   </UFormField>
-                  <UFormField label="赛制">
-                    <UInput v-model="item.format" placeholder="赛制代码" />
+                  <UFormField label="状态">
+                    <USelect v-model="item.status" :items="statusOptions" placeholder="选择状态" class="w-full" />
                   </UFormField>
+                  <UFormField label="赛制 (keyword)">
+                    <UInput v-model="item.format" placeholder="format keyword" />
+                  </UFormField>
+                  <UFormField label="名称">
+                    <UInput v-model="item.name" placeholder="变更描述" />
+                  </UFormField>
+                </div>
+                <div class="mt-3 grid grid-cols-4 gap-3">
                   <UFormField label="卡牌ID">
-                    <UInput v-model="item.cardId" placeholder="卡牌ID" />
+                    <UInput v-model="item.cardId" placeholder="card id" />
                   </UFormField>
-                  <UFormField label="生效日期">
-                    <UInput v-model="item.effectiveDate" type="date" />
+                  <UFormField label="系列ID">
+                    <UInput v-model="item.setId" placeholder="set id" />
+                  </UFormField>
+                  <UFormField label="规则ID">
+                    <UInput v-model="item.ruleId" placeholder="rule id" />
+                  </UFormField>
+                  <UFormField label="分组">
+                    <UInput v-model="item.group" placeholder="分组键" />
                   </UFormField>
                 </div>
                 <div class="mt-3 grid grid-cols-2 gap-3">
-                  <UFormField label="状态">
-                    <USelect v-model="item.status" :items="statusOptions" placeholder="选择状态" class="w-full" />
+                  <UFormField label="relatedCards (逗号分隔)">
+                    <UInput v-model="item.relatedCardsStr" placeholder="card1, card2" />
                   </UFormField>
                   <UFormField label="分数">
                     <UInputNumber v-model="item.score" :min="1" placeholder="分数" />
@@ -163,17 +189,23 @@ import YAML from 'yaml';
 import YamlEditor from '../../../components/YamlEditor.vue';
 import type { AnnouncementProfile } from '@tcg-cards/model/src/magic/schema/announcement';
 
-type ItemForm = {
+interface LinkEntry { url: string; label?: string }
+interface ItemForm {
   id?: string;
   type: string;
+  name: string;
   effectiveDate: string;
   format: string;
+  status: string;
+  score?: number;
+  group: string;
   cardId: string;
   setId: string;
   ruleId: string;
-  status: string;
-  score?: number;
-};
+  relatedCardsStr: string;
+  formats: string[];
+  cardIds: string[];
+}
 
 const platform = useConsolePlatform();
 const orpc: any = platform.api.createClient();
@@ -183,6 +215,7 @@ const loading = ref(false);
 const selectedId = ref<string | null>(null);
 const isCreating = ref(false);
 const saving = ref(false);
+const projecting = ref(false);
 const deleteModalOpen = ref(false);
 const deleting = ref(false);
 const announcementToDelete = ref<AnnouncementProfile>();
@@ -190,42 +223,62 @@ const isYamlMode = ref(false);
 const yamlContent = ref('');
 const yamlError = ref('');
 
+const emptyItem = (): ItemForm => ({
+  type: 'card_update',
+  name: '',
+  effectiveDate: '',
+  format: '',
+  status: '',
+  score: undefined,
+  group: '',
+  prevVersion: undefined,
+  cardId: '',
+  setId: '',
+  ruleId: '',
+  relatedCardsStr: '',
+  formats: [],
+  cardIds: [],
+});
+
 const form = reactive({
   id: '',
-  source: 'wotc',
+  source: 'wizards',
   date: new Date().toISOString().split('T')[0]!,
   effectiveDate: '',
+  prevVersion: 1,
   name: '',
-  link: [] as string[],
+  link: [] as LinkEntry[],
   items: [] as ItemForm[],
 });
 
 const selectedAnnouncement = computed(() => announcements.value.find(a => a.id === selectedId.value) ?? null);
 
 const sourceOptions = [
-  { label: '系列发售', value: 'release' },
-  { label: 'Wizards of the Coast', value: 'wotc' },
-  { label: 'Duel Commander', value: 'duelcommander' },
-  { label: 'MTG Commander', value: 'mtgcommander' },
-  { label: 'Leviathan Commander', value: 'leviathan_commander' },
-  { label: 'Oathbreaker', value: 'oathbreaker' },
-  { label: 'Canadian Highlander', value: 'canadian_highlander' },
-  { label: 'Pauper Commander', value: 'pauper_commander' },
-  { label: '初始禁牌表', value: 'initial' },
-  { label: '轮替', value: 'rotation' },
+  { label: 'Wizards', value: 'wizards' },
+  { label: 'Commander RC', value: 'commander-rc' },
 ];
 
 const itemTypeOptions = [
-  { label: '禁牌', value: 'ban' },
-  { label: '限制', value: 'restriction' },
-  { label: '规则更新', value: 'rule' },
-  { label: '其他', value: 'other' },
+  { label: 'card_change — 合法性变更', value: 'card_change' },
+  { label: 'card_update — 数值/属性变更', value: 'card_update' },
+  { label: 'set_change — 系列事件', value: 'set_change' },
+  { label: 'rule_change — 规则变更', value: 'rule_change' },
+  { label: 'format_birth — 赛制上线', value: 'format_birth' },
+  { label: 'format_death — 赛制下架', value: 'format_death' },
 ];
 
 const statusOptions = [
-  { label: '禁用', value: 'banned' },
-  { label: '限制', value: 'restricted' },
-  { label: '合法', value: 'legal' },
+  { label: 'banned — 禁用', value: 'banned' },
+  { label: 'banned_as_commander — 指挥官禁用', value: 'banned_as_commander' },
+  { label: 'banned_as_companion — 行侣禁用', value: 'banned_as_companion' },
+  { label: 'banned_in_bo1 — BO1禁用', value: 'banned_in_bo1' },
+  { label: 'restricted — 限制', value: 'restricted' },
+  { label: 'suspended — 暂停', value: 'suspended' },
+  { label: 'game_changer — 游戏变革者', value: 'game_changer' },
+  { label: 'legal — 合法', value: 'legal' },
+  { label: 'unavailable — 不可用', value: 'unavailable' },
+  { label: 'score — 计分', value: 'score' },
+  { label: 'extend — 扩展', value: 'extend' },
 ];
 
 const selectedSource = ref('all');
@@ -238,22 +291,38 @@ function showToast(input: { title: string; description?: string; color?: 'error'
   platform.toast.show(input);
 }
 
+function parseRelatedCards(s: string): string[] {
+  return s.split(',').map(v => v.trim()).filter(Boolean);
+}
+
+function parseJsonSafe(s: string): unknown | null {
+  if (!s.trim()) return null;
+  try { return JSON.parse(s); } catch { return null; }
+}
+
 function toYaml() {
   return YAML.stringify({
     source: form.source,
     date: form.date,
-    name: form.name,
     effectiveDate: form.effectiveDate || null,
+    prevVersion: form.prevVersion,
+    name: form.name,
     link: form.link,
     items: form.items.map(item => ({
       type: item.type,
+      name: item.name || null,
       effectiveDate: item.effectiveDate || null,
       format: item.format || null,
+      status: item.status || null,
+      score: item.score ?? null,
+      group: item.group || null,
+      prevVersion: item.prevVersion ?? null,
       cardId: item.cardId || null,
       setId: item.setId || null,
       ruleId: item.ruleId || null,
-      status: item.status || null,
-      score: item.score ?? null,
+      relatedCards: parseRelatedCards(item.relatedCardsStr) || null,
+      formats: item.formats,
+      cardIds: item.cardIds,
     })),
   }, { indent: 2 });
 }
@@ -263,20 +332,27 @@ function fromYaml(content: string): boolean {
     const data = YAML.parse(content);
     if (data.source !== undefined) form.source = data.source;
     if (data.date !== undefined) form.date = data.date;
-    if (data.name !== undefined) form.name = data.name;
     if (data.effectiveDate !== undefined) form.effectiveDate = data.effectiveDate ?? '';
+    if (data.prevVersion !== undefined) form.prevVersion = data.prevVersion ?? 1;
+    if (data.name !== undefined) form.name = data.name;
     if (data.link !== undefined) form.link = Array.isArray(data.link) ? data.link : [];
     if (data.items !== undefined) {
       form.items = Array.isArray(data.items) ? data.items.map((i: any) => ({
         id: i.id,
-        type: i.type ?? 'ban',
+        type: i.type ?? 'card_update',
+        name: i.name ?? '',
         effectiveDate: i.effectiveDate ?? '',
         format: i.format ?? '',
+        status: i.status ?? '',
+        score: i.score ?? undefined,
+        group: i.group ?? '',
+        prevVersion: i.prevVersion,
         cardId: i.cardId ?? '',
         setId: i.setId ?? '',
         ruleId: i.ruleId ?? '',
-        status: i.status ?? '',
-        score: i.score ?? undefined,
+        relatedCardsStr: Array.isArray(i.relatedCards) ? i.relatedCards.join(', ') : '',
+        formats: i.formats ?? [],
+        cardIds: i.cardIds ?? [],
       })) : [];
     }
     yamlError.value = '';
@@ -298,7 +374,6 @@ function toggleYamlMode() {
     isYamlMode.value = true;
     return;
   }
-
   if (fromYaml(yamlContent.value)) {
     isYamlMode.value = false;
   }
@@ -306,9 +381,10 @@ function toggleYamlMode() {
 
 function resetForm() {
   form.id = '';
-  form.source = 'wotc';
+  form.source = 'wizards';
   form.date = new Date().toISOString().split('T')[0]!;
   form.effectiveDate = '';
+  form.prevVersion = 1;
   form.name = '';
   form.link = [];
   form.items = [];
@@ -318,23 +394,30 @@ function resetForm() {
   yamlError.value = '';
 }
 
-function fillForm(item: AnnouncementProfile) {
-  form.id = item.id;
-  form.source = item.source;
-  form.date = item.date;
-  form.effectiveDate = item.effectiveDate ?? '';
-  form.name = item.name;
-  form.link = [...item.link];
-  form.items = item.items.map(i => ({
+function fillForm(row: any) {
+  form.id = row.id;
+  form.source = row.source;
+  form.date = row.date;
+  form.effectiveDate = row.effectiveDate ?? '';
+  form.prevVersion = row.prevVersion ?? 1;
+  form.name = row.name;
+  form.link = Array.isArray(row.link) ? row.link : [];
+  form.items = (row.items ?? []).map((i: any) => ({
     id: i.id,
-    type: i.type,
+    type: i.type ?? 'card_update',
+    name: i.name ?? '',
     effectiveDate: i.effectiveDate ?? '',
     format: i.format ?? '',
+    status: i.status ?? '',
+    score: i.score ?? undefined,
+    group: i.group ?? '',
+    prevVersion: i.prevVersion,
     cardId: i.cardId ?? '',
     setId: i.setId ?? '',
     ruleId: i.ruleId ?? '',
-    status: i.status ?? '',
-    score: i.score ?? undefined,
+    relatedCardsStr: Array.isArray(i.relatedCards) ? i.relatedCards.join(', ') : '',
+    formats: i.formats ?? [],
+    cardIds: i.cardIds ?? [],
   }));
   isCreating.value = false;
   isYamlMode.value = false;
@@ -343,7 +426,16 @@ function fillForm(item: AnnouncementProfile) {
 
 function selectAnnouncement(item: AnnouncementProfile) {
   selectedId.value = item.id;
-  fillForm(item);
+  loadDetail(item.id);
+}
+
+async function loadDetail(id: string) {
+  try {
+    const detail = await orpc.magic.announcement.get({ id });
+    fillForm(detail);
+  } catch (error) {
+    showToast({ title: '加载详情失败', description: error instanceof Error ? error.message : String(error), color: 'error' });
+  }
 }
 
 function createNew() {
@@ -352,7 +444,7 @@ function createNew() {
 }
 
 function addLink() {
-  form.link.push('');
+  form.link.push({ url: '', label: '' });
 }
 
 function removeLink(index: number) {
@@ -360,16 +452,7 @@ function removeLink(index: number) {
 }
 
 function addItem() {
-  form.items.push({
-    type: 'ban',
-    effectiveDate: '',
-    format: '',
-    cardId: '',
-    setId: '',
-    ruleId: '',
-    status: '',
-    score: undefined,
-  });
+  form.items.push(emptyItem());
 }
 
 function removeItem(index: number) {
@@ -381,17 +464,24 @@ function normalizePayload() {
     source: form.source,
     date: form.date,
     effectiveDate: form.effectiveDate || null,
+    prevVersion: form.prevVersion,
     name: form.name.trim(),
-    link: form.link.filter(Boolean),
+    link: form.link.filter(l => l.url),
     items: form.items.map(item => ({
       type: item.type,
+      name: item.name || null,
       effectiveDate: item.effectiveDate || null,
       format: item.format || null,
+      status: item.status || null,
+      score: item.score ?? null,
+      group: item.group || null,
+      prevVersion: item.prevVersion ?? null,
       cardId: item.cardId || null,
       setId: item.setId || null,
       ruleId: item.ruleId || null,
-      status: item.status || null,
-      score: item.score ?? null,
+      relatedCards: parseRelatedCards(item.relatedCardsStr),
+      formats: item.formats,
+      cardIds: item.cardIds,
     })),
   };
 }
@@ -402,7 +492,7 @@ async function loadAnnouncements() {
     announcements.value = await orpc.magic.announcement.list();
     if (selectedId.value) {
       const current = announcements.value.find(item => item.id === selectedId.value);
-      if (current) fillForm(current);
+      if (current) selectAnnouncement(current);
     }
   } catch (error) {
     showToast({ title: '加载失败', description: error instanceof Error ? error.message : String(error), color: 'error' });
@@ -412,14 +502,8 @@ async function loadAnnouncements() {
 }
 
 async function handleSubmit() {
-  if (isYamlMode.value && !fromYaml(yamlContent.value)) {
-    return;
-  }
-
-  if (!form.name.trim()) {
-    showToast({ title: '名称不能为空', color: 'error' });
-    return;
-  }
+  if (isYamlMode.value && !fromYaml(yamlContent.value)) return;
+  if (!form.name.trim()) { showToast({ title: '名称不能为空', color: 'error' }); return; }
 
   saving.value = true;
   try {
@@ -440,6 +524,20 @@ async function handleSubmit() {
   }
 }
 
+async function handleProject() {
+  if (!form.id) return;
+  projecting.value = true;
+  try {
+    await orpc.magic.announcement.project({ announcementId: form.id });
+    showToast({ title: '投影完成', color: 'success' });
+    await loadDetail(form.id);
+  } catch (error) {
+    showToast({ title: '投影失败', description: error instanceof Error ? error.message : String(error), color: 'error' });
+  } finally {
+    projecting.value = false;
+  }
+}
+
 function confirmDelete(item: AnnouncementProfile) {
   announcementToDelete.value = item;
   deleteModalOpen.value = true;
@@ -447,15 +545,12 @@ function confirmDelete(item: AnnouncementProfile) {
 
 async function handleDelete() {
   if (!announcementToDelete.value) return;
-
   deleting.value = true;
   try {
     await orpc.magic.announcement.remove({ id: announcementToDelete.value.id });
     showToast({ title: '删除成功', color: 'success' });
     deleteModalOpen.value = false;
-    if (selectedId.value === announcementToDelete.value.id) {
-      resetForm();
-    }
+    if (selectedId.value === announcementToDelete.value.id) resetForm();
     await loadAnnouncements();
   } catch (error) {
     showToast({ title: '删除失败', description: error instanceof Error ? error.message : String(error), color: 'error' });

@@ -1,29 +1,29 @@
 import z from 'zod';
 
-import { legality } from './game-change';
+import { legality } from './announcement';
 
 export const format = z.strictObject({
-    formatId: z.string(),
+  formatId: z.string(),
 
-    localization: z.strictObject({
-        lang: z.string(),
-        name: z.string(),
-    }).array(),
+  localization: z.strictObject({
+    lang: z.string(),
+    name: z.string(),
+  }).array(),
 
-    sets: z.string().array().nullable(),
+  sets: z.string().array().nullable(),
 
-    banlist: z.strictObject({
-        cardId: z.string(),
-        status: legality,
-        score:  z.int().min(1).nullish(),
-        date:   z.string(),
-        group:  z.string().nullable(),
-    }).array(),
+  banlist: z.strictObject({
+    cardId: z.string(),
+    status: legality,
+    score:  z.int().min(1).nullish(),
+    date:   z.string(),
+    group:  z.string().nullable(),
+  }).array(),
 
-    birthday:  z.string().nullable(),
-    deathdate: z.string().nullable(),
+  birthday:  z.string().nullable(),
+  deathdate: z.string().nullable(),
 
-    tags: z.string().array().default([]),
+  tags: z.string().array().default([]),
 });
 
 export type Format = z.infer<typeof format>;

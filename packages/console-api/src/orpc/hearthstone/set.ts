@@ -4,11 +4,8 @@ import { asc, eq, inArray } from 'drizzle-orm';
 import { db } from '@tcg-cards/db/db';
 import {
   AnnouncementItem,
-  CardChange,
-  Entity,
-  FormatChange,
+  BaseEntity,
   Set as HearthstoneSet,
-  SetChange,
   SetLocalization as HearthstoneSetLocalization,
 } from '@tcg-cards/db/schema/shared/hearthstone';
 import {
@@ -199,25 +196,13 @@ async function syncSetIdReferences(tx: DbTx, originalSetId: string, nextSetId: s
     return;
   }
 
-  await tx.update(Entity)
+  await tx.update(BaseEntity)
     .set({ set: nextSetId })
-    .where(eq(Entity.set, originalSetId));
+    .where(eq(BaseEntity.set, originalSetId));
 
   await tx.update(AnnouncementItem)
     .set({ setId: nextSetId })
     .where(eq(AnnouncementItem.setId, originalSetId));
-
-  await tx.update(CardChange)
-    .set({ setId: nextSetId })
-    .where(eq(CardChange.setId, originalSetId));
-
-  await tx.update(SetChange)
-    .set({ setId: nextSetId })
-    .where(eq(SetChange.setId, originalSetId));
-
-  await tx.update(FormatChange)
-    .set({ setId: nextSetId })
-    .where(eq(FormatChange.setId, originalSetId));
 }
 
 /** Set profile updated with optional setId rename and reference sync. */

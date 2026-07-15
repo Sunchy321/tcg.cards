@@ -86,6 +86,8 @@ If a table appears to mix multiple responsibilities, split the table first inste
 
 For Drizzle-managed schema changes, update the schema definitions first and use `drizzle-kit generate` to produce migration SQL and snapshots.
 
+**Do not generate migrations until commit time.** Make all schema changes first, then generate the migration as one of the final steps before committing.
+
 For each commit, generate at most one migration per migration configuration.
 
 When a migration must be regenerated for the current uncommitted work, delete the existing uncommitted migration for that configuration first, then rerun the generation script. Prefer the repository migration script over ad hoc commands whenever a script exists.

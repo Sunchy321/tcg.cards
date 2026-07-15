@@ -1,35 +1,5 @@
-import { integer, jsonb, text, uuid } from 'drizzle-orm/pg-core';
-import { eq, sql } from 'drizzle-orm';
-
-import type { Adjustment, Status } from '#model/magic/schema/game-change';
-
+import { index, integer, jsonb, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { schema } from './schema';
-import { gameChangeType } from './game-change';
-
-export const AnnouncementRuleItem = schema.table('announcement_rule_items', {
-  id:   text('id').primaryKey(),
-  lang: text('lang').notNull(),
-  text: text('text').notNull(),
-});
-
-export const AnnouncementItem = schema.table('announcement_items', {
-  id:             uuid('id').primaryKey().defaultRandom(),
-  announcementId: uuid('announcement_id').notNull(),
-
-  type:          gameChangeType('type').notNull(),
-  effectiveDate: text('effective_date'),
-  format:        text('format'),
-
-  cardId: text('card_id'),
-  setId:  text('set_id'),
-  ruleId: text('rule_id'),
-
-  status: text('status').$type<Status>(),
-  score:  integer('score'),
-
-  adjustment:   jsonb('adjustment').$type<Adjustment[]>(),
-  relatedCards: text('related_cards').array().default([]),
-});
 
 export const Announcement = schema.table('announcements', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -45,40 +15,45 @@ export const Announcement = schema.table('announcements', {
 
   nextDate: text('next_date'),
 
-  link: text('link').array().notNull().default([]),
+  link: jsonb('link').$type<{ url: string, label?: string }[]>().notNull().default([]),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
 });
 
-export const AnnouncementView = schema.view('announcement_view').as(qb => {
-  return qb.select({
-    id: Announcement.id,
+export const AnnouncementItem = schema.table('announcement_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
 
-    source: Announcement.source,
-    date:   Announcement.date,
-    name:   Announcement.name,
+  type:           text('type').notNull(),
+  announcementId: uuid('announcement_id').notNull(),
 
-    effectiveDate: sql<string | null>`coalesce(${AnnouncementItem.effectiveDate}, ${Announcement.effectiveDate})`
-      .as('effective_date'),
-    effectiveDateTabletop: Announcement.effectiveDateTabletop,
-    effectiveDateOnline:   Announcement.effectiveDateOnline,
-    effectiveDateArena:    Announcement.effectiveDateArena,
+  effectiveDate: text('effective_date'),
+  format:        text('format'),
+  status:        text('status'),
+  score:         integer('score'),
+  group:         text('group'),
 
-    nextDate: Announcement.nextDate,
+  delta: jsonb('delta').$type<unknown>(),
+  glow:  jsonb('glow').$type<{ part: string, type: 'buff' | 'nerf' }[]>(),
 
-    link: Announcement.link,
+  cardId:       text('card_id'),
+  setId:        text('set_id'),
+  ruleId:       text('rule_id'),
+  relatedCards: text('related_cards').array().notNull().default([]),
 
-    type:   AnnouncementItem.type,
-    format: AnnouncementItem.format,
+  resolved_formats: text('resolved_formats').array().notNull().default([]),
+  resolved_cards:   text('resolved_cards').array().notNull().default([]),
 
-    cardId: AnnouncementItem.cardId,
-    setId:  AnnouncementItem.setId,
-    ruleId: AnnouncementItem.ruleId,
-
-    status: AnnouncementItem.status,
-    score:  AnnouncementItem.score,
-
-    adjustment:   AnnouncementItem.adjustment,
-    relatedCards: AnnouncementItem.relatedCards,
-  })
-    .from(Announcement)
-    .leftJoin(AnnouncementItem, eq(Announcement.id, AnnouncementItem.announcementId));
-});
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+}, table => [
+  index('idx_announcement_items_resolved_formats').using('gin', table.resolved_formats),
+  index('idx_announcement_items_resolved_cards').using('gin', table.resolved_cards),
+  index('idx_announcement_items_announcement_id').on(table.announcementId),
+]);

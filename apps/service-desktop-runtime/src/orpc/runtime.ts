@@ -2,10 +2,12 @@ import { z } from 'zod';
 
 import { os } from './index';
 import {
+  hasAiConfig,
   hasHearthstoneImageOverride,
   hasHearthstonePublishTargetOverride,
   hasHsdataRepoPath,
   hasLocalDatabaseUrl,
+  setAiConfig,
   setEditorIdentity,
   setHearthstoneImageOverride,
   setHearthstonePublishTargetOverrides,
@@ -22,6 +24,7 @@ const runtimeStatus = z.object({
   hsdataRepoConfigured:    z.boolean(),
   imageConfigured:         z.boolean(),
   publishTargetConfigured: z.boolean(),
+  aiConfigured:            z.boolean(),
   time:                    z.string(),
 });
 
@@ -35,6 +38,7 @@ function buildStatus() {
     hsdataRepoConfigured:    hasHsdataRepoPath(),
     imageConfigured:         hasHearthstoneImageOverride(),
     publishTargetConfigured: hasHearthstonePublishTargetOverride(),
+    aiConfigured:            hasAiConfig(),
     time:                    new Date().toISOString(),
   };
 }
@@ -68,6 +72,11 @@ const configureDesktopStateInput = z.strictObject({
       })),
     }),
   }),
+  ai: z.strictObject({
+    apiKey:  z.string().trim().min(1).nullable(),
+    baseUrl: z.string().trim().min(1).nullable(),
+    model:   z.string().trim().min(1).nullable(),
+  }).optional(),
 });
 
 /** Applies one desktop runtime configuration snapshot into the current Bun process. */
@@ -78,6 +87,13 @@ function applyDesktopState(
   setHsdataRepoPathOverride(input.games.hearthstone.hsdata.repoPath);
   setHearthstoneImageOverride(input.games.hearthstone.image);
   setHearthstonePublishTargetOverrides(input.games.hearthstone.publish);
+  if (input.ai) {
+    setAiConfig({
+      apiKey:  input.ai.apiKey,
+      baseUrl: input.ai.baseUrl,
+      model:   input.ai.model,
+    });
+  }
 }
 
 const health = os

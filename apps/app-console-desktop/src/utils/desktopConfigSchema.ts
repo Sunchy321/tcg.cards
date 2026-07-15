@@ -10,6 +10,23 @@ export const desktopConfigSchema = {
       type:        'string',
       description: 'External PostgreSQL connection string used by the desktop app.',
     },
+    ai: {
+      type:       'object',
+      properties: {
+        apiKey: {
+          type:        'string',
+          description: 'AI API key for the OpenAI-compatible chat completions endpoint.',
+        },
+        baseUrl: {
+          type:        'string',
+          description: 'Base URL of the OpenAI-compatible API. Defaults to https://api.openai.com/v1.',
+        },
+        model: {
+          type:        'string',
+          description: 'Model name to use for chat completions.',
+        },
+      },
+    },
     games: {
       type:                 'object',
       additionalProperties: true,
