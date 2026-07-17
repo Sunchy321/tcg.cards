@@ -2,9 +2,9 @@ import { desc, eq, sql } from 'drizzle-orm';
 
 import {
   HsdataImportJob,
+  PatchState,
   RawEntitySnapshot,
   RawEntitySnapshotTag,
-  SourceVersion,
 } from '@tcg-cards/db/schema/local/hearthstone';
 
 import { getLocalDb } from './hsdata-local-db';
@@ -118,22 +118,22 @@ const toIsoString = (value: Date | string | null | undefined) => {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 };
 
-/** Lists source_versions rows ordered by descending source tag. */
+/** Lists patch_states rows ordered by descending build number. */
 export const listLocalHsdataSourceVersions = async () => {
   const db = getLocalDb();
   const rows = await db.select({
-    sourceTag:        SourceVersion.sourceTag,
-    build:            SourceVersion.build,
-    sourceCommit:     SourceVersion.sourceCommit,
-    sourceUri:        SourceVersion.sourceUri,
-    importStatus:     SourceVersion.status,
-    importedAt:       SourceVersion.importedAt,
-    projectionStatus: SourceVersion.projectionStatus,
-    projectedAt:      SourceVersion.projectedAt,
-    projectionError:  SourceVersion.projectionError,
+    sourceTag:        PatchState.buildNumber,
+    build:            PatchState.buildNumber,
+    sourceCommit:     PatchState.commit,
+    sourceUri:        PatchState.uri,
+    importStatus:     PatchState.importStatus,
+    importedAt:       PatchState.importedAt,
+    projectionStatus: PatchState.projectionStatus,
+    projectedAt:      PatchState.projectedAt,
+    projectionError:  PatchState.projectionError,
   })
-    .from(SourceVersion)
-    .orderBy(desc(SourceVersion.sourceTag));
+    .from(PatchState)
+    .orderBy(desc(PatchState.buildNumber));
 
   return rows.map(row => ({
     sourceTag:        row.sourceTag,
@@ -160,18 +160,18 @@ export const getLocalHsdataOverview = async () => {
   ] = await Promise.all([
     db.select({
       rows:       sql<number>`count(*)`,
-      completed:  sql<number>`coalesce(sum(case when ${SourceVersion.status} = 'completed' then 1 else 0 end), 0)`,
-      failed:     sql<number>`coalesce(sum(case when ${SourceVersion.status} = 'failed' then 1 else 0 end), 0)`,
-      processing: sql<number>`coalesce(sum(case when ${SourceVersion.status} = 'processing' then 1 else 0 end), 0)`,
-      pending:    sql<number>`coalesce(sum(case when ${SourceVersion.status} = 'pending' then 1 else 0 end), 0)`,
-      latestImportedAt: sql<Date | string | null>`max(${SourceVersion.importedAt})`,
-    }).from(SourceVersion).then(rows => rows[0]),
+      completed:  sql<number>`coalesce(sum(case when ${PatchState.importStatus} = 'completed' then 1 else 0 end), 0)`,
+      failed:     sql<number>`coalesce(sum(case when ${PatchState.importStatus} = 'failed' then 1 else 0 end), 0)`,
+      processing: sql<number>`coalesce(sum(case when ${PatchState.importStatus} = 'processing' then 1 else 0 end), 0)`,
+      pending:    sql<number>`coalesce(sum(case when ${PatchState.importStatus} = 'pending' then 1 else 0 end), 0)`,
+      latestImportedAt: sql<Date | string | null>`max(${PatchState.importedAt})`,
+    }).from(PatchState).then(rows => rows[0]),
     db.select({
-      sourceTag: SourceVersion.sourceTag,
+      sourceTag: PatchState.buildNumber,
     })
-      .from(SourceVersion)
-      .where(eq(SourceVersion.status, 'completed'))
-      .orderBy(desc(SourceVersion.sourceTag))
+      .from(PatchState)
+      .where(eq(PatchState.importStatus, 'completed'))
+      .orderBy(desc(PatchState.buildNumber))
       .limit(1)
       .then(rows => rows[0] ?? null),
     db.select({

@@ -1,39 +1,26 @@
-import { randomUUID } from 'node:crypto';
-
-import { and, asc, count, desc, eq, gt, inArray, isNotNull, lte, ne, or, isNull } from 'drizzle-orm';
+import { and, count, desc, eq, gt, inArray, isNotNull, lte, or, isNull } from 'drizzle-orm';
 import { z } from 'zod';
-import {
-  publishOperationKind as publishOperationKindSchema,
-  type PublishOperationKind,
-  type PublishStream,
-} from '@tcg-cards/model/src/game-data-sync';
+import type { PublishStream } from '@tcg-cards/model/src/game-data-sync';
 import type { Locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
 
 import { createDb } from '@tcg-cards/db';
 import {
-  BaseCard as LocalBaseCard,
-  BaseEntity as LocalBaseEntity,
-  BaseEntityLocalization as LocalBaseEntityLocalization,
-  BaseEntityRelation as LocalBaseEntityRelation,
   Card as LocalCard,
   Entity as LocalEntity,
   EntityLocalization as LocalEntityLocalization,
   EntityRelation as LocalEntityRelation,
+  Patch as LocalPatch,
   PublishBaseline,
   PublishBatch,
   PublishBatchRow,
   PublishRowBaseline,
-  SourceVersion,
 } from '@tcg-cards/db/schema/local/hearthstone';
 import {
   BaseCard as RemoteBaseCard,
   BaseEntity as RemoteBaseEntity,
   BaseEntityLocalization as RemoteBaseEntityLocalization,
   BaseEntityRelation as RemoteBaseEntityRelation,
-  Card as RemoteCard,
-  Entity as RemoteEntity,
-  EntityLocalization as RemoteEntityLocalization,
-  EntityRelation as RemoteEntityRelation,
+  Patch as RemotePatch,
 } from '@tcg-cards/db/schema/remote/hearthstone';
 import {
   PublishLedger,
@@ -41,7 +28,6 @@ import {
 } from '@tcg-cards/db/schema/remote/publish';
 
 import {
-  publishCardDataGeneration,
   type PublishGeneration,
 } from './publish-generation';
 import { getLocalDb } from './hsdata-local-db';
@@ -50,16 +36,12 @@ import {
   requireHearthstonePublishTarget,
   requireHearthstonePublishTargetByIdentity,
 } from './hsdata-publish-target';
-import {
-  getPublishJobController,
-  PublishJobInterruptedError,
-} from './hsdata-publish-progress';
 
 export type PublishDb = ReturnType<typeof createDb>;
 
 type PublishDbTx = Parameters<Parameters<PublishDb['transaction']>[0]>[0];
 
-export type TableName = 'cards' | 'entities' | 'entity_localizations' | 'entity_relations';
+export type TableName = 'cards' | 'entities' | 'entity_localizations' | 'entity_relations' | 'patches';
 
 interface PublishRowState {
   tableName: TableName;
@@ -72,6 +54,7 @@ interface CurrentRowData {
   entities: Map<string, typeof LocalEntity.$inferSelect>;
   localizations: Map<string, typeof LocalEntityLocalization.$inferSelect>;
   relations: Map<string, typeof LocalEntityRelation.$inferSelect>;
+  patches: Map<string, typeof LocalPatch.$inferSelect>;
 }
 
 export interface PinCounts {
@@ -629,6 +612,27 @@ function cardRowHash(row: typeof LocalCard.$inferSelect): string {
   return hashJson(cardManifestValue(row));
 }
 
+/** Stable manifest projection for one patch row. */
+function patchManifestValue(row: typeof LocalPatch.$inferSelect) {
+  return {
+    buildNumber: row.buildNumber,
+    name:        row.name,
+    shortName:   row.shortName,
+    hash:        row.hash,
+    isLatest:    row.isLatest,
+    releaseDate: row.releaseDate,
+    expansion:   row.expansion,
+  };
+}
+
+function patchesRowKey(row: typeof LocalPatch.$inferSelect): string {
+  return serializeRowKey({ buildNumber: String(row.buildNumber) });
+}
+
+function patchRowHash(row: typeof LocalPatch.$inferSelect): string {
+  return hashJson(patchManifestValue(row));
+}
+
 /** Progress event emitted by snapshot loading and batch-writing steps. */
 type StepProgress = (event: {
   phase: string;
@@ -980,6 +984,9 @@ export async function deleteRemoteRow(
         eq(RemoteBaseEntityRelation.targetId, rowKey.targetId!),
       ));
       return;
+    case 'patches':
+      await tx.delete(RemotePatch).where(eq(RemotePatch.buildNumber, Number(rowKey.buildNumber!)));
+      return;
   }
 }
 
@@ -1040,6 +1047,17 @@ export async function insertRemoteRow(
     return;
   }
 
+  if (tableName === 'patches') {
+    const patchRow = row as typeof LocalPatch.$inferSelect;
+
+    await tx.insert(RemotePatch).values({ ...patchRow })
+      .onConflictDoUpdate({
+        target: RemotePatch.buildNumber,
+        set: { ...patchRow },
+      });
+    return;
+  }
+
   const relRow = row as typeof LocalEntityRelation.$inferSelect;
 
   await tx.insert(RemoteBaseEntityRelation).values({ ...relRow, updatedAt: now })
@@ -1070,6 +1088,7 @@ export function rowKeyOf(row: any, tableName: string): string {
     case 'entities': return entitiesRowKey(row);
     case 'entity_localizations': return localizationsRowKey(row);
     case 'entity_relations': return relationsRowKey(row);
+    case 'patches': return patchesRowKey(row);
     default: throw new Error(`Unknown table: ${tableName}`);
   }
 }
@@ -1081,6 +1100,7 @@ export function rowHashOf(row: any, tableName: string): string {
     case 'entities': return entityRowHash(row);
     case 'entity_localizations': return localizationRowHash(row);
     case 'entity_relations': return relationRowHash(row);
+    case 'patches': return patchRowHash(row);
     default: throw new Error(`Unknown table: ${tableName}`);
   }
 }
@@ -1200,6 +1220,16 @@ export async function loadRowDataChunk(
 
       for (const row of rows) {
         result.set(relationsRowKey(row), row);
+      }
+
+      break;
+    }
+    case 'patches': {
+      const buildNumbers = rowKeys.map(key => Number(parseRowKey(key).buildNumber!));
+      const rows = await db.select().from(LocalPatch).where(inArray(LocalPatch.buildNumber, buildNumbers));
+
+      for (const row of rows) {
+        result.set(patchesRowKey(row), row);
       }
 
       break;

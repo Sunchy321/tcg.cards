@@ -16,30 +16,42 @@ export type HsdataSourceKind = 'tag' | 'worktree';
 
 /** One hsdata source entry listed from the configured local repository. */
 export interface HsdataFile {
-  id: string;
-  name: string;
-  kind: HsdataSourceKind;
-  size: number;
-  time?: string;
-  sourceTag?: number;
+  id:           string;
+  name:         string;
+  kind:         HsdataSourceKind;
+  size:         number;
+  time?:        string;
+  sourceTag?:   number;
   sourceCommit: string;
-  shortCommit: string;
-  sourceUri: string;
+  shortCommit:  string;
+  sourceUri:    string;
 }
 
 /** One hsdata source resolved into XML content from the configured local repository. */
 export interface HsdataResolvedSource extends HsdataFile {
-  xml: string;
+  xml:       string;
   sourceTag: number;
 }
 
 /** One hsdata source resolved into parsed import data without materializing the full XML string. */
 export interface HsdataImportSource {
-  sourceTag: number;
+  sourceTag:    number;
   sourceCommit: string;
-  sourceUri: string;
-  sourceHash: string;
-  parsed: ParsedHsdataStreamResult['parsed'];
+  sourceUri:    string;
+  sourceHash:   string;
+  /** Patch name extracted from the tag name or commit message (e.g. "30.0.0.198765"). */
+  name:         string;
+  parsed:       ParsedHsdataStreamResult['parsed'];
+}
+
+/** Patch metadata for one tag, computed without parsing the full XML. */
+export interface HsdataPatchMeta {
+  buildNumber: number;
+  name:        string;
+  commit:      string;
+  hash:        string;
+  /** ISO date string from the tag's creator date (e.g. "2026-07-15"). */
+  releaseDate: string;
 }
 
 /** Repo state returned to the desktop frontend. */
@@ -50,14 +62,14 @@ export interface HsdataRepoState {
 /** Git fetch summary returned after refreshing remote tags. */
 export interface HsdataSyncResult {
   repoPath: string;
-  remote: string;
+  remote:   string;
 }
 
 /** Parsed metadata from one git tag reference line. */
 interface HsdataTagRefMeta {
-  tagRef: string;
-  tag: string;
-  time?: string;
+  tagRef:       string;
+  tag:          string;
+  time?:        string;
   sourceCommit: string;
 }
 
@@ -146,9 +158,9 @@ const formatGitCommandFailure = (args: string[], command: GitCommandResult) => {
 /** Runs one git command inside the configured repository and returns stdout as UTF-8 text. */
 const runGit = (repoPath: string, args: string[], stdin?: string) => {
   const command = spawnSync('git', args, {
-    cwd:    repoPath,
-    input:  stdin,
-    encoding: 'utf8',
+    cwd:       repoPath,
+    input:     stdin,
+    encoding:  'utf8',
     maxBuffer: gitOutputMaxBufferBytes,
   });
 
@@ -163,19 +175,22 @@ const runGit = (repoPath: string, args: string[], stdin?: string) => {
 const spawnGit = (repoPath: string, args: string[], stdin?: string) => {
   try {
     return Bun.spawn({
-      cmd: ['git', ...args],
-      cwd: repoPath,
-      stdin: stdin == null ? 'ignore' : Buffer.from(stdin, 'utf8'),
+      cmd:    ['git', ...args],
+      cwd:    repoPath,
+      stdin:  stdin == null ? 'ignore' : Buffer.from(stdin, 'utf8'),
       stdout: 'pipe',
       stderr: 'pipe',
     });
   } catch (error) {
-    throw new Error(formatGitCommandFailure(args, {
+    const err = new Error(formatGitCommandFailure(args, {
       status: null,
       signal: null,
       error:  error instanceof Error ? error : new Error(String(error)),
       stderr: '',
     }));
+
+    err.cause = error instanceof Error ? error : undefined;
+    throw err;
   }
 };
 
@@ -311,16 +326,16 @@ const readWorktreeSource = async (repoPath: string) => {
   const size = statSync(`${repoPath}/CardDefs.xml`).size;
 
   return {
-    id:           'worktree',
-    name:         'worktree',
-    kind:         'worktree' as const,
+    id:          'worktree',
+    name:        'worktree',
+    kind:        'worktree' as const,
     size,
     time,
     xml,
     sourceTag,
     sourceCommit,
-    shortCommit:  shortCommit(sourceCommit),
-    sourceUri:    buildSourceUri('worktree'),
+    shortCommit: shortCommit(sourceCommit),
+    sourceUri:   buildSourceUri('worktree'),
   } satisfies HsdataResolvedSource;
 };
 
@@ -336,16 +351,16 @@ const readTagSource = async (repoPath: string, tag: string) => {
   const time = trimToNull(runGit(repoPath, ['log', '-1', '--format=%cI', tagRef])) ?? undefined;
 
   return {
-    id:           `tag:${tag}`,
-    name:         tag,
-    kind:         'tag' as const,
+    id:          `tag:${tag}`,
+    name:        tag,
+    kind:        'tag' as const,
     size,
     time,
     xml,
     sourceTag,
     sourceCommit,
-    shortCommit:  shortCommit(sourceCommit),
-    sourceUri:    buildSourceUri(`tag:${tag}`),
+    shortCommit: shortCommit(sourceCommit),
+    sourceUri:   buildSourceUri(`tag:${tag}`),
   } satisfies HsdataResolvedSource;
 };
 
@@ -371,16 +386,33 @@ export const readHsdataSource = async (id: string) => {
   }
 };
 
+/** Extracts the patch name from a commit message matching "Update to patch xxx". */
+const parsePatchName = (commitMessage: string) => {
+  const match = commitMessage.match(/\d+\.\d+\.\d+\.\d+/);
+  if (!match) {
+    throw new Error(`Failed to parse patch name from commit message: ${commitMessage}`);
+  }
+  return match[0]!;
+};
+
+/** Gets the commit message for one commit hash inside the configured repository. */
+const getCommitMessage = (repoPath: string, commitHash: string) => {
+  return trimToNull(runGit(repoPath, ['log', '--format=%s', '-n', '1', commitHash])) ?? '';
+};
+
 /** Parses the current worktree XML source for import without materializing duplicate buffers. */
 const readWorktreeImportSource = async (repoPath: string) => {
   const sourceCommit = trimToNull(runGit(repoPath, ['rev-parse', 'HEAD'])) ?? '';
+  const commitMessage = getCommitMessage(repoPath, sourceCommit);
+  const name = parsePatchName(commitMessage);
   const result = await parseHsdataXmlStream(Bun.file(`${repoPath}/CardDefs.xml`).stream());
 
   return {
-    sourceTag: result.parsed.build,
+    sourceTag:  result.parsed.build,
     sourceCommit,
     sourceUri:  buildSourceUri('worktree'),
     sourceHash: result.sourceHash,
+    name,
     parsed:     result.parsed,
   } satisfies HsdataImportSource;
 };
@@ -393,11 +425,28 @@ const readTagImportSource = async (repoPath: string, tag: string) => {
   const result = await parseGitHsdataXml(repoPath, ['cat-file', 'blob', object]);
 
   return {
-    sourceTag: result.parsed.build,
+    sourceTag:  result.parsed.build,
     sourceCommit,
     sourceUri:  buildSourceUri(`tag:${tag}`),
     sourceHash: result.sourceHash,
+    name:       tag,
     parsed:     result.parsed,
+  } satisfies HsdataImportSource;
+};
+
+/** Parses CardDefs.xml from a bare commit (no tag) for import. */
+const readCommitImportSource = async (repoPath: string, commit: string, buildNumber: number) => {
+  const result = await parseGitHsdataXml(repoPath, ['cat-file', 'blob', `${commit}:CardDefs.xml`]);
+  const commitMessage = runGit(repoPath, ['log', '--format=%s', '-n', '1', commit]);
+  const name = parsePatchName(commitMessage);
+
+  return {
+    sourceTag:    result.parsed.build,
+    sourceCommit: commit,
+    sourceUri:    buildSourceUri(`tag:${buildNumber}`),
+    sourceHash:   result.sourceHash,
+    name,
+    parsed:       result.parsed,
   } satisfies HsdataImportSource;
 };
 
@@ -413,6 +462,12 @@ export const readHsdataImportSource = async (id: string) => {
     const tag = id.startsWith('tag:') ? id.slice(4) : null;
     if (!tag) {
       throw new Error(`Unsupported hsdata source id: ${id}`);
+    }
+
+    const buildNumber = parseInt(tag, 10);
+    const extra = EXTRA_PATCH_COMMITS.find(e => e.buildNumber === buildNumber);
+    if (extra) {
+      return await readCommitImportSource(repoPath, extra.commit, buildNumber);
     }
 
     return await readTagImportSource(repoPath, tag);
@@ -440,7 +495,7 @@ const parseTagRefMeta = (line: string) => {
   return {
     tagRef,
     tag,
-    time:         trimToNull(createdAt) ?? undefined,
+    time: trimToNull(createdAt) ?? undefined,
     sourceCommit,
   } satisfies HsdataTagRefMeta;
 };
@@ -477,6 +532,85 @@ const parseNumericTag = (tag: string) => {
   return Number.isInteger(value) ? value : undefined;
 };
 
+/** Collects patch metadata (name, commit, CardDefs.xml SHA256) for all git tags
+ *  without parsing the XML entities. Uses streaming to avoid buffer limits. */
+export const collectAllPatchMeta = async (): Promise<HsdataPatchMeta[]> => {
+  const repoPath = requireHsdataRepoRoot();
+
+  const tagsOutput = runGit(repoPath, [
+    'for-each-ref',
+    '--format=%(refname:short)\t%(*objectname)\t%(objectname)\t%(creatordate:iso-strict)',
+    'refs/tags',
+  ]);
+
+  const result: HsdataPatchMeta[] = [];
+
+  for (const line of tagsOutput.split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed.length === 0) continue;
+
+    const [tag, peeledObject, objectName, date] = trimmed.split('\t');
+    if (!tag) continue;
+
+    const commit = trimToNull(peeledObject) ?? trimToNull(objectName) ?? '';
+    const buildNumber = parseNumericTag(tag);
+    if (buildNumber == null) continue;
+
+    // Extract date-only part (YYYY-MM-DD) from ISO timestamp.
+    const releaseDate = (date ?? '').slice(0, 10) || '';
+
+    // Read commit message to get patch name (e.g. "Update to patch 30.0.0.198765").
+    const tagRef = `refs/tags/${tag}`;
+    const commitMessage = runGit(repoPath, ['log', '--format=%s', '-n', '1', commit || tagRef]);
+    const name = parsePatchName(commitMessage);
+
+    // Stream CardDefs.xml through SHA256 to avoid buffer limits.
+    const proc = spawnGit(repoPath, ['cat-file', 'blob', `${tagRef}:CardDefs.xml`]);
+    const buffer = await new Response(proc.stdout).arrayBuffer();
+    const hash = Bun.SHA256.hash(buffer, 'hex') as string;
+    const exitStatus = await proc.exited;
+    if (exitStatus !== 0) {
+      const stderr = await new Response(proc.stderr).text();
+      throw new Error(formatGitCommandFailure(
+        ['cat-file', 'blob', `${tagRef}:CardDefs.xml`],
+        { status: exitStatus, signal: proc.signalCode, error: null, stderr },
+      ));
+    }
+
+    result.push({ buildNumber, name, commit, hash, releaseDate });
+  }
+
+  // Manually backfill commits that were never tagged.
+  for (const { commit: extraCommit, buildNumber } of EXTRA_PATCH_COMMITS) {
+    const existing = result.find(m => m.commit === extraCommit);
+    if (existing) continue;
+
+    const commitMessage = runGit(repoPath, ['log', '--format=%s', '-n', '1', extraCommit]);
+    const name = parsePatchName(commitMessage);
+
+    const dateOutput = runGit(repoPath, ['log', '--format=%cI', '-n', '1', extraCommit]);
+    const releaseDate = (dateOutput.trim()).slice(0, 10);
+
+    const proc = spawnGit(repoPath, ['cat-file', 'blob', `${extraCommit}:CardDefs.xml`]);
+    const buffer = await new Response(proc.stdout).arrayBuffer();
+    const hash = Bun.SHA256.hash(buffer, 'hex') as string;
+    const exitStatus = await proc.exited;
+    if (exitStatus !== 0) continue;
+
+    result.push({ buildNumber, name, commit: extraCommit, hash, releaseDate });
+  }
+
+  result.sort((a, b) => a.buildNumber - b.buildNumber);
+  return result;
+};
+
+/** Commits that should be treated as patch versions even though they lack a tag.
+ *  Each entry maps a commit hash to its buildNumber, which must match the
+ *  last dotted segment of the commit's patch version name. */
+const EXTRA_PATCH_COMMITS: Array<{ commit: string, buildNumber: number }> = [
+  { commit: '9016168146cc3ce0369e8cbc54eb8395afba75a0', buildNumber: 135540 },
+];
+
 /** Lists git tag based hsdata sources from the configured repository. */
 export const listHsdataSources = () => {
   const repoPath = requireHsdataRepoRoot();
@@ -511,6 +645,28 @@ export const listHsdataSources = () => {
 
       return left.tag.localeCompare(right.tag);
     });
+
+  // Append extra commits that lack a tag, pretending they have one.
+  for (const { commit, buildNumber } of EXTRA_PATCH_COMMITS) {
+    if (tagRefs.some(tr => tr.sourceCommit === commit)) continue;
+
+    const sizeLine = runGit(repoPath, ['cat-file', '--batch-check'], `${commit}:CardDefs.xml\n`);
+    const blob = parseBlobCheckLine(sizeLine);
+    if (!blob?.size) continue;
+
+    tagRefs.push({
+      tagRef:       commit,
+      tag:          String(buildNumber),
+      time:         undefined,
+      sourceCommit: commit,
+    });
+  }
+
+  tagRefs.sort((a, b) => {
+    const na = parseNumericTag(a.tag);
+    const nb = parseNumericTag(b.tag);
+    return (na ?? 0) - (nb ?? 0);
+  });
 
   if (tagRefs.length === 0) {
     return [] satisfies HsdataFile[];

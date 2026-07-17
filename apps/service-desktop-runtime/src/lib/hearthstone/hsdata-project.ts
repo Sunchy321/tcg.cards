@@ -17,14 +17,13 @@ import {
   BaseEntity,
   BaseEntityLocalization,
   BaseEntityRelation,
-  Card,
   Entity,
   EntityLocalization,
   EntityRelation,
   RawEntitySnapshot,
   RawEntitySnapshotTag,
   Set as HearthstoneSet,
-  SourceVersion,
+  PatchState,
   Tag,
 } from '@tcg-cards/db/schema/local/hearthstone';
 import type { HsdataProjectReconciledCounts, HsdataProjectWriteBreakdown } from './hsdata-progress';
@@ -37,10 +36,9 @@ type LocalizedText = Record<string, string>;
 type MechanicValue = boolean | number;
 type RowKey = string;
 
-interface SourceVersionRow {
-  sourceTag: number;
-  build:     number | null;
-  status:    string;
+interface PatchStateRow {
+  buildNumber:  number;
+  importStatus: string;
 }
 
 interface RawSnapshotRow {
@@ -67,7 +65,7 @@ interface RawSnapshotTagRow {
   stringValue:    string | null;
   enumValue:      string | null;
   locStringValue: LocalizedText | null;
-  cardValue:  string | null;
+  cardValue:      string | null;
   jsonValue:      unknown;
   parseStatus:    string;
 }
@@ -220,9 +218,9 @@ interface ReconcileResult<T extends { version: number[], isLatest: boolean }> {
 interface SyncPlan<T extends { version: number[], isLatest: boolean }> {
   deleteRows: T[];
   upsertRows: T[];
-  inserted:  number;
-  updated:   number;
-  deleted:   number;
+  inserted:   number;
+  updated:    number;
+  deleted:    number;
 }
 
 /** Reconciliation hooks that derive row identity groups and lightweight change signatures. */
@@ -241,14 +239,14 @@ interface ProjectWriteProfiler {
 
 /** Tracks completed row counts for each stacked write-progress segment. */
 interface WriteProgressBreakdown {
-  entity:               number;
-  localization:         number;
-  latest:               number;
-  relation:             number;
-  card:                 number;
-  entityDelete:         number;
-  localizationDelete:   number;
-  relationDelete:       number;
+  entity:             number;
+  localization:       number;
+  latest:             number;
+  relation:           number;
+  card:               number;
+  entityDelete:       number;
+  localizationDelete: number;
+  relationDelete:     number;
 }
 
 /** Identifies one stacked write-progress segment. */
@@ -256,7 +254,7 @@ type WriteProgressSegment = keyof WriteProgressBreakdown;
 
 /** One write-progress update emitted while the transaction advances through row-based work. */
 interface WriteProgressUpdate {
-  message: string;
+  message:  string;
   advance?: number;
   segment?: WriteProgressSegment;
 }
@@ -270,50 +268,50 @@ type SummarizeProgressReporter = (message: string, advance?: number) => Promise<
 /** Counts entity rows split by the write path they will take inside the current transaction. */
 interface EntityWriteBreakdown {
   deleteCount: number;
-  metaCount: number;
+  metaCount:   number;
   insertCount: number;
 }
 
 /** Counts localization rows split by the write path they will take inside the current transaction. */
 interface LocalizationWriteBreakdown {
-  deleteCount: number;
-  metaCount: number;
-  appendCount: number;
-  insertCount: number;
-  upsertCount: number;
+  deleteCount:            number;
+  metaCount:              number;
+  appendCount:            number;
+  insertCount:            number;
+  upsertCount:            number;
   affectedLatestRowCount: number;
-  latestRowCountByGroup: Map<RowKey, number>;
+  latestRowCountByGroup:  Map<RowKey, number>;
 }
 
 export interface ProjectHsdataInput {
-  sourceTag: number;
-  dryRun?:   boolean;
-  force?:    boolean;
+  sourceTag:         number;
+  dryRun?:           boolean;
+  force?:            boolean;
   skipLatestUpdate?: boolean;
-  sampleDiff?: boolean;
-  onProfileMark?: (step: { step: string; elapsedMs: number; totalMs: number }) => void;
+  sampleDiff?:       boolean;
+  onProfileMark?:    (step: { step: string, elapsedMs: number, totalMs: number }) => void;
   onProgress?: (input: {
-    phase: 'loading_snapshots' | 'loading_tags' | 'projecting_snapshots' | 'summarizing_changes' | 'writing_rows' | 'recomputing_latest' | 'completed' | 'failed';
-    message: string;
-    totalSnapshotCount?: number | null;
+    phase:                   'loading_snapshots' | 'loading_tags' | 'projecting_snapshots' | 'summarizing_changes' | 'writing_rows' | 'recomputing_latest' | 'completed' | 'failed';
+    message:                 string;
+    totalSnapshotCount?:     number | null;
     completedSnapshotCount?: number | null;
-    totalWorkCount?: number | null;
-    completedWorkCount?: number | null;
-    workLabel?: string | null;
-    writeBreakdown?: HsdataProjectWriteBreakdown | null;
-    reconciledCounts?: HsdataProjectReconciledCounts | null;
+    totalWorkCount?:         number | null;
+    completedWorkCount?:     number | null;
+    workLabel?:              string | null;
+    writeBreakdown?:         HsdataProjectWriteBreakdown | null;
+    reconciledCounts?:       HsdataProjectReconciledCounts | null;
   }) => void | Promise<void>;
 }
 
 /** Reasons a row entered the upsert plan after merge simulation. */
 export interface DiffBreakdown {
-  versionMatch: number;
-  versionChanged: number;
-  isLatestChanged: number;
+  versionMatch:            number;
+  versionChanged:          number;
+  isLatestChanged:         number;
   /** Existing rows without matching target, whose version changed (build removed). */
-  orphanVersionChanged: number;
+  orphanVersionChanged:    number;
   /** Only used for localizations. */
-  renderHashChanged?: number;
+  renderHashChanged?:      number;
   renderHashNullExisting?: number;
 }
 
@@ -342,17 +340,17 @@ export interface ProjectHsdataReport {
   cardRowCount:          number;
   unprojectedTagCount:   number;
   /** Sync plan: how many rows would be written (upserted/deleted). */
-  entityPlan:        WritePlanCounts;
-  localizationPlan:  WritePlanCounts;
-  relationPlan:      WritePlanCounts;
+  entityPlan:            WritePlanCounts;
+  localizationPlan:      WritePlanCounts;
+  relationPlan:          WritePlanCounts;
   /** Per-field diff for entities (revisionHash/version/isLatest after merge). */
-  entityDiff:        DiffBreakdown;
+  entityDiff:            DiffBreakdown;
   /** Per-field diff for localizations (includes renderHash after merge). */
-  localizationDiff:  DiffBreakdown;
+  localizationDiff:      DiffBreakdown;
   /** Per-field diff for relations after merge. */
-  relationDiff:      DiffBreakdown;
+  relationDiff:          DiffBreakdown;
   /** Absolute path to the diff sample JSON file, if sampleDiff was enabled. */
-  sampleDiffPath:    string | null;
+  sampleDiffPath:        string | null;
 }
 
 const strongRelationFields = [
@@ -571,40 +569,17 @@ function buildEntityWriteBreakdown(
   };
 }
 
-/** Counts entity rows that should advance the write-progress UI. */
-function countEntityWriteRows(breakdown: EntityWriteBreakdown): number {
-  return breakdown.deleteCount + breakdown.metaCount + breakdown.insertCount;
-}
-
-/** Counts localization rows that should advance the write-progress UI. */
-function countLocalizationWriteRows(breakdown: LocalizationWriteBreakdown): number {
-  return (
-    breakdown.deleteCount
-    + breakdown.upsertCount
-    + breakdown.affectedLatestRowCount
-  );
-}
-
-/** Counts duplicate-safe rows when the write path only inserts missing rows. */
-function countIgnoreDuplicateWriteRows(input: {
-  entityCount: number;
-  localizationCount: number;
-  relationCount: number;
-}): number {
-  return input.entityCount + input.localizationCount + input.relationCount;
-}
-
 /** Builds stacked write-progress totals for entity, localization, latest, and relation work. */
 function buildWriteProgressTotals(input: {
-  ignoreDuplicates: boolean;
-  entity: EntityWriteBreakdown;
-  localization: LocalizationWriteBreakdown;
-  relationDeleteCount: number;
-  relationInsertCount: number;
-  targetEntityCount: number;
+  ignoreDuplicates:        boolean;
+  entity:                  EntityWriteBreakdown;
+  localization:            LocalizationWriteBreakdown;
+  relationDeleteCount:     number;
+  relationInsertCount:     number;
+  targetEntityCount:       number;
   targetLocalizationCount: number;
-  targetRelationCount: number;
-  targetCardCount: number;
+  targetRelationCount:     number;
+  targetCardCount:         number;
 }): WriteProgressBreakdown {
   if (input.ignoreDuplicates) {
     return {
@@ -638,35 +613,35 @@ function toWriteProgressBreakdown(
 ): HsdataProjectWriteBreakdown {
   return {
     entity: {
-      totalRowCount: totals.entity,
+      totalRowCount:     totals.entity,
       completedRowCount: completed.entity,
     },
     localization: {
-      totalRowCount: totals.localization,
+      totalRowCount:     totals.localization,
       completedRowCount: completed.localization,
     },
     latest: {
-      totalRowCount: totals.latest,
+      totalRowCount:     totals.latest,
       completedRowCount: completed.latest,
     },
     relation: {
-      totalRowCount: totals.relation,
+      totalRowCount:     totals.relation,
       completedRowCount: completed.relation,
     },
     card: {
-      totalRowCount: totals.card,
+      totalRowCount:     totals.card,
       completedRowCount: completed.card,
     },
     entityDelete: {
-      totalRowCount: totals.entityDelete,
+      totalRowCount:     totals.entityDelete,
       completedRowCount: completed.entityDelete,
     },
     localizationDelete: {
-      totalRowCount: totals.localizationDelete,
+      totalRowCount:     totals.localizationDelete,
       completedRowCount: completed.localizationDelete,
     },
     relationDelete: {
-      totalRowCount: totals.relationDelete,
+      totalRowCount:     totals.relationDelete,
       completedRowCount: completed.relationDelete,
     },
   };
@@ -1918,7 +1893,7 @@ function projectSnapshot(
   }
 
   return {
-    snapshotId: snapshot.id,
+    snapshotId:    snapshot.id,
     entity,
     localizations: localizationRows,
     relations:     relationRows,
@@ -1926,14 +1901,13 @@ function projectSnapshot(
   };
 }
 
-async function getSourceVersion(sourceTag: number): Promise<SourceVersionRow | null> {
+async function getPatchState(buildNumber: number): Promise<PatchStateRow | null> {
   return await db.select({
-    sourceTag: SourceVersion.sourceTag,
-    build:     SourceVersion.build,
-    status:    SourceVersion.status,
+    buildNumber:  PatchState.buildNumber,
+    importStatus: PatchState.importStatus,
   })
-    .from(SourceVersion)
-    .where(eq(SourceVersion.sourceTag, sourceTag))
+    .from(PatchState)
+    .where(eq(PatchState.buildNumber, buildNumber))
     .then(rows => rows[0] ?? null);
 }
 
@@ -1947,14 +1921,13 @@ async function getBuildsBySourceTags(
 
   const builds = new Map<number, number>();
   const rows = await db.select({
-    sourceTag: SourceVersion.sourceTag,
-    build:     SourceVersion.build,
+    sourceTag: PatchState.buildNumber,
+    build:     PatchState.buildNumber,
   })
-    .from(SourceVersion)
+    .from(PatchState)
     .where(and(
-      inArray(SourceVersion.sourceTag, sourceTags),
-      eq(SourceVersion.status, 'completed'),
-      sql<boolean>`${SourceVersion.build} IS NOT NULL`,
+      inArray(PatchState.buildNumber, sourceTags),
+      eq(PatchState.importStatus, 'completed'),
     ));
 
   for (const row of rows) {
@@ -2010,7 +1983,7 @@ async function loadSnapshotTags(
       stringValue:    RawEntitySnapshotTag.stringValue,
       enumValue:      RawEntitySnapshotTag.enumValue,
       locStringValue: RawEntitySnapshotTag.locStringValue,
-      cardValue:  RawEntitySnapshotTag.cardValue,
+      cardValue:      RawEntitySnapshotTag.cardValue,
       jsonValue:      RawEntitySnapshotTag.jsonValue,
       parseStatus:    RawEntitySnapshotTag.parseStatus,
     })
@@ -2074,33 +2047,33 @@ async function loadExistingRowsForProjection(
   profiler?: ProjectWriteProfiler,
   onProgress?: SummarizeProgressReporter,
 ): Promise<{
-    entities: EntityStateRow[];
-    localizations: LocalizationStateRow[];
-    relations: RelationRow[];
-  }> {
+  entities:      EntityStateRow[];
+  localizations: LocalizationStateRow[];
+  relations:     RelationRow[];
+}> {
   type EntityStateQueryRow = {
-    cardId: string;
-    version: number[];
+    cardId:       string;
+    version:      number[];
     revisionHash: string;
-    isLatest: boolean;
+    isLatest:     boolean;
   };
   type LocalizationStateQueryRow = {
-    cardId: string;
-    version: number[];
-    lang: Locale;
-    revisionHash: string;
+    cardId:           string;
+    version:          number[];
+    lang:             Locale;
+    revisionHash:     string;
     localizationHash: string;
-    renderHash: string | null;
-    renderModel: RenderModel | null;
-    isLatest: boolean;
+    renderHash:       string | null;
+    renderModel:      RenderModel | null;
+    isLatest:         boolean;
   };
   type RelationQueryRow = {
-    sourceId: string;
+    sourceId:           string;
     sourceRevisionHash: string;
-    relation: string;
-    targetId: string;
-    version: number[];
-    isLatest: boolean;
+    relation:           string;
+    targetId:           string;
+    version:            number[];
+    isLatest:           boolean;
   };
 
   return await db.transaction(async tx => {
@@ -2501,16 +2474,6 @@ function encodeEntityGroupCopyRow(cardId: string): string {
   ].join('\t') + '\n';
 }
 
-/** Renders one entity version/isLatest row into one COPY-compatible line for temp meta-update staging tables. */
-function encodeEntityMetaCopyRow(row: EntityStateRow): string {
-  return [
-    encodeCopyCsvField(row.cardId),
-    encodeCopyCsvField(row.revisionHash),
-    encodeCopyCsvField(encodeCopyIntArray(row.version)),
-    encodeCopyCsvField(row.isLatest ? 't' : 'f'),
-  ].join('\t') + '\n';
-}
-
 /** Renders one localization primary-key row into one COPY-compatible line for temp delete staging tables. */
 function encodeLocalizationKeyCopyRow(
   row: Pick<LocalizationRow, 'cardId' | 'lang' | 'revisionHash' | 'localizationHash'>,
@@ -2530,19 +2493,6 @@ function encodeLocalizationGroupCopyRow(
   return [
     encodeCopyCsvField(row.cardId),
     encodeCopyCsvField(row.lang),
-  ].join('\t') + '\n';
-}
-
-/** Renders one localization version row into one COPY-compatible line for temp meta-update staging tables. */
-function encodeLocalizationMetaCopyRow(row: LocalizationStateRow): string {
-  return [
-    encodeCopyCsvField(row.cardId),
-    encodeCopyCsvField(row.lang),
-    encodeCopyCsvField(row.revisionHash),
-    encodeCopyCsvField(row.localizationHash),
-    encodeCopyCsvField(row.renderHash ?? null),
-    encodeCopyCsvField(row.renderModel != null ? encodeCopyJson(row.renderModel) : null),
-    encodeCopyCsvField(encodeCopyIntArray(row.version)),
   ].join('\t') + '\n';
 }
 
@@ -2817,38 +2767,6 @@ async function copyEntityGroupIdsIntoTable(
   );
 }
 
-/** Streams entity version/isLatest rows into one temp table so historical rows can update metadata without reloading payload columns. */
-async function copyEntityMetaRowsIntoTable(
-  tx: CopyTx,
-  rows: EntityStateRow[],
-  targetTable: string,
-) {
-  const writable = await tx.session.client.unsafe(`
-    copy ${targetTable} (
-      card_id,
-      revision_hash,
-      version,
-      is_latest
-    ) from stdin with (
-      format csv,
-      delimiter E'\\t',
-      null '\\N'
-    )
-  `).writable();
-
-  /** Yields one COPY line per entity metadata row so historical latest/version flips stay set-based. */
-  async function* generateEntityMetaCopyLines() {
-    for (const row of rows) {
-      yield encodeEntityMetaCopyRow(row);
-    }
-  }
-
-  await pipeline(
-    Readable.from(generateEntityMetaCopyLines()),
-    writable,
-  );
-}
-
 /** Refreshes planner statistics for one temp table after staged rows have been copied into it. */
 async function analyzeTempTable(
   tx: CopyTx,
@@ -2915,41 +2833,6 @@ async function copyLocalizationGroupIdsIntoTable(
 
   await pipeline(
     Readable.from(generateLocalizationGroupCopyLines()),
-    writable,
-  );
-}
-
-/** Streams localization version rows into one temp table so historical rows can update metadata without reloading text payloads. */
-async function copyLocalizationMetaRowsIntoTable(
-  tx: CopyTx,
-  rows: LocalizationStateRow[],
-  targetTable: string,
-) {
-  const writable = await tx.session.client.unsafe(`
-    copy ${targetTable} (
-      card_id,
-      lang,
-      revision_hash,
-      localization_hash,
-      render_hash,
-      render_model,
-      version
-    ) from stdin with (
-      format csv,
-      delimiter E'\\t',
-      null '\\N'
-    )
-  `).writable();
-
-  /** Yields one COPY line per localization metadata row so historical version membership stays set-based. */
-  async function* generateLocalizationMetaCopyLines() {
-    for (const row of rows) {
-      yield encodeLocalizationMetaCopyRow(row);
-    }
-  }
-
-  await pipeline(
-    Readable.from(generateLocalizationMetaCopyLines()),
     writable,
   );
 }
@@ -3309,7 +3192,6 @@ async function syncLocalizations(
   build: number,
   profiler?: ProjectWriteProfiler,
   onProgress?: WriteProgressReporter,
-  latestRowCountByGroup?: Map<RowKey, number>,
 ) {
   if (plan.deleteRows.length === 0 && plan.upsertRows.length === 0) {
     return;
@@ -3402,8 +3284,8 @@ async function syncLocalizations(
         if (row.isAppend) {
           await tx.update(BaseEntityLocalization)
             .set({
-              version: sql`array_append(${BaseEntityLocalization.version}, ${build})`,
-              renderHash: sql`coalesce(${row.renderHash ?? null}, ${BaseEntityLocalization.renderHash})`,
+              version:     sql`array_append(${BaseEntityLocalization.version}, ${build})`,
+              renderHash:  sql`coalesce(${row.renderHash ?? null}, ${BaseEntityLocalization.renderHash})`,
               renderModel: sql`coalesce(${row.renderModel != null ? JSON.stringify(row.renderModel) : null}::jsonb, ${BaseEntityLocalization.renderModel})`,
             })
             .where(and(
@@ -3417,8 +3299,8 @@ async function syncLocalizations(
           const metaRow = row as typeof metaRows[number];
           await tx.update(BaseEntityLocalization)
             .set({
-              version: metaRow.version,
-              renderHash: sql`coalesce(${metaRow.renderHash ?? null}, ${BaseEntityLocalization.renderHash})`,
+              version:     metaRow.version,
+              renderHash:  sql`coalesce(${metaRow.renderHash ?? null}, ${BaseEntityLocalization.renderHash})`,
               renderModel: sql`coalesce(${metaRow.renderModel != null ? JSON.stringify(metaRow.renderModel) : null}::jsonb, ${BaseEntityLocalization.renderModel})`,
             })
             .where(and(
@@ -3438,7 +3320,7 @@ async function syncLocalizations(
     }
 
     profiler?.mark('write_localizations_update_meta_rows', {
-      metaRowCount: metaRows.length,
+      metaRowCount:   metaRows.length,
       appendRowCount: appendRows.length,
     });
   }
@@ -3519,7 +3401,6 @@ async function syncLocalizations(
       rowCount: insertRows.length,
     });
   }
-
 }
 
 async function insertRelations(tx: DbTx, rows: RelationRow[]) {
@@ -3532,7 +3413,7 @@ async function insertRelations(tx: DbTx, rows: RelationRow[]) {
       .values(chunk)
       .onConflictDoUpdate({
         target: [BaseEntityRelation.sourceId, BaseEntityRelation.sourceRevisionHash, BaseEntityRelation.relation, BaseEntityRelation.targetId],
-        set: {
+        set:    {
           version:   sql`excluded.version`,
           isLatest:  sql`excluded.is_latest`,
           deletedAt: null,
@@ -3553,7 +3434,7 @@ async function insertRelationsIgnoreDuplicates(tx: DbTx, rows: RelationRow[]) {
       .values(chunk)
       .onConflictDoUpdate({
         target: [BaseEntityRelation.sourceId, BaseEntityRelation.sourceRevisionHash, BaseEntityRelation.relation, BaseEntityRelation.targetId],
-        set: {
+        set:    {
           version:   sql`excluded.version`,
           isLatest:  sql`excluded.is_latest`,
           deletedAt: null,
@@ -3564,33 +3445,33 @@ async function insertRelationsIgnoreDuplicates(tx: DbTx, rows: RelationRow[]) {
 }
 
 interface DiffSample {
-  key: string;
-  existingVersion: number[];
-  targetVersion: number[];
-  mergedVersion: number[];
-  existingIsLatest: boolean;
-  targetIsLatest: boolean;
-  existingRenderHash: string | null;
-  targetRenderHash: string | null;
+  key:                 string;
+  existingVersion:     number[];
+  targetVersion:       number[];
+  mergedVersion:       number[];
+  existingIsLatest:    boolean;
+  targetIsLatest:      boolean;
+  existingRenderHash:  string | null;
+  targetRenderHash:    string | null;
   existingRenderModel: unknown;
-  targetRenderModel: unknown;
-  reasons: string[];
+  targetRenderModel:   unknown;
+  reasons:             string[];
 }
 
 const MAX_DIFF_SAMPLES = 10;
 
 interface SummarizeDiffOptions<TE, TT> {
-  build:        number;
-  keyOf:        (r: TE | TT) => string;
-  renderHashOf:     (r: TE | TT) => string | null | undefined;
-  renderModelOf?:   (r: TT) => unknown;
+  build:                  number;
+  keyOf:                  (r: TE | TT) => string;
+  renderHashOf:           (r: TE | TT) => string | null | undefined;
+  renderModelOf?:         (r: TT) => unknown;
   existingRenderModelOf?: (r: TE) => unknown;
-  label:            string;
-  outSamples:       DiffSample[];
+  label:                  string;
+  outSamples:             DiffSample[];
 }
 
 /** Simulates mergeVersion and compares existing vs target state, categorising reasons. */
-function summarizeDiff<TE extends { version: number[]; isLatest: boolean }, TT extends { version: number[]; isLatest: boolean }>(
+function summarizeDiff<TE extends { version: number[], isLatest: boolean }, TT extends { version: number[], isLatest: boolean }>(
   existing: TE[],
   targets: TT[],
   opts: SummarizeDiffOptions<TE, TT>,
@@ -3641,16 +3522,16 @@ function summarizeDiff<TE extends { version: number[]; isLatest: boolean }, TT e
       if (!isLatestSame && verSame) reasons.push('isLatest');
       if (hasRender && (!renderSame || !renderModelSame)) reasons.push('renderHash');
       opts.outSamples.push({
-        key: `${opts.label}:${opts.keyOf(t)}`,
-        existingVersion: e.version,
-        targetVersion: t.version,
-        mergedVersion: merged,
-        existingIsLatest: e.isLatest,
-        targetIsLatest: t.isLatest,
-        existingRenderHash: hasRender ? (opts.renderHashOf(e) ?? null) : null,
-        targetRenderHash: hasRender ? (opts.renderHashOf(t) ?? null) : null,
+        key:                 `${opts.label}:${opts.keyOf(t)}`,
+        existingVersion:     e.version,
+        targetVersion:       t.version,
+        mergedVersion:       merged,
+        existingIsLatest:    e.isLatest,
+        targetIsLatest:      t.isLatest,
+        existingRenderHash:  hasRender ? (opts.renderHashOf(e) ?? null) : null,
+        targetRenderHash:    hasRender ? (opts.renderHashOf(t) ?? null) : null,
         existingRenderModel: opts.existingRenderModelOf?.(e) ?? null,
-        targetRenderModel: opts.renderModelOf?.(t) ?? null,
+        targetRenderModel:   opts.renderModelOf?.(t) ?? null,
         reasons,
       });
     }
@@ -3665,17 +3546,17 @@ function summarizeDiff<TE extends { version: number[]; isLatest: boolean }, TT e
       orphanCount += 1;
       if (opts.outSamples.length < MAX_DIFF_SAMPLES) {
         opts.outSamples.push({
-          key: `${opts.label}(orphan):${opts.keyOf(e)}`,
-          existingVersion: e.version,
-          targetVersion: [],
-          mergedVersion: nextVersion,
-          existingIsLatest: e.isLatest,
-          targetIsLatest: e.isLatest,
-          existingRenderHash: hasRender ? (opts.renderHashOf(e) ?? null) : null,
-          targetRenderHash: null,
+          key:                 `${opts.label}(orphan):${opts.keyOf(e)}`,
+          existingVersion:     e.version,
+          targetVersion:       [],
+          mergedVersion:       nextVersion,
+          existingIsLatest:    e.isLatest,
+          targetIsLatest:      e.isLatest,
+          existingRenderHash:  hasRender ? (opts.renderHashOf(e) ?? null) : null,
+          targetRenderHash:    null,
           existingRenderModel: opts.existingRenderModelOf?.(e) ?? null,
-          targetRenderModel: null,
-          reasons: ['version(removed build)'],
+          targetRenderModel:   null,
+          reasons:             ['version(removed build)'],
         });
       }
     }
@@ -3690,7 +3571,9 @@ function summarizeDiff<TE extends { version: number[]; isLatest: boolean }, TT e
   };
 }
 
-function noRenderHash(_r: unknown): null { return null; }
+function noRenderHash(_r: unknown): null {
+  return null;
+}
 
 export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectHsdataReport> {
   const dryRun = input.dryRun ?? false;
@@ -3705,47 +3588,46 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     silent: input.onProfileMark != null,
   });
   try {
-    const sourceVersion = await getSourceVersion(input.sourceTag);
+    const patchState = await getPatchState(input.sourceTag);
     profiler.mark('load_source_version');
 
-    if (!sourceVersion) {
+    if (!patchState) {
       throw new Error(`[hearthstone][hsdata-project] sourceTag ${input.sourceTag} does not exist`);
     }
 
-    if (sourceVersion.status !== 'completed') {
+    if (patchState.importStatus !== 'completed') {
       throw new Error(`[hearthstone][hsdata-project] sourceTag ${input.sourceTag} is not completed`);
     }
 
-    if (sourceVersion.build == null) {
-      throw new Error(`[hearthstone][hsdata-project] sourceTag ${input.sourceTag} is missing build`);
-    }
+    // buildNumber is always the sourceTag itself.
+    const build = input.sourceTag;
 
-  await input.onProgress?.({
-    phase:                   'loading_snapshots',
-    message:                 'Loading raw snapshots from the local database',
-    totalSnapshotCount:      null,
-    completedSnapshotCount:  0,
-    totalWorkCount:          null,
-    completedWorkCount:      null,
-    workLabel:               'snapshot',
-  });
+    await input.onProgress?.({
+      phase:                  'loading_snapshots',
+      message:                'Loading raw snapshots from the local database',
+      totalSnapshotCount:     null,
+      completedSnapshotCount: 0,
+      totalWorkCount:         null,
+      completedWorkCount:     null,
+      workLabel:              'snapshot',
+    });
 
-  const snapshots = await loadSnapshots(input.sourceTag, force);
-  const [{ count: totalSnapshotCount }] = await db.select({
-    count: sql<number>`count(*)`,
-  }).from(RawEntitySnapshot)
-    .where(sql<boolean>`${input.sourceTag} = ANY(${RawEntitySnapshot.sourceTags})`);
-  profiler.mark('load_snapshots', {
-    build:         sourceVersion.build,
-    snapshotCount: snapshots.length,
-  });
+    const snapshots = await loadSnapshots(input.sourceTag, force);
+    const [{ count: totalSnapshotCount }] = await db.select({
+      count: sql<number>`count(*)`,
+    }).from(RawEntitySnapshot)
+      .where(sql<boolean>`${input.sourceTag} = ANY(${RawEntitySnapshot.sourceTags})`);
+    profiler.mark('load_snapshots', {
+      build:         build,
+      snapshotCount: snapshots.length,
+    });
 
-  const versionOnlySnapshots = force
-    ? []
-    : snapshots.filter(s => s.projectionState === 'version_only');
-  const notProjectedSnapshots = force
-    ? snapshots
-    : snapshots.filter(s => s.projectionState === 'not_projected');
+    const versionOnlySnapshots = force
+      ? []
+      : snapshots.filter(s => s.projectionState === 'version_only');
+    const notProjectedSnapshots = force
+      ? snapshots
+      : snapshots.filter(s => s.projectionState === 'not_projected');
 
     if (snapshots.length === 0) {
       if (totalSnapshotCount === 0) {
@@ -3753,14 +3635,14 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
       }
 
       await input.onProgress?.({
-        phase:                   'completed',
-        message:                 'All snapshots already projected, nothing to do',
-        totalSnapshotCount:      totalSnapshotCount,
-        completedSnapshotCount:  totalSnapshotCount,
-        totalWorkCount:          totalSnapshotCount,
-        completedWorkCount:      totalSnapshotCount,
-        workLabel:               'snapshot',
-        writeBreakdown:          null,
+        phase:                  'completed',
+        message:                'All snapshots already projected, nothing to do',
+        totalSnapshotCount:     totalSnapshotCount,
+        completedSnapshotCount: totalSnapshotCount,
+        totalWorkCount:         totalSnapshotCount,
+        completedWorkCount:     totalSnapshotCount,
+        workLabel:              'snapshot',
+        writeBreakdown:         null,
       });
 
       profiler.done({ outcome: 'skipped', snapshotCount: 0 });
@@ -3769,7 +3651,7 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
         dryRun,
         skipped:               true,
         sourceTag:             input.sourceTag,
-        build:                 sourceVersion.build,
+        build:                 build,
         snapshotCount:         0,
         totalSnapshotCount,
         skippedSnapshotCount:  totalSnapshotCount,
@@ -3794,625 +3676,628 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
       };
     }
 
-  // Collect all sourceTags referenced by the loaded snapshots and resolve their builds.
-  // Each snapshot may belong to multiple sourceTags. Writing all builds at once lets later
-  // projections skip rows whose builds are already present in the version array.
-  const allSourceTags = [...new Set(snapshots.flatMap(s => s.sourceTags))];
-  const buildsBySourceTag = await getBuildsBySourceTags(allSourceTags);
-  const buildsBySnapshotId = new Map<string, number[]>();
-  for (const snapshot of snapshots) {
-    const builds = snapshot.sourceTags
-      .map(st => buildsBySourceTag.get(st))
-      .filter((b): b is number => b != null);
-    if (builds.length > 0) {
-      buildsBySnapshotId.set(snapshot.id, mergeVersion(...builds));
+    // Collect all sourceTags referenced by the loaded snapshots and resolve their builds.
+    // Each snapshot may belong to multiple sourceTags. Writing all builds at once lets later
+    // projections skip rows whose builds are already present in the version array.
+    const allSourceTags = [...new Set(snapshots.flatMap(s => s.sourceTags))];
+    const buildsBySourceTag = await getBuildsBySourceTags(allSourceTags);
+    const buildsBySnapshotId = new Map<string, number[]>();
+    for (const snapshot of snapshots) {
+      const builds = snapshot.sourceTags
+        .map(st => buildsBySourceTag.get(st))
+        .filter((b): b is number => b != null);
+      if (builds.length > 0) {
+        buildsBySnapshotId.set(snapshot.id, mergeVersion(...builds));
+      }
     }
-  }
-  profiler.mark('resolve_source_tag_builds', {
-    sourceTagCount: allSourceTags.length,
-    resolvedCount:  buildsBySourceTag.size,
-    skippedCount:   allSourceTags.length - buildsBySourceTag.size,
-  });
-
-  await input.onProgress?.({
-    phase:                   'loading_tags',
-    message:                 'Loading raw snapshot tags and projection rules',
-    totalSnapshotCount:      snapshots.length,
-    completedSnapshotCount:  0,
-    totalWorkCount:          snapshots.length,
-    completedWorkCount:      0,
-    workLabel:               'snapshot',
-  });
-
-  const snapshotIdSet = new Set([
-    ...notProjectedSnapshots.map(snapshot => snapshot.id),
-    ...versionOnlySnapshots.map(snapshot => snapshot.id),
-  ]);
-
-  const rawTags = await loadSnapshotTags([...snapshotIdSet], async (completedSnapshotCount, totalSnapshotCount) => {
-    await input.onProgress?.({
-      phase:                   'loading_tags',
-      message:                 `Loaded tags for ${completedSnapshotCount} of ${totalSnapshotCount} snapshots`,
-      totalSnapshotCount:      snapshots.length,
-      completedSnapshotCount:  completedSnapshotCount,
-      totalWorkCount:          totalSnapshotCount,
-      completedWorkCount:      completedSnapshotCount,
-      workLabel:               'snapshot',
+    profiler.mark('resolve_source_tag_builds', {
+      sourceTagCount: allSourceTags.length,
+      resolvedCount:  buildsBySourceTag.size,
+      skippedCount:   allSourceTags.length - buildsBySourceTag.size,
     });
-  });
 
-  profiler.mark('load_snapshot_tags', {
-    snapshotCount: snapshots.length,
-    rawTagCount:   rawTags.length,
-  });
+    await input.onProgress?.({
+      phase:                  'loading_tags',
+      message:                'Loading raw snapshot tags and projection rules',
+      totalSnapshotCount:     snapshots.length,
+      completedSnapshotCount: 0,
+      totalWorkCount:         snapshots.length,
+      completedWorkCount:     0,
+      workLabel:              'snapshot',
+    });
 
-  const enumIds = [...new Set(rawTags.map(row => row.enumId))].sort((left, right) => left - right);
+    const snapshotIdSet = new Set([
+      ...notProjectedSnapshots.map(snapshot => snapshot.id),
+      ...versionOnlySnapshots.map(snapshot => snapshot.id),
+    ]);
 
-  const tagMap = await loadTagRows(enumIds);
-
-  profiler.mark('load_tag_rows', {
-    enumIdCount: enumIds.length,
-    tagRuleCount: tagMap.size,
-  });
-  
-  const rawTagsBySnapshotId = new Map<string, RawSnapshotTagRow[]>();
-
-  for (const row of rawTags) {
-    const rows = rawTagsBySnapshotId.get(row.snapshotId) ?? [];
-    rows.push(row);
-    rawTagsBySnapshotId.set(row.snapshotId, rows);
-  }
-
-  const cardIdByDbfId = new Map([
-    ...notProjectedSnapshots,
-    ...versionOnlySnapshots,
-  ].map(snapshot => [snapshot.dbfId, snapshot.cardId]));
-  const setIdByDbfId = await loadSetIdByDbfId();
-  profiler.mark('build_projection_context', {
-    cardRefCount: cardIdByDbfId.size,
-    setCount:     setIdByDbfId.size,
-  });
-  const context: ProjectionContext = {
-    cardIdByDbfId,
-    setIdByDbfId,
-  };
-
-  await input.onProgress?.({
-    phase:                   'projecting_snapshots',
-    message:                 'Projecting snapshots into shared entity rows',
-    totalSnapshotCount:      snapshots.length,
-    completedSnapshotCount:  0,
-    totalWorkCount:          snapshots.length,
-    completedWorkCount:      0,
-    workLabel:               'snapshot',
-  });
-
-  const projected: ProjectedSnapshot[] = [];
-
-  for (let index = 0; index < notProjectedSnapshots.length; index += 1) {
-    const snapshot = notProjectedSnapshots[index]!;
-    projected.push(projectSnapshot(
-      snapshot,
-      rawTagsBySnapshotId.get(snapshot.id) ?? [],
-      tagMap,
-      context,
-    ));
-
-    const completedSnapshotCount = index + 1;
-
-    const shouldReportProgress = (
-      completedSnapshotCount <= 10
-      || completedSnapshotCount === snapshots.length
-      || completedSnapshotCount % projectProgressBatchSize === 0
-    );
-
-    if (input.onProgress && shouldReportProgress) {
-      await input.onProgress({
-        phase:                   'projecting_snapshots',
-        message:                 `Projected ${completedSnapshotCount} of ${snapshots.length} snapshots`,
-        totalSnapshotCount:      snapshots.length,
-        completedSnapshotCount,
-        totalWorkCount:          snapshots.length,
-        completedWorkCount:      completedSnapshotCount,
-        workLabel:               'snapshot',
-        writeBreakdown:          null,
+    const rawTags = await loadSnapshotTags([...snapshotIdSet], async (completedSnapshotCount, totalSnapshotCount) => {
+      await input.onProgress?.({
+        phase:                  'loading_tags',
+        message:                `Loaded tags for ${completedSnapshotCount} of ${totalSnapshotCount} snapshots`,
+        totalSnapshotCount:     snapshots.length,
+        completedSnapshotCount: completedSnapshotCount,
+        totalWorkCount:         totalSnapshotCount,
+        completedWorkCount:     completedSnapshotCount,
+        workLabel:              'snapshot',
       });
+    });
 
-      await yieldProgressEventLoop();
+    profiler.mark('load_snapshot_tags', {
+      snapshotCount: snapshots.length,
+      rawTagCount:   rawTags.length,
+    });
+
+    const enumIds = [...new Set(rawTags.map(row => row.enumId))].sort((left, right) => left - right);
+
+    const tagMap = await loadTagRows(enumIds);
+
+    profiler.mark('load_tag_rows', {
+      enumIdCount:  enumIds.length,
+      tagRuleCount: tagMap.size,
+    });
+
+    const rawTagsBySnapshotId = new Map<string, RawSnapshotTagRow[]>();
+
+    for (const row of rawTags) {
+      const rows = rawTagsBySnapshotId.get(row.snapshotId) ?? [];
+      rows.push(row);
+      rawTagsBySnapshotId.set(row.snapshotId, rows);
     }
-  }
-  profiler.mark('project_snapshots', {
-    snapshotCount:      projected.length,
-    entityCount:        projected.length,
-    localizationCount:  projected.reduce((count, item) => count + item.localizations.length, 0),
-    relationCount:      projected.reduce((count, item) => count + item.relations.length, 0),
-    unprojectedTagCount: projected.reduce((count, item) => count + item.unprojectedTagCount, 0),
-  });
 
-  const targetEntities = projected.map(item => ({
-    ...item.entity,
-    version:  buildsBySnapshotId.get(item.snapshotId) ?? [sourceVersion.build!],
-    isLatest: false,
-  }));
-  const targetEntityStates: EntityStateRow[] = targetEntities.map(row => ({
-    cardId:       row.cardId,
-    version:      row.version,
-    revisionHash: row.revisionHash,
-    isLatest:     row.isLatest,
-  }));
-  const targetLocalizations = projected.flatMap(item => item.localizations.map(row => ({
-    ...row,
-    version:  buildsBySnapshotId.get(item.snapshotId) ?? [sourceVersion.build!],
-    isLatest: false,
-  })));
-  const targetLocalizationStates: LocalizationStateRow[] = targetLocalizations.map(row => ({
-    cardId:           row.cardId,
-    version:          row.version,
-    lang:             row.lang,
-    revisionHash:     row.revisionHash,
-    localizationHash: row.localizationHash,
-    renderHash:       row.renderHash,
-    renderModel:      row.renderModel,
-    isLatest:         row.isLatest,
-  }));
-  const targetRelations = projected.flatMap(item => item.relations.map(row => ({
-    ...row,
-    version:  buildsBySnapshotId.get(item.snapshotId) ?? [sourceVersion.build!],
-    isLatest: false,
-  })));
-  const entityCardIds = [...new Set(targetEntities.map(row => row.cardId))].sort();
-  const localizationGroups = [
-    ...new Map(
-      targetLocalizations.map(row => [localizationGroupKey(row), {
-        cardId: row.cardId,
-        lang:   row.lang,
-      }]),
-    ).values(),
-  ].sort((left, right) => {
-    const cardCompare = left.cardId.localeCompare(right.cardId);
-    return cardCompare !== 0 ? cardCompare : left.lang.localeCompare(right.lang);
-  });
-  const targetEntityRowsByKey = new Map(targetEntities.map(row => [entityKey(row), row]));
-  const targetLocalizationRowsByKey = new Map(targetLocalizations.map(row => [localizationKey(row), row]));
-  const summarizeTotalWork = entityCardIds.length
-    + localizationGroups.length
-    + targetEntityStates.length
-    + targetLocalizationStates.length
-    + targetRelations.length;
-  let completedSummarizeWork = 0;
-  const reportSummarizeProgress = async (message: string, advance = 0) => {
-    completedSummarizeWork += advance;
+    const cardIdByDbfId = new Map([
+      ...notProjectedSnapshots,
+      ...versionOnlySnapshots,
+    ].map(snapshot => [snapshot.dbfId, snapshot.cardId]));
+    const setIdByDbfId = await loadSetIdByDbfId();
+    profiler.mark('build_projection_context', {
+      cardRefCount: cardIdByDbfId.size,
+      setCount:     setIdByDbfId.size,
+    });
+    const context: ProjectionContext = {
+      cardIdByDbfId,
+      setIdByDbfId,
+    };
 
     await input.onProgress?.({
-      phase:                   'summarizing_changes',
-      message,
-      totalSnapshotCount:      snapshots.length,
-      completedSnapshotCount:  snapshots.length,
-      totalWorkCount:          summarizeTotalWork,
-      completedWorkCount:      Math.min(completedSummarizeWork, summarizeTotalWork),
-      workLabel:               'row',
-      writeBreakdown:          null,
-    });
-  };
-
-  const cardIds = entityCardIds;
-  const sourceIds = [...cardIds];
-  const localizationTargetBuilds = [...new Set(targetLocalizationStates.flatMap(row => row.version))];
-  await reportSummarizeProgress('Loading existing shared rows for the projected result set');
-  const {
-    entities: existingEntities,
-    localizations: existingLocalizations,
-    relations: existingRelations,
-  } = await loadExistingRowsForProjection(
-    sourceVersion.build,
-    entityCardIds,
-    localizationGroups,
-    targetLocalizationStates,
-    localizationTargetBuilds,
-    sourceIds,
-    profiler,
-    reportSummarizeProgress,
-  );
-  profiler.mark('load_existing_rows', {
-    cardCount:                   cardIds.length,
-    existingEntityCount:         existingEntities.length,
-    existingLocalizationCount:   existingLocalizations.length,
-    existingRelationCount:       existingRelations.length,
-    targetEntityCount:           targetEntities.length,
-    targetLocalizationCount:     targetLocalizations.length,
-    targetRelationCount:         targetRelations.length,
-  });
-  const existingEntityRowsByKey = new Map(existingEntities.map(row => [entityKey(row), row]));
-  const existingLocalizationRowsByKey = new Map(existingLocalizations.map(row => [localizationKey(row), row]));
-
-  await reportSummarizeProgress('Reconciling projected rows against the shared tables');
-
-  const [maxBuildRow] = await db.select({ maxBuild: sql<number>`MAX(${SourceVersion.build})` })
-    .from(SourceVersion)
-    .where(eq(SourceVersion.projectionStatus, 'completed'));
-  const globalLatest = maxBuildRow?.maxBuild ?? sourceVersion.build;
-
-  const entityResult = await reconcileRows(existingEntities, targetEntityStates, {
-    build:            sourceVersion.build,
-    keyOf:            entityKey,
-    groupKey:         row => row.cardId,
-    stateOf:          entityState,
-    globalLatest,
-  }, reportSummarizeProgress, 'entity');
-  profiler.mark('reconcile_entities', {
-    insertedEntities: entityResult.inserted,
-    reusedEntities:   entityResult.reused,
-    updatedEntities:  entityResult.updated,
-    finalEntityCount: entityResult.finalRows.length,
-    changed:          entityResult.changed,
-  });
-  const localizationResult = await reconcileRows(existingLocalizations, targetLocalizationStates, {
-    build:            sourceVersion.build,
-    keyOf:            localizationKey,
-    groupKey:         localizationGroupKey,
-    stateOf:          localizationState,
-    globalLatest,
-  }, reportSummarizeProgress, 'localization');
-  profiler.mark('reconcile_localizations', {
-    insertedLocalizations: localizationResult.inserted,
-    reusedLocalizations:   localizationResult.reused,
-    updatedLocalizations:  localizationResult.updated,
-    finalLocalizationCount: localizationResult.finalRows.length,
-    changed:               localizationResult.changed,
-  });
-  const relationResult = await reconcileRows(existingRelations, targetRelations, {
-    build:            sourceVersion.build,
-    keyOf:            relationKey,
-    groupKey:         row => row.sourceId,
-    stateOf:          relationState,
-    globalLatest,
-  }, reportSummarizeProgress, 'relation');
-  profiler.mark('reconcile_relations', {
-    insertedRelations: relationResult.inserted,
-    reusedRelations:   relationResult.reused,
-    updatedRelations:  relationResult.updated,
-    finalRelationCount: relationResult.finalRows.length,
-    changed:           relationResult.changed,
-  });
-  await reportSummarizeProgress('Reconciled projected rows against the shared tables');
-
-  // Surface reconciled counts so the frontend can show how many rows were skipped.
-  await input.onProgress?.({
-    phase:                   'summarizing_changes',
-    message:                 'Reconciled projected rows against the shared tables',
-    totalSnapshotCount:      snapshots.length,
-    completedSnapshotCount:  snapshots.length,
-    totalWorkCount:          summarizeTotalWork,
-    completedWorkCount:      summarizeTotalWork,
-    workLabel:               'row',
-    writeBreakdown:          null,
-    reconciledCounts: {
-      reusedEntities:        entityResult.reused,
-      reusedLocalizations:   localizationResult.reused,
-      reusedRelations:       relationResult.reused,
-      insertedEntities:      entityResult.inserted,
-      insertedLocalizations: localizationResult.inserted,
-      insertedRelations:     relationResult.inserted,
-      updatedEntities:       entityResult.updated,
-      updatedLocalizations:  localizationResult.updated,
-      updatedRelations:      relationResult.updated,
-    },
-  });
-
-  // Compute per-field diff breakdowns (simulating mergeVersion, for dry-run diagnostics).
-  const entitySamples: DiffSample[] = [];
-  const locSamples: DiffSample[] = [];
-  const relSamples: DiffSample[] = [];
-  const entityDiff = summarizeDiff(existingEntities, targetEntities, {
-    build: sourceVersion.build,
-    keyOf: r => entityKey(r), renderHashOf: noRenderHash, label: 'entity', outSamples: entitySamples,
-  });
-  const localizationDiff = summarizeDiff(existingLocalizations, targetLocalizations, {
-    build: sourceVersion.build,
-    keyOf: r => localizationKey(r), renderHashOf: r => r.renderHash,
-    renderModelOf: r => (r as LocalizationRow).renderModel,
-    existingRenderModelOf: r => (r as LocalizationStateRow).renderModel ?? null,
-    label: 'localization', outSamples: locSamples,
-  });
-  const relationDiff = summarizeDiff(existingRelations, targetRelations, {
-    build: sourceVersion.build,
-    keyOf: r => relationKey(r), renderHashOf: noRenderHash, label: 'relation', outSamples: relSamples,
-  });
-  const diffSamples = [...locSamples, ...entitySamples, ...relSamples];
-  let sampleDiffPath: string | null = null;
-  if (input.sampleDiff && diffSamples.length > 0) {
-    const dir = join(tmpdir(), 'hsdata-diff-samples');
-    mkdirSync(dir, { recursive: true });
-    sampleDiffPath = join(dir, `diff-${sourceVersion.sourceTag}-${Date.now()}.json`);
-    writeFileSync(sampleDiffPath, JSON.stringify(diffSamples, null, 2), 'utf-8');
-    console.log(`[hsdata-project] wrote ${diffSamples.length} diff samples to ${sampleDiffPath}`);
-  }
-
-  const entityPlan = entityResult.syncPlan;
-  const localizationPlan = localizationResult.syncPlan;
-  const relationPlan = relationResult.syncPlan;
-  const entityWriteBreakdown = buildEntityWriteBreakdown(
-    entityPlan,
-    existingEntityRowsByKey,
-  );
-  const localizationWriteBreakdown = buildLocalizationWriteBreakdown(
-    localizationPlan,
-    localizationResult.finalRows,
-    existingLocalizationRowsByKey,
-    sourceVersion.build,
-  );
-  const changed = entityResult.changed || localizationResult.changed || relationResult.changed;
-  const skipped = !changed && !force;
-  // `force` keeps the source eligible for a fresh write-path run. When the reconciled result is
-  // unchanged, the duplicate-safe branch writes only the current target rows and ignores existing
-  // primary keys so repeated runs do not rewrite or remove shared-table state.
-  const shouldWrite = changed || force;
-  const ignoreDuplicates = force && !changed;
-  profiler.mark('summarize_projection', {
-    changed,
-    skipped,
-    shouldWrite,
-    ignoreDuplicates,
-  });
-
-  const publishedCardIds = [...new Set(targetEntities.map(e => e.cardId))].sort();
-
-  if (!dryRun && shouldWrite) {
-    const writeProgressTotals = buildWriteProgressTotals({
-      ignoreDuplicates,
-      entity: entityWriteBreakdown,
-      localization: localizationWriteBreakdown,
-      relationDeleteCount: ignoreDuplicates ? 0 : relationPlan.deleteRows.length,
-      relationInsertCount: ignoreDuplicates ? targetRelations.length : relationPlan.upsertRows.length,
-      targetEntityCount: targetEntities.length,
-      targetLocalizationCount: targetLocalizations.length,
-      targetRelationCount: targetRelations.length,
-      targetCardCount: publishedCardIds.length,
-    });
-    const totalWriteRows = writeProgressTotals.entity
-      + writeProgressTotals.localization
-      + writeProgressTotals.latest
-      + writeProgressTotals.relation
-      + writeProgressTotals.card
-      + writeProgressTotals.entityDelete
-      + writeProgressTotals.localizationDelete
-      + writeProgressTotals.relationDelete;
-    await input.onProgress?.({
-      phase:                   'writing_rows',
-      message:                 'Preparing to write projected rows into the shared tables',
-      totalSnapshotCount:      snapshots.length,
-      completedSnapshotCount:  snapshots.length,
-      totalWorkCount:          totalWriteRows,
-      completedWorkCount:      0,
-      workLabel:               'row',
-      writeBreakdown:          toWriteProgressBreakdown(writeProgressTotals, {
-        entity:             0,
-        localization:       0,
-        latest:             0,
-        relation:           0,
-        card:               0,
-        entityDelete:       0,
-        localizationDelete: 0,
-        relationDelete:     0,
-      }),
+      phase:                  'projecting_snapshots',
+      message:                'Projecting snapshots into shared entity rows',
+      totalSnapshotCount:     snapshots.length,
+      completedSnapshotCount: 0,
+      totalWorkCount:         snapshots.length,
+      completedWorkCount:     0,
+      workLabel:              'snapshot',
     });
 
-    await db.transaction(async tx => {
-      let completedWriteRows = 0;
-      const completedWriteBreakdown: WriteProgressBreakdown = {
-        entity:             0,
-        localization:       0,
-        latest:             0,
-        relation:           0,
-        card:               0,
-        entityDelete:       0,
-        localizationDelete: 0,
-        relationDelete:     0,
-      };
-      const reportWriteProgress = async (
-        message: string,
-        advance = 0,
-        segment?: WriteProgressSegment,
-      ) => {
-        completedWriteRows += advance;
+    const projected: ProjectedSnapshot[] = [];
 
-        if (segment) {
-          completedWriteBreakdown[segment] += advance;
-        }
-
-        await input.onProgress?.({
-          phase:                   'writing_rows',
-          message,
-          totalSnapshotCount:      snapshots.length,
-          completedSnapshotCount:  snapshots.length,
-          totalWorkCount:          totalWriteRows,
-          completedWorkCount:      completedWriteRows,
-          workLabel:               'row',
-          writeBreakdown:          toWriteProgressBreakdown(writeProgressTotals, completedWriteBreakdown),
-        });
-      };
-
-      if (!ignoreDuplicates) {
-        await deleteEntities(tx as CopyTx, entityPlan.deleteRows);
-        profiler.mark('write_delete_entities', {
-          rowCount: entityPlan.deleted,
-        });
-        if (entityPlan.deleted > 0) {
-          await reportWriteProgress('Deleted obsolete entity rows from the shared tables', entityPlan.deleted, 'entityDelete');
-        }
-        if (relationPlan.deleteRows.length > 0) {
-          await deleteRelationsByKey(tx as CopyTx, relationPlan.deleteRows);
-        }
-        profiler.mark('write_delete_relations', {
-          deletedRowCount: relationPlan.deleted,
-        });
-        if (relationPlan.deleted > 0) {
-          await reportWriteProgress('Deleted stale relation rows for the projected source cards', relationPlan.deleted, 'relationDelete');
-        }
-      }
-
-      if (ignoreDuplicates) {
-        await insertEntitiesIgnoreDuplicates(tx as CopyTx, targetEntities);
-        await reportWriteProgress('Inserted projected entity rows with duplicate-safe writes', targetEntities.length, 'entity');
-      } else {
-        await upsertEntities(
-          tx as CopyTx,
-          entityPlan,
-          existingEntityRowsByKey,
-          targetEntityRowsByKey,
-          profiler,
-          async update => {
-            await reportWriteProgress(update.message, update.advance ?? 0, update.segment);
-          },
-        );
-      }
-      profiler.mark('write_insert_entities', {
-        rowCount: ignoreDuplicates ? targetEntities.length : entityPlan.upsertRows.length,
-      });
-
-      if (ignoreDuplicates) {
-        await insertLocalizationsIgnoreDuplicates(tx as CopyTx, targetLocalizations);
-        await reportWriteProgress('Inserted projected localization rows with duplicate-safe writes', targetLocalizations.length, 'localization');
-      } else {
-        await syncLocalizations(
-          tx as CopyTx,
-          localizationPlan,
-          existingLocalizationRowsByKey,
-          targetLocalizationRowsByKey,
-          sourceVersion.build!,
-          profiler,
-          async update => {
-            await reportWriteProgress(update.message, update.advance ?? 0, update.segment);
-          },
-          localizationWriteBreakdown.latestRowCountByGroup,
-        );
-      }
-      profiler.mark('write_insert_localizations', {
-        rowCount: ignoreDuplicates ? targetLocalizations.length : localizationPlan.upsertRows.length,
-      });
-
-      if (ignoreDuplicates) {
-        await insertRelationsIgnoreDuplicates(tx, targetRelations);
-      } else {
-        await insertRelations(tx, relationPlan.upsertRows);
-      }
-      profiler.mark('write_insert_relations', {
-        rowCount: ignoreDuplicates ? targetRelations.length : relationPlan.upsertRows.length,
-      });
-      await reportWriteProgress(
-        'Wrote projected relation rows into the shared tables',
-        ignoreDuplicates ? targetRelations.length : relationPlan.upsertRows.length,
-        'relation',
-      );
-
-      if (!dryRun && !skipped) {
-        if (publishedCardIds.length > 0) {
-          await tx.insert(BaseCard).values(
-            publishedCardIds.map(cardId => ({ cardId, legalities: {} })),
-          ).onConflictDoNothing();
-          profiler.mark('write_ensure_cards', { rowCount: publishedCardIds.length });
-          await reportWriteProgress('Ensured card rows exist for projected entities', publishedCardIds.length, 'card');
-        }
-      }
-    });
-    profiler.mark('write_transaction_committed');
-  }
-
-  if (!dryRun && versionOnlySnapshots.length > 0) {
-    const versionOnlyCardIds = [...new Set(versionOnlySnapshots.map(s => s.cardId))];
-
-    for (const snapshot of versionOnlySnapshots) {
-      const builds = buildsBySnapshotId.get(snapshot.id);
-      if (!builds || builds.length === 0) continue;
-
-      const projected = projectSnapshot(
+    for (let index = 0; index < notProjectedSnapshots.length; index += 1) {
+      const snapshot = notProjectedSnapshots[index]!;
+      projected.push(projectSnapshot(
         snapshot,
         rawTagsBySnapshotId.get(snapshot.id) ?? [],
         tagMap,
         context,
+      ));
+
+      const completedSnapshotCount = index + 1;
+
+      const shouldReportProgress = (
+        completedSnapshotCount <= 10
+        || completedSnapshotCount === snapshots.length
+        || completedSnapshotCount % projectProgressBatchSize === 0
       );
 
-      await db.update(BaseEntity)
-        .set({ version: builds })
-        .where(and(
-          eq(BaseEntity.cardId, projected.entity.cardId),
-          eq(BaseEntity.revisionHash, projected.entity.revisionHash),
-        ));
+      if (input.onProgress && shouldReportProgress) {
+        await input.onProgress({
+          phase:              'projecting_snapshots',
+          message:            `Projected ${completedSnapshotCount} of ${snapshots.length} snapshots`,
+          totalSnapshotCount: snapshots.length,
+          completedSnapshotCount,
+          totalWorkCount:     snapshots.length,
+          completedWorkCount: completedSnapshotCount,
+          workLabel:          'snapshot',
+          writeBreakdown:     null,
+        });
 
-      for (const loc of projected.localizations) {
-        await db.update(BaseEntityLocalization)
+        await yieldProgressEventLoop();
+      }
+    }
+    profiler.mark('project_snapshots', {
+      snapshotCount:       projected.length,
+      entityCount:         projected.length,
+      localizationCount:   projected.reduce((count, item) => count + item.localizations.length, 0),
+      relationCount:       projected.reduce((count, item) => count + item.relations.length, 0),
+      unprojectedTagCount: projected.reduce((count, item) => count + item.unprojectedTagCount, 0),
+    });
+
+    const targetEntities = projected.map(item => ({
+      ...item.entity,
+      version:  buildsBySnapshotId.get(item.snapshotId) ?? [build!],
+      isLatest: false,
+    }));
+    const targetEntityStates: EntityStateRow[] = targetEntities.map(row => ({
+      cardId:       row.cardId,
+      version:      row.version,
+      revisionHash: row.revisionHash,
+      isLatest:     row.isLatest,
+    }));
+    const targetLocalizations = projected.flatMap(item => item.localizations.map(row => ({
+      ...row,
+      version:  buildsBySnapshotId.get(item.snapshotId) ?? [build!],
+      isLatest: false,
+    })));
+    const targetLocalizationStates: LocalizationStateRow[] = targetLocalizations.map(row => ({
+      cardId:           row.cardId,
+      version:          row.version,
+      lang:             row.lang,
+      revisionHash:     row.revisionHash,
+      localizationHash: row.localizationHash,
+      renderHash:       row.renderHash,
+      renderModel:      row.renderModel,
+      isLatest:         row.isLatest,
+    }));
+    const targetRelations = projected.flatMap(item => item.relations.map(row => ({
+      ...row,
+      version:  buildsBySnapshotId.get(item.snapshotId) ?? [build!],
+      isLatest: false,
+    })));
+    const entityCardIds = [...new Set(targetEntities.map(row => row.cardId))].sort();
+    const localizationGroups = [
+      ...new Map(
+        targetLocalizations.map(row => [localizationGroupKey(row), {
+          cardId: row.cardId,
+          lang:   row.lang,
+        }]),
+      ).values(),
+    ].sort((left, right) => {
+      const cardCompare = left.cardId.localeCompare(right.cardId);
+      return cardCompare !== 0 ? cardCompare : left.lang.localeCompare(right.lang);
+    });
+    const targetEntityRowsByKey = new Map(targetEntities.map(row => [entityKey(row), row]));
+    const targetLocalizationRowsByKey = new Map(targetLocalizations.map(row => [localizationKey(row), row]));
+    const summarizeTotalWork = entityCardIds.length
+      + localizationGroups.length
+      + targetEntityStates.length
+      + targetLocalizationStates.length
+      + targetRelations.length;
+    let completedSummarizeWork = 0;
+    const reportSummarizeProgress = async (message: string, advance = 0) => {
+      completedSummarizeWork += advance;
+
+      await input.onProgress?.({
+        phase:                  'summarizing_changes',
+        message,
+        totalSnapshotCount:     snapshots.length,
+        completedSnapshotCount: snapshots.length,
+        totalWorkCount:         summarizeTotalWork,
+        completedWorkCount:     Math.min(completedSummarizeWork, summarizeTotalWork),
+        workLabel:              'row',
+        writeBreakdown:         null,
+      });
+    };
+
+    const cardIds = entityCardIds;
+    const sourceIds = [...cardIds];
+    const localizationTargetBuilds = [...new Set(targetLocalizationStates.flatMap(row => row.version))];
+    await reportSummarizeProgress('Loading existing shared rows for the projected result set');
+    const {
+      entities: existingEntities,
+      localizations: existingLocalizations,
+      relations: existingRelations,
+    } = await loadExistingRowsForProjection(
+      build,
+      entityCardIds,
+      localizationGroups,
+      targetLocalizationStates,
+      localizationTargetBuilds,
+      sourceIds,
+      profiler,
+      reportSummarizeProgress,
+    );
+    profiler.mark('load_existing_rows', {
+      cardCount:                 cardIds.length,
+      existingEntityCount:       existingEntities.length,
+      existingLocalizationCount: existingLocalizations.length,
+      existingRelationCount:     existingRelations.length,
+      targetEntityCount:         targetEntities.length,
+      targetLocalizationCount:   targetLocalizations.length,
+      targetRelationCount:       targetRelations.length,
+    });
+    const existingEntityRowsByKey = new Map(existingEntities.map(row => [entityKey(row), row]));
+    const existingLocalizationRowsByKey = new Map(existingLocalizations.map(row => [localizationKey(row), row]));
+
+    await reportSummarizeProgress('Reconciling projected rows against the shared tables');
+
+    const [maxBuildRow] = await db.select({ maxBuild: sql<number>`MAX(${PatchState.buildNumber})` })
+      .from(PatchState)
+      .where(eq(PatchState.projectionStatus, 'completed'));
+    const globalLatest = maxBuildRow?.maxBuild ?? build;
+
+    const entityResult = await reconcileRows(existingEntities, targetEntityStates, {
+      build:    build,
+      keyOf:    entityKey,
+      groupKey: row => row.cardId,
+      stateOf:  entityState,
+      globalLatest,
+    }, reportSummarizeProgress, 'entity');
+    profiler.mark('reconcile_entities', {
+      insertedEntities: entityResult.inserted,
+      reusedEntities:   entityResult.reused,
+      updatedEntities:  entityResult.updated,
+      finalEntityCount: entityResult.finalRows.length,
+      changed:          entityResult.changed,
+    });
+    const localizationResult = await reconcileRows(existingLocalizations, targetLocalizationStates, {
+      build:    build,
+      keyOf:    localizationKey,
+      groupKey: localizationGroupKey,
+      stateOf:  localizationState,
+      globalLatest,
+    }, reportSummarizeProgress, 'localization');
+    profiler.mark('reconcile_localizations', {
+      insertedLocalizations:  localizationResult.inserted,
+      reusedLocalizations:    localizationResult.reused,
+      updatedLocalizations:   localizationResult.updated,
+      finalLocalizationCount: localizationResult.finalRows.length,
+      changed:                localizationResult.changed,
+    });
+    const relationResult = await reconcileRows(existingRelations, targetRelations, {
+      build:    build,
+      keyOf:    relationKey,
+      groupKey: row => row.sourceId,
+      stateOf:  relationState,
+      globalLatest,
+    }, reportSummarizeProgress, 'relation');
+    profiler.mark('reconcile_relations', {
+      insertedRelations:  relationResult.inserted,
+      reusedRelations:    relationResult.reused,
+      updatedRelations:   relationResult.updated,
+      finalRelationCount: relationResult.finalRows.length,
+      changed:            relationResult.changed,
+    });
+    await reportSummarizeProgress('Reconciled projected rows against the shared tables');
+
+    // Surface reconciled counts so the frontend can show how many rows were skipped.
+    await input.onProgress?.({
+      phase:                  'summarizing_changes',
+      message:                'Reconciled projected rows against the shared tables',
+      totalSnapshotCount:     snapshots.length,
+      completedSnapshotCount: snapshots.length,
+      totalWorkCount:         summarizeTotalWork,
+      completedWorkCount:     summarizeTotalWork,
+      workLabel:              'row',
+      writeBreakdown:         null,
+      reconciledCounts:       {
+        reusedEntities:        entityResult.reused,
+        reusedLocalizations:   localizationResult.reused,
+        reusedRelations:       relationResult.reused,
+        insertedEntities:      entityResult.inserted,
+        insertedLocalizations: localizationResult.inserted,
+        insertedRelations:     relationResult.inserted,
+        updatedEntities:       entityResult.updated,
+        updatedLocalizations:  localizationResult.updated,
+        updatedRelations:      relationResult.updated,
+      },
+    });
+
+    // Compute per-field diff breakdowns (simulating mergeVersion, for dry-run diagnostics).
+    const entitySamples: DiffSample[] = [];
+    const locSamples: DiffSample[] = [];
+    const relSamples: DiffSample[] = [];
+    const entityDiff = summarizeDiff(existingEntities, targetEntities, {
+      build:        build,
+      keyOf:        r => entityKey(r), renderHashOf: noRenderHash, label:        'entity', outSamples:   entitySamples,
+    });
+    const localizationDiff = summarizeDiff(existingLocalizations, targetLocalizations, {
+      build:                 build,
+      keyOf:                 r => localizationKey(r), renderHashOf:          r => r.renderHash,
+      renderModelOf:         r => (r as LocalizationRow).renderModel,
+      existingRenderModelOf: r => (r as LocalizationStateRow).renderModel ?? null,
+      label:                 'localization', outSamples:            locSamples,
+    });
+    const relationDiff = summarizeDiff(existingRelations, targetRelations, {
+      build:        build,
+      keyOf:        r => relationKey(r), renderHashOf: noRenderHash, label:        'relation', outSamples:   relSamples,
+    });
+    const diffSamples = [...locSamples, ...entitySamples, ...relSamples];
+    let sampleDiffPath: string | null = null;
+    if (input.sampleDiff && diffSamples.length > 0) {
+      const dir = join(tmpdir(), 'hsdata-diff-samples');
+      mkdirSync(dir, { recursive: true });
+      sampleDiffPath = join(dir, `diff-${build}-${Date.now()}.json`);
+      writeFileSync(sampleDiffPath, JSON.stringify(diffSamples, null, 2), 'utf-8');
+      console.log(`[hsdata-project] wrote ${diffSamples.length} diff samples to ${sampleDiffPath}`);
+    }
+
+    const entityPlan = entityResult.syncPlan;
+    const localizationPlan = localizationResult.syncPlan;
+    const relationPlan = relationResult.syncPlan;
+    const entityWriteBreakdown = buildEntityWriteBreakdown(
+      entityPlan,
+      existingEntityRowsByKey,
+    );
+    const localizationWriteBreakdown = buildLocalizationWriteBreakdown(
+      localizationPlan,
+      localizationResult.finalRows,
+      existingLocalizationRowsByKey,
+      build,
+    );
+    const changed = entityResult.changed || localizationResult.changed || relationResult.changed;
+    const skipped = !changed && !force;
+    // `force` keeps the source eligible for a fresh write-path run. When the reconciled result is
+    // unchanged, the duplicate-safe branch writes only the current target rows and ignores existing
+    // primary keys so repeated runs do not rewrite or remove shared-table state.
+    const shouldWrite = changed || force;
+    const ignoreDuplicates = force && !changed;
+    profiler.mark('summarize_projection', {
+      changed,
+      skipped,
+      shouldWrite,
+      ignoreDuplicates,
+    });
+
+    const publishedCardIds = [...new Set(targetEntities.map(e => e.cardId))].sort();
+
+    if (!dryRun && shouldWrite) {
+      const writeProgressTotals = buildWriteProgressTotals({
+        ignoreDuplicates,
+        entity:                  entityWriteBreakdown,
+        localization:            localizationWriteBreakdown,
+        relationDeleteCount:     ignoreDuplicates ? 0 : relationPlan.deleteRows.length,
+        relationInsertCount:     ignoreDuplicates ? targetRelations.length : relationPlan.upsertRows.length,
+        targetEntityCount:       targetEntities.length,
+        targetLocalizationCount: targetLocalizations.length,
+        targetRelationCount:     targetRelations.length,
+        targetCardCount:         publishedCardIds.length,
+      });
+      const totalWriteRows = writeProgressTotals.entity
+        + writeProgressTotals.localization
+        + writeProgressTotals.latest
+        + writeProgressTotals.relation
+        + writeProgressTotals.card
+        + writeProgressTotals.entityDelete
+        + writeProgressTotals.localizationDelete
+        + writeProgressTotals.relationDelete;
+      await input.onProgress?.({
+        phase:                  'writing_rows',
+        message:                'Preparing to write projected rows into the shared tables',
+        totalSnapshotCount:     snapshots.length,
+        completedSnapshotCount: snapshots.length,
+        totalWorkCount:         totalWriteRows,
+        completedWorkCount:     0,
+        workLabel:              'row',
+        writeBreakdown:         toWriteProgressBreakdown(writeProgressTotals, {
+          entity:             0,
+          localization:       0,
+          latest:             0,
+          relation:           0,
+          card:               0,
+          entityDelete:       0,
+          localizationDelete: 0,
+          relationDelete:     0,
+        }),
+      });
+
+      await db.transaction(async tx => {
+        let completedWriteRows = 0;
+        const completedWriteBreakdown: WriteProgressBreakdown = {
+          entity:             0,
+          localization:       0,
+          latest:             0,
+          relation:           0,
+          card:               0,
+          entityDelete:       0,
+          localizationDelete: 0,
+          relationDelete:     0,
+        };
+        const reportWriteProgress = async (
+          message: string,
+          advance = 0,
+          segment?: WriteProgressSegment,
+        ) => {
+          completedWriteRows += advance;
+
+          if (segment) {
+            completedWriteBreakdown[segment] += advance;
+          }
+
+          await input.onProgress?.({
+            phase:                  'writing_rows',
+            message,
+            totalSnapshotCount:     snapshots.length,
+            completedSnapshotCount: snapshots.length,
+            totalWorkCount:         totalWriteRows,
+            completedWorkCount:     completedWriteRows,
+            workLabel:              'row',
+            writeBreakdown:         toWriteProgressBreakdown(writeProgressTotals, completedWriteBreakdown),
+          });
+        };
+
+        if (!ignoreDuplicates) {
+          await deleteEntities(tx as CopyTx, entityPlan.deleteRows);
+          profiler.mark('write_delete_entities', {
+            rowCount: entityPlan.deleted,
+          });
+          if (entityPlan.deleted > 0) {
+            await reportWriteProgress('Deleted obsolete entity rows from the shared tables', entityPlan.deleted, 'entityDelete');
+          }
+          if (relationPlan.deleteRows.length > 0) {
+            await deleteRelationsByKey(tx as CopyTx, relationPlan.deleteRows);
+          }
+          profiler.mark('write_delete_relations', {
+            deletedRowCount: relationPlan.deleted,
+          });
+          if (relationPlan.deleted > 0) {
+            await reportWriteProgress('Deleted stale relation rows for the projected source cards', relationPlan.deleted, 'relationDelete');
+          }
+        }
+
+        if (ignoreDuplicates) {
+          await insertEntitiesIgnoreDuplicates(tx as CopyTx, targetEntities);
+          await reportWriteProgress('Inserted projected entity rows with duplicate-safe writes', targetEntities.length, 'entity');
+        } else {
+          await upsertEntities(
+            tx as CopyTx,
+            entityPlan,
+            existingEntityRowsByKey,
+            targetEntityRowsByKey,
+            profiler,
+            async update => {
+              await reportWriteProgress(update.message, update.advance ?? 0, update.segment);
+            },
+          );
+        }
+        profiler.mark('write_insert_entities', {
+          rowCount: ignoreDuplicates ? targetEntities.length : entityPlan.upsertRows.length,
+        });
+
+        if (ignoreDuplicates) {
+          await insertLocalizationsIgnoreDuplicates(tx as CopyTx, targetLocalizations);
+          await reportWriteProgress('Inserted projected localization rows with duplicate-safe writes', targetLocalizations.length, 'localization');
+        } else {
+          await syncLocalizations(
+            tx as CopyTx,
+            localizationPlan,
+            existingLocalizationRowsByKey,
+            targetLocalizationRowsByKey,
+            build!,
+            profiler,
+            async update => {
+              await reportWriteProgress(update.message, update.advance ?? 0, update.segment);
+            },
+          );
+        }
+        profiler.mark('write_insert_localizations', {
+          rowCount: ignoreDuplicates ? targetLocalizations.length : localizationPlan.upsertRows.length,
+        });
+
+        if (ignoreDuplicates) {
+          await insertRelationsIgnoreDuplicates(tx, targetRelations);
+        } else {
+          await insertRelations(tx, relationPlan.upsertRows);
+        }
+        profiler.mark('write_insert_relations', {
+          rowCount: ignoreDuplicates ? targetRelations.length : relationPlan.upsertRows.length,
+        });
+        await reportWriteProgress(
+          'Wrote projected relation rows into the shared tables',
+          ignoreDuplicates ? targetRelations.length : relationPlan.upsertRows.length,
+          'relation',
+        );
+
+        if (!dryRun && !skipped) {
+          if (publishedCardIds.length > 0) {
+            for (const chunk of chunkValues(publishedCardIds)) {
+              await tx.insert(BaseCard).values(
+                chunk.map(cardId => ({ cardId, legalities: {} })),
+              ).onConflictDoNothing();
+            }
+            profiler.mark('write_ensure_cards', { rowCount: publishedCardIds.length });
+            await reportWriteProgress('Ensured card rows exist for projected entities', publishedCardIds.length, 'card');
+          }
+        }
+      });
+      profiler.mark('write_transaction_committed');
+    }
+
+    if (!dryRun && versionOnlySnapshots.length > 0) {
+      const versionOnlyCardIds = [...new Set(versionOnlySnapshots.map(s => s.cardId))];
+
+      for (const snapshot of versionOnlySnapshots) {
+        const builds = buildsBySnapshotId.get(snapshot.id);
+        if (!builds || builds.length === 0) continue;
+
+        const projected = projectSnapshot(
+          snapshot,
+          rawTagsBySnapshotId.get(snapshot.id) ?? [],
+          tagMap,
+          context,
+        );
+
+        await db.update(BaseEntity)
           .set({ version: builds })
           .where(and(
-            eq(BaseEntityLocalization.cardId, loc.cardId),
-            eq(BaseEntityLocalization.lang, loc.lang),
-            eq(BaseEntityLocalization.revisionHash, loc.revisionHash),
-            eq(BaseEntityLocalization.localizationHash, loc.localizationHash),
+            eq(BaseEntity.cardId, projected.entity.cardId),
+            eq(BaseEntity.revisionHash, projected.entity.revisionHash),
           ));
+
+        for (const loc of projected.localizations) {
+          await db.update(BaseEntityLocalization)
+            .set({ version: builds })
+            .where(and(
+              eq(BaseEntityLocalization.cardId, loc.cardId),
+              eq(BaseEntityLocalization.lang, loc.lang),
+              eq(BaseEntityLocalization.revisionHash, loc.revisionHash),
+              eq(BaseEntityLocalization.localizationHash, loc.localizationHash),
+            ));
+        }
+
+        for (const rel of projected.relations) {
+          await db.update(BaseEntityRelation)
+            .set({ version: builds })
+            .where(and(
+              eq(BaseEntityRelation.sourceId, rel.sourceId),
+              eq(BaseEntityRelation.sourceRevisionHash, rel.sourceRevisionHash),
+              eq(BaseEntityRelation.relation, rel.relation),
+              eq(BaseEntityRelation.targetId, rel.targetId),
+            ));
+        }
       }
 
-      for (const rel of projected.relations) {
-        await db.update(BaseEntityRelation)
-          .set({ version: builds })
-          .where(and(
-            eq(BaseEntityRelation.sourceId, rel.sourceId),
-            eq(BaseEntityRelation.sourceRevisionHash, rel.sourceRevisionHash),
-            eq(BaseEntityRelation.relation, rel.relation),
-            eq(BaseEntityRelation.targetId, rel.targetId),
-          ));
+      for (const chunk of chunkValues(versionOnlyCardIds)) {
+        await db.insert(BaseCard).values(
+          chunk.map(cardId => ({ cardId, legalities: {} })),
+        ).onConflictDoNothing();
       }
     }
 
-    await db.insert(BaseCard).values(
-      versionOnlyCardIds.map(cardId => ({ cardId, legalities: {} })),
-    ).onConflictDoNothing();
-  }
+    if (!dryRun && !skipLatestUpdate && snapshots.length > 0) {
+      await input.onProgress?.({
+        phase:                  'recomputing_latest',
+        message:                'Recomputing isLatest flags across all projection tables',
+        totalSnapshotCount:     snapshots.length,
+        completedSnapshotCount: snapshots.length,
+        totalWorkCount:         1,
+        completedWorkCount:     0,
+        workLabel:              'table',
+      });
 
-  if (!dryRun && !skipLatestUpdate && snapshots.length > 0) {
+      await recomputeLatestProjection();
+
+      await input.onProgress?.({
+        phase:                  'recomputing_latest',
+        message:                'Recomputed isLatest flags',
+        totalSnapshotCount:     snapshots.length,
+        completedSnapshotCount: snapshots.length,
+        totalWorkCount:         1,
+        completedWorkCount:     1,
+        workLabel:              'table',
+      });
+    }
+
+    if (!dryRun && snapshots.length > 0) {
+      await db.update(RawEntitySnapshot)
+        .set({ projectionState: 'projected' })
+        .where(inArray(RawEntitySnapshot.id, snapshots.map(s => s.id)));
+    }
+
     await input.onProgress?.({
-      phase:                   'recomputing_latest',
-      message:                 'Recomputing isLatest flags across all projection tables',
-      totalSnapshotCount:      snapshots.length,
-      completedSnapshotCount:  snapshots.length,
-      totalWorkCount:          1,
-      completedWorkCount:      0,
-      workLabel:               'table',
+      phase:                  'completed',
+      message:                'Completed hsdata projection',
+      totalSnapshotCount:     snapshots.length,
+      completedSnapshotCount: snapshots.length,
+      totalWorkCount:         snapshots.length,
+      completedWorkCount:     snapshots.length,
+      workLabel:              'snapshot',
+      writeBreakdown:         null,
     });
-
-    await recomputeLatestProjection();
-
-    await input.onProgress?.({
-      phase:                   'recomputing_latest',
-      message:                 'Recomputed isLatest flags',
-      totalSnapshotCount:      snapshots.length,
-      completedSnapshotCount:  snapshots.length,
-      totalWorkCount:          1,
-      completedWorkCount:      1,
-      workLabel:               'table',
-    });
-  }
-
-  if (!dryRun && snapshots.length > 0) {
-    await db.update(RawEntitySnapshot)
-      .set({ projectionState: 'projected' })
-      .where(inArray(RawEntitySnapshot.id, snapshots.map(s => s.id)));
-  }
-
-  await input.onProgress?.({
-    phase:                   'completed',
-    message:                 'Completed hsdata projection',
-    totalSnapshotCount:      snapshots.length,
-    completedSnapshotCount:  snapshots.length,
-    totalWorkCount:          snapshots.length,
-    completedWorkCount:      snapshots.length,
-    workLabel:               'snapshot',
-    writeBreakdown:          null,
-  });
 
     const report = {
       dryRun,
       skipped,
       sourceTag:             input.sourceTag,
-      build:                 sourceVersion.build,
+      build:                 build,
       snapshotCount:         snapshots.length,
       totalSnapshotCount:    totalSnapshotCount,
       skippedSnapshotCount:  totalSnapshotCount - snapshots.length,
@@ -4437,15 +4322,15 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     };
 
     profiler.done({
-      outcome: skipped ? 'skipped' : dryRun ? 'dry_run' : 'completed',
-      snapshotCount: report.snapshotCount,
-      insertedEntities: report.insertedEntities,
-      updatedEntities: report.updatedEntities,
+      outcome:               skipped ? 'skipped' : dryRun ? 'dry_run' : 'completed',
+      snapshotCount:         report.snapshotCount,
+      insertedEntities:      report.insertedEntities,
+      updatedEntities:       report.updatedEntities,
       insertedLocalizations: report.insertedLocalizations,
-      updatedLocalizations: report.updatedLocalizations,
-      insertedRelations: report.insertedRelations,
-      updatedRelations: report.updatedRelations,
-      unprojectedTagCount: report.unprojectedTagCount,
+      updatedLocalizations:  report.updatedLocalizations,
+      insertedRelations:     report.insertedRelations,
+      updatedRelations:      report.updatedRelations,
+      unprojectedTagCount:   report.unprojectedTagCount,
     });
 
     return report;
@@ -4460,25 +4345,25 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
 
 export async function recomputeLatestProjection(options?: {
   onProgress?: (event: {
-    phase: string;
-    message: string;
-    totalRowCount: number | null;
+    phase:             string;
+    message:           string;
+    totalRowCount:     number | null;
     completedRowCount: number | null;
-    updatedCount: number | null;
+    updatedCount:      number | null;
   }) => void;
 }): Promise<{
-  entityRowCount: number;
-  localizationRowCount: number;
-  relationRowCount: number;
-  entityUpdatedCount: number;
+  entityRowCount:           number;
+  localizationRowCount:     number;
+  relationRowCount:         number;
+  entityUpdatedCount:       number;
   localizationUpdatedCount: number;
-  relationUpdatedCount: number;
+  relationUpdatedCount:     number;
 }> {
   const localDb = getLocalDb();
 
-  const [maxBuildRow] = await localDb.select({ maxBuild: sql<number>`MAX(${SourceVersion.build})` })
-    .from(SourceVersion)
-    .where(eq(SourceVersion.projectionStatus, 'completed'));
+  const [maxBuildRow] = await localDb.select({ maxBuild: sql<number>`MAX(${PatchState.buildNumber})` })
+    .from(PatchState)
+    .where(eq(PatchState.projectionStatus, 'completed'));
   const globalLatest = maxBuildRow?.maxBuild;
 
   if (globalLatest == null) {
@@ -4494,11 +4379,11 @@ export async function recomputeLatestProjection(options?: {
   }
 
   options?.onProgress?.({
-    phase: 'entity',
-    message: `Scanning ${entityByCardId.size} entity groups (global latest build ${globalLatest})`,
-    totalRowCount: entityByCardId.size,
+    phase:             'entity',
+    message:           `Scanning ${entityByCardId.size} entity groups (global latest build ${globalLatest})`,
+    totalRowCount:     entityByCardId.size,
     completedRowCount: 0,
-    updatedCount: 0,
+    updatedCount:      0,
   });
 
   let entityUpdatedCount = 0;
@@ -4516,22 +4401,22 @@ export async function recomputeLatestProjection(options?: {
     entityCompleted += 1;
     if (options?.onProgress && entityCompleted % 5000 === 0) {
       options.onProgress({
-        phase: 'entity',
-        message: `Updating entity isLatest (${entityCompleted}/${entityByCardId.size})`,
-        totalRowCount: entityByCardId.size,
+        phase:             'entity',
+        message:           `Updating entity isLatest (${entityCompleted}/${entityByCardId.size})`,
+        totalRowCount:     entityByCardId.size,
         completedRowCount: entityCompleted,
-        updatedCount: entityUpdatedCount,
+        updatedCount:      entityUpdatedCount,
       });
     }
   }
 
   if (options?.onProgress) {
     options.onProgress({
-      phase: 'entity',
-      message: `Entity isLatest updated (${entityUpdatedCount} changed)`,
-      totalRowCount: entityByCardId.size,
+      phase:             'entity',
+      message:           `Entity isLatest updated (${entityUpdatedCount} changed)`,
+      totalRowCount:     entityByCardId.size,
       completedRowCount: entityByCardId.size,
-      updatedCount: entityUpdatedCount,
+      updatedCount:      entityUpdatedCount,
     });
   }
 
@@ -4545,11 +4430,11 @@ export async function recomputeLatestProjection(options?: {
   }
 
   options?.onProgress?.({
-    phase: 'localization',
-    message: `Scanning ${localizationByGroup.size} localization groups`,
-    totalRowCount: localizationByGroup.size,
+    phase:             'localization',
+    message:           `Scanning ${localizationByGroup.size} localization groups`,
+    totalRowCount:     localizationByGroup.size,
     completedRowCount: 0,
-    updatedCount: 0,
+    updatedCount:      0,
   });
 
   let localizationUpdatedCount = 0;
@@ -4572,22 +4457,22 @@ export async function recomputeLatestProjection(options?: {
     localizationCompleted += 1;
     if (options?.onProgress && localizationCompleted % 5000 === 0) {
       options.onProgress({
-        phase: 'localization',
-        message: `Updating localization isLatest (${localizationCompleted}/${localizationByGroup.size})`,
-        totalRowCount: localizationByGroup.size,
+        phase:             'localization',
+        message:           `Updating localization isLatest (${localizationCompleted}/${localizationByGroup.size})`,
+        totalRowCount:     localizationByGroup.size,
         completedRowCount: localizationCompleted,
-        updatedCount: localizationUpdatedCount,
+        updatedCount:      localizationUpdatedCount,
       });
     }
   }
 
   if (options?.onProgress) {
     options.onProgress({
-      phase: 'localization',
-      message: `Localization isLatest updated (${localizationUpdatedCount} changed)`,
-      totalRowCount: localizationByGroup.size,
+      phase:             'localization',
+      message:           `Localization isLatest updated (${localizationUpdatedCount} changed)`,
+      totalRowCount:     localizationByGroup.size,
       completedRowCount: localizationByGroup.size,
-      updatedCount: localizationUpdatedCount,
+      updatedCount:      localizationUpdatedCount,
     });
   }
 
@@ -4600,11 +4485,11 @@ export async function recomputeLatestProjection(options?: {
   }
 
   options?.onProgress?.({
-    phase: 'relation',
-    message: `Scanning ${relationBySourceId.size} relation groups`,
-    totalRowCount: relationBySourceId.size,
+    phase:             'relation',
+    message:           `Scanning ${relationBySourceId.size} relation groups`,
+    totalRowCount:     relationBySourceId.size,
     completedRowCount: 0,
-    updatedCount: 0,
+    updatedCount:      0,
   });
 
   let relationUpdatedCount = 0;
@@ -4628,32 +4513,31 @@ export async function recomputeLatestProjection(options?: {
     relationCompleted += 1;
     if (options?.onProgress && relationCompleted % 5000 === 0) {
       options.onProgress({
-        phase: 'relation',
-        message: `Updating relation isLatest (${relationCompleted}/${relationBySourceId.size})`,
-        totalRowCount: relationBySourceId.size,
+        phase:             'relation',
+        message:           `Updating relation isLatest (${relationCompleted}/${relationBySourceId.size})`,
+        totalRowCount:     relationBySourceId.size,
         completedRowCount: relationCompleted,
-        updatedCount: relationUpdatedCount,
+        updatedCount:      relationUpdatedCount,
       });
     }
   }
 
   if (options?.onProgress) {
     options.onProgress({
-      phase: 'relation',
-      message: `Relation isLatest updated (${relationUpdatedCount} changed)`,
-      totalRowCount: relationBySourceId.size,
+      phase:             'relation',
+      message:           `Relation isLatest updated (${relationUpdatedCount} changed)`,
+      totalRowCount:     relationBySourceId.size,
       completedRowCount: relationBySourceId.size,
-      updatedCount: relationUpdatedCount,
+      updatedCount:      relationUpdatedCount,
     });
   }
 
   return {
-    entityRowCount: entityRows.length,
+    entityRowCount:       entityRows.length,
     localizationRowCount: localizationRows.length,
-    relationRowCount: relationRows.length,
+    relationRowCount:     relationRows.length,
     entityUpdatedCount,
     localizationUpdatedCount,
     relationUpdatedCount,
   };
 }
-

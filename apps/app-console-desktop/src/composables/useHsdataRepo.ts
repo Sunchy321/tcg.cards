@@ -378,17 +378,22 @@ export async function listHsdataSources() {
   return await useDesktopRuntimeClient().hsdata.listSources() as HsdataFile[];
 }
 
+export async function syncPatches() {
+  return await useDesktopRuntimeClient().hsdata.syncPatches() as { count: number };
+}
+
 export async function readHsdataSource(id: string) {
   return await useDesktopRuntimeClient().hsdata.readSource({ id }) as HsdataResolvedSource;
 }
 
-export async function importHsdataSource(id: string, dryRun: boolean, force: boolean) {
+export async function importHsdataSource(id: string, dryRun: boolean, force: boolean, patchOnly?: boolean) {
   trackHsdataImportSourceProgress(id);
 
   return await useDesktopRuntimeClient().hsdata.importSource({
     id,
     dryRun,
     force,
+    patchOnly,
   }) as HsdataImportReport;
 }
 

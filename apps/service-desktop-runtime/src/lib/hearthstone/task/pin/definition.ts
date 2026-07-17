@@ -7,6 +7,7 @@ import { createDb } from '@tcg-cards/db';
 import {
   Entity as LocalEntity, EntityLocalization as LocalEntityLocalization,
   EntityRelation as LocalEntityRelation, Card as LocalCard,
+  Patch as LocalPatch,
   PublishBatch, PublishBaseline, PublishRowBaseline,
 } from '@tcg-cards/db/schema/local/hearthstone';
 import {
@@ -56,7 +57,7 @@ const pinOutput = z.object({
   status: z.string(),
 });
 
-const FULL_SCAN_TABLES: TableName[] = ['entities', 'entity_localizations', 'entity_relations', 'cards'];
+const FULL_SCAN_TABLES: TableName[] = ['entities', 'entity_localizations', 'entity_relations', 'cards', 'patches'];
 
 interface PinScanState {
   manifest: Bun.CryptoHasher;
@@ -92,7 +93,7 @@ async function scanOneChunk(
   if (!tableName) return true;
 
   const cursor = cursors.get(tableName);
-  let rawRows: any[];
+  let rawRows: any[] = [];
 
   if (tableName === 'entities') {
     rawRows = await db.select().from(LocalEntity).where(cursor == null ? undefined : sql`(${LocalEntity.cardId}, ${LocalEntity.revisionHash}) > (${cursor.cardId}, ${cursor.revisionHash})`)
@@ -103,9 +104,12 @@ async function scanOneChunk(
   } else if (tableName === 'entity_relations') {
     rawRows = await db.select().from(LocalEntityRelation).where(cursor == null ? undefined : sql`(${LocalEntityRelation.sourceId}, ${LocalEntityRelation.relation}, ${LocalEntityRelation.targetId}, ${LocalEntityRelation.sourceRevisionHash}) > (${cursor.sourceId}, ${cursor.relation}, ${cursor.targetId}, ${cursor.sourceRevisionHash})`)
       .orderBy(asc(LocalEntityRelation.sourceId), asc(LocalEntityRelation.relation), asc(LocalEntityRelation.targetId), asc(LocalEntityRelation.sourceRevisionHash)).limit(pinReadBatchSize) as any[];
-  } else {
+  } else if (tableName === 'cards') {
     rawRows = await db.select().from(LocalCard).where(cursor == null ? undefined : sql`(${LocalCard.cardId}) > (${cursor.cardId})`)
       .orderBy(asc(LocalCard.cardId)).limit(pinReadBatchSize) as any[];
+  } else if (tableName === 'patches') {
+    rawRows = await db.select().from(LocalPatch).where(cursor == null ? undefined : sql`(${LocalPatch.buildNumber}) > (${cursor.buildNumber})`)
+      .orderBy(asc(LocalPatch.buildNumber)).limit(pinReadBatchSize) as any[];
   }
 
   if (rawRows.length === 0) {

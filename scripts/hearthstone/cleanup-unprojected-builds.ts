@@ -13,7 +13,7 @@ import { eq, sql } from 'drizzle-orm';
 
 import { Entity, EntityLocalization } from '@tcg-cards/db/schema/shared/hearthstone/entity';
 import { EntityRelation } from '@tcg-cards/db/schema/shared/hearthstone/entity-relation';
-import { SourceVersion } from '@tcg-cards/db/schema/local/hearthstone';
+import { PatchState } from '@tcg-cards/db/schema/local/hearthstone';
 
 import { getDb } from '../lib/db';
 
@@ -30,12 +30,12 @@ function formatCount(n: number): string {
 const db = getDb();
 
 const unprojectedBuilds = await db
-  .select({ build: SourceVersion.build })
-  .from(SourceVersion)
-  .where(eq(SourceVersion.projectionStatus, 'not_started'));
+  .select({ build: PatchState.buildNumber })
+  .from(PatchState)
+  .where(eq(PatchState.projectionStatus, 'not_started'));
 
 const builds = [
-  ...new Set(unprojectedBuilds.map(r => r.build).filter((b): b is number => b != null)),
+  ...new Set(unprojectedBuilds.map(r => r.build)),
 ].sort((a, b) => a - b);
 
 if (builds.length === 0) {

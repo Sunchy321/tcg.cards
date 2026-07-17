@@ -7,5 +7,5 @@ export interface PublishGeneration {
 /** Publish-generation identity for the Hearthstone `card_data` surface. */
 export const publishCardDataGeneration = {
   fingerprint: 'card-data-projector/v1',
-  order: 3,
+  order: 4,
 } satisfies PublishGeneration;

@@ -50,6 +50,15 @@
             @click="syncRemoteVersions"
           />
           <UButton
+            :label="syncPatchesLabel"
+            icon="i-lucide-tags"
+            color="neutral"
+            variant="soft"
+            :loading="syncingPatches"
+            :disabled="syncing || importing || projecting || batchRunning"
+            @click="syncPatches"
+          />
+          <UButton
             label="管理数据源"
             icon="i-lucide-database"
             color="neutral"
@@ -1389,6 +1398,7 @@ import {
   getHsdataErrorMessage,
   getHsdataRepoState,
   importHsdataSource,
+  syncPatches as syncPatchesApi,
   listenHsdataImportProgress,
   listenHsdataProjectProgress,
   listLocalHsdataSourceVersions,
@@ -1544,6 +1554,12 @@ const recomputingLatest = ref(false);
 const recomputeLatestResult = ref<HsdataRecomputeLatestReport | null>(null);
 const recomputeLatestProgress = ref<HsdataRecomputeLatestProgressEvent | null>(null);
 const syncing = ref(false);
+const syncingPatches = ref(false);
+const syncPatchesProgress = ref<{ current: number; total: number } | null>(null);
+const syncPatchesLabel = computed(() => {
+  const p = syncPatchesProgress.value;
+  return p != null ? `同步 Patches (${p.current}/${p.total})` : '同步 Patches';
+});
 const sourceSortOrder = ref<SourceListSortOrder>('desc');
 const hideImportedSources = ref(false);
 const hideProjectedSources = ref(false);
@@ -4072,6 +4088,33 @@ async function syncRemoteVersions() {
     });
   } finally {
     syncing.value = false;
+  }
+}
+
+/** Syncs only patch metadata (name/shortName/hash) for all available sources. */
+async function syncPatches() {
+  syncingPatches.value = true;
+  await nextTick();
+  await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+
+  try {
+    const result = await syncPatchesApi();
+    syncPatchesProgress.value = { current: result.count, total: result.count };
+
+    toast.add({
+      title:       'Patches 同步完成',
+      description: `已同步 ${result.count} 个 patch`,
+      color:       'success',
+    });
+  } catch (error) {
+    console.error('Failed to sync patches:', error);
+    toast.add({
+      title:       'Patches 同步失败',
+      description: getHsdataErrorMessage(error),
+      color:       'error',
+    });
+  } finally {
+    syncingPatches.value = false;
   }
 }
 
