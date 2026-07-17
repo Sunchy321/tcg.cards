@@ -6,11 +6,12 @@ import {
 } from '~/composables/useDesktopSettings';
 import {
   cancelIncompleteHsdataPublishBatch,
+  deletePublishHistory,
   formatHsdataDate,
   getHsdataErrorMessage,
   getIncompletePublishBatch,
   type HsdataPublishStreamInput,
-  listPublishBatches,
+  listPublishHistory,
   publishSingleCard,
 } from '~/composables/useHsdataRepo';
 import type {
@@ -40,6 +41,7 @@ const incompleteBatch = ref<(HsdataPublishReport & { pendingRowCount?: number })
 const batchListLoading = ref(false);
 const batchList = ref<HsdataPublishReport[]>([]);
 const cancelingBatchId = ref('');
+const deletingBatchId = ref('');
 const publishType = ref('card_data');
 const dryRun = ref(false);
 
@@ -126,6 +128,8 @@ function statusBadgeColor(status: string) {
   switch (status) {
     case 'completed': return 'success';
     case 'failed': return 'error';
+    case 'canceled': return 'warning';
+    case 'abandoned': return 'neutral';
     case 'stopped': return 'warning';
     default: return 'primary';
   }
@@ -133,12 +137,16 @@ function statusBadgeColor(status: string) {
 
 function formatPublishStatus(status: string) {
   switch (status) {
+    case 'pending': return '等待中';
     case 'planning': return '规划中';
     case 'applying': return '执行中';
+    case 'running': return '执行中';
     case 'paused': return '已暂停';
     case 'stopped': return '已停止';
     case 'completed': return '已完成';
     case 'failed': return '失败';
+    case 'canceled': return '已取消';
+    case 'abandoned': return '已废弃';
     default: return status;
   }
 }
@@ -282,6 +290,26 @@ async function cancelBatch(batch: HsdataPublishReport) {
   }
 }
 
+async function deleteBatch(batch: HsdataPublishReport) {
+  if (deletingBatchId.value.length > 0) return;
+
+  deletingBatchId.value = batch.batchId;
+
+  try {
+    await deletePublishHistory(batch.batchId);
+    batchList.value = batchList.value.filter(b => b.batchId !== batch.batchId);
+  } catch (error) {
+    console.error('Failed to delete publish history:', error);
+    toast.add({
+      title: '删除失败',
+      description: getHsdataErrorMessage(error),
+      color: 'error',
+    });
+  } finally {
+    deletingBatchId.value = '';
+  }
+}
+
 async function loadIncompleteBatch() {
   const stream = selectedPublishStream.value;
 
@@ -309,7 +337,7 @@ async function loadBatchList() {
   }
 
   try {
-    batchList.value = await listPublishBatches(stream);
+    batchList.value = await listPublishHistory(stream);
   } catch {
     batchList.value = [];
   } finally {
@@ -648,17 +676,29 @@ onMounted(async () => {
                 {{ formatHsdataDate(batch.publishedAt) }}
               </td>
               <td class="px-3 py-2">
-                <UButton
-                  v-if="isCancelableBatch(batch)"
-                  label="取消"
-                  icon="i-lucide-x"
-                  color="error"
-                  variant="soft"
-                  size="xs"
-                  :loading="cancelingBatchId === batch.batchId"
-                  :disabled="cancelingBatchId.length > 0"
-                  @click="cancelBatch(batch)"
-                />
+                <div class="flex items-center gap-1">
+                  <UButton
+                    label="删除"
+                    icon="i-lucide-trash-2"
+                    color="error"
+                    variant="ghost"
+                    size="xs"
+                    :loading="deletingBatchId === batch.batchId"
+                    :disabled="deletingBatchId.length > 0"
+                    @click="deleteBatch(batch)"
+                  />
+                  <UButton
+                    v-if="isCancelableBatch(batch)"
+                    label="取消"
+                    icon="i-lucide-x"
+                    color="error"
+                    variant="soft"
+                    size="xs"
+                    :loading="cancelingBatchId === batch.batchId"
+                    :disabled="cancelingBatchId.length > 0 || deletingBatchId.length > 0"
+                    @click="cancelBatch(batch)"
+                  />
+                </div>
               </td>
             </tr>
           </tbody>

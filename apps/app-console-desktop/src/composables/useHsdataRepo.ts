@@ -436,6 +436,20 @@ export function recomputeLatestHsdataProjection() {
 
 /** Current local latest projection published to the configured remote target. */
 /** Current local latest projection pinned into the local publish baseline. */
+/** Deletes one publish history record. */
+export function deletePublishHistory(taskRunId: string) {
+  return (async () => {
+    return await useDesktopRuntimeClient().hsdata.deletePublishHistory({ taskRunId });
+  })();
+}
+
+/** Lists publish history from completed task runs. */
+export function listPublishHistory(input: HsdataPublishStreamInput) {
+  return (async () => {
+    return await useDesktopRuntimeClient().hsdata.listPublishHistory(input);
+  })();
+}
+
 /** Lists recent publish batches for the current target. */
 export function listPublishBatches(input: HsdataPublishStreamInput) {
   return (async () => {

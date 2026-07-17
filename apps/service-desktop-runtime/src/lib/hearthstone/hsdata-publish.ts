@@ -45,32 +45,24 @@ export type TableName = 'cards' | 'entities' | 'entity_localizations' | 'entity_
 
 interface PublishRowState {
   tableName: TableName;
-  rowKey: string;
-  rowHash: string;
-}
-
-interface CurrentRowData {
-  cards: Map<string, typeof LocalCard.$inferSelect>;
-  entities: Map<string, typeof LocalEntity.$inferSelect>;
-  localizations: Map<string, typeof LocalEntityLocalization.$inferSelect>;
-  relations: Map<string, typeof LocalEntityRelation.$inferSelect>;
-  patches: Map<string, typeof LocalPatch.$inferSelect>;
+  rowKey:    string;
+  rowHash:   string;
 }
 
 export interface PinCounts {
-  totalRowCount: number;
-  cardRowCount: number;
-  entityRowCount: number;
+  totalRowCount:        number;
+  cardRowCount:         number;
+  entityRowCount:       number;
   localizationRowCount: number;
-  relationRowCount: number;
+  relationRowCount:     number;
 }
 
 interface PublishBatchRowPlan {
-  tableName: TableName;
-  rowKey: string;
-  rowHash: string;
+  tableName:       TableName;
+  rowKey:          string;
+  rowHash:         string;
   previousRowHash: string | null;
-  action: typeof PublishBatchRow.$inferSelect['action'];
+  action:          typeof PublishBatchRow.$inferSelect['action'];
 }
 
 export interface PublishDatasetRange {
@@ -83,7 +75,7 @@ export type GenerationOrder = PublishGeneration['order'];
 
 interface PublishTargetSelector {
   publishTarget?: string;
-  environment?: string;
+  environment?:   string;
 }
 
 /** Reads whether one caller has requested a cooperative stop for the current publish flow. */
@@ -109,62 +101,50 @@ interface PublishStreamIdentity extends PublishStream {
 }
 
 export interface PublishBatchCounts {
-  totalRowCount: number;
-  changedRowCount: number;
-  insertedRowCount: number;
-  updatedRowCount: number;
-  deletedRowCount: number;
-  unchangedRowCount: number;
-  cardRowCount: number;
-  entityRowCount: number;
+  totalRowCount:        number;
+  changedRowCount:      number;
+  insertedRowCount:     number;
+  updatedRowCount:      number;
+  deletedRowCount:      number;
+  unchangedRowCount:    number;
+  cardRowCount:         number;
+  entityRowCount:       number;
   localizationRowCount: number;
-  relationRowCount: number;
+  relationRowCount:     number;
 }
 
 export const publishReport = z.object({
-  batchId: z.string(),
-  publishTarget: z.string(),
-  environment: z.string(),
-  targetFingerprint: z.string(),
-  publishType: z.string(),
-  operationKind: z.string(),
-  status: z.string(),
-  manifestHash: z.string(),
+  batchId:              z.string(),
+  publishTarget:        z.string(),
+  environment:          z.string(),
+  targetFingerprint:    z.string(),
+  publishType:          z.string(),
+  operationKind:        z.string(),
+  status:               z.string(),
+  manifestHash:         z.string(),
   previousManifestHash: z.string().nullable(),
-  buildMin: z.number(),
-  buildMax: z.number(),
-  totalRowCount: z.number(),
-  changedRowCount: z.number(),
-  insertedRowCount: z.number(),
-  updatedRowCount: z.number(),
-  deletedRowCount: z.number(),
-  unchangedRowCount: z.number(),
-  cardRowCount: z.number(),
-  entityRowCount: z.number(),
+  buildMin:             z.number(),
+  buildMax:             z.number(),
+  totalRowCount:        z.number(),
+  changedRowCount:      z.number(),
+  insertedRowCount:     z.number(),
+  updatedRowCount:      z.number(),
+  deletedRowCount:      z.number(),
+  unchangedRowCount:    z.number(),
+  cardRowCount:         z.number(),
+  entityRowCount:       z.number(),
   localizationRowCount: z.number(),
-  relationRowCount: z.number(),
-  publishedAt: z.string(),
-  pendingRowCount: z.number().optional(),
+  relationRowCount:     z.number(),
+  publishedAt:          z.string(),
+  pendingRowCount:      z.number().optional(),
 });
 
 export type PublishReport = z.infer<typeof publishReport>;
 
-interface PublishApplyFailure {
-  tableName: TableName | null;
-  rowKey: string | null;
-  message: string;
-}
-
 /** Stream-level gate state loaded from the remote serving database. */
 interface RemotePublishGateState {
   registration: typeof PublishStreamRegistration.$inferSelect;
-  ledger: typeof PublishLedger.$inferSelect | null;
-}
-
-/** Lease acquisition result for one ordinary publish batch. */
-interface RemotePublishLease {
-  holderId: string;
-  expiresAt: Date;
+  ledger:       typeof PublishLedger.$inferSelect | null;
 }
 
 function toHex(hash: Uint8Array): string {
@@ -202,16 +182,8 @@ export async function findActiveStreamBatch(
     .then(rows => rows[0] ?? null);
 }
 
-async function closePublishDb(db: PublishDb) {
-  await db.$client.end({ timeout: 1 });
-}
-
 export function hashJson(value: unknown): string {
   return sha256Hex(JSON.stringify(value));
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 export function chunkValues<T>(values: T[], size = writeBatchSize): T[][] {
@@ -251,16 +223,16 @@ export function buildManifestLine(state: PublishRowState): string {
 export async function assertRemotePublishGate(
   remoteDb: PublishDb,
   input: {
-    publishTarget: string;
-    environment: string;
-    publishType: string;
-    targetFingerprint: string;
-    manifestHash: string;
-    previousManifestHash: string | null;
-    buildMax: number;
+    publishTarget:         string;
+    environment:           string;
+    publishType:           string;
+    targetFingerprint:     string;
+    manifestHash:          string;
+    previousManifestHash:  string | null;
+    buildMax:              number;
     generationFingerprint: GenerationFingerprint;
-    generationOrder: GenerationOrder;
-    leaseHolderId: string;
+    generationOrder:       GenerationOrder;
+    leaseHolderId:         string;
   },
 ): Promise<RemotePublishGateState> {
   const registration = await remoteDb.select()
@@ -297,7 +269,7 @@ export async function assertRemotePublishGate(
     .set({
       leaseHolderId: input.leaseHolderId,
       leaseExpiresAt,
-      updatedAt: now,
+      updatedAt:     now,
     })
     .where(and(
       eq(PublishStreamRegistration.publishTarget, input.publishTarget),
@@ -368,16 +340,16 @@ export async function releaseRemotePublishLease(
   remoteDb: PublishDb,
   input: {
     publishTarget: string;
-    environment: string;
-    publishType: string;
+    environment:   string;
+    publishType:   string;
     leaseHolderId: string;
   },
 ) {
   await remoteDb.update(PublishStreamRegistration)
     .set({
-      leaseHolderId: null,
+      leaseHolderId:  null,
       leaseExpiresAt: null,
-      updatedAt: new Date(),
+      updatedAt:      new Date(),
     })
     .where(and(
       eq(PublishStreamRegistration.publishTarget, input.publishTarget),
@@ -391,9 +363,9 @@ export async function releaseRemotePublishLease(
 export async function ensureRemotePublishRegistration(
   connectionString: string,
   input: {
-    publishTarget: string;
-    environment: string;
-    publishType: string;
+    publishTarget:     string;
+    environment:       string;
+    publishType:       string;
     targetFingerprint: string;
   },
 ): Promise<void> {
@@ -401,10 +373,10 @@ export async function ensureRemotePublishRegistration(
 
   try {
     await remoteDb.insert(PublishStreamRegistration).values({
-      publishTarget: input.publishTarget,
-      environment: input.environment,
-      publishType: input.publishType,
-      targetFingerprint: input.targetFingerprint,
+      publishTarget:        input.publishTarget,
+      environment:          input.environment,
+      publishType:          input.publishType,
+      targetFingerprint:    input.targetFingerprint,
       normalPublishEnabled: true,
     })
       .onConflictDoUpdate({
@@ -414,9 +386,9 @@ export async function ensureRemotePublishRegistration(
           PublishStreamRegistration.publishType,
         ],
         set: {
-          targetFingerprint: input.targetFingerprint,
+          targetFingerprint:    input.targetFingerprint,
           normalPublishEnabled: true,
-          updatedAt: new Date(),
+          updatedAt:            new Date(),
         },
       });
   } finally {
@@ -429,8 +401,8 @@ export async function renewRemotePublishLease(
   remoteDb: PublishDb,
   input: {
     publishTarget: string;
-    environment: string;
-    publishType: string;
+    environment:   string;
+    publishType:   string;
     leaseHolderId: string;
   },
 ) {
@@ -479,90 +451,90 @@ export function parseRowKey(serialized: string): Record<string, string> {
 /** Stable manifest projection for one entity row. */
 function entityManifestValue(row: typeof LocalEntity.$inferSelect) {
   return {
-    cardId: row.cardId,
-    version: row.version,
-    revisionHash: row.revisionHash,
-    dbfId: row.dbfId,
-    legacyPayload: row.legacyPayload,
-    set: row.set,
-    classes: row.classes,
-    type: row.type,
-    cost: row.cost,
-    attack: row.attack,
-    health: row.health,
-    durability: row.durability,
-    armor: row.armor,
-    rune: row.rune,
-    race: row.race,
-    spellSchool: row.spellSchool,
-    questType: row.questType,
-    questProgress: row.questProgress,
-    questPart: row.questPart,
-    heroPower: row.heroPower,
-    techLevel: row.techLevel,
-    inBobsTavern: row.inBobsTavern,
-    tripleCard: row.tripleCard,
-    raceBucket: row.raceBucket,
-    armorBucket: row.armorBucket,
-    buddy: row.buddy,
-    bannedRace: row.bannedRace,
-    mercenaryRole: row.mercenaryRole,
-    mercenaryFaction: row.mercenaryFaction,
-    colddown: row.colddown,
-    collectible: row.collectible,
-    elite: row.elite,
-    rarity: row.rarity,
-    artist: row.artist,
+    cardId:            row.cardId,
+    version:           row.version,
+    revisionHash:      row.revisionHash,
+    dbfId:             row.dbfId,
+    legacyPayload:     row.legacyPayload,
+    set:               row.set,
+    classes:           row.classes,
+    type:              row.type,
+    cost:              row.cost,
+    attack:            row.attack,
+    health:            row.health,
+    durability:        row.durability,
+    armor:             row.armor,
+    rune:              row.rune,
+    race:              row.race,
+    spellSchool:       row.spellSchool,
+    questType:         row.questType,
+    questProgress:     row.questProgress,
+    questPart:         row.questPart,
+    heroPower:         row.heroPower,
+    techLevel:         row.techLevel,
+    inBobsTavern:      row.inBobsTavern,
+    tripleCard:        row.tripleCard,
+    raceBucket:        row.raceBucket,
+    armorBucket:       row.armorBucket,
+    buddy:             row.buddy,
+    bannedRace:        row.bannedRace,
+    mercenaryRole:     row.mercenaryRole,
+    mercenaryFaction:  row.mercenaryFaction,
+    colddown:          row.colddown,
+    collectible:       row.collectible,
+    elite:             row.elite,
+    rarity:            row.rarity,
+    artist:            row.artist,
     overrideWatermark: row.overrideWatermark,
-    faction: row.faction,
-    mechanics: row.mechanics,
-    referencedTags: row.referencedTags,
-    textBuilderType: row.textBuilderType,
-    changeType: row.changeType,
-    isLatest: row.isLatest,
+    faction:           row.faction,
+    mechanics:         row.mechanics,
+    referencedTags:    row.referencedTags,
+    textBuilderType:   row.textBuilderType,
+    changeType:        row.changeType,
+    isLatest:          row.isLatest,
   };
 }
 
 /** Stable manifest projection for one localization row. */
 function localizationManifestValue(row: typeof LocalEntityLocalization.$inferSelect) {
   return {
-    cardId: row.cardId,
-    version: row.version,
-    lang: row.lang,
-    revisionHash: row.revisionHash,
+    cardId:           row.cardId,
+    version:          row.version,
+    lang:             row.lang,
+    revisionHash:     row.revisionHash,
     localizationHash: row.localizationHash,
-    renderHash: row.renderHash,
-    renderModel: row.renderModel,
-    isLatest: row.isLatest,
-    name: row.name,
-    text: row.text,
-    richText: row.richText,
-    displayText: row.displayText,
-    targetText: row.targetText,
-    textInPlay: row.textInPlay,
-    howToEarn: row.howToEarn,
-    howToEarnGolden: row.howToEarnGolden,
-    flavorText: row.flavorText,
-    locChangeType: row.locChangeType,
+    renderHash:       row.renderHash,
+    renderModel:      row.renderModel,
+    isLatest:         row.isLatest,
+    name:             row.name,
+    text:             row.text,
+    richText:         row.richText,
+    displayText:      row.displayText,
+    targetText:       row.targetText,
+    textInPlay:       row.textInPlay,
+    howToEarn:        row.howToEarn,
+    howToEarnGolden:  row.howToEarnGolden,
+    flavorText:       row.flavorText,
+    locChangeType:    row.locChangeType,
   };
 }
 
 /** Stable manifest projection for one relation row. */
 function relationManifestValue(row: typeof LocalEntityRelation.$inferSelect) {
   return {
-    sourceId: row.sourceId,
+    sourceId:           row.sourceId,
     sourceRevisionHash: row.sourceRevisionHash,
-    relation: row.relation,
-    targetId: row.targetId,
-    version: row.version,
-    isLatest: row.isLatest,
+    relation:           row.relation,
+    targetId:           row.targetId,
+    version:            row.version,
+    isLatest:           row.isLatest,
   };
 }
 
 /** Stable manifest projection for one card row. */
 function cardManifestValue(row: typeof LocalCard.$inferSelect) {
   return {
-    cardId: row.cardId,
+    cardId:     row.cardId,
     legalities: row.legalities,
   };
 }
@@ -573,26 +545,26 @@ function cardsRowKey(row: typeof LocalCard.$inferSelect): string {
 
 function entitiesRowKey(row: typeof LocalEntity.$inferSelect): string {
   return serializeRowKey({
-    cardId: row.cardId,
+    cardId:       row.cardId,
     revisionHash: row.revisionHash,
   });
 }
 
 function localizationsRowKey(row: typeof LocalEntityLocalization.$inferSelect): string {
   return serializeRowKey({
-    cardId: row.cardId,
-    lang: row.lang,
+    cardId:           row.cardId,
+    lang:             row.lang,
     localizationHash: row.localizationHash,
-    revisionHash: row.revisionHash,
+    revisionHash:     row.revisionHash,
   });
 }
 
 function relationsRowKey(row: typeof LocalEntityRelation.$inferSelect): string {
   return serializeRowKey({
-    relation: row.relation,
-    sourceId: row.sourceId,
+    relation:           row.relation,
+    sourceId:           row.sourceId,
     sourceRevisionHash: row.sourceRevisionHash,
-    targetId: row.targetId,
+    targetId:           row.targetId,
   });
 }
 
@@ -633,23 +605,14 @@ function patchRowHash(row: typeof LocalPatch.$inferSelect): string {
   return hashJson(patchManifestValue(row));
 }
 
-/** Progress event emitted by snapshot loading and batch-writing steps. */
-type StepProgress = (event: {
-  phase: string;
-  message: string;
-  completed?: number;
-  total?: number;
-  segments?: { name: string; done: number; total: number }[];
-}) => void;
-
 /** Current accepted row hashes loaded directly from the row baseline table. */
 export async function loadBaselineRowHashes(
   db: PublishDb,
   stream: PublishStream,
 ): Promise<{
-    baseline: typeof PublishBaseline.$inferSelect | null;
-    baselineRowHashes: Map<TableName, Map<string, string>>;
-  }> {
+  baseline:          typeof PublishBaseline.$inferSelect | null;
+  baselineRowHashes: Map<TableName, Map<string, string>>;
+}> {
   const rowBaselines = await db.select()
     .from(PublishRowBaseline)
     .where(and(
@@ -715,10 +678,10 @@ function buildBatchRowPlans(
   currentStates: PublishRowState[],
   baselineRowHashes: Map<TableName, Map<string, string>>,
 ): {
-    plans: PublishBatchRowPlan[];
-    counts: PublishBatchCounts;
-    manifestHash: string;
-  } {
+  plans:        PublishBatchRowPlan[];
+  counts:       PublishBatchCounts;
+  manifestHash: string;
+} {
   const currentByTable = new Map<TableName, Map<string, string>>();
 
   for (const state of currentStates) {
@@ -732,16 +695,16 @@ function buildBatchRowPlans(
   const allTables = new Set<TableName>([...currentByTable.keys(), ...baselineRowHashes.keys()]);
   const plans: PublishBatchRowPlan[] = [];
   const counts: PublishBatchCounts = {
-    totalRowCount: 0,
-    changedRowCount: 0,
-    insertedRowCount: 0,
-    updatedRowCount: 0,
-    deletedRowCount: 0,
-    unchangedRowCount: 0,
-    cardRowCount: 0,
-    entityRowCount: 0,
+    totalRowCount:        0,
+    changedRowCount:      0,
+    insertedRowCount:     0,
+    updatedRowCount:      0,
+    deletedRowCount:      0,
+    unchangedRowCount:    0,
+    cardRowCount:         0,
+    entityRowCount:       0,
     localizationRowCount: 0,
-    relationRowCount: 0,
+    relationRowCount:     0,
   };
 
   for (const tableName of allTables) {
@@ -771,10 +734,18 @@ function buildBatchRowPlans(
       }
 
       switch (tableName) {
-        case 'cards': counts.cardRowCount += 1; break;
-        case 'entities': counts.entityRowCount += 1; break;
-        case 'entity_localizations': counts.localizationRowCount += 1; break;
-        case 'entity_relations': counts.relationRowCount += 1; break;
+      case 'cards':
+        counts.cardRowCount += 1;
+        break;
+      case 'entities':
+        counts.entityRowCount += 1;
+        break;
+      case 'entity_localizations':
+        counts.localizationRowCount += 1;
+        break;
+      case 'entity_relations':
+        counts.relationRowCount += 1;
+        break;
       }
     }
   }
@@ -791,43 +762,11 @@ function buildBatchRowPlans(
     .filter(p => p.action !== 'delete')
     .map(p => ({
       tableName: p.tableName,
-      rowKey: p.rowKey,
-      rowHash: p.rowHash,
+      rowKey:    p.rowKey,
+      rowHash:   p.rowHash,
     })));
 
   return { plans, counts, manifestHash };
-}
-
-/** Failed batch state persisted after the remote apply aborts. */
-async function finalizePublishBatchFailure(
-  db: PublishDb,
-  batchId: string,
-  failure: PublishApplyFailure,
-): Promise<void> {
-  const now = new Date();
-
-  if (failure.tableName != null && failure.rowKey != null) {
-    await db.update(PublishBatchRow)
-      .set({
-        status: 'failed',
-        error: failure.message,
-        updatedAt: now,
-      })
-      .where(and(
-        eq(PublishBatchRow.batchId, batchId),
-        eq(PublishBatchRow.tableName, failure.tableName),
-        eq(PublishBatchRow.rowKey, failure.rowKey),
-      ));
-  }
-
-  await db.update(PublishBatch)
-    .set({
-      status: 'failed',
-      error: failure.message,
-      completedAt: now,
-      updatedAt: now,
-    })
-    .where(eq(PublishBatch.id, batchId));
 }
 
 /** Stopped batch state persisted after a cooperative stop request interrupts execution. */
@@ -840,19 +779,19 @@ async function finalizePublishBatchStopped(
 
   await db.update(PublishBatch)
     .set({
-      status: 'stopped',
-      error: message,
+      status:      'stopped',
+      error:       message,
       completedAt: now,
-      updatedAt: now,
+      updatedAt:   now,
     })
     .where(eq(PublishBatch.id, batchId));
 }
 
 /** Cancels one residual local batch when no in-memory publish job is still executing it. */
 export async function cancelIncompletePublishBatch(input: {
-  batchId: string;
+  batchId:        string;
   publishTarget?: string;
-  environment?: string;
+  environment?:   string;
 }): Promise<PublishReport> {
   const target = resolvePublishTargetSelector(input);
   const localDb = getLocalDb();
@@ -898,35 +837,35 @@ export async function cancelIncompletePublishBatch(input: {
 export async function upsertRemotePublishLedger(
   tx: PublishDbTx,
   input: {
-    batchId: string;
-    publishTarget: string;
-    environment: string;
-    targetFingerprint: string;
-    publishType: string;
-    range: PublishDatasetRange;
+    batchId:               string;
+    publishTarget:         string;
+    environment:           string;
+    targetFingerprint:     string;
+    publishType:           string;
+    range:                 PublishDatasetRange;
     generationFingerprint: GenerationFingerprint;
-    generationOrder: GenerationOrder;
-    counts: PublishBatchCounts;
-    manifestHash: string;
-    publishedAt: Date;
+    generationOrder:       GenerationOrder;
+    counts:                PublishBatchCounts;
+    manifestHash:          string;
+    publishedAt:           Date;
   },
 ): Promise<void> {
   await tx.insert(PublishLedger).values({
-    publishTarget: input.publishTarget,
-    environment: input.environment,
-    publishType: input.publishType,
-    targetFingerprint: input.targetFingerprint,
-    batchId: input.batchId,
-    buildMin: input.range.buildMin,
-    buildMax: input.range.buildMax,
+    publishTarget:         input.publishTarget,
+    environment:           input.environment,
+    publishType:           input.publishType,
+    targetFingerprint:     input.targetFingerprint,
+    batchId:               input.batchId,
+    buildMin:              input.range.buildMin,
+    buildMax:              input.range.buildMax,
     generationFingerprint: input.generationFingerprint,
-    generationOrder: input.generationOrder,
-    manifestHash: input.manifestHash,
-    totalRowCount: input.counts.totalRowCount,
-    changedRowCount: input.counts.changedRowCount,
-    publishedAt: input.publishedAt,
-    createdAt: input.publishedAt,
-    updatedAt: input.publishedAt,
+    generationOrder:       input.generationOrder,
+    manifestHash:          input.manifestHash,
+    totalRowCount:         input.counts.totalRowCount,
+    changedRowCount:       input.counts.changedRowCount,
+    publishedAt:           input.publishedAt,
+    createdAt:             input.publishedAt,
+    updatedAt:             input.publishedAt,
   })
     .onConflictDoUpdate({
       target: [
@@ -935,19 +874,19 @@ export async function upsertRemotePublishLedger(
         PublishLedger.publishType,
       ],
       set: {
-        environment: input.environment,
-        publishType: input.publishType,
-        targetFingerprint: input.targetFingerprint,
-        batchId: input.batchId,
-        buildMin: input.range.buildMin,
-        buildMax: input.range.buildMax,
+        environment:           input.environment,
+        publishType:           input.publishType,
+        targetFingerprint:     input.targetFingerprint,
+        batchId:               input.batchId,
+        buildMin:              input.range.buildMin,
+        buildMax:              input.range.buildMax,
         generationFingerprint: input.generationFingerprint,
-        generationOrder: input.generationOrder,
-        manifestHash: input.manifestHash,
-        totalRowCount: input.counts.totalRowCount,
-        changedRowCount: input.counts.changedRowCount,
-        publishedAt: input.publishedAt,
-        updatedAt: input.publishedAt,
+        generationOrder:       input.generationOrder,
+        manifestHash:          input.manifestHash,
+        totalRowCount:         input.counts.totalRowCount,
+        changedRowCount:       input.counts.changedRowCount,
+        publishedAt:           input.publishedAt,
+        updatedAt:             input.publishedAt,
       },
     });
 }
@@ -959,34 +898,34 @@ export async function deleteRemoteRow(
   rowKey: Record<string, string>,
 ): Promise<void> {
   switch (tableName) {
-    case 'cards':
-      await tx.delete(RemoteBaseCard).where(eq(RemoteBaseCard.cardId, rowKey.cardId!));
-      return;
-    case 'entities':
-      await tx.delete(RemoteBaseEntity).where(and(
-        eq(RemoteBaseEntity.cardId, rowKey.cardId!),
-        eq(RemoteBaseEntity.revisionHash, rowKey.revisionHash!),
-      ));
-      return;
-    case 'entity_localizations':
-      await tx.delete(RemoteBaseEntityLocalization).where(and(
-        eq(RemoteBaseEntityLocalization.cardId, rowKey.cardId!),
-        eq(RemoteBaseEntityLocalization.lang, rowKey.lang! as Locale),
-        eq(RemoteBaseEntityLocalization.revisionHash, rowKey.revisionHash!),
-        eq(RemoteBaseEntityLocalization.localizationHash, rowKey.localizationHash!),
-      ));
-      return;
-    case 'entity_relations':
-      await tx.delete(RemoteBaseEntityRelation).where(and(
-        eq(RemoteBaseEntityRelation.sourceId, rowKey.sourceId!),
-        eq(RemoteBaseEntityRelation.sourceRevisionHash, rowKey.sourceRevisionHash!),
-        eq(RemoteBaseEntityRelation.relation, rowKey.relation!),
-        eq(RemoteBaseEntityRelation.targetId, rowKey.targetId!),
-      ));
-      return;
-    case 'patches':
-      await tx.delete(RemotePatch).where(eq(RemotePatch.buildNumber, Number(rowKey.buildNumber!)));
-      return;
+  case 'cards':
+    await tx.delete(RemoteBaseCard).where(eq(RemoteBaseCard.cardId, rowKey.cardId!));
+    return;
+  case 'entities':
+    await tx.delete(RemoteBaseEntity).where(and(
+      eq(RemoteBaseEntity.cardId, rowKey.cardId!),
+      eq(RemoteBaseEntity.revisionHash, rowKey.revisionHash!),
+    ));
+    return;
+  case 'entity_localizations':
+    await tx.delete(RemoteBaseEntityLocalization).where(and(
+      eq(RemoteBaseEntityLocalization.cardId, rowKey.cardId!),
+      eq(RemoteBaseEntityLocalization.lang, rowKey.lang! as Locale),
+      eq(RemoteBaseEntityLocalization.revisionHash, rowKey.revisionHash!),
+      eq(RemoteBaseEntityLocalization.localizationHash, rowKey.localizationHash!),
+    ));
+    return;
+  case 'entity_relations':
+    await tx.delete(RemoteBaseEntityRelation).where(and(
+      eq(RemoteBaseEntityRelation.sourceId, rowKey.sourceId!),
+      eq(RemoteBaseEntityRelation.sourceRevisionHash, rowKey.sourceRevisionHash!),
+      eq(RemoteBaseEntityRelation.relation, rowKey.relation!),
+      eq(RemoteBaseEntityRelation.targetId, rowKey.targetId!),
+    ));
+    return;
+  case 'patches':
+    await tx.delete(RemotePatch).where(eq(RemotePatch.buildNumber, Number(rowKey.buildNumber!)));
+    return;
   }
 }
 
@@ -1002,21 +941,21 @@ export async function insertRemoteRow(
 
     if (action === 'update') {
       await tx.insert(RemoteBaseCard).values({
-        cardId: cardRow.cardId,
+        cardId:     cardRow.cardId,
         legalities: cardRow.legalities,
       })
         .onConflictDoUpdate({
           target: RemoteBaseCard.cardId,
-          set: { legalities: cardRow.legalities },
+          set:    { legalities: cardRow.legalities },
         });
     } else {
       await tx.insert(RemoteBaseCard).values({
-        cardId: cardRow.cardId,
+        cardId:     cardRow.cardId,
         legalities: cardRow.legalities,
       })
         .onConflictDoUpdate({
           target: RemoteBaseCard.cardId,
-          set: { legalities: cardRow.legalities },
+          set:    { legalities: cardRow.legalities },
         });
     }
 
@@ -1031,7 +970,7 @@ export async function insertRemoteRow(
     await tx.insert(RemoteBaseEntity).values({ ...entityRow, updatedAt: now })
       .onConflictDoUpdate({
         target: [RemoteBaseEntity.cardId, RemoteBaseEntity.revisionHash],
-        set: { ...entityRow, updatedAt: now },
+        set:    { ...entityRow, updatedAt: now },
       });
     return;
   }
@@ -1042,7 +981,7 @@ export async function insertRemoteRow(
     await tx.insert(RemoteBaseEntityLocalization).values({ ...locRow, updatedAt: now })
       .onConflictDoUpdate({
         target: [RemoteBaseEntityLocalization.cardId, RemoteBaseEntityLocalization.lang, RemoteBaseEntityLocalization.revisionHash, RemoteBaseEntityLocalization.localizationHash],
-        set: { ...locRow, updatedAt: now },
+        set:    { ...locRow, updatedAt: now },
       });
     return;
   }
@@ -1053,7 +992,7 @@ export async function insertRemoteRow(
     await tx.insert(RemotePatch).values({ ...patchRow })
       .onConflictDoUpdate({
         target: RemotePatch.buildNumber,
-        set: { ...patchRow },
+        set:    { ...patchRow },
       });
     return;
   }
@@ -1063,45 +1002,31 @@ export async function insertRemoteRow(
   await tx.insert(RemoteBaseEntityRelation).values({ ...relRow, updatedAt: now })
     .onConflictDoUpdate({
       target: [RemoteBaseEntityRelation.sourceId, RemoteBaseEntityRelation.sourceRevisionHash, RemoteBaseEntityRelation.relation, RemoteBaseEntityRelation.targetId],
-      set: { ...relRow, updatedAt: now },
+      set:    { ...relRow, updatedAt: now },
     });
-}
-
-/** Number of pending rows to apply per remote transaction during chunked execution. */
-const remoteChunkSize = 5000;
-
-/** Groups an array of { tableName, rowKey } by table name. */
-function groupKeysByTable(rows: Array<{ tableName: string; rowKey: string }>): Map<TableName, string[]> {
-  const byTable = new Map<TableName, string[]>();
-  for (const row of rows) {
-    const tn = row.tableName as TableName;
-    if (!byTable.has(tn)) byTable.set(tn, []);
-    byTable.get(tn)!.push(row.rowKey);
-  }
-  return byTable;
 }
 
 /** Returns the partition key for one row based on its table type. */
 export function rowKeyOf(row: any, tableName: string): string {
   switch (tableName) {
-    case 'cards': return cardsRowKey(row);
-    case 'entities': return entitiesRowKey(row);
-    case 'entity_localizations': return localizationsRowKey(row);
-    case 'entity_relations': return relationsRowKey(row);
-    case 'patches': return patchesRowKey(row);
-    default: throw new Error(`Unknown table: ${tableName}`);
+  case 'cards': return cardsRowKey(row);
+  case 'entities': return entitiesRowKey(row);
+  case 'entity_localizations': return localizationsRowKey(row);
+  case 'entity_relations': return relationsRowKey(row);
+  case 'patches': return patchesRowKey(row);
+  default: throw new Error(`Unknown table: ${tableName}`);
   }
 }
 
 /** Computes the row hash for one row based on its table type. */
 export function rowHashOf(row: any, tableName: string): string {
   switch (tableName) {
-    case 'cards': return cardRowHash(row);
-    case 'entities': return entityRowHash(row);
-    case 'entity_localizations': return localizationRowHash(row);
-    case 'entity_relations': return relationRowHash(row);
-    case 'patches': return patchRowHash(row);
-    default: throw new Error(`Unknown table: ${tableName}`);
+  case 'cards': return cardRowHash(row);
+  case 'entities': return entityRowHash(row);
+  case 'entity_localizations': return localizationRowHash(row);
+  case 'entity_relations': return relationRowHash(row);
+  case 'patches': return patchRowHash(row);
+  default: throw new Error(`Unknown table: ${tableName}`);
   }
 }
 
@@ -1147,93 +1072,93 @@ export async function loadRowDataChunk(
   if (rowKeys.length === 0) return result;
 
   switch (tableName) {
-    case 'cards': {
-      const cardIds = rowKeys.map(key => parseRowKey(key).cardId!);
-      const rows = await db.select().from(LocalCard).where(inArray(LocalCard.cardId, cardIds));
+  case 'cards': {
+    const cardIds = rowKeys.map(key => parseRowKey(key).cardId!);
+    const rows = await db.select().from(LocalCard).where(inArray(LocalCard.cardId, cardIds));
 
-      for (const row of rows) {
-        result.set(cardsRowKey(row), row);
-      }
-
-      break;
+    for (const row of rows) {
+      result.set(cardsRowKey(row), row);
     }
-    case 'entities': {
-      const keys = rowKeys.map(key => parseRowKey(key));
-      const cardIds = [...new Set(keys.map(p => p.cardId!))];
 
-      if (cardIds.length === 0) break;
+    break;
+  }
+  case 'entities': {
+    const keys = rowKeys.map(key => parseRowKey(key));
+    const cardIds = [...new Set(keys.map(p => p.cardId!))];
 
-      const revisionHashes = [...new Set(keys.map(p => p.revisionHash!))];
-      const rows = await db.select().from(LocalEntity)
-        .where(and(
-                    inArray(LocalEntity.cardId, cardIds),
-          inArray(LocalEntity.revisionHash, revisionHashes),
-        ));
+    if (cardIds.length === 0) break;
 
-      for (const row of rows) {
-        result.set(entitiesRowKey(row), row);
-      }
+    const revisionHashes = [...new Set(keys.map(p => p.revisionHash!))];
+    const rows = await db.select().from(LocalEntity)
+      .where(and(
+        inArray(LocalEntity.cardId, cardIds),
+        inArray(LocalEntity.revisionHash, revisionHashes),
+      ));
 
-      break;
+    for (const row of rows) {
+      result.set(entitiesRowKey(row), row);
     }
-    case 'entity_localizations': {
-      const keys = rowKeys.map(key => parseRowKey(key));
-      const cardIds = [...new Set(keys.map(p => p.cardId!))];
 
-      if (cardIds.length === 0) break;
+    break;
+  }
+  case 'entity_localizations': {
+    const keys = rowKeys.map(key => parseRowKey(key));
+    const cardIds = [...new Set(keys.map(p => p.cardId!))];
 
-      const langs = [...new Set(keys.map(p => p.lang! as Locale))];
-      const revisionHashes = [...new Set(keys.map(p => p.revisionHash!))];
-      const localizationHashes = [...new Set(keys.map(p => p.localizationHash!))];
+    if (cardIds.length === 0) break;
 
-      const rows = await db.select().from(LocalEntityLocalization)
-        .where(and(
-                    inArray(LocalEntityLocalization.cardId, cardIds),
-          inArray(LocalEntityLocalization.lang, langs),
-          inArray(LocalEntityLocalization.revisionHash, revisionHashes),
-          inArray(LocalEntityLocalization.localizationHash, localizationHashes),
-        ));
+    const langs = [...new Set(keys.map(p => p.lang! as Locale))];
+    const revisionHashes = [...new Set(keys.map(p => p.revisionHash!))];
+    const localizationHashes = [...new Set(keys.map(p => p.localizationHash!))];
 
-      for (const row of rows) {
-        result.set(localizationsRowKey(row), row);
-      }
+    const rows = await db.select().from(LocalEntityLocalization)
+      .where(and(
+        inArray(LocalEntityLocalization.cardId, cardIds),
+        inArray(LocalEntityLocalization.lang, langs),
+        inArray(LocalEntityLocalization.revisionHash, revisionHashes),
+        inArray(LocalEntityLocalization.localizationHash, localizationHashes),
+      ));
 
-      break;
+    for (const row of rows) {
+      result.set(localizationsRowKey(row), row);
     }
-    case 'entity_relations': {
-      const keys = rowKeys.map(key => parseRowKey(key));
-      const sourceIds = [...new Set(keys.map(p => p.sourceId!))];
 
-      if (sourceIds.length === 0) break;
+    break;
+  }
+  case 'entity_relations': {
+    const keys = rowKeys.map(key => parseRowKey(key));
+    const sourceIds = [...new Set(keys.map(p => p.sourceId!))];
 
-      const sourceRevisionHashes = [...new Set(keys.map(p => p.sourceRevisionHash!))];
-      const relations = [...new Set(keys.map(p => p.relation!))];
-      const targetIds = [...new Set(keys.map(p => p.targetId!))];
+    if (sourceIds.length === 0) break;
 
-      const rows = await db.select().from(LocalEntityRelation)
-        .where(and(
-                    inArray(LocalEntityRelation.sourceId, sourceIds),
-          inArray(LocalEntityRelation.sourceRevisionHash, sourceRevisionHashes),
-          inArray(LocalEntityRelation.relation, relations),
-          inArray(LocalEntityRelation.targetId, targetIds),
-        ));
+    const sourceRevisionHashes = [...new Set(keys.map(p => p.sourceRevisionHash!))];
+    const relations = [...new Set(keys.map(p => p.relation!))];
+    const targetIds = [...new Set(keys.map(p => p.targetId!))];
 
-      for (const row of rows) {
-        result.set(relationsRowKey(row), row);
-      }
+    const rows = await db.select().from(LocalEntityRelation)
+      .where(and(
+        inArray(LocalEntityRelation.sourceId, sourceIds),
+        inArray(LocalEntityRelation.sourceRevisionHash, sourceRevisionHashes),
+        inArray(LocalEntityRelation.relation, relations),
+        inArray(LocalEntityRelation.targetId, targetIds),
+      ));
 
-      break;
+    for (const row of rows) {
+      result.set(relationsRowKey(row), row);
     }
-    case 'patches': {
-      const buildNumbers = rowKeys.map(key => Number(parseRowKey(key).buildNumber!));
-      const rows = await db.select().from(LocalPatch).where(inArray(LocalPatch.buildNumber, buildNumbers));
 
-      for (const row of rows) {
-        result.set(patchesRowKey(row), row);
-      }
+    break;
+  }
+  case 'patches': {
+    const buildNumbers = rowKeys.map(key => Number(parseRowKey(key).buildNumber!));
+    const rows = await db.select().from(LocalPatch).where(inArray(LocalPatch.buildNumber, buildNumbers));
 
-      break;
+    for (const row of rows) {
+      result.set(patchesRowKey(row), row);
     }
+
+    break;
+  }
   }
 
   return result;
@@ -1247,28 +1172,28 @@ function buildPublishReport(
   const at = typeof publishedAt === 'string' ? publishedAt : publishedAt.toISOString();
 
   return {
-    batchId: batch.id,
-    publishTarget: batch.publishTarget,
-    environment: batch.environment,
-    targetFingerprint: batch.targetFingerprint,
-    publishType: batch.publishType,
-    operationKind: batch.operationKind,
-    status: batch.status,
-    manifestHash: batch.manifestHash,
+    batchId:              batch.id,
+    publishTarget:        batch.publishTarget,
+    environment:          batch.environment,
+    targetFingerprint:    batch.targetFingerprint,
+    publishType:          batch.publishType,
+    operationKind:        batch.operationKind,
+    status:               batch.status,
+    manifestHash:         batch.manifestHash,
     previousManifestHash: batch.previousManifestHash ?? null,
-    buildMin: batch.buildMin,
-    buildMax: batch.buildMax,
-    totalRowCount: batch.totalRowCount,
-    changedRowCount: batch.changedRowCount,
-    insertedRowCount: batch.insertedRowCount,
-    updatedRowCount: batch.updatedRowCount,
-    deletedRowCount: batch.deletedRowCount,
-    unchangedRowCount: batch.unchangedRowCount,
-    cardRowCount: batch.cardRowCount,
-    entityRowCount: batch.entityRowCount,
+    buildMin:             batch.buildMin,
+    buildMax:             batch.buildMax,
+    totalRowCount:        batch.totalRowCount,
+    changedRowCount:      batch.changedRowCount,
+    insertedRowCount:     batch.insertedRowCount,
+    updatedRowCount:      batch.updatedRowCount,
+    deletedRowCount:      batch.deletedRowCount,
+    unchangedRowCount:    batch.unchangedRowCount,
+    cardRowCount:         batch.cardRowCount,
+    entityRowCount:       batch.entityRowCount,
     localizationRowCount: batch.localizationRowCount,
-    relationRowCount: batch.relationRowCount,
-    publishedAt: at,
+    relationRowCount:     batch.relationRowCount,
+    publishedAt:          at,
   };
 }
 
@@ -1283,7 +1208,7 @@ function buildPublishReport(
 /** Lists all publish batches for the current target, newest first. */
 export async function listPublishBatches(options?: {
   publishTarget?: string;
-  environment?: string;
+  environment?:   string;
 }): Promise<PublishReport[]> {
   const target = resolvePublishTargetSelector(options);
   const localDb = getLocalDb();
@@ -1303,7 +1228,7 @@ export async function listPublishBatches(options?: {
 /** Checks whether a publish job is currently running in this server process. */
 export async function getIncompletePublishBatch(options?: {
   publishTarget?: string;
-  environment?: string;
+  environment?:   string;
 }): Promise<PublishReport | null> {
   const job = getCurrentPublishJob();
 
@@ -1356,11 +1281,11 @@ export const hsdataPublishTestUtils = {
 };
 
 export const singleCardPublishReport = z.object({
-  cardId: z.string(),
-  entityCount: z.number(),
+  cardId:            z.string(),
+  entityCount:       z.number(),
   localizationCount: z.number(),
-  relationCount: z.number(),
-  cardCount: z.number(),
+  relationCount:     z.number(),
+  cardCount:         z.number(),
 });
 
 export type SingleCardPublishReport = z.infer<typeof singleCardPublishReport>;
@@ -1370,7 +1295,7 @@ export async function publishSingleCard(
   cardId: string,
   options?: {
     publishTarget?: string;
-    environment?: string;
+    environment?:   string;
   },
 ): Promise<SingleCardPublishReport> {
   const target = resolvePublishTargetSelector(options);
@@ -1404,7 +1329,7 @@ export async function publishSingleCard(
         await tx.insert(RemoteBaseCard).values(card)
           .onConflictDoUpdate({
             target: RemoteBaseCard.cardId,
-            set: { legalities: card.legalities },
+            set:    { legalities: card.legalities },
           });
       }
     });

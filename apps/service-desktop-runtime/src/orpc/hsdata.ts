@@ -1,8 +1,9 @@
 import { ORPCError, eventIterator } from '@orpc/server';
 import { runWithDb } from '@tcg-cards/db';
-import { eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { Patch, PatchState, RawEntitySnapshot } from '@tcg-cards/db/schema/local/hearthstone';
+import { TaskRun } from '@tcg-cards/db/schema/local/task';
 
 import { os } from './index';
 import { computeShortName, importParsedHsdata } from '../lib/hearthstone/hsdata-import';
@@ -42,9 +43,9 @@ const sourceIdInput = z.strictObject({
 });
 
 const importSourceInput = z.strictObject({
-  id:       z.string().trim().min(1),
-  dryRun:   z.boolean().optional(),
-  force:    z.boolean().optional(),
+  id:        z.string().trim().min(1),
+  dryRun:    z.boolean().optional(),
+  force:     z.boolean().optional(),
   patchOnly: z.boolean().optional(),
 });
 
@@ -605,6 +606,69 @@ const listPublishBatchesRoute = os
     }
   });
 
+/** Lists publish history from completed/failed/canceled task runs. */
+const listPublishHistoryRoute = os
+  .route({
+    method:      'GET',
+    description: 'List publish history from task runs',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
+  })
+  .input(publishStreamInput)
+  .output(z.array(publishReport))
+  .handler(async ({ input }) => {
+    const db = getLocalDb();
+    const rows = await db.select()
+      .from(TaskRun)
+      .where(eq(TaskRun.taskType, 'hsdata_publish'))
+      .orderBy(desc(TaskRun.createdAt))
+      .limit(50);
+
+    return rows.map(r => {
+      const res = r.result ?? {};
+      const params = r.params ?? {};
+
+      return {
+        batchId:              r.id,
+        publishTarget:        String(params.publishTarget ?? ''),
+        environment:          String(params.environment ?? ''),
+        targetFingerprint:    String(params.targetFingerprint ?? ''),
+        publishType:          String(params.publishType ?? 'card_data'),
+        operationKind:        String(params.operationKind ?? 'publish'),
+        status:               r.status,
+        manifestHash:         String(res.manifestHash ?? ''),
+        previousManifestHash: null,
+        buildMin:             Number(res.buildMin ?? 0),
+        buildMax:             Number(res.buildMax ?? 0),
+        totalRowCount:        Number(res.totalRowCount ?? 0),
+        changedRowCount:      Number(res.changedRowCount ?? 0),
+        insertedRowCount:     Number(res.insertedRowCount ?? 0),
+        updatedRowCount:      Number(res.updatedRowCount ?? 0),
+        deletedRowCount:      Number(res.deletedRowCount ?? 0),
+        unchangedRowCount:    Number(res.unchangedRowCount ?? 0),
+        cardRowCount:         Number(res.cardRowCount ?? 0),
+        entityRowCount:       Number(res.entityRowCount ?? 0),
+        localizationRowCount: Number(res.localizationRowCount ?? 0),
+        relationRowCount:     Number(res.relationRowCount ?? 0),
+        publishedAt:          r.finishedAt?.toISOString() ?? '',
+      };
+    });
+  });
+
+/** Deletes one publish history record by task run ID. */
+const deletePublishHistoryRoute = os
+  .route({
+    method:      'POST',
+    description: 'Delete one publish history record',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
+  })
+  .input(z.object({ taskRunId: z.uuid() }))
+  .output(z.object({ success: z.boolean() }))
+  .handler(async ({ input }) => {
+    const db = getLocalDb();
+    await db.delete(TaskRun).where(eq(TaskRun.id, input.taskRunId));
+    return { success: true };
+  });
+
 /** Checks for an incomplete publish batch that can be resumed. */
 const getIncompletePublishBatchRoute = os
   .route({
@@ -844,6 +908,8 @@ export const hsdataRouter = {
   watchProjectJob,
   cancelIncompletePublishBatch: cancelIncompletePublishBatchRoute,
   listPublishBatches:           listPublishBatchesRoute,
+  listPublishHistory:           listPublishHistoryRoute,
+  deletePublishHistory:         deletePublishHistoryRoute,
   getIncompletePublishBatch:    getIncompletePublishBatchRoute,
   publishSingleCard:            publishSingleCardRoute,
   registerPublishStream:        registerPublishStreamRoute,

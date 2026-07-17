@@ -50,7 +50,11 @@ async function enterCanceled(store: TaskExecutorStore, taskRunId: string, stageK
 /** Transitions the current stage and task run into the failed state with error details. */
 async function enterFailed(store: TaskExecutorStore, taskRunId: string, stageKey: string, err: unknown): Promise<void> {
   console.error(`[task] task ${taskRunId} failed at stage ${stageKey}:`, err);
-  await store.updateStage(taskRunId, stageKey, { status: 'failed' });
+  try {
+    await store.updateStage(taskRunId, stageKey, { status: 'failed' });
+  } catch (stageErr) {
+    console.error(`[task] failed to update stage ${stageKey} status:`, stageErr);
+  }
   await store.updateTaskRun(taskRunId, {
     status: 'failed',
     terminalReason: 'execution_failed',

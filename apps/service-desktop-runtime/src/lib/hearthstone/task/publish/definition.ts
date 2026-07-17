@@ -374,35 +374,91 @@ async function applyingBlock(
 
   const remoteDb = ctx.remoteDb as any;
   try {
+    const t0 = Date.now();
     await remoteDb.transaction(async (tx: any) => {
+      const tConn = Date.now();
+
+      // Group rows by table and action for batch execution.
+      type GroupedRow = { rowKey: string, data?: unknown };
+      const inserts = new Map<TableName, GroupedRow[]>();
+      const deletes = new Map<TableName, string[]>();
+
       for (const row of chunk) {
         try {
           const tn = row.tableName as TableName;
-          const rd = rowDataMap.get(`${tn}:${row.rowKey}`);
-          if (rd == null && row.action !== 'delete') throw new Error('Row data not found');
-          if (row.action === 'insert') await insertRemoteRow(tx, tn, rd, 'insert');
-          else if (row.action === 'update') {
-            if (tn !== 'cards') await deleteRemoteRow(tx, tn, parseRowKey(row.rowKey));
-            await insertRemoteRow(tx, tn, rd, 'update');
-          } else if (row.action === 'delete') await deleteRemoteRow(tx, tn, parseRowKey(row.rowKey));
+          if (row.action === 'insert') {
+            const rd = rowDataMap.get(`${tn}:${row.rowKey}`);
+            if (rd == null) throw new Error('Row data not found');
+            if (!inserts.has(tn)) inserts.set(tn, []);
+            inserts.get(tn)!.push({ rowKey: row.rowKey, data: rd });
+          } else if (row.action === 'update') {
+            if (tn !== 'cards') {
+              if (!deletes.has(tn)) deletes.set(tn, []);
+              deletes.get(tn)!.push(row.rowKey);
+            }
+            const rd = rowDataMap.get(`${tn}:${row.rowKey}`);
+            if (rd == null) throw new Error('Row data not found');
+            if (!inserts.has(tn)) inserts.set(tn, []);
+            inserts.get(tn)!.push({ rowKey: row.rowKey, data: rd });
+          } else if (row.action === 'delete') {
+            if (!deletes.has(tn)) deletes.set(tn, []);
+            deletes.get(tn)!.push(row.rowKey);
+          }
         } catch (error) {
           const msg = error instanceof Error ? error.message : String(error);
           throw new Error(`Row apply failed: ${row.tableName} ${row.rowKey} — ${msg}`, { cause: error });
         }
       }
+
+      // Batch deletes first.
+      for (const [tn, rowKeys] of deletes) {
+        for (const rk of rowKeys) {
+          await deleteRemoteRow(tx, tn, parseRowKey(rk));
+        }
+      }
+
+      // Batch inserts per table.
+      for (const [tn, rows] of inserts) {
+        for (const r of rows) {
+          await insertRemoteRow(tx, tn, r.data, 'insert');
+        }
+      }
+
+      console.log(`[publish] chunk applied: ${chunk.length} rows in ${Date.now() - tConn}ms (tx connect: ${tConn - t0}ms)`);
     });
 
+    console.log(`[publish] transaction done in ${Date.now() - t0}ms`);
+
     if (ctx.leaseHolderId != null && ctx.leaseStream != null) {
+      const tLease = Date.now();
       await renewRemotePublishLease(ctx.remoteDb as any, {
         publishTarget: ctx.leaseStream.publishTarget, environment:   ctx.leaseStream.environment,
         publishType:   ctx.leaseStream.publishType, leaseHolderId: ctx.leaseHolderId,
       });
+      console.log(`[publish] lease renewed in ${Date.now() - tLease}ms`);
     }
+    const tUpdate = Date.now();
+    // Batch update status per table instead of one-by-one.
+    const grouped = new Map<string, { applied: string[], skipped: string[] }>();
     for (const row of chunk) {
-      await ctx.db.update(PublishBatchRow).set({
-        status: row.action === 'unchanged' ? 'skipped' : 'applied', updatedAt: new Date(), appliedAt: new Date(),
-      }).where(and(eq(PublishBatchRow.batchId, batchId), eq(PublishBatchRow.tableName, row.tableName as any), eq(PublishBatchRow.rowKey, row.rowKey)));
+      const tn = row.tableName;
+      if (!grouped.has(tn)) grouped.set(tn, { applied: [], skipped: [] });
+      const bucket = grouped.get(tn)!;
+      if (row.action === 'unchanged') bucket.skipped.push(row.rowKey);
+      else bucket.applied.push(row.rowKey);
     }
+    const now = new Date();
+    for (const [tn, { applied, skipped }] of grouped) {
+      if (applied.length > 0) {
+        await ctx.db.update(PublishBatchRow).set({ status: 'applied', updatedAt: now, appliedAt: now })
+          .where(and(eq(PublishBatchRow.batchId, batchId), eq(PublishBatchRow.tableName, tn), inArray(PublishBatchRow.rowKey, applied)));
+      }
+      if (skipped.length > 0) {
+        await ctx.db.update(PublishBatchRow).set({ status: 'skipped', updatedAt: now, appliedAt: now })
+          .where(and(eq(PublishBatchRow.batchId, batchId), eq(PublishBatchRow.tableName, tn), inArray(PublishBatchRow.rowKey, skipped)));
+      }
+    }
+    console.log(`[publish] batch rows updated: ${chunk.length} rows in ${Date.now() - tUpdate}ms`);
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     await ctx.db.update(PublishBatch).set({ error: msg, updatedAt: new Date() }).where(eq(PublishBatch.id, batchId));
@@ -565,6 +621,7 @@ export const publishTaskDefinition = createDefinition('hsdata_publish', { versio
           ctx.batchId = incomplete.id;
           ctx.pendingRowCount = pendingCount;
           return {
+            total:      pendingCount,
             blockInput: { cursor: null, processed: 0 } as LoadingBlockInput,
           };
         }
@@ -572,7 +629,11 @@ export const publishTaskDefinition = createDefinition('hsdata_publish', { versio
     }
 
     const active = await findActiveStreamBatch(db, stream);
-    if (active) throw new Error(`Active publish batch ${active.id} (${active.operationKind}) exists for this stream.`);
+    if (active) {
+      console.log('[publish] invalidating stale active batch:', active.id, active.operationKind);
+      await db.update(PublishBatch).set({ status: 'stopped', error: 'Superseded by new publish', completedAt: new Date(), updatedAt: new Date() })
+        .where(eq(PublishBatch.id, active.id));
+    }
 
     const publishedAt = baseline?.publishedAt ?? null;
     const isIncremental = publishedAt != null;
@@ -592,8 +653,6 @@ export const publishTaskDefinition = createDefinition('hsdata_publish', { versio
       entities:             Number(cnt[0]![0]!.count), entity_localizations: Number(cnt[1]![0]!.count),
       entity_relations:     Number(cnt[2]![0]!.count), cards:                Number(cnt[3]![0]!.count), patches:              Number(cnt[4]![0]!.count),
     };
-
-    const batchId = ctx.dryRun ? crypto.randomUUID() : '';
 
     if (!ctx.dryRun) {
       const [created] = await db.insert(PublishBatch).values({

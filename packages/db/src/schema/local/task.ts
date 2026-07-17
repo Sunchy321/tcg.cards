@@ -197,7 +197,7 @@ export const TaskStage = pgTable('task_stages', {
   ),
   check(
     'task_stages_bounded_requires_total_done_chk',
-    sql`${table.progressMode} <> 'bounded' or ${table.status} = 'pending' or (${table.total} is not null and ${table.done} is not null)`,
+    sql`${table.progressMode} <> 'bounded' or ${table.status} = 'pending' or ${table.status} in ('failed', 'canceled', 'abandoned') or (${table.total} is not null and ${table.done} is not null)`,
   ),
   check(
     'task_stages_unbound_requires_done_chk',
