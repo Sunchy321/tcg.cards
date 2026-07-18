@@ -1,15 +1,24 @@
 import { ORPCError, os } from '@orpc/server';
 import { z } from 'zod';
+import { generateText, isStepCount, tool } from 'ai';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+import { and, eq, ilike, sql } from 'drizzle-orm';
+
+import { Entity, EntityLocalization, Patch } from '@tcg-cards/db/schema/local/hearthstone';
+import { locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
+import { group as groupEnum } from '@tcg-cards/model/src/hearthstone/schema/announcement';
+
+import { getLocalDb } from '../../../lib/hearthstone/hsdata-local-db';
+import { extractJsonObject, matchPatches, normalizeAiResult } from '../../../lib/hearthstone/announcement/ai';
 import { hasAiConfig, readAiConfig } from '../../../runtime-config';
 
 const item = z.object({
-  type:   z.string(),
-  name:   z.string(),
-  format: z.string().nullable(),
-  status: z.string().nullable(),
-  cardId: z.string().nullable(),
-  setId:  z.string().nullable(),
-  ruleId: z.string().nullable(),
+  type:         z.string(),
+  format:       z.string().nullable(),
+  status:       z.string().nullable(),
+  cardId:       z.string().nullable(),
+  setId:        z.string().nullable(),
+  ruleId:       z.string().nullable(),
   delta:        z.any().nullable(),
   glow:         z.any().nullable(),
   relatedCards: z.string().array(),
@@ -17,79 +26,153 @@ const item = z.object({
   score:        z.number().nullable(),
 });
 
+const header = z.object({
+  name:          z.string().nullable(),
+  date:          z.string().nullable(),
+  effectiveDate: z.string().nullable(),
+  version:       z.number().nullable(),
+});
+
 export const aiParse = os
   .route({
     method:      'POST',
-    description: 'Parse announcement text with AI to extract items',
+    description: 'Parse announcement text with AI to extract header fields and items',
     tags:        ['Desktop', 'Hearthstone', 'Announcement'],
   })
   .input(z.object({
-    name:   z.string(),
-    links:  z.array(z.object({ url: z.string(), label: z.string().optional() })),
+    name:  z.string().optional(),
+    links: z.array(z.object({ url: z.string(), label: z.string().optional() })),
   }))
-  .output(z.object({ items: item.array() }))
+  .output(z.object({ header, items: item.array() }))
   .handler(async ({ input }) => {
     if (!hasAiConfig()) {
       throw new ORPCError('PRECONDITION_FAILED', { message: 'AI config not set. Please configure API key in settings.' });
     }
 
     const config = readAiConfig();
-    const apiKey = config.apiKey!;
-    const baseUrl = config.baseUrl || 'https://api.openai.com/v1';
-    const model = config.model || 'gpt-4o-mini';
 
-    const linkTexts = await fetchLinkContents(input.links.map(l => l.url));
-
-    const prompt = buildPrompt(input.name, input.links, linkTexts);
-
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type':  'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: prompt },
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.1,
-      }),
+    const provider = createOpenAICompatible({
+      name:    'announcement-ai',
+      baseURL: config.baseUrl ?? 'https://api.openai.com/v1',
+      apiKey:  config.apiKey!,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: `AI API error (${response.status}): ${errorText}` });
+    const model = provider(config.model || 'gpt-4o-mini');
+
+    const linkTexts = await fetchLinkContents(input.links.map(l => l.url));
+    const prompt = buildPrompt(input.name, input.links, linkTexts);
+
+    const db = getLocalDb();
+
+    const lookupPatches = tool({
+      description: 'Look up Hearthstone patches matching a version string (e.g. "34.0.3"). Returns candidate patches with buildNumber, newest first. Pick the matching buildNumber for header.version.',
+      inputSchema: z.object({ version: z.string() }),
+      execute:     async ({ version }) => {
+        try {
+          const rows = await db.select({
+            buildNumber: Patch.buildNumber,
+            name:        Patch.name,
+            shortName:   Patch.shortName,
+            releaseDate: Patch.releaseDate,
+          }).from(Patch);
+
+          return matchPatches(rows, version);
+        } catch {
+          return [];
+        }
+      },
+    });
+
+    const searchCards = tool({
+      description: 'Search Hearthstone cards by localized card names. Accepts MULTIPLE names in one call — pass every card name from the announcement at once. Returns cardId candidates per name.',
+      inputSchema: z.object({ names: z.string().array().min(1), lang: locale.default('en') }),
+      execute:     async ({ names, lang }) => {
+        return Promise.all(names.slice(0, 30).map(async name => ({
+          name,
+          candidates: await searchCardCandidates(db, name, lang),
+        })));
+      },
+    });
+
+    let result = await generateTextSafe({
+      model,
+      instructions: SYSTEM_PROMPT,
+      prompt,
+      tools:        { lookupPatches, searchCards },
+      stopWhen:     isStepCount(12),
+      temperature:  0.1,
+    });
+
+    // Step budget exhausted while still calling tools: force a final answer without tools.
+    if (result.text.trim() === '' && result.finishReason === 'tool-calls') {
+      result = await generateTextSafe({
+        model,
+        instructions: SYSTEM_PROMPT,
+        messages:     [{ role: 'user', content: prompt }, ...result.responseMessages],
+        tools:        { lookupPatches, searchCards },
+        toolChoice:   'none',
+        temperature:  0.1,
+      });
     }
 
-    const data = await response.json() as any;
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: 'AI returned empty response' });
+    const { text, finishReason } = result;
+    const stepCount = result.steps.length;
+
+    try {
+      return normalizeAiResult(extractJsonObject(text));
+    } catch (error) {
+      console.error('[announcement ai-parse] unparsable AI output', { finishReason, stepCount, text });
+
+      const detail = error instanceof Error ? error.message : String(error);
+      const snippet = text.trim() === '' ? '(empty output)' : text.slice(0, 300);
+
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: `AI returned unparsable response: ${detail} (finishReason=${finishReason}, steps=${stepCount}). Output: ${snippet}`,
+      });
     }
-
-    const parsed = JSON.parse(content);
-    const rawItems = parsed.items ?? [];
-
-    return {
-      items: rawItems.map((i: any) => ({
-        type:    i.type ?? 'card_update',
-        name:    i.name ?? '',
-        format:  i.format ?? null,
-        status:  i.status ?? null,
-        cardId:  i.cardId ?? null,
-        setId:   i.setId ?? null,
-        ruleId:  i.ruleId ?? null,
-        delta:        i.delta ?? null,
-        glow:         i.glow ?? null,
-        relatedCards: Array.isArray(i.relatedCards) ? i.relatedCards : [],
-        group:        i.group ?? null,
-        score:        i.score ?? null,
-      })),
-    };
   });
+
+async function generateTextSafe(options: Parameters<typeof generateText>[0]) {
+  try {
+    return await generateText(options);
+  } catch (error) {
+    throw new ORPCError('INTERNAL_SERVER_ERROR', {
+      message: `AI API error: ${error instanceof Error ? error.message : String(error)}`,
+    });
+  }
+}
+
+type Lang = z.infer<typeof locale>;
+
+async function searchCardCandidates(db: ReturnType<typeof getLocalDb>, name: string, lang: Lang) {
+  try {
+    return await db.select({
+      cardId:      EntityLocalization.cardId,
+      name:        EntityLocalization.name,
+      set:         Entity.set,
+      type:        Entity.type,
+      cost:        Entity.cost,
+      attack:      Entity.attack,
+      health:      Entity.health,
+      collectible: Entity.collectible,
+    })
+      .from(Entity)
+      .innerJoin(EntityLocalization, and(
+        eq(Entity.cardId, EntityLocalization.cardId),
+        eq(Entity.revisionHash, EntityLocalization.revisionHash),
+        sql`${Entity.version} && ${EntityLocalization.version}`,
+      ))
+      .where(and(
+        eq(Entity.isLatest, true),
+        eq(EntityLocalization.isLatest, true),
+        eq(EntityLocalization.lang, lang),
+        ilike(EntityLocalization.name, `%${name}%`),
+      ))
+      .limit(10);
+  } catch {
+    return [];
+  }
+}
 
 /** Fetch contents of given URLs (in parallel, with timeout). */
 async function fetchLinkContents(urls: string[]): Promise<string[]> {
@@ -97,9 +180,11 @@ async function fetchLinkContents(urls: string[]): Promise<string[]> {
     urls.map(async url => {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 15000);
+
       try {
         const res = await fetch(url, { signal: controller.signal });
         const text = await res.text();
+
         return stripHtml(text).slice(0, 16000);
       } finally {
         clearTimeout(timeout);
@@ -115,38 +200,63 @@ function stripHtml(html: string): string {
 }
 
 function buildPrompt(
-  name: string,
-  links: Array<{ url: string; label?: string }>,
+  name: string | undefined,
+  links: Array<{ url: string, label?: string }>,
   contents: string[],
 ): string {
-  const parts = [`Announcement title: ${name}`];
+  const parts: string[] = [];
+
+  if (name != null && name !== '') {
+    parts.push(`Announcement title: ${name}`);
+  }
+
   for (let i = 0; i < links.length; i++) {
     parts.push(`--- Source [${links[i]!.label || links[i]!.url}] ---`);
     parts.push(contents[i] || '(could not fetch)');
   }
+
   return parts.join('\n\n');
 }
 
-const SYSTEM_PROMPT = `You are a parser for Hearthstone game balance announcements. Extract structured change items from the announcement text.
+const SYSTEM_PROMPT = `You are a parser for Hearthstone game balance announcements. Extract structured data from the announcement text.
 
-Output a JSON object with an "items" array. Each item has these fields:
+You have two tools:
+- lookupPatches({ version }): look up patches by version string (e.g. "34.0.3"). Call it once you identify the patch version mentioned in the announcement, then pick the matching buildNumber for header.version.
+- searchCards({ names, lang }): search cards by localized names (lang defaults to "en"; use "zhs" for Chinese sources). Pass ALL card names in ONE call. Use the results to resolve exact cardIds. Prefer collectible candidates whose type/cost match the announcement context.
+
+Be efficient with tools: first read the announcement and collect the patch version and every changed card name, then make ONE lookupPatches call and ONE searchCards call (a second searchCards call is acceptable only for names you missed). After that, output the final JSON.
+
+After using tools as needed, output ONLY a valid JSON object (no markdown, no explanation) with this shape:
+
+{
+  "header": {
+    "name": announcement title string, or null if unknown,
+    "date": publish date in "YYYY-MM-DD", or null,
+    "effectiveDate": the date the changes take effect in "YYYY-MM-DD", or null,
+    "version": the patch buildNumber chosen from lookupPatches results, or null
+  },
+  "items": [ ... ]
+}
+
+Each item has these fields:
 - type: one of "card_change" (legality change: ban/unban/rotation), "card_update" (stat/text change: buff/nerf/rework), "set_change" (set-level event: mini-set release), "rule_change" (rule/mechanic change), "format_birth", "format_death"
-- name: brief description of the change
 - format: format keyword, or null for all formats. Examples: "standard", "wild", "constructed", "battlegrounds", null
 - status: one of "buff", "nerf", "tweak", "revert", "rework", "text_fix", "text_adjust", "bugged", "bugfix", "banned", "banned_in_card_pool", "banned_in_deck", "legal", "unavailable", "minor", "score", "extend", or null
-- cardId: card ID if identifiable, or null
-- setId: set ID if applicable, or null
-- ruleId: rule identifier if applicable, or null
+- cardId: ONLY for card_change / card_update: the changed card's ID. Must be null for all other types.
+- setId: ONLY for set_change: the set ID. Must be null for all other types.
+- ruleId: ONLY for rule_change: rule identifier (free text, optionally prefixed like "set:core"). Must be null for all other types.
 - delta: null, or object with changed render model fields (attack, health, cost, etc.) with new values
 - glow: null, or array of { part: string, type: "buff" | "nerf" } for card glow effects
-- relatedCards: array of related card IDs affected by this change
-- group: null, or a grouping key for display purposes
+- relatedCards: ONLY for card_change / card_update: related card IDs affected by this change (e.g. the collectible card that summons a changed token). Must be an empty array for all other types.
+- group: ONLY for card_change items that are part of a bulk rotation. Allowed values: ${groupEnum.options.map(v => `"${v}"`).join(', ')}. Use null for all other items, including non-rotation changes. Never invent other group values.
 - score: null, or integer score value
 
 Important:
+- Entity references are mutually exclusive by type: card_change/card_update use cardId (+ relatedCards), set_change uses setId, rule_change uses ruleId, format_birth/format_death use none of them. Never fill an id field that does not match the item type.
 - If the announcement mentions multiple cards changed, create one item per card.
 - If a card is both nerfed and banned, create two separate items.
 - For mini-set releases (35 new cards), create one set_change item with type "set_change" and status "extend".
-- Be precise with cardIds when they can be identified from card names.
+- Use searchCards to resolve cardIds instead of guessing; if no candidate matches, use null.
+- Use lookupPatches to resolve header.version; if no candidate matches, use null.
 - Only include fields that are actually present; use null for absent fields.
-- Return ONLY valid JSON, no markdown, no explanation.`;
+- The final answer must be ONLY valid JSON, no markdown, no explanation.`;

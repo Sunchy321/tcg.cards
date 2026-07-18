@@ -12,8 +12,8 @@ export const setLocalization = z.strictObject({
 export const set = z.strictObject({
   setId: z.string(),
 
-  dbfId: nullableInt,
-  slug: nullableText,
+  dbfId:   nullableInt,
+  slug:    nullableText,
   rawName: nullableText,
 
   localization: setLocalization.array(),

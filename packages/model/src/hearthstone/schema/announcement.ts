@@ -57,6 +57,11 @@ export const glowEntry = z.strictObject({
   type: z.enum(['buff', 'nerf']),
 });
 
+export const group = z.enum([
+  'core_rotation',
+  'bg_rotation',
+]);
+
 export const announcementItem = z.strictObject({
   id: z.uuid(),
 
@@ -67,7 +72,7 @@ export const announcementItem = z.strictObject({
   format:        z.string().nullable(),
   status:        changeStatus.nullable(),
   score:         z.int().min(1).nullish(),
-  group:         z.string().nullable(),
+  group:         group.nullable(),
 
   version:     z.number().int().nullable(),
   lastVersion: z.number().int().nullable(),

@@ -71,7 +71,7 @@
           <UFormField label="链接">
             <div class="space-y-2">
               <div v-for="(link, index) in form.link" :key="index" class="flex gap-2">
-                <UInput v-model="link.url" placeholder="URL" class="flex-1" />
+                <UInput v-model="link.url" placeholder="URL" class="flex-1" @update:model-value="handleUrlChange(link, $event)" />
                 <UInput v-model="link.label" placeholder="标签 (可选)" class="w-32" />
                 <UButton icon="i-lucide-external-link" size="sm" color="neutral" variant="ghost" :disabled="!link.url" @click="openUrl(link.url)" />
                 <UButton v-show="link.label === 'blizzard'" icon="i-lucide-sparkles" size="sm" color="primary" variant="ghost" :disabled="!aiConfigured || !link.url" :loading="link._parsing" @click="handleAiParse(index)" />
@@ -90,7 +90,7 @@
             <div class="space-y-3">
               <div v-for="(item, index) in form.items" :key="index" class="relative rounded-lg border border-slate-200 p-3">
                 <UButton icon="i-lucide-x" color="error" variant="ghost" size="xs" class="absolute right-2 top-2" @click="removeItem(index)" />
-                <div class="grid grid-cols-4 gap-3 pr-6">
+                <div class="grid grid-cols-3 gap-3 pr-6">
                   <UFormField label="类型" required>
                     <USelect v-model="item.type" :items="itemTypeOptions" class="w-full" />
                   </UFormField>
@@ -100,28 +100,26 @@
                   <UFormField label="赛制 (keyword)">
                     <UInput v-model="item.format" placeholder="standard / constructed" />
                   </UFormField>
-                  <UFormField label="名称">
-                    <UInput v-model="item.name" placeholder="变更描述" />
-                  </UFormField>
-                </div>
-                <div class="mt-3 grid grid-cols-4 gap-3">
-                  <UFormField label="卡牌ID"><UInput v-model="item.cardId" /></UFormField>
-                  <UFormField label="系列ID"><UInput v-model="item.setId" /></UFormField>
-                  <UFormField label="规则ID"><UInput v-model="item.ruleId" /></UFormField>
-                  <UFormField label="分组"><UInput v-model="item.group" /></UFormField>
                 </div>
                 <div class="mt-3 grid grid-cols-2 gap-3">
+                  <UFormField v-if="idKindOf(item.type) === 'card'" label="卡牌ID"><UInput v-model="item.cardId" /></UFormField>
+                  <UFormField v-else-if="idKindOf(item.type) === 'set'" label="系列ID"><UInput v-model="item.setId" /></UFormField>
+                  <UFormField v-else-if="idKindOf(item.type) === 'rule'" label="规则ID"><UInput v-model="item.ruleId" /></UFormField>
+                  <UFormField v-if="item.type === 'card_change'" label="分组">
+                    <USelect v-model="item.group" :items="groupOptions" placeholder="无" class="w-full" />
+                  </UFormField>
+                </div>
+                <div v-if="idKindOf(item.type) === 'card'" class="mt-3">
                   <UFormField label="relatedCards">
                     <UInput v-model="item.relatedCardsStr" placeholder="card1, card2" />
                   </UFormField>
-                  <UFormField label="分数"><UInputNumber v-model="item.score" :min="1" /></UFormField>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </template>
-      <div v-else class="flex flex-1 flex-col items-center justify-center gap-3 text-slate-400">
+      <div v-else class="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-slate-400">
         <UIcon name="i-lucide-file-text" class="size-10 opacity-50" />
         <p class="text-sm">选择左侧公告进行编辑，或创建新公告</p>
         <UButton icon="i-lucide-plus" label="创建新公告" @click="createNew" />
@@ -136,13 +134,14 @@ definePageMeta({ layout: 'admin', title: '公告管理' });
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useDesktopRuntimeClient } from '~/composables/useDesktopRuntimeClient';
 import { computed, onMounted, reactive, ref } from 'vue';
+import { group as groupEnum } from '#model/hearthstone/schema/announcement';
 
 const client = useDesktopRuntimeClient();
 
 interface LinkEntry { url: string; label?: string; _parsing?: boolean }
 interface ItemForm {
-  id?: string; type: string; name: string; effectiveDate: string; format: string;
-  status: string; score?: number; group: string; version?: number; lastVersion?: number;
+  id?: string; type: string; effectiveDate: string; format: string;
+  status: string; group: string; version?: number; lastVersion?: number;
   cardId: string; setId: string; ruleId: string; relatedCardsStr: string;
 }
 
@@ -159,14 +158,23 @@ const patchOptions = computed(() => patches.value.map(p => ({ label: `${p.buildN
 const patchOptionsWithEmpty = computed(() => [{ label: '(与版本相同)', value: undefined }, ...patchOptions.value]);
 
 const emptyItem = (): ItemForm => ({
-  type: 'card_update', name: '', effectiveDate: '', format: '', status: '',
-  score: undefined, group: '', version: undefined, lastVersion: undefined,
+  type: 'card_update', effectiveDate: '', format: '', status: '',
+  group: '', version: undefined, lastVersion: undefined,
   cardId: '', setId: '', ruleId: '', relatedCardsStr: '',
 });
 
+// Entity references are mutually exclusive by item type (see proposals/game-change-history §2.6).
+function idKindOf(type: string): 'card' | 'set' | 'rule' | null {
+  if (type === 'card_change' || type === 'card_update') return 'card';
+  if (type === 'set_change') return 'set';
+  if (type === 'rule_change') return 'rule';
+  return null;
+}
+
 const form = reactive({
-  id: '', source: 'blizzard', date: new Date().toISOString().split('T')[0]!,
-  effectiveDate: '', version: 1, lastVersion: undefined, name: '',
+  id: '', source: 'blizzard', date: '',
+  effectiveDate: '', version: undefined as number | undefined,
+  lastVersion: undefined as number | undefined, name: '',
   link: [] as LinkEntry[], items: [] as ItemForm[],
 });
 
@@ -178,6 +186,16 @@ const itemTypeOptions = [
   { label: 'card_change', value: 'card_change' }, { label: 'card_update', value: 'card_update' },
   { label: 'set_change', value: 'set_change' }, { label: 'rule_change', value: 'rule_change' },
   { label: 'format_birth', value: 'format_birth' }, { label: 'format_death', value: 'format_death' },
+];
+
+const GROUP_LABELS: Record<string, string> = {
+  core_rotation: '核心系列轮替',
+  bg_rotation: '酒馆战棋轮替',
+};
+
+const groupOptions = [
+  { label: '无', value: '' },
+  ...groupEnum.options.map(v => ({ label: GROUP_LABELS[v] ?? v, value: v })),
 ];
 
 const statusOptions = [
@@ -205,8 +223,8 @@ function parseRelatedCards(s: string): string[] {
 
 function resetForm() {
   Object.assign(form, {
-    id: '', source: 'blizzard', date: new Date().toISOString().split('T')[0]!,
-    effectiveDate: '', version: 1, lastVersion: undefined, name: '', link: [], items: [],
+    id: '', source: 'blizzard', date: '',
+    effectiveDate: '', version: undefined, lastVersion: undefined, name: '', link: [], items: [],
   });
   selectedId.value = null; isCreating.value = false;
 }
@@ -219,9 +237,9 @@ function fillForm(row: any) {
     link: Array.isArray(row.link) ? row.link : [],
   });
   form.items = (row.items ?? []).map((i: any) => ({
-    id: i.id, type: i.type ?? 'card_update', name: i.name ?? '',
+    id: i.id, type: i.type ?? 'card_update',
     effectiveDate: i.effectiveDate ?? '', format: i.format ?? '', status: i.status ?? '',
-    score: i.score ?? undefined, group: i.group ?? '',
+    group: i.group ?? '',
     version: i.version, lastVersion: i.lastVersion,
     cardId: i.cardId ?? '', setId: i.setId ?? '', ruleId: i.ruleId ?? '',
     relatedCardsStr: Array.isArray(i.relatedCards) ? i.relatedCards.join(', ') : '',
@@ -244,6 +262,30 @@ async function loadDetail(id: string) {
 function createNew() { resetForm(); isCreating.value = true; }
 function addLink() { form.link.push({ url: '', label: '' }); }
 
+const AUTO_LABELS: Record<string, string> = {
+  'playhearthstone.com': 'blizzard',
+  'hearthstone.blizzard.com': 'blizzard',
+  'hs.blizzard.cn': 'blizzard-cn',
+};
+
+function deriveLabel(url: string): string | null {
+  try {
+    const host = new URL(url).hostname;
+    for (const [domain, label] of Object.entries(AUTO_LABELS)) {
+      if (host === domain || host.endsWith(`.${domain}`)) return label;
+    }
+  } catch { /* not a valid URL yet */ }
+  return null;
+}
+
+function handleUrlChange(link: LinkEntry, url: string | number) {
+  const derived = deriveLabel(String(url));
+  if (!derived) return;
+  if (!link.label || Object.values(AUTO_LABELS).includes(link.label)) {
+    link.label = derived;
+  }
+}
+
 async function handleCrawl() {
   crawling.value = true;
   try {
@@ -265,16 +307,23 @@ function removeItem(i: number) { form.items.splice(i, 1); }
 
 async function handleAiParse(index: number) {
   const link = form.link[index];
-  if (!link?.url || !form.name) return;
+  if (!link?.url) return;
   link._parsing = true;
   try {
     const result: any = await client.hearthstone.announcement.aiParse({
-      name: form.name,
+      name: form.name || undefined,
       links: [{ url: link.url, label: link.label }],
     });
+
+    const header = result.header ?? {};
+    if (!form.name && header.name) form.name = header.name;
+    if (!form.date && header.date) form.date = header.date;
+    if (!form.effectiveDate && header.effectiveDate) form.effectiveDate = header.effectiveDate;
+    if (form.version == null && header.version != null) form.version = header.version;
+
     const items: ItemForm[] = (result.items ?? []).map((i: any) => ({
-      type: i.type ?? 'card_update', name: i.name ?? '', format: i.format ?? '',
-      status: i.status ?? '', score: i.score ?? undefined, group: i.group ?? '',
+      type: i.type ?? 'card_update', format: i.format ?? '',
+      status: i.status ?? '', group: i.group ?? '',
       cardId: i.cardId ?? '', setId: i.setId ?? '', ruleId: i.ruleId ?? '',
       effectiveDate: '', version: undefined, lastVersion: undefined,
       relatedCardsStr: Array.isArray(i.relatedCards) ? i.relatedCards.join(', ') : '',
@@ -295,21 +344,27 @@ async function loadAnnouncements() {
 
 async function handleSubmit() {
   if (!form.name.trim()) { showToast('名称不能为空', '', 'error'); return; }
+  if (!form.date) { showToast('日期不能为空', '', 'error'); return; }
+  if (form.version == null) { showToast('版本不能为空', '', 'error'); return; }
   saving.value = true;
   try {
     const payload = {
       source: form.source, date: form.date, effectiveDate: form.effectiveDate || null,
       version: form.version, lastVersion: form.lastVersion ?? null, name: form.name.trim(),
       link: form.link.filter(l => l.url),
-      items: form.items.map(item => ({
-        type: item.type, name: item.name || null, effectiveDate: item.effectiveDate || null,
-        format: item.format || null, status: item.status || null, score: item.score ?? null,
-        group: item.group || null, version: item.version ?? null, lastVersion: item.lastVersion ?? null,
-        cardId: item.cardId || null, setId: item.setId || null, ruleId: item.ruleId || null,
-        relatedCards: parseRelatedCards(item.relatedCardsStr),
-        formats: [] as string[], cardIds: [] as string[],
-        delta: null, glow: null, patchId: null,
-      })),
+      items: form.items.map(item => {
+        const kind = idKindOf(item.type);
+        return {
+          type: item.type, effectiveDate: item.effectiveDate || null,
+          format: item.format || null, status: item.status || null,
+          group: item.group || null, version: item.version ?? null, lastVersion: item.lastVersion ?? null,
+          cardId: kind === 'card' ? item.cardId || null : null,
+          setId: kind === 'set' ? item.setId || null : null,
+          ruleId: kind === 'rule' ? item.ruleId || null : null,
+          relatedCards: kind === 'card' ? parseRelatedCards(item.relatedCardsStr) : [],
+          delta: null, glow: null,
+        };
+      }),
     };
     if (isCreating.value) {
       await client.hearthstone.announcement.create(payload);
