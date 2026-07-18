@@ -70,6 +70,45 @@ const get = os
     };
   });
 
+const itemInput = z.object({
+  type:          z.string(),
+  effectiveDate: z.string().nullable().optional(),
+  format:        z.string().nullable().optional(),
+  status:        z.string().nullable().optional(),
+  score:         z.number().int().nullable().optional(),
+  group:         z.string().nullable().optional(),
+  version:       z.number().int().nullable().optional(),
+  lastVersion:   z.number().int().nullable().optional(),
+  delta:         z.any().nullable().optional(),
+  glow:          z.any().nullable().optional(),
+  cardId:        z.string().nullable().optional(),
+  setId:         z.string().nullable().optional(),
+  ruleId:        z.string().nullable().optional(),
+  relatedCards:  z.string().array().default([]),
+});
+
+type ItemInput = z.infer<typeof itemInput>;
+
+function toItemRow(item: ItemInput, announcementId: string) {
+  return {
+    announcementId,
+    type:          item.type,
+    effectiveDate: item.effectiveDate ?? null,
+    format:        item.format ?? null,
+    status:        item.status ?? null,
+    score:         item.score ?? null,
+    group:         item.group ?? null,
+    version:       item.version ?? null,
+    lastVersion:   item.lastVersion ?? null,
+    delta:         item.delta ?? null,
+    glow:          item.glow ?? null,
+    cardId:        item.cardId ?? null,
+    setId:         item.setId ?? null,
+    ruleId:        item.ruleId ?? null,
+    relatedCards:  item.relatedCards,
+  };
+}
+
 const create = os
   .route({
     method: 'POST', description: 'Create a new announcement',
@@ -80,6 +119,7 @@ const create = os
     version: z.number().int(), lastVersion: z.number().int().nullable().optional(),
     effectiveDate: z.string().nullable().optional(),
     link: z.array(z.object({ url: z.string(), label: z.string().optional() })).default([]),
+    items: itemInput.array().default([]),
   }))
   .output(z.any())
   .handler(async ({ input }) => {
@@ -90,6 +130,11 @@ const create = os
       effectiveDate: input.effectiveDate ?? null, link: input.link,
     }).returning();
     const row = result[0]!;
+
+    if (input.items.length > 0) {
+      await db.insert(AnnouncementItem).values(input.items.map(item => toItemRow(item, row.id)));
+    }
+
     return { ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() };
   });
 
@@ -103,6 +148,7 @@ const update = os
     version: z.number().int(), lastVersion: z.number().int().nullable().optional(),
     effectiveDate: z.string().nullable().optional(),
     link: z.array(z.object({ url: z.string(), label: z.string().optional() })).default([]),
+    items: itemInput.array().default([]),
   }))
   .output(z.void())
   .handler(async ({ input }) => {
@@ -113,6 +159,12 @@ const update = os
       version: data.version, lastVersion: data.lastVersion,
       effectiveDate: data.effectiveDate ?? null, link: data.link,
     }).where(eq(Announcement.id, id));
+
+    // Full replace: the form edits the complete item list and rows carry no user-facing identity.
+    await db.delete(AnnouncementItem).where(eq(AnnouncementItem.announcementId, id));
+    if (data.items.length > 0) {
+      await db.insert(AnnouncementItem).values(data.items.map(item => toItemRow(item, id)));
+    }
   });
 
 const remove = os
