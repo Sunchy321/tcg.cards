@@ -1,5 +1,37 @@
 # Context
 
+## Hearthstone Announcement (炉石公告)
+
+### Announcement Item (公告条目)
+A single change entry inside an announcement. Entity references are mutually exclusive by type: `card_change`/`card_update` use `cardId` (+ `relatedCards`), `set_change` uses `setId`, `rule_change` uses `ruleId`, `format_birth`/`format_death` use none.
+
+### lastVersion (对比版本)
+The comparison version (buildNumber) of an announcement or item, informally called "prevVersion". Defaults to `version` when empty. Item-level values override announcement-level values.
+
+### group (分组)
+A finite display-grouping key on card_change items belonging to a bulk rotation. Allowed values are fixed by the hearthstone model enum (`core_rotation`, `bg_rotation`). Same-group items in the same place collapse/expand together on the site to save space.
+
+### delta
+A per-side display correction on a card-level item: `{ prev?: Partial<RenderModel>, curr?: Partial<RenderModel> }`. Each side is merged onto the resolved render model of the corresponding image before rendering. Display-only; never a data patch.
+
+### glow
+Part-level highlight markers on an item: `{ part, type: 'buff' | 'nerf' }[]`. An optional field on renderModel. When present, affects renderHash. curr images carry glow; prev/base images have no glow — their renderHash equals the existing `entity_localizations.renderHash`, enabling natural deduplication.
+
+### prev image / curr image (前图 / 后图)
+The two rendered images of a `card_update` item: prev = the card at `lastVersion`, curr = the card at `version` with glow applied.
+
+### base image (base 图)
+The single rendered image of a `card_change` item (the card at the item's version, no glow). Rendered on demand because the asset may not exist yet.
+
+### item rendering (条目渲染)
+Rendering happens in the console editor (desktop runtime + local renderer); the public site only displays already-generated images. Each side resolves strictly from the imported entity revision at that side's version; a missing revision is an error (no cross-side fallback, no synthesis).
+
+### render hash for announcement items (公告条目渲染哈希)
+A single formula: `SHA256(canonicalize(renderModel))`. renderModel incorporates glow when the item carries it (curr side). When glow is absent (prev / base sides), the renderModel is identical to the entity's stored renderModel → the hash equals `entity_localizations.renderHash`, enabling natural deduplication with existing card images. The hash is computed on the fly by both the editor (rendering) and the site (URL construction) via a shared utility; no pre-stored column is needed.
+
+### rendering parameters (渲染参数)
+zone = `hand`, premium = `normal` (fixed). template = `battlegrounds` when the item's format is `battlegrounds`, otherwise `normal`. category = `glow` when the renderModel includes glow (curr side), otherwise `base` (prev / base sides). The editor provides a language selector; selecting a specific language renders only that language, while "all languages" renders all supported locales. The selector value persists in localStorage across page switches.
+
 ## Task System (任务系统)
 
 ### Task Definition

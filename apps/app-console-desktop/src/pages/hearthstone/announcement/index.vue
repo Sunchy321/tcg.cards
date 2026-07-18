@@ -41,6 +41,8 @@
           <span class="text-sm text-slate-500">编辑公告</span>
           <div class="flex items-center gap-2">
             <UButton v-if="form.id" icon="i-lucide-wand" label="投影" color="neutral" variant="ghost" size="sm" :loading="projecting" @click="handleProject" />
+            <USelect v-model="renderLang" :items="renderLangOptions" class="w-28" />
+            <UButton icon="i-lucide-image" label="全部渲染" color="primary" variant="ghost" size="sm" :loading="renderingAll" :disabled="!form.version" @click="handleRenderAll" />
             <UButton label="取消" color="neutral" variant="ghost" size="sm" @click="resetForm" />
             <UButton label="保存" size="sm" :loading="saving" @click="handleSubmit" />
           </div>
@@ -62,7 +64,7 @@
               <USelect v-model="form.version" :items="patchOptions" placeholder="选择版本" class="w-full" />
             </UFormField>
             <UFormField label="对比版本">
-              <USelect v-model="form.lastVersion" :items="patchOptionsWithEmpty" placeholder="留空则与版本相同" class="w-full" />
+              <USelect :model-value="form.lastVersion ?? 'same'" :items="patchOptionsWithEmpty" placeholder="留空则与版本相同" class="w-full" @update:model-value="form.lastVersion = $event === 'same' ? undefined : Number($event)" />
             </UFormField>
           </div>
           <UFormField label="名称" required>
@@ -74,7 +76,7 @@
                 <UInput v-model="link.url" placeholder="URL" class="flex-1" @update:model-value="handleUrlChange(link, $event)" />
                 <UInput v-model="link.label" placeholder="标签 (可选)" class="w-32" />
                 <UButton icon="i-lucide-external-link" size="sm" color="neutral" variant="ghost" :disabled="!link.url" @click="openUrl(link.url)" />
-                <UButton v-show="link.label === 'blizzard'" icon="i-lucide-sparkles" size="sm" color="primary" variant="ghost" :disabled="!aiConfigured || !link.url" :loading="link._parsing" @click="handleAiParse(index)" />
+                <UButton icon="i-lucide-sparkles" size="sm" color="primary" variant="ghost" :class="{ invisible: link.label !== 'blizzard' }" :disabled="!aiConfigured || !link.url" :loading="link._parsing" @click="handleAiParse(index)" />
                 <UButton icon="i-lucide-x" color="error" variant="ghost" size="sm" @click="removeLink(index)" />
               </div>
               <UButton icon="i-lucide-plus" label="添加链接" variant="ghost" size="sm" @click="addLink" />
@@ -101,18 +103,38 @@
                     <UInput v-model="item.format" placeholder="standard / constructed" />
                   </UFormField>
                 </div>
-                <div class="mt-3 grid grid-cols-2 gap-3">
-                  <UFormField v-if="idKindOf(item.type) === 'card'" label="卡牌ID"><UInput v-model="item.cardId" /></UFormField>
-                  <UFormField v-else-if="idKindOf(item.type) === 'set'" label="系列ID"><UInput v-model="item.setId" /></UFormField>
+                <!-- Non-card types: single ID field row -->
+                <div v-if="idKindOf(item.type) !== 'card'" class="mt-3 grid grid-cols-2 gap-3">
+                  <UFormField v-if="idKindOf(item.type) === 'set'" label="系列ID"><UInput v-model="item.setId" /></UFormField>
                   <UFormField v-else-if="idKindOf(item.type) === 'rule'" label="规则ID"><UInput v-model="item.ruleId" /></UFormField>
-                  <UFormField v-if="item.type === 'card_change'" label="分组">
-                    <USelect v-model="item.group" :items="groupOptions" placeholder="无" class="w-full" />
-                  </UFormField>
                 </div>
-                <div v-if="idKindOf(item.type) === 'card'" class="mt-3">
-                  <UFormField label="relatedCards">
-                    <UInput v-model="item.relatedCardsStr" placeholder="card1, card2" />
-                  </UFormField>
+
+                <!-- Card types: left fields + right images -->
+                <div v-if="idKindOf(item.type) === 'card'" class="mt-3 flex gap-4">
+                  <div class="flex w-1/2 flex-col gap-3">
+                    <UFormField label="卡牌ID"><UInput v-model="item.cardId" /></UFormField>
+                    <UFormField label="relatedCards">
+                      <UInput v-model="item.relatedCardsStr" placeholder="card1, card2" />
+                    </UFormField>
+                    <UFormField v-if="item.type === 'card_change'" label="分组">
+                      <USelect :model-value="item.group ?? 'none'" :items="groupOptions" placeholder="无" class="w-full" @update:model-value="item.group = $event === 'none' ? '' : String($event)" />
+                    </UFormField>
+                    <div class="mt-auto flex items-center gap-2">
+                      <UButton icon="i-lucide-image" label="渲染" size="xs" variant="ghost" :loading="renderingItems[index]" :disabled="!form.version || !item.cardId" @click="handleRenderItem(index)" />
+                      <span v-if="renderErrors[index]" class="text-xs text-red-500">{{ renderErrors[index] }}</span>
+                    </div>
+                  </div>
+                  <div class="flex flex-1 items-start justify-end gap-3">
+                    <div v-for="side in expectedSides(item.type)" :key="side" class="flex flex-col items-center gap-1">
+                      <template v-if="findPreview(index, side)?.base64">
+                        <img :src="'data:image/webp;base64,' + findPreview(index, side)!.base64" class="h-44 w-32 rounded border border-slate-200 object-contain" />
+                      </template>
+                      <div v-else class="flex h-44 w-32 items-center justify-center rounded border border-dashed border-slate-300 bg-slate-50">
+                        <UIcon name="i-lucide-image" class="size-6 text-slate-300" />
+                      </div>
+                      <span class="text-xs text-slate-500">{{ side }}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -133,7 +155,7 @@ definePageMeta({ layout: 'admin', title: '公告管理' });
 
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useDesktopRuntimeClient } from '~/composables/useDesktopRuntimeClient';
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { group as groupEnum } from '#model/hearthstone/schema/announcement';
 
 const client = useDesktopRuntimeClient();
@@ -155,7 +177,142 @@ const aiConfigured = ref(false);
 const crawling = ref(false);
 const patches = ref<Array<{ buildNumber: number; name: string }>>([]);
 const patchOptions = computed(() => patches.value.map(p => ({ label: `${p.buildNumber} · ${p.name}`, value: p.buildNumber })));
-const patchOptionsWithEmpty = computed(() => [{ label: '(与版本相同)', value: undefined }, ...patchOptions.value]);
+const patchOptionsWithEmpty = computed(() => [{ label: '(与版本相同)', value: 'same' }, ...patchOptions.value]);
+
+const RENDER_LANG_KEY = 'hearthstone-announcement-render-lang';
+const renderLang = ref<Locale | 'all'>((localStorage.getItem(RENDER_LANG_KEY) as Locale | 'all' | null) ?? 'zhs');
+const renderLangOptions = [
+  { label: '全部语言', value: 'all' },
+  { label: 'en', value: 'en' }, { label: 'zhs', value: 'zhs' },
+];
+const renderingAll = ref(false);
+const renderingItems = reactive<Record<number, boolean>>({});
+const renderErrors = reactive<Record<number, string>>({});
+const renderedItems = reactive<Record<number, boolean>>({});
+
+interface SidePreview {
+  side: string;
+  hash: string;
+  category: string;
+  template: string;
+  base64?: string;
+}
+const itemPreviews = reactive<Record<number, SidePreview[]>>({});
+
+function expectedSides(type: string): string[] {
+  if (type === 'card_change') return ['base'];
+  if (type === 'card_update') return ['prev', 'curr'];
+  return [];
+}
+
+function findPreview(index: number, side: string): SidePreview | undefined {
+  return itemPreviews[index]?.find(p => p.side === side);
+}
+
+function persistRenderLang() {
+  localStorage.setItem(RENDER_LANG_KEY, renderLang.value);
+}
+watch(renderLang, persistRenderLang);
+
+async function handleRenderItem(index: number) {
+  const item = form.items[index];
+  if (!item?.cardId || !form.version) return;
+  renderingItems[index] = true;
+  delete renderErrors[index];
+  try {
+    const langs = renderLang.value === 'all' ? [] : [renderLang.value];
+    console.log('[render] calling renderItems', { cardId: item.cardId, version: form.version, langs });
+    const res: any = await client.hearthstone.announcement.renderItems({
+      items: [{
+        type: item.type, cardId: item.cardId, format: item.format,
+        version: item.version ?? null, lastVersion: item.lastVersion ?? null,
+        delta: { prev: undefined, curr: undefined },
+        glow: null,
+      }],
+      version: form.version,
+      lastVersion: form.lastVersion ?? null,
+      langs,
+    });
+    renderedItems[index] = true;
+    const template = item.format === 'battlegrounds' ? 'battlegrounds' : 'normal';
+    const previews: SidePreview[] = (res.results ?? []).map((r: any) => ({
+      side: r.side, hash: r.renderHash, category: r.category, template,
+    }));
+    itemPreviews[index] = previews;
+
+    for (const p of previews) {
+      try {
+        const img: any = await client.hearthstone.announcement.previewImage({
+          renderHash: p.hash, category: p.category, template: p.template,
+        });
+        p.base64 = img.base64;
+      } catch (err: any) {
+        console.error('[render] previewImage failed', { hash: p.hash, category: p.category, template: p.template, error: err.message || err });
+      }
+    }
+  } catch (e: any) {
+    console.error('[render] failed', e);
+    renderErrors[index] = e.message || '渲染失败';
+  } finally {
+    delete renderingItems[index];
+  }
+}
+
+async function handleRenderAll() {
+  if (!form.version) return;
+  renderingAll.value = true;
+  try {
+    const cardIndices: number[] = [];
+    const cardItems = form.items
+      .map((item, i) => {
+        if ((item.type === 'card_change' || item.type === 'card_update') && item.cardId) {
+          cardIndices.push(i);
+          return {
+            type: item.type, cardId: item.cardId, format: item.format,
+            version: item.version ?? null, lastVersion: item.lastVersion ?? null,
+            delta: { prev: undefined, curr: undefined },
+            glow: null,
+          };
+        }
+        return null;
+      })
+      .filter(Boolean) as any[];
+
+    if (cardItems.length === 0) return;
+
+    const langs = renderLang.value === 'all' ? [] : [renderLang.value];
+    const res: any = await client.hearthstone.announcement.renderItems({
+      items: cardItems,
+      version: form.version,
+      lastVersion: form.lastVersion ?? null,
+      langs,
+    });
+    for (const idx of cardIndices) {
+      renderedItems[idx] = true;
+      delete renderErrors[idx];
+      const item = form.items[idx];
+      if (!item) continue;
+      const template = item.format === 'battlegrounds' ? 'battlegrounds' : 'normal';
+      const previews: SidePreview[] = (res.results ?? [])
+        .filter((r: any) => r.cardId === item.cardId)
+        .map((r: any) => ({ side: r.side, hash: r.renderHash, category: r.category, template }));
+      itemPreviews[idx] = previews;
+
+      for (const p of previews) {
+        try {
+          const img: any = await client.hearthstone.announcement.previewImage({
+            renderHash: p.hash, category: p.category, template: p.template,
+          });
+          p.base64 = img.base64;
+        } catch { /* skip */ }
+      }
+    }
+  } catch (e: any) {
+    showToast('渲染失败', e.message, 'error');
+  } finally {
+    renderingAll.value = false;
+  }
+}
 
 const emptyItem = (): ItemForm => ({
   type: 'card_update', effectiveDate: '', format: '', status: '',
@@ -194,7 +351,7 @@ const GROUP_LABELS: Record<string, string> = {
 };
 
 const groupOptions = [
-  { label: '无', value: '' },
+  { label: '无', value: 'none' },
   ...groupEnum.options.map(v => ({ label: GROUP_LABELS[v] ?? v, value: v })),
 ];
 
@@ -211,6 +368,7 @@ const statusOptions = [
 ];
 
 import { useToast } from '@nuxt/ui/composables';
+import type { Locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
 const toast = useToast();
 
 function showToast(title: string, description?: string, color?: 'error' | 'success') {
@@ -256,7 +414,43 @@ async function loadDetail(id: string) {
   try {
     const detail: any = await client.hearthstone.announcement.get({ id });
     fillForm(detail);
+    await loadExistingImages();
   } catch (e: any) { showToast('加载详情失败', e.message, 'error'); }
+}
+
+async function loadExistingImages() {
+  if (!form.version) return;
+  const cardItems = form.items.filter(i =>
+    (i.type === 'card_change' || i.type === 'card_update') && i.cardId,
+  );
+  if (cardItems.length === 0) return;
+
+  try {
+    const res: any = await client.hearthstone.announcement.getItemImages({
+      items: cardItems.map(item => ({
+        type: item.type, cardId: item.cardId, format: item.format,
+        version: item.version ?? null, lastVersion: item.lastVersion ?? null,
+        delta: { prev: undefined, curr: undefined },
+        glow: null,
+      })),
+      version: form.version,
+      lastVersion: form.lastVersion ?? null,
+      langs: [],
+    });
+
+    for (let idx = 0; idx < form.items.length; idx++) {
+      const item = form.items[idx];
+      if (!item?.cardId) continue;
+      const images = (res.images ?? []).filter((img: any) => img.cardId === item.cardId && img.base64);
+      if (images.length === 0) continue;
+
+      const template = item.format === 'battlegrounds' ? 'battlegrounds' : 'normal';
+      itemPreviews[idx] = images.map((img: any) => ({
+        side: img.side, hash: '', category: img.category, template, base64: img.base64,
+      }));
+      renderedItems[idx] = true;
+    }
+  } catch { /* silently skip if images not available */ }
 }
 
 function createNew() { resetForm(); isCreating.value = true; }

@@ -3,6 +3,7 @@ import { classes, locale, race, rarity, spellSchool, types } from './basic';
 
 import { RENDER_MECHANIC_IDS } from '../constant/tag';
 import { card } from './card';
+import { glowEntry } from './announcement';
 
 export const rune = z.enum(['blood', 'frost', 'unholy']);
 export const questType = z.enum(['normal', 'questline', 'side']);
@@ -11,50 +12,50 @@ export const mercenaryFaction = z.enum(['alliance', 'empire', 'explorer', 'horde
 export const faction = z.enum(['alliance', 'horde', 'neutral']);
 
 export const textBuilderType = z.enum([
-    'default',
-    'jade_golem',
-    'jade_golem_trigger',
-    'modular_entity',
-    'kazakus_potion_effect',
-    'primordial_wand',
-    'alternate_card_text',
-    'script_data_num_1',
-    'galakrond_counter',
-    'decorate',
-    'player_tag_threshold',
-    'entity_tag_threshold',
-    'multiple_entity_names',
-    'gameplay_string',
-    'zombeast',
-    'zombeast_enchantment',
-    'hidden_choice',
-    'investigate',
-    'reference_creator_entity',
-    'reference_script_data_num_1_entity',
-    'reference_script_data_num_1_num_2_entity',
-    'undatakah_enchant',
-    'spell_damage_only',
-    'drustvar_horror',
-    'hidden_entity',
-    'score_value_count_down',
-    'script_data_num_1_num_2',
-    'powered_up',
-    'multiple_alt_text_script_data_nums',
-    'reference_script_data_num_1_entity_power',
-    'reference_script_data_num_1_card_dbid',
-    'reference_script_data_num_card_race',
-    'bg_quest',
-    'multiple_alt_text_script_data_nums_ref_sdn6_card_dbid',
-    'zilliax_deluxe_3000',
+  'default',
+  'jade_golem',
+  'jade_golem_trigger',
+  'modular_entity',
+  'kazakus_potion_effect',
+  'primordial_wand',
+  'alternate_card_text',
+  'script_data_num_1',
+  'galakrond_counter',
+  'decorate',
+  'player_tag_threshold',
+  'entity_tag_threshold',
+  'multiple_entity_names',
+  'gameplay_string',
+  'zombeast',
+  'zombeast_enchantment',
+  'hidden_choice',
+  'investigate',
+  'reference_creator_entity',
+  'reference_script_data_num_1_entity',
+  'reference_script_data_num_1_num_2_entity',
+  'undatakah_enchant',
+  'spell_damage_only',
+  'drustvar_horror',
+  'hidden_entity',
+  'score_value_count_down',
+  'script_data_num_1_num_2',
+  'powered_up',
+  'multiple_alt_text_script_data_nums',
+  'reference_script_data_num_1_entity_power',
+  'reference_script_data_num_1_card_dbid',
+  'reference_script_data_num_card_race',
+  'bg_quest',
+  'multiple_alt_text_script_data_nums_ref_sdn6_card_dbid',
+  'zilliax_deluxe_3000',
 ]);
 
 export const changeType = z.enum([
-    'unknown',
-    'major',
-    'minor',
-    'non-functional',
-    'wording',
-    'bugged',
+  'unknown',
+  'major',
+  'minor',
+  'non-functional',
+  'wording',
+  'bugged',
 ]);
 
 export type Rune = z.infer<typeof rune>;
@@ -73,148 +74,150 @@ export const renderMechanic = z.enum(RENDER_MECHANIC_IDS);
 export const renderMechanicMap = z.partialRecord(renderMechanic, mechanicValue);
 
 export const renderModel = z.object({
-    cardId: z.string(),
-    lang:   locale,
+  cardId: z.string(),
+  lang:   locale,
 
-    templateVersion: z.string(),
-    assetVersion:    z.string(),
+  templateVersion: z.string(),
+  assetVersion:    z.string(),
 
-    localization: z.strictObject({
-        name:     z.string(),
-        richText: z.string(),
-    }),
+  glow: glowEntry.array().optional(),
 
-    type:              types,
-    cost:              z.int(),
-    attack:            z.int().optional(),
-    health:            z.int().optional(),
-    durability:        z.int().optional(),
-    armor:             z.int().optional(),
-    classes:           z.array(classes),
-    race:              z.array(race).optional(),
-    spellSchool:       spellSchool.optional(),
-    mercenaryRole:     mercenaryRole.optional(),
-    mercenaryFaction:  mercenaryFaction.optional(),
-    colddown:          z.int().optional(),
-    set:               z.string(),
-    overrideWatermark: z.string().optional(),
-    rarity:            rarity.optional(),
-    elite:             z.boolean(),
-    techLevel:         z.int().optional(),
-    rune:              rune.array().optional(),
-    renderMechanics:   renderMechanicMap,
+  localization: z.strictObject({
+    name:     z.string(),
+    richText: z.string(),
+  }),
+
+  type:              types,
+  cost:              z.int(),
+  attack:            z.int().optional(),
+  health:            z.int().optional(),
+  durability:        z.int().optional(),
+  armor:             z.int().optional(),
+  classes:           z.array(classes),
+  race:              z.array(race).optional(),
+  spellSchool:       spellSchool.optional(),
+  mercenaryRole:     mercenaryRole.optional(),
+  mercenaryFaction:  mercenaryFaction.optional(),
+  colddown:          z.int().optional(),
+  set:               z.string(),
+  overrideWatermark: z.string().optional(),
+  rarity:            rarity.optional(),
+  elite:             z.boolean(),
+  techLevel:         z.int().optional(),
+  rune:              rune.array().optional(),
+  renderMechanics:   renderMechanicMap,
 });
 
 export const entityLocalization = z.strictObject({
-    lang: locale,
+  lang: locale,
 
-    name:            z.string(),
-    text:            z.string(),
-    richText:        z.string(),
-    displayText:     z.string(),
-    targetText:      z.string().nullable(),
-    textInPlay:      z.string().nullable(),
-    howToEarn:       z.string().nullable(),
-    howToEarnGolden: z.string().nullable(),
-    flavorText:      z.string().nullable(),
+  name:            z.string(),
+  text:            z.string(),
+  richText:        z.string(),
+  displayText:     z.string(),
+  targetText:      z.string().nullable(),
+  textInPlay:      z.string().nullable(),
+  howToEarn:       z.string().nullable(),
+  howToEarnGolden: z.string().nullable(),
+  flavorText:      z.string().nullable(),
 
-    locChangeType: changeType.default('unknown'),
+  locChangeType: changeType.default('unknown'),
 });
 
 export const entity = z.strictObject({
-    cardId:  z.string(),
-    version: z.number().array().nonempty(),
+  cardId:  z.string(),
+  version: z.number().array().nonempty(),
 
-    dbfId:         z.int(),
-    legacyPayload: z.record(z.string(), z.unknown()),
+  dbfId:         z.int(),
+  legacyPayload: z.record(z.string(), z.unknown()),
 
-    localization: entityLocalization.array(),
+  localization: entityLocalization.array(),
 
-    set:             z.string(),
-    classes:         z.array(classes),
-    type:            types,
-    cost:            z.int(),
-    attack:          z.int().nullable(),
-    health:          z.int().nullable(),
-    durability:      z.int().nullable(),
-    armor:           z.int().nullable(),
-    rune:            rune.array().nullable(),
-    race:            z.array(race).nullable(),
-    spellSchool:     spellSchool.nullable(),
-    questType:       questType.nullable(),
-    questProgress:   z.int().nullable(),
-    questPart:       z.int().nullable(),
-    heroPower:       z.string().nullable(),
+  set:           z.string(),
+  classes:       z.array(classes),
+  type:          types,
+  cost:          z.int(),
+  attack:        z.int().nullable(),
+  health:        z.int().nullable(),
+  durability:    z.int().nullable(),
+  armor:         z.int().nullable(),
+  rune:          rune.array().nullable(),
+  race:          z.array(race).nullable(),
+  spellSchool:   spellSchool.nullable(),
+  questType:     questType.nullable(),
+  questProgress: z.int().nullable(),
+  questPart:     z.int().nullable(),
+  heroPower:     z.string().nullable(),
 
-    techLevel:    z.int().nullable(),
-    inBobsTavern: z.boolean(),
-    tripleCard:   z.string().nullable(),
-    raceBucket:   race.nullable(),
-    armorBucket:  z.int().nullable(),
-    buddy:        z.string().nullable(),
-    bannedRace:   z.string().nullable(),
+  techLevel:    z.int().nullable(),
+  inBobsTavern: z.boolean(),
+  tripleCard:   z.string().nullable(),
+  raceBucket:   race.nullable(),
+  armorBucket:  z.int().nullable(),
+  buddy:        z.string().nullable(),
+  bannedRace:   z.string().nullable(),
 
-    mercenaryRole:    mercenaryRole.nullable(),
-    mercenaryFaction: mercenaryFaction.nullable(),
-    colddown:         z.int().nullable(),
+  mercenaryRole:    mercenaryRole.nullable(),
+  mercenaryFaction: mercenaryFaction.nullable(),
+  colddown:         z.int().nullable(),
 
-    collectible: z.boolean(),
-    elite:       z.boolean(),
-    rarity:      rarity.nullable(),
+  collectible: z.boolean(),
+  elite:       z.boolean(),
+  rarity:      rarity.nullable(),
 
-    artist:            z.string(),
-    overrideWatermark: z.string().nullable(),
+  artist:            z.string(),
+  overrideWatermark: z.string().nullable(),
 
-    faction: faction.nullable(),
+  faction: faction.nullable(),
 
-    mechanics:      mechanicMap,
-    referencedTags: referencedTagMap,
+  mechanics:      mechanicMap,
+  referencedTags: referencedTagMap,
 
-    textBuilderType,
+  textBuilderType,
 
-    changeType: changeType.default('unknown'),
-    isLatest:   z.boolean(),
+  changeType: changeType.default('unknown'),
+  isLatest:   z.boolean(),
 });
 
 export const playRequirement = z.strictObject({
-    type:  z.string(),
-    param: z.int().optional(),
+  type:  z.string(),
+  param: z.int().optional(),
 });
 
 export const power = z.strictObject({
-    definition:    z.string(),
-    isMaster:      z.boolean().optional(),
-    showInHistory: z.boolean().optional(),
+  definition:    z.string(),
+  isMaster:      z.boolean().optional(),
+  showInHistory: z.boolean().optional(),
 
-    playRequirements: playRequirement.array().optional(),
+  playRequirements: playRequirement.array().optional(),
 });
 
 export const entityView = entity.extend({
-    lang:         locale,
-    localization: entityLocalization.omit({ lang: true }),
+  lang:         locale,
+  localization: entityLocalization.omit({ lang: true }),
 });
 
 export const cardEntityView = entityView.extend({
-    revisionHash:     z.string(),
-    localizationHash: z.string(),
-    renderHash:       z.string().nullable(),
+  revisionHash:     z.string(),
+  localizationHash: z.string(),
+  renderHash:       z.string().nullable(),
 
-    legalities: card.shape.legalities,
+  legalities: card.shape.legalities,
 });
 
 export const cardFullView = cardEntityView.extend({
-    versions: z.number().array().array(),
+  versions: z.number().array().array(),
 
-    mechanicTags: z.record(z.string(), z.string()).default({}),
+  mechanicTags: z.record(z.string(), z.string()).default({}),
 
-    relatedCards: z.strictObject({
-        relation:    z.string(),
-        cardId:      z.string(),
-        version:     z.number().array(),
-        name:        z.string().nullable(),
-        displayText: z.string().nullable(),
-        type:        types.nullable(),
-    }).array(),
+  relatedCards: z.strictObject({
+    relation:    z.string(),
+    cardId:      z.string(),
+    version:     z.number().array(),
+    name:        z.string().nullable(),
+    displayText: z.string().nullable(),
+    type:        types.nullable(),
+  }).array(),
 });
 
 export type Entity = z.infer<typeof entity>;
