@@ -1,4 +1,5 @@
 import { index, integer, jsonb, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import type { GlowEntry } from '@tcg-cards/model/src/hearthstone/schema/announcement';
 import { schema } from './schema';
 
 export const Announcement = schema.table('announcements', {
@@ -38,7 +39,7 @@ export const AnnouncementItem = schema.table('announcement_items', {
   lastVersion: integer('last_version'),
 
   delta: jsonb('delta').$type<unknown>(),
-  glow:  jsonb('glow').$type<{ part: string, type: 'buff' | 'nerf' }[]>(),
+  glow:  jsonb('glow').$type<GlowEntry[]>(),
 
   cardId:       text('card_id'),
   setId:        text('set_id'),

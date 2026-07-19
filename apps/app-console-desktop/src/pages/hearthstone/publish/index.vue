@@ -156,7 +156,7 @@ function isCancelableBatch(batch: HsdataPublishReport) {
   return batch.status === 'planning' || batch.status === 'applying';
 }
 
-const controller = ref<{ attach(snapshot: TaskPageSnapshot): void; currentTaskRunId: { value: string | null } }>();
+const controller = ref<{ attach(snapshot: TaskPageSnapshot): void; currentTaskRunId: string | null }>();
 
 const showPinConfirm = ref(false);
 let resolvePinCreate: ((value: TaskPageSnapshot) => void) | null = null;
@@ -221,13 +221,13 @@ function onCreateError(_opKey: string, _message: string) {
 }
 
 // Save taskRunId whenever the controller starts/restores a task
-watch(controller, (ctrl) => {
-  if (!ctrl?.currentTaskRunId) return;
-  watch(() => ctrl.currentTaskRunId.value, (id) => {
+watch(
+  () => controller.value?.currentTaskRunId ?? null,
+  (id) => {
     persistedTaskRunId = id;
     persistPublishPageState();
-  });
-});
+  },
+);
 
 async function loadPublishTarget() {
   publishTargetError.value = '';

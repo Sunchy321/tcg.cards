@@ -75,17 +75,13 @@
 
 请求体必须是一个单图渲染请求对象。
 
-渲染器必须能够从请求体中读取以下最小输入：
+每个请求都使用完整的 `ImageRequirementRequest` 任务结构。该结构中的所有字段都是端到端渲染与导入流程的必填字段，但只有以下字段直接影响 PNG 生成：
 
-- 一个卡牌标识
 - `variant`
 - 输出宽高
 - `renderModel`
 
-当前约定下，卡牌标识可以来自以下任一位置：
-
-- `card.cardId`
-- `renderModel.cardId`
+对于 `partial-update`，渲染器还会消费 `card`，用它从内部游戏数据中定位基础状态。`card.cardId` 与 `renderModel.cardId` 必须指向同一张卡牌。
 
 当前请求体中，渲染器直接依赖的字段是：
 
@@ -96,9 +92,7 @@
 - `renderModel`
   用于生成卡图的 canonical render-model 载荷。
 
-`requestId` 可作为调用方追踪字段，但不是渲染成功的前提条件。
-
-`card`、`style`、`target`、`output.fileName` 以及其他导出侧字段可以存在于请求体中，但不属于本规范要求渲染器必须依赖的最小输入集合。
+`requestId`、`style`、`target`、`output.fileName`、`output.format` 和 `output.transparentBackground` 是必填的任务元数据。它们用于结果关联、校验、导入和存储，但渲染器生成像素时不消费这些字段。
 
 本规范定义的接口只接收单个渲染请求对象，不接收批量 wrapper 文档。
 
@@ -106,37 +100,36 @@
 
 `POST /render` 请求体是一个 JSON 对象，遵循共享上游模型中定义的 `ImageRequirementRequest` schema。
 
-### 必填与可选字段
+### 字段职责
 
-渲染器只依赖请求体的一个子集：
+完整任务对象是必填的，但渲染器生成 PNG 时只消费其中一部分：
 
-- **渲染必需**：`variant`、`output.width`、`output.height`、`renderModel`，以及一个卡牌标识（`card.cardId` 或 `renderModel.cardId`）。
-- **可选 / 渲染器不消费**：`requestId`、`card`（除 `cardId` 外）、`style`、`target`、`output.fileName`、`output.format`、`output.transparentBackground`。
+- **每次渲染都消费**：`variant`、`renderMode`、`output.width`、`output.height` 和 `renderModel`。
+- **`partial-update` 额外消费**：`card.cardId` 和 `card.lang`，用于从渲染器内部游戏数据加载基础状态。
+- **必填但不参与像素生成的任务元数据**：`requestId`、`style`、`target`、`output.fileName`、`output.format` 和 `output.transparentBackground`。
 
-渲染器不消费的字段随请求携带，供调用方追踪和导出/导入流程使用。
+不参与像素生成的字段仍然必填，因为同一个对象还会继续用于结果关联和导出/导入流程。
 
 ### 示例
 
 ```json
 {
-  "requestId": "req_abc123",
+  "requestId": "sha256:9ca666539f9e4b7746527ed13cf4d5cda4a79c9126fcd8781ac1c89a38e7841c",
   "card": {
     "cardId": "ABC_123",
-    "lang": "zhs",
-    "version": [35, 4, 0],
-    "revisionHash": "abc123def456",
-    "localizationHash": "loc_hash_001",
-    "renderHash": "render_hash_001"
+    "lang": "zhs"
   },
   "variant": {
-    "zone": "play",
+    "category": "glow",
+    "zone": "hand",
     "template": "normal",
     "premium": "normal"
   },
   "renderMode": "full-set",
   "style": {
-    "styleKey": "play_normal_normal_default",
-    "zone": "play",
+    "styleKey": "hand_normal_normal_default",
+    "category": "glow",
+    "zone": "hand",
     "template": "normal",
     "premium": "normal",
     "layout": "default",
@@ -145,7 +138,7 @@
     "transparentBackground": false
   },
   "output": {
-    "fileName": "ABC_123_play_normal_normal.png",
+    "fileName": "9ca666539f9e4b7746527ed13cf4d5cda4a79c9126fcd8781ac1c89a38e7841c.png",
     "format": "png",
     "width": 512,
     "height": 768,
@@ -153,13 +146,12 @@
   },
   "target": {
     "r2Bucket": "hearthstone-card-images",
-    "r2Key": "base/play/normal/normal/ab/abc123def456.webp",
+    "r2Key": "hearthstone/card/glow/hand/normal/normal/re/render_hash_001.webp",
     "contentType": "image/webp"
   },
   "renderModel": {
     "cardId": "ABC_123",
     "lang": "zhs",
-    "variant": "normal",
     "templateVersion": "35.4.0",
     "assetVersion": "35.4.0",
     "localization": {
@@ -175,6 +167,10 @@
     "set": 3,
     "rarity": "legendary",
     "elite": false,
+    "glow": [
+      { "part": "attack", "type": "buff" },
+      { "part": "text", "type": "nerf" }
+    ],
     "renderMechanics": {}
   }
 }
@@ -185,23 +181,19 @@
 #### `requestId`
 
 - **类型**：`string`
-- **必填**：否
+- **必填**：是
 
 调用方追踪标识。渲染器不消费。
 
 #### `card`
 
 - **类型**：`object`
-- **必填**：否，但 `card.cardId` 是两种卡牌标识来源之一。
+- **必填**：是。渲染器在 `partial-update` 中使用该对象定位内部游戏数据。
 
 | 字段 | 类型 | 说明 |
 |-------|------|-------------|
 | `cardId` | `string` | 卡牌标识 |
 | `lang` | `string` | 语言代码（如 `zhs`、`enus`） |
-| `version` | `number[]` | 游戏版本，格式为 `[major, minor, patch]` |
-| `revisionHash` | `string` | 内容修订哈希 |
-| `localizationHash` | `string` | 本地化内容哈希 |
-| `renderHash` | `string` | 渲染身份哈希 |
 
 #### `variant`
 
@@ -210,6 +202,7 @@
 
 | 字段 | 类型 | 可选值 | 说明 |
 |-------|------|--------|-------------|
+| `category` | `string` | `"base"`、`"glow"` | 图片类别 |
 | `zone` | `string` | `"hand"`、`"play"` | 卡牌显示区域 |
 | `template` | `string` | `"normal"`、`"battlegrounds"` | 卡牌模板 |
 | `premium` | `string` | `"normal"`、`"golden"`、`"diamond"`、`"signature"` | 卡牌品质 |
@@ -218,30 +211,31 @@
 
 - **类型**：`string`
 - **必填**：是
-- **默认值**：`"full-set"`
+- **输入默认值**：`"full-set"`；规范化后的序列化任务包含补全后的值。
 - **可选值**：`"full-set"`、`"partial-update"`
 
 声明 `renderModel` 可选字段的字段存在性语义。
 
-| 值 | 字段缺失 | 显式 `null` |
+| 值 | 基础状态 | 可选字段缺失 |
 |----|---------|-------------|
-| `"full-set"` | 清除 / 重置为默认值 | 清除 / 重置为默认值 |
-| `"partial-update"` | 保持不变 | 清除 / 重置为默认值 |
+| `"full-set"` | 无 | 该字段不适用或被清除 |
+| `"partial-update"` | 使用 `card` 从内部游戏数据加载 | 保留基础状态中的值 |
 
-当为 `"partial-update"` 时，`renderModel` 中标 `?` 的可选字段可以缺失，渲染器不得修改缺失字段对应的卡牌元素。
+当为 `"partial-update"` 时，渲染器先使用 `card` 从内部游戏数据解析基础 render model，再用 `renderModel` 中明确出现的字段覆盖它。缺失的可选字段保留基础状态中的值。
 
-当为 `"full-set"` 时，所有字段均应存在。
+当为 `"full-set"` 时，`renderModel` 是完整的规范快照；不适用于该卡牌的可选字段仍可缺失。
 
 #### `style`
 
 - **类型**：`object`
-- **必填**：否
+- **必填**：是（任务元数据，不参与像素生成）
 
 导出/导入流程使用的渲染样式声明。渲染器不消费。
 
 | 字段 | 类型 | 说明 |
 |-------|------|-------------|
 | `styleKey` | `string` | 样式标识 |
+| `category` | `string` | 同 `variant.category` |
 | `zone` | `string` | 同 `variant.zone` |
 | `template` | `string` | 同 `variant.template` |
 | `premium` | `string` | 同 `variant.premium` |
@@ -253,7 +247,7 @@
 #### `output`
 
 - **类型**：`object`
-- **必填**：是（至少需要 `width` 和 `height`）
+- **必填**：是。只有 `width` 和 `height` 参与像素生成。
 
 | 字段 | 类型 | 说明 |
 |-------|------|-------------|
@@ -266,7 +260,7 @@
 #### `target`
 
 - **类型**：`object`
-- **必填**：否
+- **必填**：是（任务元数据，不参与像素生成）
 
 导入流程使用的存储目标元数据。渲染器不消费。
 
@@ -289,7 +283,6 @@
 |-------|------|-------------|
 | `cardId` | `string` | 卡牌标识 |
 | `lang` | `string` | 语言代码 |
-| `variant` | `string` | 卡牌变体标识 |
 | `templateVersion` | `string` | 模板版本 |
 | `assetVersion` | `string` | 资源版本 |
 | `localization` | `object` | 本地化文本载荷 |
@@ -313,7 +306,27 @@
 | `elite` | `boolean` | 精英标识。 |
 | `techLevel` | `number?` | 酒馆战棋科技等级。 |
 | `rune` | `string[]?` | 死亡骑士符文组合（`blood`、`frost`、`unholy`）。 |
+| `glow` | `GlowEntry[]?` | 可选的卡面部位变化高亮，仅当 `variant.zone` 为 `"hand"` 时有效，详见下方 `glow` 小节。 |
 | `renderMechanics` | `object` | 渲染机制标识。完整 key 列表见下方 `renderMechanics` 小节。 |
+
+#### `glow`
+
+可选的卡面部位高亮标记数组。Glow 仅支持手牌图：携带 `renderModel.glow` 的请求必须将 `variant.zone` 设为 `"hand"`；`"play"` 区域的渲染请求不得携带 glow 标记。
+
+每个条目的结构如下：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `part` | `GlowPart` | 需要高亮的卡面区域。 |
+| `type` | `"buff" \| "nerf" \| "rework" \| "neutral"` | 分别表示增强、削弱、功能重做或不影响玩法的中性修改视觉样式。 |
+
+支持的规范 `GlowPart` 值：
+
+`cost | attack | health | text | armor | rune | rarity | art | name | race`
+
+`durability` 是 `health` 的可接受别名，渲染器必须将二者应用到同一个视觉区域。
+
+规范部位映射为：`cost -> ManaCost`、`attack -> Attack`、`health`/`durability -> Health`、`text -> CardText`、`armor -> Armor`、`rune -> Runes`、`rarity -> RarityGem`、`art -> Art`、`name -> CardName`、`race -> Race`。部位值合法但当前卡牌或 prefab 不支持时静默忽略。同一视觉区域的同类型重复项合并，不同类型冲突则拒绝请求。
 
 #### `renderMechanics`
 
@@ -358,9 +371,17 @@
 
 - 对一个有效请求返回一个有效 PNG 二进制
 - 每次请求只渲染一张图
-- 把请求体视为完整、自包含的渲染输入
+- 将 `full-set` 请求视为完整、自包含的渲染输入；对于 `partial-update`，使用 `card` 从内部游戏数据解析基础状态
 - 遵守 `output.width` 和 `output.height`
 - 支持炉石卡图渲染所需的 `variant` 与 `renderModel`
+- 要求 `card.cardId` 与 `renderModel.cardId` 指向同一张卡牌
+- 要求 `style.category`、`style.zone`、`style.template` 和 `style.premium` 与 `variant` 一致
+- 要求 `style.width`、`style.height` 与 `output.width`、`output.height` 一致
+- 要求 `style.transparentBackground` 与 `output.transparentBackground` 一致
+- 当且仅当 `renderModel.glow` 非空时，要求 `variant.category` 为 `"glow"`；否则必须为 `"base"`
+- 仅当 `variant.zone` 为 `"hand"` 时接受 `renderModel.glow`；`"play"` 渲染不得携带 glow 标记
+- 按每个标记声明的 `buff`、`nerf`、`rework` 或 `neutral` 样式渲染所有受支持的 `renderModel.glow` 标记
+- 将 glow 部位 `durability` 作为 `health` 的同义词处理
 - 提供 `GET /status` 供可用性与兼容性检查
 
 对于等价的请求载荷，除非渲染器版本或资源集发生变更，否则渲染器应当产出等价的视觉结果。
@@ -388,6 +409,8 @@
 - `500` 用于渲染器自身的意外失败
 
 这些状态码只是建议，不是强制枚举；但渲染器在没有产出有效 PNG 时，不能返回 `200`。
+
+请求结构合法但因卡牌、prefab、Renderer 或必要资源不可用而无法渲染时返回 `422`。
 
 ## 范围外
 

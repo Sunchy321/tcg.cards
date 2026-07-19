@@ -6,11 +6,17 @@ import { and, eq, ilike, sql } from 'drizzle-orm';
 
 import { Entity, EntityLocalization, Patch } from '@tcg-cards/db/schema/local/hearthstone';
 import { locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
-import { group as groupEnum } from '@tcg-cards/model/src/hearthstone/schema/announcement';
+import { glowEntry, group as groupEnum } from '@tcg-cards/model/src/hearthstone/schema/announcement';
+import { renderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
 
 import { getLocalDb } from '../../../lib/hearthstone/hsdata-local-db';
 import { extractJsonObject, matchPatches, normalizeAiResult } from '../../../lib/hearthstone/announcement/ai';
 import { hasAiConfig, readAiConfig } from '../../../runtime-config';
+
+const itemDelta = z.object({
+  prev: renderModel.partial().optional(),
+  curr: renderModel.partial().optional(),
+}).nullable();
 
 const item = z.object({
   type:         z.string(),
@@ -19,8 +25,8 @@ const item = z.object({
   cardId:       z.string().nullable(),
   setId:        z.string().nullable(),
   ruleId:       z.string().nullable(),
-  delta:        z.any().nullable(),
-  glow:         z.any().nullable(),
+  delta:        itemDelta,
+  glow:         glowEntry.array().nullable(),
   relatedCards: z.string().array(),
   group:        z.string().nullable(),
   score:        z.number().nullable(),
@@ -245,8 +251,8 @@ Each item has these fields:
 - cardId: ONLY for card_change / card_update: the changed card's ID. Must be null for all other types.
 - setId: ONLY for set_change: the set ID. Must be null for all other types.
 - ruleId: ONLY for rule_change: rule identifier (free text, optionally prefixed like "set:core"). Must be null for all other types.
-- delta: null, or object with changed render model fields (attack, health, cost, etc.) with new values
-- glow: null, or array of { part: string, type: "buff" | "nerf" } for card glow effects
+- delta: null, or { "prev": { ...old render model field values }, "curr": { ...new render model field values } }. Each side is a partial RenderModel. Put old values stated by the announcement in prev and new values in curr. Include only fields explicitly supported by the source.
+- glow: null, or array of { part: string, type: "buff" | "nerf" | "rework" | "neutral" } identifying each changed card part. Use "buff" when the part became stronger, "nerf" when it became weaker, "rework" for a functional redesign that is not meaningfully directional, and "neutral" for a presentation or wording change that does not affect gameplay. Do not invent glow entries when the nature of the change is ambiguous.
 - relatedCards: ONLY for card_change / card_update: related card IDs affected by this change (e.g. the collectible card that summons a changed token). Must be an empty array for all other types.
 - group: ONLY for card_change items that are part of a bulk rotation. Allowed values: ${groupEnum.options.map(v => `"${v}"`).join(', ')}. Use null for all other items, including non-rotation changes. Never invent other group values.
 - score: null, or integer score value
@@ -258,5 +264,6 @@ Important:
 - For mini-set releases (35 new cards), create one set_change item with type "set_change" and status "extend".
 - Use searchCards to resolve cardIds instead of guessing; if no candidate matches, use null.
 - Use lookupPatches to resolve header.version; if no candidate matches, use null.
+- For card_update items, preserve both old and new values when the source states both. Use null for delta or glow when the source does not provide enough information to determine them reliably.
 - Only include fields that are actually present; use null for absent fields.
 - The final answer must be ONLY valid JSON, no markdown, no explanation.`;

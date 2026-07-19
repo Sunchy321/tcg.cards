@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import type { GlowEntry } from '@tcg-cards/model/src/hearthstone/schema/announcement';
 
 import { extractJsonObject, matchPatches, normalizeAiResult } from './ai';
 
@@ -52,6 +53,19 @@ describe('normalizeAiResult', () => {
     const result = normalizeAiResult({ items: [{ group: 'core_rotation' }] });
 
     expect(result.items[0]!.group).toBe('core_rotation');
+  });
+
+  test('preserves per-side deltas and glow markers', () => {
+    const delta = { prev: { attack: 5, health: 6 }, curr: { attack: 4, health: 5 } };
+    const glow: GlowEntry[] = [
+      { part: 'attack', type: 'nerf' },
+      { part: 'text', type: 'rework' },
+      { part: 'name', type: 'neutral' },
+    ];
+    const result = normalizeAiResult({ items: [{ delta, glow }] });
+
+    expect(result.items[0]!.delta).toEqual(delta);
+    expect(result.items[0]!.glow).toEqual(glow);
   });
 });
 

@@ -1,4 +1,12 @@
 import { group as groupEnum } from '@tcg-cards/model/src/hearthstone/schema/announcement';
+import type { GlowEntry } from '@tcg-cards/model/src/hearthstone/schema/announcement';
+import type { RenderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
+
+/** Stores per-side render model corrections extracted from an announcement. */
+export interface ItemDelta {
+  prev?: Partial<RenderModel>;
+  curr?: Partial<RenderModel>;
+}
 
 export interface AiHeader {
   name:          string | null;
@@ -14,8 +22,8 @@ export interface AiItem {
   cardId:       string | null;
   setId:        string | null;
   ruleId:       string | null;
-  delta:        unknown;
-  glow:         unknown;
+  delta:        ItemDelta | null;
+  glow:         GlowEntry[] | null;
   relatedCards: string[];
   group:        string | null;
   score:        number | null;

@@ -1313,7 +1313,7 @@ const hideProjectedSources = ref(false);
 const activeWorkflowTab = ref<'import' | 'project'>('import');
 const taskController = ref<{
   attach(snapshot: TaskPageSnapshot): void;
-  currentTaskRunId: { value: string | null };
+  currentTaskRunId: string | null;
 } | null>(null);
 const hsdataTaskActive = ref(false);
 const creatingBatchTaskKind = ref<'import' | 'project' | null>(null);
@@ -3082,16 +3082,17 @@ watch(
   },
 );
 
-watch(taskController, (controller) => {
-  if (!controller) return;
-  watch(() => controller.currentTaskRunId.value, (taskRunId) => {
+watch(
+  () => taskController.value?.currentTaskRunId ?? null,
+  (taskRunId) => {
     if (taskRunId == null) {
       localStorage.removeItem(hsdataTaskRunStorageKey);
     } else {
       localStorage.setItem(hsdataTaskRunStorageKey, taskRunId);
     }
-  }, { immediate: true });
-});
+  },
+  { immediate: true },
+);
 
 onMounted(async () => {
   restoreImportPageState();

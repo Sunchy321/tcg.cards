@@ -42,7 +42,7 @@
           <div class="flex items-center gap-2">
             <UButton v-if="form.id" icon="i-lucide-wand" label="投影" color="neutral" variant="ghost" size="sm" :loading="projecting" @click="handleProject" />
             <USelect v-model="renderLang" :items="renderLangOptions" class="w-28" />
-            <UButton icon="i-lucide-image" label="全部渲染" color="primary" variant="ghost" size="sm" :loading="renderingAll" :disabled="!form.version" @click="handleRenderAll" />
+            <UButton icon="i-lucide-database" label="全部写入存储" color="primary" variant="ghost" size="sm" :loading="renderingAll" :disabled="!form.version" @click="handleRenderAll" />
             <UButton label="取消" color="neutral" variant="ghost" size="sm" @click="resetForm" />
             <UButton label="保存" size="sm" :loading="saving" @click="handleSubmit" />
           </div>
@@ -86,13 +86,16 @@
           <!-- Items -->
           <div class="border-t border-slate-200 pt-4">
             <div class="mb-3 flex items-center justify-between">
-              <span class="text-sm font-medium text-slate-700">公告条目</span>
-              <UButton icon="i-lucide-plus" label="添加条目" size="xs" @click="addItem" />
+              <span class="text-sm font-medium text-slate-700">公告条目（{{ form.items.length }}）</span>
+              <div class="flex items-center gap-1">
+                <UButton icon="i-lucide-trash-2" label="清空" color="error" variant="ghost" size="xs" :disabled="form.items.length === 0" @click="() => { showClearItemsModal = true; }" />
+                <UButton icon="i-lucide-plus" label="添加条目" size="xs" @click="addItem" />
+              </div>
             </div>
             <div class="space-y-3">
-              <div v-for="(item, index) in form.items" :key="index" class="relative rounded-lg border border-slate-200 p-3">
+              <div v-for="(item, index) in form.items" :key="item._key" class="relative rounded-lg border border-slate-200 p-3">
                 <UButton icon="i-lucide-x" color="error" variant="ghost" size="xs" class="absolute right-2 top-2" @click="removeItem(index)" />
-                <div class="grid grid-cols-3 gap-3 pr-6">
+                <div class="grid grid-cols-3 gap-x-4 gap-y-3 pr-6">
                   <UFormField label="类型" required>
                     <USelect v-model="item.type" :items="itemTypeOptions" class="w-full" />
                   </UFormField>
@@ -100,34 +103,50 @@
                     <USelect v-model="item.status" :items="statusOptions" class="w-full" />
                   </UFormField>
                   <UFormField label="赛制 (keyword)">
-                    <UInput v-model="item.format" placeholder="standard / constructed" />
+                    <UInput v-model="item.format" placeholder="standard / constructed" class="w-full" />
                   </UFormField>
-                </div>
-                <!-- Non-card types: single ID field row -->
-                <div v-if="idKindOf(item.type) !== 'card'" class="mt-3 grid grid-cols-2 gap-3">
+                  <!-- Non-card types: single ID field row -->
                   <UFormField v-if="idKindOf(item.type) === 'set'" label="系列ID"><UInput v-model="item.setId" /></UFormField>
                   <UFormField v-else-if="idKindOf(item.type) === 'rule'" label="规则ID"><UInput v-model="item.ruleId" /></UFormField>
-                </div>
 
-                <!-- Card types: left fields + right images -->
-                <div v-if="idKindOf(item.type) === 'card'" class="mt-3 flex gap-4">
-                  <div class="flex w-1/2 flex-col gap-3">
-                    <UFormField label="卡牌ID"><UInput v-model="item.cardId" /></UFormField>
-                    <UFormField label="relatedCards">
-                      <UInput v-model="item.relatedCardsStr" placeholder="card1, card2" />
+                  <!-- Card types: identity, glow, and previews -->
+                  <template v-if="idKindOf(item.type) === 'card'">
+                  <div class="flex min-w-0 flex-col gap-3">
+                    <UFormField label="卡牌ID"><UInput v-model="item.cardId" class="w-full" /></UFormField>
+                    <UFormField label="关联卡牌">
+                      <UInput v-model="item.relatedCardsStr" placeholder="card1, card2" class="w-full" />
                     </UFormField>
                     <UFormField v-if="item.type === 'card_change'" label="分组">
                       <USelect :model-value="item.group ?? 'none'" :items="groupOptions" placeholder="无" class="w-full" @update:model-value="item.group = $event === 'none' ? '' : String($event)" />
                     </UFormField>
-                    <div class="mt-auto flex items-center gap-2">
-                      <UButton icon="i-lucide-image" label="渲染" size="xs" variant="ghost" :loading="renderingItems[index]" :disabled="!form.version || !item.cardId" @click="handleRenderItem(index)" />
-                      <span v-if="renderErrors[index]" class="text-xs text-red-500">{{ renderErrors[index] }}</span>
-                    </div>
                   </div>
-                  <div class="flex flex-1 items-start justify-end gap-3">
+                  <div class="flex min-h-52 min-w-0 flex-col">
+                    <template v-if="item.type === 'card_update'">
+                      <div class="mb-2 flex h-8 items-center justify-between">
+                        <span class="text-sm font-medium text-slate-700">高亮</span>
+                        <UButton icon="i-lucide-plus" label="添加" size="xs" variant="ghost" :disabled="(item.glow?.length ?? 0) >= glowPart.options.length" @click="addGlow(item)" />
+                      </div>
+                      <div class="flex flex-1 flex-col gap-2">
+                        <div
+                          v-for="(entry, glowIndex) in item.glow ?? []"
+                          :key="glowIndex"
+                          class="grid grid-cols-[minmax(0,1fr)_7rem_auto] items-center gap-2 rounded border px-2 py-1.5"
+                          :style="glowTypeStyle(entry.type)"
+                        >
+                          <USelect v-model="entry.part" :items="glowPartOptions(item, glowIndex)" class="w-full" />
+                          <div class="flex min-w-0 items-center gap-1.5">
+                            <span class="size-2 shrink-0 rounded-full" :style="{ backgroundColor: glowTypeColors[entry.type].color }" />
+                            <USelect v-model="entry.type" :items="glowTypeOptions" class="min-w-0 flex-1" />
+                          </div>
+                          <UButton icon="i-lucide-x" color="error" variant="ghost" size="xs" @click="removeGlow(item, glowIndex)" />
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+                  <div class="row-span-2 flex min-h-52 items-start justify-center gap-3">
                     <div v-for="side in expectedSides(item.type)" :key="side" class="flex flex-col items-center gap-1">
-                      <template v-if="findPreview(index, side)?.base64">
-                        <img :src="'data:image/webp;base64,' + findPreview(index, side)!.base64" class="h-44 w-32 rounded border border-slate-200 object-contain" />
+                      <template v-if="findPreview(item._key, side)">
+                        <img :src="`data:${findPreview(item._key, side)!.mimeType ?? 'image/webp'};base64,${findPreview(item._key, side)!.base64}`" class="h-44 w-32 rounded border border-slate-200 object-contain" />
                       </template>
                       <div v-else class="flex h-44 w-32 items-center justify-center rounded border border-dashed border-slate-300 bg-slate-50">
                         <UIcon name="i-lucide-image" class="size-6 text-slate-300" />
@@ -135,6 +154,27 @@
                       <span class="text-xs text-slate-500">{{ side }}</span>
                     </div>
                   </div>
+                  <div class="col-span-2 flex flex-wrap items-center gap-1">
+                    <UButton icon="i-lucide-eye" label="预览" size="xs" variant="ghost" :loading="previewingItems[item._key]" :disabled="!form.version || !item.cardId" @click="handlePreviewItem(index)" />
+                    <UButton icon="i-lucide-download" label="下载 PNG" size="xs" variant="ghost" :loading="downloadingItems[item._key]" :disabled="!form.version || !item.cardId" @click="handleDownloadPng(index)" />
+                    <UButton v-if="renderLang === 'all'" icon="i-lucide-file-json" label="下载请求" size="xs" variant="ghost" :loading="requestingItems[item._key]" :disabled="!form.version || !item.cardId" @click="handleRequest(item)" />
+                    <template v-else>
+                      <UButton
+                        v-for="side in expectedSides(item.type)"
+                        :key="`request-${side}`"
+                        icon="i-lucide-copy"
+                        :label="expectedSides(item.type).length === 1 ? '复制请求' : `复制${side === 'prev' ? '前图' : '后图'}请求`"
+                        size="xs"
+                        variant="ghost"
+                        :loading="requestingItems[item._key]"
+                        :disabled="!form.version || !item.cardId"
+                        @click="handleRequest(item, side)"
+                      />
+                    </template>
+                    <UButton icon="i-lucide-database" label="写入存储" size="xs" variant="ghost" :loading="renderingItems[item._key]" :disabled="!form.version || !item.cardId" @click="handleRenderItem(index)" />
+                    <span v-if="renderErrors[item._key]" class="text-xs text-red-500">{{ renderErrors[item._key] }}</span>
+                  </div>
+                  </template>
                 </div>
               </div>
             </div>
@@ -147,6 +187,24 @@
         <UButton icon="i-lucide-plus" label="创建新公告" @click="createNew" />
       </div>
     </div>
+
+    <UModal v-model:open="showClearItemsModal">
+      <template #header>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-triangle-alert" class="size-5 text-error" />
+          <span class="font-medium">清空公告条目</span>
+        </div>
+      </template>
+      <template #body>
+        <p class="text-sm text-muted">将移除当前公告的 {{ form.items.length }} 个条目，此操作尚未保存。</p>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-end gap-2">
+          <UButton label="取消" color="neutral" variant="ghost" @click="() => { showClearItemsModal = false; }" />
+          <UButton label="确认清空" color="error" @click="confirmClearItems" />
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>
 
@@ -156,15 +214,24 @@ definePageMeta({ layout: 'admin', title: '公告管理' });
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useDesktopRuntimeClient } from '~/composables/useDesktopRuntimeClient';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { group as groupEnum } from '#model/hearthstone/schema/announcement';
+import { glowPart, group as groupEnum } from '#model/hearthstone/schema/announcement';
+import type { GlowEntry } from '#model/hearthstone/schema/announcement';
+import type { RenderModel } from '#model/hearthstone/schema/entity';
+import { mergePreviews, selectPreview, type SidePreview } from '~/utils/announcement-preview';
 
 const client = useDesktopRuntimeClient();
 
 interface LinkEntry { url: string; label?: string; _parsing?: boolean }
+/** Stores display-only render model corrections for both sides of an item. */
+interface ItemDelta {
+  prev?: Partial<RenderModel>;
+  curr?: Partial<RenderModel>;
+}
 interface ItemForm {
-  id?: string; type: string; effectiveDate: string; format: string;
+  id?: string; _key: string; type: string; effectiveDate: string; format: string;
   status: string; group: string; version?: number; lastVersion?: number;
   cardId: string; setId: string; ruleId: string; relatedCardsStr: string;
+  delta: ItemDelta | null; glow: GlowEntry[] | null;
 }
 
 const announcements = ref<any[]>([]);
@@ -185,19 +252,27 @@ const renderLangOptions = [
   { label: '全部语言', value: 'all' },
   { label: 'en', value: 'en' }, { label: 'zhs', value: 'zhs' },
 ];
+const glowTypeOptions = [
+  { label: 'buff', value: 'buff' },
+  { label: 'nerf', value: 'nerf' },
+  { label: 'rework', value: 'rework' },
+  { label: 'neutral', value: 'neutral' },
+];
+const glowTypeColors: Record<GlowEntry['type'], { color: string; colorize: string; hiColor: string }> = {
+  buff:    { color: '#00BA00', colorize: '#9AFF95', hiColor: '#5ED343' },
+  nerf:    { color: '#BA0505', colorize: '#FF9595', hiColor: '#D36943' },
+  rework:  { color: '#D6A900', colorize: '#FFF09A', hiColor: '#FFD43B' },
+  neutral: { color: '#1677C8', colorize: '#9DDCFF', hiColor: '#3B9EFF' },
+};
 const renderingAll = ref(false);
-const renderingItems = reactive<Record<number, boolean>>({});
-const renderErrors = reactive<Record<number, string>>({});
-const renderedItems = reactive<Record<number, boolean>>({});
-
-interface SidePreview {
-  side: string;
-  hash: string;
-  category: string;
-  template: string;
-  base64?: string;
-}
-const itemPreviews = reactive<Record<number, SidePreview[]>>({});
+const showClearItemsModal = ref(false);
+const renderingItems = reactive<Record<string, boolean>>({});
+const previewingItems = reactive<Record<string, boolean>>({});
+const downloadingItems = reactive<Record<string, boolean>>({});
+const requestingItems = reactive<Record<string, boolean>>({});
+const renderErrors = reactive<Record<string, string>>({});
+const renderedItems = reactive<Record<string, boolean>>({});
+const itemPreviews = reactive<Record<string, SidePreview[]>>({});
 
 function expectedSides(type: string): string[] {
   if (type === 'card_change') return ['base'];
@@ -205,56 +280,140 @@ function expectedSides(type: string): string[] {
   return [];
 }
 
-function findPreview(index: number, side: string): SidePreview | undefined {
-  return itemPreviews[index]?.find(p => p.side === side);
+function findPreview(itemKey: string, side: string): SidePreview | undefined {
+  return selectPreview(itemPreviews[itemKey] ?? [], side, renderLang.value);
 }
 
 function persistRenderLang() {
   localStorage.setItem(RENDER_LANG_KEY, renderLang.value);
 }
-watch(renderLang, persistRenderLang);
+watch(renderLang, () => {
+  persistRenderLang();
+  void loadExistingImages();
+});
+
+/** Creates the shared runtime input for one item operation. */
+function itemOperationInput(item: ItemForm, langs: Locale[]) {
+  return {
+    item: {
+      itemKey: item._key, type: item.type, cardId: item.cardId, format: item.format,
+      version: item.version ?? null, lastVersion: item.lastVersion ?? null,
+      delta: item.delta, glow: item.glow,
+    },
+    version: form.version!,
+    lastVersion: form.lastVersion ?? null,
+    langs,
+  };
+}
+
+/** Downloads one base64 payload through a temporary browser URL. */
+function downloadBase64(base64: string, fileName: string, type: string) {
+  const bytes = Uint8Array.from(atob(base64), char => char.charCodeAt(0));
+  const url = URL.createObjectURL(new Blob([bytes], { type }));
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+/** Renders previews without writing image assets. */
+async function handlePreviewItem(index: number) {
+  const item = form.items[index];
+  if (!item?.cardId || !form.version) return;
+  previewingItems[item._key] = true;
+  delete renderErrors[item._key];
+  try {
+    const lang = renderLang.value === 'all' ? 'zhs' : renderLang.value;
+    const result: any = await client.hearthstone.announcement.previewItem(itemOperationInput(item, [lang]));
+    const errors: string[] = [];
+    const previews: SidePreview[] = [];
+    for (const file of result.files ?? []) {
+      if (file.error || !file.base64) errors.push(`${file.side}/${file.lang}: ${file.error ?? '预览失败'}`);
+      else previews.push({ side: file.side, lang: file.lang, hash: '', category: '', template: '', base64: file.base64, mimeType: 'image/png' });
+    }
+    if (previews.length > 0) itemPreviews[item._key] = mergePreviews(itemPreviews[item._key] ?? [], previews);
+    if (errors.length > 0) renderErrors[item._key] = errors.join('；');
+  } catch (error: any) {
+    renderErrors[item._key] = error.message ?? '预览失败';
+  } finally {
+    delete previewingItems[item._key];
+  }
+}
+
+/** Downloads side PNG files or one all-language ZIP archive. */
+async function handleDownloadPng(index: number) {
+  const item = form.items[index];
+  if (!item?.cardId || !form.version) return;
+  downloadingItems[item._key] = true;
+  try {
+    const langs = renderLang.value === 'all' ? [] : [renderLang.value];
+    const result: any = await client.hearthstone.announcement.downloadItemImages(itemOperationInput(item, langs));
+    if (result.archive) downloadBase64(result.archive.base64, result.archive.fileName, 'application/zip');
+    else for (const file of result.files ?? []) downloadBase64(file.base64, file.fileName, 'image/png');
+    if (result.errors?.length) renderErrors[item._key] = result.errors.join('；');
+  } catch (error: any) {
+    renderErrors[item._key] = error.message ?? '下载失败';
+  } finally {
+    delete downloadingItems[item._key];
+  }
+}
+
+/** Copies one side request or downloads an all-language requirements document. */
+async function handleRequest(item: ItemForm, side?: string) {
+  if (!item.cardId || !form.version) return;
+  requestingItems[item._key] = true;
+  try {
+    const langs = renderLang.value === 'all' ? [] : [renderLang.value];
+    const result: any = await client.hearthstone.announcement.getRenderRequests(itemOperationInput(item, langs));
+    const errors = (result.entries ?? []).filter((entry: any) => entry.error).map((entry: any) => `${entry.side}/${entry.lang}: ${entry.error}`);
+    if (errors.length > 0) renderErrors[item._key] = errors.join('；');
+    if (renderLang.value === 'all') {
+      const url = URL.createObjectURL(new Blob([JSON.stringify(result.requirements, null, 2)], { type: 'application/json' }));
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `${item.cardId}-requests.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } else {
+      const entry = result.entries?.find((candidate: any) => candidate.side === side && candidate.request);
+      if (!entry?.request) throw new Error(result.entries?.find((candidate: any) => candidate.side === side)?.error ?? '无法构建请求');
+      await navigator.clipboard.writeText(JSON.stringify(entry.request, null, 2));
+      showToast('请求已复制', '', 'success');
+    }
+  } catch (error: any) {
+    renderErrors[item._key] = error.message ?? '请求生成失败';
+  } finally {
+    delete requestingItems[item._key];
+  }
+}
 
 async function handleRenderItem(index: number) {
   const item = form.items[index];
   if (!item?.cardId || !form.version) return;
-  renderingItems[index] = true;
-  delete renderErrors[index];
+  const itemKey = item._key;
+  renderingItems[itemKey] = true;
+  delete renderErrors[itemKey];
   try {
     const langs = renderLang.value === 'all' ? [] : [renderLang.value];
     console.log('[render] calling renderItems', { cardId: item.cardId, version: form.version, langs });
     const res: any = await client.hearthstone.announcement.renderItems({
       items: [{
-        type: item.type, cardId: item.cardId, format: item.format,
+        itemKey, type: item.type, cardId: item.cardId, format: item.format,
         version: item.version ?? null, lastVersion: item.lastVersion ?? null,
-        delta: { prev: undefined, curr: undefined },
-        glow: null,
+        delta: item.delta,
+        glow: item.glow,
       }],
       version: form.version,
       lastVersion: form.lastVersion ?? null,
       langs,
     });
-    renderedItems[index] = true;
-    const template = item.format === 'battlegrounds' ? 'battlegrounds' : 'normal';
-    const previews: SidePreview[] = (res.results ?? []).map((r: any) => ({
-      side: r.side, hash: r.renderHash, category: r.category, template,
-    }));
-    itemPreviews[index] = previews;
-
-    for (const p of previews) {
-      try {
-        const img: any = await client.hearthstone.announcement.previewImage({
-          renderHash: p.hash, category: p.category, template: p.template,
-        });
-        p.base64 = img.base64;
-      } catch (err: any) {
-        console.error('[render] previewImage failed', { hash: p.hash, category: p.category, template: p.template, error: err.message || err });
-      }
-    }
+    await applyRenderResults(item, res.results ?? []);
   } catch (e: any) {
     console.error('[render] failed', e);
-    renderErrors[index] = e.message || '渲染失败';
+    renderErrors[itemKey] = e.message || '渲染失败';
   } finally {
-    delete renderingItems[index];
+    delete renderingItems[itemKey];
   }
 }
 
@@ -262,16 +421,14 @@ async function handleRenderAll() {
   if (!form.version) return;
   renderingAll.value = true;
   try {
-    const cardIndices: number[] = [];
     const cardItems = form.items
-      .map((item, i) => {
+      .map((item) => {
         if ((item.type === 'card_change' || item.type === 'card_update') && item.cardId) {
-          cardIndices.push(i);
           return {
-            type: item.type, cardId: item.cardId, format: item.format,
+            itemKey: item._key, type: item.type, cardId: item.cardId, format: item.format,
             version: item.version ?? null, lastVersion: item.lastVersion ?? null,
-            delta: { prev: undefined, curr: undefined },
-            glow: null,
+            delta: item.delta,
+            glow: item.glow,
           };
         }
         return null;
@@ -287,24 +444,9 @@ async function handleRenderAll() {
       lastVersion: form.lastVersion ?? null,
       langs,
     });
-    for (const idx of cardIndices) {
-      renderedItems[idx] = true;
-      delete renderErrors[idx];
-      const item = form.items[idx];
-      if (!item) continue;
-      const template = item.format === 'battlegrounds' ? 'battlegrounds' : 'normal';
-      const previews: SidePreview[] = (res.results ?? [])
-        .filter((r: any) => r.cardId === item.cardId)
-        .map((r: any) => ({ side: r.side, hash: r.renderHash, category: r.category, template }));
-      itemPreviews[idx] = previews;
-
-      for (const p of previews) {
-        try {
-          const img: any = await client.hearthstone.announcement.previewImage({
-            renderHash: p.hash, category: p.category, template: p.template,
-          });
-          p.base64 = img.base64;
-        } catch { /* skip */ }
+    for (const item of form.items) {
+      if (cardItems.some(cardItem => cardItem.itemKey === item._key)) {
+        await applyRenderResults(item, res.results ?? []);
       }
     }
   } catch (e: any) {
@@ -314,11 +456,116 @@ async function handleRenderAll() {
   }
 }
 
+/** Loads successful render results and preserves previews for failed sides. */
+async function applyRenderResults(item: ItemForm, results: any[]) {
+  const itemResults = results.filter(result => result.itemKey === item._key);
+  const replacements: SidePreview[] = [];
+  const errors: string[] = [];
+  const template = item.format === 'battlegrounds' ? 'battlegrounds' : 'normal';
+
+  for (const result of itemResults) {
+    if (result.error || !result.renderHash) {
+      errors.push(`${result.side}/${result.lang}: ${result.error ?? '渲染失败'}`);
+      continue;
+    }
+
+    try {
+      const image: any = await client.hearthstone.announcement.previewImage({
+        renderHash: result.renderHash,
+        category:   result.category,
+        template,
+      });
+      replacements.push({
+        side:     result.side,
+        lang:     result.lang,
+        hash:     result.renderHash,
+        category: result.category,
+        template,
+        base64:   image.base64,
+      });
+    } catch (error: any) {
+      errors.push(`${result.side}/${result.lang}: ${error.message ?? '预览读取失败'}`);
+    }
+  }
+
+  if (replacements.length > 0) {
+    itemPreviews[item._key] = mergePreviews(itemPreviews[item._key] ?? [], replacements);
+  }
+
+  if (errors.length > 0) renderErrors[item._key] = errors.join('；');
+  else delete renderErrors[item._key];
+  renderedItems[item._key] = itemResults.length > 0 && errors.length === 0;
+}
+
 const emptyItem = (): ItemForm => ({
-  type: 'card_update', effectiveDate: '', format: '', status: '',
+  _key: crypto.randomUUID(), type: 'card_update', effectiveDate: '', format: '', status: '',
   group: '', version: undefined, lastVersion: undefined,
   cardId: '', setId: '', ruleId: '', relatedCardsStr: '',
+  delta: null, glow: null,
 });
+
+/** Appends an editable glow marker to a card update item. */
+function addGlow(item: ItemForm) {
+  item.glow ??= [];
+  const used = new Set(item.glow.map(entry => entry.part));
+  const part = glowPart.options.find(candidate => !used.has(candidate));
+  if (part) item.glow.push({ part, type: 'buff' });
+}
+
+/** Lists fixed glow parts while preventing duplicate selections within an item. */
+function glowPartOptions(item: ItemForm, index: number) {
+  const used = new Set((item.glow ?? []).filter((_, entryIndex) => entryIndex !== index).map(entry => entry.part));
+  return glowPart.options.map(part => ({ label: part, value: part, disabled: used.has(part) }));
+}
+
+/** Applies the renderer's selected glow palette to one editor row. */
+function glowTypeStyle(type: GlowEntry['type']) {
+  const colors = glowTypeColors[type];
+  return {
+    color:           colors.color,
+    borderColor:     colors.hiColor,
+    backgroundColor: `${colors.colorize}33`,
+  };
+}
+
+/** Removes a glow marker and normalizes an empty collection back to null. */
+function removeGlow(item: ItemForm, index: number) {
+  item.glow?.splice(index, 1);
+  if (item.glow?.length === 0) item.glow = null;
+}
+
+/** Clears all preview-related state for one form item. */
+function clearItemPreviewState(itemKey: string) {
+  delete itemPreviews[itemKey];
+  delete renderingItems[itemKey];
+  delete previewingItems[itemKey];
+  delete downloadingItems[itemKey];
+  delete requestingItems[itemKey];
+  delete renderErrors[itemKey];
+  delete renderedItems[itemKey];
+}
+
+/** Clears preview-related state when the active announcement changes. */
+function clearPreviewState() {
+  for (const itemKey of new Set([
+    ...Object.keys(itemPreviews),
+    ...Object.keys(renderingItems),
+    ...Object.keys(previewingItems),
+    ...Object.keys(downloadingItems),
+    ...Object.keys(requestingItems),
+    ...Object.keys(renderErrors),
+    ...Object.keys(renderedItems),
+  ])) {
+    clearItemPreviewState(itemKey);
+  }
+}
+
+/** Clears all form items and their transient preview state after confirmation. */
+function confirmClearItems() {
+  clearPreviewState();
+  form.items = [];
+  showClearItemsModal.value = false;
+}
 
 // Entity references are mutually exclusive by item type (see proposals/game-change-history §2.6).
 function idKindOf(type: string): 'card' | 'set' | 'rule' | null {
@@ -380,6 +627,7 @@ function parseRelatedCards(s: string): string[] {
 }
 
 function resetForm() {
+  clearPreviewState();
   Object.assign(form, {
     id: '', source: 'blizzard', date: '',
     effectiveDate: '', version: undefined, lastVersion: undefined, name: '', link: [], items: [],
@@ -388,6 +636,7 @@ function resetForm() {
 }
 
 function fillForm(row: any) {
+  clearPreviewState();
   Object.assign(form, {
     id: row.id, source: row.source, date: row.date,
     effectiveDate: row.effectiveDate ?? '', version: row.version,
@@ -395,17 +644,19 @@ function fillForm(row: any) {
     link: Array.isArray(row.link) ? row.link : [],
   });
   form.items = (row.items ?? []).map((i: any) => ({
-    id: i.id, type: i.type ?? 'card_update',
+    id: i.id, _key: i.id ?? crypto.randomUUID(), type: i.type ?? 'card_update',
     effectiveDate: i.effectiveDate ?? '', format: i.format ?? '', status: i.status ?? '',
     group: i.group ?? '',
     version: i.version, lastVersion: i.lastVersion,
     cardId: i.cardId ?? '', setId: i.setId ?? '', ruleId: i.ruleId ?? '',
     relatedCardsStr: Array.isArray(i.relatedCards) ? i.relatedCards.join(', ') : '',
+    delta: i.delta ?? null, glow: i.glow ?? null,
   }));
   isCreating.value = false;
 }
 
 function selectAnnouncement(item: any) {
+  clearPreviewState();
   selectedId.value = item.id;
   loadDetail(item.id);
 }
@@ -413,6 +664,7 @@ function selectAnnouncement(item: any) {
 async function loadDetail(id: string) {
   try {
     const detail: any = await client.hearthstone.announcement.get({ id });
+    if (selectedId.value !== id) return;
     fillForm(detail);
     await loadExistingImages();
   } catch (e: any) { showToast('加载详情失败', e.message, 'error'); }
@@ -428,27 +680,25 @@ async function loadExistingImages() {
   try {
     const res: any = await client.hearthstone.announcement.getItemImages({
       items: cardItems.map(item => ({
-        type: item.type, cardId: item.cardId, format: item.format,
+        itemKey: item._key, type: item.type, cardId: item.cardId, format: item.format,
         version: item.version ?? null, lastVersion: item.lastVersion ?? null,
-        delta: { prev: undefined, curr: undefined },
-        glow: null,
+        delta: item.delta,
+        glow: item.glow,
       })),
       version: form.version,
       lastVersion: form.lastVersion ?? null,
-      langs: [],
+      langs: renderLang.value === 'all' ? [] : [renderLang.value],
     });
 
-    for (let idx = 0; idx < form.items.length; idx++) {
-      const item = form.items[idx];
+    for (const item of form.items) {
       if (!item?.cardId) continue;
-      const images = (res.images ?? []).filter((img: any) => img.cardId === item.cardId && img.base64);
+      const images = (res.images ?? []).filter((img: any) => img.itemKey === item._key && img.base64);
       if (images.length === 0) continue;
 
-      const template = item.format === 'battlegrounds' ? 'battlegrounds' : 'normal';
-      itemPreviews[idx] = images.map((img: any) => ({
-        side: img.side, hash: '', category: img.category, template, base64: img.base64,
+      itemPreviews[item._key] = images.map((img: any) => ({
+        side: img.side, lang: img.lang, hash: '', category: img.category, template: img.template, base64: img.base64,
       }));
-      renderedItems[idx] = true;
+      renderedItems[item._key] = true;
     }
   } catch { /* silently skip if images not available */ }
 }
@@ -497,7 +747,11 @@ async function handleCrawl() {
 }
 function removeLink(i: number) { form.link.splice(i, 1); }
 function addItem() { form.items.push(emptyItem()); }
-function removeItem(i: number) { form.items.splice(i, 1); }
+function removeItem(i: number) {
+  const item = form.items[i];
+  if (item) clearItemPreviewState(item._key);
+  form.items.splice(i, 1);
+}
 
 async function handleAiParse(index: number) {
   const link = form.link[index];
@@ -516,11 +770,12 @@ async function handleAiParse(index: number) {
     if (form.version == null && header.version != null) form.version = header.version;
 
     const items: ItemForm[] = (result.items ?? []).map((i: any) => ({
-      type: i.type ?? 'card_update', format: i.format ?? '',
+      _key: crypto.randomUUID(), type: i.type ?? 'card_update', format: i.format ?? '',
       status: i.status ?? '', group: i.group ?? '',
       cardId: i.cardId ?? '', setId: i.setId ?? '', ruleId: i.ruleId ?? '',
       effectiveDate: '', version: undefined, lastVersion: undefined,
       relatedCardsStr: Array.isArray(i.relatedCards) ? i.relatedCards.join(', ') : '',
+      delta: i.delta ?? null, glow: i.glow ?? null,
     }));
     form.items = [...form.items, ...items];
   } catch (e: any) {
@@ -556,7 +811,7 @@ async function handleSubmit() {
           setId: kind === 'set' ? item.setId || null : null,
           ruleId: kind === 'rule' ? item.ruleId || null : null,
           relatedCards: kind === 'card' ? parseRelatedCards(item.relatedCardsStr) : [],
-          delta: null, glow: null,
+          delta: item.delta, glow: item.glow,
         };
       }),
     };

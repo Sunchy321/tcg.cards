@@ -78,8 +78,8 @@ const get = os
       updatedAt:  row.updatedAt.toISOString(),
       items:      items.map(item => ({
         ...item,
-        glow:      item.glow as { part: string; type: 'buff' | 'nerf' }[] | null,
-        delta:     item.delta as Record<string, unknown> | null,
+        glow:      item.glow,
+        delta:     item.delta,
         createdAt: item.createdAt.toISOString(),
         updatedAt: item.updatedAt.toISOString(),
       })),
@@ -210,8 +210,8 @@ const projectItems = os
     for (const item of items) {
       await db.update(AnnouncementItem)
         .set({
-          formats: resolveFormats(item.format),
-          cardIds: resolveCards(item.cardId, item.relatedCards),
+          resolvedFormats: resolveFormats(item.format),
+          resolvedCards: resolveCards(item.cardId, item.relatedCards),
         })
         .where(eq(AnnouncementItem.id, item.id));
     }

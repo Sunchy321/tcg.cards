@@ -3,6 +3,7 @@ import z from 'zod';
 import { desc, eq, sql } from 'drizzle-orm';
 
 import { announcementItem, announcementProfile } from '#model/hearthstone/schema/announcement';
+import type { GlowEntry } from '#model/hearthstone/schema/announcement';
 
 import { db } from '#db/db';
 import { Announcement, AnnouncementItem } from '#schema/shared/hearthstone';
@@ -58,7 +59,7 @@ const get = os
       link:  row.link as { url: string, label?: string }[],
       items: items.map(item => ({
         ...item,
-        glow:  item.glow as { part: string, type: 'buff' | 'nerf' }[] | null,
+        glow:  item.glow as GlowEntry[] | null,
         delta: item.delta as Record<string, unknown> | null,
       })),
     };
@@ -76,14 +77,15 @@ const timeline = os
   .output(announcementItem.array())
   .handler(async ({ input }) => {
     const items = await db
-      .select()
+      .select({ item: AnnouncementItem })
       .from(AnnouncementItem)
-      .where(sql`${input.format} = ANY(${AnnouncementItem.formats})`)
-      .orderBy(desc(AnnouncementItem.date));
+      .innerJoin(Announcement, eq(Announcement.id, AnnouncementItem.announcementId))
+      .where(sql`${input.format} = ANY(${AnnouncementItem.resolvedFormats})`)
+      .orderBy(desc(Announcement.date));
 
-    return items.map(item => ({
+    return items.map(({ item }) => ({
       ...item,
-      glow:  item.glow as { part: string, type: 'buff' | 'nerf' }[] | null,
+      glow:  item.glow as GlowEntry[] | null,
       delta: item.delta as Record<string, unknown> | null,
     }));
   });
@@ -100,14 +102,15 @@ const cardHistory = os
   .output(announcementItem.array())
   .handler(async ({ input }) => {
     const items = await db
-      .select()
+      .select({ item: AnnouncementItem })
       .from(AnnouncementItem)
-      .where(sql`${input.cardId} = ANY(${AnnouncementItem.cardIds})`)
-      .orderBy(desc(AnnouncementItem.date));
+      .innerJoin(Announcement, eq(Announcement.id, AnnouncementItem.announcementId))
+      .where(sql`${input.cardId} = ANY(${AnnouncementItem.resolvedCards})`)
+      .orderBy(desc(Announcement.date));
 
-    return items.map(item => ({
+    return items.map(({ item }) => ({
       ...item,
-      glow:  item.glow as { part: string, type: 'buff' | 'nerf' }[] | null,
+      glow:  item.glow as GlowEntry[] | null,
       delta: item.delta as Record<string, unknown> | null,
     }));
   });

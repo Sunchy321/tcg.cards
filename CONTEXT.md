@@ -15,7 +15,7 @@ A finite display-grouping key on card_change items belonging to a bulk rotation.
 A per-side display correction on a card-level item: `{ prev?: Partial<RenderModel>, curr?: Partial<RenderModel> }`. Each side is merged onto the resolved render model of the corresponding image before rendering. Display-only; never a data patch.
 
 ### glow
-Part-level highlight markers on an item: `{ part, type: 'buff' | 'nerf' }[]`. An optional field on renderModel. When present, affects renderHash. curr images carry glow; prev/base images have no glow — their renderHash equals the existing `entity_localizations.renderHash`, enabling natural deduplication.
+Part-level highlight markers on an item: `{ part, type: 'buff' | 'nerf' | 'rework' | 'neutral' }[]`. `rework` marks a functional redesign that is not directionally stronger or weaker; `neutral` marks a presentation or wording change without gameplay impact. An optional field on renderModel. When present, affects renderHash. curr images carry glow; prev/base images have no glow — their renderHash equals the existing `entity_localizations.renderHash`, enabling natural deduplication.
 
 ### prev image / curr image (前图 / 后图)
 The two rendered images of a `card_update` item: prev = the card at `lastVersion`, curr = the card at `version` with glow applied.

@@ -26,7 +26,7 @@
 ### 2.2 delta 与 glow
 
 - **delta**: `Partial<RenderModel>`，卡牌数值变化后的新值。用于合成变更后的卡牌渲染模型
-- **glow**: `{ part: string, type: "buff" | "nerf" }[]`，卡牌展示时的特殊光效标记（绿色 = 增强，红色 = 削弱）
+- **glow**: `{ part: string, type: "buff" | "nerf" | "rework" | "neutral" }[]`，卡牌展示时的部位级光效标记；分别表示增强、削弱、功能重做和不影响玩法的中性修改
 
 ### 2.3 status
 
@@ -143,7 +143,7 @@ interface AnnouncementItem {
 
   // 扩展
   delta: Partial<RenderModel> | null;
-  glow: { part: string; type: "buff" | "nerf" }[] | null;
+  glow: { part: string; type: "buff" | "nerf" | "rework" | "neutral" }[] | null;
 
   // 实体引用
   cardId: string | null;                         // 卡牌表主键
