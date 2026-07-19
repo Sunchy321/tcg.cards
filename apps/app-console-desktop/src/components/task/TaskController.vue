@@ -9,7 +9,27 @@
     @retry="handleRetry"
   >
     <template #default>
-      <slot name="params" :active-op="activeOperation" :disabled="paramsDisabled" />
+      <template v-if="multiTaskItems.length > 0">
+        <UTabs
+          v-model="selectedTaskKey"
+          :items="multiTaskTabs"
+          :content="false"
+          variant="link"
+        />
+        <div class="pt-4">
+          <slot
+            :name="selectedTaskKey"
+            :active-op="activeOperation"
+            :disabled="paramsDisabled"
+          />
+        </div>
+      </template>
+      <slot
+        v-else
+        name="params"
+        :active-op="activeOperation"
+        :disabled="paramsDisabled"
+      />
       <slot />
     </template>
 
@@ -18,8 +38,13 @@
     </template>
 
     <template #actions>
+      <slot
+        name="actions-before"
+        :active-op="activeOperation"
+        :disabled="paramsDisabled"
+      />
       <UButton
-        v-for="op in operations"
+        v-for="op in visibleOperations"
         :key="op.key"
         :icon="op.icon"
         :color="op.color ?? 'primary'"
@@ -47,12 +72,23 @@ export interface TaskOperation {
   icon?: string;
   color?: 'primary' | 'warning' | 'error' | 'neutral';
   disabled?: boolean;
+  taskType?: string;
   create: () => Promise<TaskPageSnapshot>;
+}
+
+/** One task type rendered as a selectable TaskController tab. */
+export interface TaskControllerMultiTaskItem {
+  key: string;
+  label: string;
+  icon?: string;
+  taskType: string;
+  operation: TaskOperation;
 }
 
 const props = defineProps<{
   title: string;
   operations: TaskOperation[];
+  multiTask?: TaskControllerMultiTaskItem[];
 }>();
 
 const emit = defineEmits<{
@@ -71,12 +107,20 @@ const stages = ref<TaskStage[]>([]);
 const currentTaskRunId = ref<string | null>(null);
 const isCreating = ref(false);
 const activeOpKey = ref<string | null>(null);
+const selectedTaskKey = ref(props.multiTask?.[0]?.key ?? '');
 
 let unsubWatch: (() => void) | null = null;
 
 // --- Computed ---
 
 const terminalStatuses: readonly string[] = ['completed', 'failed', 'canceled', 'abandoned'];
+const multiTaskItems = computed(() => props.multiTask ?? []);
+const multiTaskTabs = computed(() => multiTaskItems.value.map(item => ({
+  label: item.label,
+  icon: item.icon,
+  value: item.key,
+  disabled: !isIdle.value && item.key !== selectedTaskKey.value,
+})));
 
 const isIdle = computed(() => {
   return pageTask.value.kind === 'idle'
@@ -84,8 +128,20 @@ const isIdle = computed(() => {
 });
 
 const activeOperation = computed<TaskOperation | null>(() => {
+  if (multiTaskItems.value.length > 0) {
+    return multiTaskItems.value.find(item => item.key === selectedTaskKey.value)?.operation ?? null;
+  }
+
   if (!activeOpKey.value) return null;
   return props.operations.find(op => op.key === activeOpKey.value) ?? null;
+});
+
+const visibleOperations = computed(() => {
+  if (multiTaskItems.value.length > 0) {
+    return activeOperation.value == null ? [] : [activeOperation.value];
+  }
+
+  return props.operations;
 });
 
 const paramsDisabled = computed(() => !isIdle.value || isCreating.value);
@@ -104,6 +160,7 @@ function startWatching(taskRunId: string) {
         stages.value = event.stages;
 
         if (event.pageTask.kind === 'attached') {
+          selectTaskType(event.pageTask.taskType);
           emit('status-change', event.pageTask.status);
           const status = event.pageTask.status;
           if (status === 'completed') {
@@ -148,11 +205,20 @@ async function execute(op: TaskOperation) {
 
 function attach(snapshot: TaskPageSnapshot) {
   if (snapshot.pageTask.kind !== 'attached') return;
+  selectTaskType(snapshot.pageTask.taskType);
   pageTask.value = snapshot.pageTask;
   stages.value = snapshot.stages;
   register(snapshot);
   startWatching(snapshot.pageTask.taskRunId);
   activeOpKey.value = null;
+}
+
+/** Selects the multi-task tab associated with one attached task type. */
+function selectTaskType(taskType: string) {
+  const item = multiTaskItems.value.find(candidate => candidate.taskType === taskType);
+  if (item) {
+    selectedTaskKey.value = item.key;
+  }
 }
 
 function reset() {

@@ -15,24 +15,6 @@
 
         <div class="flex flex-wrap items-center gap-2">
           <UButton
-            label="批量导入当前筛选结果"
-            icon="i-lucide-arrow-down-to-line"
-            color="primary"
-            variant="soft"
-            :disabled="!canStartBatchImport"
-            :loading="batchRunning && batchTask?.kind === 'import'"
-            @click="startBatchImport"
-          />
-          <UButton
-            label="批量投影当前筛选结果"
-            icon="i-lucide-waypoints"
-            color="neutral"
-            variant="soft"
-            :disabled="!canStartBatchProject"
-            :loading="batchRunning && batchTask?.kind === 'project'"
-            @click="startBatchProject"
-          />
-          <UButton
             label="同步远端版本"
             icon="i-lucide-cloud-sync"
             color="primary"
@@ -43,7 +25,7 @@
               loadingState ||
               loadingFiles ||
               loadingSourceVersions ||
-              batchRunning ||
+              hsdataTaskActive ||
               importing ||
               projecting
             "
@@ -55,7 +37,7 @@
             color="neutral"
             variant="soft"
             :loading="syncingPatches"
-            :disabled="syncing || importing || projecting || batchRunning"
+            :disabled="syncing || importing || projecting || hsdataTaskActive"
             @click="syncPatches"
           />
           <UButton
@@ -110,193 +92,40 @@
       :description="`sourceTag 状态加载失败：${sourceVersionError}`"
       />
 
-      <UCard v-if="batchTask">
-      <template #header>
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <div class="font-medium">批量操作</div>
-            <p class="mt-1 text-xs text-muted">
-              按当前筛选结果和排序顺序串行执行，中断后可继续剩余项。
-            </p>
-          </div>
-          <UBadge
-            :label="batchStatusBadge.label"
-            :color="batchStatusBadge.color"
-            variant="soft"
-          />
-        </div>
-      </template>
-
-      <div class="space-y-4">
-        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <div class="rounded-lg border border-default p-3">
-            <div class="text-xs text-muted">批量导入候选</div>
-            <div class="mt-1 font-mono text-sm">
-              {{ batchImportCandidateItems.length }}
-            </div>
-            <div class="mt-1 text-xs text-muted">
-              使用当前导入参数和列表筛选条件
-            </div>
-          </div>
-          <div class="rounded-lg border border-default p-3">
-            <div class="text-xs text-muted">批量投影候选</div>
-            <div class="mt-1 font-mono text-sm">
-              {{ batchProjectCandidateItems.length }}
-            </div>
-            <div class="mt-1 text-xs text-muted">
-              使用当前投影参数和列表筛选条件
-            </div>
-          </div>
-          <div class="rounded-lg border border-default p-3">
-            <div class="text-xs text-muted">任务进度</div>
-            <div class="mt-1 font-mono text-sm">
-              {{ batchProgressText }}
-            </div>
-            <div class="mt-1 text-xs text-muted">
-              {{ batchStatusText }}
-            </div>
-          </div>
-          <div class="rounded-lg border border-default p-3">
-            <div class="text-xs text-muted">当前项</div>
-            <div class="mt-1 break-all font-mono text-sm">
-              {{ batchCurrentItemLabel }}
-            </div>
-            <div class="mt-1 text-xs text-muted">
-              {{ batchCurrentItemHint }}
-            </div>
-          </div>
-        </div>
-
-        <UAlert
-          v-if="batchFailedItem?.note"
-          color="error"
-          variant="soft"
-          icon="i-lucide-circle-alert"
-          :title="batchFailedItem.label"
-          :description="batchFailedItem.note"
-        />
-        <UAlert
-          v-else-if="batchRequestedAction === 'pause'"
-          color="warning"
-          variant="soft"
-          icon="i-lucide-pause-circle"
-          title="暂停请求已提交"
-          description="当前项完成后会暂停，并保留剩余队列。"
-        />
-        <UAlert
-          v-else-if="batchRequestedAction === 'clear'"
-          color="error"
-          variant="soft"
-          icon="i-lucide-octagon-minus"
-          title="停止请求已提交"
-          description="当前项完成后会停止，并清空本轮批量状态。"
-        />
-
-        <div class="flex flex-wrap justify-end gap-2">
-          <UButton
-            v-if="canPauseBatchTask"
-            label="暂停"
-            icon="i-lucide-pause"
-            color="warning"
-            variant="soft"
-            @click="requestBatchTaskAction('pause')"
-          />
-          <UButton
-            v-if="canStopBatchTask"
-            label="停止并清除"
-            icon="i-lucide-square"
-            color="error"
-            variant="soft"
-            @click="requestBatchTaskAction('clear')"
-          />
-          <UButton
-            v-if="canResumeBatchTask"
-            label="继续未完成任务"
-            icon="i-lucide-play"
-            color="warning"
-            variant="soft"
-            @click="resumeBatchTask"
-          />
-          <UButton
-            v-if="batchTask"
-            label="清除批量任务状态"
-            icon="i-lucide-trash-2"
-            color="neutral"
-            variant="ghost"
-            :disabled="batchRunning"
-            @click="clearBatchTask"
-          />
-        </div>
-
-        <!-- Batch report table -->
-        <div v-if="batchReports.length > 0" class="overflow-x-auto">
-          <table class="w-full text-xs">
-            <thead>
-              <tr class="border-b border-default text-left text-muted">
-                <th class="px-2 py-1 font-medium">sourceTag</th>
-                <th class="px-2 py-1 font-medium">状态</th>
-                <template v-if="batchTask?.kind === 'import'">
-                  <th class="px-2 py-1 font-medium">Entities</th>
-                  <th class="px-2 py-1 font-medium">Inserted</th>
-                  <th class="px-2 py-1 font-medium">Reused</th>
-                  <th class="px-2 py-1 font-medium">Tags</th>
-                </template>
-                <template v-else>
-                  <th class="px-2 py-1 font-medium">Snapshots</th>
-                  <th class="px-2 py-1 font-medium">Entity I/R/U</th>
-                  <th class="px-2 py-1 font-medium">E Up/Del/O</th>
-                  <th class="px-2 py-1 font-medium">Loc I/R/U</th>
-                  <th class="px-2 py-1 font-medium">L Up/Del/O</th>
-                  <th class="px-2 py-1 font-medium">Rel I/R/U</th>
-                  <th class="px-2 py-1 font-medium">R Up/Del/O</th>
-                </template>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="(report, index) in batchReports"
-                :key="index"
-                class="border-b border-default"
-                :class="report.skipped ? 'text-muted' : ''"
-              >
-                <td class="px-2 py-1 font-mono">{{ report.sourceTag }}</td>
-                <td class="px-2 py-1">
-                  <span
-                    class="inline-block h-1.5 w-1.5 rounded-full align-middle"
-                    :class="report.skipped ? 'bg-yellow-500' : 'bg-green-500'"
-                  />
-                  <span class="ml-1">{{ report.skipped ? 'skipped' : 'ok' }}</span>
-                </td>
-                <template v-if="batchTask?.kind === 'import' && 'entityCount' in report">
-                  <td class="px-2 py-1 font-mono">{{ report.entityCount.toLocaleString() }}</td>
-                  <td class="px-2 py-1 font-mono">{{ report.insertedSnapshots.toLocaleString() }}</td>
-                  <td class="px-2 py-1 font-mono">{{ report.reusedSnapshots.toLocaleString() }}</td>
-                  <td class="px-2 py-1 font-mono">{{ report.discoveredTagCount.toLocaleString() }}</td>
-                </template>
-                <template v-else-if="batchTask?.kind === 'project' && 'snapshotCount' in report">
-                  <td class="px-2 py-1 font-mono">{{ report.snapshotCount.toLocaleString() }}</td>
-                  <td class="px-2 py-1 font-mono">{{ report.insertedEntities }}/{{ report.reusedEntities }}/{{ report.updatedEntities }}</td>
-                  <td class="px-2 py-1 font-mono">{{ report.entityPlan.upsert }}/{{ report.entityPlan.delete }}/{{ report.entityDiff.orphanVersionChanged }}</td>
-                  <td class="px-2 py-1 font-mono">{{ report.insertedLocalizations }}/{{ report.reusedLocalizations }}/{{ report.updatedLocalizations }}</td>
-                  <td class="px-2 py-1 font-mono">{{ report.localizationPlan.upsert }}/{{ report.localizationPlan.delete }}/{{ report.localizationDiff.orphanVersionChanged }}</td>
-                  <td class="px-2 py-1 font-mono">{{ report.insertedRelations }}/{{ report.reusedRelations }}/{{ report.updatedRelations }}</td>
-                  <td class="px-2 py-1 font-mono">{{ report.relationPlan.upsert }}/{{ report.relationPlan.delete }}/{{ report.relationDiff.orphanVersionChanged }}</td>
-                </template>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </UCard>
-
     <div class="grid gap-4 xl:grid-cols-3">
       <div class="space-y-4 xl:col-span-2">
-        <UCard>
-          <UTabs
-            v-model="activeWorkflowTab"
-            :items="workflowTabs"
-            variant="link"
-          >
+        <TaskController
+          ref="taskController"
+          title="hsdata 导入与投影"
+          :operations="[]"
+          :multi-task="multiTaskItems"
+          @completed="handleTaskCompleted"
+          @failed="handleTaskFailed"
+          @create-error="handleTaskCreateError"
+          @status-change="handleTaskStatusChange"
+        >
+            <template #actions-before="{ activeOp }">
+              <UButton
+                v-if="activeOp?.key === 'import'"
+                :label="`批量导入（${batchImportSourceIds.length}）`"
+                icon="i-lucide-list-start"
+                color="primary"
+                variant="soft"
+                :loading="creatingBatchTaskKind === 'import'"
+                :disabled="!canStartBatchImport"
+                @click="startBatchImport"
+              />
+              <UButton
+                v-else-if="activeOp?.key === 'project'"
+                :label="`批量投影（${batchProjectSourceTags.length}）`"
+                icon="i-lucide-list-start"
+                color="neutral"
+                variant="soft"
+                :loading="creatingBatchTaskKind === 'project'"
+                :disabled="!canStartBatchProject"
+                @click="startBatchProject"
+              />
+            </template>
             <template #import>
               <div class="space-y-4 pt-4">
                 <div class="flex items-center justify-between gap-3">
@@ -555,15 +384,8 @@
                     icon="i-lucide-rotate-ccw"
                     color="neutral"
                     variant="ghost"
-                    :disabled="batchRunning"
+                    :disabled="hsdataTaskActive"
                     @click="resetImportForm"
-                  />
-                  <UButton
-                    label="执行导入"
-                    icon="i-lucide-play"
-                    :loading="importing"
-                    :disabled="!canImport || batchRunning"
-                    @click="submitImport"
                   />
                 </div>
               </div>
@@ -871,15 +693,8 @@
                     icon="i-lucide-rotate-ccw"
                     color="neutral"
                     variant="ghost"
-                    :disabled="batchRunning"
+                    :disabled="hsdataTaskActive"
                     @click="resetProjectForm"
-                  />
-                  <UButton
-                    label="执行投影"
-                    icon="i-lucide-waypoints"
-                    :loading="projecting"
-                    :disabled="!canProject || batchRunning"
-                    @click="submitProject"
                   />
                 </div>
 
@@ -912,15 +727,14 @@
                     color="neutral"
                     variant="soft"
                     :loading="recomputingLatest"
-                    :disabled="batchRunning"
+                    :disabled="hsdataTaskActive"
                     @click="submitRecomputeLatest"
                   />
                 </div>
 
               </div>
             </template>
-          </UTabs>
-        </UCard>
+        </TaskController>
       </div>
 
       <div class="space-y-4">
@@ -939,7 +753,7 @@
                   color="neutral"
                   variant="ghost"
                   :loading="loadingFiles || loadingSourceVersions"
-                  :disabled="!state?.repoPath || batchRunning"
+                  :disabled="!state?.repoPath || hsdataTaskActive"
                   @click="reloadSourceList"
                 />
               </div>
@@ -957,7 +771,7 @@
                   size="xs"
                   color="neutral"
                   variant="soft"
-                  :disabled="batchRunning"
+                  :disabled="hsdataTaskActive"
                   @click="toggleSourceSortOrder"
                 />
 
@@ -968,7 +782,7 @@
                     v-model="hideImportedSources"
                     type="checkbox"
                     class="size-3.5 rounded border-default"
-                    :disabled="batchRunning"
+                    :disabled="hsdataTaskActive"
                   >
                   <span>隐藏已导入</span>
                 </label>
@@ -980,7 +794,7 @@
                     v-model="hideProjectedSources"
                     type="checkbox"
                     class="size-3.5 rounded border-default"
-                    :disabled="batchRunning"
+                    :disabled="hsdataTaskActive"
                   >
                   <span>隐藏已投影</span>
                 </label>
@@ -1025,7 +839,7 @@
                   size="xs"
                   color="warning"
                   variant="soft"
-                  :disabled="resetImportCandidates.length === 0 || resettingImport || batchRunning"
+                  :disabled="resetImportCandidates.length === 0 || resettingImport || hsdataTaskActive"
                   @click="openResetImportModal"
                 />
                 <UButton
@@ -1034,7 +848,7 @@
                   size="xs"
                   color="neutral"
                   variant="soft"
-                  :disabled="resetProjectionCandidates.length === 0 || resettingProjection || batchRunning"
+                  :disabled="resetProjectionCandidates.length === 0 || resettingProjection || hsdataTaskActive"
                   @click="openResetProjectionModal"
                 />
               </div>
@@ -1377,7 +1191,7 @@
           label="取消"
           color="neutral"
           variant="ghost"
-          @click="showResetModal = false"
+          @click="{ showResetModal = false; }"
         />
         <UButton
           :label="resetModalConfirmLabel"
@@ -1392,32 +1206,28 @@
 
 <script setup lang="ts">
 import { useToast } from '@nuxt/ui/composables';
+import type { TaskPageSnapshot, TaskRunStatus } from '@tcg-cards/model/src/task';
+import type { TaskControllerMultiTaskItem, TaskOperation } from '~/components/task/TaskController.vue';
+import { orpc } from '~/lib/orpc';
 import {
   formatHsdataBytes,
   formatHsdataDate,
   getHsdataErrorMessage,
   getHsdataRepoState,
-  importHsdataSource,
   syncPatches as syncPatchesApi,
-  listenHsdataImportProgress,
-  listenHsdataProjectProgress,
   listLocalHsdataSourceVersions,
   listHsdataSources,
-  projectLocalHsdataSourceVersion,
   recomputeLatestHsdataProjection,
   listenHsdataRecomputeLatestProgress,
   resetHsdataImportStatus,
   resetHsdataProjectionStatus,
   syncHsdataRemoteVersions,
-  trackHsdataImportSourceProgress,
-  trackHsdataProjectSourceProgress,
 } from '~/composables/useHsdataRepo';
 import { openDesktopPath } from '~/composables/useDesktopRuntimeClient';
 import type {
   HsdataFile,
   HsdataImportProgressEvent,
   HsdataImportReport,
-  HsdataProjectOptions,
   HsdataRecomputeLatestReport,
   HsdataRecomputeLatestProgressEvent,
   HsdataProjectProgressEvent,
@@ -1443,58 +1253,6 @@ interface HsdataSourceListItem {
   status: HsdataSourceVersionStatus | null;
 }
 
-/** Batch task kinds supported by the hsdata import page. */
-type HsdataBatchTaskKind = 'import' | 'project';
-
-/** Durable batch task states restored after route switches or app restarts. */
-type HsdataBatchTaskStatus = 'running' | 'paused' | 'failed' | 'completed';
-
-/** Cooperative control requests applied after the current batch item settles. */
-type HsdataBatchTaskRequestedAction = 'pause' | 'clear';
-
-/** Per-item execution outcomes tracked inside one durable batch task. */
-type HsdataBatchTaskItemStatus = 'pending' | 'completed' | 'skipped' | 'failed';
-
-/** Next action chosen for one batch item after checking the latest durable state. */
-type HsdataBatchTaskDecision
-  = | { action: 'run', file?: HsdataFile | null }
-    | { action: 'skip', note: string }
-    | { action: 'blocked', note: string };
-
-/** One batch status badge rendered in the batch operation card. */
-interface HsdataBatchStatusBadge {
-  label: string;
-  color: 'neutral' | 'primary' | 'success' | 'warning' | 'error';
-}
-
-/** One source or sourceTag item scheduled inside a durable batch task snapshot. */
-interface HsdataBatchTaskItem {
-  key:       string;
-  sourceId:  string | null;
-  sourceTag: number | null;
-  label:     string;
-  status:    HsdataBatchTaskItemStatus;
-  note:      string | null;
-}
-
-/** Persisted batch controller state restored independently from the page option state. */
-interface HsdataBatchTaskState {
-  version:         1;
-  executionId:     string | null;
-  kind:            HsdataBatchTaskKind;
-  status:          HsdataBatchTaskStatus;
-  requestedAction: HsdataBatchTaskRequestedAction | null;
-  order:           SourceListSortOrder;
-  dryRun:          boolean;
-  force:           boolean;
-  skipLatestUpdate: boolean;
-  sampleDiff:       boolean;
-  items:            HsdataBatchTaskItem[];
-  activeKey:        string | null;
-  startedAt:       string;
-  updatedAt:       string;
-}
-
 /** Persisted desktop import page options restored across route switches and app restarts. */
 interface HsdataImportPageState {
   version:              1;
@@ -1511,22 +1269,12 @@ interface HsdataImportPageState {
   projectSkipLatestUpdate: boolean;
 }
 
-declare global {
-  /** Shared runtime marker used to avoid starting a duplicate batch loop in the same desktop window. */
-  interface Window {
-    __hsdataBatchRuntime?: {
-      executionId: string;
-    };
-  }
-}
-
 definePageMeta({
   layout: 'admin',
   title:  '数据导入',
 });
 
 const IMPORT_PAGE_STATE_KEY = 'console-desktop-hearthstone-hsdata-import-page';
-const HSDATA_BATCH_TASK_STATE_KEY = 'console-desktop-hearthstone-hsdata-batch-task';
 
 const route = useRoute();
 
@@ -1549,7 +1297,6 @@ const projecting = ref(false);
 const activeProjectSourceTag = ref<number | null>(null);
 const projectProgress = ref<HsdataProjectProgressEvent | null>(null);
 const projectResult = ref<HsdataProjectReport | null>(null);
-const batchReports = ref<(HsdataImportReport | HsdataProjectReport)[]>([]);
 const recomputingLatest = ref(false);
 const recomputeLatestResult = ref<HsdataRecomputeLatestReport | null>(null);
 const recomputeLatestProgress = ref<HsdataRecomputeLatestProgressEvent | null>(null);
@@ -1564,13 +1311,17 @@ const sourceSortOrder = ref<SourceListSortOrder>('desc');
 const hideImportedSources = ref(false);
 const hideProjectedSources = ref(false);
 const activeWorkflowTab = ref<'import' | 'project'>('import');
+const taskController = ref<{
+  attach(snapshot: TaskPageSnapshot): void;
+  currentTaskRunId: { value: string | null };
+} | null>(null);
+const hsdataTaskActive = ref(false);
+const creatingBatchTaskKind = ref<'import' | 'project' | null>(null);
+const hsdataTaskRunStorageKey = 'hearthstone-hsdata-task-run-id';
 const toast = useToast();
-const batchTask = ref<HsdataBatchTaskState | null>(null);
 const restoredSelectedSourceId = ref<string | null>(null);
 const hasRestoredImportPageState = ref(false);
-const currentBatchExecutionId = ref<string | null>(null);
 const progressClockMs = ref(Date.now());
-let batchStatePollTimer: number | null = null;
 let progressClockTimer: number | null = null;
 let stopHsdataImportProgressListener: (() => void) | null = null;
 let stopHsdataProjectProgressListener: (() => void) | null = null;
@@ -1758,94 +1509,13 @@ const projectConditionText = computed(() =>
     sourceVersionError.value.length > 0,
   ),
 );
-const batchImportCandidateItems = computed<HsdataBatchTaskItem[]>(() => {
-  return visibleSourceListItems.value
-    .filter(item => isBatchImportCandidate(item.status, importForm.force))
-    .map(item => buildBatchImportTaskItem(item.file));
-});
-const batchProjectCandidateItems = computed<HsdataBatchTaskItem[]>(() => {
-  return visibleSourceListItems.value
-    .filter(item => isBatchProjectCandidate(item.status, item.file.sourceTag, projectForm.force))
-    .map(item => buildBatchProjectTaskItem(item.file));
-});
-const batchRunning = computed(() => batchTask.value?.status === 'running');
-const batchOwnsRunningExecution = computed(() => {
-  const task = batchTask.value;
-
-  return Boolean(
-    task
-    && task.status === 'running'
-    && task.executionId != null
-    && task.executionId === currentBatchExecutionId.value,
-  );
-});
-const batchRequestedAction = computed(() => batchTask.value?.requestedAction ?? null);
-const batchCurrentItem = computed(() => {
-  const task = batchTask.value;
-
-  if (!task || task.activeKey == null) {
-    return null;
-  }
-
-  return task.items.find(item => item.key === task.activeKey) ?? null;
-});
-const batchProcessedCount = computed(() => {
-  const task = batchTask.value;
-
-  if (!task) {
-    return 0;
-  }
-
-  return task.items.filter(item => item.status !== 'pending').length;
-});
-const batchRemainingCount = computed(() => {
-  const task = batchTask.value;
-
-  if (!task) {
-    return 0;
-  }
-
-  return task.items.filter(item => item.status === 'pending').length;
-});
-const batchCompletedCount = computed(() => {
-  const task = batchTask.value;
-
-  if (!task) {
-    return 0;
-  }
-
-  return task.items.filter(item => item.status === 'completed').length;
-});
-
-const batchSkippedCount = computed(() => {
-  const task = batchTask.value;
-
-  if (!task) {
-    return 0;
-  }
-
-  return task.items.filter(item => item.status === 'skipped').length;
-});
-
-const batchFailedCount = computed(() => {
-  const task = batchTask.value;
-
-  if (!task) {
-    return 0;
-  }
-
-  return task.items.filter(item => item.status === 'failed').length;
-});
-
-const batchFailedItem = computed(() => {
-  const task = batchTask.value;
-
-  if (!task) {
-    return null;
-  }
-
-  return task.items.find(item => item.status === 'failed') ?? null;
-});
+const batchImportSourceIds = computed(() => visibleSourceListItems.value
+  .filter(item => isBatchImportCandidate(item.status, importForm.force))
+  .map(item => item.file.id));
+const batchProjectSourceTags = computed(() => visibleSourceListItems.value
+  .filter(item => isBatchProjectCandidate(item.status, item.file.sourceTag, projectForm.force))
+  .map(item => item.file.sourceTag)
+  .filter((sourceTag): sourceTag is number => sourceTag != null));
 
 // Batch reset state
 const selectedSourceTags = ref<Set<number>>(new Set());
@@ -2014,128 +1684,6 @@ async function resetSelectedProjection() {
   }
 }
 
-const batchStatusBadge = computed<HsdataBatchStatusBadge>(() => {
-  const task = batchTask.value;
-
-  if (!task) {
-    return { label: '无任务', color: 'neutral' };
-  }
-
-  if (task.status === 'running' && task.requestedAction === 'pause') {
-    return { label: '暂停请求中', color: 'warning' };
-  }
-
-  if (task.status === 'running' && task.requestedAction === 'clear') {
-    return { label: '停止请求中', color: 'error' };
-  }
-
-  switch (task.status) {
-  case 'running':
-    return {
-      label: task.kind === 'import' ? '批量导入中' : '批量投影中',
-      color: 'primary',
-    };
-  case 'paused':
-    return { label: '已暂停', color: 'warning' };
-  case 'failed':
-    return { label: '已失败', color: 'error' };
-  case 'completed':
-    return { label: '已完成', color: 'success' };
-  default:
-    throw new Error('unreachable');
-  }
-});
-
-const batchProgressText = computed(() => {
-  const task = batchTask.value;
-
-  if (!task) {
-    return '-';
-  }
-
-  return `${batchProcessedCount.value} / ${task.items.length}`;
-});
-
-const batchStatusText = computed(() => {
-  const task = batchTask.value;
-
-  if (!task) {
-    return '尚未开始批量任务。';
-  }
-
-  const kindLabel = task.kind === 'import' ? '批量导入' : '批量投影';
-  const runtimeLabel = task.dryRun ? 'Dry run' : 'Write mode';
-  const requestedActionLabel = task.requestedAction === 'pause'
-    ? ' · 当前项结束后暂停'
-    : task.requestedAction === 'clear'
-      ? ' · 当前项结束后停止并清除'
-      : '';
-  return `${kindLabel} · ${runtimeLabel} · 完成 ${batchCompletedCount.value} · 跳过 ${batchSkippedCount.value} · 剩余 ${batchRemainingCount.value}${requestedActionLabel}`;
-});
-
-const batchCurrentItemLabel = computed(() => {
-  return batchCurrentItem.value?.label ?? '-';
-});
-
-const batchCurrentItemHint = computed(() => {
-  const task = batchTask.value;
-
-  if (!task) {
-    return '启动后会按当前筛选结果生成一次顺序快照。';
-  }
-
-  if (task.status === 'running') {
-    if (task.requestedAction === 'pause') {
-      return '暂停已提交，当前项完成后会保留剩余队列。';
-    }
-
-    if (task.requestedAction === 'clear') {
-      return '停止已提交，当前项完成后会清空本轮批量状态。';
-    }
-
-    return '当前项完成后才会进入下一项。';
-  }
-
-  if (task.status === 'failed') {
-    return '失败项会保留在队列中，修正问题后可继续未完成任务。';
-  }
-
-  if (task.status === 'completed') {
-    return '可以直接启动新一轮批量任务。';
-  }
-
-  return '可继续未完成任务，或清除状态后重新生成队列。';
-});
-const hasBlockingBatchTask = computed(() => {
-  const task = batchTask.value;
-
-  return task != null && task.status !== 'completed';
-});
-const canResumeBatchTask = computed(() => {
-  const task = batchTask.value;
-
-  return Boolean(
-    task
-    && task.status !== 'completed'
-    && task.status !== 'running'
-    && batchRemainingCount.value > 0
-    && !loadingState.value
-    && !loadingFiles.value
-    && !loadingSourceVersions.value
-    && !syncing.value
-    && !importing.value
-    && !projecting.value,
-  );
-});
-
-const canPauseBatchTask = computed(() => {
-  return batchOwnsRunningExecution.value && batchRequestedAction.value == null;
-});
-
-const canStopBatchTask = computed(() => {
-  return batchOwnsRunningExecution.value && batchRequestedAction.value !== 'clear';
-});
-
 const canImport = computed(
   () =>
     Boolean(state.value?.repoPath)
@@ -2145,10 +1693,59 @@ const canImport = computed(
 const canProject = computed(
   () => projectForm.sourceTag != null && !projecting.value,
 );
+
+/** Single-source import operation rendered in the import task tab. */
+const importTaskOperation = computed<TaskOperation>(() => ({
+  key: 'import',
+  label: '执行导入',
+  icon: 'i-lucide-play',
+  taskType: 'hearthstone_hsdata_import',
+  disabled: !canImport.value || hsdataTaskActive.value,
+  create: async () => orpc.hearthstone.createTask.hsdataImport({
+    sourceIds: [importForm.id],
+    dryRun: importForm.dryRun,
+    force: importForm.force,
+  }) as Promise<TaskPageSnapshot>,
+}));
+
+/** Single-source projection operation rendered in the projection task tab. */
+const projectionTaskOperation = computed<TaskOperation>(() => ({
+  key: 'project',
+  label: '执行投影',
+  icon: 'i-lucide-waypoints',
+  taskType: 'hearthstone_hsdata_projection',
+  disabled: !canProject.value || hsdataTaskActive.value,
+  create: async () => orpc.hearthstone.createTask.hsdataProjection({
+    sourceTags: [projectForm.sourceTag!],
+    dryRun: projectForm.dryRun,
+    force: projectForm.force,
+    skipLatestUpdate: projectForm.skipLatestUpdate,
+    sampleDiff: projectForm.sampleDiff,
+  }) as Promise<TaskPageSnapshot>,
+}));
+
+/** Task types displayed as mutually exclusive tabs inside TaskController. */
+const multiTaskItems = computed<TaskControllerMultiTaskItem[]>(() => [
+  {
+    key: 'import',
+    label: '数据导入',
+    icon: 'i-lucide-download',
+    taskType: 'hearthstone_hsdata_import',
+    operation: importTaskOperation.value,
+  },
+  {
+    key: 'project',
+    label: '数据投影',
+    icon: 'i-lucide-waypoints',
+    taskType: 'hearthstone_hsdata_projection',
+    operation: projectionTaskOperation.value,
+  },
+]);
 const canStartBatchImport = computed(() => {
-  return Boolean(state.value?.repoPath)
-    && batchImportCandidateItems.value.length > 0
-    && !hasBlockingBatchTask.value
+    return Boolean(state.value?.repoPath)
+    && batchImportSourceIds.value.length > 0
+    && !hsdataTaskActive.value
+    && creatingBatchTaskKind.value == null
     && !loadingState.value
     && !loadingFiles.value
     && !loadingSourceVersions.value
@@ -2157,9 +1754,10 @@ const canStartBatchImport = computed(() => {
     && !projecting.value;
 });
 const canStartBatchProject = computed(() => {
-  return Boolean(state.value?.repoPath)
-    && batchProjectCandidateItems.value.length > 0
-    && !hasBlockingBatchTask.value
+    return Boolean(state.value?.repoPath)
+    && batchProjectSourceTags.value.length > 0
+    && !hsdataTaskActive.value
+    && creatingBatchTaskKind.value == null
     && !loadingState.value
     && !loadingFiles.value
     && !loadingSourceVersions.value
@@ -2900,317 +2498,6 @@ function resolvePreferredSelectionId(): string | null {
   );
 }
 
-/** Whether the provided value matches one supported batch task kind. */
-function isHsdataBatchTaskKind(value: unknown): value is HsdataBatchTaskKind {
-  return value === 'import' || value === 'project';
-}
-
-/** Whether the provided value matches one durable batch task status. */
-function isHsdataBatchTaskStatus(value: unknown): value is HsdataBatchTaskStatus {
-  return value === 'running'
-    || value === 'paused'
-    || value === 'failed'
-    || value === 'completed';
-}
-
-/** Whether the provided value matches one cooperative batch control request. */
-function isHsdataBatchTaskRequestedAction(
-  value: unknown,
-): value is HsdataBatchTaskRequestedAction {
-  return value === 'pause' || value === 'clear';
-}
-
-/** Whether the provided value matches one per-item batch outcome status. */
-function isHsdataBatchTaskItemStatus(value: unknown): value is HsdataBatchTaskItemStatus {
-  return value === 'pending'
-    || value === 'completed'
-    || value === 'skipped'
-    || value === 'failed';
-}
-
-/** Shared execution id generated for one in-memory batch runner instance. */
-function createBatchExecutionId() {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-
-  return `batch-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-/** Active in-memory batch execution id shared across route instances in the same desktop window. */
-function getBatchRuntimeExecutionId(): string | null {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  return window.__hsdataBatchRuntime?.executionId ?? null;
-}
-
-/** Shared runtime marker written when the current page instance owns the batch loop. */
-function setBatchRuntimeExecutionId(executionId: string) {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.__hsdataBatchRuntime = { executionId };
-}
-
-/** Shared runtime marker cleared only by the page instance that owns the batch loop. */
-function clearBatchRuntimeExecutionId(executionId: string | null) {
-  if (
-    typeof window === 'undefined'
-    || executionId == null
-    || window.__hsdataBatchRuntime?.executionId !== executionId
-  ) {
-    return;
-  }
-
-  delete window.__hsdataBatchRuntime;
-}
-
-/** One batch task item sanitized from localStorage. */
-function normalizeBatchTaskItem(value: unknown): HsdataBatchTaskItem | null {
-  if (typeof value !== 'object' || value == null) {
-    return null;
-  }
-
-  const data = value as Record<string, unknown>;
-  const key = typeof data.key === 'string' && data.key.length > 0
-    ? data.key
-    : null;
-  const label = typeof data.label === 'string' && data.label.length > 0
-    ? data.label
-    : null;
-  const sourceId = typeof data.sourceId === 'string' && data.sourceId.length > 0
-    ? data.sourceId
-    : null;
-  const sourceTag = parsePersistedSourceTag(data.sourceTag);
-
-  if (key == null || label == null || !isHsdataBatchTaskItemStatus(data.status)) {
-    return null;
-  }
-
-  return {
-    key,
-    sourceId,
-    sourceTag,
-    label,
-    status: data.status,
-    note:   typeof data.note === 'string' && data.note.length > 0 ? data.note : null,
-  };
-}
-
-/** Durable batch controller state sanitized from localStorage. */
-function normalizeBatchTaskState(value: unknown): HsdataBatchTaskState | null {
-  if (typeof value !== 'object' || value == null) {
-    return null;
-  }
-
-  const data = value as Record<string, unknown>;
-
-  if (
-    data.version !== 1
-    || !isHsdataBatchTaskKind(data.kind)
-    || !isHsdataBatchTaskStatus(data.status)
-    || !isSourceListSortOrder(data.order)
-    || typeof data.dryRun !== 'boolean'
-    || typeof data.force !== 'boolean'
-    || !Array.isArray(data.items)
-  ) {
-    return null;
-  }
-
-  const items = data.items
-    .map(item => normalizeBatchTaskItem(item))
-    .filter((item): item is HsdataBatchTaskItem => item != null);
-
-  const startedAt = typeof data.startedAt === 'string' && data.startedAt.length > 0
-    ? data.startedAt
-    : new Date().toISOString();
-  const updatedAt = typeof data.updatedAt === 'string' && data.updatedAt.length > 0
-    ? data.updatedAt
-    : startedAt;
-  const executionId = typeof data.executionId === 'string' && data.executionId.length > 0
-    ? data.executionId
-    : null;
-  const activeKey = typeof data.activeKey === 'string' && data.activeKey.length > 0
-    ? data.activeKey
-    : null;
-  const requestedAction = isHsdataBatchTaskRequestedAction(data.requestedAction)
-    ? data.requestedAction
-    : null;
-
-  const skipLatestUpdate = typeof data.skipLatestUpdate === 'boolean'
-    ? data.skipLatestUpdate
-    : false;
-  const sampleDiff = typeof data.sampleDiff === 'boolean'
-    ? data.sampleDiff
-    : false;
-
-  return {
-    version: 1,
-    executionId,
-    kind:    data.kind,
-    status:  data.status,
-    requestedAction,
-    order:   data.order,
-    dryRun:  data.dryRun,
-    force:   data.force,
-    skipLatestUpdate,
-    sampleDiff,
-    items,
-    activeKey,
-    startedAt,
-    updatedAt,
-  };
-}
-
-/** Durable batch task loaded from localStorage with stale running states downgraded to paused. */
-function readBatchTaskState(): HsdataBatchTaskState | null {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  const raw = window.localStorage.getItem(HSDATA_BATCH_TASK_STATE_KEY);
-  if (!raw) {
-    return null;
-  }
-
-  try {
-    const normalized = normalizeBatchTaskState(JSON.parse(raw));
-
-    if (!normalized) {
-      window.localStorage.removeItem(HSDATA_BATCH_TASK_STATE_KEY);
-      return null;
-    }
-
-    // `running` is only trustworthy while the same desktop window still owns the in-memory loop.
-    // After a restart there is no runtime marker, so the durable task must resume from `paused`.
-    if (
-      normalized.status === 'running'
-      && normalized.executionId != null
-      && getBatchRuntimeExecutionId() !== normalized.executionId
-    ) {
-      normalized.status = 'paused';
-      normalized.executionId = null;
-      normalized.requestedAction = null;
-      normalized.activeKey = nextBatchTaskItem(normalized)?.key ?? normalized.activeKey;
-    }
-
-    return normalized;
-  } catch (error) {
-    console.warn('Failed to parse hsdata batch task state:', error);
-    window.localStorage.removeItem(HSDATA_BATCH_TASK_STATE_KEY);
-    return null;
-  }
-}
-
-/** Durable batch task written to localStorage whenever the controller state changes. */
-function persistBatchTaskState() {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  if (!batchTask.value) {
-    window.localStorage.removeItem(HSDATA_BATCH_TASK_STATE_KEY);
-    return;
-  }
-
-  batchTask.value.updatedAt = new Date().toISOString();
-
-  try {
-    window.localStorage.setItem(
-      HSDATA_BATCH_TASK_STATE_KEY,
-      JSON.stringify(batchTask.value),
-    );
-  } catch (error) {
-    console.warn('Failed to persist hsdata batch task state:', error);
-  }
-}
-
-/** Durable batch task restored from localStorage when the page is mounted. */
-function restoreBatchTaskState() {
-  batchTask.value = readBatchTaskState();
-  persistBatchTaskState();
-}
-
-/** Durable batch task cleared from memory and localStorage after the user discards it. */
-function clearBatchTaskState() {
-  clearBatchRuntimeExecutionId(currentBatchExecutionId.value);
-  currentBatchExecutionId.value = null;
-  batchTask.value = null;
-  persistBatchTaskState();
-}
-
-/** Local polling enabled only when another route instance owns the active batch loop. */
-function shouldPollBatchTaskState() {
-  const task = batchTask.value;
-
-  return Boolean(
-    task
-    && task.status === 'running'
-    && task.executionId != null
-    && task.executionId === getBatchRuntimeExecutionId()
-    && task.executionId !== currentBatchExecutionId.value,
-  );
-}
-
-/** Durable batch task reloaded periodically while another route instance owns the active loop. */
-function syncBatchTaskStateFromStorage() {
-  if (!shouldPollBatchTaskState()) {
-    return;
-  }
-
-  batchTask.value = readBatchTaskState();
-}
-
-/** Local polling refreshed whenever the visible durable batch ownership changes. */
-function refreshBatchTaskPolling() {
-  if (batchStatePollTimer != null) {
-    clearInterval(batchStatePollTimer);
-    batchStatePollTimer = null;
-  }
-
-  if (!shouldPollBatchTaskState()) {
-    return;
-  }
-
-  batchStatePollTimer = window.setInterval(() => {
-    syncBatchTaskStateFromStorage();
-  }, 1000);
-}
-
-/** User-facing batch item label derived from one visible source list row. */
-function buildBatchItemLabel(file: HsdataFile) {
-  return file.sourceTag != null
-    ? `${file.sourceTag} · ${file.name}`
-    : file.name;
-}
-
-/** One import batch task item built from a visible source row. */
-function buildBatchImportTaskItem(file: HsdataFile): HsdataBatchTaskItem {
-  return {
-    key:       `source:${file.id}`,
-    sourceId:  file.id,
-    sourceTag: file.sourceTag ?? null,
-    label:     buildBatchItemLabel(file),
-    status:    'pending',
-    note:      null,
-  };
-}
-
-/** One projection batch task item built from a visible source row. */
-function buildBatchProjectTaskItem(file: HsdataFile): HsdataBatchTaskItem {
-  return {
-    key:       `tag:${file.sourceTag}`,
-    sourceId:  file.id,
-    sourceTag: file.sourceTag ?? null,
-    label:     buildBatchItemLabel(file),
-    status:    'pending',
-    note:      null,
-  };
-}
-
 /** Whether one source row should be included when building a new import batch snapshot. */
 function isBatchImportCandidate(
   status: HsdataSourceVersionStatus | null,
@@ -3507,464 +2794,60 @@ function useSelectedSourceTag() {
   projectForm.sourceTag = importForm.sourceTag;
 }
 
-/** One durable batch task created from the current visible candidate snapshot. */
-function createBatchTask(
-  kind: HsdataBatchTaskKind,
-  items: HsdataBatchTaskItem[],
-  options: HsdataProjectOptions,
-): HsdataBatchTaskState {
-  const now = new Date().toISOString();
-
-  return {
-    version:         1,
-    executionId:     null,
-    kind,
-    status:          'paused',
-    requestedAction: null,
-    order:           sourceSortOrder.value,
-    dryRun:           options.dryRun ?? true,
-    force:            options.force ?? false,
-    skipLatestUpdate: options.skipLatestUpdate ?? false,
-    sampleDiff:       options.sampleDiff ?? false,
-    items,
-    activeKey:       null,
-    startedAt:       now,
-    updatedAt:       now,
-  };
-}
-
-/** Next unresolved batch item selected from the durable task snapshot. */
-function nextBatchTaskItem(task: HsdataBatchTaskState) {
-  return task.items.find(item => item.status === 'pending' || item.status === 'failed') ?? null;
-}
-
-/** One local source row resolved by its stable desktop source id. */
-function findSourceById(sourceId: string) {
-  return files.value.find(item => item.id === sourceId) ?? null;
-}
-
-/** One local source row resolved by its current sourceTag when available. */
-function findSourceByTag(sourceTag: number) {
-  return files.value.find(item => item.sourceTag === sourceTag) ?? null;
-}
-
-/** Single-source import executed with explicit parameters so the batch runner can reuse it safely. */
-async function runImportForSource(
-  sourceId: string,
-  dryRun: boolean,
-  force: boolean,
-): Promise<HsdataImportReport> {
-  activeWorkflowTab.value = 'import';
-  const file = findSourceById(sourceId);
-  if (file) {
-    selectSource(file);
-  }
-
-  importing.value = true;
-  activeImportSourceId.value = sourceId;
-  importError.value = '';
-  importProgress.value = null;
-  importResult.value = null;
-
-  try {
-    const result = await importHsdataSource(sourceId, dryRun, force);
-    const nextFile = findSourceById(sourceId);
-
-    if (nextFile) {
-      nextFile.sourceTag = result.sourceTag;
-    }
-
-    if (importForm.id === sourceId) {
-      importForm.sourceTag = result.sourceTag;
-      projectForm.sourceTag = result.sourceTag;
-    }
-
-    importResult.value = result;
-    return result;
-  } catch (error) {
-    console.error('Failed to import hsdata source:', error);
-    importError.value = getHsdataErrorMessage(error);
-    throw error;
-  } finally {
-    importing.value = false;
-    await loadSourceVersions();
-  }
-}
-
-/** Single sourceTag projection executed with explicit parameters so the batch runner can reuse it safely. */
-async function runProjectForSourceTag(
-  sourceTag: number,
-  options: HsdataProjectOptions,
-): Promise<HsdataProjectReport> {
-  activeWorkflowTab.value = 'project';
-  const file = findSourceByTag(sourceTag);
-  if (file) {
-    selectSource(file);
-  } else {
-    projectForm.sourceTag = sourceTag;
-  }
-
-  projecting.value = true;
-  activeProjectSourceTag.value = sourceTag;
-  projectError.value = '';
-  projectProgress.value = null;
-  projectResult.value = null;
-
-  try {
-    const result = await projectLocalHsdataSourceVersion(sourceTag, options);
-    projectResult.value = result;
-    return result;
-  } catch (error) {
-    console.error('Failed to project hsdata source version:', error);
-    projectError.value = getHsdataErrorMessage(error);
-    throw error;
-  } finally {
-    projecting.value = false;
-    await loadSourceVersions();
-  }
-}
-
-/** Latest import decision re-evaluated before each batch step using durable source status. */
-function resolveBatchImportDecision(
-  task: HsdataBatchTaskState,
-  item: HsdataBatchTaskItem,
-): HsdataBatchTaskDecision {
-  if (!item.sourceId) {
-    return { action: 'skip', note: '来源标识缺失，已跳过。' };
-  }
-
-  const file = findSourceById(item.sourceId);
-  if (!file) {
-    return { action: 'skip', note: '来源已不存在，已跳过。' };
-  }
-
-  const status = file.sourceTag == null
-    ? null
-    : (sourceVersionMap.value.get(file.sourceTag) ?? null);
-
-  if (status?.importStatus === 'processing') {
-    // Re-running the interrupted current import is safe because the Rust side persists only the
-    // remote job manifest and resumes the staged upload/finalize flow idempotently for that tag.
-    if (task.activeKey === item.key) {
-      return { action: 'run', file };
-    }
-
-    return {
-      action: 'blocked',
-      note:   `sourceTag ${file.sourceTag} 正在导入中，请等待该状态完成后再继续批量导入。`,
-    };
-  }
-
-  if (status?.importStatus === 'completed' && !task.force) {
-    return { action: 'skip', note: '该来源已完成导入，恢复时自动跳过。' };
-  }
-
-  return { action: 'run', file };
-}
-
-/** Latest projection decision re-evaluated before each batch step using durable source status. */
-function resolveBatchProjectDecision(
-  task: HsdataBatchTaskState,
-  item: HsdataBatchTaskItem,
-): HsdataBatchTaskDecision {
-  if (item.sourceTag == null) {
-    return { action: 'skip', note: 'sourceTag 缺失，已跳过。' };
-  }
-
-  const status = sourceVersionMap.value.get(item.sourceTag) ?? null;
-  if (status == null) {
-    return { action: 'skip', note: '数据库中已找不到这个 sourceTag 的导入记录，已跳过。' };
-  }
-
-  if (status.importStatus !== 'completed') {
-    return {
-      action: 'blocked',
-      note:   `sourceTag ${item.sourceTag} 当前不是 completed，无法继续批量投影。`,
-    };
-  }
-
-  if (status.projectionStatus === 'processing') {
-    return {
-      action: 'blocked',
-      note:   `sourceTag ${item.sourceTag} 正在投影中，请等待该状态完成后再继续批量投影。`,
-    };
-  }
-
-  if (status.projectionStatus === 'completed' && !task.force) {
-    return { action: 'skip', note: '该 sourceTag 已完成投影，恢复时自动跳过。' };
-  }
-
-  return { action: 'run' };
-}
-
-/** Batch controller state updated after one explicit user discard action. */
-function clearBatchTask() {
-  batchReports.value = [];
-  batchTask.value = null;
-  clearBatchRuntimeExecutionId(currentBatchExecutionId.value);
-  currentBatchExecutionId.value = null;
-  clearBatchTaskState();
-  refreshBatchTaskPolling();
-  toast.add({
-    title: '已清除批量任务状态',
-    color: 'success',
-  });
-}
-
-/** Cooperative batch control request persisted so the current item can finish cleanly first. */
-function requestBatchTaskAction(
-  action: HsdataBatchTaskRequestedAction,
-  options?: { silent?: boolean },
-) {
-  const task = batchTask.value;
-
-  if (
-    !task
-    || task.status !== 'running'
-    || task.executionId == null
-    || task.executionId !== currentBatchExecutionId.value
-  ) {
-    return;
-  }
-
-  if (task.requestedAction === action) {
-    return;
-  }
-
-  task.requestedAction = action;
-  batchTask.value = task;
-  persistBatchTaskState();
-  refreshBatchTaskPolling();
-
-  if (options?.silent) {
-    return;
-  }
-
-  toast.add({
-    title:       action === 'pause' ? '已请求暂停批量任务' : '已请求停止批量任务',
-    description: action === 'pause'
-      ? '当前项完成后会暂停，并保留剩余队列。'
-      : '当前项完成后会停止，并清空本轮批量状态。',
-    color: action === 'pause' ? 'warning' : 'error',
-  });
-}
-
-/** Batch item outcome written back into the durable task snapshot. */
-function setBatchTaskItemState(
-  task: HsdataBatchTaskState,
-  item: HsdataBatchTaskItem,
-  status: HsdataBatchTaskItemStatus,
-  note: string | null,
-) {
-  item.status = status;
-  item.note = note;
-  batchTask.value = task;
-  persistBatchTaskState();
-  refreshBatchTaskPolling();
-}
-
-/** Batch controller moved into a paused state after an intentional interruption. */
-function pauseBatchTask(task: HsdataBatchTaskState) {
-  task.status = 'paused';
-  task.executionId = null;
-  task.requestedAction = null;
-  task.activeKey = nextBatchTaskItem(task)?.key ?? null;
-  batchTask.value = task;
-  clearBatchRuntimeExecutionId(currentBatchExecutionId.value);
-  currentBatchExecutionId.value = null;
-  persistBatchTaskState();
-  refreshBatchTaskPolling();
-}
-
-/** Batch controller moved into a terminal failed state while preserving the failed item for resume. */
-function failBatchTask(task: HsdataBatchTaskState) {
-  task.status = 'failed';
-  task.executionId = null;
-  task.requestedAction = null;
-  batchTask.value = task;
-  clearBatchRuntimeExecutionId(currentBatchExecutionId.value);
-  currentBatchExecutionId.value = null;
-  persistBatchTaskState();
-  refreshBatchTaskPolling();
-}
-
-/** Batch controller moved into a terminal completed state after every item has settled. */
-function completeBatchTask(task: HsdataBatchTaskState) {
-  task.status = 'completed';
-  task.executionId = null;
-  task.requestedAction = null;
-  task.activeKey = null;
-  batchTask.value = task;
-  clearBatchRuntimeExecutionId(currentBatchExecutionId.value);
-  currentBatchExecutionId.value = null;
-  persistBatchTaskState();
-  refreshBatchTaskPolling();
-}
-
-/** Requested batch control action applied only after the current item reaches a stable outcome. */
-function applyRequestedBatchTaskAction(task: HsdataBatchTaskState) {
-  if (nextBatchTaskItem(task) == null) {
-    return false;
-  }
-
-  if (task.requestedAction === 'pause') {
-    pauseBatchTask(task);
-    toast.add({
-      title:       task.kind === 'import' ? '批量导入已暂停' : '批量投影已暂停',
-      description: '剩余队列已保留，可稍后继续未完成任务。',
-      color:       'warning',
-    });
-    return true;
-  }
-
-  if (task.requestedAction === 'clear') {
-    clearBatchTask();
-    return true;
-  }
-
-  return false;
-}
-
-/** One durable batch task executed strictly one tag at a time until it completes, pauses, or fails. */
-async function runBatchTask(task: HsdataBatchTaskState) {
-  const executionId = createBatchExecutionId();
-
-  currentBatchExecutionId.value = executionId;
-  setBatchRuntimeExecutionId(executionId);
-
-  // `task` may be a plain object created just before the run starts. All later mutations must go
-  // through the ref-backed proxy, otherwise Vue will not observe nested status changes.
-  batchTask.value = task;
-  const currentTask = batchTask.value;
-  if (!currentTask) {
-    clearBatchRuntimeExecutionId(executionId);
-    currentBatchExecutionId.value = null;
-    return;
-  }
-
-  currentTask.status = 'running';
-  currentTask.executionId = executionId;
-  currentTask.requestedAction = null;
-  currentTask.activeKey = nextBatchTaskItem(currentTask)?.key ?? null;
-  persistBatchTaskState();
-  refreshBatchTaskPolling();
-
-  try {
-    while (true) {
-      if (applyRequestedBatchTaskAction(currentTask)) {
-        return;
-      }
-
-      const item = nextBatchTaskItem(currentTask);
-      if (!item) {
-        completeBatchTask(currentTask);
-        toast.add({
-          title:       currentTask.kind === 'import' ? '批量导入完成' : '批量投影完成',
-          description: `完成 ${batchCompletedCount.value} 项，跳过 ${batchSkippedCount.value} 项。`,
-          color:       'success',
-        });
-        return;
-      }
-
-      currentTask.activeKey = item.key;
-      if (item.status === 'failed') {
-        item.status = 'pending';
-        item.note = null;
-        persistBatchTaskState();
-        refreshBatchTaskPolling();
-      }
-
-      const decision = currentTask.kind === 'import'
-        ? resolveBatchImportDecision(currentTask, item)
-        : resolveBatchProjectDecision(currentTask, item);
-
-      if (decision.action === 'skip') {
-        setBatchTaskItemState(currentTask, item, 'skipped', decision.note);
-        continue;
-      }
-
-      if (decision.action === 'blocked') {
-        setBatchTaskItemState(currentTask, item, 'failed', decision.note);
-        pauseBatchTask(currentTask);
-        toast.add({
-          title:       currentTask.kind === 'import' ? '批量导入已暂停' : '批量投影已暂停',
-          description: decision.note,
-          color:       'warning',
-        });
-        return;
-      }
-
-      try {
-        const report = currentTask.kind === 'import'
-          ? await runImportForSource(item.sourceId!, currentTask.dryRun, currentTask.force)
-          : await runProjectForSourceTag(item.sourceTag!, { dryRun: currentTask.dryRun, force: currentTask.force, skipLatestUpdate: currentTask.skipLatestUpdate, sampleDiff: currentTask.sampleDiff });
-
-        setBatchTaskItemState(
-          currentTask,
-          item,
-          report.skipped ? 'skipped' : 'completed',
-          report.skipped ? '本项按当前参数被跳过。' : null,
-        );
-        batchReports.value.push(report);
-
-        if (applyRequestedBatchTaskAction(currentTask)) {
-          return;
-        }
-      } catch (error) {
-        const message = getHsdataErrorMessage(error);
-        setBatchTaskItemState(currentTask, item, 'failed', message);
-        failBatchTask(currentTask);
-        toast.add({
-          title:       currentTask.kind === 'import' ? '批量导入失败' : '批量投影失败',
-          description: message,
-          color:       'error',
-        });
-        return;
-      }
-    }
-  } finally {
-    if (
-      currentBatchExecutionId.value === executionId
-      && batchTask.value?.status === 'running'
-      && batchTask.value.executionId === executionId
-    ) {
-      pauseBatchTask(batchTask.value);
-    }
-  }
-}
-
 /** New import batch started from the current visible import candidates. */
 async function startBatchImport() {
-  await reloadSourceList();
-  const items = batchImportCandidateItems.value.map(item => ({ ...item }));
-
-  if (items.length === 0) {
+  if (!canStartBatchImport.value) {
     return;
   }
 
-  await runBatchTask(createBatchTask('import', items, { dryRun: importForm.dryRun, force: importForm.force }));
+  creatingBatchTaskKind.value = 'import';
+
+  try {
+    await reloadSourceList();
+    const sourceIds = [...batchImportSourceIds.value];
+
+    if (sourceIds.length === 0) {
+      return;
+    }
+
+    const snapshot = await orpc.hearthstone.createTask.hsdataImport({
+      sourceIds,
+      dryRun: importForm.dryRun,
+      force: importForm.force,
+    }) as TaskPageSnapshot;
+    taskController.value?.attach(snapshot);
+  } finally {
+    creatingBatchTaskKind.value = null;
+  }
 }
 
 /** New projection batch started from the current visible projection candidates. */
 async function startBatchProject() {
-  await reloadSourceList();
-  const items = batchProjectCandidateItems.value.map(item => ({ ...item }));
-
-  if (items.length === 0) {
+  if (!canStartBatchProject.value) {
     return;
   }
 
-  await runBatchTask(createBatchTask('project', items, { dryRun: projectForm.dryRun, force: projectForm.force, skipLatestUpdate: projectForm.skipLatestUpdate, sampleDiff: projectForm.sampleDiff }));
-}
+  creatingBatchTaskKind.value = 'project';
 
-/** Durable batch resumed from the remaining unresolved items in the stored task snapshot. */
-async function resumeBatchTask() {
-  if (!batchTask.value) {
-    return;
+  try {
+    await reloadSourceList();
+    const sourceTags = [...batchProjectSourceTags.value];
+
+    if (sourceTags.length === 0) {
+      return;
+    }
+
+    const snapshot = await orpc.hearthstone.createTask.hsdataProjection({
+      sourceTags,
+      dryRun: projectForm.dryRun,
+      force: projectForm.force,
+      skipLatestUpdate: projectForm.skipLatestUpdate,
+      sampleDiff: projectForm.sampleDiff,
+    }) as TaskPageSnapshot;
+    taskController.value?.attach(snapshot);
+  } finally {
+    creatingBatchTaskKind.value = null;
   }
-
-  await reloadSourceList();
-  await runBatchTask(batchTask.value);
 }
 
 /** Source list sort direction toggled between descending and ascending sourceTag order. */
@@ -4026,29 +2909,6 @@ async function loadSourceVersions() {
   }
 }
 
-/** Reconnects progress streams for tasks that were already running before this page instance mounted. */
-function restoreActiveProgressTracking() {
-  for (const file of files.value) {
-    const sourceTag = file.sourceTag;
-    if (sourceTag == null) {
-      continue;
-    }
-
-    const status = sourceVersionMap.value.get(sourceTag) ?? null;
-    if (!status) {
-      continue;
-    }
-
-    if (status.importStatus === 'processing') {
-      trackHsdataImportSourceProgress(file.id);
-    }
-
-    if (status.projectionStatus === 'processing') {
-      trackHsdataProjectSourceProgress(sourceTag);
-    }
-  }
-}
-
 /** Source list and sourceTag statuses refreshed together. */
 async function reloadSourceList() {
   await Promise.all([loadFiles(), loadSourceVersions()]);
@@ -4059,7 +2919,6 @@ async function reloadSourceList() {
 async function reloadAll(selectedId: string | null = resolvePreferredSelectionId()) {
   await Promise.all([loadState(), loadSourceVersions()]);
   await loadFiles();
-  restoreActiveProgressTracking();
   restoreSelection(selectedId);
 }
 
@@ -4118,27 +2977,41 @@ async function syncPatches() {
   }
 }
 
-/** Desktop import flow started for the selected local hsdata source. */
-async function submitImport() {
-  if (!canImport.value) {
-    return;
+/** Applies one completed hsdata task result to the existing report panels. */
+function handleTaskCompleted(snapshot: TaskPageSnapshot) {
+  hsdataTaskActive.value = false;
+  localStorage.removeItem(hsdataTaskRunStorageKey);
+  const reports = Array.isArray(snapshot.result?.reports) ? snapshot.result.reports : [];
+  if (snapshot.pageTask.kind !== 'attached') return;
+
+  if (snapshot.pageTask.taskType === 'hearthstone_hsdata_import') {
+    importResult.value = reports.length === 1 ? reports[0] as HsdataImportReport : null;
+  } else if (snapshot.pageTask.taskType === 'hearthstone_hsdata_projection') {
+    projectResult.value = reports.length === 1
+      ? { ...reports[0] as HsdataProjectReport, unprojectedTags: [] }
+      : null;
   }
 
-  await runImportForSource(importForm.id, importForm.dryRun, importForm.force);
+  void loadSourceVersions();
 }
 
-/** Source version projection requested for the selected or manually entered sourceTag. */
-async function submitProject() {
-  if (!canProject.value || projectForm.sourceTag == null) {
-    return;
+/** Clears page-level active state after one task failure. */
+function handleTaskFailed(_taskRunId: string, _errorCode: string | null, errorMessage: string | null) {
+  hsdataTaskActive.value = false;
+  localStorage.removeItem(hsdataTaskRunStorageKey);
+  if (errorMessage) {
+    toast.add({ title: 'hsdata 任务失败', description: errorMessage, color: 'error' });
   }
+}
 
-  await runProjectForSourceTag(projectForm.sourceTag!, {
-    dryRun:           projectForm.dryRun,
-    force:            projectForm.force,
-    skipLatestUpdate: projectForm.skipLatestUpdate,
-    sampleDiff:       projectForm.sampleDiff,
-  });
+/** Reports one task creation failure through the page toast. */
+function handleTaskCreateError(_operationKey: string, message: string) {
+  toast.add({ title: '无法创建 hsdata 任务', description: message, color: 'error' });
+}
+
+/** Tracks whether the shared TaskController currently locks workflow creation. */
+function handleTaskStatusChange(status: TaskRunStatus) {
+  hsdataTaskActive.value = !['completed', 'failed', 'canceled', 'abandoned'].includes(status);
 }
 
 /** Current local latest projection published to the configured remote target. */
@@ -4192,17 +3065,6 @@ watch(
 
 watch(
   [
-    () => batchTask.value?.status ?? null,
-    () => batchTask.value?.executionId ?? null,
-    currentBatchExecutionId,
-  ],
-  () => {
-    refreshBatchTaskPolling();
-  },
-);
-
-watch(
-  [
     sourceSortOrder,
     hideImportedSources,
     hideProjectedSources,
@@ -4220,42 +3082,32 @@ watch(
   },
 );
 
+watch(taskController, (controller) => {
+  if (!controller) return;
+  watch(() => controller.currentTaskRunId.value, (taskRunId) => {
+    if (taskRunId == null) {
+      localStorage.removeItem(hsdataTaskRunStorageKey);
+    } else {
+      localStorage.setItem(hsdataTaskRunStorageKey, taskRunId);
+    }
+  }, { immediate: true });
+});
+
 onMounted(async () => {
   restoreImportPageState();
-  restoreBatchTaskState();
-  refreshBatchTaskPolling();
   progressClockTimer = window.setInterval(() => {
     progressClockMs.value = Date.now();
   }, 500);
 
-  stopHsdataImportProgressListener = await listenHsdataImportProgress(
-    progress => {
-      if (
-        progress.sourceId !== activeImportSourceId.value
-        && progress.sourceId !== importForm.id
-        && progress.sourceId !== importProgress.value?.sourceId
-      ) {
-        return;
-      }
-
-      importProgress.value = progress;
-    },
-  );
-  stopHsdataProjectProgressListener = await listenHsdataProjectProgress(
-    progress => {
-      if (
-        progress.sourceTag !== activeProjectSourceTag.value
-        && progress.sourceTag !== projectForm.sourceTag
-        && progress.sourceTag !== projectProgress.value?.sourceTag
-      ) {
-        console.log('[page] filtered out progress', progress.sourceTag, 'active:', activeProjectSourceTag.value, 'form:', projectForm.sourceTag, 'prev:', projectProgress.value?.sourceTag);
-        return;
-      }
-
-      console.log('[page] applying progress', progress.phase, progress.message?.slice(0, 40));
-      projectProgress.value = progress;
-    },
-  );
+  const persistedTaskRunId = localStorage.getItem(hsdataTaskRunStorageKey);
+  if (persistedTaskRunId) {
+    const snapshot = await orpc.task.snapshot({ taskRunId: persistedTaskRunId }) as TaskPageSnapshot;
+    if (snapshot.pageTask.kind === 'attached') {
+      taskController.value?.attach(snapshot);
+    } else {
+      localStorage.removeItem(hsdataTaskRunStorageKey);
+    }
+  }
 
   await reloadAll(resolvePreferredSelectionId());
   hasRestoredImportPageState.value = true;
@@ -4263,18 +3115,6 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
-  if (
-    batchTask.value?.status === 'running'
-    && batchTask.value.executionId != null
-    && batchTask.value.executionId === currentBatchExecutionId.value
-  ) {
-    requestBatchTaskAction('pause', { silent: true });
-  }
-
-  if (batchStatePollTimer != null) {
-    clearInterval(batchStatePollTimer);
-    batchStatePollTimer = null;
-  }
   if (progressClockTimer != null) {
     clearInterval(progressClockTimer);
     progressClockTimer = null;

@@ -10,28 +10,30 @@ import {
   imageRenderTaskType,
   buildImageRenderRunInput,
 } from '../../lib/hearthstone/task/image-render';
+import { hsdataImportTaskDefinition } from '../../lib/hearthstone/task/import';
+import { hsdataProjectionTaskDefinition } from '../../lib/hearthstone/task/projection';
 
 /** If there's an active task on this scope from a previous boot, abandon it. */
 async function abandonStaleTask(taskType: string, scopeType: string, scopeKey: string): Promise<void> {
   const active = await getStore().getActiveTaskRun(taskType, scopeType, scopeKey);
   if (!active) return;
   await getStore().updateTaskRun(active.id, {
-    status: 'abandoned',
-    terminalReason: 'abandoned_stale_run',
-    finishedAt: new Date(),
+    status:             'abandoned',
+    terminalReason:     'abandoned_stale_run',
+    finishedAt:         new Date(),
     controlRequestKind: null,
-    currentStageKey: null,
-    currentStageIndex: null,
-    currentResumeMode: null,
-    pausedResumeMode: null,
+    currentStageKey:    null,
+    currentStageIndex:  null,
+    currentResumeMode:  null,
+    pausedResumeMode:   null,
   });
 }
 
 const publish = os
   .input(z.strictObject({
     publishTarget: z.literal('hearthstone'),
-    environment: z.string().trim().min(1),
-    dryRun: z.boolean().optional(),
+    environment:   z.string().trim().min(1),
+    dryRun:        z.boolean().optional(),
   }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
@@ -42,17 +44,17 @@ const publish = os
     if (active) throw new Error(`Publish task already exists for stream ${resolved.key}`);
 
     return createAndRunTask(publishTaskDefinition.taskType, {
-      taskType: publishTaskDefinition.taskType,
+      taskType:          publishTaskDefinition.taskType,
       definitionVersion: publishTaskDefinition.definitionVersion,
-      scope: { type: publishTaskDefinition.scopeType, key: resolved.key, snapshot: resolved.snapshot as Record<string, unknown> },
-      params: { publishType: 'card_data', dryRun: input.dryRun, operationKind: 'publish' },
+      scope:             { type: publishTaskDefinition.scopeType, key: resolved.key, snapshot: resolved.snapshot as Record<string, unknown> },
+      params:            { publishType: 'card_data', dryRun: input.dryRun, operationKind: 'publish' },
     });
   });
 
 const pin = os
   .input(z.strictObject({
     publishTarget: z.literal('hearthstone'),
-    environment: z.string().trim().min(1),
+    environment:   z.string().trim().min(1),
   }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
@@ -63,10 +65,10 @@ const pin = os
     if (active) throw new Error(`Pin task already exists for stream ${resolved.key}`);
 
     return createAndRunTask(pinTaskDefinition.taskType, {
-      taskType: pinTaskDefinition.taskType,
+      taskType:          pinTaskDefinition.taskType,
       definitionVersion: pinTaskDefinition.definitionVersion,
-      scope: { type: pinTaskDefinition.scopeType, key: resolved.key, snapshot: resolved.snapshot as Record<string, unknown> },
-      params: { publishTarget: input.publishTarget, environment: input.environment },
+      scope:             { type: pinTaskDefinition.scopeType, key: resolved.key, snapshot: resolved.snapshot as Record<string, unknown> },
+      params:            { publishTarget: input.publishTarget, environment: input.environment },
     });
   });
 
@@ -88,9 +90,72 @@ const imageDownload = os
     await abandonStaleTask(imageRenderTaskType, 'image_render', `hearthstone:${input.lang ?? 'all'}`);
     return createAndRunTask(imageRenderTaskType, buildImageRenderRunInput({
       ...input,
-      scanAll: input.scanAll ?? false,
+      scanAll:    input.scanAll ?? false,
       outputMode: 'download',
     }));
   });
 
-export const createTask = { publish, pin, imageRender, imageDownload };
+/** Creates one single or batch hsdata import task. */
+const hsdataImport = os
+  .input(z.strictObject({
+    sourceIds: z.array(z.string().trim().min(1)).min(1),
+    dryRun:    z.boolean().optional(),
+    force:     z.boolean().optional(),
+    patchOnly: z.boolean().optional(),
+  }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    const scope = { sourceIds: input.sourceIds };
+    const resolved = hsdataImportTaskDefinition.resolveScope(scope);
+    const active = await getStore().getActiveTaskRun(
+      hsdataImportTaskDefinition.taskType,
+      hsdataImportTaskDefinition.scopeType,
+      resolved.key,
+    );
+    if (active) throw new Error('An hsdata import task is already active');
+
+    return createAndRunTask(hsdataImportTaskDefinition.taskType, {
+      taskType:          hsdataImportTaskDefinition.taskType,
+      definitionVersion: hsdataImportTaskDefinition.definitionVersion,
+      scope:             {
+        type:     hsdataImportTaskDefinition.scopeType,
+        key:      resolved.key,
+        snapshot: resolved.snapshot as Record<string, unknown>,
+      },
+      params: input,
+    });
+  });
+
+/** Creates one single or batch hsdata projection task. */
+const hsdataProjection = os
+  .input(z.strictObject({
+    sourceTags:       z.array(z.number().int().nonnegative()).min(1),
+    dryRun:           z.boolean().optional(),
+    force:            z.boolean().optional(),
+    skipLatestUpdate: z.boolean().optional(),
+    sampleDiff:       z.boolean().optional(),
+  }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    const scope = { sourceTags: input.sourceTags };
+    const resolved = hsdataProjectionTaskDefinition.resolveScope(scope);
+    const active = await getStore().getActiveTaskRun(
+      hsdataProjectionTaskDefinition.taskType,
+      hsdataProjectionTaskDefinition.scopeType,
+      resolved.key,
+    );
+    if (active) throw new Error('An hsdata projection task is already active');
+
+    return createAndRunTask(hsdataProjectionTaskDefinition.taskType, {
+      taskType:          hsdataProjectionTaskDefinition.taskType,
+      definitionVersion: hsdataProjectionTaskDefinition.definitionVersion,
+      scope:             {
+        type:     hsdataProjectionTaskDefinition.scopeType,
+        key:      resolved.key,
+        snapshot: resolved.snapshot as Record<string, unknown>,
+      },
+      params: input,
+    });
+  });
+
+export const createTask = { publish, pin, imageRender, imageDownload, hsdataImport, hsdataProjection };

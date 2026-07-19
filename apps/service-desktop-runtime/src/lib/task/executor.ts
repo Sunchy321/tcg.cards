@@ -29,10 +29,10 @@ export interface TaskExecutor {
 /** Transitions the current stage and task run into the paused state. */
 async function enterPaused(store: TaskExecutorStore, taskRunId: string, stageKey: string, resumeMode: string): Promise<void> {
   const runPatch: Record<string, unknown> = {
-    status: 'paused',
+    status:             'paused',
     controlRequestKind: null,
-    currentStageKey: stageKey,
-    pausedResumeMode: resumeMode,
+    currentStageKey:    stageKey,
+    pausedResumeMode:   resumeMode,
   };
   if (resumeMode === 'session_bound') {
     runPatch.runtimeBootId = runtimeBootId;
@@ -56,15 +56,15 @@ async function enterFailed(store: TaskExecutorStore, taskRunId: string, stageKey
     console.error(`[task] failed to update stage ${stageKey} status:`, stageErr);
   }
   await store.updateTaskRun(taskRunId, {
-    status: 'failed',
-    terminalReason: 'execution_failed',
-    errorMessage: (err as Error)?.message ?? String(err),
-    finishedAt: new Date(),
+    status:             'failed',
+    terminalReason:     'execution_failed',
+    errorMessage:       (err as Error)?.message ?? String(err),
+    finishedAt:         new Date(),
     controlRequestKind: null,
-    currentStageKey: null,
-    currentStageIndex: null,
-    currentResumeMode: null,
-    pausedResumeMode: null,
+    currentStageKey:    null,
+    currentStageIndex:  null,
+    currentResumeMode:  null,
+    pausedResumeMode:   null,
   });
 }
 
@@ -151,17 +151,17 @@ export function createTaskExecutor(store: TaskExecutorStore, publisher?: TaskEve
 
         // Enter the stage atomically (single transaction)
         const stagePatch: Record<string, unknown> = {
-          status: 'running',
-          total: entry.progressMode === 'simple' ? null : entry.total,
-          done: entry.progressMode === 'simple' ? null : 0,
+          status:    'running',
+          total:     entry.progressMode === 'simple' ? null : entry.total,
+          done:      entry.progressMode === 'simple' ? null : isResume ? stageState.done ?? 0 : 0,
           startedAt: new Date(),
         };
         const runPatch: Record<string, unknown> = {
-          currentStageKey: entry.stageKey,
-          currentStageIndex: entry.stageIndex,
-          currentResumeMode: entry.resumeMode,
+          currentStageKey:    entry.stageKey,
+          currentStageIndex:  entry.stageIndex,
+          currentResumeMode:  entry.resumeMode,
           controlRequestKind: null,
-          status: 'running',
+          status:             'running',
         };
         if (!startedAtSet) {
           runPatch.startedAt = new Date();
@@ -184,7 +184,9 @@ export function createTaskExecutor(store: TaskExecutorStore, publisher?: TaskEve
 
           if (result === 'cancel') {
             await enterCanceled(store, taskRunId, entry.stageKey);
+            await definition.onCanceled?.(runInput);
             await publishCurrentEvent(store, taskRunId, publisher);
+            definition.cleanup?.(taskRunId);
             return;
           }
           if (result === 'pause') {
@@ -194,6 +196,7 @@ export function createTaskExecutor(store: TaskExecutorStore, publisher?: TaskEve
           }
           if (result === 'fail') {
             await publishCurrentEvent(store, taskRunId, publisher);
+            definition.cleanup?.(taskRunId);
             return;
           }
 
@@ -205,12 +208,12 @@ export function createTaskExecutor(store: TaskExecutorStore, publisher?: TaskEve
       }
 
       const completionPatch: Record<string, unknown> = {
-        status: 'completed',
-        finishedAt: new Date(),
-        currentStageKey: null,
+        status:            'completed',
+        finishedAt:        new Date(),
+        currentStageKey:   null,
         currentStageIndex: null,
         currentResumeMode: null,
-        pausedResumeMode: null,
+        pausedResumeMode:  null,
       };
       const taskResult = getTaskResult(taskRunId);
       if (taskResult !== undefined) {
@@ -218,6 +221,7 @@ export function createTaskExecutor(store: TaskExecutorStore, publisher?: TaskEve
       }
       await store.updateTaskRun(taskRunId, completionPatch);
       await publishCurrentEvent(store, taskRunId, publisher);
+      definition.cleanup?.(taskRunId);
     },
   };
 }

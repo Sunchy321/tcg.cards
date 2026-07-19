@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-function-type */
 import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { TaskRun, TaskStage } from '@tcg-cards/db/schema/local/task';
@@ -13,86 +14,86 @@ import type { TaskRunInput, TaskStagePlan, TaskStageState } from './definition';
 
 /** Captures one task run snapshot returned by the framework store. */
 export interface TaskRunRecord extends TaskRunInput {
-  id: string;
-  status: TaskRunStatus;
-  supportsResume: boolean;
-  currentStageKey: string | null;
-  currentStageIndex: number | null;
-  currentResumeMode: TaskResumeMode | null;
-  pausedResumeMode: TaskResumeMode | null;
-  runRevision: number;
-  heartbeatAt: string | null;
-  startedAt: string | null;
-  finishedAt: string | null;
-  errorCode: string | null;
-  errorMessage: string | null;
-  terminalReason: TaskTerminalReason | null;
+  id:                 string;
+  status:             TaskRunStatus;
+  supportsResume:     boolean;
+  currentStageKey:    string | null;
+  currentStageIndex:  number | null;
+  currentResumeMode:  TaskResumeMode | null;
+  pausedResumeMode:   TaskResumeMode | null;
+  runRevision:        number;
+  heartbeatAt:        string | null;
+  startedAt:          string | null;
+  finishedAt:         string | null;
+  errorCode:          string | null;
+  errorMessage:       string | null;
+  terminalReason:     TaskTerminalReason | null;
   controlRequestKind: TaskControlRequestKind | null;
-  runtimeBootId: string | null;
-  resumeContextKey: string | null;
-  retryOfTaskRunId: string | null;
-  result: Record<string, unknown> | null;
+  runtimeBootId:      string | null;
+  resumeContextKey:   string | null;
+  retryOfTaskRunId:   string | null;
+  result:             Record<string, unknown> | null;
 }
 
 /** Aggregates one task run snapshot together with all persisted stage rows. */
 export interface TaskRunSnapshot {
-  run: TaskRunRecord;
+  run:    TaskRunRecord;
   stages: TaskStageState[];
 }
 
 /** Carries the create-time payload persisted by the framework store. */
 export interface TaskRunCreateInput {
-  run: TaskRunInput;
-  supportsResume: boolean;
-  stages: TaskStagePlan[];
+  run:               TaskRunInput;
+  supportsResume:    boolean;
+  stages:            TaskStagePlan[];
   retryOfTaskRunId?: string | null;
 }
 
 /** Fields that can be patched on an existing task run. */
 export interface TaskRunUpdatePatch {
-  status?: TaskRunStatus;
-  currentStageKey?: string | null;
-  currentStageIndex?: number | null;
-  currentResumeMode?: TaskResumeMode | null;
-  pausedResumeMode?: TaskResumeMode | null;
+  status?:             TaskRunStatus;
+  currentStageKey?:    string | null;
+  currentStageIndex?:  number | null;
+  currentResumeMode?:  TaskResumeMode | null;
+  pausedResumeMode?:   TaskResumeMode | null;
   controlRequestKind?: TaskControlRequestKind | null;
-  heartbeatAt?: Date | string | null;
-  startedAt?: Date | string | null;
-  finishedAt?: Date | string | null;
-  errorCode?: string | null;
-  errorMessage?: string | null;
-  terminalReason?: TaskTerminalReason | null;
-  runtimeBootId?: string | null;
-  resumeContextKey?: string | null;
+  heartbeatAt?:        Date | string | null;
+  startedAt?:          Date | string | null;
+  finishedAt?:         Date | string | null;
+  errorCode?:          string | null;
+  errorMessage?:       string | null;
+  terminalReason?:     TaskTerminalReason | null;
+  runtimeBootId?:      string | null;
+  resumeContextKey?:   string | null;
 }
 
 /** Fields that can be patched on one task stage row. */
 export interface TaskStageUpdatePatch {
-  status?: TaskStageStatus;
-  total?: number | null;
-  done?: number | null;
+  status?:      TaskStageStatus;
+  total?:       number | null;
+  done?:        number | null;
   resumeToken?: Record<string, unknown> | null;
-  segments?: { name: string; done: number; total: number }[] | null;
-  startedAt?: Date | string | null;
-  finishedAt?: Date | string | null;
+  segments?:    { name: string, done: number, total: number }[] | null;
+  startedAt?:   Date | string | null;
+  finishedAt?:  Date | string | null;
 }
 
 /** Fields that can be patched on the store-side update for task runs (accepts raw dates). */
 export interface TaskRunStorePatch {
-  status?: TaskRunStatus;
-  currentStageKey?: string | null;
-  currentStageIndex?: number | null;
-  currentResumeMode?: TaskResumeMode | null;
-  pausedResumeMode?: TaskResumeMode | null;
+  status?:             TaskRunStatus;
+  currentStageKey?:    string | null;
+  currentStageIndex?:  number | null;
+  currentResumeMode?:  TaskResumeMode | null;
+  pausedResumeMode?:   TaskResumeMode | null;
   controlRequestKind?: TaskControlRequestKind | null;
-  heartbeatAt?: Date | string | null;
-  startedAt?: Date | string | null;
-  finishedAt?: Date | string | null;
-  errorCode?: string | null;
-  errorMessage?: string | null;
-  terminalReason?: TaskTerminalReason | null;
-  runtimeBootId?: string | null;
-  resumeContextKey?: string | null;
+  heartbeatAt?:        Date | string | null;
+  startedAt?:          Date | string | null;
+  finishedAt?:         Date | string | null;
+  errorCode?:          string | null;
+  errorMessage?:       string | null;
+  terminalReason?:     TaskTerminalReason | null;
+  runtimeBootId?:      string | null;
+  resumeContextKey?:   string | null;
 }
 
 /** Defines the persistence contract consumed by the task framework. */
@@ -134,51 +135,51 @@ const activeStatuses: TaskRunStatus[] = [
 /** Maps a Drizzle task_runs row to the framework TaskRunRecord type. */
 function toTaskRunRecord(row: typeof TaskRun.$inferSelect): TaskRunRecord {
   return {
-    id: row.id,
-    taskType: row.taskType,
+    id:                row.id,
+    taskType:          row.taskType,
     definitionVersion: row.definitionVersion,
-    scope: {
-      type: row.taskScopeType,
-      key: row.taskScopeKey,
+    scope:             {
+      type:     row.taskScopeType,
+      key:      row.taskScopeKey,
       snapshot: row.taskScopeSnapshot ?? undefined,
     },
-    params: row.params,
-    status: row.status as TaskRunStatus,
-    supportsResume: row.supportsResume,
-    currentStageKey: row.currentStageKey,
-    currentStageIndex: row.currentStageIndex,
-    currentResumeMode: row.currentResumeMode as TaskResumeMode | null,
-    pausedResumeMode: row.pausedResumeMode as TaskResumeMode | null,
-    runRevision: row.runRevision,
-    heartbeatAt: row.heartbeatAt?.toISOString() ?? null,
-    startedAt: row.startedAt?.toISOString() ?? null,
-    finishedAt: row.finishedAt?.toISOString() ?? null,
-    errorCode: row.errorCode,
-    errorMessage: row.errorMessage,
-    terminalReason: row.terminalReason as TaskTerminalReason | null,
+    params:             row.params,
+    status:             row.status as TaskRunStatus,
+    supportsResume:     row.supportsResume,
+    currentStageKey:    row.currentStageKey,
+    currentStageIndex:  row.currentStageIndex,
+    currentResumeMode:  row.currentResumeMode as TaskResumeMode | null,
+    pausedResumeMode:   row.pausedResumeMode as TaskResumeMode | null,
+    runRevision:        row.runRevision,
+    heartbeatAt:        row.heartbeatAt?.toISOString() ?? null,
+    startedAt:          row.startedAt?.toISOString() ?? null,
+    finishedAt:         row.finishedAt?.toISOString() ?? null,
+    errorCode:          row.errorCode,
+    errorMessage:       row.errorMessage,
+    terminalReason:     row.terminalReason as TaskTerminalReason | null,
     controlRequestKind: row.controlRequestKind as TaskControlRequestKind | null,
-    runtimeBootId: row.runtimeBootId,
-    resumeContextKey: row.resumeContextKey,
-    retryOfTaskRunId: row.retryOfTaskRunId,
-    result: row.result,
+    runtimeBootId:      row.runtimeBootId,
+    resumeContextKey:   row.resumeContextKey,
+    retryOfTaskRunId:   row.retryOfTaskRunId,
+    result:             row.result,
   };
 }
 
 /** Maps a Drizzle task_stages row to the framework TaskStageState type. */
 function toTaskStageState(row: typeof TaskStage.$inferSelect): TaskStageState {
   return {
-    stageKey: row.stageKey,
-    stageIndex: row.stageIndex,
-    label: row.label,
-    status: row.status as TaskStageStatus,
+    stageKey:     row.stageKey,
+    stageIndex:   row.stageIndex,
+    label:        row.label,
+    status:       row.status as TaskStageStatus,
     progressMode: row.progressMode as TaskStageState['progressMode'],
-    resumeMode: row.resumeMode as TaskStageState['resumeMode'],
-    total: row.total,
-    done: row.done,
-    startedAt: row.startedAt?.toISOString() ?? null,
-    finishedAt: row.finishedAt?.toISOString() ?? null,
-    resumeToken: row.resumeToken,
-    segments: row.segments ?? undefined,
+    resumeMode:   row.resumeMode as TaskStageState['resumeMode'],
+    total:        row.total,
+    done:         row.done,
+    startedAt:    row.startedAt?.toISOString() ?? null,
+    finishedAt:   row.finishedAt?.toISOString() ?? null,
+    resumeToken:  row.resumeToken,
+    segments:     row.segments ?? undefined,
   };
 }
 
@@ -194,33 +195,33 @@ export function createTaskStore(db: {
       const [run] = await db
         .insert(TaskRun)
         .values({
-          taskType: input.run.taskType,
+          taskType:          input.run.taskType,
           definitionVersion: input.run.definitionVersion,
-          taskScopeType: input.run.scope.type,
-          taskScopeKey: input.run.scope.key,
+          taskScopeType:     input.run.scope.type,
+          taskScopeKey:      input.run.scope.key,
           taskScopeSnapshot: (input.run.scope.snapshot ?? null) as Record<
             string,
             unknown
           > | null,
-          params: input.run.params,
-          supportsResume: input.supportsResume,
-          status: 'pending',
-          currentStageKey: null,
-          currentStageIndex: null,
-          currentResumeMode: null,
-          pausedResumeMode: null,
-          resumeToken: null,
-          runtimeBootId: null,
-          resumeContextKey: null,
-          runRevision: 0,
+          params:             input.run.params,
+          supportsResume:     input.supportsResume,
+          status:             'pending',
+          currentStageKey:    null,
+          currentStageIndex:  null,
+          currentResumeMode:  null,
+          pausedResumeMode:   null,
+          resumeToken:        null,
+          runtimeBootId:      null,
+          resumeContextKey:   null,
+          runRevision:        0,
           controlRequestKind: null,
-          heartbeatAt: null,
-          startedAt: null,
-          finishedAt: null,
-          errorCode: null,
-          errorMessage: null,
-          terminalReason: null,
-          retryOfTaskRunId: input.retryOfTaskRunId ?? null,
+          heartbeatAt:        null,
+          startedAt:          null,
+          finishedAt:         null,
+          errorCode:          null,
+          errorMessage:       null,
+          terminalReason:     null,
+          retryOfTaskRunId:   input.retryOfTaskRunId ?? null,
         })
         .returning();
 
@@ -235,18 +236,18 @@ export function createTaskStore(db: {
           .insert(TaskStage)
           .values(
             input.stages.map(stage => ({
-              taskRunId: run.id,
-              stageKey: stage.stageKey,
-              stageIndex: stage.stageIndex,
-              status: 'pending' as const,
-              label: stage.label,
+              taskRunId:    run.id,
+              stageKey:     stage.stageKey,
+              stageIndex:   stage.stageIndex,
+              status:       'pending' as const,
+              label:        stage.label,
               progressMode: stage.progressMode,
-              resumeMode: stage.resumeMode,
-              total: null,
-              done: null,
-              resumeToken: null,
-              startedAt: null,
-              finishedAt: null,
+              resumeMode:   stage.resumeMode,
+              total:        null,
+              done:         null,
+              resumeToken:  null,
+              startedAt:    null,
+              finishedAt:   null,
             })),
           )
           .returning();
@@ -278,7 +279,7 @@ export function createTaskStore(db: {
         .orderBy(TaskStage.stageIndex);
 
       return {
-        run: toTaskRunRecord(run),
+        run:    toTaskRunRecord(run),
         stages: stageRows.map(toTaskStageState),
       };
     },

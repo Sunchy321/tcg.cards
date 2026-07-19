@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
-import { and, eq, ne, inArray, SQL, sql } from 'drizzle-orm';
+import { and, count, eq, ne, inArray, SQL, sql } from 'drizzle-orm';
 
 import { db } from '@tcg-cards/db/db';
 import { RENDER_MECHANIC_IDS } from '@tcg-cards/model/src/hearthstone/constant/tag';
@@ -285,6 +285,7 @@ interface LocalizationWriteBreakdown {
 
 export interface ProjectHsdataInput {
   sourceTag:         number;
+  cardIds?:          string[];
   dryRun?:           boolean;
   force?:            boolean;
   skipLatestUpdate?: boolean;
@@ -1939,10 +1940,14 @@ async function getBuildsBySourceTags(
   return builds;
 }
 
-async function loadSnapshots(sourceTag: number, includeProjected = false): Promise<RawSnapshotRow[]> {
+async function loadSnapshots(sourceTag: number, includeProjected = false, cardIds?: string[]): Promise<RawSnapshotRow[]> {
   const conditions: SQL[] = [sql<boolean>`${sourceTag} = ANY(${RawEntitySnapshot.sourceTags})`];
   if (!includeProjected) {
     conditions.push(ne(RawEntitySnapshot.projectionState, 'projected'));
+  }
+  if (cardIds != null) {
+    if (cardIds.length === 0) return [];
+    conditions.push(inArray(RawEntitySnapshot.cardId, cardIds));
   }
   return await db.select({
     id:               RawEntitySnapshot.id,
@@ -3612,11 +3617,16 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
       workLabel:              'snapshot',
     });
 
-    const snapshots = await loadSnapshots(input.sourceTag, force);
+    const snapshots = await loadSnapshots(input.sourceTag, force, input.cardIds);
     const [{ count: totalSnapshotCount }] = await db.select({
-      count: sql<number>`count(*)`,
+      count: count(),
     }).from(RawEntitySnapshot)
-      .where(sql<boolean>`${input.sourceTag} = ANY(${RawEntitySnapshot.sourceTags})`);
+      .where(and(
+        sql<boolean>`${input.sourceTag} = ANY(${RawEntitySnapshot.sourceTags})`,
+        input.cardIds == null || input.cardIds.length === 0
+          ? undefined
+          : inArray(RawEntitySnapshot.cardId, input.cardIds),
+      ));
     profiler.mark('load_snapshots', {
       build:         build,
       snapshotCount: snapshots.length,
@@ -4344,6 +4354,7 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
 }
 
 export async function recomputeLatestProjection(options?: {
+  globalLatest?: number;
   onProgress?: (event: {
     phase:             string;
     message:           string;
@@ -4364,178 +4375,99 @@ export async function recomputeLatestProjection(options?: {
   const [maxBuildRow] = await localDb.select({ maxBuild: sql<number>`MAX(${PatchState.buildNumber})` })
     .from(PatchState)
     .where(eq(PatchState.projectionStatus, 'completed'));
-  const globalLatest = maxBuildRow?.maxBuild;
+  const globalLatest = options?.globalLatest ?? maxBuildRow?.maxBuild;
 
   if (globalLatest == null) {
     throw new Error('No completed source versions found for isLatest recomputation.');
   }
 
-  const entityRows = await localDb.select().from(Entity);
-  const entityByCardId = new Map<string, typeof entityRows>();
-  for (const row of entityRows) {
-    const group = entityByCardId.get(row.cardId) ?? [];
-    group.push(row);
-    entityByCardId.set(row.cardId, group);
-  }
-
   options?.onProgress?.({
     phase:             'entity',
-    message:           `Scanning ${entityByCardId.size} entity groups (global latest build ${globalLatest})`,
-    totalRowCount:     entityByCardId.size,
+    message:           `Updating entity isLatest for build ${globalLatest}`,
+    totalRowCount:     1,
     completedRowCount: 0,
     updatedCount:      0,
   });
-
-  let entityUpdatedCount = 0;
-  let entityCompleted = 0;
-  for (const [, rows] of entityByCardId) {
-    for (const row of rows) {
-      const latest = row.version.includes(globalLatest);
-      if (row.isLatest !== latest) {
-        await localDb.update(BaseEntity)
-          .set({ isLatest: latest })
-          .where(and(eq(BaseEntity.cardId, row.cardId), eq(BaseEntity.revisionHash, row.revisionHash)));
-        entityUpdatedCount += 1;
-      }
-    }
-    entityCompleted += 1;
-    if (options?.onProgress && entityCompleted % 5000 === 0) {
-      options.onProgress({
-        phase:             'entity',
-        message:           `Updating entity isLatest (${entityCompleted}/${entityByCardId.size})`,
-        totalRowCount:     entityByCardId.size,
-        completedRowCount: entityCompleted,
-        updatedCount:      entityUpdatedCount,
-      });
-    }
-  }
+  const entityResult = await localDb.execute(sql`
+    update hearthstone.entities
+       set is_latest = (${globalLatest} = any(version)),
+           updated_at = now()
+     where deleted_at is null
+       and is_latest is distinct from (${globalLatest} = any(version))
+  `) as { count?: number };
+  const entityUpdatedCount = entityResult.count ?? 0;
+  const [{ count: entityRowCount }] = await localDb.select({ count: sql<number>`count(*)` }).from(Entity);
 
   if (options?.onProgress) {
     options.onProgress({
       phase:             'entity',
       message:           `Entity isLatest updated (${entityUpdatedCount} changed)`,
-      totalRowCount:     entityByCardId.size,
-      completedRowCount: entityByCardId.size,
+      totalRowCount:     1,
+      completedRowCount: 1,
       updatedCount:      entityUpdatedCount,
     });
   }
 
-  const localizationRows = await localDb.select().from(EntityLocalization);
-  const localizationByGroup = new Map<string, typeof localizationRows>();
-  for (const row of localizationRows) {
-    const key = localizationGroupKey(row);
-    const group = localizationByGroup.get(key) ?? [];
-    group.push(row);
-    localizationByGroup.set(key, group);
-  }
-
   options?.onProgress?.({
     phase:             'localization',
-    message:           `Scanning ${localizationByGroup.size} localization groups`,
-    totalRowCount:     localizationByGroup.size,
+    message:           `Updating localization isLatest for build ${globalLatest}`,
+    totalRowCount:     1,
     completedRowCount: 0,
     updatedCount:      0,
   });
 
-  let localizationUpdatedCount = 0;
-  let localizationCompleted = 0;
-  for (const [, rows] of localizationByGroup) {
-    for (const row of rows) {
-      const latest = row.version.includes(globalLatest);
-      if (row.isLatest !== latest) {
-        await localDb.update(BaseEntityLocalization)
-          .set({ isLatest: latest })
-          .where(and(
-            eq(BaseEntityLocalization.cardId, row.cardId),
-            eq(BaseEntityLocalization.lang, row.lang),
-            eq(BaseEntityLocalization.revisionHash, row.revisionHash),
-            eq(BaseEntityLocalization.localizationHash, row.localizationHash),
-          ));
-        localizationUpdatedCount += 1;
-      }
-    }
-    localizationCompleted += 1;
-    if (options?.onProgress && localizationCompleted % 5000 === 0) {
-      options.onProgress({
-        phase:             'localization',
-        message:           `Updating localization isLatest (${localizationCompleted}/${localizationByGroup.size})`,
-        totalRowCount:     localizationByGroup.size,
-        completedRowCount: localizationCompleted,
-        updatedCount:      localizationUpdatedCount,
-      });
-    }
-  }
+  const localizationResult = await localDb.execute(sql`
+    update hearthstone.entity_localizations
+       set is_latest = (${globalLatest} = any(version)),
+           updated_at = now()
+     where deleted_at is null
+       and is_latest is distinct from (${globalLatest} = any(version))
+  `) as { count?: number };
+  const localizationUpdatedCount = localizationResult.count ?? 0;
+  const [{ count: localizationRowCount }] = await localDb.select({ count: sql<number>`count(*)` }).from(EntityLocalization);
 
   if (options?.onProgress) {
     options.onProgress({
       phase:             'localization',
       message:           `Localization isLatest updated (${localizationUpdatedCount} changed)`,
-      totalRowCount:     localizationByGroup.size,
-      completedRowCount: localizationByGroup.size,
+      totalRowCount:     1,
+      completedRowCount: 1,
       updatedCount:      localizationUpdatedCount,
     });
   }
 
-  const relationRows = await localDb.select().from(EntityRelation);
-  const relationBySourceId = new Map<string, typeof relationRows>();
-  for (const row of relationRows) {
-    const group = relationBySourceId.get(row.sourceId) ?? [];
-    group.push(row);
-    relationBySourceId.set(row.sourceId, group);
-  }
-
   options?.onProgress?.({
     phase:             'relation',
-    message:           `Scanning ${relationBySourceId.size} relation groups`,
-    totalRowCount:     relationBySourceId.size,
+    message:           `Updating relation isLatest for build ${globalLatest}`,
+    totalRowCount:     1,
     completedRowCount: 0,
     updatedCount:      0,
   });
 
-  let relationUpdatedCount = 0;
-  let relationCompleted = 0;
-  for (const [, rows] of relationBySourceId) {
-    const maxVersion = Math.max(...rows.flatMap(r => r.version));
-    for (const row of rows) {
-      const latest = row.version.includes(maxVersion);
-      if (row.isLatest !== latest) {
-        await localDb.update(BaseEntityRelation)
-          .set({ isLatest: latest })
-          .where(and(
-            eq(BaseEntityRelation.sourceId, row.sourceId),
-            eq(BaseEntityRelation.sourceRevisionHash, row.sourceRevisionHash),
-            eq(BaseEntityRelation.relation, row.relation),
-            eq(BaseEntityRelation.targetId, row.targetId),
-          ));
-        relationUpdatedCount += 1;
-      }
-    }
-    relationCompleted += 1;
-    if (options?.onProgress && relationCompleted % 5000 === 0) {
-      options.onProgress({
-        phase:             'relation',
-        message:           `Updating relation isLatest (${relationCompleted}/${relationBySourceId.size})`,
-        totalRowCount:     relationBySourceId.size,
-        completedRowCount: relationCompleted,
-        updatedCount:      relationUpdatedCount,
-      });
-    }
-  }
+  const relationResult = await localDb.execute(sql`
+    update hearthstone.entity_relations
+       set is_latest = (${globalLatest} = any(version)),
+           updated_at = now()
+     where deleted_at is null
+       and is_latest is distinct from (${globalLatest} = any(version))
+  `) as { count?: number };
+  const relationUpdatedCount = relationResult.count ?? 0;
+  const [{ count: relationRowCount }] = await localDb.select({ count: sql<number>`count(*)` }).from(EntityRelation);
 
   if (options?.onProgress) {
     options.onProgress({
       phase:             'relation',
       message:           `Relation isLatest updated (${relationUpdatedCount} changed)`,
-      totalRowCount:     relationBySourceId.size,
-      completedRowCount: relationBySourceId.size,
+      totalRowCount:     1,
+      completedRowCount: 1,
       updatedCount:      relationUpdatedCount,
     });
   }
 
   return {
-    entityRowCount:       entityRows.length,
-    localizationRowCount: localizationRows.length,
-    relationRowCount:     relationRows.length,
+    entityRowCount,
+    localizationRowCount,
+    relationRowCount,
     entityUpdatedCount,
     localizationUpdatedCount,
     relationUpdatedCount,

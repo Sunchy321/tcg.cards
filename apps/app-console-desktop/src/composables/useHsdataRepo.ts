@@ -318,44 +318,9 @@ export interface ReportMetric {
   value: string | number | boolean;
 }
 
-const trackedImportSourceIds = new Set<string>();
-const trackedProjectSourceTags = new Set<number>();
-const importTrackingListeners = new Set<() => void>();
-const projectTrackingListeners = new Set<() => void>();
-
 /** Detects the final progress phases that can close one task subscription. */
 function isTerminalProgressPhase(phase: string): boolean {
   return phase === 'completed' || phase === 'failed';
-}
-
-/** Starts tracking one import source so progress listeners can subscribe to its event stream. */
-export function trackHsdataImportSourceProgress(sourceId: string) {
-  if (sourceId.length === 0) {
-    return;
-  }
-
-  trackedImportSourceIds.add(sourceId);
-  notifyImportTrackingChanged();
-}
-
-/** Starts tracking one projection source tag so progress listeners can subscribe to its event stream. */
-export function trackHsdataProjectSourceProgress(sourceTag: number) {
-  trackedProjectSourceTags.add(sourceTag);
-  notifyProjectTrackingChanged();
-}
-
-/** Notifies active import listeners that the tracked source set changed. */
-function notifyImportTrackingChanged() {
-  for (const listener of importTrackingListeners) {
-    listener();
-  }
-}
-
-/** Notifies active projection listeners that the tracked source set changed. */
-function notifyProjectTrackingChanged() {
-  for (const listener of projectTrackingListeners) {
-    listener();
-  }
 }
 
 export function getHsdataRepoPath() {
@@ -386,17 +351,6 @@ export async function readHsdataSource(id: string) {
   return await useDesktopRuntimeClient().hsdata.readSource({ id }) as HsdataResolvedSource;
 }
 
-export async function importHsdataSource(id: string, dryRun: boolean, force: boolean, patchOnly?: boolean) {
-  trackHsdataImportSourceProgress(id);
-
-  return await useDesktopRuntimeClient().hsdata.importSource({
-    id,
-    dryRun,
-    force,
-    patchOnly,
-  }) as HsdataImportReport;
-}
-
 /** Options for a single projection run. */
 export interface HsdataProjectOptions {
   dryRun?:           boolean;
@@ -412,21 +366,6 @@ export interface HsdataPublishStreamInput {
 }
 
 /** Publish job control result returned after a cooperative pause or stop request. */
-/** Local Bun runtime projection command executed against the configured desktop database. */
-export function projectLocalHsdataSourceVersion(
-  sourceTag: number,
-  options: HsdataProjectOptions,
-) {
-  return (async () => {
-    trackHsdataProjectSourceProgress(sourceTag);
-
-    return await useDesktopRuntimeClient().hsdata.projectSourceVersion({
-      sourceTag,
-      ...options,
-    }) as HsdataProjectReport;
-  })();
-}
-
 /** Recomputes isLatest flags across the current local projection tables. */
 export function recomputeLatestHsdataProjection() {
   return (async () => {
@@ -535,170 +474,6 @@ export function resetHsdataProjectionStatus(sourceTags: number[]) {
   return (async () => {
     return await useDesktopRuntimeClient().hsdata.resetProjectionStatus({ sourceTags }) as { resetCount: number };
   })();
-}
-
-/** Streams hsdata import progress snapshots from the local Bun runtime. */
-export function listenHsdataImportProgress(
-  handler: (event: HsdataImportProgressEvent) => void,
-) {
-  const runtimeClient = useDesktopRuntimeClient();
-  let stopped = false;
-  const unsubscribers = new Map<string, () => Promise<void>>();
-
-  /** Closes one active import subscription if it exists. */
-  async function closeImportSubscription(sourceId: string): Promise<void> {
-    const unsubscribe = unsubscribers.get(sourceId);
-    if (!unsubscribe) {
-      return;
-    }
-
-    unsubscribers.delete(sourceId);
-
-    try {
-      await unsubscribe();
-    } catch {
-      // Ignore cancellation errors while the page is shutting down or switching jobs.
-    }
-  }
-
-  /** Opens streaming subscriptions for every currently tracked import source. */
-  function ensureImportSubscriptions() {
-    if (stopped) {
-      return;
-    }
-
-    for (const sourceId of trackedImportSourceIds) {
-      if (unsubscribers.has(sourceId)) {
-        continue;
-      }
-
-      const unsubscribe = consumeEventIterator(
-        runtimeClient.hsdata.watchImportJob({ sourceId }),
-        {
-          onEvent(event) {
-            handler(event);
-
-            if (!isTerminalProgressPhase(event.phase)) {
-              return;
-            }
-
-            trackedImportSourceIds.delete(sourceId);
-            notifyImportTrackingChanged();
-            void closeImportSubscription(sourceId);
-          },
-          onError() {
-            trackedImportSourceIds.delete(sourceId);
-            notifyImportTrackingChanged();
-          },
-          onFinish() {
-            unsubscribers.delete(sourceId);
-          },
-        },
-      );
-
-      unsubscribers.set(sourceId, unsubscribe);
-    }
-  }
-
-  importTrackingListeners.add(ensureImportSubscriptions);
-  ensureImportSubscriptions();
-
-  return Promise.resolve(() => {
-    stopped = true;
-    importTrackingListeners.delete(ensureImportSubscriptions);
-
-    void Promise.all([...unsubscribers.keys()].map(async sourceId => {
-      await closeImportSubscription(sourceId);
-    }));
-  });
-}
-
-/** Streams hsdata projection progress snapshots for the desktop window. */
-export function listenHsdataProjectProgress(
-  handler: (event: HsdataProjectProgressEvent) => void,
-) {
-  const runtimeClient = useDesktopRuntimeClient();
-  let stopped = false;
-  const unsubscribers = new Map<number, () => Promise<void>>();
-
-  /** Closes one active projection subscription if it exists. */
-  async function closeProjectSubscription(sourceTag: number): Promise<void> {
-    const unsubscribe = unsubscribers.get(sourceTag);
-    if (!unsubscribe) {
-      return;
-    }
-
-    unsubscribers.delete(sourceTag);
-
-    try {
-      await unsubscribe();
-    } catch {
-      // Ignore cancellation errors while the page is shutting down or switching jobs.
-    }
-  }
-
-  /** Opens streaming subscriptions for every currently tracked projection source tag. */
-  function ensureProjectSubscriptions() {
-    if (stopped) {
-      return;
-    }
-
-    for (const sourceTag of trackedProjectSourceTags) {
-      if (unsubscribers.has(sourceTag)) {
-        console.log('[hsdata] subscription already exists for', sourceTag, '- skipping');
-        continue;
-      }
-
-      console.log('[hsdata] creating subscription for', sourceTag);
-      const unsubscribe = consumeEventIterator(
-        runtimeClient.hsdata.watchProjectJob({ sourceTag }),
-        {
-          onEvent(event) {
-            handler(event);
-
-            if (!isTerminalProgressPhase(event.phase)) {
-              return;
-            }
-
-            console.log('[hsdata] terminal event for', sourceTag, 'phase:', event.phase);
-            // Remove from tracking maps synchronously so the next projection
-            // for the same sourceTag can immediately re-subscribe.
-            trackedProjectSourceTags.delete(sourceTag);
-            const cleanup = unsubscribers.get(sourceTag);
-            unsubscribers.delete(sourceTag);
-            notifyProjectTrackingChanged();
-
-            // Close the underlying SSE connection asynchronously.
-            if (cleanup) {
-              cleanup().catch(() => {});
-            }
-          },
-          onError() {
-            trackedProjectSourceTags.delete(sourceTag);
-            unsubscribers.delete(sourceTag);
-            notifyProjectTrackingChanged();
-          },
-          onFinish() {
-            unsubscribers.delete(sourceTag);
-          },
-        },
-      );
-
-      unsubscribers.set(sourceTag, unsubscribe);
-    }
-  }
-
-  projectTrackingListeners.add(ensureProjectSubscriptions);
-  ensureProjectSubscriptions();
-
-  return Promise.resolve(() => {
-    stopped = true;
-    projectTrackingListeners.delete(ensureProjectSubscriptions);
-
-    void Promise.all([...unsubscribers.keys()].map(async sourceTag => {
-      await closeProjectSubscription(sourceTag);
-    }));
-  });
 }
 
 export function formatHsdataDate(dateStr: string | undefined) {

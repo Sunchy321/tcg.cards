@@ -6,26 +6,17 @@ import { Patch, PatchState, RawEntitySnapshot } from '@tcg-cards/db/schema/local
 import { TaskRun } from '@tcg-cards/db/schema/local/task';
 
 import { os } from './index';
-import { computeShortName, importParsedHsdata } from '../lib/hearthstone/hsdata-import';
+import { computeShortName } from '../lib/hearthstone/hsdata-import';
 import {
-  startImportJob,
-  startProjectJob,
-  updateImportJob,
-  updateProjectJob,
-  watchImportJobBySourceId,
-  watchProjectJobBySourceTag,
   startRecomputeLatestJob,
   updateRecomputeLatestJob,
   watchRecomputeLatestJob,
-  type HsdataImportProgressEvent,
-  type HsdataProjectProgressEvent,
   type HsdataRecomputeLatestProgressEvent,
 } from '../lib/hearthstone/hsdata-progress';
-import { projectHsdata, recomputeLatestProjection } from '../lib/hearthstone/hsdata-project';
+import { recomputeLatestProjection } from '../lib/hearthstone/hsdata-project';
 import {
   collectAllPatchMeta,
   getHsdataRepoState,
-  readHsdataImportSource,
   listHsdataSources,
   readHsdataSource,
   syncHsdataRemoteVersions,
@@ -40,29 +31,6 @@ import { createTaskStore } from '#task/store';
 
 const sourceIdInput = z.strictObject({
   id: z.string().trim().min(1),
-});
-
-const importSourceInput = z.strictObject({
-  id:        z.string().trim().min(1),
-  dryRun:    z.boolean().optional(),
-  force:     z.boolean().optional(),
-  patchOnly: z.boolean().optional(),
-});
-
-const projectSourceVersionInput = z.strictObject({
-  sourceTag:        z.number().int().nonnegative(),
-  dryRun:           z.boolean().optional(),
-  force:            z.boolean().optional(),
-  skipLatestUpdate: z.boolean().optional(),
-  sampleDiff:       z.boolean().optional(),
-});
-
-const importJobInput = z.strictObject({
-  sourceId: z.string().trim().min(1),
-});
-
-const projectJobInput = z.strictObject({
-  sourceTag: z.number().int().nonnegative(),
 });
 
 const publishStreamInput = z.strictObject({
@@ -279,180 +247,6 @@ const readSource = os
     }
   });
 
-/** Imports one hsdata source into the local raw snapshot tables through the Bun runtime. */
-const importSource = os
-  .route({
-    method:      'POST',
-    description: 'Import one hsdata source into the local database',
-    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
-  })
-  .input(importSourceInput)
-  .output(z.any())
-  .handler(async ({ input }) => {
-    const job = startImportJob({
-      sourceId:         input.id,
-      sourceTag:        null,
-      message:          'Reading hsdata source from the local repository',
-      totalBatchCount:  1,
-      totalEntityCount: null,
-    });
-    updateImportJob(job.jobId, {
-      totalWorkCount:     1,
-      completedWorkCount: 0,
-      workLabel:          'source',
-    });
-
-    try {
-      const source = await readHsdataImportSource(input.id);
-      updateImportJob(job.jobId, {
-        sourceTag:            source.sourceTag,
-        phase:                'parsing_entities',
-        message:              'Parsing CardDefs.xml into canonical entity snapshots',
-        totalEntityCount:     source.parsed.entities.length,
-        completedEntityCount: 0,
-        totalWorkCount:       source.parsed.entities.length,
-        completedWorkCount:   0,
-        workLabel:            'entity',
-      });
-
-      const report = await runWithDb(getLocalDb(), () => importParsedHsdata({
-        parsed:      source.parsed,
-        buildNumber: source.sourceTag,
-        hash:        source.sourceHash,
-        name:        source.name,
-        commit:      source.sourceCommit,
-        uri:         source.sourceUri,
-        dryRun:      input.dryRun,
-        force:       input.force,
-        patchOnly:   input.patchOnly,
-        onProgress(progress) {
-          updateImportJob(job.jobId, {
-            sourceTag: source.sourceTag,
-            ...progress,
-          });
-        },
-      }));
-
-      updateImportJob(job.jobId, {
-        sourceTag:            source.sourceTag,
-        phase:                'completed',
-        message:              'Completed hsdata import',
-        totalEntityCount:     report.entityCount,
-        completedEntityCount: report.entityCount,
-        totalBatchCount:      1,
-        completedBatchCount:  1,
-        currentBatchIndex:    1,
-        totalWorkCount:       report.entityCount,
-        completedWorkCount:   report.entityCount,
-        workLabel:            'entity',
-      });
-
-      return report;
-    } catch (error) {
-      const message = formatRuntimeErrorMessage(error);
-      updateImportJob(job.jobId, {
-        phase:     'failed',
-        message,
-        workLabel: null,
-      });
-      throw toRuntimeError(error);
-    }
-  });
-
-/** Projects one imported source version into the shared card tables through the Bun runtime. */
-const projectSourceVersion = os
-  .route({
-    method:      'POST',
-    description: 'Project one imported hsdata source version into shared rows',
-    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
-  })
-  .input(projectSourceVersionInput)
-  .output(z.any())
-  .handler(async ({ input }) => {
-    startProjectJob({
-      sourceTag: input.sourceTag,
-      message:   'Loading raw snapshots from the local database',
-    });
-
-    try {
-      const database = getLocalDb();
-
-      if (!input.dryRun) {
-        await database.update(PatchState)
-          .set({
-            projectionStatus: 'processing',
-            projectionError:  null,
-            projectedAt:      null,
-          })
-          .where(eq(PatchState.buildNumber, input.sourceTag));
-      }
-
-      const report = await runWithDb(database, () => projectHsdata({
-        sourceTag:        input.sourceTag,
-        dryRun:           input.dryRun,
-        force:            input.force,
-        skipLatestUpdate: input.skipLatestUpdate,
-        sampleDiff:       input.sampleDiff,
-        onProgress(progress) {
-          updateProjectJob(input.sourceTag, progress);
-        },
-      }));
-
-      if (!input.dryRun) {
-        await database.update(PatchState)
-          .set({
-            projectionStatus: 'completed',
-            projectionError:  null,
-            projectedAt:      new Date(),
-          })
-          .where(eq(PatchState.buildNumber, input.sourceTag));
-      }
-
-      updateProjectJob(input.sourceTag, {
-        phase:                  'completed',
-        message:                'Completed hsdata projection',
-        totalSnapshotCount:     report.snapshotCount,
-        completedSnapshotCount: report.snapshotCount,
-        totalWorkCount:         report.snapshotCount,
-        completedWorkCount:     report.snapshotCount,
-        workLabel:              'snapshot',
-        writeBreakdown:         null,
-        reconciledCounts:       {
-          reusedEntities:        report.reusedEntities,
-          reusedLocalizations:   report.reusedLocalizations,
-          reusedRelations:       report.reusedRelations,
-          insertedEntities:      report.insertedEntities,
-          insertedLocalizations: report.insertedLocalizations,
-          insertedRelations:     report.insertedRelations,
-          updatedEntities:       report.updatedEntities,
-          updatedLocalizations:  report.updatedLocalizations,
-          updatedRelations:      report.updatedRelations,
-        },
-      });
-
-      return report;
-    } catch (error) {
-      const message = formatRuntimeErrorMessage(error);
-      if (!input.dryRun) {
-        await getLocalDb().update(PatchState)
-          .set({
-            projectionStatus: 'failed',
-            projectionError:  message,
-            projectedAt:      null,
-          })
-          .where(eq(PatchState.buildNumber, input.sourceTag));
-      }
-
-      updateProjectJob(input.sourceTag, {
-        phase:          'failed',
-        message,
-        workLabel:      null,
-        writeBreakdown: null,
-      });
-      throw toRuntimeError(error);
-    }
-  });
-
 /** Lists local hsdata source version rows from the configured PostgreSQL database. */
 const listLocalSourceVersions = os
   .route({
@@ -472,32 +266,6 @@ const getLocalOverview = os
   })
   .output(z.any())
   .handler(async () => await getLocalHsdataOverview());
-
-/** Streams in-memory import progress updates for one source id. */
-const watchImportJob = os
-  .route({
-    method:      'GET',
-    description: 'Stream in-memory hsdata import progress for one source id',
-    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
-  })
-  .input(importJobInput)
-  .output(eventIterator(z.custom<HsdataImportProgressEvent>()))
-  .handler(async function* ({ input }) {
-    yield* watchImportJobBySourceId(input.sourceId);
-  });
-
-/** Streams in-memory projection progress updates for one source tag. */
-const watchProjectJob = os
-  .route({
-    method:      'GET',
-    description: 'Stream in-memory hsdata projection progress for one source tag',
-    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
-  })
-  .input(projectJobInput)
-  .output(eventIterator(z.custom<HsdataProjectProgressEvent>()))
-  .handler(async function* ({ input }) {
-    yield* watchProjectJobBySourceTag(input.sourceTag);
-  });
 
 const cancelPublishBatchInput = publishStreamInput.extend({
   batchId: z.uuid(),
@@ -619,7 +387,11 @@ const listPublishHistoryRoute = os
     const db = getLocalDb();
     const rows = await db.select()
       .from(TaskRun)
-      .where(eq(TaskRun.taskType, 'hsdata_publish'))
+      .where(and(
+        eq(TaskRun.taskType, 'hsdata_publish'),
+        sql`${TaskRun.params} ->> 'publishTarget' = ${input.publishTarget}`,
+        sql`${TaskRun.params} ->> 'environment' = ${input.environment}`,
+      ))
       .orderBy(desc(TaskRun.createdAt))
       .limit(50);
 
@@ -900,12 +672,8 @@ export const hsdataRouter = {
   syncRemoteVersions,
   listSources,
   readSource,
-  importSource,
-  projectSourceVersion,
   listLocalSourceVersions,
   getLocalOverview,
-  watchImportJob,
-  watchProjectJob,
   cancelIncompletePublishBatch: cancelIncompletePublishBatchRoute,
   listPublishBatches:           listPublishBatchesRoute,
   listPublishHistory:           listPublishHistoryRoute,

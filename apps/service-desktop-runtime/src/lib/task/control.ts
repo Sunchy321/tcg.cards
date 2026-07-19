@@ -25,9 +25,9 @@ export function createTaskController(
       const stagePlans = await definition.buildStagePlan(input);
 
       const snapshot = await store.createTaskRun({
-        run: input,
+        run:            input,
         supportsResume: definition.supportsResume,
-        stages: stagePlans,
+        stages:         stagePlans,
       });
 
       return toTaskControlResult(snapshot);
@@ -50,14 +50,14 @@ export function createTaskController(
 
       // running → pausing, executor will pick it up at the next block boundary
       const updated = await store.updateTaskRun(taskRunId, {
-        status: 'pausing',
+        status:             'pausing',
         controlRequestKind: 'pause',
       });
 
       return {
-        taskRunId: updated.id,
+        taskRunId:   updated.id,
         runRevision: updated.runRevision,
-        status: updated.status,
+        status:      updated.status,
       };
     },
 
@@ -75,14 +75,14 @@ export function createTaskController(
       }
 
       const updated = await store.updateTaskRun(taskRunId, {
-        status: 'resuming',
+        status:             'resuming',
         controlRequestKind: null,
       });
 
       return {
-        taskRunId: updated.id,
+        taskRunId:   updated.id,
         runRevision: updated.runRevision,
-        status: updated.status,
+        status:      updated.status,
       };
     },
 
@@ -106,33 +106,41 @@ export function createTaskController(
 
       if (directFinalize.includes(snapshot.run.status)) {
         const updated = await store.updateTaskRun(taskRunId, {
-          status: 'canceled',
-          terminalReason: 'manual_cancel',
-          finishedAt: new Date(),
+          status:             'canceled',
+          terminalReason:     'manual_cancel',
+          finishedAt:         new Date(),
           controlRequestKind: null,
-          currentStageKey: null,
-          currentStageIndex: null,
-          currentResumeMode: null,
-          pausedResumeMode: null,
+          currentStageKey:    null,
+          currentStageIndex:  null,
+          currentResumeMode:  null,
+          pausedResumeMode:   null,
         });
+        const definition = getTaskDefinition(snapshot.run.taskType);
+        await definition.onCanceled?.({
+          taskType:          snapshot.run.taskType,
+          definitionVersion: snapshot.run.definitionVersion,
+          scope:             snapshot.run.scope,
+          params:            snapshot.run.params,
+        });
+        definition.cleanup?.(taskRunId);
 
         return {
-          taskRunId: updated.id,
+          taskRunId:   updated.id,
           runRevision: updated.runRevision,
-          status: updated.status,
+          status:      updated.status,
         };
       }
 
       // running, pausing need executor to finish current block first
       const updated = await store.updateTaskRun(taskRunId, {
-        status: 'canceling',
+        status:             'canceling',
         controlRequestKind: 'cancel',
       });
 
       return {
-        taskRunId: updated.id,
+        taskRunId:   updated.id,
         runRevision: updated.runRevision,
-        status: updated.status,
+        status:      updated.status,
       };
     },
 
@@ -153,21 +161,21 @@ export function createTaskController(
 
       const definition = getTaskDefinition(snapshot.run.taskType);
       const stagePlans = await definition.buildStagePlan({
-        taskType: snapshot.run.taskType,
+        taskType:          snapshot.run.taskType,
         definitionVersion: snapshot.run.definitionVersion,
-        scope: snapshot.run.scope,
-        params: snapshot.run.params,
+        scope:             snapshot.run.scope,
+        params:            snapshot.run.params,
       });
 
       const newSnapshot = await store.createTaskRun({
         run: {
-          taskType: snapshot.run.taskType,
+          taskType:          snapshot.run.taskType,
           definitionVersion: snapshot.run.definitionVersion,
-          scope: snapshot.run.scope,
-          params: snapshot.run.params,
+          scope:             snapshot.run.scope,
+          params:            snapshot.run.params,
         },
-        supportsResume: definition.supportsResume,
-        stages: stagePlans,
+        supportsResume:   definition.supportsResume,
+        stages:           stagePlans,
         retryOfTaskRunId: taskRunId,
       });
 
@@ -193,20 +201,20 @@ export function createTaskController(
       // Abandon transitions directly — assumes the executor is already dead,
       // no need to set controlRequestKind or wait for acknowledgment
       const updated = await store.updateTaskRun(taskRunId, {
-        status: 'abandoned',
-        terminalReason: terminalReason as any,
-        finishedAt: new Date(),
+        status:             'abandoned',
+        terminalReason:     terminalReason as any,
+        finishedAt:         new Date(),
         controlRequestKind: null,
-        currentStageKey: null,
-        currentStageIndex: null,
-        currentResumeMode: null,
-        pausedResumeMode: null,
+        currentStageKey:    null,
+        currentStageIndex:  null,
+        currentResumeMode:  null,
+        pausedResumeMode:   null,
       });
 
       return {
-        taskRunId: updated.id,
+        taskRunId:   updated.id,
         runRevision: updated.runRevision,
-        status: updated.status,
+        status:      updated.status,
       };
     },
   };
@@ -215,8 +223,8 @@ export function createTaskController(
 /** Projects one run snapshot into the minimal control result returned by write APIs. */
 export function toTaskControlResult(snapshot: TaskRunSnapshot): TaskControlResult {
   return {
-    taskRunId: snapshot.run.id,
+    taskRunId:   snapshot.run.id,
     runRevision: snapshot.run.runRevision,
-    status: snapshot.run.status,
+    status:      snapshot.run.status,
   };
 }

@@ -14,6 +14,8 @@ import { publishTaskDefinition } from './lib/hearthstone/task';
 import { testWorkTaskDefinition } from './lib/task/test-definition';
 import { pinTaskDefinition } from './lib/hearthstone/task/pin';
 import { imageRenderTaskDefinition } from './lib/hearthstone/task/image-render';
+import { hsdataImportTaskDefinition } from './lib/hearthstone/task/import';
+import { hsdataProjectionTaskDefinition } from './lib/hearthstone/task/projection';
 
 /** Resolves the local listen port from the current process environment. */
 function readPort() {
@@ -41,8 +43,8 @@ const testLocalDatabaseInput = z.strictObject({
 });
 
 const testHearthstonePublishTargetInput = z.strictObject({
-  publishTarget: z.string().trim().min(1),
-  environment: z.string().trim().min(1),
+  publishTarget:    z.string().trim().min(1),
+  environment:      z.string().trim().min(1),
   connectionString: z.string().trim().min(1),
 });
 
@@ -57,6 +59,8 @@ registerTaskDefinition(publishTaskDefinition);
 registerTaskDefinition(testWorkTaskDefinition);
 registerTaskDefinition(pinTaskDefinition);
 registerTaskDefinition(imageRenderTaskDefinition);
+registerTaskDefinition(hsdataImportTaskDefinition);
+registerTaskDefinition(hsdataProjectionTaskDefinition);
 
 // Startup cleanup + background scheduler
 import('./runtime-config').then(async ({ hasLocalDatabaseUrl }) => {
@@ -68,7 +72,7 @@ import('./runtime-config').then(async ({ hasLocalDatabaseUrl }) => {
   // Abandon stale tasks left by a previous runtime boot before accepting new work
   await createTaskCleanup(store, scheduler).cleanupStartupState();
 
-  setInterval(() => { void scheduler.trigger(); }, 30_000);
+  setInterval(() => void scheduler.trigger(), 30_000);
 });
 
 /** Decides whether one frontend origin may call the local desktop runtime over HTTP. */
@@ -103,9 +107,9 @@ const rpcHandler = new RPCHandler(router as any, {
 });
 
 hono.use('*', cors({
-  origin: requestOrigin => isAllowedOrigin(requestOrigin) ? requestOrigin ?? '*' : '',
-  allowMethods: ['GET', 'POST', 'OPTIONS'],
-  allowHeaders: ['content-type', 'authorization', 'x-tcg-editor-runtime', 'x-tcg-sync-mode', 'x-tcg-editor-identity'],
+  origin:        requestOrigin => isAllowedOrigin(requestOrigin) ? requestOrigin ?? '*' : '',
+  allowMethods:  ['GET', 'POST', 'OPTIONS'],
+  allowHeaders:  ['content-type', 'authorization', 'x-tcg-editor-runtime', 'x-tcg-sync-mode', 'x-tcg-editor-identity'],
   exposeHeaders: ['content-type'],
 }));
 

@@ -26,17 +26,32 @@ export function createTaskCleanup(
       const active = await store.listActiveTaskRuns();
 
       for (const run of active) {
+        if (staleExecutorStatuses.includes(run.status) && run.currentResumeMode === 'durable' && run.currentStageKey != null) {
+          await store.transitionStage(
+            run.id,
+            run.currentStageKey,
+            {
+              status:             'paused',
+              controlRequestKind: null,
+              pausedResumeMode:   'durable',
+              currentResumeMode:  'durable',
+            },
+            { status: 'paused' },
+          ).catch(() => {});
+          continue;
+        }
+
         // Tasks with an actively running executor from a previous boot are stale
         if (staleExecutorStatuses.includes(run.status)) {
           await store.updateTaskRun(run.id, {
-            status: 'abandoned',
-            terminalReason: 'abandoned_stale_run',
-            finishedAt: new Date(),
+            status:             'abandoned',
+            terminalReason:     'abandoned_stale_run',
+            finishedAt:         new Date(),
             controlRequestKind: null,
-            currentStageKey: null,
-            currentStageIndex: null,
-            currentResumeMode: null,
-            pausedResumeMode: null,
+            currentStageKey:    null,
+            currentStageIndex:  null,
+            currentResumeMode:  null,
+            pausedResumeMode:   null,
           }).catch(() => {});
           continue;
         }
@@ -44,14 +59,14 @@ export function createTaskCleanup(
         // session_bound paused tasks from a previous boot cannot be resumed
         if (run.status === 'paused' && run.pausedResumeMode === 'session_bound' && run.runtimeBootId !== runtimeBootId) {
           await store.updateTaskRun(run.id, {
-            status: 'abandoned',
-            terminalReason: 'abandoned_stale_run',
-            finishedAt: new Date(),
+            status:             'abandoned',
+            terminalReason:     'abandoned_stale_run',
+            finishedAt:         new Date(),
             controlRequestKind: null,
-            currentStageKey: null,
-            currentStageIndex: null,
-            currentResumeMode: null,
-            pausedResumeMode: null,
+            currentStageKey:    null,
+            currentStageIndex:  null,
+            currentResumeMode:  null,
+            pausedResumeMode:   null,
           }).catch(() => {});
         }
       }
