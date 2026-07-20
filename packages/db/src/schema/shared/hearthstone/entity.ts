@@ -69,6 +69,12 @@ export const BaseEntity = schema.table('entities', {
   artist:            text('artist').notNull(),
   overrideWatermark: text('override_watermark'),
 
+  // Extrapolated from newer unpack builds — may not be accurate for older cards.
+  signatureArtist:  text('signature_artist'),
+  creditsCardName:  text('credits_card_name'),
+  suggestionWeight: integer('suggestion_weight'),
+  changeVersion:    integer('change_version'),
+
   faction: text('faction').$type<NonNullable<IEntity['faction']>>(),
 
   mechanics:      jsonb('mechanics').$type<IEntity['mechanics']>().notNull().default({}),
@@ -104,15 +110,18 @@ export const BaseEntityLocalization = schema.table('entity_localizations', {
   renderModel:      jsonb('render_model').$type<IRenderModel>(),
   isLatest:         boolean('is_latest').notNull().default(false),
 
-  name:            text('name').notNull(),
-  text:            text('text').notNull(),
-  richText:        text('rich_text').notNull(),
-  displayText:     text('display_text').notNull(),
-  targetText:      text('target_text'),
-  textInPlay:      text('text_in_play'),
-  howToEarn:       text('how_to_earn'),
-  howToEarnGolden: text('how_to_earn_golden'),
-  flavorText:      text('flavor_text'),
+  name:               text('name').notNull(),
+  text:               text('text').notNull(),
+  richText:           text('rich_text').notNull(),
+  displayText:        text('display_text').notNull(),
+  targetText:         text('target_text'),
+  textInPlay:         text('text_in_play'),
+  howToEarn:          text('how_to_earn'),
+  howToEarnGolden:    text('how_to_earn_golden'),
+  // Extrapolated from newer unpack builds.
+  howToEarnSignature: text('how_to_earn_signature'),
+  howToEarnDiamond:   text('how_to_earn_diamond'),
+  flavorText:         text('flavor_text'),
 
   locChangeType: changeType('loc_change_type').notNull().default('unknown'),
 

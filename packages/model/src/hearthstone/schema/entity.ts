@@ -47,6 +47,18 @@ export const textBuilderType = z.enum([
   'bg_quest',
   'multiple_alt_text_script_data_nums_ref_sdn6_card_dbid',
   'zilliax_deluxe_3000',
+  'reference_script_data_num_1_num_2_entity_power',
+  'battlegrounds_zilliax',
+  'spell_absorb',
+  'alt_text_reference_script_data_num_1_num_2_entity_power',
+  'rewind_mechanic_card_text_builder',
+  'battlegrounds_tavern_spell',
+  'dynamic_keyword',
+  'reference_script_data_num_1_class',
+  'herald',
+  'alternate_card_text_with_script_data',
+  'battlegrounds_deep_blues_spell',
+  'silver_hand_recruit',
 ]);
 
 export const changeType = z.enum([
@@ -106,20 +118,24 @@ export const renderModel = z.object({
   techLevel:         z.int().optional(),
   rune:              rune.array().optional(),
   renderMechanics:   renderMechanicMap,
+  textBuilderType,
 });
 
 export const entityLocalization = z.strictObject({
   lang: locale,
 
-  name:            z.string(),
-  text:            z.string(),
-  richText:        z.string(),
-  displayText:     z.string(),
-  targetText:      z.string().nullable(),
-  textInPlay:      z.string().nullable(),
-  howToEarn:       z.string().nullable(),
-  howToEarnGolden: z.string().nullable(),
-  flavorText:      z.string().nullable(),
+  name:               z.string(),
+  text:               z.string(),
+  richText:           z.string(),
+  displayText:        z.string(),
+  targetText:         z.string().nullable(),
+  textInPlay:         z.string().nullable(),
+  howToEarn:          z.string().nullable(),
+  howToEarnGolden:    z.string().nullable(),
+  // Extrapolated from newer unpack builds.
+  howToEarnSignature: z.string().nullable(),
+  howToEarnDiamond:   z.string().nullable(),
+  flavorText:         z.string().nullable(),
 
   locChangeType: changeType.default('unknown'),
 });
@@ -167,6 +183,12 @@ export const entity = z.strictObject({
 
   artist:            z.string(),
   overrideWatermark: z.string().nullable(),
+
+  // Extrapolated from newer unpack builds — may not be accurate for older cards.
+  signatureArtist:  z.string().nullable(),
+  creditsCardName:  z.string().nullable(),
+  suggestionWeight: z.int().nullable(),
+  changeVersion:    z.int().nullable(),
 
   faction: faction.nullable(),
 

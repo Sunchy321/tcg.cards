@@ -494,6 +494,10 @@ function entityManifestValue(row: typeof LocalEntity.$inferSelect) {
     textBuilderType:   row.textBuilderType,
     changeType:        row.changeType,
     isLatest:          row.isLatest,
+    signatureArtist:   row.signatureArtist,
+    creditsCardName:   row.creditsCardName,
+    suggestionWeight:  row.suggestionWeight,
+    changeVersion:     row.changeVersion,
   };
 }
 
@@ -514,9 +518,11 @@ function localizationManifestValue(row: typeof LocalEntityLocalization.$inferSel
     displayText:      row.displayText,
     targetText:       row.targetText,
     textInPlay:       row.textInPlay,
-    howToEarn:        row.howToEarn,
-    howToEarnGolden:  row.howToEarnGolden,
-    flavorText:       row.flavorText,
+    howToEarn:          row.howToEarn,
+    howToEarnGolden:    row.howToEarnGolden,
+    howToEarnSignature: row.howToEarnSignature,
+    howToEarnDiamond:   row.howToEarnDiamond,
+    flavorText:         row.flavorText,
     locChangeType:    row.locChangeType,
   };
 }

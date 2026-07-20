@@ -138,27 +138,35 @@ interface EntityRow {
   textBuilderType:   string;
   changeType:        string;
   isLatest:          boolean;
+  // Extrapolated from unpack data.
+  signatureArtist:   string | null;
+  creditsCardName:   string | null;
+  suggestionWeight:  number | null;
+  changeVersion:     number | null;
 }
 
 interface LocalizationRow {
-  cardId:           string;
-  version:          number[];
-  lang:             Locale;
-  revisionHash:     string;
-  localizationHash: string;
-  renderHash:       string | null;
-  renderModel:      RenderModel | null;
-  isLatest:         boolean;
-  name:             string;
-  text:             string;
-  richText:         string;
-  displayText:      string;
-  targetText:       string | null;
-  textInPlay:       string | null;
-  howToEarn:        string | null;
-  howToEarnGolden:  string | null;
-  flavorText:       string | null;
-  locChangeType:    string;
+  cardId:             string;
+  version:            number[];
+  lang:               Locale;
+  revisionHash:       string;
+  localizationHash:   string;
+  renderHash:         string | null;
+  renderModel:        RenderModel | null;
+  isLatest:           boolean;
+  name:               string;
+  text:               string;
+  richText:           string;
+  displayText:        string;
+  targetText:         string | null;
+  textInPlay:         string | null;
+  howToEarn:          string | null;
+  howToEarnGolden:    string | null;
+  // Extrapolated from unpack data.
+  howToEarnSignature: string | null;
+  howToEarnDiamond:   string | null;
+  flavorText:         string | null;
+  locChangeType:      string;
 }
 
 interface RelationRow {
@@ -171,14 +179,16 @@ interface RelationRow {
 }
 
 interface LocalizationDraft {
-  name:            string;
-  richText:        string;
-  targetText:      string | null;
-  textInPlay:      string | null;
-  howToEarn:       string | null;
-  howToEarnGolden: string | null;
-  flavorText:      string | null;
-  locChangeType:   string;
+  name:               string;
+  richText:           string;
+  targetText:         string | null;
+  textInPlay:         string | null;
+  howToEarn:          string | null;
+  howToEarnGolden:    string | null;
+  howToEarnSignature: string | null;
+  howToEarnDiamond:   string | null;
+  flavorText:         string | null;
+  locChangeType:      string;
 }
 
 interface ProjectionContext {
@@ -925,14 +935,16 @@ function normalizeTagValue(
 
 function createLocalizationDraft(): LocalizationDraft {
   return {
-    name:            '',
-    richText:        '',
-    targetText:      null,
-    textInPlay:      null,
-    howToEarn:       null,
-    howToEarnGolden: null,
-    flavorText:      null,
-    locChangeType:   'unknown',
+    name:               '',
+    richText:           '',
+    targetText:         null,
+    textInPlay:         null,
+    howToEarn:          null,
+    howToEarnGolden:    null,
+    howToEarnSignature: null,
+    howToEarnDiamond:   null,
+    flavorText:         null,
+    locChangeType:      'unknown',
   };
 }
 
@@ -1245,6 +1257,11 @@ function createEntityDraft(snapshot: RawSnapshotRow): EntityRow {
     textBuilderType:   'default',
     changeType:        'unknown',
     isLatest:          false,
+    // Extrapolated from unpack data.
+    signatureArtist:   null,
+    creditsCardName:   null,
+    suggestionWeight:  null,
+    changeVersion:     null,
   };
 }
 
@@ -1291,15 +1308,17 @@ function buildRevisionHashPayload(row: LocalizationlessEntityRow): JsonMap {
 
 function buildLocalizationHashPayload(row: LocalizationlessLocalizationRow): JsonMap {
   return {
-    cardId:          row.cardId,
-    lang:            row.lang,
-    name:            row.name,
-    richText:        row.richText,
-    targetText:      row.targetText,
-    textInPlay:      row.textInPlay,
-    howToEarn:       row.howToEarn,
-    howToEarnGolden: row.howToEarnGolden,
-    flavorText:      row.flavorText,
+    cardId:             row.cardId,
+    lang:               row.lang,
+    name:               row.name,
+    richText:           row.richText,
+    targetText:         row.targetText,
+    textInPlay:         row.textInPlay,
+    howToEarn:          row.howToEarn,
+    howToEarnGolden:    row.howToEarnGolden,
+    howToEarnSignature: row.howToEarnSignature,
+    howToEarnDiamond:   row.howToEarnDiamond,
+    flavorText:         row.flavorText,
   };
 }
 
@@ -1361,6 +1380,7 @@ function buildRenderModel(
     techLevel:         entity.techLevel,
     rune:              entity.rune,
     renderMechanics,
+    textBuilderType:   entity.textBuilderType,
   };
   // Omit null/undefined fields so absent optional fields don't change the render hash.
   const stripped = Object.fromEntries(
@@ -1666,6 +1686,11 @@ function finalizeEntityDraft(
     referencedTags:    draft.referencedTags,
     textBuilderType:   'default',
     changeType:        draft.changeType,
+    // Extrapolated from unpack data.
+    signatureArtist:   draft.signatureArtist,
+    creditsCardName:   draft.creditsCardName,
+    suggestionWeight:  draft.suggestionWeight,
+    changeVersion:     draft.changeVersion,
   };
 
   return {
@@ -1700,6 +1725,8 @@ function finalizeLocalizationRows(
       textInPlay:       localization.textInPlay,
       howToEarn:        localization.howToEarn,
       howToEarnGolden:  localization.howToEarnGolden,
+      howToEarnSignature: localization.howToEarnSignature,
+      howToEarnDiamond:   localization.howToEarnDiamond,
       flavorText:       localization.flavorText,
       locChangeType:    localization.locChangeType,
     };
