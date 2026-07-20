@@ -82,6 +82,7 @@ async function resolveSideRenderModel(
       eq(Entity.cardId, EntityLocalization.cardId),
       eq(Entity.revisionHash, EntityLocalization.revisionHash),
       sql`${Entity.version} && ${EntityLocalization.version}`,
+      sql`${buildNumber} = ANY(${EntityLocalization.version})`,
     ))
     .leftJoin(HearthstoneSet, eq(Entity.set, HearthstoneSet.setId))
     .where(and(
