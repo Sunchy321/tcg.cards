@@ -11,102 +11,104 @@ import { getLocalDb } from './hsdata-local-db';
 
 /** One local source version row returned to the desktop frontend. */
 export interface HsdataSourceVersionStatus {
-  sourceTag: number;
-  build: number | null;
-  sourceCommit: string;
-  sourceUri: string;
-  importStatus: string;
-  importedAt: string | null;
+  sourceTag:        number;
+  build:            number | null;
+  sourceCommit:     string;
+  sourceUri:        string;
+  importStatus:     string;
+  importedAt:       string | null;
   projectionStatus: string;
-  projectedAt: string | null;
-  projectionError: string | null;
+  projectedAt:      string | null;
+  projectionError:  string | null;
+  unpackStatus:     string;
+  unpackedAt:       string | null;
 }
 
 /** Import state counters grouped for the overview page. */
 export interface HsdataStatusCounts {
-  completed: number;
-  failed: number;
+  completed:  number;
+  failed:     number;
   processing: number;
-  pending: number;
+  pending:    number;
 }
 
 /** source_versions overview card returned to the desktop frontend. */
 export interface HsdataSourceVersionOverview {
-  name: 'source_versions';
-  kind: 'table';
-  rows: number;
-  latestImportedAt?: string;
+  name:                      'source_versions';
+  kind:                      'table';
+  rows:                      number;
+  latestImportedAt?:         string;
   latestCompletedSourceTag?: number;
-  statusCounts: HsdataStatusCounts;
+  statusCounts:              HsdataStatusCounts;
 }
 
 /** raw_entity_snapshots overview card returned to the desktop frontend. */
 export interface HsdataRawEntitySnapshotOverview {
-  name: 'raw_entity_snapshots';
-  kind: 'table';
-  rows: number;
-  projectedRows: number;
-  unprojectedRows: number;
+  name:              'raw_entity_snapshots';
+  kind:              'table';
+  rows:              number;
+  projectedRows:     number;
+  unprojectedRows:   number;
   distinctCardCount: number;
-  updatedAt?: string;
+  updatedAt?:        string;
 }
 
 /** raw_entity_snapshot_tags overview card returned to the desktop frontend. */
 export interface HsdataRawEntitySnapshotTagOverview {
-  name: 'raw_entity_snapshot_tags';
-  kind: 'table';
-  rows: number;
+  name:                  'raw_entity_snapshot_tags';
+  kind:                  'table';
+  rows:                  number;
   distinctSnapshotCount: number;
-  distinctEnumCount: number;
+  distinctEnumCount:     number;
 }
 
 /** tag_value_view overview card returned to the desktop frontend. */
 export interface HsdataTagValueViewOverview {
-  name: 'tag_value_view';
-  kind: 'view';
-  rows: number;
+  name:                  'tag_value_view';
+  kind:                  'view';
+  rows:                  number;
   distinctSnapshotCount: number;
-  distinctEnumCount: number;
+  distinctEnumCount:     number;
 }
 
 /** Aggregate overview payload returned to the desktop frontend. */
 export interface HsdataOverview {
   summary: {
-    sourceVersionCount: number;
+    sourceVersionCount:          number;
     completedSourceVersionCount: number;
-    failedSourceVersionCount: number;
-    snapshotCount: number;
-    tagRowCount: number;
+    failedSourceVersionCount:    number;
+    snapshotCount:               number;
+    tagRowCount:                 number;
   };
   tables: {
-    sourceVersions: HsdataSourceVersionOverview;
-    rawEntitySnapshots: HsdataRawEntitySnapshotOverview;
+    sourceVersions:        HsdataSourceVersionOverview;
+    rawEntitySnapshots:    HsdataRawEntitySnapshotOverview;
     rawEntitySnapshotTags: HsdataRawEntitySnapshotTagOverview;
-    tagValueView: HsdataTagValueViewOverview;
+    tagValueView:          HsdataTagValueViewOverview;
   };
 }
 
 /** Import job state returned for the current runtime-side hsdata import. */
 export interface HsdataImportJobSnapshot {
-  jobId: string;
-  sourceTag: number;
-  build: number;
-  sourceHash: string;
-  dryRun: boolean;
-  force: boolean;
-  status: string;
+  jobId:                string;
+  sourceTag:            number;
+  build:                number;
+  sourceHash:           string;
+  dryRun:               boolean;
+  force:                boolean;
+  status:               string;
   stagingCleanupStatus: string;
-  totalBatchCount: number;
-  completedBatchCount: number;
-  failedBatchCount: number;
+  totalBatchCount:      number;
+  completedBatchCount:  number;
+  failedBatchCount:     number;
   processingBatchCount: number;
-  totalEntityCount: number;
+  totalEntityCount:     number;
   completedEntityCount: number;
-  report: unknown;
-  error: string | null;
-  stagingCleanupError: string | null;
-  cleanedAt: string | null;
-  finalizedAt: string | null;
+  report:               unknown;
+  error:                string | null;
+  stagingCleanupError:  string | null;
+  cleanedAt:            string | null;
+  finalizedAt:          string | null;
 }
 
 /** Converts one timestamp-like value into an ISO string when present. */
@@ -131,6 +133,8 @@ export const listLocalHsdataSourceVersions = async () => {
     projectionStatus: PatchState.projectionStatus,
     projectedAt:      PatchState.projectedAt,
     projectionError:  PatchState.projectionError,
+    unpackStatus:     PatchState.unpackStatus,
+    unpackedAt:       PatchState.unpackedAt,
   })
     .from(PatchState)
     .orderBy(desc(PatchState.buildNumber));
@@ -145,6 +149,8 @@ export const listLocalHsdataSourceVersions = async () => {
     projectionStatus: row.projectionStatus,
     projectedAt:      toIsoString(row.projectedAt),
     projectionError:  row.projectionError,
+    unpackStatus:     row.unpackStatus,
+    unpackedAt:       toIsoString(row.unpackedAt),
   } satisfies HsdataSourceVersionStatus));
 };
 
@@ -159,11 +165,11 @@ export const getLocalHsdataOverview = async () => {
     rawSnapshotTagSummary,
   ] = await Promise.all([
     db.select({
-      rows:       sql<number>`count(*)`,
-      completed:  sql<number>`coalesce(sum(case when ${PatchState.importStatus} = 'completed' then 1 else 0 end), 0)`,
-      failed:     sql<number>`coalesce(sum(case when ${PatchState.importStatus} = 'failed' then 1 else 0 end), 0)`,
-      processing: sql<number>`coalesce(sum(case when ${PatchState.importStatus} = 'processing' then 1 else 0 end), 0)`,
-      pending:    sql<number>`coalesce(sum(case when ${PatchState.importStatus} = 'pending' then 1 else 0 end), 0)`,
+      rows:             sql<number>`count(*)`,
+      completed:        sql<number>`coalesce(sum(case when ${PatchState.importStatus} = 'completed' then 1 else 0 end), 0)`,
+      failed:           sql<number>`coalesce(sum(case when ${PatchState.importStatus} = 'failed' then 1 else 0 end), 0)`,
+      processing:       sql<number>`coalesce(sum(case when ${PatchState.importStatus} = 'processing' then 1 else 0 end), 0)`,
+      pending:          sql<number>`coalesce(sum(case when ${PatchState.importStatus} = 'pending' then 1 else 0 end), 0)`,
       latestImportedAt: sql<Date | string | null>`max(${PatchState.importedAt})`,
     }).from(PatchState).then(rows => rows[0]),
     db.select({
@@ -198,12 +204,12 @@ export const getLocalHsdataOverview = async () => {
     },
     tables: {
       sourceVersions: {
-        name:                      'source_versions',
-        kind:                      'table',
-        rows:                      sourceVersionSummary?.rows ?? 0,
-        latestImportedAt:          toIsoString(sourceVersionSummary?.latestImportedAt ?? null) ?? undefined,
-        latestCompletedSourceTag:  latestCompletedSourceVersion?.sourceTag ?? undefined,
-        statusCounts: {
+        name:                     'source_versions',
+        kind:                     'table',
+        rows:                     sourceVersionSummary?.rows ?? 0,
+        latestImportedAt:         toIsoString(sourceVersionSummary?.latestImportedAt ?? null) ?? undefined,
+        latestCompletedSourceTag: latestCompletedSourceVersion?.sourceTag ?? undefined,
+        statusCounts:             {
           completed:  sourceVersionSummary?.completed ?? 0,
           failed:     sourceVersionSummary?.failed ?? 0,
           processing: sourceVersionSummary?.processing ?? 0,

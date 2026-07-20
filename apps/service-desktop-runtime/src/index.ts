@@ -16,6 +16,7 @@ import { pinTaskDefinition } from './lib/hearthstone/task/pin';
 import { imageRenderTaskDefinition } from './lib/hearthstone/task/image-render';
 import { hsdataImportTaskDefinition } from './lib/hearthstone/task/import';
 import { hsdataProjectionTaskDefinition } from './lib/hearthstone/task/projection';
+import { unpackImportTaskDefinition } from './lib/hearthstone/task/unpack-import';
 
 /** Resolves the local listen port from the current process environment. */
 function readPort() {
@@ -61,6 +62,7 @@ registerTaskDefinition(pinTaskDefinition);
 registerTaskDefinition(imageRenderTaskDefinition);
 registerTaskDefinition(hsdataImportTaskDefinition);
 registerTaskDefinition(hsdataProjectionTaskDefinition);
+registerTaskDefinition(unpackImportTaskDefinition);
 
 // Startup cleanup + background scheduler
 import('./runtime-config').then(async ({ hasLocalDatabaseUrl }) => {

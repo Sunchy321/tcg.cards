@@ -48,6 +48,10 @@ export const PatchState = dataSchema.table('patch_states', {
   importedAt:       timestamp('imported_at'),
   projectedAt:      timestamp('projected_at'),
 
+  unpackStatus: text('unpack_status').notNull().default('pending'),
+  unpackError:  text('unpack_error'),
+  unpackedAt:   timestamp('unpacked_at'),
+
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at')
     .defaultNow()

@@ -12,6 +12,7 @@ import {
 } from '../../lib/hearthstone/task/image-render';
 import { hsdataImportTaskDefinition } from '../../lib/hearthstone/task/import';
 import { hsdataProjectionTaskDefinition } from '../../lib/hearthstone/task/projection';
+import { unpackImportTaskDefinition } from '../../lib/hearthstone/task/unpack-import';
 
 /** If there's an active task on this scope from a previous boot, abandon it. */
 async function abandonStaleTask(taskType: string, scopeType: string, scopeKey: string): Promise<void> {
@@ -159,4 +160,32 @@ const hsdataProjection = os
     });
   });
 
-export const createTask = { publish, pin, imageRender, imageDownload, hsdataImport, hsdataProjection };
+const unpackImport = os
+  .input(z.strictObject({
+    zipName: z.string().trim().min(1),
+    dryRun:  z.boolean().optional(),
+  }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    const scope = { zipName: input.zipName };
+    const resolved = unpackImportTaskDefinition.resolveScope(scope);
+    const active = await getStore().getActiveTaskRun(
+      unpackImportTaskDefinition.taskType,
+      unpackImportTaskDefinition.scopeType,
+      resolved.key,
+    );
+    if (active) throw new Error('An unpack import task is already active');
+
+    return createAndRunTask(unpackImportTaskDefinition.taskType, {
+      taskType:          unpackImportTaskDefinition.taskType,
+      definitionVersion: unpackImportTaskDefinition.definitionVersion,
+      scope:             {
+        type:     unpackImportTaskDefinition.scopeType,
+        key:      resolved.key,
+        snapshot: resolved.snapshot as Record<string, unknown>,
+      },
+      params: input,
+    });
+  });
+
+export const createTask = { publish, pin, imageRender, imageDownload, hsdataImport, hsdataProjection, unpackImport };

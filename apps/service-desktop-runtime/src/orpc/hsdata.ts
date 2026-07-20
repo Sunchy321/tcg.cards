@@ -69,6 +69,8 @@ const sourceVersionStatus = z.object({
   projectionStatus: z.string(),
   projectedAt:      z.string().nullable(),
   projectionError:  z.string().nullable(),
+  unpackStatus:     z.string(),
+  unpackedAt:       z.string().nullable(),
 });
 
 /** Reads one object-like cause from an unknown thrown value. */
