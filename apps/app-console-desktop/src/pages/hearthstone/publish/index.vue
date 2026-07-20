@@ -44,6 +44,7 @@ const cancelingBatchId = ref('');
 const deletingBatchId = ref('');
 const publishType = ref('card_data');
 const dryRun = ref(false);
+const force = ref(false);
 
 // Single-card dev publish
 const singleCardId = ref('');
@@ -188,6 +189,7 @@ const operations: TaskOperation[] = [
       publishTarget: 'hearthstone',
       environment: selectedEnvironment.value,
       dryRun: dryRun.value,
+      force: force.value,
     }) as Promise<TaskPageSnapshot>,
   },
   {
@@ -353,6 +355,7 @@ const PUBLISH_PAGE_STATE_KEY = 'console-desktop-hearthstone-publish-page';
 
 interface PublishPageState {
   dryRun: boolean;
+  force: boolean;
   environment: string;
   taskRunId?: string | null;
 }
@@ -362,6 +365,7 @@ let persistedTaskRunId: string | null = null;
 function persistPublishPageState() {
   const state: PublishPageState = {
     dryRun: dryRun.value,
+    force: force.value,
     environment: selectedEnvironment.value,
     taskRunId: persistedTaskRunId,
   };
@@ -371,6 +375,7 @@ function persistPublishPageState() {
 function normalizePublishPageState(raw: Partial<PublishPageState>): PublishPageState {
   return {
     dryRun: typeof raw.dryRun === 'boolean' ? raw.dryRun : false,
+    force: typeof raw.force === 'boolean' ? raw.force : false,
     environment: typeof raw.environment === 'string' ? raw.environment : '',
     taskRunId: typeof raw.taskRunId === 'string' ? raw.taskRunId : null,
   };
@@ -383,6 +388,7 @@ function restorePublishPageState() {
     const parsed = JSON.parse(raw);
     const state = normalizePublishPageState(parsed);
     dryRun.value = state.dryRun;
+    force.value = state.force ?? false;
     selectedEnvironment.value = state.environment;
     persistedTaskRunId = state.taskRunId ?? null;
   } catch {
@@ -390,7 +396,7 @@ function restorePublishPageState() {
   }
 }
 
-watch([dryRun, selectedEnvironment], () => {
+watch([dryRun, force, selectedEnvironment], () => {
   persistPublishPageState();
 });
 
@@ -515,6 +521,7 @@ onMounted(async () => {
             />
           </UFormField>
           <UCheckbox v-model="dryRun" label="Dry Run" :disabled="disabled" />
+          <UCheckbox v-model="force" label="Force" :disabled="disabled" />
         </div>
       </template>
     </TaskController>

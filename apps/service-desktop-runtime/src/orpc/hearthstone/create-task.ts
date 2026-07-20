@@ -34,6 +34,7 @@ const publish = os
     publishTarget: z.literal('hearthstone'),
     environment:   z.string().trim().min(1),
     dryRun:        z.boolean().optional(),
+    force:         z.boolean().optional(),
   }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
@@ -47,7 +48,7 @@ const publish = os
       taskType:          publishTaskDefinition.taskType,
       definitionVersion: publishTaskDefinition.definitionVersion,
       scope:             { type: publishTaskDefinition.scopeType, key: resolved.key, snapshot: resolved.snapshot as Record<string, unknown> },
-      params:            { publishType: 'card_data', dryRun: input.dryRun, operationKind: 'publish' },
+      params:            { publishType: 'card_data', dryRun: input.dryRun, operationKind: 'publish', force: input.force },
     });
   });
 

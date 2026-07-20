@@ -90,6 +90,7 @@ interface BaselineBlockInput {
 interface PublishCtx {
   db:              PublishDb;
   dryRun:          boolean;
+  force:           boolean;
   operationKind:   string;
   stream:          { publishTarget: string, environment: string, publishType: string, targetFingerprint: string };
   batchId?:        string;
@@ -355,6 +356,7 @@ async function applyingBlock(
       previousManifestHash:  batch.previousManifestHash ?? null, buildMax:              batch.buildMax,
       generationFingerprint: batch.generationFingerprint, generationOrder:       batch.generationOrder,
       leaseHolderId:         batchId,
+      force:                 ctx.force,
     });
     ctx.leaseHolderId = batchId;
     ctx.leaseStream = { publishTarget: batch.publishTarget, environment: batch.environment, publishType: batch.publishType };
@@ -559,6 +561,7 @@ export const publishTaskDefinition = createDefinition('hsdata_publish', { versio
   .input(z.object({
     dryRun:        z.boolean().optional(),
     operationKind: z.enum(['publish', 'revert']),
+    force:         z.boolean().optional(),
   }))
   .output(z.object({
     manifestHash:         z.string(),
@@ -589,6 +592,7 @@ export const publishTaskDefinition = createDefinition('hsdata_publish', { versio
       return {
         db:              getLocalDb() as unknown as PublishDb,
         dryRun:          input.dryRun ?? false,
+        force:           input.force ?? false,
         operationKind:   input.operationKind,
         stream:          { publishTarget: target.publishTarget, environment: target.environment, publishType: 'card_data', targetFingerprint: target.targetFingerprint },
         pendingRowCount: 0,
@@ -620,6 +624,20 @@ export const publishTaskDefinition = createDefinition('hsdata_publish', { versio
         if (pendingCount > 0) {
           ctx.batchId = incomplete.id;
           ctx.pendingRowCount = pendingCount;
+          ctx.loader = {
+            baselineRowHashes,
+            previousManifestHash: baseline?.manifestHash ?? null,
+            previousRange:        baseline ? { buildMin: baseline.buildMin, buildMax: baseline.buildMax } : { buildMin: incomplete.buildMin, buildMax: incomplete.buildMax },
+            publishedAt:          baseline?.publishedAt ?? null,
+            batchId:              incomplete.id,
+            counts:               emptyCounts(),
+            builds:               [],
+            processed:            0,
+            totalRows:            pendingCount,
+            scanCursors:          new Map([['entities', undefined], ['entity_localizations', undefined], ['entity_relations', undefined], ['cards', undefined], ['patches', undefined]]),
+            tableTotals:          {} as Record<TableName, number>,
+            tableProcessed:       {} as Record<TableName, number>,
+          };
           return {
             total:      pendingCount,
             blockInput: { cursor: null, processed: 0 } as LoadingBlockInput,

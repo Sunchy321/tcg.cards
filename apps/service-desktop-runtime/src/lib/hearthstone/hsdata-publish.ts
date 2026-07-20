@@ -233,6 +233,7 @@ export async function assertRemotePublishGate(
     generationFingerprint: GenerationFingerprint;
     generationOrder:       GenerationOrder;
     leaseHolderId:         string;
+    force?:                boolean;
   },
 ): Promise<RemotePublishGateState> {
   const registration = await remoteDb.select()
@@ -326,6 +327,7 @@ export async function assertRemotePublishGate(
     && ledger.generationFingerprint === input.generationFingerprint
     && ledger.buildMax === input.buildMax
     && ledger.manifestHash !== input.manifestHash
+    && !input.force
   ) {
     throw new Error(
       `Remote publish stream ${input.publishTarget}/${input.environment}/${input.publishType} manifest diverged on the same lineage: incoming ${input.manifestHash}, remote ${ledger.manifestHash}.`,
