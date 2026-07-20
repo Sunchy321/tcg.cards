@@ -82,6 +82,7 @@ export const announcementItem = z.strictObject({
 
   type:           gameChangeType,
   announcementId: z.uuid(),
+  order:          z.number().int(),
 
   effectiveDate: z.string().nullable(),
   format:        z.string().nullable(),

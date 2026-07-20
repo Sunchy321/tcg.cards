@@ -28,6 +28,7 @@ export const AnnouncementItem = schema.table('announcement_items', {
 
   type:           text('type').notNull(),
   announcementId: uuid('announcement_id').notNull(),
+  order:          integer('order').notNull().default(0),
 
   effectiveDate: text('effective_date'),
   format:        text('format'),

@@ -94,7 +94,11 @@
             </div>
             <div class="space-y-3">
               <div v-for="(item, index) in form.items" :key="item._key" class="relative rounded-lg border border-slate-200 p-3">
-                <UButton icon="i-lucide-x" color="error" variant="ghost" size="xs" class="absolute right-2 top-2" @click="removeItem(index)" />
+                <div class="absolute right-2 top-2 flex items-center gap-0.5">
+                  <UButton icon="i-lucide-chevron-up" color="neutral" variant="ghost" size="xs" :disabled="index === 0" @click="moveItem(index, -1)" />
+                  <UButton icon="i-lucide-chevron-down" color="neutral" variant="ghost" size="xs" :disabled="index === form.items.length - 1" @click="moveItem(index, 1)" />
+                  <UButton icon="i-lucide-x" color="error" variant="ghost" size="xs" @click="removeItem(index)" />
+                </div>
                 <div class="grid grid-cols-3 gap-x-4 gap-y-3 pr-6">
                   <UFormField label="类型" required>
                     <USelect v-model="item.type" :items="itemTypeOptions" class="w-full" />
@@ -751,6 +755,12 @@ function removeItem(i: number) {
   const item = form.items[i];
   if (item) clearItemPreviewState(item._key);
   form.items.splice(i, 1);
+}
+function moveItem(from: number, direction: -1 | 1) {
+  const to = from + direction;
+  if (to < 0 || to >= form.items.length) return;
+  const item = form.items.splice(from, 1)[0]!;
+  form.items.splice(to, 0, item);
 }
 
 async function handleAiParse(index: number) {

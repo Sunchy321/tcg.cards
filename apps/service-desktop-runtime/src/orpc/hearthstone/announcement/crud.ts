@@ -3,7 +3,7 @@
 
 import { ORPCError, os } from '@orpc/server';
 import { z } from 'zod';
-import { desc, eq } from 'drizzle-orm';
+import { asc, desc, eq } from 'drizzle-orm';
 
 import { Announcement, AnnouncementItem } from '@tcg-cards/db/schema/local/hearthstone';
 
@@ -57,7 +57,7 @@ const get = os
     const db = getLocalDb();
     const row = await db.select().from(Announcement).where(eq(Announcement.id, input.id)).then(r => r[0]);
     if (!row) throw new ORPCError('NOT_FOUND');
-    const items = await db.select().from(AnnouncementItem).where(eq(AnnouncementItem.announcementId, input.id));
+    const items = await db.select().from(AnnouncementItem).where(eq(AnnouncementItem.announcementId, input.id)).orderBy(asc(AnnouncementItem.order));
     return {
       ...row,
       link: row.link,
@@ -89,9 +89,10 @@ const itemInput = z.object({
 
 type ItemInput = z.infer<typeof itemInput>;
 
-function toItemRow(item: ItemInput, announcementId: string) {
+function toItemRow(item: ItemInput, announcementId: string, order?: number) {
   return {
     announcementId,
+    order:         order ?? 0,
     type:          item.type,
     effectiveDate: item.effectiveDate ?? null,
     format:        item.format ?? null,
@@ -132,7 +133,7 @@ const create = os
     const row = result[0]!;
 
     if (input.items.length > 0) {
-      await db.insert(AnnouncementItem).values(input.items.map(item => toItemRow(item, row.id)));
+      await db.insert(AnnouncementItem).values(input.items.map((item, i) => toItemRow(item, row.id, i)));
     }
 
     return { ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() };
@@ -163,7 +164,7 @@ const update = os
     // Full replace: the form edits the complete item list and rows carry no user-facing identity.
     await db.delete(AnnouncementItem).where(eq(AnnouncementItem.announcementId, id));
     if (data.items.length > 0) {
-      await db.insert(AnnouncementItem).values(data.items.map(item => toItemRow(item, id)));
+      await db.insert(AnnouncementItem).values(data.items.map((item, i) => toItemRow(item, id, i)));
     }
   });
 

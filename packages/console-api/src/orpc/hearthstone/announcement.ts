@@ -1,6 +1,6 @@
 import { ORPCError, os } from '@orpc/server';
 import { z } from 'zod';
-import { desc, eq } from 'drizzle-orm';
+import { asc, desc, eq } from 'drizzle-orm';
 
 import { db } from '@tcg-cards/db/db';
 import { Announcement, AnnouncementItem } from '@tcg-cards/db/schema/shared/hearthstone';
@@ -69,7 +69,8 @@ const get = os
 
     const items = await db.select()
       .from(AnnouncementItem)
-      .where(eq(AnnouncementItem.announcementId, id));
+      .where(eq(AnnouncementItem.announcementId, id))
+      .orderBy(asc(AnnouncementItem.order));
 
     return {
       ...row,

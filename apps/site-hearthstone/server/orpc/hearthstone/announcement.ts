@@ -1,6 +1,6 @@
 import { os } from '@orpc/server';
 import z from 'zod';
-import { desc, eq, sql } from 'drizzle-orm';
+import { asc, desc, eq, sql } from 'drizzle-orm';
 
 import { announcementItem, announcementProfile } from '#model/hearthstone/schema/announcement';
 import type { GlowEntry } from '#model/hearthstone/schema/announcement';
@@ -52,7 +52,8 @@ const get = os
     const items = await db
       .select()
       .from(AnnouncementItem)
-      .where(eq(AnnouncementItem.announcementId, input.id));
+      .where(eq(AnnouncementItem.announcementId, input.id))
+      .orderBy(asc(AnnouncementItem.order));
 
     return {
       ...row,
@@ -81,7 +82,8 @@ const timeline = os
       .from(AnnouncementItem)
       .innerJoin(Announcement, eq(Announcement.id, AnnouncementItem.announcementId))
       .where(sql`${input.format} = ANY(${AnnouncementItem.resolvedFormats})`)
-      .orderBy(desc(Announcement.date));
+      .orderBy(desc(Announcement.date))
+      .orderBy(asc(AnnouncementItem.order));
 
     return items.map(({ item }) => ({
       ...item,
@@ -106,7 +108,8 @@ const cardHistory = os
       .from(AnnouncementItem)
       .innerJoin(Announcement, eq(Announcement.id, AnnouncementItem.announcementId))
       .where(sql`${input.cardId} = ANY(${AnnouncementItem.resolvedCards})`)
-      .orderBy(desc(Announcement.date));
+      .orderBy(desc(Announcement.date))
+      .orderBy(asc(AnnouncementItem.order));
 
     return items.map(({ item }) => ({
       ...item,
