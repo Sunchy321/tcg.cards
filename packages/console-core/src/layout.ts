@@ -71,11 +71,6 @@ export function getGameNavItems(game: Game): ConsoleNavItem[][] {
       to: `/${game}`,
       exact: true,
     },
-    {
-      label: '数据概览',
-      icon: 'i-lucide-database',
-      to: `/${game}/data-overview`,
-    },
   ]);
 
   if (game === 'hearthstone') {
