@@ -303,7 +303,7 @@ export async function assertRemotePublishGate(
 
   const remoteManifestHash = ledger?.manifestHash ?? null;
 
-  if (remoteManifestHash != null && remoteManifestHash !== input.previousManifestHash) {
+  if (remoteManifestHash != null && remoteManifestHash !== input.previousManifestHash && !input.force) {
     throw new Error(
       `Remote publish stream ${input.publishTarget}/${input.environment}/${input.publishType} baseline changed: expected ${input.previousManifestHash}, got ${remoteManifestHash}.`,
     );
