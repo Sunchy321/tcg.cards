@@ -18,6 +18,10 @@
         />
 
         <div class="flex flex-wrap items-center gap-2">
+          <label v-if="hideCompletedLabel" class="flex items-center gap-2 rounded-lg border border-default px-3 py-1.5 text-xs">
+            <input v-model="hideCompleted" type="checkbox" class="size-3.5 rounded border-default">
+            <span>{{ hideCompletedLabel }}</span>
+          </label>
           <label class="flex items-center gap-2 rounded-lg border border-default px-3 py-1.5 text-xs">
             <input
               type="checkbox"
@@ -28,11 +32,18 @@
             >
             <span>{{ hasSelection ? `${checkedTags.size} 项` : '全选' }}</span>
           </label>
-          <label v-if="hideCompletedLabel" class="flex items-center gap-2 rounded-lg border border-default px-3 py-1.5 text-xs">
-            <input v-model="hideCompleted" type="checkbox" class="size-3.5 rounded border-default">
-            <span>{{ hideCompletedLabel }}</span>
-          </label>
+          <span class="text-xs text-muted">{{ filtered.length }} / {{ items.length }}</span>
+          <div class="flex-1" />
           <slot name="actions" />
+          <UButton
+            label="重置选中"
+            icon="i-lucide-rotate-ccw"
+            color="error"
+            variant="ghost"
+            size="xs"
+            :disabled="!hasSelection"
+            @click="() => { emit('resetChecked', [...checkedTags]); checkedTags = new Set(); }"
+          />
         </div>
       </div>
     </template>
@@ -43,7 +54,7 @@
     <div v-else-if="filtered.length === 0" class="py-8 text-center text-sm text-slate-400">
       无匹配的版本
     </div>
-    <div v-else class="space-y-2">
+    <div v-else class="max-h-128 space-y-2 overflow-y-auto">
       <div
         v-for="(item, index) in filtered"
         :key="itemKey(item)"
@@ -139,6 +150,7 @@ const emit = defineEmits<{
   'update:modelValue':    [key: number | null];
   'update:hideCompleted': [value: boolean];
   'reset':                [sourceTags: number[]];
+  'resetChecked':         [sourceTags: number[]];
 }>();
 
 const searchQuery = ref('');
