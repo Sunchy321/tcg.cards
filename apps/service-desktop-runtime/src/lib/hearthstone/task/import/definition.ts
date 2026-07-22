@@ -25,13 +25,15 @@ const output = z.object({
 
 /** Serializable import cursor persisted after every completed source version. */
 interface ImportBlockState {
-  sourceIndex: number;
-  reports:     ImportHsdataReport[];
+  sourceIndex:       number;
+  reports:           ImportHsdataReport[];
+  totalEntities:     number;
+  completedEntities: number;
 }
 
 /** Imports one frozen source list with durable checkpoints between versions. */
 const definition = createDefinition(hsdataImportTaskType, {
-  version:     '2026-07-18:v1',
+  version:     '2026-07-22:v1',
   effectModel: 'reconcilable',
 })
   .scope(
@@ -45,13 +47,26 @@ const definition = createDefinition(hsdataImportTaskType, {
   .output(output)
   .context({ init: values => values })
   .stage('importing', { label: '导入版本', progressMode: 'bounded', resumeMode: 'durable' })
-  .entry(({ ctx, checkpoint }) => ({
-    total:      ctx.sourceIds.length,
-    blockInput: checkpoint?.blockInput as ImportBlockState | undefined ?? {
-      sourceIndex: 0,
-      reports:     [],
-    },
-  }))
+  .entry(async ({ ctx, checkpoint }) => {
+    const restored = checkpoint?.blockInput as ImportBlockState | undefined;
+    if (restored) {
+      return { total: restored.totalEntities, blockInput: restored };
+    }
+    let totalEntities = 0;
+    for (const sourceId of ctx.sourceIds) {
+      const source = await readHsdataImportSource(sourceId);
+      totalEntities += source.parsed.entities.length;
+    }
+    return {
+      total:      totalEntities,
+      blockInput: {
+        sourceIndex:       0,
+        reports:           [],
+        totalEntities,
+        completedEntities: 0,
+      } satisfies ImportBlockState,
+    };
+  })
   .block(async ({ ctx, blockInput, progress, checkpoint, done }) => {
     if (blockInput.sourceIndex >= ctx.sourceIds.length) return done(blockInput);
 
@@ -67,14 +82,20 @@ const definition = createDefinition(hsdataImportTaskType, {
       dryRun:      ctx.dryRun,
       force:       ctx.force,
       patchOnly:   ctx.patchOnly,
+      onProgress:  p => {
+        const done = blockInput.completedEntities + (p.completedEntityCount ?? 0);
+        progress({ done, total: blockInput.totalEntities });
+      },
     }));
     const next: ImportBlockState = {
-      sourceIndex: blockInput.sourceIndex + 1,
-      reports:     [...blockInput.reports, report],
+      sourceIndex:       blockInput.sourceIndex + 1,
+      reports:           [...blockInput.reports, report],
+      totalEntities:     blockInput.totalEntities,
+      completedEntities: blockInput.completedEntities + report.entityCount,
     };
 
     await checkpoint(next);
-    progress({ done: next.sourceIndex, total: ctx.sourceIds.length });
+    progress({ done: next.completedEntities, total: next.totalEntities });
     return next.sourceIndex >= ctx.sourceIds.length ? done(next) : next;
   })
   .exit(({ blockInput }) => ({ reports: blockInput.reports }))

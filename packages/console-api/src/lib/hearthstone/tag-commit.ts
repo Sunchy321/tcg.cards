@@ -665,7 +665,6 @@ const projectKindSet = new Set([
   'assign_card_ref',
   'assign_localized_text',
   'assign_mechanic',
-  'assign_referenced_tag',
   'assign_legacy',
   'emit_relation',
 ]);

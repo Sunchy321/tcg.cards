@@ -330,7 +330,7 @@
 
 #### `renderMechanics`
 
-一个 partial-record 对象，以 GAME_TAG 枚举 ID 字符串为 key。只有适用于该卡牌的机制才会出现，每个 key 均为可选。
+一个 partial-record 对象，以 GAME_TAG 枚举 ID 字符串为 key。它同时承载适用于该卡牌的视觉机制，以及渲染器根据 `localization.richText` 与 `textBuilderType` 重建文本所需的静态 EntityDef 输入。每个 key 均为可选。
 
 值类型：`boolean | integer`
 
@@ -340,11 +340,17 @@
 |-------------|----------|------|------|
 | `"2"` | DATA_NUM_1 | `data-num-1` | {0} 替换 |
 | `"3"` | DATA_NUM_2 | `data-num-2` | {1} 替换 |
+| `"451"` | SCORE_VALUE_1 | `score-value-1` | 倒计时 `@` 替换 |
+| `"471"` | MODULAR_ENTITY_PART_1 | `modular-entity-part-1` | 第一个奇利亚斯豪华版模块 dbfId |
+| `"472"` | MODULAR_ENTITY_PART_2 | `modular-entity-part-2` | 第二个奇利亚斯豪华版模块 dbfId |
+| `"535"` | QUEST_PROGRESS_TOTAL | `quest-progress-total` | 静态任务/种族数量输入 |
 | `"682"` | HIDE_HEALTH | `hide-health` | 在渲染卡面上隐藏生命值 |
 | `"683"` | HIDE_ATTACK | `hide-attack` | 在渲染卡面上隐藏攻击力 |
 | `"684"` | HIDE_COST | `hide-cost` | 在渲染卡面上隐藏法力值消耗 |
+| `"813"` | HIDDEN_CHOICE | `hidden-choice` | 选择隐藏抉择文本段 |
 | `"955"` | USE_ALTERNATE_CARD_TEXT | `use-alternate-card-text` | @ 分隔选第 N 段可选文本 |
 | `"1107"` | HIDE_WATERMARK | `hide-watermark` | 在渲染卡面上隐藏职业水印 |
+| `"1471"` | BACON_TRIPLED_BASE_MINION_ID | `bacon-tripled-base-minion-id` | 第一个酒馆战棋奇利亚斯模块 dbfId |
 | `"1671"` | LETTUCE_PASSIVE_ABILITY | `lettuce-passive-ability` | 佣兵技能为被动 |
 | `"1676"` | LETTUCE_ABILITY_SUMMONED_MINION | `lettuce-ability-summoned-minion` | 佣兵技能召唤随从 |
 | `"1720"` | TRADEABLE | `tradeable` | 卡牌具有可交易机制 |
@@ -354,16 +360,33 @@
 | `"2170"` | LETTUCE_IS_TREASURE_CARD | `lettuce-is-treasure-card` | 佣兵卡牌为宝藏 |
 | `"2493"` | LETTUCE_ABILITY_TIER | `lettuce-ability-tier` | 佣兵技能等级（1–3） |
 | `"2494"` | LETTUCE_EQUIPMENT_TIER | `lettuce-equipment-tier` | 佣兵装备等级（1–4） |
+| `"2655"` | CARDTEXT_ENTITY_0 | `cardtext-entity-0` | 卡牌文本的第一个引用实体输入 |
+| `"2656"` | CARDTEXT_ENTITY_1 | `cardtext-entity-1` | 卡牌文本的第二个引用实体输入 |
+| `"2657"` | CARDTEXT_ENTITY_2 | `cardtext-entity-2` | 卡牌文本的第三个引用实体输入 |
+| `"2658"` | CARDTEXT_ENTITY_3 | `cardtext-entity-3` | 卡牌文本的第四个引用实体输入 |
+| `"2659"` | CARDTEXT_ENTITY_4 | `cardtext-entity-4` | 卡牌文本的第五个引用实体输入 |
+| `"2660"` | CARDTEXT_ENTITY_5 | `cardtext-entity-5` | 卡牌文本的第六个引用实体输入 |
+| `"2661"` | CARDTEXT_ENTITY_6 | `cardtext-entity-6` | 卡牌文本的第七个引用实体输入 |
+| `"2662"` | CARDTEXT_ENTITY_7 | `cardtext-entity-7` | 卡牌文本的第八个引用实体输入 |
+| `"2663"` | CARDTEXT_ENTITY_8 | `cardtext-entity-8` | 卡牌文本的第九个引用实体输入 |
+| `"2664"` | CARDTEXT_ENTITY_9 | `cardtext-entity-9` | 卡牌文本的第十个引用实体输入 |
 | `"2785"` | FORGE | `forge` | 卡牌具有锻造机制 |
 | `"2889"` | DATA_NUM_3 | `data-num-3` | {2} 替换 |
 | `"2890"` | CARD_NAME_DATA_1 | `card-name-data-1` | 卡名 {0} 替换 |
 | `"2919"` | DATA_NUM_4 | `data-num-4` | {3} 替换 |
 | `"2920"` | DATA_NUM_5 | `data-num-5` | {4} 替换 |
 | `"2921"` | DATA_NUM_6 | `data-num-6` | {5} 替换，可选 CardDBID 引用 |
+| `"2946"` | HIDDEN_CHOICE_OVERRIDE | `hidden-choice-override` | 覆盖隐藏抉择文本段 |
+| `"3499"` | BACON_TRIPLED_BASE_MINION_ID2 | `bacon-tripled-base-minion-id-2` | 第二个酒馆战棋奇利亚斯模块 dbfId |
+| `"3500"` | BACON_TRIPLED_BASE_MINION_ID3 | `bacon-tripled-base-minion-id-3` | 第三个酒馆战棋奇利亚斯模块 dbfId |
+| `"4161"` | DYNAMIC_KEYWORD1 | `dynamic-keyword-1` | 第一个动态关键词 GAME_TAG |
+| `"4162"` | DYNAMIC_KEYWORD2 | `dynamic-keyword-2` | 第二个动态关键词 GAME_TAG |
 | `"4354"` | PREPARE | `prepare` | 卡牌具有预备机制 |
 | `"4503"` | TIMEWARPED | `timewarped` | 卡牌具有酒馆战棋时空扭曲机制 |
 | `"4519"` | BACON_ALT_TAVERN_SYSTEM_ACTIVE | `bacon-alt-tavern-system-active` | 是否时空扭曲酒馆 |
 | `"4579"` | HAS_TIMEWARPED_TAVERN_ALT_TEXT | `has-timewarped-tavern-alt-text` | 时空扭曲下 alt text 索引 |
+
+`WINDFURY`（189）、`TAUNT`（190）、`STEALTH`（191）、`DIVINE_SHIELD`（194）、`MAGNETIC`（849）和 `REBORN`（1085）不是静态文本重建的 render model 输入。酒馆战棋奇利亚斯 builder 在通过 `BACON_TRIPLED_BASE_MINION_ID*` 解析模块 dbfId 后，只将它们作为固定关键词查找 key 使用。
 
 ## 功能约束
 

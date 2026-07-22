@@ -11,7 +11,7 @@ import {
   buildImageRenderRunInput,
 } from '../../lib/hearthstone/task/image-render';
 import { hsdataImportTaskDefinition } from '../../lib/hearthstone/task/import';
-import { hsdataProjectionTaskDefinition } from '../../lib/hearthstone/task/projection';
+import { projectTaskDefinition } from '../../lib/hearthstone/task/project';
 import { unpackImportTaskDefinition } from '../../lib/hearthstone/task/unpack-import';
 
 /** If there's an active task on this scope from a previous boot, abandon it. */
@@ -140,19 +140,19 @@ const hsdataProjection = os
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
     const scope = { sourceTags: input.sourceTags };
-    const resolved = hsdataProjectionTaskDefinition.resolveScope(scope);
+    const resolved = projectTaskDefinition.resolveScope(scope);
     const active = await getStore().getActiveTaskRun(
-      hsdataProjectionTaskDefinition.taskType,
-      hsdataProjectionTaskDefinition.scopeType,
+      projectTaskDefinition.taskType,
+      projectTaskDefinition.scopeType,
       resolved.key,
     );
     if (active) throw new Error('An hsdata projection task is already active');
 
-    return createAndRunTask(hsdataProjectionTaskDefinition.taskType, {
-      taskType:          hsdataProjectionTaskDefinition.taskType,
-      definitionVersion: hsdataProjectionTaskDefinition.definitionVersion,
+    return createAndRunTask(projectTaskDefinition.taskType, {
+      taskType:          projectTaskDefinition.taskType,
+      definitionVersion: projectTaskDefinition.definitionVersion,
       scope:             {
-        type:     hsdataProjectionTaskDefinition.scopeType,
+        type:     projectTaskDefinition.scopeType,
         key:      resolved.key,
         snapshot: resolved.snapshot as Record<string, unknown>,
       },

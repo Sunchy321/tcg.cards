@@ -93,21 +93,30 @@
           <template #header>
             <div class="flex items-center gap-2">
               <span class="font-medium">导入报告</span>
-              <UBadge label="Success" color="success" variant="soft" />
+              <UBadge v-if="taskResult?.reports?.[0]?.dryRun" label="Dry Run" color="neutral" variant="soft" />
+              <UBadge v-else label="Success" color="success" variant="soft" />
             </div>
           </template>
-          <div class="grid gap-3 sm:grid-cols-3">
+          <div class="grid gap-3 sm:grid-cols-5">
             <div class="rounded-lg border border-default p-3">
-              <div class="text-xs text-muted">快照总数</div>
-              <div class="mt-1 font-mono text-sm">{{ (taskResult as any).reports?.[0]?.snapshotCount ?? '—' }}</div>
+              <div class="text-xs text-muted">实体总数</div>
+              <div class="mt-1 font-mono text-sm">{{ taskResult?.reports?.[0]?.entityCount ?? '—' }}</div>
             </div>
             <div class="rounded-lg border border-default p-3">
-              <div class="text-xs text-muted">Entities</div>
-              <div class="mt-1 font-mono text-sm">+{{ (taskResult as any).reports?.[0]?.insertedEntities ?? 0 }}</div>
+              <div class="text-xs text-muted">新增快照</div>
+              <div class="mt-1 font-mono text-sm">+{{ taskResult?.reports?.[0]?.insertedSnapshots ?? 0 }}</div>
             </div>
             <div class="rounded-lg border border-default p-3">
-              <div class="text-xs text-muted">Localizations</div>
-              <div class="mt-1 font-mono text-sm">+{{ (taskResult as any).reports?.[0]?.insertedLocalizations ?? 0 }}</div>
+              <div class="text-xs text-muted">复用快照</div>
+              <div class="mt-1 font-mono text-sm">~{{ taskResult?.reports?.[0]?.reusedSnapshots ?? 0 }}</div>
+            </div>
+            <div class="rounded-lg border border-default p-3">
+              <div class="text-xs text-muted">新增标签行</div>
+              <div class="mt-1 font-mono text-sm">+{{ taskResult?.reports?.[0]?.insertedTagRows ?? 0 }}</div>
+            </div>
+            <div class="rounded-lg border border-default p-3">
+              <div class="text-xs text-muted">发现标签数</div>
+              <div class="mt-1 font-mono text-sm">{{ taskResult?.reports?.[0]?.discoveredTagCount ?? '—' }}</div>
             </div>
           </div>
         </UCard>
@@ -201,7 +210,16 @@ const selectedItem = computed(() => items.value.find(i => i.buildNumber === sele
 const hideImported = ref(loadState().hideImported);
 const importForm = reactive({ dryRun: true, force: false });
 
-const taskResult = ref<Record<string, unknown> | null>(null);
+interface ImportReport {
+  dryRun:            boolean;
+  entityCount:       number;
+  insertedSnapshots: number;
+  reusedSnapshots:   number;
+  insertedTagRows:   number;
+  discoveredTagCount: number;
+}
+interface ImportTaskResult { reports: ImportReport[] }
+const taskResult = ref<ImportTaskResult | null>(null);
 
 // ── Persistence ──
 function loadState() {
@@ -324,7 +342,7 @@ const importOperation = computed<TaskOperation>(() => ({
 }));
 
 function onCompleted(snap: TaskPageSnapshot) {
-  taskResult.value = snap.result ?? null;
+  taskResult.value = snap.result as unknown as ImportTaskResult | null ?? null;
   loadData();
 }
 function onFailed() {}

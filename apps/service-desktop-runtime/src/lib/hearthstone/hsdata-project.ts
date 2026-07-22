@@ -1863,16 +1863,6 @@ function projectSnapshot(
       continue;
     }
 
-    if (projectKind === 'assign_referenced_tag') {
-      if (isMechanicValue(cleaned)) {
-        entityDraft.referencedTags[String(row.enumId)] = cleaned;
-        continue;
-      }
-
-      unprojectedTagCount += 1;
-      continue;
-    }
-
     if (projectKind === 'assign_legacy') {
       applyLegacyValue(entityDraft, targetPath, cleaned);
       continue;

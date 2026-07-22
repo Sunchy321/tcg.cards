@@ -330,7 +330,7 @@ The canonical part mapping is: `cost -> ManaCost`, `attack -> Attack`, `health`/
 
 #### `renderMechanics`
 
-A partial-record object keyed by GAME_TAG enum IDs (as numeric strings). Only mechanics that apply to the card are present. Each key is optional.
+A partial-record object keyed by GAME_TAG enum IDs (as numeric strings). It contains visual mechanics that apply to the card and static EntityDef inputs required by `CardTextBuilder` to derive text from `localization.richText` and `textBuilderType`. Each key is optional.
 
 Value type: `boolean | integer`
 
@@ -340,11 +340,17 @@ Hearthstone GAME_TAG enum IDs are used as keys to avoid slug-name instability ac
 |-------------|----------|------|-------------|
 | `"2"` | DATA_NUM_1 | `data-num-1` | {0} replacement |
 | `"3"` | DATA_NUM_2 | `data-num-2` | {1} replacement |
+| `"451"` | SCORE_VALUE_1 | `score-value-1` | Countdown `@` replacement |
+| `"471"` | MODULAR_ENTITY_PART_1 | `modular-entity-part-1` | First Zilliax Deluxe module dbfId |
+| `"472"` | MODULAR_ENTITY_PART_2 | `modular-entity-part-2` | Second Zilliax Deluxe module dbfId |
+| `"535"` | QUEST_PROGRESS_TOTAL | `quest-progress-total` | Static quest/race count input |
 | `"682"` | HIDE_HEALTH | `hide-health` | Suppress health value display on the rendered card |
 | `"683"` | HIDE_ATTACK | `hide-attack` | Suppress attack value display on the rendered card |
 | `"684"` | HIDE_COST | `hide-cost` | Suppress mana cost display on the rendered card |
+| `"813"` | HIDDEN_CHOICE | `hidden-choice` | Select hidden-choice text section |
 | `"955"` | USE_ALTERNATE_CARD_TEXT | `use-alternate-card-text` | Select N-th alternate text segment (split by `@`) |
 | `"1107"` | HIDE_WATERMARK | `hide-watermark` | Suppress class watermark on the rendered card |
+| `"1471"` | BACON_TRIPLED_BASE_MINION_ID | `bacon-tripled-base-minion-id` | First Battlegrounds Zilliax module dbfId |
 | `"1671"` | LETTUCE_PASSIVE_ABILITY | `lettuce-passive-ability` | Mercenary ability is passive |
 | `"1676"` | LETTUCE_ABILITY_SUMMONED_MINION | `lettuce-ability-summoned-minion` | Mercenary ability summons a minion |
 | `"1720"` | TRADEABLE | `tradeable` | Card has the tradeable mechanic |
@@ -354,16 +360,33 @@ Hearthstone GAME_TAG enum IDs are used as keys to avoid slug-name instability ac
 | `"2170"` | LETTUCE_IS_TREASURE_CARD | `lettuce-is-treasure-card` | Mercenary card is a treasure |
 | `"2493"` | LETTUCE_ABILITY_TIER | `lettuce-ability-tier` | Mercenary ability tier (1–3) |
 | `"2494"` | LETTUCE_EQUIPMENT_TIER | `lettuce-equipment-tier` | Mercenary equipment tier (1–4) |
+| `"2655"` | CARDTEXT_ENTITY_0 | `cardtext-entity-0` | First referenced entity input for card text |
+| `"2656"` | CARDTEXT_ENTITY_1 | `cardtext-entity-1` | Second referenced entity input for card text |
+| `"2657"` | CARDTEXT_ENTITY_2 | `cardtext-entity-2` | Third referenced entity input for card text |
+| `"2658"` | CARDTEXT_ENTITY_3 | `cardtext-entity-3` | Fourth referenced entity input for card text |
+| `"2659"` | CARDTEXT_ENTITY_4 | `cardtext-entity-4` | Fifth referenced entity input for card text |
+| `"2660"` | CARDTEXT_ENTITY_5 | `cardtext-entity-5` | Sixth referenced entity input for card text |
+| `"2661"` | CARDTEXT_ENTITY_6 | `cardtext-entity-6` | Seventh referenced entity input for card text |
+| `"2662"` | CARDTEXT_ENTITY_7 | `cardtext-entity-7` | Eighth referenced entity input for card text |
+| `"2663"` | CARDTEXT_ENTITY_8 | `cardtext-entity-8` | Ninth referenced entity input for card text |
+| `"2664"` | CARDTEXT_ENTITY_9 | `cardtext-entity-9` | Tenth referenced entity input for card text |
 | `"2785"` | FORGE | `forge` | Card has the forge mechanic |
 | `"2889"` | DATA_NUM_3 | `data-num-3` | {2} replacement |
 | `"2890"` | CARD_NAME_DATA_1 | `card-name-data-1` | Card name {0} replacement |
 | `"2919"` | DATA_NUM_4 | `data-num-4` | {3} replacement |
 | `"2920"` | DATA_NUM_5 | `data-num-5` | {4} replacement |
 | `"2921"` | DATA_NUM_6 | `data-num-6` | {5} replacement (optional CardDBID reference) |
+| `"2946"` | HIDDEN_CHOICE_OVERRIDE | `hidden-choice-override` | Override hidden-choice text section |
+| `"3499"` | BACON_TRIPLED_BASE_MINION_ID2 | `bacon-tripled-base-minion-id-2` | Second Battlegrounds Zilliax module dbfId |
+| `"3500"` | BACON_TRIPLED_BASE_MINION_ID3 | `bacon-tripled-base-minion-id-3` | Third Battlegrounds Zilliax module dbfId |
+| `"4161"` | DYNAMIC_KEYWORD1 | `dynamic-keyword-1` | First dynamic keyword GAME_TAG |
+| `"4162"` | DYNAMIC_KEYWORD2 | `dynamic-keyword-2` | Second dynamic keyword GAME_TAG |
 | `"4354"` | PREPARE | `prepare` | Card has the prepare mechanic |
 | `"4503"` | TIMEWARPED | `timewarped` | Card has the Battlegrounds timewarped mechanic |
 | `"4519"` | BACON_ALT_TAVERN_SYSTEM_ACTIVE | `bacon-alt-tavern-system-active` | Timewarped tavern system active |
 | `"4579"` | HAS_TIMEWARPED_TAVERN_ALT_TEXT | `has-timewarped-tavern-alt-text` | Timewarped alt text index |
+
+`WINDFURY` (189), `TAUNT` (190), `STEALTH` (191), `DIVINE_SHIELD` (194), `MAGNETIC` (849), and `REBORN` (1085) are not render-model inputs for static text reconstruction. The Battlegrounds Zilliax builder uses them only as fixed lookup keys after resolving its module dbfId from `BACON_TRIPLED_BASE_MINION_ID*`.
 
 ## Functional Requirements
 

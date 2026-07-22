@@ -54,35 +54,35 @@ export const taskTerminalReason = z.enum([
 ]);
 
 export const taskScope = z.strictObject({
-  taskScopeType: z.string().trim().min(1),
-  taskScopeKey: z.string().trim().min(1),
+  taskScopeType:     z.string().trim().min(1),
+  taskScopeKey:      z.string().trim().min(1),
   taskScopeSnapshot: jsonRecord.optional(),
 });
 
 export const segmentsItem = z.strictObject({
-  name: z.string(),
-  done: z.int().nonnegative(),
+  name:  z.string(),
+  done:  z.int().nonnegative(),
   total: z.int().nonnegative(),
 });
 
 export const taskStage = z.strictObject({
-  stageKey: z.string().trim().min(1),
-  stageIndex: z.int().nonnegative(),
-  label: z.string(),
-  status: taskStageStatus,
+  stageKey:     z.string().trim().min(1),
+  stageIndex:   z.int().nonnegative(),
+  label:        z.string(),
+  status:       taskStageStatus,
   progressMode: taskProgressMode,
-  resumeMode: taskResumeMode,
-  total: z.int().nonnegative().nullable(),
-  done: z.int().nonnegative().nullable(),
-  startedAt: z.string().nullable(),
-  finishedAt: z.string().nullable(),
-  segments: z.array(segmentsItem).optional(),
+  resumeMode:   taskResumeMode,
+  total:        z.int().nonnegative().nullable(),
+  done:         z.int().nonnegative().nullable(),
+  startedAt:    z.string().nullable(),
+  finishedAt:   z.string().nullable(),
+  segments:     z.array(segmentsItem).optional(),
 });
 
 export const taskControlResult = z.strictObject({
-  taskRunId: z.uuid(),
+  taskRunId:   z.uuid(),
   runRevision: z.int().nonnegative(),
-  status: taskRunStatus,
+  status:      taskRunStatus,
 });
 
 export const taskPageTaskIdle = z.strictObject({
@@ -90,39 +90,39 @@ export const taskPageTaskIdle = z.strictObject({
 });
 
 export const taskPageTaskAttached = z.strictObject({
-  kind: z.literal('attached'),
-  taskRunId: z.uuid(),
-  runRevision: z.int().nonnegative(),
-  taskType: z.string().trim().min(1),
-  taskScopeType: z.string().trim().min(1),
-  taskScopeKey: z.string().trim().min(1),
+  kind:              z.literal('attached'),
+  taskRunId:         z.uuid(),
+  runRevision:       z.int().nonnegative(),
+  taskType:          z.string().trim().min(1),
+  taskScopeType:     z.string().trim().min(1),
+  taskScopeKey:      z.string().trim().min(1),
   taskScopeSnapshot: jsonRecord.optional(),
-  status: taskRunStatus,
-  supportsResume: z.boolean(),
-  currentStageKey: z.string().nullable(),
+  status:            taskRunStatus,
+  supportsResume:    z.boolean(),
+  currentStageKey:   z.string().nullable(),
   currentStageIndex: z.int().nonnegative().nullable(),
   currentResumeMode: taskResumeMode.nullable(),
-  pausedResumeMode: taskResumeMode.nullable(),
-  progressMode: taskProgressMode.nullable(),
-  startedAt: z.string().nullable(),
-  finishedAt: z.string().nullable(),
-  errorCode: z.string().nullable(),
-  errorMessage: z.string().nullable(),
-  terminalReason: taskTerminalReason.nullable(),
-  canPause: z.boolean(),
-  canResume: z.boolean(),
-  canCancel: z.boolean(),
+  pausedResumeMode:  taskResumeMode.nullable(),
+  progressMode:      taskProgressMode.nullable(),
+  startedAt:         z.string().nullable(),
+  finishedAt:        z.string().nullable(),
+  errorCode:         z.string().nullable(),
+  errorMessage:      z.string().nullable(),
+  terminalReason:    taskTerminalReason.nullable(),
+  canPause:          z.boolean(),
+  canResume:         z.boolean(),
+  canCancel:         z.boolean(),
 });
 
 export const taskPageTaskBlocking = z.strictObject({
-  kind: z.literal('blocking'),
-  taskRunId: z.uuid(),
-  taskType: z.string().trim().min(1),
-  taskScopeType: z.string().trim().min(1),
-  taskScopeKey: z.string().trim().min(1),
+  kind:              z.literal('blocking'),
+  taskRunId:         z.uuid(),
+  taskType:          z.string().trim().min(1),
+  taskScopeType:     z.string().trim().min(1),
+  taskScopeKey:      z.string().trim().min(1),
   taskScopeSnapshot: jsonRecord.optional(),
-  status: taskRunStatus,
-  canCancel: z.boolean(),
+  status:            taskRunStatus,
+  canCancel:         z.boolean(),
 });
 
 export const taskPageTask = z.discriminatedUnion('kind', [
@@ -133,14 +133,14 @@ export const taskPageTask = z.discriminatedUnion('kind', [
 
 export const taskPageSnapshot = z.strictObject({
   pageTask: taskPageTask,
-  stages: z.array(taskStage),
-  result: jsonRecord.optional(),
+  stages:   z.array(taskStage),
+  result:   jsonRecord.optional(),
 });
 
 export const taskPageEvent = z.strictObject({
   pageTask: taskPageTask,
-  stages: z.array(taskStage),
-  result: jsonRecord.optional(),
+  stages:   z.array(taskStage),
+  result:   jsonRecord.optional(),
 });
 
 export type TaskRunStatus = z.infer<typeof taskRunStatus>;
