@@ -37,7 +37,7 @@ interface TaskDefinition {
 ```typescript
 // packages/service-desktop-runtime/src/lib/hearthstone/task/publish/definition.ts
 
-const publish = createDefinition('hsdata_publish', { version: '2026-06-22:v1' })
+const publish = createDefinition('hearthstone_publish', { version: '2026-06-22:v1' })
   .scope(
     z.object({
       publishTarget: z.string(),

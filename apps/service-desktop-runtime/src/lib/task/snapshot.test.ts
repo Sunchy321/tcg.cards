@@ -11,7 +11,7 @@ import {
 function run(overrides: Partial<TaskRunRecord> & { status: TaskRunRecord['status'] }): TaskRunRecord {
   return {
     id: 'test-run-uuid',
-    taskType: 'hsdata_publish',
+    taskType: 'hearthstone_publish',
     definitionVersion: 'v1',
     scope: { type: 'publish_stream', key: 'hearthstone:production:card_data' },
     params: {},

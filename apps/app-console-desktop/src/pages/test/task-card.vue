@@ -67,7 +67,7 @@ const mock = computed(() => {
   if (state === 'idle') return { pageTask: { kind: 'idle' as const }, stages: [] as TaskStage[], elapsedSec: 0 }
   if (state === 'blocking') {
     return {
-      pageTask: { kind: 'blocking' as const, taskRunId: 'mock-blocking-uuid', taskType: 'hsdata_publish', taskScopeType: 'publish_stream', taskScopeKey: 'hearthstone:staging:card_data', taskScopeSnapshot: { publishTarget: 'hearthstone', environment: 'staging', publishType: 'card_data' }, status: 'running' as const, canCancel: true },
+      pageTask: { kind: 'blocking' as const, taskRunId: 'mock-blocking-uuid', taskType: 'hearthstone_publish', taskScopeType: 'publish_stream', taskScopeKey: 'hearthstone:staging:card_data', taskScopeSnapshot: { publishTarget: 'hearthstone', environment: 'staging', publishType: 'card_data' }, status: 'running' as const, canCancel: true },
       stages: [] as TaskStage[], elapsedSec: 0,
     }
   }
@@ -77,7 +77,7 @@ const mock = computed(() => {
   return {
     pageTask: {
       kind: 'attached' as const, taskRunId: 'mock-task-run-uuid', runRevision: 3,
-      taskType: 'hsdata_publish', taskScopeType: 'publish_stream', taskScopeKey: 'hearthstone:production:card_data',
+      taskType: 'hearthstone_publish', taskScopeType: 'publish_stream', taskScopeKey: 'hearthstone:production:card_data',
       taskScopeSnapshot: { publishTarget: 'hearthstone', environment: 'production', publishType: 'card_data' },
       status: state as typeof state, supportsResume: true,
       currentStageKey: currentKey, currentStageIndex: currentKey != null ? stageTemplates.findIndex(s => s.stageKey === currentKey) : null,

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { publishStream } from './game-data-sync';
 
 export const publishTaskType = z.enum([
-  'hsdata_publish',
+  'hearthstone_publish',
 ]);
 
 export const publishTaskScope = publishStream.extend({
@@ -17,7 +17,7 @@ export const publishTaskParams = z.strictObject({
 });
 
 export const publishTaskCreateInput = z.strictObject({
-  taskType: z.literal('hsdata_publish'),
+  taskType: z.literal('hearthstone_publish'),
   scope: publishStream,
   params: publishTaskParams,
 });

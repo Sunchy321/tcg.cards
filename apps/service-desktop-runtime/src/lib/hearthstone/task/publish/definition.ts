@@ -543,7 +543,7 @@ async function baselineBlock(
 
 // ── DSL definition ──
 
-export const publishTaskDefinition = createDefinition('hsdata_publish', { version: '2026-06-22:v1' })
+export const publishTaskDefinition = createDefinition('hearthstone_publish', { version: '2026-06-22:v1' })
   .scope(
     z.object({
       publishTarget: z.string(),

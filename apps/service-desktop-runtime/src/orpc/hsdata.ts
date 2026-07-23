@@ -322,7 +322,7 @@ const listPublishHistoryRoute = os
     const rows = await db.select()
       .from(TaskRun)
       .where(and(
-        eq(TaskRun.taskType, 'hsdata_publish'),
+        eq(TaskRun.taskType, 'hearthstone_publish'),
         sql`${TaskRun.params} ->> 'publishTarget' = ${input.publishTarget}`,
         sql`${TaskRun.params} ->> 'environment' = ${input.environment}`,
       ))

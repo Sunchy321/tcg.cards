@@ -470,7 +470,7 @@
 
 表示某类任务的静态定义，例如：
 
-- `hsdata_publish`
+- `hearthstone_publish`
 - `image_rebuild`
 - `tag_repair`
 
@@ -927,7 +927,7 @@
 - `id`
   - 任务运行实例 ID
 - `taskType`
-  - 任务类型，例如 `hsdata_publish`
+  - 任务类型，例如 `hearthstone_publish`
 - `definitionVersion`
   - 标识该运行实例绑定的任务定义版本
 - `taskScopeType`

@@ -232,7 +232,7 @@
 
 - 新增 `publish` 的正式 `TaskDefinition`，不再只依赖当前过渡桥接文件
 - 在定义中固定：
-  - `taskType = hsdata_publish`
+  - `taskType = hearthstone_publish`
   - `definitionVersion`
   - `supportsResume`
   - `effectModel = reconcilable`
