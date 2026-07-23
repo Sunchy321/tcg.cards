@@ -323,22 +323,23 @@ const listPublishHistoryRoute = os
       .from(TaskRun)
       .where(and(
         eq(TaskRun.taskType, 'hearthstone_publish'),
-        sql`${TaskRun.params} ->> 'publishTarget' = ${input.publishTarget}`,
-        sql`${TaskRun.params} ->> 'environment' = ${input.environment}`,
+        sql`${TaskRun.taskScopeSnapshot} ->> 'publishTarget' = ${input.publishTarget}`,
+        sql`${TaskRun.taskScopeSnapshot} ->> 'environment' = ${input.environment}`,
       ))
       .orderBy(desc(TaskRun.createdAt))
       .limit(50);
 
     return rows.map(r => {
       const res = r.result ?? {};
-      const params = r.params ?? {};
+      const scope = (r.taskScopeSnapshot ?? {}) as Record<string, unknown>;
+      const params = (r.params ?? {}) as Record<string, unknown>;
 
       return {
         batchId:              r.id,
-        publishTarget:        String(params.publishTarget ?? ''),
-        environment:          String(params.environment ?? ''),
-        targetFingerprint:    String(params.targetFingerprint ?? ''),
-        publishType:          String(params.publishType ?? 'card_data'),
+        publishTarget:        String(scope.publishTarget ?? ''),
+        environment:          String(scope.environment ?? ''),
+        targetFingerprint:    '',
+        publishType:          String(scope.publishType ?? 'card_data'),
         operationKind:        String(params.operationKind ?? 'publish'),
         status:               r.status,
         manifestHash:         String(res.manifestHash ?? ''),

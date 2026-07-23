@@ -173,6 +173,26 @@ export function createTaskExecutor(store: TaskExecutorStore, publisher?: TaskEve
           runPatch.resumeContextKey = null;
         }
 
+        // Guard against control requests that arrived during prepareStageEntry
+        {
+          const current = await store.getTaskRun(taskRunId);
+          if (current) {
+            const { controlRequestKind, status: currentStatus } = current.run;
+            if (controlRequestKind === 'cancel' || currentStatus === 'canceling') {
+              await enterCanceled(store, taskRunId, entry.stageKey);
+              await definition.onCanceled?.(runInput);
+              await publishCurrentEvent(store, taskRunId, publisher);
+              definition.cleanup?.(taskRunId);
+              return;
+            }
+            if (controlRequestKind === 'pause' || currentStatus === 'pausing') {
+              await enterPaused(store, taskRunId, entry.stageKey, entry.resumeMode);
+              await publishCurrentEvent(store, taskRunId, publisher);
+              return;
+            }
+          }
+        }
+
         await store.transitionStage(taskRunId, entry.stageKey, runPatch, stagePatch);
         await publishCurrentEvent(store, taskRunId, publisher);
 

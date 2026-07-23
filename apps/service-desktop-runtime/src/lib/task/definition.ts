@@ -252,6 +252,7 @@ export class DefinitionBuilderOutput<TScope, TInput, TOutput> {
 
 export class DefinitionBuilder<TScope, TInput, TOutput, TCtx, TPrevOutput> {
   readonly stages: { key: string, meta: StageMeta, kind: 'simple' | 'chunked', hooks: Record<string, any> }[];
+  readonly onCanceledFn: ((run: TaskRunInput) => Promise<void> | void) | undefined;
 
   constructor(
     readonly taskType: string,
@@ -263,8 +264,10 @@ export class DefinitionBuilder<TScope, TInput, TOutput, TCtx, TPrevOutput> {
     readonly outputSchema: z.ZodType<TOutput>,
     readonly contextDecl: ContextDeclaration<TCtx, TInput, TScope>,
     existingStages: { key: string, meta: StageMeta, kind: 'simple' | 'chunked', hooks: Record<string, any> }[],
+    onCanceledFn?: (run: TaskRunInput) => Promise<void> | void,
   ) {
     this.stages = [...existingStages];
+    this.onCanceledFn = onCanceledFn;
   }
 
   stage<K extends string>(key: K, meta: StageMeta): StageBuilder<TScope, TInput, TOutput, TCtx, TPrevOutput, K> {
@@ -273,6 +276,15 @@ export class DefinitionBuilder<TScope, TInput, TOutput, TCtx, TPrevOutput> {
       this.scopeSchema, this.scopeConfig,
       this.inputSchema, this.outputSchema, this.contextDecl,
       this.stages, key, meta,
+    );
+  }
+
+  onCanceled(fn: (run: TaskRunInput) => Promise<void> | void): DefinitionBuilder<TScope, TInput, TOutput, TCtx, TPrevOutput> {
+    return new DefinitionBuilder(
+      this.taskType, this.version, this.effectModel,
+      this.scopeSchema, this.scopeConfig,
+      this.inputSchema, this.outputSchema, this.contextDecl,
+      this.stages, fn,
     );
   }
 
@@ -433,7 +445,7 @@ function allocState(taskRunId: string): PerRunState {
 // ── Adapter builder ──
 
 function buildAnyTaskDefinition(builder: DefinitionBuilder<any, any, any, any, any>): AnyTaskDefinition {
-  const { taskType, version, effectModel, scopeSchema, scopeConfig, inputSchema, outputSchema, contextDecl, stages } = builder;
+  const { taskType, version, effectModel, scopeSchema, scopeConfig, inputSchema, outputSchema, contextDecl, stages, onCanceledFn } = builder;
 
   const scopeType = scopeConfig.type;
 
@@ -458,6 +470,7 @@ function buildAnyTaskDefinition(builder: DefinitionBuilder<any, any, any, any, a
       return scopeConfig.resolve(scopeSchema.parse(rawScope));
     },
     cleanup(taskRunId: string) { perRunStates.delete(taskRunId); },
+    onCanceled: onCanceledFn,
 
     initContext(input: unknown, scope: unknown, runId: string): unknown {
       return contextDecl.init(input as any, scope as any, runId);
