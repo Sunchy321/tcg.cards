@@ -8,13 +8,6 @@ import { TaskRun } from '@tcg-cards/db/schema/local/task';
 import { os } from './index';
 import { computeShortName } from '../lib/hearthstone/hsdata-import';
 import {
-  startRecomputeLatestJob,
-  updateRecomputeLatestJob,
-  watchRecomputeLatestJob,
-  type HsdataRecomputeLatestProgressEvent,
-} from '../lib/hearthstone/hsdata-progress';
-import { recomputeLatestProjection } from '../lib/hearthstone/hsdata-project';
-import {
   collectAllPatchMeta,
   getHsdataRepoState,
   listHsdataSources,
@@ -296,67 +289,6 @@ const cancelIncompletePublishBatchRoute = os
     } catch (error) {
       throw toRuntimeError(error);
     }
-  });
-
-const recomputeLatestOutput = z.object({
-  entityRowCount:           z.number(),
-  localizationRowCount:     z.number(),
-  relationRowCount:         z.number(),
-  entityUpdatedCount:       z.number(),
-  localizationUpdatedCount: z.number(),
-  relationUpdatedCount:     z.number(),
-});
-
-/** Recomputes isLatest flags across the current local projection tables. */
-const recomputeLatest = os
-  .route({
-    method:      'POST',
-    description: 'Recompute isLatest across all local hearthstone projection tables',
-    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
-  })
-  .output(recomputeLatestOutput)
-  .handler(async () => {
-    try {
-      startRecomputeLatestJob({
-        message:       'Loading entity rows from local database',
-        totalRowCount: null,
-      });
-
-      const result = await recomputeLatestProjection({
-        onProgress(event) {
-          updateRecomputeLatestJob({
-            phase:             event.phase,
-            message:           event.message,
-            totalRowCount:     event.totalRowCount,
-            completedRowCount: event.completedRowCount,
-            updatedCount:      event.updatedCount,
-          });
-        },
-      });
-
-      updateRecomputeLatestJob({
-        phase:   'completed',
-        message: 'Recompute latest completed',
-      });
-
-      return result;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      updateRecomputeLatestJob({ phase: 'failed', message });
-      throw toRuntimeError(error);
-    }
-  });
-
-/** Streams real-time recompute-latest progress events. */
-const watchRecomputeLatest = os
-  .route({
-    method:      'GET',
-    description: 'Watch recompute latest progress events',
-    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
-  })
-  .output(eventIterator(z.custom<HsdataRecomputeLatestProgressEvent>()))
-  .handler(async function* () {
-    yield* watchRecomputeLatestJob();
   });
 
 /** Lists publish batches for the current target. */
@@ -683,8 +615,6 @@ export const hsdataRouter = {
   getIncompletePublishBatch:    getIncompletePublishBatchRoute,
   publishSingleCard:            publishSingleCardRoute,
   registerPublishStream:        registerPublishStreamRoute,
-  recomputeLatest,
-  watchRecomputeLatest,
   resetImportStatus,
   resetProjectionStatus,
 };

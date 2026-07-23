@@ -6,7 +6,6 @@ import { ExtractedCard, PatchState, RawEntitySnapshot } from '@tcg-cards/db/sche
 
 import { createDefinition } from '#task/definition';
 import { getLocalDb } from '../../hsdata-local-db';
-import { recomputeLatestProjection } from '../../hsdata-project';
 import { projectExtracted, projectHsdataFallback } from './project';
 import type { ProjectReport } from './types';
 
@@ -15,11 +14,10 @@ export const projectTaskType = 'hearthstone_project';
 const cardBlockSize = 100;
 
 const input = z.object({
-  sourceTags:       z.array(z.number().int().nonnegative()).min(1),
-  dryRun:           z.boolean().optional().default(false),
-  force:            z.boolean().optional().default(false),
-  skipLatestUpdate: z.boolean().optional().default(false),
-  sampleDiff:       z.boolean().optional().default(false),
+  sourceTags: z.array(z.number().int().nonnegative()).min(1),
+  dryRun:     z.boolean().optional().default(false),
+  force:      z.boolean().optional().default(false),
+  sampleDiff: z.boolean().optional().default(false),
 });
 
 const output = z.object({
@@ -61,9 +59,9 @@ function emptyReport(sourceTag: number, dryRun = false): ProjectionSourceReport 
     entityPlan:            { upsert: 0, delete: 0 },
     localizationPlan:      { upsert: 0, delete: 0 },
     relationPlan:          { upsert: 0, delete: 0 },
-    entityDiff:            { versionMatch: 0, versionChanged: 0, isLatestChanged: 0, orphanVersionChanged: 0 },
-    localizationDiff:      { versionMatch: 0, versionChanged: 0, isLatestChanged: 0, orphanVersionChanged: 0, renderHashChanged: 0, renderHashNullExisting: 0 },
-    relationDiff:          { versionMatch: 0, versionChanged: 0, isLatestChanged: 0, orphanVersionChanged: 0 },
+    entityDiff:            { versionMatch: 0, versionChanged: 0, orphanVersionChanged: 0 },
+    localizationDiff:      { versionMatch: 0, versionChanged: 0, orphanVersionChanged: 0, renderHashChanged: 0, renderHashNullExisting: 0 },
+    relationDiff:          { versionMatch: 0, versionChanged: 0, orphanVersionChanged: 0 },
     sampleDiffPath:        null,
     sampleDiffPaths:       [],
   };
@@ -73,7 +71,6 @@ function mergeDiff(left: ProjectReport['entityDiff'], right: ProjectReport['loca
   return {
     versionMatch:           left.versionMatch + right.versionMatch,
     versionChanged:         left.versionChanged + right.versionChanged,
-    isLatestChanged:        left.isLatestChanged + right.isLatestChanged,
     orphanVersionChanged:   left.orphanVersionChanged + right.orphanVersionChanged,
     renderHashChanged:      (left.renderHashChanged ?? 0) + (right.renderHashChanged ?? 0),
     renderHashNullExisting: (left.renderHashNullExisting ?? 0) + (right.renderHashNullExisting ?? 0),
@@ -274,24 +271,6 @@ export const projectTaskDefinition = createDefinition(projectTaskType, {
     await checkpoint(next);
     progress({ done: Math.min(next.done, next.total), total: next.total });
     return next;
-  })
-  .exit(({ blockInput }) => blockInput)
-  .stage('recompute_latest', { label: '更新 latest', progressMode: 'bounded', resumeMode: 'durable' })
-  .entry(({ input, checkpoint }) => ({
-    total:      1,
-    blockInput: checkpoint?.blockInput as ProjectionBlockState | undefined ?? input,
-  }))
-  .block(async ({ ctx, blockInput, checkpoint, progress, done }) => {
-    await checkpoint(blockInput);
-    if (!ctx.dryRun && !ctx.skipLatestUpdate) {
-      const [row] = await getLocalDb().select({ maxBuild: sql<number>`max(${PatchState.buildNumber})` })
-        .from(PatchState)
-        .where(eq(PatchState.projectionStatus, 'completed'));
-      const globalLatest = Math.max(row?.maxBuild ?? 0, ...ctx.sourceTags);
-      await recomputeLatestProjection({ globalLatest });
-    }
-    progress({ done: 1, total: 1 });
-    return done(blockInput);
   })
   .exit(({ blockInput }) => blockInput)
   .stage('finalize', { label: '完成', progressMode: 'simple' })

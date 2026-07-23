@@ -80,42 +80,9 @@
               <div class="flex flex-wrap gap-4">
                 <UCheckbox v-model="dryRun" label="Dry Run" :disabled="disabled" />
                 <UCheckbox v-model="force" label="Force" :disabled="disabled" />
-                <UCheckbox v-model="skipLatestUpdate" label="Skip Latest Update" :disabled="disabled" />
                 <UCheckbox v-model="sampleDiff" label="Sample Diff" :disabled="disabled" />
               </div>
 
-              <div class="border-t border-default pt-4">
-                <div class="flex items-center justify-between gap-3">
-                  <div>
-                    <div class="text-sm font-medium">Recompute Latest</div>
-                    <p class="text-xs text-muted">重新计算所有实体和本地化的 isLatest 标记。</p>
-                  </div>
-                  <UButton
-                    label="执行"
-                    icon="i-lucide-refresh-cw"
-                    color="warning"
-                    variant="soft"
-                    size="sm"
-                    :loading="recomputing"
-                    :disabled="disabled"
-                    @click="submitRecomputeLatest"
-                  />
-                </div>
-                <div v-if="recomputing && recomputeProgress" class="mt-2">
-                  <div class="text-xs text-muted">{{ recomputeProgress.message }}</div>
-                  <UProgress
-                    v-if="recomputeProgress.totalRowCount && recomputeProgress.completedRowCount != null"
-                    :value="recomputeProgress.completedRowCount"
-                    :max="recomputeProgress.totalRowCount"
-                    class="mt-1"
-                  />
-                </div>
-                <div v-if="recomputeResult" class="mt-2 text-xs text-muted">
-                  实体 {{ recomputeResult.entityUpdatedCount }}/{{ recomputeResult.entityRowCount }}，
-                  本地化 {{ recomputeResult.localizationUpdatedCount }}/{{ recomputeResult.localizationRowCount }}，
-                  关系 {{ recomputeResult.relationUpdatedCount }}/{{ recomputeResult.relationRowCount }}
-                </div>
-              </div>
             </div>
           </template>
         </TaskController>
@@ -177,8 +144,7 @@ import type { TaskPageSnapshot } from '@tcg-cards/model/src/task';
 import type { TaskOperation } from '~/components/task/TaskController.vue';
 import { orpc } from '~/lib/orpc';
 import { getConsoleErrorMessage } from '@tcg-cards/console-core';
-import { listLocalHsdataSourceVersions, resetHsdataProjectionStatus, recomputeLatestHsdataProjection, listenHsdataRecomputeLatestProgress } from '~/composables/useHsdataRepo';
-import type { HsdataRecomputeLatestProgressEvent, HsdataRecomputeLatestReport } from '~/composables/useHsdataRepo';
+import { listLocalHsdataSourceVersions, resetHsdataProjectionStatus } from '~/composables/useHsdataRepo';
 
 definePageMeta({
   layout: 'admin',
@@ -204,13 +170,8 @@ const selectedKey = ref<number | null>(null);
 const hideImported = ref(false);
 const selectedItem = computed(() => items.value.find(i => i.buildNumber === selectedKey.value) ?? null);
 const force = ref(false);
-const skipLatestUpdate = ref(false);
 const dryRun = ref(true);
 const sampleDiff = ref(false);
-
-const recomputing = ref(false);
-const recomputeProgress = ref<HsdataRecomputeLatestProgressEvent | null>(null);
-const recomputeResult = ref<HsdataRecomputeLatestReport | null>(null);
 
 const controller = ref<{ attach(snapshot: TaskPageSnapshot): void, currentTaskRunId: string | null }>();
 const taskResult = ref<Record<string, unknown> | null>(null);
@@ -270,11 +231,10 @@ const projectionOperation = computed<TaskOperation>(() => ({
   icon:     'i-lucide-waypoints',
   disabled: !selectedKey.value || !selectedItem.value || selectedItem.value.projectionStatus === 'processing',
   create:   async () => orpc.hearthstone.createTask.hsdataProjection({
-    sourceTags:       [selectedKey.value!],
-    dryRun:           dryRun.value,
-    force:            force.value,
-    skipLatestUpdate: skipLatestUpdate.value,
-    sampleDiff:       sampleDiff.value,
+    sourceTags: [selectedKey.value!],
+    dryRun:     dryRun.value,
+    force:      force.value,
+    sampleDiff: sampleDiff.value,
   }) as Promise<TaskPageSnapshot>,
 }));
 
@@ -282,24 +242,6 @@ function onCompleted(snap: TaskPageSnapshot) {
   const result = snap.result as any;
   taskResult.value = result?.reports?.[0] ?? result ?? null;
   loadData();
-}
-
-async function submitRecomputeLatest() {
-  recomputing.value = true;
-  recomputeResult.value = null;
-  recomputeProgress.value = null;
-  const stop = listenHsdataRecomputeLatestProgress(e => {
-    recomputeProgress.value = e;
-  });
-  try {
-    recomputeResult.value = await recomputeLatestHsdataProjection();
-    toast.add({ title: 'latest 已更新', color: 'success' });
-  } catch (error) {
-    toast.add({ title: '失败', description: getConsoleErrorMessage(error), color: 'error' });
-  } finally {
-    stop();
-    recomputing.value = false;
-  }
 }
 
 function onFailed() {}
@@ -316,10 +258,9 @@ async function startBatchProject() {
   if (sourceTags.length === 0) return;
   const snapshot = await orpc.hearthstone.createTask.hsdataProjection({
     sourceTags,
-    dryRun:           dryRun.value,
-    force:            force.value,
-    skipLatestUpdate: skipLatestUpdate.value,
-    sampleDiff:       sampleDiff.value,
+    dryRun:     dryRun.value,
+    force:      force.value,
+    sampleDiff: sampleDiff.value,
   }) as TaskPageSnapshot;
   controller.value?.attach(snapshot);
 }

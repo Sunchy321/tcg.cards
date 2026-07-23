@@ -6,8 +6,8 @@ import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { diff as jsonDiff } from 'jsondiffpatch';
 
 import { db } from '#db/db';
-import { CardEntityView, EntityView } from '#schema/shared/hearthstone/entity';
-import { EntityRelation } from '#schema/shared/hearthstone/entity-relation';
+import { CardEntityView, BaseEntityLocalization, LatestEntity } from '#schema/shared/hearthstone/entity';
+import { EntityRelation, LatestEntityRelation } from '#schema/shared/hearthstone/entity-relation';
 import { Tag } from '#schema/shared/hearthstone/tag';
 
 import { locale } from '#model/hearthstone/schema/basic';
@@ -32,11 +32,10 @@ function byVersion(
 
 function latestOrVersion(
   versionColumn: typeof CardEntityView.version | typeof EntityRelation.version,
-  latestColumn: typeof CardEntityView.isLatest | typeof EntityRelation.isLatest,
   version: number | undefined,
 ) {
   return version == null
-    ? eq(latestColumn, true)
+    ? undefined
     : sql`${version} = any(${versionColumn})`;
 }
 
@@ -48,8 +47,11 @@ async function findCardView(input: {
   const filters = [
     eq(CardEntityView.cardId, input.cardId),
     eq(CardEntityView.lang, input.lang),
-    latestOrVersion(CardEntityView.version, CardEntityView.isLatest, input.version),
   ];
+  const versionFilter = latestOrVersion(CardEntityView.version, input.version);
+  if (versionFilter != null) {
+    filters.push(versionFilter);
+  }
 
   return await db.select().from(CardEntityView)
     .where(and(...filters))
@@ -108,11 +110,12 @@ const summaryByName = os
   .handler(async ({ input }) => {
     const { name, lang, version } = input;
 
+    const versionFilter = latestOrVersion(CardEntityView.version, version);
     const cards = await db.select().from(CardEntityView)
       .where(and(
         eq(CardEntityView.localization.name, name),
         eq(CardEntityView.lang, lang),
-        latestOrVersion(CardEntityView.version, CardEntityView.isLatest, version),
+        ...(versionFilter != null ? [versionFilter] : []),
       ))
       .orderBy(desc(maxVersion(CardEntityView.version)));
 
@@ -182,16 +185,24 @@ const full = os
         ...version != null ? [byVersion(EntityRelation.version, version)!] : [],
       ));
 
-    const targetRelation = await db.select({
-      relation: sql<string>`'source'`.as('relation'),
-      version:  EntityRelation.version,
-      cardId:   EntityRelation.sourceId,
-    })
-      .from(EntityRelation)
-      .where(and(
-        eq(EntityRelation.targetId, cardId),
-        latestOrVersion(EntityRelation.version, EntityRelation.isLatest, version),
-      ));
+    const targetRelation = version != null
+      ? await db.select({
+        relation: sql<string>`'source'`.as('relation'),
+        version:  EntityRelation.version,
+        cardId:   EntityRelation.sourceId,
+      })
+        .from(EntityRelation)
+        .where(and(
+          eq(EntityRelation.targetId, cardId),
+          sql`${version} = any(${EntityRelation.version})`,
+        ))
+      : await db.select({
+        relation: sql<string>`'source'`.as('relation'),
+        version:  LatestEntityRelation.version,
+        cardId:   LatestEntityRelation.sourceId,
+      })
+        .from(LatestEntityRelation)
+        .where(eq(LatestEntityRelation.targetId, cardId));
 
     const entourageRelation = (card.entourages ?? []).map(relatedCardId => ({
       relation: 'entourage',
@@ -247,12 +258,15 @@ const profile = os
     const cardId = input;
 
     const localization = await db.select({
-      lang: EntityView.lang,
-      name: EntityView.localization.name,
-    }).from(EntityView).where(and(
-      eq(EntityView.cardId, cardId),
-      eq(EntityView.isLatest, true),
-    ));
+      lang: BaseEntityLocalization.lang,
+      name: BaseEntityLocalization.name,
+    }).from(LatestEntity)
+      .innerJoin(BaseEntityLocalization, and(
+        eq(LatestEntity.cardId, BaseEntityLocalization.cardId),
+        eq(LatestEntity.revisionHash, BaseEntityLocalization.revisionHash),
+        sql`${LatestEntity.version} && ${BaseEntityLocalization.version}`,
+      ))
+      .where(eq(LatestEntity.cardId, cardId));
 
     if (localization.length === 0) {
       throw new ORPCError('NOT_FOUND');
@@ -297,8 +311,8 @@ const diff = os
     }
 
     const patch = jsonDiff(
-      omit(fromCard, ['version', 'isLatest']),
-      omit(toCard, ['version', 'isLatest']),
+      omit(fromCard, ['version']),
+      omit(toCard, ['version']),
     );
 
     return patch;

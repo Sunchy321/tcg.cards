@@ -493,7 +493,6 @@ function entityManifestValue(row: typeof LocalEntity.$inferSelect) {
     referencedTags:    row.referencedTags,
     textBuilderType:   row.textBuilderType,
     changeType:        row.changeType,
-    isLatest:          row.isLatest,
     signatureArtist:   row.signatureArtist,
     creditsCardName:   row.creditsCardName,
     suggestionWeight:  row.suggestionWeight,
@@ -504,26 +503,25 @@ function entityManifestValue(row: typeof LocalEntity.$inferSelect) {
 /** Stable manifest projection for one localization row. */
 function localizationManifestValue(row: typeof LocalEntityLocalization.$inferSelect) {
   return {
-    cardId:           row.cardId,
-    version:          row.version,
-    lang:             row.lang,
-    revisionHash:     row.revisionHash,
-    localizationHash: row.localizationHash,
-    renderHash:       row.renderHash,
-    renderModel:      row.renderModel,
-    isLatest:         row.isLatest,
-    name:             row.name,
-    text:             row.text,
-    richText:         row.richText,
-    displayText:      row.displayText,
-    targetText:       row.targetText,
-    textInPlay:       row.textInPlay,
+    cardId:             row.cardId,
+    version:            row.version,
+    lang:               row.lang,
+    revisionHash:       row.revisionHash,
+    localizationHash:   row.localizationHash,
+    renderHash:         row.renderHash,
+    renderModel:        row.renderModel,
+    name:               row.name,
+    text:               row.text,
+    richText:           row.richText,
+    displayText:        row.displayText,
+    targetText:         row.targetText,
+    textInPlay:         row.textInPlay,
     howToEarn:          row.howToEarn,
     howToEarnGolden:    row.howToEarnGolden,
     howToEarnSignature: row.howToEarnSignature,
     howToEarnDiamond:   row.howToEarnDiamond,
     flavorText:         row.flavorText,
-    locChangeType:    row.locChangeType,
+    locChangeType:      row.locChangeType,
   };
 }
 
@@ -535,7 +533,6 @@ function relationManifestValue(row: typeof LocalEntityRelation.$inferSelect) {
     relation:           row.relation,
     targetId:           row.targetId,
     version:            row.version,
-    isLatest:           row.isLatest,
   };
 }
 

@@ -4,7 +4,8 @@ import { generateText, isStepCount, tool } from 'ai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { and, eq, ilike, sql } from 'drizzle-orm';
 
-import { Entity, EntityLocalization, Patch } from '@tcg-cards/db/schema/local/hearthstone';
+import { Patch } from '@tcg-cards/db/schema/local/hearthstone';
+import { LatestEntity, LatestEntityLocalization } from '@tcg-cards/db/schema/shared/hearthstone';
 import { locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
 import { glowEntry, group as groupEnum } from '@tcg-cards/model/src/hearthstone/schema/announcement';
 import { renderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
@@ -153,26 +154,24 @@ type Lang = z.infer<typeof locale>;
 async function searchCardCandidates(db: ReturnType<typeof getLocalDb>, name: string, lang: Lang) {
   try {
     return await db.select({
-      cardId:      EntityLocalization.cardId,
-      name:        EntityLocalization.name,
-      set:         Entity.set,
-      type:        Entity.type,
-      cost:        Entity.cost,
-      attack:      Entity.attack,
-      health:      Entity.health,
-      collectible: Entity.collectible,
+      cardId:      LatestEntityLocalization.cardId,
+      name:        LatestEntityLocalization.name,
+      set:         LatestEntity.set,
+      type:        LatestEntity.type,
+      cost:        LatestEntity.cost,
+      attack:      LatestEntity.attack,
+      health:      LatestEntity.health,
+      collectible: LatestEntity.collectible,
     })
-      .from(Entity)
-      .innerJoin(EntityLocalization, and(
-        eq(Entity.cardId, EntityLocalization.cardId),
-        eq(Entity.revisionHash, EntityLocalization.revisionHash),
-        sql`${Entity.version} && ${EntityLocalization.version}`,
+      .from(LatestEntity)
+      .innerJoin(LatestEntityLocalization, and(
+        eq(LatestEntity.cardId, LatestEntityLocalization.cardId),
+        eq(LatestEntity.revisionHash, LatestEntityLocalization.revisionHash),
+        sql`${LatestEntity.version} && ${LatestEntityLocalization.version}`,
       ))
       .where(and(
-        eq(Entity.isLatest, true),
-        eq(EntityLocalization.isLatest, true),
-        eq(EntityLocalization.lang, lang),
-        ilike(EntityLocalization.name, `%${name}%`),
+        eq(LatestEntityLocalization.lang, lang),
+        ilike(LatestEntityLocalization.name, `%${name}%`),
       ))
       .limit(10);
   } catch {

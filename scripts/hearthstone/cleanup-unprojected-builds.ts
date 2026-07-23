@@ -121,7 +121,7 @@ for (const t of targets) {
   `);
   const upd = await db.execute(sql`
     update ${sql.raw(`hearthstone.${t.name}`)}
-    set version = ${removeExpr}, is_latest = false
+    set version = ${removeExpr}
     where version && ${buildArr}
   `);
   console.log(`  ${t.name}: deleted ${del.rowCount ?? 0}, updated ${upd.rowCount ?? 0}`);

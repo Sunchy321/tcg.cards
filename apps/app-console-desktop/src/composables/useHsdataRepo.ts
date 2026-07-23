@@ -138,48 +138,48 @@ export interface HsdataOverview {
 }
 
 /** Desktop hsdata import phases emitted by the local import workflow. */
-export type HsdataImportPhase =
-  | 'reading_source'
-  | 'parsing_entities'
-  | 'writing_batches'
-  | 'finalizing_source_tag'
-  | 'completed'
-  | 'failed';
+export type HsdataImportPhase
+  = | 'reading_source'
+    | 'parsing_entities'
+    | 'writing_batches'
+    | 'finalizing_source_tag'
+    | 'completed'
+    | 'failed';
 
 /** Desktop hsdata import progress event payload. */
 export interface HsdataImportProgressEvent {
-  sourceId:            string;
-  sourceTag:           number | null;
-  jobId:               string | null;
-  phase:               HsdataImportPhase | string;
-  message:             string;
-  startedAt:           string;
-  phaseStartedAt:      string;
-  finishedAt:          string | null;
-  totalBatchCount:     number | null;
-  completedBatchCount: number | null;
-  totalEntityCount:    number | null;
+  sourceId:             string;
+  sourceTag:            number | null;
+  jobId:                string | null;
+  phase:                HsdataImportPhase | string;
+  message:              string;
+  startedAt:            string;
+  phaseStartedAt:       string;
+  finishedAt:           string | null;
+  totalBatchCount:      number | null;
+  completedBatchCount:  number | null;
+  totalEntityCount:     number | null;
   completedEntityCount: number | null;
-  currentBatchIndex:   number | null;
-  totalWorkCount:      number | null;
-  completedWorkCount:  number | null;
-  workLabel:           string | null;
+  currentBatchIndex:    number | null;
+  totalWorkCount:       number | null;
+  completedWorkCount:   number | null;
+  workLabel:            string | null;
 }
 
 /** Desktop hsdata projection phases emitted by the local projection workflow. */
-export type HsdataProjectPhase =
-  | 'loading_snapshots'
-  | 'loading_tags'
-  | 'projecting_snapshots'
-  | 'summarizing_changes'
-  | 'writing_rows'
-  | 'recomputing_latest'
-  | 'completed'
-  | 'failed';
+export type HsdataProjectPhase
+  = | 'loading_snapshots'
+    | 'loading_tags'
+    | 'projecting_snapshots'
+    | 'summarizing_changes'
+    | 'writing_rows'
+    | 'recomputing_latest'
+    | 'completed'
+    | 'failed';
 
 /** One writing segment mirrored into the frontend stacked progress bar. */
 export interface HsdataProjectWriteSegment {
-  totalRowCount: number;
+  totalRowCount:     number;
   completedRowCount: number;
 }
 
@@ -210,19 +210,19 @@ export interface HsdataProjectReconciledCounts {
 
 /** Desktop hsdata projection progress event payload. */
 export interface HsdataProjectProgressEvent {
-  sourceTag:               number;
-  phase:                   HsdataProjectPhase | string;
-  message:                 string;
-  startedAt:               string;
-  phaseStartedAt:          string;
-  finishedAt:              string | null;
-  totalSnapshotCount:      number | null;
-  completedSnapshotCount:  number | null;
-  totalWorkCount:          number | null;
-  completedWorkCount:      number | null;
-  workLabel:               string | null;
-  writeBreakdown:          HsdataProjectWriteBreakdown | null;
-  reconciledCounts:        HsdataProjectReconciledCounts | null;
+  sourceTag:              number;
+  phase:                  HsdataProjectPhase | string;
+  message:                string;
+  startedAt:              string;
+  phaseStartedAt:         string;
+  finishedAt:             string | null;
+  totalSnapshotCount:     number | null;
+  completedSnapshotCount: number | null;
+  totalWorkCount:         number | null;
+  completedWorkCount:     number | null;
+  workLabel:              string | null;
+  writeBreakdown:         HsdataProjectWriteBreakdown | null;
+  reconciledCounts:       HsdataProjectReconciledCounts | null;
 }
 
 export interface HsdataProjectReport {
@@ -245,9 +245,9 @@ export interface HsdataProjectReport {
   cardRowCount:          number;
   unprojectedTagCount:   number;
   unprojectedTags:       HsdataUnprojectedTagReportRow[];
-  entityPlan:            { upsert: number; delete: number };
-  localizationPlan:      { upsert: number; delete: number };
-  relationPlan:          { upsert: number; delete: number };
+  entityPlan:            { upsert: number, delete: number };
+  localizationPlan:      { upsert: number, delete: number };
+  relationPlan:          { upsert: number, delete: number };
   entityDiff:            HsdataDiffBreakdown;
   localizationDiff:      HsdataDiffBreakdown;
   relationDiff:          HsdataDiffBreakdown;
@@ -255,34 +255,11 @@ export interface HsdataProjectReport {
 }
 
 export interface HsdataDiffBreakdown {
-  versionMatch:           number;
-  versionChanged:         number;
-  isLatestChanged:        number;
-  orphanVersionChanged:   number;
-  renderHashChanged?:     number;
+  versionMatch:            number;
+  versionChanged:          number;
+  orphanVersionChanged:    number;
+  renderHashChanged?:      number;
   renderHashNullExisting?: number;
-}
-
-/** Recompute-latest progress event streamed from the local runtime. */
-export interface HsdataRecomputeLatestProgressEvent {
-  phase: string;
-  message: string;
-  startedAt: string;
-  phaseStartedAt: string;
-  finishedAt: string | null;
-  totalRowCount: number | null;
-  completedRowCount: number | null;
-  updatedCount: number | null;
-}
-
-/** Recompute-latest report returned after recalculating isLatest flags. */
-export interface HsdataRecomputeLatestReport {
-  entityRowCount: number;
-  localizationRowCount: number;
-  relationRowCount: number;
-  entityUpdatedCount: number;
-  localizationUpdatedCount: number;
-  relationUpdatedCount: number;
 }
 
 /** Publish report type from the server zod schema. */
@@ -293,19 +270,19 @@ export type HsdataSingleCardPublishReport = SingleCardPublishReport;
 
 /** Publish progress event streamed from the desktop runtime. */
 interface RawPublishJobProgressEvent {
-  batchId?: string;
-  publishType?: string;
-  publishTarget?: string;
-  phase: string;
-  message: string;
-  startedAt?: string;
-  phaseStartedAt?: string;
-  finishedAt?: string | null;
-  total?: number | null;
-  completed?: number | null;
-  totalRowCount?: number | null;
+  batchId?:           string;
+  publishType?:       string;
+  publishTarget?:     string;
+  phase:              string;
+  message:            string;
+  startedAt?:         string;
+  phaseStartedAt?:    string;
+  finishedAt?:        string | null;
+  total?:             number | null;
+  completed?:         number | null;
+  totalRowCount?:     number | null;
   completedRowCount?: number | null;
-  report?: HsdataPublishReport | null;
+  report?:            HsdataPublishReport | null;
 }
 
 export interface HsdataUnprojectedTagReportRow {
@@ -355,26 +332,18 @@ export async function readHsdataSource(id: string) {
 
 /** Options for a single projection run. */
 export interface HsdataProjectOptions {
-  dryRun?:           boolean;
-  force?:            boolean;
-  skipLatestUpdate?: boolean;
-  sampleDiff?:       boolean;
+  dryRun?:     boolean;
+  force?:      boolean;
+  sampleDiff?: boolean;
 }
 
 /** Explicit publish stream selector used by the Hearthstone publish page. */
 export interface HsdataPublishStreamInput {
   publishTarget: 'hearthstone';
-  environment: string;
+  environment:   string;
 }
 
 /** Publish job control result returned after a cooperative pause or stop request. */
-/** Recomputes isLatest flags across the current local projection tables. */
-export function recomputeLatestHsdataProjection() {
-  return (async () => {
-    return await useDesktopRuntimeClient().hsdata.recomputeLatest() as HsdataRecomputeLatestReport;
-  })();
-}
-
 /** Current local latest projection published to the configured remote target. */
 /** Current local latest projection pinned into the local publish baseline. */
 /** Deletes one publish history record. */
@@ -429,9 +398,9 @@ export function publishSingleCard(
 
 /** Registers one remote publish stream so the gate check does not reject it. */
 export function registerRemotePublishStream(input: {
-  connectionString: string;
-  publishTarget: string;
-  environment: string;
+  connectionString:  string;
+  publishTarget:     string;
+  environment:       string;
   targetFingerprint: string;
 }) {
   return (async () => {
@@ -440,16 +409,6 @@ export function registerRemotePublishStream(input: {
 }
 
 /** Requests a cooperative stop of the current publish or pin job. */
-/** Streams recompute-latest progress events from the local Bun runtime. */
-export function listenHsdataRecomputeLatestProgress(
-  handler: (event: HsdataRecomputeLatestProgressEvent) => void,
-): () => void {
-  return consumeEventIterator(
-    useDesktopRuntimeClient().hsdata.watchRecomputeLatest(),
-    { onEvent: handler },
-  );
-}
-
 /** Local hsdata source version rows loaded from the configured desktop database. */
 export function listLocalHsdataSourceVersions() {
   return (async () => {

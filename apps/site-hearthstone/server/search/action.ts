@@ -6,7 +6,7 @@ import type { NormalResult } from '#model/hearthstone/schema/search';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '#db/db';
-import { CardEntityView } from '#schema/shared/hearthstone/entity';
+import { CardEntityView, LatestCardEntityView } from '#schema/shared/hearthstone/entity';
 
 import Parser from '#search/parser';
 import { simplify } from '#search/parser/simplify';
@@ -102,7 +102,6 @@ type SearchOption = {
 
 const defaultVisibleCardQuery = and(
   eq(CardEntityView.collectible, true),
-  eq(CardEntityView.isLatest, true),
   eq(CardEntityView.inBobsTavern, false),
   sql`${CardEntityView.type} in ('minion', 'spell', 'weapon', 'location', 'hero')`,
   sql`(
@@ -168,14 +167,13 @@ export const search = as
     const cardIds = result.map(card => card.cardId);
     const localizedRows = cardIds.length > 0
       ? await db
-        .selectDistinctOn([CardEntityView.cardId])
-        .from(CardEntityView)
+        .selectDistinctOn([LatestCardEntityView.cardId])
+        .from(LatestCardEntityView)
         .where(and(
-          inArray(CardEntityView.cardId, cardIds),
-          eq(CardEntityView.lang, lang),
-          eq(CardEntityView.isLatest, true),
+          inArray(LatestCardEntityView.cardId, cardIds),
+          eq(LatestCardEntityView.lang, lang),
         ))
-        .orderBy(CardEntityView.cardId, desc(CardEntityView.version))
+        .orderBy(LatestCardEntityView.cardId)
       : [];
     const localizedById = new Map(localizedRows.map(card => [card.cardId, card]));
     const displayedResult = result.map(card => localizedById.get(card.cardId) ?? card);

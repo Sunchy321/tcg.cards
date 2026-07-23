@@ -20,8 +20,8 @@ export type ExtractedCardRow = InferSelectModel<typeof ExtractedCard>;
 export type ExtractedCardTagRow = InferSelectModel<typeof ExtractedCardTag>;
 export type TagRow = InferSelectModel<typeof Tag>;
 
-export type LocalizationlessEntityRow = Omit<EntityRow, 'version' | 'isLatest'>;
-export type LocalizationlessLocalizationRow = Omit<LocalizationRow, 'version' | 'isLatest'>;
+export type LocalizationlessEntityRow = Omit<EntityRow, 'version'>;
+export type LocalizationlessLocalizationRow = Omit<LocalizationRow, 'version'>;
 
 export interface LocalizationDraft {
   name:               string;
@@ -44,7 +44,6 @@ export interface WritePlanCounts {
 export interface DiffBreakdown {
   versionMatch:            number;
   versionChanged:          number;
-  isLatestChanged:         number;
   orphanVersionChanged:    number;
   renderHashChanged?:      number;
   renderHashNullExisting?: number;

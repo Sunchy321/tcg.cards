@@ -198,7 +198,6 @@ export const entity = z.strictObject({
   textBuilderType,
 
   changeType: changeType.default('unknown'),
-  isLatest:   z.boolean(),
 });
 
 export const playRequirement = z.strictObject({

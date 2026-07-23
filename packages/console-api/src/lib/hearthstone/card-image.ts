@@ -24,7 +24,7 @@ import {
   type ImageVariant,
 } from '@tcg-cards/model/src/hearthstone/schema/data/image';
 import { CardImageAsset, CardImageExport, CardImageImport } from '@tcg-cards/db/schema/shared/hearthstone/card-image';
-import { Entity, EntityLocalization } from '@tcg-cards/db/schema/shared/hearthstone/entity';
+import { Entity, EntityLocalization, LatestEntity, LatestEntityLocalization } from '@tcg-cards/db/schema/shared/hearthstone/entity';
 import { Set as HearthstoneSet } from '@tcg-cards/db/schema/shared/hearthstone/set';
 import { Tag } from '@tcg-cards/db/schema/shared/hearthstone/tag';
 import { TAG_SLUG } from '@tcg-cards/model/src/hearthstone/constant/tag';
@@ -197,13 +197,10 @@ function parseWebpMetadata(bytes: Uint8Array): WebpMetadata {
 }
 
 function latestOrVersion(
-  versionColumn: typeof Entity.version | typeof EntityLocalization.version,
-  latestColumn: typeof Entity.isLatest | typeof EntityLocalization.isLatest,
+  versionColumn: (typeof Entity | typeof EntityLocalization | typeof LatestEntity | typeof LatestEntityLocalization)['version'],
   version: number | undefined,
 ) {
-  return version == null
-    ? eq(latestColumn, true)
-    : sql`${version} = any(${versionColumn})`;
+  return version == null ? undefined : sql`${version} = any(${versionColumn})`;
 }
 
 function uniqueValues<T>(values: T[]) {
@@ -556,47 +553,57 @@ async function loadCandidateRows(
   rowOffset: number,
   rowLimit: number,
 ) {
+  const useLatest = !input.allVersions && input.version == null;
+  const E = useLatest ? LatestEntity : Entity;
+  const EL = useLatest ? LatestEntityLocalization : EntityLocalization;
+
   const filters = [
-    eq(EntityLocalization.lang, input.lang),
-    sql<boolean>`${EntityLocalization.renderHash} is not null`,
-    sql<boolean>`${EntityLocalization.renderModel} is not null`,
-    sql<boolean>`${Entity.type} <> 'enchantment'`,
+    eq(EL.lang, input.lang),
+    sql<boolean>`${EL.renderHash} is not null`,
+    sql<boolean>`${EL.renderModel} is not null`,
+    sql<boolean>`${E.type} <> 'enchantment'`,
   ];
 
   if (!input.allVersions) {
-    filters.push(latestOrVersion(Entity.version, Entity.isLatest, input.version));
-    filters.push(latestOrVersion(EntityLocalization.version, EntityLocalization.isLatest, input.version));
+    const versionFilter = latestOrVersion(E.version, input.version);
+    if (versionFilter != null) {
+      filters.push(versionFilter);
+    }
+    const locVersionFilter = latestOrVersion(EL.version, input.version);
+    if (locVersionFilter != null) {
+      filters.push(locVersionFilter);
+    }
   }
 
   if (input.cardId) {
-    filters.push(eq(Entity.cardId, input.cardId));
+    filters.push(eq(E.cardId, input.cardId));
   }
 
   return await database.select({
-    cardId:           Entity.cardId,
-    version:          sql<number[]>`${Entity.version} & ${EntityLocalization.version}`.as('version'),
-    lang:             EntityLocalization.lang,
-    revisionHash:     Entity.revisionHash,
-    localizationHash: EntityLocalization.localizationHash,
-    renderHash:       EntityLocalization.renderHash,
-    renderModel:      EntityLocalization.renderModel,
-    type:             Entity.type,
-    set:              Entity.set,
+    cardId:           E.cardId,
+    version:          sql<number[]>`${E.version} & ${EL.version}`.as('version'),
+    lang:             EL.lang,
+    revisionHash:     E.revisionHash,
+    localizationHash: EL.localizationHash,
+    renderHash:       EL.renderHash,
+    renderModel:      EL.renderModel,
+    type:             E.type,
+    set:              E.set,
     setDbfId:         HearthstoneSet.dbfId,
-    techLevel:        Entity.techLevel,
-    mechanics:        Entity.mechanics,
+    techLevel:        E.techLevel,
+    mechanics:        E.mechanics,
   })
-    .from(Entity)
-    .innerJoin(EntityLocalization, and(
-      eq(Entity.cardId, EntityLocalization.cardId),
-      eq(Entity.revisionHash, EntityLocalization.revisionHash),
-      sql`${Entity.version} && ${EntityLocalization.version}`,
+    .from(E)
+    .innerJoin(EL, and(
+      eq(E.cardId, EL.cardId),
+      eq(E.revisionHash, EL.revisionHash),
+      sql`${E.version} && ${EL.version}`,
     ))
-    .leftJoin(HearthstoneSet, eq(Entity.set, HearthstoneSet.setId))
+    .leftJoin(HearthstoneSet, eq(E.set, HearthstoneSet.setId))
     .where(and(...filters))
     .orderBy(
-      asc(Entity.cardId),
-      asc(EntityLocalization.localizationHash),
+      asc(E.cardId),
+      asc(EL.localizationHash),
     )
     .limit(rowLimit)
     .offset(rowOffset)

@@ -34,11 +34,9 @@ const schemaMock = {
   CardImageImport: {},
   Entity:          {
     version:  'version',
-    isLatest: 'isLatest',
   },
   EntityLocalization: {
     version:  'version',
-    isLatest: 'isLatest',
   },
   Set: {},
   Tag: {},
@@ -137,6 +135,7 @@ const renderModel: RenderModel = {
   techLevel:         undefined,
   rune:              undefined,
   renderMechanics:   {},
+  textBuilderType:   'default',
 };
 
 function sha256Bytes(bytes: Uint8Array) {

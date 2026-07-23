@@ -131,11 +131,10 @@ const hsdataImport = os
 /** Creates one single or batch hsdata projection task. */
 const hsdataProjection = os
   .input(z.strictObject({
-    sourceTags:       z.array(z.number().int().nonnegative()).min(1),
-    dryRun:           z.boolean().optional(),
-    force:            z.boolean().optional(),
-    skipLatestUpdate: z.boolean().optional(),
-    sampleDiff:       z.boolean().optional(),
+    sourceTags: z.array(z.number().int().nonnegative()).min(1),
+    dryRun:     z.boolean().optional(),
+    force:      z.boolean().optional(),
+    sampleDiff: z.boolean().optional(),
   }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {

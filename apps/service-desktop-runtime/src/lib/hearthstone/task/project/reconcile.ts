@@ -3,7 +3,7 @@ import canonicalize from 'canonicalize';
 import type { EntityRow, LocalizationRow, RelationRow, RowKey } from './types';
 import { mergeVersion } from './hash';
 
-interface ReconcileResult<T extends { version: number[], isLatest: boolean }> {
+interface ReconcileResult<T extends { version: number[] }> {
   finalRows: T[];
   syncPlan: {
     deleteRows: T[];
@@ -18,7 +18,7 @@ interface ReconcileResult<T extends { version: number[], isLatest: boolean }> {
   updated:  number;
 }
 
-interface ReconcileOptions<T extends { version: number[], isLatest: boolean }> {
+interface ReconcileOptions<T extends { version: number[] }> {
   build:        number;
   keyOf:        (row: T) => RowKey;
   groupKey:     (row: T) => string;
@@ -26,7 +26,7 @@ interface ReconcileOptions<T extends { version: number[], isLatest: boolean }> {
   globalLatest: number;
 }
 
-function cloneReconcileRow<T extends { version: number[], isLatest: boolean }>(row: T): T {
+function cloneReconcileRow<T extends { version: number[] }>(row: T): T {
   return {
     ...row,
     version: [...row.version],
@@ -55,11 +55,11 @@ export function relationKey(
   return `${row.sourceId}\x00${row.sourceRevisionHash}\x00${row.relation}\x00${row.targetId}`;
 }
 
-function entityState(row: Pick<EntityRow, 'revisionHash' | 'version' | 'isLatest'>): string {
-  return `${row.revisionHash}\x00${row.version.join(',')}\x00${row.isLatest ? 1 : 0}`;
+function entityState(row: Pick<EntityRow, 'revisionHash' | 'version'>): string {
+  return `${row.revisionHash}\x00${row.version.join(',')}`;
 }
 
-function localizationState(row: Pick<LocalizationRow, 'revisionHash' | 'localizationHash' | 'renderHash' | 'version' | 'isLatest'>): string {
+function localizationState(row: Pick<LocalizationRow, 'revisionHash' | 'localizationHash' | 'renderHash' | 'version'>): string {
   return [
     row.revisionHash,
     row.localizationHash,
@@ -74,11 +74,10 @@ function relationState(row: RelationRow): string {
     row.relation,
     row.targetId,
     row.version.join(','),
-    row.isLatest ? '1' : '0',
   ].join('\x00');
 }
 
-export async function reconcileRows<T extends { version: number[], isLatest: boolean }>(
+export async function reconcileRows<T extends { version: number[] }>(
   existingRows: T[],
   targetRows: T[],
   options: ReconcileOptions<T>,
@@ -112,7 +111,6 @@ export async function reconcileRows<T extends { version: number[], isLatest: boo
     finalByKey.set(options.keyOf(row), {
       ...cloneReconcileRow(row),
       version:  nextVersion,
-      isLatest: false,
     });
   }
 
@@ -130,7 +128,6 @@ export async function reconcileRows<T extends { version: number[], isLatest: boo
       finalByKey.set(key, {
         ...cloneReconcileRow(row),
         version:  [...row.version],
-        isLatest: false,
       });
     } else {
       if (existing.version.includes(options.build)) {
@@ -143,7 +140,6 @@ export async function reconcileRows<T extends { version: number[], isLatest: boo
         ...(current ?? cloneReconcileRow(row)),
         ...cloneReconcileRow(row),
         version:  mergeVersion(current?.version ?? [], ...row.version),
-        isLatest: false,
       });
     }
   }
@@ -205,8 +201,8 @@ export async function reconcileRows<T extends { version: number[], isLatest: boo
   };
 }
 
-type EntityStateRow = Pick<EntityRow, 'cardId' | 'version' | 'revisionHash' | 'isLatest'>;
-type LocalizationStateRow = Pick<LocalizationRow, 'cardId' | 'version' | 'lang' | 'revisionHash' | 'localizationHash' | 'renderHash' | 'isLatest'> & { renderModel?: unknown };
+type EntityStateRow = Pick<EntityRow, 'cardId' | 'version' | 'revisionHash'>;
+type LocalizationStateRow = Pick<LocalizationRow, 'cardId' | 'version' | 'lang' | 'revisionHash' | 'localizationHash' | 'renderHash'> & { renderModel?: unknown };
 
 export async function reconcileEntities(
   existing: EntityStateRow[],

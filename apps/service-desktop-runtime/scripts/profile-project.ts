@@ -9,7 +9,6 @@ import { setLocalDatabaseUrlOverride } from '../src/runtime-config';
 const sourceTag = Number(process.argv[2]);
 const dryRun = !process.argv.includes('--write');
 const force = process.argv.includes('--force');
-const skipLatestUpdate = process.argv.includes('--skip-latest');
 const save = process.argv.includes('--save');
 const reset = process.argv.includes('--reset');
 
@@ -76,8 +75,7 @@ async function resetProjectedRows(build: number) {
 
     await db.execute(sql`
       update ${sql.raw(`hearthstone.${table}`)}
-      set version = array_remove(version, ${build}),
-          is_latest = false
+      set version = array_remove(version, ${build})
       where ${build} = any(version)
     `);
 
@@ -95,11 +93,11 @@ async function resetProjectedRows(build: number) {
 }
 
 // ── types ──────────────────────────────────────────────────────────
-interface StepRecord { step: string; elapsedMs: number; totalMs: number; }
+interface StepRecord { step: string, elapsedMs: number, totalMs: number }
 
 interface ProfileResult {
   timestamp: string; sourceTag: number; dryRun: boolean; force: boolean;
-  skipLatestUpdate: boolean; totalMs: number; snapshotCount: number;
+  totalMs: number; snapshotCount: number;
   insertedEntities: number; updatedEntities: number;
   insertedLocalizations: number; updatedLocalizations: number;
   insertedRelations: number; updatedRelations: number; steps: StepRecord[];
@@ -108,10 +106,10 @@ interface ProfileResult {
 type PhaseName = 'loading_snapshots' | 'loading_tags' | 'projecting_snapshots' | 'summarizing_changes' | 'writing_rows';
 
 interface PhaseState {
-  label: string;
+  label:     string;
   completed: number;
-  total: number;
-  active: boolean;
+  total:     number;
+  active:    boolean;
 }
 
 // ── display ────────────────────────────────────────────────────────
@@ -122,11 +120,11 @@ const phaseOrder: PhaseName[] = [
   'loading_snapshots', 'loading_tags', 'projecting_snapshots', 'summarizing_changes', 'writing_rows',
 ];
 const phases: Record<PhaseName, PhaseState> = {
-  loading_snapshots:    { label: 'Load snapshots',   completed: 0, total: 0, active: true },
-  loading_tags:         { label: 'Load tags',        completed: 0, total: 0, active: false },
-  projecting_snapshots: { label: 'Project',          completed: 0, total: 0, active: false },
-  summarizing_changes:  { label: 'Reconcile',        completed: 0, total: 0, active: false },
-  writing_rows:         { label: 'Write',            completed: 0, total: 0, active: false },
+  loading_snapshots:    { label: 'Load snapshots', completed: 0, total: 0, active: true },
+  loading_tags:         { label: 'Load tags', completed: 0, total: 0, active: false },
+  projecting_snapshots: { label: 'Project', completed: 0, total: 0, active: false },
+  summarizing_changes:  { label: 'Reconcile', completed: 0, total: 0, active: false },
+  writing_rows:         { label: 'Write', completed: 0, total: 0, active: false },
 };
 
 function formatDuration(ms: number) {
@@ -163,7 +161,7 @@ function drawScreen() {
   const rows: string[] = [];
 
   rows.push(`─`.repeat(72));
-  rows.push(`sourceTag ${sourceTag}${dryRun ? ' dry' : ' write'}${skipLatestUpdate ? ' skip-latest' : ''}  ${formatDuration(elapsed)}`);
+  rows.push(`sourceTag ${sourceTag}${dryRun ? ' dry' : ' write'}  ${formatDuration(elapsed)}`);
   rows.push(`─`.repeat(72));
 
   for (const key of phaseOrder) {
@@ -220,7 +218,6 @@ try {
     sourceTag,
     dryRun,
     force,
-    skipLatestUpdate,
     onProfileMark({ step, elapsedMs, totalMs }) {
       steps.push({ step, elapsedMs, totalMs });
     },
@@ -287,7 +284,7 @@ try {
 
   console.log(`\n${'─'.repeat(80)}`);
   console.log(`sourceTag: ${sourceTag}  |  snapshots: ${report.snapshotCount}  |  total: ${formatDuration(totalMs)}`);
-  console.log(`dryRun: ${dryRun}  |  skipLatest: ${skipLatestUpdate}`);
+  console.log(`dryRun: ${dryRun}`);
   if (!dryRun) {
     console.log(`entities: +${report.insertedEntities} ~${report.updatedEntities}  |  localizations: +${report.insertedLocalizations} ~${report.updatedLocalizations}  |  relations: +${report.insertedRelations} ~${report.updatedRelations}`);
   }
@@ -308,14 +305,14 @@ try {
 
   if (save) {
     saveProfile({
-      timestamp, sourceTag, dryRun, force, skipLatestUpdate, totalMs,
-      snapshotCount: report.snapshotCount,
-      insertedEntities: report.insertedEntities,
-      updatedEntities: report.updatedEntities,
+      timestamp, sourceTag, dryRun, force, totalMs,
+      snapshotCount:         report.snapshotCount,
+      insertedEntities:      report.insertedEntities,
+      updatedEntities:       report.updatedEntities,
       insertedLocalizations: report.insertedLocalizations,
-      updatedLocalizations: report.updatedLocalizations,
-      insertedRelations: report.insertedRelations,
-      updatedRelations: report.updatedRelations,
+      updatedLocalizations:  report.updatedLocalizations,
+      insertedRelations:     report.insertedRelations,
+      updatedRelations:      report.updatedRelations,
       steps,
     });
   }

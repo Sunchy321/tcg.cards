@@ -17,9 +17,6 @@ import {
   BaseEntity,
   BaseEntityLocalization,
   BaseEntityRelation,
-  Entity,
-  EntityLocalization,
-  EntityRelation,
   RawEntitySnapshot,
   RawEntitySnapshotTag,
   Set as HearthstoneSet,
@@ -27,7 +24,6 @@ import {
   Tag,
 } from '@tcg-cards/db/schema/local/hearthstone';
 import type { HsdataProjectReconciledCounts, HsdataProjectWriteBreakdown } from './hsdata-progress';
-import { getLocalDb } from './hsdata-local-db';
 import { createHsdataProfiler } from './hsdata-profile';
 
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -137,7 +133,6 @@ interface EntityRow {
   referencedTags:    Record<string, MechanicValue>;
   textBuilderType:   string;
   changeType:        string;
-  isLatest:          boolean;
   // Extrapolated from unpack data.
   signatureArtist:   string | null;
   creditsCardName:   string | null;
@@ -153,7 +148,6 @@ interface LocalizationRow {
   localizationHash:   string;
   renderHash:         string | null;
   renderModel:        RenderModel | null;
-  isLatest:           boolean;
   name:               string;
   text:               string;
   richText:           string;
@@ -175,7 +169,6 @@ interface RelationRow {
   relation:           string;
   targetId:           string;
   version:            number[];
-  isLatest:           boolean;
 }
 
 interface LocalizationDraft {
@@ -204,10 +197,10 @@ interface ProjectedSnapshot {
   unprojectedTagCount: number;
 }
 
-type LocalizationlessEntityRow = Omit<EntityRow, 'version' | 'isLatest'>;
-type LocalizationlessLocalizationRow = Omit<LocalizationRow, 'version' | 'isLatest'>;
-type EntityStateRow = Pick<EntityRow, 'cardId' | 'version' | 'revisionHash' | 'isLatest'>;
-type LocalizationStateRow = Pick<LocalizationRow, 'cardId' | 'version' | 'lang' | 'revisionHash' | 'localizationHash' | 'renderHash' | 'isLatest'> & { renderModel?: RenderModel | null };
+type LocalizationlessEntityRow = Omit<EntityRow, 'version'>;
+type LocalizationlessLocalizationRow = Omit<LocalizationRow, 'version'>;
+type EntityStateRow = Pick<EntityRow, 'cardId' | 'version' | 'revisionHash'>;
+type LocalizationStateRow = Pick<LocalizationRow, 'cardId' | 'version' | 'lang' | 'revisionHash' | 'localizationHash' | 'renderHash'> & { renderModel?: RenderModel | null };
 type CopyCapableClient = {
   unsafe(query: string): {
     writable(): Promise<NodeJS.WritableStream>;
@@ -215,7 +208,7 @@ type CopyCapableClient = {
 };
 type CopyTx = DbTx & { session: { client: CopyCapableClient } };
 
-interface ReconcileResult<T extends { version: number[], isLatest: boolean }> {
+interface ReconcileResult<T extends { version: number[] }> {
   finalRows: T[];
   syncPlan:  SyncPlan<T>;
   changed:   boolean;
@@ -225,7 +218,7 @@ interface ReconcileResult<T extends { version: number[], isLatest: boolean }> {
 }
 
 /** Write-plan rows that must be deleted or upserted after reconciliation. */
-interface SyncPlan<T extends { version: number[], isLatest: boolean }> {
+interface SyncPlan<T extends { version: number[] }> {
   deleteRows: T[];
   upsertRows: T[];
   inserted:   number;
@@ -234,7 +227,7 @@ interface SyncPlan<T extends { version: number[], isLatest: boolean }> {
 }
 
 /** Reconciliation hooks that derive row identity groups and lightweight change signatures. */
-interface ReconcileOptions<T extends { version: number[], isLatest: boolean }> {
+interface ReconcileOptions<T extends { version: number[] }> {
   build:        number;
   keyOf:        (row: T) => RowKey;
   groupKey:     (row: T) => string;
@@ -294,13 +287,12 @@ interface LocalizationWriteBreakdown {
 }
 
 export interface ProjectHsdataInput {
-  sourceTag:         number;
-  cardIds?:          string[];
-  dryRun?:           boolean;
-  force?:            boolean;
-  skipLatestUpdate?: boolean;
-  sampleDiff?:       boolean;
-  onProfileMark?:    (step: { step: string, elapsedMs: number, totalMs: number }) => void;
+  sourceTag:      number;
+  cardIds?:       string[];
+  dryRun?:        boolean;
+  force?:         boolean;
+  sampleDiff?:    boolean;
+  onProfileMark?: (step: { step: string, elapsedMs: number, totalMs: number }) => void;
   onProgress?: (input: {
     phase:                   'loading_snapshots' | 'loading_tags' | 'projecting_snapshots' | 'summarizing_changes' | 'writing_rows' | 'recomputing_latest' | 'completed' | 'failed';
     message:                 string;
@@ -318,7 +310,6 @@ export interface ProjectHsdataInput {
 export interface DiffBreakdown {
   versionMatch:            number;
   versionChanged:          number;
-  isLatestChanged:         number;
   /** Existing rows without matching target, whose version changed (build removed). */
   orphanVersionChanged:    number;
   /** Only used for localizations. */
@@ -354,7 +345,7 @@ export interface ProjectHsdataReport {
   entityPlan:            WritePlanCounts;
   localizationPlan:      WritePlanCounts;
   relationPlan:          WritePlanCounts;
-  /** Per-field diff for entities (revisionHash/version/isLatest after merge). */
+  /** Per-field diff for entities (revisionHash/version after merge). */
   entityDiff:            DiffBreakdown;
   /** Per-field diff for localizations (includes renderHash after merge). */
   localizationDiff:      DiffBreakdown;
@@ -1256,7 +1247,6 @@ function createEntityDraft(snapshot: RawSnapshotRow): EntityRow {
     referencedTags,
     textBuilderType:   'default',
     changeType:        'unknown',
-    isLatest:          false,
     // Extrapolated from unpack data.
     signatureArtist:   null,
     creditsCardName:   null,
@@ -1425,7 +1415,7 @@ function relationKey(
 }
 
 /** Clones one reconciled row while keeping nested payload references and only copying the mutable version array. */
-function cloneReconcileRow<T extends { version: number[], isLatest: boolean }>(row: T): T {
+function cloneReconcileRow<T extends { version: number[] }>(row: T): T {
   return {
     ...row,
     version: [...row.version],
@@ -1433,12 +1423,12 @@ function cloneReconcileRow<T extends { version: number[], isLatest: boolean }>(r
 }
 
 /** Builds one lightweight entity state signature so reconciliation compares hashes and version flags instead of full-row JSON. */
-function entityState(row: Pick<EntityRow, 'revisionHash' | 'version' | 'isLatest'>): string {
-  return `${row.revisionHash}\u0000${row.version.join(',')}\u0000${row.isLatest ? 1 : 0}`;
+function entityState(row: Pick<EntityRow, 'revisionHash' | 'version'>): string {
+  return `${row.revisionHash}\u0000${row.version.join(',')}`;
 }
 
 /** Builds one lightweight localization state signature so reconciliation only reacts to payload identity and version membership. */
-function localizationState(row: Pick<LocalizationRow, 'revisionHash' | 'localizationHash' | 'renderHash' | 'version' | 'isLatest'>): string {
+function localizationState(row: Pick<LocalizationRow, 'revisionHash' | 'localizationHash' | 'renderHash' | 'version'>): string {
   return [
     row.revisionHash,
     row.localizationHash,
@@ -1454,12 +1444,11 @@ function relationState(row: RelationRow): string {
     row.relation,
     row.targetId,
     row.version.join(','),
-    row.isLatest ? '1' : '0',
   ].join('\u0000');
 }
 
 /** Reconciles one projected row family by updating version membership and comparing lightweight state signatures. */
-async function reconcileRows<T extends { version: number[], isLatest: boolean }>(
+async function reconcileRows<T extends { version: number[] }>(
   existingRows: T[],
   targetRows: T[],
   options: ReconcileOptions<T>,
@@ -1499,8 +1488,8 @@ async function reconcileRows<T extends { version: number[], isLatest: boolean }>
 
     finalByKey.set(options.keyOf(row), {
       ...cloneReconcileRow(row),
-      version:  nextVersion,
-      isLatest: false,
+      version: nextVersion,
+
     });
   }
 
@@ -1518,8 +1507,8 @@ async function reconcileRows<T extends { version: number[], isLatest: boolean }>
       inserted += 1;
       finalByKey.set(key, {
         ...cloneReconcileRow(row),
-        version:  [...row.version],
-        isLatest: false,
+        version: [...row.version],
+
       });
     } else {
       if (existing.version.includes(options.build)) {
@@ -1531,8 +1520,8 @@ async function reconcileRows<T extends { version: number[], isLatest: boolean }>
       finalByKey.set(key, {
         ...(current ?? cloneReconcileRow(row)),
         ...cloneReconcileRow(row),
-        version:  mergeVersion(current?.version ?? [], ...row.version),
-        isLatest: false,
+        version: mergeVersion(current?.version ?? [], ...row.version),
+
       });
     }
 
@@ -1711,24 +1700,24 @@ function finalizeLocalizationRows(
     const displayText = richText;
 
     const row: LocalizationlessLocalizationRow = {
-      cardId:           entity.cardId,
+      cardId:             entity.cardId,
       lang,
-      revisionHash:     entity.revisionHash,
-      localizationHash: '',
-      renderHash:       null,
-      renderModel:      null,
-      name:             localization.name,
+      revisionHash:       entity.revisionHash,
+      localizationHash:   '',
+      renderHash:         null,
+      renderModel:        null,
+      name:               localization.name,
       text,
       richText,
       displayText,
-      targetText:       localization.targetText,
-      textInPlay:       localization.textInPlay,
-      howToEarn:        localization.howToEarn,
-      howToEarnGolden:  localization.howToEarnGolden,
+      targetText:         localization.targetText,
+      textInPlay:         localization.textInPlay,
+      howToEarn:          localization.howToEarn,
+      howToEarnGolden:    localization.howToEarnGolden,
       howToEarnSignature: localization.howToEarnSignature,
       howToEarnDiamond:   localization.howToEarnDiamond,
-      flavorText:       localization.flavorText,
-      locChangeType:    localization.locChangeType,
+      flavorText:         localization.flavorText,
+      locChangeType:      localization.locChangeType,
     };
 
     const localizationHash = hashCanonicalJson(buildLocalizationHashPayload(row));
@@ -1740,8 +1729,8 @@ function finalizeLocalizationRows(
       localizationHash,
       renderModel,
       renderHash,
-      version:  [],
-      isLatest: false,
+      version: [],
+
     });
   }
 
@@ -1889,7 +1878,6 @@ function projectSnapshot(
       relation:           relationName(field),
       targetId,
       version:            [],
-      isLatest:           false,
     });
   }
 
@@ -1906,7 +1894,6 @@ function projectSnapshot(
       relation:           relationName(field),
       targetId,
       version:            [],
-      isLatest:           false,
     });
   }
 
@@ -2077,7 +2064,6 @@ async function loadExistingRowsForProjection(
     cardId:       string;
     version:      number[];
     revisionHash: string;
-    isLatest:     boolean;
   };
   type LocalizationStateQueryRow = {
     cardId:           string;
@@ -2087,7 +2073,6 @@ async function loadExistingRowsForProjection(
     localizationHash: string;
     renderHash:       string | null;
     renderModel:      RenderModel | null;
-    isLatest:         boolean;
   };
   type RelationQueryRow = {
     sourceId:           string;
@@ -2095,7 +2080,6 @@ async function loadExistingRowsForProjection(
     relation:           string;
     targetId:           string;
     version:            number[];
-    isLatest:           boolean;
   };
 
   return await db.transaction(async tx => {
@@ -2121,7 +2105,6 @@ async function loadExistingRowsForProjection(
             target.card_id as "cardId",
             target.version as "version",
             target.revision_hash as "revisionHash",
-            target.is_latest as "isLatest"
           from hearthstone.entities as target
           inner join hsdata_projection_entity_existing_stage as stage
             on target.card_id = stage.card_id
@@ -2189,8 +2172,7 @@ async function loadExistingRowsForProjection(
               target.localization_hash as "localizationHash",
               target.render_hash as "renderHash",
               target.render_model as "renderModel",
-              target.is_latest as "isLatest"
-            from hearthstone.entity_localizations as target
+              from hearthstone.entity_localizations as target
             inner join hsdata_projection_localization_existing_key_stage as stage
               on target.card_id = stage.card_id
              and target.lang = stage.lang
@@ -2222,8 +2204,7 @@ async function loadExistingRowsForProjection(
               target.localization_hash as "localizationHash",
               target.render_hash as "renderHash",
               target.render_model as "renderModel",
-              target.is_latest as "isLatest"
-            from hearthstone.entity_localizations as target
+              from hearthstone.entity_localizations as target
             inner join hsdata_projection_localization_existing_stage as stage
               on target.card_id = stage.card_id
              and target.lang = stage.lang
@@ -2294,7 +2275,6 @@ async function loadExistingRowsForProjection(
             target.relation as "relation",
             target.target_id as "targetId",
             target.version as "version",
-            target.is_latest as "isLatest"
           from hearthstone.entity_relations as target
           inner join hsdata_projection_relation_existing_stage as stage
             on target.source_id = stage.source_id
@@ -2413,7 +2393,7 @@ async function insertEntitiesIgnoreDuplicates(tx: CopyTx, rows: EntityRow[]) {
       referenced_tags,
       text_builder_type,
       change_type,
-      is_latest
+
     )
     select
       card_id,
@@ -2456,7 +2436,7 @@ async function insertEntitiesIgnoreDuplicates(tx: CopyTx, rows: EntityRow[]) {
       referenced_tags,
       text_builder_type,
       change_type,
-      is_latest
+
     from hsdata_projection_entity_copy_stage
     on conflict do nothing
   `);
@@ -2587,7 +2567,6 @@ function encodeEntityCopyRow(row: EntityRow): string {
     encodeCopyCsvField(encodeCopyJson(row.referencedTags)),
     encodeCopyCsvField(row.textBuilderType),
     encodeCopyCsvField(row.changeType),
-    encodeCopyCsvField(row.isLatest ? 't' : 'f'),
   ].join('\t') + '\n';
 }
 
@@ -2601,7 +2580,6 @@ function encodeLocalizationCopyRow(row: LocalizationRow): string {
     encodeCopyCsvField(row.localizationHash),
     encodeCopyCsvField(row.renderHash),
     encodeCopyCsvField(encodeCopyJson(row.renderModel)),
-    encodeCopyCsvField(row.isLatest ? 't' : 'f'),
     encodeCopyCsvField(row.name),
     encodeCopyCsvField(row.text),
     encodeCopyCsvField(row.richText),
@@ -2663,7 +2641,7 @@ async function copyEntitiesIntoTable(
       referenced_tags,
       text_builder_type,
       change_type,
-      is_latest
+
     ) from stdin with (
       format csv,
       delimiter E'\\t',
@@ -2699,7 +2677,7 @@ async function copyLocalizationsIntoTable(
       localization_hash,
       render_hash,
       render_model,
-      is_latest,
+
       name,
       text,
       rich_text,
@@ -2939,7 +2917,7 @@ async function insertLocalizationsIgnoreDuplicates(tx: CopyTx, rows: Localizatio
       localization_hash,
       render_hash,
       render_model,
-      is_latest,
+
       name,
       text,
       rich_text,
@@ -2959,7 +2937,7 @@ async function insertLocalizationsIgnoreDuplicates(tx: CopyTx, rows: Localizatio
       localization_hash,
       render_hash,
       render_model,
-      is_latest,
+
       name,
       text,
       rich_text,
@@ -3039,8 +3017,8 @@ async function upsertEntities(
 
     insertRows.push({
       ...full,
-      version:  [...row.version],
-      isLatest: row.isLatest,
+      version: [...row.version],
+
     });
   }
 
@@ -3107,7 +3085,7 @@ async function upsertEntities(
         referenced_tags,
         text_builder_type,
         change_type,
-        is_latest
+
       )
       select
         stage.card_id,
@@ -3150,7 +3128,7 @@ async function upsertEntities(
         stage.referenced_tags,
         stage.text_builder_type,
         stage.change_type,
-        stage.is_latest
+
       from hsdata_projection_entity_copy_stage as stage
       where not exists (
         select 1
@@ -3172,7 +3150,7 @@ async function upsertEntities(
   });
 }
 
-/** Updates only entity version/isLatest metadata for historical rows whose payload did not change. */
+/** Updates only entity version metadata for historical rows whose payload did not change. */
 async function updateEntityMetaRows(
   tx: DbTx,
   rows: EntityStateRow[],
@@ -3186,7 +3164,7 @@ async function updateEntityMetaRows(
   for (const chunk of chunkValues(rows, writeRowBatchSize)) {
     for (const row of chunk) {
       await tx.update(BaseEntity)
-        .set({ version: row.version, isLatest: row.isLatest })
+        .set({ version: row.version })
         .where(and(
           eq(BaseEntity.cardId, row.cardId),
           eq(BaseEntity.revisionHash, row.revisionHash),
@@ -3290,8 +3268,8 @@ async function syncLocalizations(
 
     insertRows.push({
       ...full,
-      version:  [...row.version],
-      isLatest: row.isLatest,
+      version: [...row.version],
+
     });
   }
 
@@ -3370,7 +3348,7 @@ async function syncLocalizations(
           localization_hash,
           render_hash,
           render_model,
-          is_latest,
+
           name,
           text,
           rich_text,
@@ -3390,7 +3368,7 @@ async function syncLocalizations(
           stage.localization_hash,
           stage.render_hash,
           stage.render_model,
-          stage.is_latest,
+
           stage.name,
           stage.text,
           stage.rich_text,
@@ -3436,8 +3414,8 @@ async function insertRelations(tx: DbTx, rows: RelationRow[]) {
       .onConflictDoUpdate({
         target: [BaseEntityRelation.sourceId, BaseEntityRelation.sourceRevisionHash, BaseEntityRelation.relation, BaseEntityRelation.targetId],
         set:    {
-          version:   sql`excluded.version`,
-          isLatest:  sql`excluded.is_latest`,
+          version: sql`excluded.version`,
+
           deletedAt: null,
           updatedAt: new Date(),
         },
@@ -3457,8 +3435,8 @@ async function insertRelationsIgnoreDuplicates(tx: DbTx, rows: RelationRow[]) {
       .onConflictDoUpdate({
         target: [BaseEntityRelation.sourceId, BaseEntityRelation.sourceRevisionHash, BaseEntityRelation.relation, BaseEntityRelation.targetId],
         set:    {
-          version:   sql`excluded.version`,
-          isLatest:  sql`excluded.is_latest`,
+          version: sql`excluded.version`,
+
           deletedAt: null,
           updatedAt: new Date(),
         },
@@ -3471,8 +3449,6 @@ interface DiffSample {
   existingVersion:     number[];
   targetVersion:       number[];
   mergedVersion:       number[];
-  existingIsLatest:    boolean;
-  targetIsLatest:      boolean;
   existingRenderHash:  string | null;
   targetRenderHash:    string | null;
   existingRenderModel: unknown;
@@ -3493,7 +3469,7 @@ interface SummarizeDiffOptions<TE, TT> {
 }
 
 /** Simulates mergeVersion and compares existing vs target state, categorising reasons. */
-function summarizeDiff<TE extends { version: number[], isLatest: boolean }, TT extends { version: number[], isLatest: boolean }>(
+function summarizeDiff<TE extends { version: number[] }, TT extends { version: number[] }>(
   existing: TE[],
   targets: TT[],
   opts: SummarizeDiffOptions<TE, TT>,
@@ -3501,7 +3477,6 @@ function summarizeDiff<TE extends { version: number[], isLatest: boolean }, TT e
   const existingByKey = new Map(existing.map(r => [opts.keyOf(r), r]));
   let versionMatch = 0;
   let versionChanged = 0;
-  let isLatestChanged = 0;
   let renderHashChanged = 0;
   let renderHashNullExisting = 0;
   const hasRender = opts.renderHashOf !== noRenderHash;
@@ -3517,8 +3492,6 @@ function summarizeDiff<TE extends { version: number[], isLatest: boolean }, TT e
     const merged = mergeVersion(nextVersion, ...t.version);
 
     const verSame = merged.join(',') === e.version.join(',');
-    const resolvedLatest = e.isLatest;
-    const isLatestSame = resolvedLatest === e.isLatest;
     const renderSame = !hasRender || (opts.renderHashOf(t) ?? null) === (opts.renderHashOf(e) ?? null);
     // The metadata-update path can set renderHash without renderModel, causing
     // hash match even when the stored model is stale. Check model content too.
@@ -3526,13 +3499,12 @@ function summarizeDiff<TE extends { version: number[], isLatest: boolean }, TT e
       || canonicalize(opts.renderModelOf(t)) === canonicalize(opts.existingRenderModelOf(e) ?? null);
     const renderReallySame = renderSame && renderModelSame;
 
-    if (verSame && isLatestSame && renderReallySame) {
+    if (verSame && renderReallySame) {
       versionMatch += 1;
       continue;
     }
 
     if (!verSame) versionChanged += 1;
-    if (!isLatestSame && verSame) isLatestChanged += 1;
     if (hasRender && (!renderSame || !renderModelSame)) {
       renderHashChanged += 1;
       if ((opts.renderHashOf(e) ?? null) == null) renderHashNullExisting += 1;
@@ -3541,15 +3513,12 @@ function summarizeDiff<TE extends { version: number[], isLatest: boolean }, TT e
     if (opts.outSamples.length < MAX_DIFF_SAMPLES) {
       const reasons: string[] = [];
       if (!verSame) reasons.push('version');
-      if (!isLatestSame && verSame) reasons.push('isLatest');
       if (hasRender && (!renderSame || !renderModelSame)) reasons.push('renderHash');
       opts.outSamples.push({
         key:                 `${opts.label}:${opts.keyOf(t)}`,
         existingVersion:     e.version,
         targetVersion:       t.version,
         mergedVersion:       merged,
-        existingIsLatest:    e.isLatest,
-        targetIsLatest:      t.isLatest,
         existingRenderHash:  hasRender ? (opts.renderHashOf(e) ?? null) : null,
         targetRenderHash:    hasRender ? (opts.renderHashOf(t) ?? null) : null,
         existingRenderModel: opts.existingRenderModelOf?.(e) ?? null,
@@ -3572,8 +3541,6 @@ function summarizeDiff<TE extends { version: number[], isLatest: boolean }, TT e
           existingVersion:     e.version,
           targetVersion:       [],
           mergedVersion:       nextVersion,
-          existingIsLatest:    e.isLatest,
-          targetIsLatest:      e.isLatest,
           existingRenderHash:  hasRender ? (opts.renderHashOf(e) ?? null) : null,
           targetRenderHash:    null,
           existingRenderModel: opts.existingRenderModelOf?.(e) ?? null,
@@ -3587,7 +3554,6 @@ function summarizeDiff<TE extends { version: number[], isLatest: boolean }, TT e
   return {
     versionMatch,
     versionChanged,
-    isLatestChanged,
     orphanVersionChanged: orphanCount,
     ...(hasRender ? { renderHashChanged, renderHashNullExisting } : {}),
   };
@@ -3600,7 +3566,6 @@ function noRenderHash(_r: unknown): null {
 export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectHsdataReport> {
   const dryRun = input.dryRun ?? false;
   const force = input.force ?? false;
-  const skipLatestUpdate = input.skipLatestUpdate ?? false;
   const profiler = createHsdataProfiler('project', {
     sourceTag: input.sourceTag,
     dryRun,
@@ -3696,9 +3661,9 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
         entityPlan:            { upsert: 0, delete: 0 },
         localizationPlan:      { upsert: 0, delete: 0 },
         relationPlan:          { upsert: 0, delete: 0 },
-        entityDiff:            { versionMatch: 0, versionChanged: 0, isLatestChanged: 0, orphanVersionChanged: 0 },
-        localizationDiff:      { versionMatch: 0, versionChanged: 0, isLatestChanged: 0, orphanVersionChanged: 0, renderHashChanged: 0, renderHashNullExisting: 0 },
-        relationDiff:          { versionMatch: 0, versionChanged: 0, isLatestChanged: 0, orphanVersionChanged: 0 },
+        entityDiff:            { versionMatch: 0, versionChanged: 0, orphanVersionChanged: 0 },
+        localizationDiff:      { versionMatch: 0, versionChanged: 0, orphanVersionChanged: 0, renderHashChanged: 0, renderHashNullExisting: 0 },
+        relationDiff:          { versionMatch: 0, versionChanged: 0, orphanVersionChanged: 0 },
         sampleDiffPath:        null,
       };
     }
@@ -3840,19 +3805,19 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
 
     const targetEntities = projected.map(item => ({
       ...item.entity,
-      version:  buildsBySnapshotId.get(item.snapshotId) ?? [build!],
-      isLatest: false,
+      version: buildsBySnapshotId.get(item.snapshotId) ?? [build!],
+
     }));
     const targetEntityStates: EntityStateRow[] = targetEntities.map(row => ({
       cardId:       row.cardId,
       version:      row.version,
       revisionHash: row.revisionHash,
-      isLatest:     row.isLatest,
+
     }));
     const targetLocalizations = projected.flatMap(item => item.localizations.map(row => ({
       ...row,
-      version:  buildsBySnapshotId.get(item.snapshotId) ?? [build!],
-      isLatest: false,
+      version: buildsBySnapshotId.get(item.snapshotId) ?? [build!],
+
     })));
     const targetLocalizationStates: LocalizationStateRow[] = targetLocalizations.map(row => ({
       cardId:           row.cardId,
@@ -3862,12 +3827,11 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
       localizationHash: row.localizationHash,
       renderHash:       row.renderHash,
       renderModel:      row.renderModel,
-      isLatest:         row.isLatest,
     }));
     const targetRelations = projected.flatMap(item => item.relations.map(row => ({
       ...row,
-      version:  buildsBySnapshotId.get(item.snapshotId) ?? [build!],
-      isLatest: false,
+      version: buildsBySnapshotId.get(item.snapshotId) ?? [build!],
+
     })));
     const entityCardIds = [...new Set(targetEntities.map(row => row.cardId))].sort();
     const localizationGroups = [
@@ -4279,30 +4243,6 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
       }
     }
 
-    if (!dryRun && !skipLatestUpdate && snapshots.length > 0) {
-      await input.onProgress?.({
-        phase:                  'recomputing_latest',
-        message:                'Recomputing isLatest flags across all projection tables',
-        totalSnapshotCount:     snapshots.length,
-        completedSnapshotCount: snapshots.length,
-        totalWorkCount:         1,
-        completedWorkCount:     0,
-        workLabel:              'table',
-      });
-
-      await recomputeLatestProjection();
-
-      await input.onProgress?.({
-        phase:                  'recomputing_latest',
-        message:                'Recomputed isLatest flags',
-        totalSnapshotCount:     snapshots.length,
-        completedSnapshotCount: snapshots.length,
-        totalWorkCount:         1,
-        completedWorkCount:     1,
-        workLabel:              'table',
-      });
-    }
-
     if (!dryRun && snapshots.length > 0) {
       await db.update(RawEntitySnapshot)
         .set({ projectionState: 'projected' })
@@ -4368,125 +4308,4 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     profiler.done({ outcome: 'failed' });
     throw error;
   }
-}
-
-export async function recomputeLatestProjection(options?: {
-  globalLatest?: number;
-  onProgress?: (event: {
-    phase:             string;
-    message:           string;
-    totalRowCount:     number | null;
-    completedRowCount: number | null;
-    updatedCount:      number | null;
-  }) => void;
-}): Promise<{
-  entityRowCount:           number;
-  localizationRowCount:     number;
-  relationRowCount:         number;
-  entityUpdatedCount:       number;
-  localizationUpdatedCount: number;
-  relationUpdatedCount:     number;
-}> {
-  const localDb = getLocalDb();
-
-  const [maxBuildRow] = await localDb.select({ maxBuild: sql<number>`MAX(${PatchState.buildNumber})` })
-    .from(PatchState)
-    .where(eq(PatchState.projectionStatus, 'completed'));
-  const globalLatest = options?.globalLatest ?? maxBuildRow?.maxBuild;
-
-  if (globalLatest == null) {
-    throw new Error('No completed source versions found for isLatest recomputation.');
-  }
-
-  options?.onProgress?.({
-    phase:             'entity',
-    message:           `Updating entity isLatest for build ${globalLatest}`,
-    totalRowCount:     1,
-    completedRowCount: 0,
-    updatedCount:      0,
-  });
-  const entityResult = await localDb.execute(sql`
-    update hearthstone.entities
-       set is_latest = (${globalLatest} = any(version)),
-           updated_at = now()
-     where deleted_at is null
-       and is_latest is distinct from (${globalLatest} = any(version))
-  `) as { count?: number };
-  const entityUpdatedCount = entityResult.count ?? 0;
-  const [{ count: entityRowCount }] = await localDb.select({ count: sql<number>`count(*)` }).from(Entity);
-
-  if (options?.onProgress) {
-    options.onProgress({
-      phase:             'entity',
-      message:           `Entity isLatest updated (${entityUpdatedCount} changed)`,
-      totalRowCount:     1,
-      completedRowCount: 1,
-      updatedCount:      entityUpdatedCount,
-    });
-  }
-
-  options?.onProgress?.({
-    phase:             'localization',
-    message:           `Updating localization isLatest for build ${globalLatest}`,
-    totalRowCount:     1,
-    completedRowCount: 0,
-    updatedCount:      0,
-  });
-
-  const localizationResult = await localDb.execute(sql`
-    update hearthstone.entity_localizations
-       set is_latest = (${globalLatest} = any(version)),
-           updated_at = now()
-     where deleted_at is null
-       and is_latest is distinct from (${globalLatest} = any(version))
-  `) as { count?: number };
-  const localizationUpdatedCount = localizationResult.count ?? 0;
-  const [{ count: localizationRowCount }] = await localDb.select({ count: sql<number>`count(*)` }).from(EntityLocalization);
-
-  if (options?.onProgress) {
-    options.onProgress({
-      phase:             'localization',
-      message:           `Localization isLatest updated (${localizationUpdatedCount} changed)`,
-      totalRowCount:     1,
-      completedRowCount: 1,
-      updatedCount:      localizationUpdatedCount,
-    });
-  }
-
-  options?.onProgress?.({
-    phase:             'relation',
-    message:           `Updating relation isLatest for build ${globalLatest}`,
-    totalRowCount:     1,
-    completedRowCount: 0,
-    updatedCount:      0,
-  });
-
-  const relationResult = await localDb.execute(sql`
-    update hearthstone.entity_relations
-       set is_latest = (${globalLatest} = any(version)),
-           updated_at = now()
-     where deleted_at is null
-       and is_latest is distinct from (${globalLatest} = any(version))
-  `) as { count?: number };
-  const relationUpdatedCount = relationResult.count ?? 0;
-  const [{ count: relationRowCount }] = await localDb.select({ count: sql<number>`count(*)` }).from(EntityRelation);
-
-  if (options?.onProgress) {
-    options.onProgress({
-      phase:             'relation',
-      message:           `Relation isLatest updated (${relationUpdatedCount} changed)`,
-      totalRowCount:     1,
-      completedRowCount: 1,
-      updatedCount:      relationUpdatedCount,
-    });
-  }
-
-  return {
-    entityRowCount,
-    localizationRowCount,
-    relationRowCount,
-    entityUpdatedCount,
-    localizationUpdatedCount,
-    relationUpdatedCount,
-  };
 }

@@ -80,7 +80,6 @@ function encodeEntityCopyRow(row: EntityRow): string {
     encodeCopyCsvField(encodeCopyJson(row.referencedTags)),
     encodeCopyCsvField(row.textBuilderType),
     encodeCopyCsvField(row.changeType),
-    encodeCopyCsvField(row.isLatest ? 't' : 'f'),
     encodeCopyCsvField(row.signatureArtist),
     encodeCopyCsvField(row.creditsCardName),
     encodeCopyCsvField(row.suggestionWeight == null ? null : String(row.suggestionWeight)),
@@ -97,7 +96,6 @@ function encodeLocalizationCopyRow(row: LocalizationRow): string {
     encodeCopyCsvField(row.localizationHash),
     encodeCopyCsvField(row.renderHash),
     encodeCopyCsvField(encodeCopyJson(row.renderModel)),
-    encodeCopyCsvField(row.isLatest ? 't' : 'f'),
     encodeCopyCsvField(row.name),
     encodeCopyCsvField(row.text),
     encodeCopyCsvField(row.richText),
@@ -120,7 +118,6 @@ function encodeRelationCopyRow(row: RelationRow): string {
     encodeCopyCsvField(row.relation),
     encodeCopyCsvField(row.targetId),
     encodeCopyCsvField(encodeCopyIntArray(row.version)),
-    encodeCopyCsvField(row.isLatest ? 't' : 'f'),
   ].join('\t') + '\n';
 }
 
@@ -171,7 +168,6 @@ export async function copyEntitiesIntoTable(
       referenced_tags,
       text_builder_type,
       change_type,
-      is_latest,
       signature_artist,
       credits_card_name,
       suggestion_weight,
@@ -209,7 +205,6 @@ export async function copyLocalizationsIntoTable(
       localization_hash,
       render_hash,
       render_model,
-      is_latest,
       name,
       text,
       rich_text,
@@ -252,8 +247,7 @@ export async function copyRelationsIntoTable(
       source_revision_hash,
       relation,
       target_id,
-      version,
-      is_latest
+      version
     ) from stdin with (
       format csv,
       delimiter E'\\t',

@@ -4,7 +4,7 @@ import { locale } from '#model/hearthstone/schema/basic';
 import z from 'zod';
 
 import { db } from '#db/db';
-import { CardEntityView } from '#schema/shared/hearthstone/entity';
+import { CardEntityView, LatestCardEntityView } from '#schema/shared/hearthstone/entity';
 
 const paramsSchema = z.object({
   cardId:  z.string(),
@@ -21,19 +21,25 @@ export default defineEventHandler(async event => {
   }
 
   const { cardId, lang, version } = parsed.data;
-  const versionFilter = version == null
-    ? eq(CardEntityView.isLatest, true)
-    : sql`${version} = any(${CardEntityView.version})`;
 
-  const card = await db.select()
-    .from(CardEntityView)
-    .where(and(
-      eq(CardEntityView.cardId, cardId),
-      eq(CardEntityView.lang, lang),
-      versionFilter,
-    ))
-    .limit(1)
-    .then(rows => rows[0] ?? null);
+  const card = version != null
+    ? await db.select()
+      .from(CardEntityView)
+      .where(and(
+        eq(CardEntityView.cardId, cardId),
+        eq(CardEntityView.lang, lang),
+        sql`${version} = any(${CardEntityView.version})`,
+      ))
+      .limit(1)
+      .then(rows => rows[0] ?? null)
+    : await db.select()
+      .from(LatestCardEntityView)
+      .where(and(
+        eq(LatestCardEntityView.cardId, cardId),
+        eq(LatestCardEntityView.lang, lang),
+      ))
+      .limit(1)
+      .then(rows => rows[0] ?? null);
 
   if (!card) {
     throw createError({ statusCode: 404, statusMessage: 'Card not found' });

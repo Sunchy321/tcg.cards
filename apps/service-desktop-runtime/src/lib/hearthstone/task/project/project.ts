@@ -119,7 +119,6 @@ function createEmptyEntityDraft(cardId: string, dbfId: number): EntityRow {
     referencedTags:    {},
     textBuilderType:   'default',
     changeType:        'unknown',
-    isLatest:          false,
     signatureArtist:   null,
     creditsCardName:   null,
     suggestionWeight:  null,
@@ -260,7 +259,6 @@ function finalizeLocalizationRows(
       renderModel,
       renderHash,
       version:  [],
-      isLatest: false,
     });
   }
 
@@ -400,7 +398,6 @@ function projectExtractedCard(
       relation:           'hero_power',
       targetId:           entity.heroPower,
       version:            [],
-      isLatest:           false,
     });
   }
   if (entity.tripleCard) {
@@ -410,7 +407,6 @@ function projectExtractedCard(
       relation:           'triple_card',
       targetId:           entity.tripleCard,
       version:            [],
-      isLatest:           false,
     });
   }
   if (entity.buddy) {
@@ -420,7 +416,6 @@ function projectExtractedCard(
       relation:           'buddy',
       targetId:           entity.buddy,
       version:            [],
-      isLatest:           false,
     });
   }
 
@@ -453,9 +448,9 @@ export async function projectExtracted(build: number, cardIds: string[], dryRun 
       entityPlan:            { upsert: 0, delete: 0 },
       localizationPlan:      { upsert: 0, delete: 0 },
       relationPlan:          { upsert: 0, delete: 0 },
-      entityDiff:            { versionMatch: 0, versionChanged: 0, isLatestChanged: 0, orphanVersionChanged: 0 },
-      localizationDiff:      { versionMatch: 0, versionChanged: 0, isLatestChanged: 0, orphanVersionChanged: 0, renderHashChanged: 0, renderHashNullExisting: 0 },
-      relationDiff:          { versionMatch: 0, versionChanged: 0, isLatestChanged: 0, orphanVersionChanged: 0 },
+      entityDiff:            { versionMatch: 0, versionChanged: 0, orphanVersionChanged: 0 },
+      localizationDiff:      { versionMatch: 0, versionChanged: 0, orphanVersionChanged: 0, renderHashChanged: 0, renderHashNullExisting: 0 },
+      relationDiff:          { versionMatch: 0, versionChanged: 0, orphanVersionChanged: 0 },
       sampleDiffPath:        null,
     };
   }
@@ -531,17 +526,17 @@ export async function projectExtracted(build: number, cardIds: string[], dryRun 
     projectedEntities.push({
       ...result.entity,
       version:  [build],
-      isLatest: false,
+
     });
     projectedLocalizations.push(...result.localizations.map(loc => ({
       ...loc,
       version:  [build],
-      isLatest: false,
+
     })));
     projectedRelations.push(...result.relations.map(rel => ({
       ...rel,
       version:  [build],
-      isLatest: false,
+
     })));
   }
 
@@ -553,7 +548,6 @@ export async function projectExtracted(build: number, cardIds: string[], dryRun 
     cardId:       Entity.cardId,
     version:      Entity.version,
     revisionHash: Entity.revisionHash,
-    isLatest:     Entity.isLatest,
   }).from(Entity)
     .where(inArray(Entity.cardId, entityCardIds));
 
@@ -566,7 +560,6 @@ export async function projectExtracted(build: number, cardIds: string[], dryRun 
     localizationHash: EntityLocalization.localizationHash,
     renderHash:       EntityLocalization.renderHash,
     renderModel:      EntityLocalization.renderModel,
-    isLatest:         EntityLocalization.isLatest,
   }).from(EntityLocalization)
     .where(inArray(EntityLocalization.cardId, entityCardIds));
 
@@ -585,11 +578,11 @@ export async function projectExtracted(build: number, cardIds: string[], dryRun 
 
   // Reconcile
   const targetEntityStates = projectedEntities.map(r => ({
-    cardId: r.cardId, version: r.version, revisionHash: r.revisionHash, isLatest: r.isLatest,
+    cardId: r.cardId, version: r.version, revisionHash: r.revisionHash,
   }));
   const targetLocStates = projectedLocalizations.map(r => ({
     cardId:           r.cardId, version:          r.version, lang:             r.lang, revisionHash:     r.revisionHash,
-    localizationHash: r.localizationHash, renderHash:       r.renderHash, renderModel:      r.renderModel, isLatest:         r.isLatest,
+    localizationHash: r.localizationHash, renderHash:       r.renderHash, renderModel:      r.renderModel,
   }));
   const entityResult = await reconcileEntities(existingEntityStates, targetEntityStates, build, globalLatest);
   const localizationResult = await reconcileLocalizations(existingLocStates as any, targetLocStates as any, build, globalLatest);
@@ -670,9 +663,9 @@ export async function projectExtracted(build: number, cardIds: string[], dryRun 
     entityPlan:            { upsert: entityResult.syncPlan.upsertRows.length, delete: entityResult.syncPlan.deleteRows.length },
     localizationPlan:      { upsert: localizationResult.syncPlan.upsertRows.length, delete: localizationResult.syncPlan.deleteRows.length },
     relationPlan:          { upsert: relationResult.syncPlan.upsertRows.length, delete: relationResult.syncPlan.deleteRows.length },
-    entityDiff:            { versionMatch: 0, versionChanged: 0, isLatestChanged: 0, orphanVersionChanged: 0 },
-    localizationDiff:      { versionMatch: 0, versionChanged: 0, isLatestChanged: 0, orphanVersionChanged: 0, renderHashChanged: 0, renderHashNullExisting: 0 },
-    relationDiff:          { versionMatch: 0, versionChanged: 0, isLatestChanged: 0, orphanVersionChanged: 0 },
+    entityDiff:            { versionMatch: 0, versionChanged: 0, orphanVersionChanged: 0 },
+    localizationDiff:      { versionMatch: 0, versionChanged: 0, orphanVersionChanged: 0, renderHashChanged: 0, renderHashNullExisting: 0 },
+    relationDiff:          { versionMatch: 0, versionChanged: 0, orphanVersionChanged: 0 },
     sampleDiffPath:        null,
   };
 }
@@ -760,9 +753,9 @@ export async function projectHsdataFallback(build: number, cardIds: string[], dr
       insertedRelations:     0, reusedRelations:       0, updatedRelations:      0,
       cardRowCount:          0, unprojectedTagCount:   0,
       entityPlan:            { upsert: 0, delete: 0 }, localizationPlan:      { upsert: 0, delete: 0 }, relationPlan:          { upsert: 0, delete: 0 },
-      entityDiff:            { versionMatch: 0, versionChanged: 0, isLatestChanged: 0, orphanVersionChanged: 0 },
-      localizationDiff:      { versionMatch: 0, versionChanged: 0, isLatestChanged: 0, orphanVersionChanged: 0, renderHashChanged: 0, renderHashNullExisting: 0 },
-      relationDiff:          { versionMatch: 0, versionChanged: 0, isLatestChanged: 0, orphanVersionChanged: 0 },
+      entityDiff:            { versionMatch: 0, versionChanged: 0, orphanVersionChanged: 0 },
+      localizationDiff:      { versionMatch: 0, versionChanged: 0, orphanVersionChanged: 0, renderHashChanged: 0, renderHashNullExisting: 0 },
+      relationDiff:          { versionMatch: 0, versionChanged: 0, orphanVersionChanged: 0 },
       sampleDiffPath:        null,
     };
   }
@@ -924,26 +917,25 @@ export async function projectHsdataFallback(build: number, cardIds: string[], dr
           relation,
           targetId:           target,
           version:            [],
-          isLatest:           false,
         } as RelationRow);
       }
     }
 
-    projectedEntities.push({ ...entity, version: [build], isLatest: false } as unknown as EntityRow);
-    projectedLocalizations.push(...localizationRows.map(loc => ({ ...loc, version: [build], isLatest: false } as unknown as LocalizationRow)));
-    projectedRelations.push(...relationRows.map(rel => ({ ...rel, version: [build], isLatest: false } as unknown as RelationRow)));
+    projectedEntities.push({ ...entity, version: [build] } as unknown as EntityRow);
+    projectedLocalizations.push(...localizationRows.map(loc => ({ ...loc, version: [build] } as unknown as LocalizationRow)));
+    projectedRelations.push(...relationRows.map(rel => ({ ...rel, version: [build] } as unknown as RelationRow)));
   }
 
   // Load existing rows for reconciliation
   const entityCardIds = [...new Set(projectedEntities.map(r => r.cardId))].sort();
   const existingEntityStates = await localDb.select({
-    cardId: Entity.cardId, version: Entity.version, revisionHash: Entity.revisionHash, isLatest: Entity.isLatest,
+    cardId: Entity.cardId, version: Entity.version, revisionHash: Entity.revisionHash,
   }).from(Entity).where(inArray(Entity.cardId, entityCardIds));
 
   const existingLocStates = await localDb.select({
     cardId:           EntityLocalization.cardId, version:          EntityLocalization.version, lang:             EntityLocalization.lang,
     revisionHash:     EntityLocalization.revisionHash, localizationHash: EntityLocalization.localizationHash,
-    renderHash:       EntityLocalization.renderHash, renderModel:      EntityLocalization.renderModel, isLatest:         EntityLocalization.isLatest,
+    renderHash:       EntityLocalization.renderHash, renderModel:      EntityLocalization.renderModel,
   }).from(EntityLocalization).where(inArray(EntityLocalization.cardId, entityCardIds));
 
   const existingRelations = await localDb.select().from(EntityRelation).where(inArray(EntityRelation.sourceId, entityCardIds));
@@ -955,11 +947,11 @@ export async function projectHsdataFallback(build: number, cardIds: string[], dr
 
   // Reconcile
   const targetEntityStates = projectedEntities.map(r => ({
-    cardId: r.cardId, version: r.version, revisionHash: r.revisionHash, isLatest: r.isLatest,
+    cardId: r.cardId, version: r.version, revisionHash: r.revisionHash,
   }));
   const targetLocStates = projectedLocalizations.map(r => ({
     cardId:           r.cardId, version:          r.version, lang:             r.lang, revisionHash:     r.revisionHash,
-    localizationHash: r.localizationHash, renderHash:       r.renderHash, renderModel:      r.renderModel, isLatest:         r.isLatest,
+    localizationHash: r.localizationHash, renderHash:       r.renderHash, renderModel:      r.renderModel,
   }));
   const entityResult = await reconcileEntities(existingEntityStates, targetEntityStates, build, globalLatest);
   const localizationResult = await reconcileLocalizations(existingLocStates as any, targetLocStates as any, build, globalLatest);
@@ -1000,9 +992,9 @@ export async function projectHsdataFallback(build: number, cardIds: string[], dr
     entityPlan:            { upsert: upsertEntities.length, delete: deleteEntities.length },
     localizationPlan:      { upsert: upsertLocalizations.length, delete: deleteLocalizations.length },
     relationPlan:          { upsert: upsertRelations.length, delete: deleteRelations.length },
-    entityDiff:            { versionMatch: 0, versionChanged: 0, isLatestChanged: 0, orphanVersionChanged: 0 },
-    localizationDiff:      { versionMatch: 0, versionChanged: 0, isLatestChanged: 0, orphanVersionChanged: 0, renderHashChanged: 0, renderHashNullExisting: 0 },
-    relationDiff:          { versionMatch: 0, versionChanged: 0, isLatestChanged: 0, orphanVersionChanged: 0 },
+    entityDiff:            { versionMatch: 0, versionChanged: 0, orphanVersionChanged: 0 },
+    localizationDiff:      { versionMatch: 0, versionChanged: 0, orphanVersionChanged: 0, renderHashChanged: 0, renderHashNullExisting: 0 },
+    relationDiff:          { versionMatch: 0, versionChanged: 0, orphanVersionChanged: 0 },
     sampleDiffPath:        null,
   };
 }
