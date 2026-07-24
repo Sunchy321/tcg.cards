@@ -957,27 +957,37 @@ function setLocalizationField(draft: LocalizationDraft, path: string, value: str
   }
 
   if (path === 'targetText') {
-    draft.targetText = value;
+    draft.targetText = value || null;
     return true;
   }
 
   if (path === 'textInPlay') {
-    draft.textInPlay = value;
+    draft.textInPlay = value || null;
     return true;
   }
 
   if (path === 'howToEarn') {
-    draft.howToEarn = value;
+    draft.howToEarn = value || null;
     return true;
   }
 
   if (path === 'howToEarnGolden') {
-    draft.howToEarnGolden = value;
+    draft.howToEarnGolden = value || null;
+    return true;
+  }
+
+  if (path === 'howToEarnSignature') {
+    draft.howToEarnSignature = value || null;
+    return true;
+  }
+
+  if (path === 'howToEarnDiamond') {
+    draft.howToEarnDiamond = value || null;
     return true;
   }
 
   if (path === 'flavorText') {
-    draft.flavorText = value;
+    draft.flavorText = value || null;
     return true;
   }
 

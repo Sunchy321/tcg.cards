@@ -173,6 +173,33 @@ const force = ref(false);
 const dryRun = ref(true);
 const sampleDiff = ref(false);
 
+const PROJECTION_PAGE_STATE_KEY = 'console-desktop-hearthstone-projection-page';
+
+function persistProjectionPageState() {
+  window.localStorage.setItem(PROJECTION_PAGE_STATE_KEY, JSON.stringify({
+    dryRun: dryRun.value,
+    force: force.value,
+    sampleDiff: sampleDiff.value,
+  }));
+}
+
+function restoreProjectionPageState() {
+  try {
+    const raw = window.localStorage.getItem(PROJECTION_PAGE_STATE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (typeof parsed.dryRun === 'boolean') dryRun.value = parsed.dryRun;
+    if (typeof parsed.force === 'boolean') force.value = parsed.force;
+    if (typeof parsed.sampleDiff === 'boolean') sampleDiff.value = parsed.sampleDiff;
+  } catch {
+    window.localStorage.removeItem(PROJECTION_PAGE_STATE_KEY);
+  }
+}
+
+watch([dryRun, force, sampleDiff], () => {
+  persistProjectionPageState();
+});
+
 const controller = ref<{ attach(snapshot: TaskPageSnapshot): void, currentTaskRunId: string | null }>();
 const taskResult = ref<Record<string, unknown> | null>(null);
 
@@ -266,6 +293,7 @@ async function startBatchProject() {
 }
 
 onMounted(async () => {
+  restoreProjectionPageState();
   await loadData();
   if (items.value.length > 0) selectedKey.value = items.value[0]!.buildNumber;
 });

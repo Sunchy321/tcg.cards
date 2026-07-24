@@ -63,6 +63,10 @@ function extractLocString(locData: { m_locValues: string[], m_locId: number } | 
   return locData.m_locValues[localeIndex] ?? '';
 }
 
+function nullIfEmpty(v: string): string | null {
+  return v === '' ? null : v;
+}
+
 function createLocalizationDraft(): LocalizationDraft {
   return {
     name:               '',
@@ -300,11 +304,11 @@ function projectExtractedCard(
     loc.name = extractLocString(card.name, i);
     loc.richText = extractLocString(card.textInHand, i);
     loc.flavorText = extractLocString(card.flavorText, i);
-    loc.howToEarn = extractLocString(card.howToGetCard, i);
-    loc.howToEarnGolden = extractLocString(card.howToGetGoldCard, i);
-    loc.howToEarnSignature = extractLocString(card.howToGetSignatureCard, i);
-    loc.howToEarnDiamond = extractLocString(card.howToGetDiamondCard, i);
-    loc.targetText = extractLocString(card.targetArrowText, i);
+    loc.howToEarn = nullIfEmpty(extractLocString(card.howToGetCard, i));
+    loc.howToEarnGolden = nullIfEmpty(extractLocString(card.howToGetGoldCard, i));
+    loc.howToEarnSignature = nullIfEmpty(extractLocString(card.howToGetSignatureCard, i));
+    loc.howToEarnDiamond = nullIfEmpty(extractLocString(card.howToGetDiamondCard, i));
+    loc.targetText = nullIfEmpty(extractLocString(card.targetArrowText, i));
     localizations.set(locale, loc);
   }
 
@@ -857,10 +861,10 @@ export async function projectHsdataFallback(build: number, cardIds: string[], dr
             if (targetPath === 'name') draft.name = text;
             else if (targetPath === 'richText') draft.richText = text;
             else if (targetPath === 'flavorText') draft.flavorText = text;
-            else if (targetPath === 'howToEarn') draft.howToEarn = text;
-            else if (targetPath === 'howToEarnGolden') draft.howToEarnGolden = text;
-            else if (targetPath === 'textInPlay') draft.textInPlay = text;
-            else if (targetPath === 'targetText') draft.targetText = text;
+            else if (targetPath === 'howToEarn') draft.howToEarn = nullIfEmpty(text);
+            else if (targetPath === 'howToEarnGolden') draft.howToEarnGolden = nullIfEmpty(text);
+            else if (targetPath === 'textInPlay') draft.textInPlay = nullIfEmpty(text);
+            else if (targetPath === 'targetText') draft.targetText = nullIfEmpty(text);
             localizations.set(lang, draft);
           }
         }
