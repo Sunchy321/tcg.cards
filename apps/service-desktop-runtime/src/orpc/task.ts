@@ -5,9 +5,10 @@ import { taskPageEvent, TaskPageSnapshot, taskPageSnapshot } from '@tcg-cards/mo
 
 import { os } from './index';
 import type { TaskRunInput } from '#task/index';
-import { createTaskStore, createTaskController, createTaskScheduler, createTaskExecutor, createTaskEventPublisher, getTaskDefinition } from '#task/index';
+import { createTaskStore, createTaskController, createTaskScheduler, getTaskDefinition } from '#task/index';
+import { runTaskInWorker } from '#task/worker';
 import { buildTaskPageSnapshot } from '#task/snapshot';
-import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
+import { getLocalDb, requireLocalDatabaseUrl } from '../lib/hearthstone/hsdata-local-db';
 
 let _store: ReturnType<typeof createTaskStore>;
 function getStore() {
@@ -22,7 +23,7 @@ function getController() {
 /** Exposed for task-type-specific ORPC handlers that need store access (e.g., active checks). */
 export { getStore };
 
-/** Creates a task run and starts the executor. Shared by all task-type-specific handlers. */
+/** Creates a task run and starts the executor in a Worker thread. */
 export async function createAndRunTask(
   taskType: string,
   runInput: TaskRunInput,
@@ -31,8 +32,9 @@ export async function createAndRunTask(
   const controlResult = await getController().createTask(runInput, definition);
   const snap = await getStore().getTaskRun(controlResult.taskRunId);
   if (!snap) throw new Error(`Task ${controlResult.taskRunId} was not created`);
-  const executor = createTaskExecutor(getStore(), createTaskEventPublisher());
-  void executor.runTask(snap);
+
+  runTaskInWorker(snap.run.id, requireLocalDatabaseUrl());
+
   return buildTaskPageSnapshot(snap);
 }
 
@@ -55,14 +57,28 @@ const cancel = os
     return { pageTask: { kind: 'idle' as const }, stages: [] };
   });
 
-/** Streams real-time task events for one task run. */
+/** Streams real-time task events for one task run via DB polling. */
 const watch = os
   .input(z.strictObject({ taskRunId: z.uuid() }))
   .output(eventIterator(taskPageEvent))
   .handler(async function* ({ input }) {
-    const snap = await getStore().getTaskRun(input.taskRunId);
-    if (snap) yield buildTaskPageSnapshot(snap);
-    yield* createTaskEventPublisher().watch(input.taskRunId);
+    const taskRunId = input.taskRunId;
+    const terminalStatuses = ['completed', 'failed', 'canceled', 'abandoned'];
+
+    let lastRevision = -1;
+    while (true) {
+      const snap = await getStore().getTaskRun(taskRunId);
+      if (!snap) break;
+
+      if (snap.run.runRevision !== lastRevision) {
+        lastRevision = snap.run.runRevision;
+        yield buildTaskPageSnapshot(snap);
+      }
+
+      if (terminalStatuses.includes(snap.run.status)) break;
+
+      await new Promise(r => setTimeout(r, 500));
+    }
   });
 
 /** Retries a failed, canceled or abandoned task with the same parameters. */

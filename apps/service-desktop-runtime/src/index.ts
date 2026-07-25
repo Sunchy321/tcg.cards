@@ -10,6 +10,7 @@ import {
   testDesktopDatabaseConnection,
 } from './lib/runtime/desktop-database';
 import { createTaskStore, createTaskScheduler, createTaskCleanup, registerTaskDefinition } from './lib/task';
+import './lib/task/task-definitions';
 import { publishTaskDefinition } from './lib/hearthstone/task';
 import { testWorkTaskDefinition } from './lib/task/test-definition';
 import { pinTaskDefinition } from './lib/hearthstone/task/pin';

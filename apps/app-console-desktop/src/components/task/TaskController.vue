@@ -61,40 +61,41 @@
 </template>
 
 <script setup lang="ts">
+import { useToast } from '@nuxt/ui/composables';
 import { consumeEventIterator } from '@orpc/client';
 import type { TaskPageSnapshot, TaskPageEvent, TaskPageTask, TaskStage, TaskRunStatus } from '@tcg-cards/model/src/task';
 import { orpc } from '~/lib/orpc';
 import { useTaskRegistry } from '~/composables/useTaskRegistry';
 
 export interface TaskOperation {
-  key: string;
-  label: string;
-  icon?: string;
-  color?: 'primary' | 'warning' | 'error' | 'neutral';
+  key:       string;
+  label:     string;
+  icon?:     string;
+  color?:    'primary' | 'warning' | 'error' | 'neutral';
   disabled?: boolean;
   taskType?: string;
-  create: () => Promise<TaskPageSnapshot>;
+  create:    () => Promise<TaskPageSnapshot>;
 }
 
 /** One task type rendered as a selectable TaskController tab. */
 export interface TaskControllerMultiTaskItem {
-  key: string;
-  label: string;
-  icon?: string;
-  taskType: string;
+  key:       string;
+  label:     string;
+  icon?:     string;
+  taskType:  string;
   operation: TaskOperation;
 }
 
 const props = defineProps<{
-  title: string;
+  title:      string;
   operations: TaskOperation[];
   multiTask?: TaskControllerMultiTaskItem[];
 }>();
 
 const emit = defineEmits<{
-  completed: [snapshot: TaskPageSnapshot];
-  failed: [taskRunId: string, errorCode: string | null, errorMessage: string | null];
-  'create-error': [opKey: string, message: string];
+  'completed':     [snapshot: TaskPageSnapshot];
+  'failed':        [taskRunId: string, errorCode: string | null, errorMessage: string | null];
+  'create-error':  [opKey: string, message: string];
   'status-change': [status: TaskRunStatus];
 }>();
 
@@ -116,9 +117,9 @@ let unsubWatch: (() => void) | null = null;
 const terminalStatuses: readonly string[] = ['completed', 'failed', 'canceled', 'abandoned'];
 const multiTaskItems = computed(() => props.multiTask ?? []);
 const multiTaskTabs = computed(() => multiTaskItems.value.map(item => ({
-  label: item.label,
-  icon: item.icon,
-  value: item.key,
+  label:    item.label,
+  icon:     item.icon,
+  value:    item.key,
   disabled: !isIdle.value && item.key !== selectedTaskKey.value,
 })));
 
@@ -197,7 +198,9 @@ async function execute(op: TaskOperation) {
       startWatching(snapshot.pageTask.taskRunId);
     }
   } catch (error: any) {
-    emit('create-error', op.key, error?.message ?? String(error));
+    const message = error?.message ?? String(error);
+    emit('create-error', op.key, message);
+    useToast().add({ title: '创建任务失败', description: message, color: 'error' });
   } finally {
     isCreating.value = false;
   }
@@ -232,23 +235,33 @@ function reset() {
 // --- Control handlers (delegated by TaskCard) ---
 
 async function handlePause() {
-  if (!currentTaskRunId.value) return;
-  await orpc.task.pause({ taskRunId: currentTaskRunId.value });
+  try {
+    if (!currentTaskRunId.value) return;
+    await orpc.task.pause({ taskRunId: currentTaskRunId.value });
+  } catch (error: any) {
+    useToast().add({ title: '暂停失败', description: error?.message ?? String(error), color: 'error' });
+  }
 }
 
 async function handleResume() {
-  if (!currentTaskRunId.value) return;
-  await orpc.task.resume({ taskRunId: currentTaskRunId.value });
+  try {
+    if (!currentTaskRunId.value) return;
+    await orpc.task.resume({ taskRunId: currentTaskRunId.value });
+  } catch (error: any) {
+    useToast().add({ title: '恢复失败', description: error?.message ?? String(error), color: 'error' });
+  }
 }
 
 async function handleCancel() {
-  if (!currentTaskRunId.value) return;
-  // Optimistically show canceling so the UI updates immediately
-  if (pageTask.value.kind === 'attached') {
-    pageTask.value = { ...pageTask.value, status: 'canceling' };
+  try {
+    if (!currentTaskRunId.value) return;
+    if (pageTask.value.kind === 'attached') {
+      pageTask.value = { ...pageTask.value, status: 'canceling' };
+    }
+    await orpc.task.cancel({ taskRunId: currentTaskRunId.value });
+  } catch (error: any) {
+    useToast().add({ title: '取消失败', description: error?.message ?? String(error), color: 'error' });
   }
-  await orpc.task.cancel({ taskRunId: currentTaskRunId.value });
-  // Event stream will send final event when executor transitions to canceled
 }
 
 async function handleRetry() {
@@ -262,7 +275,9 @@ async function handleRetry() {
       startWatching(result.pageTask.taskRunId);
     }
   } catch (error: any) {
-    emit('create-error', activeOpKey.value ?? 'retry', error?.message ?? String(error));
+    const message = error?.message ?? String(error);
+    emit('create-error', activeOpKey.value ?? 'retry', message);
+    useToast().add({ title: '重试任务失败', description: message, color: 'error' });
   }
 }
 
