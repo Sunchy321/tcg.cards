@@ -204,7 +204,7 @@ const full = os
         .from(LatestEntityRelation)
         .where(eq(LatestEntityRelation.targetId, cardId));
 
-    const entourageRelation = (card.entourages ?? []).map(relatedCardId => ({
+    const entourageRelation = (card.legacyPayload.entourages as string[] ?? []).map(relatedCardId => ({
       relation: 'entourage',
       version:  card.version,
       cardId:   relatedCardId,
@@ -318,6 +318,58 @@ const diff = os
     return patch;
   });
 
+const snapshots = os
+  .route({
+    method:      'GET',
+    description: 'Get card entity and render JSON at two versions for diffing',
+    tags:        ['Hearthstone', 'Card'],
+  })
+  .input(z.object({
+    cardId: z.string(),
+    lang:   locale.default('en'),
+    from:   z.preprocess(val => Number.parseInt(val as string, 0), z.int().positive()),
+    to:     z.preprocess(val => Number.parseInt(val as string, 0), z.int().positive()),
+  }))
+  .output(z.object({
+    entityBefore: z.unknown().nullable(),
+    entityAfter:  z.unknown().nullable(),
+    renderBefore: z.unknown().nullable(),
+    renderAfter:  z.unknown().nullable(),
+  }))
+  .handler(async ({ input }) => {
+    const { cardId, lang, from, to } = input;
+
+    const fromCard = await findCardView({ cardId, lang, version: from });
+    const toCard = await findCardView({ cardId, lang, version: to });
+
+    const [fromLoc] = await db.select({ renderModel: BaseEntityLocalization.renderModel })
+      .from(BaseEntityLocalization)
+      .where(and(
+        eq(BaseEntityLocalization.cardId, cardId),
+        eq(BaseEntityLocalization.lang, lang),
+        sql`${from} = ANY(${BaseEntityLocalization.version})`,
+      ))
+      .orderBy(desc(sql`array_length(${BaseEntityLocalization.version}, 1)`))
+      .limit(1);
+
+    const [toLoc] = await db.select({ renderModel: BaseEntityLocalization.renderModel })
+      .from(BaseEntityLocalization)
+      .where(and(
+        eq(BaseEntityLocalization.cardId, cardId),
+        eq(BaseEntityLocalization.lang, lang),
+        sql`${to} = ANY(${BaseEntityLocalization.version})`,
+      ))
+      .orderBy(desc(sql`array_length(${BaseEntityLocalization.version}, 1)`))
+      .limit(1);
+
+    return {
+      entityBefore: fromCard ? omit(fromCard, ['version', 'localization']) : null,
+      entityAfter:  toCard ? omit(toCard, ['version', 'localization']) : null,
+      renderBefore: fromLoc?.renderModel ?? null,
+      renderAfter:  toLoc?.renderModel ?? null,
+    };
+  });
+
 export const cardTrpc = {
   random,
   summary,
@@ -325,6 +377,7 @@ export const cardTrpc = {
   full,
   profile,
   diff,
+  snapshots,
 };
 
 export const cardApi = {
@@ -332,6 +385,7 @@ export const cardApi = {
   random,
   full,
   diff,
+  snapshots,
 };
 
 function dedupeRelatedCards(cards: Array<{ relation: string, version: number[], cardId: string }>) {

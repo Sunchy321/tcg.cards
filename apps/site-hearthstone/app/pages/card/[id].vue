@@ -253,6 +253,86 @@
               </div>
             </div>
           </UCard>
+
+          <UCard v-if="splitVersionGroups.length > 0" class="mt-4">
+            <h2 class="text-xl font-semibold mb-4">Diff</h2>
+            <div class="flex gap-2 mb-3">
+              <USelect
+                v-model="diffFrom"
+                :items="diffVersionOptions"
+                size="xs"
+                class="flex-1"
+                placeholder="From"
+              />
+              <USelect
+                v-model="diffTo"
+                :items="diffVersionOptions"
+                size="xs"
+                class="flex-1"
+                placeholder="To"
+              />
+            </div>
+            <div class="flex gap-2">
+              <UModal
+                fullscreen
+                :title="`${route.params.id} — ${diffFrom} → ${diffTo}`"
+              >
+                <UButton
+                  size="xs"
+                  color="neutral"
+                  variant="soft"
+                  block
+                  :loading="diffLoading"
+                  :disabled="diffFrom == null || diffTo == null"
+                  @click="loadDiff"
+                >
+                  {{ $t('hearthstone.card.compareEntity') }}
+                </UButton>
+                <template #body>
+                  <div v-if="diffLoading" class="flex items-center justify-center h-64">
+                    <UIcon name="lucide:loader" class="animate-spin text-2xl text-gray-400" />
+                  </div>
+                  <div v-else-if="diffResult" class="overflow-auto border rounded" style="height: calc(100vh - 8rem)">
+                    <CodeDiff
+                      :old-string="diffEntityOld"
+                      :new-string="diffEntityNew"
+                      output-format="side-by-side"
+                      language="json"
+                    />
+                  </div>
+                </template>
+              </UModal>
+              <UModal
+                fullscreen
+                :title="`${route.params.id} — ${diffFrom} → ${diffTo}`"
+              >
+                <UButton
+                  size="xs"
+                  color="neutral"
+                  variant="soft"
+                  block
+                  :loading="diffLoading"
+                  :disabled="diffFrom == null || diffTo == null"
+                  @click="loadDiff"
+                >
+                  {{ $t('hearthstone.card.compareRender') }}
+                </UButton>
+                <template #body>
+                  <div v-if="diffLoading" class="flex items-center justify-center h-64">
+                    <UIcon name="lucide:loader" class="animate-spin text-2xl text-gray-400" />
+                  </div>
+                  <div v-else-if="diffResult" class="overflow-auto border rounded" style="height: calc(100vh - 8rem)">
+                    <CodeDiff
+                      :old-string="diffRenderOld"
+                      :new-string="diffRenderNew"
+                      output-format="side-by-side"
+                      language="json"
+                    />
+                  </div>
+                </template>
+              </UModal>
+            </div>
+          </UCard>
         </div>
       </div>
     </div>
@@ -279,6 +359,7 @@ import type { Patch } from '#model/hearthstone/schema/patch';
 import { TAG_ID } from '#model/hearthstone/constant/tag';
 import type { CardImageOption } from '~/utils/card-image';
 
+import { CodeDiff } from 'v-code-diff';
 import { getHearthstoneLabel } from '~/utils/hearthstone-labels';
 
 const { $orpc } = useNuxtApp();
@@ -731,4 +812,61 @@ const relationIcon = (relation: string): string => ({
   plague_token:       'lucide:biohazard',
   titan_ability:      'lucide:badge-bolt',
 } as Record<string, string>)[relation] ?? 'lucide:copy';
+
+// Diff
+
+const diffFrom = ref<number | null>(null);
+const diffTo = ref<number | null>(null);
+const diffLoading = ref(false);
+const diffResult = ref<{ entityBefore: unknown; entityAfter: unknown; renderBefore: unknown; renderAfter: unknown } | null>(null);
+const diffActiveTab = ref('entity');
+
+watch([version, versionInfos], () => {
+  const groups = versionInfos.value;
+  if (groups.length === 0) return;
+  const idx = groups.findIndex(g => g.versions.includes(version.value));
+  if (idx === -1) return;
+
+  if (groups.length === 1) {
+    diffFrom.value = groups[0]!.versions[0]!;
+    diffTo.value = groups[0]!.versions[0]!;
+  } else if (idx === groups.length - 1) {
+    // Oldest version: from = this, to = next newer
+    diffFrom.value = groups[idx]!.versions[0]!;
+    diffTo.value = groups[idx - 1]!.versions[0]!;
+  } else {
+    // Has an older version: from = previous (older), to = this
+    diffFrom.value = groups[idx + 1]!.versions[0]!;
+    diffTo.value = groups[idx]!.versions[0]!;
+  }
+}, { immediate: true });
+
+const diffVersionOptions = computed(() =>
+  versionInfos.value.map(v => ({ label: v.firstName, value: v.versions[0] })));
+
+const diffTabs = [
+  { label: 'Card JSON', key: 'entity' },
+  { label: 'Render JSON', key: 'render' },
+];
+
+const diffEntityOld = computed(() => diffResult.value?.entityBefore ? JSON.stringify(diffResult.value.entityBefore, null, 2) : '');
+const diffEntityNew = computed(() => diffResult.value?.entityAfter ? JSON.stringify(diffResult.value.entityAfter, null, 2) : '');
+const diffRenderOld = computed(() => diffResult.value?.renderBefore ? JSON.stringify(diffResult.value.renderBefore, null, 2) : '');
+const diffRenderNew = computed(() => diffResult.value?.renderAfter ? JSON.stringify(diffResult.value.renderAfter, null, 2) : '');
+
+async function loadDiff() {
+  if (diffFrom.value == null || diffTo.value == null) return;
+  diffLoading.value = true;
+  diffResult.value = null;
+  try {
+    diffResult.value = await $orpc.hearthstone.card.snapshots({
+      cardId: route.params.id as string,
+      lang: lang.value,
+      from: diffFrom.value,
+      to: diffTo.value,
+    }) as any;
+  } finally {
+    diffLoading.value = false;
+  }
+}
 </script>

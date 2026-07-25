@@ -474,6 +474,9 @@ export default {
       notFound:  'Card not found',
       tagCopied: 'Tag copied',
 
+      compareEntity: 'Compare Card JSON',
+      compareRender: 'Compare Render JSON',
+
       relation: {
         collection_related: 'Upgrades and related forms',
         cataclysm:          'Cataclysms',

@@ -480,6 +480,9 @@ export default {
       notFound:  '找不到卡牌',
       tagCopied: '标签已复制',
 
+      compareEntity: '对比卡牌 JSON',
+      compareRender: '对比渲染 JSON',
+
       relation: {
         collection_related: '升级与相关形态',
         cataclysm:          '灾变',
