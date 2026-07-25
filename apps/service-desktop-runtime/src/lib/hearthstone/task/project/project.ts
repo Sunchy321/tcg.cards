@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 
 import { getLocalDb } from '../../hsdata-local-db';
 import {
@@ -262,7 +262,7 @@ function finalizeLocalizationRows(
       localizationHash,
       renderModel,
       renderHash,
-      version:  [],
+      version: [],
     });
   }
 
@@ -289,6 +289,7 @@ function projectExtractedCard(
   context: {
     cardIdByDbfId:           Map<number, string>;
     setIdByDbfId:            Map<number, string>;
+    hsdataSetByDbfId:        ReadonlyMap<number, number>;
     nameByDbfIdByLocale:     ReadonlyMap<Locale, ReadonlyMap<number, string>>;
     richTextByDbfIdByLocale: ReadonlyMap<Locale, ReadonlyMap<number, string>>;
   },
@@ -381,6 +382,15 @@ function projectExtractedCard(
         }
       }
       continue;
+    }
+  }
+
+  // Backfill set from hsdata if unpack data didn't have TAG 183
+  if (entityDraft.set === '') {
+    const setDbfId = context.hsdataSetByDbfId.get(card.dbfId);
+    if (setDbfId != null) {
+      const setId = context.setIdByDbfId.get(setDbfId);
+      if (setId) entityDraft.set = setId;
     }
   }
 
@@ -519,27 +529,40 @@ export async function projectExtracted(build: number, cardIds: string[], dryRun 
     .then(items => items.filter(item => item.dbfId != null));
   const setIdByDbfId = new Map(setRows.map(row => [row.dbfId!, row.setId]));
 
+  // Load hsdata TAG 183 (set) as fallback for cards missing it in unpack data
+  const hsdataSetTags = await localDb.select({
+    dbfId:    RawEntitySnapshot.dbfId,
+    intValue: RawEntitySnapshotTag.intValue,
+  }).from(RawEntitySnapshotTag)
+    .innerJoin(RawEntitySnapshot, eq(RawEntitySnapshotTag.snapshotId, RawEntitySnapshot.id))
+    .where(and(
+      eq(RawEntitySnapshotTag.enumId, 183),
+      inArray(RawEntitySnapshot.dbfId, [...new Set(cards.map(c => c.dbfId))]),
+      isNotNull(RawEntitySnapshotTag.intValue),
+    ));
+  const hsdataSetByDbfId = new Map(hsdataSetTags.map(r => [r.dbfId, r.intValue!]));
+
   const projectedEntities: EntityRow[] = [];
   const projectedLocalizations: LocalizationRow[] = [];
   const projectedRelations: RelationRow[] = [];
 
   for (const card of cards) {
     const tags = tagsByDbfId.get(card.dbfId) ?? [];
-    const result = projectExtractedCard(card as ExtractedCardRow, tags, tagMap, { cardIdByDbfId, setIdByDbfId, nameByDbfIdByLocale, richTextByDbfIdByLocale });
+    const result = projectExtractedCard(card as ExtractedCardRow, tags, tagMap, { cardIdByDbfId, setIdByDbfId, hsdataSetByDbfId, nameByDbfIdByLocale, richTextByDbfIdByLocale });
 
     projectedEntities.push({
       ...result.entity,
-      version:  [build],
+      version: [build],
 
     });
     projectedLocalizations.push(...result.localizations.map(loc => ({
       ...loc,
-      version:  [build],
+      version: [build],
 
     })));
     projectedRelations.push(...result.relations.map(rel => ({
       ...rel,
-      version:  [build],
+      version: [build],
 
     })));
   }
