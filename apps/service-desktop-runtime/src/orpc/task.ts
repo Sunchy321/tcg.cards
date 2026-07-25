@@ -8,7 +8,7 @@ import type { TaskRunInput } from '#task/index';
 import { createTaskStore, createTaskController, createTaskScheduler, getTaskDefinition } from '#task/index';
 import { runTaskInWorker } from '#task/worker';
 import { buildTaskPageSnapshot } from '#task/snapshot';
-import { getLocalDb, requireLocalDatabaseUrl } from '../lib/hearthstone/hsdata-local-db';
+import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
 
 let _store: ReturnType<typeof createTaskStore>;
 function getStore() {
@@ -40,7 +40,7 @@ export async function createAndRunTask(
   const snap = await getStore().getTaskRun(controlResult.taskRunId);
   if (!snap) throw new Error(`Task ${controlResult.taskRunId} was not created`);
 
-  runTaskInWorker(snap.run.id, requireLocalDatabaseUrl());
+  runTaskInWorker(snap.run.id);
 
   return buildTaskPageSnapshot(snap);
 }

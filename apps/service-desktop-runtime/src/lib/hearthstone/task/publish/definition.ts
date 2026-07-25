@@ -100,7 +100,7 @@ interface PublishCtx {
   /** Mutable state for loading_snapshots block loop. */
   loader?:         LoaderState;
   /** Mutable state for update_baseline block loop. */
-  baselineTotal?:     number;
+  baselineTotal?:  number;
 }
 
 interface LoaderState {
@@ -509,9 +509,9 @@ async function baselineBlock(
       deletes.push({ tableName: row.tableName, rowKey: row.rowKey });
     } else {
       upserts.push({
-        publishTarget: ctx.stream.publishTarget, environment: ctx.stream.environment, publishType: ctx.stream.publishType,
-        tableName: row.tableName, rowKey: row.rowKey, rowHash: row.rowHash,
-        publishedAt, createdAt: publishedAt, updatedAt: publishedAt,
+        publishTarget: ctx.stream.publishTarget, environment:   ctx.stream.environment, publishType:   ctx.stream.publishType,
+        tableName:     row.tableName, rowKey:        row.rowKey, rowHash:       row.rowHash,
+        publishedAt, createdAt:     publishedAt, updatedAt:     publishedAt,
       });
     }
   }
@@ -533,7 +533,7 @@ async function baselineBlock(
     await db.insert(PublishRowBaseline).values(upserts as any)
       .onConflictDoUpdate({
         target: [PublishRowBaseline.publishTarget, PublishRowBaseline.environment, PublishRowBaseline.publishType, PublishRowBaseline.tableName, PublishRowBaseline.rowKey],
-        set: {
+        set:    {
           rowHash:     sql`excluded.row_hash`,
           publishedAt: sql`excluded.published_at`,
           updatedAt:   sql`excluded.updated_at`,
@@ -926,7 +926,7 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
       status:               publishResultStatus,
     };
   })
-  .onCanceled(async (run) => {
+  .onCanceled(async run => {
     const scope = run.scope.snapshot as { publishTarget: string, environment: string, publishType: string } | undefined;
     if (!scope) return;
     const db = getLocalDb();
@@ -944,10 +944,10 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
 
     if (activeBatch) {
       await db.update(PublishBatch).set({
-        status: 'stopped' as any,
-        error: 'Canceled by user',
+        status:      'stopped' as any,
+        error:       'Canceled by user',
         completedAt: new Date(),
-        updatedAt: new Date(),
+        updatedAt:   new Date(),
       }).where(eq(PublishBatch.id, activeBatch.id));
     }
 

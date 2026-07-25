@@ -1,17 +1,15 @@
 import './task-definitions';
-import { setLocalDatabaseUrlOverride } from '../../runtime-config';
+import { applyRuntimeOverrides, type RuntimeOverrides } from '../../runtime-config';
 import { getLocalDb } from '../hearthstone/hsdata-local-db';
 import { createTaskStore } from './store';
 import { createTaskExecutor } from './executor';
 
-console.log('[worker] started');
-
 self.onmessage = async e => {
-  const { taskRunId, dbUrl } = e.data as { taskRunId: string, dbUrl: string };
-  console.log('[worker] received task:', taskRunId);
+  const { taskRunId, overrides } = e.data as { taskRunId: string, overrides: RuntimeOverrides };
+
+  applyRuntimeOverrides(overrides);
 
   try {
-    setLocalDatabaseUrlOverride(dbUrl);
     const store = createTaskStore(getLocalDb());
     console.log('[worker] store created');
 
@@ -31,8 +29,6 @@ self.onmessage = async e => {
 
     // Mark task as failed so it doesn't stay stuck in pending/running
     try {
-      const url = dbUrl;
-      setLocalDatabaseUrlOverride(url);
       const store = createTaskStore(getLocalDb());
       await store.updateTaskRun(taskRunId, {
         status:             'failed',

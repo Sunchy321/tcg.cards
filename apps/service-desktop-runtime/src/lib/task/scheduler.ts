@@ -1,6 +1,5 @@
 import type { TaskStore, TaskRunRecord } from './store';
 import { runTaskInWorker } from './worker';
-import { requireLocalDatabaseUrl } from '../hearthstone/hsdata-local-db';
 
 /** Captures one waiting task candidate that the scheduler may try to claim. */
 export interface TaskScheduleCandidate {
@@ -50,7 +49,7 @@ export function createTaskScheduler(store: TaskStore): TaskScheduler {
           continue;
         }
 
-        runTaskInWorker(taskRunId, requireLocalDatabaseUrl());
+        runTaskInWorker(taskRunId);
       }
     },
   };
