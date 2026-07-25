@@ -11,7 +11,7 @@ import type { ProjectReport } from './types';
 
 export const projectTaskType = 'hearthstone_project';
 
-const cardBlockSize = 100;
+const CARD_CHUNK_SIZE = 500;
 
 const input = z.object({
   sourceTags: z.array(z.number().int().nonnegative()).min(1),
@@ -119,28 +119,32 @@ function mergeReport(current: ProjectionSourceReport, report: ProjectReport): Pr
 
 async function countProjectionCards(sourceTags: number[], force: boolean): Promise<number> {
   const database = getLocalDb();
-  let total = 0;
-  for (const sourceTag of sourceTags) {
-    const [state] = await database.select({ unpackStatus: PatchState.unpackStatus })
-      .from(PatchState)
-      .where(eq(PatchState.buildNumber, sourceTag));
 
-    if (state?.unpackStatus === 'completed') {
+  const states = await database.select({
+    buildNumber:  PatchState.buildNumber,
+    unpackStatus: PatchState.unpackStatus,
+  }).from(PatchState)
+    .where(inArray(PatchState.buildNumber, sourceTags));
+  const stateByTag = new Map(states.map(s => [s.buildNumber, s.unpackStatus]));
+
+  const counts = await Promise.all(sourceTags.map(async sourceTag => {
+    const unpackStatus = stateByTag.get(sourceTag);
+    if (unpackStatus === 'completed') {
       const [row] = await database.select({ count: countDistinct(ExtractedCard.cardId) })
         .from(ExtractedCard)
         .where(sql<boolean>`${sourceTag} = any(${ExtractedCard.buildNumbers})`);
-      total += Number(row?.count ?? 0);
-    } else {
-      const [row] = await database.select({
-        count: countDistinct(RawEntitySnapshot.cardId),
-      }).from(RawEntitySnapshot).where(and(
-        sql<boolean>`${sourceTag} = any(${RawEntitySnapshot.sourceTags})`,
-        force ? undefined : ne(RawEntitySnapshot.projectionState, 'projected'),
-      ));
-      total += Number(row?.count ?? 0);
+      return Number(row?.count ?? 0);
     }
-  }
-  return total;
+    const [row] = await database.select({
+      count: countDistinct(RawEntitySnapshot.cardId),
+    }).from(RawEntitySnapshot).where(and(
+      sql<boolean>`${sourceTag} = any(${RawEntitySnapshot.sourceTags})`,
+      force ? undefined : ne(RawEntitySnapshot.projectionState, 'projected'),
+    ));
+    return Number(row?.count ?? 0);
+  }));
+
+  return counts.reduce((a, b) => a + b, 0);
 }
 
 async function loadProjectionCardIds(sourceTag: number, lastCardId: string | null, force: boolean): Promise<string[]> {
@@ -153,7 +157,7 @@ async function loadProjectionCardIds(sourceTag: number, lastCardId: string | nul
       lastCardId == null ? undefined : gt(RawEntitySnapshot.cardId, lastCardId),
     ))
     .orderBy(asc(RawEntitySnapshot.cardId))
-    .limit(cardBlockSize);
+    .limit(CARD_CHUNK_SIZE);
   return rows.map(row => row.cardId);
 }
 
@@ -167,7 +171,7 @@ async function loadExtractedCardIds(build: number, lastCardId: string | null, fo
       lastCardId == null ? undefined : gt(ExtractedCard.cardId, lastCardId),
     ))
     .orderBy(asc(ExtractedCard.cardId))
-    .limit(cardBlockSize);
+    .limit(CARD_CHUNK_SIZE);
   return rows.map(row => row.cardId);
 }
 

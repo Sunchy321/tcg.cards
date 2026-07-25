@@ -31,8 +31,8 @@ import type { ProgressFn, BlockDone } from '#task/definition';
 
 // ── Constants ──
 
-const LOAD_CHUNK_SIZE = 1000;
-const REMOTE_CHUNK_SIZE = 500;
+const LOAD_CHUNK_SIZE = 2000;
+const REMOTE_CHUNK_SIZE = 1000;
 const FULL_SCAN_TABLES: TableName[] = ['entities', 'entity_localizations', 'entity_relations', 'cards', 'patches'];
 
 // ── Types ──
@@ -472,7 +472,7 @@ async function applyingBlock(
 
 // ── update_baseline block ──
 
-const BASELINE_CHUNK_SIZE = 500;
+const BASELINE_CHUNK_SIZE = 1000;
 
 async function baselineBlock(
   ctx: PublishCtx, batchId: string, blockInput: BaselineBlockInput, progress: ProgressFn<'bounded'>,

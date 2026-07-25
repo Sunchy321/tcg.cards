@@ -162,7 +162,7 @@ function sha256Hex(input: string): string {
 const emptyHash = sha256Hex('[]');
 
 const writeBatchSize = 500;
-export const pinReadBatchSize = 5_000;
+export const PIN_READ_CHUNK_SIZE = 2_000;
 const remotePublishLeaseTtlMs = 5 * 60 * 1000;
 
 /** Returns one active local batch for the same publish stream, regardless of operation kind. */

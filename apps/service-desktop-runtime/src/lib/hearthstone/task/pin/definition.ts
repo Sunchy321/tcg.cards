@@ -16,7 +16,7 @@ import {
 } from '@tcg-cards/db/schema/remote/hearthstone';
 
 import {
-  loadPinRowCounts, pinReadBatchSize, buildManifestLine,
+  loadPinRowCounts, PIN_READ_CHUNK_SIZE, buildManifestLine,
   rowKeyOf, rowHashOf, chunkValues,
   loadBaselineRowHashes, findActiveStreamBatch,
   upsertRemotePublishLedger,
@@ -97,19 +97,19 @@ async function scanOneChunk(
 
   if (tableName === 'entities') {
     rawRows = await db.select().from(LocalEntity).where(cursor == null ? undefined : sql`(${LocalEntity.cardId}, ${LocalEntity.revisionHash}) > (${cursor.cardId}, ${cursor.revisionHash})`)
-      .orderBy(asc(LocalEntity.cardId), asc(LocalEntity.revisionHash)).limit(pinReadBatchSize) as any[];
+      .orderBy(asc(LocalEntity.cardId), asc(LocalEntity.revisionHash)).limit(PIN_READ_CHUNK_SIZE) as any[];
   } else if (tableName === 'entity_localizations') {
     rawRows = await db.select().from(LocalEntityLocalization).where(cursor == null ? undefined : sql`(${LocalEntityLocalization.cardId}, ${LocalEntityLocalization.lang}, ${LocalEntityLocalization.revisionHash}, ${LocalEntityLocalization.localizationHash}) > (${cursor.cardId}, ${cursor.lang}, ${cursor.revisionHash}, ${cursor.localizationHash})`)
-      .orderBy(asc(LocalEntityLocalization.cardId), asc(LocalEntityLocalization.lang), asc(LocalEntityLocalization.revisionHash), asc(LocalEntityLocalization.localizationHash)).limit(pinReadBatchSize) as any[];
+      .orderBy(asc(LocalEntityLocalization.cardId), asc(LocalEntityLocalization.lang), asc(LocalEntityLocalization.revisionHash), asc(LocalEntityLocalization.localizationHash)).limit(PIN_READ_CHUNK_SIZE) as any[];
   } else if (tableName === 'entity_relations') {
     rawRows = await db.select().from(LocalEntityRelation).where(cursor == null ? undefined : sql`(${LocalEntityRelation.sourceId}, ${LocalEntityRelation.relation}, ${LocalEntityRelation.targetId}, ${LocalEntityRelation.sourceRevisionHash}) > (${cursor.sourceId}, ${cursor.relation}, ${cursor.targetId}, ${cursor.sourceRevisionHash})`)
-      .orderBy(asc(LocalEntityRelation.sourceId), asc(LocalEntityRelation.relation), asc(LocalEntityRelation.targetId), asc(LocalEntityRelation.sourceRevisionHash)).limit(pinReadBatchSize) as any[];
+      .orderBy(asc(LocalEntityRelation.sourceId), asc(LocalEntityRelation.relation), asc(LocalEntityRelation.targetId), asc(LocalEntityRelation.sourceRevisionHash)).limit(PIN_READ_CHUNK_SIZE) as any[];
   } else if (tableName === 'cards') {
     rawRows = await db.select().from(LocalCard).where(cursor == null ? undefined : sql`(${LocalCard.cardId}) > (${cursor.cardId})`)
-      .orderBy(asc(LocalCard.cardId)).limit(pinReadBatchSize) as any[];
+      .orderBy(asc(LocalCard.cardId)).limit(PIN_READ_CHUNK_SIZE) as any[];
   } else if (tableName === 'patches') {
     rawRows = await db.select().from(LocalPatch).where(cursor == null ? undefined : sql`(${LocalPatch.buildNumber}) > (${cursor.buildNumber})`)
-      .orderBy(asc(LocalPatch.buildNumber)).limit(pinReadBatchSize) as any[];
+      .orderBy(asc(LocalPatch.buildNumber)).limit(PIN_READ_CHUNK_SIZE) as any[];
   }
 
   if (rawRows.length === 0) {
