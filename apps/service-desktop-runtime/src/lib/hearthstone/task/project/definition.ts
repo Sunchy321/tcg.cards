@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
-import { and, asc, countDistinct, eq, gt, inArray, ne, sql } from 'drizzle-orm';
+import { and, asc, countDistinct, eq, gt, inArray, isNotNull, ne, sql } from 'drizzle-orm';
 
-import { ExtractedCard, PatchState, RawEntitySnapshot } from '@tcg-cards/db/schema/local/hearthstone';
+import { ExtractedCard, PatchState, RawEntitySnapshot, RawEntitySnapshotTag } from '@tcg-cards/db/schema/local/hearthstone';
 
 import { createDefinition } from '#task/definition';
 import { getLocalDb } from '../../hsdata-local-db';
@@ -127,6 +127,8 @@ async function countProjectionCards(sourceTags: number[], force: boolean): Promi
     .where(inArray(PatchState.buildNumber, sourceTags));
   const stateByTag = new Map(states.map(s => [s.buildNumber, s.unpackStatus]));
 
+  console.log(`[projection] counting cards for ${sourceTags.length} source tags...`);
+
   const counts = await Promise.all(sourceTags.map(async sourceTag => {
     const unpackStatus = stateByTag.get(sourceTag);
     if (unpackStatus === 'completed') {
@@ -144,7 +146,9 @@ async function countProjectionCards(sourceTags: number[], force: boolean): Promi
     return Number(row?.count ?? 0);
   }));
 
-  return counts.reduce((a, b) => a + b, 0);
+  const total = counts.reduce((a, b) => a + b, 0);
+  console.log(`[projection] total cards to project: ${total}`);
+  return total;
 }
 
 async function loadProjectionCardIds(sourceTag: number, lastCardId: string | null, force: boolean): Promise<string[]> {
@@ -210,6 +214,33 @@ export const projectTaskDefinition = createDefinition(projectTaskType, {
   .entry(async ({ ctx, checkpoint }) => {
     const restored = checkpoint?.blockInput as ProjectionBlockState | undefined;
     const total = restored?.total ?? await countProjectionCards(ctx.sourceTags, ctx.force);
+
+    // Pre-load build-level data that every block needs
+    const database = getLocalDb();
+    const build = ctx.sourceTags[0]!;
+    const t0 = Date.now();
+
+    const buildCards = await database.select()
+      .from(ExtractedCard)
+      .where(sql<boolean>`${build} = any(${ExtractedCard.buildNumbers})`);
+    console.log(`[projection] buildCards cached: ${buildCards.length} in ${Date.now() - t0}ms`);
+
+    // Load hsdata TAG 183 fallback once
+    const hsdataSetTags = await database.select({
+      dbfId:    RawEntitySnapshot.dbfId,
+      intValue: RawEntitySnapshotTag.intValue,
+    }).from(RawEntitySnapshotTag)
+      .innerJoin(RawEntitySnapshot, eq(RawEntitySnapshotTag.snapshotId, RawEntitySnapshot.id))
+      .where(and(
+        eq(RawEntitySnapshotTag.enumId, 183),
+        isNotNull(RawEntitySnapshotTag.intValue),
+      ));
+    const hsdataSetByDbfId = new Map(hsdataSetTags.map(r => [r.dbfId, r.intValue!]));
+    console.log(`[projection] hsdata set cache: ${hsdataSetTags.length} in ${Date.now() - t0}ms`);
+
+    (ctx as any).buildCardsCache = buildCards;
+    (ctx as any).hsdataSetCache = hsdataSetByDbfId;
+
     return {
       total,
       blockInput: restored ?? {
@@ -241,16 +272,19 @@ export const projectTaskDefinition = createDefinition(projectTaskType, {
         return next.sourceIndex >= ctx.sourceTags.length ? done(next) : next;
       }
 
-      const report = await projectExtracted(sourceTag, cardIds, ctx.dryRun);
+      const c = ctx as any;
+      const report = await projectExtracted(sourceTag, cardIds, ctx.dryRun, c.buildCardsCache, c.hsdataSetCache);
       const reports = [...blockInput.reports];
       reports[blockInput.sourceIndex] = mergeReport(reports[blockInput.sourceIndex]!, report);
+      const doneCount = blockInput.done + cardIds.length;
       const next: ProjectionBlockState = {
         ...blockInput,
         lastCardId: cardIds[cardIds.length - 1]!,
-        done:       blockInput.done + cardIds.length,
+        done:       doneCount,
         reports,
       };
       await checkpoint(next);
+      console.log(`[projection] block done: ${doneCount}/${blockInput.total} (${Math.round(doneCount / blockInput.total * 100)}%)`);
       progress({ done: Math.min(next.done, next.total), total: next.total });
       return next;
     }

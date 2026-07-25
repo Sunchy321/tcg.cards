@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { getLocalDb } from '../../hsdata-local-db';
 import {
@@ -436,8 +436,15 @@ function projectExtractedCard(
   return { entity, localizations: localizationRows, relations: relationRows };
 }
 
-export async function projectExtracted(build: number, cardIds: string[], dryRun = false): Promise<ProjectReport> {
+export async function projectExtracted(
+  build: number,
+  cardIds: string[],
+  dryRun = false,
+  buildCards?: ExtractedCardRow[],
+  hsdataSetByDbfId?: Map<number, number>,
+): Promise<ProjectReport> {
   const localDb = getLocalDb();
+  console.log(`[projection] projectExtracted build=${build} cards=${cardIds.length}`);
 
   if (cardIds.length === 0) {
     return {
@@ -478,9 +485,7 @@ export async function projectExtracted(build: number, cardIds: string[], dryRun 
     ));
 
   // Builders resolve referenced definitions against the same extracted build.
-  const buildCards = await localDb.select()
-    .from(ExtractedCard)
-    .where(sql<boolean>`${build} = any(${ExtractedCard.buildNumbers})`);
+  if (!buildCards) throw new Error('buildCards cache must be provided');
 
   // Load tags via snapshot IDs
   const snapshotIds = cards.map(c => c.id);
@@ -529,18 +534,15 @@ export async function projectExtracted(build: number, cardIds: string[], dryRun 
     .then(items => items.filter(item => item.dbfId != null));
   const setIdByDbfId = new Map(setRows.map(row => [row.dbfId!, row.setId]));
 
-  // Load hsdata TAG 183 (set) as fallback for cards missing it in unpack data
-  const hsdataSetTags = await localDb.select({
-    dbfId:    RawEntitySnapshot.dbfId,
-    intValue: RawEntitySnapshotTag.intValue,
-  }).from(RawEntitySnapshotTag)
-    .innerJoin(RawEntitySnapshot, eq(RawEntitySnapshotTag.snapshotId, RawEntitySnapshot.id))
-    .where(and(
-      eq(RawEntitySnapshotTag.enumId, 183),
-      inArray(RawEntitySnapshot.dbfId, [...new Set(cards.map(c => c.dbfId))]),
-      isNotNull(RawEntitySnapshotTag.intValue),
-    ));
-  const hsdataSetByDbfId = new Map(hsdataSetTags.map(r => [r.dbfId, r.intValue!]));
+  // Filter global hsdata set cache to the dbfIds in this chunk
+  const chunkDbfIds = new Set(cards.map(c => c.dbfId));
+  const chunkHsdataSet = new Map<number, number>();
+  if (hsdataSetByDbfId) {
+    for (const dbfId of chunkDbfIds) {
+      const setDbfId = hsdataSetByDbfId.get(dbfId);
+      if (setDbfId != null) chunkHsdataSet.set(dbfId, setDbfId);
+    }
+  }
 
   const projectedEntities: EntityRow[] = [];
   const projectedLocalizations: LocalizationRow[] = [];
@@ -548,7 +550,7 @@ export async function projectExtracted(build: number, cardIds: string[], dryRun 
 
   for (const card of cards) {
     const tags = tagsByDbfId.get(card.dbfId) ?? [];
-    const result = projectExtractedCard(card as ExtractedCardRow, tags, tagMap, { cardIdByDbfId, setIdByDbfId, hsdataSetByDbfId, nameByDbfIdByLocale, richTextByDbfIdByLocale });
+    const result = projectExtractedCard(card as ExtractedCardRow, tags, tagMap, { cardIdByDbfId, setIdByDbfId, hsdataSetByDbfId: chunkHsdataSet, nameByDbfIdByLocale, richTextByDbfIdByLocale });
 
     projectedEntities.push({
       ...result.entity,
@@ -566,6 +568,8 @@ export async function projectExtracted(build: number, cardIds: string[], dryRun 
 
     })));
   }
+
+  console.log(`[projection] projected ${projectedEntities.length} entities, ${projectedLocalizations.length} locs, ${projectedRelations.length} rels`);
 
   // Load existing rows for reconciliation
   const entityCardIds = [...new Set(projectedEntities.map(r => r.cardId))].sort();
@@ -611,9 +615,16 @@ export async function projectExtracted(build: number, cardIds: string[], dryRun 
     cardId:           r.cardId, version:          r.version, lang:             r.lang, revisionHash:     r.revisionHash,
     localizationHash: r.localizationHash, renderHash:       r.renderHash, renderModel:      r.renderModel,
   }));
+  console.log(`[projection] reconciling: ${existingEntityStates.length} existing entities, ${targetEntityStates.length} targets`);
+  const t1 = Date.now();
   const entityResult = await reconcileEntities(existingEntityStates, targetEntityStates, build, globalLatest);
+  console.log(`[projection] entity done: upsert=${entityResult.syncPlan.upsertRows.length} del=${entityResult.syncPlan.deleteRows.length} in ${Date.now() - t1}ms`);
+
   const localizationResult = await reconcileLocalizations(existingLocStates as any, targetLocStates as any, build, globalLatest);
+  console.log(`[projection] loc done: upsert=${localizationResult.syncPlan.upsertRows.length} del=${localizationResult.syncPlan.deleteRows.length} in ${Date.now() - t1}ms`);
+
   const relationResult = await reconcileRelations(existingRelations, projectedRelations, build, globalLatest);
+  console.log(`[projection] rel done: upsert=${relationResult.syncPlan.upsertRows.length} del=${relationResult.syncPlan.deleteRows.length} in ${Date.now() - t1}ms`);
 
   // Build full row lookups from projections
   const entityByKey = new Map(projectedEntities.map(r => [entityKey(r), r]));
@@ -641,6 +652,7 @@ export async function projectExtracted(build: number, cardIds: string[], dryRun 
 
   // Write
   if (!dryRun) {
+    const tw = Date.now();
     await localDb.transaction(async tx => {
       if (deleteEntities.length > 0) {
         await softDeleteEntities(tx as any, deleteEntities);
@@ -652,15 +664,16 @@ export async function projectExtracted(build: number, cardIds: string[], dryRun 
         await softDeleteRelations(tx as any, deleteRelations);
       }
       if (upsertEntities.length > 0) {
-        await copyEntitiesIntoTable(tx as any, upsertEntities, 'hearthstone.entities');
+        await copyEntitiesIntoTable(tx as any, upsertEntities);
       }
       if (upsertLocalizations.length > 0) {
-        await copyLocalizationsIntoTable(tx as any, upsertLocalizations, 'hearthstone.entity_localizations');
+        await copyLocalizationsIntoTable(tx as any, upsertLocalizations);
       }
       if (upsertRelations.length > 0) {
-        await copyRelationsIntoTable(tx as any, upsertRelations, 'hearthstone.entity_relations');
+        await copyRelationsIntoTable(tx as any, upsertRelations);
       }
     });
+    console.log(`[projection] write done: ${upsertEntities.length}+${upsertLocalizations.length}+${upsertRelations.length} upsert, ${deleteEntities.length}+${deleteLocalizations.length}+${deleteRelations.length} delete in ${Date.now() - tw}ms`);
 
     // Mark snapshots as projected
     await localDb.update(ExtractedCard)
@@ -1003,9 +1016,9 @@ export async function projectHsdataFallback(build: number, cardIds: string[], dr
       if (deleteEntities.length > 0) await softDeleteEntities(tx as any, deleteEntities);
       if (deleteLocalizations.length > 0) await softDeleteLocalizations(tx as any, deleteLocalizations);
       if (deleteRelations.length > 0) await softDeleteRelations(tx as any, deleteRelations);
-      if (upsertEntities.length > 0) await copyEntitiesIntoTable(tx as any, upsertEntities, 'hearthstone.entities');
-      if (upsertLocalizations.length > 0) await copyLocalizationsIntoTable(tx as any, upsertLocalizations, 'hearthstone.entity_localizations');
-      if (upsertRelations.length > 0) await copyRelationsIntoTable(tx as any, upsertRelations, 'hearthstone.entity_relations');
+      if (upsertEntities.length > 0) await copyEntitiesIntoTable(tx as any, upsertEntities);
+      if (upsertLocalizations.length > 0) await copyLocalizationsIntoTable(tx as any, upsertLocalizations);
+      if (upsertRelations.length > 0) await copyRelationsIntoTable(tx as any, upsertRelations);
     });
   }
 

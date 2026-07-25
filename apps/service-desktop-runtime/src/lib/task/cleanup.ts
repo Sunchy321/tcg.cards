@@ -10,6 +10,7 @@ export interface TaskCleanup {
 
 /** Statuses whose executors are definitely dead after a runtime restart. */
 const staleExecutorStatuses: readonly string[] = [
+  'pending',
   'running',
   'pausing',
   'resuming',

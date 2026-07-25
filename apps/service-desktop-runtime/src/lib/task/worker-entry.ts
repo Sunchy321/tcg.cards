@@ -4,20 +4,28 @@ import { getLocalDb } from '../hearthstone/hsdata-local-db';
 import { createTaskStore } from './store';
 import { createTaskExecutor } from './executor';
 
+console.log('[worker] started');
+
 self.onmessage = async e => {
   const { taskRunId, dbUrl } = e.data as { taskRunId: string, dbUrl: string };
+  console.log('[worker] received task:', taskRunId);
 
   try {
     setLocalDatabaseUrlOverride(dbUrl);
     const store = createTaskStore(getLocalDb());
+    console.log('[worker] store created');
+
     const executor = createTaskExecutor(store);
+    console.log('[worker] executor created');
 
     const snapshot = await store.getTaskRun(taskRunId);
     if (!snapshot) {
       throw new Error(`Task run ${taskRunId} not found`);
     }
 
+    console.log('[worker] starting runTask');
     await executor.runTask(snapshot);
+    console.log('[worker] runTask completed');
   } catch (err) {
     console.error(`[task] Worker execution failed:`, err);
 

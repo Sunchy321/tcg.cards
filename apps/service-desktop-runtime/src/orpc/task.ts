@@ -28,6 +28,13 @@ export async function createAndRunTask(
   taskType: string,
   runInput: TaskRunInput,
 ): Promise<TaskPageSnapshot> {
+  // Abandon any stale active task of the same type left from a previous boot
+  const activeRuns = await getStore().listActiveTaskRuns();
+  const stale = activeRuns.find(r => r.taskType === taskType);
+  if (stale) {
+    await getController().abandonTask(stale.id, 'abandoned_stale_run');
+  }
+
   const definition = getTaskDefinition(taskType);
   const controlResult = await getController().createTask(runInput, definition);
   const snap = await getStore().getTaskRun(controlResult.taskRunId);

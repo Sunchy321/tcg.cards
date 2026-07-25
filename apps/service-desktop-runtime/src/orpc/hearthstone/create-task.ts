@@ -109,12 +109,6 @@ const hsdataImport = os
   .handler(async ({ input }) => {
     const scope = { sourceIds: input.sourceIds };
     const resolved = hsdataImportTaskDefinition.resolveScope(scope);
-    const active = await getStore().getActiveTaskRun(
-      hsdataImportTaskDefinition.taskType,
-      hsdataImportTaskDefinition.scopeType,
-      resolved.key,
-    );
-    if (active) throw new Error('An hsdata import task is already active');
 
     return createAndRunTask(hsdataImportTaskDefinition.taskType, {
       taskType:          hsdataImportTaskDefinition.taskType,
@@ -140,12 +134,6 @@ const hsdataProjection = os
   .handler(async ({ input }) => {
     const scope = { sourceTags: input.sourceTags };
     const resolved = projectTaskDefinition.resolveScope(scope);
-    const active = await getStore().getActiveTaskRun(
-      projectTaskDefinition.taskType,
-      projectTaskDefinition.scopeType,
-      resolved.key,
-    );
-    if (active) throw new Error('An hsdata projection task is already active');
 
     return createAndRunTask(projectTaskDefinition.taskType, {
       taskType:          projectTaskDefinition.taskType,
@@ -168,12 +156,6 @@ const unpackImport = os
   .handler(async ({ input }) => {
     const scope = { zipName: input.zipName };
     const resolved = unpackImportTaskDefinition.resolveScope(scope);
-    const active = await getStore().getActiveTaskRun(
-      unpackImportTaskDefinition.taskType,
-      unpackImportTaskDefinition.scopeType,
-      resolved.key,
-    );
-    if (active) throw new Error('An unpack import task is already active');
 
     return createAndRunTask(unpackImportTaskDefinition.taskType, {
       taskType:          unpackImportTaskDefinition.taskType,
