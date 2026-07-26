@@ -292,7 +292,7 @@
                   <div v-if="diffLoading" class="flex items-center justify-center h-64">
                     <UIcon name="lucide:loader" class="animate-spin text-2xl text-gray-400" />
                   </div>
-                  <div v-else-if="diffResult" class="overflow-auto border rounded" style="height: calc(100vh - 8rem)">
+                  <div v-else-if="diffResult" class="overflow-auto" style="height: calc(100vh - 8rem)">
                     <CodeDiff
                       :old-string="diffEntityOld"
                       :new-string="diffEntityNew"
@@ -321,7 +321,7 @@
                   <div v-if="diffLoading" class="flex items-center justify-center h-64">
                     <UIcon name="lucide:loader" class="animate-spin text-2xl text-gray-400" />
                   </div>
-                  <div v-else-if="diffResult" class="overflow-auto border rounded" style="height: calc(100vh - 8rem)">
+                  <div v-else-if="diffResult" class="overflow-auto" style="height: calc(100vh - 8rem)">
                     <CodeDiff
                       :old-string="diffRenderOld"
                       :new-string="diffRenderNew"
@@ -818,7 +818,7 @@ const relationIcon = (relation: string): string => ({
 const diffFrom = ref<number | null>(null);
 const diffTo = ref<number | null>(null);
 const diffLoading = ref(false);
-const diffResult = ref<{ entityBefore: unknown; entityAfter: unknown; renderBefore: unknown; renderAfter: unknown } | null>(null);
+const diffResult = ref<{ entityBefore: unknown, entityAfter: unknown, renderBefore: unknown, renderAfter: unknown } | null>(null);
 const diffActiveTab = ref('entity');
 
 watch([version, versionInfos], () => {
@@ -861,9 +861,9 @@ async function loadDiff() {
   try {
     diffResult.value = await $orpc.hearthstone.card.snapshots({
       cardId: route.params.id as string,
-      lang: lang.value,
-      from: diffFrom.value,
-      to: diffTo.value,
+      lang:   lang.value,
+      from:   diffFrom.value,
+      to:     diffTo.value,
     }) as any;
   } finally {
     diffLoading.value = false;
