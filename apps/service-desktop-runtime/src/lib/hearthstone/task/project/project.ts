@@ -574,25 +574,27 @@ export async function projectExtracted(
   // Load existing rows for reconciliation
   const entityCardIds = [...new Set(projectedEntities.map(r => r.cardId))].sort();
 
-  // Load existing entity states
-  const existingEntityStates = await localDb.select({
-    cardId:       Entity.cardId,
-    version:      Entity.version,
-    revisionHash: Entity.revisionHash,
-  }).from(Entity)
+  // Load existing entities (full rows for version-only update fallback)
+  const existingEntities = await localDb.select()
+    .from(Entity)
     .where(inArray(Entity.cardId, entityCardIds));
+  const existingEntityStates = existingEntities.map(r => ({
+    cardId: r.cardId, version: r.version, revisionHash: r.revisionHash,
+  }));
 
-  // Load existing localization states
-  const existingLocStates = await localDb.select({
-    cardId:           EntityLocalization.cardId,
-    version:          EntityLocalization.version,
-    lang:             EntityLocalization.lang,
-    revisionHash:     EntityLocalization.revisionHash,
-    localizationHash: EntityLocalization.localizationHash,
-    renderHash:       EntityLocalization.renderHash,
-    renderModel:      EntityLocalization.renderModel,
-  }).from(EntityLocalization)
+  // Load existing localizations (full rows for version-only update fallback)
+  const existingLocRows = await localDb.select()
+    .from(EntityLocalization)
     .where(inArray(EntityLocalization.cardId, entityCardIds));
+  const existingLocStates = existingLocRows.map(r => ({
+    cardId:           r.cardId,
+    version:          r.version,
+    lang:             r.lang,
+    revisionHash:     r.revisionHash,
+    localizationHash: r.localizationHash,
+    renderHash:       r.renderHash,
+    renderModel:      r.renderModel,
+  }));
 
   // Load existing relations
   const sourceIds = [...entityCardIds];
@@ -631,14 +633,37 @@ export async function projectExtracted(
   const locByKey = new Map(projectedLocalizations.map(r => [localizationKey(r), r]));
   const relByKey = new Map(projectedRelations.map(r => [relationKey(r), r]));
 
+  // Add existing rows as fallback for version-only updates (rows from Step 2 whose keys are not in projected set)
+  for (const e of existingEntities) {
+    const key = entityKey(e as EntityRow);
+    if (!entityByKey.has(key)) entityByKey.set(key, e as unknown as EntityRow);
+  }
+  for (const l of existingLocRows) {
+    const key = localizationKey(l as LocalizationRow);
+    if (!locByKey.has(key)) locByKey.set(key, l as unknown as LocalizationRow);
+  }
+  for (const r of existingRelations) {
+    const key = relationKey(r as RelationRow);
+    if (!relByKey.has(key)) relByKey.set(key, r as unknown as RelationRow);
+  }
+
   const upsertEntities = entityResult.syncPlan.upsertRows
-    .map(r => entityByKey.get(entityKey(r)))
+    .map(r => {
+      const projected = entityByKey.get(entityKey(r));
+      return projected ? { ...projected, version: r.version } : null;
+    })
     .filter((r): r is EntityRow => r != null);
   const upsertLocalizations = localizationResult.syncPlan.upsertRows
-    .map(r => locByKey.get(localizationKey(r as any)))
+    .map(r => {
+      const projected = locByKey.get(localizationKey(r as any));
+      return projected ? { ...projected, version: r.version } : null;
+    })
     .filter((r): r is LocalizationRow => r != null);
   const upsertRelations = relationResult.syncPlan.upsertRows
-    .map(r => relByKey.get(relationKey(r)))
+    .map(r => {
+      const projected = relByKey.get(relationKey(r));
+      return projected ? { ...projected, version: r.version } : null;
+    })
     .filter((r): r is RelationRow => r != null);
 
   // Build delete rows
@@ -968,15 +993,22 @@ export async function projectHsdataFallback(build: number, cardIds: string[], dr
 
   // Load existing rows for reconciliation
   const entityCardIds = [...new Set(projectedEntities.map(r => r.cardId))].sort();
-  const existingEntityStates = await localDb.select({
-    cardId: Entity.cardId, version: Entity.version, revisionHash: Entity.revisionHash,
-  }).from(Entity).where(inArray(Entity.cardId, entityCardIds));
 
-  const existingLocStates = await localDb.select({
-    cardId:           EntityLocalization.cardId, version:          EntityLocalization.version, lang:             EntityLocalization.lang,
-    revisionHash:     EntityLocalization.revisionHash, localizationHash: EntityLocalization.localizationHash,
-    renderHash:       EntityLocalization.renderHash, renderModel:      EntityLocalization.renderModel,
-  }).from(EntityLocalization).where(inArray(EntityLocalization.cardId, entityCardIds));
+  // Load existing entities (full rows for version-only update fallback)
+  const existingEntities = await localDb.select()
+    .from(Entity).where(inArray(Entity.cardId, entityCardIds));
+  const existingEntityStates = existingEntities.map(r => ({
+    cardId: r.cardId, version: r.version, revisionHash: r.revisionHash,
+  }));
+
+  // Load existing localizations (full rows for version-only update fallback)
+  const existingLocRows = await localDb.select()
+    .from(EntityLocalization).where(inArray(EntityLocalization.cardId, entityCardIds));
+  const existingLocStates = existingLocRows.map(r => ({
+    cardId:           r.cardId, version:          r.version, lang:             r.lang,
+    revisionHash:     r.revisionHash, localizationHash: r.localizationHash,
+    renderHash:       r.renderHash, renderModel:      r.renderModel,
+  }));
 
   const existingRelations = await localDb.select().from(EntityRelation).where(inArray(EntityRelation.sourceId, entityCardIds));
 
@@ -1001,9 +1033,32 @@ export async function projectHsdataFallback(build: number, cardIds: string[], dr
   const locByKey = new Map(projectedLocalizations.map(r => [localizationKey(r), r]));
   const relByKey = new Map(projectedRelations.map(r => [relationKey(r), r]));
 
-  const upsertEntities = entityResult.syncPlan.upsertRows.map(r => entityByKey.get(entityKey(r))).filter((r): r is EntityRow => r != null);
-  const upsertLocalizations = localizationResult.syncPlan.upsertRows.map(r => locByKey.get(localizationKey(r as any))).filter((r): r is LocalizationRow => r != null);
-  const upsertRelations = relationResult.syncPlan.upsertRows.map(r => relByKey.get(relationKey(r))).filter((r): r is RelationRow => r != null);
+  // Add existing rows as fallback for version-only updates (rows from Step 2 whose keys are not in projected set)
+  for (const e of existingEntities) {
+    const key = entityKey(e as EntityRow);
+    if (!entityByKey.has(key)) entityByKey.set(key, e as unknown as EntityRow);
+  }
+  for (const l of existingLocRows) {
+    const key = localizationKey(l as LocalizationRow);
+    if (!locByKey.has(key)) locByKey.set(key, l as unknown as LocalizationRow);
+  }
+  for (const r of existingRelations) {
+    const key = relationKey(r as RelationRow);
+    if (!relByKey.has(key)) relByKey.set(key, r as unknown as RelationRow);
+  }
+
+  const upsertEntities = entityResult.syncPlan.upsertRows.map(r => {
+    const projected = entityByKey.get(entityKey(r));
+    return projected ? { ...projected, version: r.version } : null;
+  }).filter((r): r is EntityRow => r != null);
+  const upsertLocalizations = localizationResult.syncPlan.upsertRows.map(r => {
+    const projected = locByKey.get(localizationKey(r as any));
+    return projected ? { ...projected, version: r.version } : null;
+  }).filter((r): r is LocalizationRow => r != null);
+  const upsertRelations = relationResult.syncPlan.upsertRows.map(r => {
+    const projected = relByKey.get(relationKey(r));
+    return projected ? { ...projected, version: r.version } : null;
+  }).filter((r): r is RelationRow => r != null);
 
   const deleteEntities = entityResult.syncPlan.deleteRows.map(r => ({ cardId: r.cardId, revisionHash: r.revisionHash }));
   const deleteLocalizations = localizationResult.syncPlan.deleteRows.map(r => ({
