@@ -15,30 +15,30 @@ type ReferencedTagValue = boolean | number;
 
 /** One XML node shape kept while streaming CardDefs.xml. */
 interface XmlElement {
-  name: string;
+  name:       string;
   attributes: Record<string, string>;
-  children: XmlChild[];
+  children:   XmlChild[];
 }
 
 /** XML parser input reduced to one snapshot hash payload. */
 interface HsdataSnapshotInput {
-  cardId: string;
-  dbfId: number;
+  cardId:           string;
+  dbfId:            number;
   entityXmlVersion: number;
-  tags: RawTagInput[];
-  extraPayload: JsonMap;
+  tags:             RawTagInput[];
+  extraPayload:     JsonMap;
 }
 
 /** Parsed CardDefs root metadata and normalized entity subtrees. */
 interface ParsedXmlDocument {
-  rootName: string;
+  rootName:       string;
   rootAttributes: Record<string, string>;
-  entities: XmlElement[];
+  entities:       XmlElement[];
 }
 
 /** Parsed hsdata payload plus the stable hash of the normalized XML source. */
 export interface ParsedHsdataStreamResult {
-  parsed: ParsedHsdata;
+  parsed:     ParsedHsdata;
   sourceHash: string;
 }
 
@@ -395,7 +395,7 @@ const normalizeRawTag = (tag: XmlElement, tagOrder: number): RawTagInput => {
   const enumId = toInt(tag.attributes.enumID, 'Tag.enumID');
   const rawName = tag.attributes.name ?? '';
   const rawType = tag.attributes.type ?? '';
-  const rawValue = tag.attributes.value ?? null;
+  const rawValue = tag.attributes.value ?? getText(tag) ?? null;
   const cardValue = tag.attributes.cardID ?? null;
 
   const rawPayload: JsonMap = {

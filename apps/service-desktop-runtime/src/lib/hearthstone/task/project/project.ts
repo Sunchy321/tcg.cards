@@ -324,7 +324,7 @@ function projectExtractedCard(
     // (1,*) reference tags go to referencedTags
     if (tag.isReferenceTag) {
       if (isNormalizedMechanicValue(normalized)) {
-        entityDraft.referencedTags[String(tag.tagId)] = normalized;
+        entityDraft.referencedTags[String(tag.tagId)] = true;
       }
       // (1,1) also goes to mechanics
       if (tag.isPowerKeywordTag) {
