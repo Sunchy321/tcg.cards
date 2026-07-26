@@ -36,13 +36,14 @@ async function batchDelete(
 
   for (const chunk of chunked(rows, WRITE_CHUNK_SIZE)) {
     const values = chunk.map(r => `(${r.map(v => `'${v.replace(/'/g, '\'\'')}'`).join(',')})`).join(',');
+    const typedColumns = columns.split(',').map(c => `${c.trim()} text`).join(', ');
     const stage = `_del_${table.replace(/\./g, '_')}_${Date.now()}`;
-    await client.unsafe(`CREATE TEMP TABLE ${stage} (${columns}) ON COMMIT DROP`);
+    await client.unsafe(`CREATE TEMP TABLE ${stage} (${typedColumns}) ON COMMIT DROP`);
     await client.unsafe(`INSERT INTO ${stage} (${columns}) VALUES ${values}`);
     await client.unsafe(`
       UPDATE ${table} t SET deleted_at = now()
       FROM ${stage} s
-      WHERE ${columns.split(',').map(c => `t.${c.trim()} = s.${c.trim()}`).join(' AND ')}
+      WHERE ${columns.split(',').map(c => `t.${c.trim()}::text = s.${c.trim()}`).join(' AND ')}
         AND t.deleted_at IS NULL
     `);
   }
