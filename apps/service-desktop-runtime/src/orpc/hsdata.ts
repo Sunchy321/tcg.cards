@@ -276,17 +276,41 @@ const cancelIncompletePublishBatchRoute = os
   .input(cancelPublishBatchInput)
   .output(publishReport)
   .handler(async ({ input }) => {
+    // Always request cancellation via the task framework first, so running tasks get stopped
+    createTaskStore(getLocalDb()).updateTaskRun(input.batchId, { controlRequestKind: 'cancel' }).catch(() => {});
+
+    // Also attempt DB-level cleanup for residual batches without a running job
     try {
-      const result = await cancelIncompletePublishBatch(input);
-
-      // Also cancel the corresponding TaskRun if it exists
-      // Inline cancel: update task run via store if one exists for this batch
-      createTaskStore(getLocalDb()).updateTaskRun(input.batchId, { controlRequestKind: 'cancel' }).catch(() => {
-        // TaskRun may not exist or already be terminal — that's fine.
-      });
-
-      return result;
+      return await cancelIncompletePublishBatch(input);
     } catch (error) {
+      // If the batch is still running in this process, the task framework cancel above will handle it.
+      // Return a simple report instead of throwing so the caller doesn't get an error.
+      if (error instanceof Error && error.message.includes('still running in the desktop runtime')) {
+        return {
+          batchId:              input.batchId,
+          publishTarget:        input.publishTarget ?? '',
+          environment:          input.environment ?? '',
+          targetFingerprint:    '',
+          publishType:          'card_data',
+          operationKind:        'publish',
+          status:               'canceling',
+          manifestHash:         '',
+          previousManifestHash: null,
+          buildMin:             0,
+          buildMax:             0,
+          totalRowCount:        0,
+          changedRowCount:      0,
+          insertedRowCount:     0,
+          updatedRowCount:      0,
+          deletedRowCount:      0,
+          unchangedRowCount:    0,
+          cardRowCount:         0,
+          entityRowCount:       0,
+          localizationRowCount: 0,
+          relationRowCount:     0,
+          publishedAt:          new Date().toISOString(),
+        };
+      }
       throw toRuntimeError(error);
     }
   });
