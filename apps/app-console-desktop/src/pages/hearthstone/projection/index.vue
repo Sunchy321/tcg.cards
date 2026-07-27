@@ -132,6 +132,22 @@
           <template #header-actions>
             <UButton icon="i-lucide-refresh-cw" color="neutral" variant="ghost" size="xs" :loading="loading" @click="loadData" />
           </template>
+          <template #extra="{ item }: { item: ProjectionItem }">
+            <UBadge
+              v-if="item.unpackStatus === 'completed'"
+              label="解包"
+              color="info"
+              variant="soft"
+              size="xs"
+            />
+            <UBadge
+              v-else
+              label="仅 hsdata"
+              color="neutral"
+              variant="soft"
+              size="xs"
+            />
+          </template>
         </VersionSelectPanel>
       </div>
     </div>
@@ -160,6 +176,7 @@ interface ProjectionItem {
   buildNumber:      number;
   shortName:        string;
   projectionStatus: string | undefined;
+  unpackStatus:     string | undefined;
 }
 
 const toast = useToast();
@@ -238,6 +255,7 @@ async function loadData() {
       buildNumber:      s.sourceTag,
       shortName:        patchMap[s.sourceTag] ?? '—',
       projectionStatus: s.projectionStatus,
+      unpackStatus:     s.unpackStatus,
     })).sort((a, b) => b.buildNumber - a.buildNumber);
   } catch (error) {
     toast.add({ title: '加载失败', description: getConsoleErrorMessage(error), color: 'error' });
