@@ -825,6 +825,7 @@ export async function cancelIncompletePublishBatch(input: {
 
   const message = '批次已由用户从数据库残留状态中取消。';
   await finalizePublishBatchStopped(localDb, batch.id, message);
+  await localDb.delete(PublishBatchRow).where(eq(PublishBatchRow.batchId, input.batchId));
 
   const stoppedBatch = await localDb.select()
     .from(PublishBatch)

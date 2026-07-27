@@ -649,6 +649,14 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
             blockInput: { cursor: null, processed: 0 } as LoadingBlockInput,
           };
         }
+        // Stale incomplete batch with no pending rows — clean it up
+        await db.update(PublishBatch).set({
+          status:      'stopped',
+          error:       'Stale incomplete batch with no pending rows — superseded by new publish',
+          completedAt: new Date(),
+          updatedAt:   new Date(),
+        }).where(eq(PublishBatch.id, incomplete.id));
+        await db.delete(PublishBatchRow).where(eq(PublishBatchRow.batchId, incomplete.id));
       }
     }
 
@@ -657,6 +665,7 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
       console.log('[publish] invalidating stale active batch:', active.id, active.operationKind);
       await db.update(PublishBatch).set({ status: 'stopped', error: 'Superseded by new publish', completedAt: new Date(), updatedAt: new Date() })
         .where(eq(PublishBatch.id, active.id));
+      await db.delete(PublishBatchRow).where(eq(PublishBatchRow.batchId, active.id));
     }
 
     const publishedAt = baseline?.publishedAt ?? null;
@@ -892,12 +901,13 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
         }).where(eq(PublishBatch.id, batchId));
       });
 
-      const oldIds = await localDb.select({ id: PublishBatch.id }).from(PublishBatch)
+      // Clean up publish_batch_rows for all completed batches including this one
+      const completedIds = await localDb.select({ id: PublishBatch.id }).from(PublishBatch)
         .where(and(
           eq(PublishBatch.publishTarget, batch.publishTarget), eq(PublishBatch.environment, batch.environment),
-          eq(PublishBatch.publishType, batch.publishType), eq(PublishBatch.status, 'completed'), ne(PublishBatch.id, batchId),
+          eq(PublishBatch.publishType, batch.publishType), eq(PublishBatch.status, 'completed'),
         )).then(r => r.map(x => x.id));
-      if (oldIds.length > 0) await localDb.delete(PublishBatchRow).where(inArray(PublishBatchRow.batchId, oldIds));
+      if (completedIds.length > 0) await localDb.delete(PublishBatchRow).where(inArray(PublishBatchRow.batchId, completedIds));
     }
 
     const publishResultStatus = ctx.dryRun ? 'dry_run' : 'completed';
@@ -949,6 +959,7 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
         completedAt: new Date(),
         updatedAt:   new Date(),
       }).where(eq(PublishBatch.id, activeBatch.id));
+      await db.delete(PublishBatchRow).where(eq(PublishBatchRow.batchId, activeBatch.id));
     }
 
     // Release publish stream lease
