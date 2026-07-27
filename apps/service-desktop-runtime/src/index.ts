@@ -9,16 +9,8 @@ import {
   resolveHearthstonePublishTarget,
   testDesktopDatabaseConnection,
 } from './lib/runtime/desktop-database';
-import { createTaskStore, createTaskScheduler, createTaskCleanup, registerTaskDefinition } from './lib/task';
+import { createTaskStore, createTaskScheduler, createTaskCleanup } from './lib/task';
 import './lib/task/task-definitions';
-import { publishTaskDefinition } from './lib/hearthstone/task';
-import { testWorkTaskDefinition } from './lib/task/test-definition';
-import { pinTaskDefinition } from './lib/hearthstone/task/pin';
-import { imageRenderTaskDefinition } from './lib/hearthstone/task/image-render';
-import { hsdataImportTaskDefinition } from './lib/hearthstone/task/import';
-import { hsdataProjectionTaskDefinition } from './lib/hearthstone/task/projection';
-import { projectTaskDefinition } from './lib/hearthstone/task/project';
-import { unpackImportTaskDefinition } from './lib/hearthstone/task/unpack-import';
 
 /** Resolves the local listen port from the current process environment. */
 function readPort() {
@@ -57,15 +49,6 @@ function getErrorMessage(error: unknown) {
 }
 
 const hono = new Hono();
-
-registerTaskDefinition(publishTaskDefinition);
-registerTaskDefinition(testWorkTaskDefinition);
-registerTaskDefinition(pinTaskDefinition);
-registerTaskDefinition(imageRenderTaskDefinition);
-registerTaskDefinition(hsdataImportTaskDefinition);
-registerTaskDefinition(hsdataProjectionTaskDefinition);
-registerTaskDefinition(projectTaskDefinition);
-registerTaskDefinition(unpackImportTaskDefinition);
 
 // Startup cleanup + background scheduler
 import('./runtime-config').then(async ({ hasLocalDatabaseUrl }) => {

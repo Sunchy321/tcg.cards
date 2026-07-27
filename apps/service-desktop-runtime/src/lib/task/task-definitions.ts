@@ -1,6 +1,6 @@
 import { registerTaskDefinition } from './registry';
 
-// Legacy definitions
+// Tasks defined using the legacy definition style (not yet migrated to the new task definition API)
 import { imageRenderTaskDefinition } from '../hearthstone/task/image-render/definition';
 registerTaskDefinition(imageRenderTaskDefinition);
 
@@ -12,9 +12,6 @@ registerTaskDefinition(pinTaskDefinition);
 
 import { projectTaskDefinition } from '../hearthstone/task/project/definition';
 registerTaskDefinition(projectTaskDefinition);
-
-import { hsdataProjectionTaskDefinition } from '../hearthstone/task/projection/definition';
-registerTaskDefinition(hsdataProjectionTaskDefinition);
 
 import { publishTaskDefinition } from '../hearthstone/task/publish/definition';
 registerTaskDefinition(publishTaskDefinition);
