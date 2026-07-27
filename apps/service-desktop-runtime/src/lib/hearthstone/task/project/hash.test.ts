@@ -61,7 +61,7 @@ describe('buildRenderModel', () => {
   });
 
   test('keeps whitelisted CardTextBuilder tags from mechanics', () => {
-    const model = buildRenderModel(entity(), localization());
+    const model = buildRenderModel(entity(), localization(), 100000);
 
     expect(model.renderMechanics).toEqual({
       [TAG_ID.DATA_NUM_1]:                   7,

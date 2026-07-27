@@ -308,6 +308,7 @@ Fields marked `?` are optional and omitted when null or not applicable. See `ren
 | `rune` | `string[]?` | Death knight rune combination (`blood`, `frost`, `unholy`). |
 | `glow` | `GlowEntry[]?` | Optional part-level change highlights, valid only when `variant.zone` is `"hand"`. See the `glow` subsection below. |
 | `renderMechanics` | `object` | Render mechanic flags. See the `renderMechanics` subsection below for the full key list. |
+| `renderHints` | `string[]?` | Semantic hints signalling renderer behaviour changes. See the `renderHints` subsection below. |
 
 #### `glow`
 
@@ -387,6 +388,18 @@ Hearthstone GAME_TAG enum IDs are used as keys to avoid slug-name instability ac
 | `"4579"` | HAS_TIMEWARPED_TAVERN_ALT_TEXT | `has-timewarped-tavern-alt-text` | Timewarped alt text index |
 
 `WINDFURY` (189), `TAUNT` (190), `STEALTH` (191), `DIVINE_SHIELD` (194), `MAGNETIC` (849), and `REBORN` (1085) are not render-model inputs for static text reconstruction. The Battlegrounds Zilliax builder uses them only as fixed lookup keys after resolving its module dbfId from `BACON_TRIPLED_BASE_MINION_ID*`.
+
+#### `renderHints`
+
+An optional array of semantic string tags that signal renderer behaviour changes for specific card subsets. Each hint follows the format `{scope}-{aspect}-v{n}`:
+
+- **scope**: the affected card range (e.g. `hunter`, `dual-class`)
+- **aspect**: what changed (e.g. `template-color`, `class-order`)
+- **v{n}**: behaviour version, starting at `v2` (v1 is the baseline and never written)
+
+No hint means baseline behaviour for all aspects. When multiple hints targeting the same aspect are present, the renderer should use the highest version it recognises. Hints the renderer does not recognise are silently ignored.
+
+This field is absent from the payload when empty.
 
 ## Functional Requirements
 

@@ -212,6 +212,7 @@ function finalizeLocalizationRows(
   entity: LocalizationlessEntityRow,
   localizationMap: Map<Locale, LocalizationDraft>,
   tags: Map<number, number>,
+  build: number,
   context: Omit<DisplayContext, 'locale' | 'classes' | 'tags' | 'nameByDbfId' | 'richTextByDbfId'> & {
     nameByDbfIdByLocale:     ReadonlyMap<Locale, ReadonlyMap<number, string>>;
     richTextByDbfIdByLocale: ReadonlyMap<Locale, ReadonlyMap<number, string>>;
@@ -254,7 +255,7 @@ function finalizeLocalizationRows(
     };
 
     const localizationHash = hashCanonicalJson(buildLocalizationHashPayload(row));
-    const renderModel = buildRenderModel(entity, row);
+    const renderModel = buildRenderModel(entity, row, build);
     const renderHash = hashCanonicalJson(renderModel);
 
     rows.push({
@@ -286,6 +287,7 @@ function projectExtractedCard(
   card: ExtractedCardRow,
   tags: ExtractedCardTagRow[],
   tagMap: Map<number, TagRow>,
+  build: number,
   context: {
     cardIdByDbfId:           Map<number, string>;
     setIdByDbfId:            Map<number, string>;
@@ -395,7 +397,7 @@ function projectExtractedCard(
   }
 
   const entity = finalizeEntityDraft(entityDraft);
-  const localizationRows = finalizeLocalizationRows(entity, localizations, displayTags, {
+  const localizationRows = finalizeLocalizationRows(entity, localizations, displayTags, build, {
     cardId:                  entity.cardId,
     dbfId:                   entity.dbfId,
     cardIdByDbfId:           context.cardIdByDbfId,
@@ -550,7 +552,7 @@ export async function projectExtracted(
 
   for (const card of cards) {
     const tags = tagsByDbfId.get(card.dbfId) ?? [];
-    const result = projectExtractedCard(card as ExtractedCardRow, tags, tagMap, { cardIdByDbfId, setIdByDbfId, hsdataSetByDbfId: chunkHsdataSet, nameByDbfIdByLocale, richTextByDbfIdByLocale });
+    const result = projectExtractedCard(card as ExtractedCardRow, tags, tagMap, build, { cardIdByDbfId, setIdByDbfId, hsdataSetByDbfId: chunkHsdataSet, nameByDbfIdByLocale, richTextByDbfIdByLocale });
 
     projectedEntities.push({
       ...result.entity,
@@ -963,7 +965,7 @@ export async function projectHsdataFallback(build: number, cardIds: string[], dr
     }
 
     const entity = finalizeEntityDraft(entityDraft);
-    const localizationRows = finalizeLocalizationRows(entity, localizations, displayTags, {
+    const localizationRows = finalizeLocalizationRows(entity, localizations, displayTags, build, {
       cardId: entity.cardId,
       dbfId:  entity.dbfId,
       cardIdByDbfId,

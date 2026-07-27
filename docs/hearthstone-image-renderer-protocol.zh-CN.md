@@ -308,6 +308,7 @@
 | `rune` | `string[]?` | 死亡骑士符文组合（`blood`、`frost`、`unholy`）。 |
 | `glow` | `GlowEntry[]?` | 可选的卡面部位变化高亮，仅当 `variant.zone` 为 `"hand"` 时有效，详见下方 `glow` 小节。 |
 | `renderMechanics` | `object` | 渲染机制标识。完整 key 列表见下方 `renderMechanics` 小节。 |
+| `renderHints` | `string[]?` | 语义化提示标签，标记渲染器行为变化。详见下方 `renderHints` 小节。 |
 
 #### `glow`
 
@@ -387,6 +388,18 @@
 | `"4579"` | HAS_TIMEWARPED_TAVERN_ALT_TEXT | `has-timewarped-tavern-alt-text` | 时空扭曲下 alt text 索引 |
 
 `WINDFURY`（189）、`TAUNT`（190）、`STEALTH`（191）、`DIVINE_SHIELD`（194）、`MAGNETIC`（849）和 `REBORN`（1085）不是静态文本重建的 render model 输入。酒馆战棋奇利亚斯 builder 在通过 `BACON_TRIPLED_BASE_MINION_ID*` 解析模块 dbfId 后，只将它们作为固定关键词查找 key 使用。
+
+#### `renderHints`
+
+可选的语义化字符串标签数组，用于标记特定卡牌子集的渲染器行为变化。每个 hint 格式为 `{scope}-{aspect}-v{n}`：
+
+- **scope**：受影响的卡牌范围（如 `hunter`、`dual-class`）
+- **aspect**：变化的内容（如 `template-color`、`class-order`）
+- **v{n}**：行为版本号，从 `v2` 起（v1 为基线行为，不写入）
+
+无 hint 表示所有 aspect 均使用基线行为。当同一 aspect 存在多个 hint 时，渲染器应使用其识别的最高版本。渲染器不认识的 hint 静默忽略。
+
+该字段为空时不出现在 payload 中。
 
 ## 功能约束
 

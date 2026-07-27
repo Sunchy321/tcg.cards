@@ -118,6 +118,7 @@ export const renderModel = z.object({
   techLevel:         z.int().optional(),
   rune:              rune.array().optional(),
   renderMechanics:   renderMechanicMap,
+  renderHints:       z.string().array().optional(),
   textBuilderType,
 });
 

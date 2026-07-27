@@ -4,6 +4,7 @@ import { RENDER_MECHANIC_IDS } from '@tcg-cards/model/src/hearthstone/constant/t
 import { renderModel as renderModelSchema, type RenderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
 
 import type { JsonMap, LocalizationlessEntityRow, LocalizationlessLocalizationRow, MechanicValue } from './types';
+import { computeRenderHints } from './render-hints';
 
 const renderMechanicKeys: Set<string> = new Set(RENDER_MECHANIC_IDS);
 
@@ -98,11 +99,14 @@ function formatIssuePath(path: PropertyKey[]): string {
 export function buildRenderModel(
   entity: LocalizationlessEntityRow,
   localization: LocalizationlessLocalizationRow,
+  build: number,
 ): RenderModel {
   const renderMechanics = Object.fromEntries(
     Object.entries(entity.mechanics)
       .filter(([enumId, value]) => renderMechanicKeys.has(enumId) && isMechanicValue(value)),
   );
+
+  const renderHints = computeRenderHints(entity, build);
 
   const payload = {
     cardId: entity.cardId,
@@ -135,6 +139,7 @@ export function buildRenderModel(
     techLevel:         entity.techLevel,
     rune:              entity.rune,
     renderMechanics,
+    renderHints:       renderHints.length > 0 ? renderHints : undefined,
     textBuilderType:   entity.textBuilderType,
   };
 
