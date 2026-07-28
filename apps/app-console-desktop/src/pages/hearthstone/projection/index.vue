@@ -37,7 +37,6 @@
         >
           <template #actions-before="{ activeOp }">
             <UButton
-              v-if="activeOp?.key === 'project'"
               :label="`批量投影（${batchProjectSourceTags.length}）`"
               icon="i-lucide-list-start"
               color="neutral"
@@ -133,20 +132,21 @@
             <UButton icon="i-lucide-refresh-cw" color="neutral" variant="ghost" size="xs" :loading="loading" @click="loadData" />
           </template>
           <template #extra="{ item }: { item: ProjectionItem }">
-            <UBadge
-              v-if="item.unpackStatus === 'completed'"
-              label="解包"
-              color="info"
-              variant="soft"
-              size="xs"
-            />
-            <UBadge
-              v-else
-              label="仅 hsdata"
-              color="neutral"
-              variant="soft"
-              size="xs"
-            />
+            <div class="flex items-center gap-1">
+              <UBadge
+                :label="`hsdata ${importLabel(item.importStatus)}`"
+                :color="importColor(item.importStatus)"
+                variant="soft"
+                size="xs"
+              />
+              <UBadge
+                v-if="item.unpackAvailable"
+                :label="`拆包 ${unpackLabel(item.unpackStatus)}`"
+                :color="unpackColor(item.unpackStatus)"
+                variant="soft"
+                size="xs"
+              />
+            </div>
           </template>
         </VersionSelectPanel>
       </div>
@@ -175,8 +175,10 @@ interface PatchRow {
 interface ProjectionItem {
   buildNumber:      number;
   shortName:        string;
+  importStatus:     string | undefined;
   projectionStatus: string | undefined;
   unpackStatus:     string | undefined;
+  unpackAvailable:  boolean;
 }
 
 const toast = useToast();
@@ -225,6 +227,42 @@ const taskResult = ref<Record<string, unknown> | null>(null);
 const total = computed(() => items.value.length);
 const latestBuild = computed(() => items.value[0]?.buildNumber ?? '—');
 
+function importLabel(status: string | undefined) {
+  switch (status) {
+  case 'completed': return '已导入';
+  case 'failed': return '失败';
+  case 'processing': return '导入中';
+  default: return '待导入';
+  }
+}
+
+function importColor(status: string | undefined) {
+  switch (status) {
+  case 'completed': return 'success' as const;
+  case 'failed': return 'error' as const;
+  case 'processing': return 'info' as const;
+  default: return 'neutral' as const;
+  }
+}
+
+function unpackLabel(status: string | undefined) {
+  switch (status) {
+  case 'completed': return '已导入';
+  case 'failed': return '失败';
+  case 'processing': return '导入中';
+  default: return '待导入';
+  }
+}
+
+function unpackColor(status: string | undefined) {
+  switch (status) {
+  case 'completed': return 'success' as const;
+  case 'failed': return 'error' as const;
+  case 'processing': return 'info' as const;
+  default: return 'warning' as const;
+  }
+}
+
 function statusBadge(status: string) {
   switch (status) {
   case 'completed': return { label: '已投影', color: 'success' as const };
@@ -256,8 +294,10 @@ async function loadData() {
     items.value = v.map(s => ({
       buildNumber:      s.sourceTag,
       shortName:        patchMap[s.sourceTag] ?? '—',
+      importStatus:     s.importStatus,
       projectionStatus: s.projectionStatus,
       unpackStatus:     s.unpackStatus,
+      unpackAvailable:  s.unpackAvailable,
     })).sort((a, b) => b.buildNumber - a.buildNumber);
   } catch (error) {
     toast.add({ title: '加载失败', description: getConsoleErrorMessage(error), color: 'error' });

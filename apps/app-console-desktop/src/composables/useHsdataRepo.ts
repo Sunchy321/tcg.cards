@@ -71,6 +71,7 @@ export interface HsdataSourceVersionStatus {
   projectionError:  string | null;
   unpackStatus:     string;
   unpackedAt:       string | null;
+  unpackAvailable:  boolean;
 }
 
 /** Status counters grouped by import state for the local overview. */

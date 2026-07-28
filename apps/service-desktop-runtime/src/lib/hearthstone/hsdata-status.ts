@@ -1,3 +1,5 @@
+import { readdirSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { desc, eq, sql } from 'drizzle-orm';
 
 import {
@@ -22,6 +24,7 @@ export interface HsdataSourceVersionStatus {
   projectionError:  string | null;
   unpackStatus:     string;
   unpackedAt:       string | null;
+  unpackAvailable:  boolean;
 }
 
 /** Import state counters grouped for the overview page. */
@@ -120,6 +123,24 @@ const toIsoString = (value: Date | string | null | undefined) => {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 };
 
+const WORKSPACE = resolve(import.meta.dir, '..', '..', '..', '..', '..', '..');
+const UNPACK_DIR = resolve(WORKSPACE, 'data', 'hearthstone', 'unpack');
+
+function listUnpackBuildNumbers(): Set<number> {
+  try {
+    const builds = new Set<number>();
+    const files = readdirSync(UNPACK_DIR);
+    for (const f of files) {
+      if (!f.endsWith('.zip')) continue;
+      const n = Number(f.replace('.zip', ''));
+      if (Number.isSafeInteger(n) && n > 0) builds.add(n);
+    }
+    return builds;
+  } catch {
+    return new Set();
+  }
+}
+
 /** Lists patch_states rows ordered by descending build number. */
 export const listLocalHsdataSourceVersions = async () => {
   const db = getLocalDb();
@@ -139,6 +160,8 @@ export const listLocalHsdataSourceVersions = async () => {
     .from(PatchState)
     .orderBy(desc(PatchState.buildNumber));
 
+  const availableBuilds = listUnpackBuildNumbers();
+
   return rows.map(row => ({
     sourceTag:        row.sourceTag,
     build:            row.build,
@@ -151,6 +174,7 @@ export const listLocalHsdataSourceVersions = async () => {
     projectionError:  row.projectionError,
     unpackStatus:     row.unpackStatus,
     unpackedAt:       toIsoString(row.unpackedAt),
+    unpackAvailable:  availableBuilds.has(row.sourceTag),
   } satisfies HsdataSourceVersionStatus));
 };
 

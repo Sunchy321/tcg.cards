@@ -42,12 +42,23 @@
     <div class="grid gap-4 xl:grid-cols-3">
       <div class="space-y-4 xl:col-span-2">
         <TaskController
+          ref="controller"
           title="hsdata 导入"
           :operations="[importOperation]"
           @completed="onCompleted"
           @failed="onFailed"
           @create-error="onCreateError"
         >
+          <template #actions-before>
+            <UButton
+              :label="`批量导入（${batchSourceIds.length}）`"
+              icon="i-lucide-list-start"
+              color="neutral"
+              variant="soft"
+              :disabled="batchSourceIds.length === 0"
+              @click="startBatchImport"
+            />
+          </template>
           <template #params="{ disabled }">
             <div class="space-y-4 pt-4">
               <div class="flex items-center justify-between gap-3">
@@ -345,6 +356,25 @@ function onCompleted(snap: TaskPageSnapshot) {
   taskResult.value = snap.result as unknown as ImportTaskResult | null ?? null;
   loadData();
 }
+const controller = ref<{ attach(snapshot: TaskPageSnapshot): void }>();
+
+const batchSourceIds = computed(() =>
+  items.value
+    .filter(i => i.importStatus !== 'completed' && i.importStatus !== 'processing')
+    .map(i => i.fileId),
+);
+
+async function startBatchImport() {
+  const ids = batchSourceIds.value;
+  if (ids.length === 0) return;
+  const snapshot = await orpc.hearthstone.createTask.hsdataImport({
+    sourceIds: ids,
+    dryRun:    importForm.dryRun,
+    force:     importForm.force,
+  }) as TaskPageSnapshot;
+  controller.value?.attach(snapshot);
+}
+
 function onFailed() {}
 function onCreateError() {}
 
