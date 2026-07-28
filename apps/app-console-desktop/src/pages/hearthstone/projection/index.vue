@@ -197,6 +197,7 @@ function persistProjectionPageState() {
     dryRun: dryRun.value,
     force: force.value,
     sampleDiff: sampleDiff.value,
+    hideImported: hideImported.value,
   }));
 }
 
@@ -208,12 +209,13 @@ function restoreProjectionPageState() {
     if (typeof parsed.dryRun === 'boolean') dryRun.value = parsed.dryRun;
     if (typeof parsed.force === 'boolean') force.value = parsed.force;
     if (typeof parsed.sampleDiff === 'boolean') sampleDiff.value = parsed.sampleDiff;
+    if (typeof parsed.hideImported === 'boolean') hideImported.value = parsed.hideImported;
   } catch {
     window.localStorage.removeItem(PROJECTION_PAGE_STATE_KEY);
   }
 }
 
-watch([dryRun, force, sampleDiff], () => {
+watch([dryRun, force, sampleDiff, hideImported], () => {
   persistProjectionPageState();
 });
 
