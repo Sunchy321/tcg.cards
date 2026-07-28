@@ -29,15 +29,15 @@ export const ExtractedCard = dataSchema.table('extracted_card', {
   changeVersion:            integer('change_version').notNull().default(0),
 
   // --- Event references ---
-  gameplayEvent:                 integer('gameplay_event'),
-  craftingEvent:                 integer('crafting_event'),
-  goldenCraftingEvent:           integer('golden_crafting_event'),
-  signatureCraftingEvent:        integer('signature_crafting_event'),
-  diamondCraftingEvent:          integer('diamond_crafting_event'),
-  featuredCardsEvent:            integer('featured_cards_event'),
-  battlegroundsActiveEvent:      integer('battlegrounds_active_event'),
-  battlegroundsEarlyAccessEvent: integer('battlegrounds_early_access_event'),
-  battlegroundsEveryGameEvent:   integer('battlegrounds_every_game_event'),
+  gameplayEvent:                 text('gameplay_event'),
+  craftingEvent:                 text('crafting_event'),
+  goldenCraftingEvent:           text('golden_crafting_event'),
+  signatureCraftingEvent:        text('signature_crafting_event'),
+  diamondCraftingEvent:          text('diamond_crafting_event'),
+  featuredCardsEvent:            text('featured_cards_event'),
+  battlegroundsActiveEvent:      text('battlegrounds_active_event'),
+  battlegroundsEarlyAccessEvent: text('battlegrounds_early_access_event'),
+  battlegroundsEveryGameEvent:   text('battlegrounds_every_game_event'),
 
   // --- LocString fields (mirror hsdata localization, stored as raw JSONB) ---
   name:                  jsonb('name').$type<LocString>(),

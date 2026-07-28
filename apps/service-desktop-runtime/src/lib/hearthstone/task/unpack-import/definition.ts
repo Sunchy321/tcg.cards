@@ -11,6 +11,36 @@ import { createDefinition } from '#task/definition';
 const WORKSPACE = resolve(import.meta.dir, '..', '..', '..', '..', '..', '..', '..', '..');
 const UNPACK_DIR = resolve(WORKSPACE, 'data', 'hearthstone', 'unpack');
 
+const EVENT_FIELDS = [
+  'm_gameplayEvent',
+  'm_craftingEvent',
+  'm_goldenCraftingEvent',
+  'm_signatureCraftingEvent',
+  'm_diamondCraftingEvent',
+  'm_featuredCardsEvent',
+  'm_battlegroundsActiveEvent',
+  'm_battlegroundsEarlyAccessEvent',
+  'm_battlegroundsEveryGameEvent',
+] as const;
+
+interface EventMap {
+  m_Keys:   string[];
+  m_Values: number[];
+}
+
+function loadEventMap(zipPath: string): Map<number, string> {
+  const json = execSync(`unzip -p "${zipPath}" "EventMap.json"`, {
+    encoding:  'utf-8',
+    maxBuffer: 10 * 1024 * 1024,
+  });
+  const em = JSON.parse(json) as EventMap;
+  const map = new Map<number, string>();
+  for (let i = 0; i < em.m_Keys.length; i++) {
+    map.set(em.m_Values[i], em.m_Keys[i]);
+  }
+  return map;
+}
+
 interface CardRecord {
   m_ID:                             number;
   m_noteMiniGuid:                   string;
@@ -56,7 +86,7 @@ function hashPayload(value: unknown): string {
   return Bun.SHA256.hash(canonicalize(value)!, 'hex') as string;
 }
 
-function computeSnapshotHash(card: CardRecord, tags: CardTagRecord[]): string {
+function computeSnapshotHash(card: unknown, tags: CardTagRecord[]): string {
   return hashPayload({ card, tags });
 }
 
@@ -71,15 +101,15 @@ interface CardRow {
   watermarkTextureOverride:      string | null;
   suggestionWeight:              number;
   changeVersion:                 number;
-  gameplayEvent:                 number | null;
-  craftingEvent:                 number | null;
-  goldenCraftingEvent:           number | null;
-  signatureCraftingEvent:        number | null;
-  diamondCraftingEvent:          number | null;
-  featuredCardsEvent:            number | null;
-  battlegroundsActiveEvent:      number | null;
-  battlegroundsEarlyAccessEvent: number | null;
-  battlegroundsEveryGameEvent:   number | null;
+  gameplayEvent:                 string | null;
+  craftingEvent:                 string | null;
+  goldenCraftingEvent:           string | null;
+  signatureCraftingEvent:        string | null;
+  diamondCraftingEvent:          string | null;
+  featuredCardsEvent:            string | null;
+  battlegroundsActiveEvent:      string | null;
+  battlegroundsEarlyAccessEvent: string | null;
+  battlegroundsEveryGameEvent:   string | null;
   name:                          { m_locValues: string[], m_locId: number } | null;
   textInHand:                    { m_locValues: string[], m_locId: number } | null;
   flavorText:                    { m_locValues: string[], m_locId: number } | null;
@@ -89,6 +119,11 @@ interface CardRow {
   howToGetDiamondCard:           { m_locValues: string[], m_locId: number } | null;
   targetArrowText:               { m_locValues: string[], m_locId: number } | null;
   shortName:                     { m_locValues: string[], m_locId: number } | null;
+}
+
+function resolveEvent(eventId: number | undefined, eventMap: Map<number, string>): string | null {
+  if (eventId == null) return null;
+  return eventMap.get(eventId) ?? String(eventId);
 }
 
 function loadCardData(zipName: string, buildNumber: number) {
@@ -105,6 +140,8 @@ function loadCardData(zipName: string, buildNumber: number) {
   });
   const tagData = JSON.parse(tagJson) as { Records: CardTagRecord[] };
 
+  const eventMap = loadEventMap(zipPath);
+
   // Group tags by dbfId
   const tagsByDbfId = new Map<number, CardTagRecord[]>();
   for (const t of tagData.Records) {
@@ -119,7 +156,15 @@ function loadCardData(zipName: string, buildNumber: number) {
 
   for (const r of cardData.Records) {
     const cardTags = tagsByDbfId.get(r.m_ID) ?? [];
-    const snapshotHash = computeSnapshotHash(r, cardTags);
+
+    // Resolve event IDs to names for hash computation and storage
+    const resolved: Partial<CardRecord> = {};
+    for (const field of EVENT_FIELDS) {
+      const eventId = r[field] as number | undefined;
+      (resolved as any)[field] = resolveEvent(eventId, eventMap) as any;
+    }
+    const normalizedCard = { ...r, ...resolved };
+    const snapshotHash = computeSnapshotHash(normalizedCard, cardTags);
 
     cards.push({
       cardId:                        r.m_noteMiniGuid,
@@ -132,15 +177,15 @@ function loadCardData(zipName: string, buildNumber: number) {
       watermarkTextureOverride:      orNull(r.m_watermarkTextureOverride),
       suggestionWeight:              r.m_suggestionWeight ?? 0,
       changeVersion:                 r.m_changeVersion ?? 0,
-      gameplayEvent:                 r.m_gameplayEvent ?? null,
-      craftingEvent:                 r.m_craftingEvent ?? null,
-      goldenCraftingEvent:           r.m_goldenCraftingEvent ?? null,
-      signatureCraftingEvent:        r.m_signatureCraftingEvent ?? null,
-      diamondCraftingEvent:          r.m_diamondCraftingEvent ?? null,
-      featuredCardsEvent:            r.m_featuredCardsEvent ?? null,
-      battlegroundsActiveEvent:      r.m_battlegroundsActiveEvent ?? null,
-      battlegroundsEarlyAccessEvent: r.m_battlegroundsEarlyAccessEvent ?? null,
-      battlegroundsEveryGameEvent:   r.m_battlegroundsEveryGameEvent ?? null,
+      gameplayEvent:                 resolveEvent(r.m_gameplayEvent, eventMap),
+      craftingEvent:                 resolveEvent(r.m_craftingEvent, eventMap),
+      goldenCraftingEvent:           resolveEvent(r.m_goldenCraftingEvent, eventMap),
+      signatureCraftingEvent:        resolveEvent(r.m_signatureCraftingEvent, eventMap),
+      diamondCraftingEvent:          resolveEvent(r.m_diamondCraftingEvent, eventMap),
+      featuredCardsEvent:            resolveEvent(r.m_featuredCardsEvent, eventMap),
+      battlegroundsActiveEvent:      resolveEvent(r.m_battlegroundsActiveEvent, eventMap),
+      battlegroundsEarlyAccessEvent: resolveEvent(r.m_battlegroundsEarlyAccessEvent, eventMap),
+      battlegroundsEveryGameEvent:   resolveEvent(r.m_battlegroundsEveryGameEvent, eventMap),
       name:                          r.m_name ?? null,
       textInHand:                    r.m_textInHand ?? null,
       flavorText:                    r.m_flavorText ?? null,

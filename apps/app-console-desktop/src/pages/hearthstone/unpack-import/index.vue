@@ -28,12 +28,23 @@
     <div class="grid gap-4 xl:grid-cols-3">
       <div class="space-y-4 xl:col-span-2">
         <TaskController
+          ref="controller"
           title="拆包导入"
           :operations="[importOperation]"
           @completed="onCompleted"
           @failed="onFailed"
           @create-error="onCreateError"
         >
+          <template #actions-before="{ activeOp }">
+            <UButton
+              :label="`批量导入（${batchSourceTags.length}）`"
+              icon="i-lucide-list-start"
+              color="neutral"
+              variant="soft"
+              :disabled="batchSourceTags.length === 0"
+              @click="startBatchImport"
+            />
+          </template>
           <template #params="{ disabled }">
             <div class="space-y-4 pt-4">
               <div class="flex items-center justify-between gap-3">
@@ -246,13 +257,49 @@ const importOperation = computed<TaskOperation>(() => ({
   }) as Promise<TaskPageSnapshot>,
 }));
 
+const controller = ref<{ attach(snapshot: TaskPageSnapshot): void, currentTaskRunId: string | null }>();
+
+const batchQueue = ref<number[]>([]);
+
 function onCompleted(snap: TaskPageSnapshot) {
   taskResult.value = snap.result ?? null;
   loadData();
+  nextBatch();
 }
 
-function onFailed() {}
+function onFailed() {
+  nextBatch();
+}
+
+async function nextBatch() {
+  if (batchQueue.value.length === 0) return;
+  const tag = batchQueue.value.shift()!;
+  const snapshot = await orpc.hearthstone.createTask.unpackImport({
+    zipName: String(tag),
+    dryRun:  dryRun.value,
+  }) as TaskPageSnapshot;
+  controller.value?.attach(snapshot);
+}
+
 function onCreateError() {}
+
+const batchSourceTags = computed(() =>
+  items.value
+    .filter(i => i.unpackStatus !== 'completed' && i.unpackStatus !== 'processing')
+    .map(i => i.buildNumber),
+);
+
+async function startBatchImport() {
+  batchQueue.value = [...batchSourceTags.value];
+  if (batchQueue.value.length === 0) return;
+
+  const tag = batchQueue.value.shift()!;
+  const snapshot = await orpc.hearthstone.createTask.unpackImport({
+    zipName: String(tag),
+    dryRun:  dryRun.value,
+  }) as TaskPageSnapshot;
+  controller.value?.attach(snapshot);
+}
 
 onMounted(async () => {
   await loadData();
