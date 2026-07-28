@@ -308,6 +308,7 @@ Fields marked `?` are optional and omitted when null or not applicable. See `ren
 | `rune` | `string[]?` | Death knight rune combination (`blood`, `frost`, `unholy`). |
 | `glow` | `GlowEntry[]?` | Optional part-level change highlights, valid only when `variant.zone` is `"hand"`. See the `glow` subsection below. |
 | `renderMechanics` | `object` | Render mechanic flags. See the `renderMechanics` subsection below for the full key list. |
+| `textBuilderType` | `string` | Card text builder type. See `textBuilderType` subsection below for valid values. |
 | `renderHints` | `string[]?` | Semantic hints signalling renderer behaviour changes. See the `renderHints` subsection below. |
 
 #### `glow`
@@ -388,6 +389,14 @@ Hearthstone GAME_TAG enum IDs are used as keys to avoid slug-name instability ac
 | `"4579"` | HAS_TIMEWARPED_TAVERN_ALT_TEXT | `has-timewarped-tavern-alt-text` | Timewarped alt text index |
 
 `WINDFURY` (189), `TAUNT` (190), `STEALTH` (191), `DIVINE_SHIELD` (194), `MAGNETIC` (849), and `REBORN` (1085) are not render-model inputs for static text reconstruction. The Battlegrounds Zilliax builder uses them only as fixed lookup keys after resolving its module dbfId from `BACON_TRIPLED_BASE_MINION_ID*`.
+
+#### `textBuilderType`
+
+A string identifying the `CardTextBuilder` subclass used to derive the card's display text from `localization.richText` and the numeric values in `renderMechanics`. The renderer uses this to correctly rebuild card text from the template strings.
+
+Valid values:
+
+`default`, `jade_golem`, `jade_golem_trigger`, `modular_entity`, `kazakus_potion_effect`, `primordial_wand`, `alternate_card_text`, `script_data_num_1`, `galakrond_counter`, `decorate`, `player_tag_threshold`, `entity_tag_threshold`, `multiple_entity_names`, `gameplay_string`, `zombeast`, `zombeast_enchantment`, `hidden_choice`, `investigate`, `reference_creator_entity`, `reference_script_data_num_1_entity`, `reference_script_data_num_1_num_2_entity`, `undatakah_enchant`, `spell_damage_only`, `drustvar_horror`, `hidden_entity`, `score_value_count_down`, `script_data_num_1_num_2`, `powered_up`, `multiple_alt_text_script_data_nums`, `reference_script_data_num_1_entity_power`, `reference_script_data_num_1_card_dbid`, `reference_script_data_num_card_race`, `bg_quest`, `multiple_alt_text_script_data_nums_ref_sdn6_card_dbid`, `zilliax_deluxe_3000`, `reference_script_data_num_1_num_2_entity_power`, `battlegrounds_zilliax`, `spell_absorb`, `alt_text_reference_script_data_num_1_num_2_entity_power`, `rewind_mechanic_card_text_builder`, `battlegrounds_tavern_spell`, `dynamic_keyword`, `reference_script_data_num_1_class`, `herald`, `alternate_card_text_with_script_data`, `battlegrounds_deep_blues_spell`, `silver_hand_recruit`
 
 #### `renderHints`
 

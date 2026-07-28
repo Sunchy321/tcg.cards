@@ -308,6 +308,7 @@
 | `rune` | `string[]?` | 死亡骑士符文组合（`blood`、`frost`、`unholy`）。 |
 | `glow` | `GlowEntry[]?` | 可选的卡面部位变化高亮，仅当 `variant.zone` 为 `"hand"` 时有效，详见下方 `glow` 小节。 |
 | `renderMechanics` | `object` | 渲染机制标识。完整 key 列表见下方 `renderMechanics` 小节。 |
+| `textBuilderType` | `string` | 卡牌文本构建器类型。有效值列表见下方 `textBuilderType` 小节。 |
 | `renderHints` | `string[]?` | 语义化提示标签，标记渲染器行为变化。详见下方 `renderHints` 小节。 |
 
 #### `glow`
@@ -388,6 +389,14 @@
 | `"4579"` | HAS_TIMEWARPED_TAVERN_ALT_TEXT | `has-timewarped-tavern-alt-text` | 时空扭曲下 alt text 索引 |
 
 `WINDFURY`（189）、`TAUNT`（190）、`STEALTH`（191）、`DIVINE_SHIELD`（194）、`MAGNETIC`（849）和 `REBORN`（1085）不是静态文本重建的 render model 输入。酒馆战棋奇利亚斯 builder 在通过 `BACON_TRIPLED_BASE_MINION_ID*` 解析模块 dbfId 后，只将它们作为固定关键词查找 key 使用。
+
+#### `textBuilderType`
+
+标识用于从 `localization.richText` 与 `renderMechanics` 中的数值重建卡牌显示文本的 `CardTextBuilder` 子类。渲染器借此正确还原卡牌文本。
+
+有效值：
+
+`default`、`jade_golem`、`jade_golem_trigger`、`modular_entity`、`kazakus_potion_effect`、`primordial_wand`、`alternate_card_text`、`script_data_num_1`、`galakrond_counter`、`decorate`、`player_tag_threshold`、`entity_tag_threshold`、`multiple_entity_names`、`gameplay_string`、`zombeast`、`zombeast_enchantment`、`hidden_choice`、`investigate`、`reference_creator_entity`、`reference_script_data_num_1_entity`、`reference_script_data_num_1_num_2_entity`、`undatakah_enchant`、`spell_damage_only`、`drustvar_horror`、`hidden_entity`、`score_value_count_down`、`script_data_num_1_num_2`、`powered_up`、`multiple_alt_text_script_data_nums`、`reference_script_data_num_1_entity_power`、`reference_script_data_num_1_card_dbid`、`reference_script_data_num_card_race`、`bg_quest`、`multiple_alt_text_script_data_nums_ref_sdn6_card_dbid`、`zilliax_deluxe_3000`、`reference_script_data_num_1_num_2_entity_power`、`battlegrounds_zilliax`、`spell_absorb`、`alt_text_reference_script_data_num_1_num_2_entity_power`、`rewind_mechanic_card_text_builder`、`battlegrounds_tavern_spell`、`dynamic_keyword`、`reference_script_data_num_1_class`、`herald`、`alternate_card_text_with_script_data`、`battlegrounds_deep_blues_spell`、`silver_hand_recruit`
 
 #### `renderHints`
 
