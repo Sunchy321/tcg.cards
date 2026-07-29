@@ -35,7 +35,7 @@
           @failed="onFailed"
           @create-error="onCreateError"
         >
-          <template #actions-before="{ activeOp }">
+          <template #actions-before>
             <UButton
               :label="`批量投影（${batchProjectSourceTags.length}）`"
               icon="i-lucide-list-start"
@@ -93,18 +93,22 @@
               <UBadge :label="taskResult.dryRun ? 'Dry Run' : 'Success'" :color="taskResult.dryRun ? 'warning' : 'success'" variant="soft" />
             </div>
           </template>
-          <div class="grid gap-3 sm:grid-cols-3">
+          <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div class="rounded-lg border border-default p-3">
               <div class="text-xs text-muted">快照</div>
-              <div class="mt-1 font-mono text-sm">{{ taskResult.snapshotCount ?? '—' }}</div>
+              <div class="mt-1 font-mono text-sm">{{ taskResult.snapshotCount }}</div>
             </div>
             <div class="rounded-lg border border-default p-3">
-              <div class="text-xs text-muted">Entities +/~/=</div>
-              <div class="mt-1 text-sm">+{{ taskResult.insertedEntities ?? 0 }} ~{{ taskResult.updatedEntities ?? 0 }} ={{ taskResult.reusedEntities ?? 0 }}</div>
+              <div class="text-xs text-muted">Entities +/~/=/&minus;</div>
+              <div class="mt-1 font-mono text-sm">+{{ taskResult.insertedEntities }} ~{{ taskResult.updatedEntities }} ={{ taskResult.reusedEntities }} &minus;{{ taskResult.entityPlan.delete }}</div>
             </div>
             <div class="rounded-lg border border-default p-3">
-              <div class="text-xs text-muted">Locals +/~/=</div>
-              <div class="mt-1 text-sm">+{{ taskResult.insertedLocalizations ?? 0 }} ~{{ taskResult.updatedLocalizations ?? 0 }} ={{ taskResult.reusedLocalizations ?? 0 }}</div>
+              <div class="text-xs text-muted">Locals +/~/=/&minus;</div>
+              <div class="mt-1 font-mono text-sm">+{{ taskResult.insertedLocalizations }} ~{{ taskResult.updatedLocalizations }} ={{ taskResult.reusedLocalizations }} &minus;{{ taskResult.localizationPlan.delete }}</div>
+            </div>
+            <div class="rounded-lg border border-default p-3">
+              <div class="text-xs text-muted">Relations +/~/=/&minus;</div>
+              <div class="mt-1 font-mono text-sm">+{{ taskResult.insertedRelations }} ~{{ taskResult.updatedRelations }} ={{ taskResult.reusedRelations }} &minus;{{ taskResult.relationPlan.delete }}</div>
             </div>
           </div>
         </UCard>
@@ -196,9 +200,9 @@ const PROJECTION_PAGE_STATE_KEY = 'console-desktop-hearthstone-projection-page';
 
 function persistProjectionPageState() {
   window.localStorage.setItem(PROJECTION_PAGE_STATE_KEY, JSON.stringify({
-    dryRun: dryRun.value,
-    force: force.value,
-    sampleDiff: sampleDiff.value,
+    dryRun:       dryRun.value,
+    force:        force.value,
+    sampleDiff:   sampleDiff.value,
     hideImported: hideImported.value,
   }));
 }
@@ -221,8 +225,24 @@ watch([dryRun, force, sampleDiff, hideImported], () => {
   persistProjectionPageState();
 });
 
+interface TaskResult {
+  dryRun:                boolean;
+  snapshotCount:         number;
+  insertedEntities:      number;
+  reusedEntities:        number;
+  updatedEntities:       number;
+  insertedLocalizations: number;
+  reusedLocalizations:   number;
+  updatedLocalizations:  number;
+  insertedRelations:     number;
+  reusedRelations:       number;
+  updatedRelations:      number;
+  entityPlan:            { upsert: number, delete: number };
+  localizationPlan:      { upsert: number, delete: number };
+  relationPlan:          { upsert: number, delete: number };
+}
 const controller = ref<{ attach(snapshot: TaskPageSnapshot): void, currentTaskRunId: string | null }>();
-const taskResult = ref<Record<string, unknown> | null>(null);
+const taskResult = ref<TaskResult | null>(null);
 
 const total = computed(() => items.value.length);
 const latestBuild = computed(() => items.value[0]?.buildNumber ?? '—');
