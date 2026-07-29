@@ -47,6 +47,26 @@ const dryRun = ref(false);
 const force = ref(false);
 
 // Single-card dev publish
+const purgeOpen = ref(false);
+const purging = ref(false);
+
+async function executePurge() {
+  purgeOpen.value = false;
+  purging.value = true;
+  try {
+    const result = await orpc.hearthstone.purge.purgeSoftDeletedEntities() as { entities: number, localizations: number, relations: number };
+    toast.add({ title: '清理完成', description: `entities: ${result.entities}, localizations: ${result.localizations}, relations: ${result.relations}`, color: 'success' });
+  } catch (error) {
+    toast.add({ title: '清理失败', description: getHsdataErrorMessage(error), color: 'error' });
+  } finally {
+    purging.value = false;
+  }
+}
+
+function confirmPurge() {
+  purgeOpen.value = true;
+}
+
 const singleCardId = ref('');
 const singleCardPublishing = ref(false);
 const singleCardResult = ref<HsdataSingleCardPublishReport | null>(null);
@@ -510,6 +530,17 @@ onMounted(async () => {
       @failed="onFailed"
       @create-error="onCreateError"
     >
+      <template #actions-before>
+        <UButton
+          label="清空已删除行"
+          icon="i-lucide-trash-2"
+          color="error"
+          variant="soft"
+          :loading="purging"
+          :disabled="purging"
+          @click="confirmPurge"
+        />
+      </template>
       <template #params="{ disabled }">
         <div class="flex items-center gap-6">
           <UFormField label="发布类型" orientation="horizontal">
@@ -791,6 +822,15 @@ onMounted(async () => {
       <div class="flex justify-end gap-2">
         <UButton label="取消" color="neutral" variant="ghost" @click="cancelPin" />
         <UButton label="确认 Pin" color="warning" @click="confirmPin" />
+      </div>
+    </template>
+  </UModal>
+
+  <UModal v-model:open="purgeOpen" title="确认清理" description="将硬删除 entities / entity_localizations / entity_relations 中所有已标记删除的行。此操作不可撤销。">
+    <template #footer>
+      <div class="flex justify-end gap-2">
+        <UButton label="取消" color="neutral" variant="ghost" @click="purgeOpen = false" />
+        <UButton label="确认清理" color="error" @click="executePurge" />
       </div>
     </template>
   </UModal>
