@@ -8,6 +8,7 @@ export const cardImageVariant = z.enum(['normal', 'golden', 'diamond', 'signatur
 
 export const normalResult = createSearchNormalResult(cardEntityView).extend({
   variant: cardImageVariant.default('normal'),
+  strict:  z.boolean().default(true),
 });
 
 export type NormalResult = z.infer<typeof normalResult>;

@@ -3,10 +3,10 @@ import { as as create } from '#search/server/action';
 import type { Locale } from '#model/hearthstone/schema/basic';
 import type { NormalResult } from '#model/hearthstone/schema/search';
 
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, ne, sql } from 'drizzle-orm';
 
 import { db } from '#db/db';
-import { CardEntityView, LatestCardEntityView } from '#schema/shared/hearthstone/entity';
+import { LatestCardEntityView } from '#schema/shared/hearthstone/entity';
 
 import Parser from '#search/parser';
 import { simplify } from '#search/parser/simplify';
@@ -101,23 +101,23 @@ type SearchOption = {
 };
 
 const defaultVisibleCardQuery = and(
-  eq(CardEntityView.collectible, true),
-  eq(CardEntityView.inBobsTavern, false),
-  sql`${CardEntityView.type} in ('minion', 'spell', 'weapon', 'location', 'hero')`,
+  eq(LatestCardEntityView.collectible, true),
+  eq(LatestCardEntityView.inBobsTavern, false),
+  sql`${LatestCardEntityView.type} in ('minion', 'spell', 'weapon', 'location', 'hero')`,
   sql`(
-    ${CardEntityView.type} in ('minion', 'spell', 'weapon', 'location')
+    ${LatestCardEntityView.type} in ('minion', 'spell', 'weapon', 'location')
     or (
-      ${CardEntityView.type} = 'hero'
+      ${LatestCardEntityView.type} = 'hero'
       and (
-        nullif(btrim(${CardEntityView.localization.displayText}), '') is not null
-        or ${CardEntityView.armor} is not null
+        nullif(btrim(${LatestCardEntityView.localization.displayText}), '') is not null
+        or ${LatestCardEntityView.armor} is not null
       )
     )
   )`,
 );
 
 export const search = as
-  .table(CardEntityView)
+  .table(LatestCardEntityView)
   .handler(async (query, post, options: SearchOption): Promise<NormalResult> => {
     const startTime = Date.now();
 
@@ -136,54 +136,48 @@ export const search = as
         qualifier: [],
       }, {
         meta:  {},
-        table: CardEntityView,
+        table: LatestCardEntityView as any,
       });
     const hasLangCommand = /\blang[:=]/.test(dsl ?? '');
-    const visibleQuery = hasLangCommand
-      ? and(query, defaultVisibleCardQuery)
-      : and(query, eq(CardEntityView.lang, lang), defaultVisibleCardQuery);
 
-    const subquery = db
-      .selectDistinctOn([CardEntityView.cardId])
-      .from(CardEntityView)
-      .where(visibleQuery)
-      .orderBy(
-        CardEntityView.cardId,
-        sql`CASE
-          WHEN ${CardEntityView.lang} = ${lang} THEN 0
-          WHEN ${CardEntityView.lang} = 'en' THEN 1
-          ELSE 2
-        END`,
-        desc(CardEntityView.version),
-      );
+    const executeSearch = async (strict: boolean) => {
+      const baseQuery = hasLangCommand
+        ? and(query, ne(LatestCardEntityView.type, 'enchantment'))
+        : and(query, eq(LatestCardEntityView.lang, lang), ne(LatestCardEntityView.type, 'enchantment'));
+      const visibleQuery = strict
+        ? and(baseQuery, defaultVisibleCardQuery)
+        : baseQuery;
 
-    const result = await db
-      .select()
-      .from(subquery.as('card_entity_view'))
-      .orderBy(...orderByAction)
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
-
-    const cardIds = result.map(card => card.cardId);
-    const localizedRows = cardIds.length > 0
-      ? await db
-        .selectDistinctOn([LatestCardEntityView.cardId])
+      const resultQuery = db
+        .select()
         .from(LatestCardEntityView)
-        .where(and(
-          inArray(LatestCardEntityView.cardId, cardIds),
-          eq(LatestCardEntityView.lang, lang),
-        ))
-        .orderBy(LatestCardEntityView.cardId)
-      : [];
-    const localizedById = new Map(localizedRows.map(card => [card.cardId, card]));
-    const displayedResult = result.map(card => localizedById.get(card.cardId) ?? card);
+        .where(visibleQuery!)
+        .orderBy(...orderByAction)
+        .limit(pageSize)
+        .offset((page - 1) * pageSize);
 
-    const countResult = await db
-      .select({ count: sql`count(distinct card_id)`.as('count') })
-      .from(CardEntityView)
-      .where(visibleQuery);
+      const result = await resultQuery;
 
-    const total = Number(countResult[0]?.count ?? 0);
+      const countQuery = db
+        .select({ count: sql`count(distinct card_id)`.as('count') })
+        .from(LatestCardEntityView)
+        .where(visibleQuery!);
+
+      const countResult = await countQuery;
+
+      const total = Number(countResult[0]?.count ?? 0);
+
+      return { displayedResult: result, total };
+    };
+
+    let { displayedResult, total } = await executeSearch(true);
+    let strict = true;
+
+    if (total === 0) {
+      ({ displayedResult, total } = await executeSearch(false));
+      strict = false;
+    }
+
     const totalPage = Math.ceil(total / pageSize);
     const elapsed = Date.now() - startTime;
 
@@ -194,5 +188,6 @@ export const search = as
       totalPage,
       elapsed,
       variant: await detectVariant(dsl),
+      strict,
     };
   });

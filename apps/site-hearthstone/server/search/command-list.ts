@@ -8,7 +8,7 @@ import { and, asc, desc, eq, inArray, not, notInArray, or, sql } from 'drizzle-o
 
 import { model } from '#model/hearthstone/search';
 import { classes as classSchema, types as typeSchema } from '#model/hearthstone/schema/basic';
-import { CardEntityView } from '#schema/shared/hearthstone/entity';
+import { LatestCardEntityView } from '#schema/shared/hearthstone/entity';
 import { TAG_SLUG, TAG_ID } from '#model/hearthstone/constant/tag';
 
 function classOrderCase(column: ReturnType<typeof sql>) {
@@ -19,7 +19,7 @@ function classOrderCase(column: ReturnType<typeof sql>) {
   return sql`CASE ${column} ${sql.raw(whenClauses)} ELSE 99 END`;
 }
 
-function typeOrderCase(column: typeof CardEntityView.type) {
+function typeOrderCase(column: typeof LatestCardEntityView.type) {
   const whenClauses = typeSchema.options
     .flatMap((t, i) => t === 'null' ? [] : `WHEN '${t}' THEN ${i}`)
     .join(' ');
@@ -29,7 +29,7 @@ function typeOrderCase(column: typeof CardEntityView.type) {
 
 const cs = create
   .with(model)
-  .table([CardEntityView])
+  .table([LatestCardEntityView])
   .use({ ...builtin });
 
 const tagSlugToId = Object.fromEntries(
