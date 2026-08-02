@@ -9,46 +9,56 @@
       :loading="loading"
       @error="hasError = true"
     >
-    <div v-else class="w-full h-full flex items-center justify-center text-gray-400">
-      <UIcon name="lucide:image-off" class="text-3xl" />
-    </div>
+    <img
+      v-else
+      :src="placeholderSrc"
+      :alt="cardId"
+      class="w-full h-full object-contain scale-125"
+      :loading="loading"
+      @error="(e) => ((e.target as HTMLImageElement).src = '/placeholder/minion.svg')"
+    >
   </div>
 </template>
 
 <script setup lang="ts">
 import type { CardImageOption } from '~/utils/card-image';
 import type { ImageCategory } from '#model/hearthstone/schema/data/image';
-import { buildCardImageUrl } from '~/utils/card-image';
+import { buildCardImageUrl, getCardPlaceholder } from '~/utils/card-image';
 
 const props = withDefaults(defineProps<{
-  cardId:              string;
-  version:             number;
-  renderHash?:         string | null;
-  variant?:            CardImageOption;
-  category?:           ImageCategory;
-  hasPremiumMechanic?: boolean;
-  loading?:            'eager' | 'lazy';
+  cardId:     string;
+  version:    number;
+  type:       string;
+  renderHash?: string | null;
+  variant?:   CardImageOption;
+  category?:  ImageCategory;
+  loading?:   'eager' | 'lazy';
+  mechanics?: Record<string, boolean | number>;
 }>(), {
-  variant:            'normal',
-  category:           'base',
-  renderHash:         null,
-  hasPremiumMechanic: false,
-  loading:            'lazy',
+  variant:    'normal',
+  category:   'base',
+  renderHash: null,
+  loading:    'lazy',
+  mechanics:  undefined,
 });
 
 const { public: { assetBaseUrl } } = useRuntimeConfig();
 
 const hasError = ref(false);
 
+const hasPremiumMechanic = computed(() => !!props.mechanics?.['12']);
+
 const imageUrl = computed(() => {
   if (props.renderHash == null) {
     return null;
   }
 
-  return buildCardImageUrl(assetBaseUrl, props.renderHash, props.variant, props.hasPremiumMechanic, props.category);
+  return buildCardImageUrl(assetBaseUrl, props.renderHash, props.variant, hasPremiumMechanic.value, props.category);
 });
 
-watch(() => [props.cardId, props.version, props.renderHash, props.variant, props.category, props.hasPremiumMechanic], () => {
+const placeholderSrc = computed(() => getCardPlaceholder(props.type, props.variant, props.mechanics));
+
+watch(() => [props.cardId, props.version, props.renderHash, props.variant, props.category, props.mechanics], () => {
   hasError.value = false;
 });
 </script>

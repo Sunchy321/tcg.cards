@@ -2,6 +2,37 @@ import type { ImageCategory, ImagePremium, ImageVariant } from '#model/hearthsto
 
 export type CardImageOption = ImagePremium | 'battlegrounds';
 
+// Types that have variant-specific placeholder SVGs (e.g. minion-signature.svg)
+const PLACEHOLDER_VARIANT_TYPES = new Set(['hero', 'location', 'minion', 'spell', 'weapon']);
+
+const LETTUCE_MERCENARY = '1665';
+const LETTUCE_EQUIPMENT = '1855';
+const LETTUCE_ABILITY_SUMMONED_MINION = '1676';
+
+const TIMEWARPED = '4503';
+
+function resolvePlaceholderType(type: string, mechanics?: Record<string, boolean | number>): string {
+  if (type === 'mercenary_ability') {
+    if (mechanics?.[LETTUCE_MERCENARY]) return 'mercenary-minion';
+    if (mechanics?.[LETTUCE_EQUIPMENT]) return 'mercenary-equipment';
+    if (mechanics?.[LETTUCE_ABILITY_SUMMONED_MINION]) return 'mercenary-ability-minion';
+    return 'mercenary-ability';
+  }
+
+  if (type === 'minion' && mechanics?.[TIMEWARPED]) return 'minion-timewarped';
+
+  return type;
+}
+
+export function getCardPlaceholder(type: string, variant: CardImageOption, mechanics?: Record<string, boolean | number>): string {
+  const effectiveType = resolvePlaceholderType(type, mechanics);
+  const slug = effectiveType.replace(/_/g, '-');
+  if (variant !== 'normal' && variant !== 'golden' && PLACEHOLDER_VARIANT_TYPES.has(type)) {
+    return `/placeholder/${slug}-${variant}.svg`;
+  }
+  return `/placeholder/${slug}.svg`;
+}
+
 function trimBaseUrl(url: string) {
   return url.endsWith('/') ? url.slice(0, -1) : url;
 }

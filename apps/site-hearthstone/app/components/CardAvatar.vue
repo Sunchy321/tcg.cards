@@ -20,6 +20,7 @@
             :version="resolvedVersion"
             :lang="resolvedLang"
             :render-hash="renderHash"
+            :type="type"
           />
         </div>
       </template>
@@ -38,6 +39,7 @@ const props = withDefaults(defineProps<{
   version?:    number;
   lang?:       Locale;
   renderHash?: string | null;
+  type:        string;
   noLink?:     boolean;
 }>(), {
   version:    undefined,

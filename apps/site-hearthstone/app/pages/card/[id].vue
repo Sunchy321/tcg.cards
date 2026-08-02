@@ -10,8 +10,9 @@
               :version="minVersion"
               :lang="lang"
               :render-hash="data.renderHash"
+              :type="data.type"
               :variant="variant"
-              :has-premium-mechanic="hasPremium"
+              :mechanics="data.mechanics"
               loading="eager"
             />
 
@@ -735,10 +736,6 @@ const relatedLink = (rel: NonNullable<typeof data.value>['relatedCards'][number]
 
 // Variant
 
-const hasPremium = computed(() =>
-  hasMechanic(String(TAG_ID.PREMIUM)),
-);
-
 const isBgsOnly = computed(() => {
   const d = data.value;
   return d != null && (d.type === 'trinket' || d.type === 'anomaly');
@@ -819,7 +816,6 @@ const diffFrom = ref<number | null>(null);
 const diffTo = ref<number | null>(null);
 const diffLoading = ref(false);
 const diffResult = ref<{ entityBefore: unknown, entityAfter: unknown, renderBefore: unknown, renderAfter: unknown } | null>(null);
-const diffActiveTab = ref('entity');
 
 watch([version, versionInfos], () => {
   const groups = versionInfos.value;
@@ -843,11 +839,6 @@ watch([version, versionInfos], () => {
 
 const diffVersionOptions = computed(() =>
   versionInfos.value.map(v => ({ label: v.firstName, value: v.versions[0] })));
-
-const diffTabs = [
-  { label: 'Card JSON', key: 'entity' },
-  { label: 'Render JSON', key: 'render' },
-];
 
 const diffEntityOld = computed(() => diffResult.value?.entityBefore ? JSON.stringify(diffResult.value.entityBefore, null, 2) : '');
 const diffEntityNew = computed(() => diffResult.value?.entityAfter ? JSON.stringify(diffResult.value.entityAfter, null, 2) : '');

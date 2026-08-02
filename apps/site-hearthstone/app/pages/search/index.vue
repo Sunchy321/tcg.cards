@@ -510,6 +510,7 @@
             :version="minVersion(card)"
             :lang="card.lang"
             :render-hash="card.renderHash"
+            :type="card.type"
             :variant="resultVariant"
             class="w-50"
           />
@@ -537,6 +538,7 @@
                   :version="minVersion(card)"
                   :lang="card.lang"
                   :render-hash="card.renderHash"
+                  :type="card.type"
                   :variant="resultVariant"
                 />
               </div>
@@ -655,6 +657,7 @@
                       :version="minVersion(card)"
                       :lang="card.lang"
                       :render-hash="card.renderHash"
+                      :type="card.type"
                       no-link
                       class="no-underline"
                     />
