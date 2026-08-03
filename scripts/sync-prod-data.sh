@@ -23,25 +23,30 @@ fi
 : "${SOURCE:?SOURCE connection string is required. Set in scripts/.env or export SOURCE.}"
 : "${TARGET:?TARGET connection string is required. Set in scripts/.env or export TARGET.}"
 
-echo "=== Truncating target tables ==="
-psql "$TARGET" -c "
-  TRUNCATE hearthstone.entity_localizations,
-           hearthstone.entity_relations,
-           hearthstone.cards,
-           hearthstone.entities;
-"
+TABLES=(
+  "hearthstone.entities"
+  "hearthstone.entity_localizations"
+  "hearthstone.entity_relations"
+  "hearthstone.cards"
+  "hearthstone.patches"
+)
 
-echo "=== Dumping from source and restoring to target ==="
-pg_dump --data-only --format=plain \
-  --dbname="$SOURCE" \
-  --table="hearthstone.entities" \
-  --table="hearthstone.entity_localizations" \
-  --table="hearthstone.entity_relations" \
-  --table="hearthstone.cards" \
-| grep -v "^SET transaction_timeout" \
-| grep -v "^SET default_table_access_method" \
-| grep -v "^SET row_security" \
-| psql "$TARGET"
+echo "=== Truncating target tables ==="
+for table in "${TABLES[@]}"; do
+  psql "$TARGET" -c "TRUNCATE $table;"
+done
+
+echo "=== Dumping and restoring ==="
+for table in "${TABLES[@]}"; do
+  echo "  $table ..."
+  pg_dump --data-only --format=plain --no-owner --no-acl \
+    --dbname="$SOURCE" \
+    --table="$table" \
+  | grep -v "^SET transaction_timeout" \
+  | grep -v "^SET default_table_access_method" \
+  | grep -v "^SET row_security" \
+  | psql "$TARGET"
+done
 
 echo "=== Done ==="
 psql "$TARGET" -c "
@@ -51,5 +56,7 @@ psql "$TARGET" -c "
   UNION ALL
   SELECT 'entity_relations', count(*) FROM hearthstone.entity_relations
   UNION ALL
-  SELECT 'cards', count(*) FROM hearthstone.cards;
+  SELECT 'cards', count(*) FROM hearthstone.cards
+  UNION ALL
+  SELECT 'patches', count(*) FROM hearthstone.patches;
 "
