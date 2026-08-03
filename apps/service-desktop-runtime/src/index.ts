@@ -156,7 +156,10 @@ const port = readPort();
 
 Bun.serve({
   port,
-  fetch: hono.fetch,
+  // Bun's 10s default idleTimeout closes in-flight requests before the handler
+  // writes a response byte, which cuts off long AI calls. Raise it to the max.
+  idleTimeout: 255,
+  fetch:       hono.fetch,
 });
 
 console.log(`[service-desktop-runtime] local RPC endpoint http://localhost:${port}/rpc`);

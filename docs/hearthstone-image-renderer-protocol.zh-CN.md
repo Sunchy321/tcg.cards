@@ -324,11 +324,11 @@
 
 支持的规范 `GlowPart` 值：
 
-`cost | attack | health | text | armor | rune | rarity | art | name | race`
+`cost | attack | health | text | armor | rune | rarity | art | name | race | tech-level`
 
 `durability` 是 `health` 的可接受别名，渲染器必须将二者应用到同一个视觉区域。
 
-规范部位映射为：`cost -> ManaCost`、`attack -> Attack`、`health`/`durability -> Health`、`text -> CardText`、`armor -> Armor`、`rune -> Runes`、`rarity -> RarityGem`、`art -> Art`、`name -> CardName`、`race -> Race`。部位值合法但当前卡牌或 prefab 不支持时静默忽略。同一视觉区域的同类型重复项合并，不同类型冲突则拒绝请求。
+规范部位映射为：`cost -> ManaCost`、`attack -> Attack`、`health`/`durability -> Health`、`text -> CardText`、`armor -> Armor`、`rune -> Runes`、`rarity -> RarityGem`、`art -> Art`、`name -> CardName`、`race -> Race`、`tech-level -> TechLevel`。部位值合法但当前卡牌或 prefab 不支持时静默忽略。`tech-level` 用于高亮酒馆战棋的旅店等级徽章。同一视觉区域的同类型重复项合并，不同类型冲突则拒绝请求。
 
 #### `renderMechanics`
 

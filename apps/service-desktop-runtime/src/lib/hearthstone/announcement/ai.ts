@@ -36,6 +36,20 @@ export interface AiParseResult {
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
+// Maps AI phrasing variants to the canonical slug-style glow part names.
+const GLOW_PART_ALIASES: Record<string, string> = {
+  tier: 'tech-level',
+};
+
+function normalizeGlow(glow: any): GlowEntry[] | null {
+  if (!Array.isArray(glow)) return null;
+  // Remaining out-of-enum parts are left intact and caught by output validation.
+  return glow.map(entry => ({
+    part: GLOW_PART_ALIASES[entry?.part] ?? entry?.part,
+    type: entry?.type,
+  })) as GlowEntry[];
+}
+
 export function extractJsonObject(text: string): unknown {
   const trimmed = text.trim();
   const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(trimmed);
@@ -70,7 +84,7 @@ export function normalizeAiResult(parsed: any): AiParseResult {
       setId:        i.setId ?? null,
       ruleId:       i.ruleId ?? null,
       delta:        i.delta ?? null,
-      glow:         i.glow ?? null,
+      glow:         normalizeGlow(i.glow),
       relatedCards: Array.isArray(i.relatedCards) ? i.relatedCards : [],
       group:        groupEnum.safeParse(i.group).success ? i.group : null,
       score:        i.score ?? null,

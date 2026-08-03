@@ -65,6 +65,7 @@ export const glowPart = z.enum([
   'art',
   'name',
   'race',
+  'tech-level',
 ]);
 
 export const glowEntry = z.strictObject({

@@ -7,11 +7,11 @@ import { and, eq, ilike, sql } from 'drizzle-orm';
 import { Patch } from '@tcg-cards/db/schema/local/hearthstone';
 import { LatestEntity, LatestEntityLocalization } from '@tcg-cards/db/schema/shared/hearthstone';
 import { locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
-import { glowEntry, group as groupEnum } from '@tcg-cards/model/src/hearthstone/schema/announcement';
+import { glowEntry, glowPart, group as groupEnum } from '@tcg-cards/model/src/hearthstone/schema/announcement';
 import { renderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
 
 import { getLocalDb } from '../../../lib/hearthstone/hsdata-local-db';
-import { extractJsonObject, matchPatches, normalizeAiResult } from '../../../lib/hearthstone/announcement/ai';
+import { extractJsonObject, matchPatches, normalizeAiResult, type AiItem } from '../../../lib/hearthstone/announcement/ai';
 import { hasAiConfig, readAiConfig } from '../../../runtime-config';
 
 const itemDelta = z.object({
@@ -66,7 +66,9 @@ export const aiParse = os
 
     const model = provider(config.model || 'gpt-4o-mini');
 
+    const startedAt = performance.now();
     const linkTexts = await fetchLinkContents(input.links.map(l => l.url));
+    console.log(`[announcement ai-parse] fetched ${input.links.length} link(s) in ${elapsedSince(startedAt)}`);
     const prompt = buildPrompt(input.name, input.links, linkTexts);
 
     const db = getLocalDb();
@@ -76,6 +78,7 @@ export const aiParse = os
       inputSchema: z.object({ version: z.string() }),
       execute:     async ({ version }) => {
         try {
+          const toolStartedAt = performance.now();
           const rows = await db.select({
             buildNumber: Patch.buildNumber,
             name:        Patch.name,
@@ -83,7 +86,9 @@ export const aiParse = os
             releaseDate: Patch.releaseDate,
           }).from(Patch);
 
-          return matchPatches(rows, version);
+          const matches = matchPatches(rows, version);
+          console.log(`[announcement ai-parse] lookupPatches took ${elapsedSince(toolStartedAt)} (${matches.length} matches)`);
+          return matches;
         } catch {
           return [];
         }
@@ -94,13 +99,18 @@ export const aiParse = os
       description: 'Search Hearthstone cards by localized card names. Accepts MULTIPLE names in one call — pass every card name from the announcement at once. Returns cardId candidates per name.',
       inputSchema: z.object({ names: z.string().array().min(1), lang: locale.default('en') }),
       execute:     async ({ names, lang }) => {
-        return Promise.all(names.slice(0, 30).map(async name => ({
+        const toolStartedAt = performance.now();
+        const results = await Promise.all(names.slice(0, 30).map(async name => ({
           name,
           candidates: await searchCardCandidates(db, name, lang),
         })));
+        const candidateCount = results.reduce((sum, r) => sum + r.candidates.length, 0);
+        console.log(`[announcement ai-parse] searchCards took ${elapsedSince(toolStartedAt)} (${results.length} names, ${candidateCount} candidates)`);
+        return results;
       },
     });
 
+    const aiStartedAt = performance.now();
     let result = await generateTextSafe({
       model,
       instructions: SYSTEM_PROMPT,
@@ -122,11 +132,16 @@ export const aiParse = os
       });
     }
 
+    console.log(`[announcement ai-parse] AI chat finished in ${elapsedSince(aiStartedAt)} (${result.steps.length} steps)`);
+
     const { text, finishReason } = result;
     const stepCount = result.steps.length;
 
     try {
-      return normalizeAiResult(extractJsonObject(text));
+      const parsed = normalizeAiResult(extractJsonObject(text));
+      logInvalidGlow(parsed.items);
+      console.log(`[announcement ai-parse] total took ${elapsedSince(startedAt)}`);
+      return parsed;
     } catch (error) {
       console.error('[announcement ai-parse] unparsable AI output', { finishReason, stepCount, text });
 
@@ -149,19 +164,36 @@ async function generateTextSafe(options: Parameters<typeof generateText>[0]) {
   }
 }
 
+/** Logs glow entries that would fail output schema validation so the actual AI values are visible. */
+function logInvalidGlow(items: AiItem[]) {
+  for (const [itemIndex, item] of items.entries()) {
+    if (!item.glow) continue;
+    for (const [glowIndex, entry] of item.glow.entries()) {
+      if (!glowEntry.safeParse(entry).success) {
+        console.error(`[announcement ai-parse] glow entry fails validation at items[${itemIndex}].glow[${glowIndex}]`, {
+          itemType: item.type,
+          cardId:   item.cardId,
+          entry,
+        });
+      }
+    }
+  }
+}
+
+/** Formats the seconds elapsed since a start timestamp as a short duration string. */
+function elapsedSince(startedAt: number): string {
+  return `${((performance.now() - startedAt) / 1000).toFixed(1)}s`;
+}
+
 type Lang = z.infer<typeof locale>;
 
 async function searchCardCandidates(db: ReturnType<typeof getLocalDb>, name: string, lang: Lang) {
   try {
     return await db.select({
-      cardId:      LatestEntityLocalization.cardId,
-      name:        LatestEntityLocalization.name,
-      set:         LatestEntity.set,
-      type:        LatestEntity.type,
-      cost:        LatestEntity.cost,
-      attack:      LatestEntity.attack,
-      health:      LatestEntity.health,
-      collectible: LatestEntity.collectible,
+      cardId: LatestEntityLocalization.cardId,
+      name:   LatestEntityLocalization.name,
+      set:    LatestEntity.set,
+      type:   LatestEntity.type,
     })
       .from(LatestEntity)
       .innerJoin(LatestEntityLocalization, and(
@@ -173,7 +205,7 @@ async function searchCardCandidates(db: ReturnType<typeof getLocalDb>, name: str
         eq(LatestEntityLocalization.lang, lang),
         ilike(LatestEntityLocalization.name, `%${name}%`),
       ))
-      .limit(10);
+      .limit(3);
   } catch {
     return [];
   }
@@ -190,7 +222,7 @@ async function fetchLinkContents(urls: string[]): Promise<string[]> {
         const res = await fetch(url, { signal: controller.signal });
         const text = await res.text();
 
-        return stripHtml(text).slice(0, 16000);
+        return stripHtml(text).slice(0, 8000);
       } finally {
         clearTimeout(timeout);
       }
@@ -227,9 +259,9 @@ const SYSTEM_PROMPT = `You are a parser for Hearthstone game balance announcemen
 
 You have two tools:
 - lookupPatches({ version }): look up patches by version string (e.g. "34.0.3"). Call it once you identify the patch version mentioned in the announcement, then pick the matching buildNumber for header.version.
-- searchCards({ names, lang }): search cards by localized names (lang defaults to "en"; use "zhs" for Chinese sources). Pass ALL card names in ONE call. Use the results to resolve exact cardIds. Prefer collectible candidates whose type/cost match the announcement context.
+- searchCards({ names, lang }): search cards by localized names (lang defaults to "en"; use "zhs" for Chinese sources). Pass EVERY card name in a SINGLE call — never split names across calls. Use the results to resolve exact cardIds. Prefer candidates whose type matches the announcement context.
 
-Be efficient with tools: first read the announcement and collect the patch version and every changed card name, then make ONE lookupPatches call and ONE searchCards call (a second searchCards call is acceptable only for names you missed). After that, output the final JSON.
+Be efficient with tools: first read the announcement and collect the patch version and every changed card name, then make exactly ONE lookupPatches call and exactly ONE searchCards call with ALL names. A second searchCards call is allowed only for names you missed, and never call it more than twice total. After that, output the final JSON.
 
 After using tools as needed, output ONLY a valid JSON object (no markdown, no explanation) with this shape:
 
@@ -251,7 +283,7 @@ Each item has these fields:
 - setId: ONLY for set_change: the set ID. Must be null for all other types.
 - ruleId: ONLY for rule_change: rule identifier (free text, optionally prefixed like "set:core"). Must be null for all other types.
 - delta: null, or { "prev": { ...old render model field values }, "curr": { ...new render model field values } }. Each side is a partial RenderModel. Put old values stated by the announcement in prev and new values in curr. Include only fields explicitly supported by the source.
-- glow: null, or array of { part: string, type: "buff" | "nerf" | "rework" | "neutral" } identifying each changed card part. Use "buff" when the part became stronger, "nerf" when it became weaker, "rework" for a functional redesign that is not meaningfully directional, and "neutral" for a presentation or wording change that does not affect gameplay. Do not invent glow entries when the nature of the change is ambiguous.
+- glow: null, or array of { part: one of ${glowPart.options.map(v => `"${v}"`).join(' | ')}, type: "buff" | "nerf" | "rework" | "neutral" } identifying each changed card part. Use "buff" when the part became stronger, "nerf" when it became weaker, "rework" for a functional redesign that is not meaningfully directional, and "neutral" for a presentation or wording change that does not affect gameplay. Use "tech-level" for Battlegrounds tavern tier changes. Do not invent glow entries when the nature of the change is ambiguous.
 - relatedCards: ONLY for card_change / card_update: related card IDs affected by this change (e.g. the collectible card that summons a changed token). Must be an empty array for all other types.
 - group: ONLY for card_change items that are part of a bulk rotation. Allowed values: ${groupEnum.options.map(v => `"${v}"`).join(', ')}. Use null for all other items, including non-rotation changes. Never invent other group values.
 - score: null, or integer score value

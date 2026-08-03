@@ -324,11 +324,11 @@ Each entry has the following shape:
 
 Supported canonical `GlowPart` values:
 
-`cost | attack | health | text | armor | rune | rarity | art | name | race`
+`cost | attack | health | text | armor | rune | rarity | art | name | race | tech-level`
 
 `durability` is accepted as an alias of `health`. The renderer must apply both values to the same visual region.
 
-The canonical part mapping is: `cost -> ManaCost`, `attack -> Attack`, `health`/`durability -> Health`, `text -> CardText`, `armor -> Armor`, `rune -> Runes`, `rarity -> RarityGem`, `art -> Art`, `name -> CardName`, and `race -> Race`. A valid part that is not supported by the current card or prefab is silently ignored. Duplicate entries for the same visual region and treatment are merged; conflicting treatments for one visual region are rejected.
+The canonical part mapping is: `cost -> ManaCost`, `attack -> Attack`, `health`/`durability -> Health`, `text -> CardText`, `armor -> Armor`, `rune -> Runes`, `rarity -> RarityGem`, `art -> Art`, `name -> CardName`, `race -> Race`, and `tech-level -> TechLevel`. A valid part that is not supported by the current card or prefab is silently ignored. `tech-level` highlights the Battlegrounds tavern tier badge. Duplicate entries for the same visual region and treatment are merged; conflicting treatments for one visual region are rejected.
 
 #### `renderMechanics`
 
