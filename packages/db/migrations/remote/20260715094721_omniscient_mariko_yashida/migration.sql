@@ -34,14 +34,12 @@ ALTER TABLE "hearthstone"."announcement_items" DROP COLUMN "index";--> statement
 ALTER TABLE "hearthstone"."announcement_items" DROP COLUMN "adjustment";--> statement-breakpoint
 ALTER TABLE "hearthstone"."patches" DROP COLUMN "is_updated";--> statement-breakpoint
 ALTER TABLE "magic"."announcement_items" DROP COLUMN "adjustment";--> statement-breakpoint
-ALTER TABLE "hearthstone"."announcements" ALTER COLUMN "link" SET DATA TYPE jsonb USING "link"::jsonb;--> statement-breakpoint
-ALTER TABLE "hearthstone"."announcements" ALTER COLUMN "link" SET DEFAULT '[]';--> statement-breakpoint
+ALTER TABLE "hearthstone"."announcements" ALTER COLUMN "link" DROP DEFAULT, ALTER COLUMN "link" SET DATA TYPE jsonb USING to_jsonb("link"), ALTER COLUMN "link" SET DEFAULT '[]';--> statement-breakpoint
 ALTER TABLE "hearthstone"."announcement_items" ALTER COLUMN "type" SET DATA TYPE text USING "type"::text;--> statement-breakpoint
 ALTER TABLE "hearthstone"."announcement_items" ALTER COLUMN "status" SET DATA TYPE text USING "status"::text;--> statement-breakpoint
 ALTER TABLE "hearthstone"."announcement_items" ALTER COLUMN "related_cards" SET DEFAULT '{}'::text[];--> statement-breakpoint
 ALTER TABLE "hearthstone"."announcement_items" ALTER COLUMN "related_cards" SET NOT NULL;--> statement-breakpoint
-ALTER TABLE "magic"."announcements" ALTER COLUMN "link" SET DATA TYPE jsonb USING "link"::jsonb;--> statement-breakpoint
-ALTER TABLE "magic"."announcements" ALTER COLUMN "link" SET DEFAULT '[]';--> statement-breakpoint
+ALTER TABLE "magic"."announcements" ALTER COLUMN "link" DROP DEFAULT, ALTER COLUMN "link" SET DATA TYPE jsonb USING to_jsonb("link"), ALTER COLUMN "link" SET DEFAULT '[]';--> statement-breakpoint
 ALTER TABLE "magic"."announcement_items" ALTER COLUMN "type" SET DATA TYPE text USING "type"::text;--> statement-breakpoint
 ALTER TABLE "magic"."announcement_items" ALTER COLUMN "related_cards" SET NOT NULL;--> statement-breakpoint
 CREATE INDEX "idx_announcement_items_resolved_formats" ON "hearthstone"."announcement_items" USING gin ("resolved_formats");--> statement-breakpoint

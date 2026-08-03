@@ -80,3 +80,4 @@ logs
 
 # raw reference files
 /references/*/raw/
+.env.ci
