@@ -2,6 +2,7 @@
   "name": "@tcg-cards/ui",
   "private": true,
   "type": "module",
+  "main": "./nuxt.config.ts",
   "scripts": {
     "build": "echo No build needed",
     "postinstall": "nuxt prepare",

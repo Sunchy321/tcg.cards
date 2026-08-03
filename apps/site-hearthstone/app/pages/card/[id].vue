@@ -358,7 +358,6 @@ import type { Locale } from '#model/hearthstone/schema/basic';
 import type { CardProfile } from '#model/hearthstone/schema/card';
 import type { Patch } from '#model/hearthstone/schema/patch';
 import { TAG_ID } from '#model/hearthstone/constant/tag';
-import type { CardImageOption } from '~/utils/card-image';
 
 import { CodeDiff } from 'v-code-diff';
 import { getHearthstoneLabel } from '~/utils/hearthstone-labels';

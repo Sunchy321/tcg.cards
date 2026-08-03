@@ -149,12 +149,15 @@
                   </div>
                   <div class="row-span-2 flex min-h-52 items-start justify-center gap-3">
                     <div v-for="side in expectedSides(item.type)" :key="side" class="flex flex-col items-center gap-1">
-                      <template v-if="findPreview(item._key, side)">
-                        <img :src="`data:${findPreview(item._key, side)!.mimeType ?? 'image/webp'};base64,${findPreview(item._key, side)!.base64}`" class="h-44 w-32 rounded border border-slate-200 object-contain" />
-                      </template>
-                      <div v-else class="flex h-44 w-32 items-center justify-center rounded border border-dashed border-slate-300 bg-slate-50">
-                        <UIcon name="i-lucide-image" class="size-6 text-slate-300" />
-                      </div>
+                      <CardImage
+                        class="w-32"
+                        :src="previewSrc(item._key, side)"
+                        :card-id="item.cardId"
+                        :version="form.version ?? 0"
+                        :type="cardMetaOf(item)?.type ?? 'minion'"
+                        :variant="item.format === 'battlegrounds' ? 'battlegrounds' : 'normal'"
+                        :mechanics="cardMetaOf(item)?.mechanics"
+                      />
                       <span class="text-xs text-slate-500">{{ side }}</span>
                     </div>
                   </div>
@@ -277,6 +280,7 @@ const requestingItems = reactive<Record<string, boolean>>({});
 const renderErrors = reactive<Record<string, string>>({});
 const renderedItems = reactive<Record<string, boolean>>({});
 const itemPreviews = reactive<Record<string, SidePreview[]>>({});
+const cardMetas = reactive<Record<string, { type: string; mechanics: Record<string, boolean | number> }>>({});
 
 function expectedSides(type: string): string[] {
   if (type === 'card_change') return ['base'];
@@ -286,6 +290,25 @@ function expectedSides(type: string): string[] {
 
 function findPreview(itemKey: string, side: string): SidePreview | undefined {
   return selectPreview(itemPreviews[itemKey] ?? [], side, renderLang.value);
+}
+
+/** Builds a data URL for a loaded preview side, or null when unavailable. */
+function previewSrc(itemKey: string, side: string): string | null {
+  const preview = findPreview(itemKey, side);
+  if (!preview) return null;
+  return `data:${preview.mimeType ?? 'image/webp'};base64,${preview.base64}`;
+}
+
+/** Returns the cached type and mechanics for an item's card, or null when unknown. */
+function cardMetaOf(item: ItemForm) {
+  return item.cardId ? (cardMetas[item.cardId] ?? null) : null;
+}
+
+async function ensureCardMeta(cardId: string) {
+  if (!cardId || cardMetas[cardId]) return;
+  try {
+    cardMetas[cardId] = await client.hearthstone.announcement.cardMeta({ cardId });
+  } catch { /* fall back to the minion placeholder when metadata is missing */ }
 }
 
 function persistRenderLang() {
@@ -585,6 +608,15 @@ const form = reactive({
   lastVersion: undefined as number | undefined, name: '',
   link: [] as LinkEntry[], items: [] as ItemForm[],
 });
+
+// Resolves placeholder card metadata for items as soon as their cardIds are known.
+watch(
+  () => form.items.map(item => item.cardId).filter((id): id is string => !!id),
+  (ids) => {
+    for (const id of new Set(ids)) void ensureCardMeta(id);
+  },
+  { immediate: true },
+);
 
 const selectedAnnouncement = computed(() => announcements.value.find(a => a.id === selectedId.value) ?? null);
 
