@@ -277,7 +277,7 @@ function finalizeLocalizationRows(
   return rows;
 }
 
-interface ProjectCardResult {
+export interface ProjectCardResult {
   entity:        LocalizationlessEntityRow;
   localizations: LocalizationRow[];
   relations:     RelationRow[];
@@ -444,6 +444,7 @@ export async function projectExtracted(
   dryRun = false,
   buildCards?: ExtractedCardRow[],
   hsdataSetByDbfId?: Map<number, number>,
+  collectRows?: (rows: ProjectCardResult) => void,
 ): Promise<ProjectReport> {
   const localDb = getLocalDb();
   console.log(`[projection] projectExtracted build=${build} cards=${cardIds.length}`);
@@ -553,6 +554,7 @@ export async function projectExtracted(
   for (const card of cards) {
     const tags = tagsByDbfId.get(card.dbfId) ?? [];
     const result = projectExtractedCard(card as ExtractedCardRow, tags, tagMap, build, { cardIdByDbfId, setIdByDbfId, hsdataSetByDbfId: chunkHsdataSet, nameByDbfIdByLocale, richTextByDbfIdByLocale });
+    collectRows?.(result);
 
     projectedEntities.push({
       ...result.entity,
