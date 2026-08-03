@@ -1,10 +1,10 @@
 import { z } from 'zod';
 import { execSync } from 'node:child_process';
 import { resolve } from 'node:path';
-import { sql } from 'drizzle-orm';
+import { inArray, sql } from 'drizzle-orm';
 import canonicalize from 'canonicalize';
 
-import { getLocalDb } from '../../hsdata-local-db';
+import { getLocalDb, type LocalDb } from '../../hsdata-local-db';
 import { ExtractedCard, ExtractedCardTag, PatchState } from '@tcg-cards/db/schema/local/hearthstone';
 import { createDefinition } from '#task/definition';
 
@@ -121,6 +121,15 @@ interface CardRow {
   shortName:                     { m_locValues: string[], m_locId: number } | null;
 }
 
+// Normalized CARD_TAG row inserted into extracted_card_tags.
+interface TagInput {
+  dbfId:             number;
+  tagId:             number;
+  tagValue:          number;
+  isReferenceTag:    boolean;
+  isPowerKeywordTag: boolean;
+}
+
 function resolveEvent(eventId: number | undefined, eventMap: Map<number, string>): string | null {
   if (eventId == null) return null;
   return eventMap.get(eventId) ?? String(eventId);
@@ -152,7 +161,7 @@ function loadCardData(zipName: string, buildNumber: number) {
 
   // Build card rows with snapshot hashes
   const cards: CardRow[] = [];
-  const tags: Array<{ dbfId: number, tagId: number, tagValue: number, isReferenceTag: boolean, isPowerKeywordTag: boolean }> = [];
+  const tags: TagInput[] = [];
 
   for (const r of cardData.Records) {
     const cardTags = tagsByDbfId.get(r.m_ID) ?? [];
@@ -214,6 +223,64 @@ function loadCardData(zipName: string, buildNumber: number) {
 
 type BlockInput = { phase: 'card', index: number } | { phase: 'tags', index: number };
 
+// Stable key joining a cardId with its snapshotHash.
+function snapshotKey(cardId: string, snapshotHash: string): string {
+  return `${cardId}\u0000${snapshotHash}`;
+}
+
+// True when two tag row sets are identical (unique per tagId).
+function tagSetsEqual(
+  actual: Array<{ tagId: number, tagValue: number, isReferenceTag: boolean, isPowerKeywordTag: boolean }>,
+  expected: Array<{ tagId: number, tagValue: number, isReferenceTag: boolean, isPowerKeywordTag: boolean }>,
+): boolean {
+  if (actual.length !== expected.length) return false;
+  const key = (tag: { tagId: number, tagValue: number, isReferenceTag: boolean, isPowerKeywordTag: boolean }) =>
+    `${tag.tagId}\u0000${tag.tagValue}\u0000${tag.isReferenceTag}\u0000${tag.isPowerKeywordTag}`;
+  const actualKeys = new Set(actual.map(key));
+  return expected.every(tag => actualKeys.has(key(tag)));
+}
+
+// Resolves the snapshot that contains this build for every card and dedupes the
+// expected CARD_TAG rows per dbfId, so the tags phase attaches tags to the correct
+// snapshot even when a cardId has multiple snapshots across versions.
+async function buildTagContext(
+  db: LocalDb,
+  buildNumber: number,
+  cards: CardRow[],
+  tags: TagInput[],
+): Promise<{
+  targetSnapshots:     Array<{ snapshotId: string, dbfId: number }>;
+  expectedTagsByDbfId: Map<number, TagInput[]>;
+}> {
+  const rows = await db.select({
+    id:           ExtractedCard.id,
+    cardId:       ExtractedCard.cardId,
+    snapshotHash: ExtractedCard.snapshotHash,
+  })
+    .from(ExtractedCard)
+    .where(sql<boolean>`${buildNumber} = any(${ExtractedCard.buildNumbers})`);
+  const snapshotIdByKey = new Map(rows.map(row => [snapshotKey(row.cardId, row.snapshotHash), row.id]));
+
+  const targetSnapshots: Array<{ snapshotId: string, dbfId: number }> = [];
+  for (const card of cards) {
+    const snapshotId = snapshotIdByKey.get(snapshotKey(card.cardId, card.snapshotHash));
+    if (snapshotId) targetSnapshots.push({ snapshotId, dbfId: card.dbfId });
+  }
+
+  const expectedByDbfId = new Map<number, Map<number, TagInput>>();
+  for (const tag of tags) {
+    const byTagId = expectedByDbfId.get(tag.dbfId) ?? new Map<number, TagInput>();
+    byTagId.set(tag.tagId, tag);
+    expectedByDbfId.set(tag.dbfId, byTagId);
+  }
+  const expectedTagsByDbfId = new Map<number, TagInput[]>();
+  for (const [dbfId, byTagId] of expectedByDbfId) {
+    expectedTagsByDbfId.set(dbfId, [...byTagId.values()]);
+  }
+
+  return { targetSnapshots, expectedTagsByDbfId };
+}
+
 export const unpackImportTaskDefinition = createDefinition('hearthstone_unpack_import', { version: '2026-07-21:v2' })
   .scope(
     z.object({ zipName: z.string() }),
@@ -236,11 +303,12 @@ export const unpackImportTaskDefinition = createDefinition('hearthstone_unpack_i
   }))
   .context({
     init: input => ({
-      zipName:     input.zipName,
-      dryRun:      input.dryRun ?? false,
-      data:        null as ReturnType<typeof loadCardData> | null,
-      cardIds:     null as Map<string, string> | null,
-      buildNumber: 0,
+      zipName:             input.zipName,
+      dryRun:              input.dryRun ?? false,
+      data:                null as ReturnType<typeof loadCardData> | null,
+      targetSnapshots:     null as Array<{ snapshotId: string, dbfId: number }> | null,
+      expectedTagsByDbfId: null as Map<number, TagInput[]> | null,
+      buildNumber:         0,
     }),
   })
 
@@ -272,10 +340,10 @@ export const unpackImportTaskDefinition = createDefinition('hearthstone_unpack_i
       const { cards, tags: allTags, buildNumber } = ctx.data!;
       const batch = cards.slice(bi.index, bi.index + BATCH);
       if (batch.length === 0) {
-        // Load existing snapshot IDs for tag insertion
-        const idRows = await db.select({ id: ExtractedCard.id, cardId: ExtractedCard.cardId })
-          .from(ExtractedCard);
-        ctx.cardIds = new Map(idRows.map(r => [r.cardId, r.id]));
+        // Resolve the snapshots that contain this build and their expected tags.
+        const tagContext = await buildTagContext(db, buildNumber, cards, allTags);
+        ctx.targetSnapshots = tagContext.targetSnapshots;
+        ctx.expectedTagsByDbfId = tagContext.expectedTagsByDbfId;
         return { phase: 'tags', index: 0 } as BlockInput;
       }
 
@@ -305,55 +373,71 @@ export const unpackImportTaskDefinition = createDefinition('hearthstone_unpack_i
       });
 
       if (done_ >= cards.length) {
-        const idRows = await db.select({ id: ExtractedCard.id, cardId: ExtractedCard.cardId })
-          .from(ExtractedCard);
-        ctx.cardIds = new Map(idRows.map(r => [r.cardId, r.id]));
+        // Resolve the snapshots that contain this build and their expected tags.
+        const tagContext = await buildTagContext(db, buildNumber, cards, allTags);
+        ctx.targetSnapshots = tagContext.targetSnapshots;
+        ctx.expectedTagsByDbfId = tagContext.expectedTagsByDbfId;
         return { phase: 'tags', index: 0 } as BlockInput;
       }
       return { phase: 'card', index: done_ } as BlockInput;
     }
 
-    // tags phase
-    const { cards, tags: allTags, buildNumber: _buildNumber } = ctx.data!;
-    const cardIds = ctx.cardIds!;
-    const tagBatch = allTags.slice(bi.index, bi.index + BATCH);
+    // tags phase: verify each snapshot that contains this build against the raw
+    // CARD_TAG rows, rewriting a snapshot's tags only when they differ so reused
+    // rows that are already correct are left untouched.
+    const { cards } = ctx.data!;
+    const snapshots = ctx.targetSnapshots ?? [];
+    const expectedTagsByDbfId = ctx.expectedTagsByDbfId ?? new Map<number, TagInput[]>();
+    const tagBatch = snapshots.slice(bi.index, bi.index + BATCH);
     if (tagBatch.length === 0) return done(bi);
 
-    // Build tag rows with snapshot IDs
-    const tagRows = tagBatch.map(t => {
-      // dbfId -> cardId -> snapshotId
-      const card = cards.find(c => c.dbfId === t.dbfId);
-      const snapshotId = card ? cardIds.get(card.cardId) : null;
-      return {
-        ...t,
-        snapshotId,
-      };
-    }).filter(t => t.snapshotId != null);
+    const batchSnapshotIds = tagBatch.map(s => s.snapshotId);
+    const actualTagRows = await db.select()
+      .from(ExtractedCardTag)
+      .where(inArray(ExtractedCardTag.snapshotId, batchSnapshotIds));
+    const actualBySnapshot = new Map<string, typeof actualTagRows>();
+    for (const row of actualTagRows) {
+      const list = actualBySnapshot.get(row.snapshotId) ?? [];
+      list.push(row);
+      actualBySnapshot.set(row.snapshotId, list);
+    }
 
-    if (tagRows.length > 0) {
-      await db.insert(ExtractedCardTag)
-        .values(tagRows as any)
-        .onConflictDoUpdate({
-          target: [ExtractedCardTag.snapshotId, ExtractedCardTag.tagId],
-          set:    {
-            tagValue:          sql.raw('EXCLUDED.tag_value'),
-            isReferenceTag:    sql.raw('EXCLUDED.is_reference_tag'),
-            isPowerKeywordTag: sql.raw('EXCLUDED.is_power_keyword_tag'),
-          },
-        });
+    const toDelete = new Set<string>();
+    const toInsert: Array<TagInput & { snapshotId: string }> = [];
+
+    for (const snap of tagBatch) {
+      const expected = expectedTagsByDbfId.get(snap.dbfId) ?? [];
+      const actual = actualBySnapshot.get(snap.snapshotId) ?? [];
+      if (tagSetsEqual(actual, expected)) continue;
+
+      toDelete.add(snap.snapshotId);
+      for (const tag of expected) {
+        toInsert.push({ ...tag, snapshotId: snap.snapshotId });
+      }
+    }
+
+    if (toDelete.size > 0) {
+      await db.delete(ExtractedCardTag)
+        .where(inArray(ExtractedCardTag.snapshotId, [...toDelete]));
+      await db.insert(ExtractedCardTag).values(toInsert as any);
+      // Repaired snapshots must be re-projected so the corrected tags take effect.
+      await db.update(ExtractedCard)
+        .set({ projectionState: 'not_projected' })
+        .where(inArray(ExtractedCard.id, [...toDelete]));
     }
 
     const tagDone = bi.index + tagBatch.length;
+    const snapshotTotal = snapshots.length;
     progress({
       done:     cards.length + tagDone,
-      total:    cards.length + allTags.length,
+      total:    cards.length + snapshotTotal,
       segments: [
         { name: 'CARD', done: cards.length, total: cards.length },
-        { name: 'CARD_TAG', done: tagDone, total: allTags.length },
+        { name: 'CARD_TAG', done: tagDone, total: snapshotTotal },
       ],
     });
 
-    if (tagDone >= allTags.length) return done({ phase: 'tags', index: tagDone } as BlockInput);
+    if (tagDone >= snapshotTotal) return done({ phase: 'tags', index: tagDone } as BlockInput);
     return { phase: 'tags', index: tagDone } as BlockInput;
   })
   .exit(async ({ ctx }) => {
