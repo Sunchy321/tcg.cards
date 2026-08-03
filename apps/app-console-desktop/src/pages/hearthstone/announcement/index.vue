@@ -88,6 +88,7 @@
             <div class="mb-3 flex items-center justify-between">
               <span class="text-sm font-medium text-slate-700">公告条目（{{ form.items.length }}）</span>
               <div class="flex items-center gap-1">
+                <UButton v-if="form.items.length > 1" icon="i-lucide-arrow-up-down" label="排序" size="xs" variant="ghost" @click="openSortModal" />
                 <UButton icon="i-lucide-trash-2" label="清空" color="error" variant="ghost" size="xs" :disabled="form.items.length === 0" @click="() => { showClearItemsModal = true; }" />
                 <UButton icon="i-lucide-plus" label="添加条目" size="xs" @click="addItem" />
               </div>
@@ -195,6 +196,40 @@
       </div>
     </div>
 
+    <UModal v-model:open="sortModalOpen" title="排序公告条目" class="sm:max-w-5xl">
+      <template #body>
+        <p class="mb-3 text-sm text-slate-500">拖动方块调整条目顺序，调整结果会应用到编辑表单。</p>
+        <VueDraggable
+          v-model="form.items"
+          handle=".drag-handle"
+          :animation="150"
+          class="grid max-h-[70vh] grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4 lg:grid-cols-5"
+        >
+          <div
+            v-for="(item, index) in form.items"
+            :key="item._key"
+            class="flex min-w-0 flex-col gap-1 rounded-lg border border-slate-200 p-2.5"
+            :class="typeColor(item.type).tile"
+          >
+            <div class="flex items-center gap-1.5">
+              <UIcon name="i-lucide-grip-vertical" class="drag-handle size-4 shrink-0 cursor-grab text-slate-400" />
+              <span class="shrink-0 text-xs text-slate-400">{{ index + 1 }}</span>
+              <span class="ml-auto shrink-0 rounded px-1.5 py-0.5 text-[11px]" :class="typeColor(item.type).pill">{{ item.type }}</span>
+            </div>
+            <div class="truncate text-sm font-medium">{{ tileTitle(item) }}</div>
+            <div class="truncate text-xs text-slate-400">{{ tileMeta(item) }}</div>
+          </div>
+        </VueDraggable>
+        <p v-if="form.items.length === 0" class="py-6 text-center text-sm text-slate-400">暂无条目</p>
+      </template>
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <UButton label="取消" color="neutral" variant="ghost" @click="cancelSort" />
+          <UButton label="确定" color="primary" @click="sortModalOpen = false" />
+        </div>
+      </template>
+    </UModal>
+
     <UModal v-model:open="showClearItemsModal">
       <template #header>
         <div class="flex items-center gap-2">
@@ -221,6 +256,7 @@ definePageMeta({ layout: 'admin', title: '公告管理' });
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useDesktopRuntimeClient } from '~/composables/useDesktopRuntimeClient';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { VueDraggable } from 'vue-draggable-plus';
 import { glowPart, group as groupEnum } from '#model/hearthstone/schema/announcement';
 import type { GlowEntry } from '#model/hearthstone/schema/announcement';
 import type { RenderModel } from '#model/hearthstone/schema/entity';
@@ -273,6 +309,8 @@ const glowTypeColors: Record<GlowEntry['type'], { color: string; colorize: strin
 };
 const renderingAll = ref(false);
 const showClearItemsModal = ref(false);
+const sortModalOpen = ref(false);
+const sortSnapshot = ref<ItemForm[]>([]);
 const renderingItems = reactive<Record<string, boolean>>({});
 const previewingItems = reactive<Record<string, boolean>>({});
 const downloadingItems = reactive<Record<string, boolean>>({});
@@ -280,7 +318,7 @@ const requestingItems = reactive<Record<string, boolean>>({});
 const renderErrors = reactive<Record<string, string>>({});
 const renderedItems = reactive<Record<string, boolean>>({});
 const itemPreviews = reactive<Record<string, SidePreview[]>>({});
-const cardMetas = reactive<Record<string, { type: string; mechanics: Record<string, boolean | number> }>>({});
+const cardMetas = reactive<Record<string, { type: string; mechanics: Record<string, boolean | number>; name: string | null }>>({});
 
 function expectedSides(type: string): string[] {
   if (type === 'card_change') return ['base'];
@@ -307,7 +345,10 @@ function cardMetaOf(item: ItemForm) {
 async function ensureCardMeta(cardId: string) {
   if (!cardId || cardMetas[cardId]) return;
   try {
-    cardMetas[cardId] = await client.hearthstone.announcement.cardMeta({ cardId });
+    cardMetas[cardId] = await client.hearthstone.announcement.cardMeta({
+      cardId,
+      lang: renderLang.value === 'all' ? 'zhs' : renderLang.value,
+    });
   } catch { /* fall back to the minion placeholder when metadata is missing */ }
 }
 
@@ -793,6 +834,46 @@ function moveItem(from: number, direction: -1 | 1) {
   if (to < 0 || to >= form.items.length) return;
   const item = form.items.splice(from, 1)[0]!;
   form.items.splice(to, 0, item);
+}
+
+function openSortModal() {
+  sortSnapshot.value = form.items.slice();
+  for (const item of form.items) {
+    if (item.cardId) void ensureCardMeta(item.cardId);
+  }
+  sortModalOpen.value = true;
+}
+
+function cancelSort() {
+  form.items = sortSnapshot.value.slice();
+  sortModalOpen.value = false;
+}
+
+// Distinct tile tint and type pill colors per change type.
+const typeColors: Record<string, { pill: string; tile: string }> = {
+  card_change:   { pill: 'bg-blue-100 text-blue-600',     tile: 'bg-blue-50' },
+  card_update:   { pill: 'bg-amber-100 text-amber-600',   tile: 'bg-amber-50' },
+  set_change:    { pill: 'bg-violet-100 text-violet-600', tile: 'bg-violet-50' },
+  rule_change:   { pill: 'bg-rose-100 text-rose-600',     tile: 'bg-rose-50' },
+  format_birth:  { pill: 'bg-emerald-100 text-emerald-600', tile: 'bg-emerald-50' },
+  format_death:  { pill: 'bg-slate-100 text-slate-500',   tile: 'bg-slate-50' },
+};
+const defaultTypeColor = { pill: 'bg-slate-100 text-slate-500', tile: 'bg-white' };
+
+/** Returns the pill and tile color classes for an item's change type. */
+function typeColor(type: string) {
+  return typeColors[type] ?? defaultTypeColor;
+}
+
+function tileTitle(item: ItemForm): string {
+  const name = item.cardId ? cardMetas[item.cardId]?.name : null;
+  if (name) return name;
+  return item.cardId || item.setId || item.ruleId || item.type || '未命名条目';
+}
+
+function tileMeta(item: ItemForm): string {
+  const parts = [item.status, item.format, item.group];
+  return parts.filter(Boolean).join(' · ') || '暂无标识';
 }
 
 async function handleAiParse(index: number) {
