@@ -1,5 +1,5 @@
 <template>
-  <div class="desktop-page space-y-4 p-4">
+  <div class="desktop-page space-y-4">
     <UCard>
       <div class="flex items-center justify-between">
         <div>

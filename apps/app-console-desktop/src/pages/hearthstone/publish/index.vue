@@ -447,7 +447,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="h-full space-y-4 overflow-y-auto p-4">
+  <div class="h-full space-y-4 overflow-y-auto">
     <UCard>
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="flex items-center gap-2">

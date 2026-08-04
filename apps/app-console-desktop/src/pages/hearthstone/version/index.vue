@@ -92,7 +92,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="desktop-page h-full space-y-4 overflow-y-auto p-4">
+  <div class="desktop-page h-full space-y-4 overflow-y-auto">
     <div class="rounded-xl border border-slate-200 bg-white p-4">
       <div class="flex items-center gap-6">
         <div>

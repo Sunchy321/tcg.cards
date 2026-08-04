@@ -1,8 +1,8 @@
 <template>
-  <div class="flex h-full gap-4 overflow-hidden p-4">
+  <div class="flex h-full gap-4">
     <!-- Sidebar list -->
-    <div class="flex w-64 shrink-0 flex-col rounded-xl border border-slate-200 bg-white">
-      <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+    <div class="sticky top-0 flex max-h-[calc(100vh-6rem)] w-64 shrink-0 flex-col rounded-xl border border-slate-200 bg-white">
+      <div class="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-3">
         <span class="text-sm font-medium text-slate-700">公告列表</span>
         <div class="flex items-center gap-1">
           <UButton icon="i-lucide-globe" size="xs" variant="ghost" :loading="crawling" @click="handleCrawl" />
@@ -35,9 +35,9 @@
     </div>
 
     <!-- Edit panel -->
-    <div class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
+    <div class="flex min-h-0 flex-1 flex-col rounded-xl border border-slate-200 bg-white">
       <template v-if="selectedAnnouncement || isCreating">
-        <div class="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-3">
+        <div class="sticky top-0 z-10 flex items-center justify-between rounded-t-xl border-b border-slate-200 bg-white px-5 py-3">
           <span class="text-sm text-slate-500">编辑公告</span>
           <div class="flex items-center gap-2">
             <UButton v-if="form.id" icon="i-lucide-wand" label="投影" color="neutral" variant="ghost" size="sm" :loading="projecting" @click="handleProject" />
@@ -47,7 +47,7 @@
             <UButton label="保存" size="sm" :loading="saving" @click="handleSubmit" />
           </div>
         </div>
-        <div class="flex-1 overflow-y-auto p-5 space-y-4">
+          <div class="p-5 space-y-4">
           <div class="grid grid-cols-4 gap-4">
             <UFormField label="来源" required>
               <USelect v-model="form.source" :items="sourceOptions" class="w-full" />
@@ -977,14 +977,23 @@ async function handleSubmit() {
         };
       }),
     };
+    let nextId: string | null = form.id ?? null;
     if (isCreating.value) {
-      await client.hearthstone.announcement.create(payload);
+      const created = await client.hearthstone.announcement.create(payload);
+      nextId = created.id;
     } else if (form.id) {
       await client.hearthstone.announcement.update({ id: form.id, ...payload });
     }
     showToast('保存成功', '', 'success');
     await loadAnnouncements();
-    resetForm();
+    // Keep the saved announcement selected so the editor stays on it after saving.
+    if (nextId) {
+      selectedId.value = nextId;
+      isCreating.value = false;
+      await loadDetail(nextId);
+    } else {
+      resetForm();
+    }
   } catch (e: any) {
     showToast('保存失败', e.message, 'error');
   } finally {
