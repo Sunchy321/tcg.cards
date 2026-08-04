@@ -5,14 +5,15 @@
       <div class="lg:col-span-3">
         <div class="sticky top-24">
           <UCard>
-            <CardImage
+            <CardImageWithAttachment
               :card-id="data.cardId"
               :version="minVersion"
-              :lang="lang"
+              :name="data.localization.name"
               :render-hash="data.renderHash"
               :type="data.type"
               :variant="variant"
               :mechanics="data.mechanics"
+              :attachment="heroPowerAttachment"
               loading="eager"
             />
 
@@ -437,7 +438,35 @@ const { data: changeItems } = await useAsyncData(
 
 // Version
 
-const versions = computed(() => data.value?.versions ?? []);
+// Union breakpoints: hero revisions plus hero power revisions. Hero power
+// target arrays are intersected with the hero's own builds so the selector
+// never offers a build where the hero does not exist.
+const versions = computed(() => {
+  const base = data.value?.versions ?? [];
+  if (data.value?.heroPower == null) return base;
+
+  const heroBuilds = new Set(base.flat());
+  const attachmentVersions = data.value.heroPower.targets
+    .flatMap(target => target.versions)
+    .map(arr => arr.filter(build => heroBuilds.has(build)))
+    .filter(arr => arr.length > 0);
+
+  return [...base, ...attachmentVersions];
+});
+
+// Resolved hero power card data passed to the card image attachment.
+const heroPowerAttachment = computed(() => {
+  const current = data.value?.heroPower?.current;
+  if (current == null) return null;
+  return {
+    cardId:     current.cardId,
+    renderHash: current.renderHash,
+    version:    current.version[0] ?? 0,
+    type:       current.type,
+    mechanics:  current.mechanics,
+    name:       current.localization.name,
+  };
+});
 
 const version = computed({
   get() {
@@ -811,10 +840,10 @@ const relationIcon = (relation: string): string => ({
 
 // Diff
 
-const diffFrom = ref<number | null>(null);
-const diffTo = ref<number | null>(null);
+const diffFrom = ref<number>();
+const diffTo = ref<number>();
 const diffLoading = ref(false);
-const diffResult = ref<{ entityBefore: unknown, entityAfter: unknown, renderBefore: unknown, renderAfter: unknown } | null>(null);
+const diffResult = ref<{ entityBefore: unknown, entityAfter: unknown, renderBefore: unknown, renderAfter: unknown }>();
 
 watch([version, versionInfos], () => {
   const groups = versionInfos.value;
@@ -847,7 +876,7 @@ const diffRenderNew = computed(() => diffResult.value?.renderAfter ? JSON.string
 async function loadDiff() {
   if (diffFrom.value == null || diffTo.value == null) return;
   diffLoading.value = true;
-  diffResult.value = null;
+  diffResult.value = undefined;
   try {
     diffResult.value = await $orpc.hearthstone.card.snapshots({
       cardId: route.params.id as string,

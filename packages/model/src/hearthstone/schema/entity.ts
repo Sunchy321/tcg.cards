@@ -227,6 +227,15 @@ export const cardEntityView = entityView.extend({
   legalities: card.shape.legalities,
 });
 
+/** Hero power attachment resolved for the card detail page. */
+export const heroPowerAttachment = z.object({
+  targets: z.array(z.object({
+    cardId:   z.string(),
+    versions: z.number().array().array(),
+  })),
+  current: cardEntityView.nullable(),
+});
+
 export const cardFullView = cardEntityView.extend({
   versions: z.number().array().array(),
 
@@ -240,6 +249,8 @@ export const cardFullView = cardEntityView.extend({
     displayText: z.string().nullable(),
     type:        types.nullable(),
   }).array(),
+
+  heroPower: heroPowerAttachment.nullable(),
 });
 
 export type Entity = z.infer<typeof entity>;
@@ -248,6 +259,7 @@ export type PlayRequirement = z.infer<typeof playRequirement>;
 export type Power = z.infer<typeof power>;
 export type EntityView = z.infer<typeof entityView>;
 export type CardEntityView = z.infer<typeof cardEntityView>;
+export type HeroPowerAttachment = z.infer<typeof heroPowerAttachment>;
 export type CardFullView = z.infer<typeof cardFullView>;
 export type ReferencedTagMap = z.infer<typeof referencedTagMap>;
 export type RenderMechanic = z.infer<typeof renderMechanic>;

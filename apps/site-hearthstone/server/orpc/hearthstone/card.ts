@@ -12,7 +12,7 @@ import { Tag } from '#schema/shared/hearthstone/tag';
 
 import { locale } from '#model/hearthstone/schema/basic';
 import { cardProfile } from '#model/hearthstone/schema/card';
-import { cardEntityView, cardFullView } from '#model/hearthstone/schema/entity';
+import { cardEntityView, cardFullView, type HeroPowerAttachment } from '#model/hearthstone/schema/entity';
 
 import { getRandomCardId } from '~~/server/utils/random-card';
 
@@ -58,6 +58,29 @@ async function findCardView(input: {
     .orderBy(desc(maxVersion(CardEntityView.version)))
     .limit(1)
     .then(rows => rows[0]);
+}
+
+/** Resolve a card view at a version, falling back to the nearest earlier revision. */
+async function findCardViewAtOrBefore(input: {
+  cardId:   string;
+  lang:     z.infer<typeof locale>;
+  version?: number | undefined;
+}) {
+  const view = await findCardView(input);
+
+  if (view != null || input.version == null) {
+    return view ?? null;
+  }
+
+  return await db.select().from(CardEntityView)
+    .where(and(
+      eq(CardEntityView.cardId, input.cardId),
+      eq(CardEntityView.lang, input.lang),
+      sql`${maxVersion(CardEntityView.version)} < ${input.version}`,
+    ))
+    .orderBy(desc(maxVersion(CardEntityView.version)))
+    .limit(1)
+    .then(rows => rows[0] ?? null);
 }
 
 const random = os
@@ -243,11 +266,54 @@ const full = os
       };
     });
 
+    // Resolve hero power attachment: distinct targets across all revisions (for
+    // union version breakpoints) plus the target view current at the page version.
+    let heroPower: HeroPowerAttachment | null = null;
+    if (card.heroPower != null) {
+      const targetRows = await db.selectDistinct({ heroPower: CardEntityView.heroPower })
+        .from(CardEntityView)
+        .where(and(
+          eq(CardEntityView.cardId, cardId),
+          eq(CardEntityView.lang, lang),
+          sql`${CardEntityView.heroPower} is not null`,
+        ));
+      const targetIds = targetRows
+        .map(row => row.heroPower)
+        .filter((id): id is string => id != null);
+
+      const targetVersionRows = targetIds.length > 0
+        ? await db.select({ cardId: CardEntityView.cardId, version: CardEntityView.version })
+          .from(CardEntityView)
+          .where(and(
+            eq(CardEntityView.lang, lang),
+            inArray(CardEntityView.cardId, targetIds),
+          ))
+          .orderBy(desc(maxVersion(CardEntityView.version)))
+        : [];
+
+      const versionsByTarget = new Map<string, number[][]>();
+      for (const row of targetVersionRows) {
+        const list = versionsByTarget.get(row.cardId) ?? [];
+        list.push(row.version.reverse());
+        versionsByTarget.set(row.cardId, list);
+      }
+
+      const targets = targetIds.map(targetId => ({
+        cardId:   targetId,
+        versions: versionsByTarget.get(targetId) ?? [],
+      }));
+
+      const current = await findCardViewAtOrBefore({ cardId: card.heroPower, lang, version });
+
+      heroPower = { targets, current };
+    }
+
     return {
       ...card,
       versions,
       mechanicTags,
       relatedCards,
+      heroPower,
     };
   });
 
