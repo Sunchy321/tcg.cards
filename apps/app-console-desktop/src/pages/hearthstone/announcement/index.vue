@@ -117,9 +117,9 @@
                   <!-- Card types: identity, glow, and previews -->
                   <template v-if="idKindOf(item.type) === 'card'">
                   <div class="flex min-w-0 flex-col gap-3">
-                    <UFormField label="卡牌ID"><UInput v-model="item.cardId" class="w-full" /></UFormField>
+                    <UFormField label="卡牌ID"><CardSearchSelect v-model="item.cardId" :search="searchCards" :resolve="resolveCardNames" /></UFormField>
                     <UFormField label="关联卡牌">
-                      <UInput v-model="item.relatedCardsStr" placeholder="card1, card2" class="w-full" />
+                      <CardSearchSelect v-model="item.relatedCardsStr" multiple :search="searchCards" :resolve="resolveCardNames" placeholder="搜索并选择关联卡牌" />
                     </UFormField>
                     <UFormField v-if="item.type === 'card_change'" label="分组">
                       <USelect :model-value="item.group ?? 'none'" :items="groupOptions" placeholder="无" class="w-full" @update:model-value="item.group = $event === 'none' ? '' : String($event)" />
@@ -225,7 +225,7 @@
       <template #footer>
         <div class="flex justify-end gap-2">
           <UButton label="取消" color="neutral" variant="ghost" @click="cancelSort" />
-          <UButton label="确定" color="primary" @click="sortModalOpen = false" />
+          <UButton label="确定" color="primary" @click="{ sortModalOpen = false; }" />
         </div>
       </template>
     </UModal>
@@ -251,8 +251,6 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: 'admin', title: '公告管理' });
-
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useDesktopRuntimeClient } from '~/composables/useDesktopRuntimeClient';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
@@ -262,9 +260,14 @@ import type { GlowEntry } from '#model/hearthstone/schema/announcement';
 import type { RenderModel } from '#model/hearthstone/schema/entity';
 import { mergePreviews, selectPreview, type SidePreview } from '~/utils/announcement-preview';
 
+import { useToast } from '@nuxt/ui/composables';
+import type { Locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
+
+definePageMeta({ layout: 'admin', title: '公告管理' });
+
 const client = useDesktopRuntimeClient();
 
-interface LinkEntry { url: string; label?: string; _parsing?: boolean }
+interface LinkEntry { url: string, label?: string, _parsing?: boolean }
 /** Stores display-only render model corrections for both sides of an item. */
 interface ItemDelta {
   prev?: Partial<RenderModel>;
@@ -285,7 +288,7 @@ const saving = ref(false);
 const projecting = ref(false);
 const aiConfigured = ref(false);
 const crawling = ref(false);
-const patches = ref<Array<{ buildNumber: number; name: string }>>([]);
+const patches = ref<Array<{ buildNumber: number, name: string }>>([]);
 const patchOptions = computed(() => patches.value.map(p => ({ label: `${p.buildNumber} · ${p.name}`, value: p.buildNumber })));
 const patchOptionsWithEmpty = computed(() => [{ label: '(与版本相同)', value: 'same' }, ...patchOptions.value]);
 
@@ -301,7 +304,7 @@ const glowTypeOptions = [
   { label: 'rework', value: 'rework' },
   { label: 'neutral', value: 'neutral' },
 ];
-const glowTypeColors: Record<GlowEntry['type'], { color: string; colorize: string; hiColor: string }> = {
+const glowTypeColors: Record<GlowEntry['type'], { color: string, colorize: string, hiColor: string }> = {
   buff:    { color: '#00BA00', colorize: '#9AFF95', hiColor: '#5ED343' },
   nerf:    { color: '#BA0505', colorize: '#FF9595', hiColor: '#D36943' },
   rework:  { color: '#D6A900', colorize: '#FFF09A', hiColor: '#FFD43B' },
@@ -318,7 +321,7 @@ const requestingItems = reactive<Record<string, boolean>>({});
 const renderErrors = reactive<Record<string, string>>({});
 const renderedItems = reactive<Record<string, boolean>>({});
 const itemPreviews = reactive<Record<string, SidePreview[]>>({});
-const cardMetas = reactive<Record<string, { type: string; mechanics: Record<string, boolean | number>; name: string | null }>>({});
+const cardMetas = reactive<Record<string, { type: string, mechanics: Record<string, boolean | number>, name: string | null }>>({});
 
 function expectedSides(type: string): string[] {
   if (type === 'card_change') return ['base'];
@@ -352,6 +355,16 @@ async function ensureCardMeta(cardId: string) {
   } catch { /* fall back to the minion placeholder when metadata is missing */ }
 }
 
+/** Searches cards by English/Chinese name or cardId for the CardSearchSelect widget. */
+function searchCards(query: string) {
+  return client.hearthstone.announcement.searchCards({ q: query });
+}
+
+/** Resolves existing cardIds to bilingual names for CardSearchSelect tag display. */
+function resolveCardNames(cardIds: string[]) {
+  return client.hearthstone.announcement.resolveCardNames({ cardIds });
+}
+
 function persistRenderLang() {
   localStorage.setItem(RENDER_LANG_KEY, renderLang.value);
 }
@@ -364,11 +377,11 @@ watch(renderLang, () => {
 function itemOperationInput(item: ItemForm, langs: Locale[]) {
   return {
     item: {
-      itemKey: item._key, type: item.type, cardId: item.cardId, format: item.format,
-      version: item.version ?? null, lastVersion: item.lastVersion ?? null,
-      delta: item.delta, glow: item.glow,
+      itemKey:     item._key, type:        item.type, cardId:      item.cardId, format:      item.format,
+      version:     item.version ?? null, lastVersion: item.lastVersion ?? null,
+      delta:       item.delta, glow:        item.glow,
     },
-    version: form.version!,
+    version:     form.version!,
     lastVersion: form.lastVersion ?? null,
     langs,
   };
@@ -390,7 +403,7 @@ async function handlePreviewItem(index: number) {
   const item = form.items[index];
   if (!item?.cardId || !form.version) return;
   previewingItems[item._key] = true;
-  delete renderErrors[item._key];
+  Reflect.deleteProperty(renderErrors, item._key);
   try {
     const lang = renderLang.value === 'all' ? 'zhs' : renderLang.value;
     const result: any = await client.hearthstone.announcement.previewItem(itemOperationInput(item, [lang]));
@@ -405,7 +418,7 @@ async function handlePreviewItem(index: number) {
   } catch (error: any) {
     renderErrors[item._key] = error.message ?? '预览失败';
   } finally {
-    delete previewingItems[item._key];
+    Reflect.deleteProperty(previewingItems, item._key);
   }
 }
 
@@ -423,7 +436,7 @@ async function handleDownloadPng(index: number) {
   } catch (error: any) {
     renderErrors[item._key] = error.message ?? '下载失败';
   } finally {
-    delete downloadingItems[item._key];
+    Reflect.deleteProperty(downloadingItems, item._key);
   }
 }
 
@@ -452,7 +465,7 @@ async function handleRequest(item: ItemForm, side?: string) {
   } catch (error: any) {
     renderErrors[item._key] = error.message ?? '请求生成失败';
   } finally {
-    delete requestingItems[item._key];
+    Reflect.deleteProperty(requestingItems, item._key);
   }
 }
 
@@ -461,18 +474,18 @@ async function handleRenderItem(index: number) {
   if (!item?.cardId || !form.version) return;
   const itemKey = item._key;
   renderingItems[itemKey] = true;
-  delete renderErrors[itemKey];
+  Reflect.deleteProperty(renderErrors, itemKey);
   try {
     const langs = renderLang.value === 'all' ? [] : [renderLang.value];
     console.log('[render] calling renderItems', { cardId: item.cardId, version: form.version, langs });
     const res: any = await client.hearthstone.announcement.renderItems({
       items: [{
-        itemKey, type: item.type, cardId: item.cardId, format: item.format,
-        version: item.version ?? null, lastVersion: item.lastVersion ?? null,
-        delta: item.delta,
-        glow: item.glow,
+        itemKey, type:        item.type, cardId:      item.cardId, format:      item.format,
+        version:     item.version ?? null, lastVersion: item.lastVersion ?? null,
+        delta:       item.delta,
+        glow:        item.glow,
       }],
-      version: form.version,
+      version:     form.version,
       lastVersion: form.lastVersion ?? null,
       langs,
     });
@@ -481,7 +494,7 @@ async function handleRenderItem(index: number) {
     console.error('[render] failed', e);
     renderErrors[itemKey] = e.message || '渲染失败';
   } finally {
-    delete renderingItems[itemKey];
+    Reflect.deleteProperty(renderingItems, itemKey);
   }
 }
 
@@ -490,13 +503,13 @@ async function handleRenderAll() {
   renderingAll.value = true;
   try {
     const cardItems = form.items
-      .map((item) => {
+      .map(item => {
         if ((item.type === 'card_change' || item.type === 'card_update') && item.cardId) {
           return {
-            itemKey: item._key, type: item.type, cardId: item.cardId, format: item.format,
-            version: item.version ?? null, lastVersion: item.lastVersion ?? null,
-            delta: item.delta,
-            glow: item.glow,
+            itemKey:     item._key, type:        item.type, cardId:      item.cardId, format:      item.format,
+            version:     item.version ?? null, lastVersion: item.lastVersion ?? null,
+            delta:       item.delta,
+            glow:        item.glow,
           };
         }
         return null;
@@ -507,8 +520,8 @@ async function handleRenderAll() {
 
     const langs = renderLang.value === 'all' ? [] : [renderLang.value];
     const res: any = await client.hearthstone.announcement.renderItems({
-      items: cardItems,
-      version: form.version,
+      items:       cardItems,
+      version:     form.version,
       lastVersion: form.lastVersion ?? null,
       langs,
     });
@@ -561,15 +574,15 @@ async function applyRenderResults(item: ItemForm, results: any[]) {
   }
 
   if (errors.length > 0) renderErrors[item._key] = errors.join('；');
-  else delete renderErrors[item._key];
+  else Reflect.deleteProperty(renderErrors, item._key);
   renderedItems[item._key] = itemResults.length > 0 && errors.length === 0;
 }
 
 const emptyItem = (): ItemForm => ({
-  _key: crypto.randomUUID(), type: 'card_update', effectiveDate: '', format: '', status: '',
-  group: '', version: undefined, lastVersion: undefined,
-  cardId: '', setId: '', ruleId: '', relatedCardsStr: '',
-  delta: null, glow: null,
+  _key:            crypto.randomUUID(), type:            'card_update', effectiveDate:   '', format:          '', status:          '',
+  group:           '', version:         undefined, lastVersion:     undefined,
+  cardId:          '', setId:           '', ruleId:          '', relatedCardsStr: '',
+  delta:           null, glow:            null,
 });
 
 /** Appends an editable glow marker to a card update item. */
@@ -604,13 +617,13 @@ function removeGlow(item: ItemForm, index: number) {
 
 /** Clears all preview-related state for one form item. */
 function clearItemPreviewState(itemKey: string) {
-  delete itemPreviews[itemKey];
-  delete renderingItems[itemKey];
-  delete previewingItems[itemKey];
-  delete downloadingItems[itemKey];
-  delete requestingItems[itemKey];
-  delete renderErrors[itemKey];
-  delete renderedItems[itemKey];
+  Reflect.deleteProperty(itemPreviews, itemKey);
+  Reflect.deleteProperty(renderingItems, itemKey);
+  Reflect.deleteProperty(previewingItems, itemKey);
+  Reflect.deleteProperty(downloadingItems, itemKey);
+  Reflect.deleteProperty(requestingItems, itemKey);
+  Reflect.deleteProperty(renderErrors, itemKey);
+  Reflect.deleteProperty(renderedItems, itemKey);
 }
 
 /** Clears preview-related state when the active announcement changes. */
@@ -644,16 +657,16 @@ function idKindOf(type: string): 'card' | 'set' | 'rule' | null {
 }
 
 const form = reactive({
-  id: '', source: 'blizzard', date: '',
-  effectiveDate: '', version: undefined as number | undefined,
-  lastVersion: undefined as number | undefined, name: '',
-  link: [] as LinkEntry[], items: [] as ItemForm[],
+  id:            '', source:        'blizzard', date:          '',
+  effectiveDate: '', version:       undefined as number | undefined,
+  lastVersion:   undefined as number | undefined, name:          '',
+  link:          [] as LinkEntry[], items:         [] as ItemForm[],
 });
 
 // Resolves placeholder card metadata for items as soon as their cardIds are known.
 watch(
   () => form.items.map(item => item.cardId).filter((id): id is string => !!id),
-  (ids) => {
+  ids => {
     for (const id of new Set(ids)) void ensureCardMeta(id);
   },
   { immediate: true },
@@ -671,7 +684,7 @@ const itemTypeOptions = [
 
 const GROUP_LABELS: Record<string, string> = {
   core_rotation: '核心系列轮替',
-  bg_rotation: '酒馆战棋轮替',
+  bg_rotation:   '酒馆战棋轮替',
 };
 
 const groupOptions = [
@@ -690,9 +703,6 @@ const statusOptions = [
   { label: 'minor', value: 'minor' }, { label: 'score', value: 'score' },
   { label: 'extend', value: 'extend' },
 ];
-
-import { useToast } from '@nuxt/ui/composables';
-import type { Locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
 const toast = useToast();
 
 function showToast(title: string, description?: string, color?: 'error' | 'success') {
@@ -706,28 +716,29 @@ function parseRelatedCards(s: string): string[] {
 function resetForm() {
   clearPreviewState();
   Object.assign(form, {
-    id: '', source: 'blizzard', date: '',
-    effectiveDate: '', version: undefined, lastVersion: undefined, name: '', link: [], items: [],
+    id:            '', source:        'blizzard', date:          '',
+    effectiveDate: '', version:       undefined, lastVersion:   undefined, name:          '', link:          [], items:         [],
   });
-  selectedId.value = null; isCreating.value = false;
+  selectedId.value = null;
+  isCreating.value = false;
 }
 
 function fillForm(row: any) {
   clearPreviewState();
   Object.assign(form, {
-    id: row.id, source: row.source, date: row.date,
-    effectiveDate: row.effectiveDate ?? '', version: row.version,
-    lastVersion: row.lastVersion ?? undefined, name: row.name,
-    link: Array.isArray(row.link) ? row.link : [],
+    id:            row.id, source:        row.source, date:          row.date,
+    effectiveDate: row.effectiveDate ?? '', version:       row.version,
+    lastVersion:   row.lastVersion ?? undefined, name:          row.name,
+    link:          Array.isArray(row.link) ? row.link : [],
   });
   form.items = (row.items ?? []).map((i: any) => ({
-    id: i.id, _key: i.id ?? crypto.randomUUID(), type: i.type ?? 'card_update',
-    effectiveDate: i.effectiveDate ?? '', format: i.format ?? '', status: i.status ?? '',
-    group: i.group ?? '',
-    version: i.version, lastVersion: i.lastVersion,
-    cardId: i.cardId ?? '', setId: i.setId ?? '', ruleId: i.ruleId ?? '',
+    id:              i.id, _key:            i.id ?? crypto.randomUUID(), type:            i.type ?? 'card_update',
+    effectiveDate:   i.effectiveDate ?? '', format:          i.format ?? '', status:          i.status ?? '',
+    group:           i.group ?? '',
+    version:         i.version, lastVersion:     i.lastVersion,
+    cardId:          i.cardId ?? '', setId:           i.setId ?? '', ruleId:          i.ruleId ?? '',
     relatedCardsStr: Array.isArray(i.relatedCards) ? i.relatedCards.join(', ') : '',
-    delta: i.delta ?? null, glow: i.glow ?? null,
+    delta:           i.delta ?? null, glow:            i.glow ?? null,
   }));
   isCreating.value = false;
 }
@@ -757,14 +768,14 @@ async function loadExistingImages() {
   try {
     const res: any = await client.hearthstone.announcement.getItemImages({
       items: cardItems.map(item => ({
-        itemKey: item._key, type: item.type, cardId: item.cardId, format: item.format,
-        version: item.version ?? null, lastVersion: item.lastVersion ?? null,
-        delta: item.delta,
-        glow: item.glow,
+        itemKey:     item._key, type:        item.type, cardId:      item.cardId, format:      item.format,
+        version:     item.version ?? null, lastVersion: item.lastVersion ?? null,
+        delta:       item.delta,
+        glow:        item.glow,
       })),
-      version: form.version,
+      version:     form.version,
       lastVersion: form.lastVersion ?? null,
-      langs: renderLang.value === 'all' ? [] : [renderLang.value],
+      langs:       renderLang.value === 'all' ? [] : [renderLang.value],
     });
 
     for (const item of form.items) {
@@ -780,13 +791,19 @@ async function loadExistingImages() {
   } catch { /* silently skip if images not available */ }
 }
 
-function createNew() { resetForm(); isCreating.value = true; }
-function addLink() { form.link.push({ url: '', label: '' }); }
+function createNew() {
+  resetForm();
+  isCreating.value = true;
+}
+
+function addLink() {
+  form.link.push({ url: '', label: '' });
+}
 
 const AUTO_LABELS: Record<string, string> = {
-  'playhearthstone.com': 'blizzard',
+  'playhearthstone.com':      'blizzard',
   'hearthstone.blizzard.com': 'blizzard',
-  'hs.blizzard.cn': 'blizzard-cn',
+  'hs.blizzard.cn':           'blizzard-cn',
 };
 
 function deriveLabel(url: string): string | null {
@@ -822,13 +839,21 @@ async function handleCrawl() {
     showToast('获取失败', e.message, 'error');
   } finally { crawling.value = false; }
 }
-function removeLink(i: number) { form.link.splice(i, 1); }
-function addItem() { form.items.push(emptyItem()); }
+
+function removeLink(i: number) {
+  form.link.splice(i, 1);
+}
+
+function addItem() {
+  form.items.push(emptyItem());
+}
+
 function removeItem(i: number) {
   const item = form.items[i];
   if (item) clearItemPreviewState(item._key);
   form.items.splice(i, 1);
 }
+
 function moveItem(from: number, direction: -1 | 1) {
   const to = from + direction;
   if (to < 0 || to >= form.items.length) return;
@@ -850,13 +875,13 @@ function cancelSort() {
 }
 
 // Distinct tile tint and type pill colors per change type.
-const typeColors: Record<string, { pill: string; tile: string }> = {
-  card_change:   { pill: 'bg-blue-100 text-blue-600',     tile: 'bg-blue-50' },
-  card_update:   { pill: 'bg-amber-100 text-amber-600',   tile: 'bg-amber-50' },
-  set_change:    { pill: 'bg-violet-100 text-violet-600', tile: 'bg-violet-50' },
-  rule_change:   { pill: 'bg-rose-100 text-rose-600',     tile: 'bg-rose-50' },
-  format_birth:  { pill: 'bg-emerald-100 text-emerald-600', tile: 'bg-emerald-50' },
-  format_death:  { pill: 'bg-slate-100 text-slate-500',   tile: 'bg-slate-50' },
+const typeColors: Record<string, { pill: string, tile: string }> = {
+  card_change:  { pill: 'bg-blue-100 text-blue-600', tile: 'bg-blue-50' },
+  card_update:  { pill: 'bg-amber-100 text-amber-600', tile: 'bg-amber-50' },
+  set_change:   { pill: 'bg-violet-100 text-violet-600', tile: 'bg-violet-50' },
+  rule_change:  { pill: 'bg-rose-100 text-rose-600', tile: 'bg-rose-50' },
+  format_birth: { pill: 'bg-emerald-100 text-emerald-600', tile: 'bg-emerald-50' },
+  format_death: { pill: 'bg-slate-100 text-slate-500', tile: 'bg-slate-50' },
 };
 const defaultTypeColor = { pill: 'bg-slate-100 text-slate-500', tile: 'bg-white' };
 
@@ -882,7 +907,7 @@ async function handleAiParse(index: number) {
   link._parsing = true;
   try {
     const result: any = await client.hearthstone.announcement.aiParse({
-      name: form.name || undefined,
+      name:  form.name || undefined,
       links: [{ url: link.url, label: link.label }],
     });
 
@@ -893,12 +918,12 @@ async function handleAiParse(index: number) {
     if (form.version == null && header.version != null) form.version = header.version;
 
     const items: ItemForm[] = (result.items ?? []).map((i: any) => ({
-      _key: crypto.randomUUID(), type: i.type ?? 'card_update', format: i.format ?? '',
-      status: i.status ?? '', group: i.group ?? '',
-      cardId: i.cardId ?? '', setId: i.setId ?? '', ruleId: i.ruleId ?? '',
-      effectiveDate: '', version: undefined, lastVersion: undefined,
+      _key:            crypto.randomUUID(), type:            i.type ?? 'card_update', format:          i.format ?? '',
+      status:          i.status ?? '', group:           i.group ?? '',
+      cardId:          i.cardId ?? '', setId:           i.setId ?? '', ruleId:          i.ruleId ?? '',
+      effectiveDate:   '', version:         undefined, lastVersion:     undefined,
       relatedCardsStr: Array.isArray(i.relatedCards) ? i.relatedCards.join(', ') : '',
-      delta: i.delta ?? null, glow: i.glow ?? null,
+      delta:           i.delta ?? null, glow:            i.glow ?? null,
     }));
     form.items = [...form.items, ...items];
   } catch (e: any) {
@@ -910,31 +935,45 @@ async function loadAnnouncements() {
   loading.value = true;
   try {
     announcements.value = (await client.hearthstone.announcement.list({})) as any[];
-  } catch (e: any) { showToast('加载失败', e.message, 'error'); }
-  finally { loading.value = false; }
+  } catch (e: any) {
+    showToast('加载失败', e.message, 'error');
+  } finally {
+    loading.value = false;
+  }
 }
 
 async function handleSubmit() {
-  if (!form.name.trim()) { showToast('名称不能为空', '', 'error'); return; }
-  if (!form.date) { showToast('日期不能为空', '', 'error'); return; }
-  if (form.version == null) { showToast('版本不能为空', '', 'error'); return; }
+  if (!form.name.trim()) {
+    showToast('名称不能为空', '', 'error');
+    return;
+  }
+
+  if (!form.date) {
+    showToast('日期不能为空', '', 'error');
+    return;
+  }
+
+  if (form.version == null) {
+    showToast('版本不能为空', '', 'error');
+    return;
+  }
   saving.value = true;
   try {
     const payload = {
-      source: form.source, date: form.date, effectiveDate: form.effectiveDate || null,
-      version: form.version, lastVersion: form.lastVersion ?? null, name: form.name.trim(),
-      link: form.link.filter(l => l.url),
-      items: form.items.map(item => {
+      source:        form.source, date:          form.date, effectiveDate: form.effectiveDate || null,
+      version:       form.version, lastVersion:   form.lastVersion ?? null, name:          form.name.trim(),
+      link:          form.link.filter(l => l.url),
+      items:         form.items.map(item => {
         const kind = idKindOf(item.type);
         return {
-          type: item.type, effectiveDate: item.effectiveDate || null,
-          format: item.format || null, status: item.status || null,
-          group: item.group || null, version: item.version ?? null, lastVersion: item.lastVersion ?? null,
-          cardId: kind === 'card' ? item.cardId || null : null,
-          setId: kind === 'set' ? item.setId || null : null,
-          ruleId: kind === 'rule' ? item.ruleId || null : null,
-          relatedCards: kind === 'card' ? parseRelatedCards(item.relatedCardsStr) : [],
-          delta: item.delta, glow: item.glow,
+          type:          item.type, effectiveDate: item.effectiveDate || null,
+          format:        item.format || null, status:        item.status || null,
+          group:         item.group || null, version:       item.version ?? null, lastVersion:   item.lastVersion ?? null,
+          cardId:        kind === 'card' ? item.cardId || null : null,
+          setId:         kind === 'set' ? item.setId || null : null,
+          ruleId:        kind === 'rule' ? item.ruleId || null : null,
+          relatedCards:  kind === 'card' ? parseRelatedCards(item.relatedCardsStr) : [],
+          delta:         item.delta, glow:          item.glow,
         };
       }),
     };
@@ -946,8 +985,11 @@ async function handleSubmit() {
     showToast('保存成功', '', 'success');
     await loadAnnouncements();
     resetForm();
-  } catch (e: any) { showToast('保存失败', e.message, 'error'); }
-  finally { saving.value = false; }
+  } catch (e: any) {
+    showToast('保存失败', e.message, 'error');
+  } finally {
+    saving.value = false;
+  }
 }
 
 async function handleProject() {
@@ -957,8 +999,11 @@ async function handleProject() {
     await client.hearthstone.announcement.project({ announcementId: form.id });
     showToast('投影完成', '', 'success');
     await loadDetail(form.id);
-  } catch (e: any) { showToast('投影失败', e.message, 'error'); }
-  finally { projecting.value = false; }
+  } catch (e: any) {
+    showToast('投影失败', e.message, 'error');
+  } finally {
+    projecting.value = false;
+  }
 }
 
 function confirmDelete(item: any) {

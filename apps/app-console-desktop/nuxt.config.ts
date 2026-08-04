@@ -38,6 +38,10 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
+  components: [
+    { path: '~/components', pathPrefix: false },
+  ],
+
   // The ui layer's public dir is not copied into the build output when consumed
   // through a custom srcDir, so mount it explicitly for /placeholder assets.
   nitro: {

@@ -2,15 +2,14 @@ import { ORPCError, os } from '@orpc/server';
 import { z } from 'zod';
 import { generateText, isStepCount, tool } from 'ai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import { and, eq, ilike, sql } from 'drizzle-orm';
 
 import { Patch } from '@tcg-cards/db/schema/local/hearthstone';
-import { LatestEntity, LatestEntityLocalization } from '@tcg-cards/db/schema/shared/hearthstone';
 import { locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
 import { glowEntry, glowPart, group as groupEnum } from '@tcg-cards/model/src/hearthstone/schema/announcement';
 import { renderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
 
 import { getLocalDb } from '../../../lib/hearthstone/hsdata-local-db';
+import { searchCardCandidates } from '../../../lib/hearthstone/card-search';
 import { extractJsonObject, matchPatches, normalizeAiResult, type AiItem } from '../../../lib/hearthstone/announcement/ai';
 import { hasAiConfig, readAiConfig } from '../../../runtime-config';
 
@@ -183,32 +182,6 @@ function logInvalidGlow(items: AiItem[]) {
 /** Formats the seconds elapsed since a start timestamp as a short duration string. */
 function elapsedSince(startedAt: number): string {
   return `${((performance.now() - startedAt) / 1000).toFixed(1)}s`;
-}
-
-type Lang = z.infer<typeof locale>;
-
-async function searchCardCandidates(db: ReturnType<typeof getLocalDb>, name: string, lang: Lang) {
-  try {
-    return await db.select({
-      cardId: LatestEntityLocalization.cardId,
-      name:   LatestEntityLocalization.name,
-      set:    LatestEntity.set,
-      type:   LatestEntity.type,
-    })
-      .from(LatestEntity)
-      .innerJoin(LatestEntityLocalization, and(
-        eq(LatestEntity.cardId, LatestEntityLocalization.cardId),
-        eq(LatestEntity.revisionHash, LatestEntityLocalization.revisionHash),
-        sql`${LatestEntity.version} && ${LatestEntityLocalization.version}`,
-      ))
-      .where(and(
-        eq(LatestEntityLocalization.lang, lang),
-        ilike(LatestEntityLocalization.name, `%${name}%`),
-      ))
-      .limit(3);
-  } catch {
-    return [];
-  }
 }
 
 /** Fetch contents of given URLs (in parallel, with timeout). */
