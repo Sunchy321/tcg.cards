@@ -55,17 +55,18 @@ export const linkEntry = z.strictObject({
 export const glowType = z.enum(['buff', 'nerf', 'rework', 'neutral']);
 export const glowPart = z.enum([
   'cost',
+  'tech-level',
+  'rune',
+  'art',
+  'name',
+  'rarity',
+  'text',
+  'race',
+  'spell-school',
   'attack',
   'health',
   'durability',
-  'text',
   'armor',
-  'rune',
-  'rarity',
-  'art',
-  'name',
-  'race',
-  'tech-level',
 ]);
 
 export const glowEntry = z.strictObject({

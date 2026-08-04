@@ -8,6 +8,7 @@ import { asc, desc, eq } from 'drizzle-orm';
 import { Announcement, AnnouncementItem } from '@tcg-cards/db/schema/local/hearthstone';
 
 import { getLocalDb } from '../../../lib/hearthstone/hsdata-local-db';
+import { sortGlow } from '../../../lib/hearthstone/announcement/glow';
 
 const FORMAT_KEYWORD_MAP: Record<string, string[]> = {
   standard:    ['standard'],
@@ -102,7 +103,7 @@ function toItemRow(item: ItemInput, announcementId: string, order?: number) {
     version:       item.version ?? null,
     lastVersion:   item.lastVersion ?? null,
     delta:         item.delta ?? null,
-    glow:          item.glow ?? null,
+    glow:          item.glow ? sortGlow(item.glow) : null,
     cardId:        item.cardId ?? null,
     setId:         item.setId ?? null,
     ruleId:        item.ruleId ?? null,

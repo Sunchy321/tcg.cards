@@ -11,6 +11,7 @@ import { requireHearthstoneImageBucketDir, requireHearthstoneImageRendererBaseUr
 import { importCardImageFilesToLocalBucket } from '@tcg-cards/console-api/lib/hearthstone/card-image-local-import';
 import { buildRequest, type ImageCandidateRow } from '@tcg-cards/console-api/lib/hearthstone/card-image';
 import type { GlowEntry } from '@tcg-cards/model/src/hearthstone/schema/announcement';
+import { sortGlow } from './glow';
 import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -114,7 +115,7 @@ function mergeDeltaOnto(model: RenderModel, delta?: Partial<RenderModel>): Rende
 
 function applyGlow(model: RenderModel, glow?: GlowEntry[] | null): RenderModel {
   if (!glow || glow.length === 0) return model;
-  return { ...model, glow };
+  return { ...model, glow: sortGlow(glow) };
 }
 
 function resolveTemplate(format: string | null): string {
