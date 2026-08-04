@@ -43,6 +43,7 @@
             <UButton v-if="form.id" icon="i-lucide-wand" label="投影" color="neutral" variant="ghost" size="sm" :loading="projecting" @click="handleProject" />
             <USelect v-model="renderLang" :items="renderLangOptions" class="w-28" />
             <UButton icon="i-lucide-database" label="全部写入存储" color="primary" variant="ghost" size="sm" :loading="renderingAll" :disabled="!form.version" @click="handleRenderAll" />
+            <UButton icon="i-lucide-plus" label="添加条目" color="primary" variant="soft" size="sm" @click="addItem" />
             <UButton label="取消" color="neutral" variant="ghost" size="sm" @click="resetForm" />
             <UButton label="保存" size="sm" :loading="saving" @click="handleSubmit" />
           </div>
@@ -90,7 +91,6 @@
               <div class="flex items-center gap-1">
                 <UButton v-if="form.items.length > 1" icon="i-lucide-arrow-up-down" label="排序" size="xs" variant="ghost" @click="openSortModal" />
                 <UButton icon="i-lucide-trash-2" label="清空" color="error" variant="ghost" size="xs" :disabled="form.items.length === 0" @click="() => { showClearItemsModal = true; }" />
-                <UButton icon="i-lucide-plus" label="添加条目" size="xs" @click="addItem" />
               </div>
             </div>
             <div class="space-y-3">
