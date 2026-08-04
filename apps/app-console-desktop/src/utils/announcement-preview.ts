@@ -7,6 +7,8 @@ export interface SidePreview {
   template: string;
   base64: string;
   mimeType?: string;
+  /** Whether the image is a transient preview or a persisted storage image. */
+  source: 'preview' | 'storage';
 }
 
 /** Merges successfully loaded previews without discarding unaffected sides or languages. */

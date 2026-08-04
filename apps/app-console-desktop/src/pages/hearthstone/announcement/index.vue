@@ -159,7 +159,10 @@
                         :variant="item.format === 'battlegrounds' ? 'battlegrounds' : 'normal'"
                         :mechanics="cardMetaOf(item)?.mechanics"
                       />
-                      <span class="text-xs text-slate-500">{{ side }}</span>
+                      <span
+                        class="text-xs"
+                        :class="previewSourceOf(item._key, side) === 'preview' ? 'font-medium text-amber-600' : 'text-slate-500'"
+                      >{{ side }}</span>
                     </div>
                   </div>
                   <div class="col-span-2 flex flex-wrap items-center gap-1">
@@ -340,6 +343,11 @@ function previewSrc(itemKey: string, side: string): string | null {
   return `data:${preview.mimeType ?? 'image/webp'};base64,${preview.base64}`;
 }
 
+/** Returns the source of the current preview for an item side, or null when none is loaded. */
+function previewSourceOf(itemKey: string, side: string): SidePreview['source'] | null {
+  return findPreview(itemKey, side)?.source ?? null;
+}
+
 /** Returns the cached type and mechanics for an item's card, or null when unknown. */
 function cardMetaOf(item: ItemForm) {
   return item.cardId ? (cardMetas[item.cardId] ?? null) : null;
@@ -411,7 +419,7 @@ async function handlePreviewItem(index: number) {
     const previews: SidePreview[] = [];
     for (const file of result.files ?? []) {
       if (file.error || !file.base64) errors.push(`${file.side}/${file.lang}: ${file.error ?? '预览失败'}`);
-      else previews.push({ side: file.side, lang: file.lang, hash: '', category: '', template: '', base64: file.base64, mimeType: 'image/png' });
+      else previews.push({ side: file.side, lang: file.lang, hash: '', category: '', template: '', base64: file.base64, mimeType: 'image/png', source: 'preview' });
     }
     if (previews.length > 0) itemPreviews[item._key] = mergePreviews(itemPreviews[item._key] ?? [], previews);
     if (errors.length > 0) renderErrors[item._key] = errors.join('；');
@@ -563,6 +571,7 @@ async function applyRenderResults(item: ItemForm, results: any[]) {
         category: result.category,
         template,
         base64:   image.base64,
+        source:   'storage',
       });
     } catch (error: any) {
       errors.push(`${result.side}/${result.lang}: ${error.message ?? '预览读取失败'}`);
@@ -784,7 +793,7 @@ async function loadExistingImages() {
       if (images.length === 0) continue;
 
       itemPreviews[item._key] = images.map((img: any) => ({
-        side: img.side, lang: img.lang, hash: '', category: img.category, template: img.template, base64: img.base64,
+        side: img.side, lang: img.lang, hash: '', category: img.category, template: img.template, base64: img.base64, source: 'storage',
       }));
       renderedItems[item._key] = true;
     }

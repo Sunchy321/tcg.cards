@@ -4,7 +4,7 @@ import { mergePreviews, selectPreview, type SidePreview } from './announcement-p
 
 /** Builds one concise preview fixture for state-selection tests. */
 function preview(side: string, lang: string, hash: string): SidePreview {
-  return { side, lang, hash, category: 'base', template: 'normal', base64: hash };
+  return { side, lang, hash, category: 'base', template: 'normal', base64: hash, source: 'storage' };
 }
 
 describe('mergePreviews', () => {
