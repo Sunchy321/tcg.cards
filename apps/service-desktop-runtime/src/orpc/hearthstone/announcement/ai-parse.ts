@@ -266,6 +266,8 @@ Important:
 - If the announcement mentions multiple cards changed, create one item per card.
 - If a card is both nerfed and banned, create two separate items.
 - For Battlegrounds cards (format: "battlegrounds"), a card removed from the Battlegrounds card pool uses status "unavailable". Do not use "banned" or other legality statuses for Battlegrounds pool removals.
+- Prefer "buff"/"nerf" whenever the direction is clearly stronger or weaker (ignoring extreme edge cases); use "tweak"/"rework" only when the direction is hard to judge. "tweak" is a small numeric adjustment (for example ±1 to stats or a small value change) that does not change the card's function. "rework" is a functional redesign: the card's mechanism changes, a key parameter is replaced, or race/type changes.
+- For Battlegrounds cards (format: "battlegrounds"), a tech level (tavern tier) change takes precedence over any simultaneous stat or text change: base the item on that tier change only and use glow part "tech-level". A tier change is never "rework" — classify it as "buff" or "nerf" by its direction (tier raised = nerf, tier lowered = buff). Do not let the accompanying stat or text changes drive the status.
 - For mini-set releases (35 new cards), create one set_change item with type "set_change" and status "extend".
 - Use searchCards to resolve cardIds instead of guessing; if no candidate matches, use null.
 - Use lookupPatches to resolve header.version; if no candidate matches, use null.
