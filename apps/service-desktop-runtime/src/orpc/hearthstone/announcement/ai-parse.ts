@@ -265,6 +265,7 @@ Important:
 - Entity references are mutually exclusive by type: card_change/card_update use cardId (+ relatedCards), set_change uses setId, rule_change uses ruleId, format_birth/format_death use none of them. Never fill an id field that does not match the item type.
 - If the announcement mentions multiple cards changed, create one item per card.
 - If a card is both nerfed and banned, create two separate items.
+- For Battlegrounds cards (format: "battlegrounds"), a card removed from the Battlegrounds card pool uses status "unavailable". Do not use "banned" or other legality statuses for Battlegrounds pool removals.
 - For mini-set releases (35 new cards), create one set_change item with type "set_change" and status "extend".
 - Use searchCards to resolve cardIds instead of guessing; if no candidate matches, use null.
 - Use lookupPatches to resolve header.version; if no candidate matches, use null.
