@@ -174,9 +174,22 @@ export function parseItemsYaml(text: string): ParsedResult {
     };
   }
 
+  // Precomputed start offsets of every line for O(log n) offset→line lookup.
+  // Slicing the document per call would make parsing super-linear for large docs.
+  const lineStarts: number[] = [0];
+  for (let i = 0; i < text.length; i++) {
+    if (text.charCodeAt(i) === 10) lineStarts.push(i + 1);
+  }
   const lineOf = (offset: number | undefined): number => {
     if (offset == null) return 0;
-    return text.slice(0, offset).split('\n').length;
+    let lo = 0;
+    let hi = lineStarts.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (lineStarts[mid]! <= offset) lo = mid;
+      else hi = mid - 1;
+    }
+    return lo + 1;
   };
 
   const parseItem = (itemMap: YAMLMap): void => {

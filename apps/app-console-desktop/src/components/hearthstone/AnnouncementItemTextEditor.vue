@@ -149,13 +149,18 @@ function scheduleParse(text: string) {
   parseTimer = setTimeout(() => runParse(text), 200);
 }
 
-/** Parses the current text, emits the result, and kicks off any card searches. */
+const MAX_CONCURRENT_SEARCHES = 4;
+
+/** Parses the current text, emits the result, and starts card searches in batches. */
 function runParse(text: string) {
   const result = parseItemsYaml(text);
   parsed.value = result;
   emit('parsed', result);
-  for (const search of result.searches) {
-    if (search.expanded || searching.has(search.query) || noMatch.has(search.query)) continue;
+  const pending = result.searches.filter(
+    s => !s.expanded && !searching.has(s.query) && !noMatch.has(s.query),
+  );
+  const capacity = MAX_CONCURRENT_SEARCHES - searching.size;
+  for (const search of pending.slice(0, Math.max(0, capacity))) {
     void runSearch(search.query);
   }
 }

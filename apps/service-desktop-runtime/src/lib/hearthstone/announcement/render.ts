@@ -3,7 +3,7 @@ import type { RenderModel } from '@tcg-cards/model/src/hearthstone/schema/entity
 import { CardImageAsset } from '@tcg-cards/db/schema/shared/hearthstone/card-image';
 import { Entity, EntityLocalization } from '@tcg-cards/db/schema/local/hearthstone';
 import { Set as HearthstoneSet } from '@tcg-cards/db/schema/local/hearthstone';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { createHash } from 'crypto';
 import canonicalize from 'canonicalize';
 import { getLocalDb } from '../hsdata-local-db';
@@ -104,6 +104,47 @@ async function resolveSideRenderModel(
     version:          row.version,
     setDbfId:         row.setDbfId ?? 0,
   };
+}
+
+/** One entity+localization row fetched for batched render-model lookups. */
+interface SideRenderModelRow {
+  cardId:              string;
+  lang:                string;
+  entityVersion:       number[];
+  localizationVersion: number[];
+  renderModel:         RenderModel | null;
+  renderHash:          string | null;
+  revisionHash:        string;
+  localizationHash:    string;
+  setDbfId:            number | null;
+}
+
+/** Fetches render-model rows for many (cardId, lang) pairs in a single query. */
+async function fetchSideRenderModelRows(cardIds: string[], langs: Locale[]): Promise<SideRenderModelRow[]> {
+  if (cardIds.length === 0 || langs.length === 0) return [];
+  const db = getLocalDb();
+  return db.select({
+    cardId:              Entity.cardId,
+    lang:                EntityLocalization.lang,
+    entityVersion:       Entity.version,
+    localizationVersion: EntityLocalization.version,
+    renderModel:         EntityLocalization.renderModel,
+    renderHash:          EntityLocalization.renderHash,
+    revisionHash:        Entity.revisionHash,
+    localizationHash:    EntityLocalization.localizationHash,
+    setDbfId:            HearthstoneSet.dbfId,
+  })
+    .from(Entity)
+    .innerJoin(EntityLocalization, and(
+      eq(Entity.cardId, EntityLocalization.cardId),
+      eq(Entity.revisionHash, EntityLocalization.revisionHash),
+      sql`${Entity.version} && ${EntityLocalization.version}`,
+    ))
+    .leftJoin(HearthstoneSet, eq(Entity.set, HearthstoneSet.setId))
+    .where(and(
+      inArray(Entity.cardId, cardIds),
+      inArray(EntityLocalization.lang, langs),
+    ));
 }
 
 // ----- Render model assembly -----
@@ -435,20 +476,48 @@ export async function checkItemImages(
   const resolveVersion = (itemV?: number | null, fallback?: number | null, root?: number) =>
     itemV ?? fallback ?? root!;
 
+  const langsOrDefault = langs.length > 0 ? langs : locale.options;
+
+  // Resolve every needed render model in ONE query, then filter by build number
+  // in memory. The old per-side queries made large announcements very slow.
+  const distinctCardIds = [...new Set(items.map(item => item.cardId).filter((id): id is string => !!id))];
+  const rows = await fetchSideRenderModelRows(distinctCardIds, [...new Set(langsOrDefault)]);
+
+  const rowsByCardLang = new Map<string, SideRenderModelRow[]>();
+  for (const row of rows) {
+    const key = `${row.cardId}\0${row.lang}`;
+    const list = rowsByCardLang.get(key);
+    if (list) list.push(row);
+    else rowsByCardLang.set(key, [row]);
+  }
+
+  const resolveCached = (cardId: string, buildNumber: number, lang: Locale): ResolvedSide | null => {
+    const candidates = rowsByCardLang.get(`${cardId}\0${lang}`) ?? [];
+    const row = candidates.find(r =>
+      r.entityVersion.includes(buildNumber) && r.localizationVersion.includes(buildNumber),
+    );
+    if (!row || !row.renderModel) return null;
+    return {
+      renderModel:      row.renderModel,
+      renderHash:       row.renderHash!,
+      revisionHash:     row.revisionHash,
+      localizationHash: row.localizationHash,
+      version:          row.entityVersion,
+      setDbfId:         row.setDbfId ?? 0,
+    };
+  };
+
   for (const item of items) {
     if (!item.cardId) continue;
-
-    const langsOrDefault = langs.length > 0 ? langs : locale.options;
     const template = resolveTemplate(item.format);
 
     if (item.type === 'card_change') {
       const version = resolveVersion(item.version, undefined, announcement.version);
       for (const lang of langsOrDefault) {
-        const resolved = await resolveSideRenderModel(item.cardId, version, lang as Locale);
+        const resolved = resolveCached(item.cardId, version, lang as Locale);
         if (!resolved) continue;
         const merged = mergeDeltaOnto(resolved.renderModel, item.delta?.curr);
-        const hash = buildRenderHash(merged);
-        results.push({ itemKey: item.itemKey, cardId: item.cardId, side: 'base', lang, hash, category: 'base', template });
+        results.push({ itemKey: item.itemKey, cardId: item.cardId, side: 'base', lang, hash: buildRenderHash(merged), category: 'base', template });
       }
     }
 
@@ -458,13 +527,13 @@ export async function checkItemImages(
 
       for (const lang of langsOrDefault) {
         // prev
-        const prevResolved = await resolveSideRenderModel(item.cardId, lastVersion, lang as Locale);
+        const prevResolved = resolveCached(item.cardId, lastVersion, lang as Locale);
         if (prevResolved) {
           const prevMerged = mergeDeltaOnto(prevResolved.renderModel, item.delta?.prev);
           results.push({ itemKey: item.itemKey, cardId: item.cardId, side: 'prev', lang, hash: buildRenderHash(prevMerged), category: 'base', template });
         }
         // curr
-        const currResolved = await resolveSideRenderModel(item.cardId, version, lang as Locale);
+        const currResolved = resolveCached(item.cardId, version, lang as Locale);
         if (currResolved) {
           const currMerged = mergeDeltaOnto(currResolved.renderModel, item.delta?.curr);
           const currWithGlow = applyGlow(currMerged, item.glow);

@@ -108,8 +108,9 @@
               class="h-[70vh]"
               @parsed="handleTextParsed"
             />
-            <div v-else class="space-y-3">
-              <div v-for="(item, index) in form.items" :key="item._key" class="relative rounded-lg border border-slate-200 p-3">
+            <UScrollArea v-else :items="form.items" :virtualize="itemVirtualizeOptions" class="max-h-[70vh]">
+              <template #default="{ item, index }">
+              <div :key="item._key" class="relative rounded-lg border border-slate-200 p-3">
                 <div class="absolute right-2 top-2 flex items-center gap-0.5">
                   <UButton icon="i-lucide-chevron-up" color="neutral" variant="ghost" size="xs" :disabled="index === 0" @click="moveItem(index, -1)" />
                   <UButton icon="i-lucide-chevron-down" color="neutral" variant="ghost" size="xs" :disabled="index === form.items.length - 1" @click="moveItem(index, 1)" />
@@ -132,9 +133,9 @@
                   <!-- Card types: identity, glow, and previews -->
                   <template v-if="idKindOf(item.type) === 'card'">
                   <div class="flex min-w-0 flex-col gap-3">
-                    <UFormField label="卡牌ID"><CardSearchSelect v-model="item.cardId" :search="searchCards" :resolve="resolveCardNames" /></UFormField>
+                    <UFormField label="卡牌ID"><CardSearchSelect v-model="item.cardId" :search="searchCards" :resolve="batchedResolveCardNames" /></UFormField>
                     <UFormField label="关联卡牌">
-                      <CardSearchSelect v-model="item.relatedCardsStr" multiple :search="searchCards" :resolve="resolveCardNames" placeholder="搜索并选择关联卡牌" />
+                      <CardSearchSelect v-model="item.relatedCardsStr" multiple :search="searchCards" :resolve="batchedResolveCardNames" placeholder="搜索并选择关联卡牌" />
                     </UFormField>
                     <UFormField v-if="item.type === 'card_change'" label="分组">
                       <USelect :model-value="item.group ?? 'none'" :items="groupOptions" placeholder="无" class="w-full" @update:model-value="item.group = $event === 'none' ? '' : String($event)" />
@@ -203,7 +204,8 @@
                   </template>
                 </div>
               </div>
-            </div>
+              </template>
+            </UScrollArea>
           </div>
         </div>
       </template>
@@ -277,7 +279,7 @@ import { glowPart, group as groupEnum } from '#model/hearthstone/schema/announce
 import type { GlowEntry } from '#model/hearthstone/schema/announcement';
 import type { RenderModel } from '#model/hearthstone/schema/entity';
 import { mergePreviews, selectPreview, type SidePreview } from '~/utils/announcement-preview';
-import { idKindOf, serializeItems, type ParseError, type ParsedResult, type TextItem } from '~/utils/announcement-yaml';
+import { idKindOf, serializeItems, type ParseError, type ParsedResult, type ResolvedCardName, type TextItem } from '~/utils/announcement-yaml';
 
 import { useToast } from '@nuxt/ui/composables';
 import type { Locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
@@ -356,10 +358,21 @@ function findPreview(itemKey: string, side: string): SidePreview | undefined {
   return selectPreview(itemPreviews[itemKey] ?? [], side, renderLang.value);
 }
 
-/** Builds a data URL for a loaded preview side, or null when unavailable. */
+/** Desktop runtime origin, matching the RPC client's http://localhost:4318/rpc. */
+const DESKTOP_IMAGE_BASE = 'http://localhost:4318';
+
+/** Builds the runtime image URL for a stored card image by render hash. */
+function buildImageUrl(hash: string, category: string, template: string): string {
+  return `${DESKTOP_IMAGE_BASE}/images/${category}/hand/${template}/normal/${hash.slice(0, 2)}/${hash}.webp`;
+}
+
+/** Resolves a preview side to a URL (storage) or data URL (transient render). */
 function previewSrc(itemKey: string, side: string): string | null {
   const preview = findPreview(itemKey, side);
   if (!preview) return null;
+  if (preview.source === 'storage' && preview.hash) {
+    return buildImageUrl(preview.hash, preview.category, preview.template);
+  }
   return `data:${preview.mimeType ?? 'image/webp'};base64,${preview.base64}`;
 }
 
@@ -373,14 +386,29 @@ function cardMetaOf(item: ItemForm) {
   return item.cardId ? (cardMetas[item.cardId] ?? null) : null;
 }
 
-async function ensureCardMeta(cardId: string) {
+let cardMetaBatch: string[] = [];
+let cardMetaTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Fetches card metadata in a single batched RPC per tick, cached per cardId. */
+function ensureCardMeta(cardId: string) {
   if (!cardId || cardMetas[cardId]) return;
-  try {
-    cardMetas[cardId] = await client.hearthstone.announcement.cardMeta({
-      cardId,
-      lang: renderLang.value === 'all' ? 'zhs' : renderLang.value,
-    });
-  } catch { /* fall back to the minion placeholder when metadata is missing */ }
+  cardMetaBatch.push(cardId);
+  if (cardMetaTimer) return;
+  cardMetaTimer = setTimeout(() => {
+    cardMetaTimer = null;
+    const ids = [...new Set(cardMetaBatch)];
+    cardMetaBatch = [];
+    void (async () => {
+      try {
+        const lang = renderLang.value === 'all' ? 'zhs' : renderLang.value;
+        const result = await client.hearthstone.announcement.cardMetas({ cardIds: ids, lang });
+        for (const id of ids) {
+          const meta = result[id];
+          if (meta) cardMetas[id] = meta;
+        }
+      } catch { /* fall back to the minion placeholder when metadata is missing */ }
+    })();
+  }, 0);
 }
 
 /** Searches cards by English/Chinese name or cardId for the CardSearchSelect widget. */
@@ -388,9 +416,44 @@ function searchCards(query: string) {
   return client.hearthstone.announcement.searchCards({ q: query });
 }
 
-/** Resolves existing cardIds to bilingual names for CardSearchSelect tag display. */
-function resolveCardNames(cardIds: string[]) {
-  return client.hearthstone.announcement.resolveCardNames({ cardIds });
+interface ResolveWaiter {
+  ids:     string[];
+  resolve: (rows: ResolvedCardName[]) => void;
+}
+
+let resolveBatchIds: string[] = [];
+let resolveWaiters: ResolveWaiter[] = [];
+let resolveTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Batches cardId→name lookups from many CardSearchSelect rows into one RPC per
+ * tick. Without this, each row fires its own resolve call, flooding the runtime
+ * when an announcement holds dozens of card items.
+ */
+function batchedResolveCardNames(cardIds: string[]): Promise<ResolvedCardName[]> {
+  return new Promise(res => {
+    resolveBatchIds.push(...cardIds);
+    resolveWaiters.push({ ids: cardIds, resolve: res });
+    if (resolveTimer) return;
+    resolveTimer = setTimeout(() => {
+      resolveTimer = null;
+      const ids = [...new Set(resolveBatchIds)];
+      const waiters = resolveWaiters;
+      resolveBatchIds = [];
+      resolveWaiters = [];
+      void (async () => {
+        try {
+          const rows = await client.hearthstone.announcement.resolveCardNames({ cardIds: ids });
+          const byId = new Map(rows.map(r => [r.cardId, r]));
+          for (const waiter of waiters) {
+            waiter.resolve(waiter.ids.map(id => byId.get(id)).filter((r): r is ResolvedCardName => !!r));
+          }
+        } catch {
+          for (const waiter of waiters) waiter.resolve([]);
+        }
+      })();
+    }, 0);
+  });
 }
 
 function persistRenderLang() {
@@ -578,24 +641,17 @@ async function applyRenderResults(item: ItemForm, results: any[]) {
       continue;
     }
 
-    try {
-      const image: any = await client.hearthstone.announcement.previewImage({
-        renderHash: result.renderHash,
-        category:   result.category,
-        template,
-      });
-      replacements.push({
-        side:     result.side,
-        lang:     result.lang,
-        hash:     result.renderHash,
-        category: result.category,
-        template,
-        base64:   image.base64,
-        source:   'storage',
-      });
-    } catch (error: any) {
-      errors.push(`${result.side}/${result.lang}: ${error.message ?? '预览读取失败'}`);
-    }
+    // The render wrote the image into the bucket; the <img> loads it via URL,
+    // so no base64 round-trip or extra read is needed here.
+    replacements.push({
+      side:     result.side,
+      lang:     result.lang,
+      hash:     result.renderHash,
+      category: result.category,
+      template,
+      base64:   '',
+      source:   'storage',
+    });
   }
 
   if (replacements.length > 0) {
@@ -683,6 +739,16 @@ const form = reactive({
   lastVersion:   undefined as number | undefined, name:          '',
   link:          [] as LinkEntry[], items:         [] as ItemForm[],
 });
+
+// Virtual-list sizing for the item cards: card rows are tall, other rows short.
+const itemVirtualizeOptions = {
+  gap:          12,
+  getItemKey:   (index: number) => form.items[index]?._key ?? index,
+  estimateSize: (index: number) => {
+    const item = form.items[index];
+    return item ? (idKindOf(item.type) === 'card' ? 340 : 140) : 200;
+  },
+};
 
 // Resolves placeholder card metadata for items as soon as their cardIds are known.
 watch(
@@ -807,11 +873,11 @@ async function loadExistingImages() {
 
     for (const item of form.items) {
       if (!item?.cardId) continue;
-      const images = (res.images ?? []).filter((img: any) => img.itemKey === item._key && img.base64);
+      const images = (res.images ?? []).filter((img: any) => img.itemKey === item._key && img.hash);
       if (images.length === 0) continue;
 
       itemPreviews[item._key] = images.map((img: any) => ({
-        side: img.side, lang: img.lang, hash: '', category: img.category, template: img.template, base64: img.base64, source: 'storage',
+        side: img.side, lang: img.lang, hash: img.hash, category: img.category, template: img.template, base64: '', source: 'storage',
       }));
       renderedItems[item._key] = true;
     }

@@ -159,7 +159,7 @@ export const previewImage = os
 export const getItemImages = os
   .route({
     method:      'POST',
-    description: 'Return existing rendered images for announcement items (no rendering)',
+    description: 'Return existing rendered image hashes for announcement items (no rendering, no file reads)',
     tags:        ['Desktop', 'Hearthstone', 'Announcement'],
   })
   .input(z.object({
@@ -174,7 +174,7 @@ export const getItemImages = os
       cardId:   z.string(),
       side:     z.string(),
       lang:     z.string(),
-      base64:   z.string().nullable(),
+      hash:     z.string().nullable(),
       category: z.string(),
       template: z.string(),
       error:    z.string().optional(),
@@ -194,29 +194,17 @@ export const getItemImages = os
       lastVersion: input.lastVersion,
     }, langs);
 
-    const bucketDir = requireHearthstoneImageBucketDir();
-
+    // Return hashes only; the frontend loads the bytes via the /images HTTP route.
     return {
-      images: await Promise.all(hashes.map(async h => {
-        const prefix = h.hash.slice(0, 2);
-        const filePath = join(bucketDir, 'hearthstone', 'card', h.category, 'hand', h.template, 'normal', prefix, `${h.hash}.webp`);
-
-        try {
-          const file = Bun.file(filePath);
-          if (await file.exists()) {
-            const bytes = await file.arrayBuffer();
-            return {
-              itemKey:  h.itemKey, cardId:   h.cardId, side:     h.side, lang:     h.lang,
-              base64:   Buffer.from(new Uint8Array(bytes)).toString('base64'),
-              category: h.category, template: h.template,
-            };
-          }
-        } catch { /* not found */ }
-
-        return {
-          itemKey:  h.itemKey, cardId:   h.cardId, side:     h.side, lang:     h.lang,
-          base64:   null, category: h.category, template: h.template, error:    h.error,
-        };
+      images: hashes.map(h => ({
+        itemKey:  h.itemKey,
+        cardId:   h.cardId,
+        side:     h.side,
+        lang:     h.lang,
+        hash:     h.hash,
+        category: h.category,
+        template: h.template,
+        error:    h.error,
       })),
     };
   });

@@ -2,6 +2,7 @@ import { onError } from '@orpc/server';
 import { RPCHandler } from '@orpc/server/fetch';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { join } from 'node:path';
 import { z } from 'zod';
 
 import { router } from './orpc/service';
@@ -9,6 +10,7 @@ import {
   resolveHearthstonePublishTarget,
   testDesktopDatabaseConnection,
 } from './lib/runtime/desktop-database';
+import { requireHearthstoneImageBucketDir } from './lib/hearthstone/image-config';
 import { createTaskStore, createTaskScheduler, createTaskCleanup } from './lib/task';
 import './lib/task/task-definitions';
 
@@ -107,6 +109,35 @@ hono.get('/', c => c.json({
 }));
 
 hono.get('/health', c => c.json(buildStatus()));
+
+// Serves stored card images by render hash so the frontend can load them in
+// <img> tags (browser-cached, lazy) instead of fetching base64 blobs over RPC.
+hono.get('/images/:category/:zone/:template/:premium/:prefix/:file', async c => {
+  const { category, zone, template, premium, prefix, file } = c.req.param();
+  const safeSegment = (value: string) => /^[a-z0-9_-]+$/.test(value);
+  if (!safeSegment(category) || !safeSegment(zone) || !safeSegment(template) || !safeSegment(premium)
+    || !/^[0-9a-f]{2}$/.test(prefix) || !/^[0-9a-f]+\.webp$/.test(file)) {
+    return c.notFound();
+  }
+
+  let bucketDir: string;
+  try {
+    bucketDir = requireHearthstoneImageBucketDir();
+  } catch {
+    return c.notFound();
+  }
+
+  const filePath = join(bucketDir, 'hearthstone', 'card', category, zone, template, premium, prefix, file);
+  const image = Bun.file(filePath);
+  if (!(await image.exists())) return c.notFound();
+
+  return new Response(image, {
+    headers: {
+      'content-type':  'image/webp',
+      'cache-control': 'public, max-age=31536000, immutable',
+    },
+  });
+});
 
 hono.post('/desktop/test-local-database', async c => {
   const parsed = testLocalDatabaseInput.safeParse(await c.req.json());
