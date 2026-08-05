@@ -13,6 +13,12 @@
     "db:pull": "bun --env-file=../../packages/db/.env.local-dev scripts/generate-seaorm-entities.ts"
   },
   "dependencies": {
+    "@codemirror/commands": "^6.7.1",
+    "@codemirror/lang-yaml": "^6.1.2",
+    "@codemirror/language": "^6.12.3",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/theme-one-dark": "^6.1.2",
+    "@codemirror/view": "^6.36.2",
     "@iconify-json/lucide": "^1.2.104",
     "@iconify/utils": "^3.1.0",
     "@iconify/vue": "^5.0.0",
@@ -36,7 +42,8 @@
     "service-desktop-runtime": "workspace:*",
     "vue": "^3.5.29",
     "vue-draggable-plus": "^0.6.1",
-    "vue-router": "^4.6.4"
+    "vue-router": "^4.6.4",
+    "yaml": "^2.5.0"
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.15.2",

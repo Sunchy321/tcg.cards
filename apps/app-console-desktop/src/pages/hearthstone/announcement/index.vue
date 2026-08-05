@@ -43,7 +43,15 @@
             <UButton v-if="form.id" icon="i-lucide-wand" label="投影" color="neutral" variant="ghost" size="sm" :loading="projecting" @click="handleProject" />
             <USelect v-model="renderLang" :items="renderLangOptions" class="w-28" />
             <UButton icon="i-lucide-database" label="全部写入存储" color="primary" variant="ghost" size="sm" :loading="renderingAll" :disabled="!form.version" @click="handleRenderAll" />
-            <UButton icon="i-lucide-plus" label="添加条目" color="primary" variant="soft" size="sm" @click="addItem" />
+            <UButton
+              :icon="isTextMode ? 'i-lucide-form-input' : 'i-lucide-file-code'"
+              :label="isTextMode ? '表单模式' : '文本编辑'"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              @click="toggleTextMode"
+            />
+            <UButton v-if="!isTextMode" icon="i-lucide-plus" label="添加条目" color="primary" variant="soft" size="sm" @click="addItem" />
             <UButton label="取消" color="neutral" variant="ghost" size="sm" @click="resetForm" />
             <UButton label="保存" size="sm" :loading="saving" @click="handleSubmit" />
           </div>
@@ -86,14 +94,21 @@
 
           <!-- Items -->
           <div class="border-t border-slate-200 pt-4">
-            <div class="mb-3 flex items-center justify-between">
+            <div v-if="!isTextMode" class="mb-3 flex items-center justify-between">
               <span class="text-sm font-medium text-slate-700">公告条目（{{ form.items.length }}）</span>
               <div class="flex items-center gap-1">
                 <UButton v-if="form.items.length > 1" icon="i-lucide-arrow-up-down" label="排序" size="xs" variant="ghost" @click="openSortModal" />
                 <UButton icon="i-lucide-trash-2" label="清空" color="error" variant="ghost" size="xs" :disabled="form.items.length === 0" @click="() => { showClearItemsModal = true; }" />
               </div>
             </div>
-            <div class="space-y-3">
+            <AnnouncementItemTextEditor
+              v-if="isTextMode"
+              v-model="yamlText"
+              :search="textSearch"
+              class="h-[70vh]"
+              @parsed="handleTextParsed"
+            />
+            <div v-else class="space-y-3">
               <div v-for="(item, index) in form.items" :key="item._key" class="relative rounded-lg border border-slate-200 p-3">
                 <div class="absolute right-2 top-2 flex items-center gap-0.5">
                   <UButton icon="i-lucide-chevron-up" color="neutral" variant="ghost" size="xs" :disabled="index === 0" @click="moveItem(index, -1)" />
@@ -262,6 +277,7 @@ import { glowPart, group as groupEnum } from '#model/hearthstone/schema/announce
 import type { GlowEntry } from '#model/hearthstone/schema/announcement';
 import type { RenderModel } from '#model/hearthstone/schema/entity';
 import { mergePreviews, selectPreview, type SidePreview } from '~/utils/announcement-preview';
+import { idKindOf, serializeItems, type ParseError, type ParsedResult, type TextItem } from '~/utils/announcement-yaml';
 
 import { useToast } from '@nuxt/ui/composables';
 import type { Locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
@@ -317,6 +333,10 @@ const renderingAll = ref(false);
 const showClearItemsModal = ref(false);
 const sortModalOpen = ref(false);
 const sortSnapshot = ref<ItemForm[]>([]);
+const isTextMode = ref(false);
+const yamlText = ref('');
+const textErrors = ref<ParseError[]>([]);
+const textPendingCount = ref(0);
 const renderingItems = reactive<Record<string, boolean>>({});
 const previewingItems = reactive<Record<string, boolean>>({});
 const downloadingItems = reactive<Record<string, boolean>>({});
@@ -657,14 +677,6 @@ function confirmClearItems() {
   showClearItemsModal.value = false;
 }
 
-// Entity references are mutually exclusive by item type (see proposals/game-change-history §2.6).
-function idKindOf(type: string): 'card' | 'set' | 'rule' | null {
-  if (type === 'card_change' || type === 'card_update') return 'card';
-  if (type === 'set_change') return 'set';
-  if (type === 'rule_change') return 'rule';
-  return null;
-}
-
 const form = reactive({
   id:            '', source:        'blizzard', date:          '',
   effectiveDate: '', version:       undefined as number | undefined,
@@ -730,6 +742,9 @@ function resetForm() {
   });
   selectedId.value = null;
   isCreating.value = false;
+  isTextMode.value = false;
+  textErrors.value = [];
+  textPendingCount.value = 0;
 }
 
 function fillForm(row: any) {
@@ -750,6 +765,9 @@ function fillForm(row: any) {
     delta:           i.delta ?? null, glow:            i.glow ?? null,
   }));
   isCreating.value = false;
+  isTextMode.value = false;
+  textErrors.value = [];
+  textPendingCount.value = 0;
 }
 
 function selectAnnouncement(item: any) {
@@ -853,8 +871,15 @@ function removeLink(i: number) {
   form.link.splice(i, 1);
 }
 
+/** Appends a new item inheriting type/format/status from the previous one, if any. */
 function addItem() {
-  form.items.push(emptyItem());
+  const last = form.items[form.items.length - 1];
+  form.items.push({
+    ...emptyItem(),
+    type:   last?.type ?? 'card_update',
+    format: last?.format ?? '',
+    status: last?.status ?? '',
+  });
 }
 
 function removeItem(i: number) {
@@ -868,6 +893,111 @@ function moveItem(from: number, direction: -1 | 1) {
   if (to < 0 || to >= form.items.length) return;
   const item = form.items.splice(from, 1)[0]!;
   form.items.splice(to, 0, item);
+}
+
+/** Converts a form item to the text-mode representation (entity ids stay as cardId). */
+function toTextItem(item: ItemForm): TextItem {
+  return {
+    type:          item.type,
+    effectiveDate: item.effectiveDate,
+    format:        item.format,
+    status:        item.status,
+    group:         item.group,
+    version:       item.version,
+    lastVersion:   item.lastVersion,
+    cardId:        item.cardId,
+    setId:         item.setId,
+    ruleId:        item.ruleId,
+    relatedCards:  parseRelatedCards(item.relatedCardsStr),
+    delta:         item.delta as Record<string, unknown> | null,
+    glow:          item.glow,
+  };
+}
+
+/** Searches cards for text-mode name resolution with a larger candidate window. */
+function textSearch(name: string) {
+  return client.hearthstone.announcement.searchCards({ q: name, limit: 50 });
+}
+
+/** Whether two items carry the same meaningful content (previews are only valid when equal). */
+function sameItem(a: ItemForm, b: ItemForm): boolean {
+  return a.type === b.type
+    && a.effectiveDate === b.effectiveDate
+    && a.format === b.format
+    && a.status === b.status
+    && a.group === b.group
+    && a.version === b.version
+    && a.lastVersion === b.lastVersion
+    && a.cardId === b.cardId
+    && a.setId === b.setId
+    && a.ruleId === b.ruleId
+    && a.relatedCardsStr === b.relatedCardsStr
+    && JSON.stringify(a.delta) === JSON.stringify(b.delta)
+    && JSON.stringify(a.glow) === JSON.stringify(b.glow);
+}
+
+/** Maps parsed text items back to form items, reusing _keys for unchanged identities. */
+function mapParsedToForm(parsedItems: TextItem[]): ItemForm[] {
+  const used = new Set<string>();
+  const byIdentity = new Map<string, ItemForm>();
+  for (const item of form.items) {
+    const identity = `${item.type}|${item.cardId}|${item.setId}|${item.ruleId}`;
+    if (!byIdentity.has(identity)) byIdentity.set(identity, item);
+  }
+  return parsedItems.map(parsed => {
+    const identity = `${parsed.type}|${parsed.cardId}|${parsed.setId}|${parsed.ruleId}`;
+    const prev = !used.has(identity) ? byIdentity.get(identity) : undefined;
+    if (prev) used.add(identity);
+    return {
+      id:              prev?.id,
+      _key:            prev?._key ?? crypto.randomUUID(),
+      type:            parsed.type,
+      effectiveDate:   parsed.effectiveDate,
+      format:          parsed.format,
+      status:          parsed.status,
+      group:           parsed.group,
+      version:         parsed.version,
+      lastVersion:     parsed.lastVersion,
+      cardId:          parsed.cardId,
+      setId:           parsed.setId,
+      ruleId:          parsed.ruleId,
+      relatedCardsStr: parsed.relatedCards.join(', '),
+      delta:           parsed.delta as ItemDelta | null,
+      glow:            parsed.glow as GlowEntry[] | null,
+    };
+  });
+}
+
+/** Applies live text-mode parse results to the form, clearing previews of changed items. */
+function handleTextParsed(result: ParsedResult) {
+  textErrors.value = result.errors;
+  textPendingCount.value = result.searches.length;
+  const next = mapParsedToForm(result.items);
+  const nextByKey = new Map(next.map(item => [item._key, item]));
+  for (const old of form.items) {
+    const kept = nextByKey.get(old._key);
+    if (!kept || !sameItem(old, kept)) clearItemPreviewState(old._key);
+  }
+  form.items = next;
+}
+
+/** Switches between form and text editing modes, serializing items on enter. */
+function toggleTextMode() {
+  if (!isTextMode.value) {
+    yamlText.value = serializeItems(form.items.map(toTextItem));
+    isTextMode.value = true;
+    return;
+  }
+  if (textErrors.value.length > 0 || textPendingCount.value > 0) {
+    const detail = textPendingCount.value > 0
+      ? `${textPendingCount.value} 个 cardId 搜索未完成`
+      : '当前文本存在错误';
+    if (!confirm(`退出文本模式将丢弃：${detail}，且条目列表回退到上次有效状态。确定退出？`)) return;
+  }
+  isTextMode.value = false;
+  // Text-mode live sync clears previews of changed items; reload stored images
+  // so the form shows them again.
+  void loadExistingImages();
 }
 
 function openSortModal() {
