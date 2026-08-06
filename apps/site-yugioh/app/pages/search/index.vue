@@ -17,9 +17,7 @@
         <div>
           <p class="eyebrow">Card Search</p>
           <h1>游戏王卡牌检索</h1>
-          <p class="lead">
-            先接入一张本地样例卡，用来验证搜索结果和详情页设计。可以搜索中文名、英文名、编号或效果文本。
-          </p>
+          <p class="lead">卡牌数据尚未接入。完成第一版数据导入后，可在这里按名称、编号或效果文本检索。</p>
         </div>
 
         <form class="search-form" @submit.prevent="submit">
@@ -28,7 +26,7 @@
             size="xl"
             icon="lucide:search"
             class="search-input"
-            placeholder="异色眼灵摆龙 / Odd-Eyes / 16178681"
+            placeholder="输入卡名、编号或效果文本"
           />
           <UButton type="submit" size="xl" icon="lucide:search" class="search-button">
             搜索
@@ -40,69 +38,16 @@
         <div class="result-header">
           <div>
             <p class="eyebrow">Results</p>
-            <h2>{{ heading }}</h2>
+            <h2>{{ query ? '暂时无法查询' : '等待输入查询' }}</h2>
           </div>
-          <span class="state-pill">{{ stateLabel }}</span>
+          <span class="state-pill">待接入</span>
         </div>
 
-        <NuxtLink
-          v-if="result"
-          :to="`/cards/${result.id}`"
-          class="result-card"
-        >
-          <img
-            :src="result.lang.zhs.image"
-            :alt="result.lang.zhs.name"
-            class="result-image"
-          >
-
-          <div class="result-content">
-            <div class="result-title-row">
-              <div>
-                <h3>{{ result.names.zhs }}</h3>
-                <p>{{ result.names.en }}</p>
-              </div>
-            </div>
-
-            <div class="effect-preview">
-              <section>
-                <h4>灵摆效果</h4>
-                <p>{{ result.lang.zhs.pendulumEffect }}</p>
-              </section>
-              <div class="preview-divider" aria-hidden="true" />
-              <section>
-                <h4>怪兽效果</h4>
-                <p>{{ result.lang.zhs.monsterEffect }}</p>
-              </section>
-            </div>
-          </div>
-
-          <div class="result-side">
-            <span class="card-id">{{ result.id }}</span>
-            <div class="meta-grid">
-              <span>{{ result.attribute.zhs }} / {{ result.attribute.en }}</span>
-              <span>{{ result.race.zhs }} / {{ result.race.en }}</span>
-              <span>等级 {{ result.level }}</span>
-              <span>ATK {{ result.attack }} / DEF {{ result.defense }}</span>
-              <span>灵摆 {{ result.pendulumScale.left }} / {{ result.pendulumScale.right }}</span>
-              <span>{{ result.monsterTypes.zhs.join(' · ') }}</span>
-            </div>
-          </div>
-        </NuxtLink>
-
-        <div v-else-if="query" class="empty-state">
-          <UIcon name="lucide:search-x" class="empty-icon" />
+        <div class="empty-state">
+          <UIcon :name="query ? 'lucide:database-zap' : 'lucide:database-search'" class="empty-icon" />
           <div>
-            <h2>没有命中本地样例卡</h2>
-            <p>当前只导入了「异色眼灵摆龙」。可以试试搜索「Odd-Eyes」或「16178681」。</p>
-          </div>
-        </div>
-
-        <div v-else class="empty-state">
-          <UIcon name="lucide:database-search" class="empty-icon" />
-          <div>
-            <h2>从关键词开始</h2>
-            <p>试试「异色眼灵摆龙」「Odd-Eyes Pendulum Dragon」「16178681」。</p>
+            <h2>卡牌数据尚未接入</h2>
+            <p>第一版数据导入完成后，搜索结果会显示在这里。</p>
           </div>
           <NuxtLink to="/search/advanced" class="advanced-card">
             <UIcon name="lucide:sliders-horizontal" class="size-5" />
@@ -115,29 +60,11 @@
 </template>
 
 <script setup lang="ts">
-import { sampleCard } from '~/data/sample-card';
-
 const route = useRoute();
 const router = useRouter();
 
 const query = computed(() => typeof route.query.q === 'string' ? route.query.q : '');
 const input = ref(query.value);
-
-const result = computed(() => isSampleMatch(query.value) ? sampleCard : null);
-const heading = computed(() => {
-  if (result.value) {
-    return '找到 1 张卡牌';
-  }
-
-  return query.value ? '没有结果' : '等待输入查询';
-});
-const stateLabel = computed(() => {
-  if (result.value) {
-    return '本地样例';
-  }
-
-  return query.value ? '无结果' : '空状态';
-});
 
 watch(query, value => {
   input.value = value;
@@ -155,43 +82,6 @@ const submit = async () => {
     query: q ? { q } : {},
   });
 };
-
-function isSampleMatch(value: string) {
-  const raw = value.trim().toLocaleLowerCase();
-
-  if (raw === '') {
-    return false;
-  }
-
-  const compact = compactText(raw);
-  const fields = [
-    String(sampleCard.id),
-    String(sampleCard.cid),
-    sampleCard.names.zhs,
-    sampleCard.names.en,
-    sampleCard.names.ja,
-    sampleCard.lang.zhs.typeLine,
-    sampleCard.lang.zhs.pendulumEffect,
-    sampleCard.lang.zhs.monsterEffect,
-    sampleCard.lang.en.typeLine,
-    sampleCard.lang.en.pendulumEffect,
-    sampleCard.lang.en.monsterEffect,
-    sampleCard.attribute.zhs,
-    sampleCard.attribute.en,
-    sampleCard.race.zhs,
-    sampleCard.race.en,
-    ...sampleCard.monsterTypes.zhs,
-    ...sampleCard.monsterTypes.en,
-  ].map(item => item.toLocaleLowerCase());
-
-  return fields.some(item =>
-    item.includes(raw) || compactText(item).includes(compact),
-  );
-}
-
-function compactText(value: string) {
-  return value.replace(/[\s\-_/:'"!.，。；：、（）()]+/g, '');
-}
 </script>
 
 <style scoped>
@@ -323,117 +213,6 @@ h1 {
   font-weight: 800;
 }
 
-.result-card {
-  display: grid;
-  grid-template-columns: 7.25rem minmax(0, 1fr) minmax(11.5rem, 0.36fr);
-  gap: 1rem;
-  align-items: start;
-  margin-top: 0.9rem;
-  border: 1px solid rgb(254 215 170 / 0.16);
-  border-radius: 0.5rem;
-  background:
-    linear-gradient(90deg, rgb(251 191 36 / 0.12), transparent 18rem),
-    rgb(15 23 42 / 0.48);
-  padding: 0.75rem;
-  color: #fff7ed;
-  transition: border-color 0.14s ease, background 0.14s ease, transform 0.14s ease;
-}
-
-.result-card:hover {
-  transform: translateY(-1px);
-  border-color: rgb(251 191 36 / 0.48);
-  background:
-    linear-gradient(90deg, rgb(251 191 36 / 0.16), transparent 18rem),
-    rgb(15 23 42 / 0.66);
-}
-
-.result-image {
-  width: 7.25rem;
-  aspect-ratio: 421 / 614;
-  border-radius: 0.35rem;
-  object-fit: cover;
-  box-shadow: 0 0.65rem 1.4rem rgb(0 0 0 / 0.38);
-}
-
-.result-content {
-  min-width: 0;
-  padding-top: 0.25rem;
-}
-
-.result-title-row {
-  display: flex;
-  align-items: flex-start;
-}
-
-.result-title-row h3 {
-  font-size: 1.35rem;
-  font-weight: 900;
-  line-height: 1.15;
-}
-
-.result-title-row p {
-  margin-top: 0.2rem;
-  color: rgb(255 247 237 / 0.62);
-  font-size: 0.9rem;
-  font-weight: 700;
-}
-
-.card-id {
-  display: block;
-  color: rgb(253 186 116 / 0.78);
-  font-size: 0.88rem;
-  font-weight: 900;
-  text-align: right;
-}
-
-.meta-grid {
-  display: grid;
-  gap: 0.42rem;
-  margin-top: 0.8rem;
-}
-
-.meta-grid span {
-  border: 1px solid rgb(254 215 170 / 0.13);
-  border-radius: 0.42rem;
-  background: rgb(0 0 0 / 0.18);
-  padding: 0.46rem 0.58rem;
-  color: rgb(255 247 237 / 0.78);
-  font-size: 0.78rem;
-  font-weight: 800;
-  line-height: 1.25;
-}
-
-.result-side {
-  min-width: 0;
-  border-left: 1px solid rgb(254 215 170 / 0.11);
-  padding: 0.25rem 0 0.15rem 1rem;
-}
-
-.effect-preview {
-  margin-top: 0.9rem;
-}
-
-.effect-preview h4 {
-  color: rgb(253 186 116 / 0.82);
-  font-size: 0.78rem;
-  font-weight: 900;
-}
-
-.effect-preview p {
-  margin-top: 0.28rem;
-  color: rgb(255 247 237 / 0.7);
-  font-size: 0.9rem;
-  line-height: 1.65;
-  white-space: pre-line;
-}
-
-.preview-divider {
-  height: 1px;
-  margin: 0.75rem 0;
-  background:
-    linear-gradient(90deg, rgb(253 186 116 / 0.22), transparent);
-}
-
 .empty-state {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -461,23 +240,8 @@ h1 {
 @media (max-width: 52rem) {
   .search-panel,
   .search-form,
-  .empty-state,
-  .result-card {
+  .empty-state {
     grid-template-columns: 1fr;
-  }
-
-  .result-image {
-    width: min(12rem, 100%);
-  }
-
-  .result-side {
-    border-top: 1px solid rgb(254 215 170 / 0.11);
-    border-left: 0;
-    padding: 0.85rem 0 0;
-  }
-
-  .card-id {
-    text-align: left;
   }
 }
 </style>

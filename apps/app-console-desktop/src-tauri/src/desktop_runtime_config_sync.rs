@@ -10,6 +10,11 @@ use crate::desktop_hearthstone_image::load_image_settings;
 use crate::desktop_hearthstone_publish_target::{
     load_publish_target_connection_string, load_publish_target_profile,
 };
+use crate::desktop_yugioh_publish_target::{
+    load_publish_target_connection_string as load_yugioh_publish_target_connection_string,
+    load_publish_target_profile as load_yugioh_publish_target_profile,
+};
+use crate::desktop_yugioh_image::load_image_settings as load_yugioh_image_settings;
 use crate::load_desktop_game_repo_path;
 
 const DESKTOP_RUNTIME_HTTP_BASE_URL: &str = "http://127.0.0.1:4318";
@@ -43,6 +48,9 @@ fn build_desktop_state_payload(app: &AppHandle) -> Result<serde_json::Value, Str
     let image_settings = load_image_settings(app)?;
     let publish_target = load_publish_target_profile(app)?;
     let publish_connection_string = load_publish_target_connection_string(app)?;
+    let yugioh_publish_target = load_yugioh_publish_target_profile(app)?;
+    let yugioh_publish_connection_string = load_yugioh_publish_target_connection_string(app)?;
+    let yugioh_image_settings = load_yugioh_image_settings(app)?;
 
     Ok(json!({
         "localDatabase": {
@@ -62,6 +70,17 @@ fn build_desktop_state_payload(app: &AppHandle) -> Result<serde_json::Value, Str
                     "environment": publish_target.as_ref().map(|profile| profile.environment.clone()),
                     "targetFingerprint": publish_target.as_ref().map(|profile| profile.target_fingerprint.clone()),
                     "connectionString": publish_connection_string,
+                },
+            },
+            "yugioh": {
+                "image": {
+                    "bucketDir": yugioh_image_settings.bucket_dir,
+                },
+                "publish": {
+                    "publishTargetId": yugioh_publish_target.as_ref().map(|profile| profile.publish_target_id.clone()),
+                    "environment": yugioh_publish_target.as_ref().map(|profile| profile.environment.clone()),
+                    "targetFingerprint": yugioh_publish_target.as_ref().map(|profile| profile.target_fingerprint.clone()),
+                    "connectionString": yugioh_publish_connection_string,
                 },
             },
         },
@@ -100,10 +119,7 @@ async fn post_runtime_rpc(path: &str, input: serde_json::Value) -> Result<(), St
 }
 
 /// Posts one JSON request into the local Bun desktop runtime and decodes one JSON response body.
-pub(crate) async fn post_runtime_json<T>(
-    path: &str,
-    input: serde_json::Value,
-) -> Result<T, String>
+pub(crate) async fn post_runtime_json<T>(path: &str, input: serde_json::Value) -> Result<T, String>
 where
     T: DeserializeOwned,
 {
@@ -140,7 +156,11 @@ where
 
 /// Pushes the current desktop config values into the local Bun runtime once.
 pub(crate) async fn sync_desktop_runtime_config_once(app: &AppHandle) -> Result<(), String> {
-    post_runtime_rpc("runtime/configureDesktopState", build_desktop_state_payload(app)?).await
+    post_runtime_rpc(
+        "runtime/configureDesktopState",
+        build_desktop_state_payload(app)?,
+    )
+    .await
 }
 
 /// Runs one startup sync inline so the desktop UI can observe backend-injected config sooner.
@@ -167,10 +187,7 @@ pub(crate) fn start_desktop_runtime_config_sync_loop(app: AppHandle) {
                 log_runtime_sync(&format!("periodic config sync failed: {error}"));
             }
 
-            tokio::time::sleep(Duration::from_secs(
-                DESKTOP_RUNTIME_SYNC_INTERVAL_SECONDS,
-            ))
-            .await;
+            tokio::time::sleep(Duration::from_secs(DESKTOP_RUNTIME_SYNC_INTERVAL_SECONDS)).await;
         }
     });
 }

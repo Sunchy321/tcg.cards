@@ -209,3 +209,12 @@ export async function resolveHearthstonePublishTarget(input: {
     serverPort: endpoint.port,
   };
 }
+
+/** Yu-Gi-Oh! publish target identity resolved from one explicit connection string. */
+export async function resolveYugiohPublishTarget(input: {
+  publishTargetId: string;
+  environment: string;
+  connectionString: string;
+}): Promise<ResolvedHearthstonePublishTarget> {
+  return await resolveHearthstonePublishTarget(input);
+}

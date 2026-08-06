@@ -67,6 +67,40 @@ export const desktopConfigSchema = {
           additionalProperties: true,
           description:          'Game-specific desktop settings for Magic.',
         },
+        yugioh: {
+          type:                 'object',
+          additionalProperties: true,
+          properties:           {
+            image: {
+              type:                 'object',
+              additionalProperties: true,
+              properties:           {
+                bucketDir: {
+                  type:        'string',
+                  description: 'Local Yu-Gi-Oh! primary-image bucket directory.',
+                },
+              },
+            },
+            publish: {
+              type:                 'object',
+              additionalProperties: true,
+              properties:           {
+                publishTargetId: {
+                  type:        'string',
+                  description: 'Bound Yu-Gi-Oh! publish target identifier.',
+                },
+                environment: {
+                  type:        'string',
+                  description: 'Yu-Gi-Oh! publish target environment key.',
+                },
+                targetFingerprint: {
+                  type:        'string',
+                  description: 'Fingerprint of the expected Yu-Gi-Oh! publish target.',
+                },
+              },
+            },
+          },
+        },
       },
     },
   },

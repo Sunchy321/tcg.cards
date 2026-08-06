@@ -10,6 +10,10 @@ mod desktop_hearthstone_image;
 mod desktop_hearthstone_publish_target;
 #[allow(dead_code)]
 mod desktop_runtime_config_sync;
+#[allow(dead_code)]
+mod desktop_yugioh_image;
+#[allow(dead_code)]
+mod desktop_yugioh_publish_target;
 
 use crate::desktop_config_commands::{
     desktop_get_config_file_info, desktop_get_raw_config, desktop_open_config_directory,
@@ -30,6 +34,14 @@ use crate::desktop_hearthstone_publish_target::{
 use crate::desktop_runtime_config_sync::{
     schedule_desktop_runtime_config_sync, start_desktop_runtime_config_sync_loop,
     sync_desktop_runtime_config_blocking,
+};
+use crate::desktop_yugioh_image::{
+    desktop_get_yugioh_image_settings, desktop_set_yugioh_image_settings,
+};
+use crate::desktop_yugioh_publish_target::{
+    desktop_get_yugioh_publish_target, desktop_set_yugioh_publish_target,
+    desktop_test_yugioh_publish_target, desktop_validate_yugioh_publish_target_binding,
+    YugiohPublishTargetConnectionStringCache,
 };
 use reqwest::cookie::{CookieStore, Jar};
 use reqwest::{Client, Method, Url};
@@ -189,12 +201,14 @@ impl Default for DesktopConfig {
 struct DesktopGamesSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     hearthstone: Option<StoredHearthstoneSettings>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    yugioh: Option<StoredYugiohSettings>,
 }
 
 impl DesktopGamesSettings {
     /// Whether the config currently contains any persisted game settings.
     fn is_empty(&self) -> bool {
-        self.hearthstone.is_none()
+        self.hearthstone.is_none() && self.yugioh.is_none()
     }
 }
 
@@ -217,6 +231,23 @@ impl StoredHearthstoneSettings {
     }
 }
 
+#[derive(Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Yu-Gi-Oh!-specific settings persisted in the desktop config file.
+struct StoredYugiohSettings {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    image: Option<StoredYugiohImageSettings>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    publish: Option<StoredYugiohPublishTargetProfile>,
+}
+
+impl StoredYugiohSettings {
+    /// Whether the Yu-Gi-Oh! settings currently contain any persisted values.
+    fn is_empty(&self) -> bool {
+        self.image.is_none() && self.publish.is_none()
+    }
+}
+
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 /// Local repository path persisted for one game integration.
@@ -233,12 +264,29 @@ struct StoredHearthstonePublishTargetProfile {
     target_fingerprint: String,
 }
 
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Publish target profile persisted for the Yu-Gi-Oh! test environment.
+struct StoredYugiohPublishTargetProfile {
+    publish_target_id: String,
+    environment: String,
+    target_fingerprint: String,
+}
+
 #[derive(Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 /// Hearthstone image settings persisted in the desktop config file.
 struct StoredHearthstoneImageSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     renderer_base_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    bucket_dir: Option<String>,
+}
+
+#[derive(Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Yu-Gi-Oh! local primary-image bucket persisted in the desktop config file.
+struct StoredYugiohImageSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     bucket_dir: Option<String>,
 }
@@ -1041,6 +1089,7 @@ pub fn run() {
         .manage(AuthState::default())
         .manage(DesktopDatabaseConnectionStringCache::default())
         .manage(HearthstonePublishTargetConnectionStringCache::default())
+        .manage(YugiohPublishTargetConnectionStringCache::default())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             sync_desktop_runtime_config_blocking(&app.handle().clone());
@@ -1065,6 +1114,12 @@ pub fn run() {
             desktop_set_hearthstone_publish_target,
             desktop_test_hearthstone_publish_target,
             desktop_validate_hearthstone_publish_target_binding,
+            desktop_get_yugioh_image_settings,
+            desktop_set_yugioh_image_settings,
+            desktop_get_yugioh_publish_target,
+            desktop_set_yugioh_publish_target,
+            desktop_test_yugioh_publish_target,
+            desktop_validate_yugioh_publish_target_binding,
             desktop_get_game_repo,
             desktop_set_game_repo,
             desktop_pick_directory,

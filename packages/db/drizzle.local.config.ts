@@ -11,6 +11,7 @@ export default defineConfig({
   schema:  [
     './src/schema/local/hearthstone/index.ts',
     './src/schema/local/magic/index.ts',
+    './src/schema/local/yugioh/index.ts',
   ],
   casing: 'snake_case',
 

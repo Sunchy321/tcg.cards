@@ -9,15 +9,21 @@
     "./schema/local/hearthstone/*": "./src/schema/local/hearthstone/*.ts",
     "./schema/local/magic": "./src/schema/local/magic/index.ts",
     "./schema/local/magic/*": "./src/schema/local/magic/*.ts",
+    "./schema/local/yugioh": "./src/schema/local/yugioh/index.ts",
+    "./schema/local/yugioh/*": "./src/schema/local/yugioh/*.ts",
     "./schema/remote/auth": "./src/schema/remote/auth.ts",
     "./schema/remote/hearthstone": "./src/schema/remote/hearthstone/index.ts",
     "./schema/remote/hearthstone/*": "./src/schema/remote/hearthstone/*.ts",
     "./schema/remote/magic": "./src/schema/remote/magic/index.ts",
     "./schema/remote/magic/*": "./src/schema/remote/magic/*.ts",
+    "./schema/remote/yugioh": "./src/schema/remote/yugioh/index.ts",
+    "./schema/remote/yugioh/*": "./src/schema/remote/yugioh/*.ts",
     "./schema/shared/hearthstone": "./src/schema/shared/hearthstone/index.ts",
     "./schema/shared/hearthstone/*": "./src/schema/shared/hearthstone/*.ts",
     "./schema/shared/magic": "./src/schema/shared/magic/index.ts",
-    "./schema/shared/magic/*": "./src/schema/shared/magic/*.ts"
+    "./schema/shared/magic/*": "./src/schema/shared/magic/*.ts",
+    "./schema/shared/yugioh": "./src/schema/shared/yugioh/index.ts",
+    "./schema/shared/yugioh/*": "./src/schema/shared/yugioh/*.ts"
   },
   "scripts": {
     "build": "echo No build needed",

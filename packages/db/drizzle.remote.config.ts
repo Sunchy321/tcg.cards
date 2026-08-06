@@ -12,6 +12,7 @@ export default defineConfig({
     './src/schema/remote/auth.ts',
     './src/schema/remote/hearthstone/index.ts',
     './src/schema/remote/magic/index.ts',
+    './src/schema/remote/yugioh/index.ts',
   ],
   casing: 'snake_case',
 

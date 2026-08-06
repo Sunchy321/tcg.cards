@@ -10,6 +10,10 @@ import {
   setHearthstonePublishTargetOverride,
   setHsdataRepoPathOverride,
   setLocalDatabaseUrlOverride,
+  hasYugiohPublishTargetOverride,
+  hasYugiohImageOverride,
+  setYugiohImageOverride,
+  setYugiohPublishTargetOverride,
 } from '../runtime-config';
 
 /** Runtime status returned by desktop runtime health procedures. */
@@ -21,6 +25,8 @@ const runtimeStatus = z.object({
   hsdataRepoConfigured:    z.boolean(),
   imageConfigured:         z.boolean(),
   publishTargetConfigured: z.boolean(),
+  yugiohPublishTargetConfigured: z.boolean(),
+  yugiohImageConfigured: z.boolean(),
   time:                    z.string(),
 });
 
@@ -34,6 +40,8 @@ function buildStatus() {
     hsdataRepoConfigured:    hasHsdataRepoPath(),
     imageConfigured:         hasHearthstoneImageOverride(),
     publishTargetConfigured: hasHearthstonePublishTargetOverride(),
+    yugiohPublishTargetConfigured: hasYugiohPublishTargetOverride(),
+    yugiohImageConfigured: hasYugiohImageOverride(),
     time:                    new Date().toISOString(),
   };
 }
@@ -66,6 +74,17 @@ const configureDesktopStateInput = z.strictObject({
         connectionString: z.string().trim().min(1).nullable(),
       }),
     }),
+    yugioh: z.strictObject({
+      image: z.strictObject({
+        bucketDir: z.string().trim().min(1).nullable(),
+      }),
+      publish: z.strictObject({
+        publishTargetId: z.string().trim().min(1).nullable(),
+        environment: z.string().trim().min(1).nullable(),
+        targetFingerprint: z.string().trim().min(1).nullable(),
+        connectionString: z.string().trim().min(1).nullable(),
+      }),
+    }),
   }),
 });
 
@@ -77,6 +96,8 @@ function applyDesktopState(
   setHsdataRepoPathOverride(input.games.hearthstone.hsdata.repoPath);
   setHearthstoneImageOverride(input.games.hearthstone.image);
   setHearthstonePublishTargetOverride(input.games.hearthstone.publish);
+  setYugiohImageOverride(input.games.yugioh.image);
+  setYugiohPublishTargetOverride(input.games.yugioh.publish);
 }
 
 const health = os
