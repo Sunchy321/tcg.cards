@@ -363,7 +363,7 @@ const DESKTOP_IMAGE_BASE = 'http://localhost:4318';
 
 /** Builds the runtime image URL for a stored card image by render hash. */
 function buildImageUrl(hash: string, category: string, template: string): string {
-  return `${DESKTOP_IMAGE_BASE}/images/${category}/hand/${template}/normal/${hash.slice(0, 2)}/${hash}.webp`;
+  return `${DESKTOP_IMAGE_BASE}/images/${category}/hand/${template}/normal/${hash.slice(0, 2)}/${hash}.webp?1`;
 }
 
 /** Resolves a preview side to a URL (storage) or data URL (transient render). */

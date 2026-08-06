@@ -131,10 +131,12 @@ hono.get('/images/:category/:zone/:template/:premium/:prefix/:file', async c => 
   const image = Bun.file(filePath);
   if (!(await image.exists())) return c.notFound();
 
+  // Local files, so no aggressive caching: the browser always fetches the
+  // current bytes, keeping overwritten images in sync without cache busting.
   return new Response(image, {
     headers: {
       'content-type':  'image/webp',
-      'cache-control': 'public, max-age=31536000, immutable',
+      'cache-control': 'no-store',
     },
   });
 });

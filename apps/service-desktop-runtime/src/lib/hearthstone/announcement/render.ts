@@ -304,7 +304,9 @@ async function renderSingleSide(input: RenderSideInput): Promise<RenderResult> {
       requirementName: `${crypto.randomUUID()}.json`,
       files:           [{ fileName, bytes: pngBytes }],
       bucketDir,
-      force:           false,
+      // "写入存储" must overwrite existing files whose bytes differ (e.g. after
+      // a renderer change) instead of silently ignoring them.
+      force:           true,
       dryRun:          false,
     });
 
