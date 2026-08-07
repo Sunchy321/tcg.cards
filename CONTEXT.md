@@ -1,5 +1,16 @@
 # Context
 
+## Single-Card Projection Tests (单卡投影测试)
+
+### single-card test (单卡测试)
+A fully offline, self-contained `bun:test` file under `apps/service-desktop-runtime/src/lib/hearthstone/task/project/cards/`. Each file fixtures one card at one build: the input snapshot (card, tags, tag config, context) and the expected projected result (entity, localizations, relations with hashes) are both baked into the file. Running it replays the projection with no database.
+
+### generate-card-test (单卡测试生成)
+The CLI at `apps/service-desktop-runtime/scripts/generate-card-test.ts`. It reads one card at one build from the local database, runs the pure projection, writes a `cards/<name>.test.ts` fixture, and runs eslint --fix on it. Usage: `DESKTOP_LOCAL_DATABASE_URL=... bun run apps/service-desktop-runtime/scripts/generate-card-test.ts --card CS2_029 --build 240397 --name fireball-spell-school [--tables entity,localizations,relations]`. Regenerate whenever a projection behavior change should be pinned by a test.
+
+### card projection pure entry (投影纯函数入口)
+`projectExtractedCard` (exported from `task/project/project.ts`) maps a card snapshot + tags + tag config + context to a complete `ProjectCardResult`. Both the generator script and `cards/runner.ts` call it directly, so generated fixtures stay valid offline as long as the pure projection is unchanged.
+
 ## Hearthstone Announcement (炉石公告)
 
 ### Announcement Item (公告条目)

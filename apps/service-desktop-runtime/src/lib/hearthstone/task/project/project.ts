@@ -35,7 +35,7 @@ import { normalizeExtractedTagValue, isNormalizedMechanicValue, asNumberArray, a
 import { getDisplayText, textFromDisplayText } from './display';
 import type { DisplayContext } from './display';
 
-const localeMap: Record<string, Locale> = {
+export const localeMap: Record<string, Locale> = {
   deDE: 'de',
   enUS: 'en',
   esES: 'es',
@@ -52,7 +52,7 @@ const localeMap: Record<string, Locale> = {
   zhTW: 'zht',
 };
 
-const supportedLocaleKeys = ['enUS', 'deDE', 'esES', 'esMX', 'frFR', 'itIT', 'jaJP', 'koKR', 'plPL', 'ptBR', 'ruRU', 'thTH', 'zhCN', 'zhTW'] as const;
+export const supportedLocaleKeys = ['enUS', 'deDE', 'esES', 'esMX', 'frFR', 'itIT', 'jaJP', 'koKR', 'plPL', 'ptBR', 'ruRU', 'thTH', 'zhCN', 'zhTW'] as const;
 
 function uniqueStrings<S extends string>(values: S[]): S[] {
   return [...new Set(values)];
@@ -283,18 +283,20 @@ export interface ProjectCardResult {
   relations:     RelationRow[];
 }
 
-function projectExtractedCard(
+export interface ProjectCardContext {
+  cardIdByDbfId:           Map<number, string>;
+  setIdByDbfId:            Map<number, string>;
+  hsdataSetByDbfId:        ReadonlyMap<number, number>;
+  nameByDbfIdByLocale:     ReadonlyMap<Locale, ReadonlyMap<number, string>>;
+  richTextByDbfIdByLocale: ReadonlyMap<Locale, ReadonlyMap<number, string>>;
+}
+
+export function projectExtractedCard(
   card: ExtractedCardRow,
   tags: ExtractedCardTagRow[],
   tagMap: Map<number, TagRow>,
   build: number,
-  context: {
-    cardIdByDbfId:           Map<number, string>;
-    setIdByDbfId:            Map<number, string>;
-    hsdataSetByDbfId:        ReadonlyMap<number, number>;
-    nameByDbfIdByLocale:     ReadonlyMap<Locale, ReadonlyMap<number, string>>;
-    richTextByDbfIdByLocale: ReadonlyMap<Locale, ReadonlyMap<number, string>>;
-  },
+  context: ProjectCardContext,
 ): ProjectCardResult {
   const entityDraft = createEntityDraft(card);
   const localizations = new Map<Locale, LocalizationDraft>();
