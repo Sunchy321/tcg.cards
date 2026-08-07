@@ -1,7 +1,5 @@
 <template>
   <div class="container mx-auto px-4 pt-2 pb-6">
-    <h1 class="text-2xl font-bold mb-6">{{ $t('hearthstone.announcement.$self') }}</h1>
-
     <div v-if="pending" class="flex justify-center py-12">
       <UIcon name="lucide:loader" class="text-2xl animate-spin" />
     </div>
@@ -10,21 +8,21 @@
       {{ $t('hearthstone.announcement.empty') }}
     </div>
 
-    <div v-else class="space-y-4">
-      <UCard
+    <div v-else class="space-y-3">
+      <div
         v-for="a in announcements"
         :key="a.id"
-        class="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-        @click="navigateTo(`/announcements/${a.id}`)"
+        class="cursor-pointer rounded-lg border border-slate-400/30 bg-slate-900/70 p-4 text-white transition hover:border-amber-400/70 hover:bg-slate-800/85"
+        @click="navigateTo(`/announcement/${a.id}`)"
       >
         <div class="flex items-center justify-between">
           <div>
             <h2 class="text-lg font-semibold">{{ a.name }}</h2>
-            <span class="text-sm text-gray-500">{{ a.source }}</span>
+            <span class="text-sm text-slate-400">{{ a.source }}</span>
           </div>
-          <span class="text-sm text-gray-500">{{ a.date }}</span>
+          <span class="text-sm text-slate-400">{{ a.date }}</span>
         </div>
-      </UCard>
+      </div>
     </div>
   </div>
 </template>

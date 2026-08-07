@@ -5,6 +5,12 @@
 ### Announcement Item (公告条目)
 A single change entry inside an announcement. Entity references are mutually exclusive by type: `card_change`/`card_update` use `cardId` (+ `relatedCards`), `set_change` uses `setId`, `rule_change` uses `ruleId`, `format_birth`/`format_death` use none.
 
+### projection (投影结果)
+A jsonb column on an announcement item holding the derived display projection so the site can find which items affect a card or format. Current minimum shape: `{ formats: string[], cards: string[] }` — `formats` = the keyword-expanded single-format list; `cards` = the flat set of affected card IDs (direct `cardId` + `relatedCards`, plus set→cards fan-out for `set_change`). The shape is open so future richer projections (e.g. per-card status) can add keys without a migration. The item's own `status` applies uniformly to every fan-out card; status is never stored per card. Divergent per-card outcomes are never expressed inside one item — they are authored as separate items. The site queries it via jsonb containment (`projection->'formats' @> ...`, `projection->'cards' @> ...`) on expression GIN indexes.
+
+### projection step (投影)
+The derivation that fills an item's `projection` column from its authored fields (format keyword expansion + cardId/relatedCards + set→cards). Runs from the announcement editor page. `format_birth`/`format_death` produce no card fan-out; `rule_change` fan-out depends on whether the rule points at a card attribute.
+
 ### lastVersion (对比版本)
 The comparison version (buildNumber) of an announcement or item, informally called "prevVersion". Defaults to `version` when empty. Item-level values override announcement-level values.
 

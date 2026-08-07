@@ -3,7 +3,8 @@
   "module": "src/index.ts",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    "./magic/*": "./src/magic/*.ts",
+    "./hearthstone/*": "./src/hearthstone/*.ts"
   },
   "private": true,
   "scripts": {

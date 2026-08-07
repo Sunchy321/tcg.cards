@@ -33,6 +33,23 @@
           <span v-if="item.ruleId" class="font-medium">{{ item.ruleId }}</span>
         </div>
         <div v-if="item.name" class="text-sm mt-0.5">{{ item.name }}</div>
+        <div v-if="item.images.length > 0" class="mt-2 flex flex-wrap gap-2">
+          <div
+            v-for="side in item.images"
+            :key="side.side"
+            class="w-28"
+          >
+            <CardImage
+              :card-id="item.cardId"
+              :version="item.version ?? 0"
+              type="minion"
+              :render-hash="side.hash"
+              :category="side.category"
+              :variant="side.template === 'battlegrounds' ? 'battlegrounds' : 'normal'"
+            />
+            <div class="mt-0.5 text-center text-[11px] text-slate-500">{{ side.side }}</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -40,8 +57,12 @@
 
 <script setup lang="ts">
 const { $orpc } = useNuxtApp();
+import type { Locale } from '#model/hearthstone/schema/basic';
+
 const { t } = useI18n();
 const route = useRoute();
+const gameLocale = useGameLocale();
+const lang = computed<Locale>(() => gameLocale.value as Locale);
 
 const format = computed(() => route.params.format as string);
 
@@ -61,16 +82,6 @@ definePageMeta({
 useTitle(() => `${t('hearthstone.timeline.$self')} - ${format.value}`);
 
 const { data: items, pending } = useAsyncData(`timeline-${format.value}`, () => {
-  return $orpc.hearthstone.announcement.timeline({ format: format.value }) as Promise<Array<{
-    id: string;
-    date: string;
-    name: string;
-    type: string;
-    cardId: string | null;
-    setId: string | null;
-    ruleId: string | null;
-    status: string | null;
-  }>>;
-}, { default: () => [], watch: [format] });
-
+  return $orpc.hearthstone.announcement.timeline({ format: format.value, lang: lang.value });
+}, { default: () => [], watch: [format, lang] });
 </script>

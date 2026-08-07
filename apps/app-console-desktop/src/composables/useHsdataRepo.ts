@@ -1,6 +1,4 @@
-import { consumeEventIterator } from '@orpc/client';
 import type { PublishReport, SingleCardPublishReport } from 'service-desktop-runtime/lib/hearthstone/hsdata-publish';
-import type { ProgressSegment } from '@tcg-cards/model/src/task';
 import { getConsoleErrorMessage } from '@tcg-cards/console-core';
 
 import { useDesktopRuntimeClient } from './useDesktopRuntimeClient';
@@ -269,23 +267,6 @@ export type HsdataPublishReport = PublishReport;
 /** Single-card publish report type from the server zod schema. */
 export type HsdataSingleCardPublishReport = SingleCardPublishReport;
 
-/** Publish progress event streamed from the desktop runtime. */
-interface RawPublishJobProgressEvent {
-  batchId?:           string;
-  publishType?:       string;
-  publishTarget?:     string;
-  phase:              string;
-  message:            string;
-  startedAt?:         string;
-  phaseStartedAt?:    string;
-  finishedAt?:        string | null;
-  total?:             number | null;
-  completed?:         number | null;
-  totalRowCount?:     number | null;
-  completedRowCount?: number | null;
-  report?:            HsdataPublishReport | null;
-}
-
 export interface HsdataUnprojectedTagReportRow {
   enumId: number;
   slug:   string;
@@ -296,11 +277,6 @@ export interface ReportMetric {
   key:   string;
   label: string;
   value: string | number | boolean;
-}
-
-/** Detects the final progress phases that can close one task subscription. */
-function isTerminalProgressPhase(phase: string): boolean {
-  return phase === 'completed' || phase === 'failed';
 }
 
 export function getHsdataRepoPath() {
@@ -342,6 +318,7 @@ export interface HsdataProjectOptions {
 export interface HsdataPublishStreamInput {
   publishTarget: 'hearthstone';
   environment:   string;
+  publishType?:  string;
 }
 
 /** Publish job control result returned after a cooperative pause or stop request. */

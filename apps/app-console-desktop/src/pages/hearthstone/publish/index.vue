@@ -1,451 +1,3 @@
-<script setup lang="ts">
-import { useToast } from '@nuxt/ui/composables';
-import {
-  getDesktopPublishTargets,
-  type DesktopPublishTarget,
-} from '~/composables/useDesktopSettings';
-import {
-  cancelIncompleteHsdataPublishBatch,
-  deletePublishHistory,
-  formatHsdataDate,
-  getHsdataErrorMessage,
-  getIncompletePublishBatch,
-  type HsdataPublishStreamInput,
-  listPublishHistory,
-  publishSingleCard,
-} from '~/composables/useHsdataRepo';
-import type {
-  HsdataPublishReport,
-  HsdataSingleCardPublishReport,
-} from '~/composables/useHsdataRepo';
-import type { TaskPageSnapshot } from '@tcg-cards/model/src/task';
-import type { TaskOperation } from '~/components/task/TaskController';
-import { orpc } from '~/lib/orpc';
-
-definePageMeta({
-  layout: 'admin',
-  title: '发布',
-});
-
-const publishTypes = [
-  { label: 'card_data', value: 'card_data' },
-];
-const publishTarget = 'hearthstone' as const;
-
-const toast = useToast();
-const publishTargets = ref<DesktopPublishTarget[]>([]);
-const selectedEnvironment = ref('');
-const publishTargetError = ref('');
-const taskResult = ref<Record<string, unknown> | null>(null);
-const incompleteBatch = ref<(HsdataPublishReport & { pendingRowCount?: number }) | null>(null);
-const batchListLoading = ref(false);
-const batchList = ref<HsdataPublishReport[]>([]);
-const cancelingBatchId = ref('');
-const deletingBatchId = ref('');
-const publishType = ref('card_data');
-const dryRun = ref(false);
-const force = ref(false);
-
-// Single-card dev publish
-const purgeOpen = ref(false);
-const purging = ref(false);
-
-async function executePurge() {
-  purgeOpen.value = false;
-  purging.value = true;
-  try {
-    const result = await orpc.hearthstone.purge.purgeSoftDeletedEntities() as { entities: number, localizations: number, relations: number };
-    toast.add({ title: '清理完成', description: `entities: ${result.entities}, localizations: ${result.localizations}, relations: ${result.relations}`, color: 'success' });
-  } catch (error) {
-    toast.add({ title: '清理失败', description: getHsdataErrorMessage(error), color: 'error' });
-  } finally {
-    purging.value = false;
-  }
-}
-
-function confirmPurge() {
-  purgeOpen.value = true;
-}
-
-const singleCardId = ref('');
-const singleCardPublishing = ref(false);
-const singleCardResult = ref<HsdataSingleCardPublishReport | null>(null);
-const singleCardError = ref('');
-
-const environmentItems = computed(() => {
-  return publishTargets.value.map(target => ({
-    label: target.environment,
-    value: target.environment,
-    onSelect: () => {
-      selectedEnvironment.value = target.environment;
-    },
-  }));
-});
-
-const hasMultiplePublishTargets = computed(() => publishTargets.value.length > 1);
-
-const selectedPublishTarget = computed(() => {
-  return publishTargets.value.find(target => target.environment === selectedEnvironment.value) ?? null;
-});
-
-const selectedPublishStream = computed<HsdataPublishStreamInput | null>(() => {
-  if (selectedEnvironment.value.length === 0) {
-    return null;
-  }
-
-  return {
-    publishTarget,
-    environment: selectedEnvironment.value,
-  };
-});
-
-async function submitSingleCardPublish() {
-  const cardId = singleCardId.value.trim();
-  const stream = selectedPublishStream.value;
-
-  if (!cardId || !stream) return;
-
-  singleCardPublishing.value = true;
-  singleCardError.value = '';
-  singleCardResult.value = null;
-
-  try {
-    const result = await publishSingleCard(cardId, stream);
-    singleCardResult.value = result;
-  } catch (error) {
-    console.error('Failed to publish single card:', error);
-    singleCardError.value = getHsdataErrorMessage(error);
-  } finally {
-    singleCardPublishing.value = false;
-  }
-}
-
-const hasPublishTarget = computed(() => {
-  return selectedPublishTarget.value != null;
-});
-
-function formatPublishTargetFingerprint(fingerprint: string | null) {
-  return fingerprint?.slice(0, 8) ?? '';
-}
-
-function formatPublishOperationKind(kind: string) {
-  switch (kind) {
-    case 'publish': return '发布';
-    case 'pin': return 'Pin';
-    case 'repair': return '修复';
-    case 'rollback': return '回滚';
-    default: return kind;
-  }
-}
-
-function formatPublishType(type: string) {
-  switch (type) {
-    case 'card_data': return '卡牌数据';
-    default: return type;
-  }
-}
-
-function statusBadgeColor(status: string) {
-  switch (status) {
-    case 'completed': return 'success';
-    case 'failed': return 'error';
-    case 'canceled': return 'warning';
-    case 'abandoned': return 'neutral';
-    case 'stopped': return 'warning';
-    default: return 'primary';
-  }
-}
-
-function formatPublishStatus(status: string) {
-  switch (status) {
-    case 'pending': return '等待中';
-    case 'planning': return '规划中';
-    case 'applying': return '执行中';
-    case 'running': return '执行中';
-    case 'paused': return '已暂停';
-    case 'stopped': return '已停止';
-    case 'completed': return '已完成';
-    case 'failed': return '失败';
-    case 'canceled': return '已取消';
-    case 'abandoned': return '已废弃';
-    default: return status;
-  }
-}
-
-/** Returns whether one history row can be canceled from residual local database state. */
-function isCancelableBatch(batch: HsdataPublishReport) {
-  return batch.status === 'planning' || batch.status === 'applying';
-}
-
-const controller = ref<{ attach(snapshot: TaskPageSnapshot): void; currentTaskRunId: string | null }>();
-
-const showPinConfirm = ref(false);
-let resolvePinCreate: ((value: TaskPageSnapshot) => void) | null = null;
-let rejectPinCreate: ((reason: Error) => void) | null = null;
-
-function confirmPin() {
-  showPinConfirm.value = false;
-  orpc.hearthstone.createTask.pin({
-    publishTarget: 'hearthstone',
-    environment: selectedEnvironment.value,
-  }).then((result) => {
-    resolvePinCreate?.(result as TaskPageSnapshot);
-  }).catch((e) => {
-    rejectPinCreate?.(e as Error);
-  });
-}
-
-function cancelPin() {
-  showPinConfirm.value = false;
-  rejectPinCreate?.(new Error('Cancelled'));
-}
-
-const operations: TaskOperation[] = [
-  {
-    key: 'publish',
-    label: '发布',
-    icon: 'i-lucide-upload',
-    create: async () => orpc.hearthstone.createTask.publish({
-      publishTarget: 'hearthstone',
-      environment: selectedEnvironment.value,
-      dryRun: dryRun.value,
-      force: force.value,
-    }) as Promise<TaskPageSnapshot>,
-  },
-  {
-    key: 'pin',
-    label: 'Pin',
-    icon: 'i-lucide-pin',
-    color: 'warning',
-    create: async () => {
-      return new Promise<TaskPageSnapshot>((resolve, reject) => {
-        resolvePinCreate = resolve;
-        rejectPinCreate = reject;
-        showPinConfirm.value = true;
-      });
-    },
-  },
-];
-
-function onCompleted(snap: TaskPageSnapshot) {
-  persistedTaskRunId = null;
-  persistPublishPageState();
-  taskResult.value = snap.result ?? null;
-  refreshPublishState();
-}
-
-function onFailed(_taskRunId: string, _errorCode: string | null, _errorMessage: string | null) {
-  persistedTaskRunId = null;
-  persistPublishPageState();
-}
-
-function onCreateError(_opKey: string, _message: string) {
-}
-
-// Save taskRunId whenever the controller starts/restores a task
-watch(
-  () => controller.value?.currentTaskRunId ?? null,
-  (id) => {
-    persistedTaskRunId = id;
-    persistPublishPageState();
-  },
-);
-
-async function loadPublishTarget() {
-  publishTargetError.value = '';
-
-  try {
-    const targets = await getDesktopPublishTargets();
-    publishTargets.value = targets.filter(target => target.publishTarget === publishTarget);
-
-    if (publishTargets.value.length === 0) {
-      selectedEnvironment.value = '';
-      return;
-    }
-
-    if (!publishTargets.value.some(target => target.environment === selectedEnvironment.value)) {
-      selectedEnvironment.value = publishTargets.value[0]!.environment;
-    }
-  } catch (error) {
-    console.error('Failed to load publish target:', error);
-    publishTargetError.value = getHsdataErrorMessage(error);
-    publishTargets.value = [];
-    selectedEnvironment.value = '';
-  }
-}
-
-/** Cancels one incomplete batch row when it is no longer backed by a live runtime job. */
-async function cancelBatch(batch: HsdataPublishReport) {
-  const stream = selectedPublishStream.value;
-
-  if (!stream || !isCancelableBatch(batch) || cancelingBatchId.value.length > 0) {
-    return;
-  }
-
-  cancelingBatchId.value = batch.batchId;
-
-  try {
-    const result = await cancelIncompleteHsdataPublishBatch({
-      ...stream,
-      batchId: batch.batchId,
-    });
-
-    if (incompleteBatch.value?.batchId === batch.batchId) {
-      incompleteBatch.value = null;
-    }
-
-    toast.add({
-      title: '批次已取消',
-      description: `${result.batchId} 已标记为已停止`,
-      color: 'success',
-    });
-    await refreshPublishState();
-  } catch (error) {
-    console.error('Failed to cancel incomplete publish batch:', error);
-    toast.add({
-      title: '取消失败',
-      description: getHsdataErrorMessage(error),
-      color: 'error',
-    });
-  } finally {
-    cancelingBatchId.value = '';
-  }
-}
-
-async function deleteBatch(batch: HsdataPublishReport) {
-  if (deletingBatchId.value.length > 0) return;
-
-  deletingBatchId.value = batch.batchId;
-
-  try {
-    await deletePublishHistory(batch.batchId);
-    batchList.value = batchList.value.filter(b => b.batchId !== batch.batchId);
-  } catch (error) {
-    console.error('Failed to delete publish history:', error);
-    toast.add({
-      title: '删除失败',
-      description: getHsdataErrorMessage(error),
-      color: 'error',
-    });
-  } finally {
-    deletingBatchId.value = '';
-  }
-}
-
-async function loadIncompleteBatch() {
-  const stream = selectedPublishStream.value;
-
-  if (!stream) {
-    incompleteBatch.value = null;
-    return;
-  }
-
-  try {
-    incompleteBatch.value = await getIncompletePublishBatch(stream);
-  } catch {
-    incompleteBatch.value = null;
-  }
-}
-
-async function loadBatchList() {
-  const stream = selectedPublishStream.value;
-
-  batchListLoading.value = true;
-
-  if (!stream) {
-    batchList.value = [];
-    batchListLoading.value = false;
-    return;
-  }
-
-  try {
-    batchList.value = await listPublishHistory(stream);
-  } catch {
-    batchList.value = [];
-  } finally {
-    batchListLoading.value = false;
-  }
-}
-
-async function refreshPublishState() {
-  await Promise.all([loadBatchList(), loadIncompleteBatch()]);
-}
-
-const PUBLISH_PAGE_STATE_KEY = 'console-desktop-hearthstone-publish-page';
-
-interface PublishPageState {
-  dryRun: boolean;
-  force: boolean;
-  environment: string;
-  taskRunId?: string | null;
-}
-
-let persistedTaskRunId: string | null = null;
-
-function persistPublishPageState() {
-  const state: PublishPageState = {
-    dryRun: dryRun.value,
-    force: force.value,
-    environment: selectedEnvironment.value,
-    taskRunId: persistedTaskRunId,
-  };
-  window.localStorage.setItem(PUBLISH_PAGE_STATE_KEY, JSON.stringify(state));
-}
-
-function normalizePublishPageState(raw: Partial<PublishPageState>): PublishPageState {
-  return {
-    dryRun: typeof raw.dryRun === 'boolean' ? raw.dryRun : false,
-    force: typeof raw.force === 'boolean' ? raw.force : false,
-    environment: typeof raw.environment === 'string' ? raw.environment : '',
-    taskRunId: typeof raw.taskRunId === 'string' ? raw.taskRunId : null,
-  };
-}
-
-function restorePublishPageState() {
-  try {
-    const raw = window.localStorage.getItem(PUBLISH_PAGE_STATE_KEY);
-    if (!raw) return;
-    const parsed = JSON.parse(raw);
-    const state = normalizePublishPageState(parsed);
-    dryRun.value = state.dryRun;
-    force.value = state.force ?? false;
-    selectedEnvironment.value = state.environment;
-    persistedTaskRunId = state.taskRunId ?? null;
-  } catch {
-    window.localStorage.removeItem(PUBLISH_PAGE_STATE_KEY);
-  }
-}
-
-watch([dryRun, force, selectedEnvironment], () => {
-  persistPublishPageState();
-});
-
-watch(selectedPublishStream, async () => {
-  taskResult.value = null;
-  singleCardError.value = '';
-  singleCardResult.value = null;
-  await refreshPublishState();
-});
-
-onMounted(async () => {
-  restorePublishPageState();
-  await loadPublishTarget();
-  await refreshPublishState();
-
-  // Restore active task from persisted taskRunId
-  if (persistedTaskRunId) {
-    try {
-      const snap = await orpc.task.snapshot({ taskRunId: persistedTaskRunId });
-      if (snap.pageTask.kind !== 'idle') {
-        controller.value?.attach(snap);
-      }
-    } catch {
-      persistedTaskRunId = null;
-    }
-  }
-});
-</script>
-
 <template>
   <div class="h-full space-y-4 overflow-y-auto">
     <UCard>
@@ -549,6 +101,7 @@ onMounted(async () => {
               :items="publishTypes"
               :disabled="disabled"
               option-attribute="label"
+              class="w-64"
             />
           </UFormField>
           <UCheckbox v-model="dryRun" label="Dry Run" :disabled="disabled" />
@@ -569,7 +122,7 @@ onMounted(async () => {
         </div>
       </template>
 
-      <div class="grid gap-3 sm:grid-cols-2">
+      <div v-if="!isAnnouncementPublishResult" class="grid gap-3 sm:grid-cols-2">
         <div class="rounded-lg border border-default p-3">
           <div class="text-xs text-muted">批次</div>
           <div class="mt-1 break-all font-mono text-sm">
@@ -643,6 +196,32 @@ onMounted(async () => {
               <span class="ml-1 font-mono">{{ taskResult.relationRowCount }}</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div v-else class="grid gap-3 sm:grid-cols-2">
+        <div class="rounded-lg border border-default p-3">
+          <div class="text-xs text-muted">发布类型</div>
+          <div class="mt-1 font-mono text-sm">公告数据</div>
+        </div>
+        <div class="rounded-lg border border-default p-3">
+          <div class="text-xs text-muted">状态</div>
+          <div class="mt-1 flex items-center">
+            <UBadge
+              :label="taskResult.dryRun ? 'Dry Run' : 'Success'"
+              :color="taskResult.dryRun ? 'warning' : 'success'"
+              variant="soft"
+              size="xs"
+            />
+          </div>
+        </div>
+        <div class="rounded-lg border border-default p-3">
+          <div class="text-xs text-muted">公告数</div>
+          <div class="mt-1 font-mono text-sm">{{ taskResult.announcementCount }}</div>
+        </div>
+        <div class="rounded-lg border border-default p-3">
+          <div class="text-xs text-muted">条目数</div>
+          <div class="mt-1 font-mono text-sm">{{ taskResult.itemCount }}</div>
         </div>
       </div>
     </UCard>
@@ -835,3 +414,474 @@ onMounted(async () => {
     </template>
   </UModal>
 </template>
+
+<script setup lang="ts">
+import { useToast } from '@nuxt/ui/composables';
+import {
+  getDesktopPublishTargets,
+  type DesktopPublishTarget,
+} from '~/composables/useDesktopSettings';
+import {
+  cancelIncompleteHsdataPublishBatch,
+  deletePublishHistory,
+  formatHsdataDate,
+  getHsdataErrorMessage,
+  getIncompletePublishBatch,
+  type HsdataPublishStreamInput,
+  listPublishHistory,
+  publishSingleCard,
+} from '~/composables/useHsdataRepo';
+import type {
+  HsdataPublishReport,
+  HsdataSingleCardPublishReport,
+} from '~/composables/useHsdataRepo';
+import type { TaskPageSnapshot } from '@tcg-cards/model/src/task';
+import type { TaskOperation } from '~/components/task/TaskController';
+import { orpc } from '~/lib/orpc';
+
+definePageMeta({
+  layout: 'admin',
+  title:  '发布',
+});
+
+const publishTypes = [
+  { label: 'card_data', value: 'card_data' },
+  { label: 'announcement_data', value: 'announcement_data' },
+];
+const publishTarget = 'hearthstone' as const;
+
+const toast = useToast();
+const publishTargets = ref<DesktopPublishTarget[]>([]);
+const selectedEnvironment = ref('');
+const publishTargetError = ref('');
+const taskResult = ref<Record<string, unknown> | null>(null);
+/** Whether the last result came from the announcement publish task (different output shape). */
+const isAnnouncementPublishResult = computed(() => taskResult.value != null && taskResult.value.announcementCount != null);
+const incompleteBatch = ref<(HsdataPublishReport & { pendingRowCount?: number }) | null>(null);
+const batchListLoading = ref(false);
+const batchList = ref<HsdataPublishReport[]>([]);
+const cancelingBatchId = ref('');
+const deletingBatchId = ref('');
+const publishType = ref('card_data');
+const dryRun = ref(false);
+const force = ref(false);
+
+// Single-card dev publish
+const purgeOpen = ref(false);
+const purging = ref(false);
+
+async function executePurge() {
+  purgeOpen.value = false;
+  purging.value = true;
+  try {
+    const result = await orpc.hearthstone.purge.purgeSoftDeletedEntities() as { entities: number, localizations: number, relations: number };
+    toast.add({ title: '清理完成', description: `entities: ${result.entities}, localizations: ${result.localizations}, relations: ${result.relations}`, color: 'success' });
+  } catch (error) {
+    toast.add({ title: '清理失败', description: getHsdataErrorMessage(error), color: 'error' });
+  } finally {
+    purging.value = false;
+  }
+}
+
+function confirmPurge() {
+  purgeOpen.value = true;
+}
+
+const singleCardId = ref('');
+const singleCardPublishing = ref(false);
+const singleCardResult = ref<HsdataSingleCardPublishReport | null>(null);
+const singleCardError = ref('');
+
+const environmentItems = computed(() => {
+  return publishTargets.value.map(target => ({
+    label:    target.environment,
+    value:    target.environment,
+    onSelect: () => {
+      selectedEnvironment.value = target.environment;
+    },
+  }));
+});
+
+const hasMultiplePublishTargets = computed(() => publishTargets.value.length > 1);
+
+const selectedPublishTarget = computed(() => {
+  return publishTargets.value.find(target => target.environment === selectedEnvironment.value) ?? null;
+});
+
+const selectedPublishStream = computed<HsdataPublishStreamInput | null>(() => {
+  if (selectedEnvironment.value.length === 0) {
+    return null;
+  }
+
+  return {
+    publishTarget,
+    environment: selectedEnvironment.value,
+  };
+});
+
+async function submitSingleCardPublish() {
+  const cardId = singleCardId.value.trim();
+  const stream = selectedPublishStream.value;
+
+  if (!cardId || !stream) return;
+
+  singleCardPublishing.value = true;
+  singleCardError.value = '';
+  singleCardResult.value = null;
+
+  try {
+    const result = await publishSingleCard(cardId, stream);
+    singleCardResult.value = result;
+  } catch (error) {
+    console.error('Failed to publish single card:', error);
+    singleCardError.value = getHsdataErrorMessage(error);
+  } finally {
+    singleCardPublishing.value = false;
+  }
+}
+
+const hasPublishTarget = computed(() => {
+  return selectedPublishTarget.value != null;
+});
+
+function formatPublishTargetFingerprint(fingerprint: string | null) {
+  return fingerprint?.slice(0, 8) ?? '';
+}
+
+function formatPublishOperationKind(kind: string) {
+  switch (kind) {
+  case 'publish': return '发布';
+  case 'pin': return 'Pin';
+  case 'repair': return '修复';
+  case 'rollback': return '回滚';
+  default: return kind;
+  }
+}
+
+function formatPublishType(type: string) {
+  switch (type) {
+  case 'card_data': return '卡牌数据';
+  case 'announcement_data': return '公告数据';
+  default: return type;
+  }
+}
+
+function statusBadgeColor(status: string) {
+  switch (status) {
+  case 'completed': return 'success';
+  case 'failed': return 'error';
+  case 'canceled': return 'warning';
+  case 'abandoned': return 'neutral';
+  case 'stopped': return 'warning';
+  default: return 'primary';
+  }
+}
+
+function formatPublishStatus(status: string) {
+  switch (status) {
+  case 'pending': return '等待中';
+  case 'planning': return '规划中';
+  case 'applying': return '执行中';
+  case 'running': return '执行中';
+  case 'paused': return '已暂停';
+  case 'stopped': return '已停止';
+  case 'completed': return '已完成';
+  case 'failed': return '失败';
+  case 'canceled': return '已取消';
+  case 'abandoned': return '已废弃';
+  default: return status;
+  }
+}
+
+/** Returns whether one history row can be canceled from residual local database state. */
+function isCancelableBatch(batch: HsdataPublishReport) {
+  return batch.status === 'planning' || batch.status === 'applying';
+}
+
+const controller = ref<{ attach(snapshot: TaskPageSnapshot): void, currentTaskRunId: string | null }>();
+
+const showPinConfirm = ref(false);
+let resolvePinCreate: ((value: TaskPageSnapshot) => void) | null = null;
+let rejectPinCreate: ((reason: Error) => void) | null = null;
+
+function confirmPin() {
+  showPinConfirm.value = false;
+  orpc.hearthstone.createTask.pin({
+    publishTarget: 'hearthstone',
+    environment:   selectedEnvironment.value,
+  }).then(result => {
+    resolvePinCreate?.(result as TaskPageSnapshot);
+  }).catch(e => {
+    rejectPinCreate?.(e as Error);
+  });
+}
+
+function cancelPin() {
+  showPinConfirm.value = false;
+  rejectPinCreate?.(new Error('Cancelled'));
+}
+
+const operations: TaskOperation[] = [
+  {
+    key:    'publish',
+    label:  '发布',
+    icon:   'i-lucide-upload',
+    create: async () => {
+      if (publishType.value === 'announcement_data') {
+        return orpc.hearthstone.createTask.announcementPublish({
+          publishTarget: 'hearthstone',
+          environment:   selectedEnvironment.value,
+          dryRun:        dryRun.value,
+        }) as Promise<TaskPageSnapshot>;
+      }
+      return orpc.hearthstone.createTask.publish({
+        publishTarget: 'hearthstone',
+        environment:   selectedEnvironment.value,
+        dryRun:        dryRun.value,
+        force:         force.value,
+      }) as Promise<TaskPageSnapshot>;
+    },
+  },
+  {
+    key:    'pin',
+    label:  'Pin',
+    icon:   'i-lucide-pin',
+    color:  'warning',
+    create: async () => {
+      return new Promise<TaskPageSnapshot>((resolve, reject) => {
+        resolvePinCreate = resolve;
+        rejectPinCreate = reject;
+        showPinConfirm.value = true;
+      });
+    },
+  },
+];
+
+function onCompleted(snap: TaskPageSnapshot) {
+  persistedTaskRunId = null;
+  persistPublishPageState();
+  taskResult.value = snap.result ?? null;
+  refreshPublishState();
+}
+
+function onFailed(_taskRunId: string, _errorCode: string | null, _errorMessage: string | null) {
+  persistedTaskRunId = null;
+  persistPublishPageState();
+}
+
+function onCreateError(_opKey: string, _message: string) {
+}
+
+// Save taskRunId whenever the controller starts/restores a task
+watch(
+  () => controller.value?.currentTaskRunId ?? null,
+  id => {
+    persistedTaskRunId = id;
+    persistPublishPageState();
+  },
+);
+
+async function loadPublishTarget() {
+  publishTargetError.value = '';
+
+  try {
+    const targets = await getDesktopPublishTargets();
+    publishTargets.value = targets.filter(target => target.publishTarget === publishTarget);
+
+    if (publishTargets.value.length === 0) {
+      selectedEnvironment.value = '';
+      return;
+    }
+
+    if (!publishTargets.value.some(target => target.environment === selectedEnvironment.value)) {
+      selectedEnvironment.value = publishTargets.value[0]!.environment;
+    }
+  } catch (error) {
+    console.error('Failed to load publish target:', error);
+    publishTargetError.value = getHsdataErrorMessage(error);
+    publishTargets.value = [];
+    selectedEnvironment.value = '';
+  }
+}
+
+/** Cancels one incomplete batch row when it is no longer backed by a live runtime job. */
+async function cancelBatch(batch: HsdataPublishReport) {
+  const stream = selectedPublishStream.value;
+
+  if (!stream || !isCancelableBatch(batch) || cancelingBatchId.value.length > 0) {
+    return;
+  }
+
+  cancelingBatchId.value = batch.batchId;
+
+  try {
+    const result = await cancelIncompleteHsdataPublishBatch({
+      ...stream,
+      batchId: batch.batchId,
+    });
+
+    if (incompleteBatch.value?.batchId === batch.batchId) {
+      incompleteBatch.value = null;
+    }
+
+    toast.add({
+      title:       '批次已取消',
+      description: `${result.batchId} 已标记为已停止`,
+      color:       'success',
+    });
+    await refreshPublishState();
+  } catch (error) {
+    console.error('Failed to cancel incomplete publish batch:', error);
+    toast.add({
+      title:       '取消失败',
+      description: getHsdataErrorMessage(error),
+      color:       'error',
+    });
+  } finally {
+    cancelingBatchId.value = '';
+  }
+}
+
+async function deleteBatch(batch: HsdataPublishReport) {
+  if (deletingBatchId.value.length > 0) return;
+
+  deletingBatchId.value = batch.batchId;
+
+  try {
+    await deletePublishHistory(batch.batchId);
+    batchList.value = batchList.value.filter(b => b.batchId !== batch.batchId);
+  } catch (error) {
+    console.error('Failed to delete publish history:', error);
+    toast.add({
+      title:       '删除失败',
+      description: getHsdataErrorMessage(error),
+      color:       'error',
+    });
+  } finally {
+    deletingBatchId.value = '';
+  }
+}
+
+async function loadIncompleteBatch() {
+  const stream = selectedPublishStream.value;
+
+  if (!stream) {
+    incompleteBatch.value = null;
+    return;
+  }
+
+  try {
+    incompleteBatch.value = await getIncompletePublishBatch(stream);
+  } catch {
+    incompleteBatch.value = null;
+  }
+}
+
+async function loadBatchList() {
+  const stream = selectedPublishStream.value;
+
+  batchListLoading.value = true;
+
+  if (!stream) {
+    batchList.value = [];
+    batchListLoading.value = false;
+    return;
+  }
+
+  try {
+    batchList.value = await listPublishHistory({ ...stream, publishType: publishType.value });
+  } catch {
+    batchList.value = [];
+  } finally {
+    batchListLoading.value = false;
+  }
+}
+
+async function refreshPublishState() {
+  await Promise.all([loadBatchList(), loadIncompleteBatch()]);
+}
+
+const PUBLISH_PAGE_STATE_KEY = 'console-desktop-hearthstone-publish-page';
+
+interface PublishPageState {
+  dryRun:      boolean;
+  force:       boolean;
+  environment: string;
+  publishType: string;
+  taskRunId?:  string | null;
+}
+
+const PUBLISH_TYPES = ['card_data', 'announcement_data'];
+
+let persistedTaskRunId: string | null = null;
+
+function persistPublishPageState() {
+  const state: PublishPageState = {
+    dryRun:      dryRun.value,
+    force:       force.value,
+    environment: selectedEnvironment.value,
+    publishType: publishType.value,
+    taskRunId:   persistedTaskRunId,
+  };
+  window.localStorage.setItem(PUBLISH_PAGE_STATE_KEY, JSON.stringify(state));
+}
+
+function normalizePublishPageState(raw: Partial<PublishPageState>): PublishPageState {
+  return {
+    dryRun:      typeof raw.dryRun === 'boolean' ? raw.dryRun : false,
+    force:       typeof raw.force === 'boolean' ? raw.force : false,
+    environment: typeof raw.environment === 'string' ? raw.environment : '',
+    publishType: typeof raw.publishType === 'string' && PUBLISH_TYPES.includes(raw.publishType) ? raw.publishType : 'card_data',
+    taskRunId:   typeof raw.taskRunId === 'string' ? raw.taskRunId : null,
+  };
+}
+
+function restorePublishPageState() {
+  try {
+    const raw = window.localStorage.getItem(PUBLISH_PAGE_STATE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    const state = normalizePublishPageState(parsed);
+    dryRun.value = state.dryRun;
+    force.value = state.force ?? false;
+    selectedEnvironment.value = state.environment;
+    publishType.value = state.publishType;
+    persistedTaskRunId = state.taskRunId ?? null;
+  } catch {
+    window.localStorage.removeItem(PUBLISH_PAGE_STATE_KEY);
+  }
+}
+
+watch([dryRun, force, selectedEnvironment, publishType], () => {
+  persistPublishPageState();
+});
+
+watch(selectedPublishStream, async () => {
+  taskResult.value = null;
+  singleCardError.value = '';
+  singleCardResult.value = null;
+  await refreshPublishState();
+});
+
+watch(publishType, () => {
+  void refreshPublishState();
+});
+
+onMounted(async () => {
+  restorePublishPageState();
+  await loadPublishTarget();
+  await refreshPublishState();
+
+  // Restore active task from persisted taskRunId
+  if (persistedTaskRunId) {
+    try {
+      const snap = await orpc.task.snapshot({ taskRunId: persistedTaskRunId });
+      if (snap.pageTask.kind !== 'idle') {
+        controller.value?.attach(snap);
+      }
+    } catch {
+      persistedTaskRunId = null;
+    }
+  }
+});
+</script>

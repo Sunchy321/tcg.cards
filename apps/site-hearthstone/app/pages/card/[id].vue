@@ -252,6 +252,23 @@
                   <TypeBadge :type="item.type" :status="item.status ?? undefined" size="xs" />
                 </div>
                 <div class="text-xs text-gray-500 mt-0.5">{{ item.date }} &middot; {{ item.name }}</div>
+                <div v-if="item.cardId === route.params.id && item.images.length > 0" class="mt-2 flex flex-wrap gap-2">
+                  <div
+                    v-for="side in item.images"
+                    :key="side.side"
+                    class="w-28"
+                  >
+                    <CardImage
+                      :card-id="item.cardId"
+                      :version="item.version ?? 0"
+                      type="minion"
+                      :render-hash="side.hash"
+                      :category="side.category"
+                      :variant="side.template === 'battlegrounds' ? 'battlegrounds' : 'normal'"
+                    />
+                    <div class="mt-0.5 text-center text-[11px] text-slate-500">{{ side.side }}</div>
+                  </div>
+                </div>
               </div>
             </div>
           </UCard>
@@ -425,14 +442,7 @@ const changeHistoryKey = computed(() => `hearthstone-card-changes:${route.params
 
 const { data: changeItems } = await useAsyncData(
   changeHistoryKey,
-  () => $orpc.hearthstone.announcement.cardHistory({ cardId: route.params.id as string }) as Promise<Array<{
-    id:     string;
-    type:   string;
-    status: string | null;
-    date:   string;
-    name:   string;
-    delta:  Record<string, unknown> | null;
-  }>>,
+  () => $orpc.hearthstone.announcement.cardHistory({ cardId: route.params.id as string, lang: lang.value }),
   { default: () => [] },
 );
 

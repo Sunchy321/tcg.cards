@@ -19,5 +19,8 @@ registerTaskDefinition(publishTaskDefinition);
 import { unpackImportTaskDefinition } from '../hearthstone/task/unpack-import/definition';
 registerTaskDefinition(unpackImportTaskDefinition);
 
+import { announcementPublishTaskDefinition } from '../hearthstone/task/announcement-publish/definition';
+registerTaskDefinition(announcementPublishTaskDefinition);
+
 import { testWorkTaskDefinition } from './test-definition';
 registerTaskDefinition(testWorkTaskDefinition);

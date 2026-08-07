@@ -11,7 +11,7 @@ import { and, arrayContains, asc, desc, eq, gt, gte, inArray, lt, lte, ne, not, 
 import { model } from '#model/magic/search';
 import { CardEditorView, CardPrintView } from '#schema/shared/magic/print';
 
-import { toIdentifier } from '@tcg-cards/shared';
+import { toIdentifier } from '@tcg-cards/shared/magic/string';
 
 // import internalData from '@/internal-data';
 

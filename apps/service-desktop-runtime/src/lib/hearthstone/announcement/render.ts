@@ -9,7 +9,8 @@ import { requireHearthstoneImageBucketDir, requireHearthstoneImageRendererBaseUr
 import { importCardImageFilesToLocalBucket } from '@tcg-cards/console-api/lib/hearthstone/card-image-local-import';
 import { buildRequest, type ImageCandidateRow } from '@tcg-cards/console-api/lib/hearthstone/card-image';
 import type { GlowEntry } from '@tcg-cards/model/src/hearthstone/schema/announcement';
-import { computeRenderHash, sortGlow } from '@tcg-cards/shared';
+import { computeRenderHash } from '@tcg-cards/shared/hearthstone/render-hash';
+import { sortGlow } from '@tcg-cards/shared/hearthstone/glow';
 import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';

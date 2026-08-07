@@ -29,6 +29,7 @@ const sourceIdInput = z.strictObject({
 const publishStreamInput = z.strictObject({
   publishTarget: z.literal('hearthstone'),
   environment:   z.string().trim().min(1),
+  publishType:   z.string().optional().default('card_data'),
 });
 
 const sourceFile = z.object({
@@ -344,10 +345,12 @@ const listPublishHistoryRoute = os
   .output(z.array(publishReport))
   .handler(async ({ input }) => {
     const db = getLocalDb();
+    const isAnnouncement = input.publishType === 'announcement_data';
+    const taskType = isAnnouncement ? 'hearthstone_announcement_publish' : 'hearthstone_publish';
     const rows = await db.select()
       .from(TaskRun)
       .where(and(
-        eq(TaskRun.taskType, 'hearthstone_publish'),
+        eq(TaskRun.taskType, taskType),
         sql`${TaskRun.taskScopeSnapshot} ->> 'publishTarget' = ${input.publishTarget}`,
         sql`${TaskRun.taskScopeSnapshot} ->> 'environment' = ${input.environment}`,
       ))
@@ -364,7 +367,7 @@ const listPublishHistoryRoute = os
         publishTarget:        String(scope.publishTarget ?? ''),
         environment:          String(scope.environment ?? ''),
         targetFingerprint:    '',
-        publishType:          String(scope.publishType ?? 'card_data'),
+        publishType:          isAnnouncement ? 'announcement_data' : String(scope.publishType ?? 'card_data'),
         operationKind:        String(params.operationKind ?? 'publish'),
         status:               r.status,
         manifestHash:         String(res.manifestHash ?? ''),

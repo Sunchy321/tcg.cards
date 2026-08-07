@@ -47,8 +47,7 @@ export const AnnouncementItem = schema.table('announcement_items', {
   ruleId:       text('rule_id'),
   relatedCards: text('related_cards').array().notNull().default([]),
 
-  resolvedFormats: text('resolved_formats').array().notNull().default([]),
-  resolvedCards:   text('resolved_cards').array().notNull().default([]),
+  projection: jsonb('projection').$type<{ formats: string[], cards: string[] }>().notNull().default({ formats: [], cards: [] }),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at')
@@ -56,7 +55,5 @@ export const AnnouncementItem = schema.table('announcement_items', {
     .$onUpdate(() => new Date())
     .notNull(),
 }, table => [
-  index('idx_announcement_items_resolved_formats').using('gin', table.resolvedFormats),
-  index('idx_announcement_items_resolved_cards').using('gin', table.resolvedCards),
   index('idx_announcement_items_announcement_id').on(table.announcementId),
 ]);

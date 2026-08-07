@@ -103,8 +103,10 @@ export const announcementItem = z.strictObject({
   ruleId:       z.string().nullable(),
   relatedCards: z.string().array(),
 
-  resolved_formats: z.string().array(),
-  resolved_cards:   z.string().array(),
+  projection: z.object({
+    formats: z.array(z.string()),
+    cards:   z.array(z.string()),
+  }).catchall(z.unknown()),
 
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),

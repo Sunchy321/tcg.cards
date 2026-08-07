@@ -13,6 +13,7 @@ import {
 import { hsdataImportTaskDefinition } from '../../lib/hearthstone/task/import';
 import { projectTaskDefinition } from '../../lib/hearthstone/task/project';
 import { unpackImportTaskDefinition } from '../../lib/hearthstone/task/unpack-import';
+import { announcementPublishTaskDefinition } from '../../lib/hearthstone/task/announcement-publish/definition';
 
 /** If there's an active task on this scope from a previous boot, abandon it. */
 async function abandonStaleTask(taskType: string, scopeType: string, scopeKey: string): Promise<void> {
@@ -169,4 +170,27 @@ const unpackImport = os
     });
   });
 
-export const createTask = { publish, pin, imageRender, imageDownload, hsdataImport, hsdataProjection, unpackImport };
+/** Mirrors the local announcement tables to the publish target as a full replace. */
+const announcementPublish = os
+  .input(z.strictObject({
+    publishTarget: z.literal('hearthstone'),
+    environment:   z.string().trim().min(1),
+    dryRun:        z.boolean().optional(),
+  }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    const scope = { publishTarget: input.publishTarget, environment: input.environment };
+    const resolved = announcementPublishTaskDefinition.resolveScope(scope);
+    await abandonStaleTask(announcementPublishTaskDefinition.taskType, announcementPublishTaskDefinition.scopeType, resolved.key);
+    const active = await getStore().getActiveTaskRun(announcementPublishTaskDefinition.taskType, announcementPublishTaskDefinition.scopeType, resolved.key);
+    if (active) throw new Error(`Announcement publish task already exists for stream ${resolved.key}`);
+
+    return createAndRunTask(announcementPublishTaskDefinition.taskType, {
+      taskType:          announcementPublishTaskDefinition.taskType,
+      definitionVersion: announcementPublishTaskDefinition.definitionVersion,
+      scope:             { type: announcementPublishTaskDefinition.scopeType, key: resolved.key, snapshot: resolved.snapshot as Record<string, unknown> },
+      params:            { dryRun: input.dryRun },
+    });
+  });
+
+export const createTask = { publish, pin, imageRender, imageDownload, hsdataImport, hsdataProjection, unpackImport, announcementPublish };

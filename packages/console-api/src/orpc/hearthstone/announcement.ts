@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { asc, desc, eq } from 'drizzle-orm';
 
 import { db } from '@tcg-cards/db/db';
-import { Announcement, AnnouncementItem } from '@tcg-cards/db/schema/shared/hearthstone';
+import { Announcement, AnnouncementItem, Entity } from '@tcg-cards/db/schema/shared/hearthstone';
 
 const FORMAT_KEYWORD_MAP: Record<string, string[]> = {
   standard:    ['standard'],
@@ -18,9 +18,21 @@ function resolveFormats(format: string | null): string[] {
   return FORMAT_KEYWORD_MAP[format] ?? [format];
 }
 
-function resolveCards(cardId: string | null, relatedCards: string[]): string[] {
+async function resolveCards(
+  type: string,
+  cardId: string | null,
+  setId: string | null,
+  relatedCards: string[],
+): Promise<string[]> {
   const ids = new Set<string>();
   if (cardId) ids.add(cardId);
+  // A set_change fans out to every card in the set so the card page can surface it.
+  if (type === 'set_change' && setId) {
+    const rows = await db.select({ cardId: Entity.cardId }).from(Entity).where(eq(Entity.set, setId));
+    for (const row of rows) {
+      if (row.cardId) ids.add(row.cardId);
+    }
+  }
   for (const id of relatedCards) ids.add(id);
   return [...ids];
 }
@@ -209,10 +221,13 @@ const projectItems = os
       .where(eq(AnnouncementItem.announcementId, input.announcementId));
 
     for (const item of items) {
+      const cards = await resolveCards(item.type, item.cardId, item.setId, item.relatedCards);
       await db.update(AnnouncementItem)
         .set({
-          resolvedFormats: resolveFormats(item.format),
-          resolvedCards: resolveCards(item.cardId, item.relatedCards),
+          projection: {
+            formats: resolveFormats(item.format),
+            cards,
+          },
         })
         .where(eq(AnnouncementItem.id, item.id));
     }
