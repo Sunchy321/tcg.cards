@@ -15,7 +15,7 @@
 </template>
 
 <script setup lang="ts">
-import { GAMES } from '#shared';
+import { GAMES } from '#base';
 
 definePageMeta({
   layout: 'entry',

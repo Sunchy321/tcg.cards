@@ -21,6 +21,7 @@
     "@tcg-cards/console-api": "workspace:*",
     "@tcg-cards/db": "workspace:*",
     "@tcg-cards/model": "workspace:*",
+    "@tcg-cards/shared": "workspace:*",
     "ai": "^7.0.31",
     "canonicalize": "^3.0.0",
     "cheerio": "^1.2.0",

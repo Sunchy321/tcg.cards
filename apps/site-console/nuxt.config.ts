@@ -24,7 +24,7 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
 
   alias: {
-    '#shared': fileURLToPath(new URL('./node_modules/@tcg-cards/shared/src', import.meta.url)),
+    '#base': fileURLToPath(new URL('./node_modules/@tcg-cards/base/src', import.meta.url)),
     '#model':  fileURLToPath(new URL('./node_modules/@tcg-cards/model/src', import.meta.url)),
     '#search': fileURLToPath(new URL('./node_modules/@tcg-cards/search/src', import.meta.url)),
     '#db':     fileURLToPath(new URL('./node_modules/@tcg-cards/db/src', import.meta.url)),

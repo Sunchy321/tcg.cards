@@ -137,7 +137,7 @@ import { useConsolePlatform } from '@tcg-cards/console-platform';
 
 import { consoleAdminHostKey } from '../composables/admin-host';
 
-import type { Game } from '@tcg-cards/shared';
+import type { Game } from '@tcg-cards/base';
 
 interface ConsoleSessionLike {
   user?: {

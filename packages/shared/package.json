@@ -21,6 +21,8 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@tcg-cards/model": "workspace:*",
+    "canonicalize": "^3.0.0",
     "lodash-es": "^4.17.23"
   }
 }

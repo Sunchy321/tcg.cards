@@ -4,14 +4,12 @@ import { CardImageAsset } from '@tcg-cards/db/schema/shared/hearthstone/card-ima
 import { Entity, EntityLocalization } from '@tcg-cards/db/schema/local/hearthstone';
 import { Set as HearthstoneSet } from '@tcg-cards/db/schema/local/hearthstone';
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { createHash } from 'crypto';
-import canonicalize from 'canonicalize';
 import { getLocalDb } from '../hsdata-local-db';
 import { requireHearthstoneImageBucketDir, requireHearthstoneImageRendererBaseUrl } from '../image-config';
 import { importCardImageFilesToLocalBucket } from '@tcg-cards/console-api/lib/hearthstone/card-image-local-import';
 import { buildRequest, type ImageCandidateRow } from '@tcg-cards/console-api/lib/hearthstone/card-image';
 import type { GlowEntry } from '@tcg-cards/model/src/hearthstone/schema/announcement';
-import { sortGlow } from './glow';
+import { computeRenderHash, sortGlow } from '@tcg-cards/shared';
 import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -163,10 +161,6 @@ function resolveTemplate(format: string | null): string {
   return format === 'battlegrounds' ? 'battlegrounds' : 'normal';
 }
 
-function buildRenderHash(model: RenderModel): string {
-  return createHash('sha256').update(canonicalize(model)!).digest('hex');
-}
-
 // ----- Request builder -----
 
 function buildRenderRequest(
@@ -217,7 +211,7 @@ async function prepareSingleSide(input: RenderSideInput): Promise<PreparedRender
   const category = isCurr && input.glow && input.glow.length > 0 ? 'glow' : 'base';
   const merged = mergeDeltaOnto(resolved.renderModel, input.delta);
   const renderModel = isCurr ? applyGlow(merged, input.glow) : merged;
-  const renderHash = buildRenderHash(renderModel);
+  const renderHash = computeRenderHash(renderModel);
   const request = buildRenderRequest(
     input.cardId,
     input.lang,
@@ -519,7 +513,7 @@ export async function checkItemImages(
         const resolved = resolveCached(item.cardId, version, lang as Locale);
         if (!resolved) continue;
         const merged = mergeDeltaOnto(resolved.renderModel, item.delta?.curr);
-        results.push({ itemKey: item.itemKey, cardId: item.cardId, side: 'base', lang, hash: buildRenderHash(merged), category: 'base', template });
+        results.push({ itemKey: item.itemKey, cardId: item.cardId, side: 'base', lang, hash: computeRenderHash(merged), category: 'base', template });
       }
     }
 
@@ -532,7 +526,7 @@ export async function checkItemImages(
         const prevResolved = resolveCached(item.cardId, lastVersion, lang as Locale);
         if (prevResolved) {
           const prevMerged = mergeDeltaOnto(prevResolved.renderModel, item.delta?.prev);
-          results.push({ itemKey: item.itemKey, cardId: item.cardId, side: 'prev', lang, hash: buildRenderHash(prevMerged), category: 'base', template });
+          results.push({ itemKey: item.itemKey, cardId: item.cardId, side: 'prev', lang, hash: computeRenderHash(prevMerged), category: 'base', template });
         }
         // curr
         const currResolved = resolveCached(item.cardId, version, lang as Locale);
@@ -540,7 +534,7 @@ export async function checkItemImages(
           const currMerged = mergeDeltaOnto(currResolved.renderModel, item.delta?.curr);
           const currWithGlow = applyGlow(currMerged, item.glow);
           const category = item.glow && item.glow.length > 0 ? 'glow' : 'base';
-          results.push({ itemKey: item.itemKey, cardId: item.cardId, side: 'curr', lang, hash: buildRenderHash(currWithGlow), category, template });
+          results.push({ itemKey: item.itemKey, cardId: item.cardId, side: 'curr', lang, hash: computeRenderHash(currWithGlow), category, template });
         }
       }
     }

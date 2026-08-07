@@ -43,7 +43,7 @@
 
 <script setup lang="ts">
 import MainLayout from '#app-ui/layouts/main.vue';
-import { GAMES } from '#shared';
+import { GAMES } from '#base';
 
 const router = useRouter();
 const searchInput = useSearchInput();

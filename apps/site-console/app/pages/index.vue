@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { GAMES } from '#shared';
+import { GAMES } from '#base';
 import { authClient } from '~/composables/auth';
 
 definePageMeta({

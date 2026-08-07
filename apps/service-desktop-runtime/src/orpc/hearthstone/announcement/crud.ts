@@ -8,7 +8,7 @@ import { asc, desc, eq } from 'drizzle-orm';
 import { Announcement, AnnouncementItem } from '@tcg-cards/db/schema/local/hearthstone';
 
 import { getLocalDb } from '../../../lib/hearthstone/hsdata-local-db';
-import { sortGlow } from '../../../lib/hearthstone/announcement/glow';
+import { sortGlow } from '@tcg-cards/shared';
 
 const FORMAT_KEYWORD_MAP: Record<string, string[]> = {
   standard:    ['standard'],

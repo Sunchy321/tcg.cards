@@ -7,7 +7,7 @@ import {
 } from '@tcg-cards/console-core';
 import type { ConsoleStorage } from '@tcg-cards/console-platform';
 
-import type { Game } from '@tcg-cards/shared';
+import type { Game } from '@tcg-cards/base';
 
 import { currentAuthState, getSession, signOut as desktopSignOut } from '../auth';
 import { ensureLoginWindow } from '../windows';

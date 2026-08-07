@@ -1,4 +1,4 @@
-import { GAMES, type Game } from '@tcg-cards/shared';
+import { GAMES, type Game } from '@tcg-cards/base';
 
 export interface ConsoleNavItem {
   label: string;

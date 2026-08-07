@@ -36,12 +36,12 @@
         "@tauri-apps/api": "^2",
         "@tauri-apps/plugin-opener": "^2",
         "@tcg-cards/auth": "workspace:*",
+        "@tcg-cards/base": "workspace:*",
         "@tcg-cards/console-api": "workspace:*",
         "@tcg-cards/console-core": "workspace:*",
         "@tcg-cards/console-platform": "workspace:*",
         "@tcg-cards/console-shell": "workspace:*",
         "@tcg-cards/model": "workspace:*",
-        "@tcg-cards/shared": "workspace:*",
         "@tcg-cards/ui": "workspace:*",
         "better-auth": "^1.5.5",
         "monaco-editor": "^0.55.1",
@@ -70,6 +70,7 @@
         "@tcg-cards/console-api": "workspace:*",
         "@tcg-cards/db": "workspace:*",
         "@tcg-cards/model": "workspace:*",
+        "@tcg-cards/shared": "workspace:*",
         "ai": "^7.0.31",
         "canonicalize": "^3.0.0",
         "cheerio": "^1.2.0",
@@ -116,6 +117,7 @@
         "@orpc/client": "^1.14.0",
         "@orpc/server": "^1.14.0",
         "@tcg-cards/auth": "workspace:*",
+        "@tcg-cards/base": "workspace:*",
         "@tcg-cards/console-api": "workspace:*",
         "@tcg-cards/console-core": "workspace:*",
         "@tcg-cards/console-platform": "workspace:*",
@@ -123,7 +125,6 @@
         "@tcg-cards/db": "workspace:*",
         "@tcg-cards/model": "workspace:*",
         "@tcg-cards/search": "workspace:*",
-        "@tcg-cards/shared": "workspace:*",
         "better-auth": "^1.5.5",
         "codemirror": "^6.0.1",
         "drizzle-orm": "^1.0.0-beta.22",
@@ -158,11 +159,11 @@
         "@orpc/client": "^1.14.0",
         "@orpc/server": "^1.14.0",
         "@tcg-cards/auth": "workspace:*",
+        "@tcg-cards/base": "workspace:*",
         "@tcg-cards/console-api": "workspace:*",
         "@tcg-cards/db": "workspace:*",
         "@tcg-cards/model": "workspace:*",
         "@tcg-cards/search": "workspace:*",
-        "@tcg-cards/shared": "workspace:*",
         "@vueuse/router": "^14.3.0",
         "axios": "^1.13.6",
         "better-auth": "^1.5.5",
@@ -245,7 +246,7 @@
         "@iconify-json/lucide": "^1.2.104",
         "@iconify-json/simple-icons": "^1.2.72",
         "@nuxt/ui": "4.5.1",
-        "@tcg-cards/shared": "workspace:*",
+        "@tcg-cards/base": "workspace:*",
         "@tcg-cards/ui": "workspace:*",
         "nuxt": "4.3.1",
         "tailwindcss": "^4.2.2",
@@ -278,7 +279,7 @@
     "packages/auth": {
       "name": "@tcg-cards/auth",
       "dependencies": {
-        "@tcg-cards/shared": "workspace:*",
+        "@tcg-cards/base": "workspace:*",
         "better-auth": "^1.5.5",
       },
       "devDependencies": {
@@ -289,6 +290,21 @@
       "peerDependencies": {
         "typescript": "^5",
         "vue": "^3.5.29",
+      },
+    },
+    "packages/base": {
+      "name": "@tcg-cards/base",
+      "dependencies": {
+        "lodash-es": "^4.17.23",
+      },
+      "devDependencies": {
+        "@types/bun": "^1.3.13",
+        "@types/lodash-es": "^4.17.12",
+        "eslint": "^10.2.1",
+        "eslint-config-custom": "workspace:*",
+      },
+      "peerDependencies": {
+        "typescript": "^5",
       },
     },
     "packages/console-api": {
@@ -314,7 +330,7 @@
     "packages/console-core": {
       "name": "@tcg-cards/console-core",
       "dependencies": {
-        "@tcg-cards/shared": "workspace:*",
+        "@tcg-cards/base": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "^1.3.13",
@@ -352,10 +368,10 @@
         "@codemirror/theme-one-dark": "^6.1.2",
         "@codemirror/view": "^6.36.2",
         "@nuxt/ui": "4.5.1",
+        "@tcg-cards/base": "workspace:*",
         "@tcg-cards/console-core": "workspace:*",
         "@tcg-cards/console-platform": "workspace:*",
         "@tcg-cards/model": "workspace:*",
-        "@tcg-cards/shared": "workspace:*",
         "@tcg-cards/ui": "workspace:*",
         "vue": "^3.5.29",
         "vue-router": "^4.6.4",
@@ -372,8 +388,8 @@
     "packages/db": {
       "name": "@tcg-cards/db",
       "dependencies": {
+        "@tcg-cards/base": "workspace:*",
         "@tcg-cards/model": "workspace:*",
-        "@tcg-cards/shared": "workspace:*",
         "drizzle-orm": "^1.0.0-beta.22",
         "eslint-config-custom": "workspace:*",
         "lodash-es": "^4.17.23",
@@ -413,8 +429,8 @@
     "packages/model": {
       "name": "@tcg-cards/model",
       "dependencies": {
+        "@tcg-cards/base": "workspace:*",
         "@tcg-cards/search": "workspace:*",
-        "@tcg-cards/shared": "workspace:*",
         "zod": "^4.3.6",
       },
       "devDependencies": {
@@ -430,7 +446,7 @@
     "packages/search": {
       "name": "@tcg-cards/search",
       "dependencies": {
-        "@tcg-cards/shared": "workspace:*",
+        "@tcg-cards/base": "workspace:*",
         "drizzle-orm": "^1.0.0-beta.22",
         "lodash-es": "^4.17.23",
         "zod": "^4.3.6",
@@ -446,6 +462,8 @@
     "packages/shared": {
       "name": "@tcg-cards/shared",
       "dependencies": {
+        "@tcg-cards/model": "workspace:*",
+        "canonicalize": "^3.0.0",
         "lodash-es": "^4.17.23",
       },
       "devDependencies": {
@@ -472,8 +490,8 @@
         "@iconify-json/simple-icons": "^1.2.72",
         "@nuxt/ui": "4.5.1",
         "@nuxtjs/i18n": "^10.2.3",
+        "@tcg-cards/base": "workspace:*",
         "@tcg-cards/model": "workspace:*",
-        "@tcg-cards/shared": "workspace:*",
         "nuxt": "4.3.1",
         "tailwindcss": "^4.2.2",
         "zod": "^4.3.6",
@@ -1361,6 +1379,8 @@
     "@tauri-apps/plugin-opener": ["@tauri-apps/plugin-opener@2.5.3", "", { "dependencies": { "@tauri-apps/api": "^2.8.0" } }, "sha512-CCcUltXMOfUEArbf3db3kCE7Ggy1ExBEBl51Ko2ODJ6GDYHRp1nSNlQm5uNCFY5k7/ufaK5Ib3Du/Zir19IYQQ=="],
 
     "@tcg-cards/auth": ["@tcg-cards/auth@workspace:packages/auth"],
+
+    "@tcg-cards/base": ["@tcg-cards/base@workspace:packages/base"],
 
     "@tcg-cards/console-api": ["@tcg-cards/console-api@workspace:packages/console-api"],
 

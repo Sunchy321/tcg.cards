@@ -1,7 +1,7 @@
 import { createAccessControl } from 'better-auth/plugins/access';
 import { defaultStatements, adminAc, userAc } from 'better-auth/plugins/admin/access';
 
-import { GAMES } from '@tcg-cards/shared';
+import { GAMES } from '@tcg-cards/base';
 
 export const ac = createAccessControl({
   ...defaultStatements,
