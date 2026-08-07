@@ -34,6 +34,74 @@ const rarityByInt: Record<number, string> = {
   5: 'legendary',
 };
 
+/** SPELL_SCHOOL enum int → slug, used when normalizeConfig.enumMap is the "spell-school" alias. */
+const spellSchoolByInt: Record<number, string> = {
+  1: 'arcane',
+  2: 'fire',
+  3: 'frost',
+  4: 'nature',
+  5: 'holy',
+  6: 'shadow',
+  7: 'fel',
+  8: 'physical_combat',
+  9: 'tavern_spell',
+  10: 'spellcraft',
+  11: 'lesser_trinket',
+  12: 'greater_trinket',
+  13: 'upgrade',
+};
+
+/** CARDRACE enum int → slug, used when normalizeConfig.enumMap is the "race" alias. */
+const raceByInt: Record<number, string> = {
+  1: 'bloodelf',
+  2: 'draenei',
+  3: 'dwarf',
+  4: 'gnome',
+  5: 'goblin',
+  6: 'human',
+  7: 'nightelf',
+  8: 'orc',
+  9: 'tauren',
+  10: 'troll',
+  11: 'undead',
+  12: 'worgen',
+  13: 'goblin2',
+  14: 'murloc',
+  15: 'demon',
+  16: 'scourge',
+  17: 'mech',
+  18: 'elemental',
+  19: 'ogre',
+  20: 'beast',
+  21: 'totem',
+  22: 'nerubian',
+  23: 'pirate',
+  24: 'dragon',
+  25: 'blank',
+  26: 'all',
+  38: 'egg',
+  43: 'quilboar',
+  80: 'centaur',
+  81: 'furbolg',
+  83: 'highelf',
+  84: 'treant',
+  88: 'halforc',
+  89: 'lock',
+  92: 'naga',
+  93: 'old_god',
+  94: 'pandaren',
+  95: 'gronn',
+  96: 'celestial',
+  97: 'gnoll',
+  98: 'golem',
+  100: 'vulpera',
+};
+
+const enumMapAliasTables: Record<string, Record<number, string>> = {
+  'spell-school': spellSchoolByInt,
+  'race': raceByInt,
+};
+
 export function asNumberArray(value: unknown): number[] {
   if (Array.isArray(value)) return value.filter((v): v is number => typeof v === 'number');
   return [];
@@ -42,6 +110,15 @@ export function asNumberArray(value: unknown): number[] {
 export function asJsonMap(value: unknown): JsonMap {
   if (value == null || typeof value !== 'object' || Array.isArray(value)) return {};
   return value as JsonMap;
+}
+
+/** Resolves normalizeConfig.enumMap, including string aliases like "spell-school". */
+export function resolveEnumMap(enumMap: unknown): JsonMap {
+  if (typeof enumMap === 'string') {
+    const alias = enumMapAliasTables[enumMap];
+    return alias ? alias as unknown as JsonMap : {};
+  }
+  return asJsonMap(enumMap);
 }
 
 function resolveKnownEnumTarget(tag: TagRow | undefined): 'type' | 'rarity' | null {
@@ -96,7 +173,7 @@ export function normalizeExtractedTagValue(
 
   if (normalizeKind === 'enum_from_int') {
     const config = tag?.normalizeConfig ?? {};
-    const enumMap = asJsonMap(config.enumMap);
+    const enumMap = resolveEnumMap(config.enumMap);
     const target = resolveKnownEnumTarget(tag);
 
     if (tag && tag.slug === 'card_set') {

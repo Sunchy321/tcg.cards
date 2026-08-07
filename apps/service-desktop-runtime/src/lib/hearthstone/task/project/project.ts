@@ -31,7 +31,7 @@ import type {
 import { hashCanonicalJson, buildRevisionHashPayload, buildLocalizationHashPayload, buildRenderModel } from './hash';
 import { entityKey, localizationKey, relationKey, reconcileEntities, reconcileLocalizations, reconcileRelations } from './reconcile';
 import { copyEntitiesIntoTable, copyLocalizationsIntoTable, copyRelationsIntoTable, softDeleteEntities, softDeleteLocalizations, softDeleteRelations } from './write';
-import { normalizeExtractedTagValue, isNormalizedMechanicValue, asNumberArray, asJsonMap } from './normalize';
+import { normalizeExtractedTagValue, isNormalizedMechanicValue, asNumberArray, resolveEnumMap, type NormalizedValue } from './normalize';
 import { getDisplayText, textFromDisplayText } from './display';
 import type { DisplayContext } from './display';
 
@@ -80,6 +80,26 @@ function createLocalizationDraft(): LocalizationDraft {
     flavorText:         null,
     locChangeType:      'unknown',
   };
+}
+
+/** Resolves the string to append for an append_string_array tag.
+ *
+ * Handles two tag shapes:
+ * - enum_from_int / identity tags: the normalized value is already the string.
+ * - bool_from_int dual-race tags: a true value contributes projectConfig.value.
+ */
+function appendStringArrayValue(
+  entityDraft: EntityRow,
+  tagRow: TagRow | undefined,
+  normalized: unknown,
+  _path: keyof EntityRow,
+): string | null {
+  if (typeof normalized === 'string') return normalized;
+  if (normalized === true) {
+    const configured = tagRow?.projectConfig?.value;
+    if (typeof configured === 'string') return configured;
+  }
+  return null;
 }
 
 function createEmptyEntityDraft(cardId: string, dbfId: number): EntityRow {
@@ -369,9 +389,14 @@ export function projectExtractedCard(
 
     if (projectKind === 'append_string_array') {
       const path = targetPath as keyof EntityRow;
-      const arr = (entityDraft as unknown as Record<string, unknown>)[path];
-      if (Array.isArray(arr) && typeof normalized === 'string') {
-        arr.push(normalized);
+      const value = appendStringArrayValue(entityDraft, tagRow, normalized, path);
+      if (value != null) {
+        const arr = (entityDraft as unknown as Record<string, unknown>)[path];
+        if (!Array.isArray(arr)) {
+          (entityDraft as unknown as Record<string, unknown>)[path] = [value];
+        } else {
+          arr.push(value);
+        }
       }
       continue;
     }
@@ -785,7 +810,7 @@ function normalizeHsdataTagValue(
 
   if (normalizeKind === 'enum_from_int') {
     const config = tag?.normalizeConfig ?? {};
-    const enumMap = asJsonMap(config.enumMap);
+    const enumMap = resolveEnumMap(config.enumMap);
     const value = row.intValue;
     if (value == null) return null;
 
@@ -944,9 +969,14 @@ export async function projectHsdataFallback(build: number, cardIds: string[], dr
       }
 
       if (projectKind === 'append_string_array') {
-        const arr = (entityDraft as unknown as Record<string, unknown>)[targetPath];
-        if (Array.isArray(arr) && typeof normalized === 'string') {
-          arr.push(normalized);
+        const value = appendStringArrayValue(entityDraft, tag, normalized, targetPath as keyof EntityRow);
+        if (value != null) {
+          const arr = (entityDraft as unknown as Record<string, unknown>)[targetPath];
+          if (!Array.isArray(arr)) {
+            (entityDraft as unknown as Record<string, unknown>)[targetPath] = [value];
+          } else {
+            arr.push(value);
+          }
         }
         continue;
       }
