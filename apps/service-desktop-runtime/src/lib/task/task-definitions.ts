@@ -22,5 +22,8 @@ registerTaskDefinition(unpackImportTaskDefinition);
 import { announcementPublishTaskDefinition } from '../hearthstone/task/announcement-publish/definition';
 registerTaskDefinition(announcementPublishTaskDefinition);
 
+import { hearthstonePurgeTaskDefinition } from '../hearthstone/task/purge/definition';
+registerTaskDefinition(hearthstonePurgeTaskDefinition);
+
 import { testWorkTaskDefinition } from './test-definition';
 registerTaskDefinition(testWorkTaskDefinition);

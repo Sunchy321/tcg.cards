@@ -82,17 +82,6 @@
       @failed="onFailed"
       @create-error="onCreateError"
     >
-      <template #actions-before>
-        <UButton
-          label="清空已删除行"
-          icon="i-lucide-trash-2"
-          color="error"
-          variant="soft"
-          :loading="purging"
-          :disabled="purging"
-          @click="confirmPurge"
-        />
-      </template>
       <template #params="{ disabled }">
         <div class="flex items-center gap-6">
           <UFormField label="发布类型" orientation="horizontal">
@@ -113,16 +102,72 @@
     <UCard v-if="taskResult">
       <template #header>
         <div class="flex items-center gap-2">
-          <span class="font-medium">{{ taskResult.operationKind === 'pin' ? 'Pin 报告' : '发布报告' }}</span>
+          <span class="font-medium">{{ isPurgeResult ? '清理报告' : taskResult.operationKind === 'pin' ? 'Pin 报告' : '发布报告' }}</span>
           <UBadge
-            :label="taskResult.operationKind === 'pin' ? 'Pin' : taskResult.dryRun ? 'Dry Run' : 'Success'"
-            :color="taskResult.operationKind === 'pin' ? 'warning' : taskResult.dryRun ? 'warning' : 'success'"
+            :label="isPurgeResult ? '清理' : taskResult.operationKind === 'pin' ? 'Pin' : taskResult.dryRun ? 'Dry Run' : 'Success'"
+            :color="isPurgeResult ? 'error' : taskResult.operationKind === 'pin' ? 'warning' : taskResult.dryRun ? 'warning' : 'success'"
             variant="soft"
           />
         </div>
       </template>
 
-      <div v-if="!isAnnouncementPublishResult" class="grid gap-3 sm:grid-cols-2">
+      <div v-if="purgeReport" class="grid gap-3 sm:grid-cols-2">
+        <div class="rounded-lg border border-default p-3">
+          <div class="text-xs text-muted">状态</div>
+          <div class="mt-1 flex items-center">
+            <UBadge
+              :label="purgeReport.dryRun ? 'Dry Run' : 'Success'"
+              :color="purgeReport.dryRun ? 'warning' : 'success'"
+              variant="soft"
+              size="xs"
+            />
+            <UBadge
+              v-if="purgeReport.failures > 0"
+              :label="`失败 ${purgeReport.failures}`"
+              color="error"
+              variant="soft"
+              size="xs"
+              class="ml-2"
+            />
+          </div>
+        </div>
+        <div class="rounded-lg border border-default p-3">
+          <div class="text-xs text-muted">孤立 renderHash</div>
+          <div class="mt-1 font-mono text-sm">{{ purgeReport.orphanRenderHashes }}</div>
+        </div>
+        <div class="rounded-lg border border-default p-3 sm:col-span-2">
+          <div class="text-xs text-muted">清理行数</div>
+          <div class="mt-1 grid grid-cols-3 gap-2 text-sm">
+            <div>
+              <span class="text-muted">Entities</span>
+              <span class="ml-1 font-mono">{{ purgeReport.entities }}</span>
+            </div>
+            <div>
+              <span class="text-muted">Localizations</span>
+              <span class="ml-1 font-mono">{{ purgeReport.localizations }}</span>
+            </div>
+            <div>
+              <span class="text-muted">Relations</span>
+              <span class="ml-1 font-mono">{{ purgeReport.relations }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="rounded-lg border border-default p-3 sm:col-span-2">
+          <div class="text-xs text-muted">清理图片</div>
+          <div class="mt-1 grid grid-cols-2 gap-2 text-sm">
+            <div>
+              <span class="text-muted">Assets</span>
+              <span class="ml-1 font-mono">{{ purgeReport.images.assets }}</span>
+            </div>
+            <div>
+              <span class="text-muted">Files</span>
+              <span class="ml-1 font-mono">{{ purgeReport.images.files }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-else-if="!isAnnouncementPublishResult" class="grid gap-3 sm:grid-cols-2">
         <div class="rounded-lg border border-default p-3">
           <div class="text-xs text-muted">批次</div>
           <div class="mt-1 break-all font-mono text-sm">
@@ -379,40 +424,40 @@
         </div>
       </div>
     </UCard>
+
+    <!-- Pin confirmation modal -->
+    <UModal v-model:open="showPinConfirm">
+      <template #header>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-pin" class="size-5" />
+          <span class="font-medium">确认 Pin</span>
+        </div>
+      </template>
+      <template #body>
+        <p class="text-sm">
+          即将对 <strong>{{ selectedEnvironment }}</strong> 环境执行 Pin 操作。
+        </p>
+        <p class="mt-2 text-sm text-muted">
+          Pin 会将当前本地投影标记为已同步状态，更新本地 baseline 和远程 ledger，不会传输任何数据。Pin 之后执行 Publish 应为空操作。
+        </p>
+      </template>
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <UButton label="取消" color="neutral" variant="ghost" @click="cancelPin" />
+          <UButton label="确认 Pin" color="warning" @click="confirmPin" />
+        </div>
+      </template>
+    </UModal>
+
+    <UModal v-model:open="purgeOpen" title="确认清理" description="将硬删除 entities / entity_localizations / entity_relations 中所有已标记删除的行，并删除对应的孤立图片。此操作不可撤销。">
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <UButton label="取消" color="neutral" variant="ghost" @click="cancelPurge" />
+          <UButton label="确认清理" color="error" @click="executePurge" />
+        </div>
+      </template>
+    </UModal>
   </div>
-
-  <!-- Pin confirmation modal -->
-  <UModal v-model:open="showPinConfirm">
-    <template #header>
-      <div class="flex items-center gap-2">
-        <UIcon name="i-lucide-pin" class="size-5" />
-        <span class="font-medium">确认 Pin</span>
-      </div>
-    </template>
-    <template #body>
-      <p class="text-sm">
-        即将对 <strong>{{ selectedEnvironment }}</strong> 环境执行 Pin 操作。
-      </p>
-      <p class="mt-2 text-sm text-muted">
-        Pin 会将当前本地投影标记为已同步状态，更新本地 baseline 和远程 ledger，不会传输任何数据。Pin 之后执行 Publish 应为空操作。
-      </p>
-    </template>
-    <template #footer>
-      <div class="flex justify-end gap-2">
-        <UButton label="取消" color="neutral" variant="ghost" @click="cancelPin" />
-        <UButton label="确认 Pin" color="warning" @click="confirmPin" />
-      </div>
-    </template>
-  </UModal>
-
-  <UModal v-model:open="purgeOpen" title="确认清理" description="将硬删除 entities / entity_localizations / entity_relations 中所有已标记删除的行。此操作不可撤销。">
-    <template #footer>
-      <div class="flex justify-end gap-2">
-        <UButton label="取消" color="neutral" variant="ghost" @click="purgeOpen = false" />
-        <UButton label="确认清理" color="error" @click="executePurge" />
-      </div>
-    </template>
-  </UModal>
 </template>
 
 <script setup lang="ts">
@@ -427,16 +472,14 @@ import {
   formatHsdataDate,
   getHsdataErrorMessage,
   getIncompletePublishBatch,
-  type HsdataPublishStreamInput,
   listPublishHistory,
   publishSingleCard,
-} from '~/composables/useHsdataRepo';
-import type {
-  HsdataPublishReport,
-  HsdataSingleCardPublishReport,
+  type HsdataPublishReport,
+  type HsdataPublishStreamInput,
+  type HsdataSingleCardPublishReport,
 } from '~/composables/useHsdataRepo';
 import type { TaskPageSnapshot } from '@tcg-cards/model/src/task';
-import type { TaskOperation } from '~/components/task/TaskController';
+import type { TaskOperation } from '~/components/task/TaskController.vue';
 import { orpc } from '~/lib/orpc';
 
 definePageMeta({
@@ -457,6 +500,23 @@ const publishTargetError = ref('');
 const taskResult = ref<Record<string, unknown> | null>(null);
 /** Whether the last result came from the announcement publish task (different output shape). */
 const isAnnouncementPublishResult = computed(() => taskResult.value != null && taskResult.value.announcementCount != null);
+
+interface PurgeReport {
+  dryRun:             boolean;
+  entities:           number;
+  localizations:      number;
+  relations:          number;
+  images:             { assets: number, files: number };
+  orphanRenderHashes: number;
+  failures:           number;
+}
+
+const purgeReport = computed<PurgeReport | null>(() => {
+  if (taskResult.value == null || taskResult.value.images == null) return null;
+  return taskResult.value as unknown as PurgeReport;
+});
+
+const isPurgeResult = computed(() => purgeReport.value != null);
 const incompleteBatch = ref<(HsdataPublishReport & { pendingRowCount?: number }) | null>(null);
 const batchListLoading = ref(false);
 const batchList = ref<HsdataPublishReport[]>([]);
@@ -466,25 +526,24 @@ const publishType = ref('card_data');
 const dryRun = ref(false);
 const force = ref(false);
 
-// Single-card dev publish
+// Purge confirmation flow — the create promise resolves once the user confirms the modal.
 const purgeOpen = ref(false);
-const purging = ref(false);
+let resolvePurgeCreate: ((value: TaskPageSnapshot) => void) | null = null;
+let rejectPurgeCreate: ((reason: Error) => void) | null = null;
 
 async function executePurge() {
   purgeOpen.value = false;
-  purging.value = true;
   try {
-    const result = await orpc.hearthstone.purge.purgeSoftDeletedEntities() as { entities: number, localizations: number, relations: number };
-    toast.add({ title: '清理完成', description: `entities: ${result.entities}, localizations: ${result.localizations}, relations: ${result.relations}`, color: 'success' });
+    const result = await orpc.hearthstone.createTask.purge({ dryRun: dryRun.value });
+    resolvePurgeCreate?.(result as TaskPageSnapshot);
   } catch (error) {
-    toast.add({ title: '清理失败', description: getHsdataErrorMessage(error), color: 'error' });
-  } finally {
-    purging.value = false;
+    rejectPurgeCreate?.(error instanceof Error ? error : new Error(getHsdataErrorMessage(error)));
   }
 }
 
-function confirmPurge() {
-  purgeOpen.value = true;
+function cancelPurge() {
+  purgeOpen.value = false;
+  rejectPurgeCreate?.(new Error('Cancelled'));
 }
 
 const singleCardId = ref('');
@@ -652,6 +711,19 @@ const operations: TaskOperation[] = [
         resolvePinCreate = resolve;
         rejectPinCreate = reject;
         showPinConfirm.value = true;
+      });
+    },
+  },
+  {
+    key:    'purge',
+    label:  '清空已删除行',
+    icon:   'i-lucide-trash-2',
+    color:  'error',
+    create: async () => {
+      return new Promise<TaskPageSnapshot>((resolve, reject) => {
+        resolvePurgeCreate = resolve;
+        rejectPurgeCreate = reject;
+        purgeOpen.value = true;
       });
     },
   },

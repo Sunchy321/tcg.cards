@@ -14,6 +14,7 @@ import { hsdataImportTaskDefinition } from '../../lib/hearthstone/task/import';
 import { projectTaskDefinition } from '../../lib/hearthstone/task/project';
 import { unpackImportTaskDefinition } from '../../lib/hearthstone/task/unpack-import';
 import { announcementPublishTaskDefinition } from '../../lib/hearthstone/task/announcement-publish/definition';
+import { hearthstonePurgeTaskDefinition } from '../../lib/hearthstone/task/purge';
 
 /** If there's an active task on this scope from a previous boot, abandon it. */
 async function abandonStaleTask(taskType: string, scopeType: string, scopeKey: string): Promise<void> {
@@ -193,4 +194,22 @@ const announcementPublish = os
     });
   });
 
-export const createTask = { publish, pin, imageRender, imageDownload, hsdataImport, hsdataProjection, unpackImport, announcementPublish };
+/** Hard-deletes soft-deleted rows and their orphaned images as a task run. */
+const purge = os
+  .input(z.strictObject({ dryRun: z.boolean().optional() }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    const resolved = hearthstonePurgeTaskDefinition.resolveScope({});
+    await abandonStaleTask(hearthstonePurgeTaskDefinition.taskType, hearthstonePurgeTaskDefinition.scopeType, resolved.key);
+    const active = await getStore().getActiveTaskRun(hearthstonePurgeTaskDefinition.taskType, hearthstonePurgeTaskDefinition.scopeType, resolved.key);
+    if (active) throw new Error('Purge task is already running');
+
+    return createAndRunTask(hearthstonePurgeTaskDefinition.taskType, {
+      taskType:          hearthstonePurgeTaskDefinition.taskType,
+      definitionVersion: hearthstonePurgeTaskDefinition.definitionVersion,
+      scope:             { type: hearthstonePurgeTaskDefinition.scopeType, key: resolved.key, snapshot: resolved.snapshot as Record<string, unknown> },
+      params:            { dryRun: input.dryRun ?? false },
+    });
+  });
+
+export const createTask = { publish, pin, imageRender, imageDownload, hsdataImport, hsdataProjection, unpackImport, announcementPublish, purge };

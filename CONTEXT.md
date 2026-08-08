@@ -49,6 +49,17 @@ A single formula: `SHA256(canonicalize(renderModel))`. renderModel incorporates 
 ### rendering parameters (渲染参数)
 zone = `hand`, premium = `normal` (fixed). template = `battlegrounds` when the item's format is `battlegrounds`, otherwise `normal`. category = `glow` when the renderModel includes glow (curr side), otherwise `base` (prev / base sides). The editor provides a language selector; selecting a specific language renders only that language, while "all languages" renders all supported locales. The selector value persists in localStorage across page switches.
 
+## Hearthstone Card Image Cleanup (炉石卡图清理)
+
+### related image (相关图片)
+When cleaning soft-deleted rows, whether a card image is "related" is decided by the `renderHash` of the cleared `entity_localizations` rows — not by `cardId`. Images live as bucket files keyed by `renderHash`; the `card_image_assets` rows are only secondary consistency metadata.
+
+### orphaned image (孤立图片)
+An image asset whose `renderHash` is no longer referenced by any live (non-soft-deleted) `entity_localizations` row. Cleanup deletes only orphaned images: the orphaned set is `{renderHash of cleared rows} − {renderHash still referenced by live rows}`. Deleting a still-referenced `renderHash` would break surviving rows that share identical card content.
+
+### purge (清除软删除行)
+The manual cleanup operation that hard-deletes all soft-deleted rows from the local `entities` / `entity_localizations` / `entity_relations` tables. Runs as the `hearthstone_purge` task; when the image bucket is configured it also deletes the orphaned images of those rows, in the order files first, then tables. The bucket files are the primary object; `card_image_assets` rows are only secondary consistency metadata. Announcements are not protected — deleted images are deterministically re-rendered on demand.
+
 ## Task System (任务系统)
 
 ### Task Definition
