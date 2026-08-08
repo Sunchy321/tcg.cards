@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { execSync } from 'node:child_process';
 import { resolve } from 'node:path';
-import { inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import canonicalize from 'canonicalize';
 
 import { getLocalDb, type LocalDb } from '../../hsdata-local-db';
@@ -346,6 +346,16 @@ export const unpackImportTaskDefinition = createDefinition('hearthstone_unpack_i
         ctx.expectedTagsByDbfId = tagContext.expectedTagsByDbfId;
         return { phase: 'tags', index: 0 } as BlockInput;
       }
+
+      // Snapshots already projected for an older build and about to gain this build
+      // must be re-projected in fast-forward mode (version_only) instead of skipped.
+      await db.update(ExtractedCard)
+        .set({ projectionState: 'version_only' })
+        .where(and(
+          inArray(ExtractedCard.cardId, batch.map(c => c.cardId)),
+          eq(ExtractedCard.projectionState, 'projected'),
+          sql`not (${buildNumber} = any(${ExtractedCard.buildNumbers}))`,
+        ));
 
       // Upsert each card: if (cardId, snapshotHash) exists, append sourceTag; otherwise insert new
       for (const card of batch) {
