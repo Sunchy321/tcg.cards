@@ -123,10 +123,6 @@
             </template>
           </TaskController>
 
-          <UAlert v-if="taskError" color="error" variant="soft" icon="i-lucide-circle-alert" class="mt-2">
-            <pre class="whitespace-pre-wrap text-xs select-all">{{ taskError }}</pre>
-          </UAlert>
-
           <!-- Export requests JSON display -->
           <div v-if="debugRequestResult" class="space-y-2">
             <div class="flex flex-wrap items-center gap-2 text-xs text-muted">
@@ -178,7 +174,7 @@
                 :src="`data:image/png;base64,${previewResult.previews[selectedPreviewIndex]!.base64Png}`"
                 :alt="`${previewResult.previews[selectedPreviewIndex]!.zone}.${previewResult.previews[selectedPreviewIndex]!.template}.${previewResult.previews[selectedPreviewIndex]!.premium}`"
                 class="w-full rounded-lg border border-default"
-              />
+              >
             </div>
           </UCard>
 
@@ -263,7 +259,7 @@
 import type { ImagePremium, ImageTemplate, ImageZone } from '#model/hearthstone/schema/data/image';
 import type { Locale } from '#model/hearthstone/schema/basic';
 import type { TaskPageSnapshot } from '@tcg-cards/model/src/task';
-import type { TaskOperation } from '~/components/task/TaskController';
+import type { TaskOperation } from '~/components/task/TaskController.vue';
 
 import { useToast } from '@nuxt/ui/composables';
 import { getConsoleErrorMessage } from '@tcg-cards/console-core';
@@ -276,12 +272,9 @@ import {
   detectDesktopHearthstoneImageRenderer,
   downloadDesktopHearthstoneImageArchive,
   exportDesktopHearthstoneImageRequirements,
-  getDesktopHearthstoneImageArchive,
-  openDesktopPath,
   triggerDownload,
   triggerJsonDownload,
   previewDesktopHearthstoneImage,
-  submitDesktopHearthstoneReimportByRenderHash,
   type DesktopDebugRenderRequestResult,
   type DesktopDownloadArchiveSyncResult,
   type DesktopPreviewRenderResult,
@@ -305,15 +298,10 @@ const scale = ref<ImageScale>('single');
 const singleCardMode = ref<SingleCardMode>('cardId');
 const singleCardInput = ref('');
 
-const scaleItems: Array<{ label: string; value: ImageScale }> = [
+const scaleItems: Array<{ label: string, value: ImageScale }> = [
   { label: '单卡导入', value: 'single' },
   { label: '批量导入', value: 'batch' },
   { label: '全量导入', value: 'full' },
-];
-
-const singleCardModeItems: Array<{ label: string; value: SingleCardMode }> = [
-  { label: 'cardId', value: 'cardId' },
-  { label: 'renderHash', value: 'renderHash' },
 ];
 
 function onScaleChange(value: ImageScale) {
@@ -455,13 +443,13 @@ const rendererStatusText = computed(() => {
 function buildTaskInput() {
   const versionRaw = form.version.trim();
   return {
-    lang: form.lang,
+    lang:      form.lang,
     ...(versionRaw.length > 0 && versionRaw !== 'latest' && versionRaw !== 'all' ? { version: Number.parseInt(versionRaw, 10) } : {}),
     ...(versionRaw === 'all' ? { allVersions: true } : {}),
-    zones: form.zones,
+    zones:     form.zones,
     templates: form.templates,
-    premiums: form.premiums,
-    limit: Math.min(Number.parseInt(form.limit, 10) || 500, 500),
+    premiums:  form.premiums,
+    limit:     Math.min(Number.parseInt(form.limit, 10) || 500, 500),
   };
 }
 
@@ -473,9 +461,9 @@ function buildSingleCardInput() {
 
 const operations: TaskOperation[] = [
   {
-    key: 'render',
-    label: '渲染写入存储',
-    icon: 'i-lucide-download',
+    key:    'render',
+    label:  '渲染写入存储',
+    icon:   'i-lucide-download',
     create: () => orpc.hearthstone.createTask.imageRender({
       ...buildTaskInput(),
       ...(scale.value === 'single' ? buildSingleCardInput() : {}),
@@ -483,10 +471,10 @@ const operations: TaskOperation[] = [
     }) as Promise<TaskPageSnapshot>,
   },
   {
-    key: 'download',
-    label: '打包下载',
-    icon: 'i-lucide-archive',
-    color: 'warning',
+    key:    'download',
+    label:  '打包下载',
+    icon:   'i-lucide-archive',
+    color:  'warning',
     create: () => orpc.hearthstone.createTask.imageDownload({
       ...buildTaskInput(),
       ...(scale.value === 'single' ? buildSingleCardInput() : {}),
@@ -512,16 +500,13 @@ async function onTaskCompleted(snap: TaskPageSnapshot) {
   countMatchingImages();
 }
 
-const taskError = ref('');
-
-function onTaskFailed(_taskRunId: string, _errorCode: string | null, errorMessage: string | null) {
-  taskError.value = errorMessage ?? '未知错误';
+function onTaskFailed(_taskRunId: string, _errorCode: string | null, _errorMessage: string | null) {
   toast.add({ title: '渲染任务失败', color: 'error' });
 }
 
 interface ImageCounts {
-  total: number;
-  ready: number;
+  total:   number;
+  ready:   number;
   missing: number;
 }
 
@@ -603,6 +588,7 @@ async function executeSingleAction(outputType: ImageOutputType) {
           premiums:    form.premiums,
           allVersions: true,
           limit:       Math.min(Number.parseInt(form.limit, 10) || 500, 500),
+          outputMode:  'import',
         });
         triggerJsonDownload(JSON.parse(result.content), result.fileName);
         toast.add({ title: '生成完成', description: result.fileName, color: 'success' });
@@ -626,13 +612,14 @@ async function executeBatchAction(outputType: ImageOutputType) {
   if (outputType === 'export') {
     const versionRaw = form.version.trim();
     const result = await exportDesktopHearthstoneImageRequirements({
-      lang: form.lang,
+      lang:       form.lang,
       ...(versionRaw.length > 0 && versionRaw !== 'latest' && versionRaw !== 'all' ? { version: Number.parseInt(versionRaw, 10) } : {}),
       ...(versionRaw === 'all' ? { allVersions: true } : {}),
-      zones: form.zones,
-      templates: form.templates,
-      premiums: form.premiums,
-      limit: Math.min(Number.parseInt(form.limit, 10) || 500, 500),
+      zones:      form.zones,
+      templates:  form.templates,
+      premiums:   form.premiums,
+      limit:      Math.min(Number.parseInt(form.limit, 10) || 500, 500),
+      outputMode: 'import',
     });
     triggerJsonDownload(JSON.parse(result.content), result.fileName);
     toast.add({ title: '生成完成', description: result.fileName, color: 'success' });
@@ -651,14 +638,15 @@ async function countMatchingImages() {
   try {
     const versionRaw = form.version.trim();
     const result = await exportDesktopHearthstoneImageRequirements({
-      lang: form.lang,
+      lang:       form.lang,
       ...(versionRaw.length > 0 && versionRaw !== 'latest' && versionRaw !== 'all' ? { version: Number.parseInt(versionRaw, 10) } : {}),
       ...(versionRaw === 'all' ? { allVersions: true } : {}),
-      zones: form.zones,
-      templates: form.templates,
-      premiums: form.premiums,
-      limit: Math.min(Number.parseInt(form.limit, 10) || 500, 500),
-      scanAll: true,
+      zones:      form.zones,
+      templates:  form.templates,
+      premiums:   form.premiums,
+      limit:      Math.min(Number.parseInt(form.limit, 10) || 500, 500),
+      scanAll:    true,
+      outputMode: 'import',
     });
     const missing = result.requestCount + result.remainingEstimate;
     lastCounts.value = {
@@ -766,7 +754,9 @@ async function copyDebugRequest(index: number) {
   try {
     await navigator.clipboard.writeText(formatDebugRequestJson(request));
     copiedIndex.value = index;
-    setTimeout(() => { copiedIndex.value = null; }, 2000);
+    setTimeout(() => {
+      copiedIndex.value = null;
+    }, 2000);
   } catch {
     // no-op
   }
@@ -777,27 +767,27 @@ async function copyDebugRequest(index: number) {
 const IMAGE_PAGE_STATE_KEY = 'console-desktop-hearthstone-image-page-v3';
 
 interface ImagePageState {
-  lang: Locale;
-  version: string;
-  zones: ImageZone[];
-  templates: ImageTemplate[];
-  premiums: ImagePremium[];
-  limit: string;
-  scale: ImageScale;
-  singleCardMode: SingleCardMode;
+  lang:            Locale;
+  version:         string;
+  zones:           ImageZone[];
+  templates:       ImageTemplate[];
+  premiums:        ImagePremium[];
+  limit:           string;
+  scale:           ImageScale;
+  singleCardMode:  SingleCardMode;
   singleCardInput: string;
 }
 
 function createDefaultImagePageState(): ImagePageState {
   return {
-    lang:      'zhs',
-    version:   'latest',
-    zones:     ['hand'],
-    templates: ['normal', 'battlegrounds'],
-    premiums:  ['normal', 'golden', 'diamond', 'signature'],
-    limit:     '500',
-    scale:     'single',
-    singleCardMode: 'cardId',
+    lang:            'zhs',
+    version:         'latest',
+    zones:           ['hand'],
+    templates:       ['normal', 'battlegrounds'],
+    premiums:        ['normal', 'golden', 'diamond', 'signature'],
+    limit:           '500',
+    scale:           'single',
+    singleCardMode:  'cardId',
     singleCardInput: '',
   };
 }
@@ -807,14 +797,14 @@ function normalizeImagePageState(value: unknown): ImagePageState {
   if (typeof value !== 'object' || value == null) return defaults;
   const data = value as Record<string, unknown>;
   return {
-    lang:      typeof data.lang === 'string' && data.lang.length > 0 ? data.lang as Locale : defaults.lang,
-    version:   typeof data.version === 'string' && data.version.length > 0 ? data.version : defaults.version,
-    zones:     Array.isArray(data.zones) ? data.zones.filter((z): z is ImageZone => typeof z === 'string') : defaults.zones,
-    templates: Array.isArray(data.templates) ? data.templates.filter((t): t is ImageTemplate => typeof t === 'string') : defaults.templates,
-    premiums:  Array.isArray(data.premiums) ? data.premiums.filter((p): p is ImagePremium => typeof p === 'string') : defaults.premiums,
-    limit:     (typeof data.limit === 'string' || typeof data.limit === 'number') ? String(data.limit) : defaults.limit,
-    scale:     typeof data.scale === 'string' && ['single', 'batch', 'full'].includes(data.scale) ? data.scale as ImageScale : defaults.scale,
-    singleCardMode: typeof data.singleCardMode === 'string' && ['cardId', 'renderHash'].includes(data.singleCardMode) ? data.singleCardMode as SingleCardMode : defaults.singleCardMode,
+    lang:            typeof data.lang === 'string' && data.lang.length > 0 ? data.lang as Locale : defaults.lang,
+    version:         typeof data.version === 'string' && data.version.length > 0 ? data.version : defaults.version,
+    zones:           Array.isArray(data.zones) ? data.zones.filter((z): z is ImageZone => typeof z === 'string') : defaults.zones,
+    templates:       Array.isArray(data.templates) ? data.templates.filter((t): t is ImageTemplate => typeof t === 'string') : defaults.templates,
+    premiums:        Array.isArray(data.premiums) ? data.premiums.filter((p): p is ImagePremium => typeof p === 'string') : defaults.premiums,
+    limit:           (typeof data.limit === 'string' || typeof data.limit === 'number') ? String(data.limit) : defaults.limit,
+    scale:           typeof data.scale === 'string' && ['single', 'batch', 'full'].includes(data.scale) ? data.scale as ImageScale : defaults.scale,
+    singleCardMode:  typeof data.singleCardMode === 'string' && ['cardId', 'renderHash'].includes(data.singleCardMode) ? data.singleCardMode as SingleCardMode : defaults.singleCardMode,
     singleCardInput: typeof data.singleCardInput === 'string' ? data.singleCardInput : defaults.singleCardInput,
   };
 }
@@ -822,14 +812,14 @@ function normalizeImagePageState(value: unknown): ImagePageState {
 function persistImagePageState() {
   try {
     const payload: ImagePageState = {
-      lang:      form.lang,
-      version:   form.version,
-      zones:     form.zones,
-      templates: form.templates,
-      premiums:  form.premiums,
-      limit:     String(form.limit),
-      scale:     scale.value,
-      singleCardMode: singleCardMode.value,
+      lang:            form.lang,
+      version:         form.version,
+      zones:           form.zones,
+      templates:       form.templates,
+      premiums:        form.premiums,
+      limit:           String(form.limit),
+      scale:           scale.value,
+      singleCardMode:  singleCardMode.value,
       singleCardInput: singleCardInput.value,
     };
     window.localStorage.setItem(IMAGE_PAGE_STATE_KEY, JSON.stringify(payload));

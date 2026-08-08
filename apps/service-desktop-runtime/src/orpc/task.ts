@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { taskPageEvent, TaskPageSnapshot, taskPageSnapshot } from '@tcg-cards/model/src/task';
 
 import { os } from './index';
-import type { TaskRunInput } from '#task/index';
+import type { TaskRunInput, TaskRunSnapshot } from '#task/index';
 import { createTaskStore, createTaskController, createTaskScheduler, getTaskDefinition } from '#task/index';
 import { runTaskInWorker } from '#task/worker';
 import { buildTaskPageSnapshot } from '#task/snapshot';
@@ -64,6 +64,23 @@ const cancel = os
     return { pageTask: { kind: 'idle' as const }, stages: [] };
   });
 
+/** Builds a compact change fingerprint of a task run snapshot (run state + stage progress). */
+function snapshotFingerprint(snap: TaskRunSnapshot): string {
+  const run = snap.run;
+  return JSON.stringify([
+    run.status,
+    run.runRevision,
+    run.controlRequestKind,
+    run.currentStageKey,
+    run.currentStageIndex,
+    run.errorCode,
+    run.errorMessage,
+    run.startedAt,
+    run.finishedAt,
+    snap.stages.map(s => [s.stageKey, s.status, s.done, s.total, s.startedAt, s.finishedAt, s.segments]),
+  ]);
+}
+
 /** Streams real-time task events for one task run via DB polling. */
 const watch = os
   .input(z.strictObject({ taskRunId: z.uuid() }))
@@ -72,13 +89,14 @@ const watch = os
     const taskRunId = input.taskRunId;
     const terminalStatuses = ['completed', 'failed', 'canceled', 'abandoned'];
 
-    let lastRevision = -1;
+    let lastFingerprint = '';
     while (true) {
       const snap = await getStore().getTaskRun(taskRunId);
       if (!snap) break;
 
-      if (snap.run.runRevision !== lastRevision) {
-        lastRevision = snap.run.runRevision;
+      const fingerprint = snapshotFingerprint(snap);
+      if (fingerprint !== lastFingerprint) {
+        lastFingerprint = fingerprint;
         yield buildTaskPageSnapshot(snap);
       }
 

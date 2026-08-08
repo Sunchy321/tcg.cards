@@ -1086,9 +1086,12 @@ export async function exportCardImageRequirements(
     }
   }
 
-  if (requests.length === 0) {
-    throw new Error('No missing card images matched filters');
+  if (seenTotal === 0) {
+    const id = input.cardId ? `cardId ${input.cardId}` : input.renderHash ? `renderHash ${input.renderHash}` : 'the given filters';
+    throw new Error(`No card data matched the image filters for ${id}`);
   }
+  // requests.length === 0 here means every matched image is already rendered;
+  // fall through to build an empty export result instead of failing.
 
   const exportId = buildExportId();
   const fileName = buildFileName(exportId);
