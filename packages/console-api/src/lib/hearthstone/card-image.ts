@@ -414,9 +414,12 @@ export function buildImageRequestRenderModel(
   model: RenderModel,
   setDbfId: number,
 ): ImageRequestRenderModel {
+  // Older projections stored renderModels without textBuilderType; default it at
+  // request build time so validation passes without re-projecting.
   return {
     ...model,
-    set: setDbfId,
+    textBuilderType: model.textBuilderType ?? 'default',
+    set:             setDbfId,
   };
 }
 

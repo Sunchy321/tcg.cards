@@ -221,6 +221,7 @@ const debugRenderRequestInput = z.strictObject({
   zones:      z.array(imageZone).optional(),
   templates:  z.array(imageTemplate).optional(),
   premiums:   z.array(imagePremium).optional(),
+  version:    z.number().int().positive().optional(),
 });
 
 const debugRenderRequestOutput = z.strictObject({
@@ -251,6 +252,7 @@ const debugRenderRequest = os
       zones:     input.zones,
       templates: input.templates,
       premiums:  input.premiums,
+      version:   input.version,
     };
     const result = cardId != null
       ? await buildCardIdRenderRequests(getLocalDb(), cardId, options)
@@ -318,6 +320,7 @@ const previewRenderInput = z.strictObject({
   zones:      z.array(imageZone).optional(),
   templates:  z.array(imageTemplate).optional(),
   premiums:   z.array(imagePremium).optional(),
+  version:    z.number().int().positive().optional(),
 });
 
 const previewVariant = z.strictObject({
@@ -373,6 +376,7 @@ const previewRender = os
       zones:     input.zones,
       templates: input.templates,
       premiums:  input.premiums,
+      version:   input.version,
     };
 
     const result = cardId != null
@@ -460,6 +464,7 @@ const downloadArchive = os
       templates:   input.templates,
       premiums:    input.premiums,
       allVersions: input.allVersions,
+      version:     input.version,
     };
 
     const result = cardId != null

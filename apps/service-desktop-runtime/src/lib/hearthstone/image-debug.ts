@@ -41,6 +41,8 @@ export interface DebugRenderRequestOptions {
   premiums?: ImagePremium[];
   r2Bucket?: string;
   allVersions?: boolean;
+  /** Resolves the card revision valid at this build number. */
+  version?: number;
 }
 
 /** Builds render requests for a given renderHash, one per applicable variant. */
@@ -142,6 +144,7 @@ export async function buildCardIdRenderRequests(
   const premiums = options?.premiums ?? ['normal'];
   const r2Bucket = options?.r2Bucket ?? defaultR2AssetBucket;
   const allVersions = options?.allVersions ?? false;
+  const version = options?.version;
 
   const query = db.select({
     cardId:           Entity.cardId,
@@ -167,6 +170,7 @@ export async function buildCardIdRenderRequests(
     .where(and(
       eq(Entity.cardId, cardId),
       eq(EntityLocalization.lang, lang),
+      version == null ? undefined : sql`${version} = any(${Entity.version})`,
     ))
     .orderBy(asc(EntityLocalization.localizationHash));
 

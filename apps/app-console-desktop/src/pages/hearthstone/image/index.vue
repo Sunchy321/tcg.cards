@@ -556,6 +556,7 @@ async function executeSingleAction(outputType: ImageOutputType) {
       zones,
       templates,
       premiums,
+      ...(form.version !== 'latest' && form.version !== 'all' ? { version: Number.parseInt(form.version, 10) } : {}),
     });
     return;
   }
@@ -599,6 +600,7 @@ async function executeSingleAction(outputType: ImageOutputType) {
           zones,
           templates,
           premiums,
+          ...(form.version !== 'latest' && form.version !== 'all' ? { version: Number.parseInt(form.version, 10) } : {}),
         });
       }
     } catch (error) {

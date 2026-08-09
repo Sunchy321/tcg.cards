@@ -141,7 +141,7 @@ export async function executeImageRenderBlock(input: {
     const fn = filters.renderHash ? buildDebugRenderRequests : buildCardIdRenderRequests;
     const key = filters.renderHash ?? filters.cardId!;
     const result = await fn(getLocalDb(), key, {
-      lang: filters.lang, zones: filters.zones, templates: filters.templates, premiums: filters.premiums, allVersions: filters.allVersions,
+      lang: filters.lang, zones: filters.zones, templates: filters.templates, premiums: filters.premiums, allVersions: filters.allVersions, version: filters.version,
     });
     const uniqueReqs = [...new Map(result.requests.map(r => [r.output.fileName, r])).values()];
     const exportId = crypto.randomUUID();

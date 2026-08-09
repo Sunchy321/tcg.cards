@@ -76,6 +76,7 @@ export interface DesktopDebugRenderRequestInput {
   zones?:      ImageZone[];
   templates?:  ImageTemplate[];
   premiums?:   ImagePremium[];
+  version?:    number;
 }
 
 /** Debug render request result returned by the desktop runtime. */
@@ -103,6 +104,7 @@ export interface DesktopPreviewRenderInput {
   zones?:      ImageZone[];
   templates?:  ImageTemplate[];
   premiums?:   ImagePremium[];
+  version?:    number;
 }
 
 /** One preview variant returned by the preview render RPC. */
