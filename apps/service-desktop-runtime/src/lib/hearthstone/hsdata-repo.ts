@@ -423,13 +423,16 @@ const readTagImportSource = async (repoPath: string, tag: string) => {
   const object = `${tagRef}:CardDefs.xml`;
   const sourceCommit = trimToNull(runGit(repoPath, ['rev-list', '-n', '1', tagRef])) ?? '';
   const result = await parseGitHsdataXml(repoPath, ['cat-file', 'blob', object]);
+  // Derive the display name from the commit message (e.g. "Update to patch 30.0.0.198765"),
+  // matching the other source readers; the raw tag is only a fallback.
+  const name = sourceCommit ? parsePatchName(getCommitMessage(repoPath, sourceCommit)) : tag;
 
   return {
     sourceTag:  result.parsed.build,
     sourceCommit,
     sourceUri:  buildSourceUri(`tag:${tag}`),
     sourceHash: result.sourceHash,
-    name:       tag,
+    name,
     parsed:     result.parsed,
   } satisfies HsdataImportSource;
 };
