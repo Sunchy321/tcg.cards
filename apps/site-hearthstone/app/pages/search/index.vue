@@ -919,7 +919,7 @@ const subtitle = (card: CardEntityView) => {
     parts.push(card.race.map(r => i18n.te(`hearthstone.card.race.${r}`) ? i18n.t(`hearthstone.card.race.${r}`) : r).join('/'));
   }
 
-  if (card.spellSchool != null) {
+  if (card.spellSchool != null && card.type !== 'tavern_spell') {
     parts.push(i18n.te(`hearthstone.card.spellSchool.${card.spellSchool}`)
       ? i18n.t(`hearthstone.card.spellSchool.${card.spellSchool}`)
       : card.spellSchool);

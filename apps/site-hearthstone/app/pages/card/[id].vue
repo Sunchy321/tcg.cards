@@ -53,7 +53,7 @@
                   {{ raceLabel(r) }}<span v-if="i < data.race.length - 1">/</span>
                 </span>
               </template>
-              <template v-if="data.spellSchool">
+              <template v-if="data.spellSchool && data.type !== 'tavern_spell'">
                 / {{ spellSchoolLabel(data.spellSchool) }}
               </template>
             </span>
