@@ -97,6 +97,39 @@ const raceByInt: Record<number, string> = {
   100: 'vulpera',
 };
 
+/** TAG_CLASS enum int → slug, used when normalizeConfig.enumMap is the "multiclass" alias. */
+const classByInt: Record<number, string> = {
+  1:  'death_knight',
+  2:  'druid',
+  3:  'hunter',
+  4:  'mage',
+  5:  'paladin',
+  6:  'priest',
+  7:  'rogue',
+  8:  'shaman',
+  9:  'warlock',
+  10: 'warrior',
+  11: 'dream',
+  12: 'neutral',
+  13: 'whizbang',
+  14: 'demon_hunter',
+};
+
+/** Expands a MULTI_CLASSES (tag 476) bitmask into the list of class slugs. */
+function expandClassBitmask(mask: number): string[] {
+  const classes: string[] = [];
+  let bit = 1;
+  while (mask !== 0) {
+    if (mask & 1) {
+      const slug = classByInt[bit];
+      if (slug != null) classes.push(slug);
+    }
+    mask >>= 1;
+    bit++;
+  }
+  return classes;
+}
+
 const enumMapAliasTables: Record<string, Record<number, string>> = {
   'spell-school': spellSchoolByInt,
   'race': raceByInt,
@@ -178,6 +211,11 @@ export function normalizeExtractedTagValue(
 
     if (tag && tag.slug === 'card_set') {
       return context.setIdByDbfId.get(intValue) ?? null;
+    }
+
+    // MULTI_CLASSES (tag 476) value is a bitmask over TAG_CLASS enum values.
+    if (config.enumMap === 'multiclass') {
+      return expandClassBitmask(intValue);
     }
 
     const mapped = enumMap[String(intValue)];

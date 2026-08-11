@@ -82,24 +82,23 @@ function createLocalizationDraft(): LocalizationDraft {
   };
 }
 
-/** Resolves the string to append for an append_string_array tag.
+/** Collects the values to append for one append_string_array tag.
  *
- * Handles two tag shapes:
- * - enum_from_int / identity tags: the normalized value is already the string.
+ * Handles three tag shapes:
+ * - enum_from_int / identity tags: the normalized value is the string (or a string list).
  * - bool_from_int dual-race tags: a true value contributes projectConfig.value.
  */
-function appendStringArrayValue(
-  entityDraft: EntityRow,
-  tagRow: TagRow | undefined,
+function collectAppendStringArrayValues(
   normalized: unknown,
-  _path: keyof EntityRow,
-): string | null {
-  if (typeof normalized === 'string') return normalized;
+  tagRow: TagRow | undefined,
+): string[] {
+  if (typeof normalized === 'string') return [normalized];
+  if (Array.isArray(normalized)) return normalized.filter((v): v is string => typeof v === 'string');
   if (normalized === true) {
     const configured = tagRow?.projectConfig?.value;
-    if (typeof configured === 'string') return configured;
+    if (typeof configured === 'string') return [configured];
   }
-  return null;
+  return [];
 }
 
 function createEmptyEntityDraft(cardId: string, dbfId: number): EntityRow {
@@ -389,13 +388,13 @@ export function projectExtractedCard(
 
     if (projectKind === 'append_string_array') {
       const path = targetPath as keyof EntityRow;
-      const value = appendStringArrayValue(entityDraft, tagRow, normalized, path);
-      if (value != null) {
+      const values = collectAppendStringArrayValues(normalized, tagRow);
+      if (values.length > 0) {
         const arr = (entityDraft as unknown as Record<string, unknown>)[path];
         if (!Array.isArray(arr)) {
-          (entityDraft as unknown as Record<string, unknown>)[path] = [value];
+          (entityDraft as unknown as Record<string, unknown>)[path] = [...values];
         } else {
-          arr.push(value);
+          arr.push(...values);
         }
       }
       continue;
@@ -969,13 +968,13 @@ export async function projectHsdataFallback(build: number, cardIds: string[], dr
       }
 
       if (projectKind === 'append_string_array') {
-        const value = appendStringArrayValue(entityDraft, tag, normalized, targetPath as keyof EntityRow);
-        if (value != null) {
+        const values = collectAppendStringArrayValues(normalized, tag);
+        if (values.length > 0) {
           const arr = (entityDraft as unknown as Record<string, unknown>)[targetPath];
           if (!Array.isArray(arr)) {
-            (entityDraft as unknown as Record<string, unknown>)[targetPath] = [value];
+            (entityDraft as unknown as Record<string, unknown>)[targetPath] = [...values];
           } else {
-            arr.push(value);
+            arr.push(...values);
           }
         }
         continue;
