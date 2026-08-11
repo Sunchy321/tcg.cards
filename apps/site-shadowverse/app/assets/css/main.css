@@ -1,0 +1,67 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+@theme static {
+  --color-shadowverse-50: #eff6ff;
+  --color-shadowverse-100: #dbeafe;
+  --color-shadowverse-200: #bfdbfe;
+  --color-shadowverse-300: #93c5fd;
+  --color-shadowverse-400: #60a5fa;
+  --color-shadowverse-500: #3b82f6;
+  --color-shadowverse-600: #2563eb;
+  --color-shadowverse-700: #1d4ed8;
+  --color-shadowverse-800: #1e40af;
+  --color-shadowverse-900: #1e3a8a;
+  --color-shadowverse-950: #172554;
+
+  --color-beyond-50: #ecfeff;
+  --color-beyond-100: #cffafe;
+  --color-beyond-200: #a5f3fc;
+  --color-beyond-300: #67e8f9;
+  --color-beyond-400: #22d3ee;
+  --color-beyond-500: #06b6d4;
+  --color-beyond-600: #0891b2;
+  --color-beyond-700: #0e7490;
+  --color-beyond-800: #155e75;
+  --color-beyond-900: #164e63;
+  --color-beyond-950: #083344;
+}
+
+:root {
+  --mode-accent-50: var(--color-beyond-50);
+  --mode-accent-100: var(--color-beyond-100);
+  --mode-accent-200: var(--color-beyond-200);
+  --mode-accent-300: var(--color-beyond-300);
+  --mode-accent-400: var(--color-beyond-400);
+  --mode-accent-500: var(--color-beyond-500);
+  --mode-accent-600: var(--color-beyond-600);
+  --mode-accent-700: var(--color-beyond-700);
+  --mode-accent-800: var(--color-beyond-800);
+  --mode-accent-900: var(--color-beyond-900);
+  --mode-accent-950: var(--color-beyond-950);
+}
+
+html[data-mode='evolve'] {
+  --mode-accent-50: var(--color-shadowverse-50);
+  --mode-accent-100: var(--color-shadowverse-100);
+  --mode-accent-200: var(--color-shadowverse-200);
+  --mode-accent-300: var(--color-shadowverse-300);
+  --mode-accent-400: var(--color-shadowverse-400);
+  --mode-accent-500: var(--color-shadowverse-500);
+  --mode-accent-600: var(--color-shadowverse-600);
+  --mode-accent-700: var(--color-shadowverse-700);
+  --mode-accent-800: var(--color-shadowverse-800);
+  --mode-accent-900: var(--color-shadowverse-900);
+  --mode-accent-950: var(--color-shadowverse-950);
+}
+
+html {
+  background: #0f1115;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    linear-gradient(135deg, #0b1020 0%, #141a2e 46%, #0d1020 100%);
+  color: white;
+}

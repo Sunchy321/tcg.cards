@@ -7,12 +7,12 @@ export default defineNuxtConfig({
 
   devtools: { enabled: true },
 
-  devServer: { port: 3003 },
+  devServer: { port: 3005 },
 
   app: {
     head: {
       meta: [
-        { name: 'theme-color', content: '#7c2d12' },
+        { name: 'theme-color', content: '#1e3a8a' },
       ],
     },
   },
