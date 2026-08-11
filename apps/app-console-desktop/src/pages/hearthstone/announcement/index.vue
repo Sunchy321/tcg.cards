@@ -145,7 +145,10 @@
                     <template v-if="item.type === 'card_update'">
                       <div class="mb-2 flex h-8 items-center justify-between">
                         <span class="text-sm font-medium text-slate-700">高亮</span>
-                        <UButton icon="i-lucide-plus" label="添加" size="xs" variant="ghost" :disabled="(item.glow?.length ?? 0) >= glowPart.options.length" @click="addGlow(item)" />
+                        <div class="flex items-center gap-1">
+                          <UButton icon="i-lucide-wand-2" label="计算高亮" size="xs" variant="ghost" :disabled="!item.cardId || glowCalculatingId === item._key" :loading="glowCalculatingId === item._key" @click="computeGlow(item)" />
+                          <UButton icon="i-lucide-plus" label="添加" size="xs" variant="ghost" :disabled="(item.glow?.length ?? 0) >= glowPart.options.length" @click="addGlow(item)" />
+                        </div>
                       </div>
                       <div class="flex flex-1 flex-col gap-2">
                         <div
@@ -676,6 +679,58 @@ function addGlow(item: ItemForm) {
   const used = new Set(item.glow.map(entry => entry.part));
   const part = glowPart.options.find(candidate => !used.has(candidate));
   if (part) item.glow.push({ part, type: 'buff' });
+}
+
+/** Item key currently computing glow; empty when idle. */
+const glowCalculatingId = ref('');
+
+/** Computes glow for a card_update item by diffing its prev/curr card versions. */
+async function computeGlow(item: ItemForm) {
+  if (!item.cardId) return;
+  const version = item.version ?? form.version;
+  const lastVersion = item.lastVersion ?? form.lastVersion ?? form.version;
+  if (version == null || lastVersion == null) {
+    showToast('缺少版本信息', '请先选择公告版本', 'error');
+    return;
+  }
+  glowCalculatingId.value = item._key;
+  try {
+    const glow = await client.hearthstone.announcement.computeCardGlow({
+      cardId: item.cardId,
+      version,
+      lastVersion,
+      lang:   renderLang.value === 'all' ? 'zhs' : renderLang.value,
+      delta:  item.delta ?? undefined,
+    });
+    if (glow.length === 0) {
+      showToast('未检测到变化');
+      return;
+    }
+    mergeGlow(item, glow);
+  } catch (error) {
+    showToast('计算高亮失败', error instanceof Error ? error.message : String(error), 'error');
+  } finally {
+    glowCalculatingId.value = '';
+  }
+}
+
+const GLOW_PART_ORDER = new Map(glowPart.options.map((part, index) => [part, index]));
+
+function sortGlowEntries(entries: GlowEntry[]) {
+  return [...entries].sort(
+    (a, b) => (GLOW_PART_ORDER.get(a.part) ?? Number.MAX_SAFE_INTEGER) - (GLOW_PART_ORDER.get(b.part) ?? Number.MAX_SAFE_INTEGER),
+  );
+}
+
+/** Merges computed glow into the item: overwrites same-part types, keeps untouched parts. */
+function mergeGlow(item: ItemForm, computed: GlowEntry[]) {
+  const byPart = new Map((item.glow ?? []).map(entry => [entry.part, entry]));
+  for (const entry of computed) {
+    const existing = byPart.get(entry.part);
+    if (existing) existing.type = entry.type;
+    else byPart.set(entry.part, { part: entry.part, type: entry.type });
+  }
+  item.glow = sortGlowEntries([...byPart.values()]);
 }
 
 /** Lists fixed glow parts while preventing duplicate selections within an item. */
