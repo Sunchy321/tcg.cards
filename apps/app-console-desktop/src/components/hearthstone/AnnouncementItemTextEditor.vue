@@ -37,12 +37,12 @@ import {
 
 const props = defineProps<{
   modelValue: string;
-  search: (name: string) => Promise<CardSearchResult[]>;
+  search:     (name: string, format: string) => Promise<CardSearchResult[]>;
 }>();
 
 const emit = defineEmits<{
   'update:modelValue': [value: string];
-  'parsed': [result: ParsedResult];
+  'parsed':            [result: ParsedResult];
 }>();
 
 const editorRef = ref<HTMLElement>();
@@ -50,13 +50,16 @@ const editorView = shallowRef<EditorView>();
 const isDark = ref(false);
 const parsed = ref<ParsedResult>({ items: [], errors: [], searches: [] });
 
-/** Queries currently being searched, and queries that resolved to no candidates. */
-const searching = reactive(new Set<string>());
+/** In-flight searches keyed by (format, query) so distinct items never collide; value = query for display. */
+const searching = reactive(new Map<string, string>());
 const noMatch = reactive(new Set<string>());
 
 const resolver = createNameResolver(props.search);
 
 const MAX_CANDIDATES = 10;
+
+/** Keys one search by its (format, query) pair so distinct items never collide. */
+const searchKey = (query: string, format: string) => `${format}\0${query}`;
 
 let colorModeObserver: MutationObserver | undefined;
 let parseTimer: ReturnType<typeof setTimeout> | null = null;
@@ -67,10 +70,10 @@ const statusText = computed(() => {
     return `✗ 第 ${first.line} 行：${first.message}`;
   }
   const parts: string[] = [];
-  if (searching.size > 0) parts.push(`搜索中: ${[...searching].join('、')}`);
-  const pending = parsed.value.searches.filter(s => !s.expanded && !noMatch.has(s.query));
+  if (searching.size > 0) parts.push(`搜索中: ${[...searching.values()].join('、')}`);
+  const pending = parsed.value.searches.filter(s => !s.expanded && !noMatch.has(searchKey(s.query, s.format)));
   if (pending.length > 0) parts.push(`${pending.length} 个待搜索`);
-  const noMatches = parsed.value.searches.filter(s => !s.expanded && noMatch.has(s.query));
+  const noMatches = parsed.value.searches.filter(s => !s.expanded && noMatch.has(searchKey(s.query, s.format)));
   if (noMatches.length > 0) parts.push(`${noMatches.length} 个无匹配`);
   const expanded = parsed.value.searches.filter(s => s.expanded);
   if (expanded.length > 0) parts.push(`${expanded.length} 个已展开，请编辑 cardId`);
@@ -157,39 +160,47 @@ function runParse(text: string) {
   parsed.value = result;
   emit('parsed', result);
   const pending = result.searches.filter(
-    s => !s.expanded && !searching.has(s.query) && !noMatch.has(s.query),
+    s => !s.expanded && !searching.has(searchKey(s.query, s.format)) && !noMatch.has(searchKey(s.query, s.format)),
   );
   const capacity = MAX_CONCURRENT_SEARCHES - searching.size;
   for (const search of pending.slice(0, Math.max(0, capacity))) {
-    void runSearch(search.query);
+    void runSearch(search.query, search.format);
   }
 }
 
 /** Searches one `cardId: name:<query>` trigger and expands its candidates. */
-async function runSearch(query: string) {
-  searching.add(query);
+async function runSearch(query: string, format: string) {
+  const key = searchKey(query, format);
+  searching.set(key, query);
   try {
-    const candidates = await resolver(query);
-    expand(query, candidates);
+    const candidates = await resolver(query, format);
+    expand(query, format, candidates);
   } finally {
-    searching.delete(query);
+    searching.delete(key);
   }
 }
 
 /** Appends the top candidates onto the matching `cardId: name:<query>` value. */
-function expand(query: string, candidates: CardSearchResult[]) {
+function expand(query: string, format: string, candidates: CardSearchResult[]) {
   const view = editorView.value;
   if (!view) return;
   const text = view.state.doc.toString();
   const result = parseItemsYaml(text);
-  const trigger = result.searches.find(s => s.query === query && !s.expanded);
+  const trigger = result.searches.find(s => s.query === query && s.format === format && !s.expanded);
   if (!trigger) return;
+
   const list = candidates.slice(0, MAX_CANDIDATES).map(c => c.cardId).join(',');
   if (!list) {
-    noMatch.add(query);
+    noMatch.add(searchKey(query, format));
     return;
   }
-  view.dispatch({ changes: { from: trigger.from, to: trigger.to, insert: `name:${query} result:${list}` } });
+
+  // Auto-select when exactly one candidate remains.
+  if (candidates.length === 1) {
+    view.dispatch({ changes: { from: trigger.from, to: trigger.to, insert: candidates[0]!.cardId } });
+  } else {
+    view.dispatch({ changes: { from: trigger.from, to: trigger.to, insert: `name:${query} result:${list}` } });
+  }
 }
 
 watch(() => props.modelValue, value => {

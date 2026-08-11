@@ -20,11 +20,12 @@ export const searchCards = os
     tags:        ['Desktop', 'Hearthstone', 'Announcement'],
   })
   .input(z.object({
-    q:     z.string().trim().min(1).max(100),
-    limit: z.number().int().min(1).max(50).default(20),
+    q:      z.string().trim().min(1).max(100),
+    limit:  z.number().int().min(1).max(50).default(20),
+    format: z.string().trim().optional(),
   }))
   .output(z.array(cardSearchResult))
   .handler(async ({ input }) => {
     const db = getLocalDb();
-    return searchCardsByQuery(db, input.q, input.limit);
+    return searchCardsByQuery(db, input.q, input.limit, input.format);
   });

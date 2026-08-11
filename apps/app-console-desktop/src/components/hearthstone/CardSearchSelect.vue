@@ -85,8 +85,10 @@ const props = defineProps<{
   /** Whether multiple cards can be selected as removable tags. */
   multiple?:    boolean;
   placeholder?: string;
+  /** The item format, used to filter mercenary-mode cards from the search. */
+  format?:      string;
   /** Searches cards by name or cardId substring. */
-  search:       (query: string) => Promise<CardSearchResult[]>;
+  search:       (query: string, format: string) => Promise<CardSearchResult[]>;
   /** Resolves existing cardIds to names for tag and input display. */
   resolve?:     (cardIds: string[]) => Promise<ResolvedCardName[]>;
 }>();
@@ -170,7 +172,7 @@ watch(searchTerm, term => {
     searching.value = true;
     searchError.value = '';
     try {
-      searchResults.value = (await props.search(query)).map(toItem);
+      searchResults.value = (await props.search(query, props.format ?? '')).map(toItem);
     } catch (error) {
       searchResults.value = [];
       searchError.value = error instanceof Error ? error.message : String(error);

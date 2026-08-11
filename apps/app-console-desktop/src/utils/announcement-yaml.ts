@@ -55,18 +55,20 @@ export interface ParseError {
 
 /** A `cardId: name:<query>` search trigger awaiting expansion into candidate cardIds. */
 export interface SearchTrigger {
-  line: number;
+  line:     number;
   /** Text range of the `cardId:` value, for rewriting once the search completes. */
-  from: number;
-  to: number;
-  query: string;
+  from:     number;
+  to:       number;
+  query:    string;
   /** Whether candidate cardIds were already appended after the query (comma present). */
   expanded: boolean;
+  /** The item's format keyword, used to decide whether mercenary candidates apply. */
+  format:   string;
 }
 
 export interface ParsedResult {
-  items: TextItem[];
-  errors: ParseError[];
+  items:    TextItem[];
+  errors:   ParseError[];
   searches: SearchTrigger[];
 }
 
@@ -120,16 +122,17 @@ export function serializeItems(items: TextItem[]): string {
 }
 
 /** Builds a name resolver that caches candidates and dedupes in-flight requests. */
-export function createNameResolver(resolve: (name: string) => Promise<CardSearchResult[]>) {
+export function createNameResolver(resolve: (name: string, format: string) => Promise<CardSearchResult[]>) {
   const cache = new Map<string, CardSearchResult[]>();
   const inflight = new Map<string, Promise<CardSearchResult[]>>();
-  return async (name: string) => {
-    const key = name.trim();
+  return async (name: string, format?: string) => {
+    const trimmed = name.trim();
+    const key = format == null ? trimmed : `${format}\0${trimmed}`;
     const cached = cache.get(key);
     if (cached) return cached;
     const running = inflight.get(key);
     if (running) return running;
-    const promise = resolve(key).then(candidates => {
+    const promise = resolve(trimmed, format ?? '').then(candidates => {
       inflight.delete(key);
       cache.set(key, candidates);
       return candidates;
@@ -317,6 +320,7 @@ export function parseItemsYaml(text: string): ParsedResult {
         // none. Detecting by marker (not comma) covers single- and multi-candidate
         // expansions and prevents re-search loops.
         expanded: markerIndex !== -1,
+        format,
       });
       return;
     }

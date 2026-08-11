@@ -133,9 +133,9 @@
                   <!-- Card types: identity, glow, and previews -->
                   <template v-if="idKindOf(item.type) === 'card'">
                   <div class="flex min-w-0 flex-col gap-3">
-                    <UFormField label="卡牌ID"><CardSearchSelect v-model="item.cardId" :search="searchCards" :resolve="batchedResolveCardNames" /></UFormField>
+                    <UFormField label="卡牌ID"><CardSearchSelect v-model="item.cardId" :search="searchCards" :format="item.format" :resolve="batchedResolveCardNames" /></UFormField>
                     <UFormField label="关联卡牌">
-                      <CardSearchSelect v-model="item.relatedCardsStr" multiple :search="searchCards" :resolve="batchedResolveCardNames" placeholder="搜索并选择关联卡牌" />
+                      <CardSearchSelect v-model="item.relatedCardsStr" multiple :search="searchCards" :format="item.format" :resolve="batchedResolveCardNames" placeholder="搜索并选择关联卡牌" />
                     </UFormField>
                     <UFormField v-if="item.type === 'card_change'" label="分组">
                       <USelect :model-value="item.group ?? 'none'" :items="groupOptions" placeholder="无" class="w-full" @update:model-value="item.group = $event === 'none' ? '' : String($event)" />
@@ -412,8 +412,8 @@ function ensureCardMeta(cardId: string) {
 }
 
 /** Searches cards by English/Chinese name or cardId for the CardSearchSelect widget. */
-function searchCards(query: string) {
-  return client.hearthstone.announcement.searchCards({ q: query });
+function searchCards(query: string, format?: string) {
+  return client.hearthstone.announcement.searchCards({ q: query, format });
 }
 
 interface ResolveWaiter {
@@ -981,8 +981,8 @@ function toTextItem(item: ItemForm): TextItem {
 }
 
 /** Searches cards for text-mode name resolution with a larger candidate window. */
-function textSearch(name: string) {
-  return client.hearthstone.announcement.searchCards({ q: name, limit: 50 });
+function textSearch(name: string, format: string) {
+  return client.hearthstone.announcement.searchCards({ q: name, limit: 50, format });
 }
 
 /** Whether two items carry the same meaningful content (previews are only valid when equal). */

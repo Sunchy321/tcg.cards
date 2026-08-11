@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
+import { and, desc, eq, ilike, inArray, ne, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { LatestEntity, LatestEntityLocalization } from '@tcg-cards/db/schema/shared/hearthstone';
@@ -11,8 +11,8 @@ export interface CardSearchResult {
   cardId: string;
   nameEn: string | null;
   nameZh: string | null;
-  set: string | null;
-  type: string | null;
+  set:    string | null;
+  type:   string | null;
 }
 
 /** One card resolved by exact cardId from the latest local card data. */
@@ -57,8 +57,12 @@ export async function searchCardCandidates(db: LocalDb, name: string, lang: Lang
 /**
  * Searches cards by English name, Chinese name, or cardId substring. Prefix matches
  * rank before substring matches, and each card appears at most once.
+ *
+ * Enchantments are always excluded. Mercenary-mode cards (set `mercenaries`) are only
+ * kept when `format` is `mercenaries`, and golden (`_G`) variants are hidden when their
+ * base card is also a candidate.
  */
-export async function searchCardsByQuery(db: LocalDb, q: string, limit = 20): Promise<CardSearchResult[]> {
+export async function searchCardsByQuery(db: LocalDb, q: string, limit = 20, format?: string | null): Promise<CardSearchResult[]> {
   const query = q.trim();
   if (!query) return [];
 
@@ -84,15 +88,22 @@ export async function searchCardsByQuery(db: LocalDb, q: string, limit = 20): Pr
   const cardIds = [...new Set(matches.map(m => m.cardId))];
   const entities = cardIds.length > 0
     ? await db.select({
-        cardId: LatestEntity.cardId,
-        set:    LatestEntity.set,
-        type:   LatestEntity.type,
-      }).from(LatestEntity).where(inArray(LatestEntity.cardId, cardIds))
+      cardId: LatestEntity.cardId,
+      set:    LatestEntity.set,
+      type:   LatestEntity.type,
+    }).from(LatestEntity)
+      .where(and(
+        inArray(LatestEntity.cardId, cardIds),
+        ne(LatestEntity.type, 'enchantment'),
+        format === 'mercenaries' ? eq(LatestEntity.set, 'mercenaries') : ne(LatestEntity.set, 'mercenaries'),
+      ))
     : [];
+  const entityCardIds = new Set(entities.map(e => e.cardId));
   const entityByCardId = new Map(entities.map(e => [e.cardId, e]));
 
   const byCardId = new Map<string, CardSearchResult>();
   for (const match of matches) {
+    if (!entityCardIds.has(match.cardId)) continue;
     const entry = byCardId.get(match.cardId) ?? {
       cardId: match.cardId,
       nameEn: null,
@@ -112,9 +123,14 @@ export async function searchCardsByQuery(db: LocalDb, q: string, limit = 20): Pr
     return namePrefixHit || result.cardId.toLowerCase().startsWith(lower) ? 0 : 1;
   };
 
-  return [...byCardId.values()]
-    .sort((a, b) => rank(a) - rank(b) || String(a.nameEn ?? '').localeCompare(String(b.nameEn ?? '')))
-    .slice(0, limit);
+  const sorted = [...byCardId.values()]
+    .sort((a, b) => rank(a) - rank(b) || String(a.nameEn ?? '').localeCompare(String(b.nameEn ?? '')));
+
+  // Hide golden (`_G`) variants when their base card is also a candidate.
+  const bases = new Set(sorted.filter(c => !c.cardId.endsWith('_G')).map(c => c.cardId));
+  const filtered = sorted.filter(c => !(c.cardId.endsWith('_G') && bases.has(c.cardId.slice(0, -2))));
+
+  return filtered.slice(0, limit);
 }
 
 /**
