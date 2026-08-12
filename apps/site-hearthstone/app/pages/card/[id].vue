@@ -376,6 +376,8 @@ import type { Locale } from '#model/hearthstone/schema/basic';
 import type { CardProfile } from '#model/hearthstone/schema/card';
 import type { Patch } from '#model/hearthstone/schema/patch';
 import { TAG_ID } from '#model/hearthstone/constant/tag';
+import type { ImageVariant } from '#model/hearthstone/schema/data/image';
+import { isCardImageVariantAllowed, type CardImageVariantRow, type ImageVariantMechanicIds } from '#shared/hearthstone/card-image-variant';
 
 import { CodeDiff } from 'v-code-diff';
 import { getHearthstoneLabel } from '~/utils/hearthstone-labels';
@@ -792,28 +794,34 @@ const hasBattlegroundsVariant = computed(() => {
 const variant = ref<CardImageOption>(isBattlegrounds.value ? 'battlegrounds' : 'normal');
 
 const variantOptions = computed(() => {
-  if (isBgsOnly.value) {
-    return [
-      { label: t('hearthstone.card.variant.battlegrounds'), value: 'battlegrounds' as CardImageOption },
-    ];
-  }
+  const d = data.value;
+  if (d == null) return [];
 
-  const opts: Array<{ label: string, value: CardImageOption }> = [
-    { label: t('hearthstone.card.variant.normal'), value: 'normal' },
-    { label: t('hearthstone.card.variant.golden'), value: 'golden' },
-  ];
+  const row: CardImageVariantRow = {
+    type:      d.type,
+    set:       d.set,
+    techLevel: d.techLevel,
+    mechanics: d.mechanics ?? {},
+  };
+  const mechanicIds: ImageVariantMechanicIds = {
+    premium:   String(TAG_ID.PREMIUM),
+    diamond:   String(TAG_ID.HAS_DIAMOND),
+    signature: String(TAG_ID.HAS_SIGNATURE),
+  };
+  const isPremium = hasMechanic(String(TAG_ID.PREMIUM));
 
-  if (hasMechanic(String(TAG_ID.HAS_DIAMOND))) {
-    opts.push({ label: t('hearthstone.card.variant.diamond'), value: 'diamond' });
-  }
-  if (hasMechanic(String(TAG_ID.HAS_SIGNATURE))) {
-    opts.push({ label: t('hearthstone.card.variant.signature'), value: 'signature' });
-  }
-  if (hasBattlegroundsVariant.value) {
-    opts.push({ label: t('hearthstone.card.variant.battlegrounds'), value: 'battlegrounds' });
-  }
-
-  return opts;
+  const candidates: CardImageOption[] = ['normal', 'golden', 'diamond', 'signature', 'battlegrounds'];
+  return candidates
+    .filter(option => {
+      const variant: ImageVariant = option === 'battlegrounds'
+        ? { category: 'base', zone: 'hand', template: 'battlegrounds', premium: isPremium ? 'golden' : 'normal' }
+        : { category: 'base', zone: 'hand', template: 'normal', premium: option };
+      return isCardImageVariantAllowed(row, variant, mechanicIds);
+    })
+    .map(option => ({
+      label: t(`hearthstone.card.variant.${option}`),
+      value: option,
+    }));
 });
 
 watch(isBattlegrounds, v => {
@@ -823,6 +831,12 @@ watch(isBattlegrounds, v => {
 watch(hasBattlegroundsVariant, v => {
   if (!v) variant.value = 'normal';
 });
+
+watch(variantOptions, options => {
+  if (options.length > 0 && !options.some(option => option.value === variant.value)) {
+    variant.value = options[0]!.value;
+  }
+}, { immediate: true });
 
 // Relation icon
 

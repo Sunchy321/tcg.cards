@@ -4,14 +4,17 @@ import { createDb } from '@tcg-cards/db';
 import { Entity, EntityLocalization } from '@tcg-cards/db/schema/shared/hearthstone/entity';
 import { Set as HearthstoneSet } from '@tcg-cards/db/schema/shared/hearthstone/set';
 import type { Locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
-import type { ImagePremium, ImageTemplate, ImageVariant, ImageZone } from '@tcg-cards/model/src/hearthstone/schema/data/image';
+import type { ImagePremium, ImageTemplate, ImageZone } from '@tcg-cards/model/src/hearthstone/schema/data/image';
+
 import {
   buildImageVariants,
-  buildRequest,
   isCardImageVariantAllowed,
+} from '@tcg-cards/shared/hearthstone/card-image-variant';
+
+import {
+  buildRequest,
   loadVariantMechanicIds,
   type ImageCandidateRow,
-  type ImageVariantMechanicIds,
 } from '@tcg-cards/console-api/lib/hearthstone/card-image';
 
 type ImageDebugDb = ReturnType<typeof createDb>;
@@ -35,14 +38,14 @@ function stripNulls<T>(value: T): T {
 }
 
 export interface DebugRenderRequestOptions {
-  lang?: Locale;
-  zones?: ImageZone[];
-  templates?: ImageTemplate[];
-  premiums?: ImagePremium[];
-  r2Bucket?: string;
+  lang?:        Locale;
+  zones?:       ImageZone[];
+  templates?:   ImageTemplate[];
+  premiums?:    ImagePremium[];
+  r2Bucket?:    string;
   allVersions?: boolean;
   /** Resolves the card revision valid at this build number. */
-  version?: number;
+  version?:     number;
 }
 
 /** Builds render requests for a given renderHash, one per applicable variant. */
@@ -120,13 +123,13 @@ export async function buildDebugRenderRequests(
   }
 
   return {
-    cardId:          candidate.cardId,
-    lang:            candidate.lang,
-    renderHash:      candidate.renderHash,
-    set:             candidate.set,
-    type:            candidate.type,
-    techLevel:       candidate.techLevel,
-    variantCount:    requests.length,
+    cardId:       candidate.cardId,
+    lang:         candidate.lang,
+    renderHash:   candidate.renderHash,
+    set:          candidate.set,
+    type:         candidate.type,
+    techLevel:    candidate.techLevel,
+    variantCount: requests.length,
     requests,
   };
 }
@@ -219,13 +222,13 @@ export async function buildCardIdRenderRequests(
   const firstRow = rows[0]!;
 
   return {
-    cardId:          firstRow.cardId,
-    lang:            firstRow.lang,
-    renderHash:      firstRow.renderHash,
-    set:             firstRow.set,
-    type:            firstRow.type,
-    techLevel:       firstRow.techLevel,
-    variantCount:    requests.length,
+    cardId:       firstRow.cardId,
+    lang:         firstRow.lang,
+    renderHash:   firstRow.renderHash,
+    set:          firstRow.set,
+    type:         firstRow.type,
+    techLevel:    firstRow.techLevel,
+    variantCount: requests.length,
     requests,
   };
 }

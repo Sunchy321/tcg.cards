@@ -29,6 +29,13 @@ import { Set as HearthstoneSet } from '@tcg-cards/db/schema/shared/hearthstone/s
 import { Tag } from '@tcg-cards/db/schema/shared/hearthstone/tag';
 import { TAG_SLUG } from '@tcg-cards/model/src/hearthstone/constant/tag';
 
+import {
+  buildImageVariants,
+  isCardImageVariantAllowed,
+  type ImageVariantMechanicIds,
+  type MechanicMap,
+} from '@tcg-cards/shared/hearthstone/card-image-variant';
+
 export const hearthstoneImageSpecVersion = 'v1';
 export const hearthstoneImageRequirementSchema = 'tcg.cards.hearthstone.card-image-requirements.v1';
 export const defaultCardImageExportLimit = 200;
@@ -36,9 +43,6 @@ export const hardCardImageExportLimit = 500;
 
 const exportBatchSize = 1000;
 const defaultR2AssetBucket = 'asset';
-
-type MechanicValue = boolean | number;
-type MechanicMap = Record<string, MechanicValue>;
 
 export interface ImageCandidateRow {
   cardId:           string;
@@ -53,12 +57,6 @@ export interface ImageCandidateRow {
   setDbfId:         number;
   techLevel:        number | null;
   mechanics:        MechanicMap;
-}
-
-export interface ImageVariantMechanicIds {
-  diamond:   string | null;
-  signature: string | null;
-  premium:   string | null;
 }
 
 interface BrowserImportFile {
@@ -240,30 +238,6 @@ function imageKey(renderHash: string, variant: ImageVariant) {
   return `${renderHash}\u0000${variant.category}\u0000${variant.zone}\u0000${variant.template}\u0000${variant.premium}`;
 }
 
-function isMechanicEnabled(value: unknown) {
-  return value === true || (typeof value === 'number' && value !== 0);
-}
-
-function hasMechanic(mechanics: MechanicMap, enumId: string | null) {
-  return enumId != null && isMechanicEnabled(mechanics[enumId]);
-}
-
-export function buildImageVariants(input: Pick<CardImageRequirementExportInput, 'zones' | 'templates' | 'premiums'>) {
-  const zones = uniqueValues(input.zones);
-  const templates = uniqueValues(input.templates);
-  const premiums = uniqueValues(input.premiums);
-
-  return zones.flatMap(zone =>
-    templates.flatMap(template =>
-      premiums.map(premium => ({
-        category: 'base' as const,
-        zone,
-        template,
-        premium,
-      }))),
-  );
-}
-
 export function buildCardImageStyle(variant: ImageVariant): ImageStyle {
   return {
     styleKey:              `${variant.category}.${variant.zone}.${variant.template}.${variant.premium}`,
@@ -276,60 +250,6 @@ export function buildCardImageStyle(variant: ImageVariant): ImageStyle {
     height:                768,
     transparentBackground: true,
   };
-}
-
-export function isCardImageVariantAllowed(
-  row: Pick<ImageCandidateRow, 'type' | 'set' | 'techLevel' | 'mechanics'>,
-  variant: ImageVariant,
-  mechanicIds: ImageVariantMechanicIds,
-) {
-  if (row.type === 'enchantment') {
-    return false;
-  }
-
-  if (variant.zone === 'play') {
-    return false;
-  }
-
-  if (variant.template === 'battlegrounds') {
-    if (row.set !== 'bgs' && row.techLevel == null) {
-      return false;
-    }
-
-    if (hasMechanic(row.mechanics, mechanicIds.premium)) {
-      return variant.zone === 'hand' && variant.premium === 'golden';
-    }
-
-    return variant.zone === 'hand' && variant.premium === 'normal';
-  }
-
-  if (variant.zone !== 'hand' || variant.template !== 'normal') {
-    return false;
-  }
-
-  // Battlegrounds-only types should not generate normal-template renders
-  if (row.type === 'trinket' || row.type === 'anomaly') {
-    return false;
-  }
-
-  // Mercenary abilities have no golden variant
-  if (row.type === 'mercenary_ability' && variant.premium === 'golden') {
-    return false;
-  }
-
-  if (variant.premium === 'normal' || variant.premium === 'golden') {
-    return true;
-  }
-
-  if (variant.premium === 'diamond') {
-    return hasMechanic(row.mechanics, mechanicIds.diamond);
-  }
-
-  if (variant.premium === 'signature') {
-    return hasMechanic(row.mechanics, mechanicIds.signature);
-  }
-
-  return false;
 }
 
 export function buildCardImageRequestId(renderHash: string, variant: ImageVariant) {

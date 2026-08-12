@@ -93,17 +93,17 @@
                 <div class="grid gap-4 md:grid-cols-3">
                   <UFormField label="展示区域" orientation="horizontal" :ui="{ root: '!justify-start' }">
                     <UFieldGroup>
-                      <UButton v-for="item in zoneItems" :key="item.value" :label="item.label" :color="item.disabled ? 'neutral' : form.zones.includes(item.value) ? 'primary' : 'neutral'" :variant="form.zones.includes(item.value) ? 'solid' : 'outline'" size="sm" :disabled="disabled || item.disabled === true" @click="toggleValue(form.zones, item.value)" />
+                      <UButton v-for="item in visibleZoneItems" :key="item.value" :label="item.label" :color="item.disabled ? 'neutral' : form.zones.includes(item.value) ? 'primary' : 'neutral'" :variant="form.zones.includes(item.value) ? 'solid' : 'outline'" size="sm" :disabled="disabled || item.disabled === true" @click="toggleValue(form.zones, item.value)" />
                     </UFieldGroup>
                   </UFormField>
                   <UFormField label="渲染模板" orientation="horizontal" :ui="{ root: '!justify-start' }">
                     <UFieldGroup>
-                      <UButton v-for="item in templateItems" :key="item.value" :label="item.label" :color="form.templates.includes(item.value) ? 'primary' : 'neutral'" :variant="form.templates.includes(item.value) ? 'solid' : 'outline'" size="sm" :disabled="disabled" @click="toggleValue(form.templates, item.value)" />
+                      <UButton v-for="item in visibleTemplateItems" :key="item.value" :label="item.label" :color="form.templates.includes(item.value) ? 'primary' : 'neutral'" :variant="form.templates.includes(item.value) ? 'solid' : 'outline'" size="sm" :disabled="disabled" @click="toggleValue(form.templates, item.value)" />
                     </UFieldGroup>
                   </UFormField>
                   <UFormField label="外观品质" orientation="horizontal" :ui="{ root: '!justify-start' }">
                     <UFieldGroup>
-                      <UButton v-for="item in premiumItems" :key="item.value" :label="item.label" :color="form.premiums.includes(item.value) ? 'primary' : 'neutral'" :variant="form.premiums.includes(item.value) ? 'solid' : 'outline'" size="sm" :disabled="disabled" @click="toggleValue(form.premiums, item.value)" />
+                      <UButton v-for="item in visiblePremiumItems" :key="item.value" :label="item.label" :color="form.premiums.includes(item.value) ? 'primary' : 'neutral'" :variant="form.premiums.includes(item.value) ? 'solid' : 'outline'" size="sm" :disabled="disabled" @click="toggleValue(form.premiums, item.value)" />
                     </UFieldGroup>
                   </UFormField>
                 </div>
@@ -353,6 +353,78 @@ const form = reactive({
   premiums:  ['normal', 'golden', 'diamond', 'signature'] as ImagePremium[],
   limit:     '500',
 });
+
+// ── Single-card variant filtering ──
+
+interface AllowedVariants {
+  zones:     ImageZone[];
+  templates: ImageTemplate[];
+  premiums:  ImagePremium[];
+}
+
+const allowedVariants = ref<AllowedVariants | null>(null);
+let metaRequestSeq = 0;
+
+const visibleZoneItems = computed(() => {
+  if (allowedVariants.value == null) return zoneItems;
+  return zoneItems.filter(item => allowedVariants.value!.zones.includes(item.value));
+});
+
+const visibleTemplateItems = computed(() => {
+  if (allowedVariants.value == null) return templateItems;
+  return templateItems.filter(item => allowedVariants.value!.templates.includes(item.value));
+});
+
+const visiblePremiumItems = computed(() => {
+  if (allowedVariants.value == null) return premiumItems;
+  return premiumItems.filter(item => allowedVariants.value!.premiums.includes(item.value));
+});
+
+function keepAtLeastOne<T>(next: T[], allowed: T[]): T[] {
+  if (next.length > 0) return next;
+  return allowed.length > 0 ? [allowed[0]!] : [];
+}
+
+function pruneFormToAllowed() {
+  const allowed = allowedVariants.value;
+  if (!allowed) return;
+  form.zones = keepAtLeastOne(
+    form.zones.filter(zone => allowed.zones.includes(zone)),
+    allowed.zones,
+  );
+  form.templates = keepAtLeastOne(
+    form.templates.filter(template => allowed.templates.includes(template)),
+    allowed.templates,
+  );
+  form.premiums = keepAtLeastOne(
+    form.premiums.filter(premium => allowed.premiums.includes(premium)),
+    allowed.premiums,
+  );
+}
+
+async function loadSingleCardMeta() {
+  const seq = ++metaRequestSeq;
+  const input = singleCardInput.value.trim();
+  const active = scale.value === 'single' && singleCardMode.value === 'cardId' && input.length > 0;
+  if (!active) {
+    allowedVariants.value = null;
+    return;
+  }
+  try {
+    const params: { cardId: string, lang: Locale, version?: number } = { cardId: input, lang: form.lang };
+    const versionRaw = form.version.trim();
+    if (versionRaw !== 'latest' && versionRaw !== 'all' && versionRaw.length > 0) {
+      params.version = Number.parseInt(versionRaw, 10);
+    }
+    const meta = await orpc.hearthstone.announcement.cardMeta(params);
+    if (seq !== metaRequestSeq) return;
+    allowedVariants.value = meta.allowedVariants;
+    pruneFormToAllowed();
+  } catch {
+    if (seq !== metaRequestSeq) return;
+    allowedVariants.value = null;
+  }
+}
 
 // ── Result state ──
 
@@ -869,8 +941,17 @@ watch(
   { deep: true },
 );
 
+watch(
+  [() => scale.value, () => singleCardMode.value, () => singleCardInput.value, () => form.version],
+  () => {
+    void loadSingleCardMeta();
+  },
+  { immediate: true },
+);
+
 onMounted(() => {
   restoreImagePageState();
+  void loadSingleCardMeta();
   void loadImageSettings();
   void loadVersionItems();
   void loadRendererHealth();

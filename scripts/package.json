@@ -6,6 +6,7 @@
     "@tcg-cards/console-api": "workspace:*",
     "@tcg-cards/db": "workspace:*",
     "@tcg-cards/model": "workspace:*",
+    "@tcg-cards/shared": "workspace:*",
     "@types/node": "^22.0.0",
     "canonicalize": "^3.0.0",
     "drizzle-orm": "^1.0.0-beta.22",

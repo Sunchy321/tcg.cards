@@ -26,6 +26,9 @@ import { CardImageAsset } from '@tcg-cards/db/schema/shared/hearthstone/card-ima
 import type { RenderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
 import { glowPart, type GlowEntry } from '@tcg-cards/model/src/hearthstone/schema/announcement';
 import { locale, type Locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
+import { isCardImageVariantAllowed } from '@tcg-cards/shared/hearthstone/card-image-variant';
+import { loadVariantMechanicIds } from '@tcg-cards/console-api/lib/hearthstone/card-image';
+import type { ImageCategory, ImagePremium, ImageTemplate, ImageZone } from '@tcg-cards/model/src/hearthstone/schema/data/image';
 
 import { getDb } from '../lib/db';
 import { parseArg } from '../lib/args';
@@ -179,8 +182,8 @@ for (const item of items) {
 // 3. Scan bucket files (all categories, including glow).
 async function collectFiles(
   dir: string,
-  category: string | null,
-  out: Array<{ path: string, hash: string, category: string }>,
+  segments: string[],
+  out: Array<{ path: string, hash: string, category: string, zone: string, template: string, premium: string }>,
 ): Promise<void> {
   let entries;
   try {
@@ -191,17 +194,80 @@ async function collectFiles(
   for (const entry of entries) {
     const full = join(dir, entry.name);
     if (entry.isDirectory()) {
-      await collectFiles(full, category ?? entry.name, out);
+      await collectFiles(full, [...segments, entry.name], out);
     } else if (entry.isFile() && entry.name.endsWith('.webp')) {
-      out.push({ path: full, hash: entry.name.slice(0, -'.webp'.length), category: category ?? 'unknown' });
+      out.push({
+        path:     full,
+        hash:     entry.name.slice(0, -'.webp'.length),
+        category: segments[0] ?? 'unknown',
+        zone:     segments[1] ?? '',
+        template: segments[2] ?? '',
+        premium:  segments[3] ?? '',
+      });
     }
   }
 }
 
-const files: Array<{ path: string, hash: string, category: string }> = [];
-await collectFiles(join(bucketDir, 'hearthstone', 'card'), null, files);
+const files: Array<{ path: string, hash: string, category: string, zone: string, template: string, premium: string }> = [];
+await collectFiles(join(bucketDir, 'hearthstone', 'card'), [], files);
+
+// Card rows + variant mechanic ids, for deleting files whose variant is no longer
+// allowed. Only loads rows for hashes that actually appear in the bucket.
+const fileHashes = [...new Set(files.filter(f => protectedHashes.has(f.hash)).map(f => f.hash))];
+const cardRows: Array<{ renderHash: string, type: string, set: string, techLevel: number | null, mechanics: Record<string, unknown> }> = [];
+for (let i = 0; i < fileHashes.length; i += 1000) {
+  const chunk = fileHashes.slice(i, i + 1000);
+  const rows = await db.select({
+    renderHash: EntityLocalization.renderHash,
+    type:       Entity.type,
+    set:        Entity.set,
+    techLevel:  Entity.techLevel,
+    mechanics:  Entity.mechanics,
+  })
+    .from(Entity)
+    .innerJoin(EntityLocalization, and(
+      eq(Entity.cardId, EntityLocalization.cardId),
+      eq(Entity.revisionHash, EntityLocalization.revisionHash),
+      sql`${Entity.version} && ${EntityLocalization.version}`,
+    ))
+    .where(inArray(EntityLocalization.renderHash, chunk));
+  cardRows.push(...rows);
+}
+const rowByRenderHash = new Map(cardRows.map(r => [r.renderHash, r]));
+
+const mechanicIds = await loadVariantMechanicIds(db as never, [
+  { category: 'base', zone: 'hand', template: 'normal', premium: 'diamond' },
+  { category: 'base', zone: 'hand', template: 'normal', premium: 'signature' },
+  { category: 'base', zone: 'hand', template: 'battlegrounds', premium: 'normal' },
+]);
+
+const variantFromFile = (file: typeof files[number]) => ({
+  category: file.category as ImageCategory,
+  zone:     file.zone as ImageZone,
+  template: file.template as ImageTemplate,
+  premium:  file.premium as ImagePremium,
+});
+
+/** Whether a protected file's variant is still allowed for its card. */
+function variantAllowed(file: typeof files[number]): boolean {
+  if (!file.zone || !file.template || !file.premium) return true;
+  const row = rowByRenderHash.get(file.hash);
+  if (!row) return true;
+  return isCardImageVariantAllowed(
+    {
+      type:      row.type as RenderModel['type'],
+      set:       row.set,
+      techLevel: row.techLevel,
+      mechanics: row.mechanics as Record<string, boolean | number>,
+    },
+    variantFromFile(file),
+    mechanicIds,
+  );
+}
 
 const orphans = files.filter(file => !protectedHashes.has(file.hash));
+const disallowed = files.filter(file => protectedHashes.has(file.hash) && !variantAllowed(file));
+const toDelete = [...orphans, ...disallowed];
 
 const fileCountByCategory = new Map<string, number>();
 for (const file of files) {
@@ -211,6 +277,11 @@ for (const file of files) {
 const orphanCountByCategory = new Map<string, number>();
 for (const orphan of orphans) {
   orphanCountByCategory.set(orphan.category, (orphanCountByCategory.get(orphan.category) ?? 0) + 1);
+}
+
+const disallowedCountByCategory = new Map<string, number>();
+for (const file of disallowed) {
+  disallowedCountByCategory.set(file.category, (disallowedCountByCategory.get(file.category) ?? 0) + 1);
 }
 
 // 4. Report (shown in both dry-run and write modes).
@@ -227,6 +298,13 @@ if (orphans.length > 0) {
     console.log(`  ${category}: ${orphanCountByCategory.get(category)}`);
   }
 }
+console.log(`Disallowed-variant files:      ${disallowed.length}`);
+if (disallowed.length > 0) {
+  for (const category of [...disallowedCountByCategory.keys()].sort()) {
+    console.log(`  ${category}: ${disallowedCountByCategory.get(category)}`);
+  }
+}
+console.log(`Total files to delete:         ${toDelete.length}`);
 console.log('');
 console.log(`Mode: ${write ? 'WRITE' : 'DRY-RUN'}`);
 
@@ -242,16 +320,16 @@ console.log('Executing...');
 
 let deletedFiles = 0;
 let failedFiles = 0;
-for (const orphan of orphans) {
+for (const file of toDelete) {
   try {
-    await unlink(orphan.path);
+    await unlink(file.path);
     deletedFiles += 1;
   } catch {
     failedFiles += 1;
   }
 }
 
-const orphanHashes = [...new Set(orphans.map(orphan => orphan.hash))];
+const orphanHashes = [...new Set(toDelete.map(file => file.hash))];
 let deletedAssets = 0;
 for (let i = 0; i < orphanHashes.length; i += 500) {
   const chunk = orphanHashes.slice(i, i + 500);

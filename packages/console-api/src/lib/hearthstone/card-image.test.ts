@@ -97,11 +97,14 @@ const {
   buildCardImageR2Key,
   buildCardImageRequestId,
   buildCardImageStyle,
-  buildImageVariants,
   collectImageRequirementRequests,
   importCardImageArchiveFromBrowser,
-  isCardImageVariantAllowed,
 } = await import('./card-image');
+
+const {
+  buildImageVariants,
+  isCardImageVariantAllowed,
+} = await import('@tcg-cards/shared/hearthstone/card-image-variant');
 
 const mechanicIds = {
   diamond:   String(TAG_ID.HAS_DIAMOND),
@@ -468,20 +471,29 @@ describe('card image helpers', () => {
         type:      'minion',
         set:       'bgs',
         techLevel: 5,
-        mechanics: {
-          [TAG_ID.HAS_DIAMOND]:   true,
-          [TAG_ID.HAS_SIGNATURE]: true,
-        },
+        mechanics: {},
 
       }, variant, mechanicIds))
       .map(variant => `${variant.zone}.${variant.template}.${variant.premium}`);
 
     expect(bgsAllowed).toEqual([
       'hand.normal.normal',
-      'hand.normal.golden',
-      'hand.normal.diamond',
-      'hand.normal.signature',
       'hand.battlegrounds.normal',
+    ]);
+
+    const bgsGoldenAllowed = variants
+      .filter(variant => isCardImageVariantAllowed({
+        type:      'minion',
+        set:       'bgs',
+        techLevel: 5,
+        mechanics: { [TAG_ID.PREMIUM]: true },
+
+      }, variant, mechanicIds))
+      .map(variant => `${variant.zone}.${variant.template}.${variant.premium}`);
+
+    expect(bgsGoldenAllowed).toEqual([
+      'hand.normal.golden',
+      'hand.battlegrounds.golden',
     ]);
 
     const enchantmentAllowed = variants
