@@ -730,10 +730,36 @@ export async function projectExtracted(
     });
     console.log(`[projection] write done: ${upsertEntities.length}+${upsertLocalizations.length}+${upsertRelations.length} upsert, ${deleteEntities.length}+${deleteLocalizations.length}+${deleteRelations.length} delete in ${Date.now() - tw}ms`);
 
-    // Mark snapshots as projected
-    await localDb.update(ExtractedCard)
-      .set({ projectionState: 'projected' })
-      .where(inArray(ExtractedCard.id, snapshotIds));
+    // A snapshot is fully projected only once every build it spans has been
+    // projected, so check the other builds' completion instead of assuming an order.
+    const snapshotBuilds = [...new Set(cards.flatMap(c => c.buildNumbers))];
+    const completedRows = snapshotBuilds.length > 0
+      ? await localDb.select({ buildNumber: PatchState.buildNumber })
+        .from(PatchState)
+        .where(and(
+          inArray(PatchState.buildNumber, snapshotBuilds),
+          eq(PatchState.projectionStatus, 'completed'),
+        ))
+      : [];
+    const completedBuilds = new Set(completedRows.map(r => r.buildNumber));
+
+    const projectedIds: string[] = [];
+    const versionOnlyIds: string[] = [];
+    for (const card of cards) {
+      const otherPending = card.buildNumbers.some(b => b !== build && !completedBuilds.has(b));
+      if (otherPending) versionOnlyIds.push(card.id);
+      else projectedIds.push(card.id);
+    }
+    if (projectedIds.length > 0) {
+      await localDb.update(ExtractedCard)
+        .set({ projectionState: 'projected' })
+        .where(inArray(ExtractedCard.id, projectedIds));
+    }
+    if (versionOnlyIds.length > 0) {
+      await localDb.update(ExtractedCard)
+        .set({ projectionState: 'version_only' })
+        .where(inArray(ExtractedCard.id, versionOnlyIds));
+    }
   }
 
   return {

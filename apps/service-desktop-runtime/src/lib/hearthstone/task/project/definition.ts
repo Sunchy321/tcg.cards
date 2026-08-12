@@ -134,7 +134,10 @@ async function countProjectionCards(sourceTags: number[], force: boolean): Promi
     if (unpackStatus === 'completed') {
       const [row] = await database.select({ count: countDistinct(ExtractedCard.cardId) })
         .from(ExtractedCard)
-        .where(sql<boolean>`${sourceTag} = any(${ExtractedCard.buildNumbers})`);
+        .where(and(
+          sql<boolean>`${sourceTag} = any(${ExtractedCard.buildNumbers})`,
+          force ? undefined : ne(ExtractedCard.projectionState, 'projected'),
+        ));
       return Number(row?.count ?? 0);
     }
     const [row] = await database.select({
@@ -267,6 +270,13 @@ export const projectTaskDefinition = createDefinition(projectTaskType, {
     if (useExtracted) {
       const cardIds = await loadExtractedCardIds(sourceTag, blockInput.lastCardId, ctx.force);
       if (cardIds.length === 0) {
+        // Build fully processed — mark completed so shared-snapshot marking can
+        // tell which builds are done regardless of processing order.
+        if (!ctx.dryRun) {
+          await getLocalDb().update(PatchState)
+            .set({ projectionStatus: 'completed', projectionError: null, projectedAt: new Date() })
+            .where(eq(PatchState.buildNumber, sourceTag));
+        }
         const next = { ...blockInput, sourceIndex: blockInput.sourceIndex + 1, lastCardId: null };
         await checkpoint(next);
         return next.sourceIndex >= ctx.sourceTags.length ? done(next) : next;
@@ -292,6 +302,11 @@ export const projectTaskDefinition = createDefinition(projectTaskType, {
     // hsdata fallback: iterate card blocks
     const cardIds = await loadProjectionCardIds(sourceTag, blockInput.lastCardId, ctx.force);
     if (cardIds.length === 0) {
+      if (!ctx.dryRun) {
+        await getLocalDb().update(PatchState)
+          .set({ projectionStatus: 'completed', projectionError: null, projectedAt: new Date() })
+          .where(eq(PatchState.buildNumber, sourceTag));
+      }
       const next = { ...blockInput, sourceIndex: blockInput.sourceIndex + 1, lastCardId: null };
       await checkpoint(next);
       return next.sourceIndex >= ctx.sourceTags.length ? done(next) : next;
