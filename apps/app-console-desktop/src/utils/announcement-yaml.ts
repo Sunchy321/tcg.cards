@@ -80,6 +80,22 @@ export function idKindOf(type: string): 'card' | 'set' | 'rule' | null {
   return null;
 }
 
+const BG_CARD_TYPE_GROUPS: Record<string, string> = {
+  hero:         'bg_hero',
+  minion:       'bg_minion',
+  trinket:      'bg_trinket',
+  tavern_spell: 'bg_tavern_spell',
+  anomaly:      'bg_anomaly',
+};
+
+/** Derives the announcement group from the item format and card type. */
+export function deriveGroup(format: string | null, cardType: string | null): string {
+  if (format === 'battlegrounds' && cardType != null) {
+    return BG_CARD_TYPE_GROUPS[cardType] ?? '';
+  }
+  return '';
+}
+
 const KNOWN_KEYS = new Set([
   'type', 'format', 'status', 'group', 'effectiveDate', 'version', 'lastVersion',
   'cardId', 'setId', 'ruleId', 'relatedCards', 'delta', 'glow',

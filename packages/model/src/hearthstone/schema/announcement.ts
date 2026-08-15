@@ -76,7 +76,11 @@ export const glowEntry = z.strictObject({
 
 export const group = z.enum([
   'core_rotation',
-  'bg_rotation',
+  'bg_hero',
+  'bg_minion',
+  'bg_trinket',
+  'bg_tavern_spell',
+  'bg_anomaly',
 ]);
 
 export const announcementItem = z.strictObject({

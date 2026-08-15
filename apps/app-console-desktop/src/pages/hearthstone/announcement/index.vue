@@ -108,15 +108,23 @@
               class="h-[70vh]"
               @parsed="handleTextParsed"
             />
-            <UScrollArea v-else :items="form.items" :virtualize="itemVirtualizeOptions" class="max-h-[70vh]">
-              <template #default="{ item, index }">
-              <div :key="item._key" class="relative rounded-lg border border-slate-200 p-3">
-                <div class="absolute right-2 top-2 flex items-center gap-0.5">
-                  <UButton icon="i-lucide-chevron-up" color="neutral" variant="ghost" size="xs" :disabled="index === 0" @click="moveItem(index, -1)" />
-                  <UButton icon="i-lucide-chevron-down" color="neutral" variant="ghost" size="xs" :disabled="index === form.items.length - 1" @click="moveItem(index, 1)" />
-                  <UButton icon="i-lucide-x" color="error" variant="ghost" size="xs" @click="removeItem(index)" />
+            <div v-else class="space-y-3">
+              <div v-for="(item, index) in form.items" :key="item._key" class="rounded-lg border border-slate-200">
+                <div class="flex cursor-pointer items-center gap-2 px-3 py-2" @click="toggleItemExpand(item._key)">
+                  <span class="shrink-0 rounded px-1.5 py-0.5 text-xs font-medium" :class="typeColor(item.type).pill">{{ item.type }}</span>
+                  <span class="truncate text-sm font-medium">{{ tileTitle(item) }}</span>
+                  <span v-if="item.cardId || item.setId || item.ruleId" class="shrink-0 text-xs text-slate-500">{{ item.cardId || item.setId || item.ruleId }}</span>
+                  <span class="ml-auto flex shrink-0 items-center gap-2">
+                    <span v-if="item.status" class="text-xs text-slate-600">{{ item.status }}</span>
+                    <span v-if="item.format" class="text-xs text-slate-500">{{ item.format }}</span>
+                    <span v-if="item.group" class="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600 dark:bg-slate-700 dark:text-slate-200">{{ groupLabel(item.group) }}</span>
+                    <UButton icon="i-lucide-chevron-up" color="neutral" variant="ghost" size="xs" :disabled="index === 0" @click.stop="moveItem(index, -1)" />
+                    <UButton icon="i-lucide-chevron-down" color="neutral" variant="ghost" size="xs" :disabled="index === form.items.length - 1" @click.stop="moveItem(index, 1)" />
+                    <UButton icon="i-lucide-x" color="error" variant="ghost" size="xs" @click.stop="removeItem(index)" />
+                  </span>
                 </div>
-                <div class="grid grid-cols-3 gap-x-4 gap-y-3 pr-6">
+                <div v-if="expandedKey === item._key" class="border-t border-slate-200 p-3">
+                <div class="grid grid-cols-3 gap-x-4 gap-y-3">
                   <UFormField label="类型" required>
                     <USelect v-model="item.type" :items="itemTypeOptions" class="w-full" />
                   </UFormField>
@@ -137,8 +145,8 @@
                     <UFormField label="关联卡牌">
                       <CardSearchSelect v-model="item.relatedCardsStr" multiple :search="searchCards" :format="item.format" :resolve="batchedResolveCardNames" placeholder="搜索并选择关联卡牌" />
                     </UFormField>
-                    <UFormField v-if="item.type === 'card_change'" label="分组">
-                      <USelect :model-value="item.group ?? 'none'" :items="groupOptions" placeholder="无" class="w-full" @update:model-value="item.group = $event === 'none' ? '' : String($event)" />
+                    <UFormField label="分组">
+                      <USelect :model-value="item.group || 'none'" :items="groupOptions" placeholder="无" class="w-full" @update:model-value="handleGroupSelect(item, $event)" />
                     </UFormField>
                   </div>
                   <div class="flex min-h-52 min-w-0 flex-col">
@@ -206,9 +214,9 @@
                   </div>
                   </template>
                 </div>
+                </div>
               </div>
-              </template>
-            </UScrollArea>
+              </div>
           </div>
         </div>
       </template>
@@ -282,7 +290,7 @@ import { glowPart, group as groupEnum } from '#model/hearthstone/schema/announce
 import type { GlowEntry } from '#model/hearthstone/schema/announcement';
 import type { RenderModel } from '#model/hearthstone/schema/entity';
 import { mergePreviews, selectPreview, type SidePreview } from '~/utils/announcement-preview';
-import { idKindOf, serializeItems, type ParseError, type ParsedResult, type ResolvedCardName, type TextItem } from '~/utils/announcement-yaml';
+import { deriveGroup, idKindOf, serializeItems, type ParseError, type ParsedResult, type ResolvedCardName, type TextItem } from '~/utils/announcement-yaml';
 
 import { useToast } from '@nuxt/ui/composables';
 import type { Locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
@@ -302,6 +310,8 @@ interface ItemForm {
   status: string; group: string; version?: number; lastVersion?: number;
   cardId: string; setId: string; ruleId: string; relatedCardsStr: string;
   delta: ItemDelta | null; glow: GlowEntry[] | null;
+  /** Whether the group is auto-derived from format + card type (false once manually set). */
+  _groupAuto?: boolean;
 }
 
 const announcements = ref<any[]>([]);
@@ -671,6 +681,7 @@ const emptyItem = (): ItemForm => ({
   group:           '', version:         undefined, lastVersion:     undefined,
   cardId:          '', setId:           '', ruleId:          '', relatedCardsStr: '',
   delta:           null, glow:            null,
+  _groupAuto:      true,
 });
 
 /** Appends an editable glow marker to a card update item. */
@@ -814,6 +825,24 @@ watch(
   { immediate: true },
 );
 
+// Auto-fills the announcement group from format + card type until it is manually set.
+watch(
+  () => form.items.map(item => ({
+    key:    item._key,
+    format: item.format,
+    type:   cardMetaOf(item)?.type ?? null,
+  })),
+  entries => {
+    for (const entry of entries) {
+      const item = form.items.find(it => it._key === entry.key);
+      if (!item || item._groupAuto === false) continue;
+      const derived = deriveGroup(entry.format, entry.type);
+      if (derived && item.group !== derived) item.group = derived;
+    }
+  },
+  { deep: true },
+);
+
 const selectedAnnouncement = computed(() => announcements.value.find(a => a.id === selectedId.value) ?? null);
 
 const sourceOptions = [{ label: 'Blizzard', value: 'blizzard' }, { label: '系列发售', value: 'release' }];
@@ -825,14 +854,24 @@ const itemTypeOptions = [
 ];
 
 const GROUP_LABELS: Record<string, string> = {
-  core_rotation: '核心系列轮替',
-  bg_rotation:   '酒馆战棋轮替',
+  core_rotation:   '核心系列轮替',
+  bg_hero:         '战棋英雄',
+  bg_minion:       '战棋随从',
+  bg_trinket:      '战棋饰品',
+  bg_tavern_spell: '战棋酒馆法术',
+  bg_anomaly:      '战棋异变',
 };
 
 const groupOptions = [
   { label: '无', value: 'none' },
   ...groupEnum.options.map(v => ({ label: GROUP_LABELS[v] ?? v, value: v })),
 ];
+
+/** Applies a manual group choice, stopping future auto-derivation for the item. */
+function handleGroupSelect(item: ItemForm, value: unknown) {
+  item.group = value === 'none' ? '' : String(value);
+  item._groupAuto = false;
+}
 
 const statusOptions = [
   { label: 'buff', value: 'buff' }, { label: 'nerf', value: 'nerf' },
@@ -1085,6 +1124,7 @@ function mapParsedToForm(parsedItems: TextItem[]): ItemForm[] {
       relatedCardsStr: parsed.relatedCards.join(', '),
       delta:           parsed.delta as ItemDelta | null,
       glow:            parsed.glow as GlowEntry[] | null,
+      _groupAuto:      parsed.group === '',
     };
   });
 }
@@ -1159,6 +1199,17 @@ function tileTitle(item: ItemForm): string {
 function tileMeta(item: ItemForm): string {
   const parts = [item.status, item.format, item.group];
   return parts.filter(Boolean).join(' · ') || '暂无标识';
+}
+
+function groupLabel(group: string): string {
+  return GROUP_LABELS[group] ?? group;
+}
+
+const expandedKey = ref<string>('');
+
+/** Toggles an item's expanded editor; accordion-style (single expanded). */
+function toggleItemExpand(key: string) {
+  expandedKey.value = expandedKey.value === key ? '' : key;
 }
 
 async function handleAiParse(index: number) {
