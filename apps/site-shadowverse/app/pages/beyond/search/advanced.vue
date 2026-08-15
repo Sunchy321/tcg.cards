@@ -32,9 +32,19 @@ useHead({
 
 <style scoped>
 .advanced-page {
+  position: relative;
   min-height: 100vh;
   padding: 1rem;
   color: #eff6ff;
+  background:
+    radial-gradient(54rem 26rem at 76% -6%, rgb(79 141 247 / 0.22), transparent 62%),
+    radial-gradient(34rem 20rem at 6% 110%, rgb(88 216 244 / 0.12), transparent 60%),
+    radial-gradient(circle at 18% 24%, rgb(88 216 244 / 0.2) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 70% 64%, rgb(157 139 255 / 0.24) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 84% 12%, rgb(255 255 255 / 0.28) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 42% 84%, rgb(88 216 244 / 0.15) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 58% 36%, rgb(255 255 255 / 0.2) 0 1px, transparent 1.6px),
+    linear-gradient(160deg, #0a1226 0%, #0b1330 48%, #080d1f 100%);
 }
 
 .advanced-shell {
@@ -55,7 +65,7 @@ useHead({
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  color: rgb(239 246 255 / 0.74);
+  color: rgb(214 236 255 / 0.72);
   font-size: 0.9rem;
   font-weight: 700;
 }
@@ -65,9 +75,9 @@ useHead({
 }
 
 .back-link.strong {
-  border: 1px solid rgb(191 219 254 / 0.16);
+  border: 1px solid rgb(88 216 244 / 0.2);
   border-radius: 0.5rem;
-  background: rgb(255 255 255 / 0.07);
+  background: rgb(88 216 244 / 0.08);
   padding: 0.55rem 0.75rem;
 }
 
