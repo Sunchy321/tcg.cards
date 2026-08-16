@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 
-import { BaseEntity, BaseEntityLocalization, BaseEntityRelation } from '@tcg-cards/db/schema/local/hearthstone';
+import { BaseCard, BaseEntity, BaseEntityLocalization, BaseEntityRelation } from '@tcg-cards/db/schema/local/hearthstone';
 
 import type { EntityRow, LocalizationRow, RelationRow } from './types';
 
@@ -246,6 +246,20 @@ export async function copyRelationsIntoTable(tx: AnyTx, rows: RelationRow[]) {
         target: [BaseEntityRelation.sourceId, BaseEntityRelation.sourceRevisionHash, BaseEntityRelation.relation, BaseEntityRelation.targetId],
         set:    {
           version:   sql`excluded.version`,
+          deletedAt: sql`null`,
+          updatedAt: sql`now()`,
+        } as any,
+      });
+  }
+}
+
+/** Ensures a `cards` row exists for each projected card, without touching legalities. */
+export async function copyCardsIntoTable(tx: AnyTx, cardIds: string[]) {
+  for (const chunk of chunked(cardIds, WRITE_CHUNK_SIZE)) {
+    await tx.insert(BaseCard).values(chunk.map(cardId => ({ cardId, legalities: {} })))
+      .onConflictDoUpdate({
+        target: BaseCard.cardId,
+        set:    {
           deletedAt: sql`null`,
           updatedAt: sql`now()`,
         } as any,

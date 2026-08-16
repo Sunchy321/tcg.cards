@@ -30,7 +30,7 @@ import type {
 } from './types';
 import { hashCanonicalJson, buildRevisionHashPayload, buildLocalizationHashPayload, buildRenderModel } from './hash';
 import { entityKey, localizationKey, relationKey, reconcileEntities, reconcileLocalizations, reconcileRelations } from './reconcile';
-import { copyEntitiesIntoTable, copyLocalizationsIntoTable, copyRelationsIntoTable, softDeleteEntities, softDeleteLocalizations, softDeleteRelations } from './write';
+import { copyCardsIntoTable, copyEntitiesIntoTable, copyLocalizationsIntoTable, copyRelationsIntoTable, softDeleteEntities, softDeleteLocalizations, softDeleteRelations } from './write';
 import { normalizeExtractedTagValue, isNormalizedMechanicValue, asNumberArray, resolveEnumMap, type NormalizedValue } from './normalize';
 import { getDisplayText, textFromDisplayText } from './display';
 import type { DisplayContext } from './display';
@@ -727,6 +727,10 @@ export async function projectExtracted(
       if (upsertRelations.length > 0) {
         await copyRelationsIntoTable(tx as any, upsertRelations);
       }
+      const projectedCardIds = [...new Set(upsertEntities.map(r => r.cardId))];
+      if (projectedCardIds.length > 0) {
+        await copyCardsIntoTable(tx as any, projectedCardIds);
+      }
     });
     console.log(`[projection] write done: ${upsertEntities.length}+${upsertLocalizations.length}+${upsertRelations.length} upsert, ${deleteEntities.length}+${deleteLocalizations.length}+${deleteRelations.length} delete in ${Date.now() - tw}ms`);
 
@@ -1135,6 +1139,8 @@ export async function projectHsdataFallback(build: number, cardIds: string[], dr
       if (upsertEntities.length > 0) await copyEntitiesIntoTable(tx as any, upsertEntities);
       if (upsertLocalizations.length > 0) await copyLocalizationsIntoTable(tx as any, upsertLocalizations);
       if (upsertRelations.length > 0) await copyRelationsIntoTable(tx as any, upsertRelations);
+      const projectedCardIds = [...new Set(upsertEntities.map(r => r.cardId))];
+      if (projectedCardIds.length > 0) await copyCardsIntoTable(tx as any, projectedCardIds);
     });
   }
 
