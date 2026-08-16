@@ -1,5 +1,5 @@
 import { index, integer, jsonb, text, timestamp, uuid } from 'drizzle-orm/pg-core';
-import type { GlowEntry } from '@tcg-cards/model/src/hearthstone/schema/announcement';
+import type { ChangeStatus, GameChangeType, GlowEntry, Group } from '@tcg-cards/model/src/hearthstone/schema/announcement';
 import { schema } from './schema';
 
 export const Announcement = schema.table('announcements', {
@@ -26,15 +26,15 @@ export const Announcement = schema.table('announcements', {
 export const AnnouncementItem = schema.table('announcement_items', {
   id: uuid('id').primaryKey().defaultRandom(),
 
-  type:           text('type').notNull(),
+  type:           text('type').$type<GameChangeType>().notNull(),
   announcementId: uuid('announcement_id').notNull(),
   order:          integer('order').notNull().default(0),
 
   effectiveDate: text('effective_date'),
   format:        text('format'),
-  status:        text('status'),
+  status:        text('status').$type<ChangeStatus>(),
   score:         integer('score'),
-  group:         text('group'),
+  group:         text('group').$type<Group>(),
 
   version:     integer('version'),
   lastVersion: integer('last_version'),

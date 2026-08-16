@@ -6,23 +6,24 @@
   >
     <UPopover
       v-if="renderHash != null"
-      v-model:open="isOpen"
+      mode="hover"
       :content="{ side: 'top', align: 'center' }"
       :arrow="false"
-      :ui="{ content: 'bg-transparent shadow-none ring-0 border-0 p-0' }"
+      :open-delay="0"
+      :close-delay="100"
+      :ui="{ content: 'bg-transparent shadow-none ring-0 border-0 p-0 pointer-events-none' }"
     >
-      <span @mouseenter="onMouseEnter" @mouseleave="onMouseLeave">{{ displayName }}</span>
+      <span>{{ displayName }}</span>
       <template #content>
-        <div @mouseenter="onMouseEnter" @mouseleave="onMouseLeave">
-          <CardImage
-            class="card-avatar-popover-image"
-            :card-id="cardId"
-            :version="resolvedVersion"
-            :lang="resolvedLang"
-            :render-hash="renderHash"
-            :type="type"
-          />
-        </div>
+        <CardImage
+          class="card-avatar-popover-image"
+          :card-id="cardId"
+          :version="resolvedVersion"
+          :lang="resolvedLang"
+          :render-hash="renderHash"
+          :type="type"
+          :variant="variant"
+        />
       </template>
     </UPopover>
     <span v-else>{{ displayName }}</span>
@@ -40,11 +41,16 @@ const props = withDefaults(defineProps<{
   lang?:       Locale;
   renderHash?: string | null;
   type:        string;
+  /** Pre-resolved localized card name; skips the profile fetch when provided. */
+  name?:       string | null;
+  variant?:    CardImageOption;
   noLink?:     boolean;
 }>(), {
   version:    undefined,
   lang:       undefined,
   renderHash: null,
+  name:       null,
+  variant:    'normal',
   noLink:     false,
 });
 
@@ -56,20 +62,20 @@ const hasExternalClass = computed(() => !!attrs.class);
 
 const profile = ref<CardProfile | null>(null);
 
-onMounted(async () => {
+async function loadProfile(cardId: string) {
   try {
-    profile.value = await $orpc.hearthstone.card.profile(props.cardId);
+    profile.value = await $orpc.hearthstone.card.profile(cardId);
   } catch {
     profile.value = null;
   }
+}
+
+onMounted(() => {
+  if (props.name == null) void loadProfile(props.cardId);
 });
 
-watch(() => props.cardId, async newId => {
-  try {
-    profile.value = await $orpc.hearthstone.card.profile(newId);
-  } catch {
-    profile.value = null;
-  }
+watch(() => props.cardId, newId => {
+  if (props.name == null) void loadProfile(newId);
 });
 
 const resolvedVersion = computed(() =>
@@ -81,6 +87,7 @@ const resolvedLang = computed(() =>
 );
 
 const displayName = computed(() => {
+  if (props.name != null) return props.name;
   if (!profile.value) return props.cardId;
   const displayLang = resolvedLang.value;
   const loc = profile.value.localization.find(l => l.lang === displayLang)
@@ -93,24 +100,6 @@ const linkProps = computed(() => ({
   target: '_blank',
 }));
 
-// ── Hover popover ────────────────────────────────────────────────────────────
-
-const isOpen = ref(false);
-let closeTimer: ReturnType<typeof setTimeout> | null = null;
-
-const onMouseEnter = () => {
-  if (closeTimer) {
-    clearTimeout(closeTimer);
-    closeTimer = null;
-  }
-  isOpen.value = true;
-};
-
-const onMouseLeave = () => {
-  closeTimer = setTimeout(() => {
-    isOpen.value = false;
-  }, 120);
-};
 </script>
 
 <style>

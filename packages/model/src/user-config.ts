@@ -21,8 +21,9 @@ export const magicConfig = z.strictObject({
 export type MagicConfig = z.infer<typeof magicConfig>;
 
 export const hearthstoneConfig = z.strictObject({
-  locale:       hearthstoneLocale.default('zhs'),
-  searchLayout: z.enum(['grid', 'list', 'table']).default('grid'),
+  locale:             hearthstoneLocale.default('zhs'),
+  searchLayout:       z.enum(['grid', 'list', 'table']).default('grid'),
+  announcementLayout: z.enum(['compact', 'full']).default('compact'),
 }).strip();
 
 export type HearthstoneConfig = z.infer<typeof hearthstoneConfig>;

@@ -9,101 +9,155 @@
     </div>
 
     <template v-else>
+      <UCard>
       <div class="mb-6">
-        <h1 class="text-2xl font-bold">{{ data.name }}</h1>
-        <div class="flex items-center gap-3 text-sm text-gray-500 mt-1">
-          <span>{{ data.source }}</span>
-          <span>{{ data.date }}</span>
-        </div>
-        <div v-if="data.link && data.link.length > 0" class="flex flex-wrap gap-2 mt-3">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <AnnouncementHeader
+            :name="data.name"
+            :source="data.source"
+            :date="data.date"
+            :link="data.link"
+          />
           <UButton
-            v-for="(l, i) in data.link"
-            :key="i"
-            :to="l.url"
-            target="_blank"
-            size="xs"
+            :icon="layout === 'compact' ? 'lucide:layout-list' : 'lucide:layout-grid'"
+            :label="layout === 'compact' ? $t('hearthstone.announcement.layoutCompact') : $t('hearthstone.announcement.layoutFull')"
             color="neutral"
             variant="soft"
-          >
-            <UIcon name="lucide:external-link" class="mr-1 text-xs" />
-            {{ l.label || l.url }}
-          </UButton>
+            size="sm"
+            @click="cycleLayout"
+          />
         </div>
       </div>
 
-      <div v-if="data.items.length === 0" class="text-center py-8 text-gray-500">
+      <div v-if="sections.every(s => s.total === 0)" class="text-center py-8 text-gray-500">
         {{ $t('hearthstone.announcement.noItems') }}
       </div>
 
-      <div v-else class="space-y-3">
-        <div
-          v-for="item in visibleItems"
-          :key="item.id"
-          class="rounded-lg border border-slate-400/30 bg-slate-900/70 p-4 text-white"
+      <div v-else class="space-y-4">
+        <section
+          v-for="section in sections"
+          :key="section.format ?? '__none__'"
         >
-          <div class="flex items-start gap-3">
-            <TypeBadge :type="item.type" :status="item.status ?? undefined" class="shrink-0 mt-0.5" />
-            <div class="flex-1 min-w-0">
-              <div class="flex flex-wrap items-center gap-2">
-                <span v-if="item.cardId" class="font-medium">{{ item.cardId }}</span>
-                <span v-if="item.setId" class="font-medium">{{ item.setId }}</span>
-                <span v-if="item.ruleId" class="font-medium">{{ item.ruleId }}</span>
-                <UButton
-                  v-if="item.group"
-                  size="xs"
-                  color="neutral"
-                  variant="soft"
-                  :icon="collapsedGroups.has(item.group) ? 'i-lucide-chevron-right' : 'i-lucide-chevron-down'"
-                  @click="toggleGroup(item.group)"
-                >
-                  {{ item.group }}
-                </UButton>
-              </div>
+          <div
+            v-if="section.format !== null"
+            class="mb-2 mt-6 flex items-center gap-2"
+          >
+            <button
+              class="flex items-center gap-1.5 text-xl font-bold hover:opacity-70"
+              @click="toggleFormat(section.format)"
+            >
+              {{ section.label }}
+              <UIcon
+                :name="collapsedFormats.has(section.format) ? 'lucide:chevron-right' : 'lucide:chevron-down'"
+                class="text-gray-400 dark:text-gray-500"
+              />
+            </button>
+            <UBadge color="neutral" variant="soft" size="sm">{{ section.total }}</UBadge>
+          </div>
 
-              <div v-if="item.images.length > 0" class="mt-3 flex flex-wrap gap-3">
-                <div
-                  v-for="side in item.images"
-                  :key="side.side"
-                  class="w-36"
+          <div v-if="section.format === null || !collapsedFormats.has(section.format)">
+            <div v-if="section.cells.length > 0" :class="gridClass">
+              <AnnouncementItemCell
+                v-for="(cell, ci) in section.cells"
+                :key="ci"
+                :entity="cell.entity"
+                :item="cell.item"
+                :layout="layout"
+              />
+            </div>
+
+            <div
+              v-for="g in section.groups"
+              :key="g.group"
+              class="mt-4"
+            >
+              <div class="mb-2 flex items-center gap-2">
+                <button
+                  class="flex items-center gap-1.5 text-base font-semibold hover:opacity-70"
+                  @click="toggleGroup(g.group)"
                 >
-                  <CardImage
-                    :card-id="item.cardId"
-                    :version="item.version ?? 0"
-                    type="minion"
-                    :render-hash="side.hash"
-                    :category="side.category"
-                    :variant="side.template === 'battlegrounds' ? 'battlegrounds' : 'normal'"
+                  {{ g.label }}
+                  <UIcon
+                    :name="collapsedGroups.has(g.group) ? 'lucide:chevron-right' : 'lucide:chevron-down'"
+                    class="text-gray-400 dark:text-gray-500"
                   />
-                  <div class="mt-1 text-center text-xs text-slate-500">{{ side.side }}</div>
-                </div>
+                </button>
+                <UBadge color="neutral" variant="soft" size="sm">{{ g.cells.length }}</UBadge>
               </div>
-
-              <div v-if="item.relatedCards && item.relatedCards.length > 0" class="mt-2 flex flex-wrap gap-1.5">
-                <NuxtLink
-                  v-for="rid in item.relatedCards"
-                  :key="rid"
-                  :to="`/card/${rid}`"
-                  class="rounded bg-slate-700/70 px-2 py-0.5 text-xs text-slate-300 hover:bg-slate-600/70"
-                >
-                  {{ rid }}
-                </NuxtLink>
+              <div v-if="!collapsedGroups.has(g.group)" :class="gridClass">
+                <AnnouncementItemCell
+                  v-for="(cell, ci) in g.cells"
+                  :key="ci"
+                  :entity="cell.entity"
+                  :item="cell.item"
+                  :layout="layout"
+                />
               </div>
             </div>
           </div>
-        </div>
+        </section>
       </div>
+      </UCard>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { Locale } from '#model/hearthstone/schema/basic';
+import type { HearthstoneConfig } from '@tcg-cards/model/src/user-config';
+import { transformUpdate, type UpdateEntity, type UpdateSourceItem } from '~/utils/update-entity';
+
+interface AnnouncementSide {
+  side:     string;
+  hash:     string;
+  category: string;
+  template: string;
+}
+
+interface AnnouncementDetailItem {
+  id:                string;
+  type:              string;
+  format:            string | null;
+  group:             string | null;
+  status:            string | null;
+  version:           number | null;
+  cardId:            string | null;
+  setId:             string | null;
+  ruleId:            string | null;
+  relatedCards:      string[];
+  relatedCardNames:  string[];
+  relatedCardHashes: (string | null)[];
+  images:            AnnouncementSide[];
+  cardName:          string | null;
+  setName:           string | null;
+}
+
+interface SectionCell {
+  entity: UpdateEntity | null;
+  item:   AnnouncementDetailItem | null;
+}
+
+interface GroupSection {
+  group: string;
+  label: string;
+  cells: SectionCell[];
+}
+
+interface FormatSection {
+  format: string | null;
+  label:  string;
+  cells:  SectionCell[];
+  groups: GroupSection[];
+  total:  number;
+}
 
 const { $orpc } = useNuxtApp();
-const { t } = useI18n();
+const { t, te } = useI18n();
 const route = useRoute('announcement-id');
 const gameLocale = useGameLocale();
 const lang = computed<Locale>(() => gameLocale.value as Locale);
+
+const { config: gameConfig, setConfig: setGameConfig } = useUserConfig<HearthstoneConfig>();
 
 definePageMeta({
   layout: 'main',
@@ -113,22 +167,128 @@ const { data, pending } = useAsyncData(`announcement-${route.params.id}`, () => 
   return $orpc.hearthstone.announcement.get({ id: route.params.id as string, lang: lang.value });
 }, { watch: [lang] });
 
-const collapsedGroups = ref<Set<string>>(new Set());
+// ── Layout ───────────────────────────────────────────────────────────────────
 
-function toggleGroup(group: string) {
-  if (collapsedGroups.value.has(group)) {
-    collapsedGroups.value.delete(group);
-  } else {
-    collapsedGroups.value.add(group);
-  }
-  collapsedGroups.value = new Set(collapsedGroups.value);
+const layout = computed(() => gameConfig.value.announcementLayout ?? 'compact');
+
+function cycleLayout() {
+  setGameConfig('announcementLayout', layout.value === 'compact' ? 'full' : 'compact');
 }
 
-/** Items with an expanded group stay; collapsed group members are hidden. */
-const visibleItems = computed(() => {
+// ── Sectioning ───────────────────────────────────────────────────────────────
+
+const formatLabel = (format: string) => {
+  const key = `hearthstone.format.${format}`;
+  return te(key) ? t(key) : format;
+};
+
+const groupLabel = (group: string) => {
+  const key = `hearthstone.group.${group}`;
+  return te(key) ? t(key) : group;
+};
+
+function buildCells(items: AnnouncementDetailItem[]): SectionCell[] {
+  const cardItems = items.filter(it => it.type === 'card_change' || it.type === 'card_update');
+  const textItems = items.filter(it => it.type !== 'card_change' && it.type !== 'card_update');
+  const entities = transformUpdate(cardItems as UpdateSourceItem[]);
+  return [
+    ...entities.map(entity => ({ entity, item: null })),
+    ...textItems.map(item => ({ entity: null, item })),
+  ];
+}
+
+function splitGroups(items: AnnouncementDetailItem[]): { ungrouped: AnnouncementDetailItem[], groups: GroupSection[] } {
+  const ungrouped: AnnouncementDetailItem[] = [];
+  const groups: GroupSection[] = [];
+  const byGroup = new Map<string, AnnouncementDetailItem[]>();
+  for (const item of items) {
+    if (item.group == null) {
+      ungrouped.push(item);
+    } else {
+      const list = byGroup.get(item.group) ?? [];
+      list.push(item);
+      byGroup.set(item.group, list);
+    }
+  }
+  for (const [group, list] of byGroup) {
+    groups.push({ group, label: groupLabel(group), cells: buildCells(list) });
+  }
+  return { ungrouped, groups };
+}
+
+const sections = computed<FormatSection[]>(() => {
   const items = data.value?.items ?? [];
-  return items.filter(item => !item.group || !collapsedGroups.value.has(item.group));
+  const noFormatItems: AnnouncementDetailItem[] = [];
+  const byFormat = new Map<string, AnnouncementDetailItem[]>();
+  for (const item of items) {
+    if (item.format == null) {
+      noFormatItems.push(item);
+    } else {
+      const list = byFormat.get(item.format) ?? [];
+      list.push(item);
+      byFormat.set(item.format, list);
+    }
+  }
+
+  const result: FormatSection[] = [];
+  const noFormat: FormatSection = { format: null, label: '', cells: buildCells(noFormatItems), groups: [], total: 0 };
+  noFormat.total = noFormat.cells.length;
+  result.push(noFormat);
+
+  for (const [format, list] of byFormat) {
+    const { ungrouped, groups } = splitGroups(list);
+    const cells = buildCells(ungrouped);
+    result.push({
+      format,
+      label: formatLabel(format),
+      cells,
+      groups,
+      total: cells.length + groups.reduce((n, g) => n + g.cells.length, 0),
+    });
+  }
+  return result;
 });
+
+// ── Collapse state (format sections default expanded, group blocks default collapsed) ──
+
+const collapsedFormats = ref<Set<string>>(new Set());
+const collapsedGroups = ref<Set<string>>(new Set());
+
+// Collapse each group once when it first appears, without re-triggering on
+// collapsedGroups itself, so manual expand/collapse stays under user control.
+const seenGroups = new Set<string>();
+watch(sections, sections => {
+  const next = new Set(collapsedGroups.value);
+  let changed = false;
+  for (const s of sections) {
+    for (const g of s.groups) {
+      if (!seenGroups.has(g.group)) {
+        seenGroups.add(g.group);
+        next.add(g.group);
+        changed = true;
+      }
+    }
+  }
+  if (changed) collapsedGroups.value = next;
+}, { immediate: true });
+
+function toggleFormat(format: string) {
+  const next = new Set(collapsedFormats.value);
+  if (next.has(format)) next.delete(format);
+  else next.add(format);
+  collapsedFormats.value = next;
+}
+
+function toggleGroup(group: string) {
+  const next = new Set(collapsedGroups.value);
+  if (next.has(group)) next.delete(group);
+  else next.add(group);
+  collapsedGroups.value = next;
+}
+
+const gridClass = computed(() => layout.value === 'compact'
+  ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2'
+  : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3');
 
 useTitle(() => data.value?.name ?? t('hearthstone.announcement.$self'));
 </script>

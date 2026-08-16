@@ -39,6 +39,13 @@
         <UIcon name="lucide:megaphone" class="text-md shrink-0" />
         <span>{{ $t('hearthstone.announcement.$self') }}</span>
       </NuxtLink>
+      <NuxtLink
+        to="/format/standard"
+        class="flex flex-row items-center gap-3 px-1 py-1 w-full rounded-lg ring-1 ring-white/10 text-white bg-white/10 hover:bg-white/20 transition"
+      >
+        <UIcon name="lucide:flag" class="text-md shrink-0" />
+        <span>{{ $t('hearthstone.format.$self') }}</span>
+      </NuxtLink>
     </div>
   </div>
 </template>

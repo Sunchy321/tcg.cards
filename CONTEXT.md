@@ -26,7 +26,10 @@ The derivation that fills an item's `projection` column from its authored fields
 The comparison version (buildNumber) of an announcement or item, informally called "prevVersion". Defaults to `version` when empty. Item-level values override announcement-level values.
 
 ### group (分组)
-A finite display-grouping key on card_change items belonging to a bulk rotation. Allowed values are fixed by the hearthstone model enum (`core_rotation`, `bg_rotation`). Same-group items in the same place collapse/expand together on the site to save space.
+A finite display-grouping key on card-level items that belong to a coordinated batch, typically a bulk rotation or a battlegrounds card-type refresh. Allowed values are fixed by the hearthstone model enum: `core_rotation`, `bg_hero`, `bg_minion`, `bg_trinket`, `bg_tavern_spell`, `bg_anomaly`. Same-group items in the same place collapse/expand together on the site to save space.
+
+### update entity (更新实体)
+The site's display grouping of card-level items. The entity card of a group is the `relatedCards` entry when an item has related cards, otherwise the item's own `cardId`. An item whose `cardId` carries `relatedCards` is demoted to a parent — it does not become an entity itself, its update is embedded under each related card (an item with multiple related cards is embedded under each). An entity aggregates every item where it is the `cardId` (its own update, rendered without the parent id) or a related card (the parent's update, rendered with the parent id). The entity's displayed status is its own item's status, or a combined status computed from the contributing items (single distinct status wins; multiple significant statuses → `rework` if present else `tweak`; multiple non-significant statuses → `tweak`).
 
 ### delta
 A per-side display correction on a card-level item: `{ prev?: Partial<RenderModel>, curr?: Partial<RenderModel> }`. Each side is merged onto the resolved render model of the corresponding image before rendering. Display-only; never a data patch.

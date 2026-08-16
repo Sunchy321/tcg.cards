@@ -1,6 +1,6 @@
 <template>
   <UTooltip :text="tooltip">
-    <span class="inline-flex items-center justify-center w-5 h-5 rounded-full border border-current text-current shrink-0">
+    <span class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-current text-current">
       <UIcon :name="icon" class="text-xs" />
     </span>
   </UTooltip>
@@ -8,6 +8,8 @@
 
 <script setup lang="ts">
 const props = defineProps<{ status: string }>();
+
+const { t, te } = useI18n();
 
 const map: Record<string, string> = {
   buff:                'lucide:trending-up',
@@ -19,41 +21,22 @@ const map: Record<string, string> = {
   text_adjust:         'lucide:pencil',
   bugged:              'lucide:bug',
   bugfix:              'lucide:bug-off',
-  banned:              'lucide:ban',
-  banned_in_card_pool: 'lucide:ban',
-  banned_in_deck:      'lucide:ban',
-  legal:               'lucide:circle-check',
-  unavailable:         'lucide:circle-x',
-  minor:               'lucide:minus-circle',
+  banned:              'lucide:shield-x',
+  banned_in_card_pool: 'lucide:shield-x',
+  banned_in_deck:      'lucide:shield-x',
+  legal:               'lucide:check',
+  unavailable:         'lucide:x',
+  minor:               'lucide:minus',
   score:               'lucide:hash',
-  extend:              'lucide:plus-circle',
+  extend:              'lucide:plus',
   format_birth:        'lucide:sparkles',
   format_death:        'lucide:skull',
 };
 
-const icon = computed(() => map[props.status] ?? 'lucide:circle-dot');
+const icon = computed(() => map[props.status] ?? 'lucide:dot');
 
-const tooltips: Record<string, string> = {
-  buff:                'Buff — card was strengthened',
-  nerf:                'Nerf — card was weakened (full dust refund)',
-  tweak:               'Tweak — minor balance adjustment',
-  revert:              'Revert — change rolled back after rotation',
-  rework:              'Rework — mechanics / type / tribe changed',
-  text_fix:            'Text Fix — incorrect text corrected',
-  text_adjust:         'Text Adjust — intentional text update',
-  bugged:              'Bugged — card data was corrupted',
-  bugfix:              'Bug Fix — data bug was fixed',
-  banned:              'Banned — fully banned',
-  banned_in_card_pool: 'Banned in card pool',
-  banned_in_deck:      'Banned in deck building',
-  legal:               'Legal — fully playable',
-  unavailable:         'Unavailable — not playable',
-  minor:               'Minor — limited availability (derived or restricted)',
-  score:               'Score — points-based legality',
-  extend:              'Extend — set content expanded (e.g. mini-set)',
-  format_birth:        'Format Birth — new format launched',
-  format_death:        'Format Death — format retired',
-};
-
-const tooltip = computed(() => tooltips[props.status] ?? props.status);
+const tooltip = computed(() => {
+  const key = `hearthstone.changeStatus.${props.status}`;
+  return te(key) ? t(key) : props.status;
+});
 </script>

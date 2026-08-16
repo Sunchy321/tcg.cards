@@ -467,15 +467,68 @@ export default {
     },
 
     announcement: {
-      $self:    'Announcements',
-      empty:    'No announcements yet',
-      notFound: 'Announcement not found',
-      noItems:  'No items in this announcement',
+      $self:          'Announcements',
+      empty:          'No announcements yet',
+      notFound:       'Announcement not found',
+      noItems:        'No items in this announcement',
+      layoutCompact:  'Compact layout',
+      layoutFull:     'Full layout',
+      showImages:     'Show images',
+      hideImages:     'Hide images',
+      sourceAll:      'All sources',
+      sourceBlizzard: 'Blizzard',
+      sourceRelease:  'Set release',
+      itemCountUnit:  'items',
+      side:           { prev: 'Before', curr: 'After', base: 'Base' },
     },
 
     timeline: {
       $self: 'Timeline',
       empty: 'No changes for this format yet',
+    },
+
+    group: {
+      core_rotation:   'Core rotation',
+      bg_hero:         'Battlegrounds heroes',
+      bg_minion:       'Battlegrounds minions',
+      bg_trinket:      'Battlegrounds trinkets',
+      bg_tavern_spell: 'Battlegrounds spells',
+      bg_anomaly:      'Battlegrounds anomalies',
+    },
+
+    changeType: {
+      card_change:  'Legality change',
+      card_update:  'Card update',
+      set_change:   'Set event',
+      rule_change:  'Rule change',
+      format_birth: 'Format launch',
+      format_death: 'Format retirement',
+    },
+
+    changeStatus: {
+      buff:                'Buff',
+      nerf:                'Nerf',
+      tweak:               'Tweak',
+      revert:              'Revert',
+      rework:              'Rework',
+      text_fix:            'Text fix',
+      text_adjust:         'Text adjust',
+      bugged:              'Bugged',
+      bugfix:              'Bug fix',
+      banned:              'Banned',
+      banned_in_card_pool: 'Banned in card pool',
+      banned_in_deck:      'Banned in deck',
+      legal:               'Legal',
+      unavailable:         'Unavailable',
+      minor:               'Minor',
+      score:               'Score',
+      extend:              'Extend',
+      format_birth:        'Format launch',
+      format_death:        'Format retirement',
+    },
+
+    rule: {
+      'bg-season': 'Battlegrounds Season {n}',
     },
 
     card: {
@@ -670,6 +723,7 @@ export default {
       $self:         'Formats',
       standard:      'Standard',
       wild:          'Wild',
+      constructed:   'Constructed',
       twist:         'Twist',
       classic:       'Classic',
       battlegrounds: 'Battlegrounds',
@@ -678,6 +732,19 @@ export default {
       duel:          'Duels',
       tavern_brawl:  'Tavern Brawl',
       adventure:     'Adventure',
+    },
+
+    formatPage: {
+      $self:        'Format',
+      overview:     'Overview',
+      inRotation:   'Available sets',
+      banlist:      'Banlist',
+      birthday:     'Birth date',
+      deathdate:    'End date',
+      tags:         'Tags',
+      noData:       'No data yet',
+      emptySets:    'No available sets',
+      emptyBanlist: 'No ban entries',
     },
 
     patch: {

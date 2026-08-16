@@ -473,15 +473,68 @@ export default {
     },
 
     announcement: {
-      $self:    '公告',
-      empty:    '暂无公告',
-      notFound: '找不到公告',
-      noItems:  '该公告暂无条目',
+      $self:          '公告',
+      empty:          '暂无公告',
+      notFound:       '找不到公告',
+      noItems:        '该公告暂无条目',
+      layoutCompact:  '紧凑布局',
+      layoutFull:     '完整布局',
+      showImages:     '显示图片',
+      hideImages:     '隐藏图片',
+      sourceAll:      '全部来源',
+      sourceBlizzard: 'Blizzard',
+      sourceRelease:  '系列发售',
+      itemCountUnit:  '条',
+      side:           { prev: '前', curr: '后', base: '原' },
     },
 
     timeline: {
       $self: '时间线',
       empty: '该赛制暂无变更',
+    },
+
+    group: {
+      core_rotation:   '核心系列轮换',
+      bg_hero:         '酒馆战棋英雄',
+      bg_minion:       '酒馆战棋随从',
+      bg_trinket:      '酒馆战棋饰品',
+      bg_tavern_spell: '酒馆战棋法术',
+      bg_anomaly:      '酒馆战棋异常',
+    },
+
+    changeType: {
+      card_change:  '合法性变更',
+      card_update:  '卡牌改动',
+      set_change:   '系列事件',
+      rule_change:  '规则变更',
+      format_birth: '赛制上线',
+      format_death: '赛制下架',
+    },
+
+    changeStatus: {
+      buff:                '增强',
+      nerf:                '削弱',
+      tweak:               '调整',
+      revert:              '回调',
+      rework:              '重做',
+      text_fix:            '文本修复',
+      text_adjust:         '文本调整',
+      bugged:              '数据异常',
+      bugfix:              'Bug 修复',
+      banned:              '禁止',
+      banned_in_card_pool: '卡池禁用',
+      banned_in_deck:      '卡组禁用',
+      legal:               '可用',
+      unavailable:         '不可用',
+      minor:               '部分可用',
+      score:               '计分',
+      extend:              '扩展',
+      format_birth:        '赛制上线',
+      format_death:        '赛制下架',
+    },
+
+    rule: {
+      'bg-season': '酒馆战棋 第{n}赛季',
     },
 
     card: {
@@ -670,6 +723,7 @@ export default {
       $self:         '赛制',
       standard:      '标准',
       wild:          '狂野',
+      constructed:   '构筑',
       twist:         '幻变',
       classic:       '经典',
       battlegrounds: '酒馆战棋',
@@ -678,6 +732,19 @@ export default {
       duel:          '决斗',
       tavern_brawl:  '乱斗',
       adventure:     '冒险',
+    },
+
+    formatPage: {
+      $self:        '赛制',
+      overview:     '概览',
+      inRotation:   '可用系列',
+      banlist:      '禁卡表',
+      birthday:     '出生日期',
+      deathdate:    '死亡日期',
+      tags:         '标签',
+      noData:       '暂无数据',
+      emptySets:    '暂无可用系列',
+      emptyBanlist: '暂无禁卡',
     },
 
     patch: {

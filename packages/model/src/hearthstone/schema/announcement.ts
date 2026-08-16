@@ -150,6 +150,7 @@ export type LinkEntry = z.infer<typeof linkEntry>;
 export type GlowType = z.infer<typeof glowType>;
 export type GlowPart = z.infer<typeof glowPart>;
 export type GlowEntry = z.infer<typeof glowEntry>;
+export type Group = z.infer<typeof group>;
 export type AnnouncementItem = z.infer<typeof announcementItem>;
 export type Announcement = z.infer<typeof announcement>;
 export type AnnouncementProfile = z.infer<typeof announcementProfile>;

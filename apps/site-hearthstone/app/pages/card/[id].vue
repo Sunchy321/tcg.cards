@@ -242,34 +242,15 @@
 
           <UCard v-if="changeItems.length > 0" class="mt-4">
             <h2 class="text-xl font-semibold mb-4">{{ $t('hearthstone.card.changeHistory') }}</h2>
-            <div class="divide-y">
-              <div
+            <div class="space-y-2">
+              <AnnouncementItemCell
                 v-for="item in changeItems"
                 :key="item.id"
-                class="py-2 first:pt-0 text-sm"
-              >
-                <div class="flex items-center gap-1.5">
-                  <TypeBadge :type="item.type" :status="item.status ?? undefined" size="xs" />
-                </div>
-                <div class="text-xs text-gray-500 mt-0.5">{{ item.date }} &middot; {{ item.name }}</div>
-                <div v-if="item.cardId === route.params.id && item.images.length > 0" class="mt-2 flex flex-wrap gap-2">
-                  <div
-                    v-for="side in item.images"
-                    :key="side.side"
-                    class="w-28"
-                  >
-                    <CardImage
-                      :card-id="item.cardId"
-                      :version="item.version ?? 0"
-                      type="minion"
-                      :render-hash="side.hash"
-                      :category="side.category"
-                      :variant="side.template === 'battlegrounds' ? 'battlegrounds' : 'normal'"
-                    />
-                    <div class="mt-0.5 text-center text-[11px] text-slate-500">{{ side.side }}</div>
-                  </div>
-                </div>
-              </div>
+                :item="item"
+                layout="compact"
+                :announcement-date="item.date"
+                :announcement-name="item.name"
+              />
             </div>
           </UCard>
 
