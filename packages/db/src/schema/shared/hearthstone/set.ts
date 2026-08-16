@@ -22,6 +22,7 @@ export const Set = schema.table('sets', {
   cardCount:     integer('card_count'),
 
   group: text('group'),
+  year:  text('year'),
 });
 
 export const SetView = schema.view('set_view').as(qb => {

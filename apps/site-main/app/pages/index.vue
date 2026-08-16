@@ -15,7 +15,7 @@
 </template>
 
 <script setup lang="ts">
-import { GAMES } from '#shared';
+import { GAMES } from '#base';
 
 definePageMeta({
   layout: 'entry',
@@ -23,12 +23,11 @@ definePageMeta({
 });
 
 const { t } = useI18n();
-const { public: { gameBaseUrls } } = useRuntimeConfig();
 
 const games = GAMES.map(g => ({
   id:   g,
   name: t(`${g}.$self`),
   icon: `i:${g}-logo`,
-  url:  gameBaseUrls[g] ?? `https://${g}.tcg.cards`,
+  url:  `https://${g}.tcg.cards`,
 }));
 </script>

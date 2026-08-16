@@ -1,0 +1,3 @@
+ALTER TABLE "hearthstone"."announcement_items" ADD COLUMN "order" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "magic"."announcement_items" ADD COLUMN "order" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "task_stages" DROP CONSTRAINT "task_stages_bounded_requires_total_done_chk", ADD CONSTRAINT "task_stages_bounded_requires_total_done_chk" CHECK ("progress_mode" <> 'bounded' or "status" = 'pending' or "status" in ('failed', 'canceled', 'abandoned') or ("total" is not null and "done" is not null));

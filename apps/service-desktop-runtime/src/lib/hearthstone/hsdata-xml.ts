@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { SaxesParser, type SaxesTagPlain } from 'saxes';
 
 import {
@@ -16,30 +15,30 @@ type ReferencedTagValue = boolean | number;
 
 /** One XML node shape kept while streaming CardDefs.xml. */
 interface XmlElement {
-  name: string;
+  name:       string;
   attributes: Record<string, string>;
-  children: XmlChild[];
+  children:   XmlChild[];
 }
 
 /** XML parser input reduced to one snapshot hash payload. */
 interface HsdataSnapshotInput {
-  cardId: string;
-  dbfId: number;
+  cardId:           string;
+  dbfId:            number;
   entityXmlVersion: number;
-  tags: RawTagInput[];
-  extraPayload: JsonMap;
+  tags:             RawTagInput[];
+  extraPayload:     JsonMap;
 }
 
 /** Parsed CardDefs root metadata and normalized entity subtrees. */
 interface ParsedXmlDocument {
-  rootName: string;
+  rootName:       string;
   rootAttributes: Record<string, string>;
-  entities: XmlElement[];
+  entities:       XmlElement[];
 }
 
 /** Parsed hsdata payload plus the stable hash of the normalized XML source. */
 export interface ParsedHsdataStreamResult {
-  parsed: ParsedHsdata;
+  parsed:     ParsedHsdata;
   sourceHash: string;
 }
 
@@ -51,9 +50,17 @@ export const normalizeHsdataXmlSource = (input: string) => {
     .replace(/\r/g, '\n');
 };
 
+function toHex(hash: Uint8Array): string {
+  let hex = '';
+  for (let i = 0; i < hash.length; i++) {
+    hex += hash[i]!.toString(16).padStart(2, '0');
+  }
+  return hex;
+}
+
 /** Computes the stable source hash used by raw import guards. */
 export const computeHsdataSourceHash = (input: string) => {
-  return createHash('sha256').update(input, 'utf8').digest('hex');
+  return toHex(Bun.SHA256.hash(input) as Uint8Array);
 };
 
 /** Yields normalized XML text chunks from one UTF-8 byte stream. */
@@ -388,8 +395,8 @@ const normalizeRawTag = (tag: XmlElement, tagOrder: number): RawTagInput => {
   const enumId = toInt(tag.attributes.enumID, 'Tag.enumID');
   const rawName = tag.attributes.name ?? '';
   const rawType = tag.attributes.type ?? '';
-  const rawValue = tag.attributes.value ?? null;
-  const cardRefCardId = tag.attributes.cardID ?? null;
+  const rawValue = tag.attributes.value ?? getText(tag) ?? null;
+  const cardValue = tag.attributes.cardID ?? null;
 
   const rawPayload: JsonMap = {
     attributes: { ...tag.attributes },
@@ -415,7 +422,7 @@ const normalizeRawTag = (tag: XmlElement, tagOrder: number): RawTagInput => {
     rawPayload,
     rawValue,
     locStringValue,
-    cardRefCardId,
+    cardValue,
     tagOrder,
   };
 };
@@ -463,6 +470,21 @@ const normalizeExtraPayload = (entity: XmlElement) => {
   } satisfies JsonMap;
 };
 
+/** Resolves the dbfId for one entity from its ID attribute or falls back to 0. */
+const resolveEntityDbfId = (entity: XmlElement): number => {
+  const rawId = entity.attributes.ID;
+
+  if (rawId != null) {
+    const parsed = Number.parseInt(rawId, 10);
+
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+
+  return 0;
+};
+
 /** Builds one normalized entity snapshot from the parsed XML node tree. */
 const normalizeEntitySnapshot = (entity: XmlElement) => {
   const cardId = entity.attributes.CardID ?? '';
@@ -472,7 +494,7 @@ const normalizeEntitySnapshot = (entity: XmlElement) => {
 
   const snapshot: HsdataSnapshotInput = {
     cardId,
-    dbfId:            toInt(entity.attributes.ID, 'Entity.ID'),
+    dbfId:            resolveEntityDbfId(entity),
     entityXmlVersion: toInt(entity.attributes.version, 'Entity.version'),
     tags:             getElements(entity, 'Tag').map((tag, index) => normalizeRawTag(tag, index)),
     extraPayload:     normalizeExtraPayload(entity),
@@ -527,7 +549,7 @@ export const parseHsdataXmlStream = async (
 ): Promise<ParsedHsdataStreamResult> => {
   const collector = createParsedXmlDocumentCollector();
   const parser = new SaxesParser({ xmlns: false, position: false });
-  const sourceHash = createHash('sha256');
+  const sourceHash = new Bun.CryptoHasher('sha256');
 
   parser.on('opentag', collector.handleOpenTag);
   parser.on('text', collector.handleText);
@@ -539,7 +561,7 @@ export const parseHsdataXmlStream = async (
   });
 
   for await (const chunk of normalizeHsdataXmlChunks(stream)) {
-    sourceHash.update(chunk, 'utf8');
+    sourceHash.update(chunk);
     parser.write(chunk);
   }
 
@@ -562,6 +584,6 @@ export const parseHsdataXmlStream = async (
       build,
       entities: validateAndDedupeEntities(entities),
     },
-    sourceHash: sourceHash.digest('hex'),
+    sourceHash: toHex(sourceHash.digest()),
   };
 };

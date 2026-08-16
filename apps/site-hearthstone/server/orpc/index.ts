@@ -1,3 +1,6 @@
 import { os as create } from '@orpc/server';
 
-export const os = create;
+import type { HonoEnv } from './hono-env';
+
+export const os = create
+  .$context<HonoEnv['Variables']>();

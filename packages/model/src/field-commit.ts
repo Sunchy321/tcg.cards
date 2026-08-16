@@ -3,7 +3,7 @@ import z from 'zod';
 const nullableText = z.string().nullable();
 
 export const fieldCommitProfile = z.strictObject({
-    id:                     z.string().uuid(),
+    id:                     z.uuid(),
     sequence:               z.int().nonnegative(),
     entityType:             z.string(),
     entityKey:              z.record(z.string(), z.unknown()),
@@ -13,7 +13,8 @@ export const fieldCommitProfile = z.strictObject({
     commitKind:             z.string(),
     clientMutationId:       z.string(),
     editorRuntime:          z.string(),
-    editorIdentity:         nullableText,
+    editorIdentity:         z.string(),
+    editorSource:           z.string(),
     expectedRowRevision:    z.string(),
     expectedWinnerRevision: nullableText,
     baseRevision:           z.string(),

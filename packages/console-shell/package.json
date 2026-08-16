@@ -20,7 +20,8 @@
     "@tcg-cards/console-core": "workspace:*",
     "@tcg-cards/console-platform": "workspace:*",
     "@tcg-cards/model": "workspace:*",
-    "@tcg-cards/shared": "workspace:*",
+    "@tcg-cards/base": "workspace:*",
+    "@tcg-cards/ui": "workspace:*",
     "vue": "^3.5.29",
     "vue-router": "^4.6.4",
     "yaml": "^2.5.0"

@@ -40,10 +40,6 @@ export default {
     'zhs:md':  '简体中文（MD）',
   },
 
-  common: {
-    backToMain: '返回 TCG Cards',
-  },
-
   search: {
     error: {
       'empty-input':      '请输入搜索内容',
@@ -144,11 +140,21 @@ export default {
     general: {
       $self:      '通用',
       uiLanguage: '界面语言',
+      theme:      '主题',
+      themeLight: '浅色',
+      themeDark:  '深色',
+      themeAuto:  '自动',
     },
 
     game: {
-      $self:    '游戏',
-      language: '游戏语言',
+      $self:             '游戏',
+      language:          '游戏语言',
+      searchLayout:      '搜索布局',
+      searchLayoutGrid:  '网格',
+      searchLayoutList:  '列表',
+      searchLayoutTable: '表格',
+      setAsDefault:      '设为默认',
+      resetToDefault:    '重置为默认',
     },
   },
 
@@ -157,8 +163,9 @@ export default {
     $full: '炉石传说',
 
     home: {
-      randomCard:     '随机卡牌',
-      randomCardHint: '点击随机打开一张卡牌详情',
+      randomCard:       '随机卡牌',
+      randomCardHint:   '点击随机打开一张卡牌详情',
+      announcementHint: '查看卡牌更新与版本公告',
     },
 
     search: {
@@ -167,6 +174,25 @@ export default {
       'hint':       '例如：火球术、class:mage cost<=3、type:minion race:dragon',
       'noResult':   '没有找到匹配的卡牌',
       'failed':     '搜索失败',
+
+      'layoutGrid':  '图片',
+      'layoutList':  '列表',
+      'layoutTable': '表格',
+
+      'table': {
+        columnName:         '名称',
+        columnCost:         '费用',
+        columnType:         '类型',
+        columnClass:        '职业',
+        columnAttackHealth: '攻击/生命',
+        columnSet:          '系列',
+        columnText:         '效果文本',
+        columnDetail:       '详情',
+        selectColumns:      '选择列',
+        copy:               '复制',
+        export:             '导出',
+        copied:             '已复制到剪贴板',
+      },
 
       'advanced': {
         $self:               '高级搜索',
@@ -447,15 +473,29 @@ export default {
       demon_hunter: '恶魔猎手',
     },
 
+    announcement: {
+      $self:    '公告',
+      empty:    '暂无公告',
+      notFound: '找不到公告',
+      noItems:  '该公告暂无条目',
+    },
+
+    timeline: {
+      $self: '时间线',
+      empty: '该赛制暂无变更',
+    },
+
     card: {
-      $self:     '卡牌',
-      versions:  '版本历史',
-      formatAvailability: '赛制',
-      playable:  '可用',
-      related:   '相关卡牌',
-      noRelated: '暂无相关卡牌',
-      notFound:  '找不到卡牌',
-      tagCopied: '标签已复制',
+      $self:         '卡牌',
+      versions:      '版本历史',
+      related:       '相关卡牌',
+      noRelated:     '暂无相关卡牌',
+      notFound:      '找不到卡牌',
+      tagCopied:     '标签已复制',
+      changeHistory: '变更历史',
+
+      compareEntity: '对比卡牌 JSON',
+      compareRender: '对比渲染 JSON',
 
       relation: {
         collection_related: '升级与相关形态',

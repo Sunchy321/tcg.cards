@@ -1,5 +1,7 @@
 # 炉石图片渲染器协议
 
+**协议版本：1**
+
 ## 目的
 
 本文档定义一个炉石卡图渲染器的对外 HTTP 契约。
@@ -73,17 +75,13 @@
 
 请求体必须是一个单图渲染请求对象。
 
-渲染器必须能够从请求体中读取以下最小输入：
+每个请求都使用完整的 `ImageRequirementRequest` 任务结构。该结构中的所有字段都是端到端渲染与导入流程的必填字段，但只有以下字段直接影响 PNG 生成：
 
-- 一个卡牌标识
 - `variant`
 - 输出宽高
 - `renderModel`
 
-当前约定下，卡牌标识可以来自以下任一位置：
-
-- `card.cardId`
-- `renderModel.cardId`
+对于 `partial-update`，渲染器还会消费 `card`，用它从内部游戏数据中定位基础状态。`card.cardId` 与 `renderModel.cardId` 必须指向同一张卡牌。
 
 当前请求体中，渲染器直接依赖的字段是：
 
@@ -94,11 +92,323 @@
 - `renderModel`
   用于生成卡图的 canonical render-model 载荷。
 
-`requestId` 可作为调用方追踪字段，但不是渲染成功的前提条件。
-
-`card`、`style`、`target`、`output.fileName` 以及其他导出侧字段可以存在于请求体中，但不属于本规范要求渲染器必须依赖的最小输入集合。
+`requestId`、`style`、`target`、`output.fileName`、`output.format` 和 `output.transparentBackground` 是必填的任务元数据。它们用于结果关联、校验、导入和存储，但渲染器生成像素时不消费这些字段。
 
 本规范定义的接口只接收单个渲染请求对象，不接收批量 wrapper 文档。
+
+## Post Body 结构
+
+`POST /render` 请求体是一个 JSON 对象，遵循共享上游模型中定义的 `ImageRequirementRequest` schema。
+
+### 字段职责
+
+完整任务对象是必填的，但渲染器生成 PNG 时只消费其中一部分：
+
+- **每次渲染都消费**：`variant`、`renderMode`、`output.width`、`output.height` 和 `renderModel`。
+- **`partial-update` 额外消费**：`card.cardId` 和 `card.lang`，用于从渲染器内部游戏数据加载基础状态。
+- **必填但不参与像素生成的任务元数据**：`requestId`、`style`、`target`、`output.fileName`、`output.format` 和 `output.transparentBackground`。
+
+不参与像素生成的字段仍然必填，因为同一个对象还会继续用于结果关联和导出/导入流程。
+
+### 示例
+
+```json
+{
+  "requestId": "sha256:9ca666539f9e4b7746527ed13cf4d5cda4a79c9126fcd8781ac1c89a38e7841c",
+  "card": {
+    "cardId": "ABC_123",
+    "lang": "zhs"
+  },
+  "variant": {
+    "category": "glow",
+    "zone": "hand",
+    "template": "normal",
+    "premium": "normal"
+  },
+  "renderMode": "full-set",
+  "style": {
+    "styleKey": "hand_normal_normal_default",
+    "category": "glow",
+    "zone": "hand",
+    "template": "normal",
+    "premium": "normal",
+    "layout": "default",
+    "width": 512,
+    "height": 768,
+    "transparentBackground": false
+  },
+  "output": {
+    "fileName": "9ca666539f9e4b7746527ed13cf4d5cda4a79c9126fcd8781ac1c89a38e7841c.png",
+    "format": "png",
+    "width": 512,
+    "height": 768,
+    "transparentBackground": false
+  },
+  "target": {
+    "r2Bucket": "hearthstone-card-images",
+    "r2Key": "hearthstone/card/glow/hand/normal/normal/re/render_hash_001.webp",
+    "contentType": "image/webp"
+  },
+  "renderModel": {
+    "cardId": "ABC_123",
+    "lang": "zhs",
+    "templateVersion": "35.4.0",
+    "assetVersion": "35.4.0",
+    "localization": {
+      "name": "炎魔之王拉格纳罗斯",
+      "richText": "<b>战吼：</b>造成8点伤害。"
+    },
+    "type": "minion",
+    "cost": 8,
+    "attack": 8,
+    "health": 8,
+    "classes": ["neutral"],
+    "race": ["elemental"],
+    "set": 3,
+    "rarity": "legendary",
+    "elite": false,
+    "glow": [
+      { "part": "attack", "type": "buff" },
+      { "part": "text", "type": "nerf" }
+    ],
+    "renderMechanics": {}
+  }
+}
+```
+
+### 字段参考
+
+#### `requestId`
+
+- **类型**：`string`
+- **必填**：是
+
+调用方追踪标识。渲染器不消费。
+
+#### `card`
+
+- **类型**：`object`
+- **必填**：是。渲染器在 `partial-update` 中使用该对象定位内部游戏数据。
+
+| 字段 | 类型 | 说明 |
+|-------|------|-------------|
+| `cardId` | `string` | 卡牌标识 |
+| `lang` | `string` | 语言代码（如 `zhs`、`enus`） |
+
+#### `variant`
+
+- **类型**：`object`
+- **必填**：是
+
+| 字段 | 类型 | 可选值 | 说明 |
+|-------|------|--------|-------------|
+| `category` | `string` | `"base"`、`"glow"` | 图片类别 |
+| `zone` | `string` | `"hand"`、`"play"` | 卡牌显示区域 |
+| `template` | `string` | `"normal"`、`"battlegrounds"` | 卡牌模板 |
+| `premium` | `string` | `"normal"`、`"golden"`、`"diamond"`、`"signature"` | 卡牌品质 |
+
+#### `renderMode`
+
+- **类型**：`string`
+- **必填**：是
+- **输入默认值**：`"full-set"`；规范化后的序列化任务包含补全后的值。
+- **可选值**：`"full-set"`、`"partial-update"`
+
+声明 `renderModel` 可选字段的字段存在性语义。
+
+| 值 | 基础状态 | 可选字段缺失 |
+|----|---------|-------------|
+| `"full-set"` | 无 | 该字段不适用或被清除 |
+| `"partial-update"` | 使用 `card` 从内部游戏数据加载 | 保留基础状态中的值 |
+
+当为 `"partial-update"` 时，渲染器先使用 `card` 从内部游戏数据解析基础 render model，再用 `renderModel` 中明确出现的字段覆盖它。缺失的可选字段保留基础状态中的值。
+
+当为 `"full-set"` 时，`renderModel` 是完整的规范快照；不适用于该卡牌的可选字段仍可缺失。
+
+#### `style`
+
+- **类型**：`object`
+- **必填**：是（任务元数据，不参与像素生成）
+
+导出/导入流程使用的渲染样式声明。渲染器不消费。
+
+| 字段 | 类型 | 说明 |
+|-------|------|-------------|
+| `styleKey` | `string` | 样式标识 |
+| `category` | `string` | 同 `variant.category` |
+| `zone` | `string` | 同 `variant.zone` |
+| `template` | `string` | 同 `variant.template` |
+| `premium` | `string` | 同 `variant.premium` |
+| `layout` | `string` | 布局标识 |
+| `width` | `number` | 样式宽度（像素） |
+| `height` | `number` | 样式高度（像素） |
+| `transparentBackground` | `boolean` | 是否请求透明背景 |
+
+#### `output`
+
+- **类型**：`object`
+- **必填**：是。只有 `width` 和 `height` 参与像素生成。
+
+| 字段 | 类型 | 说明 |
+|-------|------|-------------|
+| `fileName` | `string` | 输出 PNG 文件名。渲染器不消费。 |
+| `format` | `"png"` | 输出格式，固定为 `"png"`。 |
+| `width` | `number`（正整数） | 输出图片宽度（像素） |
+| `height` | `number`（正整数） | 输出图片高度（像素） |
+| `transparentBackground` | `boolean` | 输出是否使用透明背景。渲染器不消费。 |
+
+#### `target`
+
+- **类型**：`object`
+- **必填**：是（任务元数据，不参与像素生成）
+
+导入流程使用的存储目标元数据。渲染器不消费。
+
+| 字段 | 类型 | 说明 |
+|-------|------|-------------|
+| `r2Bucket` | `string` | 目标 R2 bucket 名称 |
+| `r2Key` | `string` | 目标 R2 对象 key |
+| `contentType` | `"image/webp"` | 目标内容类型，固定为 `"image/webp"`。 |
+
+#### `renderModel`
+
+- **类型**：`object`
+- **必填**：是
+
+包含卡图渲染所需全部卡牌数据的 canonical render-model 载荷。这是渲染器驱动渲染的主要输入。
+
+标记为 `?` 的字段为可选，当值为 null 或不适用时省略。字段存在性语义见 `renderMode`。
+
+| 字段 | 类型 | 说明 |
+|-------|------|-------------|
+| `cardId` | `string` | 卡牌标识 |
+| `lang` | `string` | 语言代码 |
+| `templateVersion` | `string` | 模板版本 |
+| `assetVersion` | `string` | 资源版本 |
+| `localization` | `object` | 本地化文本载荷 |
+| `localization.name` | `string` | 卡牌名称 |
+| `localization.richText` | `string` | 带标记的卡牌描述文本 |
+| `type` | `string` | 卡牌类型（如 `minion`、`spell`、`weapon`） |
+| `cost` | `number` | 法力值消耗 |
+| `attack` | `number?` | 攻击力。 |
+| `health` | `number?` | 生命值。 |
+| `durability` | `number?` | 耐久度（武器）。 |
+| `armor` | `number?` | 护甲值。 |
+| `classes` | `string[]` | 职业归属。 |
+| `race` | `string[]?` | 随从种族。 |
+| `spellSchool` | `string?` | 法术派系。 |
+| `mercenaryRole` | `string?` | 佣兵角色（`protector`、`fighter`、`caster`、`neutral`）。 |
+| `mercenaryFaction` | `string?` | 佣兵阵营（`alliance`、`horde`、`empire`、`explorer`、`legion`、`pirate`、`scourge`）。 |
+| `colddown` | `number?` | 佣兵技能冷却（速度值）。 |
+| `set` | `number` | 卡牌系列标识。 |
+| `overrideWatermark` | `string?` | 覆盖水印。 |
+| `rarity` | `string?` | 稀有度（如 `legendary`、`epic`）。 |
+| `elite` | `boolean` | 精英标识。 |
+| `techLevel` | `number?` | 酒馆战棋科技等级。 |
+| `rune` | `string[]?` | 死亡骑士符文组合（`blood`、`frost`、`unholy`）。 |
+| `glow` | `GlowEntry[]?` | 可选的卡面部位变化高亮，仅当 `variant.zone` 为 `"hand"` 时有效，详见下方 `glow` 小节。 |
+| `renderMechanics` | `object` | 渲染机制标识。完整 key 列表见下方 `renderMechanics` 小节。 |
+| `textBuilderType` | `string` | 卡牌文本构建器类型。有效值列表见下方 `textBuilderType` 小节。 |
+| `renderHints` | `string[]?` | 语义化提示标签，标记渲染器行为变化。详见下方 `renderHints` 小节。 |
+
+#### `glow`
+
+可选的卡面部位高亮标记数组。Glow 仅支持手牌图：携带 `renderModel.glow` 的请求必须将 `variant.zone` 设为 `"hand"`；`"play"` 区域的渲染请求不得携带 glow 标记。
+
+每个条目的结构如下：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `part` | `GlowPart` | 需要高亮的卡面区域。 |
+| `type` | `"buff" \| "nerf" \| "rework" \| "neutral"` | 分别表示增强、削弱、功能重做或不影响玩法的中性修改视觉样式。 |
+
+支持的规范 `GlowPart` 值：
+
+`cost | attack | health | text | armor | rune | rarity | art | name | race | tech-level`
+
+`durability` 是 `health` 的可接受别名，渲染器必须将二者应用到同一个视觉区域。
+
+规范部位映射为：`cost -> ManaCost`、`attack -> Attack`、`health`/`durability -> Health`、`text -> CardText`、`armor -> Armor`、`rune -> Runes`、`rarity -> RarityGem`、`art -> Art`、`name -> CardName`、`race -> Race`、`tech-level -> TechLevel`。部位值合法但当前卡牌或 prefab 不支持时静默忽略。`tech-level` 用于高亮酒馆战棋的旅店等级徽章。同一视觉区域的同类型重复项合并，不同类型冲突则拒绝请求。
+
+#### `renderMechanics`
+
+一个 partial-record 对象，以 GAME_TAG 枚举 ID 字符串为 key。它同时承载适用于该卡牌的视觉机制，以及渲染器根据 `localization.richText` 与 `textBuilderType` 重建文本所需的静态 EntityDef 输入。每个 key 均为可选。
+
+值类型：`boolean | integer`
+
+使用数字 ID 作为 key 可避免 slug 名称变更导致的 hash 不稳定。
+
+| Key (string) | GAME_TAG | Slug | 说明 |
+|-------------|----------|------|------|
+| `"2"` | DATA_NUM_1 | `data-num-1` | {0} 替换 |
+| `"3"` | DATA_NUM_2 | `data-num-2` | {1} 替换 |
+| `"451"` | SCORE_VALUE_1 | `score-value-1` | 倒计时 `@` 替换 |
+| `"471"` | MODULAR_ENTITY_PART_1 | `modular-entity-part-1` | 第一个奇利亚斯豪华版模块 dbfId |
+| `"472"` | MODULAR_ENTITY_PART_2 | `modular-entity-part-2` | 第二个奇利亚斯豪华版模块 dbfId |
+| `"535"` | QUEST_PROGRESS_TOTAL | `quest-progress-total` | 静态任务/种族数量输入 |
+| `"682"` | HIDE_HEALTH | `hide-health` | 在渲染卡面上隐藏生命值 |
+| `"683"` | HIDE_ATTACK | `hide-attack` | 在渲染卡面上隐藏攻击力 |
+| `"684"` | HIDE_COST | `hide-cost` | 在渲染卡面上隐藏法力值消耗 |
+| `"813"` | HIDDEN_CHOICE | `hidden-choice` | 选择隐藏抉择文本段 |
+| `"955"` | USE_ALTERNATE_CARD_TEXT | `use-alternate-card-text` | @ 分隔选第 N 段可选文本 |
+| `"1107"` | HIDE_WATERMARK | `hide-watermark` | 在渲染卡面上隐藏职业水印 |
+| `"1471"` | BACON_TRIPLED_BASE_MINION_ID | `bacon-tripled-base-minion-id` | 第一个酒馆战棋奇利亚斯模块 dbfId |
+| `"1671"` | LETTUCE_PASSIVE_ABILITY | `lettuce-passive-ability` | 佣兵技能为被动 |
+| `"1676"` | LETTUCE_ABILITY_SUMMONED_MINION | `lettuce-ability-summoned-minion` | 佣兵技能召唤随从 |
+| `"1720"` | TRADEABLE | `tradeable` | 卡牌具有可交易机制 |
+| `"1824"` | IN_MINI_SET | `in-mini-set` | 卡牌属于迷你系列 |
+| `"1852"` | LETTUCE_MERCENARY_EXPERIENCE | `lettuce-mercenary-experience` | 佣兵经验值（转为等级显示） |
+| `"1855"` | LETTUCE_EQUIPMENT | `lettuce-equipment` | 佣兵卡牌为装备 |
+| `"2170"` | LETTUCE_IS_TREASURE_CARD | `lettuce-is-treasure-card` | 佣兵卡牌为宝藏 |
+| `"2493"` | LETTUCE_ABILITY_TIER | `lettuce-ability-tier` | 佣兵技能等级（1–3） |
+| `"2494"` | LETTUCE_EQUIPMENT_TIER | `lettuce-equipment-tier` | 佣兵装备等级（1–4） |
+| `"2655"` | CARDTEXT_ENTITY_0 | `cardtext-entity-0` | 卡牌文本的第一个引用实体输入 |
+| `"2656"` | CARDTEXT_ENTITY_1 | `cardtext-entity-1` | 卡牌文本的第二个引用实体输入 |
+| `"2657"` | CARDTEXT_ENTITY_2 | `cardtext-entity-2` | 卡牌文本的第三个引用实体输入 |
+| `"2658"` | CARDTEXT_ENTITY_3 | `cardtext-entity-3` | 卡牌文本的第四个引用实体输入 |
+| `"2659"` | CARDTEXT_ENTITY_4 | `cardtext-entity-4` | 卡牌文本的第五个引用实体输入 |
+| `"2660"` | CARDTEXT_ENTITY_5 | `cardtext-entity-5` | 卡牌文本的第六个引用实体输入 |
+| `"2661"` | CARDTEXT_ENTITY_6 | `cardtext-entity-6` | 卡牌文本的第七个引用实体输入 |
+| `"2662"` | CARDTEXT_ENTITY_7 | `cardtext-entity-7` | 卡牌文本的第八个引用实体输入 |
+| `"2663"` | CARDTEXT_ENTITY_8 | `cardtext-entity-8` | 卡牌文本的第九个引用实体输入 |
+| `"2664"` | CARDTEXT_ENTITY_9 | `cardtext-entity-9` | 卡牌文本的第十个引用实体输入 |
+| `"2785"` | FORGE | `forge` | 卡牌具有锻造机制 |
+| `"2889"` | DATA_NUM_3 | `data-num-3` | {2} 替换 |
+| `"2890"` | CARD_NAME_DATA_1 | `card-name-data-1` | 卡名 {0} 替换 |
+| `"2919"` | DATA_NUM_4 | `data-num-4` | {3} 替换 |
+| `"2920"` | DATA_NUM_5 | `data-num-5` | {4} 替换 |
+| `"2921"` | DATA_NUM_6 | `data-num-6` | {5} 替换，可选 CardDBID 引用 |
+| `"2946"` | HIDDEN_CHOICE_OVERRIDE | `hidden-choice-override` | 覆盖隐藏抉择文本段 |
+| `"3499"` | BACON_TRIPLED_BASE_MINION_ID2 | `bacon-tripled-base-minion-id-2` | 第二个酒馆战棋奇利亚斯模块 dbfId |
+| `"3500"` | BACON_TRIPLED_BASE_MINION_ID3 | `bacon-tripled-base-minion-id-3` | 第三个酒馆战棋奇利亚斯模块 dbfId |
+| `"4161"` | DYNAMIC_KEYWORD1 | `dynamic-keyword-1` | 第一个动态关键词 GAME_TAG |
+| `"4162"` | DYNAMIC_KEYWORD2 | `dynamic-keyword-2` | 第二个动态关键词 GAME_TAG |
+| `"4354"` | PREPARE | `prepare` | 卡牌具有预备机制 |
+| `"4503"` | TIMEWARPED | `timewarped` | 卡牌具有酒馆战棋时空扭曲机制 |
+| `"4519"` | BACON_ALT_TAVERN_SYSTEM_ACTIVE | `bacon-alt-tavern-system-active` | 是否时空扭曲酒馆 |
+| `"4579"` | HAS_TIMEWARPED_TAVERN_ALT_TEXT | `has-timewarped-tavern-alt-text` | 时空扭曲下 alt text 索引 |
+
+`WINDFURY`（189）、`TAUNT`（190）、`STEALTH`（191）、`DIVINE_SHIELD`（194）、`MAGNETIC`（849）和 `REBORN`（1085）不是静态文本重建的 render model 输入。酒馆战棋奇利亚斯 builder 在通过 `BACON_TRIPLED_BASE_MINION_ID*` 解析模块 dbfId 后，只将它们作为固定关键词查找 key 使用。
+
+#### `textBuilderType`
+
+标识用于从 `localization.richText` 与 `renderMechanics` 中的数值重建卡牌显示文本的 `CardTextBuilder` 子类。渲染器借此正确还原卡牌文本。
+
+有效值：
+
+`default`、`jade_golem`、`jade_golem_trigger`、`modular_entity`、`kazakus_potion_effect`、`primordial_wand`、`alternate_card_text`、`script_data_num_1`、`galakrond_counter`、`decorate`、`player_tag_threshold`、`entity_tag_threshold`、`multiple_entity_names`、`gameplay_string`、`zombeast`、`zombeast_enchantment`、`hidden_choice`、`investigate`、`reference_creator_entity`、`reference_script_data_num_1_entity`、`reference_script_data_num_1_num_2_entity`、`undatakah_enchant`、`spell_damage_only`、`drustvar_horror`、`hidden_entity`、`score_value_count_down`、`script_data_num_1_num_2`、`powered_up`、`multiple_alt_text_script_data_nums`、`reference_script_data_num_1_entity_power`、`reference_script_data_num_1_card_dbid`、`reference_script_data_num_card_race`、`bg_quest`、`multiple_alt_text_script_data_nums_ref_sdn6_card_dbid`、`zilliax_deluxe_3000`、`reference_script_data_num_1_num_2_entity_power`、`battlegrounds_zilliax`、`spell_absorb`、`alt_text_reference_script_data_num_1_num_2_entity_power`、`rewind_mechanic_card_text_builder`、`battlegrounds_tavern_spell`、`dynamic_keyword`、`reference_script_data_num_1_class`、`herald`、`alternate_card_text_with_script_data`、`battlegrounds_deep_blues_spell`、`silver_hand_recruit`
+
+#### `renderHints`
+
+可选的语义化字符串标签数组，用于标记特定卡牌子集的渲染器行为变化。每个 hint 格式为 `{scope}-{aspect}-v{n}`：
+
+- **scope**：受影响的卡牌范围（如 `hunter`、`dual-class`）
+- **aspect**：变化的内容（如 `template-color`、`class-order`）
+- **v{n}**：行为版本号，从 `v2` 起（v1 为基线行为，不写入）
+
+无 hint 表示所有 aspect 均使用基线行为。当同一 aspect 存在多个 hint 时，渲染器应使用其识别的最高版本。渲染器不认识的 hint 静默忽略。
+
+该字段为空时不出现在 payload 中。
 
 ## 功能约束
 
@@ -106,9 +416,17 @@
 
 - 对一个有效请求返回一个有效 PNG 二进制
 - 每次请求只渲染一张图
-- 把请求体视为完整、自包含的渲染输入
+- 将 `full-set` 请求视为完整、自包含的渲染输入；对于 `partial-update`，使用 `card` 从内部游戏数据解析基础状态
 - 遵守 `output.width` 和 `output.height`
 - 支持炉石卡图渲染所需的 `variant` 与 `renderModel`
+- 要求 `card.cardId` 与 `renderModel.cardId` 指向同一张卡牌
+- 要求 `style.category`、`style.zone`、`style.template` 和 `style.premium` 与 `variant` 一致
+- 要求 `style.width`、`style.height` 与 `output.width`、`output.height` 一致
+- 要求 `style.transparentBackground` 与 `output.transparentBackground` 一致
+- 当且仅当 `renderModel.glow` 非空时，要求 `variant.category` 为 `"glow"`；否则必须为 `"base"`
+- 仅当 `variant.zone` 为 `"hand"` 时接受 `renderModel.glow`；`"play"` 渲染不得携带 glow 标记
+- 按每个标记声明的 `buff`、`nerf`、`rework` 或 `neutral` 样式渲染所有受支持的 `renderModel.glow` 标记
+- 将 glow 部位 `durability` 作为 `health` 的同义词处理
 - 提供 `GET /status` 供可用性与兼容性检查
 
 对于等价的请求载荷，除非渲染器版本或资源集发生变更，否则渲染器应当产出等价的视觉结果。
@@ -137,6 +455,8 @@
 
 这些状态码只是建议，不是强制枚举；但渲染器在没有产出有效 PNG 时，不能返回 `200`。
 
+请求结构合法但因卡牌、prefab、Renderer 或必要资源不可用而无法渲染时返回 `422`。
+
 ## 范围外
 
 本规范不定义：
@@ -157,4 +477,4 @@
 
 ## 实现参考
 
-- 共享上游模型：`packages/model/src/hearthstone/schema/data/image.ts`
+- 共享上游模型：[`packages/model/src/hearthstone/schema/data/image.ts`](../packages/model/src/hearthstone/schema/data/image.ts)

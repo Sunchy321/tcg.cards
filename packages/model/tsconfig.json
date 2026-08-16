@@ -28,8 +28,8 @@
 
     "paths": {
       "#search/*": ["./node_modules/@tcg-cards/search/src/*"],
-      "#shared": ["./node_modules/@tcg-cards/shared/src/index.ts"],
-      "#shared/*": ["./node_modules/@tcg-cards/shared/src/*"]
+      "#base": ["./node_modules/@tcg-cards/base/src/index.ts"],
+      "#base/*": ["./node_modules/@tcg-cards/base/src/*"]
     }
   }
 }

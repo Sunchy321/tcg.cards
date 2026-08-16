@@ -1,25 +1,15 @@
 import { ORPCError, eventIterator } from '@orpc/server';
 import { runWithDb } from '@tcg-cards/db';
-import { eq } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { SourceVersion } from '@tcg-cards/db/schema/local/hearthstone';
+import { Patch, PatchState, RawEntitySnapshot } from '@tcg-cards/db/schema/local/hearthstone';
+import { TaskRun } from '@tcg-cards/db/schema/local/task';
 
 import { os } from './index';
-import { importParsedHsdata } from '../lib/hearthstone/hsdata-import';
+import { computeShortName } from '../lib/hearthstone/hsdata-import';
 import {
-  startImportJob,
-  startProjectJob,
-  updateImportJob,
-  updateProjectJob,
-  watchImportJobBySourceId,
-  watchProjectJobBySourceTag,
-  type HsdataImportProgressEvent,
-  type HsdataProjectProgressEvent,
-} from '../lib/hearthstone/hsdata-progress';
-import { projectHsdata, recomputeLatestProjection } from '../lib/hearthstone/hsdata-project';
-import {
+  collectAllPatchMeta,
   getHsdataRepoState,
-  readHsdataImportSource,
   listHsdataSources,
   readHsdataSource,
   syncHsdataRemoteVersions,
@@ -29,49 +19,29 @@ import {
   listLocalHsdataSourceVersions,
 } from '../lib/hearthstone/hsdata-status';
 import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
-import { getIncompletePublishBatch, listPublishBatches, publishCurrentHsdataToRemote, publishReport } from '../lib/hearthstone/hsdata-publish';
-import {
-  startPublishJob,
-  updatePublishJob,
-  watchPublishJob,
-  type PublishJobProgressEvent,
-} from '../lib/hearthstone/hsdata-publish-progress';
+import { cancelIncompletePublishBatch, getIncompletePublishBatch, listPublishBatches, publishReport, publishSingleCard, singleCardPublishReport, ensureRemotePublishRegistration } from '../lib/hearthstone/hsdata-publish';
+import { createTaskStore } from '#task/store';
 
 const sourceIdInput = z.strictObject({
   id: z.string().trim().min(1),
 });
 
-const importSourceInput = z.strictObject({
-  id: z.string().trim().min(1),
-  dryRun: z.boolean().optional(),
-  force: z.boolean().optional(),
-});
-
-const projectSourceVersionInput = z.strictObject({
-  sourceTag: z.number().int().nonnegative(),
-  dryRun: z.boolean().optional(),
-  force: z.boolean().optional(),
-  skipLatestUpdate: z.boolean().optional(),
-});
-
-const importJobInput = z.strictObject({
-  sourceId: z.string().trim().min(1),
-});
-
-const projectJobInput = z.strictObject({
-  sourceTag: z.number().int().nonnegative(),
+const publishStreamInput = z.strictObject({
+  publishTarget: z.literal('hearthstone'),
+  environment:   z.string().trim().min(1),
+  publishType:   z.string().optional().default('card_data'),
 });
 
 const sourceFile = z.object({
-  id: z.string(),
-  name: z.string(),
-  kind: z.union([z.literal('tag'), z.literal('worktree')]),
-  size: z.number(),
-  time: z.string().optional(),
-  sourceTag: z.number().optional(),
+  id:           z.string(),
+  name:         z.string(),
+  kind:         z.union([z.literal('tag'), z.literal('worktree')]),
+  size:         z.number(),
+  time:         z.string().optional(),
+  sourceTag:    z.number().optional(),
   sourceCommit: z.string(),
-  shortCommit: z.string(),
-  sourceUri: z.string(),
+  shortCommit:  z.string(),
+  sourceUri:    z.string(),
 });
 
 const repoState = z.object({
@@ -80,19 +50,22 @@ const repoState = z.object({
 
 const syncResult = z.object({
   repoPath: z.string(),
-  remote: z.string(),
+  remote:   z.string(),
 });
 
 const sourceVersionStatus = z.object({
-  sourceTag: z.number(),
-  build: z.number().nullable(),
-  sourceCommit: z.string(),
-  sourceUri: z.string(),
-  importStatus: z.string(),
-  importedAt: z.string().nullable(),
+  sourceTag:        z.number(),
+  build:            z.number().nullable(),
+  sourceCommit:     z.string(),
+  sourceUri:        z.string(),
+  importStatus:     z.string(),
+  importedAt:       z.string().nullable(),
   projectionStatus: z.string(),
-  projectedAt: z.string().nullable(),
-  projectionError: z.string().nullable(),
+  projectedAt:      z.string().nullable(),
+  projectionError:  z.string().nullable(),
+  unpackStatus:     z.string(),
+  unpackedAt:       z.string().nullable(),
+  unpackAvailable:  z.boolean(),
 });
 
 /** Reads one object-like cause from an unknown thrown value. */
@@ -193,6 +166,17 @@ const toRuntimeError = (error: unknown) => {
     return error;
   }
 
+  if (error instanceof Error) {
+    if (
+      error.message.includes('is already leased by another publish batch')
+      || error.message.includes('lease could not be renewed')
+    ) {
+      return new ORPCError('CONFLICT', {
+        message: error.message,
+      });
+    }
+  }
+
   return new ORPCError('INTERNAL_SERVER_ERROR', {
     message: formatRuntimeErrorMessage(error),
   });
@@ -249,174 +233,13 @@ const readSource = os
   })
   .input(sourceIdInput)
   .output(sourceFile.extend({
-    xml: z.string(),
+    xml:       z.string(),
     sourceTag: z.number(),
   }))
   .handler(async ({ input }) => {
     try {
       return await readHsdataSource(input.id);
     } catch (error) {
-      throw toRuntimeError(error);
-    }
-  });
-
-/** Imports one hsdata source into the local raw snapshot tables through the Bun runtime. */
-const importSource = os
-  .route({
-    method:      'POST',
-    description: 'Import one hsdata source into the local database',
-    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
-  })
-  .input(importSourceInput)
-  .output(z.any())
-  .handler(async ({ input }) => {
-    const job = startImportJob({
-      sourceId: input.id,
-      sourceTag: null,
-      message: 'Reading hsdata source from the local repository',
-      totalBatchCount: 1,
-      totalEntityCount: null,
-    });
-    updateImportJob(job.jobId, {
-      totalWorkCount: 1,
-      completedWorkCount: 0,
-      workLabel: 'source',
-    });
-
-    try {
-      const source = await readHsdataImportSource(input.id);
-      updateImportJob(job.jobId, {
-        sourceTag: source.sourceTag,
-        phase: 'parsing_entities',
-        message: 'Parsing CardDefs.xml into canonical entity snapshots',
-        totalEntityCount: source.parsed.entities.length,
-        completedEntityCount: 0,
-        totalWorkCount: source.parsed.entities.length,
-        completedWorkCount: 0,
-        workLabel: 'entity',
-      });
-
-      const report = await runWithDb(getLocalDb(), () => importParsedHsdata({
-        parsed: source.parsed,
-        sourceTag: source.sourceTag,
-        sourceHash: source.sourceHash,
-        sourceCommit: source.sourceCommit,
-        sourceUri: source.sourceUri,
-        importEngineVersion: 'desktop-runtime-bun-import:v1',
-        dryRun: input.dryRun,
-        force: input.force,
-        onProgress(progress) {
-          updateImportJob(job.jobId, {
-            sourceTag: source.sourceTag,
-            ...progress,
-          });
-        },
-      }));
-
-      updateImportJob(job.jobId, {
-        sourceTag: source.sourceTag,
-        phase: 'completed',
-        message: 'Completed hsdata import',
-        totalEntityCount: report.entityCount,
-        completedEntityCount: report.entityCount,
-        totalBatchCount: 1,
-        completedBatchCount: 1,
-        currentBatchIndex: 1,
-        totalWorkCount: report.entityCount,
-        completedWorkCount: report.entityCount,
-        workLabel: 'entity',
-      });
-
-      return report;
-    } catch (error) {
-      const message = formatRuntimeErrorMessage(error);
-      updateImportJob(job.jobId, {
-        phase: 'failed',
-        message,
-        workLabel: null,
-      });
-      throw toRuntimeError(error);
-    }
-  });
-
-/** Projects one imported source version into the shared card tables through the Bun runtime. */
-const projectSourceVersion = os
-  .route({
-    method:      'POST',
-    description: 'Project one imported hsdata source version into shared rows',
-    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
-  })
-  .input(projectSourceVersionInput)
-  .output(z.any())
-  .handler(async ({ input }) => {
-    startProjectJob({
-      sourceTag: input.sourceTag,
-      message: 'Loading raw snapshots from the local database',
-    });
-
-    try {
-      const database = getLocalDb();
-
-      if (!input.dryRun) {
-        await database.update(SourceVersion)
-          .set({
-            projectionStatus: 'processing',
-            projectionError:  null,
-            projectedAt:      null,
-          })
-          .where(eq(SourceVersion.sourceTag, input.sourceTag));
-      }
-
-      const report = await runWithDb(database, () => projectHsdata({
-        sourceTag: input.sourceTag,
-        dryRun: input.dryRun,
-        force: input.force,
-        skipLatestUpdate: input.skipLatestUpdate,
-        onProgress(progress) {
-          updateProjectJob(input.sourceTag, progress);
-        },
-      }));
-
-      if (!input.dryRun) {
-        await database.update(SourceVersion)
-          .set({
-            projectionStatus: 'completed',
-            projectionError:  null,
-            projectedAt:      new Date(),
-          })
-          .where(eq(SourceVersion.sourceTag, input.sourceTag));
-      }
-
-      updateProjectJob(input.sourceTag, {
-        phase: 'completed',
-        message: 'Completed hsdata projection',
-        totalSnapshotCount: report.snapshotCount,
-        completedSnapshotCount: report.snapshotCount,
-        totalWorkCount: report.snapshotCount,
-        completedWorkCount: report.snapshotCount,
-        workLabel: 'snapshot',
-        writeBreakdown: null,
-      });
-
-      return report;
-    } catch (error) {
-      const message = formatRuntimeErrorMessage(error);
-      if (!input.dryRun) {
-        await getLocalDb().update(SourceVersion)
-          .set({
-            projectionStatus: 'failed',
-            projectionError:  message,
-            projectedAt:      null,
-          })
-          .where(eq(SourceVersion.sourceTag, input.sourceTag));
-      }
-
-      updateProjectJob(input.sourceTag, {
-        phase: 'failed',
-        message,
-        workLabel: null,
-        writeBreakdown: null,
-      });
       throw toRuntimeError(error);
     }
   });
@@ -441,98 +264,55 @@ const getLocalOverview = os
   .output(z.any())
   .handler(async () => await getLocalHsdataOverview());
 
-/** Streams in-memory import progress updates for one source id. */
-const watchImportJob = os
-  .route({
-    method:      'GET',
-    description: 'Stream in-memory hsdata import progress for one source id',
-    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
-  })
-  .input(importJobInput)
-  .output(eventIterator(z.custom<HsdataImportProgressEvent>()))
-  .handler(async function* ({ input }) {
-    yield* watchImportJobBySourceId(input.sourceId);
-  });
-
-/** Streams in-memory projection progress updates for one source tag. */
-const watchProjectJob = os
-  .route({
-    method:      'GET',
-    description: 'Stream in-memory hsdata projection progress for one source tag',
-    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
-  })
-  .input(projectJobInput)
-  .output(eventIterator(z.custom<HsdataProjectProgressEvent>()))
-  .handler(async function* ({ input }) {
-    yield* watchProjectJobBySourceTag(input.sourceTag);
-  });
-
-/** Publishes the current local latest projection to the configured remote target through Bun. */
-const publishCurrentToRemote = os
-  .route({
-    method:      'POST',
-    description: 'Publish the current local hsdata projection to the configured remote target',
-    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
-  })
-  .output(publishReport)
-  .handler(async () => {
-    const job = startPublishJob({ publishType: 'card_data', publishTargetId: '' });
-
-    try {
-      const report = await publishCurrentHsdataToRemote({
-        publishType: 'card_data',
-        onProgress: (event) => {
-          updatePublishJob({
-            phase: event.phase,
-            message: event.message,
-            totalRowCount: event.totalRowCount,
-            completedRowCount: event.completedRowCount,
-          });
-        },
-      });
-
-      updatePublishJob({ phase: 'completed', message: '发布完成', report });
-
-      return report;
-    } catch (error) {
-      updatePublishJob({ phase: 'failed', message: error instanceof Error ? error.message : String(error) });
-      throw toRuntimeError(error);
-    }
-  });
-
-/** Streams real-time publish job progress events. */
-const watchPublishJobRoute = os
-  .route({
-    method:      'GET',
-    description: 'Watch publish job progress events',
-    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
-  })
-  .output(eventIterator(z.custom<PublishJobProgressEvent>()))
-  .handler(async function* () {
-    yield* watchPublishJob();
-  });
-
-const recomputeLatestOutput = z.object({
-  entityRowCount: z.number(),
-  localizationRowCount: z.number(),
-  relationRowCount: z.number(),
-  entityUpdatedCount: z.number(),
-  localizationUpdatedCount: z.number(),
-  relationUpdatedCount: z.number(),
+const cancelPublishBatchInput = publishStreamInput.extend({
+  batchId: z.uuid(),
 });
 
-/** Recomputes isLatest flags across the current local projection tables. */
-const recomputeLatest = os
+/** Cancels one residual publish batch row that is still marked running in the local database. */
+const cancelIncompletePublishBatchRoute = os
   .route({
     method:      'POST',
-    description: 'Recompute isLatest across all local hearthstone projection tables',
+    description: 'Cancel one incomplete Hearthstone publish batch left in the local database',
     tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
   })
-  .output(recomputeLatestOutput)
-  .handler(async () => {
+  .input(cancelPublishBatchInput)
+  .output(publishReport)
+  .handler(async ({ input }) => {
+    // Always request cancellation via the task framework first, so running tasks get stopped
+    createTaskStore(getLocalDb()).updateTaskRun(input.batchId, { controlRequestKind: 'cancel' }).catch(() => {});
+
+    // Also attempt DB-level cleanup for residual batches without a running job
     try {
-      return await recomputeLatestProjection();
+      return await cancelIncompletePublishBatch(input);
     } catch (error) {
+      // If the batch is still running in this process, the task framework cancel above will handle it.
+      // Return a simple report instead of throwing so the caller doesn't get an error.
+      if (error instanceof Error && error.message.includes('still running in the desktop runtime')) {
+        return {
+          batchId:              input.batchId,
+          publishTarget:        input.publishTarget ?? '',
+          environment:          input.environment ?? '',
+          targetFingerprint:    '',
+          publishType:          'card_data',
+          operationKind:        'publish',
+          status:               'canceling',
+          manifestHash:         '',
+          previousManifestHash: null,
+          buildMin:             0,
+          buildMax:             0,
+          totalRowCount:        0,
+          changedRowCount:      0,
+          insertedRowCount:     0,
+          updatedRowCount:      0,
+          deletedRowCount:      0,
+          unchangedRowCount:    0,
+          cardRowCount:         0,
+          entityRowCount:       0,
+          localizationRowCount: 0,
+          relationRowCount:     0,
+          publishedAt:          new Date().toISOString(),
+        };
+      }
       throw toRuntimeError(error);
     }
   });
@@ -544,13 +324,84 @@ const listPublishBatchesRoute = os
     description: 'List publish batches for the current target',
     tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
   })
+  .input(publishStreamInput)
   .output(z.array(publishReport))
-  .handler(async () => {
+  .handler(async ({ input }) => {
     try {
-      return await listPublishBatches();
+      return await listPublishBatches(input);
     } catch (error) {
       throw toRuntimeError(error);
     }
+  });
+
+/** Lists publish history from completed/failed/canceled task runs. */
+const listPublishHistoryRoute = os
+  .route({
+    method:      'GET',
+    description: 'List publish history from task runs',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
+  })
+  .input(publishStreamInput)
+  .output(z.array(publishReport))
+  .handler(async ({ input }) => {
+    const db = getLocalDb();
+    const isAnnouncement = input.publishType === 'announcement_data';
+    const taskType = isAnnouncement ? 'hearthstone_announcement_publish' : 'hearthstone_publish';
+    const rows = await db.select()
+      .from(TaskRun)
+      .where(and(
+        eq(TaskRun.taskType, taskType),
+        sql`${TaskRun.taskScopeSnapshot} ->> 'publishTarget' = ${input.publishTarget}`,
+        sql`${TaskRun.taskScopeSnapshot} ->> 'environment' = ${input.environment}`,
+      ))
+      .orderBy(desc(TaskRun.createdAt))
+      .limit(50);
+
+    return rows.map(r => {
+      const res = r.result ?? {};
+      const scope = (r.taskScopeSnapshot ?? {}) as Record<string, unknown>;
+      const params = (r.params ?? {}) as Record<string, unknown>;
+
+      return {
+        batchId:              r.id,
+        publishTarget:        String(scope.publishTarget ?? ''),
+        environment:          String(scope.environment ?? ''),
+        targetFingerprint:    '',
+        publishType:          isAnnouncement ? 'announcement_data' : String(scope.publishType ?? 'card_data'),
+        operationKind:        String(params.operationKind ?? 'publish'),
+        status:               r.status,
+        manifestHash:         String(res.manifestHash ?? ''),
+        previousManifestHash: null,
+        buildMin:             Number(res.buildMin ?? 0),
+        buildMax:             Number(res.buildMax ?? 0),
+        totalRowCount:        Number(res.totalRowCount ?? 0),
+        changedRowCount:      Number(res.changedRowCount ?? 0),
+        insertedRowCount:     Number(res.insertedRowCount ?? 0),
+        updatedRowCount:      Number(res.updatedRowCount ?? 0),
+        deletedRowCount:      Number(res.deletedRowCount ?? 0),
+        unchangedRowCount:    Number(res.unchangedRowCount ?? 0),
+        cardRowCount:         Number(res.cardRowCount ?? 0),
+        entityRowCount:       Number(res.entityRowCount ?? 0),
+        localizationRowCount: Number(res.localizationRowCount ?? 0),
+        relationRowCount:     Number(res.relationRowCount ?? 0),
+        publishedAt:          r.finishedAt?.toISOString() ?? '',
+      };
+    });
+  });
+
+/** Deletes one publish history record by task run ID. */
+const deletePublishHistoryRoute = os
+  .route({
+    method:      'POST',
+    description: 'Delete one publish history record',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
+  })
+  .input(z.object({ taskRunId: z.uuid() }))
+  .output(z.object({ success: z.boolean() }))
+  .handler(async ({ input }) => {
+    const db = getLocalDb();
+    await db.delete(TaskRun).where(eq(TaskRun.id, input.taskRunId));
+    return { success: true };
   });
 
 /** Checks for an incomplete publish batch that can be resumed. */
@@ -560,30 +411,239 @@ const getIncompletePublishBatchRoute = os
     description: 'Check for an incomplete publish batch',
     tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
   })
+  .input(publishStreamInput)
   .output(publishReport.nullable())
-  .handler(async () => {
+  .handler(async ({ input }) => {
     try {
-      return await getIncompletePublishBatch();
+      const legacy = await getIncompletePublishBatch(input);
+
+      if (legacy) {
+        return legacy;
+      }
+
+      // Fallback: check for active TaskRun through the generic store.
+      // The page will be migrated to read from getPublishTaskSnapshot in step 8.7.
+      return null;
     } catch (error) {
       throw toRuntimeError(error);
     }
   });
 
+/** Publishes a single card from the local projection to the remote target (dev tool). */
+const publishSingleCardRoute = os
+  .route({
+    method:      'POST',
+    description: 'Publish a single card to the remote target',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
+  })
+  .input(z.strictObject({
+    cardId:        z.string().trim().min(1),
+    publishTarget: z.literal('hearthstone'),
+    environment:   z.string().trim().min(1),
+  }))
+  .output(singleCardPublishReport)
+  .handler(async ({ input }) => {
+    try {
+      return await publishSingleCard(input.cardId, input);
+    } catch (error) {
+      throw toRuntimeError(error);
+    }
+  });
+
+const registerPublishStreamInput = z.strictObject({
+  connectionString:  z.string().trim().min(1),
+  publishTarget:     z.string().trim().min(1),
+  environment:       z.string().trim().min(1),
+  targetFingerprint: z.string().trim().min(1),
+});
+
+const registerPublishStreamResult = z.strictObject({
+  success: z.boolean(),
+});
+
+const registerPublishStreamRoute = os
+  .route({
+    method:      'POST',
+    description: 'Register one remote publish stream so the gate check does not reject it',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
+  })
+  .input(registerPublishStreamInput)
+  .output(registerPublishStreamResult)
+  .handler(async ({ input }) => {
+    try {
+      await ensureRemotePublishRegistration(input.connectionString, {
+        publishTarget:     input.publishTarget,
+        environment:       input.environment,
+        publishType:       'card_data',
+        targetFingerprint: input.targetFingerprint,
+      });
+      return { success: true };
+    } catch (error) {
+      throw toRuntimeError(error);
+    }
+  });
+
+const batchResetInput = z.strictObject({
+  sourceTags: z.array(z.number().int().nonnegative()).min(1),
+});
+
+const batchResetResult = z.strictObject({
+  resetCount: z.number().int().nonnegative(),
+});
+
+/** Resets import status for selected sourceTags to pending so they can be re-imported. */
+const resetImportStatus = os
+  .route({
+    method:      'POST',
+    description: 'Batch reset import status for selected sourceTags',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
+  })
+  .input(batchResetInput)
+  .output(batchResetResult)
+  .handler(async ({ input }) => {
+    return await runWithDb(getLocalDb(), async () => {
+      const db = getLocalDb();
+
+      const result = await db.update(PatchState)
+        .set({
+          importStatus:     'pending',
+          importedAt:       null,
+          projectionStatus: 'not_started',
+          projectedAt:      null,
+        })
+        .where(inArray(PatchState.buildNumber, input.sourceTags))
+        .returning({ sourceTag: PatchState.buildNumber });
+
+      return { resetCount: result.length };
+    });
+  });
+
+/** Resets projection status for selected sourceTags to not_started. */
+const resetProjectionStatus = os
+  .route({
+    method:      'POST',
+    description: 'Batch reset projection status for selected sourceTags',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
+  })
+  .input(batchResetInput)
+  .output(batchResetResult)
+  .handler(async ({ input }) => {
+    return await runWithDb(getLocalDb(), async () => {
+      const db = getLocalDb();
+
+      const result = await db.update(PatchState)
+        .set({
+          projectionStatus: 'not_started',
+          projectedAt:      null,
+        })
+        .where(inArray(PatchState.buildNumber, input.sourceTags))
+        .returning({ sourceTag: PatchState.buildNumber });
+
+      for (const sourceTag of input.sourceTags) {
+        await db.update(RawEntitySnapshot)
+          .set({ projectionState: 'not_projected' })
+          .where(sql<boolean>`${sourceTag} = ANY(${RawEntitySnapshot.sourceTags})`);
+      }
+
+      return { resetCount: result.length };
+    });
+  });
+
+/*
+ * ── Hearthstone Task ──────────────────────────────────
+ */
+
 /** Groups the desktop runtime hsdata procedures under one router namespace. */
+/** Batch-syncs patch metadata (name, shortName, hash) from all hsdata git tags
+ *  without parsing XML or touching snapshot/projection data. */
+const syncPatches = os
+  .route({
+    method:      'POST',
+    description: 'Sync patch metadata from all hsdata git tags',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
+  })
+  .output(z.object({ count: z.number() }))
+  .handler(async () => {
+    const meta = await collectAllPatchMeta();
+    const db = getLocalDb();
+
+    for (const m of meta) {
+      const shortName = computeShortName(m.name, m.buildNumber);
+
+      await db.insert(Patch)
+        .values({
+          buildNumber: m.buildNumber,
+          name:        m.name,
+          shortName,
+          hash:        m.hash,
+          releaseDate: m.releaseDate ?? null,
+        })
+        .onConflictDoUpdate({
+          target: [Patch.buildNumber],
+          set:    { name: m.name, shortName, hash: m.hash, releaseDate: m.releaseDate ?? null },
+        });
+
+      // Ensure a patch_states row exists (don't overwrite existing import state).
+      const existing = await db.select({ buildNumber: PatchState.buildNumber })
+        .from(PatchState)
+        .where(eq(PatchState.buildNumber, m.buildNumber))
+        .then(r => r[0]);
+
+      if (!existing) {
+        await db.insert(PatchState)
+          .values({
+            buildNumber:      m.buildNumber,
+            commit:           m.commit,
+            uri:              '',
+            importStatus:     'pending',
+            importError:      null,
+            projectionStatus: 'not_started',
+            projectionError:  null,
+            importedAt:       null,
+            projectedAt:      null,
+          });
+      }
+    }
+
+    // Fix shortName collisions.
+    const patches = await db.select({
+      buildNumber: Patch.buildNumber,
+      name:        Patch.name,
+      shortName:   Patch.shortName,
+    })
+      .from(Patch)
+      .orderBy(Patch.buildNumber);
+
+    const seen = new Map<string, number>();
+    for (const p of patches) {
+      const existing = seen.get(p.shortName);
+      if (existing != null) {
+        await db.update(Patch)
+          .set({ shortName: p.name })
+          .where(eq(Patch.buildNumber, p.buildNumber));
+      } else {
+        seen.set(p.shortName, p.buildNumber);
+      }
+    }
+
+    return { count: meta.length };
+  });
+
 export const hsdataRouter = {
+  syncPatches,
   getRepoState,
   syncRemoteVersions,
   listSources,
   readSource,
-  importSource,
-  projectSourceVersion,
   listLocalSourceVersions,
   getLocalOverview,
-  watchImportJob,
-  watchProjectJob,
-  publishCurrentToRemote,
-  watchPublishJob: watchPublishJobRoute,
-  listPublishBatches: listPublishBatchesRoute,
-  getIncompletePublishBatch: getIncompletePublishBatchRoute,
-  recomputeLatest,
+  cancelIncompletePublishBatch: cancelIncompletePublishBatchRoute,
+  listPublishBatches:           listPublishBatchesRoute,
+  listPublishHistory:           listPublishHistoryRoute,
+  deletePublishHistory:         deletePublishHistoryRoute,
+  getIncompletePublishBatch:    getIncompletePublishBatchRoute,
+  publishSingleCard:            publishSingleCardRoute,
+  registerPublishStream:        registerPublishStreamRoute,
+  resetImportStatus,
+  resetProjectionStatus,
 };

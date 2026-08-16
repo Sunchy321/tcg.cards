@@ -109,13 +109,7 @@
 
 ### `renderMechanics`
 
-- `tradable`
-- `forge`
-- `hide_cost`
-- `hide_attack`
-- `hide_health`
-- `in_mini_set`
-- `hide_watermark`
+完整列表见 [炉石图片渲染器协议](../../docs/hearthstone-image-renderer-protocol.zh-CN.md) 的 `renderMechanics` 小节。
 
 ## 阶段计划
 

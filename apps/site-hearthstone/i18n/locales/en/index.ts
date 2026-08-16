@@ -40,10 +40,6 @@ export default {
     'zhs:md':  'Simplified Chinese (Master Duel)',
   },
 
-  common: {
-    backToMain: 'Back to TCG Cards',
-  },
-
   search: {
     error: {
       'empty-input':      'please enter a search query',
@@ -145,11 +141,21 @@ export default {
     general: {
       $self:      'General',
       uiLanguage: 'Interface Language',
+      theme:      'Theme',
+      themeLight: 'Light',
+      themeDark:  'Dark',
+      themeAuto:  'Auto',
     },
 
     game: {
-      $self:    'Game',
-      language: 'Game Language',
+      $self:             'Game',
+      language:          'Game Language',
+      searchLayout:      'Search Layout',
+      searchLayoutGrid:  'Grid',
+      searchLayoutList:  'List',
+      searchLayoutTable: 'Table',
+      setAsDefault:      'Set as Default',
+      resetToDefault:    'Reset to Default',
     },
   },
 
@@ -158,8 +164,9 @@ export default {
     $full: 'Hearthstone',
 
     home: {
-      randomCard:     'Random Card',
-      randomCardHint: 'Open one random card detail page',
+      randomCard:       'Random Card',
+      randomCardHint:   'Open one random card detail page',
+      announcementHint: 'Review card updates and release notes',
     },
 
     search: {
@@ -168,6 +175,25 @@ export default {
       'hint':       'Examples: Fireball, class:mage cost<=3, type:minion race:dragon',
       'noResult':   'No cards matched your query',
       'failed':     'Search failed',
+
+      'layoutGrid':  'Grid',
+      'layoutList':  'List',
+      'layoutTable': 'Table',
+
+      'table': {
+        columnName:         'Name',
+        columnCost:         'Cost',
+        columnType:         'Type',
+        columnClass:        'Class',
+        columnAttackHealth: 'Attack/Health',
+        columnSet:          'Set',
+        columnText:         'Text',
+        columnDetail:       'Detail',
+        selectColumns:      'Select Columns',
+        copy:               'Copy',
+        export:             'Export',
+        copied:             'Copied to clipboard',
+      },
 
       'advanced': {
         $self:               'Advanced Search',
@@ -441,15 +467,29 @@ export default {
       demon_hunter: 'Demon Hunter',
     },
 
+    announcement: {
+      $self:    'Announcements',
+      empty:    'No announcements yet',
+      notFound: 'Announcement not found',
+      noItems:  'No items in this announcement',
+    },
+
+    timeline: {
+      $self: 'Timeline',
+      empty: 'No changes for this format yet',
+    },
+
     card: {
-      $self:     'Cards',
-      versions:  'Versions',
-      formatAvailability: 'Format availability',
-      playable:  'Available',
-      related:   'Related cards',
-      noRelated: 'No related cards',
-      notFound:  'Card not found',
-      tagCopied: 'Tag copied',
+      $self:         'Cards',
+      versions:      'Versions',
+      related:       'Related cards',
+      noRelated:     'No related cards',
+      notFound:      'Card not found',
+      tagCopied:     'Tag copied',
+      changeHistory: 'Change history',
+
+      compareEntity: 'Compare Card JSON',
+      compareRender: 'Compare Render JSON',
 
       relation: {
         collection_related: 'Upgrades and related forms',

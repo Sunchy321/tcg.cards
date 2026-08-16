@@ -2,18 +2,17 @@ import { z } from 'zod';
 
 import { os } from './index';
 import {
+  hasAiConfig,
   hasHearthstoneImageOverride,
   hasHearthstonePublishTargetOverride,
   hasHsdataRepoPath,
   hasLocalDatabaseUrl,
+  setAiConfig,
+  setEditorIdentity,
   setHearthstoneImageOverride,
-  setHearthstonePublishTargetOverride,
+  setHearthstonePublishTargetOverrides,
   setHsdataRepoPathOverride,
   setLocalDatabaseUrlOverride,
-  hasYugiohPublishTargetOverride,
-  hasYugiohImageOverride,
-  setYugiohImageOverride,
-  setYugiohPublishTargetOverride,
 } from '../runtime-config';
 
 /** Runtime status returned by desktop runtime health procedures. */
@@ -25,8 +24,7 @@ const runtimeStatus = z.object({
   hsdataRepoConfigured:    z.boolean(),
   imageConfigured:         z.boolean(),
   publishTargetConfigured: z.boolean(),
-  yugiohPublishTargetConfigured: z.boolean(),
-  yugiohImageConfigured: z.boolean(),
+  aiConfigured:            z.boolean(),
   time:                    z.string(),
 });
 
@@ -40,8 +38,7 @@ function buildStatus() {
     hsdataRepoConfigured:    hasHsdataRepoPath(),
     imageConfigured:         hasHearthstoneImageOverride(),
     publishTargetConfigured: hasHearthstonePublishTargetOverride(),
-    yugiohPublishTargetConfigured: hasYugiohPublishTargetOverride(),
-    yugiohImageConfigured: hasYugiohImageOverride(),
+    aiConfigured:            hasAiConfig(),
     time:                    new Date().toISOString(),
   };
 }
@@ -67,25 +64,19 @@ const configureDesktopStateInput = z.strictObject({
         rendererBaseUrl: z.string().trim().min(1).nullable(),
         bucketDir: z.string().trim().min(1).nullable(),
       }),
-      publish: z.strictObject({
-        publishTargetId: z.string().trim().min(1).nullable(),
+      publish: z.array(z.strictObject({
+        publishTarget: z.string().trim().min(1).nullable(),
         environment: z.string().trim().min(1).nullable(),
         targetFingerprint: z.string().trim().min(1).nullable(),
         connectionString: z.string().trim().min(1).nullable(),
-      }),
-    }),
-    yugioh: z.strictObject({
-      image: z.strictObject({
-        bucketDir: z.string().trim().min(1).nullable(),
-      }),
-      publish: z.strictObject({
-        publishTargetId: z.string().trim().min(1).nullable(),
-        environment: z.string().trim().min(1).nullable(),
-        targetFingerprint: z.string().trim().min(1).nullable(),
-        connectionString: z.string().trim().min(1).nullable(),
-      }),
+      })),
     }),
   }),
+  ai: z.strictObject({
+    apiKey:  z.string().trim().min(1).nullable(),
+    baseUrl: z.string().trim().min(1).nullable(),
+    model:   z.string().trim().min(1).nullable(),
+  }).optional(),
 });
 
 /** Applies one desktop runtime configuration snapshot into the current Bun process. */
@@ -95,9 +86,14 @@ function applyDesktopState(
   setLocalDatabaseUrlOverride(input.localDatabase.connectionString);
   setHsdataRepoPathOverride(input.games.hearthstone.hsdata.repoPath);
   setHearthstoneImageOverride(input.games.hearthstone.image);
-  setHearthstonePublishTargetOverride(input.games.hearthstone.publish);
-  setYugiohImageOverride(input.games.yugioh.image);
-  setYugiohPublishTargetOverride(input.games.yugioh.publish);
+  setHearthstonePublishTargetOverrides(input.games.hearthstone.publish);
+  if (input.ai) {
+    setAiConfig({
+      apiKey:  input.ai.apiKey,
+      baseUrl: input.ai.baseUrl,
+      model:   input.ai.model,
+    });
+  }
 }
 
 const health = os
@@ -181,10 +177,28 @@ const openPath = os
     return { ok: proc.exitCode === 0 };
   });
 
+const configureEditorIdentityInput = z.strictObject({
+  editorIdentity: z.string().trim().min(1),
+});
+
+const configureEditorIdentity = os
+  .route({
+    method:      'POST',
+    description: 'Set the editor identity used by tag commit operations',
+    tags:        ['Desktop Runtime'],
+  })
+  .input(configureEditorIdentityInput)
+  .output(z.strictObject({ ok: z.boolean() }))
+  .handler(async ({ input }) => {
+    setEditorIdentity(input.editorIdentity);
+    return { ok: true };
+  });
+
 /** Desktop runtime procedures exposed over the local RPC transport. */
 export const runtimeRouter = {
   health,
   configureDesktopState,
+  configureEditorIdentity,
   configureLocalDatabase,
   configureHsdataRepo,
   openPath,

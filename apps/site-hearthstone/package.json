@@ -4,12 +4,12 @@
   "type": "module",
   "scripts": {
     "build": "nuxt build --dotenv .env.production",
-    "dev": "node scripts/dev.mjs",
+    "dev": "nuxt dev",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
     "typecheck": "nuxt typecheck",
-    "deploy": "wrangler deploy --env production"
+    "deploy": "wrangler deploy"
   },
   "dependencies": {
     "@iconify-json/lucide": "^1.2.104",
@@ -19,10 +19,14 @@
     "@nuxt/ui": "4.5.1",
     "@orpc/client": "^1.14.0",
     "@orpc/server": "^1.14.0",
+    "@tcg-cards/auth": "workspace:*",
+    "@tcg-cards/console-api": "workspace:*",
     "@tcg-cards/db": "workspace:*",
     "@tcg-cards/model": "workspace:*",
     "@tcg-cards/search": "workspace:*",
+    "@tcg-cards/base": "workspace:*",
     "@tcg-cards/shared": "workspace:*",
+    "@vueuse/router": "^14.3.0",
     "axios": "^1.13.6",
     "better-auth": "^1.5.5",
     "cheerio": "^1.2.0",
@@ -32,6 +36,7 @@
     "nuxt": "4.3.1",
     "postgres": "^3.4.8",
     "tailwindcss": "^4.2.2",
+    "v-code-diff": "^1.13.1",
     "vue": "^3.5.29",
     "zod": "^4.3.6"
   },

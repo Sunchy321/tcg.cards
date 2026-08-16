@@ -22,7 +22,6 @@ export const Tag = schema.table('tags', {
   rawType:  text('raw_type'),
   rawNames: text('raw_names').array().notNull().default([]),
 
-  valueKind:       text('value_kind').notNull().default('json'),
   normalizeKind:   text('normalize_kind').notNull().default('identity'),
   normalizeConfig: jsonb('normalize_config')
     .$type<JsonMap>()

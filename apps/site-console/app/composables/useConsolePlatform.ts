@@ -41,6 +41,7 @@ export function useSiteConsolePlatform() {
             meta: {
               editorRuntime: 'site',
               syncMode:      'remote_edit',
+              editorSource:  'manual',
             },
           },
         });

@@ -3,12 +3,15 @@ import { z } from 'zod';
 import { locale } from '../basic';
 import { renderModel } from '../entity';
 
+export const imageCategory = z.enum(['base', 'glow']);
 export const imageZone = z.enum(['hand', 'play']);
 export const imageTemplate = z.enum(['normal', 'battlegrounds']);
 export const imagePremium = z.enum(['normal', 'golden', 'diamond', 'signature']);
 export const imageAssetStatus = z.enum(['ready', 'failed', 'stale']);
+export const imageRenderMode = z.enum(['full-set', 'partial-update']);
 
 export const imageVariant = z.strictObject({
+  category: imageCategory,
   zone:     imageZone,
   template: imageTemplate,
   premium:  imagePremium,
@@ -16,6 +19,7 @@ export const imageVariant = z.strictObject({
 
 export const imageStyle = z.strictObject({
   styleKey:              z.string(),
+  category:              imageCategory,
   zone:                  imageZone,
   template:              imageTemplate,
   premium:               imagePremium,
@@ -58,6 +62,7 @@ export const imageRequirementRequest = z.strictObject({
   requestId:   z.string(),
   card:        imageRequestCard,
   variant:     imageVariant,
+  renderMode:  imageRenderMode.default('full-set'),
   style:       imageStyle,
   output:      imageRequestOutput,
   target:      imageRequestTarget,
@@ -101,14 +106,18 @@ export const imageRequirementFile = z.strictObject({
 });
 
 export const cardImageRequirementExportInput = z.strictObject({
-  lang:     locale.default('zhs'),
-  cardId:   z.string().trim().min(1).max(256).optional(),
-  version:  z.int().positive().optional(),
-  zones:    z.array(imageZone).nonempty().default(['hand']),
-  templates: z.array(imageTemplate).nonempty().default(['normal']),
-  premiums: z.array(imagePremium).nonempty().default(['normal']),
-  limit:    z.int().positive().max(500).default(200),
-  cursor:   z.string().trim().min(1).optional().nullable(),
+  lang:        locale.default('zhs'),
+  cardId:      z.string().trim().min(1).max(256).optional(),
+  renderHash:  z.string().trim().min(1).max(256).optional(),
+  version:     z.int().positive().optional(),
+  allVersions: z.boolean().optional(),
+  zones:       z.array(imageZone).nonempty().default(['hand']),
+  templates:   z.array(imageTemplate).nonempty().default(['normal']),
+  premiums:    z.array(imagePremium).nonempty().default(['normal']),
+  limit:       z.int().positive().max(500).default(200),
+  cursor:      z.string().trim().min(1).optional().nullable(),
+  scanAll:     z.boolean().optional(),
+  outputMode:  z.enum(['import', 'download']).default('import'),
 });
 
 export const cardImageRequirementExportResult = z.strictObject({
@@ -116,6 +125,8 @@ export const cardImageRequirementExportResult = z.strictObject({
   fileName:          z.string(),
   requestCount:      z.int().nonnegative(),
   remainingEstimate: z.int().nonnegative(),
+  totalEstimate:     z.int().nonnegative(),
+  readyEstimate:     z.int().nonnegative(),
   hasMore:           z.boolean(),
   nextCursor:        z.string().nullable(),
   content:           z.string(),
@@ -157,6 +168,7 @@ export const cardImageImportResult = cardImageImportReport.extend({
   problems: z.array(cardImageImportProblem),
 });
 
+export type ImageCategory = z.infer<typeof imageCategory>;
 export type ImageZone = z.infer<typeof imageZone>;
 export type ImageTemplate = z.infer<typeof imageTemplate>;
 export type ImagePremium = z.infer<typeof imagePremium>;

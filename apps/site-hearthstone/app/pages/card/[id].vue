@@ -1,96 +1,141 @@
 <template>
-  <div class="container mx-auto px-4 py-6">
-    <div v-if="data" class="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
-      <!-- Left column: Card image and language -->
+  <div class="container mx-auto px-4 pt-2 pb-6">
+    <div v-if="data" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <!-- Left column: Card image -->
       <div class="lg:col-span-3">
         <div class="sticky top-24">
-          <div class="hs-surface-card rounded-2xl p-4">
-            <CardImage
+          <UCard class="hs-surface-card overflow-hidden">
+            <CardImageWithAttachment
               :card-id="data.cardId"
               :version="minVersion"
-              :lang="lang"
+              :name="data.localization.name"
               :render-hash="data.renderHash"
+              :type="data.type"
               :variant="variant"
-              :has-premium-mechanic="hasPremium"
+              :mechanics="data.mechanics"
+              :attachment="heroPowerAttachment"
               loading="eager"
             />
 
             <div class="mt-4">
               <USelect
-                v-model="lang"
-                :items="languageSelectItems"
+                v-model="variant"
+                :items="variantOptions"
                 size="sm"
                 class="w-full"
               />
             </div>
-          </div>
+
+            <div v-if="data.artist" class="mt-3 flex justify-center">
+              <span class="hs-chip hs-artist-link">
+                <UIcon name="lucide:paintbrush" />
+                {{ data.artist }}
+              </span>
+            </div>
+
+          </UCard>
         </div>
       </div>
 
       <!-- Middle column: Card details -->
       <div class="lg:col-span-6">
-        <div class="hs-surface-card rounded-2xl p-5">
-          <div class="mb-2 flex items-center justify-between gap-2">
+        <UCard class="hs-surface-card overflow-hidden">
+          <!-- Name + Cost -->
+          <div class="flex items-center justify-between gap-2 mb-2">
             <h1 class="text-3xl font-bold">{{ data.localization.name }}</h1>
             <ManaCost v-if="data.cost != null" :value="data.cost" />
           </div>
 
-          <div class="hs-surface-muted my-4 flex items-center gap-2 rounded-lg border px-3 py-2">
-            <span class="flex-1 font-medium">
+          <!-- Type + Race + Stats -->
+          <div class="hs-surface-muted flex items-center gap-2 py-2 my-4 px-3 rounded-lg border">
+            <span class="font-medium flex-1">
               {{ cardTypeLabel(data.type) }}
-              <template v-if="raceText">
-                / {{ raceText }}
+              <template v-if="data.race && data.race.length > 0">
+                ·
+                <span v-for="(r, i) in data.race" :key="r">
+                  {{ raceLabel(r) }}<span v-if="i < data.race.length - 1">/</span>
+                </span>
               </template>
-              <template v-if="data.spellSchool">
+              <template v-if="data.spellSchool && data.type !== 'tavern_spell'">
                 / {{ spellSchoolLabel(data.spellSchool) }}
               </template>
             </span>
             <ArmorValue v-if="data.armor != null" :value="data.armor" :size="32" />
-            <span v-else-if="stats" class="shrink-0 font-medium">{{ stats }}</span>
+            <span v-else-if="stats" class="font-medium shrink-0">{{ stats }}</span>
           </div>
 
-          <div
-            v-if="data.localization.displayText"
-            class="hs-surface-panel mb-6 rounded-r-lg border-l-2 border-primary p-4 leading-relaxed"
-          >
-            <RichText
-              :key="`${data.cardId}:${lang}:${data.localization.displayText}`"
-              :flatten-line-breaks="true"
-            >
-              {{ data.localization.displayText }}
-            </RichText>
+          <!-- Card text -->
+          <div v-if="data.localization.displayText" class="hs-surface-panel border-l-2 border-primary rounded-r-lg p-4 mb-6 leading-relaxed">
+            <RichText :key="`${data.cardId}:${gameLocale}:${data.localization.displayText}`" :flatten-line-breaks="true">{{ data.localization.displayText }}</RichText>
           </div>
 
-          <div
-            v-if="data.localization.flavorText"
-            class="hs-surface-panel hs-subtle-text mb-6 rounded-r-lg border-l-2 border-primary p-4 italic"
-          >
+          <!-- Flavor text -->
+          <div v-if="data.localization.flavorText" class="hs-surface-panel hs-subtle-text border-l-2 border-primary italic rounded-r-lg p-4 mb-6">
             {{ data.localization.flavorText }}
           </div>
 
+          <!-- Mechanics + Referenced tags -->
+          <div v-if="mechanics.length > 0 || referencedTags.length > 0" class="flex flex-wrap gap-2 mb-6">
+            <UBadge
+              v-for="m in mechanics"
+              :key="m"
+              color="primary"
+              variant="subtle"
+              class="cursor-pointer"
+              @click="copyTag(m)"
+            >
+              {{ mechanicText(m) }}
+            </UBadge>
+            <UBadge
+              v-for="r in referencedTags"
+              :key="r"
+              color="neutral"
+              variant="subtle"
+              class="cursor-pointer"
+              @click="copyTag(r)"
+            >
+              {{ mechanicText(r) }}
+            </UBadge>
+          </div>
+
+          <!-- Set -->
+          <div v-if="setText" class="mb-6">
+            <div class="hs-set-display">
+              <span v-if="setIconUrl != null" class="hs-set-icon-tile">
+                <img
+                  :src="setIconUrl"
+                  alt=""
+                  class="hs-set-icon-image"
+                  :class="setIconTone === 'mono' ? 'hs-set-icon-image--mono' : 'hs-set-icon-image--color'"
+                >
+              </span>
+              <span class="hs-set-name">{{ setText }}</span>
+            </div>
+          </div>
+
+          <!-- Related cards -->
           <div v-if="relatedGroups.length > 0" class="mb-6">
-            <h2 class="mb-4 text-xl font-semibold">{{ $t('hearthstone.card.related') }}</h2>
+            <h2 class="text-xl font-semibold mb-4">{{ $t('hearthstone.card.related') }}</h2>
 
             <div class="space-y-4">
               <div
                 v-for="group in relatedGroups"
-                :key="`${group.relation}:${lang}`"
-                class="overflow-hidden rounded-lg border"
+                :key="`${group.relation}:${gameLocale}`"
+                class="border rounded-lg overflow-hidden"
               >
-                <div class="hs-surface-muted flex items-center gap-2 border-b px-3 py-2 text-sm font-medium">
-                  <UIcon :name="relationIcon(group.relation)" class="shrink-0 hs-subtle-text" />
+                <div class="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 text-sm font-medium">
+                  <UIcon :name="relationIcon(group.relation)" class="shrink-0 text-gray-400" />
                   <span>{{ relationText(group.relation) }}</span>
                 </div>
                 <div class="grid gap-2 p-3 sm:grid-cols-2">
                   <NuxtLink
                     v-for="rel in group.cards"
-                    :key="`${rel.relation}:${rel.cardId}:${lang}`"
+                    :key="`${rel.relation}:${rel.cardId}:${gameLocale}`"
                     :to="relatedLink(rel)"
-                    :prefetch="false"
-                    class="block min-w-0 rounded-md border px-3 py-2 transition-opacity hover:opacity-80"
+                    class="block min-w-0 rounded-md border border-gray-200 dark:border-gray-700 px-3 py-2 hover:opacity-80"
                   >
                     <div class="flex items-center justify-between gap-2">
-                      <span class="truncate font-medium text-hearthstone-700 dark:text-hearthstone-300">
+                      <span class="font-medium text-primary truncate">
                         {{ rel.name ?? rel.cardId }}
                       </span>
                       <UBadge v-if="rel.type" color="neutral" variant="subtle" size="sm">
@@ -99,9 +144,9 @@
                     </div>
                     <RichText
                       v-if="rel.displayText"
-                      :key="`${rel.cardId}:${lang}:${rel.displayText}`"
+                      :key="`${rel.cardId}:${gameLocale}:${rel.displayText}`"
                       :flatten-line-breaks="true"
-                      class="mt-2 text-sm leading-6 hs-subtle-text"
+                      class="mt-2 text-sm leading-6 text-gray-700 dark:text-gray-300"
                     >
                       {{ rel.displayText }}
                     </RichText>
@@ -111,84 +156,225 @@
             </div>
           </div>
 
-          <div v-if="data.artist" class="flex justify-start">
-            <div class="hs-chip hs-artist-link">
-              <UIcon name="lucide:paintbrush" class="shrink-0" />
-              <span>{{ data.artist }}</span>
+          <!-- Legalities -->
+          <div v-if="legalityEntries.length > 0" class="grid grid-cols-2 gap-x-4 gap-y-1 mb-6 text-sm">
+            <div
+              v-for="[fmt, status] in legalityEntries"
+              :key="fmt"
+              class="hs-legality-row"
+              :class="status === 'legal' ? 'hs-legality-row--available' : 'hs-legality-row--unavailable'"
+            >
+              <span class="truncate min-w-0">
+                {{ $te(`hearthstone.format.${fmt}`) ? $t(`hearthstone.format.${fmt}`) : fmt }}
+              </span>
+              <span
+                class="font-medium shrink-0 text-xs"
+              >{{ $t(`hearthstone.legality.${status}`) }}</span>
             </div>
           </div>
-        </div>
+
+          <!-- Hashes -->
+          <div class="border-t pt-4 space-y-1 text-xs font-mono">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-sm text-gray-500 dark:text-gray-400">Card JSON</span>
+              <UButton
+                size="xs"
+                variant="outline"
+                icon="lucide:external-link"
+                :to="`/api/hearthstone/card?cardId=${data.cardId}&lang=${lang}&version=${version}`"
+                target="_blank"
+              >
+                Card
+              </UButton>
+              <UButton
+                size="xs"
+                variant="outline"
+                icon="lucide:external-link"
+                :to="`/api/hearthstone/render-model?cardId=${data.cardId}&lang=${lang}&version=${version}`"
+                target="_blank"
+              >
+                Render
+              </UButton>
+            </div>
+            <div
+              class="flex items-center gap-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 cursor-pointer select-all"
+              @click="copyHash('revisionHash', data.revisionHash)"
+            >
+              <span class="shrink-0 w-24 text-gray-500 dark:text-gray-400">revision</span>
+              <span class="truncate">{{ data.revisionHash }}</span>
+            </div>
+            <div
+              class="flex items-center gap-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 cursor-pointer select-all"
+              @click="copyHash('localizationHash', data.localizationHash)"
+            >
+              <span class="shrink-0 w-24 text-gray-500 dark:text-gray-400">localization</span>
+              <span class="truncate">{{ data.localizationHash }}</span>
+            </div>
+            <div
+              class="flex items-center gap-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 cursor-pointer select-all"
+              @click="copyHash('renderHash', data.renderHash ?? '')"
+            >
+              <span class="shrink-0 w-24 text-gray-500 dark:text-gray-400">render</span>
+              <span class="truncate">{{ data.renderHash ?? '—' }}</span>
+            </div>
+          </div>
+        </UCard>
       </div>
 
-      <!-- Right column: Set, format legality, and versions -->
-      <div class="space-y-6 lg:col-span-3">
-        <div class="sticky top-24 space-y-6">
-          <div v-if="setText" class="hs-surface-card side-info-card rounded-2xl p-5">
-            <div v-if="setText" class="side-info-section">
-              <div class="side-label">{{ $t('hearthstone.set.$self') }}</div>
-              <div class="hs-set-display">
-                <span v-if="setIconUrl" class="hs-set-icon-tile">
-                  <img
-                    :src="setIconUrl"
-                    alt=""
-                    class="hs-set-icon-image"
-                    :class="setIconTone === 'mono' ? 'hs-set-icon-image--mono' : 'hs-set-icon-image--color'"
-                  >
-                </span>
-                <span class="hs-set-name">
-                  {{ setText }}
-                </span>
-              </div>
-            </div>
+      <!-- Right column: Versions -->
+      <div class="lg:col-span-3">
+        <div class="sticky top-24">
+          <UCard class="hs-surface-card overflow-hidden">
+            <h2 class="text-xl font-semibold mb-4">{{ $t('hearthstone.card.versions') }}</h2>
 
-            <div class="side-info-section">
-              <div class="side-label">{{ $t('hearthstone.search.command.format') }}</div>
-              <div class="space-y-2">
-                <div
-                  v-for="entry in formatLegalityEntries"
-                  :key="entry.format"
-                  class="hs-legality-row"
-                  :class="legalityRowClass(entry.status)"
-                >
-                  <span>{{ formatText(entry.format) }}</span>
-                  <span>{{ legalityDisplayText(entry) }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div v-if="versionInfos.length > 1" class="hs-surface-card rounded-2xl p-5">
-            <div class="hs-version-list">
+            <div v-if="versionInfos.length > 0" class="divide-y">
               <div
                 v-for="v in versionInfos"
                 :key="v.versions[0]"
-                class="flex cursor-pointer items-center gap-2 py-2 first:pt-0 hover:opacity-70"
+                class="py-2 first:pt-0 cursor-pointer hover:opacity-70 flex items-center gap-2"
                 @click="version = v.versions[0]!"
               >
                 <div
-                  class="hs-version-dot h-2.5 w-2.5 shrink-0 rounded-full border"
-                  :class="v.versions.includes(version) ? 'bg-hearthstone-500 border-hearthstone-500' : ''"
+                  class="w-2.5 h-2.5 rounded-full shrink-0 border"
+                  :class="v.versions.includes(version)
+                    ? 'bg-primary border-primary'
+                    : 'bg-white dark:bg-gray-900 border-gray-400'"
                 />
                 <div>
-                  <div :class="v.versions.includes(version) ? 'font-semibold text-hearthstone-700 dark:text-hearthstone-300' : ''">
+                  <div :class="v.versions.includes(version) ? 'text-primary font-semibold' : ''">
                     {{ v.firstName }}
                   </div>
-                  <div v-if="v.versions.length > 1 && v.lastName !== v.firstName" class="text-xs hs-subtle-text">
+                  <div v-if="v.versions.length > 1 && v.lastName !== v.firstName" class="text-xs text-gray-500 dark:text-gray-400">
                     ~ {{ v.lastName }}
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+          </UCard>
+
+          <UCard v-if="changeItems.length > 0" class="hs-surface-card mt-4 overflow-hidden">
+            <h2 class="text-xl font-semibold mb-4">{{ $t('hearthstone.card.changeHistory') }}</h2>
+            <div class="divide-y">
+              <div
+                v-for="item in changeItems"
+                :key="item.id"
+                class="py-2 first:pt-0 text-sm"
+              >
+                <div class="flex items-center gap-1.5">
+                  <TypeBadge :type="item.type" :status="item.status ?? undefined" size="xs" />
+                </div>
+                <div class="text-xs text-gray-500 mt-0.5">{{ item.date }} &middot; {{ item.name }}</div>
+                <div v-if="item.cardId === route.params.id && item.images.length > 0" class="mt-2 flex flex-wrap gap-2">
+                  <div
+                    v-for="side in item.images"
+                    :key="side.side"
+                    class="w-28"
+                  >
+                    <CardImage
+                      :card-id="item.cardId"
+                      :version="item.version ?? 0"
+                      type="minion"
+                      :render-hash="side.hash"
+                      :category="side.category"
+                      :variant="side.template === 'battlegrounds' ? 'battlegrounds' : 'normal'"
+                    />
+                    <div class="mt-0.5 text-center text-[11px] text-slate-500">{{ side.side }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </UCard>
+
+          <UCard v-if="splitVersionGroups.length > 0" class="hs-surface-card mt-4 overflow-hidden">
+            <h2 class="text-xl font-semibold mb-4">Diff</h2>
+            <div class="flex gap-2 mb-3">
+              <USelect
+                v-model="diffFrom"
+                :items="diffVersionOptions"
+                size="xs"
+                class="flex-1"
+                placeholder="From"
+              />
+              <USelect
+                v-model="diffTo"
+                :items="diffVersionOptions"
+                size="xs"
+                class="flex-1"
+                placeholder="To"
+              />
+            </div>
+            <div class="flex gap-2">
+              <UModal
+                fullscreen
+                :title="`${route.params.id} — ${diffFrom} → ${diffTo}`"
+              >
+                <UButton
+                  size="xs"
+                  color="neutral"
+                  variant="soft"
+                  block
+                  :loading="diffLoading"
+                  :disabled="diffFrom == null || diffTo == null"
+                  @click="loadDiff"
+                >
+                  {{ $t('hearthstone.card.compareEntity') }}
+                </UButton>
+                <template #body>
+                  <div v-if="diffLoading" class="flex items-center justify-center h-64">
+                    <UIcon name="lucide:loader" class="animate-spin text-2xl text-gray-400" />
+                  </div>
+                  <div v-else-if="diffResult" class="overflow-auto" style="height: calc(100vh - 8rem)">
+                    <CodeDiff
+                      :old-string="diffEntityOld"
+                      :new-string="diffEntityNew"
+                      output-format="side-by-side"
+                      language="json"
+                    />
+                  </div>
+                </template>
+              </UModal>
+              <UModal
+                fullscreen
+                :title="`${route.params.id} — ${diffFrom} → ${diffTo}`"
+              >
+                <UButton
+                  size="xs"
+                  color="neutral"
+                  variant="soft"
+                  block
+                  :loading="diffLoading"
+                  :disabled="diffFrom == null || diffTo == null"
+                  @click="loadDiff"
+                >
+                  {{ $t('hearthstone.card.compareRender') }}
+                </UButton>
+                <template #body>
+                  <div v-if="diffLoading" class="flex items-center justify-center h-64">
+                    <UIcon name="lucide:loader" class="animate-spin text-2xl text-gray-400" />
+                  </div>
+                  <div v-else-if="diffResult" class="overflow-auto" style="height: calc(100vh - 8rem)">
+                    <CodeDiff
+                      :old-string="diffRenderOld"
+                      :new-string="diffRenderNew"
+                      output-format="side-by-side"
+                      language="json"
+                    />
+                  </div>
+                </template>
+              </UModal>
+            </div>
+          </UCard>
         </div>
       </div>
     </div>
 
+    <!-- Loading state -->
     <div v-else-if="status === 'pending'" class="flex justify-center py-24">
-      <UIcon name="lucide:loader" class="animate-spin text-4xl hs-subtle-text" />
+      <UIcon name="lucide:loader" class="animate-spin text-4xl text-gray-400" />
     </div>
 
-    <div v-else class="flex flex-col items-center gap-4 py-24 hs-subtle-text">
+    <!-- Error state -->
+    <div v-else class="flex flex-col items-center py-24 text-gray-400 gap-4">
       <UIcon name="lucide:frown" class="text-5xl" />
       <p>{{ $t('hearthstone.card.not-found') }}</p>
     </div>
@@ -196,12 +382,16 @@
 </template>
 
 <script setup lang="ts">
-import { locale as localeSchema, type Locale } from '#model/hearthstone/schema/basic';
-import type { CardProfile } from '#model/hearthstone/schema/card';
-import type { CardFullView } from '#model/hearthstone/schema/entity';
-import type { Patch } from '#model/hearthstone/schema/patch';
-import type { CardImageOption } from '~/utils/card-image';
+import { last } from 'lodash-es';
 
+import type { Locale } from '#model/hearthstone/schema/basic';
+import type { CardProfile } from '#model/hearthstone/schema/card';
+import type { Patch } from '#model/hearthstone/schema/patch';
+import { TAG_ID } from '#model/hearthstone/constant/tag';
+import type { ImageVariant } from '#model/hearthstone/schema/data/image';
+import { isCardImageVariantAllowed, type CardImageVariantRow, type ImageVariantMechanicIds } from '#shared/hearthstone/card-image-variant';
+
+import { CodeDiff } from 'v-code-diff';
 import { getHearthstoneLabel } from '~/utils/hearthstone-labels';
 import { hearthstoneSetIconTone, hearthstoneSetIconUrl } from '~/utils/hearthstone-set-icons';
 
@@ -223,67 +413,18 @@ setActions([actions.random]);
 
 // Language
 
-const lang = computed<Locale>({
-  get: () => localeSchema.safeParse(route.query.lang as string).data ?? 'zhs',
-  set: (v: string) => { void router.replace({ query: { ...route.query, lang: v } }); },
-});
+const gameLocale = useGameLocale();
+const lang = computed<Locale>(() => gameLocale.value as Locale);
 
 const profile = ref<CardProfile | null>(null);
-let profileRequest = 0;
 
-// Loads language options for the current card without racing stale route transitions.
-watch(() => route.params.id, async (cardId: string | string[]) => {
-  const requestId = ++profileRequest;
-
+watchEffect(async () => {
   try {
-    const result = await $orpc.hearthstone.card.profile(cardId as string);
-    if (requestId === profileRequest) {
-      profile.value = result;
-    }
+    profile.value = await $orpc.hearthstone.card.profile(route.params.id as string);
   } catch {
-    if (requestId === profileRequest) {
-      profile.value = null;
-    }
+    profile.value = null;
   }
-}, { immediate: true });
-
-const localeOrder = localeSchema.options;
-
-const nativeLanguageNames: Record<Locale, string> = {
-  en:  'English',
-  de:  'Deutsch',
-  es:  'Español',
-  fr:  'Français',
-  it:  'Italiano',
-  ja:  '日本語',
-  ko:  '한국어',
-  mx:  'Español (México)',
-  pl:  'Polski',
-  pt:  'Português',
-  ru:  'Русский',
-  th:  'ไทย',
-  zhs: '简体中文',
-  zht: '繁體中文',
-};
-
-const languageOptions = computed<CardProfile['localization']>(() => {
-  const byLang = new Map<Locale, CardProfile['localization'][number]>();
-
-  for (const localization of profile.value?.localization ?? []) {
-    byLang.set(localization.lang, localization);
-  }
-
-  return [...byLang.values()].sort((a, b) =>
-    localeOrder.indexOf(a.lang) - localeOrder.indexOf(b.lang),
-  );
 });
-
-const languageSelectItems = computed(() =>
-  languageOptions.value.map((option: CardProfile['localization'][number]) => ({
-    label: nativeLanguageNames[option.lang],
-    value: option.lang,
-  })),
-);
 
 // Data fetching
 
@@ -305,28 +446,66 @@ const asyncDataKey = computed(() => [
 const { data, status } = await useAsyncData(
   asyncDataKey,
   () => $orpc.hearthstone.card.full(query.value),
-  { watch: [query], lazy: true },
+  { watch: [query] },
 );
 
 useTitle(() => data.value?.localization.name ?? '');
 
+// Change history
+
+const changeHistoryKey = computed(() => `hearthstone-card-changes:${route.params.id}`);
+
+const { data: changeItems } = await useAsyncData(
+  changeHistoryKey,
+  () => $orpc.hearthstone.announcement.cardHistory({ cardId: route.params.id as string, lang: lang.value }),
+  { default: () => [] },
+);
+
 // Version
 
-const versions = computed<number[][]>(() => data.value?.versions ?? []);
+// Union breakpoints: hero revisions plus hero power revisions. Hero power
+// target arrays are intersected with the hero's own builds so the selector
+// never offers a build where the hero does not exist.
+const versions = computed(() => {
+  const base = data.value?.versions ?? [];
+  if (data.value?.heroPower == null) return base;
+
+  const heroBuilds = new Set(base.flat());
+  const attachmentVersions = data.value.heroPower.targets
+    .flatMap(target => target.versions)
+    .map(arr => arr.filter(build => heroBuilds.has(build)))
+    .filter(arr => arr.length > 0);
+
+  return [...base, ...attachmentVersions];
+});
+
+// Resolved hero power card data passed to the card image attachment.
+const heroPowerAttachment = computed(() => {
+  const current = data.value?.heroPower?.current;
+  if (current == null) return null;
+  return {
+    cardId:     current.cardId,
+    renderHash: current.renderHash,
+    version:    current.version[0] ?? 0,
+    type:       current.type,
+    mechanics:  current.mechanics,
+    name:       current.localization.name,
+  };
+});
 
 const version = computed({
   get() {
     const queryVersion = Number.parseInt(route.query.version as string, 10);
 
     if (!Number.isNaN(queryVersion)) {
-      if (data.value == null || versions.value.some((v: number[]) => v.includes(queryVersion))) {
+      if (data.value == null || splitVersionGroups.value.some(v => v.includes(queryVersion))) {
         return queryVersion;
       }
     }
 
     if (data.value != null) {
       const lastVersion = Math.max(...data.value.version);
-      const lastGroup = versions.value.find((v: number[]) => v.includes(lastVersion)) ?? [];
+      const lastGroup = splitVersionGroups.value.find(v => v.includes(lastVersion)) ?? [];
       return lastGroup[0] ?? 0;
     }
 
@@ -339,56 +518,66 @@ const version = computed({
 
 const minVersion = computed(() => Math.min(...(data.value?.version ?? [0])));
 
-// Patch profiles
+// Split version history into chronological segments. Each version array
+// represents one card revision. When interleaved arrays exist (e.g. revision A
+// in [1,2,3,20,30,40] and revision B in [5,6,7,8]), split at points where the
+// active revision changes: [1,2,3], [5,6,7,8], [20,30,40].
+function splitByRevision(versionArrays: number[][]): number[][] {
+  const allBuilds = [...new Set(versionArrays.flat())].sort((a, b) => a - b);
+  if (allBuilds.length === 0) return [];
 
-const patchProfiles = ref<Record<number, Patch>>({});
-let patchRequest = 0;
+  const buildToArrays = new Map<number, string>();
+  for (const build of allBuilds) {
+    const indices = versionArrays
+      .map((v, i) => (v.includes(build) ? i : -1))
+      .filter(i => i !== -1);
+    buildToArrays.set(build, indices.join(','));
+  }
 
-// Resolves patch names after navigation so version history does not block page transitions.
-async function loadPatchProfiles(values: number[][]) {
-  const requestId = ++patchRequest;
-  const nextProfiles: Record<number, Patch> = {};
-  const numbers = [...new Set(values.flatMap((group: number[]) => [group[0]!, group[group.length - 1]!]))];
+  const groups: number[][] = [];
+  let current: number[] = [allBuilds[0]!];
+  let currentKey = buildToArrays.get(allBuilds[0]!)!;
 
-  for (const buildNumber of numbers) {
-    try {
-      const patch = await $orpc.hearthstone.patch.full({ buildNumber });
-      if (patch) {
-        nextProfiles[buildNumber] = patch;
-      }
-    } catch {
-      // Patch info can be unavailable for older imported builds.
+  for (let i = 1; i < allBuilds.length; i++) {
+    const build = allBuilds[i]!;
+    const key = buildToArrays.get(build)!;
+    if (key !== currentKey) {
+      groups.push(current);
+      current = [build];
+      currentKey = key;
+    } else {
+      current.push(build);
     }
   }
+  groups.push(current);
 
-  if (requestId === patchRequest) {
-    patchProfiles.value = nextProfiles;
-  }
+  return groups.reverse();
 }
 
-watch(versions, (values: number[][]) => {
-  patchProfiles.value = {};
+const splitVersionGroups = computed(() => splitByRevision(versions.value));
 
-  if (values.length === 0) {
-    return;
-  }
+// Patch profiles — fetched via useAsyncData so they participate in SSR serialization
 
-  if (import.meta.client && 'requestIdleCallback' in globalThis) {
-    requestIdleCallback(() => {
-      void loadPatchProfiles(values);
-    });
-    return;
-  }
+const { data: patchProfiles } = await useAsyncData(
+  () => `hearthstone-patches:${splitVersionGroups.value.map(g => g[0]!).join(',')}`,
+  async () => {
+    const builds = [...new Set(splitVersionGroups.value.flatMap(v => [v[0]!, v[v.length - 1]!]))];
+    const patches = await $orpc.hearthstone.patch.batch({ buildNumbers: builds });
+    const result: Record<number, Patch> = {};
+    for (const p of patches) {
+      result[p.buildNumber] = p;
+    }
+    return result;
+  },
+  { watch: [splitVersionGroups] },
+);
 
-  void loadPatchProfiles(values);
-}, { immediate: true });
-
-const versionInfos = computed(() => versions.value.map((v: number[]) => {
+const versionInfos = computed(() => splitVersionGroups.value.map(v => {
   const first = v[0]!;
-  const lastV = v[v.length - 1]!;
+  const lastV = last(v)!;
 
   const firstName = (n: number) => {
-    const p = patchProfiles.value[n];
+    const p = patchProfiles.value?.[n];
     return p?.shortName ? `${p.shortName} (${n})` : `${n}`;
   };
 
@@ -406,80 +595,74 @@ const stats = computed(() => {
   if (c == null) return null;
   if (c.attack != null && c.health != null) return `${c.attack}/${c.health}`;
   if (c.attack != null && c.durability != null) return `${c.attack}/${c.durability}`;
+  if (c.armor != null) return `[${c.armor}]`;
   if (c.colddown != null) return `#${c.colddown}`;
   return null;
 });
 
 // Mechanics and tags
 
-type MechanicEntry = [string, boolean | number];
-type RelatedCard = CardFullView['relatedCards'][number];
-type RelatedGroup = {
-  relation: string;
-  cards:    RelatedCard[];
-};
-
-const mechanicEntries = computed<MechanicEntry[]>(() =>
+const mechanicEntries = computed(() =>
   Object.entries(data.value?.mechanics ?? {}),
 );
 
-const hasMechanic = (key: string) =>
-  mechanicEntries.value.some(([name, value]: MechanicEntry) => name === key && (value === true || (typeof value === 'number' && value !== 0)));
+const mechanics = computed(() =>
+  mechanicEntries.value
+    .filter(([key]) => !key.startsWith('?'))
+    .map(([key, value]) => value === true ? key : `${key}:${value}`),
+);
 
-const primaryFormats = ['standard', 'wild', 'classic'];
+const referencedTags = computed(() =>
+  Object.entries(data.value?.referencedTags ?? {})
+    .filter(([key]) => !key.startsWith('?'))
+    .map(([key, value]) => value === true ? key : `${key}:${value}`),
+);
 
-type FormatEntry = {
-  format: string;
-  status: string;
-  source: 'native' | 'core' | null;
-};
+const hasMechanic = (enumId: string) =>
+  mechanicEntries.value.some(([name, value]) =>
+    name === enumId && (value === true || (typeof value === 'number' && value !== 0)),
+  );
 
-const formatLegalityEntries = computed<FormatEntry[]>(() => {
-  const legalities = data.value?.legalities ?? {};
-  const collectible = data.value?.collectible === true && data.value?.inBobsTavern !== true;
+const mechanicText = (m: string) => {
+  const slugMap = data.value?.mechanicTags ?? {};
+  const resolveKey = (key: string) => slugMap[key] ?? key;
 
-  return primaryFormats.map((format: string) => {
-    const native = legalities[format];
-
-    if (format === 'standard') {
-      if (collectible && data.value?.standardSetAvailable === true) {
-        return { format, status: 'legal', source: 'native' };
-      }
-
-      if (native !== 'legal' && data.value?.standardCoreAvailable === true) {
-        return { format, status: 'legal', source: 'core' };
-      }
-    }
-
-    if (native != null) {
-      return { format, status: native, source: 'native' };
-    }
-
-    if (format === 'wild' && collectible) {
-      return { format, status: 'legal', source: null };
-    }
-
-    return { format, status: 'unavailable', source: null };
-  });
-});
-
-const legalityDisplayText = (entry: FormatEntry) => {
-  if (entry.status !== 'legal') {
-    return t('hearthstone.legality.unavailable');
+  if (m.includes(':')) {
+    const sep = m.indexOf(':');
+    const mid = resolveKey(m.slice(0, sep));
+    const arg = m.slice(sep + 1);
+    const key = `hearthstone.tag.${mid}`;
+    return `${te(key) ? t(key) : mid}:${arg}`;
   }
-
-  return entry.source === 'core'
-    ? `${t('hearthstone.card.playable')}(${coreSeriesText()})`
-    : t('hearthstone.card.playable');
+  const slug = resolveKey(m);
+  const key = `hearthstone.tag.${slug}`;
+  return te(key) ? t(key) : slug;
 };
 
-const coreSeriesText = () => lang.value === 'en' ? 'Core Set' : '核心系列';
+const toast = useToast();
 
-const legalityRowClass = (status: string) =>
-  status === 'legal' ? 'hs-legality-row--available' : 'hs-legality-row--unavailable';
+const copyTag = async (tag: string) => {
+  const tagName = /^[^:]+(:|$)/.exec(tag)![0]!;
+  try {
+    await navigator.clipboard.writeText(tagName);
+    toast.add({ title: t('hearthstone.card.tag-copied'), color: 'success' });
+  } catch {
+    // clipboard not available
+  }
+};
 
-const formatText = (value: string) =>
-  te(`hearthstone.format.${value}`) ? t(`hearthstone.format.${value}`) : value;
+const copyHash = async (label: string, hash: string) => {
+  try {
+    await navigator.clipboard.writeText(hash);
+    toast.add({ title: `${label} copied`, color: 'success' });
+  } catch {
+    // clipboard not available
+  }
+};
+
+const legalityEntries = computed(() =>
+  Object.entries(data.value?.legalities ?? {}),
+);
 
 // Set
 
@@ -487,19 +670,21 @@ const setText = computed(() => {
   const set = data.value?.set;
   if (!set) return null;
 
-  const setLocale: 'en' | 'zhs' | 'zht' = lang.value === 'zhs' || lang.value === 'zht' ? lang.value : 'en';
+  const setLocale = lang.value === 'zhs' || lang.value === 'zht' ? lang.value : 'en';
   const key = `hearthstone.set.${set}`;
   return nativeSetNames[setLocale][set] ?? (te(key) ? t(key) : set);
 });
 
+/** Resolves the current set artwork from the local Hearthstone asset map. */
 const setIconUrl = computed(() => {
   const set = data.value?.set;
-  return set ? hearthstoneSetIconUrl(set) : null;
+  return set == null ? null : hearthstoneSetIconUrl(set);
 });
 
+/** Selects the rendering treatment required by the current set artwork. */
 const setIconTone = computed(() => {
   const set = data.value?.set;
-  return set ? hearthstoneSetIconTone(set) : 'mono';
+  return set == null ? 'mono' : hearthstoneSetIconTone(set);
 });
 
 const nativeSetNames: Record<'en' | 'zhs' | 'zht', Record<string, string>> = {
@@ -565,30 +750,22 @@ const relationOrder = [
   'source',
 ];
 
-// Ranks relation groups so duplicate related cards keep the most useful label.
-const relationRank = (relation: string) => {
-  const index = relationOrder.indexOf(relation);
-  return index === -1 ? relationOrder.length : index;
-};
+const relatedGroups = computed(() => {
+  const groups = new Map<string, NonNullable<typeof data.value>['relatedCards']>();
 
-const relatedGroups = computed<RelatedGroup[]>(() => {
-  const groups = new Map<string, RelatedCard[]>();
-  const seen = new Set<string>();
-  const orderedCards = [...(data.value?.relatedCards ?? [])]
-    .sort((a: RelatedCard, b: RelatedCard) => relationRank(a.relation) - relationRank(b.relation));
-
-  for (const rel of orderedCards) {
-    if (seen.has(rel.cardId)) continue;
-    seen.add(rel.cardId);
-
+  for (const rel of data.value?.relatedCards ?? []) {
     const cards = groups.get(rel.relation) ?? [];
     cards.push(rel);
     groups.set(rel.relation, cards);
   }
 
   return [...groups.entries()]
-    .sort(([a], [b]) => relationRank(a) - relationRank(b))
-    .map(([relation, cards]: [string, RelatedCard[]]) => ({ relation, cards }));
+    .sort(([a], [b]) => {
+      const ai = relationOrder.indexOf(a);
+      const bi = relationOrder.indexOf(b);
+      return (ai === -1 ? relationOrder.length : ai) - (bi === -1 ? relationOrder.length : bi);
+    })
+    .map(([relation, cards]) => ({ relation, cards }));
 });
 
 const relationText = (relation: string): string => {
@@ -610,60 +787,75 @@ const relationText = (relation: string): string => {
 const cardTypeLabel = (value: string) => getHearthstoneLabel('type', value, lang.value);
 const raceLabel = (value: string) => getHearthstoneLabel('race', value, lang.value);
 const spellSchoolLabel = (value: string) => getHearthstoneLabel('spellSchool', value, lang.value);
-const raceText = computed(() => data.value?.race?.map(raceLabel).join('/') ?? '');
 
-const relatedLink = (rel: RelatedCard) => ({
+const relatedLink = (rel: NonNullable<typeof data.value>['relatedCards'][number]) => ({
   path:  `/card/${rel.cardId}`,
-  query: {
-    lang: lang.value,
-    ...(rel.version[0] != null ? { version: rel.version[0] } : {}),
-  },
+  query: rel.version[0] != null ? { version: rel.version[0] } : undefined,
 });
 
 // Variant
 
-const hasPremium = computed(() =>
-  hasMechanic('12') || hasMechanic('premium'),
-);
+const isBgsOnly = computed(() => {
+  const d = data.value;
+  return d != null && (d.type === 'trinket' || d.type === 'anomaly');
+});
 
 const isBattlegrounds = computed(() => {
   const d = data.value;
-  return d != null && (d.set === 'bgs' || (d.techLevel != null && !d.collectible));
+  return d != null && (d.set === 'bgs' || (d.techLevel != null && !d.collectible) || isBgsOnly.value);
 });
 
 const hasBattlegroundsVariant = computed(() => {
   const d = data.value;
-  return d != null && (d.set === 'bgs' || d.techLevel != null);
+  return d != null && (d.set === 'bgs' || d.techLevel != null || isBgsOnly.value);
 });
 
 const variant = ref<CardImageOption>(isBattlegrounds.value ? 'battlegrounds' : 'normal');
 
 const variantOptions = computed(() => {
-  const opts: Array<{ label: string, value: CardImageOption }> = [
-    { label: t('hearthstone.card.variant.normal'), value: 'normal' },
-    { label: t('hearthstone.card.variant.golden'), value: 'golden' },
-  ];
+  const d = data.value;
+  if (d == null) return [];
 
-  if (hasMechanic('has_diamond')) {
-    opts.push({ label: t('hearthstone.card.variant.diamond'), value: 'diamond' });
-  }
-  if (hasMechanic('has_signature')) {
-    opts.push({ label: t('hearthstone.card.variant.signature'), value: 'signature' });
-  }
-  if (hasBattlegroundsVariant.value) {
-    opts.push({ label: t('hearthstone.card.variant.battlegrounds'), value: 'battlegrounds' });
-  }
+  const row: CardImageVariantRow = {
+    type:      d.type,
+    set:       d.set,
+    techLevel: d.techLevel,
+    mechanics: d.mechanics ?? {},
+  };
+  const mechanicIds: ImageVariantMechanicIds = {
+    premium:   String(TAG_ID.PREMIUM),
+    diamond:   String(TAG_ID.HAS_DIAMOND),
+    signature: String(TAG_ID.HAS_SIGNATURE),
+  };
+  const isPremium = hasMechanic(String(TAG_ID.PREMIUM));
 
-  return opts;
+  const candidates: CardImageOption[] = ['normal', 'golden', 'diamond', 'signature', 'battlegrounds'];
+  return candidates
+    .filter(option => {
+      const variant: ImageVariant = option === 'battlegrounds'
+        ? { category: 'base', zone: 'hand', template: 'battlegrounds', premium: isPremium ? 'golden' : 'normal' }
+        : { category: 'base', zone: 'hand', template: 'normal', premium: option };
+      return isCardImageVariantAllowed(row, variant, mechanicIds);
+    })
+    .map(option => ({
+      label: t(`hearthstone.card.variant.${option}`),
+      value: option,
+    }));
 });
 
-watch(isBattlegrounds, (v: boolean) => {
+watch(isBattlegrounds, v => {
   if (v) variant.value = 'battlegrounds';
 }, { immediate: true });
 
-watch(hasBattlegroundsVariant, (v: boolean) => {
+watch(hasBattlegroundsVariant, v => {
   if (!v) variant.value = 'normal';
 });
+
+watch(variantOptions, options => {
+  if (options.length > 0 && !options.some(option => option.value === variant.value)) {
+    variant.value = options[0]!.value;
+  }
+}, { immediate: true });
 
 // Relation icon
 
@@ -688,4 +880,55 @@ const relationIcon = (relation: string): string => ({
   plague_token:       'lucide:biohazard',
   titan_ability:      'lucide:badge-bolt',
 } as Record<string, string>)[relation] ?? 'lucide:copy';
+
+// Diff
+
+const diffFrom = ref<number>();
+const diffTo = ref<number>();
+const diffLoading = ref(false);
+const diffResult = ref<{ entityBefore: unknown, entityAfter: unknown, renderBefore: unknown, renderAfter: unknown }>();
+
+watch([version, versionInfos], () => {
+  const groups = versionInfos.value;
+  if (groups.length === 0) return;
+  const idx = groups.findIndex(g => g.versions.includes(version.value));
+  if (idx === -1) return;
+
+  if (groups.length === 1) {
+    diffFrom.value = groups[0]!.versions[0]!;
+    diffTo.value = groups[0]!.versions[0]!;
+  } else if (idx === groups.length - 1) {
+    // Oldest version: from = this, to = next newer
+    diffFrom.value = groups[idx]!.versions[0]!;
+    diffTo.value = groups[idx - 1]!.versions[0]!;
+  } else {
+    // Has an older version: from = previous (older), to = this
+    diffFrom.value = groups[idx + 1]!.versions[0]!;
+    diffTo.value = groups[idx]!.versions[0]!;
+  }
+}, { immediate: true });
+
+const diffVersionOptions = computed(() =>
+  versionInfos.value.map(v => ({ label: v.firstName, value: v.versions[0] })));
+
+const diffEntityOld = computed(() => diffResult.value?.entityBefore ? JSON.stringify(diffResult.value.entityBefore, null, 2) : '');
+const diffEntityNew = computed(() => diffResult.value?.entityAfter ? JSON.stringify(diffResult.value.entityAfter, null, 2) : '');
+const diffRenderOld = computed(() => diffResult.value?.renderBefore ? JSON.stringify(diffResult.value.renderBefore, null, 2) : '');
+const diffRenderNew = computed(() => diffResult.value?.renderAfter ? JSON.stringify(diffResult.value.renderAfter, null, 2) : '');
+
+async function loadDiff() {
+  if (diffFrom.value == null || diffTo.value == null) return;
+  diffLoading.value = true;
+  diffResult.value = undefined;
+  try {
+    diffResult.value = await $orpc.hearthstone.card.snapshots({
+      cardId: route.params.id as string,
+      lang:   lang.value,
+      from:   diffFrom.value,
+      to:     diffTo.value,
+    }) as any;
+  } finally {
+    diffLoading.value = false;
+  }
+}
 </script>

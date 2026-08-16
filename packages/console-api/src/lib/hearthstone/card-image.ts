@@ -24,9 +24,17 @@ import {
   type ImageVariant,
 } from '@tcg-cards/model/src/hearthstone/schema/data/image';
 import { CardImageAsset, CardImageExport, CardImageImport } from '@tcg-cards/db/schema/shared/hearthstone/card-image';
-import { Entity, EntityLocalization } from '@tcg-cards/db/schema/shared/hearthstone/entity';
+import { Entity, EntityLocalization, LatestEntity, LatestEntityLocalization } from '@tcg-cards/db/schema/shared/hearthstone/entity';
 import { Set as HearthstoneSet } from '@tcg-cards/db/schema/shared/hearthstone/set';
 import { Tag } from '@tcg-cards/db/schema/shared/hearthstone/tag';
+import { TAG_SLUG } from '@tcg-cards/model/src/hearthstone/constant/tag';
+
+import {
+  buildImageVariants,
+  isCardImageVariantAllowed,
+  type ImageVariantMechanicIds,
+  type MechanicMap,
+} from '@tcg-cards/shared/hearthstone/card-image-variant';
 
 export const hearthstoneImageSpecVersion = 'v1';
 export const hearthstoneImageRequirementSchema = 'tcg.cards.hearthstone.card-image-requirements.v1';
@@ -35,12 +43,6 @@ export const hardCardImageExportLimit = 500;
 
 const exportBatchSize = 1000;
 const defaultR2AssetBucket = 'asset';
-const diamondMechanicSlug = 'has-diamond';
-const signatureMechanicSlug = 'has-signature';
-const premiumMechanicSlug = 'premium';
-
-type MechanicValue = boolean | number;
-type MechanicMap = Record<string, MechanicValue>;
 
 export interface ImageCandidateRow {
   cardId:           string;
@@ -55,12 +57,6 @@ export interface ImageCandidateRow {
   setDbfId:         number;
   techLevel:        number | null;
   mechanics:        MechanicMap;
-}
-
-export interface ImageVariantMechanicIds {
-  diamond:   string | null;
-  signature: string | null;
-  premium:   string | null;
 }
 
 interface BrowserImportFile {
@@ -199,13 +195,10 @@ function parseWebpMetadata(bytes: Uint8Array): WebpMetadata {
 }
 
 function latestOrVersion(
-  versionColumn: typeof Entity.version | typeof EntityLocalization.version,
-  latestColumn: typeof Entity.isLatest | typeof EntityLocalization.isLatest,
+  versionColumn: (typeof Entity | typeof EntityLocalization | typeof LatestEntity | typeof LatestEntityLocalization)['version'],
   version: number | undefined,
 ) {
-  return version == null
-    ? eq(latestColumn, true)
-    : sql`${version} = any(${versionColumn})`;
+  return version == null ? undefined : sql`${version} = any(${versionColumn})`;
 }
 
 function uniqueValues<T>(values: T[]) {
@@ -242,39 +235,13 @@ function decodeCursor(cursor: string | null | undefined) {
 }
 
 function imageKey(renderHash: string, variant: ImageVariant) {
-  return `${renderHash}\u0000${variant.zone}\u0000${variant.template}\u0000${variant.premium}`;
-}
-
-function isMechanicEnabled(value: unknown) {
-  return value === true || (typeof value === 'number' && value !== 0);
-}
-
-function hasMechanic(mechanics: MechanicMap, slug: string, enumId: string | null) {
-  if (isMechanicEnabled(mechanics[slug])) {
-    return true;
-  }
-
-  return enumId != null && isMechanicEnabled(mechanics[enumId]);
-}
-
-export function buildImageVariants(input: Pick<CardImageRequirementExportInput, 'zones' | 'templates' | 'premiums'>) {
-  const zones = uniqueValues(input.zones);
-  const templates = uniqueValues(input.templates);
-  const premiums = uniqueValues(input.premiums);
-
-  return zones.flatMap(zone =>
-    templates.flatMap(template =>
-      premiums.map(premium => ({
-        zone,
-        template,
-        premium,
-      }))),
-  );
+  return `${renderHash}\u0000${variant.category}\u0000${variant.zone}\u0000${variant.template}\u0000${variant.premium}`;
 }
 
 export function buildCardImageStyle(variant: ImageVariant): ImageStyle {
   return {
-    styleKey:              `${variant.zone}.${variant.template}.${variant.premium}`,
+    styleKey:              `${variant.category}.${variant.zone}.${variant.template}.${variant.premium}`,
+    category:              variant.category,
     zone:                  variant.zone,
     template:              variant.template,
     premium:               variant.premium,
@@ -285,54 +252,10 @@ export function buildCardImageStyle(variant: ImageVariant): ImageStyle {
   };
 }
 
-export function isCardImageVariantAllowed(
-  row: Pick<ImageCandidateRow, 'type' | 'set' | 'techLevel' | 'mechanics'>,
-  variant: ImageVariant,
-  mechanicIds: ImageVariantMechanicIds,
-) {
-  if (row.type === 'enchantment') {
-    return false;
-  }
-
-  if (variant.zone === 'play') {
-    return false;
-  }
-
-  if (variant.template === 'battlegrounds') {
-    if (row.set !== 'bgs' && row.techLevel == null) {
-      return false;
-    }
-
-    if (hasMechanic(row.mechanics, premiumMechanicSlug, mechanicIds.premium)) {
-      return variant.zone === 'hand' && variant.premium === 'golden';
-    }
-
-    return variant.zone === 'hand' && variant.premium === 'normal';
-  }
-
-  if (variant.zone !== 'hand' || variant.template !== 'normal') {
-    return false;
-  }
-
-  if (variant.premium === 'normal' || variant.premium === 'golden') {
-    return true;
-  }
-
-  if (variant.premium === 'diamond') {
-    return hasMechanic(row.mechanics, diamondMechanicSlug, mechanicIds.diamond);
-  }
-
-  if (variant.premium === 'signature') {
-    return hasMechanic(row.mechanics, signatureMechanicSlug, mechanicIds.signature);
-  }
-
-  return false;
-}
-
 export function buildCardImageRequestId(renderHash: string, variant: ImageVariant) {
   const digest = sha256([
-    hearthstoneImageSpecVersion,
     renderHash,
+    variant.category,
     variant.zone,
     variant.template,
     variant.premium,
@@ -349,7 +272,7 @@ export function buildCardImageR2Key(renderHash: string, variant: ImageVariant) {
   return [
     'hearthstone',
     'card',
-    hearthstoneImageSpecVersion,
+    variant.category,
     variant.zone,
     variant.template,
     variant.premium,
@@ -411,9 +334,12 @@ export function buildImageRequestRenderModel(
   model: RenderModel,
   setDbfId: number,
 ): ImageRequestRenderModel {
+  // Older projections stored renderModels without textBuilderType; default it at
+  // request build time so validation passes without re-projecting.
   return {
     ...model,
-    set: setDbfId,
+    textBuilderType: model.textBuilderType ?? 'default',
+    set:             setDbfId,
   };
 }
 
@@ -436,6 +362,7 @@ export function buildRequest(
       renderHash:       row.renderHash,
     },
     variant,
+    renderMode: 'full-set',
     style,
     output: {
       fileName:              buildCardImagePngFileName(requestId),
@@ -465,6 +392,8 @@ export function collectImageRequirementRequests(input: {
 }) {
   const requests: ImageRequirementRequest[] = [];
   let missingCount = 0;
+  let totalCount = 0;
+  let readyCount = 0;
 
   for (const row of input.rows) {
     for (const variant of input.variants) {
@@ -472,7 +401,10 @@ export function collectImageRequirementRequests(input: {
         continue;
       }
 
+      totalCount += 1;
+
       if (input.readyKeys.has(imageKey(row.renderHash, variant))) {
+        readyCount += 1;
         continue;
       }
 
@@ -489,6 +421,8 @@ export function collectImageRequirementRequests(input: {
   return {
     requests,
     missingCount,
+    totalCount,
+    readyCount,
   };
 }
 
@@ -499,15 +433,15 @@ export async function loadVariantMechanicIds(
 ): Promise<ImageVariantMechanicIds> {
   const slugs = uniqueValues(variants.flatMap(variant => {
     if (variant.premium === 'diamond') {
-      return [diamondMechanicSlug];
+      return [TAG_SLUG.HAS_DIAMOND];
     }
 
     if (variant.premium === 'signature') {
-      return [signatureMechanicSlug];
+      return [TAG_SLUG.HAS_SIGNATURE];
     }
 
     if (variant.template === 'battlegrounds') {
-      return [premiumMechanicSlug];
+      return [TAG_SLUG.PREMIUM];
     }
 
     return [];
@@ -529,9 +463,9 @@ export async function loadVariantMechanicIds(
     .where(inArray(Tag.slug, slugs));
 
   return {
-    diamond:   String(rows.find(row => row.slug === diamondMechanicSlug)?.enumId ?? '') || null,
-    signature: String(rows.find(row => row.slug === signatureMechanicSlug)?.enumId ?? '') || null,
-    premium:   String(rows.find(row => row.slug === premiumMechanicSlug)?.enumId ?? '') || null,
+    diamond:   String(rows.find(row => row.slug === TAG_SLUG.HAS_DIAMOND)?.enumId ?? '') || null,
+    signature: String(rows.find(row => row.slug === TAG_SLUG.HAS_SIGNATURE)?.enumId ?? '') || null,
+    premium:   String(rows.find(row => row.slug === TAG_SLUG.PREMIUM)?.enumId ?? '') || null,
   };
 }
 
@@ -542,44 +476,57 @@ async function loadCandidateRows(
   rowOffset: number,
   rowLimit: number,
 ) {
+  const useLatest = !input.allVersions && input.version == null;
+  const E = useLatest ? LatestEntity : Entity;
+  const EL = useLatest ? LatestEntityLocalization : EntityLocalization;
+
   const filters = [
-    eq(EntityLocalization.lang, input.lang),
-    latestOrVersion(Entity.version, Entity.isLatest, input.version),
-    latestOrVersion(EntityLocalization.version, EntityLocalization.isLatest, input.version),
-    sql<boolean>`${EntityLocalization.renderHash} is not null`,
-    sql<boolean>`${EntityLocalization.renderModel} is not null`,
-    sql<boolean>`${Entity.type} <> 'enchantment'`,
+    eq(EL.lang, input.lang),
+    sql<boolean>`${EL.renderHash} is not null`,
+    sql<boolean>`${EL.renderModel} is not null`,
+    sql<boolean>`${E.type} <> 'enchantment'`,
   ];
 
+  if (!input.allVersions) {
+    const versionFilter = latestOrVersion(E.version, input.version);
+    if (versionFilter != null) {
+      filters.push(versionFilter);
+    }
+    const locVersionFilter = latestOrVersion(EL.version, input.version);
+    if (locVersionFilter != null) {
+      filters.push(locVersionFilter);
+    }
+  }
+
   if (input.cardId) {
-    filters.push(eq(Entity.cardId, input.cardId));
+    filters.push(eq(E.cardId, input.cardId));
   }
 
   return await database.select({
-    cardId:           Entity.cardId,
-    version:          sql<number[]>`${Entity.version} & ${EntityLocalization.version}`.as('version'),
-    lang:             EntityLocalization.lang,
-    revisionHash:     Entity.revisionHash,
-    localizationHash: EntityLocalization.localizationHash,
-    renderHash:       EntityLocalization.renderHash,
-    renderModel:      EntityLocalization.renderModel,
-    type:             Entity.type,
-    set:              Entity.set,
+    cardId:           E.cardId,
+    version:          sql<number[]>`${E.version} & ${EL.version}`.as('version'),
+    lang:             EL.lang,
+    revisionHash:     E.revisionHash,
+    localizationHash: EL.localizationHash,
+    renderHash:       EL.renderHash,
+    renderModel:      EL.renderModel,
+    type:             E.type,
+    set:              E.set,
     setDbfId:         HearthstoneSet.dbfId,
-    techLevel:        Entity.techLevel,
-    mechanics:        Entity.mechanics,
+    techLevel:        E.techLevel,
+    mechanics:        E.mechanics,
   })
-    .from(Entity)
-    .innerJoin(EntityLocalization, and(
-      eq(Entity.cardId, EntityLocalization.cardId),
-      eq(Entity.revisionHash, EntityLocalization.revisionHash),
-      sql`${Entity.version} && ${EntityLocalization.version}`,
+    .from(E)
+    .innerJoin(EL, and(
+      eq(E.cardId, EL.cardId),
+      eq(E.revisionHash, EL.revisionHash),
+      sql`${E.version} && ${EL.version}`,
     ))
-    .leftJoin(HearthstoneSet, eq(Entity.set, HearthstoneSet.setId))
+    .leftJoin(HearthstoneSet, eq(E.set, HearthstoneSet.setId))
     .where(and(...filters))
     .orderBy(
-      asc(Entity.cardId),
-      asc(EntityLocalization.localizationHash),
+      asc(E.cardId),
+      asc(EL.localizationHash),
     )
     .limit(rowLimit)
     .offset(rowOffset)
@@ -608,28 +555,30 @@ async function loadReadyKeys(
     return new Set<string>();
   }
 
+  const categories = uniqueValues(variants.map(variant => variant.category));
   const zones = uniqueValues(variants.map(variant => variant.zone));
   const templates = uniqueValues(variants.map(variant => variant.template));
   const premiums = uniqueValues(variants.map(variant => variant.premium));
 
   const rows = await database.select({
     renderHash: CardImageAsset.renderHash,
+    category:   CardImageAsset.category,
     zone:       CardImageAsset.zone,
     template:   CardImageAsset.template,
     premium:    CardImageAsset.premium,
   })
     .from(CardImageAsset)
     .where(and(
-      eq(CardImageAsset.imageSpecVersion, hearthstoneImageSpecVersion),
       eq(CardImageAsset.status, 'ready'),
       inArray(CardImageAsset.renderHash, renderHashes),
       inArray(CardImageAsset.zone, zones),
       inArray(CardImageAsset.template, templates),
+      inArray(CardImageAsset.category, categories),
       inArray(CardImageAsset.premium, premiums),
     ));
 
   return new Set(rows.map(row => (
-    `${row.renderHash}\u0000${row.zone}\u0000${row.template}\u0000${row.premium}`
+    `${row.renderHash}\u0000${row.category}\u0000${row.zone}\u0000${row.template}\u0000${row.premium}`
   )));
 }
 
@@ -935,8 +884,8 @@ export async function importCardImageArchiveFromBrowser(input: {
       for (const file of plan.acceptedFiles) {
         await tx.insert(CardImageAsset)
           .values({
-            imageSpecVersion: requirementFile.imageSpecVersion,
             renderHash:       file.request.card.renderHash,
+            category:         file.request.variant.category,
             lang:             file.request.card.lang,
             zone:             file.request.variant.zone,
             template:         file.request.variant.template,
@@ -955,7 +904,7 @@ export async function importCardImageArchiveFromBrowser(input: {
             verifiedAt:       now,
           })
           .onConflictDoUpdate({
-            target: [CardImageAsset.imageSpecVersion, CardImageAsset.renderHash, CardImageAsset.zone, CardImageAsset.template, CardImageAsset.premium],
+            target: [CardImageAsset.renderHash, CardImageAsset.category, CardImageAsset.zone, CardImageAsset.template, CardImageAsset.premium],
             set:    {
               lang:           file.request.card.lang,
               r2Bucket,
@@ -1017,12 +966,16 @@ export async function exportCardImageRequirements(
 
   let rowOffset = 0;
   let seenMissing = 0;
+  let seenTotal = 0;
+  let seenReady = 0;
   const requests: ImageRequirementRequest[] = [];
+
+  const scanAll = input.scanAll ?? false;
 
   while (true) {
     const rows = await loadCandidateRows(database, input, rowOffset, exportBatchSize);
 
-    if (rows.length === 0 || requests.length >= input.limit) {
+    if (rows.length === 0 || (!scanAll && requests.length >= input.limit)) {
       break;
     }
 
@@ -1034,6 +987,8 @@ export async function exportCardImageRequirements(
       variants,
     );
 
+    const requestFull = requests.length >= input.limit;
+
     const result = collectImageRequirementRequests({
       rows,
       readyKeys,
@@ -1041,17 +996,25 @@ export async function exportCardImageRequirements(
       mechanicIds,
       r2Bucket,
       offset,
-      limit: input.limit - requests.length,
+      limit: requestFull ? 0 : input.limit - requests.length,
       seenMissing,
     });
 
     seenMissing += result.missingCount;
-    requests.push(...result.requests);
+    seenTotal += result.totalCount;
+    seenReady += result.readyCount;
+
+    if (!requestFull) {
+      requests.push(...result.requests);
+    }
   }
 
-  if (requests.length === 0) {
-    throw new Error('No missing card images matched filters');
+  if (seenTotal === 0) {
+    const id = input.cardId ? `cardId ${input.cardId}` : input.renderHash ? `renderHash ${input.renderHash}` : 'the given filters';
+    throw new Error(`No card data matched the image filters for ${id}`);
   }
+  // requests.length === 0 here means every matched image is already rendered;
+  // fall through to build an empty export result instead of failing.
 
   const exportId = buildExportId();
   const fileName = buildFileName(exportId);
@@ -1122,6 +1085,8 @@ export async function exportCardImageRequirements(
     fileName,
     requestCount:      requests.length,
     remainingEstimate: Math.max(0, seenMissing - nextOffset),
+    totalEstimate:     seenTotal,
+    readyEstimate:     seenReady,
     hasMore,
     nextCursor,
     content,

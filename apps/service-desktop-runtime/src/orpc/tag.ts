@@ -1,6 +1,7 @@
-import { ORPCError } from '@orpc/server';
+import { eventIterator, ORPCError } from '@orpc/server';
 import { and, desc, eq } from 'drizzle-orm';
 
+import { createDb } from '@tcg-cards/db';
 import { FieldCommit } from '@tcg-cards/db/schema/shared/hearthstone';
 import {
   fieldCommitGetInput,
@@ -16,18 +17,54 @@ import {
   tagConflictListResult,
   tagConflictProfile,
   tagConflictResolveInput,
+  tagGetInput,
+  tagListInput,
+  tagListResult,
+  tagProfile,
+  tagUpdateInput,
 } from '@tcg-cards/model/src/hearthstone/schema/tag';
+import {
+  listTags,
+  getTag,
+  saveTagEdit,
+} from '@tcg-cards/console-api/lib/hearthstone/tag-commit';
 import {
   getTagConflict,
   listTagConflicts,
   resolveTagConflict,
 } from '@tcg-cards/console-api/lib/hearthstone/tag-conflict';
+import { pushPendingTagCommits } from '@tcg-cards/console-api/lib/hearthstone/tag-push';
 
 import { os } from './index';
 import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
+import { requireHearthstonePublishTarget } from '../lib/hearthstone/hsdata-publish-target';
+import { readEditorIdentity } from '../runtime-config';
+import {
+  getIncompletePushBatch,
+  listPushBatches,
+  startTagPushJob,
+  watchTagPushJob,
+  type TagPushProgressEvent,
+} from '../lib/hearthstone/tag-push-progress';
+import { z } from 'zod';
 
 /** Commit rows loaded from the shared field history table. */
 type FieldCommitRow = typeof FieldCommit.$inferSelect;
+
+const tagPushResult = z.strictObject({
+  stream: z.string(),
+  consumer: z.string(),
+  pushed: z.array(z.strictObject({
+    localCommitId: z.string(),
+    localSequence: z.number(),
+    clientMutationId: z.string(),
+    status: z.enum(['applied', 'duplicate']),
+  })),
+  lastPushedSequence: z.number(),
+  blockedSequence: z.number().nullable(),
+  blockedReason: z.enum(['conflict', 'error']).nullable(),
+  blockedMessage: z.string().nullable(),
+});
 
 /** Converts one persisted timestamp into an ISO string. */
 function toIsoString(value: Date | string) {
@@ -47,7 +84,8 @@ function toCommitProfile(row: FieldCommitRow): FieldCommitProfile {
     commitKind:             row.commitKind,
     clientMutationId:       row.clientMutationId,
     editorRuntime:          row.editorRuntime,
-    editorIdentity:         row.editorIdentity ?? null,
+    editorIdentity:         row.editorIdentity,
+    editorSource:           row.editorSource,
     expectedRowRevision:    row.expectedRowRevision,
     expectedWinnerRevision: row.expectedWinnerRevision ?? null,
     baseRevision:           row.baseRevision,
@@ -104,6 +142,8 @@ function matchesCommitFilters(commit: FieldCommitProfile, input: FieldCommitList
 
   return true;
 }
+
+// ─── Existing routes ────────────────────────────────────────────────
 
 /** Lists local Hearthstone tag commits from the desktop runtime database. */
 const listCommits = os
@@ -191,7 +231,8 @@ const resolveConflict = os
   .output(tagConflictProfile)
   .handler(async ({ input }) => await resolveTagConflict(getLocalDb(), input, {
     editorRuntime:  'desktop',
-    editorIdentity: 'desktop-runtime',
+    editorIdentity: readEditorIdentity(),
+    editorSource:   'conflict-resolution',
     syncStatus:     'pending_push',
     conflictTarget: {
       processingSide:  'local',
@@ -199,11 +240,194 @@ const resolveConflict = os
     },
   }));
 
+// ─── New CRUD routes ─────────────────────────────────────────────────
+
+/** Lists local Hearthstone tag configurations. */
+const list = os
+  .route({
+    method:      'GET',
+    description: 'List local Hearthstone tag configurations',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Tag'],
+  })
+  .input(tagListInput)
+  .output(tagListResult)
+  .handler(async ({ input }) => {
+    return await listTags(getLocalDb(), input);
+  });
+
+/** Reads one local Hearthstone tag configuration. */
+const get = os
+  .route({
+    method:      'GET',
+    description: 'Get one local Hearthstone tag configuration',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Tag'],
+  })
+  .input(tagGetInput)
+  .output(tagProfile)
+  .handler(async ({ input }) => {
+    return await getTag(getLocalDb(), input.enumId);
+  });
+
+/** Saves one manual tag edit to the local database via the field commit workflow. */
+const manualUpdate = os
+  .route({
+    method:      'PUT',
+    description: 'Save one manual Hearthstone tag edit to the local database',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Tag'],
+  })
+  .input(tagUpdateInput)
+  .output(tagProfile)
+  .handler(async ({ input }) => {
+    const db = getLocalDb();
+    return await db.transaction(async tx => await saveTagEdit(tx, input, {
+      syncStatus:     'pending_push',
+      editorRuntime:  'desktop',
+      editorIdentity: readEditorIdentity(),
+      editorSource:   'manual',
+      conflictTarget: { processingSide: 'local', processingStage: 'apply' },
+    }));
+  });
+
+/** Pushes pending local tag commits to the remote database. */
+const pushToRemote = os
+  .route({
+    method:      'POST',
+    description: 'Push pending local tag commits to the remote database',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Tag'],
+  })
+  .input(z.strictObject({
+    limit: z.number().int().positive().optional(),
+  }).optional())
+  .output(tagPushResult)
+  .handler(async ({ input }) => {
+    const target = requireHearthstonePublishTarget();
+    const localDb = getLocalDb();
+    const remoteDb = createDb(target.connectionString);
+
+    try {
+      return await pushPendingTagCommits({
+        localDb,
+        remoteDb,
+        consumer: 'desktop',
+        limit:    input?.limit,
+      });
+    } finally {
+      await remoteDb.$client.end({ timeout: 1 });
+    }
+  });
+
+const tagPushProgressEvent = z.object({
+  phase:           z.string(),
+  message:         z.string(),
+  startedAt:       z.string(),
+  finishedAt:      z.string().nullable(),
+  totalCount:      z.number().int().nonnegative().nullable(),
+  completedCount:  z.number().int().nonnegative().nullable(),
+  pushed:          z.array(z.object({
+    localSequence:    z.number(),
+    clientMutationId: z.string(),
+    status:           z.enum(['applied', 'duplicate']),
+  })),
+  blockedReason:   z.string().nullable(),
+  blockedMessage:  z.string().nullable(),
+  blockedSequence: z.number().nullable(),
+});
+
+/** Starts a tag push job with progress streaming and returns immediately. */
+const pushToRemoteWithProgress = os
+  .route({
+    method:      'POST',
+    description: 'Push pending local tag commits to remote with progress streaming',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Tag'],
+  })
+  .input(z.strictObject({
+    limit: z.number().int().positive().optional(),
+  }).optional())
+  .output(z.strictObject({ ok: z.boolean() }))
+  .handler(async ({ input }) => {
+    const target = requireHearthstonePublishTarget();
+    startTagPushJob(target.connectionString, input?.limit);
+    return { ok: true };
+  });
+
+/** Streams progress events for the current tag push job. */
+const watchPushProgress = os
+  .route({
+    method:      'GET',
+    description: 'Watch the current tag push job progress as a stream of events',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Tag'],
+  })
+  .output(eventIterator(tagPushProgressEvent))
+  .handler(async function* () {
+    yield* watchTagPushJob();
+  });
+
+const pushBatchProfile = z.object({
+  id:              z.string(),
+  stream:          z.string(),
+  consumer:        z.string(),
+  status:          z.string(),
+  pushedCount:     z.number(),
+  duplicateCount:  z.number(),
+  blockedReason:   z.string().nullable(),
+  blockedMessage:  z.string().nullable(),
+  blockedSequence: z.number().nullable(),
+  startedAt:       z.string(),
+  completedAt:     z.string().nullable(),
+  createdAt:       z.string(),
+});
+
+const getIncompletePushBatchRoute = os
+  .route({
+    method:      'GET',
+    description: 'Check for an incomplete push batch that may need resuming',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Tag'],
+  })
+  .output(z.object({
+    id:        z.string(),
+    stream:    z.string(),
+    startedAt: z.string(),
+  }).nullable())
+  .handler(async () => await getIncompletePushBatch());
+
+const listPushBatchesRoute = os
+  .route({
+    method:      'GET',
+    description: 'List recent push batch history',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Tag'],
+  })
+  .output(z.array(pushBatchProfile))
+  .handler(async () => {
+    const rows = await listPushBatches(20);
+    return rows.map(row => ({
+      id:              row.id,
+      stream:          row.stream,
+      consumer:        row.consumer,
+      status:          row.status,
+      pushedCount:     row.pushedCount,
+      duplicateCount:  row.duplicateCount,
+      blockedReason:   row.blockedReason ?? null,
+      blockedMessage:  row.blockedMessage ?? null,
+      blockedSequence: row.blockedSequence ?? null,
+      startedAt:       row.startedAt instanceof Date ? row.startedAt.toISOString() : String(row.startedAt),
+      completedAt:     row.completedAt ? (row.completedAt instanceof Date ? row.completedAt.toISOString() : String(row.completedAt)) : null,
+      createdAt:       row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
+    }));
+  });
+
 /** Groups the desktop runtime tag procedures under one router namespace. */
 export const tagRouter = {
+  list,
+  get,
   listCommits,
   getCommit,
   listConflicts,
   getConflict,
+  getIncompletePushBatch: getIncompletePushBatchRoute,
+  listPushBatches: listPushBatchesRoute,
+  manualUpdate,
+  pushToRemote,
+  pushToRemoteWithProgress,
+  watchPushProgress,
   resolveConflict,
 };

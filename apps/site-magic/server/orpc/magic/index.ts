@@ -1,3 +1,4 @@
+import { userConfigTrpc } from '@tcg-cards/console-api/user-config';
 import { cardApi, cardTrpc } from './card';
 import { printApi, printTrpc } from './print';
 import { searchApi, searchTrpc } from './search';
@@ -22,6 +23,7 @@ export const magicTrpc = {
   deck:         deckTrpc,
   data:         dataTrpc,
   agent:        agentTrpc,
+  userConfig:   userConfigTrpc,
 };
 
 export const magicApi = {

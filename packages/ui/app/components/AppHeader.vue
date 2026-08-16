@@ -1,40 +1,30 @@
 <template>
-  <div class="app-header-stack">
+  <div>
     <UHeader
-      class="app-header backdrop-blur-md border-b"
+      class="bg-white/10 backdrop-blur-md border-b border-white/20"
       :title="title"
       :ui="{
-        root: 'app-header backdrop-blur-md border-b',
         left: 'lg:flex-none',
         center: 'flex flex-1',
         right: 'lg:flex-none'
       }"
     >
       <template #title>
-        <NuxtLink
-          v-if="showMainBackButton"
-          :to="mainSiteUrl"
-          target="_blank"
-          class="app-header-back-button"
-          :aria-label="t('common.backToMain')"
-        >
-          <UIcon name="lucide:arrow-left" />
-        </NuxtLink>
         <Icon
           :name="appIcon"
           :size="32"
           class="text-white"
         />
-      </template>
+        </template>
 
       <template v-if="titleType === 'input'">
-        <UInput
-          v-model="searchInput"
-          class="ml-3 flex-1"
-          size="xl"
-          :ui="{ base: 'font-semibold text-white bg-transparent ring-white focus:ring-white w-full' }"
-          @keydown.enter="commitSearch"
-        />
+          <UInput
+            v-model="searchInput"
+            class="ml-3 flex-1"
+            size="xl"
+            :ui="{ base: 'font-semibold text-white bg-transparent ring-white focus:ring-white w-full' }"
+            @keydown.enter="commitSearch"
+          />
       </template>
       <span v-else class="ml-3 font-semibold text-white text-lg flex-1">{{ title }}</span>
 
@@ -51,7 +41,7 @@
               size="md"
               class="w-40"
               trailing-icon=""
-              :ui="{ base: 'app-header-control text-white', content: 'min-w-fit' }"
+              :ui="{ base: 'text-white bg-white/10 hover:bg-white/20 border-white/20 ring-white/20', content: 'min-w-fit' }"
               @update:model-value="p.onChange"
             />
             <UButton
@@ -60,7 +50,7 @@
               :color="(paramValues[p.id] as boolean) ? 'success' : 'neutral'"
               :variant="(paramValues[p.id] as boolean) ? 'solid' : 'ghost'"
               size="md"
-              :class="(paramValues[p.id] as boolean) ? 'text-white hover:opacity-90' : 'app-header-button text-white'"
+              :class="(paramValues[p.id] as boolean) ? 'text-white hover:opacity-90' : 'text-white hover:bg-white/20'"
               @click="p.onChange(!(paramValues[p.id] as boolean))"
             />
           </template>
@@ -71,29 +61,24 @@
             :icon="action.icon"
             color="neutral"
             variant="ghost"
-            class="app-header-button text-white hover:text-white"
+            class="text-white hover:bg-white/20 hover:text-white"
             @click="getHandler(action.id)()"
           />
 
-          <UDropdownMenu
-            v-if="showLocaleSwitcher && gameLocales.length > 1"
-            :items="localeMenuItems"
-            :ui="{ content: 'min-w-fit' }"
-          >
-            <UButton
-              color="neutral"
-              variant="ghost"
-              class="app-header-button text-white hover:text-white font-mono font-semibold"
-            >
-              {{ gameLocale }}
-            </UButton>
-            <template #locale-item="{ item }">
-              <span class="font-mono shrink-0 min-w-10">{{ item.code }}</span>
-              <span class="text-muted-foreground">{{ item.label }}</span>
-            </template>
-          </UDropdownMenu>
+          <AppHeaderLocale
+            v-if="appConfig.gameId"
+            ref="headerLocaleRef"
+          />
 
-          <UColorModeButton class="app-header-button text-white hover:text-white" />
+          <UButton
+            icon="lucide:settings"
+            color="neutral"
+            variant="ghost"
+            class="text-white hover:bg-white/20 hover:text-white"
+            @click="router.push('/settings')"
+          />
+
+          <UColorModeButton class="text-white hover:bg-white/20 hover:text-white" />
 
           <slot name="right-end" />
         </div>
@@ -104,10 +89,7 @@
 </template>
 
 <script setup lang="ts">
-import { useI18n } from 'vue-i18n';
-
 const appConfig = useAppConfig();
-const runtimeConfig = useRuntimeConfig();
 const router = useRouter();
 const route = useRoute();
 const title = useTitle();
@@ -115,43 +97,25 @@ const titleType = useTitleType();
 const { getParams, paramItems, paramValues } = useParams();
 const { getActions } = useActions();
 const searchInput = useSearchInput();
-
 const appIcon = appConfig.appIcon ?? 'i:logo';
-const showMainBackButton = appConfig.showMainBackButton ?? false;
-const mainSiteUrl = runtimeConfig.public.mainSiteUrl ?? 'http://localhost:3000';
 
 const params = getParams();
 
 const actionMeta = route.meta.actions ?? [];
 
-const actions = getActions() as Ref<Array<{ id: string, handler: () => void }>>;
+const actions = getActions();
 
-// Locale switcher
-
-const gameLocales = appConfig.locales ?? [];
-const showLocaleSwitcher = appConfig.showLocaleSwitcher ?? true;
-
-const gameLocale = useGameLocale();
-const { t } = useI18n();
-
-const localeMenuItems = computed(() => {
-  return gameLocales.map(l => ({
-    code:     l,
-    label:    t(`locale.${l}`, l),
-    slot:     'locale-item' as const,
-    onSelect: () => { gameLocale.value = l; },
-  }));
-});
+const headerLocaleRef = ref<InstanceType<typeof AppHeaderLocale>>();
 
 const getHandler = (id: string) => {
-  const action = actions.value.find((a: { id: string }) => a.id === id);
+  const action = actions.value.find(a => a.id === id);
   return action?.handler ?? (() => {});
 };
 
 const commitSearch = () => {
   router.push({
     path:  `/search`,
-    query: { q: searchInput.value },
+    query: { q: searchInput.value, lang: headerLocaleRef.value?.gameLocale.value },
   });
 };
 </script>

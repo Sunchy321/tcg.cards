@@ -61,370 +61,160 @@
 
       <div class="grid gap-4 xl:grid-cols-3">
         <div class="space-y-4 xl:col-span-2">
-          <UCard>
-            <template #header>
-              <div>
-                <div class="font-medium">导出与渲染条件</div>
+          <TaskController
+            title="图片渲染"
+            :operations="operations"
+            @completed="onTaskCompleted"
+            @failed="onTaskFailed"
+          >
+            <template #title>
+              <div v-if="lastCounts != null" class="flex items-center gap-3 text-sm text-muted ml-auto">
+                <span>总数 <span class="font-mono font-semibold text-default">{{ lastCounts.total }}</span></span>
+                <span>已有 <span class="font-mono font-semibold text-success">{{ lastCounts.ready }}</span></span>
+                <span>缺失 <span class="font-mono font-semibold text-warning">{{ lastCounts.missing }}</span></span>
               </div>
             </template>
 
-            <div class="space-y-4">
-              <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <div class="space-y-2">
-                  <div class="text-xs text-muted">语言</div>
-                  <USelect v-model="form.lang" :items="langItems" class="w-full" />
+            <template #params="{ disabled }">
+              <div class="space-y-4">
+                <UFormField label="导入规模" orientation="horizontal" :ui="{ root: '!justify-start' }">
+                  <UFieldGroup>
+                    <UButton v-for="item in scaleItems" :key="item.value" :label="item.label" :color="scale === item.value ? 'primary' : 'neutral'" :variant="scale === item.value ? 'solid' : 'outline'" size="sm" :disabled="disabled" @click="onScaleChange(item.value)" />
+                  </UFieldGroup>
+                </UFormField>
+                <div class="grid gap-4 md:grid-cols-3">
+                  <UFormField label="语言" orientation="horizontal" :ui="{ root: '!justify-start' }"><USelect v-model="form.lang" :items="langItems" class="w-40" :disabled="disabled" /></UFormField>
+                  <UFormField label="版本" orientation="horizontal" :ui="{ root: '!justify-start' }"><USelect v-model="form.version" :items="versionItems" class="w-40" :disabled="disabled" /></UFormField>
+                  <UFormField orientation="horizontal" :ui="{ root: '!justify-start' }">
+                    <template #label><span class="cursor-pointer select-none" @click="singleCardMode = singleCardMode === 'cardId' ? 'renderHash' : 'cardId'">{{ singleCardMode === 'cardId' ? 'Card ID' : 'Render Hash' }}</span></template>
+                    <UInput v-model="singleCardInput" :placeholder="singleCardMode === 'cardId' ? '输入 cardId...' : '输入 renderHash...'" :disabled="disabled || scale !== 'single'" class="flex-1" />
+                  </UFormField>
                 </div>
-
-                <div class="space-y-2">
-                  <div class="text-xs text-muted">版本</div>
-                  <USelect
-                    v-model="form.version"
-                    :items="versionItems"
-                    class="w-full"
-                  />
+                <div class="grid gap-4 md:grid-cols-3">
+                  <UFormField label="展示区域" orientation="horizontal" :ui="{ root: '!justify-start' }">
+                    <UFieldGroup>
+                      <UButton v-for="item in visibleZoneItems" :key="item.value" :label="item.label" :color="item.disabled ? 'neutral' : form.zones.includes(item.value) ? 'primary' : 'neutral'" :variant="form.zones.includes(item.value) ? 'solid' : 'outline'" size="sm" :disabled="disabled || item.disabled === true" @click="toggleValue(form.zones, item.value)" />
+                    </UFieldGroup>
+                  </UFormField>
+                  <UFormField label="渲染模板" orientation="horizontal" :ui="{ root: '!justify-start' }">
+                    <UFieldGroup>
+                      <UButton v-for="item in visibleTemplateItems" :key="item.value" :label="item.label" :color="form.templates.includes(item.value) ? 'primary' : 'neutral'" :variant="form.templates.includes(item.value) ? 'solid' : 'outline'" size="sm" :disabled="disabled" @click="toggleValue(form.templates, item.value)" />
+                    </UFieldGroup>
+                  </UFormField>
+                  <UFormField label="外观品质" orientation="horizontal" :ui="{ root: '!justify-start' }">
+                    <UFieldGroup>
+                      <UButton v-for="item in visiblePremiumItems" :key="item.value" :label="item.label" :color="form.premiums.includes(item.value) ? 'primary' : 'neutral'" :variant="form.premiums.includes(item.value) ? 'solid' : 'outline'" size="sm" :disabled="disabled" @click="toggleValue(form.premiums, item.value)" />
+                    </UFieldGroup>
+                  </UFormField>
                 </div>
-
-                <div class="space-y-2 md:col-span-2">
-                  <div class="text-xs text-muted">卡牌 ID</div>
-                  <UInput
-                    v-model="form.cardId"
-                    placeholder="留空表示全部卡牌"
-                  />
-                </div>
-              </div>
-
-              <div class="grid gap-4 md:grid-cols-3">
-                <div class="space-y-2">
-                  <div class="text-xs text-muted">展示区域</div>
-                  <div class="space-y-2">
-                    <label
-                      v-for="item in zoneItems"
-                      :key="item.value"
-                      class="flex items-center gap-2 rounded-lg border border-default px-3 py-2 text-sm"
-                      :class="item.disabled === true ? 'cursor-not-allowed opacity-50' : ''"
-                    >
-                      <input
-                        :checked="form.zones.includes(item.value)"
-                        type="checkbox"
-                        :disabled="item.disabled === true"
-                        class="size-4 rounded border-default"
-                        @change="toggleValue(form.zones, item.value)"
-                      >
-                      <span class="flex-1">{{ item.label }}</span>
-                      <UBadge
-                        v-if="item.disabled === true"
-                        label="未实现"
-                        color="neutral"
-                        variant="soft"
-                        size="sm"
-                      />
-                    </label>
-                  </div>
-                </div>
-
-                <div class="space-y-2">
-                  <div class="text-xs text-muted">渲染模板</div>
-                  <div class="space-y-2">
-                    <label
-                      v-for="item in templateItems"
-                      :key="item.value"
-                      class="flex items-center gap-2 rounded-lg border border-default px-3 py-2 text-sm"
-                    >
-                      <input
-                        :checked="form.templates.includes(item.value)"
-                        type="checkbox"
-                        class="size-4 rounded border-default"
-                        @change="toggleValue(form.templates, item.value)"
-                      >
-                      <span>{{ item.label }}</span>
-                    </label>
-                  </div>
-                </div>
-
-                <div class="space-y-2">
-                  <div class="text-xs text-muted">外观品质</div>
-                  <div class="space-y-2">
-                    <label
-                      v-for="item in premiumItems"
-                      :key="item.value"
-                      class="flex items-center gap-2 rounded-lg border border-default px-3 py-2 text-sm"
-                    >
-                      <input
-                        :checked="form.premiums.includes(item.value)"
-                        type="checkbox"
-                        class="size-4 rounded border-default"
-                        @change="toggleValue(form.premiums, item.value)"
-                      >
-                      <span>{{ item.label }}</span>
-                    </label>
-                  </div>
+                <div class="grid gap-4 md:grid-cols-3">
+                  <div /><div />
+                  <UFormField label="单次导出数量" orientation="horizontal" :ui="{ root: '!justify-start' }">
+                    <UInput v-model="form.limit" type="number" inputmode="numeric" placeholder="默认500，最大2000" :disabled="disabled || scale === 'full'" class="w-40" />
+                  </UFormField>
                 </div>
               </div>
-
-              <UAlert
-                color="neutral"
-                variant="soft"
-                icon="i-lucide-info"
-                description="实际导出规则：普通/金卡仅 `hand.normal`；钻石/异画需卡牌具备对应 mechanic；战棋仅 `hand.battlegrounds.normal`；对战区 `play` 暂不导出。"
-              />
-
-              <div class="grid gap-3 md:grid-cols-2">
-                <div class="space-y-2">
-                  <div class="text-xs text-muted">单次导出数量</div>
-                  <UInput
-                    v-model="form.limit"
-                    type="number"
-                    inputmode="numeric"
-                    placeholder="默认500，最大2000"
-                  />
-                </div>
-
-                <div class="space-y-2">
-                  <div class="text-xs text-muted">继续导出游标</div>
-                  <div class="flex gap-2">
-                    <UInput
-                      v-model="form.cursor"
-                      placeholder="留空表示从头开始"
-                      class="flex-1"
-                    />
-                    <UButton
-                      label="清空"
-                      color="neutral"
-                      variant="soft"
-                      @click="form.cursor = ''"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <UAlert
-                v-if="jobError.length > 0"
-                color="error"
-                variant="soft"
-                icon="i-lucide-circle-alert"
-                :description="jobError"
-              />
-
-              <div
-                v-if="currentJob && !isJobTerminal"
-                class="space-y-3 rounded-lg border border-default p-4"
-              >
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <div class="font-medium text-sm">{{ phaseLabel }}</div>
-                    <UBadge :label="phaseBadgeColor" variant="soft" size="sm" />
-                  </div>
-                  <div class="text-xs text-muted">{{ progressCountText }}</div>
-                </div>
-
-                <div class="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    class="h-full rounded-full bg-primary transition-all duration-300"
-                    :style="{ width: `${jobProgressPercent}%` }"
-                  />
-                </div>
-
-                <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
-                  <span>{{ elapsedText }}</span>
-                  <span v-if="jobEtaText.length > 0">{{ jobEtaText }}</span>
-                  <span v-if="currentJob.completedCount != null && currentJob.rejectedCount">
-                    rejected: {{ currentJob.rejectedCount }}
-                  </span>
-                </div>
-              </div>
-
-              <UAlert
-                v-if="currentJob && currentJob.phase === 'completed'"
-                color="success"
-                variant="soft"
-                icon="i-lucide-badge-check"
-              >
-                <template #description>
-                  <div>
-                    任务完成
-                    <span v-if="currentJob.writtenCount != null">，写入 {{ currentJob.writtenCount }} 个文件</span>
-                    <span v-if="currentJob.skippedCount">，跳过 {{ currentJob.skippedCount }} 个</span>
-                  </div>
-                </template>
-              </UAlert>
-
-              <UAlert
-                v-if="currentJob && currentJob.phase === 'failed'"
-                color="error"
-                variant="soft"
-                icon="i-lucide-circle-x"
-                :description="currentJob.errorMessage ?? '任务执行失败'"
-              />
-
-              <div class="flex flex-wrap justify-end gap-2">
-                <UButton
-                  v-if="!currentJob || isJobTerminal"
-                  label="开始本地渲染导入"
-                  icon="i-lucide-play"
-                  color="primary"
-                  :loading="submittingJob"
-                  :disabled="!hasImageConfig || submittingJob"
-                  @click="startJob"
-                />
-                <UButton
-                  v-if="currentJob && isJobTerminal"
-                  label="重新开始"
-                  icon="i-lucide-rotate-ccw"
-                  color="neutral"
-                  variant="soft"
-                  @click="resetJob"
-                />
-                <UButton
-                  v-if="currentJob && isJobTerminal && rejectedLogDir"
-                  label="打开拒收日志文件夹"
-                  icon="i-lucide-folder-open"
-                  color="neutral"
-                  variant="soft"
-                  @click="openRejectedLogFolder"
-                />
-              </div>
-            </div>
-          </UCard>
-
-          <UCard>
-            <template #header>
-              <div class="font-medium">调试：生成渲染请求</div>
             </template>
 
-            <div class="space-y-3">
-              <div class="space-y-2">
-                <div class="text-xs text-muted">Render Hash</div>
-                <UInput
-                  v-model="debugRenderHash"
-                  placeholder="输入 renderHash..."
-                />
-              </div>
+            <template #actions>
+              <UButton v-if="scale !== 'single'" label="计算总数" icon="i-lucide-hash" color="neutral" variant="soft" :loading="counting" :disabled="!hasImageConfig || counting" @click="countMatchingImages" />
+              <UButton label="渲染预览" icon="i-lucide-eye" color="primary" variant="soft" :loading="actionLoading === 'preview'" :disabled="!hasImageConfig || actionLoading !== null || scale !== 'single' || singleCardInput.trim().length === 0 || form.version === 'all'" @click="executeAction('preview')" />
+              <UButton :label="scale === 'batch' ? '导出请求文件' : '生成请求'" icon="i-lucide-code" color="primary" variant="soft" :loading="actionLoading === 'export'" :disabled="!hasImageConfig || actionLoading !== null || scale === 'full' || (scale === 'single' && singleCardInput.trim().length === 0)" @click="executeAction('export')" />
+            </template>
+          </TaskController>
 
-              <p class="text-xs text-muted">
-                语言、区域、模板、品质沿用上方「导出与渲染条件」中的选择。
-              </p>
-
-              <div class="flex gap-2">
-                <UButton
-                  label="生成请求"
-                  icon="i-lucide-code"
-                  color="neutral"
-                  variant="soft"
-                  :loading="generatingDebugRequest"
-                  :disabled="debugRenderHash.trim().length === 0"
-                  block
-                  @click="generateDebugRequest"
-                />
-                <UButton
-                  label="重新导入"
-                  icon="i-lucide-upload"
-                  color="primary"
-                  variant="soft"
-                  :loading="reimportingByHash"
-                  :disabled="debugRenderHash.trim().length === 0 || !hasImageConfig || (currentJob != null && !isJobTerminal)"
-                  @click="reimportByHash"
-                />
-              </div>
-
-              <UAlert
-                v-if="debugRequestError.length > 0"
-                color="error"
-                variant="soft"
-                icon="i-lucide-circle-alert"
-                :description="debugRequestError"
-              />
-
-              <div
-                v-if="debugRequestResult"
-                class="space-y-2"
-              >
-                <div class="flex flex-wrap items-center gap-2 text-xs text-muted">
-                  <span>{{ debugRequestResult.cardId }}</span>
-                  <UBadge :label="`set: ${debugRequestResult.set}`" variant="soft" size="xs" />
-                  <UBadge :label="`type: ${debugRequestResult.type}`" variant="soft" size="xs" />
-                  <UBadge :label="`techLevel: ${debugRequestResult.techLevel ?? '-'}`" variant="soft" size="xs" />
-                  <UBadge :label="`${debugRequestResult.variantCount} variant(s)`" variant="soft" size="xs" />
-                </div>
-
-                <div
-                  v-for="(req, index) in debugRequestResult.requests"
-                  :key="req.requestId"
-                  class="space-y-1"
-                >
-                  <div class="flex items-center justify-between">
-                    <div class="text-xs font-medium">
-                      {{ req.variant.zone }}.{{ req.variant.template }}.{{ req.variant.premium }}
-                    </div>
-                    <UButton
-                      :label="copiedIndex === index ? '已复制' : '复制'"
-                      :icon="copiedIndex === index ? 'i-lucide-check' : 'i-lucide-copy'"
-                      :color="copiedIndex === index ? 'success' : 'neutral'"
-                      variant="ghost"
-                      size="xs"
-                      @click="copyDebugRequest(index)"
-                    />
-                  </div>
-                  <pre class="max-h-48 overflow-auto rounded-lg border border-default bg-muted p-2 text-xs"><code>{{ formatDebugRequestJson(req) }}</code></pre>
-                </div>
-              </div>
+          <!-- Export requests JSON display -->
+          <div v-if="debugRequestResult" class="space-y-2">
+            <div class="flex flex-wrap items-center gap-2 text-xs text-muted">
+              <span>{{ debugRequestResult.cardId }}</span>
+              <UBadge :label="`set: ${debugRequestResult.set}`" variant="soft" size="xs" />
+              <UBadge :label="`type: ${debugRequestResult.type}`" variant="soft" size="xs" />
+              <UBadge :label="`techLevel: ${debugRequestResult.techLevel ?? '-'}`" variant="soft" size="xs" />
+              <UBadge :label="`${debugRequestResult.variantCount} variant(s)`" variant="soft" size="xs" />
             </div>
-          </UCard>
+            <div v-for="(req, index) in debugRequestResult.requests" :key="req.requestId" class="space-y-1">
+              <div class="flex items-center justify-between">
+                <div class="text-xs font-medium">{{ req.variant.zone }}.{{ req.variant.template }}.{{ req.variant.premium }}</div>
+                <UButton :label="copiedIndex === index ? '已复制' : '复制'" :icon="copiedIndex === index ? 'i-lucide-check' : 'i-lucide-copy'" :color="copiedIndex === index ? 'success' : 'neutral'" variant="ghost" size="xs" @click="copyDebugRequest(index)" />
+              </div>
+              <pre class="max-h-48 overflow-auto rounded-lg border border-default bg-muted p-2 text-xs"><code>{{ formatDebugRequestJson(req) }}</code></pre>
+            </div>
+          </div>
         </div>
 
-        <div class="space-y-4">
-          <UCard>
+        <!-- Right column -->
+        <div class="space-y-3">
+          <!-- Preview card -->
+          <UCard v-if="previewResult">
             <template #header>
-              <div class="font-medium">本地配置</div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium">{{ previewResult.cardId }}</span>
+                <div class="flex items-center gap-1.5">
+                  <UBadge :label="previewResult.set" variant="soft" size="xs" />
+                  <UBadge :label="previewResult.type" variant="soft" size="xs" />
+                </div>
+              </div>
             </template>
 
             <div class="space-y-3">
-              <div class="rounded-lg border border-default p-3">
-                <div class="text-xs text-muted">Renderer Base URL</div>
-                <div class="mt-1 break-all font-mono text-sm">{{ imageSettings.rendererBaseUrl ?? '-' }}</div>
+              <div class="flex flex-wrap gap-1">
+                <UBadge
+                  v-for="(preview, index) in previewResult.previews"
+                  :key="preview.requestId"
+                  :label="`${preview.zone}.${preview.template}.${preview.premium}`"
+                  :color="selectedPreviewIndex === index ? 'primary' : 'neutral'"
+                  :variant="selectedPreviewIndex === index ? 'solid' : 'soft'"
+                  size="sm"
+                  class="cursor-pointer"
+                  @click="selectedPreviewIndex = index"
+                />
               </div>
+              <img
+                v-if="previewResult.previews[selectedPreviewIndex]"
+                :src="`data:image/png;base64,${previewResult.previews[selectedPreviewIndex]!.base64Png}`"
+                :alt="`${previewResult.previews[selectedPreviewIndex]!.zone}.${previewResult.previews[selectedPreviewIndex]!.template}.${previewResult.previews[selectedPreviewIndex]!.premium}`"
+                class="w-full rounded-lg border border-default"
+              >
+            </div>
+          </UCard>
 
-              <div class="rounded-lg border border-default p-3">
-                <div class="text-xs text-muted">Bucket Directory</div>
-                <div class="mt-1 break-all font-mono text-sm">{{ imageSettings.bucketDir ?? '-' }}</div>
-              </div>
-
-              <div class="flex flex-wrap gap-2">
+          <!-- Settings card -->
+          <UCard>
+            <template #header>
+              <div class="flex items-center justify-between">
+                <div class="text-sm font-medium">本地配置 · 状态</div>
                 <UButton
-                  label="打开设置"
+                  label="设置"
                   icon="i-lucide-settings"
                   color="neutral"
-                  variant="soft"
+                  variant="ghost"
+                  size="xs"
                   to="/settings/games/hearthstone"
                 />
               </div>
-            </div>
-          </UCard>
-
-          <UCard>
-            <template #header>
-              <div class="font-medium">当前状态</div>
             </template>
 
-            <div class="space-y-3">
-              <UAlert
-                v-if="hasImageConfig"
-                color="success"
-                variant="soft"
-                icon="i-lucide-circle-check-big"
-                description="本地图片配置已就绪，可以继续接入渲染任务执行。"
-              />
-              <UAlert
-                v-else
-                color="warning"
-                variant="soft"
-                icon="i-lucide-triangle-alert"
-                description="请先在设置页配置渲染端地址和本地 bucket 根目录。"
-              />
+            <div class="space-y-2 text-xs">
+              <div class="flex items-center justify-between">
+                <span class="text-muted shrink-0">Renderer URL</span>
+                <span class="ml-2 truncate font-mono text-default">{{ imageSettings.rendererBaseUrl ?? '-' }}</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-muted shrink-0">Bucket Dir</span>
+                <span class="ml-2 truncate font-mono text-default">{{ imageSettings.bucketDir ?? '-' }}</span>
+              </div>
 
-              <UDivider />
+              <USeparator class="my-1!" />
 
               <div class="flex items-center justify-between">
-                <div class="text-xs font-medium text-default">渲染端状态</div>
+                <span class="text-muted">配置状态</span>
+                <span :class="hasImageConfig ? 'text-success' : 'text-warning'">
+                  {{ hasImageConfig ? '已就绪' : '未完成' }}
+                </span>
+              </div>
+
+              <div class="flex items-center justify-between">
+                <span class="text-muted">渲染端</span>
                 <UButton
                   label="检测"
                   icon="i-lucide-plug"
@@ -435,49 +225,27 @@
                   @click="loadRendererHealth"
                 />
               </div>
-
-              <UAlert
-                v-if="rendererHealthError.length > 0"
-                color="error"
-                variant="soft"
-                icon="i-lucide-circle-alert"
-                :description="rendererHealthError"
-              />
-              <UAlert
-                v-else-if="rendererHealth"
-                :color="rendererStatusColor"
-                variant="soft"
-                :icon="rendererReady ? 'i-lucide-badge-check' : rendererHealth.reachable ? 'i-lucide-triangle-alert' : 'i-lucide-plug-zap'"
+              <div
+                v-if="rendererHealth"
+                class="text-muted"
               >
-                <template #description>
-                  <div class="space-y-1">
-                    <div class="font-medium">状态：{{ rendererStatusText }}</div>
-                    <div
-                      v-if="rendererHealth.status"
-                      class="text-xs space-y-0.5"
-                    >
-                      <div>service: {{ rendererHealth.status.service }}</div>
-                      <div>version: {{ rendererHealth.status.version }}</div>
-                      <div>protocol: {{ rendererHealth.status.protocolVersion }}</div>
-                      <div>requestShape: {{ rendererHealth.status.requestShape }}</div>
-                      <div v-if="rendererHealth.status.message">
-                        message: {{ rendererHealth.status.message }}
-                      </div>
-                    </div>
-                    <div v-else-if="rendererHealth.configured && !rendererHealth.reachable" class="text-xs">
-                      {{ rendererHealth.error }}
-                    </div>
-                  </div>
+                <span :class="rendererReady ? 'text-success' : rendererHealth.reachable ? 'text-warning' : 'text-error'">
+                  {{ rendererStatusText }}
+                </span>
+                <template v-if="rendererHealth.status">
+                  · {{ rendererHealth.status.service }} {{ rendererHealth.status.version }}
+                  · protocol {{ rendererHealth.status.protocolVersion }}
                 </template>
-              </UAlert>
+              </div>
+              <div v-else-if="rendererHealthError.length > 0" class="text-error truncate">
+                {{ rendererHealthError }}
+              </div>
 
-              <UDivider />
+              <USeparator class="my-1!" />
 
-              <div class="rounded-lg border border-default p-3">
-                <div class="text-xs text-muted">筛选摘要</div>
-                <div class="mt-1 text-sm text-default">
-                  {{ summaryText }}
-                </div>
+              <div class="flex items-center justify-between gap-2 overflow-hidden">
+                <span class="text-muted shrink-0">筛选</span>
+                <span class="text-default truncate text-right">{{ summaryText }}</span>
               </div>
             </div>
           </UCard>
@@ -490,21 +258,26 @@
 <script setup lang="ts">
 import type { ImagePremium, ImageTemplate, ImageZone } from '#model/hearthstone/schema/data/image';
 import type { Locale } from '#model/hearthstone/schema/basic';
+import type { TaskPageSnapshot } from '@tcg-cards/model/src/task';
+import type { TaskOperation } from '~/components/task/TaskController.vue';
 
+import { useToast } from '@nuxt/ui/composables';
 import { getConsoleErrorMessage } from '@tcg-cards/console-core';
+import { orpc } from '~/lib/orpc';
 
 import { listLocalHsdataSourceVersions, type HsdataSourceVersionStatus } from '~/composables/useHsdataRepo';
 import { getDesktopHearthstoneImageSettings } from '~/composables/useDesktopSettings';
 import {
   debugDesktopHearthstoneImageRenderRequest,
   detectDesktopHearthstoneImageRenderer,
-  openDesktopPath,
-  submitDesktopHearthstoneImageJob,
-  submitDesktopHearthstoneReimportByRenderHash,
-  watchDesktopImageJobProgress,
+  downloadDesktopHearthstoneImageArchive,
+  exportDesktopHearthstoneImageRequirements,
+  triggerDownload,
+  triggerJsonDownload,
+  previewDesktopHearthstoneImage,
   type DesktopDebugRenderRequestResult,
-  type DesktopHearthstoneImageJob,
-  type DesktopImageJobProgressEvent,
+  type DesktopDownloadArchiveSyncResult,
+  type DesktopPreviewRenderResult,
   type DesktopRendererHealthResult,
 } from '~/composables/useDesktopRuntimeClient';
 
@@ -512,6 +285,31 @@ definePageMeta({
   layout: 'admin',
   title:  '卡牌图片导入',
 });
+
+const toast = useToast();
+
+// ── Scale ──
+
+type ImageScale = 'single' | 'batch' | 'full';
+type ImageOutputType = 'preview' | 'download' | 'write' | 'export';
+type SingleCardMode = 'cardId' | 'renderHash';
+
+const scale = ref<ImageScale>('single');
+const singleCardMode = ref<SingleCardMode>('cardId');
+const singleCardInput = ref('');
+
+const scaleItems: Array<{ label: string, value: ImageScale }> = [
+  { label: '单卡导入', value: 'single' },
+  { label: '批量导入', value: 'batch' },
+  { label: '全量导入', value: 'full' },
+];
+
+function onScaleChange(value: ImageScale) {
+  scale.value = value;
+  persistImagePageState();
+}
+
+// ── Form state ──
 
 const langItems: Array<{ label: string, value: Locale }> = [
   { label: '简体中文', value: 'zhs' },
@@ -549,101 +347,100 @@ const premiumItems: Array<{ label: string, value: ImagePremium }> = [
 
 const form = reactive({
   lang:      'zhs' as Locale,
-  cardId:    '',
   version:   'latest',
   zones:     ['hand'] as ImageZone[],
   templates: ['normal', 'battlegrounds'] as ImageTemplate[],
   premiums:  ['normal', 'golden', 'diamond', 'signature'] as ImagePremium[],
   limit:     '500',
-  cursor:    '',
 });
 
-const IMAGE_PAGE_STATE_KEY = 'console-desktop-hearthstone-image-page';
+// ── Single-card variant filtering ──
 
-interface ImagePageState {
-  lang: string;
-  cardId: string;
-  version: string;
-  zones: string[];
-  templates: string[];
-  premiums: string[];
-  limit: string;
-  cursor: string;
+interface AllowedVariants {
+  zones:     ImageZone[];
+  templates: ImageTemplate[];
+  premiums:  ImagePremium[];
 }
 
-function createDefaultImagePageState(): ImagePageState {
-  return {
-    lang:      'zhs',
-    cardId:    '',
-    version:   'latest',
-    zones:     ['hand'],
-    templates: ['normal', 'battlegrounds'],
-    premiums:  ['normal', 'golden', 'diamond', 'signature'],
-    limit:     '500',
-    cursor:    '',
-  };
+const allowedVariants = ref<AllowedVariants | null>(null);
+let metaRequestSeq = 0;
+
+const visibleZoneItems = computed(() => {
+  if (allowedVariants.value == null) return zoneItems;
+  return zoneItems.filter(item => allowedVariants.value!.zones.includes(item.value));
+});
+
+const visibleTemplateItems = computed(() => {
+  if (allowedVariants.value == null) return templateItems;
+  return templateItems.filter(item => allowedVariants.value!.templates.includes(item.value));
+});
+
+const visiblePremiumItems = computed(() => {
+  if (allowedVariants.value == null) return premiumItems;
+  return premiumItems.filter(item => allowedVariants.value!.premiums.includes(item.value));
+});
+
+function keepAtLeastOne<T>(next: T[], allowed: T[]): T[] {
+  if (next.length > 0) return next;
+  return allowed.length > 0 ? [allowed[0]!] : [];
 }
 
-function normalizeImagePageState(value: unknown): ImagePageState {
-  const defaults = createDefaultImagePageState();
-  if (typeof value !== 'object' || value == null) return defaults;
-  const data = value as Record<string, unknown>;
-  return {
-    lang:      typeof data.lang === 'string' && data.lang.length > 0 ? data.lang : defaults.lang,
-    cardId:    typeof data.cardId === 'string' ? data.cardId : defaults.cardId,
-    version:   typeof data.version === 'string' && data.version.length > 0 ? data.version : defaults.version,
-    zones:     Array.isArray(data.zones) ? data.zones.filter((z): z is string => typeof z === 'string') : defaults.zones,
-    templates: Array.isArray(data.templates) ? data.templates.filter((t): t is string => typeof t === 'string') : defaults.templates,
-    premiums:  Array.isArray(data.premiums) ? data.premiums.filter((p): p is string => typeof p === 'string') : defaults.premiums,
-    limit:     typeof data.limit === 'string' && data.limit.length > 0 ? data.limit : defaults.limit,
-    cursor:    typeof data.cursor === 'string' ? data.cursor : defaults.cursor,
-  };
+function pruneFormToAllowed() {
+  const allowed = allowedVariants.value;
+  if (!allowed) return;
+  form.zones = keepAtLeastOne(
+    form.zones.filter(zone => allowed.zones.includes(zone)),
+    allowed.zones,
+  );
+  form.templates = keepAtLeastOne(
+    form.templates.filter(template => allowed.templates.includes(template)),
+    allowed.templates,
+  );
+  form.premiums = keepAtLeastOne(
+    form.premiums.filter(premium => allowed.premiums.includes(premium)),
+    allowed.premiums,
+  );
 }
 
-function persistImagePageState() {
+async function loadSingleCardMeta() {
+  const seq = ++metaRequestSeq;
+  const input = singleCardInput.value.trim();
+  const active = scale.value === 'single' && singleCardMode.value === 'cardId' && input.length > 0;
+  if (!active) {
+    allowedVariants.value = null;
+    return;
+  }
   try {
-    const payload: ImagePageState = {
-      lang:      form.lang,
-      cardId:    form.cardId,
-      version:   form.version,
-      zones:     form.zones,
-      templates: form.templates,
-      premiums:  form.premiums,
-      limit:     form.limit,
-      cursor:    form.cursor,
-    };
-    window.localStorage.setItem(IMAGE_PAGE_STATE_KEY, JSON.stringify(payload));
+    const params: { cardId: string, lang: Locale, version?: number } = { cardId: input, lang: form.lang };
+    const versionRaw = form.version.trim();
+    if (versionRaw !== 'latest' && versionRaw !== 'all' && versionRaw.length > 0) {
+      params.version = Number.parseInt(versionRaw, 10);
+    }
+    const meta = await orpc.hearthstone.announcement.cardMeta(params);
+    if (seq !== metaRequestSeq) return;
+    allowedVariants.value = meta.allowedVariants;
+    pruneFormToAllowed();
   } catch {
-    // no-op
+    if (seq !== metaRequestSeq) return;
+    allowedVariants.value = null;
   }
 }
 
-function restoreImagePageState() {
-  try {
-    const raw = window.localStorage.getItem(IMAGE_PAGE_STATE_KEY);
-    if (!raw) return;
-    const state = normalizeImagePageState(JSON.parse(raw));
-    form.lang = state.lang;
-    form.cardId = state.cardId;
-    form.version = state.version;
-    form.zones = state.zones.length > 0 ? (state.zones as ImageZone[]) : form.zones;
-    form.templates = state.templates.length > 0 ? (state.templates as ImageTemplate[]) : form.templates;
-    form.premiums = state.premiums.length > 0 ? (state.premiums as ImagePremium[]) : form.premiums;
-    form.limit = state.limit;
-    form.cursor = state.cursor;
-  } catch {
-    localStorage.removeItem(IMAGE_PAGE_STATE_KEY);
-  }
-}
+// ── Result state ──
 
+const previewResult = ref<DesktopPreviewRenderResult | null>(null);
+const selectedPreviewIndex = ref(0);
+const downloadResult = ref<DesktopDownloadArchiveSyncResult | null>(null);
+const debugRequestResult = ref<DesktopDebugRenderRequestResult | null>(null);
+const debugRequestError = ref('');
+
+// ── Loading & job state ──
+
+const actionLoading = ref<ImageOutputType | null>(null);
 const loadingConfig = ref(false);
 const configError = ref('');
-const submittingJob = ref(false);
-const jobError = ref('');
-const currentJob = ref<DesktopHearthstoneImageJob | null>(null);
-const progressClockMs = ref(Date.now());
-let progressClockHandle: ReturnType<typeof setInterval> | null = null;
-let stopProgressStream: (() => void) | null = null;
+const counting = ref(false);
+const pageError = ref('');
 const loadingRendererHealth = ref(false);
 const rendererHealthError = ref('');
 const rendererHealth = ref<DesktopRendererHealthResult | null>(null);
@@ -658,13 +455,13 @@ const imageSettings = ref<{
   bucketDir:       null,
 });
 
-/** Returns one trimmed config value or null when the input is blank. */
+// ── Config helpers ──
+
 function normalizeConfigValue(value: string | null | undefined) {
   const nextValue = value?.trim() ?? '';
   return nextValue.length > 0 ? nextValue : null;
 }
 
-/** Returns one normalized image-settings snapshot from the desktop runtime payload. */
 function normalizeImageSettings(settings: {
   rendererBaseUrl: string | null;
   bucketDir:       string | null;
@@ -682,26 +479,20 @@ const hasImageConfig = computed(() => (
 
 const missingConfigText = computed(() => {
   const missing: string[] = [];
-
-  if (imageSettings.value.rendererBaseUrl == null) {
-    missing.push('Renderer Base URL');
-  }
-
-  if (imageSettings.value.bucketDir == null) {
-    missing.push('Bucket Directory');
-  }
-
+  if (imageSettings.value.rendererBaseUrl == null) missing.push('Renderer Base URL');
+  if (imageSettings.value.bucketDir == null) missing.push('Bucket Directory');
   return missing.join(' / ');
 });
 
 const summaryText = computed(() => {
+  if (scale.value === 'single') {
+    return `单卡 — ${singleCardMode.value}=${singleCardInput.value || '-'} / lang=${form.lang}`;
+  }
   const zones = form.zones.join(', ') || '-';
   const templates = form.templates.join(', ') || '-';
   const premiums = form.premiums.join(', ') || '-';
   const version = form.version.trim().length > 0 ? form.version.trim() : 'latest';
-  const cardId = form.cardId.trim().length > 0 ? form.cardId.trim() : 'all';
-
-  return `lang=${form.lang} / version=${version} / cardId=${cardId} / zone=${zones} / template=${templates} / premium=${premiums}`;
+  return `lang=${form.lang} / version=${version} / zone=${zones} / template=${templates} / premium=${premiums}`;
 });
 
 const rendererReady = computed(() => (
@@ -719,190 +510,233 @@ const rendererStatusText = computed(() => {
   return '就绪';
 });
 
-const rendererStatusColor = computed(() => {
-  if (rendererReady.value) return 'success';
-  if (rendererHealthError.value.length > 0) return 'error';
-  if (rendererHealth.value?.reachable === false || rendererHealth.value?.configured === false) return 'error';
-  if (rendererHealth.value?.status?.ready === false) return 'warning';
-  return 'neutral';
-});
+// ── TaskController ──
 
-const isJobTerminal = computed(() => (
-  currentJob.value?.phase === 'completed' || currentJob.value?.phase === 'failed'
-));
-
-const phaseLabels: Record<string, string> = {
-  exporting_requirements:    '正在导出图片需求清单...',
-  submitting_renderer_job:   '正在渲染卡图...',
-  importing_local_bucket:    '正在导入本地 bucket...',
-  completed:                 '任务完成',
-  failed:                    '任务失败',
-};
-
-const phaseLabel = computed(() => (
-  phaseLabels[currentJob.value?.phase ?? ''] ?? (currentJob.value?.phase ?? '')
-));
-
-const phaseBadgeColor = computed(() => {
-  const phase = currentJob.value?.phase;
-  if (phase === 'completed') return 'success';
-  if (phase === 'failed') return 'error';
-  return 'info';
-});
-
-const jobProgressPercent = computed(() => {
-  const total = currentJob.value?.totalCount;
-  const completed = currentJob.value?.completedCount;
-  if (total == null || total === 0 || completed == null) return 0;
-  return Math.min(100, Math.round((completed / total) * 100));
-});
-
-const progressCountText = computed(() => {
-  const total = currentJob.value?.totalCount;
-  const completed = currentJob.value?.completedCount;
-  if (total == null || completed == null) return '';
-  return `${completed} / ${total}`;
-});
-
-const elapsedSeconds = computed(() => {
-  const started = currentJob.value?.startedAt;
-  if (!started) return 0;
-  return Math.max(0, Math.floor((progressClockMs.value - new Date(started).getTime()) / 1000));
-});
-
-const elapsedText = computed(() => {
-  const seconds = elapsedSeconds.value;
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
-  if (hours > 0) return `耗时 ${hours}h ${minutes}m ${secs}s`;
-  if (minutes > 0) return `耗时 ${minutes}m ${secs}s`;
-  return `耗时 ${secs}s`;
-});
-
-const jobEtaText = computed(() => {
-  if (isJobTerminal.value) return '';
-  const pct = jobProgressPercent.value;
-  if (pct <= 0) return '';
-  const elapsed = elapsedSeconds.value;
-  const total = Math.round(elapsed / (pct / 100));
-  const remaining = Math.max(0, total - elapsed);
-  const minutes = Math.floor(remaining / 60);
-  const secs = remaining % 60;
-  return `预计剩余 ${minutes}m ${secs}s`;
-});
-
-function startProgressClock() {
-  stopProgressClock();
-  progressClockMs.value = Date.now();
-  progressClockHandle = setInterval(() => {
-    progressClockMs.value = Date.now();
-  }, 500);
-}
-
-function stopProgressClock() {
-  if (progressClockHandle != null) {
-    clearInterval(progressClockHandle);
-    progressClockHandle = null;
-  }
-}
-
-/** Builds the API input from the current form values. */
-function buildJobInput(): { lang: string; cardId?: string; version?: number; zones: string[]; templates: string[]; premiums: string[]; limit: number; cursor?: string | null } {
+function buildTaskInput() {
   const versionRaw = form.version.trim();
-  const cursorRaw = form.cursor.trim();
   return {
     lang:      form.lang,
-    ...(form.cardId.trim().length > 0 ? { cardId: form.cardId.trim() } : {}),
-    ...(versionRaw.length > 0 && versionRaw !== 'latest' ? { version: Number.parseInt(versionRaw, 10) } : {}),
+    ...(versionRaw.length > 0 && versionRaw !== 'latest' && versionRaw !== 'all' ? { version: Number.parseInt(versionRaw, 10) } : {}),
+    ...(versionRaw === 'all' ? { allVersions: true } : {}),
     zones:     form.zones,
     templates: form.templates,
     premiums:  form.premiums,
     limit:     Math.min(Number.parseInt(form.limit, 10) || 500, 500),
-    ...(cursorRaw.length > 0 ? { cursor: cursorRaw } : {}),
   };
 }
 
-/** Submits one local render import job and subscribes to the progress stream. */
-async function startJob() {
-  submittingJob.value = true;
-  jobError.value = '';
-  cleanupJobSubscription();
+function buildSingleCardInput() {
+  const input = singleCardInput.value.trim();
+  if (!input) return {};
+  return singleCardMode.value === 'cardId' ? { cardId: input } : { renderHash: input };
+}
+
+const operations: TaskOperation[] = [
+  {
+    key:    'render',
+    label:  '渲染写入存储',
+    icon:   'i-lucide-download',
+    create: () => orpc.hearthstone.createTask.imageRender({
+      ...buildTaskInput(),
+      ...(scale.value === 'single' ? buildSingleCardInput() : {}),
+      scanAll: scale.value === 'full',
+    }) as Promise<TaskPageSnapshot>,
+  },
+  {
+    key:    'download',
+    label:  '打包下载',
+    icon:   'i-lucide-archive',
+    color:  'warning',
+    create: () => orpc.hearthstone.createTask.imageDownload({
+      ...buildTaskInput(),
+      ...(scale.value === 'single' ? buildSingleCardInput() : {}),
+      scanAll: scale.value === 'full',
+    }) as Promise<TaskPageSnapshot>,
+  },
+];
+
+async function onTaskCompleted(snap: TaskPageSnapshot) {
+  if (snap.pageTask.kind === 'attached') {
+    // Check if this was a download task — try to get the archive
+    try {
+      const { archivePath, archiveName } = await orpc.image.getTaskArchive({ taskRunId: snap.pageTask.taskRunId });
+      if (archivePath && archiveName) {
+        const result = await orpc.image.getArchive({ filePath: archivePath });
+        triggerDownload(result.base64Zip, result.fileName);
+        toast.add({ title: '下载完成', description: result.fileName, color: 'success' });
+        return;
+      }
+    } catch { /* import task or no archive */ }
+  }
+  toast.add({ title: '渲染任务完成', color: 'success' });
+  countMatchingImages();
+}
+
+function onTaskFailed(_taskRunId: string, _errorCode: string | null, _errorMessage: string | null) {
+  toast.add({ title: '渲染任务失败', color: 'error' });
+}
+
+interface ImageCounts {
+  total:   number;
+  ready:   number;
+  missing: number;
+}
+
+const lastCounts = ref<ImageCounts | null>(null);
+
+// ── Action dispatcher ──
+
+async function executeAction(outputType: ImageOutputType) {
+  actionLoading.value = outputType;
+  pageError.value = '';
+  previewResult.value = null;
+  selectedPreviewIndex.value = 0;
+  downloadResult.value = null;
+  debugRequestResult.value = null;
+  debugRequestError.value = '';
 
   try {
-    const result = await submitDesktopHearthstoneImageJob(buildJobInput());
-    currentJob.value = result.job;
-
-    if (!isJobTerminal.value) {
-      startProgressClock();
-      stopProgressStream = watchDesktopImageJobProgress(event => {
-        applyProgressEvent(currentJob.value, event);
-      });
+    if (scale.value === 'single') {
+      await executeSingleAction(outputType);
+    } else if (scale.value === 'batch') {
+      await executeBatchAction(outputType);
     } else {
-      stopProgressClock();
+      await executeFullAction(outputType);
     }
   } catch (error) {
-    console.error('Failed to submit job:', error);
-    jobError.value = getConsoleErrorMessage(error, '任务提交失败');
+    console.error('Action failed:', error);
+    pageError.value = getConsoleErrorMessage(error, '操作失败');
   } finally {
-    submittingJob.value = false;
+    actionLoading.value = null;
   }
 }
 
-/** Applies one progress event to the current job ref. */
-function applyProgressEvent(
-  state: DesktopHearthstoneImageJob | null,
-  event: DesktopImageJobProgressEvent,
-) {
-  if (state == null) return;
-  state.phase = event.phase;
-  state.message = event.message;
-  state.phaseStartedAt = event.phaseStartedAt;
-  state.finishedAt = event.finishedAt;
-  state.completedCount = event.completedCount;
-  state.totalCount = event.totalCount;
-  state.writtenCount = event.writtenCount;
-  state.skippedCount = event.skippedCount;
-  state.rejectedCount = event.rejectedCount;
-  state.errorMessage = event.errorMessage;
-  state.rejectedLogPath = event.rejectedLogPath;
-  currentJob.value = { ...state };
-  if (isJobTerminal.value) stopProgressClock();
-}
+async function executeSingleAction(outputType: ImageOutputType) {
+  const input = singleCardInput.value.trim();
+  if (input.length === 0) return;
 
-/** Cleans up the active progress stream subscription. */
-function cleanupJobSubscription() {
-  stopProgressClock();
-  if (stopProgressStream != null) {
-    stopProgressStream();
-    stopProgressStream = null;
+  const lang = form.lang;
+  const zones = form.zones;
+  const templates = form.templates;
+  const premiums = form.premiums;
+
+  if (outputType === 'preview') {
+    selectedPreviewIndex.value = 0;
+    previewResult.value = await previewDesktopHearthstoneImage({
+      ...(singleCardMode.value === 'cardId' ? { cardId: input } : { renderHash: input }),
+      lang,
+      zones,
+      templates,
+      premiums,
+      ...(form.version !== 'latest' && form.version !== 'all' ? { version: Number.parseInt(form.version, 10) } : {}),
+    });
+    return;
+  }
+
+  if (outputType === 'download') {
+    const result = await downloadDesktopHearthstoneImageArchive({
+      ...(singleCardMode.value === 'cardId' ? { cardId: input } : { renderHash: input }),
+      lang,
+      zones,
+      templates,
+      premiums,
+      ...(form.version === 'all' ? { allVersions: true } : {}),
+    });
+    if ('base64Zip' in result) {
+      triggerDownload(result.base64Zip, result.fileName);
+      toast.add({ title: '下载完成', description: result.fileName, color: 'success' });
+    }
+    return;
+  }
+
+  if (outputType === 'export') {
+    try {
+      if (form.version === 'all' && singleCardMode.value === 'cardId') {
+        // All versions: export request file (batch-style)
+        const result = await exportDesktopHearthstoneImageRequirements({
+          lang:        form.lang,
+          cardId:      input,
+          zones:       form.zones,
+          templates:   form.templates,
+          premiums:    form.premiums,
+          allVersions: true,
+          limit:       Math.min(Number.parseInt(form.limit, 10) || 500, 500),
+          outputMode:  'import',
+        });
+        triggerJsonDownload(JSON.parse(result.content), result.fileName);
+        toast.add({ title: '生成完成', description: result.fileName, color: 'success' });
+      } else {
+        debugRequestResult.value = await debugDesktopHearthstoneImageRenderRequest({
+          ...(singleCardMode.value === 'cardId' ? { cardId: input } : { renderHash: input }),
+          lang,
+          zones,
+          templates,
+          premiums,
+          ...(form.version !== 'latest' && form.version !== 'all' ? { version: Number.parseInt(form.version, 10) } : {}),
+        });
+      }
+    } catch (error) {
+      debugRequestError.value = getConsoleErrorMessage(error, '生成失败');
+    }
+    return;
   }
 }
 
-const rejectedLogDir = computed(() => {
-  const path = currentJob.value?.rejectedLogPath;
-  if (!path) return null;
-  const separator = path.includes('\\') ? '\\' : '/';
-  return path.slice(0, path.lastIndexOf(separator));
-});
+async function executeBatchAction(outputType: ImageOutputType) {
+  if (outputType === 'export') {
+    const versionRaw = form.version.trim();
+    const result = await exportDesktopHearthstoneImageRequirements({
+      lang:       form.lang,
+      ...(versionRaw.length > 0 && versionRaw !== 'latest' && versionRaw !== 'all' ? { version: Number.parseInt(versionRaw, 10) } : {}),
+      ...(versionRaw === 'all' ? { allVersions: true } : {}),
+      zones:      form.zones,
+      templates:  form.templates,
+      premiums:   form.premiums,
+      limit:      Math.min(Number.parseInt(form.limit, 10) || 500, 500),
+      outputMode: 'import',
+    });
+    triggerJsonDownload(JSON.parse(result.content), result.fileName);
+    toast.add({ title: '生成完成', description: result.fileName, color: 'success' });
+    return;
+  }
+}
 
-async function openRejectedLogFolder() {
-  if (!rejectedLogDir.value) return;
+async function executeFullAction(_outputType: ImageOutputType) {
+  // full mode 'write' is handled by TaskController
+}
+
+// ── Counting ──
+
+async function countMatchingImages() {
+  counting.value = true;
   try {
-    await openDesktopPath(rejectedLogDir.value);
+    const versionRaw = form.version.trim();
+    const result = await exportDesktopHearthstoneImageRequirements({
+      lang:       form.lang,
+      ...(versionRaw.length > 0 && versionRaw !== 'latest' && versionRaw !== 'all' ? { version: Number.parseInt(versionRaw, 10) } : {}),
+      ...(versionRaw === 'all' ? { allVersions: true } : {}),
+      zones:      form.zones,
+      templates:  form.templates,
+      premiums:   form.premiums,
+      limit:      Math.min(Number.parseInt(form.limit, 10) || 500, 500),
+      scanAll:    true,
+      outputMode: 'import',
+    });
+    const missing = result.requestCount + result.remainingEstimate;
+    lastCounts.value = {
+      total: result.totalEstimate,
+      ready: result.readyEstimate,
+      missing,
+    };
   } catch (error) {
-    console.error('Failed to open rejected log folder:', error);
+    console.error('Failed to count matching images:', error);
+  } finally {
+    counting.value = false;
   }
 }
 
-/** Clears the current job so the user can start a new one. */
-function resetJob() {
-  cleanupJobSubscription();
-  currentJob.value = null;
-  jobError.value = '';
-}
+// ── Settings & health ──
 
-/** Loads the saved Hearthstone image settings from the desktop runtime. */
 async function loadImageSettings() {
   loadingConfig.value = true;
   configError.value = '';
@@ -917,7 +751,6 @@ async function loadImageSettings() {
   }
 }
 
-/** Checks the configured image renderer health and reports its status. */
 async function loadRendererHealth() {
   loadingRendererHealth.value = true;
   rendererHealthError.value = '';
@@ -933,7 +766,6 @@ async function loadRendererHealth() {
   }
 }
 
-/** Loads completed hsdata builds for the desktop version selector. */
 async function loadVersionItems() {
   try {
     const rows = await listLocalHsdataSourceVersions();
@@ -944,6 +776,7 @@ async function loadVersionItems() {
 
     versionItems.value = [
       { label: 'latest', value: 'latest' },
+      { label: 'all', value: 'all' },
       ...uniqueBuilds.map(build => ({
         label: `build ${build}`,
         value: String(build),
@@ -955,98 +788,38 @@ async function loadVersionItems() {
   }
 }
 
-/** Restores the desktop image page form to its default values. */
 function resetForm() {
   form.lang = 'zhs';
-  form.cardId = '';
   form.version = 'latest';
   form.zones = ['hand'];
   form.templates = ['normal'];
   form.premiums = ['normal'];
   form.limit = '500';
-  form.cursor = '';
+  scale.value = 'single';
+  singleCardMode.value = 'cardId';
+  singleCardInput.value = '';
+  previewResult.value = null;
+  selectedPreviewIndex.value = 0;
+  downloadResult.value = null;
+  debugRequestResult.value = null;
+  debugRequestError.value = '';
 }
 
-/** Toggles one checkbox value while keeping at least one item selected. */
 function toggleValue<T>(list: T[], value: T) {
   const index = list.indexOf(value);
-
   if (index >= 0) {
-    if (list.length > 1) {
-      list.splice(index, 1);
-    }
-
+    if (list.length > 1) list.splice(index, 1);
     return;
   }
-
   list.push(value);
 }
 
-const debugRenderHash = ref('');
-const generatingDebugRequest = ref(false);
-const debugRequestError = ref('');
-const debugRequestResult = ref<DesktopDebugRenderRequestResult | null>(null);
+// ── Debug display helpers ──
+
 const copiedIndex = ref<number | null>(null);
-
-async function generateDebugRequest() {
-  generatingDebugRequest.value = true;
-  debugRequestError.value = '';
-  debugRequestResult.value = null;
-
-  try {
-    debugRequestResult.value = await debugDesktopHearthstoneImageRenderRequest({
-      renderHash: debugRenderHash.value.trim(),
-      lang:       form.lang,
-      zones:      form.zones,
-      templates:  form.templates,
-      premiums:   form.premiums,
-    });
-  } catch (error) {
-    console.error('Failed to generate debug render request:', error);
-    debugRequestError.value = getConsoleErrorMessage(error, '生成失败');
-  } finally {
-    generatingDebugRequest.value = false;
-  }
-}
 
 function formatDebugRequestJson(request: unknown) {
   return JSON.stringify(request, null, 2);
-}
-
-const reimportingByHash = ref(false);
-
-async function reimportByHash() {
-  const hash = debugRenderHash.value.trim();
-  if (hash.length === 0) return;
-
-  reimportingByHash.value = true;
-  jobError.value = '';
-  cleanupJobSubscription();
-
-  try {
-    const result = await submitDesktopHearthstoneReimportByRenderHash({
-      renderHash: hash,
-      lang:       form.lang,
-      zones:      form.zones,
-      templates:  form.templates,
-      premiums:   form.premiums,
-    });
-    currentJob.value = result.job;
-
-    if (!isJobTerminal.value) {
-      startProgressClock();
-      stopProgressStream = watchDesktopImageJobProgress(event => {
-        applyProgressEvent(currentJob.value, event);
-      });
-    } else {
-      stopProgressClock();
-    }
-  } catch (error) {
-    console.error('Failed to reimport by renderHash:', error);
-    jobError.value = getConsoleErrorMessage(error, '重新导入失败');
-  } finally {
-    reimportingByHash.value = false;
-  }
 }
 
 async function copyDebugRequest(index: number) {
@@ -1055,22 +828,112 @@ async function copyDebugRequest(index: number) {
   try {
     await navigator.clipboard.writeText(formatDebugRequestJson(request));
     copiedIndex.value = index;
-    setTimeout(() => { copiedIndex.value = null; }, 2000);
+    setTimeout(() => {
+      copiedIndex.value = null;
+    }, 2000);
   } catch {
     // no-op
   }
 }
 
+// ── Local storage persistence ──
+
+const IMAGE_PAGE_STATE_KEY = 'console-desktop-hearthstone-image-page-v3';
+
+interface ImagePageState {
+  lang:            Locale;
+  version:         string;
+  zones:           ImageZone[];
+  templates:       ImageTemplate[];
+  premiums:        ImagePremium[];
+  limit:           string;
+  scale:           ImageScale;
+  singleCardMode:  SingleCardMode;
+  singleCardInput: string;
+}
+
+function createDefaultImagePageState(): ImagePageState {
+  return {
+    lang:            'zhs',
+    version:         'latest',
+    zones:           ['hand'],
+    templates:       ['normal', 'battlegrounds'],
+    premiums:        ['normal', 'golden', 'diamond', 'signature'],
+    limit:           '500',
+    scale:           'single',
+    singleCardMode:  'cardId',
+    singleCardInput: '',
+  };
+}
+
+function normalizeImagePageState(value: unknown): ImagePageState {
+  const defaults = createDefaultImagePageState();
+  if (typeof value !== 'object' || value == null) return defaults;
+  const data = value as Record<string, unknown>;
+  return {
+    lang:            typeof data.lang === 'string' && data.lang.length > 0 ? data.lang as Locale : defaults.lang,
+    version:         typeof data.version === 'string' && data.version.length > 0 ? data.version : defaults.version,
+    zones:           Array.isArray(data.zones) ? data.zones.filter((z): z is ImageZone => typeof z === 'string') : defaults.zones,
+    templates:       Array.isArray(data.templates) ? data.templates.filter((t): t is ImageTemplate => typeof t === 'string') : defaults.templates,
+    premiums:        Array.isArray(data.premiums) ? data.premiums.filter((p): p is ImagePremium => typeof p === 'string') : defaults.premiums,
+    limit:           (typeof data.limit === 'string' || typeof data.limit === 'number') ? String(data.limit) : defaults.limit,
+    scale:           typeof data.scale === 'string' && ['single', 'batch', 'full'].includes(data.scale) ? data.scale as ImageScale : defaults.scale,
+    singleCardMode:  typeof data.singleCardMode === 'string' && ['cardId', 'renderHash'].includes(data.singleCardMode) ? data.singleCardMode as SingleCardMode : defaults.singleCardMode,
+    singleCardInput: typeof data.singleCardInput === 'string' ? data.singleCardInput : defaults.singleCardInput,
+  };
+}
+
+function persistImagePageState() {
+  try {
+    const payload: ImagePageState = {
+      lang:            form.lang,
+      version:         form.version,
+      zones:           form.zones,
+      templates:       form.templates,
+      premiums:        form.premiums,
+      limit:           String(form.limit),
+      scale:           scale.value,
+      singleCardMode:  singleCardMode.value,
+      singleCardInput: singleCardInput.value,
+    };
+    window.localStorage.setItem(IMAGE_PAGE_STATE_KEY, JSON.stringify(payload));
+  } catch {
+    // no-op
+  }
+}
+
+function restoreImagePageState() {
+  try {
+    const raw = window.localStorage.getItem(IMAGE_PAGE_STATE_KEY);
+    if (!raw) return;
+    const state = normalizeImagePageState(JSON.parse(raw));
+    form.lang = state.lang;
+    form.version = state.version;
+    form.zones = state.zones.length > 0 ? (state.zones as ImageZone[]) : form.zones;
+    form.templates = state.templates.length > 0 ? (state.templates as ImageTemplate[]) : form.templates;
+    form.premiums = state.premiums.length > 0 ? (state.premiums as ImagePremium[]) : form.premiums;
+    form.limit = state.limit;
+    scale.value = state.scale;
+    singleCardMode.value = state.singleCardMode;
+    singleCardInput.value = state.singleCardInput;
+  } catch {
+    localStorage.removeItem(IMAGE_PAGE_STATE_KEY);
+  }
+}
+
+// ── Watchers ──
+
 watch(
   [
     () => form.lang,
-    () => form.cardId,
     () => form.version,
     () => form.zones,
     () => form.templates,
     () => form.premiums,
     () => form.limit,
-    () => form.cursor,
+    () => scale.value,
+    () => singleCardMode.value,
+    () => singleCardInput.value,
   ],
   () => {
     persistImagePageState();
@@ -1078,8 +941,17 @@ watch(
   { deep: true },
 );
 
+watch(
+  [() => scale.value, () => singleCardMode.value, () => singleCardInput.value, () => form.version],
+  () => {
+    void loadSingleCardMeta();
+  },
+  { immediate: true },
+);
+
 onMounted(() => {
   restoreImagePageState();
+  void loadSingleCardMeta();
   void loadImageSettings();
   void loadVersionItems();
   void loadRendererHealth();
@@ -1089,9 +961,5 @@ onActivated(() => {
   void loadImageSettings();
   void loadVersionItems();
   void loadRendererHealth();
-});
-
-onUnmounted(() => {
-  cleanupJobSubscription();
 });
 </script>

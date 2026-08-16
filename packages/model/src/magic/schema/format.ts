@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { legality } from './game-change';
+import { legality } from './announcement';
 
 export const format = z.strictObject({
   formatId: z.string(),

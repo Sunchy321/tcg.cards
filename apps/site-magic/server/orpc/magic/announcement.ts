@@ -2,7 +2,7 @@ import { ORPCError, os } from '@orpc/server';
 
 import z from 'zod';
 import { omit } from 'lodash-es';
-import { desc, eq } from 'drizzle-orm';
+import { asc, desc, eq } from 'drizzle-orm';
 
 // import { AnnouncementApplier } from '@/magic/banlist/apply';
 
@@ -54,7 +54,8 @@ const full = os
 
     const items = await db.select()
       .from(AnnouncementItem)
-      .where(eq(AnnouncementItem.announcementId, id));
+      .where(eq(AnnouncementItem.announcementId, id))
+      .orderBy(asc(AnnouncementItem.order));
 
     return {
       ...announcement,
@@ -105,10 +106,11 @@ const save = os
     await db.delete(AnnouncementItem)
       .where(eq(AnnouncementItem.announcementId, id));
 
-    for (const item of data.items) {
+    for (const [i, item] of data.items.entries()) {
       await db.insert(AnnouncementItem).values({
         announcementId: id,
         ...item,
+        order: i,
       });
     }
   });

@@ -1,7 +1,7 @@
 import { os } from '@orpc/server';
 
 import z from 'zod';
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, inArray } from 'drizzle-orm';
 
 import { patch } from '#model/hearthstone/schema/patch';
 
@@ -54,6 +54,33 @@ const full = os
     return found ?? fallbackPatch(buildNumber);
   });
 
+const batch = os
+  .route({
+    method:      'GET',
+    description: 'Get patches by build numbers',
+    tags:        ['Hearthstone', 'Patch'],
+  })
+  .input(z.object({ buildNumbers: z.number().array() }))
+  .output(patch.array())
+  .handler(async ({ input }) => {
+    const { buildNumbers } = input;
+
+    if (buildNumbers.length === 0) return [];
+
+    const rows = await db
+      .select()
+      .from(Patch)
+      .where(inArray(Patch.buildNumber, buildNumbers))
+      .catch(error => {
+        if (isMissingPatchTable(error)) return [];
+        throw error;
+      });
+
+    const found = new Map(rows.map(r => [r.buildNumber, r]));
+
+    return buildNumbers.map(n => found.get(n) ?? fallbackPatch(n));
+  });
+
 const save = os
   .input(patch)
   .output(z.void())
@@ -90,12 +117,14 @@ const save = os
 export const patchTrpc = {
   list,
   full,
+  batch,
   save,
 };
 
 export const patchApi = {
   list,
   '': full,
+  batch,
 };
 
 function fallbackPatch(buildNumber: number) {

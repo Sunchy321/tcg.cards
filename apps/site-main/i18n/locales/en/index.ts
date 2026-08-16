@@ -135,6 +135,10 @@ export default {
     general: {
       $self:      'General',
       uiLanguage: 'Interface Language',
+      theme:      'Theme',
+      themeLight: 'Light',
+      themeDark:  'Dark',
+      themeAuto:  'Auto',
     },
 
     game: {

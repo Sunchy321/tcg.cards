@@ -1,4 +1,4 @@
-import { GAMES } from '#shared';
+import { GAMES } from '#base';
 import {
   GAME_LABELS,
   resolveGameFromPath,

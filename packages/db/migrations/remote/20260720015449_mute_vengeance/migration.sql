@@ -1,0 +1,2 @@
+ALTER TABLE "hearthstone"."announcement_items" ADD COLUMN "order" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "magic"."announcement_items" ADD COLUMN "order" integer DEFAULT 0 NOT NULL;

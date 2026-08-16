@@ -1,113 +1,117 @@
+import { readdirSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { desc, eq, sql } from 'drizzle-orm';
 
 import {
   HsdataImportJob,
+  PatchState,
   RawEntitySnapshot,
   RawEntitySnapshotTag,
-  SourceVersion,
-  TagValueView,
 } from '@tcg-cards/db/schema/local/hearthstone';
 
 import { getLocalDb } from './hsdata-local-db';
 
 /** One local source version row returned to the desktop frontend. */
 export interface HsdataSourceVersionStatus {
-  sourceTag: number;
-  build: number | null;
-  sourceCommit: string;
-  sourceUri: string;
-  importStatus: string;
-  importedAt: string | null;
+  sourceTag:        number;
+  build:            number | null;
+  sourceCommit:     string;
+  sourceUri:        string;
+  importStatus:     string;
+  importedAt:       string | null;
   projectionStatus: string;
-  projectedAt: string | null;
-  projectionError: string | null;
+  projectedAt:      string | null;
+  projectionError:  string | null;
+  unpackStatus:     string;
+  unpackedAt:       string | null;
+  unpackAvailable:  boolean;
 }
 
 /** Import state counters grouped for the overview page. */
 export interface HsdataStatusCounts {
-  completed: number;
-  failed: number;
+  completed:  number;
+  failed:     number;
   processing: number;
-  pending: number;
+  pending:    number;
 }
 
 /** source_versions overview card returned to the desktop frontend. */
 export interface HsdataSourceVersionOverview {
-  name: 'source_versions';
-  kind: 'table';
-  rows: number;
-  latestImportedAt?: string;
+  name:                      'source_versions';
+  kind:                      'table';
+  rows:                      number;
+  latestImportedAt?:         string;
   latestCompletedSourceTag?: number;
-  statusCounts: HsdataStatusCounts;
+  statusCounts:              HsdataStatusCounts;
 }
 
 /** raw_entity_snapshots overview card returned to the desktop frontend. */
 export interface HsdataRawEntitySnapshotOverview {
-  name: 'raw_entity_snapshots';
-  kind: 'table';
-  rows: number;
-  latestRows: number;
+  name:              'raw_entity_snapshots';
+  kind:              'table';
+  rows:              number;
+  projectedRows:     number;
+  unprojectedRows:   number;
   distinctCardCount: number;
-  updatedAt?: string;
+  updatedAt?:        string;
 }
 
 /** raw_entity_snapshot_tags overview card returned to the desktop frontend. */
 export interface HsdataRawEntitySnapshotTagOverview {
-  name: 'raw_entity_snapshot_tags';
-  kind: 'table';
-  rows: number;
+  name:                  'raw_entity_snapshot_tags';
+  kind:                  'table';
+  rows:                  number;
   distinctSnapshotCount: number;
-  distinctEnumCount: number;
+  distinctEnumCount:     number;
 }
 
 /** tag_value_view overview card returned to the desktop frontend. */
 export interface HsdataTagValueViewOverview {
-  name: 'tag_value_view';
-  kind: 'view';
-  rows: number;
+  name:                  'tag_value_view';
+  kind:                  'view';
+  rows:                  number;
   distinctSnapshotCount: number;
-  distinctEnumCount: number;
+  distinctEnumCount:     number;
 }
 
 /** Aggregate overview payload returned to the desktop frontend. */
 export interface HsdataOverview {
   summary: {
-    sourceVersionCount: number;
+    sourceVersionCount:          number;
     completedSourceVersionCount: number;
-    failedSourceVersionCount: number;
-    snapshotCount: number;
-    latestSnapshotCount: number;
-    tagRowCount: number;
+    failedSourceVersionCount:    number;
+    snapshotCount:               number;
+    tagRowCount:                 number;
   };
   tables: {
-    sourceVersions: HsdataSourceVersionOverview;
-    rawEntitySnapshots: HsdataRawEntitySnapshotOverview;
+    sourceVersions:        HsdataSourceVersionOverview;
+    rawEntitySnapshots:    HsdataRawEntitySnapshotOverview;
     rawEntitySnapshotTags: HsdataRawEntitySnapshotTagOverview;
-    tagValueView: HsdataTagValueViewOverview;
+    tagValueView:          HsdataTagValueViewOverview;
   };
 }
 
 /** Import job state returned for the current runtime-side hsdata import. */
 export interface HsdataImportJobSnapshot {
-  jobId: string;
-  sourceTag: number;
-  build: number;
-  sourceHash: string;
-  dryRun: boolean;
-  force: boolean;
-  status: string;
+  jobId:                string;
+  sourceTag:            number;
+  build:                number;
+  sourceHash:           string;
+  dryRun:               boolean;
+  force:                boolean;
+  status:               string;
   stagingCleanupStatus: string;
-  totalBatchCount: number;
-  completedBatchCount: number;
-  failedBatchCount: number;
+  totalBatchCount:      number;
+  completedBatchCount:  number;
+  failedBatchCount:     number;
   processingBatchCount: number;
-  totalEntityCount: number;
+  totalEntityCount:     number;
   completedEntityCount: number;
-  report: unknown;
-  error: string | null;
-  stagingCleanupError: string | null;
-  cleanedAt: string | null;
-  finalizedAt: string | null;
+  report:               unknown;
+  error:                string | null;
+  stagingCleanupError:  string | null;
+  cleanedAt:            string | null;
+  finalizedAt:          string | null;
 }
 
 /** Converts one timestamp-like value into an ISO string when present. */
@@ -119,22 +123,44 @@ const toIsoString = (value: Date | string | null | undefined) => {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 };
 
-/** Lists source_versions rows ordered by descending source tag. */
+const WORKSPACE = resolve(import.meta.dir, '..', '..', '..', '..', '..', '..');
+const UNPACK_DIR = resolve(WORKSPACE, 'data', 'hearthstone', 'unpack');
+
+function listUnpackBuildNumbers(): Set<number> {
+  try {
+    const builds = new Set<number>();
+    const files = readdirSync(UNPACK_DIR);
+    for (const f of files) {
+      if (!f.endsWith('.zip')) continue;
+      const n = Number(f.replace('.zip', ''));
+      if (Number.isSafeInteger(n) && n > 0) builds.add(n);
+    }
+    return builds;
+  } catch {
+    return new Set();
+  }
+}
+
+/** Lists patch_states rows ordered by descending build number. */
 export const listLocalHsdataSourceVersions = async () => {
   const db = getLocalDb();
   const rows = await db.select({
-    sourceTag:        SourceVersion.sourceTag,
-    build:            SourceVersion.build,
-    sourceCommit:     SourceVersion.sourceCommit,
-    sourceUri:        SourceVersion.sourceUri,
-    importStatus:     SourceVersion.status,
-    importedAt:       SourceVersion.importedAt,
-    projectionStatus: SourceVersion.projectionStatus,
-    projectedAt:      SourceVersion.projectedAt,
-    projectionError:  SourceVersion.projectionError,
+    sourceTag:        PatchState.buildNumber,
+    build:            PatchState.buildNumber,
+    sourceCommit:     PatchState.commit,
+    sourceUri:        PatchState.uri,
+    importStatus:     PatchState.importStatus,
+    importedAt:       PatchState.importedAt,
+    projectionStatus: PatchState.projectionStatus,
+    projectedAt:      PatchState.projectedAt,
+    projectionError:  PatchState.projectionError,
+    unpackStatus:     PatchState.unpackStatus,
+    unpackedAt:       PatchState.unpackedAt,
   })
-    .from(SourceVersion)
-    .orderBy(desc(SourceVersion.sourceTag));
+    .from(PatchState)
+    .orderBy(desc(PatchState.buildNumber));
+
+  const availableBuilds = listUnpackBuildNumbers();
 
   return rows.map(row => ({
     sourceTag:        row.sourceTag,
@@ -146,6 +172,9 @@ export const listLocalHsdataSourceVersions = async () => {
     projectionStatus: row.projectionStatus,
     projectedAt:      toIsoString(row.projectedAt),
     projectionError:  row.projectionError,
+    unpackStatus:     row.unpackStatus,
+    unpackedAt:       toIsoString(row.unpackedAt),
+    unpackAvailable:  availableBuilds.has(row.sourceTag),
   } satisfies HsdataSourceVersionStatus));
 };
 
@@ -158,27 +187,27 @@ export const getLocalHsdataOverview = async () => {
     latestCompletedSourceVersion,
     rawSnapshotSummary,
     rawSnapshotTagSummary,
-    tagValueViewSummary,
   ] = await Promise.all([
     db.select({
-      rows:       sql<number>`count(*)`,
-      completed:  sql<number>`coalesce(sum(case when ${SourceVersion.status} = 'completed' then 1 else 0 end), 0)`,
-      failed:     sql<number>`coalesce(sum(case when ${SourceVersion.status} = 'failed' then 1 else 0 end), 0)`,
-      processing: sql<number>`coalesce(sum(case when ${SourceVersion.status} = 'processing' then 1 else 0 end), 0)`,
-      pending:    sql<number>`coalesce(sum(case when ${SourceVersion.status} = 'pending' then 1 else 0 end), 0)`,
-      latestImportedAt: sql<Date | string | null>`max(${SourceVersion.importedAt})`,
-    }).from(SourceVersion).then(rows => rows[0]),
+      rows:             sql<number>`count(*)`,
+      completed:        sql<number>`coalesce(sum(case when ${PatchState.importStatus} = 'completed' then 1 else 0 end), 0)`,
+      failed:           sql<number>`coalesce(sum(case when ${PatchState.importStatus} = 'failed' then 1 else 0 end), 0)`,
+      processing:       sql<number>`coalesce(sum(case when ${PatchState.importStatus} = 'processing' then 1 else 0 end), 0)`,
+      pending:          sql<number>`coalesce(sum(case when ${PatchState.importStatus} = 'pending' then 1 else 0 end), 0)`,
+      latestImportedAt: sql<Date | string | null>`max(${PatchState.importedAt})`,
+    }).from(PatchState).then(rows => rows[0]),
     db.select({
-      sourceTag: SourceVersion.sourceTag,
+      sourceTag: PatchState.buildNumber,
     })
-      .from(SourceVersion)
-      .where(eq(SourceVersion.status, 'completed'))
-      .orderBy(desc(SourceVersion.sourceTag))
+      .from(PatchState)
+      .where(eq(PatchState.importStatus, 'completed'))
+      .orderBy(desc(PatchState.buildNumber))
       .limit(1)
       .then(rows => rows[0] ?? null),
     db.select({
       rows:              sql<number>`count(*)`,
-      latestRows:        sql<number>`coalesce(sum(case when ${RawEntitySnapshot.isLatest} then 1 else 0 end), 0)`,
+      projectedRows:     sql<number>`coalesce(sum(case when ${RawEntitySnapshot.projectionState} = 'projected' then 1 else 0 end), 0)`,
+      unprojectedRows:   sql<number>`coalesce(sum(case when ${RawEntitySnapshot.projectionState} != 'projected' then 1 else 0 end), 0)`,
       distinctCardCount: sql<number>`count(distinct ${RawEntitySnapshot.cardId})`,
       updatedAt:         sql<Date | string | null>`max(${RawEntitySnapshot.updatedAt})`,
     }).from(RawEntitySnapshot).then(rows => rows[0]),
@@ -187,11 +216,6 @@ export const getLocalHsdataOverview = async () => {
       distinctSnapshotCount: sql<number>`count(distinct ${RawEntitySnapshotTag.snapshotId})`,
       distinctEnumCount:     sql<number>`count(distinct ${RawEntitySnapshotTag.enumId})`,
     }).from(RawEntitySnapshotTag).then(rows => rows[0]),
-    db.select({
-      rows:                  sql<number>`count(*)`,
-      distinctSnapshotCount: sql<number>`count(distinct ${TagValueView.snapshotId})`,
-      distinctEnumCount:     sql<number>`count(distinct ${TagValueView.enumId})`,
-    }).from(TagValueView).then(rows => rows[0]),
   ]);
 
   return {
@@ -200,17 +224,16 @@ export const getLocalHsdataOverview = async () => {
       completedSourceVersionCount: sourceVersionSummary?.completed ?? 0,
       failedSourceVersionCount:    sourceVersionSummary?.failed ?? 0,
       snapshotCount:               rawSnapshotSummary?.rows ?? 0,
-      latestSnapshotCount:         rawSnapshotSummary?.latestRows ?? 0,
       tagRowCount:                 rawSnapshotTagSummary?.rows ?? 0,
     },
     tables: {
       sourceVersions: {
-        name:                      'source_versions',
-        kind:                      'table',
-        rows:                      sourceVersionSummary?.rows ?? 0,
-        latestImportedAt:          toIsoString(sourceVersionSummary?.latestImportedAt ?? null) ?? undefined,
-        latestCompletedSourceTag:  latestCompletedSourceVersion?.sourceTag ?? undefined,
-        statusCounts: {
+        name:                     'source_versions',
+        kind:                     'table',
+        rows:                     sourceVersionSummary?.rows ?? 0,
+        latestImportedAt:         toIsoString(sourceVersionSummary?.latestImportedAt ?? null) ?? undefined,
+        latestCompletedSourceTag: latestCompletedSourceVersion?.sourceTag ?? undefined,
+        statusCounts:             {
           completed:  sourceVersionSummary?.completed ?? 0,
           failed:     sourceVersionSummary?.failed ?? 0,
           processing: sourceVersionSummary?.processing ?? 0,
@@ -221,7 +244,8 @@ export const getLocalHsdataOverview = async () => {
         name:              'raw_entity_snapshots',
         kind:              'table',
         rows:              rawSnapshotSummary?.rows ?? 0,
-        latestRows:        rawSnapshotSummary?.latestRows ?? 0,
+        projectedRows:     rawSnapshotSummary?.projectedRows ?? 0,
+        unprojectedRows:   rawSnapshotSummary?.unprojectedRows ?? 0,
         distinctCardCount: rawSnapshotSummary?.distinctCardCount ?? 0,
         updatedAt:         toIsoString(rawSnapshotSummary?.updatedAt ?? null) ?? undefined,
       },
@@ -235,9 +259,9 @@ export const getLocalHsdataOverview = async () => {
       tagValueView: {
         name:                  'tag_value_view',
         kind:                  'view',
-        rows:                  tagValueViewSummary?.rows ?? 0,
-        distinctSnapshotCount: tagValueViewSummary?.distinctSnapshotCount ?? 0,
-        distinctEnumCount:     tagValueViewSummary?.distinctEnumCount ?? 0,
+        rows:                  rawSnapshotTagSummary?.rows ?? 0,
+        distinctSnapshotCount: rawSnapshotTagSummary?.distinctSnapshotCount ?? 0,
+        distinctEnumCount:     rawSnapshotTagSummary?.distinctEnumCount ?? 0,
       },
     },
   } satisfies HsdataOverview;

@@ -288,6 +288,7 @@ const sourceItems = computed(() => sources.value.map(item => ({
 
 const commitKindItems = [
   { label: '全部提交类型', value: allValue },
+  { label: 'row_create', value: 'row_create' },
   { label: 'source_edit', value: 'source_edit' },
   { label: 'conflict_resolution', value: 'conflict_resolution' },
   { label: 'winner_clear', value: 'winner_clear' },

@@ -18,7 +18,6 @@ export const tagNormalizeKind = z.enum([
   'identity_int',
   'identity_string',
   'identity_loc_string',
-  'identity_card_ref',
   'bool_from_int',
   'enum_from_int',
   'card_ref_from_int',
@@ -31,7 +30,6 @@ export const tagProjectKind = z.enum([
   'assign_card_ref',
   'assign_localized_text',
   'assign_mechanic',
-  'assign_referenced_tag',
   'assign_legacy',
   'emit_relation',
 ]);
@@ -57,7 +55,6 @@ export const tagProfile = z.strictObject({
   rawName:            nullableText,
   rawType:            nullableText,
   rawNames:           z.array(z.string()),
-  valueKind:          z.string(),
   normalizeKind:      z.string(),
   normalizeConfig:    jsonConfig,
   projectTargetType:  nullableText,
@@ -106,7 +103,7 @@ export const tagConflictResolution = z.enum([
 ]);
 
 export const tagConflictProfile = z.strictObject({
-  id:                 z.string().uuid(),
+  id:                 z.uuid(),
   processingSide:     z.string(),
   processingStage:    z.string(),
   conflictKind:       z.string(),
@@ -143,7 +140,7 @@ export const tagConflictListResult = z.strictObject({
 });
 
 export const tagConflictGetInput = z.strictObject({
-  id: z.string().uuid(),
+  id: z.uuid(),
 });
 
 export const tagConflictResolveInput = tagConflictGetInput.extend({

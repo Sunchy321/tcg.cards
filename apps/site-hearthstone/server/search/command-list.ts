@@ -7,13 +7,37 @@ import { QueryError } from '#search/command/error';
 import { and, asc, desc, eq, inArray, not, notInArray, or, sql } from 'drizzle-orm';
 
 import { model } from '#model/hearthstone/search';
-import { CardEntityView } from '#schema/shared/hearthstone/entity';
-import { standardSets } from '~~/server/utils/hearthstone-format';
+import { classes as classSchema, types as typeSchema } from '#model/hearthstone/schema/basic';
+import { LatestCardEntityView } from '#schema/shared/hearthstone/entity';
+import { TAG_SLUG, TAG_ID } from '#model/hearthstone/constant/tag';
+
+function classOrderCase(column: ReturnType<typeof sql>) {
+  const whenClauses = classSchema.options
+    .map((c, i) => `WHEN '${c}' THEN ${i}`)
+    .join(' ');
+
+  return sql`CASE ${column} ${sql.raw(whenClauses)} ELSE 99 END`;
+}
+
+function typeOrderCase(column: typeof LatestCardEntityView.type) {
+  const whenClauses = typeSchema.options
+    .flatMap((t, i) => t === 'null' ? [] : `WHEN '${t}' THEN ${i}`)
+    .join(' ');
+
+  return sql`CASE ${column} ${sql.raw(whenClauses)} ELSE 99 END`;
+}
 
 const cs = create
   .with(model)
-  .table([CardEntityView])
+  .table([LatestCardEntityView])
   .use({ ...builtin });
+
+const tagSlugToId = Object.fromEntries(
+  (Object.keys(TAG_SLUG) as Array<keyof typeof TAG_SLUG>).map(key => [
+    TAG_SLUG[key],
+    String(TAG_ID[key]),
+  ]),
+);
 
 const matchText = (
   qualifier: string[],
@@ -23,21 +47,7 @@ const matchText = (
 const matchStats = (
   qualifier: string[],
   ...queries: Array<ReturnType<typeof builtin.number.call>>
-) => (!qualifier.includes('!') ? or : and)(...queries)!;
-
-const hasJsonKey = (column: typeof CardEntityView.mechanics, key: string) =>
-  sql`${column} ? ${key}`;
-
-const activeLegalityStatuses = ['derived', 'legal', 'minor'];
-const currentStandardSetIds = [...standardSets];
-
-// Matches collectible cards that are printed in a currently Standard-legal Hearthstone set.
-const currentStandardSet = (table: typeof CardEntityView) =>
-  and(
-    eq(table.collectible, true),
-    eq(table.inBobsTavern, false),
-    inArray(table.set, currentStandardSetIds),
-  )!;
+) => (!qualifier.includes('!') ? and : or)(...queries)!;
 
 export const raw = cs
   .commands.raw
@@ -109,18 +119,18 @@ export const stats = cs
 export const hash = cs
   .commands.hash
   .handler(({ value, pattern, qualifier }, { table }) => {
-    const tag = pattern?.tag ?? value;
+    const tag = tagSlugToId[pattern?.tag ?? value] ?? (pattern?.tag ?? value);
 
     if (!qualifier.includes('!')) {
       return or(
-        hasJsonKey(table.mechanics, tag),
-        hasJsonKey(table.referencedTags, tag),
+        sql`${table.mechanics} ? ${tag}`,
+        sql`${table.referencedTags} ? ${tag}`,
       )!;
     }
 
     return and(
-      not(hasJsonKey(table.mechanics, tag)),
-      not(hasJsonKey(table.referencedTags, tag)),
+      not(sql`${table.mechanics} ? ${tag}`),
+      not(sql`${table.referencedTags} ? ${tag}`),
     )!;
   });
 
@@ -248,14 +258,14 @@ export const faction = cs
 
     if (!qualifier.includes('!')) {
       return or(...values.map(faction => or(
-        hasJsonKey(table.mechanics, faction),
-        hasJsonKey(table.referencedTags, faction),
+        sql`${table.mechanics} ? ${faction}`,
+        sql`${table.referencedTags} ? ${faction}`,
       )!))!;
     }
 
     return and(...values.map(faction => and(
-      not(hasJsonKey(table.mechanics, faction)),
-      not(hasJsonKey(table.referencedTags, faction)),
+      not(sql`${table.mechanics} ? ${faction}`),
+      not(sql`${table.referencedTags} ? ${faction}`),
     )!))!;
   });
 
@@ -293,30 +303,18 @@ export const format = cs
         throw new QueryError({ type: 'invalid-query' });
       }
 
-      const nativeStatus = eq(sql`${table.legalities} ->> ${formatName}`, status);
-
       if (!qualifier.includes('!')) {
-        return formatName === 'standard' && status === 'legal'
-          ? or(nativeStatus, currentStandardSet(table))!
-          : nativeStatus;
+        return eq(sql`${table.legalities} ->> ${formatName}`, status);
       }
 
-      return formatName === 'standard' && status === 'legal'
-        ? and(not(nativeStatus), not(currentStandardSet(table)))!
-        : not(nativeStatus);
+      return not(eq(sql`${table.legalities} ->> ${formatName}`, status));
     }
-
-    const nativeFormat = inArray(sql`${table.legalities} ->> ${value}`, activeLegalityStatuses);
 
     if (!qualifier.includes('!')) {
-      return value === 'standard'
-        ? or(nativeFormat, currentStandardSet(table))!
-        : nativeFormat;
+      return inArray(sql`${table.legalities} ->> ${value}`, ['derived', 'legal', 'minor']);
     }
 
-    return value === 'standard'
-      ? and(not(nativeFormat), not(currentStandardSet(table)))!
-      : not(nativeFormat);
+    return notInArray(sql`${table.legalities} ->> ${value}`, ['derived', 'legal', 'minor']);
   });
 
 export const order = cs
@@ -343,6 +341,14 @@ export const order = cs
       case 'name':
         sorter.push(sort(table.localization.name));
         break;
+      case 'type':
+        sorter.push(sort(typeOrderCase(table.type)));
+        sorter.push(asc(table.localization.name));
+        break;
+      case 'class':
+        sorter.push(sort(classOrderCase(sql`${table.classes}[1]`)));
+        sorter.push(asc(table.localization.name));
+        break;
       case 'cost':
         sorter.push(sort(table.cost));
         sorter.push(asc(table.localization.name));
@@ -355,6 +361,19 @@ export const order = cs
         sorter.push(sort(table.health));
         sorter.push(asc(table.localization.name));
         break;
+      case 'stats': {
+        const secondStat = sql`COALESCE(${table.health}, ${table.durability}, ${table.armor}, 0)`;
+        const sumExpr = sql`CASE WHEN ${table.type} = 'hero'
+          THEN NULL
+          ELSE (${table.attack} + ${secondStat})
+        END`;
+        const nullsLast = (e: ReturnType<typeof sql>) =>
+          dir === 1 ? sql`${e} ASC NULLS LAST` : sql`${e} DESC NULLS LAST`;
+        sorter.push(nullsLast(sumExpr));
+        sorter.push(nullsLast(sql`${table.attack}`));
+        sorter.push(asc(table.localization.name));
+        break;
+      }
       case 'set':
         sorter.push(sort(table.set));
         sorter.push(asc(table.localization.name));

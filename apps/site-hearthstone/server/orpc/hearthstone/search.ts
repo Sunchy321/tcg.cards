@@ -34,9 +34,9 @@ const basic = os
       pageSize,
       lang,
       orderBy,
+      dsl: q,
     });
-  })
-  .callable();
+  });
 
 export const searchTrpc = {
   basic,

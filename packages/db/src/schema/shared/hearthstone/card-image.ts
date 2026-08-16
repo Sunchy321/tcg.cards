@@ -13,37 +13,37 @@ import { dataSchema } from './schema';
 type JsonMap = Record<string, unknown>;
 
 export const CardImageAsset = dataSchema.table('card_image_assets', {
-  imageSpecVersion: text('image_spec_version').notNull(),
-  renderHash:       text('render_hash').notNull(),
-  lang:             text('lang').notNull(),
-  zone:             text('zone').notNull(),
-  template:         text('template').notNull(),
-  premium:          text('premium').notNull(),
-  r2Bucket:         text('r2_bucket').notNull(),
-  r2Key:            text('r2_key').notNull(),
-  contentType:      text('content_type').notNull().default('image/webp'),
-  byteSize:         integer('byte_size'),
-  width:            integer('width'),
-  height:           integer('height'),
-  sha256:           text('sha256'),
-  sourceExportId:   text('source_export_id'),
-  sourceImportId:   text('source_import_id'),
-  status:           text('status').notNull().default('ready'),
-  errorMessage:     text('error_message'),
-  createdAt:        timestamp('created_at').defaultNow().notNull(),
-  updatedAt:        timestamp('updated_at')
+  renderHash:     text('render_hash').notNull(),
+  category:       text('category').notNull().default('base'),
+  lang:           text('lang').notNull(),
+  zone:           text('zone').notNull(),
+  template:       text('template').notNull(),
+  premium:        text('premium').notNull(),
+  r2Bucket:       text('r2_bucket').notNull(),
+  r2Key:          text('r2_key').notNull(),
+  contentType:    text('content_type').notNull().default('image/webp'),
+  byteSize:       integer('byte_size'),
+  width:          integer('width'),
+  height:         integer('height'),
+  sha256:         text('sha256'),
+  sourceExportId: text('source_export_id'),
+  sourceImportId: text('source_import_id'),
+  status:         text('status').notNull().default('ready'),
+  errorMessage:   text('error_message'),
+  createdAt:      timestamp('created_at').defaultNow().notNull(),
+  updatedAt:      timestamp('updated_at')
     .defaultNow()
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
   verifiedAt: timestamp('verified_at'),
 }, table => [
   primaryKey({
-    columns: [table.imageSpecVersion, table.renderHash, table.zone, table.template, table.premium],
+    columns: [table.renderHash, table.category, table.zone, table.template, table.premium],
   }),
   uniqueIndex('card_image_assets_r2_key_uq').on(table.r2Key),
   index('card_image_assets_render_hash_idx').on(table.renderHash),
   index('card_image_assets_lang_status_idx').on(table.lang, table.status),
-  index('card_image_assets_variant_status_idx').on(table.zone, table.template, table.premium, table.status),
+  index('card_image_assets_variant_status_idx').on(table.category, table.zone, table.template, table.premium, table.status),
 ]);
 
 export const CardImageExport = dataSchema.table('card_image_exports', {

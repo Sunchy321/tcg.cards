@@ -1,11 +1,41 @@
 import { ORPCError, os } from '@orpc/server';
 import { z } from 'zod';
-import { desc, eq } from 'drizzle-orm';
-
-import { announcementProfile } from '@tcg-cards/model/src/hearthstone/schema/announcement';
+import { asc, desc, eq } from 'drizzle-orm';
 
 import { db } from '@tcg-cards/db/db';
-import { Announcement, AnnouncementItem } from '@tcg-cards/db/schema/shared/hearthstone';
+import { Announcement, AnnouncementItem, Entity } from '@tcg-cards/db/schema/shared/hearthstone';
+
+const FORMAT_KEYWORD_MAP: Record<string, string[]> = {
+  standard:    ['standard'],
+  wild:        ['wild'],
+  constructed: ['standard', 'wild'],
+  twist:       ['twist'],
+  mercenaries: ['mercenaries'],
+};
+
+function resolveFormats(format: string | null): string[] {
+  if (!format) return [];
+  return FORMAT_KEYWORD_MAP[format] ?? [format];
+}
+
+async function resolveCards(
+  type: string,
+  cardId: string | null,
+  setId: string | null,
+  relatedCards: string[],
+): Promise<string[]> {
+  const ids = new Set<string>();
+  if (cardId) ids.add(cardId);
+  // A set_change fans out to every card in the set so the card page can surface it.
+  if (type === 'set_change' && setId) {
+    const rows = await db.select({ cardId: Entity.cardId }).from(Entity).where(eq(Entity.set, setId));
+    for (const row of rows) {
+      if (row.cardId) ids.add(row.cardId);
+    }
+  }
+  for (const id of relatedCards) ids.add(id);
+  return [...ids];
+}
 
 const list = os
   .route({
@@ -14,7 +44,7 @@ const list = os
     tags:        ['Console', 'Hearthstone', 'Announcement'],
   })
   .input(z.any())
-  .output(announcementProfile.array())
+  .output(z.any())
   .handler(async () => {
     const announcements = await db.select({
       id:     Announcement.id,
@@ -36,55 +66,36 @@ const get = os
     tags:        ['Console', 'Hearthstone', 'Announcement'],
   })
   .input(z.object({ id: z.uuid() }))
-  .output(z.object({
-    id:            z.uuid(),
-    source:        z.string(),
-    date:          z.string(),
-    name:          z.string(),
-    effectiveDate: z.string().nullable(),
-    version:       z.number(),
-    link:          z.string().array(),
-    items:         z.array(z.object({
-      id:            z.uuid(),
-      type:          z.string(),
-      effectiveDate: z.string().nullable(),
-      format:        z.string().nullable(),
-      cardId:        z.string().nullable(),
-      setId:         z.string().nullable(),
-      ruleId:        z.string().nullable(),
-      status:        z.string().nullable(),
-      score:         z.number().nullable(),
-    })),
-  }))
+  .output(z.any())
   .handler(async ({ input }) => {
     const { id } = input;
 
-    const announcement = await db.select()
+    const row = await db.select()
       .from(Announcement)
       .where(eq(Announcement.id, id))
       .then(rows => rows[0]);
 
-    if (!announcement) {
+    if (!row) {
       throw new ORPCError('NOT_FOUND', { message: 'Announcement not found' });
     }
 
-    const items = await db.select({
-      id:            AnnouncementItem.id,
-      type:          AnnouncementItem.type,
-      effectiveDate: AnnouncementItem.effectiveDate,
-      format:        AnnouncementItem.format,
-      cardId:        AnnouncementItem.cardId,
-      setId:         AnnouncementItem.setId,
-      ruleId:        AnnouncementItem.ruleId,
-      status:        AnnouncementItem.status,
-      score:         AnnouncementItem.score,
-    })
+    const items = await db.select()
       .from(AnnouncementItem)
-      .where(eq(AnnouncementItem.announcementId, id));
+      .where(eq(AnnouncementItem.announcementId, id))
+      .orderBy(asc(AnnouncementItem.order));
 
     return {
-      ...announcement,
-      items,
+      ...row,
+      link:       row.link as { url: string; label?: string }[],
+      createdAt:  row.createdAt.toISOString(),
+      updatedAt:  row.updatedAt.toISOString(),
+      items:      items.map(item => ({
+        ...item,
+        glow:      item.glow,
+        delta:     item.delta,
+        createdAt: item.createdAt.toISOString(),
+        updatedAt: item.updatedAt.toISOString(),
+      })),
     };
   })
   .callable();
@@ -99,19 +110,15 @@ const create = os
     source:        z.string(),
     date:          z.string(),
     name:          z.string(),
+    version:       z.number().int(),
+    lastVersion:   z.number().int().nullable().optional(),
     effectiveDate: z.string().nullable().optional(),
-    version:       z.number().default(1),
-    link:          z.string().array(),
+    link:          z.array(z.object({
+      url:   z.string(),
+      label: z.string().optional(),
+    })).default([]),
   }))
-  .output(z.object({
-    id:            z.uuid(),
-    source:        z.string(),
-    date:          z.string(),
-    name:          z.string(),
-    effectiveDate: z.string().nullable().optional(),
-    version:       z.number(),
-    link:          z.string().array(),
-  }))
+  .output(z.any())
   .handler(async ({ input }) => {
     const result = await db
       .insert(Announcement)
@@ -119,13 +126,15 @@ const create = os
         source:        input.source,
         date:          input.date,
         name:          input.name,
+        version:       input.version,
+        lastVersion:   input.lastVersion ?? null,
         effectiveDate: input.effectiveDate ?? null,
-        version:       input.version ?? 1,
         link:          input.link,
       })
       .returning();
 
-    return result[0]!;
+    const row = result[0]!;
+    return { ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() };
   })
   .callable();
 
@@ -140,9 +149,13 @@ const update = os
     source:        z.string(),
     date:          z.string(),
     name:          z.string(),
+    version:       z.number().int(),
+    lastVersion:   z.number().int().nullable().optional(),
     effectiveDate: z.string().nullable().optional(),
-    version:       z.number(),
-    link:          z.string().array(),
+    link:          z.array(z.object({
+      url:   z.string(),
+      label: z.string().optional(),
+    })).default([]),
   }))
   .output(z.void())
   .handler(async ({ input }) => {
@@ -162,8 +175,9 @@ const update = os
         source:        data.source,
         date:          data.date,
         name:          data.name,
-        effectiveDate: data.effectiveDate ?? null,
         version:       data.version,
+        lastVersion:   data.lastVersion ?? null,
+        effectiveDate: data.effectiveDate ?? null,
         link:          data.link,
       })
       .where(eq(Announcement.id, id));
@@ -191,10 +205,40 @@ const remove = os
   })
   .callable();
 
+const projectItems = os
+  .route({
+    method:      'POST',
+    description: 'Run projection on all items of an announcement',
+    tags:        ['Console', 'Hearthstone', 'Announcement'],
+  })
+  .input(z.object({
+    announcementId: z.uuid(),
+  }))
+  .output(z.void())
+  .handler(async ({ input }) => {
+    const items = await db.select()
+      .from(AnnouncementItem)
+      .where(eq(AnnouncementItem.announcementId, input.announcementId));
+
+    for (const item of items) {
+      const cards = await resolveCards(item.type, item.cardId, item.setId, item.relatedCards);
+      await db.update(AnnouncementItem)
+        .set({
+          projection: {
+            formats: resolveFormats(item.format),
+            cards,
+          },
+        })
+        .where(eq(AnnouncementItem.id, item.id));
+    }
+  })
+  .callable();
+
 export const announcementTrpc = {
   list,
   get,
   create,
   update,
   remove,
+  project: projectItems,
 };

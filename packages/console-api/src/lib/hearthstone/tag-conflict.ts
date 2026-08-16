@@ -37,7 +37,8 @@ type FieldConflictRow = typeof FieldConflict.$inferSelect;
 /** Conflict resolution metadata forwarded into follow-up commits. */
 export type ResolveTagConflictOptions = {
   editorRuntime: string;
-  editorIdentity: string | null;
+  editorIdentity: string;
+  editorSource: string;
   syncStatus: string;
   conflictTarget?: ApplyTagCommitOptions['conflictTarget'];
 };
@@ -214,6 +215,7 @@ function buildResolutionCommit(
     clientMutationId:       buildClientMutationId(conflict.id, conflict.fieldPath, resolution),
     editorRuntime:          options.editorRuntime,
     editorIdentity:         options.editorIdentity,
+    editorSource:           options.editorSource,
     expectedRowRevision:    buildTagRowRevision(row),
     expectedWinnerRevision: buildWinnerRevision(winner),
     baseRevision:           conflict.baseRevision,

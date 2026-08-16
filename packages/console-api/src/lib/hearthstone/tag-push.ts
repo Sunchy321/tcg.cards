@@ -3,7 +3,7 @@ import { and, asc, eq } from 'drizzle-orm';
 
 import { createDb } from '@tcg-cards/db';
 import { FieldSyncCursor } from '@tcg-cards/db/schema/local/hearthstone';
-import { FieldCommit } from '@tcg-cards/db/schema/shared/hearthstone';
+import { FieldCommit, FieldConflict, FieldWinner, Tag as TagTable } from '@tcg-cards/db/schema/shared/hearthstone';
 import {
   applyTagCommit,
   type ApplyTagCommitResult,
@@ -19,9 +19,6 @@ type SyncTx = Parameters<Parameters<SyncDb['transaction']>[0]>[0];
 
 /** Push direction shared by cursor-backed desktop tag sync. */
 const tagCommitStream = 'hearthstone.tag';
-
-/** Default batch size used when one desktop sync run pushes local tag commits. */
-const defaultPushLimit = 100;
 
 /** Cursor rows persisted for one local desktop sync consumer. */
 type FieldSyncCursorRow = typeof FieldSyncCursor.$inferSelect;
@@ -47,6 +44,7 @@ export type PushPendingTagCommitsInput = {
   consumer: string;
   limit?: number;
   stream?: string;
+  onProgress?: (event: { completed: number; total: number }) => void;
 };
 
 /** Summary returned after one cursor-backed desktop tag push run. */
@@ -75,14 +73,8 @@ async function getCursor(
     .then(rows => rows[0]);
 }
 
-/** Normalizes one optional push limit into a safe positive batch size. */
-function normalizePushLimit(limit: number | undefined) {
-  if (limit == null) {
-    return defaultPushLimit;
-  }
-
-  return Number.isInteger(limit) && limit > 0 ? limit : defaultPushLimit;
-}
+/** No limit used when the caller omitted one explicit push limit. */
+const noLimitSentinel = Number.MAX_SAFE_INTEGER;
 
 /** Maps one local history row into the insert shape accepted by remote apply logic. */
 function toRemoteCommit(commit: FieldCommitRow): FieldCommitInsert {
@@ -96,6 +88,7 @@ function toRemoteCommit(commit: FieldCommitRow): FieldCommitInsert {
     clientMutationId:       commit.clientMutationId,
     editorRuntime:          commit.editorRuntime,
     editorIdentity:         commit.editorIdentity,
+    editorSource:           commit.editorSource,
     expectedRowRevision:    commit.expectedRowRevision,
     expectedWinnerRevision: commit.expectedWinnerRevision,
     baseRevision:           commit.baseRevision,
@@ -170,12 +163,21 @@ function toBlockedMessage(error: unknown): string {
   return 'Unknown tag push error';
 }
 
+/** Extracts the tag enumId from one commit's entityKey. */
+function enumIdFromCommit(commit: FieldCommitInsert) {
+  const ek = commit.entityKey as { enumId?: unknown };
+  if (typeof ek?.enumId !== 'number') {
+    throw new Error('Invalid tag entityKey');
+  }
+  return ek.enumId;
+}
+
 /** Pushes local pending tag commits to the remote database in sequence order. */
 export async function pushPendingTagCommits(
   input: PushPendingTagCommitsInput,
 ): Promise<PushPendingTagCommitsResult> {
   const stream = input.stream ?? tagCommitStream;
-  const limit = normalizePushLimit(input.limit);
+  const limit = input.limit ?? noLimitSentinel;
   const cursor = await getCursor(input.localDb, input.consumer, stream);
   const lastPushedSequence = cursor?.lastPushedSequence ?? 0;
 
@@ -188,8 +190,11 @@ export async function pushPendingTagCommits(
     .orderBy(asc(FieldCommit.sequence))
     .limit(limit);
 
+  const total = commits.length;
   const pushed: TagPushItem[] = [];
   let pushedSequence = lastPushedSequence;
+
+  input.onProgress?.({ completed: 0, total });
 
   for (const commit of commits) {
     try {
@@ -213,15 +218,65 @@ export async function pushPendingTagCommits(
 
       pushed.push(toPushItem(commit, result));
       pushedSequence = commit.sequence;
+      input.onProgress?.({ completed: pushed.length, total });
     } catch (error) {
+      // Write conflict to remote DB in a standalone transaction (the main one rolled back).
+      const reason = toBlockedReason(error);
+      const message = toBlockedMessage(error);
+
+      try {
+        // Load current remote state to populate conflict values
+        const [remoteTag, remoteWinner] = await Promise.all([
+          input.remoteDb.select()
+            .from(TagTable)
+            .where(eq(TagTable.enumId, enumIdFromCommit(commit)))
+            .then(rows => rows[0] ?? null),
+          input.remoteDb.select()
+            .from(FieldWinner)
+            .where(and(
+              eq(FieldWinner.entityType, 'tag'),
+              eq(FieldWinner.status, 'active'),
+              eq(FieldWinner.entityKey, commit.entityKey),
+              eq(FieldWinner.fieldPath, commit.fieldPath),
+            ))
+            .then(rows => rows[0] ?? null),
+        ]);
+
+        const field = commit.fieldPath.replace(/^tag\./, '') as string;
+
+        await input.remoteDb.insert(FieldConflict).values({
+          processingSide:  'remote',
+          processingStage: 'apply',
+          conflictKind:    reason === 'conflict' ? 'expected_row_revision_mismatch' : 'history_replay',
+          entityType:      'tag',
+          entityKey:       commit.entityKey,
+          fieldPath:       commit.fieldPath,
+          sourceSummary:   {
+            clientMutationId: commit.clientMutationId,
+            commitKind:       commit.commitKind,
+            operation:        commit.operation,
+            editorRuntime:    commit.editorRuntime,
+          },
+          localValue:       (remoteTag as Record<string, unknown> | null)?.[field] ?? null,
+          incomingValue:    commit.value,
+          winnerValue:      remoteWinner?.winnerValue ?? null,
+          effectiveValue:   (remoteTag as Record<string, unknown> | null)?.[field] ?? null,
+          baseRevision:     commit.baseRevision,
+          status:           'open',
+          reason:           message,
+        });
+      } catch {
+        // Best-effort conflict write.
+      }
+
       return {
         stream,
         consumer:           input.consumer,
         pushed,
         lastPushedSequence: pushedSequence,
         blockedSequence:    commit.sequence,
-        blockedReason:      toBlockedReason(error),
-        blockedMessage:     toBlockedMessage(error),
+        blockedReason:      reason,
+        blockedMessage:     message,
       };
     }
   }

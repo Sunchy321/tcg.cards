@@ -126,12 +126,22 @@
       <!-- General -->
       <template v-if="activeTab === 'general'">
         <SettingsCard :title="$t('settings.general.$self')">
+          <template v-if="globalSyncStatus" #header-extra>
+            <SyncStatusBadge :status="globalSyncStatus" />
+          </template>
           <SettingsRow :label="$t('settings.general.uiLanguage')">
             <USelect
-              :model-value="locale"
+              v-model="appLocale"
               :items="appLocaleItems"
               class="w-44"
-              @update:model-value="val => setLocale(val)"
+            />
+          </SettingsRow>
+          <USeparator />
+          <SettingsRow :label="$t('settings.general.theme')">
+            <USelect
+              v-model="themeValue"
+              :items="themeItems"
+              class="w-44"
             />
           </SettingsRow>
         </SettingsCard>
@@ -204,12 +214,57 @@
       <!-- Game -->
       <template v-else-if="activeTab === 'game'">
         <SettingsCard :title="$t('settings.game.$self')">
+          <template v-if="gameSyncStatus" #header-extra>
+            <SyncStatusBadge :status="gameSyncStatus" />
+          </template>
           <SettingsRow :label="$t('settings.game.language')">
-            <USelect
-              v-model="gameLocale"
+            <UDropdownMenu
               :items="gameLocaleItems"
-              class="w-44"
-            />
+              :ui="{ content: 'min-w-fit' }"
+            >
+              <UButton
+                color="neutral"
+                variant="outline"
+                size="sm"
+                class="w-44 justify-start"
+              >
+                {{ gameLocaleLabel }}
+              </UButton>
+              <template #locale-item="{ item }">
+                <span class="font-mono shrink-0 min-w-10">{{ item.code }}</span>
+                <span class="text-muted-foreground">{{ item.label }}</span>
+              </template>
+            </UDropdownMenu>
+          </SettingsRow>
+          <USeparator />
+          <SettingsRow :label="$t('settings.game.searchLayout')">
+            <div class="flex items-center gap-2">
+              <USelect
+                v-model="searchLayoutValue"
+                :items="[
+                  { value: 'grid', label: t('settings.game.searchLayoutGrid') },
+                  { value: 'list', label: t('settings.game.searchLayoutList') },
+                ]"
+                class="w-44"
+              />
+              <UButton
+                v-if="!isSearchLayoutDefault"
+                variant="ghost"
+                size="xs"
+                @click="setSearchLayoutAsDefault"
+              >
+                {{ $t('settings.game.setAsDefault') }}
+              </UButton>
+              <UButton
+                v-else
+                variant="ghost"
+                size="xs"
+                :disabled="false"
+                @click="resetSearchLayoutToDefault"
+              >
+                {{ $t('settings.game.resetToDefault') }}
+              </UButton>
+            </div>
           </SettingsRow>
         </SettingsCard>
       </template>
@@ -247,7 +302,13 @@ const roleInfo = computed(() => {
 
 // ── Tabs ─────────────────────────────────────────────────────────────────────
 
-const activeTab = ref('general');
+const route = useRoute();
+const router = useRouter();
+
+const activeTab = computed({
+  get: () => (route.query.tab as string) || 'general',
+  set: val => router.replace({ query: { tab: val } }),
+});
 
 const settingsTabs = computed(() => [
   { id: 'general', label: t('settings.general.$self'), icon: 'lucide:sliders-horizontal' },
@@ -255,7 +316,37 @@ const settingsTabs = computed(() => [
   { id: 'game', label: t('settings.game.$self'), icon: 'lucide:gamepad-2' },
 ]);
 
-// ── App locale ─────────────────────────────────────────────────────────────────
+// ── User config ────────────────────────────────────────────────────────────────
+
+const { config: globalConfig, setConfig: setGlobalConfig, syncStatus: globalSyncStatus } = useGlobalConfig();
+const { config: gameConfig, setConfig: setGameConfig, syncStatus: gameSyncStatus } = useUserConfig();
+
+const appLocale = computed({
+  get: () => globalConfig.value.lang,
+  set: val => setGlobalConfig('lang', val),
+});
+
+watch(globalConfig, cfg => {
+  if (cfg.lang !== locale.value) {
+    setLocale(cfg.lang);
+  }
+}, { immediate: true });
+
+// ── Theme ─────────────────────────────────────────────────────────────────────
+
+const colorMode = useColorMode();
+const themeValue = computed({
+  get: () => colorMode.preference === 'system' ? 'auto' : colorMode.preference,
+  set: val => {
+    colorMode.preference = val === 'auto' ? 'system' : val;
+    setGlobalConfig('theme', val);
+  },
+});
+watch(() => globalConfig.value.theme, val => {
+  themeValue.value = val;
+}, { immediate: true });
+
+// ── App locale items ───────────────────────────────────────────────────────────
 
 const appLocaleItems = computed(() =>
   availableLocales.map(code => ({
@@ -264,16 +355,48 @@ const appLocaleItems = computed(() =>
   })),
 );
 
-// ── Game locale ───────────────────────────────────────────────────────────────
+// ── Theme items ────────────────────────────────────────────────────────────────
 
-const gameLocale = useGameLocale();
+const themeItems = computed(() => [
+  { value: 'light', label: t('settings.general.themeLight') },
+  { value: 'dark', label: t('settings.general.themeDark') },
+  { value: 'auto', label: t('settings.general.themeAuto') },
+]);
+
+// ── Game locale items ──────────────────────────────────────────────────────────
 
 const gameLocaleItems = computed(() =>
-  (appConfig.locales as string[]).map((code: string) => ({
-    value: code,
-    label: t(`lang.${code}`, code),
+  (appConfig.locales as string[]).map((l: string) => ({
+    code:     l,
+    label:    t(`locale.${l}`, l),
+    slot:     'locale-item' as const,
+    onSelect: () => { setGameConfig('locale', l); },
   })),
 );
+
+const gameLocaleLabel = computed(() => {
+  const l = gameConfig.value.locale as string;
+  return t(`locale.${l}`, l);
+});
+
+// ── Search layout ──────────────────────────────────────────────────────────────
+
+const searchLayoutValue = computed({
+  get: () => gameConfig.value.searchLayout as string,
+  set: val => setGameConfig('searchLayout', val),
+});
+
+const isSearchLayoutDefault = computed(() =>
+  gameConfig.value.searchLayout === globalConfig.value.searchLayout,
+);
+
+function setSearchLayoutAsDefault() {
+  setGlobalConfig('searchLayout', gameConfig.value.searchLayout);
+}
+
+function resetSearchLayoutToDefault() {
+  setGameConfig('searchLayout', globalConfig.value.searchLayout);
+}
 
 // ── Login ─────────────────────────────────────────────────────────────────────
 

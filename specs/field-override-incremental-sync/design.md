@@ -905,6 +905,7 @@
 - `clientMutationId`
 - `editorRuntime`
 - `editorIdentity`
+- `editorSource`
 - `expectedRowRevision`
 - `expectedWinnerRevision`
 - `baseRevision`
@@ -924,9 +925,10 @@
 - 同一条 `commit id` 导入同一仓库时必须幂等
 - `reviewStatus = pending_review | rejected | superseded` 的 `commit` 不得直接参与 projection
 - `commitKind = row_create` 时：
-  - `fieldPath` 允许固定为 `row`
-  - `value` 保存整行快照
+  - `fieldPath` 固定为 `tag`（实体根路径）
+  - `value` 保存整行快照（完整的 `TagWrite`）
   - 该快照必须足以恢复该对象的初始投影基线
+  - `projectionStatus` 固定为 `skipped`，不参与主表投影（行已由导入逻辑直接创建）
 - `commitKind != row_create` 时：
   - `fieldPath` 必须定位到单字段
   - `value` 只保存该字段的新值
@@ -937,6 +939,23 @@
 - `(clientMutationId)`
 - `(entityType, entityKey, fieldPath, sequence)`
 - `(reviewStatus, projectionStatus, createdAt)`
+
+### 3.1.1 `editorRuntime`、`editorIdentity`、`editorSource` 三层溯源
+
+每个 `commit` 提供三层独立的溯源字段，不依赖 `_app` 用户表：
+
+| 字段 | 职责 | 非空 | 示例 |
+|---|---|---|---|
+| `editorRuntime` | 运行时环境 | 是 | `desktop`、`site`、`system` |
+| `editorIdentity` | 操作主体（人或机器标识） | 是 | 登录用户名 |
+| `editorSource` | 操作来源流程 | 是 | `manual`、`hsdata`、`conflict-resolution` |
+
+设计约束：
+
+- `editorIdentity` 桌面端由登录用户名设置，站点端从 auth session 读取
+- `editorSource` 由调用方显式传入，区分同一主体的不同操作流程
+- 三层均为纯文本标签，不参与 revision 校验，不要求全局唯一
+- 不防御恶意伪造 — desktop 直连数据库，能连上者已有完全读写权
 
 ### 3.2 `field_sync_cursors`
 
@@ -953,7 +972,7 @@
 最小语义：
 
 - `stream`
-  - 首轮固定为 `field_commits`
+  - 首轮固定为 `hearthstone.tag`
 - `lastPulledSequence`
   - 表示已经完整拉取并成功重放到本地的最大远端序号
 - `lastPushedSequence`
@@ -1104,70 +1123,53 @@
 
 ## 5. tag 的本地 `commit / push / pull`
 
-在当前升级版方案下，本地编辑 `tag` 的流程如下。
+桌面端所有 tag 操作统一通过 `field_commits` 工作流，三条路径：hsdata 自动导入、手动编辑、冲突解决。共享实现在 `tag-commit.ts`（`saveTagEdit`、`importDiscoveredTags`、`applyTagCommit`），两个路由器（desktop runtime / console API）各自传入 `TagServiceOptions`。
 
-### 5.1 加载阶段
+### 5.1 hsdata 自动导入
 
-页面读取：
+hsdata XML 导入时，`importDiscoveredTags()` 统一处理 tag 的创建和元数据更新：
 
-- 本地 `hearthstone.tags`
-- 本地 `hearthstone_data.field_winners`
-- 本地 `field_commits`
-- 本地 `field_conflicts`
-- 本地基于 `pull` 缓存的远端冲突状态
-- 本地未解决的 replay / `base_drift` 冲突
+**新 tag 创建：**
 
-### 5.2 保存阶段
+1. 直接 INSERT `hearthstone.tags` 主表行（`status = discovered`）
+2. 创建一条 `row_create` commit（`fieldPath = tag`、`value = 完整 TagWrite`、`projectionStatus = skipped`）
+3. 对 auto-base 字段（`slug`、`name`、`rawName`、`rawType`、`rawNames`、`valueKind`、`normalizeKind`、`status`）各建一条 `field_winner`（`winnerSource = auto:hsdata`）
+4. commit 溯源：`editorRuntime = system`、`editorIdentity` 取登录用户名、`editorSource = hsdata`
+5. `syncStatus = pending_push`
 
-用户修改 `slug`、`normalize*`、`project*`、`status` 等字段并保存时：
+**已有 tag 元数据更新：**
 
-1. 本地事务更新 `hearthstone.tags` 主表当前有效值
-2. 同时 upsert `field_winners`
-3. 同时写入本地 `field_commits`
-4. 首轮 tag 人工编辑默认写成 `reviewStatus = auto_approved`
+1. 对变更的字段（`rawName`、`rawType`）通过 `applyTagCommit()` 创建 `source_edit` commit
+2. 若遇冲突则 fallback 到直接 UPDATE（导入对 auto-field 具有权威性）
+3. `rawNames` 和 `lastSeenSourceTag` 直接 UPDATE（不需要字段级 commit）
 
-这样保存后：
+### 5.2 手动编辑
 
-- 本地 UI 立即看到新值
-- 本地 projection 也能立即使用新值
-- 同步层有一条 `syncStatus = pending_push` 的本地 `commit`
+桌面端 Tag 管理页通过 ORPC `manualUpdate` → `saveTagEdit()`：
+
+1. 事务内读取当前 `tags` 行和活跃 `field_winners`
+2. 对比变更字段（`collectTagDiffs`）
+3. 对每个变更字段调用 `applyTagCommit()`：更新主表、upsert winner、写入 `source_edit` commit
+4. commit 溯源：`editorRuntime = desktop`、`editorIdentity` 取登录用户名、`editorSource = manual`
+5. `syncStatus = pending_push`
 
 ### 5.3 `push` 阶段
 
-后台同步任务读取本地 `field_commits` 中 `syncStatus = pending_push` 的记录，发送到远端。
+用户手动触发 `pushToRemote` ORPC → `pushPendingTagCommits()`：
 
-远端执行 `merge` 后：
+1. 读取本地 `field_commits` 中 `syncStatus = pending_push` 的 tag commit（按 sequence 排序）
+2. 创建 remote DB 连接（复用 publish target 的 `connectionString`）
+3. 对每条本地 commit 在 remote DB 上调用 `applyTagCommit()`（`processingSide = remote`）
+4. 成功后标记本地 `syncStatus = synced`，更新 `field_sync_cursors.lastPushedSequence`
+5. 遇冲突时返回 `blockedReason` + `blockedMessage`，不再继续后续 commit
 
-- 写入 `field_commits`
-- 更新远端 `field_winners`
-- 将对应本地 `commit` 收敛为 `syncStatus = synced`
+### 5.4 历史数据回填
 
-若远端导入该 `commit` 时发现 revision 不匹配或同字段并发 `commit`，则：
+首次部署时 `field_commits` 可能为空。提供一次性脚本 `scripts/hearthstone/backfill-tag-commits.ts`：
 
-- 远端写入 `field_conflicts`
-- 当前 `push` 返回冲突结果
-- 本地等待后续 `pull` 获取远端冲突结论或 follow-up commit
-- 本地等待后续 `pull` 获取远端冲突结论
-
-### 5.4 本地重放与可选下游发布
-
-本地在以下条件满足时执行重放：
-
-- 当前 `resolved base` 已完成收敛
-- 相关远端 `commit` 已 `pull` 到本地
-- 当前字段不存在未解决的 replay / `base_drift` 冲突
-
-本地先执行与远端相同的 `project` 规则：
-
-- 基于当前 `resolved base`
-- 重放本地仓库中 `reviewStatus = auto_approved | approved` 的 `commit`
-- 重放远端冲突解决结果
-- 计算最终 effective value
-
-如有下游产物，再执行可选发布：
-
-- 更新本地主表当前值
-- 将最终 effective data 发布到本地下游产物
+- 遍历所有已有 tag，跳过已有 commit 的（幂等）
+- 对每个 tag 创建一条 `row_create` commit + auto-base 字段 `field_winners`
+- `syncStatus = pending_push`，跑完可直接推送
 
 ## 6. site 的远端直写流程
 
@@ -1175,12 +1177,12 @@ site 直接写远端仓库 `field_commits`。
 
 ### 6.1 保存阶段
 
-site 保存时直接在远端生成 `commit`：
+site 通过 `saveTagEdit()` 在远端生成 `commit`：
 
-1. 先调用共享 TS `apply commit / merge / project` 逻辑
-2. 写入 `field_commits`
-3. 根据来源策略决定 `reviewStatus`
-4. 如有 revision 冲突，则写入远端 `field_conflicts`
+1. 从 HTTP headers（`x-tcg-editor-runtime`、`x-tcg-editor-identity`、`x-tcg-editor-source`、`x-tcg-sync-mode`）解析 `ConsoleApiRequestMeta`
+2. `resolveCommitMeta()` 将 `syncMode` 映射为 `syncStatus = synced | pending_push | pulled` 和 `conflictTarget`
+3. `saveTagEdit()` 内部调用 `applyTagCommit()`：diff 字段、更新主表、upsert winner、写入 `field_commits`
+4. 如遇 revision 冲突则写入远端 `field_conflicts`
 5. 只有 `reviewStatus = auto_approved | approved` 的 `commit` 才参与远端 projection
 
 这里特意不要求第一版增加独立的 remote service 接收入口。
@@ -1386,42 +1388,37 @@ tag 的主要问题已经不是“字段该放哪张表”，而是：
 
 ## 11. 迁移策略
 
-### 阶段一：建立当前 winner projection、基础值决策输入与同步过程表
+### 阶段一：建立同步过程表（已完成）
 
-- 新增 `hearthstone_data.field_winners`
-- 新增本地 `field_commits`
-- 新增远端 `field_commits`
-- 新增本地 `field_sync_cursors`
-- 新增本地 `field_conflicts`
-- 新增远端 `field_conflicts`
-- 明确复用 `import_sources`、`import_rule_sets`、`import_field_rules` 作为多来源基础值决策输入
+- [x] `hearthstone_data.field_winners`
+- [x] `field_commits`（本地 + 远端，含 `editor_source` 列）
+- [x] 本地 `field_sync_cursors`
+- [x] `field_conflicts`（本地 + 远端）
 
-### 阶段二：tag 页面改为“本地双写 + local commits”
+### 阶段二：tag 页面改为“本地双写 + local commits”（已完成）
 
-- 保存 tag 时更新本地 `hearthstone.tags`
-- 同时写本地 `field_winners`
-- 同时写本地 `field_commits`
+- [x] desktop tag 页面使用 desktop runtime ORPC，读写本地表
+- [x] `saveTagEdit()`：主表 + `field_winners` + `field_commits` 在同一事务内完成
+- [x] hsdata 导入通过 `importDiscoveredTags()` 创建 `row_create` / `source_edit` commit
+- [x] `syncStatus = pending_push`，`editorIdentity` 从 runtime config 读取
+- [x] web tag 页面保持原有流程，通过 console API 操作远端
 
-### 阶段三：远端接收与 desktop 拉取
+### 阶段三：远端接收与 desktop 推送（已完成）
 
-- 实现共享 TS 远端 apply 逻辑
-- 将接收结果 `merge` 到远端 winner projection
-- 远端按同一套 `project` 规则更新远端目标表
-- desktop 按 cursor 增量 `pull` 远端 `commit`
-- desktop 同步拉取远端冲突状态与解决结果
-- desktop 在本地重放同一过程，并写入可能的 `field_conflicts`
+- [x] 共享 TS `applyTagCommit()` / `saveTagEdit()` 逻辑，双端复用
+- [x] `pushPendingTagCommits()` 直连 remote DB 推送本地 commit
+- [x] `pushToRemote` ORPC 入口，支持手动触发
+- [ ] `pull` 方向尚未实现（待后续需求）
 
 ### 阶段四：导入链路接入基础值决策与 winner merge
 
 - tag 自动发现更新时，若当前字段 winner 不是自动来源，则不直接覆盖
 - `magic.cards` 先生成 `resolved base`，再按 source priority 与 `winner_clear` 规则决定是否更新主表
-- 如有下游产物，本地仅在 merge 冲突已解决时再发布
 
 ### 阶段五：冲突展示与解决动作
 
-- 页面展示本地 `commit` 的审核 / 同步状态
-- 页面展示未解决冲突
-- 提供刷新与重试入口
+- [x] 冲突列表 / 详情 / 解决 ORPC（本地 + 远端）
+- [ ] 页面展示未解决冲突的 UI
 
 ## 12. 风险与取舍
 

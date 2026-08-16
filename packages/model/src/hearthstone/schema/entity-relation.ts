@@ -6,7 +6,6 @@ export const entityRelation = z.strictObject({
   relation:           z.string(),
   targetId:           z.string(),
   version:            z.number().array().nonempty(),
-  isLatest:           z.boolean(),
 });
 
 export type EntityRelation = z.infer<typeof entityRelation>;

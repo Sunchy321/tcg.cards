@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'url';
 
 export default defineNuxtConfig({
-  extends: ['@tcg-cards/console-shell'],
+  extends: ['@tcg-cards/console-shell', '@tcg-cards/ui'],
 
   ssr:    false,
   srcDir: 'src',
@@ -36,7 +36,19 @@ export default defineNuxtConfig({
     },
   },
 
-  css: ['./src/style.css'],
+  css: ['~/assets/css/main.css'],
+
+  components: [
+    { path: '~/components', pathPrefix: false },
+  ],
+
+  // The ui layer's public dir is not copied into the build output when consumed
+  // through a custom srcDir, so mount it explicitly for /placeholder assets.
+  nitro: {
+    publicAssets: [
+      { dir: fileURLToPath(new URL('./node_modules/@tcg-cards/ui/public', import.meta.url)), baseURL: '/' },
+    ],
+  },
 
   router: {
     options: {

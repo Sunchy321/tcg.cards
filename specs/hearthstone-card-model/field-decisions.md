@@ -107,7 +107,7 @@
 - `overrideWatermark` 表示覆盖原卡牌系列名（水印名），与 `set` 一起参与渲染等价判断
 - `displayHealth` 不进入 `renderModel`，因为该值可由卡牌类型与 `health` / `durability` 推导，不影响 `renderHash`
 - `mechanics` 不整体进入 `renderModel`，只投影固定的 `renderMechanics` 子集
-- `renderMechanics` 首批只包含 `tradable`、`forge`、`hide_cost`、`hide_attack`、`hide_health`、`in_mini_set`、`hide_watermark`
+- `renderMechanics` 不在此处枚举，完整列表见 [炉石图片渲染器协议](../../docs/hearthstone-image-renderer-protocol.zh-CN.md) 的 `renderMechanics` 小节
 
 ### `legacyPayload` 边界
 

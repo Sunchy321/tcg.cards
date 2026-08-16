@@ -1,20 +1,22 @@
-import { createHash } from 'node:crypto';
+import canonicalize from 'canonicalize';
 
-import { eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '@tcg-cards/db/db';
 import {
+  PatchState,
   RawEntitySnapshot,
   RawEntitySnapshotTag,
   Set as HearthstoneSet,
-  SourceVersion,
-  Tag,
 } from '@tcg-cards/db/schema/local/hearthstone';
+import { Patch } from '@tcg-cards/db/schema/shared/hearthstone';
 
 import {
   buildHsdataPlaceholderSetId,
   isHsdataPlaceholderSetId,
 } from './hsdata-set-placeholder';
+import { importDiscoveredTags } from '@tcg-cards/console-api/lib/hearthstone/tag-commit';
+import { readEditorIdentity } from '../../runtime-config';
 import { createHsdataProfiler } from './hsdata-profile';
 
 // Shared transaction shape for import helpers.
@@ -26,7 +28,7 @@ export type JsonMap = Record<string, unknown>;
 // Normalized tag value shapes used by raw tag storage.
 type TagValueKind
   = | 'bool'
-    | 'card_ref'
+    | 'card'
     | 'int'
     | 'json'
     | 'loc_string'
@@ -40,7 +42,7 @@ export interface RawTagInput {
   rawPayload:     JsonMap;
   rawValue:       string | null;
   locStringValue: Record<string, string> | null;
-  cardRefCardId:  string | null;
+  cardValue:      string | null;
   tagOrder:       number;
 }
 
@@ -50,7 +52,7 @@ export interface HsdataSnapshotInput {
   dbfId:            number;
   entityXmlVersion: number;
   tags:             RawTagInput[];
-  extraPayload: JsonMap;
+  extraPayload:     JsonMap;
 }
 
 // Parsed hsdata entity snapshot.
@@ -69,22 +71,6 @@ export interface ParsedHsdata {
   entities: ParsedEntity[];
 }
 
-// Discovered-tag data already stored in the database.
-interface ExistingTagRow {
-  enumId:             number;
-  slug:               string;
-  rawName:            string | null;
-  rawType:            string | null;
-  rawNames:           string[];
-  valueKind:          string;
-  normalizeKind:      string;
-  projectTargetType:  string | null;
-  projectTargetPath:  string | null;
-  projectKind:        string | null;
-  firstSeenSourceTag: number | null;
-  lastSeenSourceTag:  number | null;
-}
-
 // Existing raw snapshot row used for reuse checks.
 interface SnapshotRow {
   id:           string;
@@ -93,40 +79,43 @@ interface SnapshotRow {
   sourceTags:   number[];
 }
 
-// source_versions row used by import guards.
-interface SourceVersionRow {
-  sourceTag:           number;
-  build:               number | null;
-  sourceHash:          string;
-  importEngineVersion: string | null;
-  status:              string;
+// patch_states row used by import guards.
+interface PatchStateRow {
+  buildNumber:  number;
+  importStatus: string;
 }
 
-// source_versions write payload used by status updates.
-interface SourceVersionWriteInput {
-  sourceTag:    number;
-  build:        number | null;
-  sourceHash:   string;
-  sourceCommit: string | null | undefined;
-  sourceUri:    string | null | undefined;
-  importEngineVersion: string | null | undefined;
+// patches row for import guards (hash-based dedup).
+interface PatchRow {
+  buildNumber: number;
+  hash:        string;
+}
+
+// patch_states write payload used by status updates.
+interface PatchStateWriteInput {
+  buildNumber: number;
+  hash:        string;
+  name:        string;
+  shortName:   string;
+  commit:      string | null | undefined;
+  uri:         string | null | undefined;
 }
 
 // Narrow view of the PostgreSQL error fields that matter during import failures.
 interface DbErrorCause {
-  code?: string;
-  detail?: string;
-  hint?: string;
+  code?:       string;
+  detail?:     string;
+  hint?:       string;
   constraint?: string;
-  table?: string;
-  column?: string;
-  position?: string;
+  table?:      string;
+  column?:     string;
+  position?:   string;
 }
 
 // Import-side batch metadata attached to rethrown query failures for diagnosis.
 interface ImportBatchErrorContext {
-  operation: string;
-  chunkRowCount: number;
+  operation:               string;
+  chunkRowCount:           number;
   estimatedParameterCount: number;
 }
 
@@ -147,9 +136,8 @@ function isModeledSetId(setId: string): boolean {
 export interface ImportHsdataReport {
   dryRun:                boolean;
   skipped:               boolean;
-  sourceTag:             number;
-  build:                 number;
-  sourceHash:            string;
+  buildNumber:           number;
+  hash:                  string;
   entityCount:           number;
   insertedSnapshots:     number;
   reusedSnapshots:       number;
@@ -157,57 +145,37 @@ export interface ImportHsdataReport {
   discoveredTagCount:    number;
   updatedDiscoveredTags: number;
   fallbackTagRowCount:   number;
-  latestSnapshotCount:   number;
   discoveredTags:        number[];
 }
 
 // Parsed hsdata payload accepted by the shared import path.
 export interface ImportParsedHsdataInput {
-  parsed: ParsedHsdata;
-  sourceTag: number;
-  sourceHash: string;
-  sourceCommit?: string | null;
-  sourceUri?: string | null;
-  importEngineVersion?: string | null;
-  dryRun?: boolean;
-  force?: boolean;
+  parsed:      ParsedHsdata;
+  buildNumber: number;
+  hash:        string;
+  name:        string;
+  commit?:     string | null;
+  uri?:        string | null;
+  dryRun?:     boolean;
+  force?:      boolean;
+  /** When true, only writes patches and patch_states — skips snapshot/tag/projection work. */
+  patchOnly?:  boolean;
   onProgress?: (input: {
-    phase: 'parsing_entities' | 'writing_batches' | 'finalizing_source_tag';
-    message: string;
-    totalEntityCount?: number | null;
+    phase:                 'parsing_entities' | 'writing_batches' | 'finalizing_source_tag';
+    message:               string;
+    totalEntityCount?:     number | null;
     completedEntityCount?: number | null;
-    totalBatchCount?: number | null;
-    completedBatchCount?: number | null;
-    currentBatchIndex?: number | null;
-    totalWorkCount?: number | null;
-    completedWorkCount?: number | null;
-    workLabel?: string | null;
+    totalBatchCount?:      number | null;
+    completedBatchCount?:  number | null;
+    currentBatchIndex?:    number | null;
+    totalWorkCount?:       number | null;
+    completedWorkCount?:   number | null;
+    workLabel?:            string | null;
   }) => void | Promise<void>;
 }
 
-// Stable sha256 digest.
-function sha256(input: string): string {
-  return createHash('sha256').update(input, 'utf8').digest('hex');
-}
-
-// Deterministic JSON serialization for snapshot hashing.
-function canonicalizeJson(value: unknown): string {
-  if (value == null) return 'null';
-  if (typeof value === 'string') return JSON.stringify(value);
-  if (typeof value === 'number' || typeof value === 'boolean') return JSON.stringify(value);
-
-  if (Array.isArray(value)) {
-    return `[${value.map(item => canonicalizeJson(item)).join(',')}]`;
-  }
-
-  const object = value as Record<string, unknown>;
-  const keys = Object.keys(object).sort();
-  return `{${keys.map(key => `${JSON.stringify(key)}:${canonicalizeJson(object[key])}`).join(',')}}`;
-}
-
-// Hash of canonical JSON payloads.
 function hashCanonicalJson(value: unknown): string {
-  return sha256(canonicalizeJson(value));
+  return Bun.SHA256.hash(canonicalize(value)!, 'hex') as string;
 }
 
 // Snapshot hash payload reduced from one normalized entity.
@@ -222,11 +190,11 @@ function normalizeSnapshotPayload(input: HsdataSnapshotInput) {
       rawType:        tag.rawType,
       rawValue:       tag.rawValue,
       locStringValue: tag.locStringValue,
-      cardRefCardId:  tag.cardRefCardId,
+      cardValue:      tag.cardValue,
       tagOrder:       tag.tagOrder,
       rawPayload:     tag.rawPayload,
     })),
-    extraPayload:     input.extraPayload,
+    extraPayload: input.extraPayload,
   };
 }
 
@@ -245,17 +213,6 @@ export function buildParsedEntity(input: HsdataSnapshotInput): ParsedEntity {
     extraPayload:     input.extraPayload,
     snapshotHash:     computeHsdataSnapshotHash(input),
   };
-}
-
-// Stable discovered-tag slug.
-function slugify(rawName: string, enumId: number): string {
-  const base = rawName
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-
-  return `${base || 'tag'}-${enumId}`;
 }
 
 // Map key for cardId plus snapshotHash lookups.
@@ -357,29 +314,17 @@ function collectSetDbfIds(entities: ParsedEntity[]): number[] {
 }
 
 // Projected value kind for one raw tag.
-function guessValueKind(tag: RawTagInput, existing: ExistingTagRow | undefined): TagValueKind {
-  const configured = existing?.valueKind;
-
-  if (configured === 'bool'
-    || configured === 'card_ref'
-    || configured === 'int'
-    || configured === 'json'
-    || configured === 'loc_string'
-    || configured === 'string') {
-    return configured;
-  }
-
+function guessValueKind(tag: RawTagInput): TagValueKind {
   if (tag.rawType === 'LocString') return 'loc_string';
-  if (tag.rawType === 'Card') return 'card_ref';
-  if (tag.rawType === 'Int') return 'int';
+  if (tag.rawType === 'Card') return 'card';
   if (tag.rawType === 'String') return 'string';
 
-  return 'json';
+  return 'int';
 }
 
 // Typed storage representation resolved from one raw tag.
-function resolveTagValue(tag: RawTagInput, existing: ExistingTagRow | undefined) {
-  const valueKind = guessValueKind(tag, existing);
+function resolveTagValue(tag: RawTagInput) {
+  const valueKind = guessValueKind(tag);
   const parsedInt = tag.rawValue != null ? Number.parseInt(tag.rawValue, 10) : null;
   const isInt = parsedInt != null && Number.isFinite(parsedInt);
 
@@ -423,12 +368,24 @@ function resolveTagValue(tag: RawTagInput, existing: ExistingTagRow | undefined)
     };
   }
 
-  if (valueKind === 'card_ref') {
+  if (valueKind === 'card') {
+    const parsedInt = tag.rawValue != null ? Number.parseInt(tag.rawValue, 10) : null;
+    const dbfId = parsedInt != null && Number.isFinite(parsedInt) ? parsedInt : null;
+
+    if (tag.cardValue) {
+      return dbfId != null
+        ? { valueKind, parseStatus: 'parsed' as const, cardValue: tag.cardValue, intValue: dbfId }
+        : { valueKind, parseStatus: 'parsed' as const, cardValue: tag.cardValue };
+    }
+
+    if (dbfId != null) {
+      return { valueKind, parseStatus: 'parsed' as const, intValue: dbfId };
+    }
+
     return {
       valueKind,
-      parseStatus:   tag.cardRefCardId ? 'parsed' as const : 'fallback' as const,
-      cardRefCardId: tag.cardRefCardId,
-      jsonValue:     tag.cardRefCardId ? null : { value: tag.rawValue },
+      parseStatus: 'fallback' as const,
+      jsonValue:   { value: tag.rawValue },
     };
   }
 
@@ -448,48 +405,26 @@ function resolveTagValue(tag: RawTagInput, existing: ExistingTagRow | undefined)
   };
 }
 
-// source_versions row loader for import guards.
-async function getSourceVersion(sourceTag: number): Promise<SourceVersionRow | null> {
+// patch_states row loader for import guards.
+async function getPatchState(buildNumber: number): Promise<PatchStateRow | null> {
   return await db.select({
-    sourceTag:  SourceVersion.sourceTag,
-    build:      SourceVersion.build,
-    sourceHash: SourceVersion.sourceHash,
-    importEngineVersion: SourceVersion.importEngineVersion,
-    status:     SourceVersion.status,
+    buildNumber:  PatchState.buildNumber,
+    importStatus: PatchState.importStatus,
   })
-    .from(SourceVersion)
-    .where(eq(SourceVersion.sourceTag, sourceTag))
+    .from(PatchState)
+    .where(eq(PatchState.buildNumber, buildNumber))
     .then(rows => rows[0] ?? null);
 }
 
-// Discovered tag definitions needed by one import batch.
-async function getExistingTags(tx: DbTx, enumIds: number[]): Promise<Map<number, ExistingTagRow>> {
-  const rows: ExistingTagRow[] = [];
-
-  for (const chunk of chunkValues(enumIds)) {
-    if (chunk.length === 0) continue;
-
-    const result = await tx.select({
-      enumId:             Tag.enumId,
-      slug:               Tag.slug,
-      rawName:            Tag.rawName,
-      rawType:            Tag.rawType,
-      rawNames:           Tag.rawNames,
-      valueKind:          Tag.valueKind,
-      normalizeKind:      Tag.normalizeKind,
-      projectTargetType:  Tag.projectTargetType,
-      projectTargetPath:  Tag.projectTargetPath,
-      projectKind:        Tag.projectKind,
-      firstSeenSourceTag: Tag.firstSeenSourceTag,
-      lastSeenSourceTag:  Tag.lastSeenSourceTag,
-    })
-      .from(Tag)
-      .where(inArray(Tag.enumId, chunk));
-
-    rows.push(...result);
-  }
-
-  return new Map(rows.map(row => [row.enumId, row]));
+// patches row loader for hash-based dedup.
+async function getPatchRow(buildNumber: number): Promise<PatchRow | null> {
+  return await db.select({
+    buildNumber: Patch.buildNumber,
+    hash:        Patch.hash,
+  })
+    .from(Patch)
+    .where(eq(Patch.buildNumber, buildNumber))
+    .then(rows => rows[0] ?? null);
 }
 
 // Existing set ids needed for pre-import validation.
@@ -595,108 +530,6 @@ async function findMissingSetDbfIds(dbfIds: number[]): Promise<number[]> {
   return dbfIds.filter(dbfId => !existingDbfIds.has(dbfId));
 }
 
-// Discovered tag metadata upserted before snapshot rows are written.
-async function upsertDiscoveredTags(
-  tx: DbTx,
-  sourceTag: number,
-  tags: RawTagInput[],
-  dryRun: boolean,
-): Promise<{ existing: Map<number, ExistingTagRow>, discovered: number[], updated: number }> {
-  const enumIds = sortUniqueIntegers(tags.map(tag => tag.enumId));
-  const existing = await getExistingTags(tx, enumIds);
-  const discovered: number[] = [];
-  let updated = 0;
-
-  const firstSeenByEnum = new Map<number, RawTagInput>();
-  for (const tag of tags) {
-    if (!firstSeenByEnum.has(tag.enumId)) {
-      firstSeenByEnum.set(tag.enumId, tag);
-    }
-  }
-
-  for (const enumId of enumIds) {
-    const input = firstSeenByEnum.get(enumId)!;
-    const row = existing.get(enumId);
-    const guessedKind = guessValueKind(input, row);
-
-    if (!row) {
-      discovered.push(enumId);
-
-      if (!dryRun) {
-        await tx.insert(Tag).values({
-          enumId,
-          slug:               slugify(input.rawName, enumId),
-          name:               input.rawName || null,
-          rawName:            input.rawName || null,
-          rawType:            input.rawType || null,
-          rawNames:           input.rawName ? [input.rawName] : [],
-          valueKind:          guessedKind,
-          normalizeKind:      'identity',
-          normalizeConfig:    {},
-          projectTargetType:  null,
-          projectTargetPath:  null,
-          projectKind:        null,
-          projectConfig:      {},
-          status:             'discovered',
-          description:        null,
-          firstSeenSourceTag: sourceTag,
-          lastSeenSourceTag:  sourceTag,
-        });
-      }
-
-      existing.set(enumId, {
-        enumId,
-        slug:               slugify(input.rawName, enumId),
-        rawName:            input.rawName || null,
-        rawType:            input.rawType || null,
-        rawNames:           input.rawName ? [input.rawName] : [],
-        valueKind:          guessedKind,
-        normalizeKind:      'identity',
-        projectTargetType:  null,
-        projectTargetPath:  null,
-        projectKind:        null,
-        firstSeenSourceTag: sourceTag,
-        lastSeenSourceTag:  sourceTag,
-      });
-      continue;
-    }
-
-    const nextRawNames = input.rawName && !row.rawNames.includes(input.rawName)
-      ? [...row.rawNames, input.rawName].sort()
-      : row.rawNames;
-
-    const needsUpdate = nextRawNames !== row.rawNames
-      || row.lastSeenSourceTag !== sourceTag
-      || row.rawName == null
-      || row.rawType == null;
-
-    if (needsUpdate) {
-      updated += 1;
-    }
-
-    if (needsUpdate && !dryRun) {
-      await tx.update(Tag)
-        .set({
-          rawName:           row.rawName ?? input.rawName ?? null,
-          rawType:           row.rawType ?? input.rawType ?? null,
-          rawNames:          nextRawNames,
-          lastSeenSourceTag: sourceTag,
-        })
-        .where(eq(Tag.enumId, enumId));
-    }
-
-    existing.set(enumId, {
-      ...row,
-      rawName:           row.rawName ?? input.rawName ?? null,
-      rawType:           row.rawType ?? input.rawType ?? null,
-      rawNames:          nextRawNames,
-      lastSeenSourceTag: sourceTag,
-    });
-  }
-
-  return { existing, discovered, updated };
-}
-
 // Reusable snapshots for the given card ids.
 async function loadExistingSnapshots(tx: DbTx, cardIds: string[]): Promise<Map<string, SnapshotRow>> {
   const rows: SnapshotRow[] = [];
@@ -736,16 +569,14 @@ async function insertSnapshotTags(
   tx: DbTx,
   snapshotId: string,
   tags: RawTagInput[],
-  tagMap: Map<number, ExistingTagRow>,
-  dbfIdByCardId: Map<string, number>,
 ): Promise<number> {
   if (tags.length === 0) {
     return 0;
   }
 
   const rows = tags.map(tag => {
-    const resolved = resolveTagValue(tag, tagMap.get(tag.enumId));
-    const cardRefCardId = 'cardRefCardId' in resolved ? resolved.cardRefCardId ?? null : null;
+    const resolved = resolveTagValue(tag);
+    const cardValue = 'cardValue' in resolved ? resolved.cardValue ?? null : null;
 
     return {
       snapshotId,
@@ -760,8 +591,7 @@ async function insertSnapshotTags(
       stringValue:    'stringValue' in resolved ? resolved.stringValue ?? null : null,
       enumValue:      null,
       locStringValue: 'locStringValue' in resolved ? resolved.locStringValue ?? null : null,
-      cardRefCardId,
-      cardRefDbfId:   cardRefCardId ? dbfIdByCardId.get(cardRefCardId) ?? null : null,
+      cardValue,
       jsonValue:      'jsonValue' in resolved ? resolved.jsonValue ?? null : null,
       parseStatus:    resolved.parseStatus,
     };
@@ -797,104 +627,186 @@ async function deleteSnapshotTags(tx: DbTx, snapshotIds: string[]) {
   }
 }
 
-// source_versions moved into processing before import work begins.
-async function upsertSourceVersionProcessing(
-  input: SourceVersionWriteInput,
-) {
-  await db.insert(SourceVersion)
-    .values({
-      sourceTag:           input.sourceTag,
-      sourceCommit:        input.sourceCommit ?? '',
-      build:               input.build,
-      sourceHash:          input.sourceHash,
-      sourceUri:           input.sourceUri ?? '',
-      importEngineVersion: input.importEngineVersion ?? null,
-      status:              'processing',
-      projectionStatus:    'not_started',
-      projectionError:     null,
-      importedAt:          null,
-      projectedAt:         null,
-    })
-    .onConflictDoUpdate({
-      target: [SourceVersion.sourceTag],
-      set:    {
-        sourceCommit:        input.sourceCommit ?? '',
-        build:               input.build,
-        sourceHash:          input.sourceHash,
-        sourceUri:           input.sourceUri ?? '',
-        importEngineVersion: input.importEngineVersion ?? null,
-        status:              'processing',
-        importedAt:          null,
-      },
-    });
+/** Computes shortName from a patch name (e.g. "26.0.0.198765") by removing the
+ *  trailing buildNumber and stripping all trailing .0 segments, keeping at
+ *  least two parts (e.g. → "26.0"). */
+export function computeShortName(name: string, buildNumber: number) {
+  const parts = name.split('.');
+  // Remove trailing buildNumber segment.
+  if (parts.length > 0 && Number(parts[parts.length - 1]) === buildNumber) {
+    parts.pop();
+  }
+  // Strip all trailing .0 segments.
+  while (parts.length > 2 && parts[parts.length - 1] === '0') {
+    parts.pop();
+  }
+  return parts.join('.');
 }
 
-// source_versions row marked as completed.
-async function markSourceVersionCompleted(sourceTag: number, importedAt: Date) {
-  await db.update(SourceVersion)
+/** After inserting or updating a patch row, fixes any shortName collisions.
+ *  For each group with duplicate shortNames, the smallest buildNumber keeps
+ *  the shortName; all later ones fall back to name. */
+async function fixShortNameCollisions() {
+  const patches = await db.select({
+    buildNumber: Patch.buildNumber,
+    name:        Patch.name,
+    shortName:   Patch.shortName,
+  })
+    .from(Patch)
+    .orderBy(Patch.buildNumber);
+
+  const seen = new Map<string, number>();
+  const updates: Array<{ buildNumber: number, shortName: string }> = [];
+
+  for (const p of patches) {
+    const existing = seen.get(p.shortName);
+    if (existing != null) {
+      // Collision — the later (larger) build falls back to name.
+      updates.push({ buildNumber: p.buildNumber, shortName: p.name });
+    } else {
+      seen.set(p.shortName, p.buildNumber);
+    }
+  }
+
+  for (const u of updates) {
+    await db.update(Patch)
+      .set({ shortName: u.shortName })
+      .where(eq(Patch.buildNumber, u.buildNumber));
+  }
+}
+
+// patch_states moved into processing before import work begins.
+// Also syncs a basic patch row so the FK is satisfied.
+async function upsertPatchStateProcessing(
+  input: PatchStateWriteInput,
+) {
+  await db.insert(PatchState)
+    .values({
+      buildNumber:      input.buildNumber,
+      commit:           input.commit ?? '',
+      uri:              input.uri ?? '',
+      importStatus:     'processing',
+      importError:      null,
+      projectionStatus: 'not_started',
+      projectionError:  null,
+      importedAt:       null,
+      projectedAt:      null,
+    })
+    .onConflictDoUpdate({
+      target: [PatchState.buildNumber],
+      set:    {
+        commit:       input.commit ?? '',
+        uri:          input.uri ?? '',
+        importStatus: 'processing',
+        importError:  null,
+        importedAt:   null,
+      },
+    });
+
+  await db.insert(Patch)
+    .values({
+      buildNumber: input.buildNumber,
+      name:        input.name,
+      shortName:   input.shortName,
+      hash:        input.hash,
+    })
+    .onConflictDoUpdate({
+      target: [Patch.buildNumber],
+      set:    {
+        name:      input.name,
+        shortName: input.shortName,
+        hash:      input.hash,
+      },
+    });
+
+  await fixShortNameCollisions();
+}
+
+// patch_states row marked as completed.
+async function markPatchStateCompleted(buildNumber: number, importedAt: Date) {
+  await db.update(PatchState)
     .set({
-      status:           'completed',
+      importStatus:     'completed',
+      importError:      null,
       projectionStatus: 'not_started',
       projectionError:  null,
       importedAt,
       projectedAt:      null,
     })
-    .where(eq(SourceVersion.sourceTag, sourceTag));
+    .where(eq(PatchState.buildNumber, buildNumber));
 }
 
-// Failed source_versions state persisted.
-async function upsertSourceVersionFailed(input: SourceVersionWriteInput) {
-  await db.insert(SourceVersion)
+// Failed patch_states state persisted.
+async function upsertPatchStateFailed(input: PatchStateWriteInput, error: string) {
+  await db.insert(PatchState)
     .values({
-      sourceTag:           input.sourceTag,
-      sourceCommit:        input.sourceCommit ?? '',
-      build:               input.build,
-      sourceHash:          input.sourceHash,
-      sourceUri:           input.sourceUri ?? '',
-      importEngineVersion: input.importEngineVersion ?? null,
-      status:              'failed',
-      projectionStatus:    'not_started',
-      projectionError:     null,
-      importedAt:          null,
-      projectedAt:         null,
+      buildNumber:      input.buildNumber,
+      commit:           input.commit ?? '',
+      uri:              input.uri ?? '',
+      importStatus:     'failed',
+      importError:      error,
+      projectionStatus: 'not_started',
+      projectionError:  null,
+      importedAt:       null,
+      projectedAt:      null,
     })
     .onConflictDoUpdate({
-      target: [SourceVersion.sourceTag],
+      target: [PatchState.buildNumber],
       set:    {
-        sourceCommit:        input.sourceCommit ?? '',
-        build:               input.build,
-        sourceHash:          input.sourceHash,
-        sourceUri:           input.sourceUri ?? '',
-        importEngineVersion: input.importEngineVersion ?? null,
-        status:              'failed',
-        importedAt:          null,
+        commit:       input.commit ?? '',
+        uri:          input.uri ?? '',
+        importStatus: 'failed',
+        importError:  error,
+        importedAt:   null,
       },
     });
+
+  // Also ensure the patch row exists.
+  await db.insert(Patch)
+    .values({
+      buildNumber: input.buildNumber,
+      name:        input.name,
+      shortName:   input.shortName,
+      hash:        input.hash,
+    })
+    .onConflictDoUpdate({
+      target: [Patch.buildNumber],
+      set:    {
+        name:      input.name,
+        shortName: input.shortName,
+        hash:      input.hash,
+      },
+    });
+
+  await fixShortNameCollisions();
 }
 
-// Source version marked as failed unless the same completed import already exists.
-async function markSourceVersionFailedIfNeeded(
-  input: SourceVersionWriteInput,
-  sourceVersion: SourceVersionRow | null,
+// Patch state marked as failed unless the same completed import already exists.
+async function markPatchStateFailedIfNeeded(
+  input: PatchStateWriteInput,
+  patchState: PatchStateRow | null,
+  patch: PatchRow | null,
+  error: string,
 ) {
-  if (sourceVersion?.status === 'completed' && sourceVersion.sourceHash === input.sourceHash) {
+  if (patchState?.importStatus === 'completed' && patch?.hash === input.hash) {
     return;
   }
 
-  await upsertSourceVersionFailed(input);
+  await upsertPatchStateFailed(input, error);
 }
 
 // Skip decision for an identical completed source.
-function shouldSkipSourceVersionImport(
-  sourceVersion: SourceVersionRow | null,
-  sourceHash: string,
+function shouldSkipPatchStateImport(
+  patchState: PatchStateRow | null,
+  patch: PatchRow | null,
+  hash: string,
   force: boolean,
 ): boolean {
   if (force) {
     return false;
   }
 
-  return sourceVersion?.status === 'completed' && sourceVersion.sourceHash === sourceHash;
+  return patchState?.importStatus === 'completed' && patch?.hash === hash;
 }
 
 // Extracts a compact PostgreSQL error summary without relying on driver-specific classes.
@@ -936,8 +848,8 @@ function summarizeImportError(error: unknown) {
     : null;
   const message = error instanceof Error
     ? (error.message.startsWith('Failed query:')
-        ? causeMessage ?? 'Database query failed'
-        : error.message)
+      ? causeMessage ?? 'Database query failed'
+      : error.message)
     : String(error);
 
   return {
@@ -948,19 +860,19 @@ function summarizeImportError(error: unknown) {
   };
 }
 
-// sourceTag overwrite rules enforced before import begins.
-function assertSourceVersionImportable(
-  sourceVersion: SourceVersionRow | null,
-  sourceTag: number,
-  sourceHash: string,
+// buildNumber overwrite rules enforced before import begins.
+function assertPatchStateImportable(
+  patch: PatchRow | null,
+  buildNumber: number,
+  hash: string,
   force: boolean,
 ) {
-  if (force || !sourceVersion) {
+  if (force || !patch) {
     return;
   }
 
-  if (sourceVersion.sourceHash !== '' && sourceVersion.sourceHash !== sourceHash) {
-    throw new Error(`sourceTag ${sourceTag} already exists with a different sourceHash; rerun with force=true to overwrite`);
+  if (patch.hash !== '' && patch.hash !== hash) {
+    throw new Error(`buildNumber ${buildNumber} already exists with a different hash; rerun with force=true to overwrite`);
   }
 }
 
@@ -968,25 +880,59 @@ function assertSourceVersionImportable(
 async function applyHsdataImport(
   tx: DbTx,
   input: {
-    parsed: ParsedHsdata;
-    sourceTag: number;
-    dryRun: boolean;
-    force: boolean;
+    parsed:      ParsedHsdata;
+    sourceTag:   number;
+    dryRun:      boolean;
+    force:       boolean;
     onProgress?: ImportParsedHsdataInput['onProgress'];
   },
-): Promise<Omit<ImportHsdataReport, 'build' | 'dryRun' | 'skipped' | 'sourceHash' | 'sourceTag'>> {
+): Promise<Omit<ImportHsdataReport, 'buildNumber' | 'dryRun' | 'skipped' | 'hash'>> {
   const allTags = input.parsed.entities.flatMap(entity => entity.tags);
-  const dbfIdByCardId = new Map(input.parsed.entities.map(entity => [entity.cardId, entity.dbfId]));
-  const { existing, discovered, updated } = await upsertDiscoveredTags(
+
+  // Build a cardId→dbfId map from the XML entities. Legacy entities without
+  // an ID attribute get dbfId=0 from the parser; try to resolve those from
+  // previously imported snapshots in the database.
+  const legacyCardIds = input.parsed.entities
+    .filter(e => e.dbfId === 0)
+    .map(e => e.cardId)
+    .filter(Boolean);
+
+  const dbDbfIdByCardId = legacyCardIds.length > 0
+    ? await tx
+      .select({ cardId: RawEntitySnapshot.cardId, dbfId: RawEntitySnapshot.dbfId })
+      .from(RawEntitySnapshot)
+      .where(inArray(RawEntitySnapshot.cardId, legacyCardIds))
+    : [];
+
+  const legacyDbfIdByCardId = new Map<string, number>(
+    dbDbfIdByCardId
+      .filter(row => row.dbfId > 0)
+      .map(row => [row.cardId, row.dbfId]),
+  );
+
+  for (const entity of input.parsed.entities) {
+    if (entity.dbfId === 0) {
+      entity.dbfId = legacyDbfIdByCardId.get(entity.cardId) ?? 0;
+    }
+  }
+
+  const { discovered, updated } = await importDiscoveredTags(
     tx,
     input.sourceTag,
     allTags,
-    input.dryRun,
+    {
+      syncStatus:     'pending_push',
+      editorRuntime:  'system',
+      editorIdentity: readEditorIdentity(),
+      editorSource:   'hsdata',
+      conflictTarget: { processingSide: 'local', processingStage: 'apply' },
+      dryRun:         input.dryRun,
+    },
   );
 
   const fallbackTagRowCount = input.parsed.entities.reduce((count, entity) => {
     return count + entity.tags.filter(tag => {
-      const resolved = resolveTagValue(tag, existing.get(tag.enumId));
+      const resolved = resolveTagValue(tag);
       return resolved.parseStatus === 'fallback';
     }).length;
   }, 0);
@@ -1059,7 +1005,6 @@ async function applyHsdataImport(
             entityXmlVersion: entity.entityXmlVersion,
             snapshotHash:     entity.snapshotHash,
             extraPayload:     entity.extraPayload,
-            isLatest:         false,
           })))
           .returning({
             id:           RawEntitySnapshot.id,
@@ -1112,7 +1057,7 @@ async function applyHsdataImport(
     + (newEntities.length > 0 ? 1 : 0)
     + (previousSnapshotIds.size > 0 ? 1 : 0)
     + (input.force ? 1 : 0)
-    + (uniqueTargetSnapshotIds.length > 0 ? 1 : 0);
+    + ((input.force && uniqueTargetSnapshotIds.length > 0) || (!input.force && sourceTagUpdates.length > 0) ? 1 : 0);
   let completedWriteWorkCount = 0;
 
   if (input.onProgress) {
@@ -1157,10 +1102,7 @@ async function applyHsdataImport(
       }
 
       await tx.update(RawEntitySnapshot)
-        .set({
-          sourceTags: nextSourceTags,
-          isLatest:   false,
-        })
+        .set({ sourceTags: nextSourceTags })
         .where(eq(RawEntitySnapshot.id, previousSnapshot.id));
       completedWriteWorkCount += 1;
 
@@ -1183,13 +1125,6 @@ async function applyHsdataImport(
       }
     }
 
-    if (previousSnapshotIds.size > 0) {
-      await tx.update(RawEntitySnapshot)
-        .set({ isLatest: false })
-        .where(inArray(RawEntitySnapshot.id, [...previousSnapshotIds]));
-      completedWriteWorkCount += 1;
-    }
-
     if (input.force) {
       await deleteSnapshotTags(tx, uniqueTargetSnapshotIds);
       completedWriteWorkCount += 1;
@@ -1197,7 +1132,7 @@ async function applyHsdataImport(
 
     for (const [index, entity] of tagEntities.entries()) {
       const snapshotId = snapshotIdByKey.get(snapshotKey(entity.cardId, entity.snapshotHash))!;
-      insertedTagRows += await insertSnapshotTags(tx, snapshotId, entity.tags, existing, dbfIdByCardId);
+      insertedTagRows += await insertSnapshotTags(tx, snapshotId, entity.tags);
       completedWriteWorkCount += 1;
 
       if (
@@ -1219,11 +1154,17 @@ async function applyHsdataImport(
       }
     }
 
-    if (uniqueTargetSnapshotIds.length > 0) {
+    if (input.force && uniqueTargetSnapshotIds.length > 0) {
       await tx.update(RawEntitySnapshot)
-        .set({ isLatest: true })
+        .set({ projectionState: 'not_projected' })
         .where(inArray(RawEntitySnapshot.id, uniqueTargetSnapshotIds));
-      completedWriteWorkCount += 1;
+    } else if (sourceTagUpdates.length > 0) {
+      await tx.update(RawEntitySnapshot)
+        .set({ projectionState: 'version_only' })
+        .where(and(
+          inArray(RawEntitySnapshot.id, sourceTagUpdates.map(u => u.id)),
+          eq(RawEntitySnapshot.projectionState, 'projected'),
+        ));
     }
   } else {
     insertedTagRows = tagEntities.reduce((count, entity) => count + entity.tags.length, 0);
@@ -1237,7 +1178,6 @@ async function applyHsdataImport(
     discoveredTagCount:    discovered.length,
     updatedDiscoveredTags: updated,
     fallbackTagRowCount,
-    latestSnapshotCount:   uniqueTargetSnapshotIds.length,
     discoveredTags:        discovered,
   };
 }
@@ -1246,15 +1186,89 @@ async function applyHsdataImport(
 export async function importParsedHsdata(input: ImportParsedHsdataInput): Promise<ImportHsdataReport> {
   const dryRun = input.dryRun ?? false;
   const force = input.force ?? false;
+  const shortName = computeShortName(input.name, input.buildNumber);
+  const patchInput: PatchStateWriteInput = {
+    buildNumber: input.buildNumber,
+    hash:        input.hash,
+    name:        input.name,
+    shortName,
+    commit:      input.commit,
+    uri:         input.uri,
+  };
   const profiler = createHsdataProfiler('raw', {
-    sourceTag:  input.sourceTag,
-    build:      input.parsed.build,
+    sourceTag:   input.buildNumber,
+    build:       input.parsed.build,
     dryRun,
     force,
     entityCount: input.parsed.entities.length,
   });
-  const sourceVersion = await getSourceVersion(input.sourceTag);
+  const patchState = await getPatchState(input.buildNumber);
+  const patch = await getPatchRow(input.buildNumber);
   profiler.mark('load_source_version');
+
+  if (input.patchOnly) {
+    if (!dryRun) {
+      // Always upsert the patch row.
+      await db.insert(Patch)
+        .values({
+          buildNumber: input.buildNumber,
+          name:        input.name,
+          shortName,
+          hash:        input.hash,
+        })
+        .onConflictDoUpdate({
+          target: [Patch.buildNumber],
+          set:    {
+            name:      input.name,
+            shortName,
+            hash:      input.hash,
+          },
+        });
+
+      await fixShortNameCollisions();
+
+      // Only create/update patch_states if it doesn't already have a completed import.
+      if (!patchState || patchState.importStatus !== 'completed') {
+        await db.insert(PatchState)
+          .values({
+            buildNumber:      input.buildNumber,
+            commit:           input.commit ?? '',
+            uri:              input.uri ?? '',
+            importStatus:     'completed',
+            importError:      null,
+            projectionStatus: 'not_started',
+            projectionError:  null,
+            importedAt:       new Date(),
+            projectedAt:      null,
+          })
+          .onConflictDoUpdate({
+            target: [PatchState.buildNumber],
+            set:    {
+              commit:       input.commit ?? '',
+              uri:          input.uri ?? '',
+              importStatus: 'completed',
+              importError:  null,
+              importedAt:   new Date(),
+            },
+          });
+      }
+    }
+    profiler.done({ outcome: 'completed' });
+    return {
+      dryRun,
+      skipped:               false,
+      buildNumber:           input.buildNumber,
+      hash:                  input.hash,
+      entityCount:           0,
+      insertedSnapshots:     0,
+      reusedSnapshots:       0,
+      insertedTagRows:       0,
+      discoveredTagCount:    0,
+      updatedDiscoveredTags: 0,
+      fallbackTagRowCount:   0,
+      discoveredTags:        [],
+    };
+  }
 
   const missingSetDbfIds = await findMissingSetDbfIds(collectSetDbfIds(input.parsed.entities));
   profiler.mark('check_missing_sets', {
@@ -1268,14 +1282,7 @@ export async function importParsedHsdata(input: ImportParsedHsdataInput): Promis
     });
 
     if (!dryRun) {
-      await markSourceVersionFailedIfNeeded({
-        sourceTag:    input.sourceTag,
-        build:        input.parsed.build,
-        sourceHash:   input.sourceHash,
-        sourceCommit: input.sourceCommit,
-        sourceUri:    input.sourceUri,
-        importEngineVersion: input.importEngineVersion,
-      }, sourceVersion);
+      await markPatchStateFailedIfNeeded(patchInput, patchState, patch, 'missing set rows');
     }
 
     const action = insertedPlaceholderSetCount > 0
@@ -1287,16 +1294,15 @@ export async function importParsedHsdata(input: ImportParsedHsdataInput): Promis
     );
   }
 
-  if (shouldSkipSourceVersionImport(sourceVersion, input.sourceHash, force)) {
+  if (shouldSkipPatchStateImport(patchState, patch, input.hash, force)) {
     profiler.mark('skip_existing_source');
     profiler.done({ outcome: 'skipped' });
 
     return {
       dryRun,
       skipped:               true,
-      sourceTag:             input.sourceTag,
-      build:                 input.parsed.build,
-      sourceHash:            input.sourceHash,
+      buildNumber:           input.buildNumber,
+      hash:                  input.hash,
       entityCount:           input.parsed.entities.length,
       insertedSnapshots:     0,
       reusedSnapshots:       0,
@@ -1304,12 +1310,11 @@ export async function importParsedHsdata(input: ImportParsedHsdataInput): Promis
       discoveredTagCount:    0,
       updatedDiscoveredTags: 0,
       fallbackTagRowCount:   0,
-      latestSnapshotCount:   0,
       discoveredTags:        [],
     };
   }
 
-  assertSourceVersionImportable(sourceVersion, input.sourceTag, input.sourceHash, force);
+  assertPatchStateImportable(patch, input.buildNumber, input.hash, force);
 
   await input.onProgress?.({
     phase:                'parsing_entities',
@@ -1325,16 +1330,7 @@ export async function importParsedHsdata(input: ImportParsedHsdataInput): Promis
   });
 
   if (!dryRun) {
-    await upsertSourceVersionProcessing(
-      {
-        sourceTag:    input.sourceTag,
-        build:        input.parsed.build,
-        sourceHash:   input.sourceHash,
-        sourceCommit: input.sourceCommit,
-        sourceUri:    input.sourceUri,
-        importEngineVersion: input.importEngineVersion,
-      },
-    );
+    await upsertPatchStateProcessing(patchInput);
     profiler.mark('mark_processing');
   }
 
@@ -1342,7 +1338,7 @@ export async function importParsedHsdata(input: ImportParsedHsdataInput): Promis
     return await db.transaction(async tx => {
       const applied = await applyHsdataImport(tx, {
         parsed:     input.parsed,
-        sourceTag:  input.sourceTag,
+        sourceTag:  input.buildNumber,
         dryRun,
         force,
         onProgress: input.onProgress,
@@ -1350,10 +1346,9 @@ export async function importParsedHsdata(input: ImportParsedHsdataInput): Promis
 
       return {
         dryRun,
-        skipped:    false,
-        sourceTag:  input.sourceTag,
-        build:      input.parsed.build,
-        sourceHash: input.sourceHash,
+        skipped:     false,
+        buildNumber: input.buildNumber,
+        hash:        input.hash,
         ...applied,
       } satisfies ImportHsdataReport;
     }).then(async report => {
@@ -1376,7 +1371,7 @@ export async function importParsedHsdata(input: ImportParsedHsdataInput): Promis
           completedWorkCount:   0,
           workLabel:            'sourceTag',
         });
-        await markSourceVersionCompleted(input.sourceTag, new Date());
+        await markPatchStateCompleted(input.buildNumber, new Date());
         profiler.mark('mark_completed');
         await input.onProgress?.({
           phase:                'finalizing_source_tag',
@@ -1397,20 +1392,13 @@ export async function importParsedHsdata(input: ImportParsedHsdataInput): Promis
     });
   } catch (error) {
     if (!dryRun) {
-      await markSourceVersionFailedIfNeeded({
-        sourceTag:    input.sourceTag,
-        build:        input.parsed.build,
-        sourceHash:   input.sourceHash,
-        sourceCommit: input.sourceCommit,
-        sourceUri:    input.sourceUri,
-        importEngineVersion: input.importEngineVersion,
-      }, sourceVersion);
+      await markPatchStateFailedIfNeeded(patchInput, patchState, patch, error instanceof Error ? error.message : String(error));
     }
 
     console.error('[hearthstone][hsdata-import] failed', {
-      sourceTag: input.sourceTag,
-      build:     input.parsed.build,
-      error:     summarizeImportError(error),
+      buildNumber: input.buildNumber,
+      build:       input.parsed.build,
+      error:       summarizeImportError(error),
     });
 
     profiler.mark('failed', {

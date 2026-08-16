@@ -11,43 +11,29 @@ import {
 import { sql } from 'drizzle-orm';
 
 import { dataSchema } from '../../shared/hearthstone/schema';
-
-export const publishBatchStatus = dataSchema.enum('publish_batch_status', [
-  'planning',
-  'applying',
-  'completed',
-  'failed',
-]);
-
-export const publishBatchRowAction = dataSchema.enum('publish_batch_row_action', [
-  'insert',
-  'update',
-  'delete',
-  'unchanged',
-]);
-
-export const publishBatchRowStatus = dataSchema.enum('publish_batch_row_status', [
-  'pending',
-  'applied',
-  'skipped',
-  'failed',
-]);
+import {
+  publishBatchRowAction,
+  publishBatchRowStatus,
+  publishBatchStatus,
+  publishOperationKind,
+} from '../publish';
 
 export const PublishBatch = dataSchema.table('publish_batches', {
   id: uuid('id').primaryKey().defaultRandom(),
 
-  publishTargetId:   text('publish_target_id').notNull(),
+  publishTarget:     text('publish_target').notNull(),
   environment:       text('environment').notNull(),
   targetFingerprint: text('target_fingerprint').notNull(),
   publishType:       text('publish_type').notNull().default('card_data'),
+  operationKind:     publishOperationKind('operation_kind').notNull().default('publish'),
 
-  sourceTagMin: integer('source_tag_min').notNull(),
-  sourceTagMax: integer('source_tag_max').notNull(),
-  buildMin:     integer('build_min').notNull(),
-  buildMax:     integer('build_max').notNull(),
+  buildMin: integer('build_min').notNull(),
+  buildMax: integer('build_max').notNull(),
 
-  manifestHash:         text('manifest_hash').notNull(),
-  previousManifestHash: text('previous_manifest_hash'),
+  generationFingerprint: text('generation_fingerprint').notNull().default('card-data-projector/v1'),
+  generationOrder:       integer('generation_order').notNull().default(1),
+  manifestHash:          text('manifest_hash').notNull(),
+  previousManifestHash:  text('previous_manifest_hash'),
 
   totalRowCount:     integer('total_row_count').notNull().default(0),
   changedRowCount:   integer('changed_row_count').notNull().default(0),
@@ -73,13 +59,17 @@ export const PublishBatch = dataSchema.table('publish_batches', {
   startedAt:   timestamp('started_at'),
   completedAt: timestamp('completed_at'),
 }, table => [
-  index('publish_batches_target_status_idx').on(table.publishTargetId, table.status),
+  index('publish_batches_stream_status_idx').on(
+    table.publishTarget,
+    table.environment,
+    table.publishType,
+    table.status,
+  ),
   index('publish_batches_created_at_idx').on(table.createdAt),
   index('publish_batches_manifest_hash_idx').on(table.manifestHash),
-  check('publish_batches_source_tag_range_chk', sql`${table.sourceTagMin} <= ${table.sourceTagMax}`),
   check('publish_batches_build_range_chk', sql`${table.buildMin} <= ${table.buildMax}`),
-  check('publish_batches_source_tag_min_positive_chk', sql`${table.sourceTagMin} > 0`),
   check('publish_batches_build_min_positive_chk', sql`${table.buildMin} > 0`),
+  check('publish_batches_generation_order_positive_chk', sql`${table.generationOrder} > 0`),
   check('publish_batches_total_row_count_nonnegative_chk', sql`${table.totalRowCount} >= 0`),
   check('publish_batches_changed_row_count_nonnegative_chk', sql`${table.changedRowCount} >= 0`),
   check('publish_batches_inserted_row_count_nonnegative_chk', sql`${table.insertedRowCount} >= 0`),
@@ -98,7 +88,7 @@ export const PublishBatchRow = dataSchema.table('publish_batch_rows', {
     .references(() => PublishBatch.id, { onDelete: 'cascade' }),
 
   tableName:       text('table_name').notNull(),
-  rowPk:           text('row_pk').notNull(),
+  rowKey:          text('row_key').notNull(),
   rowHash:         text('row_hash').notNull(),
   previousRowHash: text('previous_row_hash'),
 
@@ -113,28 +103,29 @@ export const PublishBatchRow = dataSchema.table('publish_batch_rows', {
     .notNull(),
   appliedAt: timestamp('applied_at'),
 }, table => [
-  primaryKey({ columns: [table.batchId, table.tableName, table.rowPk] }),
+  primaryKey({ columns: [table.batchId, table.tableName, table.rowKey] }),
   index('publish_batch_rows_batch_action_idx').on(table.batchId, table.action),
   index('publish_batch_rows_batch_status_idx').on(table.batchId, table.status),
   index('publish_batch_rows_batch_table_idx').on(table.batchId, table.tableName),
 ]);
 
 export const PublishBaseline = dataSchema.table('publish_baselines', {
-  publishTargetId: text('publish_target_id').primaryKey(),
-  environment:     text('environment').notNull(),
+  publishTarget: text('publish_target').notNull(),
+  environment:   text('environment').notNull(),
+  publishType:   text('publish_type').notNull().default('card_data'),
 
   targetFingerprint: text('target_fingerprint').notNull(),
   batchId:           uuid('batch_id')
     .notNull()
     .references(() => PublishBatch.id),
 
-  sourceTagMin: integer('source_tag_min').notNull(),
-  sourceTagMax: integer('source_tag_max').notNull(),
-  buildMin:     integer('build_min').notNull(),
-  buildMax:     integer('build_max').notNull(),
+  buildMin: integer('build_min').notNull(),
+  buildMax: integer('build_max').notNull(),
 
-  manifestHash:  text('manifest_hash').notNull(),
-  totalRowCount: integer('total_row_count').notNull(),
+  generationFingerprint: text('generation_fingerprint').notNull().default('card-data-projector/v1'),
+  generationOrder:       integer('generation_order').notNull().default(1),
+  manifestHash:          text('manifest_hash').notNull(),
+  totalRowCount:         integer('total_row_count').notNull(),
 
   publishedAt: timestamp('published_at').notNull(),
   createdAt:   timestamp('created_at').defaultNow().notNull(),
@@ -143,10 +134,45 @@ export const PublishBaseline = dataSchema.table('publish_baselines', {
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
 }, table => [
+  primaryKey({ columns: [table.publishTarget, table.environment, table.publishType] }),
   index('publish_baselines_batch_id_idx').on(table.batchId),
-  check('publish_baselines_source_tag_range_chk', sql`${table.sourceTagMin} <= ${table.sourceTagMax}`),
   check('publish_baselines_build_range_chk', sql`${table.buildMin} <= ${table.buildMax}`),
-  check('publish_baselines_source_tag_min_positive_chk', sql`${table.sourceTagMin} > 0`),
   check('publish_baselines_build_min_positive_chk', sql`${table.buildMin} > 0`),
+  check('publish_baselines_generation_order_positive_chk', sql`${table.generationOrder} > 0`),
   check('publish_baselines_total_row_count_nonnegative_chk', sql`${table.totalRowCount} >= 0`),
+]);
+
+export const PublishRowBaseline = dataSchema.table('publish_row_baselines', {
+  publishTarget: text('publish_target').notNull(),
+  environment:   text('environment').notNull(),
+  publishType:   text('publish_type').notNull().default('card_data'),
+
+  tableName: text('table_name').notNull(),
+  rowKey:    text('row_key').notNull(),
+  rowHash:   text('row_hash').notNull(),
+
+  sourceBatchId: uuid('source_batch_id')
+    .references(() => PublishBatch.id),
+  publishedAt: timestamp('published_at').notNull(),
+  createdAt:   timestamp('created_at').defaultNow().notNull(),
+  updatedAt:   timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
+}, table => [
+  primaryKey({
+    columns: [
+      table.publishTarget,
+      table.environment,
+      table.publishType,
+      table.tableName,
+      table.rowKey,
+    ],
+  }),
+  index('publish_row_baselines_stream_idx').on(
+    table.publishTarget,
+    table.environment,
+    table.publishType,
+  ),
+  index('publish_row_baselines_source_batch_idx').on(table.sourceBatchId),
 ]);

@@ -4,7 +4,12 @@ import { createSearchNormalResult, createSearchResult } from '#search/schema';
 
 import { cardEntityView } from './entity';
 
-export const normalResult = createSearchNormalResult(cardEntityView);
+export const cardImageVariant = z.enum(['normal', 'golden', 'diamond', 'signature', 'battlegrounds']);
+
+export const normalResult = createSearchNormalResult(cardEntityView).extend({
+  variant: cardImageVariant.default('normal'),
+  strict:  z.boolean().default(true),
+});
 
 export type NormalResult = z.infer<typeof normalResult>;
 

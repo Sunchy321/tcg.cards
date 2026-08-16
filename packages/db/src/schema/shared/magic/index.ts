@@ -6,7 +6,7 @@ export * from './card-relation';
 export * from './cycle';
 export * from './document';
 export * from './format';
-export * from './game-change';
+
 export * from './print';
 export * from './rule';
 export * from './ruling';

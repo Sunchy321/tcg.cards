@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 import type { R2Bucket } from '@cloudflare/workers-types';
 
-import { HAS_DIAMOND, HAS_SIGNATURE, PREMIUM } from '@tcg-cards/model/src/hearthstone/constant/tag';
+import { TAG_ID } from '@tcg-cards/model/src/hearthstone/constant/tag';
 import type { ImageRequirementFile } from '@tcg-cards/model/src/hearthstone/schema/data/image';
 import type { RenderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
 import type { ImageCandidateRow } from './card-image';
@@ -20,25 +20,23 @@ const dbState = {
 
 const schemaMock = {
   CardImageAsset: {
-    imageSpecVersion: 'imageSpecVersion',
-    renderHash:       'renderHash',
-    zone:             'zone',
-    template:         'template',
-    premium:          'premium',
-    r2Key:            'r2Key',
-    sha256:           'sha256',
-    status:           'status',
-    lang:             'lang',
+    renderHash: 'renderHash',
+    category:   'category',
+    zone:       'zone',
+    template:   'template',
+    premium:    'premium',
+    r2Key:      'r2Key',
+    sha256:     'sha256',
+    status:     'status',
+    lang:       'lang',
   },
   CardImageExport: {},
   CardImageImport: {},
   Entity:          {
     version:  'version',
-    isLatest: 'isLatest',
   },
   EntityLocalization: {
     version:  'version',
-    isLatest: 'isLatest',
   },
   Set: {},
   Tag: {},
@@ -99,22 +97,24 @@ const {
   buildCardImageR2Key,
   buildCardImageRequestId,
   buildCardImageStyle,
-  buildImageVariants,
   collectImageRequirementRequests,
   importCardImageArchiveFromBrowser,
-  isCardImageVariantAllowed,
 } = await import('./card-image');
 
+const {
+  buildImageVariants,
+  isCardImageVariantAllowed,
+} = await import('@tcg-cards/shared/hearthstone/card-image-variant');
+
 const mechanicIds = {
-  diamond:   String(HAS_DIAMOND),
-  signature: String(HAS_SIGNATURE),
-  premium:   String(PREMIUM),
+  diamond:   String(TAG_ID.HAS_DIAMOND),
+  signature: String(TAG_ID.HAS_SIGNATURE),
+  premium:   String(TAG_ID.PREMIUM),
 } as const;
 
 const renderModel: RenderModel = {
   cardId:          'CORE_EXAMPLE_001',
   lang:            'zhs',
-  variant:         'normal',
   templateVersion: 'v1',
   assetVersion:    'v1',
   localization:    {
@@ -123,21 +123,22 @@ const renderModel: RenderModel = {
   },
   type:              'spell',
   cost:              2,
-  attack:            null,
-  health:            null,
-  durability:        null,
-  armor:             null,
+  attack:            undefined,
+  health:            undefined,
+  durability:        undefined,
+  armor:             undefined,
   classes:           ['mage'],
-  race:              null,
+  race:              undefined,
   spellSchool:       'fire',
-  mercenaryFaction:  null,
+  mercenaryFaction:  undefined,
   set:               'CORE',
-  overrideWatermark: null,
+  overrideWatermark: undefined,
   rarity:            'common',
   elite:             false,
-  techLevel:         null,
-  rune:              null,
+  techLevel:         undefined,
+  rune:              undefined,
   renderMechanics:   {},
+  textBuilderType:   'default',
 };
 
 function sha256Bytes(bytes: Uint8Array) {
@@ -170,6 +171,7 @@ function buildWebp(width: number, height: number) {
 function buildSingleRequestRequirementFile(input?: {
   renderHash?: string;
   variant?: {
+    category: 'base' | 'glow';
     zone:     'hand' | 'play';
     template: 'normal' | 'battlegrounds';
     premium:  'normal' | 'golden' | 'diamond' | 'signature';
@@ -177,6 +179,7 @@ function buildSingleRequestRequirementFile(input?: {
 }): ImageRequirementFile {
   const renderHash = input?.renderHash ?? '9f2c0f6e4e0c7f4d0f0b8c2e9c8d7a1a3c6b4e5f60123456789abcdef01';
   const variant = input?.variant ?? {
+    category: 'base',
     zone:     'hand',
     template: 'normal',
     premium:  'normal',
@@ -227,7 +230,8 @@ function buildSingleRequestRequirementFile(input?: {
         renderHash,
       },
       variant,
-      style:  buildCardImageStyle(variant),
+      renderMode: 'full-set',
+      style:      buildCardImageStyle(variant),
       output: {
         fileName:              buildCardImagePngFileName(requestId),
         format:                'png',
@@ -250,6 +254,7 @@ function buildSingleRequestRequirementFile(input?: {
 
 function buildMultiRequestRequirementFile(renderHashes: string[]): ImageRequirementFile {
   const variant = {
+    category: 'base',
     zone:     'hand',
     template: 'normal',
     premium:  'normal',
@@ -302,6 +307,7 @@ function buildMultiRequestRequirementFile(renderHashes: string[]): ImageRequirem
           renderHash,
         },
         variant,
+        renderMode: 'full-set',
         style:  buildCardImageStyle(variant),
         output: {
           fileName:              buildCardImagePngFileName(requestId),
@@ -335,6 +341,7 @@ beforeEach(() => {
 describe('card image helpers', () => {
   test('builds stable request ids and png file names', () => {
     const variant = {
+      category: 'base',
       zone:     'hand',
       template: 'normal',
       premium:  'normal',
@@ -348,13 +355,15 @@ describe('card image helpers', () => {
 
   test('builds style and r2 key from variant', () => {
     const variant = {
+      category: 'base',
       zone:     'play',
       template: 'battlegrounds',
       premium:  'golden',
     } as const;
 
     expect(buildCardImageStyle(variant)).toEqual({
-      styleKey:              'play.battlegrounds.golden',
+      styleKey:              'base.play.battlegrounds.golden',
+      category:              'base',
       zone:                  'play',
       template:              'battlegrounds',
       premium:               'golden',
@@ -365,7 +374,7 @@ describe('card image helpers', () => {
     });
 
     expect(buildCardImageR2Key('9f2c0f6e4e0c7f4d0f0b8c2e9c8d7a1a3c6b4e5f60123456789abcdef01', variant))
-      .toBe('hearthstone/card/v1/play/battlegrounds/golden/9f/9f2c0f6e4e0c7f4d0f0b8c2e9c8d7a1a3c6b4e5f60123456789abcdef01.webp');
+      .toBe('hearthstone/card/base/play/battlegrounds/golden/9f/9f2c0f6e4e0c7f4d0f0b8c2e9c8d7a1a3c6b4e5f60123456789abcdef01.webp');
   });
 
   test('collects missing requests with offset and ready filtering', () => {
@@ -446,7 +455,7 @@ describe('card image helpers', () => {
         type:      'spell',
         set:       'CORE',
         techLevel: null,
-        mechanics: { [HAS_DIAMOND]: true },
+        mechanics: { [TAG_ID.HAS_DIAMOND]: true },
 
       }, variant, mechanicIds))
       .map(variant => `${variant.zone}.${variant.template}.${variant.premium}`);
@@ -462,20 +471,29 @@ describe('card image helpers', () => {
         type:      'minion',
         set:       'bgs',
         techLevel: 5,
-        mechanics: {
-          [HAS_DIAMOND]:   true,
-          [HAS_SIGNATURE]: true,
-        },
+        mechanics: {},
 
       }, variant, mechanicIds))
       .map(variant => `${variant.zone}.${variant.template}.${variant.premium}`);
 
     expect(bgsAllowed).toEqual([
       'hand.normal.normal',
-      'hand.normal.golden',
-      'hand.normal.diamond',
-      'hand.normal.signature',
       'hand.battlegrounds.normal',
+    ]);
+
+    const bgsGoldenAllowed = variants
+      .filter(variant => isCardImageVariantAllowed({
+        type:      'minion',
+        set:       'bgs',
+        techLevel: 5,
+        mechanics: { [TAG_ID.PREMIUM]: true },
+
+      }, variant, mechanicIds))
+      .map(variant => `${variant.zone}.${variant.template}.${variant.premium}`);
+
+    expect(bgsGoldenAllowed).toEqual([
+      'hand.normal.golden',
+      'hand.battlegrounds.golden',
     ]);
 
     const enchantmentAllowed = variants
@@ -492,6 +510,7 @@ describe('card image helpers', () => {
 
   test('builds import plan with accepted, missing and rejected files', () => {
     const variant = {
+      category: 'base',
       zone:     'hand',
       template: 'normal',
       premium:  'normal',
@@ -543,6 +562,7 @@ describe('card image helpers', () => {
             renderHash,
           },
           variant,
+          renderMode: 'full-set',
           style:  buildCardImageStyle(variant),
           output: {
             fileName:              buildCardImagePngFileName(requestId),
@@ -572,6 +592,7 @@ describe('card image helpers', () => {
             renderHash:       `${renderHash.slice(0, -1)}2`,
           },
           variant,
+          renderMode: 'full-set',
           style:  buildCardImageStyle(variant),
           output: {
             fileName:              `${buildCardImageRequestId(`${renderHash.slice(0, -1)}2`, variant).replace('sha256:', '')}.png`,

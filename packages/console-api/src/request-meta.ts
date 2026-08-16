@@ -8,7 +8,8 @@ export type ConsoleApiSyncMode = 'local_edit' | 'remote_edit' | 'pull';
 export interface ConsoleApiRequestMeta {
   editorRuntime?: ConsoleApiEditorRuntime;
   syncMode?: ConsoleApiSyncMode;
-  editorIdentity?: string | null;
+  editorIdentity?: string;
+  editorSource?: string;
 }
 
 /** Per-call client context forwarded through the RPC transport. */

@@ -12,11 +12,20 @@ export interface DesktopDatabaseConnectionTestResult {
   latencyMs:    number;
 }
 
-/** Hearthstone publish target settings returned by the desktop runtime. */
-export interface DesktopHearthstonePublishTargetSettings {
-  publishTargetId:   string | null;
+/** Publish target settings returned by the desktop runtime. */
+export interface DesktopPublishTargetSettings {
+  publishTarget:     string | null;
   environment:       string | null;
   targetFingerprint: string | null;
+  connectionString:  string | null;
+}
+
+/** Publish target row returned by the desktop runtime. */
+export interface DesktopPublishTarget {
+  publishTarget:     string;
+  environment:       string;
+  targetFingerprint: string;
+  credentialKey:     string | null;
   connectionString:  string | null;
 }
 
@@ -26,9 +35,9 @@ export interface DesktopHearthstoneImageSettings {
   bucketDir:       string | null;
 }
 
-/** Hearthstone publish target test result returned by the desktop runtime. */
-export interface DesktopHearthstonePublishTargetTestResult {
-  publishTargetId:   string;
+/** Publish target test result returned by the desktop runtime. */
+export interface DesktopPublishTargetTestResult {
+  publishTarget:     string;
   environment:       string;
   targetFingerprint: string;
   databaseName:      string;
@@ -38,11 +47,11 @@ export interface DesktopHearthstonePublishTargetTestResult {
   latencyMs:         number;
 }
 
-/** Hearthstone publish target binding validation result returned by the desktop runtime. */
-export interface DesktopHearthstonePublishTargetValidationResult {
+/** Publish target binding validation result returned by the desktop runtime. */
+export interface DesktopPublishTargetValidationResult {
   isValid:                  boolean;
   reasons:                  string[];
-  currentPublishTargetId:   string | null;
+  currentPublishTarget:     string | null;
   currentEnvironment:       string | null;
   currentTargetFingerprint: string | null;
 }
@@ -142,9 +151,14 @@ export function testDesktopDatabaseConnection(
   });
 }
 
-/** Hearthstone publish target settings loaded from the desktop runtime. */
-export function getDesktopHearthstonePublishTarget() {
-  return invoke<DesktopHearthstonePublishTargetSettings>('desktop_get_hearthstone_publish_target');
+/** Publish target settings loaded from the desktop runtime. */
+export function getDesktopPublishTarget() {
+  return invoke<DesktopPublishTargetSettings>('desktop_get_publish_target');
+}
+
+/** Publish target list loaded from the desktop runtime. */
+export function getDesktopPublishTargets() {
+  return invoke<DesktopPublishTarget[]>('desktop_get_publish_targets');
 }
 
 /** Hearthstone image settings loaded from the desktop runtime. */
@@ -163,42 +177,51 @@ export function setDesktopHearthstoneImageSettings(
   });
 }
 
-/** Hearthstone publish target settings persisted in the desktop runtime. */
-export function setDesktopHearthstonePublishTarget(
-  publishTargetId: string | null,
+/** Publish target settings persisted in the desktop runtime. */
+export function setDesktopPublishTarget(
+  publishTarget: string | null,
   environment: string | null,
   connectionString: string | null,
 ) {
-  return invoke<DesktopHearthstonePublishTargetSettings>('desktop_set_hearthstone_publish_target', {
-    publishTargetId,
+  return invoke<DesktopPublishTargetSettings>('desktop_set_publish_target', {
+    publishTarget,
     environment,
     connectionString,
   });
 }
 
-/** Hearthstone publish target connection tested by the desktop runtime. */
-export function testDesktopHearthstonePublishTarget(
-  publishTargetId: string | null,
+/** Publish target list persisted in the desktop runtime. */
+export function setDesktopPublishTargets(
+  targets: DesktopPublishTarget[],
+) {
+  return invoke<DesktopPublishTarget[]>('desktop_set_publish_targets', {
+    targets,
+  });
+}
+
+/** Publish target connection tested by the desktop runtime. */
+export function testDesktopPublishTarget(
+  publishTarget: string | null,
   environment: string | null,
   connectionString: string | null,
 ) {
-  return invoke<DesktopHearthstonePublishTargetTestResult>('desktop_test_hearthstone_publish_target', {
-    publishTargetId,
+  return invoke<DesktopPublishTargetTestResult>('desktop_test_publish_target', {
+    publishTarget,
     environment,
     connectionString,
   });
 }
 
-/** Expected Hearthstone publish target binding validated by the desktop runtime. */
-export function validateDesktopHearthstonePublishTargetBinding(
-  publishTargetId: string,
+/** Expected publish target binding validated by the desktop runtime. */
+export function validateDesktopPublishTargetBinding(
+  publishTarget: string,
   environment: string,
   targetFingerprint: string,
 ) {
-  return invoke<DesktopHearthstonePublishTargetValidationResult>(
-    'desktop_validate_hearthstone_publish_target_binding',
+  return invoke<DesktopPublishTargetValidationResult>(
+    'desktop_validate_publish_target_binding',
     {
-      publishTargetId,
+      publishTarget,
       environment,
       targetFingerprint,
     },
@@ -274,6 +297,31 @@ export function setDesktopGameRepo(
   repoPath: string | null,
 ) {
   return invoke<string | null>('desktop_set_game_repo', { game, repoKey, repoPath });
+}
+
+/** AI config returned by the desktop runtime. */
+export interface DesktopAiConfig {
+  apiKey: string | null;
+  baseUrl: string | null;
+  model: string | null;
+}
+
+/** AI config loaded from the desktop runtime. */
+export function getDesktopAiConfig() {
+  return invoke<DesktopAiConfig>('desktop_get_ai_config');
+}
+
+/** AI config persisted in the desktop runtime. */
+export function setDesktopAiConfig(
+  apiKey: string | null,
+  baseUrl: string | null,
+  model: string | null,
+) {
+  return invoke<DesktopAiConfig>('desktop_set_ai_config', {
+    apiKey,
+    baseUrl,
+    model,
+  });
 }
 
 /** Native directory picker opened by the desktop runtime. */

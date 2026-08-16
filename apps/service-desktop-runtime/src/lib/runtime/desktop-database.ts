@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 
 import { sql } from 'drizzle-orm';
 
@@ -23,7 +22,7 @@ export interface DesktopDatabaseConnectionTestResult {
 
 /** Publish target resolution result returned from one live PostgreSQL session. */
 export interface ResolvedHearthstonePublishTarget {
-  publishTargetId: string;
+  publishTarget: string;
   environment: string;
   targetFingerprint: string;
   databaseName: string;
@@ -46,9 +45,17 @@ type DatabaseIdentityRow = Record<string, unknown> & {
   serverPort: number | null;
 };
 
+function toHex(hash: Uint8Array): string {
+  let hex = '';
+  for (let i = 0; i < hash.length; i++) {
+    hex += hash[i]!.toString(16).padStart(2, '0');
+  }
+  return hex;
+}
+
 /** Lowercase hexadecimal SHA-256 digest computed from one text input. */
 function sha256Hex(input: string) {
-  return createHash('sha256').update(input).digest('hex');
+  return toHex(Bun.SHA256.hash(input) as Uint8Array);
 }
 
 /** Leading and trailing single or double quotes removed from one parsed connection value. */
@@ -192,7 +199,7 @@ export async function testDesktopDatabaseConnection(connectionString: string): P
 
 /** Publish target identity and fingerprint resolved from one explicit connection string. */
 export async function resolveHearthstonePublishTarget(input: {
-  publishTargetId: string;
+  publishTarget: string;
   environment: string;
   connectionString: string;
 }): Promise<ResolvedHearthstonePublishTarget> {
@@ -200,7 +207,7 @@ export async function resolveHearthstonePublishTarget(input: {
   const endpoint = resolveTargetEndpoint(identity, input.connectionString);
 
   return {
-    publishTargetId: input.publishTargetId,
+    publishTarget: input.publishTarget,
     environment: input.environment,
     targetFingerprint: computeTargetFingerprint(endpoint, identity),
     databaseName: identity.databaseName,

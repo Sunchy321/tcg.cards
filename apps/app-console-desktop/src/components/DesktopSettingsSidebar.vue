@@ -57,6 +57,16 @@ const generalItems = [
     icon:  'i-lucide-database',
     to:    '/settings/database',
   },
+  {
+    label: '模型配置',
+    icon:  'i-lucide-sparkles',
+    to:    '/settings/model',
+  },
+  {
+    label: '发布配置',
+    icon:  'i-lucide-upload',
+    to:    '/settings/publish',
+  },
 ];
 
 const gameItems = settingsGameItems;

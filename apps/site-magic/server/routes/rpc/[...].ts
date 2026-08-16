@@ -3,6 +3,7 @@ import { onError } from '@orpc/server';
 import { DrizzleQueryError } from 'drizzle-orm';
 
 import { router } from '~~/server/orpc/service';
+import { auth } from '~~/server/lib/auth';
 
 const handler = new RPCHandler(router, {
   interceptors: [
@@ -19,9 +20,14 @@ const handler = new RPCHandler(router, {
 export default defineEventHandler(async event => {
   const request = toWebRequest(event);
 
+  const session = await auth.api.getSession({ headers: request.headers });
+
   const { response } = await handler.handle(request, {
     prefix:  '/rpc',
-    context: {} as any, // Provide initial context if needed
+    context: {
+      user:    session?.user ?? null,
+      session: session?.session ?? null,
+    },
   });
 
   if (response) {

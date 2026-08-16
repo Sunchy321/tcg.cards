@@ -12,6 +12,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
+import { Patch } from '../../shared/hearthstone/patch';
 import { Tag } from '../../shared/hearthstone/tag';
 import { dataSchema } from '../../shared/hearthstone/schema';
 
@@ -26,31 +27,39 @@ export const hsdataProjectionStatus = dataSchema.enum('hsdata_projection_status'
   'failed',
 ]);
 
-export const SourceVersion = dataSchema.table('source_versions', {
-  sourceTag:           integer('source_tag').primaryKey(),
-  sourceCommit:        text('source_commit').notNull().default(''),
-  build:               integer('build'),
-  sourceHash:          text('source_hash').notNull().default(''),
-  sourceUri:           text('source_uri').notNull().default(''),
-  // Historical rows may not have parser metadata. New imports must always
-  // write this field so future engine changes can target full re-imports.
-  importEngineVersion: text('import_engine_version'),
-  status:              text('status').notNull().default('pending'),
-  // Projection state tracks the last known outcome of the sourceTag's project job.
-  projectionStatus:    hsdataProjectionStatus('projection_status').notNull().default('not_started'),
-  projectionError:     text('projection_error'),
-  importedAt:          timestamp('imported_at'),
-  projectedAt:         timestamp('projected_at'),
-  createdAt:           timestamp('created_at').defaultNow().notNull(),
-  updatedAt:           timestamp('updated_at')
+export const hsdataSnapshotProjectionState = dataSchema.enum('hsdata_snapshot_projection_state', [
+  'not_projected',
+  'version_only',
+  'projected',
+]);
+
+export const PatchState = dataSchema.table('patch_states', {
+  buildNumber: integer('build_number')
+    .primaryKey()
+    .references(() => Patch.buildNumber),
+  commit: text('commit').notNull().default(''),
+  uri:    text('uri').notNull().default(''),
+
+  importStatus: text('import_status').notNull().default('pending'),
+  importError:  text('import_error'),
+
+  projectionStatus: hsdataProjectionStatus('projection_status').notNull().default('not_started'),
+  projectionError:  text('projection_error'),
+  importedAt:       timestamp('imported_at'),
+  projectedAt:      timestamp('projected_at'),
+
+  unpackStatus: text('unpack_status').notNull().default('pending'),
+  unpackError:  text('unpack_error'),
+  unpackedAt:   timestamp('unpacked_at'),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at')
     .defaultNow()
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
 }, table => [
-  index('source_versions_status_idx').on(table.status),
-  index('source_versions_projection_status_idx').on(table.projectionStatus),
-  index('source_versions_build_idx').on(table.build),
-  index('source_versions_source_hash_idx').on(table.sourceHash),
+  index('patch_states_import_status_idx').on(table.importStatus),
+  index('patch_states_projection_status_idx').on(table.projectionStatus),
 ]);
 
 export const RawEntitySnapshot = dataSchema.table('raw_entity_snapshots', {
@@ -64,7 +73,7 @@ export const RawEntitySnapshot = dataSchema.table('raw_entity_snapshots', {
   snapshotHash: text('snapshot_hash').notNull(),
   extraPayload: jsonb('extra_payload').$type<JsonMap>().notNull().default({}),
 
-  isLatest: boolean('is_latest').notNull().default(false),
+  projectionState: hsdataSnapshotProjectionState('projection_state').notNull().default('not_projected'),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at')
@@ -76,8 +85,8 @@ export const RawEntitySnapshot = dataSchema.table('raw_entity_snapshots', {
   index('raw_entity_snapshots_card_id_idx').on(table.cardId),
   index('raw_entity_snapshots_dbf_id_idx').on(table.dbfId),
   index('raw_entity_snapshots_snapshot_hash_idx').on(table.snapshotHash),
-  index('raw_entity_snapshots_latest_idx').on(table.isLatest),
   index('raw_entity_snapshots_source_tags_gin_idx').using('gin', table.sourceTags),
+  index('raw_entity_snapshots_projection_state_idx').on(table.projectionState).where(sql`${table.projectionState} != 'projected'`),
   check('raw_entity_snapshots_source_tags_nonempty_chk', sql`cardinality(${table.sourceTags}) > 0`),
 ]);
 
@@ -100,8 +109,7 @@ export const RawEntitySnapshotTag = dataSchema.table('raw_entity_snapshot_tags',
   stringValue:    text('string_value'),
   enumValue:      text('enum_value'),
   locStringValue: jsonb('loc_string_value').$type<LocalizedText>(),
-  cardRefCardId:  text('card_ref_card_id'),
-  cardRefDbfId:   integer('card_ref_dbf_id'),
+  cardValue:      text('card_value'),
   jsonValue:      jsonb('json_value').$type<JsonValue>(),
 
   parseStatus: text('parse_status').notNull().default('parsed'),
@@ -122,8 +130,8 @@ export const RawEntitySnapshotTag = dataSchema.table('raw_entity_snapshot_tags',
     .on(table.enumId, table.enumValue)
     .where(sql`${table.enumValue} is not null`),
   index('raw_entity_snapshot_tags_enum_card_idx')
-    .on(table.enumId, table.cardRefCardId)
-    .where(sql`${table.cardRefCardId} is not null`),
+    .on(table.enumId, table.cardValue)
+    .where(sql`${table.cardValue} is not null`),
 ]);
 
 export const TagValueView = dataSchema.view('tag_value_view').as(qb => {
@@ -142,11 +150,35 @@ export const TagValueView = dataSchema.view('tag_value_view').as(qb => {
       stringValue:    RawEntitySnapshotTag.stringValue,
       enumValue:      RawEntitySnapshotTag.enumValue,
       locStringValue: RawEntitySnapshotTag.locStringValue,
-      cardRefCardId:  RawEntitySnapshotTag.cardRefCardId,
-      cardRefDbfId:   RawEntitySnapshotTag.cardRefDbfId,
+      cardValue:      RawEntitySnapshotTag.cardValue,
       jsonValue:      RawEntitySnapshotTag.jsonValue,
     })
     .from(RawEntitySnapshotTag)
     .innerJoin(RawEntitySnapshot, eq(RawEntitySnapshotTag.snapshotId, RawEntitySnapshot.id))
     .innerJoin(Tag, eq(RawEntitySnapshotTag.enumId, Tag.enumId));
+});
+
+export const PatchView = dataSchema.view('patch_view').as(qb => {
+  return qb
+    .select({
+      buildNumber:      PatchState.buildNumber,
+      name:             Patch.name,
+      shortName:        Patch.shortName,
+      hash:             Patch.hash,
+      isLatest:         Patch.isLatest,
+      releaseDate:      Patch.releaseDate,
+      expansion:        Patch.expansion,
+      commit:           PatchState.commit,
+      uri:              PatchState.uri,
+      importStatus:     PatchState.importStatus,
+      importError:      PatchState.importError,
+      importedAt:       PatchState.importedAt,
+      projectionStatus: PatchState.projectionStatus,
+      projectionError:  PatchState.projectionError,
+      projectedAt:      PatchState.projectedAt,
+      createdAt:        PatchState.createdAt,
+      updatedAt:        PatchState.updatedAt,
+    })
+    .from(PatchState)
+    .innerJoin(Patch, eq(PatchState.buildNumber, Patch.buildNumber));
 });

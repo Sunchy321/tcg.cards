@@ -9,7 +9,7 @@ const hsdataRepoPathOverride = {
 /** Image-settings override payload injected by the desktop shell. */
 export interface HearthstoneImageOverride {
   rendererBaseUrl: string | null;
-  bucketDir: string | null;
+  bucketDir:       string | null;
 }
 
 const hearthstoneImageOverride = {
@@ -18,14 +18,14 @@ const hearthstoneImageOverride = {
 
 /** Publish-target override payload injected by the desktop shell. */
 export interface HearthstonePublishTargetOverride {
-  publishTargetId: string | null;
-  environment: string | null;
+  publishTarget:     string | null;
+  environment:       string | null;
   targetFingerprint: string | null;
-  connectionString: string | null;
+  connectionString:  string | null;
 }
 
-const hearthstonePublishTargetOverride = {
-  current: null as HearthstonePublishTargetOverride | null,
+const hearthstonePublishTargetOverrides = {
+  current: [] as HearthstonePublishTargetOverride[],
 };
 
 /** Publish-target override payload injected for the Yu-Gi-Oh! desktop workflow. */
@@ -88,7 +88,7 @@ export function setHearthstoneImageOverride(value: HearthstoneImageOverride | nu
 
   hearthstoneImageOverride.current = {
     rendererBaseUrl: value.rendererBaseUrl?.trim() ?? null,
-    bucketDir: value.bucketDir?.trim() ?? null,
+    bucketDir:       value.bucketDir?.trim() ?? null,
   };
 }
 
@@ -105,32 +105,108 @@ export function hasHearthstoneImageOverride() {
 
 /** Stores one runtime-local Hearthstone publish target override provided by the desktop shell. */
 export function setHearthstonePublishTargetOverride(value: HearthstonePublishTargetOverride | null) {
-  if (value == null) {
-    hearthstonePublishTargetOverride.current = null;
-    return;
-  }
+  setHearthstonePublishTargetOverrides(value == null ? [] : [value]);
+}
 
-  hearthstonePublishTargetOverride.current = {
-    publishTargetId: value.publishTargetId?.trim() ?? null,
-    environment: value.environment?.trim() ?? null,
-    targetFingerprint: value.targetFingerprint?.trim() ?? null,
-    connectionString: value.connectionString?.trim() ?? null,
+/** Stores runtime-local Hearthstone publish target overrides provided by the desktop shell. */
+export function setHearthstonePublishTargetOverrides(value: HearthstonePublishTargetOverride[]) {
+  hearthstonePublishTargetOverrides.current = value.map(item => ({
+    publishTarget:     item.publishTarget?.trim() ?? null,
+    environment:       item.environment?.trim() ?? null,
+    targetFingerprint: item.targetFingerprint?.trim() ?? null,
+    connectionString:  item.connectionString?.trim() ?? null,
+  }));
+}
+
+/** Resolves runtime-local Hearthstone publish target overrides from runtime memory. */
+export function readHearthstonePublishTargetOverrides() {
+  return hearthstonePublishTargetOverrides.current;
+}
+
+/** Resolves the primary Hearthstone publish target override from runtime memory. */
+export function readHearthstonePublishTargetOverride() {
+  return hearthstonePublishTargetOverrides.current[0] ?? null;
+}
+
+/** Reports whether the runtime currently has any complete Hearthstone publish target override. */
+export function hasHearthstonePublishTargetOverride() {
+  return readHearthstonePublishTargetOverrides().some(target => {
+    return target.publishTarget != null
+      && target.environment != null
+      && target.targetFingerprint != null
+      && target.connectionString != null;
+  });
+}
+
+export interface AiConfig {
+  apiKey:  string | null;
+  baseUrl: string | null;
+  model:   string | null;
+}
+
+const aiConfigOverride = {
+  current: null as AiConfig | null,
+};
+
+/** Stores one runtime-local AI config override provided by the desktop shell. */
+export function setAiConfig(value: AiConfig | null) {
+  aiConfigOverride.current = value;
+}
+
+/** Resolves the active AI config from runtime override. */
+export function readAiConfig(): AiConfig {
+  return aiConfigOverride.current ?? { apiKey: null, baseUrl: null, model: null };
+}
+
+/** Reports whether the runtime currently has usable AI config. */
+export function hasAiConfig() {
+  const config = readAiConfig();
+  return config.apiKey != null;
+}
+
+const editorIdentityOverride = {
+  current: null as string | null,
+};
+
+/** Stores one runtime-local editor identity override provided by the desktop shell. */
+export function setEditorIdentity(value: string | null) {
+  editorIdentityOverride.current = value?.trim() || null;
+}
+
+/** Resolves the active editor identity from runtime override. Returns 'unknown' if not configured. */
+export function readEditorIdentity() {
+  return editorIdentityOverride.current || 'unknown';
+}
+
+export interface RuntimeOverrides {
+  localDatabaseUrl:          string | null;
+  hsdataRepoPath:            string | null;
+  hearthstoneImage:          HearthstoneImageOverride | null;
+  hearthstonePublishTargets: HearthstonePublishTargetOverride[];
+  aiConfig:                  AiConfig | null;
+  editorIdentity:            string | null;
+}
+
+/** Collects all current runtime overrides into a serializable object for Worker transfer. */
+export function collectRuntimeOverrides(): RuntimeOverrides {
+  return {
+    localDatabaseUrl:          readLocalDatabaseUrl(),
+    hsdataRepoPath:            readHsdataRepoPath(),
+    hearthstoneImage:          readHearthstoneImageOverride(),
+    hearthstonePublishTargets: readHearthstonePublishTargetOverrides(),
+    aiConfig:                  readAiConfig(),
+    editorIdentity:            readEditorIdentity(),
   };
 }
 
-/** Resolves the active Hearthstone publish target override from runtime memory. */
-export function readHearthstonePublishTargetOverride() {
-  return hearthstonePublishTargetOverride.current;
-}
-
-/** Reports whether the runtime currently has a complete Hearthstone publish target override. */
-export function hasHearthstonePublishTargetOverride() {
-  const target = readHearthstonePublishTargetOverride();
-
-  return target?.publishTargetId != null
-    && target.environment != null
-    && target.targetFingerprint != null
-    && target.connectionString != null;
+/** Restores runtime overrides from a serialized object in the Worker context. */
+export function applyRuntimeOverrides(data: RuntimeOverrides): void {
+  setLocalDatabaseUrlOverride(data.localDatabaseUrl);
+  setHsdataRepoPathOverride(data.hsdataRepoPath);
+  setHearthstoneImageOverride(data.hearthstoneImage);
+  setHearthstonePublishTargetOverrides(data.hearthstonePublishTargets);
+  setAiConfig(data.aiConfig);
+  setEditorIdentity(data.editorIdentity);
 }
 
 /** Stores one runtime-local Yu-Gi-Oh! publish target injected by the desktop shell. */

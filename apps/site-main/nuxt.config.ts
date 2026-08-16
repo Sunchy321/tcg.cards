@@ -4,11 +4,17 @@ import { fileURLToPath } from 'url';
 export default defineNuxtConfig({
   extends: ['../../packages/ui'],
 
-  modules: ['@nuxt/eslint', '@nuxt/ui', '@nuxt/icon'],
+  modules: ['nitro-cloudflare-dev', '@nuxt/eslint', '@nuxt/ui', '@nuxt/icon'],
 
   devtools: { enabled: true },
 
   devServer: { port: 3000 },
+
+  runtimeConfig: {
+    public: {
+      assetBaseUrl: process.env.ASSET_BASE_URL ?? 'https://asset.tcg.cards',
+    },
+  },
 
   app: {
     head: {
@@ -21,20 +27,9 @@ export default defineNuxtConfig({
     },
   },
 
-  runtimeConfig: {
-    public: {
-      gameBaseUrls: {
-        hearthstone: process.env.HEARTHSTONE_BASE_URL ?? 'http://localhost:3008',
-        magic:       process.env.MAGIC_BASE_URL ?? 'https://magic.tcg.cards',
-        yugioh:      process.env.YUGIOH_BASE_URL ?? 'http://localhost:3009',
-        ptcg:        process.env.PTCG_BASE_URL ?? 'https://ptcg.tcg.cards',
-        lorcana:     process.env.LORCANA_BASE_URL ?? 'https://lorcana.tcg.cards',
-      },
-    },
-  },
 
   alias: {
-    '#shared': fileURLToPath(new URL('../../packages/shared/src', import.meta.url)),
+    '#base': fileURLToPath(new URL('../../packages/base/src', import.meta.url)),
     '#app-ui': fileURLToPath(new URL('../../packages/ui/app', import.meta.url)),
   },
 
