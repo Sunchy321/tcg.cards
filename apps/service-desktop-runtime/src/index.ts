@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { router } from './orpc/service';
 import {
   resolveHearthstonePublishTarget,
+  resolveYugiohPublishTarget,
   testDesktopDatabaseConnection,
 } from './lib/runtime/desktop-database';
 import { requireHearthstoneImageBucketDir } from './lib/hearthstone/image-config';
@@ -42,6 +43,12 @@ const testLocalDatabaseInput = z.strictObject({
 const testHearthstonePublishTargetInput = z.strictObject({
   publishTarget:    z.string().trim().min(1),
   environment:      z.string().trim().min(1),
+  connectionString: z.string().trim().min(1),
+});
+
+const testYugiohPublishTargetInput = z.strictObject({
+  publishTargetId: z.string().trim().min(1),
+  environment: z.literal('test'),
   connectionString: z.string().trim().min(1),
 });
 
@@ -170,6 +177,24 @@ hono.post('/desktop/test-hearthstone-publish-target', async c => {
 
   try {
     return c.json(await resolveHearthstonePublishTarget(parsed.data));
+  } catch (error) {
+    return c.json({
+      message: getErrorMessage(error),
+    }, 500);
+  }
+});
+
+hono.post('/desktop/test-yugioh-publish-target', async c => {
+  const parsed = testYugiohPublishTargetInput.safeParse(await c.req.json());
+
+  if (!parsed.success) {
+    return c.json({
+      message: 'Yu-Gi-Oh! publish target id, test environment, and connection string are required.',
+    }, 400);
+  }
+
+  try {
+    return c.json(await resolveYugiohPublishTarget(parsed.data));
   } catch (error) {
     return c.json({
       message: getErrorMessage(error),

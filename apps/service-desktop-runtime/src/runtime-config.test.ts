@@ -10,6 +10,9 @@ import {
   setHearthstoneImageOverride,
   setHsdataRepoPathOverride,
   setLocalDatabaseUrlOverride,
+  hasYugiohImageOverride,
+  readYugiohImageOverride,
+  setYugiohImageOverride,
 } from './runtime-config';
 
 const originalLocalDatabaseUrl = process.env.DESKTOP_LOCAL_DATABASE_URL;
@@ -18,6 +21,7 @@ afterEach(() => {
   setLocalDatabaseUrlOverride(null);
   setHsdataRepoPathOverride(null);
   setHearthstoneImageOverride(null);
+  setYugiohImageOverride(null);
 
   if (originalLocalDatabaseUrl == null) {
     delete process.env.DESKTOP_LOCAL_DATABASE_URL;
@@ -64,6 +68,17 @@ describe('runtime-config', () => {
       bucketDir:       '/tmp/hearthstone-assets',
     });
     expect(hasHearthstoneImageOverride()).toBe(true);
+    expect(readLocalDatabaseUrl()).toBeNull();
+  });
+
+  test('tracks the Yu-Gi-Oh! image bucket independently from other runtime config', () => {
+    expect(readYugiohImageOverride()).toBeNull();
+    expect(hasYugiohImageOverride()).toBe(false);
+
+    setYugiohImageOverride({ bucketDir: '  /tmp/yugioh-assets  ' });
+
+    expect(readYugiohImageOverride()).toEqual({ bucketDir: '/tmp/yugioh-assets' });
+    expect(hasYugiohImageOverride()).toBe(true);
     expect(readLocalDatabaseUrl()).toBeNull();
   });
 });

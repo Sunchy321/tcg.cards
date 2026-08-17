@@ -56,6 +56,40 @@ export interface DesktopPublishTargetValidationResult {
   currentTargetFingerprint: string | null;
 }
 
+/** Yu-Gi-Oh! publish target settings returned by the desktop runtime. */
+export interface DesktopYugiohPublishTargetSettings {
+  publishTargetId:   string | null;
+  environment:       string | null;
+  targetFingerprint: string | null;
+  connectionString:  string | null;
+}
+
+/** Yu-Gi-Oh! image settings returned by the desktop runtime. */
+export interface DesktopYugiohImageSettings {
+  bucketDir: string | null;
+}
+
+/** Yu-Gi-Oh! publish target test result returned by the desktop runtime. */
+export interface DesktopYugiohPublishTargetTestResult {
+  publishTargetId:   string;
+  environment:       string;
+  targetFingerprint: string;
+  databaseName:      string;
+  userName:          string;
+  serverHost:        string;
+  serverPort:        number;
+  latencyMs:         number;
+}
+
+/** Yu-Gi-Oh! publish target binding validation result returned by the desktop runtime. */
+export interface DesktopYugiohPublishTargetValidationResult {
+  isValid:                  boolean;
+  reasons:                  string[];
+  currentPublishTargetId:   string | null;
+  currentEnvironment:       string | null;
+  currentTargetFingerprint: string | null;
+}
+
 /** Desktop config file location metadata returned by the desktop runtime. */
 export interface DesktopConfigFileInfo {
   configFilePath:      string;
@@ -188,6 +222,63 @@ export function validateDesktopPublishTargetBinding(
     'desktop_validate_publish_target_binding',
     {
       publishTarget,
+      environment,
+      targetFingerprint,
+    },
+  );
+}
+
+/** Yu-Gi-Oh! publish target settings loaded from secure desktop storage. */
+export function getDesktopYugiohPublishTarget() {
+  return invoke<DesktopYugiohPublishTargetSettings>('desktop_get_yugioh_publish_target');
+}
+
+/** Yu-Gi-Oh! local image bucket loaded from desktop config. */
+export function getDesktopYugiohImageSettings() {
+  return invoke<DesktopYugiohImageSettings>('desktop_get_yugioh_image_settings');
+}
+
+/** Yu-Gi-Oh! local image bucket persisted into desktop config. */
+export function setDesktopYugiohImageSettings(bucketDir: string | null) {
+  return invoke<DesktopYugiohImageSettings>('desktop_set_yugioh_image_settings', { bucketDir });
+}
+
+/** Yu-Gi-Oh! test publish target persisted after live identity verification. */
+export function setDesktopYugiohPublishTarget(
+  publishTargetId: string | null,
+  environment: string | null,
+  connectionString: string | null,
+) {
+  return invoke<DesktopYugiohPublishTargetSettings>('desktop_set_yugioh_publish_target', {
+    publishTargetId,
+    environment,
+    connectionString,
+  });
+}
+
+/** Yu-Gi-Oh! test publish target connection checked without mutating settings. */
+export function testDesktopYugiohPublishTarget(
+  publishTargetId: string | null,
+  environment: string | null,
+  connectionString: string | null,
+) {
+  return invoke<DesktopYugiohPublishTargetTestResult>('desktop_test_yugioh_publish_target', {
+    publishTargetId,
+    environment,
+    connectionString,
+  });
+}
+
+/** Expected Yu-Gi-Oh! target binding checked against stored and live identities. */
+export function validateDesktopYugiohPublishTargetBinding(
+  publishTargetId: string,
+  environment: string,
+  targetFingerprint: string,
+) {
+  return invoke<DesktopYugiohPublishTargetValidationResult>(
+    'desktop_validate_yugioh_publish_target_binding',
+    {
+      publishTargetId,
       environment,
       targetFingerprint,
     },

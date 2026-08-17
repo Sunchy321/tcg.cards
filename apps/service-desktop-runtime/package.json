@@ -5,7 +5,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./orpc": "./src/orpc/service.ts",
-    "./lib/hearthstone/*": "./src/lib/hearthstone/*.ts"
+    "./lib/hearthstone/*": "./src/lib/hearthstone/*.ts",
+    "./lib/yugioh/*": "./src/lib/yugioh/*.ts"
   },
   "scripts": {
     "build": "echo No build needed",

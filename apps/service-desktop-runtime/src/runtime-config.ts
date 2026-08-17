@@ -28,6 +28,27 @@ const hearthstonePublishTargetOverrides = {
   current: [] as HearthstonePublishTargetOverride[],
 };
 
+/** Publish-target override payload injected for the Yu-Gi-Oh! desktop workflow. */
+export interface YugiohPublishTargetOverride {
+  publishTargetId: string | null;
+  environment: string | null;
+  targetFingerprint: string | null;
+  connectionString: string | null;
+}
+
+const yugiohPublishTargetOverride = {
+  current: null as YugiohPublishTargetOverride | null,
+};
+
+/** Local bucket override injected for the Yu-Gi-Oh! primary-image workflow. */
+export interface YugiohImageOverride {
+  bucketDir: string | null;
+}
+
+const yugiohImageOverride = {
+  current: null as YugiohImageOverride | null,
+};
+
 /** Stores one runtime-local database URL override provided by the desktop shell. */
 export function setLocalDatabaseUrlOverride(value: string | null) {
   localDatabaseUrlOverride.current = value?.trim() || null;
@@ -186,4 +207,51 @@ export function applyRuntimeOverrides(data: RuntimeOverrides): void {
   setHearthstonePublishTargetOverrides(data.hearthstonePublishTargets);
   setAiConfig(data.aiConfig);
   setEditorIdentity(data.editorIdentity);
+}
+
+/** Stores one runtime-local Yu-Gi-Oh! publish target injected by the desktop shell. */
+export function setYugiohPublishTargetOverride(value: YugiohPublishTargetOverride | null) {
+  if (value == null) {
+    yugiohPublishTargetOverride.current = null;
+    return;
+  }
+
+  yugiohPublishTargetOverride.current = {
+    publishTargetId: value.publishTargetId?.trim() ?? null,
+    environment: value.environment?.trim() ?? null,
+    targetFingerprint: value.targetFingerprint?.trim() ?? null,
+    connectionString: value.connectionString?.trim() ?? null,
+  };
+}
+
+/** Resolves the current runtime-local Yu-Gi-Oh! publish target override. */
+export function readYugiohPublishTargetOverride() {
+  return yugiohPublishTargetOverride.current;
+}
+
+/** Reports whether all Yu-Gi-Oh! publish target fields are currently configured. */
+export function hasYugiohPublishTargetOverride() {
+  const target = readYugiohPublishTargetOverride();
+
+  return target?.publishTargetId != null
+    && target.environment != null
+    && target.targetFingerprint != null
+    && target.connectionString != null;
+}
+
+/** Stores one runtime-local Yu-Gi-Oh! image bucket injected by desktop. */
+export function setYugiohImageOverride(value: YugiohImageOverride | null) {
+  yugiohImageOverride.current = value == null
+    ? null
+    : { bucketDir: value.bucketDir?.trim() ?? null };
+}
+
+/** Resolves the current runtime-local Yu-Gi-Oh! image bucket override. */
+export function readYugiohImageOverride() {
+  return yugiohImageOverride.current;
+}
+
+/** Reports whether a non-empty Yu-Gi-Oh! local image bucket is configured. */
+export function hasYugiohImageOverride() {
+  return readYugiohImageOverride()?.bucketDir != null;
 }

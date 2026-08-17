@@ -1,0 +1,27 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+@theme static {
+  --color-yugioh-50: #fff7ed;
+  --color-yugioh-100: #ffedd5;
+  --color-yugioh-200: #fed7aa;
+  --color-yugioh-300: #fdba74;
+  --color-yugioh-400: #fb923c;
+  --color-yugioh-500: #f97316;
+  --color-yugioh-600: #ea580c;
+  --color-yugioh-700: #c2410c;
+  --color-yugioh-800: #9a3412;
+  --color-yugioh-900: #7c2d12;
+  --color-yugioh-950: #431407;
+}
+
+html {
+  background: #0f1115;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    linear-gradient(135deg, #14100d 0%, #17191f 46%, #101318 100%);
+  color: white;
+}
