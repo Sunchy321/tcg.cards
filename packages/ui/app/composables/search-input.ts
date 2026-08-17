@@ -4,7 +4,7 @@ export const useSearchInput = () => {
 
   watch(
     () => route.query.q as string | undefined,
-    q => {
+    (q: string | undefined) => {
       if (q) {
         searchInput.value = q;
       }

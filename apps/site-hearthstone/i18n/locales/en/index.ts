@@ -164,8 +164,9 @@ export default {
     $full: 'Hearthstone',
 
     home: {
-      randomCard:     'Random Card',
-      randomCardHint: 'Open one random card detail page',
+      randomCard:       'Random Card',
+      randomCardHint:   'Open one random card detail page',
+      announcementHint: 'Review card updates and release notes',
     },
 
     search: {

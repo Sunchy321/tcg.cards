@@ -4,7 +4,7 @@
       <slot name="input">
         <UInput
           v-model="searchInput"
-          class="w-[90%] md:w-[75%] text-black bg-white rounded-md shadow-[0_20px_60px_rgba(0,0,0,0.3)] overflow-hidden"
+          class="entry-search w-[90%] md:w-[75%] text-black bg-white rounded-md shadow-[0_20px_60px_rgba(0,0,0,0.3)] overflow-hidden"
           size="xl"
           @keydown.enter="doSearch"
         >
@@ -33,6 +33,7 @@ import MainLayout from './main.vue';
 const router = useRouter();
 const searchInput = useSearchInput();
 
+// Runs a search when the shared entry input contains a query.
 const doSearch = () => {
   const q = searchInput.value.trim();
   if (!q) return;

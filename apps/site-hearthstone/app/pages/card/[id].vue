@@ -4,7 +4,7 @@
       <!-- Left column: Card image -->
       <div class="lg:col-span-3">
         <div class="sticky top-24">
-          <UCard>
+          <UCard class="hs-surface-card overflow-hidden">
             <CardImageWithAttachment
               :card-id="data.cardId"
               :version="minVersion"
@@ -26,8 +26,11 @@
               />
             </div>
 
-            <div v-if="data.artist" class="mt-2 text-center text-sm text-gray-500 dark:text-gray-400">
-              {{ data.artist }}
+            <div v-if="data.artist" class="mt-3 flex justify-center">
+              <span class="hs-chip hs-artist-link">
+                <UIcon name="lucide:paintbrush" />
+                {{ data.artist }}
+              </span>
             </div>
 
           </UCard>
@@ -36,7 +39,7 @@
 
       <!-- Middle column: Card details -->
       <div class="lg:col-span-6">
-        <UCard>
+        <UCard class="hs-surface-card overflow-hidden">
           <!-- Name + Cost -->
           <div class="flex items-center justify-between gap-2 mb-2">
             <h1 class="text-3xl font-bold">{{ data.localization.name }}</h1>
@@ -44,7 +47,7 @@
           </div>
 
           <!-- Type + Race + Stats -->
-          <div class="flex items-center gap-2 py-2 my-4 bg-gray-50 dark:bg-gray-800 px-3 rounded">
+          <div class="hs-surface-muted flex items-center gap-2 py-2 my-4 px-3 rounded-lg border">
             <span class="font-medium flex-1">
               {{ cardTypeLabel(data.type) }}
               <template v-if="data.race && data.race.length > 0">
@@ -57,16 +60,17 @@
                 / {{ spellSchoolLabel(data.spellSchool) }}
               </template>
             </span>
-            <span v-if="stats" class="font-medium shrink-0">{{ stats }}</span>
+            <ArmorValue v-if="data.armor != null" :value="data.armor" :size="32" />
+            <span v-else-if="stats" class="font-medium shrink-0">{{ stats }}</span>
           </div>
 
           <!-- Card text -->
-          <div v-if="data.localization.displayText" class="border-l-2 border-primary bg-gray-50 dark:bg-gray-800 rounded-r-lg p-4 mb-6 leading-relaxed">
+          <div v-if="data.localization.displayText" class="hs-surface-panel border-l-2 border-primary rounded-r-lg p-4 mb-6 leading-relaxed">
             <RichText :key="`${data.cardId}:${gameLocale}:${data.localization.displayText}`" :flatten-line-breaks="true">{{ data.localization.displayText }}</RichText>
           </div>
 
           <!-- Flavor text -->
-          <div v-if="data.localization.flavorText" class="border-l-2 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 italic text-gray-500 dark:text-gray-400 rounded-r-lg p-4 mb-6">
+          <div v-if="data.localization.flavorText" class="hs-surface-panel hs-subtle-text border-l-2 border-primary italic rounded-r-lg p-4 mb-6">
             {{ data.localization.flavorText }}
           </div>
 
@@ -95,10 +99,18 @@
           </div>
 
           <!-- Set -->
-          <div v-if="setText" class="flex flex-wrap gap-2 mb-6">
-            <UBadge color="primary" variant="subtle" size="lg">
-              {{ setText }}
-            </UBadge>
+          <div v-if="setText" class="mb-6">
+            <div class="hs-set-display">
+              <span v-if="setIconUrl != null" class="hs-set-icon-tile">
+                <img
+                  :src="setIconUrl"
+                  alt=""
+                  class="hs-set-icon-image"
+                  :class="setIconTone === 'mono' ? 'hs-set-icon-image--mono' : 'hs-set-icon-image--color'"
+                >
+              </span>
+              <span class="hs-set-name">{{ setText }}</span>
+            </div>
           </div>
 
           <!-- Related cards -->
@@ -149,14 +161,14 @@
             <div
               v-for="[fmt, status] in legalityEntries"
               :key="fmt"
-              class="flex items-center justify-between gap-2"
+              class="hs-legality-row"
+              :class="status === 'legal' ? 'hs-legality-row--available' : 'hs-legality-row--unavailable'"
             >
-              <span class="text-gray-500 dark:text-gray-400 truncate min-w-0">
+              <span class="truncate min-w-0">
                 {{ $te(`hearthstone.format.${fmt}`) ? $t(`hearthstone.format.${fmt}`) : fmt }}
               </span>
               <span
                 class="font-medium shrink-0 text-xs"
-                :class="legalityColor(status)"
               >{{ $t(`hearthstone.legality.${status}`) }}</span>
             </div>
           </div>
@@ -212,7 +224,7 @@
       <!-- Right column: Versions -->
       <div class="lg:col-span-3">
         <div class="sticky top-24">
-          <UCard>
+          <UCard class="hs-surface-card overflow-hidden">
             <h2 class="text-xl font-semibold mb-4">{{ $t('hearthstone.card.versions') }}</h2>
 
             <div v-if="versionInfos.length > 0" class="divide-y">
@@ -240,7 +252,7 @@
             </div>
           </UCard>
 
-          <UCard v-if="changeItems.length > 0" class="mt-4">
+          <UCard v-if="changeItems.length > 0" class="hs-surface-card mt-4 overflow-hidden">
             <h2 class="text-xl font-semibold mb-4">{{ $t('hearthstone.card.changeHistory') }}</h2>
             <div class="space-y-2">
               <AnnouncementItemCell
@@ -254,7 +266,7 @@
             </div>
           </UCard>
 
-          <UCard v-if="splitVersionGroups.length > 0" class="mt-4">
+          <UCard v-if="splitVersionGroups.length > 0" class="hs-surface-card mt-4 overflow-hidden">
             <h2 class="text-xl font-semibold mb-4">Diff</h2>
             <div class="flex gap-2 mb-3">
               <USelect
@@ -362,6 +374,7 @@ import { isCardImageVariantAllowed, type CardImageVariantRow, type ImageVariantM
 
 import { CodeDiff } from 'v-code-diff';
 import { getHearthstoneLabel } from '~/utils/hearthstone-labels';
+import { hearthstoneSetIconTone, hearthstoneSetIconUrl } from '~/utils/hearthstone-set-icons';
 
 const { $orpc } = useNuxtApp();
 const route = useRoute('card-id');
@@ -632,12 +645,6 @@ const legalityEntries = computed(() =>
   Object.entries(data.value?.legalities ?? {}),
 );
 
-const legalityColor = (status: string) => ({
-  legal:      'text-green-500',
-  banned:     'text-red-500',
-  restricted: 'text-yellow-500',
-}[status] ?? 'text-gray-500');
-
 // Set
 
 const setText = computed(() => {
@@ -647,6 +654,18 @@ const setText = computed(() => {
   const setLocale = lang.value === 'zhs' || lang.value === 'zht' ? lang.value : 'en';
   const key = `hearthstone.set.${set}`;
   return nativeSetNames[setLocale][set] ?? (te(key) ? t(key) : set);
+});
+
+/** Resolves the current set artwork from the local Hearthstone asset map. */
+const setIconUrl = computed(() => {
+  const set = data.value?.set;
+  return set == null ? null : hearthstoneSetIconUrl(set);
+});
+
+/** Selects the rendering treatment required by the current set artwork. */
+const setIconTone = computed(() => {
+  const set = data.value?.set;
+  return set == null ? 'mono' : hearthstoneSetIconTone(set);
 });
 
 const nativeSetNames: Record<'en' | 'zhs' | 'zht', Record<string, string>> = {

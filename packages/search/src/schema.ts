@@ -39,10 +39,10 @@ export type SearchNormalResult<Z extends z.ZodType> = z.infer<SearchNormalResult
 export function createSearchNormalResult<Z extends z.ZodType>(schema: Z): SearchNormalResultSchema<Z> {
   return z.strictObject({
     result:    z.array(schema),
-    total:     z.int().min(0),
-    totalPage: z.int().min(0),
-    page:      z.int().min(0),
-    elapsed:   z.int().min(0),
+    total:     z.number().int().min(0),
+    totalPage: z.number().int().min(0),
+    page:      z.number().int().min(0),
+    elapsed:   z.number().int().min(0),
   });
 }
 

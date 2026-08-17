@@ -198,7 +198,7 @@
                       :class="{ active: state.classes.includes(item.value) }"
                       @click="toggleMulti(state.classes, item.value)"
                     >
-                      <span class="chip-icon" :style="getClassColorStyle(item.value)"/>
+                      <UIcon :name="classIconName(item.value)" class="chip-icon" />
                       <span class="whitespace-nowrap">{{ item.label }}</span>
                     </button>
                   </div>
@@ -530,7 +530,7 @@
           class="block"
           target="_blank"
         >
-          <UCard class="hover:ring-2 hover:ring-primary/30 transition overflow-visible!">
+          <UCard class="hs-surface-card hover:ring-2 hover:ring-primary/30 transition overflow-visible!">
             <div class="flex flex-col gap-4 sm:flex-row">
               <div class="w-30 shrink-0 self-center sm:self-start">
                 <CardImage
@@ -616,7 +616,7 @@
           </UButton>
         </div>
 
-        <UCard>
+        <UCard class="hs-surface-card overflow-hidden">
           <div class="overflow-x-auto">
             <table class="w-full">
               <thead>
@@ -1229,25 +1229,8 @@ const validateNumericInput = (event: Event) => {
   }
 };
 
-const classColors: Record<string, string> = {
-  death_knight: '#C41E3A',
-  demon_hunter: '#A33000',
-  druid:        '#FF7D0A',
-  hunter:       '#ABD473',
-  mage:         '#69CCF0',
-  paladin:      '#F58CBA',
-  priest:       '#FFFFFF',
-  rogue:        '#FFF569',
-  shaman:       '#0070DE',
-  warlock:      '#9482C9',
-  warrior:      '#C79C6E',
-  neutral:      '#9E9E9E',
-};
-
-const getClassColorStyle = (className: string) => {
-  const color = classColors[className] ?? '#9E9E9E';
-  return { backgroundColor: color };
-};
+/** Returns the bundled Hearthstone class icon name for a search filter. */
+const classIconName = (value: string) => `i:hearthstone-class-${value.replaceAll('_', '-')}`;
 </script>
 
 <style lang="scss" scoped>
@@ -1290,6 +1273,7 @@ const getClassColorStyle = (className: string) => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   min-height: 34px;
   padding: 0 12px;
   border-radius: 8px;
@@ -1316,11 +1300,10 @@ const getClassColorStyle = (className: string) => {
 }
 
 .chip-icon {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
-  box-shadow: 0 0 6px rgba(0, 0, 0, 0.6), inset 0 1px 2px rgba(255, 220, 180, 0.2);
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.55));
 }
 
 // Cost button mana crystal (requires ::before pseudo-element)

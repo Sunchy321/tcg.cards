@@ -163,8 +163,9 @@ export default {
     $full: '炉石传说',
 
     home: {
-      randomCard:     '随机卡牌',
-      randomCardHint: '点击随机打开一张卡牌详情',
+      randomCard:       '随机卡牌',
+      randomCardHint:   '点击随机打开一张卡牌详情',
+      announcementHint: '查看卡牌更新与版本公告',
     },
 
     search: {
