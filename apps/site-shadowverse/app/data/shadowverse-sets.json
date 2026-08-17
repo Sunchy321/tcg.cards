@@ -1,0 +1,284 @@
+[
+  {
+    "id": "BP01",
+    "code": "BP01",
+    "name": "ローズクイーン",
+    "cardCount": 273
+  },
+  {
+    "id": "BP02",
+    "code": "BP02",
+    "name": "クリスタリアプリンセス・ティア",
+    "cardCount": 207
+  },
+  {
+    "id": "BP03",
+    "code": "BP03",
+    "name": "ビューティ＆ビースト",
+    "cardCount": 199
+  },
+  {
+    "id": "BP04",
+    "code": "BP04",
+    "name": "カシオペア",
+    "cardCount": 212
+  },
+  {
+    "id": "BP05",
+    "code": "BP05",
+    "name": "不殺の絶傑・エズディア",
+    "cardCount": 213
+  },
+  {
+    "id": "BP06",
+    "code": "BP06",
+    "name": "フォレストエース・リマーガ",
+    "cardCount": 198
+  },
+  {
+    "id": "BP07",
+    "code": "BP07",
+    "name": "回帰する抱擁・ラティカ",
+    "cardCount": 188
+  },
+  {
+    "id": "BP08",
+    "code": "BP08",
+    "name": "森の巫女・パメラ",
+    "cardCount": 187
+  },
+  {
+    "id": "BP09",
+    "code": "BP09",
+    "name": "ユグドラシル",
+    "cardCount": 195
+  },
+  {
+    "id": "BP10",
+    "code": "BP10",
+    "name": "《吊るされた男》・ローフラッド",
+    "cardCount": 206
+  },
+  {
+    "id": "BP11",
+    "code": "BP11",
+    "name": "開拓のロデオガイ・ロキサス",
+    "cardCount": 189
+  },
+  {
+    "id": "BP12",
+    "code": "BP12",
+    "name": "アウェイキングガイア",
+    "cardCount": 189
+  },
+  {
+    "id": "BP13",
+    "code": "BP13",
+    "name": "宿命の狐火・セッカ",
+    "cardCount": 195
+  },
+  {
+    "id": "BP14",
+    "code": "BP14",
+    "name": "化かし女将・ホズミ",
+    "cardCount": 193
+  },
+  {
+    "id": "BP15",
+    "code": "BP15",
+    "name": "絶命の不殺・エズディア",
+    "cardCount": 233
+  },
+  {
+    "id": "BP16",
+    "code": "BP16",
+    "name": "自然の妖精姫・アリア",
+    "cardCount": 215
+  },
+  {
+    "id": "BP17",
+    "code": "BP17",
+    "name": "深緑の弓使い・アリサ",
+    "cardCount": 211
+  },
+  {
+    "id": "BP18",
+    "code": "BP18",
+    "name": "浄樹の六銘伝・ロロ・ロニエ",
+    "cardCount": 237
+  },
+  {
+    "id": "BP19",
+    "code": "BP19",
+    "name": "剪定の咎人・マガチヨ",
+    "cardCount": 198
+  },
+  {
+    "id": "BP20",
+    "code": "BP20",
+    "name": "絶命の顕現・エズディア",
+    "cardCount": 271
+  },
+  {
+    "id": "CP01",
+    "code": "CP01",
+    "name": "サイレンススズカ",
+    "cardCount": 245
+  },
+  {
+    "id": "CP02",
+    "code": "CP02",
+    "name": "高森藍子",
+    "cardCount": 275
+  },
+  {
+    "id": "CP03",
+    "code": "CP03",
+    "name": "蒼嵐竜 メイルストローム",
+    "cardCount": 260
+  },
+  {
+    "id": "CP04",
+    "code": "CP04",
+    "name": "コッコロ",
+    "cardCount": 319
+  },
+  {
+    "id": "CSD01",
+    "code": "CSD01",
+    "name": "サイレンススズカ",
+    "cardCount": 34
+  },
+  {
+    "id": "CSD02a",
+    "code": "CSD02a",
+    "name": "〔P.C.S〕島村卯月",
+    "cardCount": 32
+  },
+  {
+    "id": "CSD02b",
+    "code": "CSD02b",
+    "name": "〔Triad Primus〕渋谷凛",
+    "cardCount": 32
+  },
+  {
+    "id": "CSD02c",
+    "code": "CSD02c",
+    "name": "〔ポジティブパッション〕本田未央",
+    "cardCount": 32
+  },
+  {
+    "id": "CSD03a",
+    "code": "CSD03a",
+    "name": "〔立ち上がれ僕の分身!!〕先導アイチ",
+    "cardCount": 30
+  },
+  {
+    "id": "CSD03b",
+    "code": "CSD03b",
+    "name": "〔焼きつくせ!!黙示録の炎!!〕櫂トシキ",
+    "cardCount": 30
+  },
+  {
+    "id": "DSD01a",
+    "code": "DSD01a",
+    "name": "マナリアの魔導姫・アン",
+    "cardCount": 31
+  },
+  {
+    "id": "DSD01b",
+    "code": "DSD01b",
+    "name": "気高き雷・ロマロニア",
+    "cardCount": 31
+  },
+  {
+    "id": "ECP01",
+    "code": "ECP01",
+    "name": "ホッコータルマエ",
+    "cardCount": 172
+  },
+  {
+    "id": "ECP02",
+    "code": "ECP02",
+    "name": "〔光を捕まえて〕アナスタシア",
+    "cardCount": 204
+  },
+  {
+    "id": "ETD01",
+    "code": "ETD01",
+    "name": "ナックルドラゴン・ドラグニル",
+    "cardCount": 21
+  },
+  {
+    "id": "ETD02",
+    "code": "ETD02",
+    "name": "プチゴースト・バケルス",
+    "cardCount": 22
+  },
+  {
+    "id": "ETD03",
+    "code": "ETD03",
+    "name": "ブロッサムウルフ・スレイド",
+    "cardCount": 22
+  },
+  {
+    "id": "PCS01",
+    "code": "PCS01",
+    "name": "コッコロ",
+    "cardCount": 51
+  },
+  {
+    "id": "SD01",
+    "code": "SD01",
+    "name": "フェアリープリンセス・アリア",
+    "cardCount": 22
+  },
+  {
+    "id": "SD02",
+    "code": "SD02",
+    "name": "ツバキ",
+    "cardCount": 23
+  },
+  {
+    "id": "SD03",
+    "code": "SD03",
+    "name": "ミスリルゴーレム",
+    "cardCount": 23
+  },
+  {
+    "id": "SD04",
+    "code": "SD04",
+    "name": "ファフニール",
+    "cardCount": 22
+  },
+  {
+    "id": "SD05",
+    "code": "SD05",
+    "name": "クイーンヴァンパイア",
+    "cardCount": 23
+  },
+  {
+    "id": "SD06",
+    "code": "SD06",
+    "name": "スカルフェイン",
+    "cardCount": 23
+  },
+  {
+    "id": "SD07",
+    "code": "SD07",
+    "name": "レヴィオンの迅雷・アルベール",
+    "cardCount": 24
+  },
+  {
+    "id": "SD08",
+    "code": "SD08",
+    "name": "覇道の竜翼・フォルテ",
+    "cardCount": 22
+  },
+  {
+    "id": "SP01",
+    "code": "SP01",
+    "name": "揺蕩う意志・スピネ",
+    "cardCount": 172
+  }
+]
