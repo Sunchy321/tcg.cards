@@ -9,7 +9,7 @@
 
 TCG Cards is a Bun + Turborepo monorepo for building a shared data platform for multiple trading card games.
 
-The long-term goal is to provide a reusable foundation for TCG card databases, including web search, app-facing queries, public API access, full database exports, and a simple path for extending the same capabilities to more TCGs.
+The long-term goal is to provide a reusable foundation for TCG card databases, including web search, app-facing queries, public API access, and full database exports. A core role of the platform is to act as an **upstream data provider**: it integrates multiple raw sources (game unpack data, crawlers, official APIs), normalizes and standardizes them into one consistent dataset, and exposes that dataset so external card-lookup sites and apps can consume it directly — downloading full or incremental exports instead of integrating each raw source themselves. The same capabilities are designed to extend to more TCGs over time.
 
 The repository currently contains Nuxt applications for Magic: The Gathering, Hearthstone, a main landing site, an internal console, Cloudflare Worker automation, and shared packages for database schemas, domain models, search, UI, and configuration.
 
