@@ -1,224 +1,109 @@
-# 统一 API 服务设计文档
+# 统一 API 服务与 API 文档站设计文档
 
-> 稳定的运行时边界、能力分层、命名规则和数据归属规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只描述统一 API 服务的需求级设计；若有冲突，以主架构文档为准。
-
----
+> 稳定的运行时边界、能力分层、命名规则和数据归属规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只描述统一 API 服务与文档站的需求级设计；若有冲突，以主架构文档为准。
 
 ## 1. 概述
 
-新建一个独立部署的 API 服务（`apps/service-api`），聚合 magic 与 hearthstone 两个游戏的只读数据接口，对外通过 OpenAPI（REST）协议提供服务，内部使用 ORPC 作为实现层。支持 API Key 鉴权，权限按游戏维度划分，部署目标为 Cloudflare Workers。
+新建两个独立部署的应用：
 
-### 1.1 设计目标
+- `apps/service-api` —— 统一 API 服务，部署到 `api.tcg.cards`，纯机器后端。
+- `apps/site-docs` —— API 文档站，部署到 `docs.tcg.cards`，与 API 同步版本化。
 
-- 提供一个独立于前端站点的统一数据 API 入口
-- 对外暴露 OpenAPI 兼容的 REST 接口，便于第三方对接和文档生成
-- 支持 API Key 鉴权与按游戏维度授权
-- 支持请求限流
-- 部署为独立 Cloudflare Worker，与现有站点零耦合
+### 1.1 定位
 
-### 1.2 非目标
+API 服务是面向外部第三方开发者的公共只读数据 API，第一方站点为次要消费者。平台作为"上游数据提供者"，外部卡牌查询站与 App 直接消费统一数据集。API 仅返回 JSON；图片为纯 R2 静态资产（`asset.tcg.cards`），不在 API 职责内。
 
-- v1 不做资源级细粒度权限（如 `cards.read` / `decks.read`）
-- v1 不提供写入类接口，仅暴露只读数据
-- v1 不自动生成第三方 SDK
-- v1 不做现有游戏站点的前端页面改造
+### 1.2 设计目标
 
----
+- 提供独立于前端站点的统一数据 API 入口
+- 对外暴露 OpenAPI 兼容的只读 REST 接口
+- 强制 API Key 鉴权，按游戏维度授权，支持按 key 限流
+- 快速扩展到任意新游戏，避免重复代码
+- 文档站支持高度定制与详细模型/枚举说明，与 API 版本化同步
+- 文档站内置登录门控的 API 测试功能与 API Key 自助管理
 
-## 2. 技术选型
+### 1.3 非目标（v1）
 
-### 2.1 服务框架
+- 不提供写入接口，纯只读
+- 不提供批量数据导出（另行设计，不在 API 职责内）
+- 不提供图片服务（图片为纯 R2 静态资产，暂无图片服务设计计划）
+- 不做资源级细粒度权限（如 `cards.read`）
+- 不自动生成第三方 SDK
+- 不做现有游戏站点前端页面改造
 
-沿用现有技术栈：Nuxt + Nitro + Cloudflare Workers。选择 Nuxt 而非纯 Nitro 是为了与 monorepo 内其他应用保持一致的构建、部署和别名配置方式。
+## 2. 总体架构：单一真源（基于 oRPC）
 
-### 2.2 接口实现层
+沿用仓库既有的 oRPC handler 层（`@orpc/server` + `@orpc/openapi`）：每个端点是一个带 `.route({ method, description, tags })` 元数据、`.input(zod)` / `.output(zod)` 契约的 procedure。一份"游戏模块"（per-game oRPC router）放在共享包，`service-api` 与 `site-docs` 共用同一份定义：
 
-使用 `@orpc/server` 作为内部实现层。现有 handler 已包含 `.route({ method, description, tags })` 元数据，天然兼容 OpenAPI 输出。
+- `service-api` 聚合各 per-game router → `OpenAPIHandler` 挂载 REST 端点；OpenAPI 生成、鉴权、限流、错误体、CORS 作为通用基础设施实现于 `service-api` 消费侧（`packages/api` 保持纯路由/查询定义，不含 HTTP 边界逻辑）
+- `site-docs` 内省同一份 router（procedure 的 route/input/output 元数据）→ 参考页、模型文档、模型说明 key 注册表全部从它推导
 
-### 2.3 OpenAPI 输出
+新增游戏 = 新增一个游戏模块（一组 procedure + 一个 router），API 与文档同时出现，基础设施零改动。
 
-使用 `@orpc/openapi` 将 ORPC router 转换为 OpenAPI 兼容的 REST 端点，并自动生成 OpenAPI spec。
+## 3. 游戏模块
 
-### 2.4 鉴权
+每个游戏模块放在共享包内按游戏分目录，`service-api` 与 `site-docs` 共同消费：
 
-使用 `better-auth` + `@better-auth/api-key` 插件，复用现有 `apikeys` 表和鉴权配置。
+```ts
+// packages/api/src/magic/card.ts —— 复用现有 oRPC 形态
+const summary = os
+  .route({ method: 'GET', description: 'Get card by ID', tags: ['Magic', 'Card'] })
+  .input(z.object({ cardId: z.string(), locale: locale.default('en'), ... }))
+  .output(cardView)                       // 直接引用 packages/model 的 zod schema
+  .handler(async ({ input }) => { /* API 侧查询 */ });
 
-### 2.5 数据库
-
-复用 `@tcg-cards/db`（Drizzle ORM + PostgreSQL），通过 Cloudflare Hyperdrive 连接。
-
----
-
-## 3. 应用结构
-
-```
-apps/service-api/
-├── nuxt.config.ts              # Nuxt 配置，仅启用 server 相关模块
-├── wrangler.toml               # Cloudflare Workers 部署配置
-├── package.json
-├── tsconfig.json
-├── server/
-│   ├── routes/
-│   │   ├── api/[...].ts        # OpenAPI REST 入口
-│   │   └── openapi.json.ts     # OpenAPI spec 端点
-│   ├── orpc/
-│   │   ├── service.ts          # 路由聚合（magic + hearthstone）
-│   │   └── index.ts            # ORPC 基础实例（含 context 定义）
-│   ├── middleware/
-│   │   └── api-key.ts          # API Key 验证中间件
-│   └── lib/
-│       └── auth/
-│           ├── index.ts        # better-auth 配置
-│           └── perms.ts        # 权限定义
-└── app/
-    └── app.vue                 # 最小前端壳（Nuxt 要求）
+// packages/api/src/magic/index.ts
+export const magicRouter = router({ card: { summary, full, random }, set, format, search, ... });
 ```
 
-### 3.1 路由结构
+要点：
 
-对外暴露的 REST 路径遵循 OpenAPI 风格：
+- **数据模型形态**：每游戏独立模型；模型层已对齐的命名惯例（`cardId`、`localization`、`cardProfile`）继续作为跨游戏约定。
+- **契约元数据由 oRPC 提供**：路由结构（`magic.card.summary`）、方法、描述、tags、input/output 全部来自 procedure 定义，不自定义路由格式。
+- **查询为 API 侧自持**：每个游戏的 procedure handler 写在模块内，游戏站点保留各自的查询，不共享查询代码（公共契约与站点内部展示需求不同，避免提前耦合）；共享的是机制与基础设施，不是查询实现。
+- **版本前缀不写死在 procedure 里**：`OpenAPIHandler` 挂载时统一加 `/v1`。
+- **五类端点模板**：每游戏统一套用 constants / search / fact tables / views / utils 五类端点，模板一致、内容按游戏填充。
+- **机械端点声明式生成**：constants / fact tables / views 由通用工厂按声明产出（枚举/表/视图 + 主键/输出 schema）；search / utils 每游戏自写。
 
-```
-GET  /api/magic/card/summary?cardId=xxx&locale=en
-GET  /api/magic/set/list
-GET  /api/magic/format/list
-GET  /api/hearthstone/card/summary?cardId=xxx&lang=en
-GET  /api/hearthstone/patch/list
-GET  /openapi.json
-```
+## 4. service-api 设计
 
-### 3.2 路由聚合
+### 4.1 形态与路由
 
-```typescript
-// server/orpc/service.ts
-import { magicTrpc } from './magic';
-import { hearthstoneTrpc } from './hearthstone';
+- 纯机器后端，无任何前端页面；技术栈为 **Hono + Wrangler（Cloudflare Worker）**，对齐仓库 `service-*` 惯例（与 `service-internal` 同构），不使用 Nuxt
+- 版本化：从第一天起挂 `/v1` 前缀；不带版本号时（如 `/magic/card/summary`）**直接复用最新版本端点**，不重定向、不 alias——与文档站的 302 重定向不同，API 站未版本访问直接命中最新版
+- 路由路径由 router 结构派生（`magic.card.summary` → `/v1/magic/card/summary`，域名 `api.tcg.cards` 已隐含 api），示例：`GET /v1/magic/card/summary?cardId=xxx`、`GET /v1/magic/set/list`、`GET /v1/hearthstone/patch/list`
+- 挂载：Hono 应用接收 `/v1/*`，经 `OpenAPIHandler`（`@orpc/openapi/fetch`）处理；每个请求注入请求级 db（`createDb` + `runWithDb`，复用 service-internal 模式）
+- 公开端点：`GET /openapi.json`（用 `@orpc/openapi` 的 `OpenAPIGenerator` 从聚合 router 生成，供 Postman/代码生成等第三方工具消费）；`GET /health` 健康检查
 
-export const router = {
-  magic:       magicTrpc,
-  hearthstone: hearthstoneTrpc,
-};
-```
+### 4.2 端点契约（五类模板，只读）
 
-magic 和 hearthstone 的 ORPC handler 直接复用现有站点中的实现，通过 monorepo workspace 依赖引入。
+每游戏统一套用五类端点：
 
----
+1. **constants**：静态模型枚举，按枚举名拆分（`GET /{game}/catalog/{enumName}`）；v1 仅静态枚举（即 P0.5 命名枚举），数据派生 catalog 后置。
+2. **search**：`GET /{game}/search?q=...`，与站点共用同一搜索定义（位于 `packages/api/{game}/search/`，由站点抬升）；`packages/search` 为纯引擎、`packages/model` 为可发布瘦包。
+3. **fact tables**：每个 `{game}` 共享域表按主键单独暴露（`GET /{game}/{table}/{pk}`），不含 `{game}_data`/`{game}_app`；magic 覆盖 Card/Print/Set/Format/Cycle/Ruling/StaticDeck/Announcement 等，hearthstone 覆盖 Card/Set/Patch/Format/Announcement/Tag 等。
+4. **views**：组织关联事实表的聚合视图（magic: CardView/PrintView/CardPrintView；hs: CardEntityView/LatestCardEntityView）；具体视图集实现时定（灵活）。
+5. **utils**：`GET /{game}/card/random`、`GET /{game}/card/named?name=`；autocomplete 后置。
 
-## 4. 鉴权与权限模型
+**生成方式**：constants / fact tables / views 三类机械端点由通用工厂声明式生成（枚举/表/视图 + 主键/输出 schema）；search / utils 每游戏自写。不含管理/导入类数据（magic 的 `data/*`），不含图片。
 
-### 4.1 权限粒度
+### 4.3 鉴权：强制 API Key
 
-v1 提供两种鉴权方式：
+- 所有业务请求必须携带 API Key（`Authorization: Bearer <key>`）；无 key 返回 401
+- 无匿名访问，无 session 通道（`service-api` 不做登录 Session 处理）
+- 按游戏授权：复用 `apikeys.permissions` JSON，存储 `{ allowedGames: [...] }`
+- 第一方站点不在浏览器直接调 `service-api`（各自服务端直连数据库）
+- CORS：`Allow-Origin: *`，支持 `Authorization` header，无 `credentials`（无 cookie，跨域不传凭证）；覆盖第三方浏览器 App 直调与 docs 测试面板的跨域
 
-- **API Key**：面向外部开发者、第三方脚本、服务端对接。权限按游戏维度划分。
-- **用户 Session Cookie**：面向主站、文档站等第一方网页中的已登录用户访问。仅用于浏览器内的只读访问，不作为第三方集成方式。
+### 4.4 限流
 
-匿名请求默认不允许访问业务数据接口；公开文档与 OpenAPI spec 端点除外。
+- 按 key 限流，复用 `apikeys` 表字段
+- 默认：时间窗口 1000ms，最大请求数 100
+- 响应带 `X-RateLimit-*` 头：`X-RateLimit-Limit` / `X-RateLimit-Remaining` / `X-RateLimit-Reset`（Reset 为 Unix 秒）
 
-### 4.2 存储方式
+### 4.5 错误体
 
-利用 `apikeys` 表已有的 `permissions` 字段（JSON 文本），存储格式：
-
-```json
-{
-  "allowedGames": ["magic", "hearthstone"]
-}
-```
-
-API Key 模式下，权限按 `allowedGames` 控制。
-
-Session Cookie 模式下，不复用 `allowedGames`；v1 仅允许访问公开只读数据接口，鉴权主体为登录用户本身。
-
-### 4.3 验证流程
-
-1. 若请求命中 `/openapi.json` 等公开文档端点，直接放行
-2. 从请求头 `Authorization: Bearer <api-key>` 中提取 key
-3. 若提供了 key，则进入 API Key 验证流程：
-   - 查询 key，校验存在性、`enabled` 状态、过期时间
-   - 解析 `permissions` 字段，提取 `allowedGames`
-   - 根据请求路径判断目标游戏，校验是否在 `allowedGames` 中
-   - 校验通过后，将 `authMode = apiKey` 与 key 信息注入 ORPC context
-4. 若未提供 key，则检查 better-auth 的用户 session cookie
-5. 若 session 有效，则进入用户模式：
-   - 校验该路由是否属于允许登录用户直接访问的只读接口
-   - 校验通过后，将 `authMode = user` 与用户信息注入 ORPC context
-6. 若 key 与 session 均不存在或校验失败，则返回未授权错误
-
-鉴权优先级为 **API Key 优先，Session Cookie 回退**。这样可以保证外部集成和第一方网页访问共用同一套 API 服务，同时避免浏览器用户必须手动创建 key 才能打开链接。
-
-### 4.4 第一方网页访问约束
-
-Session Cookie 模式仅用于第一方网页中的已登录用户，主要覆盖以下场景：
-
-- 主站中打开 API/JSON 预览链接
-- 文档站中的在线调试与 “Try it”
-- 其他同属 `*.tcg.cards` 的官方网页内只读调用
-
-该模式不作为第三方程序的正式接入方式。第三方脚本、服务端、CLI、自动化任务仍应使用 API Key。
-
-为支持跨子域访问：
-
-- Session Cookie 需配置为适用于 `*.tcg.cards`
-- 跨域请求需显式携带 credentials
-- CORS 仅允许受信任的第一方来源，并开启 credentials 支持
-
-### 4.5 错误响应
-
-| 场景 | HTTP 状态码 | 错误码 |
-|------|-------------|--------|
-| 未提供 API Key 且无有效 Session | 401 | `UNAUTHORIZED` |
-| Key 不存在 | 401 | `UNAUTHORIZED` |
-| Key 已禁用 | 403 | `FORBIDDEN` |
-| Key 已过期 | 403 | `FORBIDDEN` |
-| Key 无游戏权限 | 403 | `FORBIDDEN` |
-| Session 无效或已过期 | 401 | `UNAUTHORIZED` |
-| Session 模式访问了不允许的接口 | 403 | `FORBIDDEN` |
-| 触发限流 | 429 | `RATE_LIMITED` |
-| 服务器内部错误 | 500 | `INTERNAL_ERROR` |
-
----
-
-## 5. 限流策略
-
-### 5.1 机制
-
-限流按鉴权主体区分：
-
-- **API Key 模式**：按 `apikey:{id}` 限流，复用 `@better-auth/api-key` 内置的限流能力，基于 `apikeys` 表中的字段：
-
-  - `rateLimitEnabled`：是否启用限流
-  - `rateLimitTimeWindow`：时间窗口（毫秒）
-  - `rateLimitMax`：窗口内最大请求数
-  - `requestCount`：当前窗口已请求数
-  - `remaining`：剩余请求数
-  - `lastRequest`：最后请求时间
-
-- **Session Cookie 模式**：按 `user:{id}` 限流。v1 可先采用数据库或兼容存储中的简易计数实现，保持与 API Key 模式相同的响应头格式。
-
-同一个请求只命中一种限流主体，不叠加计算。
-
-### 5.2 默认值
-
-- API Key：时间窗口 1000ms，最大请求数 100
-- Session 用户：时间窗口 1000ms，最大请求数 100
-
-如后续观察到网页用户流量模型与第三方程序差异较大，可再拆分不同默认值。
-
-### 5.3 限流响应头
-
-```
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 42
-X-RateLimit-Reset: 1713254400
-```
-
-响应头始终表示当前实际生效的限流主体结果，无论该请求使用的是 API Key 还是 Session Cookie。
-
----
-
-## 6. 错误体格式
-
-所有错误响应使用统一的 JSON 结构：
+所有错误响应使用统一 JSON 结构：
 
 ```json
 {
@@ -228,194 +113,109 @@ X-RateLimit-Reset: 1713254400
 }
 ```
 
-- `code`：机器可读的错误码（与 HTTP 状态码解耦）
-- `message`：人可读的错误描述
-- `requestId`：请求追踪 ID，用于排查问题
+- `code`：机器可读错误码（与 HTTP 状态码解耦）
+- `message`：人可读描述
+- `requestId`：请求追踪 ID
 
----
+| 场景 | HTTP 状态码 | 错误码 |
+|------|-------------|--------|
+| 无 API Key | 401 | `UNAUTHORIZED` |
+| Key 不存在 | 401 | `UNAUTHORIZED` |
+| Key 已禁用 | 403 | `FORBIDDEN` |
+| Key 已过期 | 403 | `FORBIDDEN` |
+| Key 无游戏权限 | 403 | `FORBIDDEN` |
+| 触发限流 | 429 | `RATE_LIMITED` |
+| 服务器内部错误 | 500 | `INTERNAL_ERROR` |
 
-## 7. 部署拓扑
+### 4.6 部署
 
-```
-    ┌──────────────────┐        ┌──────────────────┐
-    │  Cloudflare DNS  │        │  Cloudflare DNS  │
-    │  api.tcg.cards   │        │  docs.tcg.cards  │
-    └────────┬─────────┘        └────────┬─────────┘
-             │                           │
-    ┌────────▼─────────┐        ┌────────▼─────────┐
-    │  Cloudflare      │        │  Cloudflare      │
-    │  Worker          │        │  Worker           │
-    │ (service-api)    │        │  (site-docs,      │
-    │                  │        │   hybrid SSG+SSR) │
-    └────────┬─────────┘        └────────┬─────────┘
-             │                           │
-    ┌────────▼───────────────────────────▼──┐
-    │  Hyperdrive                           │
-    │  (connection pooling)                 │
-    └────────┬──────────────────────────────┘
-             │
-    ┌────────▼─────────┐
-    │  PostgreSQL      │
-    │  (shared DB)     │
-    └──────────────────┘
-```
+- Cloudflare Worker，域名 `api.tcg.cards`
+- Hyperdrive 连接 PostgreSQL
+- 与 site-docs 独立部署，互不影响发布节奏
 
-- service-api：独立 Worker，域名 `api.tcg.cards`，纯后端 API 服务
-- site-docs：Hybrid Worker，域名 `docs.tcg.cards`，文档页面预渲染为静态 HTML，`/settings` 走 SSR
-- site-docs 在构建时从 monorepo 内的 router 对象直接生成 OpenAPI spec，无运行时网络依赖
-- service-api 与 site-docs 共享同一数据库，通过 Hyperdrive 提供连接池（site-docs 的 `/settings` 页面需要 auth 查询）
+## 5. site-docs 设计
 
-### 7.1 环境变量
+### 5.1 内容范围
 
-service-api 与 site-docs 共享以下环境变量：
+- 只做 API 文档；游戏规则文档留在各游戏站点
+- 按游戏分区组织参考页（magic 一节、hearthstone 一节）
+- 内容承载：guide（使用指南）与 changelog（版本变更记录）用 `@nuxt/content`（Markdown）；模型/枚举说明用 vue-i18n（见 §6）
 
-| 变量名 | 说明 |
-|--------|------|
-| `DATABASE_URL` | PostgreSQL 连接字符串（通过 Hyperdrive） |
-| `BETTER_AUTH_SECRET` | better-auth 签名密钥 |
+### 5.2 渲染：自建
 
-### 7.2 回滚策略
+- 不用 Scalar/Redoc 等货架渲染器；自建参考页，用 Nuxt UI 组件（`packages/ui`）从注册表渲染每个端点的参数、返回值、错误码
+- 原因：需要高度定制 + 详细模型/枚举说明；货架渲染器无法承载"每个枚举值配大段解释"
+- 测试面板也自建，天然接登录门控 + 自动注入测试 key
+- zod 渲染支持集：基础标量（string/number/boolean/literal）、enum、object/strictObject、array、record、union/discriminatedUnion、nullable/nullish/optional/default、describe/meta；`any`/`unknown`/`transform` 等降级为"未描述类型"占位并构建告警（不阻断），并应随模型细化逐步消除——最终文档不应出现 `any`
 
-- Cloudflare Workers 支持版本回滚，可通过 `wrangler rollback` 快速恢复
-- 新版本部署后通过内部 API Key 先行验证，再切换 DNS 权重
+### 5.3 版本化
 
----
+- 版本化路径：`docs.tcg.cards/v1/...`（将来 v2 落 `/v2/...`，v1 原样保留）
+- 根路径 = 最新版本；`/latest/...` 显式 alias，302 重定向到当前版本
+- 页头提供版本切换器
+- 内容按版本组织：每版本 = 该版本的注册表快照 + 对应 i18n 模型说明
 
-## 8. 首批迁移范围
+### 5.4 页面结构（`/v1/` 下）
 
-v1 仅迁移只读静态数据接口：
+- index：API 概览、鉴权说明、快速开始
+- reference：按游戏分区的接口参考
+- model：模型/枚举说明（本地化）
+- guide：使用指南
+- changelog：版本变更记录
+- settings：API Key 自助管理（登录后）：查看（名称、前缀、状态、允许游戏、创建时间、最后使用时间）、创建、删除；创建时展示一次完整 key，之后仅展示前缀（`start` 字段）；v1 不需密钥轮换
 
-### Magic
+管理员能力（防滥用）：site-console 保留管理员查看所有用户的 key + 禁用 key 的能力，v1 后置到需要时补充。
 
-- `card.summary` / `card.full` / `card.random`
-- `print`（印刷版本查询）
-- `set.list` / `set.detail`
-- `format.list`
-- `search`
-- `announcement`
-- `document`（规则文档查询）
-- `rule`
-- `deck`
+### 5.5 测试功能与测试 key
 
-### Hearthstone
+- 未登录可查看文档，但无"试一下"功能；测试需登录（业界惯例）
+- 登录用户点击测试时，懒生成一个约定名（`docs-test`）的测试 key：
+  - 展示式（"我们为你的测试建了 key，可在 /settings 管理/删除"）
+  - 覆盖全部当前游戏
+  - 用户在 /settings 删除后，下次点击再重新生成
+- 每次测试请求仍携带真实 API Key，强制 key 模型不被穿透
 
-- `card.summary` / `card.full` / `card.random`
-- `patch.list` / `patch.detail`
+### 5.6 渲染模式
 
----
+- Hybrid：文档页（index/reference/model/guide/changelog）预渲染为静态 HTML（SSG）；`/settings` 走 SSR（需登录态查询）
+- 通过 `routeRules` 按路由配置渲染模式
+- 部署为 Cloudflare Worker（非纯静态，因 `/settings` 需 SSR）
 
-## 9. API 文档站
+## 6. 模型文档与本地化说明
 
-### 9.1 方案选择
+- 说明文字不写进 zod；用固定 key + vue-i18n 本地化文本
+- 枚举抬升为**命名枚举**（有稳定身份），供文档/OpenAPI 引用
+- key 约定：
+  - 字段说明：`{game}.model.{schema}.{field}` → 如 `magic.model.card.manaValue`
+  - 枚举类型说明：`{game}.model.{enum}.$self` → 如 `magic.model.rarity.$self`
+  - 枚举值说明：`{game}.model.{enum}.{value}` → 如 `magic.model.rarity.legendary`
+- 本地化结构：沿用仓库既有 i18n 形态（TS 嵌套对象、`en`/`zhs` 语言码），挂到各游戏的 `model.*` 命名空间
+- 结构检查：`site-docs` 构建期内省注册表 → 枚举出期望 key 集 → 与 `en`/`zhs` 消息文件 diff → **缺失或孤儿 key 均阻断构建（无豁免）**，保证"每个字段/枚举值都有说明"且无陈旧文本
 
-新建独立 Nuxt 应用 `apps/site-docs`，部署到 `docs.tcg.cards`，作为与现有站点风格一致的 API 文档站。
+## 7. 扩展性：新增游戏五步
 
-曾评估过以下替代方案，最终选择方案 C：
+1. 在 `packages/api` 下新增该游戏目录：编写共享查询、oRPC procedures、per-game router
+2. 在 `packages/api/index.ts` 将该游戏聚合进 registry
+3. 编写 `en`/`zhs` 的 `model.*` 说明 i18n
+4. `service-api` 挂载聚合 registry（新游戏自动上线）
+5. `site-docs` 从同一 registry 自动出现该游戏的参考页 + 模型文档
 
-| 方案 | 描述 | 不采用的原因 |
-|------|------|-------------|
-| A：放 service-api `/docs` | 在 API 服务中加前端页面 | 需将纯后端服务改为完整 SSR 应用，架构污染，构建体积膨胀，Worker 冷启动变慢 |
-| B：放 site-main `tcg.cards/api` | 在门户首页加文档页面 | site-main 风格偏展示入口，跨域拉取 spec，扩展空间有限 |
-| D：分散到各 `${game}.tcg.cards/docs` | 各游戏站点各自承载文档 | 接口统一但文档分散，域名与端点不一致，鉴权文档需重复，每新增游戏多一份维护 |
+全程零基础设施改动。
 
-### 9.2 技术选型
-
-- **框架**：Nuxt（`extends: ['../../packages/ui']`），与所有现有站点共享 AppHeader、AppFooter、布局、主题
-- **内容管理**：`@nuxt/content`，用于管理使用指南、数据模型说明、Changelog 等 Markdown 内容
-- **OpenAPI 渲染**：`@scalar/api-reference`（Vue 组件）。oRPC 官方推荐，内置 "Try it" 交互测试、代码示例生成、暗色模式，支持 CSS 变量主题定制。Scalar 组件嵌入 Nuxt 页面，外层包裹共享的 AppHeader/AppFooter 实现风格融合
-- **spec 来源**：构建时从 monorepo 内的 ORPC router 对象直接生成（`OpenAPIGenerator`），无运行时网络依赖，无 CORS 问题
-- **渲染模式**：Hybrid（SSG 为主 + 少量 SSR 页面）。文档页面通过 `nuxt generate` 预渲染为静态 HTML；`/settings` 页面走 SSR（需要登录态）。通过 `routeRules` 按路由配置渲染模式
-- **用户认证**：复用 better-auth，与 site-magic 共享用户体系。已登录用户的 API Key 可自动注入 Scalar "Try it" 的 Authorization header
-- **部署**：Cloudflare Workers（非纯静态，因 `/settings` 需 SSR），域名 `docs.tcg.cards`
-
-### 9.3 spec 同步策略
-
-spec 在构建时由 `@orpc/openapi` 的 `OpenAPIGenerator` 从 `service-api/server/orpc/service.ts` 的 router 对象生成。API 变更后需重新构建文档站。可在 CI 中设置：service-api 相关代码变更时自动触发 site-docs 重建。
-
-### 9.4 未来演进
-
-v1 采用整站 SSG + Scalar 单页渲染。如未来需要更好的 SEO 或更精细的风格控制，可切换到按接口拆分独立页面的方案：从 spec 中提取每个 path，生成独立路由页面（如 `/docs/magic/card/summary`），用 Nuxt UI 组件自定义渲染每个接口的参数、返回值和错误码。该方案保留为后续选项。
-
-### 9.5 应用结构
+## 8. 部署拓扑
 
 ```
-apps/site-docs/
-├── nuxt.config.ts              # extend packages/ui，配置 @nuxt/content，hybrid routeRules
-├── wrangler.toml               # 域名 docs.tcg.cards，Hyperdrive 绑定
-├── package.json
-├── tsconfig.json
-├── app/
-│   ├── app.vue
-│   ├── pages/
-│   │   ├── index.vue           # 文档首页（API 概览、鉴权说明、快速开始）
-│   │   ├── reference.vue       # Scalar API Reference 渲染页
-│   │   ├── settings.vue        # API Key 管理页面（SSR，需登录）
-│   │   └── [...slug].vue       # Markdown 内容页
-│   ├── components/
-│   │   └── ApiReference.vue    # Scalar 组件包装
-│   └── composables/
-│       └── auth.ts             # better-auth 客户端
-├── content/                    # Markdown 文档内容
-│   ├── index.md                # 首页内容
-│   └── guide/                  # 使用指南
-├── server/
-│   └── lib/
-│       └── auth/
-│           └── index.ts        # better-auth 服务端配置
-└── lib/
-    └── spec.ts                 # 构建时从 router 生成 OpenAPI spec
+api.tcg.cards  ──►  Cloudflare Worker (service-api)  ──►  Hyperdrive  ──►  PostgreSQL
+docs.tcg.cards ──►  Cloudflare Worker (site-docs)    ──►  Hyperdrive  ──►  PostgreSQL
 ```
 
-### 9.6 部署
+- service-api 与 site-docs 独立部署，互不影响发布节奏
+- 共享环境变量：`DATABASE_URL`、`BETTER_AUTH_SECRET`
+- 图片资产走 `asset.tcg.cards`（R2），不在本轮设计内
 
-- Cloudflare Worker，域名 `docs.tcg.cards`
-- 文档页面预渲染为静态 HTML（SSG），`/settings` 走 SSR
-- 需要 Hyperdrive 绑定（`/settings` 页面的 auth 需要查询数据库）
-- 与 service-api 独立部署，互不影响发布节奏
-- CI 中设置 service-api 路由变更时自动触发 site-docs 重建
+## 9. 后续演进
 
----
-
-## 10. API Key 管理界面
-
-### 10.1 方案
-
-在 `docs.tcg.cards/settings` 提供用户自助管理界面。选择 site-docs 的理由：
-
-- API 消费者的自然操作路径：阅读文档 → 创建 key → 在 "Try it" 中测试 → 复制 key 到应用
-- 已登录用户的 key 可自动注入 Scalar "Try it" 的 Authorization header，形成闭环体验
-- API Key 是跨游戏的全局资源，放在门户性质的文档站比放在单游戏站点更合理
-- 只需在 site-docs 的 hybrid 模式中增加一个 SSR 页面，无需在多个站点重复建设
-
-### 10.2 保密性分析
-
-API 提供的所有数据（卡牌、系列、赛制、公告、规则文档）均为公开静态数据，不涉及用户隐私。因此：
-
-- key 的核心用途是**身份识别 + 限流**，而非保护敏感数据
-- key 泄露的最坏后果是配额被他人消耗，不涉及数据泄露
-- 创建时展示一次完整 key（业界标准做法），之后仅展示前缀（`start` 字段）
-- v1 不需要密钥轮换机制
-
-### 10.3 用户功能
-
-用户登录后可在 `/settings` 页面：
-
-- **查看** key 列表（名称、前缀、状态、允许游戏、创建时间、最后使用时间）
-- **创建** key（指定名称、allowedGames）。创建成功后展示完整 key，提示仅展示一次
-- **删除** key
-
-### 10.4 管理员功能
-
-site-console 保留管理员**查看所有用户的 key + 禁用 key** 的能力，作为应对滥用的安全手段。v1 不优先实现，后置到需要时补充。
-
-### 10.5 后端实现
-
-使用 `@better-auth/api-key` 插件的客户端 API（`apiKey.create`、`apiKey.list`、`apiKey.delete`）。`allowedGames` 存储在 `permissions` JSON 字段中。
-
----
-
-## 11. 扩展点
-
-- 新增游戏时，只需在 `server/orpc/service.ts` 中挂载新路由树，并在 `allowedGames` 类型中添加新值
-- 如未来需要资源级权限，可在 `permissions` 中扩展 `allowedResources` 字段
-- 文档站已具备登录能力，可继续演化为完整的开发者中心（key 管理 + SDK 示例 + Changelog + 使用统计）
+- 批量数据导出（独立机制，另行设计）
+- 图片服务（如将来需要）
+- 资源级权限、SDK 生成
+- 文档站演进为完整开发者中心（SDK 示例、使用统计）

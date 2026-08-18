@@ -1,0 +1,28 @@
+{
+  "name": "service-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "echo No build needed",
+    "dev": "wrangler dev --port 2997",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@orpc/openapi": "^1.14.0",
+    "@orpc/server": "^1.14.0",
+    "@tcg-cards/api": "workspace:*",
+    "@tcg-cards/db": "workspace:*",
+    "hono": "^4.10.5",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260329.1",
+    "eslint": "^10.2.1",
+    "eslint-config-custom": "workspace:*",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.85.0"
+  },
+  "packageManager": "bun@1.3.10"
+}

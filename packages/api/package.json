@@ -1,0 +1,26 @@
+{
+  "name": "@tcg-cards/api",
+  "module": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "build": "echo No build needed",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.13",
+    "eslint": "^10.2.1",
+    "eslint-config-custom": "workspace:*"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@orpc/openapi": "^1.14.0",
+    "@orpc/server": "^1.14.0",
+    "@tcg-cards/db": "workspace:*",
+    "@tcg-cards/model": "workspace:*",
+    "drizzle-orm": "^1.0.0-beta.22",
+    "zod": "^4.3.6"
+  }
+}

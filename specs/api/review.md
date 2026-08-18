@@ -1,42 +1,58 @@
-# `api-design.md` 评审意见
+# `design.md` 评审意见
 
 > 稳定的运行时边界、能力分层、命名规则和数据归属规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只记录本需求的评审结论；若有冲突，以主架构文档为准。
+
+## 评审方式
+
+本设计通过 `/grill-with-docs` 拷问会话逐条收敛产生。从需求原点（API 定位、形态、数据范围）开始，沿决策树逐个敲定：鉴权模型、文档站内容与渲染、模型说明的本地化机制、版本化策略、扩展性机制。所有关键分支均给出了推荐答案并经用户确认。
 
 ## 结论清单
 
 ### 必须修改
 
-无。设计文档覆盖了目标、边界、路由结构、权限模型、限流策略、错误码、部署拓扑、文档站方案与 API Key 管理界面方案，核心要素齐全，可进入实施阶段。
+无。设计文档覆盖了定位、架构、鉴权、限流、错误体、版本化、文档站渲染与内容、模型说明机制、扩展性清单与部署拓扑，核心要素齐全，设计方向可接受。
 
-### 建议修改
+### 建议修改（均已定案）
 
-- 明确 ORPC handler 代码的复用方式：是通过 workspace 包直接导入，还是将业务 handler 抽取到独立 shared package。目前设计文档说"直接复用现有站点中的实现"，但未说明具体引用路径。建议初期直接在 `service-api` 中 re-export 现有站点的 handler，后续再按需抽包。
-- `requestId` 生成策略需要明确：建议使用 `crypto.randomUUID()` 在中间件入口生成，写入 ORPC context 并在所有错误响应中返回。
-- OpenAPI spec 端点 `/openapi.json` 是否需要鉴权保护：建议不保护，作为公开文档端点。
-- 限流响应头中的 `X-RateLimit-Reset` 格式需明确：建议使用 Unix timestamp（秒），与主流 API 保持一致。
-- site-docs 的 Scalar 主题定制范围需明确：建议 v1 仅调整配色方案接近 Nuxt UI，不过度定制 Scalar 内部结构。
+- **注册表共享包落点** ✅ 已定：单一 `packages/api` 共享包 + 按游戏分目录，`service-api` 与 `site-docs` 共用；查询 API 侧自持，游戏站点不动。
+- **文档渲染器 zod 类型集** ✅ 已定：明确支持集（基础标量/enum/object/array/record/union/nullable/optional/describe 等），`any`/`unknown`/`transform` 降级为"未描述类型"占位并告警（不阻断）；目标最终文档不出现 `any`。
+- **根路径行为** ✅ 已定：根路径与 `/latest` 均 302 重定向到 `/vN/`，单一规范 URL。
+- **i18n 完整性检查失败策略** ✅ 已定：缺失与孤儿 key 均阻断构建，无豁免。
+- **旧 `specs/api` 处置** ✅ 已定：直接移除，新设计占据原 `specs/api` 位置（未归档）。
+- **CORS 策略**（评审后新增）✅ 已定：`Allow-Origin: *`、支持 `Authorization` header、无 `credentials`。
+- **guide/changelog 内容承载**（评审后新增）✅ 已定：`@nuxt/content`（Markdown）；模型/枚举说明走 vue-i18n。
 
 ### 可后置
 
-- 管理员在 site-console 查看/禁用用户 key 的能力
-- 更精细的限流策略（如按游戏独立配额）
-- OpenAPI spec 的版本化管理
+- 测试 key 的过期策略（可避免 `apikeys` 表长期积累垃圾 key，v1 靠"懒生成 + 可删除"兜底）
+- 版本切换器的交互细节（v1 只有一个版本）
+- 资源级权限、SDK 生成（已在非目标）
 - API 使用量统计与监控面板
-- site-docs 的 Markdown 内容（使用指南、Changelog 等）
 
 ## 总体评价
 
-这是一份结构清晰、范围收敛的设计文档。目标和非目标边界明确，技术选型贴合现有代码库，路由结构和权限模型实用且简洁。
+这是一份结构清晰、从需求出发逐层收敛的设计。最大的价值在于两点：
 
-设计的最大优点是充分利用了现有基础设施（ORPC handler 元数据、better-auth API Key 插件、apikeys 表结构），无需引入新的外部依赖或重建鉴权体系。
+1. **单一真源**：一份基于 oRPC 的游戏模块（procedures + per-game router）同时驱动 `service-api`（挂载服务）和 `site-docs`（内省成文），新增游戏 = 新增一个模块，API 与文档同时出现，基础设施零改动。这直接兑现了"快速扩展任意新游戏 + 避免重复代码"的第一优先级，并纠正了旧 specs/api"复制站点 handler"的重复代码问题。
+2. **强制 API Key + 无 session**：鉴权面收窄为单一通道，限流、按游戏授权、错误处理全部统一；文档站的测试功能通过"懒生成的展示式测试 key"拿到 session 的便利，却不把 session 通道带回 service-api，模型未被穿透。
 
-文档站选择独立 Nuxt 应用（`docs.tcg.cards`）的决策合理：保持了 service-api 作为纯后端服务的定位，同时通过 extend `packages/ui` 实现与现有站点风格一致。SSG + 构建时从 monorepo 内 router 生成 spec 的方案，避免了运行时网络依赖和跨域问题。使用 Scalar 作为 OpenAPI 渲染器是合理选择，它是 oRPC 官方推荐的 Vue 原生组件，功能完备且支持主题定制。
+相对 specs/api，本设计在鉴权（强制 key）、文档渲染（自建替代 Scalar）、版本化（从第一天 `/v1`）、模型说明（命名枚举 + vue-i18n 本地化）四处做了实质改进，且明确宣告替代旧设计。
 
-API Key 管理界面放在 site-docs 的 `/settings` 页面是合理的选择：用户在文档站阅读文档后直接创建 key 并在 Scalar "Try it" 中测试，形成闭环体验。site-docs 因此从纯 SSG 调整为 hybrid 模式（SSG + 少量 SSR），仅 `/settings` 走 SSR，对性能影响极小。数据均为公开静态内容，保密性需求低，key 主要用于身份识别和限流，用户自助管理即可。
+**结论：** 设计方向可接受。建议修改项均已定案并吸收进 design.md，可进入实施计划阶段（`plan.md`）。
 
-从实施可行性来看，所有核心组件在 monorepo 中已有参考实现，首批迁移范围也做了合理的只读接口限定，风险较低。
+### 与旧版 specs/api 的主要差异
 
-**结论：** 设计可行，可直接进入实施计划阶段。建议修改项可在实施过程中逐步明确，不阻塞计划编写。
+旧版 `specs/api` 设计（已移除）与本设计的核心差异：
+
+| 维度 | 旧版 | 本设计 |
+|------|------|--------|
+| 代码组织 | 复制站点 handler | `packages/api` 共享包 + oRPC routers（查询 API 侧自持，游戏站点不动） |
+| 鉴权 | API Key 优先 + Session 回退 | 强制 API Key，无 session |
+| 文档渲染 | Scalar | 自建参考页 + 自建测试面板 |
+| 版本化 | 无 | API 与文档从第一天 `/v1` |
+| 模型说明 | 无 | 命名枚举 + vue-i18n 本地化 |
+| 内容承载 | @nuxt/content 统一 | guide/changelog 用 @nuxt/content，模型说明用 vue-i18n |
+| CORS | 仅第一方源 + credentials（session） | `Allow-Origin: *`、无 credentials |
 
 ---
 
@@ -44,16 +60,20 @@ API Key 管理界面放在 site-docs 的 `/settings` 页面是合理的选择：
 
 ### 低风险
 
-- **handler 复用的类型兼容性**：magic 和 hearthstone 的 handler 在各自站点中有独立的 ORPC 基础实例（`os`），合并到 service-api 时需确保 context 类型兼容。由于 v1 接口均为只读且不依赖用户 session context，此风险可控。
-- **数据库连接共享**：service-api 和 site-docs 与现有站点共享同一数据库，需确保 Hyperdrive 配置正确且连接池不会被新服务耗尽。Cloudflare Hyperdrive 自带连接池管理，风险有限。site-docs 仅 `/settings` 页面查询数据库，负载极低。
-- **文档站 spec 同步延迟**：site-docs 采用 SSG，spec 在构建时生成。API 变更后需触发 site-docs 重建才能更新文档。可通过 CI 自动触发规避，风险有限。
+- **只读 + 公开静态数据**：v1 纯只读，无写入一致性、无敏感数据泄露面，key 的核心用途是身份识别 + 限流。
+- **游戏站点零改动**：查询为 API 侧自持，游戏站点不共用、不重构，站点行为天然不变（无回归面）。
+- **独立部署互不影响**：service-api 与 site-docs 独立 Worker，发布节奏解耦。
 
 ### 中风险
 
-- **限流状态一致性**：`@better-auth/api-key` 的限流依赖数据库字段（`requestCount`、`remaining`、`lastRequest`），在高并发场景下可能存在竞态。v1 流量较低时可接受，后续如流量增长需考虑 Redis 等方案。
+- **zod schema 内省的表达力**：参考页、模型文档、i18n 完整性检查都依赖对注册表 zod schema 的内省。对复杂类型（`z.record`、`z.union`、`z.any`、`z.transform`）的渲染可能失真，需要渲染器特判或降级，且要在实施期定义支持集。
+- **packages/model 命名枚举重构**：内联枚举抬升为命名枚举是精心维护文件的整理，需保持校验行为不变；仅影响 `packages/model`，不涉及游戏站点查询，依赖现有检查回归。
+- **i18n 完整性检查的迭代摩擦**：每个新字段/枚举值都要求 `en`/`zhs` 双语言说明，否则构建挂。对新游戏快速接入是约束，需要接受或提供豁免机制。
+- **版本化文档的内容组织**：每版本 = 注册表快照 + 对应 i18n，需要按版本维度组织构建输入。v1 只有一版，风险显现于 v2 引入时。
 
 ### 排除的风险
 
-- 游戏站点前端改造风险（v1 不涉及）
-- SDK 生成兼容性风险（v1 不涉及）
-- 写入接口的事务一致性风险（v1 仅只读）
+- 批量数据导出（明确不在 API 职责内，另行设计）
+- 图片服务（纯 R2 静态资产，无服务设计）
+- 写入接口一致性（v1 只读）
+- 第一方网页浏览器直读 API（已确认 v1 无此场景，且不走 session）

@@ -123,3 +123,20 @@ The conflict resolution strategy for syncing: per-key merge with remote winning 
 3. Post-login change: immediate local write → debounced remote push → mark unsynced on failure
 4. Page reload (authenticated): localStorage is stale cache, re-fetch remote → merge → update localStorage
 5. Logout: stop sync, keep localStorage, operate as anonymous
+
+## API Service & Docs Site (API 服务与文档站)
+
+### API Service (API 服务)
+The public data API (`apps/service-api`), reachable at `api.tcg.cards`. A pure machine-facing, read-only REST API for external third-party consumers. Every business request requires an API Key (`Authorization: Bearer <key>`); there is no anonymous access and no session channel in the service. Routes are versioned under `/api/v1/...` with no unversioned alias and no redirects. The OpenAPI spec at `/openapi.json` is derived from the game-module registry.
+
+### game module (游戏模块)
+A per-game oRPC router (a set of procedures carrying `.route()`/`.input()`/`.output()` metadata and API-side handler queries), living in a per-game folder of the shared `packages/api` package. It is the single source of truth shared by `service-api` (aggregate + mount → serve) and `site-docs` (introspect → document). Query handlers are written per game inside the module and are not shared with the game sites. Adding a game = adding one module folder + registering it, with zero infrastructure changes.
+
+### named enum (命名枚举)
+An enum hoisted into a named schema type with a stable identity, so model docs and OpenAPI can reference it by name. Model doc keys take the form `{game}.model.{enum}.{value}`.
+
+### model doc key (模型文档 key)
+The vue-i18n message key for field/enum explanations: `{game}.model.{schema}.{field}`, `{game}.model.{enum}.$self`, and `{game}.model.{enum}.{value}`. Localized in `en`/`zhs` TS message files; a build-time script in `site-docs` diffs the expected key set (introspected from the registry) against the message files.
+
+### docs test key (测试 key)
+An API key auto-generated for a logged-in docs user on first test click, named by convention (`docs-test`), surfaced and manageable/deletable in `/settings`. It covers all current games and lets the "Try it" panel work without manual key entry while keeping the mandatory-key model intact.
