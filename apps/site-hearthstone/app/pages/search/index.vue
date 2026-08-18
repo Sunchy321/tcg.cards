@@ -511,7 +511,8 @@
             :lang="card.lang"
             :render-hash="card.renderHash"
             :type="card.type"
-            :variant="resultVariant"
+            :variant="resultVariantFor(card)"
+            :mechanics="card.mechanics"
             class="w-50"
           />
         </NuxtLink>
@@ -539,7 +540,8 @@
                   :lang="card.lang"
                   :render-hash="card.renderHash"
                   :type="card.type"
-                  :variant="resultVariant"
+                  :variant="resultVariantFor(card)"
+                  :mechanics="card.mechanics"
                 />
               </div>
 
@@ -658,6 +660,8 @@
                       :lang="card.lang"
                       :render-hash="card.renderHash"
                       :type="card.type"
+                      :variant="resultVariantFor(card)"
+                      :mechanics="card.mechanics"
                       no-link
                       class="no-underline"
                     />
@@ -848,6 +852,15 @@ const total = computed(() => data.value?.result?.total ?? 0);
 const elapsed = computed(() => data.value?.result?.elapsed ?? 0);
 const pageCount = computed(() => data.value?.result?.totalPage ?? Math.ceil(total.value / pageSize.value));
 const resultVariant = computed(() => data.value?.result?.variant ?? 'normal');
+
+/** A battlegrounds-only card has no normal-template art, so fall back to the
+ * battlegrounds template; the premium mechanic decides normal vs golden. */
+const isBattlegroundsCard = (card: CardEntityView) =>
+  card.set === 'bgs' || card.type === 'trinket' || card.type === 'anomaly'
+  || (card.techLevel != null && !card.collectible);
+
+const resultVariantFor = (card: CardEntityView): CardImageOption =>
+  isBattlegroundsCard(card) ? 'battlegrounds' : resultVariant.value;
 
 const showResults = computed(() =>
   !!q.value && !errorText.value && data.value != null && cards.value.length > 0,

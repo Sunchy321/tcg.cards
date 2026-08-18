@@ -23,6 +23,7 @@
           :render-hash="renderHash"
           :type="type"
           :variant="variant"
+          :mechanics="mechanics"
         />
       </template>
     </UPopover>
@@ -44,6 +45,7 @@ const props = withDefaults(defineProps<{
   /** Pre-resolved localized card name; skips the profile fetch when provided. */
   name?:       string | null;
   variant?:    CardImageOption;
+  mechanics?:  Record<string, boolean | number>;
   noLink?:     boolean;
 }>(), {
   version:    undefined,
@@ -51,6 +53,7 @@ const props = withDefaults(defineProps<{
   renderHash: null,
   name:       null,
   variant:    'normal',
+  mechanics:  undefined,
   noLink:     false,
 });
 
