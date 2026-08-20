@@ -56,13 +56,14 @@ jobs:
             BASE="${{ github.event.pull_request.base.sha }}"
             HEAD="${{ github.event.pull_request.head.sha }}"
             CHANGED="$(git diff --name-only "$BASE"..."$HEAD" || true)"
+            if printf '%s\n' "$CHANGED" | grep -qE '^\.github/workflows/check-migration\.yml$|^package\.json$|^bun\.lock$|^packages/(db|shared)/'; then
+              echo "relevant=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "relevant=false" >> "$GITHUB_OUTPUT"
+            fi
           else
-            CHANGED="triggered"
-          fi
-          if printf '%s\n' "$CHANGED" | grep -qE '^\.github/workflows/check-migration\.yml$|^package\.json$|^bun\.lock$|^packages/(db|shared)/'; then
+            # Push: the workflow's paths filter already scoped the trigger.
             echo "relevant=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "relevant=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Setup Bun
