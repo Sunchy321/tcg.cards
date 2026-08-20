@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS "intarray";
+--> statement-breakpoint
 CREATE SCHEMA "hearthstone_app";
 --> statement-breakpoint
 CREATE SCHEMA "hearthstone_data";

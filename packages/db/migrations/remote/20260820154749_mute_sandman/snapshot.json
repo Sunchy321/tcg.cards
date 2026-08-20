@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "4e284b19-86cc-457a-b15e-30307693f45e",
+  "id": "8b7a63e2-af60-49fc-b281-db4ebfda0f8e",
   "prevIds": [
-    "f7e5fc42-6cf6-4f75-a3c8-f606eb239173"
+    "770c29c9-efd2-4550-8c99-55c09f75f254"
   ],
   "ddl": [
     {
@@ -37,51 +37,6 @@
     {
       "name": "yugioh",
       "entityType": "schemas"
-    },
-    {
-      "values": [
-        "card_change",
-        "set_change",
-        "rule_change",
-        "format_death",
-        "card_adjustment"
-      ],
-      "name": "game_change_type",
-      "entityType": "enums",
-      "schema": "hearthstone"
-    },
-    {
-      "values": [
-        "banned_in_card_pool",
-        "banned_in_deck",
-        "banned",
-        "derived",
-        "legal",
-        "minor",
-        "unavailable",
-        "score"
-      ],
-      "name": "legality",
-      "entityType": "enums",
-      "schema": "hearthstone"
-    },
-    {
-      "values": [
-        "banned_in_card_pool",
-        "banned_in_deck",
-        "banned",
-        "derived",
-        "legal",
-        "minor",
-        "unavailable",
-        "score",
-        "buff",
-        "nerf",
-        "adjust"
-      ],
-      "name": "status",
-      "entityType": "enums",
-      "schema": "hearthstone"
     },
     {
       "values": [
@@ -242,18 +197,6 @@
         "superseded"
       ],
       "name": "document_version_lifecycle_status",
-      "entityType": "enums",
-      "schema": "magic"
-    },
-    {
-      "values": [
-        "card_change",
-        "set_change",
-        "rule_change",
-        "format_death",
-        "card_adjustment"
-      ],
-      "name": "game_change_type",
       "entityType": "enums",
       "schema": "magic"
     },
@@ -487,6 +430,24 @@
     },
     {
       "isRlsEnabled": false,
+      "name": "publish_ledgers",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "publish_stream_registrations",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "user_configs",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
       "name": "announcements",
       "entityType": "tables",
       "schema": "hearthstone"
@@ -571,24 +532,6 @@
     },
     {
       "isRlsEnabled": false,
-      "name": "card_changes",
-      "entityType": "tables",
-      "schema": "hearthstone"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "format_changes",
-      "entityType": "tables",
-      "schema": "hearthstone"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "set_changes",
-      "entityType": "tables",
-      "schema": "hearthstone"
-    },
-    {
-      "isRlsEnabled": false,
       "name": "patches",
       "entityType": "tables",
       "schema": "hearthstone"
@@ -643,12 +586,6 @@
     },
     {
       "isRlsEnabled": false,
-      "name": "publish_ledgers",
-      "entityType": "tables",
-      "schema": "hearthstone_data"
-    },
-    {
-      "isRlsEnabled": false,
       "name": "announcements",
       "entityType": "tables",
       "schema": "magic"
@@ -656,12 +593,6 @@
     {
       "isRlsEnabled": false,
       "name": "announcement_items",
-      "entityType": "tables",
-      "schema": "magic"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "announcement_rule_items",
       "entityType": "tables",
       "schema": "magic"
     },
@@ -758,24 +689,6 @@
     {
       "isRlsEnabled": false,
       "name": "formats",
-      "entityType": "tables",
-      "schema": "magic"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "card_changes",
-      "entityType": "tables",
-      "schema": "magic"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "format_changes",
-      "entityType": "tables",
-      "schema": "magic"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "set_changes",
       "entityType": "tables",
       "schema": "magic"
     },
@@ -1779,6 +1692,383 @@
       "table": "verifications"
     },
     {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "publish_target",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "publish_ledgers"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "environment",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "publish_ledgers"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'card_data'",
+      "generated": null,
+      "identity": null,
+      "name": "publish_type",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "publish_ledgers"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "target_fingerprint",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "publish_ledgers"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "batch_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "publish_ledgers"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "build_min",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "publish_ledgers"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "build_max",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "publish_ledgers"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'card-data-projector/v1'",
+      "generated": null,
+      "identity": null,
+      "name": "generation_fingerprint",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "publish_ledgers"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "name": "generation_order",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "publish_ledgers"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "manifest_hash",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "publish_ledgers"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "total_row_count",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "publish_ledgers"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "changed_row_count",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "publish_ledgers"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "published_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "publish_ledgers"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "publish_ledgers"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "publish_ledgers"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "publish_target",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "publish_stream_registrations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "environment",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "publish_stream_registrations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'card_data'",
+      "generated": null,
+      "identity": null,
+      "name": "publish_type",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "publish_stream_registrations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "target_fingerprint",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "publish_stream_registrations"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "normal_publish_enabled",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "publish_stream_registrations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lease_holder_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "publish_stream_registrations"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lease_expires_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "publish_stream_registrations"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "publish_stream_registrations"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "publish_stream_registrations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "user_configs"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "game_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "user_configs"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'{}'",
+      "generated": null,
+      "identity": null,
+      "name": "config",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "user_configs"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "user_configs"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "user_configs"
+    },
+    {
       "type": "uuid",
       "typeSchema": null,
       "notNull": true,
@@ -1820,38 +2110,12 @@
     {
       "type": "text",
       "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "effective_date",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "announcements"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
       "name": "name",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "announcements"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 1,
-      "default": "'{}'",
-      "generated": null,
-      "identity": null,
-      "name": "link",
       "entityType": "columns",
       "schema": "hearthstone",
       "table": "announcements"
@@ -1883,6 +2147,58 @@
       "table": "announcements"
     },
     {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "effective_date",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "announcements"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'[]'",
+      "generated": null,
+      "identity": null,
+      "name": "link",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "announcements"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "announcements"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "announcements"
+    },
+    {
       "type": "uuid",
       "typeSchema": null,
       "notNull": true,
@@ -1891,6 +2207,19 @@
       "generated": null,
       "identity": null,
       "name": "id",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "announcement_items"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "type",
       "entityType": "columns",
       "schema": "hearthstone",
       "table": "announcement_items"
@@ -1916,20 +2245,7 @@
       "default": "0",
       "generated": null,
       "identity": null,
-      "name": "index",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "announcement_items"
-    },
-    {
-      "type": "game_change_type",
-      "typeSchema": "hearthstone",
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "type",
+      "name": "order",
       "entityType": "columns",
       "schema": "hearthstone",
       "table": "announcement_items"
@@ -1956,6 +2272,97 @@
       "generated": null,
       "identity": null,
       "name": "format",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "announcement_items"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "status",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "announcement_items"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "score",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "announcement_items"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "group",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "announcement_items"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "version",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "announcement_items"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "last_version",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "announcement_items"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "delta",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "announcement_items"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "glow",
       "entityType": "columns",
       "schema": "hearthstone",
       "table": "announcement_items"
@@ -2000,27 +2407,14 @@
       "table": "announcement_items"
     },
     {
-      "type": "status",
-      "typeSchema": "hearthstone",
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "status",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "announcement_items"
-    },
-    {
-      "type": "integer",
+      "type": "text",
       "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
+      "notNull": true,
+      "dimensions": 1,
+      "default": "'{}'",
       "generated": null,
       "identity": null,
-      "name": "score",
+      "name": "related_cards",
       "entityType": "columns",
       "schema": "hearthstone",
       "table": "announcement_items"
@@ -2028,25 +2422,38 @@
     {
       "type": "jsonb",
       "typeSchema": null,
-      "notNull": false,
+      "notNull": true,
       "dimensions": 0,
-      "default": null,
+      "default": "'{\"formats\":[],\"cards\":[]}'",
       "generated": null,
       "identity": null,
-      "name": "adjustment",
+      "name": "projection",
       "entityType": "columns",
       "schema": "hearthstone",
       "table": "announcement_items"
     },
     {
-      "type": "text",
+      "type": "timestamp",
       "typeSchema": null,
-      "notNull": false,
-      "dimensions": 1,
-      "default": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
       "generated": null,
       "identity": null,
-      "name": "related_cards",
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "announcement_items"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
       "entityType": "columns",
       "schema": "hearthstone",
       "table": "announcement_items"
@@ -2104,17 +2511,17 @@
       "table": "cards"
     },
     {
-      "type": "text",
+      "type": "timestamp",
       "typeSchema": null,
-      "notNull": true,
+      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "image_spec_version",
+      "name": "deleted_at",
       "entityType": "columns",
-      "schema": "hearthstone_data",
-      "table": "card_image_assets"
+      "schema": "hearthstone",
+      "table": "cards"
     },
     {
       "type": "text",
@@ -2125,6 +2532,19 @@
       "generated": null,
       "identity": null,
       "name": "render_hash",
+      "entityType": "columns",
+      "schema": "hearthstone_data",
+      "table": "card_image_assets"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'base'",
+      "generated": null,
+      "identity": null,
+      "name": "category",
       "entityType": "columns",
       "schema": "hearthstone_data",
       "table": "card_image_assets"
@@ -2793,19 +3213,6 @@
       "table": "entity_relations"
     },
     {
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "false",
-      "generated": null,
-      "identity": null,
-      "name": "is_latest",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "entity_relations"
-    },
-    {
       "type": "timestamp",
       "typeSchema": null,
       "notNull": true,
@@ -2827,6 +3234,19 @@
       "generated": null,
       "identity": null,
       "name": "updated_at",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "entity_relations"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "deleted_at",
       "entityType": "columns",
       "schema": "hearthstone",
       "table": "entity_relations"
@@ -3294,6 +3714,58 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "signature_artist",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "entities"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "credits_card_name",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "entities"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "suggestion_weight",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "entities"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "change_version",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "entities"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "faction",
       "entityType": "columns",
       "schema": "hearthstone",
@@ -3352,19 +3824,6 @@
       "table": "entities"
     },
     {
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "false",
-      "generated": null,
-      "identity": null,
-      "name": "is_latest",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "entities"
-    },
-    {
       "type": "timestamp",
       "typeSchema": null,
       "notNull": true,
@@ -3386,6 +3845,19 @@
       "generated": null,
       "identity": null,
       "name": "updated_at",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "entities"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "deleted_at",
       "entityType": "columns",
       "schema": "hearthstone",
       "table": "entities"
@@ -3477,19 +3949,6 @@
       "generated": null,
       "identity": null,
       "name": "render_model",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "entity_localizations"
-    },
-    {
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "false",
-      "generated": null,
-      "identity": null,
-      "name": "is_latest",
       "entityType": "columns",
       "schema": "hearthstone",
       "table": "entity_localizations"
@@ -3606,6 +4065,32 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "how_to_earn_signature",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "entity_localizations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "how_to_earn_diamond",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "entity_localizations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "flavor_text",
       "entityType": "columns",
       "schema": "hearthstone",
@@ -3646,6 +4131,19 @@
       "generated": null,
       "identity": null,
       "name": "updated_at",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "entity_localizations"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "deleted_at",
       "entityType": "columns",
       "schema": "hearthstone",
       "table": "entity_localizations"
@@ -3783,12 +4281,25 @@
     {
       "type": "text",
       "typeSchema": null,
-      "notNull": false,
+      "notNull": true,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
       "name": "editor_identity",
+      "entityType": "columns",
+      "schema": "hearthstone_data",
+      "table": "field_commits"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "editor_source",
       "entityType": "columns",
       "schema": "hearthstone_data",
       "table": "field_commits"
@@ -4431,578 +4942,6 @@
       "table": "formats"
     },
     {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "source",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "card_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "date",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "card_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "effective_date",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "card_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "name",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "card_changes"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "version",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "card_changes"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "last_version",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "card_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 1,
-      "default": "'{}'",
-      "generated": null,
-      "identity": null,
-      "name": "link",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "card_changes"
-    },
-    {
-      "type": "game_change_type",
-      "typeSchema": "hearthstone",
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "type",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "card_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "format",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "card_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "card_id",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "card_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "set_id",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "card_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "group",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "card_changes"
-    },
-    {
-      "type": "status",
-      "typeSchema": "hearthstone",
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "status",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "card_changes"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "score",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "card_changes"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "adjustment",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "card_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "source",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "format_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "date",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "format_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "effective_date",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "format_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "name",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "format_changes"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "version",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "format_changes"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "last_version",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "format_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 1,
-      "default": "'{}'",
-      "generated": null,
-      "identity": null,
-      "name": "link",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "format_changes"
-    },
-    {
-      "type": "game_change_type",
-      "typeSchema": "hearthstone",
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "type",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "format_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "format",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "format_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "card_id",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "format_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "set_id",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "format_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "rule_id",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "format_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "group",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "format_changes"
-    },
-    {
-      "type": "status",
-      "typeSchema": "hearthstone",
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "status",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "format_changes"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "score",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "format_changes"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "adjustment",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "format_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 1,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "related_cards",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "format_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "source",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "set_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "date",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "set_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "effective_date",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "set_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "name",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "set_changes"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "version",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "set_changes"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "last_version",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "set_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 1,
-      "default": "'{}'",
-      "generated": null,
-      "identity": null,
-      "name": "link",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "set_changes"
-    },
-    {
-      "type": "game_change_type",
-      "typeSchema": "hearthstone",
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "type",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "set_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "format",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "set_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "set_id",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "set_changes"
-    },
-    {
-      "type": "status",
-      "typeSchema": "hearthstone",
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "status",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "set_changes"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "score",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "set_changes"
-    },
-    {
       "type": "integer",
       "typeSchema": null,
       "notNull": true,
@@ -5068,14 +5007,27 @@
       "table": "patches"
     },
     {
-      "type": "boolean",
+      "type": "text",
       "typeSchema": null,
-      "notNull": true,
+      "notNull": false,
       "dimensions": 0,
-      "default": "false",
+      "default": null,
       "generated": null,
       "identity": null,
-      "name": "is_updated",
+      "name": "release_date",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "patches"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "expansion",
       "entityType": "columns",
       "schema": "hearthstone",
       "table": "patches"
@@ -5193,6 +5145,19 @@
       "generated": null,
       "identity": null,
       "name": "group",
+      "entityType": "columns",
+      "schema": "hearthstone",
+      "table": "sets"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "year",
       "entityType": "columns",
       "schema": "hearthstone",
       "table": "sets"
@@ -5323,19 +5288,6 @@
       "generated": null,
       "identity": null,
       "name": "raw_names",
-      "entityType": "columns",
-      "schema": "hearthstone",
-      "table": "tags"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "'json'",
-      "generated": null,
-      "identity": null,
-      "name": "value_kind",
       "entityType": "columns",
       "schema": "hearthstone",
       "table": "tags"
@@ -6186,188 +6138,6 @@
       "table": "knowledge_source_links"
     },
     {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "publish_target_id",
-      "entityType": "columns",
-      "schema": "hearthstone_data",
-      "table": "publish_ledgers"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "environment",
-      "entityType": "columns",
-      "schema": "hearthstone_data",
-      "table": "publish_ledgers"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "target_fingerprint",
-      "entityType": "columns",
-      "schema": "hearthstone_data",
-      "table": "publish_ledgers"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "batch_id",
-      "entityType": "columns",
-      "schema": "hearthstone_data",
-      "table": "publish_ledgers"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "source_tag_min",
-      "entityType": "columns",
-      "schema": "hearthstone_data",
-      "table": "publish_ledgers"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "source_tag_max",
-      "entityType": "columns",
-      "schema": "hearthstone_data",
-      "table": "publish_ledgers"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "build_min",
-      "entityType": "columns",
-      "schema": "hearthstone_data",
-      "table": "publish_ledgers"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "build_max",
-      "entityType": "columns",
-      "schema": "hearthstone_data",
-      "table": "publish_ledgers"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "manifest_hash",
-      "entityType": "columns",
-      "schema": "hearthstone_data",
-      "table": "publish_ledgers"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "total_row_count",
-      "entityType": "columns",
-      "schema": "hearthstone_data",
-      "table": "publish_ledgers"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "0",
-      "generated": null,
-      "identity": null,
-      "name": "changed_row_count",
-      "entityType": "columns",
-      "schema": "hearthstone_data",
-      "table": "publish_ledgers"
-    },
-    {
-      "type": "timestamp",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "published_at",
-      "entityType": "columns",
-      "schema": "hearthstone_data",
-      "table": "publish_ledgers"
-    },
-    {
-      "type": "timestamp",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "hearthstone_data",
-      "table": "publish_ledgers"
-    },
-    {
-      "type": "timestamp",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "updated_at",
-      "entityType": "columns",
-      "schema": "hearthstone_data",
-      "table": "publish_ledgers"
-    },
-    {
       "type": "uuid",
       "typeSchema": null,
       "notNull": true,
@@ -6485,14 +6255,40 @@
       "table": "announcements"
     },
     {
-      "type": "text",
+      "type": "jsonb",
       "typeSchema": null,
       "notNull": true,
-      "dimensions": 1,
-      "default": "'{}'",
+      "dimensions": 0,
+      "default": "'[]'",
       "generated": null,
       "identity": null,
       "name": "link",
+      "entityType": "columns",
+      "schema": "magic",
+      "table": "announcements"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "magic",
+      "table": "announcements"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
       "entityType": "columns",
       "schema": "magic",
       "table": "announcements"
@@ -6511,6 +6307,19 @@
       "table": "announcement_items"
     },
     {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "type",
+      "entityType": "columns",
+      "schema": "magic",
+      "table": "announcement_items"
+    },
+    {
       "type": "uuid",
       "typeSchema": null,
       "notNull": true,
@@ -6524,14 +6333,14 @@
       "table": "announcement_items"
     },
     {
-      "type": "game_change_type",
-      "typeSchema": "magic",
+      "type": "integer",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": null,
+      "default": "0",
       "generated": null,
       "identity": null,
-      "name": "type",
+      "name": "order",
       "entityType": "columns",
       "schema": "magic",
       "table": "announcement_items"
@@ -6558,6 +6367,71 @@
       "generated": null,
       "identity": null,
       "name": "format",
+      "entityType": "columns",
+      "schema": "magic",
+      "table": "announcement_items"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "status",
+      "entityType": "columns",
+      "schema": "magic",
+      "table": "announcement_items"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "score",
+      "entityType": "columns",
+      "schema": "magic",
+      "table": "announcement_items"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "group",
+      "entityType": "columns",
+      "schema": "magic",
+      "table": "announcement_items"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "delta",
+      "entityType": "columns",
+      "schema": "magic",
+      "table": "announcement_items"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "glow",
       "entityType": "columns",
       "schema": "magic",
       "table": "announcement_items"
@@ -6604,46 +6478,7 @@
     {
       "type": "text",
       "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "status",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "announcement_items"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "score",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "announcement_items"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "adjustment",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "announcement_items"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
+      "notNull": true,
       "dimensions": 1,
       "default": "'{}'",
       "generated": null,
@@ -6657,40 +6492,53 @@
       "type": "text",
       "typeSchema": null,
       "notNull": true,
-      "dimensions": 0,
-      "default": null,
+      "dimensions": 1,
+      "default": "'{}'",
       "generated": null,
       "identity": null,
-      "name": "id",
+      "name": "resolved_formats",
       "entityType": "columns",
       "schema": "magic",
-      "table": "announcement_rule_items"
+      "table": "announcement_items"
     },
     {
       "type": "text",
       "typeSchema": null,
       "notNull": true,
-      "dimensions": 0,
-      "default": null,
+      "dimensions": 1,
+      "default": "'{}'",
       "generated": null,
       "identity": null,
-      "name": "lang",
+      "name": "resolved_cards",
       "entityType": "columns",
       "schema": "magic",
-      "table": "announcement_rule_items"
+      "table": "announcement_items"
     },
     {
-      "type": "text",
+      "type": "timestamp",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": null,
+      "default": "now()",
       "generated": null,
       "identity": null,
-      "name": "text",
+      "name": "created_at",
       "entityType": "columns",
       "schema": "magic",
-      "table": "announcement_rule_items"
+      "table": "announcement_items"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "magic",
+      "table": "announcement_items"
     },
     {
       "type": "text",
@@ -8667,487 +8515,6 @@
       "entityType": "columns",
       "schema": "magic",
       "table": "formats"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "source",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "card_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "date",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "card_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "effective_date",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "card_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "name",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "card_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 1,
-      "default": "'{}'",
-      "generated": null,
-      "identity": null,
-      "name": "link",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "card_changes"
-    },
-    {
-      "type": "game_change_type",
-      "typeSchema": "magic",
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "type",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "card_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "format",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "card_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "card_id",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "card_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "set_id",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "card_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "group",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "card_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "status",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "card_changes"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "score",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "card_changes"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "adjustment",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "card_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "source",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "format_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "date",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "format_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "effective_date",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "format_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "name",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "format_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 1,
-      "default": "'{}'",
-      "generated": null,
-      "identity": null,
-      "name": "link",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "format_changes"
-    },
-    {
-      "type": "game_change_type",
-      "typeSchema": "magic",
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "type",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "format_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "format",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "format_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "card_id",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "format_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "set_id",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "format_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "rule_id",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "format_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "group",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "format_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "status",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "format_changes"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "score",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "format_changes"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "adjustment",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "format_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "source",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "set_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "date",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "set_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "effective_date",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "set_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "name",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "set_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 1,
-      "default": "'{}'",
-      "generated": null,
-      "identity": null,
-      "name": "link",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "set_changes"
-    },
-    {
-      "type": "game_change_type",
-      "typeSchema": "magic",
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "type",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "set_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "format",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "set_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "set_id",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "set_changes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "status",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "set_changes"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "score",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "set_changes"
     },
     {
       "type": "text",
@@ -12747,6 +12114,110 @@
       "table": "cards"
     },
     {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "primary_image_r2_bucket",
+      "entityType": "columns",
+      "schema": "yugioh",
+      "table": "cards"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "primary_image_r2_key",
+      "entityType": "columns",
+      "schema": "yugioh",
+      "table": "cards"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "primary_image_content_type",
+      "entityType": "columns",
+      "schema": "yugioh",
+      "table": "cards"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "primary_image_byte_size",
+      "entityType": "columns",
+      "schema": "yugioh",
+      "table": "cards"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "primary_image_width",
+      "entityType": "columns",
+      "schema": "yugioh",
+      "table": "cards"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "primary_image_height",
+      "entityType": "columns",
+      "schema": "yugioh",
+      "table": "cards"
+    },
+    {
+      "type": "varchar(64)",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "primary_image_sha256",
+      "entityType": "columns",
+      "schema": "yugioh",
+      "table": "cards"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "primary_image_deleted_at",
+      "entityType": "columns",
+      "schema": "yugioh",
+      "table": "cards"
+    },
+    {
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": true,
@@ -13045,6 +12516,223 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "environment",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "publish_ledgers_environment_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "publish_ledgers"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "publish_target",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "environment",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "publish_type",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "publish_ledgers_stream_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "publish_ledgers"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "published_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "publish_ledgers_published_at_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "publish_ledgers"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "publish_target",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "environment",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "publish_type",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "publish_stream_registrations_stream_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "publish_stream_registrations"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "normal_publish_enabled",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "publish_stream_registrations_publish_enabled_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "publish_stream_registrations"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "lease_expires_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "publish_stream_registrations_lease_expires_at_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "publish_stream_registrations"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "user_configs_user_id_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "user_configs"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "announcement_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "idx_announcement_items_announcement_id",
+      "entityType": "indexes",
+      "schema": "hearthstone",
+      "table": "announcement_items"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "deleted_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": "\"deleted_at\" is not null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "cards_deleted_at_idx",
+      "entityType": "indexes",
+      "schema": "hearthstone",
+      "table": "cards"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "r2_key",
           "isExpression": false,
           "asc": true,
@@ -13114,6 +12802,13 @@
     {
       "nameExplicit": true,
       "columns": [
+        {
+          "value": "category",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
         {
           "value": "zone",
           "isExpression": false,
@@ -13262,6 +12957,27 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "deleted_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": "\"deleted_at\" is not null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "entity_relations_deleted_at_idx",
+      "entityType": "indexes",
+      "schema": "hearthstone",
+      "table": "entity_relations"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "source_id",
           "isExpression": false,
           "asc": true,
@@ -13270,7 +12986,7 @@
         }
       ],
       "isUnique": false,
-      "where": null,
+      "where": "\"deleted_at\" is null",
       "with": "",
       "method": "btree",
       "concurrently": false,
@@ -13291,7 +13007,7 @@
         }
       ],
       "isUnique": false,
-      "where": null,
+      "where": "\"deleted_at\" is null",
       "with": "",
       "method": "btree",
       "concurrently": false,
@@ -13319,7 +13035,7 @@
         }
       ],
       "isUnique": false,
-      "where": null,
+      "where": "\"deleted_at\" is null",
       "with": "",
       "method": "btree",
       "concurrently": false,
@@ -13347,7 +13063,7 @@
         }
       ],
       "isUnique": false,
-      "where": null,
+      "where": "\"deleted_at\" is null",
       "with": "",
       "method": "btree",
       "concurrently": false,
@@ -13360,27 +13076,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "is_latest",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "entity_relations_latest_idx",
-      "entityType": "indexes",
-      "schema": "hearthstone",
-      "table": "entity_relations"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "version",
           "isExpression": false,
           "asc": true,
@@ -13389,7 +13084,7 @@
         }
       ],
       "isUnique": false,
-      "where": null,
+      "where": "\"deleted_at\" is null",
       "with": "",
       "method": "gin",
       "concurrently": false,
@@ -13402,27 +13097,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "is_latest",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "entities_latest_idx",
-      "entityType": "indexes",
-      "schema": "hearthstone",
-      "table": "entities"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "version",
           "isExpression": false,
           "asc": true,
@@ -13431,11 +13105,32 @@
         }
       ],
       "isUnique": false,
-      "where": null,
+      "where": "\"deleted_at\" is null",
       "with": "",
       "method": "gin",
       "concurrently": false,
       "name": "entities_version_gin_idx",
+      "entityType": "indexes",
+      "schema": "hearthstone",
+      "table": "entities"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "deleted_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": "\"deleted_at\" is not null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "entities_deleted_at_idx",
       "entityType": "indexes",
       "schema": "hearthstone",
       "table": "entities"
@@ -13459,32 +13154,11 @@
         }
       ],
       "isUnique": false,
-      "where": null,
+      "where": "\"deleted_at\" is null",
       "with": "",
       "method": "btree",
       "concurrently": false,
       "name": "entity_localizations_card_lang_idx",
-      "entityType": "indexes",
-      "schema": "hearthstone",
-      "table": "entity_localizations"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "is_latest",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "entity_localizations_latest_idx",
       "entityType": "indexes",
       "schema": "hearthstone",
       "table": "entity_localizations"
@@ -13501,7 +13175,7 @@
         }
       ],
       "isUnique": false,
-      "where": null,
+      "where": "\"deleted_at\" is null",
       "with": "",
       "method": "gin",
       "concurrently": false,
@@ -13522,11 +13196,32 @@
         }
       ],
       "isUnique": false,
-      "where": "\"render_hash\" is not null",
+      "where": "(\"render_hash\" is not null and \"deleted_at\" is null)",
       "with": "",
       "method": "btree",
       "concurrently": false,
       "name": "entity_localizations_render_hash_idx",
+      "entityType": "indexes",
+      "schema": "hearthstone",
+      "table": "entity_localizations"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "deleted_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": "\"deleted_at\" is not null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "entity_localizations_deleted_at_idx",
       "entityType": "indexes",
       "schema": "hearthstone",
       "table": "entity_localizations"
@@ -14399,7 +14094,7 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "environment",
+          "value": "resolved_formats",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -14409,18 +14104,39 @@
       "isUnique": false,
       "where": null,
       "with": "",
-      "method": "btree",
+      "method": "gin",
       "concurrently": false,
-      "name": "publish_ledgers_environment_idx",
+      "name": "idx_announcement_items_resolved_formats",
       "entityType": "indexes",
-      "schema": "hearthstone_data",
-      "table": "publish_ledgers"
+      "schema": "magic",
+      "table": "announcement_items"
     },
     {
       "nameExplicit": true,
       "columns": [
         {
-          "value": "published_at",
+          "value": "resolved_cards",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "gin",
+      "concurrently": false,
+      "name": "idx_announcement_items_resolved_cards",
+      "entityType": "indexes",
+      "schema": "magic",
+      "table": "announcement_items"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "announcement_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -14432,10 +14148,10 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "publish_ledgers_published_at_idx",
+      "name": "idx_announcement_items_announcement_id",
       "entityType": "indexes",
-      "schema": "hearthstone_data",
-      "table": "publish_ledgers"
+      "schema": "magic",
+      "table": "announcement_items"
     },
     {
       "nameExplicit": true,
@@ -15522,6 +15238,27 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "primary_image_r2_key",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "cards_primary_image_r2_key_uidx",
+      "entityType": "indexes",
+      "schema": "yugioh",
+      "table": "cards"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "deleted_at",
           "isExpression": false,
           "asc": true,
@@ -15535,6 +15272,27 @@
       "method": "btree",
       "concurrently": false,
       "name": "cards_deleted_at_idx",
+      "entityType": "indexes",
+      "schema": "yugioh",
+      "table": "cards"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "primary_image_deleted_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "cards_primary_image_deleted_at_idx",
       "entityType": "indexes",
       "schema": "yugioh",
       "table": "cards"
@@ -16399,8 +16157,43 @@
     },
     {
       "columns": [
-        "image_spec_version",
+        "publish_target",
+        "environment",
+        "publish_type"
+      ],
+      "nameExplicit": false,
+      "name": "publish_ledgers_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "publish_ledgers"
+    },
+    {
+      "columns": [
+        "publish_target",
+        "environment",
+        "publish_type"
+      ],
+      "nameExplicit": false,
+      "name": "publish_stream_registrations_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "publish_stream_registrations"
+    },
+    {
+      "columns": [
+        "user_id",
+        "game_id"
+      ],
+      "nameExplicit": false,
+      "name": "user_configs_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "user_configs"
+    },
+    {
+      "columns": [
         "render_hash",
+        "category",
         "zone",
         "template",
         "premium"
@@ -16808,16 +16601,6 @@
     },
     {
       "columns": [
-        "publish_target_id"
-      ],
-      "nameExplicit": false,
-      "name": "publish_ledgers_pkey",
-      "schema": "hearthstone_data",
-      "table": "publish_ledgers",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
         "id"
       ],
       "nameExplicit": false,
@@ -16834,16 +16617,6 @@
       "name": "announcement_items_pkey",
       "schema": "magic",
       "table": "announcement_items",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "announcement_rule_items_pkey",
-      "schema": "magic",
-      "table": "announcement_rule_items",
       "entityType": "pks"
     },
     {
@@ -17240,6 +17013,41 @@
       "entityType": "uniques"
     },
     {
+      "value": "\"build_min\" <= \"build_max\"",
+      "name": "publish_ledgers_build_range_chk",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "publish_ledgers"
+    },
+    {
+      "value": "\"build_min\" > 0",
+      "name": "publish_ledgers_build_min_positive_chk",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "publish_ledgers"
+    },
+    {
+      "value": "\"generation_order\" > 0",
+      "name": "publish_ledgers_generation_order_positive_chk",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "publish_ledgers"
+    },
+    {
+      "value": "\"total_row_count\" >= 0",
+      "name": "publish_ledgers_total_row_count_nonnegative_chk",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "publish_ledgers"
+    },
+    {
+      "value": "\"changed_row_count\" >= 0",
+      "name": "publish_ledgers_changed_row_count_nonnegative_chk",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "publish_ledgers"
+    },
+    {
       "value": "cardinality(\"version\") > 0",
       "name": "entity_relations_version_nonempty_chk",
       "entityType": "checks",
@@ -17261,48 +17069,6 @@
       "table": "entity_localizations"
     },
     {
-      "value": "\"source_tag_min\" <= \"source_tag_max\"",
-      "name": "publish_ledgers_source_tag_range_chk",
-      "entityType": "checks",
-      "schema": "hearthstone_data",
-      "table": "publish_ledgers"
-    },
-    {
-      "value": "\"build_min\" <= \"build_max\"",
-      "name": "publish_ledgers_build_range_chk",
-      "entityType": "checks",
-      "schema": "hearthstone_data",
-      "table": "publish_ledgers"
-    },
-    {
-      "value": "\"source_tag_min\" > 0",
-      "name": "publish_ledgers_source_tag_min_positive_chk",
-      "entityType": "checks",
-      "schema": "hearthstone_data",
-      "table": "publish_ledgers"
-    },
-    {
-      "value": "\"build_min\" > 0",
-      "name": "publish_ledgers_build_min_positive_chk",
-      "entityType": "checks",
-      "schema": "hearthstone_data",
-      "table": "publish_ledgers"
-    },
-    {
-      "value": "\"total_row_count\" >= 0",
-      "name": "publish_ledgers_total_row_count_nonnegative_chk",
-      "entityType": "checks",
-      "schema": "hearthstone_data",
-      "table": "publish_ledgers"
-    },
-    {
-      "value": "\"changed_row_count\" >= 0",
-      "name": "publish_ledgers_changed_row_count_nonnegative_chk",
-      "entityType": "checks",
-      "schema": "hearthstone_data",
-      "table": "publish_ledgers"
-    },
-    {
       "value": "\"cid\" is null or \"cid\" > 0",
       "name": "cards_cid_positive_chk",
       "entityType": "checks",
@@ -17317,6 +17083,41 @@
       "table": "cards"
     },
     {
+      "value": "\"primary_image_sha256\" is null or \"primary_image_sha256\" ~ '^[a-f0-9]{64}$'",
+      "name": "cards_primary_image_sha256_format_chk",
+      "entityType": "checks",
+      "schema": "yugioh",
+      "table": "cards"
+    },
+    {
+      "value": "\"primary_image_byte_size\" is null or \"primary_image_byte_size\" > 0",
+      "name": "cards_primary_image_byte_size_positive_chk",
+      "entityType": "checks",
+      "schema": "yugioh",
+      "table": "cards"
+    },
+    {
+      "value": "\"primary_image_width\" is null or \"primary_image_width\" > 0",
+      "name": "cards_primary_image_width_positive_chk",
+      "entityType": "checks",
+      "schema": "yugioh",
+      "table": "cards"
+    },
+    {
+      "value": "\"primary_image_height\" is null or \"primary_image_height\" > 0",
+      "name": "cards_primary_image_height_positive_chk",
+      "entityType": "checks",
+      "schema": "yugioh",
+      "table": "cards"
+    },
+    {
+      "value": "\n    (\"primary_image_r2_key\" is null\n      and \"primary_image_r2_bucket\" is null\n      and \"primary_image_content_type\" is null\n      and \"primary_image_byte_size\" is null\n      and \"primary_image_width\" is null\n      and \"primary_image_height\" is null\n      and \"primary_image_sha256\" is null)\n    or\n    (\"primary_image_r2_key\" is not null\n      and \"primary_image_r2_bucket\" is not null\n      and \"primary_image_content_type\" is not null\n      and \"primary_image_byte_size\" is not null\n      and \"primary_image_width\" is not null\n      and \"primary_image_height\" is not null\n      and \"primary_image_sha256\" is not null)\n  ",
+      "name": "cards_primary_image_fields_complete_chk",
+      "entityType": "checks",
+      "schema": "yugioh",
+      "table": "cards"
+    },
+    {
       "value": "\"total_row_count\" >= 0",
       "name": "publish_ledgers_total_row_count_nonnegative_chk",
       "entityType": "checks",
@@ -17331,18 +17132,40 @@
       "table": "publish_ledgers"
     },
     {
-      "definition": "select \"hearthstone\".\"announcements\".\"id\", \"hearthstone\".\"announcements\".\"source\", \"hearthstone\".\"announcements\".\"date\", \"hearthstone\".\"announcements\".\"name\", \"hearthstone\".\"announcements\".\"version\", \"hearthstone\".\"announcements\".\"last_version\", coalesce(\"hearthstone\".\"announcement_items\".\"effective_date\", \"hearthstone\".\"announcements\".\"effective_date\") as \"effective_date\", \"hearthstone\".\"announcements\".\"link\", \"hearthstone\".\"announcement_items\".\"type\", \"hearthstone\".\"announcement_items\".\"format\", \"hearthstone\".\"announcement_items\".\"card_id\", \"hearthstone\".\"announcement_items\".\"set_id\", \"hearthstone\".\"announcement_items\".\"rule_id\", \"hearthstone\".\"announcement_items\".\"status\", \"hearthstone\".\"announcement_items\".\"score\", \"hearthstone\".\"announcement_items\".\"adjustment\", \"hearthstone\".\"announcement_items\".\"related_cards\" from \"hearthstone\".\"announcements\" left join \"hearthstone\".\"announcement_items\" on \"hearthstone\".\"announcements\".\"id\" = \"hearthstone\".\"announcement_items\".\"announcement_id\"",
+      "definition": "select \"card_id\", \"legalities\", \"created_at\", \"updated_at\", \"deleted_at\" from \"hearthstone\".\"cards\" where \"hearthstone\".\"cards\".\"deleted_at\" is null",
       "with": null,
       "withNoData": null,
       "using": null,
       "tablespace": null,
       "materialized": false,
-      "name": "announcement_view",
+      "name": "active_cards",
       "entityType": "views",
       "schema": "hearthstone"
     },
     {
-      "definition": "select \"hearthstone\".\"entities\".\"card_id\", \"hearthstone\".\"entities\".\"version\" & \"hearthstone\".\"entity_localizations\".\"version\" as \"version\", \"hearthstone\".\"entity_localizations\".\"lang\", \"hearthstone\".\"entities\".\"revision_hash\", \"hearthstone\".\"entity_localizations\".\"localization_hash\", \"hearthstone\".\"entity_localizations\".\"render_hash\", \"hearthstone\".\"entities\".\"dbf_id\", \"hearthstone\".\"entities\".\"legacy_payload\", \"hearthstone\".\"entities\".\"set\", \"hearthstone\".\"entities\".\"class\", \"hearthstone\".\"entities\".\"type\", \"hearthstone\".\"entities\".\"cost\", \"hearthstone\".\"entities\".\"attack\", \"hearthstone\".\"entities\".\"health\", \"hearthstone\".\"entities\".\"durability\", \"hearthstone\".\"entities\".\"armor\", \"hearthstone\".\"entities\".\"rune\", \"hearthstone\".\"entities\".\"race\", \"hearthstone\".\"entities\".\"spell_school\", \"hearthstone\".\"entities\".\"quest_type\", \"hearthstone\".\"entities\".\"quest_progress\", \"hearthstone\".\"entities\".\"quest_part\", \"hearthstone\".\"entities\".\"hero_power\", \"hearthstone\".\"entities\".\"tech_level\", \"hearthstone\".\"entities\".\"in_bobs_tavern\", \"hearthstone\".\"entities\".\"triple_card\", \"hearthstone\".\"entities\".\"race_bucket\", \"hearthstone\".\"entities\".\"armor_bucket\", \"hearthstone\".\"entities\".\"buddy\", \"hearthstone\".\"entities\".\"banned_race\", \"hearthstone\".\"entities\".\"mercenary_role\", \"hearthstone\".\"entities\".\"mercenary_faction\", \"hearthstone\".\"entities\".\"colddown\", \"hearthstone\".\"entities\".\"collectible\", \"hearthstone\".\"entities\".\"elite\", \"hearthstone\".\"entities\".\"rarity\", \"hearthstone\".\"entities\".\"artist\", \"hearthstone\".\"entities\".\"override_watermark\", \"hearthstone\".\"entities\".\"faction\", \"hearthstone\".\"entities\".\"mechanics\", \"hearthstone\".\"entities\".\"referenced_tags\", \"hearthstone\".\"entities\".\"text_builder_type\", \"hearthstone\".\"entities\".\"change_type\", \"hearthstone\".\"entities\".\"is_latest\", \"hearthstone\".\"entity_localizations\".\"name\", \"hearthstone\".\"entity_localizations\".\"text\", \"hearthstone\".\"entity_localizations\".\"rich_text\", \"hearthstone\".\"entity_localizations\".\"display_text\", \"hearthstone\".\"entity_localizations\".\"target_text\", \"hearthstone\".\"entity_localizations\".\"text_in_play\", \"hearthstone\".\"entity_localizations\".\"how_to_earn\", \"hearthstone\".\"entity_localizations\".\"how_to_earn_golden\", \"hearthstone\".\"entity_localizations\".\"flavor_text\", \"hearthstone\".\"entity_localizations\".\"loc_change_type\", \"hearthstone\".\"cards\".\"legalities\" from \"hearthstone\".\"entities\" inner join \"hearthstone\".\"entity_localizations\" on (\"hearthstone\".\"entities\".\"card_id\" = \"hearthstone\".\"entity_localizations\".\"card_id\" and \"hearthstone\".\"entities\".\"revision_hash\" = \"hearthstone\".\"entity_localizations\".\"revision_hash\" and \"hearthstone\".\"entities\".\"version\" && \"hearthstone\".\"entity_localizations\".\"version\") inner join \"hearthstone\".\"cards\" on \"hearthstone\".\"entities\".\"card_id\" = \"hearthstone\".\"cards\".\"card_id\"",
+      "definition": "select \"source_id\", \"source_revision_hash\", \"relation\", \"target_id\", \"version\", \"created_at\", \"updated_at\", \"deleted_at\" from \"hearthstone\".\"entity_relations\" where \"hearthstone\".\"entity_relations\".\"deleted_at\" is null",
+      "with": null,
+      "withNoData": null,
+      "using": null,
+      "tablespace": null,
+      "materialized": false,
+      "name": "active_entity_relations",
+      "entityType": "views",
+      "schema": "hearthstone"
+    },
+    {
+      "definition": "select \"source_id\", \"source_revision_hash\", \"relation\", \"target_id\", \"version\", \"created_at\", \"updated_at\", \"deleted_at\" from \"hearthstone\".\"entity_relations\" where \"hearthstone\".\"entity_relations\".\"deleted_at\" is null and (SELECT MAX(\"hearthstone\".\"patches\".\"build_number\") FROM \"hearthstone\".\"patches\") = ANY(\"hearthstone\".\"entity_relations\".\"version\")",
+      "with": null,
+      "withNoData": null,
+      "using": null,
+      "tablespace": null,
+      "materialized": false,
+      "name": "latest_entity_relations",
+      "entityType": "views",
+      "schema": "hearthstone"
+    },
+    {
+      "definition": "select \"hearthstone\".\"entities\".\"card_id\", \"hearthstone\".\"entities\".\"version\" & \"hearthstone\".\"entity_localizations\".\"version\" as \"version\", \"hearthstone\".\"entity_localizations\".\"lang\", \"hearthstone\".\"entities\".\"revision_hash\", \"hearthstone\".\"entity_localizations\".\"localization_hash\", \"hearthstone\".\"entity_localizations\".\"render_hash\", \"hearthstone\".\"entities\".\"dbf_id\", \"hearthstone\".\"entities\".\"legacy_payload\", \"hearthstone\".\"entities\".\"set\", \"hearthstone\".\"entities\".\"class\", \"hearthstone\".\"entities\".\"type\", \"hearthstone\".\"entities\".\"cost\", \"hearthstone\".\"entities\".\"attack\", \"hearthstone\".\"entities\".\"health\", \"hearthstone\".\"entities\".\"durability\", \"hearthstone\".\"entities\".\"armor\", \"hearthstone\".\"entities\".\"rune\", \"hearthstone\".\"entities\".\"race\", \"hearthstone\".\"entities\".\"spell_school\", \"hearthstone\".\"entities\".\"quest_type\", \"hearthstone\".\"entities\".\"quest_progress\", \"hearthstone\".\"entities\".\"quest_part\", \"hearthstone\".\"entities\".\"hero_power\", \"hearthstone\".\"entities\".\"tech_level\", \"hearthstone\".\"entities\".\"in_bobs_tavern\", \"hearthstone\".\"entities\".\"triple_card\", \"hearthstone\".\"entities\".\"race_bucket\", \"hearthstone\".\"entities\".\"armor_bucket\", \"hearthstone\".\"entities\".\"buddy\", \"hearthstone\".\"entities\".\"banned_race\", \"hearthstone\".\"entities\".\"mercenary_role\", \"hearthstone\".\"entities\".\"mercenary_faction\", \"hearthstone\".\"entities\".\"colddown\", \"hearthstone\".\"entities\".\"collectible\", \"hearthstone\".\"entities\".\"elite\", \"hearthstone\".\"entities\".\"rarity\", \"hearthstone\".\"entities\".\"artist\", \"hearthstone\".\"entities\".\"override_watermark\", \"hearthstone\".\"entities\".\"signature_artist\", \"hearthstone\".\"entities\".\"credits_card_name\", \"hearthstone\".\"entities\".\"suggestion_weight\", \"hearthstone\".\"entities\".\"change_version\", \"hearthstone\".\"entities\".\"faction\", \"hearthstone\".\"entities\".\"mechanics\", \"hearthstone\".\"entities\".\"referenced_tags\", \"hearthstone\".\"entities\".\"text_builder_type\", \"hearthstone\".\"entities\".\"change_type\", \"hearthstone\".\"entity_localizations\".\"name\", \"hearthstone\".\"entity_localizations\".\"text\", \"hearthstone\".\"entity_localizations\".\"rich_text\", \"hearthstone\".\"entity_localizations\".\"display_text\", \"hearthstone\".\"entity_localizations\".\"target_text\", \"hearthstone\".\"entity_localizations\".\"text_in_play\", \"hearthstone\".\"entity_localizations\".\"how_to_earn\", \"hearthstone\".\"entity_localizations\".\"how_to_earn_golden\", \"hearthstone\".\"entity_localizations\".\"how_to_earn_signature\", \"hearthstone\".\"entity_localizations\".\"how_to_earn_diamond\", \"hearthstone\".\"entity_localizations\".\"flavor_text\", \"hearthstone\".\"entity_localizations\".\"loc_change_type\", \"hearthstone\".\"cards\".\"legalities\" from \"hearthstone\".\"entities\" inner join \"hearthstone\".\"entity_localizations\" on (\"hearthstone\".\"entities\".\"card_id\" = \"hearthstone\".\"entity_localizations\".\"card_id\" and \"hearthstone\".\"entities\".\"revision_hash\" = \"hearthstone\".\"entity_localizations\".\"revision_hash\" and \"hearthstone\".\"entities\".\"version\" && \"hearthstone\".\"entity_localizations\".\"version\") inner join \"hearthstone\".\"cards\" on \"hearthstone\".\"entities\".\"card_id\" = \"hearthstone\".\"cards\".\"card_id\" where \"hearthstone\".\"entities\".\"deleted_at\" is null and \"hearthstone\".\"entity_localizations\".\"deleted_at\" is null",
       "with": null,
       "withNoData": null,
       "using": null,
@@ -17353,13 +17176,68 @@
       "schema": "hearthstone"
     },
     {
-      "definition": "select \"hearthstone\".\"entities\".\"card_id\", \"hearthstone\".\"entities\".\"version\" & \"hearthstone\".\"entity_localizations\".\"version\" as \"version\", \"hearthstone\".\"entity_localizations\".\"lang\", \"hearthstone\".\"entities\".\"dbf_id\", \"hearthstone\".\"entities\".\"legacy_payload\", \"hearthstone\".\"entities\".\"set\", \"hearthstone\".\"entities\".\"class\", \"hearthstone\".\"entities\".\"type\", \"hearthstone\".\"entities\".\"cost\", \"hearthstone\".\"entities\".\"attack\", \"hearthstone\".\"entities\".\"health\", \"hearthstone\".\"entities\".\"durability\", \"hearthstone\".\"entities\".\"armor\", \"hearthstone\".\"entities\".\"rune\", \"hearthstone\".\"entities\".\"race\", \"hearthstone\".\"entities\".\"spell_school\", \"hearthstone\".\"entities\".\"quest_type\", \"hearthstone\".\"entities\".\"quest_progress\", \"hearthstone\".\"entities\".\"quest_part\", \"hearthstone\".\"entities\".\"hero_power\", \"hearthstone\".\"entities\".\"tech_level\", \"hearthstone\".\"entities\".\"in_bobs_tavern\", \"hearthstone\".\"entities\".\"triple_card\", \"hearthstone\".\"entities\".\"race_bucket\", \"hearthstone\".\"entities\".\"armor_bucket\", \"hearthstone\".\"entities\".\"buddy\", \"hearthstone\".\"entities\".\"banned_race\", \"hearthstone\".\"entities\".\"mercenary_role\", \"hearthstone\".\"entities\".\"mercenary_faction\", \"hearthstone\".\"entities\".\"colddown\", \"hearthstone\".\"entities\".\"collectible\", \"hearthstone\".\"entities\".\"elite\", \"hearthstone\".\"entities\".\"rarity\", \"hearthstone\".\"entities\".\"artist\", \"hearthstone\".\"entities\".\"override_watermark\", \"hearthstone\".\"entities\".\"faction\", \"hearthstone\".\"entities\".\"mechanics\", \"hearthstone\".\"entities\".\"referenced_tags\", \"hearthstone\".\"entities\".\"text_builder_type\", \"hearthstone\".\"entities\".\"change_type\", \"hearthstone\".\"entities\".\"is_latest\", \"hearthstone\".\"entity_localizations\".\"name\", \"hearthstone\".\"entity_localizations\".\"text\", \"hearthstone\".\"entity_localizations\".\"rich_text\", \"hearthstone\".\"entity_localizations\".\"display_text\", \"hearthstone\".\"entity_localizations\".\"target_text\", \"hearthstone\".\"entity_localizations\".\"text_in_play\", \"hearthstone\".\"entity_localizations\".\"how_to_earn\", \"hearthstone\".\"entity_localizations\".\"how_to_earn_golden\", \"hearthstone\".\"entity_localizations\".\"flavor_text\", \"hearthstone\".\"entity_localizations\".\"loc_change_type\" from \"hearthstone\".\"entities\" inner join \"hearthstone\".\"entity_localizations\" on (\"hearthstone\".\"entities\".\"card_id\" = \"hearthstone\".\"entity_localizations\".\"card_id\" and \"hearthstone\".\"entities\".\"revision_hash\" = \"hearthstone\".\"entity_localizations\".\"revision_hash\" and \"hearthstone\".\"entities\".\"version\" && \"hearthstone\".\"entity_localizations\".\"version\")",
+      "definition": "select \"card_id\", \"version\", \"revision_hash\", \"dbf_id\", \"legacy_payload\", \"set\", \"class\", \"type\", \"cost\", \"attack\", \"health\", \"durability\", \"armor\", \"rune\", \"race\", \"spell_school\", \"quest_type\", \"quest_progress\", \"quest_part\", \"hero_power\", \"tech_level\", \"in_bobs_tavern\", \"triple_card\", \"race_bucket\", \"armor_bucket\", \"buddy\", \"banned_race\", \"mercenary_role\", \"mercenary_faction\", \"colddown\", \"collectible\", \"elite\", \"rarity\", \"artist\", \"override_watermark\", \"signature_artist\", \"credits_card_name\", \"suggestion_weight\", \"change_version\", \"faction\", \"mechanics\", \"referenced_tags\", \"text_builder_type\", \"change_type\", \"created_at\", \"updated_at\", \"deleted_at\" from \"hearthstone\".\"entities\" where \"hearthstone\".\"entities\".\"deleted_at\" is null",
+      "with": null,
+      "withNoData": null,
+      "using": null,
+      "tablespace": null,
+      "materialized": false,
+      "name": "active_entities",
+      "entityType": "views",
+      "schema": "hearthstone"
+    },
+    {
+      "definition": "select \"card_id\", \"version\", \"lang\", \"revision_hash\", \"localization_hash\", \"render_hash\", \"render_model\", \"name\", \"text\", \"rich_text\", \"display_text\", \"target_text\", \"text_in_play\", \"how_to_earn\", \"how_to_earn_golden\", \"how_to_earn_signature\", \"how_to_earn_diamond\", \"flavor_text\", \"loc_change_type\", \"created_at\", \"updated_at\", \"deleted_at\" from \"hearthstone\".\"entity_localizations\" where \"hearthstone\".\"entity_localizations\".\"deleted_at\" is null",
+      "with": null,
+      "withNoData": null,
+      "using": null,
+      "tablespace": null,
+      "materialized": false,
+      "name": "active_entity_localizations",
+      "entityType": "views",
+      "schema": "hearthstone"
+    },
+    {
+      "definition": "select \"hearthstone\".\"entities\".\"card_id\", \"hearthstone\".\"entities\".\"version\" & \"hearthstone\".\"entity_localizations\".\"version\" as \"version\", \"hearthstone\".\"entity_localizations\".\"lang\", \"hearthstone\".\"entities\".\"dbf_id\", \"hearthstone\".\"entities\".\"legacy_payload\", \"hearthstone\".\"entities\".\"set\", \"hearthstone\".\"entities\".\"class\", \"hearthstone\".\"entities\".\"type\", \"hearthstone\".\"entities\".\"cost\", \"hearthstone\".\"entities\".\"attack\", \"hearthstone\".\"entities\".\"health\", \"hearthstone\".\"entities\".\"durability\", \"hearthstone\".\"entities\".\"armor\", \"hearthstone\".\"entities\".\"rune\", \"hearthstone\".\"entities\".\"race\", \"hearthstone\".\"entities\".\"spell_school\", \"hearthstone\".\"entities\".\"quest_type\", \"hearthstone\".\"entities\".\"quest_progress\", \"hearthstone\".\"entities\".\"quest_part\", \"hearthstone\".\"entities\".\"hero_power\", \"hearthstone\".\"entities\".\"tech_level\", \"hearthstone\".\"entities\".\"in_bobs_tavern\", \"hearthstone\".\"entities\".\"triple_card\", \"hearthstone\".\"entities\".\"race_bucket\", \"hearthstone\".\"entities\".\"armor_bucket\", \"hearthstone\".\"entities\".\"buddy\", \"hearthstone\".\"entities\".\"banned_race\", \"hearthstone\".\"entities\".\"mercenary_role\", \"hearthstone\".\"entities\".\"mercenary_faction\", \"hearthstone\".\"entities\".\"colddown\", \"hearthstone\".\"entities\".\"collectible\", \"hearthstone\".\"entities\".\"elite\", \"hearthstone\".\"entities\".\"rarity\", \"hearthstone\".\"entities\".\"artist\", \"hearthstone\".\"entities\".\"override_watermark\", \"hearthstone\".\"entities\".\"signature_artist\", \"hearthstone\".\"entities\".\"credits_card_name\", \"hearthstone\".\"entities\".\"suggestion_weight\", \"hearthstone\".\"entities\".\"change_version\", \"hearthstone\".\"entities\".\"faction\", \"hearthstone\".\"entities\".\"mechanics\", \"hearthstone\".\"entities\".\"referenced_tags\", \"hearthstone\".\"entities\".\"text_builder_type\", \"hearthstone\".\"entities\".\"change_type\", \"hearthstone\".\"entities\".\"deleted_at\", \"hearthstone\".\"entity_localizations\".\"name\", \"hearthstone\".\"entity_localizations\".\"text\", \"hearthstone\".\"entity_localizations\".\"rich_text\", \"hearthstone\".\"entity_localizations\".\"display_text\", \"hearthstone\".\"entity_localizations\".\"target_text\", \"hearthstone\".\"entity_localizations\".\"text_in_play\", \"hearthstone\".\"entity_localizations\".\"how_to_earn\", \"hearthstone\".\"entity_localizations\".\"how_to_earn_golden\", \"hearthstone\".\"entity_localizations\".\"how_to_earn_signature\", \"hearthstone\".\"entity_localizations\".\"how_to_earn_diamond\", \"hearthstone\".\"entity_localizations\".\"flavor_text\", \"hearthstone\".\"entity_localizations\".\"loc_change_type\" from \"hearthstone\".\"entities\" inner join \"hearthstone\".\"entity_localizations\" on (\"hearthstone\".\"entities\".\"card_id\" = \"hearthstone\".\"entity_localizations\".\"card_id\" and \"hearthstone\".\"entities\".\"revision_hash\" = \"hearthstone\".\"entity_localizations\".\"revision_hash\" and \"hearthstone\".\"entities\".\"version\" && \"hearthstone\".\"entity_localizations\".\"version\") where \"hearthstone\".\"entities\".\"deleted_at\" is null and \"hearthstone\".\"entity_localizations\".\"deleted_at\" is null",
       "with": null,
       "withNoData": null,
       "using": null,
       "tablespace": null,
       "materialized": false,
       "name": "entity_view",
+      "entityType": "views",
+      "schema": "hearthstone"
+    },
+    {
+      "definition": "select \"hearthstone\".\"entities\".\"card_id\", \"hearthstone\".\"entities\".\"version\" & \"hearthstone\".\"entity_localizations\".\"version\" as \"version\", \"hearthstone\".\"entity_localizations\".\"lang\", \"hearthstone\".\"entities\".\"revision_hash\", \"hearthstone\".\"entity_localizations\".\"localization_hash\", \"hearthstone\".\"entity_localizations\".\"render_hash\", \"hearthstone\".\"entities\".\"dbf_id\", \"hearthstone\".\"entities\".\"legacy_payload\", \"hearthstone\".\"entities\".\"set\", \"hearthstone\".\"entities\".\"class\", \"hearthstone\".\"entities\".\"type\", \"hearthstone\".\"entities\".\"cost\", \"hearthstone\".\"entities\".\"attack\", \"hearthstone\".\"entities\".\"health\", \"hearthstone\".\"entities\".\"durability\", \"hearthstone\".\"entities\".\"armor\", \"hearthstone\".\"entities\".\"rune\", \"hearthstone\".\"entities\".\"race\", \"hearthstone\".\"entities\".\"spell_school\", \"hearthstone\".\"entities\".\"quest_type\", \"hearthstone\".\"entities\".\"quest_progress\", \"hearthstone\".\"entities\".\"quest_part\", \"hearthstone\".\"entities\".\"hero_power\", \"hearthstone\".\"entities\".\"tech_level\", \"hearthstone\".\"entities\".\"in_bobs_tavern\", \"hearthstone\".\"entities\".\"triple_card\", \"hearthstone\".\"entities\".\"race_bucket\", \"hearthstone\".\"entities\".\"armor_bucket\", \"hearthstone\".\"entities\".\"buddy\", \"hearthstone\".\"entities\".\"banned_race\", \"hearthstone\".\"entities\".\"mercenary_role\", \"hearthstone\".\"entities\".\"mercenary_faction\", \"hearthstone\".\"entities\".\"colddown\", \"hearthstone\".\"entities\".\"collectible\", \"hearthstone\".\"entities\".\"elite\", \"hearthstone\".\"entities\".\"rarity\", \"hearthstone\".\"entities\".\"artist\", \"hearthstone\".\"entities\".\"override_watermark\", \"hearthstone\".\"entities\".\"signature_artist\", \"hearthstone\".\"entities\".\"credits_card_name\", \"hearthstone\".\"entities\".\"suggestion_weight\", \"hearthstone\".\"entities\".\"change_version\", \"hearthstone\".\"entities\".\"faction\", \"hearthstone\".\"entities\".\"mechanics\", \"hearthstone\".\"entities\".\"referenced_tags\", \"hearthstone\".\"entities\".\"text_builder_type\", \"hearthstone\".\"entities\".\"change_type\", \"hearthstone\".\"entity_localizations\".\"name\", \"hearthstone\".\"entity_localizations\".\"text\", \"hearthstone\".\"entity_localizations\".\"rich_text\", \"hearthstone\".\"entity_localizations\".\"display_text\", \"hearthstone\".\"entity_localizations\".\"target_text\", \"hearthstone\".\"entity_localizations\".\"text_in_play\", \"hearthstone\".\"entity_localizations\".\"how_to_earn\", \"hearthstone\".\"entity_localizations\".\"how_to_earn_golden\", \"hearthstone\".\"entity_localizations\".\"how_to_earn_signature\", \"hearthstone\".\"entity_localizations\".\"how_to_earn_diamond\", \"hearthstone\".\"entity_localizations\".\"flavor_text\", \"hearthstone\".\"entity_localizations\".\"loc_change_type\", \"hearthstone\".\"cards\".\"legalities\" from \"hearthstone\".\"entities\" inner join \"hearthstone\".\"entity_localizations\" on (\"hearthstone\".\"entities\".\"card_id\" = \"hearthstone\".\"entity_localizations\".\"card_id\" and \"hearthstone\".\"entities\".\"revision_hash\" = \"hearthstone\".\"entity_localizations\".\"revision_hash\" and \"hearthstone\".\"entities\".\"version\" && \"hearthstone\".\"entity_localizations\".\"version\") inner join \"hearthstone\".\"cards\" on \"hearthstone\".\"entities\".\"card_id\" = \"hearthstone\".\"cards\".\"card_id\" where \"hearthstone\".\"entities\".\"deleted_at\" is null and \"hearthstone\".\"entity_localizations\".\"deleted_at\" is null\n      and (SELECT MAX(\"hearthstone\".\"patches\".\"build_number\") FROM \"hearthstone\".\"patches\") = ANY(\"hearthstone\".\"entities\".\"version\" & \"hearthstone\".\"entity_localizations\".\"version\")",
+      "with": null,
+      "withNoData": null,
+      "using": null,
+      "tablespace": null,
+      "materialized": false,
+      "name": "latest_card_entity_view",
+      "entityType": "views",
+      "schema": "hearthstone"
+    },
+    {
+      "definition": "select \"card_id\", \"version\", \"revision_hash\", \"dbf_id\", \"legacy_payload\", \"set\", \"class\", \"type\", \"cost\", \"attack\", \"health\", \"durability\", \"armor\", \"rune\", \"race\", \"spell_school\", \"quest_type\", \"quest_progress\", \"quest_part\", \"hero_power\", \"tech_level\", \"in_bobs_tavern\", \"triple_card\", \"race_bucket\", \"armor_bucket\", \"buddy\", \"banned_race\", \"mercenary_role\", \"mercenary_faction\", \"colddown\", \"collectible\", \"elite\", \"rarity\", \"artist\", \"override_watermark\", \"signature_artist\", \"credits_card_name\", \"suggestion_weight\", \"change_version\", \"faction\", \"mechanics\", \"referenced_tags\", \"text_builder_type\", \"change_type\", \"created_at\", \"updated_at\", \"deleted_at\" from \"hearthstone\".\"entities\" where \"hearthstone\".\"entities\".\"deleted_at\" is null and (SELECT MAX(\"hearthstone\".\"patches\".\"build_number\") FROM \"hearthstone\".\"patches\") = ANY(\"hearthstone\".\"entities\".\"version\")",
+      "with": null,
+      "withNoData": null,
+      "using": null,
+      "tablespace": null,
+      "materialized": false,
+      "name": "latest_entities",
+      "entityType": "views",
+      "schema": "hearthstone"
+    },
+    {
+      "definition": "select \"card_id\", \"version\", \"lang\", \"revision_hash\", \"localization_hash\", \"render_hash\", \"render_model\", \"name\", \"text\", \"rich_text\", \"display_text\", \"target_text\", \"text_in_play\", \"how_to_earn\", \"how_to_earn_golden\", \"how_to_earn_signature\", \"how_to_earn_diamond\", \"flavor_text\", \"loc_change_type\", \"created_at\", \"updated_at\", \"deleted_at\" from \"hearthstone\".\"entity_localizations\" where \"hearthstone\".\"entity_localizations\".\"deleted_at\" is null and (SELECT MAX(\"hearthstone\".\"patches\".\"build_number\") FROM \"hearthstone\".\"patches\") = ANY(\"hearthstone\".\"entity_localizations\".\"version\")",
+      "with": null,
+      "withNoData": null,
+      "using": null,
+      "tablespace": null,
+      "materialized": false,
+      "name": "latest_entity_localizations",
       "entityType": "views",
       "schema": "hearthstone"
     },
@@ -17373,17 +17251,6 @@
       "name": "set_view",
       "entityType": "views",
       "schema": "hearthstone"
-    },
-    {
-      "definition": "select \"magic\".\"announcements\".\"id\", \"magic\".\"announcements\".\"source\", \"magic\".\"announcements\".\"date\", \"magic\".\"announcements\".\"name\", coalesce(\"magic\".\"announcement_items\".\"effective_date\", \"magic\".\"announcements\".\"effective_date\") as \"effective_date\", \"magic\".\"announcements\".\"effective_date_tabletop\", \"magic\".\"announcements\".\"effective_date_online\", \"magic\".\"announcements\".\"effective_date_arena\", \"magic\".\"announcements\".\"next_date\", \"magic\".\"announcements\".\"link\", \"magic\".\"announcement_items\".\"type\", \"magic\".\"announcement_items\".\"format\", \"magic\".\"announcement_items\".\"card_id\", \"magic\".\"announcement_items\".\"set_id\", \"magic\".\"announcement_items\".\"rule_id\", \"magic\".\"announcement_items\".\"status\", \"magic\".\"announcement_items\".\"score\", \"magic\".\"announcement_items\".\"adjustment\", \"magic\".\"announcement_items\".\"related_cards\" from \"magic\".\"announcements\" left join \"magic\".\"announcement_items\" on \"magic\".\"announcements\".\"id\" = \"magic\".\"announcement_items\".\"announcement_id\"",
-      "with": null,
-      "withNoData": null,
-      "using": null,
-      "tablespace": null,
-      "materialized": false,
-      "name": "announcement_view",
-      "entityType": "views",
-      "schema": "magic"
     },
     {
       "definition": "select \"magic\".\"cards\".\"card_id\", \"magic\".\"card_localizations\".\"locale\", \"magic\".\"card_parts\".\"part_index\", \"magic\".\"cards\".\"part_count\", \"magic\".\"cards\".\"name\", \"magic\".\"cards\".\"typeline\", \"magic\".\"cards\".\"text\", \"magic\".\"cards\".\"mana_value\", \"magic\".\"cards\".\"color_identity\", \"magic\".\"cards\".\"keywords\", \"magic\".\"cards\".\"counters\", \"magic\".\"cards\".\"producible_mana\", \"magic\".\"cards\".\"content_warning\", \"magic\".\"cards\".\"category\", \"magic\".\"cards\".\"tags\", \"magic\".\"cards\".\"legalities\", \"magic\".\"cards\".\"scryfall_oracle_id\", \"magic\".\"card_localizations\".\"loc_name\", \"magic\".\"card_localizations\".\"loc_typeline\", \"magic\".\"card_localizations\".\"loc_text\", \"magic\".\"card_localizations\".\"last_date\", \"magic\".\"card_parts\".\"part_name\", \"magic\".\"card_parts\".\"part_typeline\", \"magic\".\"card_parts\".\"part_text\", \"magic\".\"card_parts\".\"cost\", \"magic\".\"card_parts\".\"part_mana_value\", \"magic\".\"card_parts\".\"color\", \"magic\".\"card_parts\".\"color_indicator\", \"magic\".\"card_parts\".\"type_super\", \"magic\".\"card_parts\".\"type_main\", \"magic\".\"card_parts\".\"type_sub\", \"magic\".\"card_parts\".\"power\", \"magic\".\"card_parts\".\"toughness\", \"magic\".\"card_parts\".\"loyalty\", \"magic\".\"card_parts\".\"defense\", \"magic\".\"card_parts\".\"hand_modifier\", \"magic\".\"card_parts\".\"life_modifier\", \"magic\".\"card_part_localizations\".\"part_loc_name\", \"magic\".\"card_part_localizations\".\"part_loc_typeline\", \"magic\".\"card_part_localizations\".\"part_loc_text\" from \"magic\".\"cards\" inner join \"magic\".\"card_localizations\" on \"magic\".\"card_localizations\".\"card_id\" = \"magic\".\"cards\".\"card_id\" inner join \"magic\".\"card_parts\" on \"magic\".\"card_parts\".\"card_id\" = \"magic\".\"cards\".\"card_id\" inner join \"magic\".\"card_part_localizations\" on (\"magic\".\"card_part_localizations\".\"card_id\" = \"magic\".\"card_parts\".\"card_id\" and \"magic\".\"card_part_localizations\".\"locale\" = \"magic\".\"card_localizations\".\"locale\" and \"magic\".\"card_part_localizations\".\"part_index\" = \"magic\".\"card_parts\".\"part_index\")",
