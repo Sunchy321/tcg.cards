@@ -10,7 +10,7 @@ on:
       - 'packages/shared/**'
   push:
     branches:
-      - main
+      - master
     paths:
       - '.github/workflows/check-migration.yml'
       - 'package.json'

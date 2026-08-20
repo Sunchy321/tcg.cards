@@ -1,0 +1,103 @@
+name: Check Commit Messages
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check-commit-messages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit messages and PR title
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+
+          # Conventional Commits: type(scope): subject, with optional breaking-change marker
+          PATTERN='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?(!)?: .+'
+
+          fail=0
+          while IFS= read -r line; do
+            if ! [[ "$line" =~ $PATTERN ]]; then
+              echo "FAIL: $line"
+              fail=1
+            fi
+          done < <(git log --no-merges --format=%s "$BASE_SHA..$HEAD_SHA")
+
+          if ! [[ "$PR_TITLE" =~ $PATTERN ]]; then
+            echo "FAIL: PR title: $PR_TITLE"
+            fail=1
+          fi
+
+          if [ "$fail" -ne 0 ]; then
+            echo ""
+            echo "Commit messages and PR titles must follow Conventional Commits:"
+            echo "  <type>(<scope>): <subject>"
+            echo "  e.g. feat(console/magic): add view page"
+            echo "  types: feat fix docs style refactor perf test build ci chore revert"
+            exit 1
+          fi
+
+          echo "All commit messages and the PR title follow Conventional Commits."
+
+      - name: Check commit messages are not predominantly Chinese
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          python3 - <<'PY'
+          import os, re, subprocess
+
+          base = os.environ['BASE_SHA']
+          head = os.environ['HEAD_SHA']
+          pr_title = os.environ['PR_TITLE']
+
+          # CJK: Han, Kana, Hangul, CJK punctuation, full-width forms
+          cjk = re.compile(r'[㐀-䶿一-鿿　-〿぀-ヿ가-힯＀-￯]')
+
+          def content_after_prefix(text):
+              idx = text.find(': ')
+              return text[idx + 2:] if idx != -1 else text
+
+          # Allow necessary Chinese terms sprinkled in English; flag messages
+          # written predominantly in Chinese (CJK chars >= half of the content).
+          def is_mostly_cjk(text):
+              chars = [c for c in text if not c.isspace()]
+              if not chars:
+                  return False
+              return len(cjk.findall(''.join(chars))) / len(chars) >= 0.5
+
+          messages = subprocess.run(
+              ['git', 'log', '--no-merges', '--format=%x00%B', f'{base}..{head}'],
+              capture_output=True, text=True, check=True,
+          ).stdout
+
+          fail = False
+          for msg in messages.split('\x00'):
+              msg = msg.strip()
+              if not msg:
+                  continue
+              if is_mostly_cjk(content_after_prefix(msg)):
+                  print(f'FAIL (predominantly Chinese): {msg.splitlines()[0]}')
+                  fail = True
+
+          if is_mostly_cjk(content_after_prefix(pr_title)):
+              print(f'FAIL (predominantly Chinese): PR title: {pr_title}')
+              fail = True
+
+          if fail:
+              print('\nCommit messages and PR titles must be written in English; necessary Chinese terms are allowed.')
+              raise SystemExit(1)
+
+          print('Commit messages are not predominantly Chinese.')
+          PY

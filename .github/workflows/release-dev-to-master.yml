@@ -1,0 +1,41 @@
+name: Release dev to master
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  ensure-release-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { repo, owner } = context.repo;
+
+            const existing = await github.rest.pulls.list({
+              owner,
+              repo,
+              state: 'open',
+              head: 'dev',
+              base: 'master',
+            });
+
+            if (existing.data.length > 0) {
+              console.log(`Release PR already open: #${existing.data[0].number}`);
+              return;
+            }
+
+            await github.rest.pulls.create({
+              owner,
+              repo,
+              title: 'chore(release): dev to master',
+              head: 'dev',
+              base: 'master',
+              body: 'Auto-generated release PR. Merge when ready to deploy.',
+            });
