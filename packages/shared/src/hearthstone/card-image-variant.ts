@@ -1,7 +1,7 @@
 import type {
   CardImageRequirementExportInput,
   ImageVariant,
-} from '@tcg-cards/model/src/hearthstone/schema/data/image';
+} from '@tcg-cards/model/hearthstone/schema/data/image';
 
 export type MechanicValue = boolean | number;
 export type MechanicMap = Record<string, MechanicValue>;

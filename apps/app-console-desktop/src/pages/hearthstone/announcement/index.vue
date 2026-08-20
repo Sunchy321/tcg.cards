@@ -293,7 +293,7 @@ import { mergePreviews, selectPreview, type SidePreview } from '~/utils/announce
 import { deriveGroup, idKindOf, serializeItems, type ParseError, type ParsedResult, type ResolvedCardName, type TextItem } from '~/utils/announcement-yaml';
 
 import { useToast } from '@nuxt/ui/composables';
-import type { Locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
+import type { Locale } from '@tcg-cards/model/hearthstone/schema/basic';
 
 definePageMeta({ layout: 'admin', title: '公告管理' });
 

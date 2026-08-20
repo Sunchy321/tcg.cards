@@ -1,5 +1,5 @@
 import type { InferSelectModel } from 'drizzle-orm';
-import type { ChangeType } from '@tcg-cards/model/src/hearthstone/schema/entity';
+import type { ChangeType } from '@tcg-cards/model/hearthstone/schema/entity';
 import type {
   BaseEntity,
   BaseEntityLocalization,

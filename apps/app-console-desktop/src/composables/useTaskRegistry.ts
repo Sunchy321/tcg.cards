@@ -1,5 +1,5 @@
 import { consumeEventIterator } from '@orpc/client';
-import type { TaskPageEvent } from '@tcg-cards/model/src/task';
+import type { TaskPageEvent } from '@tcg-cards/model/task';
 import { computed, ref } from 'vue';
 
 import { useDesktopRuntimeClient } from './useDesktopRuntimeClient';

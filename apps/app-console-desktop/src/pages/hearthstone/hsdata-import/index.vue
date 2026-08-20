@@ -166,7 +166,7 @@
 
 <script setup lang="ts">
 import { useToast } from '@nuxt/ui/composables';
-import type { TaskPageSnapshot } from '@tcg-cards/model/src/task';
+import type { TaskPageSnapshot } from '@tcg-cards/model/task';
 import type { TaskOperation } from '~/components/task/TaskController.vue';
 import { orpc } from '~/lib/orpc';
 import {

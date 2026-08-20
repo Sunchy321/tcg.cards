@@ -309,7 +309,7 @@ import type {
   TagConflictProfile,
   TagConflictResolution,
   TagConflictStatus,
-} from '@tcg-cards/model/src/hearthstone/schema/tag';
+} from '@tcg-cards/model/hearthstone/schema/tag';
 import { computed, onMounted, reactive, ref } from 'vue';
 
 import { useConsoleFieldSyncHost, type ConsoleFieldSyncSource } from '../../../composables/field-sync-host';

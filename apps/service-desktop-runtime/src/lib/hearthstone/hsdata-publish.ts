@@ -1,7 +1,7 @@
 import { and, count, desc, eq, gt, inArray, isNotNull, lte, or, isNull } from 'drizzle-orm';
 import { z } from 'zod';
-import type { PublishStream } from '@tcg-cards/model/src/game-data-sync';
-import type { Locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
+import type { PublishStream } from '@tcg-cards/model/game-data-sync';
+import type { Locale } from '@tcg-cards/model/hearthstone/schema/basic';
 
 import { createDb } from '@tcg-cards/db';
 import {

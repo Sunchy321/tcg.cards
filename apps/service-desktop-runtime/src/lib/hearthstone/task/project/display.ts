@@ -1,4 +1,4 @@
-import type { Locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
+import type { Locale } from '@tcg-cards/model/hearthstone/schema/basic';
 
 import { DISPLAY_TAG_ID, keywordNameTags } from './constant';
 import { classNames, gameplayBuilderStrings, gameplayStrings, heraldNames, keywordNames, raceNames, zilliaxCombinedModuleTexts } from './localization';

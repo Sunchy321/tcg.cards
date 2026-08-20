@@ -1,7 +1,7 @@
-import { cardRouter } from './card';
-import { catalog } from './catalog';
-import { formatRouter } from './format';
 import { info } from './info';
+import { catalog } from './catalog';
+import { cardRouter } from './card';
+import { formatRouter } from './format';
 import { patchRouter } from './patch';
 import { setRouter } from './set';
 import { tagRouter } from './tag';

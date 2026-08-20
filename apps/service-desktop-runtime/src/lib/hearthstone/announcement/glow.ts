@@ -1,5 +1,5 @@
-import { glowPart } from '@tcg-cards/model/src/hearthstone/schema/announcement';
-import type { GlowEntry } from '@tcg-cards/model/src/hearthstone/schema/announcement';
+import { glowPart } from '@tcg-cards/model/hearthstone/schema/announcement';
+import type { GlowEntry } from '@tcg-cards/model/hearthstone/schema/announcement';
 
 const GLOW_PART_ORDER = new Map(glowPart.options.map((part, index) => [part, index]));
 

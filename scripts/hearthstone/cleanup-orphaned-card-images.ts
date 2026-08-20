@@ -23,12 +23,12 @@ import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import { Entity, EntityLocalization } from '@tcg-cards/db/schema/shared/hearthstone/entity';
 import { Announcement, AnnouncementItem } from '@tcg-cards/db/schema/shared/hearthstone/announcement';
 import { CardImageAsset } from '@tcg-cards/db/schema/shared/hearthstone/card-image';
-import type { RenderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
-import { glowPart, type GlowEntry } from '@tcg-cards/model/src/hearthstone/schema/announcement';
-import { locale, type Locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
+import type { RenderModel } from '@tcg-cards/model/hearthstone/schema/entity';
+import { glowPart, type GlowEntry } from '@tcg-cards/model/hearthstone/schema/announcement';
+import { locale, type Locale } from '@tcg-cards/model/hearthstone/schema/basic';
 import { isCardImageVariantAllowed } from '@tcg-cards/shared/hearthstone/card-image-variant';
 import { loadVariantMechanicIds } from '@tcg-cards/console-api/lib/hearthstone/card-image';
-import type { ImageCategory, ImagePremium, ImageTemplate, ImageZone } from '@tcg-cards/model/src/hearthstone/schema/data/image';
+import type { ImageCategory, ImagePremium, ImageTemplate, ImageZone } from '@tcg-cards/model/hearthstone/schema/data/image';
 
 import { getDb } from '../lib/db';
 import { parseArg } from '../lib/args';

@@ -6,7 +6,7 @@ import {
   cardImageRequirementExportInput,
   cardImageRequirementExportResult,
   cardImageImportResult,
-} from '@tcg-cards/model/src/hearthstone/schema/data/image';
+} from '@tcg-cards/model/hearthstone/schema/data/image';
 
 import { exportCardImageRequirements, importCardImageArchiveFromBrowser } from '../../lib/hearthstone/card-image';
 

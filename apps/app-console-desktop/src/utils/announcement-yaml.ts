@@ -4,7 +4,7 @@ import {
   glowPart,
   glowType,
   group as groupEnum,
-} from '@tcg-cards/model/src/hearthstone/schema/announcement';
+} from '@tcg-cards/model/hearthstone/schema/announcement';
 import {
   isMap,
   isScalar,

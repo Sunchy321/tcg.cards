@@ -3,8 +3,8 @@ import { and, asc, eq, sql } from 'drizzle-orm';
 import { createDb } from '@tcg-cards/db';
 import { Entity, EntityLocalization } from '@tcg-cards/db/schema/shared/hearthstone/entity';
 import { Set as HearthstoneSet } from '@tcg-cards/db/schema/shared/hearthstone/set';
-import type { Locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
-import type { ImagePremium, ImageTemplate, ImageZone } from '@tcg-cards/model/src/hearthstone/schema/data/image';
+import type { Locale } from '@tcg-cards/model/hearthstone/schema/basic';
+import type { ImagePremium, ImageTemplate, ImageZone } from '@tcg-cards/model/hearthstone/schema/data/image';
 
 import {
   buildImageVariants,

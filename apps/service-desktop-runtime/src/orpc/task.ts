@@ -1,7 +1,7 @@
 import { eventIterator } from '@orpc/server';
 import { z } from 'zod';
 
-import { taskPageEvent, TaskPageSnapshot, taskPageSnapshot } from '@tcg-cards/model/src/task';
+import { taskPageEvent, TaskPageSnapshot, taskPageSnapshot } from '@tcg-cards/model/task';
 
 import { os } from './index';
 import type { TaskRunInput, TaskRunSnapshot } from '#task/index';

@@ -1,0 +1,43 @@
+<template>
+  <article v-if="endpoint" class="docs-article max-w-none">
+    <header id="overview" class="border-b border-default pb-9">
+      <div class="mb-5 flex flex-wrap items-center gap-3">
+        <UBadge color="primary" variant="solid" class="font-mono">{{ endpoint.method }}</UBadge>
+        <span class="text-sm text-muted">{{ endpoint.tags.join(' / ') }}</span>
+      </div>
+      <h1 class="break-all font-mono text-3xl font-semibold tracking-[-0.025em] text-highlighted sm:text-4xl">{{ apiPath }}</h1>
+      <p class="mt-5 max-w-4xl text-lg leading-8 text-muted">{{ endpoint.description }}</p>
+    </header>
+
+    <section id="input" class="scroll-mt-24 py-10">
+      <div class="mb-5 flex items-end justify-between gap-6">
+        <div><p class="text-xs font-semibold tracking-[0.14em] text-primary uppercase">01</p><h2 class="mt-2 text-2xl font-semibold text-highlighted">{{ $t('reference.input') }}</h2></div>
+        <code class="hidden text-xs text-muted sm:block">{{ endpoint.method }} {{ apiPath }}</code>
+      </div>
+      <SchemaViewer :node="endpoint.input" />
+    </section>
+
+    <section id="output" class="scroll-mt-24 border-t border-default py-10">
+      <div class="mb-5"><p class="text-xs font-semibold tracking-[0.14em] text-primary uppercase">02</p><h2 class="mt-2 text-2xl font-semibold text-highlighted">{{ $t('reference.output') }}</h2></div>
+      <SchemaViewer :node="endpoint.output" />
+    </section>
+  </article>
+</template>
+
+<script setup lang="ts">
+import { findEndpoint } from '../../../../lib/registry-docs';
+
+definePageMeta({ layout: 'game' });
+
+const route = useRoute();
+const params = computed(() => route.params as { game?: string, slug?: string[] | string });
+const game = computed(() => String(params.value.game ?? ''));
+const slug = computed(() => Array.isArray(params.value.slug) ? params.value.slug.map(String) : [String(params.value.slug ?? '')]);
+const endpoint = computed(() => findEndpoint(game.value, slug.value));
+
+if (endpoint.value == null) {
+  throw createError({ statusCode: 404, statusMessage: 'API endpoint not found' });
+}
+
+const apiPath = computed(() => `/v1/${endpoint.value?.path.join('/')}`);
+</script>

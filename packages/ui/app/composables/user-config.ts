@@ -1,5 +1,5 @@
-import { globalConfig, hearthstoneConfig, magicConfig } from '@tcg-cards/model/src/user-config';
-import type { GlobalConfig } from '@tcg-cards/model/src/user-config';
+import { globalConfig, hearthstoneConfig, magicConfig } from '@tcg-cards/model/user-config';
+import type { GlobalConfig } from '@tcg-cards/model/user-config';
 import type { z } from 'zod';
 
 declare const authClient: { useSession(): { data: Ref<{ user: { id: string } | null } | null> } };

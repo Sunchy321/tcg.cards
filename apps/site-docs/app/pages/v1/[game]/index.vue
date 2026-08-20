@@ -1,0 +1,38 @@
+<template>
+  <article class="docs-article max-w-5xl">
+    <header id="overview" class="border-b border-default pb-10">
+      <p class="mb-4 text-sm font-medium text-primary">{{ $t('nav.intro') }}</p>
+      <h1 class="text-4xl font-semibold tracking-[-0.035em] text-highlighted sm:text-5xl">{{ metadata?.name }} API</h1>
+      <p class="mt-5 max-w-3xl text-lg leading-8 text-muted">{{ $t(`games.${game}.description`) }}</p>
+    </header>
+
+    <section class="py-10">
+      <h2 class="text-xl font-semibold text-highlighted">{{ $t('reference.resources') }}</h2>
+      <div class="mt-6 grid gap-px border border-default bg-default sm:grid-cols-2">
+        <NuxtLink v-for="(endpoints, resource) in groups" :key="resource" :to="`/v1/${game}/${endpoints?.[0]?.path.slice(1).join('/')}`" class="group bg-default p-5 hover:bg-muted/40">
+          <div class="flex items-center justify-between">
+            <h3 class="font-mono font-medium text-highlighted">{{ resource }}</h3>
+            <span class="text-xs text-muted">{{ endpoints?.length }} endpoints</span>
+          </div>
+          <p class="mt-3 text-sm leading-6 text-muted">{{ endpoints?.[0]?.description }}</p>
+        </NuxtLink>
+      </div>
+    </section>
+  </article>
+</template>
+
+<script setup lang="ts">
+import { groupGameEndpoints, listGames } from '../../../../lib/registry-docs';
+
+definePageMeta({ layout: 'game' });
+
+const route = useRoute();
+const params = computed(() => route.params as { game?: string });
+const game = computed(() => String(params.value.game ?? ''));
+const metadata = computed(() => listGames().find(item => item.id === game.value));
+const groups = computed(() => groupGameEndpoints(game.value));
+
+if (metadata.value == null) {
+  throw createError({ statusCode: 404, statusMessage: 'Game documentation not found' });
+}
+</script>

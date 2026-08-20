@@ -2,8 +2,8 @@ import { Hono } from 'hono';
 import { OpenAPIHandler } from '@orpc/openapi/fetch';
 import { OpenAPIGenerator } from '@orpc/openapi';
 import { createDb, runWithDb } from '@tcg-cards/db';
-import { registry } from '@tcg-cards/api';
 
+import { registry } from './registry';
 import type { ApiServiceEnv } from './env';
 
 const hono = new Hono<{

@@ -2,7 +2,7 @@ import { and, desc, eq, ilike, inArray, ne, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { LatestEntity, LatestEntityLocalization } from '@tcg-cards/db/schema/shared/hearthstone';
-import { locale as localeSchema } from '@tcg-cards/model/src/hearthstone/schema/basic';
+import { locale as localeSchema } from '@tcg-cards/model/hearthstone/schema/basic';
 
 import type { LocalDb } from './hsdata-local-db';
 

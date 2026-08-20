@@ -2,6 +2,10 @@
   "name": "@tcg-cards/api",
   "module": "src/index.ts",
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
   "scripts": {
     "build": "echo No build needed",
     "lint": "eslint .",
@@ -16,6 +20,7 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@orpc/contract": "^1.14.0",
     "@orpc/openapi": "^1.14.0",
     "@orpc/server": "^1.14.0",
     "@tcg-cards/db": "workspace:*",

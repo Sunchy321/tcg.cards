@@ -1,6 +1,6 @@
 import { sortGlow } from '@tcg-cards/shared/hearthstone/glow';
-import type { GlowEntry } from '@tcg-cards/model/src/hearthstone/schema/announcement';
-import type { RenderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
+import type { GlowEntry } from '@tcg-cards/model/hearthstone/schema/announcement';
+import type { RenderModel } from '@tcg-cards/model/hearthstone/schema/entity';
 
 /** Compares two values; arrays are treated as order-insensitive sets. */
 function same(a: unknown, b: unknown): boolean {

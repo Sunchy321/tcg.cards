@@ -3,9 +3,9 @@ import { ORPCError, os } from '@orpc/server';
 import { z } from 'zod';
 
 import { Entity, EntityLocalization } from '@tcg-cards/db/schema/local/hearthstone';
-import { glowEntry } from '@tcg-cards/model/src/hearthstone/schema/announcement';
-import { locale, type Locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
-import type { RenderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
+import { glowEntry } from '@tcg-cards/model/hearthstone/schema/announcement';
+import { locale, type Locale } from '@tcg-cards/model/hearthstone/schema/basic';
+import type { RenderModel } from '@tcg-cards/model/hearthstone/schema/entity';
 
 import { getLocalDb } from '../../../lib/hearthstone/hsdata-local-db';
 import { computeGlowDiff } from '../../../lib/hearthstone/announcement/glow-calc';

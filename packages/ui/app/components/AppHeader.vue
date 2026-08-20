@@ -75,7 +75,7 @@
             color="neutral"
             variant="ghost"
             class="text-white hover:bg-white/20 hover:text-white"
-            @click="router.push('/settings')"
+            @click="() => { router.push('/settings') }"
           />
 
           <UColorModeButton class="text-white hover:bg-white/20 hover:text-white" />
@@ -105,7 +105,7 @@ const actionMeta = route.meta.actions ?? [];
 
 const actions = getActions();
 
-const headerLocaleRef = ref<InstanceType<typeof AppHeaderLocale>>();
+const headerLocaleRef = useTemplateRef('headerLocaleRef');
 
 const getHandler = (id: string) => {
   const action = actions.value.find(a => a.id === id);
@@ -115,7 +115,7 @@ const getHandler = (id: string) => {
 const commitSearch = () => {
   router.push({
     path:  `/search`,
-    query: { q: searchInput.value, lang: headerLocaleRef.value?.gameLocale.value },
+    query: { q: searchInput.value, lang: headerLocaleRef.value?.gameLocale },
   });
 };
 </script>

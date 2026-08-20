@@ -13,7 +13,7 @@ import { localization as th } from './th';
 import { localization as zhs } from './zhs';
 import { localization as zht } from './zht';
 
-import type { Locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
+import type { Locale } from '@tcg-cards/model/hearthstone/schema/basic';
 
 export const gameplayStrings: Readonly<Record<Locale, Readonly<Record<string, string>>>> = {
   en:  en.gameplayStrings,

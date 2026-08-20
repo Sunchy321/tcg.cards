@@ -258,7 +258,7 @@
 <script setup lang="ts">
 import type { ImagePremium, ImageTemplate, ImageZone } from '#model/hearthstone/schema/data/image';
 import type { Locale } from '#model/hearthstone/schema/basic';
-import type { TaskPageSnapshot } from '@tcg-cards/model/src/task';
+import type { TaskPageSnapshot } from '@tcg-cards/model/task';
 import type { TaskOperation } from '~/components/task/TaskController.vue';
 
 import { useToast } from '@nuxt/ui/composables';

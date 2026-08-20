@@ -1,5 +1,5 @@
-import type { ImageRequirementRequest } from '@tcg-cards/model/src/hearthstone/schema/data/image';
-import type { RenderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
+import type { ImageRequirementRequest } from '@tcg-cards/model/hearthstone/schema/data/image';
+import type { RenderModel } from '@tcg-cards/model/hearthstone/schema/entity';
 import { CardImageAsset } from '@tcg-cards/db/schema/shared/hearthstone/card-image';
 import { Entity, EntityLocalization } from '@tcg-cards/db/schema/local/hearthstone';
 import { Set as HearthstoneSet } from '@tcg-cards/db/schema/local/hearthstone';
@@ -8,7 +8,7 @@ import { getLocalDb } from '../hsdata-local-db';
 import { requireHearthstoneImageBucketDir, requireHearthstoneImageRendererBaseUrl } from '../image-config';
 import { importCardImageFilesToLocalBucket } from '@tcg-cards/console-api/lib/hearthstone/card-image-local-import';
 import { buildRequest, type ImageCandidateRow } from '@tcg-cards/console-api/lib/hearthstone/card-image';
-import type { GlowEntry } from '@tcg-cards/model/src/hearthstone/schema/announcement';
+import type { GlowEntry } from '@tcg-cards/model/hearthstone/schema/announcement';
 import { computeRenderHash } from '@tcg-cards/shared/hearthstone/render-hash';
 import { sortGlow } from '@tcg-cards/shared/hearthstone/glow';
 import { writeFileSync, mkdirSync, existsSync } from 'node:fs';

@@ -1,7 +1,7 @@
 import { ORPCError } from '@orpc/server';
 import { z } from 'zod';
 
-import { locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
+import { locale } from '@tcg-cards/model/hearthstone/schema/basic';
 import {
   cardImageRequirementExportInput,
   cardImageRequirementExportResult,
@@ -9,7 +9,7 @@ import {
   imageRequirementRequest,
   imageTemplate,
   imageZone,
-} from '@tcg-cards/model/src/hearthstone/schema/data/image';
+} from '@tcg-cards/model/hearthstone/schema/data/image';
 import {
   exportCardImageRequirements,
 } from '@tcg-cards/console-api/lib/hearthstone/card-image';

@@ -184,7 +184,7 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import YAML from 'yaml';
 
 import YamlEditor from '../../../components/YamlEditor.vue';
-import type { AnnouncementProfile } from '@tcg-cards/model/src/magic/schema/announcement';
+import type { AnnouncementProfile } from '@tcg-cards/model/magic/schema/announcement';
 
 interface LinkEntry { url: string; label?: string }
 interface ItemForm {

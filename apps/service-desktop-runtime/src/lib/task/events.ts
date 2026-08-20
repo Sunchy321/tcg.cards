@@ -1,4 +1,4 @@
-import type { TaskPageEvent } from '@tcg-cards/model/src/task';
+import type { TaskPageEvent } from '@tcg-cards/model/task';
 
 /** Publishes current page-task snapshots to runtime-local subscribers. */
 export interface TaskEventPublisher {

@@ -7,8 +7,8 @@ import type {
   TaskStagePlan,
   TaskStageState,
 } from '#task/definition';
-import type { CardImageRequirementExportInput } from '@tcg-cards/model/src/hearthstone/schema/data/image';
-import { imageRequirementFile } from '@tcg-cards/model/src/hearthstone/schema/data/image';
+import type { CardImageRequirementExportInput } from '@tcg-cards/model/hearthstone/schema/data/image';
+import { imageRequirementFile } from '@tcg-cards/model/hearthstone/schema/data/image';
 import { CardImageAsset } from '@tcg-cards/db/schema/shared/hearthstone/card-image';
 import { TaskRun } from '@tcg-cards/db/schema/local/task';
 import { eq } from 'drizzle-orm';

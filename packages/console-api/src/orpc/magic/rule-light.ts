@@ -9,7 +9,7 @@ import {
 } from '@tcg-cards/db/schema/shared/magic';
 import { DocumentVersionImport } from '@tcg-cards/db/schema/local/magic/document';
 
-import { locale } from '@tcg-cards/model/src/magic/schema/basic';
+import { locale } from '@tcg-cards/model/magic/schema/basic';
 
 import { listDocumentVersions } from '../../lib/magic/document/importer';
 import { getDocumentConfig } from '../../lib/magic/document/config';

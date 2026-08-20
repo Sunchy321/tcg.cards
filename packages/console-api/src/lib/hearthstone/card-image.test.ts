@@ -6,9 +6,9 @@ import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 import type { R2Bucket } from '@cloudflare/workers-types';
 
-import { TAG_ID } from '@tcg-cards/model/src/hearthstone/constant/tag';
-import type { ImageRequirementFile } from '@tcg-cards/model/src/hearthstone/schema/data/image';
-import type { RenderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
+import { TAG_ID } from '@tcg-cards/model/hearthstone/constant/tag';
+import type { ImageRequirementFile } from '@tcg-cards/model/hearthstone/schema/data/image';
+import type { RenderModel } from '@tcg-cards/model/hearthstone/schema/entity';
 import type { ImageCandidateRow } from './card-image';
 
 const dbState = {

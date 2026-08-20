@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { taskPageSnapshot } from '@tcg-cards/model/src/task';
+import { taskPageSnapshot } from '@tcg-cards/model/task';
 import { os } from './index';
 import { createAndRunTask } from './task';
 import { testWorkTaskDefinition } from '../lib/task/test-definition';

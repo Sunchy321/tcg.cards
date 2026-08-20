@@ -103,7 +103,7 @@
 </template>
 
 <script setup lang="ts">
-import type { TaskPageTask, TaskStage } from '@tcg-cards/model/src/task';
+import type { TaskPageTask, TaskStage } from '@tcg-cards/model/task';
 import { useToast } from '@nuxt/ui/composables';
 
 type BlockingPageTask = Extract<TaskPageTask, { kind: 'blocking' }>;

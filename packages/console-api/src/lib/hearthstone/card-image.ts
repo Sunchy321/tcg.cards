@@ -5,8 +5,8 @@ import type { R2Bucket } from '@cloudflare/workers-types';
 
 import { createDb } from '@tcg-cards/db';
 import { db } from '@tcg-cards/db/db';
-import type { Locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
-import type { RenderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
+import type { Locale } from '@tcg-cards/model/hearthstone/schema/basic';
+import type { RenderModel } from '@tcg-cards/model/hearthstone/schema/entity';
 import {
   cardImageBrowserImportManifest,
   cardImageImportResult,
@@ -22,12 +22,12 @@ import {
   type ImageRequestRenderModel,
   type ImageStyle,
   type ImageVariant,
-} from '@tcg-cards/model/src/hearthstone/schema/data/image';
+} from '@tcg-cards/model/hearthstone/schema/data/image';
 import { CardImageAsset, CardImageExport, CardImageImport } from '@tcg-cards/db/schema/shared/hearthstone/card-image';
 import { Entity, EntityLocalization, LatestEntity, LatestEntityLocalization } from '@tcg-cards/db/schema/shared/hearthstone/entity';
 import { Set as HearthstoneSet } from '@tcg-cards/db/schema/shared/hearthstone/set';
 import { Tag } from '@tcg-cards/db/schema/shared/hearthstone/tag';
-import { TAG_SLUG } from '@tcg-cards/model/src/hearthstone/constant/tag';
+import { TAG_SLUG } from '@tcg-cards/model/hearthstone/constant/tag';
 
 import {
   buildImageVariants,

@@ -66,7 +66,7 @@
 </template>
 
 <script setup lang="ts">
-import type { TaskStage } from '@tcg-cards/model/src/task';
+import type { TaskStage } from '@tcg-cards/model/task';
 
 const props = defineProps<{
   stage:      TaskStage | null;

@@ -1,7 +1,7 @@
 import canonicalize from 'canonicalize';
 
-import { RENDER_MECHANIC_IDS } from '@tcg-cards/model/src/hearthstone/constant/tag';
-import { renderModel as renderModelSchema, type RenderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
+import { RENDER_MECHANIC_IDS } from '@tcg-cards/model/hearthstone/constant/tag';
+import { renderModel as renderModelSchema, type RenderModel } from '@tcg-cards/model/hearthstone/schema/entity';
 
 import type { JsonMap, LocalizationlessEntityRow, LocalizationlessLocalizationRow, MechanicValue } from './types';
 import { computeRenderHints } from './render-hints';

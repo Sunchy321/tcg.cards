@@ -212,7 +212,7 @@
 import { useConsolePlatform } from '@tcg-cards/console-platform';
 import { computed, onMounted, reactive, ref } from 'vue';
 
-import type { TagProfile } from '@tcg-cards/model/src/hearthstone/schema/tag';
+import type { TagProfile } from '@tcg-cards/model/hearthstone/schema/tag';
 definePageMeta({
   layout: 'admin',
   title:  'Tag 配置',

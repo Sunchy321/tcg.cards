@@ -1,6 +1,6 @@
-import { group as groupEnum } from '@tcg-cards/model/src/hearthstone/schema/announcement';
-import type { GlowEntry } from '@tcg-cards/model/src/hearthstone/schema/announcement';
-import type { RenderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
+import { group as groupEnum } from '@tcg-cards/model/hearthstone/schema/announcement';
+import type { GlowEntry } from '@tcg-cards/model/hearthstone/schema/announcement';
+import type { RenderModel } from '@tcg-cards/model/hearthstone/schema/entity';
 
 /** Stores per-side render model corrections extracted from an announcement. */
 export interface ItemDelta {

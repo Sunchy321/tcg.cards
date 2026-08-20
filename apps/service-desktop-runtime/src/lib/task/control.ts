@@ -1,4 +1,4 @@
-import type { TaskControlResult } from '@tcg-cards/model/src/task';
+import type { TaskControlResult } from '@tcg-cards/model/task';
 
 import type { TaskStore, TaskRunSnapshot } from './store';
 import type { TaskScheduler } from './scheduler';

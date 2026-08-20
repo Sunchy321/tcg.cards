@@ -11,7 +11,7 @@ import type {
   TagConflictListResult,
   TagConflictProfile,
   TagConflictResolveInput,
-} from '@tcg-cards/model/src/hearthstone/schema/tag';
+} from '@tcg-cards/model/hearthstone/schema/tag';
 import {
   applyTagCommit,
   buildTagRowRevision,

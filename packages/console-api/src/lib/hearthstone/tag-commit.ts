@@ -627,7 +627,7 @@ import type {
   TagListResult,
   TagProfile,
   TagUpdateInput,
-} from '@tcg-cards/model/src/hearthstone/schema/tag';
+} from '@tcg-cards/model/hearthstone/schema/tag';
 
 /** Options that control how one tag edit commit is persisted and synced. */
 export interface TagServiceOptions {

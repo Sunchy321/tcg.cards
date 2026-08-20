@@ -213,7 +213,7 @@
 import { useToast } from '@nuxt/ui/composables';
 import { computed, onMounted, reactive, ref } from 'vue';
 
-import type { TagProfile } from '@tcg-cards/model/src/hearthstone/schema/tag';
+import type { TagProfile } from '@tcg-cards/model/hearthstone/schema/tag';
 
 import { useDesktopRuntimeClient } from '~/composables/useDesktopRuntimeClient';
 

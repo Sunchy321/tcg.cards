@@ -1,15 +1,13 @@
 import { z } from 'zod';
 
-import { defineFactTable } from '../factory';
+import { defineFactTableContract } from '../factory';
 
-import { Tag } from '@tcg-cards/db/schema/shared/hearthstone/tag';
-import { tagProfile } from '@tcg-cards/model/src/hearthstone/schema/tag';
+import { tagProfile } from '@tcg-cards/model/hearthstone/schema/tag';
 
-export const detail = defineFactTable({
+const detail = defineFactTableContract({
   description: 'Get a tag by enum id',
   tags:        ['Hearthstone', 'Tag'],
-  table:       Tag,
-  pk:          { enumId: { column: Tag.enumId, schema: z.number().int() } },
+  pk:          { enumId: { schema: z.number().int() } },
   output:      tagProfile,
 });
 

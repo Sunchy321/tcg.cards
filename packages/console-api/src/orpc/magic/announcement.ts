@@ -6,7 +6,7 @@ import { db } from '@tcg-cards/db/db';
 import { Announcement, AnnouncementItem } from '@tcg-cards/db/schema/shared/magic';
 import {
   announcementProfile,
-} from '@tcg-cards/model/src/magic/schema/announcement';
+} from '@tcg-cards/model/magic/schema/announcement';
 
 const FORMAT_KEYWORD_MAP: Record<string, string[]> = {};
 

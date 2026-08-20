@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { GlowEntry } from '@tcg-cards/model/src/hearthstone/schema/announcement';
+import type { GlowEntry } from '@tcg-cards/model/hearthstone/schema/announcement';
 
 import { extractJsonObject, matchPatches, normalizeAiResult } from './ai';
 

@@ -218,7 +218,7 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import YAML from 'yaml';
 
 import YamlEditor from '../../../components/YamlEditor.vue';
-import type { AnnouncementProfile } from '@tcg-cards/model/src/hearthstone/schema/announcement';
+import type { AnnouncementProfile } from '@tcg-cards/model/hearthstone/schema/announcement';
 
 interface LinkEntry { url: string; label?: string }
 interface ItemForm {

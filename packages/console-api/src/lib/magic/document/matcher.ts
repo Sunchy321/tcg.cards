@@ -11,7 +11,7 @@ import {
 } from '@tcg-cards/db/schema/shared/magic';
 import { DocumentVersionImport } from '@tcg-cards/db/schema/local/magic/document';
 
-import type { NodeChangeDetails, NodeChangeReviewStateCache, NodeChangeType } from '@tcg-cards/model/src/magic/schema/document';
+import type { NodeChangeDetails, NodeChangeReviewStateCache, NodeChangeType } from '@tcg-cards/model/magic/schema/document';
 
 import type { ParsedDocumentNode } from './parser';
 import { generateHash, normalizeFingerprint } from './importer';

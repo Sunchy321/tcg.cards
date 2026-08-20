@@ -21,7 +21,7 @@ import {
   setUpdateInput,
   type SetListInput,
   type SetProfile,
-} from '@tcg-cards/model/src/hearthstone/schema/set';
+} from '@tcg-cards/model/hearthstone/schema/set';
 
 import { getLocalDb } from '../../lib/hearthstone/hsdata-local-db';
 

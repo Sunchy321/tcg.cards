@@ -180,7 +180,7 @@ definePageMeta({
 import { useConsolePlatform } from '@tcg-cards/console-platform';
 import { computed, onMounted, reactive, ref } from 'vue';
 
-import type { SetLocalization, SetProfile } from '@tcg-cards/model/src/hearthstone/schema/set';
+import type { SetLocalization, SetProfile } from '@tcg-cards/model/hearthstone/schema/set';
 
 const platform = useConsolePlatform();
 const orpc: any = platform.api.createClient();

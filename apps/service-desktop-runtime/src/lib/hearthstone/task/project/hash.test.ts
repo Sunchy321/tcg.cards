@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { RENDER_MECHANIC_IDS, TAG_ID, TAG_SLUG } from '@tcg-cards/model/src/hearthstone/constant/tag';
+import { RENDER_MECHANIC_IDS, TAG_ID, TAG_SLUG } from '@tcg-cards/model/hearthstone/constant/tag';
 
 import { DISPLAY_TAG_ID } from './constant';
 import { buildRenderModel } from './hash';

@@ -2,7 +2,7 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import type { ImageRequirementRequest } from '@tcg-cards/model/src/hearthstone/schema/data/image';
+import type { ImageRequirementRequest } from '@tcg-cards/model/hearthstone/schema/data/image';
 
 import {
   buildCardImagePngFileName,

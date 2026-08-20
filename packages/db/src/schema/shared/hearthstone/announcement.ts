@@ -1,5 +1,5 @@
 import { index, integer, jsonb, text, timestamp, uuid } from 'drizzle-orm/pg-core';
-import type { ChangeStatus, GameChangeType, GlowEntry, Group } from '@tcg-cards/model/src/hearthstone/schema/announcement';
+import type { ChangeStatus, GameChangeType, GlowEntry, Group } from '@tcg-cards/model/hearthstone/schema/announcement';
 import { schema } from './schema';
 
 export const Announcement = schema.table('announcements', {

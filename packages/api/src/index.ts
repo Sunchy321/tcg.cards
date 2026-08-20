@@ -1,9 +1,10 @@
+import { games } from './games';
 import { magicRouter } from './magic';
 import { hearthstoneRouter } from './hearthstone';
-import { games } from './games';
 
-export const registry = {
+/** Pure contract router (no handlers, no db) consumed by site-docs for introspection. */
+export const registryContract = {
   games,
-  magic: magicRouter,
+  magic:       magicRouter,
   hearthstone: hearthstoneRouter,
 };

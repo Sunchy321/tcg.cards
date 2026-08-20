@@ -7,12 +7,12 @@ import type {
 import type {
   FieldCommitGetInput,
   FieldCommitListInput,
-} from '@tcg-cards/model/src/field-commit';
+} from '@tcg-cards/model/field-commit';
 import type {
   TagConflictGetInput,
   TagConflictListInput,
   TagConflictResolveInput,
-} from '@tcg-cards/model/src/hearthstone/schema/tag';
+} from '@tcg-cards/model/hearthstone/schema/tag';
 import { createConsoleFieldSyncHost } from '@tcg-cards/console-shell/app/composables/field-sync-host';
 
 import { useDesktopRuntimeClient } from './useDesktopRuntimeClient';

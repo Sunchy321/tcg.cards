@@ -6,7 +6,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 
 import { checkItemImages, prepareItemRequests, renderAllItems, renderPreparedRequest } from '../../../lib/hearthstone/announcement/render';
 import { requireHearthstoneImageBucketDir } from '../../../lib/hearthstone/image-config';
-import { locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
+import { locale } from '@tcg-cards/model/hearthstone/schema/basic';
 
 const RENDERABLE_TYPES = ['card_change', 'card_update'] as const;
 

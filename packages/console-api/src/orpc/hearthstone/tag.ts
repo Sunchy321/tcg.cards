@@ -10,7 +10,7 @@ import {
   fieldCommitProfile,
   type FieldCommitListInput,
   type FieldCommitProfile,
-} from '@tcg-cards/model/src/field-commit';
+} from '@tcg-cards/model/field-commit';
 import {
   tagConflictGetInput,
   tagConflictListInput,
@@ -22,7 +22,7 @@ import {
   tagListResult,
   tagProfile,
   tagUpdateInput,
-} from '@tcg-cards/model/src/hearthstone/schema/tag';
+} from '@tcg-cards/model/hearthstone/schema/tag';
 import {
   listTags,
   getTag,

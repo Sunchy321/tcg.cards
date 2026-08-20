@@ -13,8 +13,8 @@ import {
   Set as HearthstoneSet,
   Tag,
 } from '@tcg-cards/db/schema/local/hearthstone';
-import { Locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
-import { textBuilderType } from '@tcg-cards/model/src/hearthstone/schema/entity';
+import { Locale } from '@tcg-cards/model/hearthstone/schema/basic';
+import { textBuilderType } from '@tcg-cards/model/hearthstone/schema/entity';
 
 import type {
   EntityRow,

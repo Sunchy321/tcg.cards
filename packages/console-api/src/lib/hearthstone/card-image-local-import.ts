@@ -8,7 +8,7 @@ import {
   imageRequirementFile,
   type ImageRequirementRequest,
   type ImageVariant,
-} from '@tcg-cards/model/src/hearthstone/schema/data/image';
+} from '@tcg-cards/model/hearthstone/schema/data/image';
 
 import {
   buildCardImageR2Key,

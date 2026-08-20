@@ -17,7 +17,7 @@ import type {
   ChangeReviewOverridePayload,
   ChangeReviewStatus,
   NodeChangeReviewStateCache,
-} from '@tcg-cards/model/src/magic/schema/document';
+} from '@tcg-cards/model/magic/schema/document';
 
 function reviewStatusToCache(status: ChangeReviewStatus): NodeChangeReviewStateCache {
   switch (status) {

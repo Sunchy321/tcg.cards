@@ -104,7 +104,7 @@
 
 <script setup lang="ts">
 import type { Locale } from '#model/hearthstone/schema/basic';
-import type { HearthstoneConfig } from '@tcg-cards/model/src/user-config';
+import type { HearthstoneConfig } from '@tcg-cards/model/user-config';
 import { transformUpdate, type UpdateEntity, type UpdateSourceItem } from '~/utils/update-entity';
 
 interface AnnouncementSide {

@@ -247,7 +247,7 @@
 
 <script setup lang="ts">
 import { useConsolePlatform } from '@tcg-cards/console-platform';
-import type { FieldCommitListInput, FieldCommitProfile } from '@tcg-cards/model/src/field-commit';
+import type { FieldCommitListInput, FieldCommitProfile } from '@tcg-cards/model/field-commit';
 import { computed, onMounted, reactive, ref } from 'vue';
 
 import { useConsoleFieldSyncHost, type ConsoleFieldSyncSource } from '../../../composables/field-sync-host';

@@ -478,7 +478,7 @@ import {
   type HsdataPublishStreamInput,
   type HsdataSingleCardPublishReport,
 } from '~/composables/useHsdataRepo';
-import type { TaskPageSnapshot } from '@tcg-cards/model/src/task';
+import type { TaskPageSnapshot } from '@tcg-cards/model/task';
 import type { TaskOperation } from '~/components/task/TaskController.vue';
 import { orpc } from '~/lib/orpc';
 

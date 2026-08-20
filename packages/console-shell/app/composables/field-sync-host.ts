@@ -6,14 +6,14 @@ import type {
   FieldCommitListInput,
   FieldCommitListResult,
   FieldCommitProfile,
-} from '@tcg-cards/model/src/field-commit';
+} from '@tcg-cards/model/field-commit';
 import type {
   TagConflictGetInput,
   TagConflictListInput,
   TagConflictListResult,
   TagConflictProfile,
   TagConflictResolveInput,
-} from '@tcg-cards/model/src/hearthstone/schema/tag';
+} from '@tcg-cards/model/hearthstone/schema/tag';
 
 /** Distinguishes the remote shared repository from one desktop-local repository. */
 export type ConsoleFieldSyncSource = 'local' | 'remote';

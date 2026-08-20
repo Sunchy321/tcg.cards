@@ -1,54 +1,32 @@
-import { ORPCError } from '@orpc/server';
+import { oc } from '@orpc/contract';
 
 import z from 'zod';
-import { and, eq } from 'drizzle-orm';
 
-import { os } from './orpc';
-import { db } from '@tcg-cards/db';
-
-/** Generate a catalog endpoint returning a fixed enum/array. */
-export function defineConstants(config: {
+/** Generate a catalog contract returning a fixed enum/array. */
+export function defineCatalogContract(config: {
   description: string;
   tags:        string[];
-  values:      readonly string[];
 }) {
-  return os
+  return oc
     .route({ method: 'GET', description: config.description, tags: config.tags })
-    .output(z.string().array())
-    .handler(async () => [...config.values]);
+    .output(z.string().array());
 }
 
-/** Generate a fact-table endpoint querying by primary key; returns the row directly when it matches the output schema, otherwise reshapes via map. */
-export function defineFactTable(config: {
+/** Generate a fact-table contract querying by primary key. */
+export function defineFactTableContract<T extends Record<string, { schema: z.ZodTypeAny }>>(config: {
   description: string;
   tags:        string[];
-  table:       unknown;
-  pk:          Record<string, { column: unknown, schema: z.ZodTypeAny }>;
+  pk:          T;
   output:      z.ZodTypeAny;
-  map?:        (row: unknown) => unknown;
 }) {
-  const input = z.object(
-    Object.fromEntries(Object.entries(config.pk).map(([key, field]) => [key, field.schema])),
-  );
+  const shape = Object.fromEntries(
+    Object.entries(config.pk).map(([key, field]) => [key, field.schema]),
+  ) as { [K in keyof T]: T[K]['schema'] };
 
-  return os
+  const input = z.object(shape);
+
+  return oc
     .route({ method: 'GET', description: config.description, tags: config.tags })
     .input(input)
-    .output(config.output)
-    .handler(async ({ input }) => {
-      const filters = Object.entries(config.pk).map(([key, field]) =>
-        eq(field.column as never, (input as Record<string, unknown>)[key] as never),
-      );
-
-      const row = await db.select()
-        .from(config.table as never)
-        .where(and(...filters))
-        .then(rows => rows[0]);
-
-      if (row == null) {
-        throw new ORPCError('NOT_FOUND');
-      }
-
-      return config.map ? config.map(row) : row;
-    });
+    .output(config.output);
 }

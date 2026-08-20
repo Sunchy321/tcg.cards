@@ -4,7 +4,7 @@ import { z } from 'zod';
 import {
   importPolicySnapshot,
   magicImportPolicySnapshot,
-} from '@tcg-cards/model/src/magic/schema/data/import';
+} from '@tcg-cards/model/magic/schema/data/import';
 
 const getSnapshot = os
   .route({

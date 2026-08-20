@@ -1,4 +1,4 @@
-import { os } from '@orpc/server';
+import { oc } from '@orpc/contract';
 
 import z from 'zod';
 
@@ -16,11 +16,10 @@ export const gameInfo = z.looseObject({
 
 export type GameInfo = z.infer<typeof gameInfo>;
 
-export const games = os
+export const games = oc
   .route({
     method:      'GET',
     description: 'List supported games',
     tags:        ['Meta'],
   })
-  .output(z.string().array())
-  .handler(async () => [...API_GAMES]);
+  .output(z.string().array());

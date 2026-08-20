@@ -1,16 +1,14 @@
 import { z } from 'zod';
 
-import { defineFactTable } from '../factory';
+import { defineFactTableContract } from '../factory';
 
-import { Format } from '@tcg-cards/db/schema/shared/hearthstone/format';
-import { format as formatSchema } from '@tcg-cards/model/src/hearthstone/schema/format';
+import { format } from '@tcg-cards/model/hearthstone/schema/format';
 
-export const detail = defineFactTable({
+const detail = defineFactTableContract({
   description: 'Get a format by id',
   tags:        ['Hearthstone', 'Format'],
-  table:       Format,
-  pk:          { formatId: { column: Format.formatId, schema: z.string() } },
-  output:      formatSchema,
+  pk:          { formatId: { schema: z.string() } },
+  output:      format,
 });
 
 export const formatRouter = { detail };

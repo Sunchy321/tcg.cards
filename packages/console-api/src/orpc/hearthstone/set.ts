@@ -18,7 +18,7 @@ import {
   type SetListInput,
   type SetProfile,
   type SetUpdateInput,
-} from '@tcg-cards/model/src/hearthstone/schema/set';
+} from '@tcg-cards/model/hearthstone/schema/set';
 
 /** Transaction type used by the set management helpers. */
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];

@@ -4,9 +4,9 @@ import { generateText, isStepCount, tool } from 'ai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 
 import { Patch } from '@tcg-cards/db/schema/local/hearthstone';
-import { locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
-import { glowEntry, glowPart, group as groupEnum } from '@tcg-cards/model/src/hearthstone/schema/announcement';
-import { renderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
+import { locale } from '@tcg-cards/model/hearthstone/schema/basic';
+import { glowEntry, glowPart, group as groupEnum } from '@tcg-cards/model/hearthstone/schema/announcement';
+import { renderModel } from '@tcg-cards/model/hearthstone/schema/entity';
 
 import { getLocalDb } from '../../../lib/hearthstone/hsdata-local-db';
 import { searchCardCandidates } from '../../../lib/hearthstone/card-search';

@@ -274,7 +274,7 @@
 </template>
 
 <script setup lang="ts">
-import type { HearthstoneConfig } from '@tcg-cards/model/src/user-config';
+import type { HearthstoneConfig } from '@tcg-cards/model/user-config';
 
 definePageMeta({ layout: 'main' });
 

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 
 import { Entity, EntityLocalization } from '@tcg-cards/db/schema/local/hearthstone';
-import { locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
+import { locale } from '@tcg-cards/model/hearthstone/schema/basic';
 
 import { getLocalDb } from '../../../lib/hearthstone/hsdata-local-db';
 

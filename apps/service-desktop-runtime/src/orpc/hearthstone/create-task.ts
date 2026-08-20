@@ -1,11 +1,11 @@
 import { z } from 'zod';
 
-import { taskPageSnapshot } from '@tcg-cards/model/src/task';
+import { taskPageSnapshot } from '@tcg-cards/model/task';
 import { os } from '../index';
 import { createAndRunTask, getStore } from '../task';
 import { publishTaskDefinition } from '../../lib/hearthstone/task/publish/definition';
 import { pinTaskDefinition } from '../../lib/hearthstone/task/pin';
-import { cardImageRequirementExportInput } from '@tcg-cards/model/src/hearthstone/schema/data/image';
+import { cardImageRequirementExportInput } from '@tcg-cards/model/hearthstone/schema/data/image';
 import {
   imageRenderTaskType,
   buildImageRenderRunInput,

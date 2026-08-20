@@ -63,7 +63,7 @@
 <script setup lang="ts">
 import { useToast } from '@nuxt/ui/composables';
 import { consumeEventIterator } from '@orpc/client';
-import type { TaskPageSnapshot, TaskPageEvent, TaskPageTask, TaskStage, TaskRunStatus } from '@tcg-cards/model/src/task';
+import type { TaskPageSnapshot, TaskPageEvent, TaskPageTask, TaskStage, TaskRunStatus } from '@tcg-cards/model/task';
 import { orpc } from '~/lib/orpc';
 import { useTaskRegistry } from '~/composables/useTaskRegistry';
 

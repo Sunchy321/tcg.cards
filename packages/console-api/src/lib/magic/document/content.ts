@@ -8,7 +8,7 @@ import {
   DocumentNodeContent,
 } from '@tcg-cards/db/schema/shared/magic';
 
-import type { Locale } from '@tcg-cards/model/src/magic/schema/basic';
+import type { Locale } from '@tcg-cards/model/magic/schema/basic';
 
 interface ContentResult {
   nodeId:  string;

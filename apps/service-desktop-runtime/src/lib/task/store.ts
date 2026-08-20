@@ -8,7 +8,7 @@ import type {
   TaskRunStatus,
   TaskStageStatus,
   TaskTerminalReason,
-} from '@tcg-cards/model/src/task';
+} from '@tcg-cards/model/task';
 
 import type { TaskRunInput, TaskStagePlan, TaskStageState } from './definition';
 

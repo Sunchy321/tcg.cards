@@ -10,11 +10,11 @@ import type {
   TagConflictGetInput,
   TagConflictListInput,
   TagConflictResolveInput,
-} from '@tcg-cards/model/src/hearthstone/schema/tag';
+} from '@tcg-cards/model/hearthstone/schema/tag';
 import type {
   FieldCommitGetInput,
   FieldCommitListInput,
-} from '@tcg-cards/model/src/field-commit';
+} from '@tcg-cards/model/field-commit';
 
 /** Builds the field-sync host that exposes only remote repository data on the site console. */
 export function useSiteConsoleFieldSyncHost(api: ConsoleApi) {

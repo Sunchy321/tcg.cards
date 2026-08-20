@@ -3,12 +3,12 @@ import { z } from 'zod';
 import { and, desc, eq, sql } from 'drizzle-orm';
 
 import { Entity, EntityLocalization, LatestEntity } from '@tcg-cards/db/schema/local/hearthstone';
-import { locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
+import { locale } from '@tcg-cards/model/hearthstone/schema/basic';
 import {
   imagePremium,
   imageTemplate,
   imageZone,
-} from '@tcg-cards/model/src/hearthstone/schema/data/image';
+} from '@tcg-cards/model/hearthstone/schema/data/image';
 import { buildImageVariants, isCardImageVariantAllowed } from '@tcg-cards/shared/hearthstone/card-image-variant';
 import { loadVariantMechanicIds } from '@tcg-cards/console-api/lib/hearthstone/card-image';
 

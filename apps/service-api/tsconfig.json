@@ -6,6 +6,7 @@
     "moduleResolution": "bundler",
     "moduleDetection": "force",
     "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
     "noEmit": true,
 
     "strict": true,
@@ -18,6 +19,14 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false,
 
-    "types": ["@cloudflare/workers-types"]
+    "types": ["@cloudflare/workers-types", "node"],
+
+    "paths": {
+      "#model/*":   ["./node_modules/@tcg-cards/model/src/*"],
+      "#db/*":      ["./node_modules/@tcg-cards/db/src/*"],
+      "#schema/*":  ["./node_modules/@tcg-cards/db/src/schema/*"],
+      "#shared/*":  ["./node_modules/@tcg-cards/shared/src/*"],
+      "#search/*":  ["./node_modules/@tcg-cards/search/src/*"]
+    }
   }
 }

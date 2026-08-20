@@ -1,4 +1,4 @@
-import type { TaskPageSnapshot, TaskStage, TaskRunStatus } from '@tcg-cards/model/src/task';
+import type { TaskPageSnapshot, TaskStage, TaskRunStatus } from '@tcg-cards/model/task';
 
 import type { TaskRunSnapshot } from './store';
 

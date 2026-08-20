@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { TaskPageSnapshot, TaskPageTask, TaskStage } from '@tcg-cards/model/src/task'
+import type { TaskPageSnapshot, TaskPageTask, TaskStage } from '@tcg-cards/model/task'
 import { orpc } from '~/lib/orpc';
 
 definePageMeta({ layout: 'admin', title: 'Task 测试' })

@@ -718,7 +718,7 @@
 </template>
 
 <script setup lang="ts">
-import type { HearthstoneConfig } from '@tcg-cards/model/src/user-config';
+import type { HearthstoneConfig } from '@tcg-cards/model/user-config';
 import type { CardEntityView } from '#model/hearthstone/schema/entity';
 import type { NormalResult } from '#model/hearthstone/schema/search';
 import { locale as localeSchema } from '#model/hearthstone/schema/basic';

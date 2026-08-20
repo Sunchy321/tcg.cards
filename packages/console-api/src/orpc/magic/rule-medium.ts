@@ -4,7 +4,7 @@ import { z } from 'zod';
 import {
   changeReviewOverridePayload,
   nodeChangeReviewStateCache,
-} from '@tcg-cards/model/src/magic/schema/document';
+} from '@tcg-cards/model/magic/schema/document';
 
 import {
   listChanges,
