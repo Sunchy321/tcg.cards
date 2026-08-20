@@ -1,4 +1,4 @@
-name = "docs-tcg-cards"
+name = "site-docs"
 main = "./.output/server/index.mjs"
 compatibility_date = "2026-02-19"
 compatibility_flags = ["nodejs_compat"]
