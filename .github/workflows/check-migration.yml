@@ -49,13 +49,14 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Generate migration
-        run: bun --cwd packages/db run db:generate
+        working-directory: packages/db
+        run: bun run db:generate
 
       - name: Verify committed migration files
         run: |
           if [ -n "$(git status --porcelain -- packages/db/migrations)" ]; then
             echo "Detected uncommitted migration changes."
-            echo "Run 'bun --cwd packages/db run db:generate' and commit the result."
+            echo "Run 'bun run db:generate' in packages/db and commit the result."
             git status --short -- packages/db/migrations
             exit 1
           fi
@@ -68,4 +69,5 @@ jobs:
           EOF
 
       - name: Apply migrations to clean database
-        run: bun --cwd packages/db run db:migrate
+        working-directory: packages/db
+        run: bun run db:migrate

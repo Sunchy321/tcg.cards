@@ -31,7 +31,8 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
       - name: Run database migrations
-        run: bun --cwd packages/db run db:migrate:remote:prod
+        working-directory: packages/db
+        run: bun run db:migrate:remote:prod
 
   detect:
     runs-on: ubuntu-latest
@@ -145,10 +146,12 @@ jobs:
           AUTH_URL: ${{ matrix.site.auth }}
 
       - name: Build
-        run: bun --cwd ${{ matrix.site.dir }} run build
+        working-directory: ${{ matrix.site.dir }}
+        run: bun run build
 
       - name: Deploy
-        run: bun --cwd ${{ matrix.site.dir }} run deploy
+        working-directory: ${{ matrix.site.dir }}
+        run: bun run deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
