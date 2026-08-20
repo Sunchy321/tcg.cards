@@ -80,7 +80,7 @@ jobs:
               affected = data.packages || [];
             } catch {
               // If turbo fails, deploy everything
-              affected = ['site-hearthstone', 'site-magic', 'site-main', '@tcg-cards/watcher', 'service-internal'];
+              affected = ['site-hearthstone', 'site-magic', 'site-main', 'service-watcher', 'service-internal'];
             }
 
             core.info(`Affected packages: ${JSON.stringify(affected)}`);
@@ -90,7 +90,7 @@ jobs:
               'site-hearthstone':       { name: 'site-hearthstone', dir: 'apps/site-hearthstone', auth: 'https://hearthstone.tcg.cards' },
               'site-magic':             { name: 'site-magic', dir: 'apps/site-magic', auth: 'https://magic.tcg.cards' },
               'site-main':              { name: 'site-main', dir: 'apps/site-main', auth: 'https://tcg.cards' },
-              '@tcg-cards/watcher':     { name: 'watcher', dir: 'apps/watcher', auth: '' },
+              'service-watcher':      { name: 'service-watcher', dir: 'apps/service-watcher', auth: '' },
               'service-internal':       { name: 'service-internal', dir: 'apps/service-internal', auth: '' },
             };
 

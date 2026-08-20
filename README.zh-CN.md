@@ -65,7 +65,7 @@ turbo/              Turborepo generator 和模板
 | `site-{game}` | 单游戏公开站点。当前实例：`site-magic`（`3001`）、`site-hearthstone`（`3002`） | 按具体应用 |
 | `site-console` | 低能力 Web 管理界面 | `2999` |
 | `service-internal` | 面向 app 形态客户端的高能力远端管理后端 | `2998` |
-| `@tcg-cards/watcher` | 定时 Cloudflare Worker | Wrangler 默认端口 |
+| `service-watcher` | 定时 Cloudflare Worker | Wrangler 默认端口 |
 
 ## 快速开始
 
@@ -91,7 +91,7 @@ cp apps/site-magic/.env.example apps/site-magic/.env
 cp apps/site-hearthstone/.env.example apps/site-hearthstone/.env
 cp apps/site-console/.env.example apps/site-console/.env
 cp apps/service-internal/.env.example apps/service-internal/.env
-cp apps/watcher/.dev.vars.example apps/watcher/.dev.vars
+cp apps/service-watcher/.dev.vars.example apps/service-watcher/.dev.vars
 cp packages/db/.env.example packages/db/.env
 ```
 

@@ -65,7 +65,7 @@ turbo/              Turborepo generators and templates
 | `site-{game}` | Game-specific public sites. Current examples: `site-magic` (`3001`), `site-hearthstone` (`3002`) | per app |
 | `site-console` | Lower-capability web management surface | `2999` |
 | `service-internal` | Higher-capability remote management backend for app-shaped clients | `2998` |
-| `@tcg-cards/watcher` | Scheduled Cloudflare Worker | Wrangler default |
+| `service-watcher` | Scheduled Cloudflare Worker | Wrangler default |
 
 ## Getting Started
 
@@ -91,7 +91,7 @@ cp apps/site-magic/.env.example apps/site-magic/.env
 cp apps/site-hearthstone/.env.example apps/site-hearthstone/.env
 cp apps/site-console/.env.example apps/site-console/.env
 cp apps/service-internal/.env.example apps/service-internal/.env
-cp apps/watcher/.dev.vars.example apps/watcher/.dev.vars
+cp apps/service-watcher/.dev.vars.example apps/service-watcher/.dev.vars
 cp packages/db/.env.example packages/db/.env
 ```
 
