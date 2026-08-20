@@ -125,6 +125,20 @@
         "wrangler": "^4.85.0",
       },
     },
+    "apps/service-watcher": {
+      "name": "service-watcher",
+      "version": "1.0.0",
+      "dependencies": {
+        "zod": "^4.3.6",
+      },
+      "devDependencies": {
+        "@cloudflare/workers-types": "^4.20260329.1",
+        "eslint": "^10.2.1",
+        "eslint-config-custom": "workspace:*",
+        "typescript": "^5.9.3",
+        "wrangler": "^4.85.0",
+      },
+    },
     "apps/site-console": {
       "name": "site-console",
       "dependencies": {
@@ -361,20 +375,6 @@
         "typescript": "^5.9.3",
         "vue-tsc": "^3.2.5",
         "wrangler": "^4.75.0",
-      },
-    },
-    "apps/watcher": {
-      "name": "@tcg-cards/watcher",
-      "version": "1.0.0",
-      "dependencies": {
-        "zod": "^4.3.6",
-      },
-      "devDependencies": {
-        "@cloudflare/workers-types": "^4.20260329.1",
-        "eslint": "^10.2.1",
-        "eslint-config-custom": "workspace:*",
-        "typescript": "^5.9.3",
-        "wrangler": "^4.85.0",
       },
     },
     "packages/api": {
@@ -1528,8 +1528,6 @@
     "@tcg-cards/shared": ["@tcg-cards/shared@workspace:packages/shared"],
 
     "@tcg-cards/ui": ["@tcg-cards/ui@workspace:packages/ui"],
-
-    "@tcg-cards/watcher": ["@tcg-cards/watcher@workspace:apps/watcher"],
 
     "@tediousjs/connection-string": ["@tediousjs/connection-string@0.5.0", "", {}, "sha512-7qSgZbincDDDFyRweCIEvZULFAw5iz/DeunhvuxpL31nfntX3P4Yd4HkHBRg9H8CdqY1e5WFN1PZIz/REL9MVQ=="],
 
@@ -3288,6 +3286,8 @@
     "service-desktop-runtime": ["service-desktop-runtime@workspace:apps/service-desktop-runtime"],
 
     "service-internal": ["service-internal@workspace:apps/service-internal"],
+
+    "service-watcher": ["service-watcher@workspace:apps/service-watcher"],
 
     "set-cookie-parser": ["set-cookie-parser@3.0.1", "", {}, "sha512-n7Z7dXZhJbwuAHhNzkTti6Aw9QDDjZtm3JTpTGATIdNzdQz5GuFs22w90BcvF4INfnrL5xrX3oGsuqO5Dx3A1Q=="],
 
