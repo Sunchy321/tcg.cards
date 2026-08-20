@@ -13,6 +13,9 @@
     "turbo": "^2.6.1",
     "typescript": "^5"
   },
+  "trustedDependencies": [
+    "v-code-diff"
+  ],
   "packageManager": "bun@1.3.10",
   "private": true,
   "scripts": {
