@@ -61,6 +61,18 @@ jobs:
         with:
           script: |
             const { execSync } = require('child_process');
+            const fs = require('fs');
+
+            // Deployable by naming convention: site-* are websites, service-* are headless
+            // services. A wrangler.toml marks readiness; a top-level `deploy = false`
+            // opts the app out of this deploy pipeline.
+            function isDeployable(pkg) {
+              if (!pkg.startsWith('site-') && !pkg.startsWith('service-')) return false;
+              const tomlPath = `apps/${pkg}/wrangler.toml`;
+              if (!fs.existsSync(tomlPath)) return false;
+              const toml = fs.readFileSync(tomlPath, 'utf8');
+              return !/^\s*deploy\s*=\s*false\s*$/m.test(toml);
+            }
 
             // Ensure deployed tag exists (first deployment)
             try {
@@ -79,27 +91,23 @@ jobs:
               const data = JSON.parse(out);
               affected = data.packages || [];
             } catch {
-              // If turbo fails, deploy everything
-              affected = ['site-hearthstone', 'site-magic', 'site-main', 'service-watcher', 'service-internal'];
+              // If turbo fails, deploy every convention-deployable site.
+              affected = fs.readdirSync('apps').filter(isDeployable);
             }
 
             core.info(`Affected packages: ${JSON.stringify(affected)}`);
 
-            // Deployable sites and their deploy config
-            const deployable = {
-              'site-hearthstone':       { name: 'site-hearthstone', dir: 'apps/site-hearthstone', auth: 'https://hearthstone.tcg.cards' },
-              'site-magic':             { name: 'site-magic', dir: 'apps/site-magic', auth: 'https://magic.tcg.cards' },
-              'site-main':              { name: 'site-main', dir: 'apps/site-main', auth: 'https://tcg.cards' },
-              'service-watcher':      { name: 'service-watcher', dir: 'apps/service-watcher', auth: '' },
-              'service-internal':       { name: 'service-internal', dir: 'apps/service-internal', auth: '' },
-            };
-
-            const sites = affected
-              .filter(pkg => deployable[pkg])
-              .map(pkg => deployable[pkg]);
+            const deployable = affected
+              .filter(isDeployable)
+              .map(pkg => {
+                const dir = `apps/${pkg}`;
+                const toml = fs.readFileSync(`${dir}/wrangler.toml`, 'utf8');
+                const authMatch = toml.match(/BETTER_AUTH_URL\s*=\s*"([^"]+)"/);
+                return { name: pkg, dir, auth: authMatch ? authMatch[1] : '' };
+              });
 
             // Deploy only the affected sites; skip deployment when none are affected.
-            const result = sites;
+            const result = deployable;
 
             core.info(`Deploying: ${JSON.stringify(result)}`);
             core.setOutput('sites', JSON.stringify(result));

@@ -5,6 +5,9 @@ compatibility_flags = ["nodejs_compat"]
 
 workers_dev = false
 
+# Opted out of the shared deploy pipeline.
+deploy = false
+
 [[routes]]
 pattern = "docs.tcg.cards"
 custom_domain = true
