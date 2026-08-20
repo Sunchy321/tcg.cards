@@ -16,6 +16,17 @@ When a new requirement changes those stable boundaries, update the architecture 
 
 Keep project-level architecture in `docs/`. Keep requirement-specific design work in `proposals/`, `specs/`, and `archive/`.
 
+## Workspace Boundaries
+
+**Never reference another workspace package by a relative path** (e.g. `extends: ['../../packages/ui']` or imports reaching into `../../packages/<name>/...`). This is strictly forbidden.
+
+Every cross-package reference must:
+
+1. Declare the dependency in the consuming package's `package.json` (e.g. `"@tcg-cards/ui": "workspace:*"`).
+2. Reference the package by its name (e.g. `extends: ['@tcg-cards/ui']`), never by a path into another package's source directory.
+
+Relative cross-package paths hide the dependency from the build graph, so turbo cannot detect affected packages, and they break workspace boundaries.
+
 ## Delivery Workflow
 
 When a non-simple requirement is given, first create a design proposal under the `proposals/` folder.

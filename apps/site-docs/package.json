@@ -20,6 +20,7 @@
     "@tcg-cards/api": "workspace:*",
     "@tcg-cards/base": "workspace:*",
     "@tcg-cards/model": "workspace:*",
+    "@tcg-cards/ui": "workspace:*",
     "markdown-it": "^14.1.1",
     "nuxt": "4.3.1",
     "tailwindcss": "^4.2.2",

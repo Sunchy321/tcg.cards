@@ -26,6 +26,7 @@
     "@tcg-cards/search": "workspace:*",
     "@tcg-cards/base": "workspace:*",
     "@tcg-cards/shared": "workspace:*",
+    "@tcg-cards/ui": "workspace:*",
     "@vueuse/router": "^14.3.0",
     "axios": "^1.13.6",
     "better-auth": "^1.5.5",

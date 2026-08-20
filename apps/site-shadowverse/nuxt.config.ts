@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'url';
 
 export default defineNuxtConfig({
-  extends: ['../../packages/ui'],
+  extends: ['@tcg-cards/ui'],
 
   modules: ['@nuxt/eslint', '@nuxt/ui', '@nuxt/icon'],
 
