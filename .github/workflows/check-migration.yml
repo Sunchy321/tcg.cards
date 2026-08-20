@@ -2,15 +2,9 @@ name: Check Migration
 
 on:
   pull_request:
-    paths:
-      - '.github/workflows/check-migration.yml'
-      - 'package.json'
-      - 'bun.lock'
-      - 'packages/db/**'
-      - 'packages/shared/**'
+    branches: [dev]
   push:
-    branches:
-      - master
+    branches: [master]
     paths:
       - '.github/workflows/check-migration.yml'
       - 'package.json'
@@ -22,16 +16,29 @@ jobs:
   check-migration:
     runs-on: ubuntu-latest
     services:
-      postgres:
+      postgres-local:
         image: pgvector/pgvector:0.8.2-pg17
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: tcg_cards_ci
+          POSTGRES_DB: tcg_cards_ci_local
         ports:
-          - 55432:5432
+          - 55433:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d tcg_cards_ci"
+          --health-cmd "pg_isready -U postgres -d tcg_cards_ci_local"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      postgres-remote:
+        image: pgvector/pgvector:0.8.2-pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tcg_cards_ci_remote
+        ports:
+          - 55434:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tcg_cards_ci_remote"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -39,35 +46,77 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect relevant changes
+        id: relevant
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+            CHANGED="$(git diff --name-only "$BASE"..."$HEAD" || true)"
+          else
+            CHANGED="triggered"
+          fi
+          if printf '%s\n' "$CHANGED" | grep -qE '^\.github/workflows/check-migration\.yml$|^package\.json$|^bun\.lock$|^packages/(db|shared)/'; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Setup Bun
+        if: steps.relevant.outputs.relevant == 'true'
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.10
 
       - name: Install dependencies
+        if: steps.relevant.outputs.relevant == 'true'
         run: bun install --frozen-lockfile
 
-      - name: Generate migration
+      - name: Generate local migration
+        if: steps.relevant.outputs.relevant == 'true'
         working-directory: packages/db
-        run: bun run db:generate
+        run: bun run db:generate:local
+
+      - name: Generate remote migration
+        if: steps.relevant.outputs.relevant == 'true'
+        working-directory: packages/db
+        run: bun run db:generate:remote
 
       - name: Verify committed migration files
+        if: steps.relevant.outputs.relevant == 'true'
         run: |
           if [ -n "$(git status --porcelain -- packages/db/migrations)" ]; then
             echo "Detected uncommitted migration changes."
-            echo "Run 'bun run db:generate' in packages/db and commit the result."
+            echo "Run 'bun run db:generate:local' and 'bun run db:generate:remote' in packages/db, then commit the result."
             git status --short -- packages/db/migrations
             exit 1
           fi
 
-      - name: Prepare production migration env
+      - name: Prepare local env
+        if: steps.relevant.outputs.relevant == 'true'
         working-directory: packages/db
         run: |
-          cat > .env.production <<'EOF'
-          DATABASE_URL=postgres://postgres:postgres@localhost:55432/tcg_cards_ci
+          cat > .env.local-dev <<'EOF'
+          DATABASE_URL=postgres://postgres:postgres@localhost:55433/tcg_cards_ci_local
           EOF
 
-      - name: Apply migrations to clean database
+      - name: Prepare remote env
+        if: steps.relevant.outputs.relevant == 'true'
         working-directory: packages/db
-        run: bun run db:migrate
+        run: |
+          cat > .env.remote-dev <<'EOF'
+          DATABASE_URL=postgres://postgres:postgres@localhost:55434/tcg_cards_ci_remote
+          EOF
+
+      - name: Apply local migrations to clean database
+        if: steps.relevant.outputs.relevant == 'true'
+        working-directory: packages/db
+        run: bun run db:migrate:local:dev
+
+      - name: Apply remote migrations to clean database
+        if: steps.relevant.outputs.relevant == 'true'
+        working-directory: packages/db
+        run: bun run db:migrate:remote:dev
