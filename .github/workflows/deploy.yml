@@ -159,7 +159,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
   tag:
-    needs: [build-and-deploy]
+    needs: [migrate, detect, build-and-deploy]
     if: success()
     runs-on: ubuntu-latest
     steps:
