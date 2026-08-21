@@ -36,6 +36,12 @@ export default {
   settings: {
     todo: 'TODO: API key management (login required).',
   },
+  search: {
+    placeholder: 'Search…',
+    endpoints:   'Endpoints',
+    fields:      'Fields',
+    enums:       'Enums',
+  },
   magic,
   hearthstone,
 };

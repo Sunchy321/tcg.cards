@@ -12,6 +12,7 @@
       <span class="min-w-0 truncate text-sm font-medium text-muted">{{ gameName }}</span>
 
       <div class="ml-auto flex items-center gap-1.5">
+        <SearchCommand />
         <UBadge color="neutral" variant="subtle" class="font-mono">v1</UBadge>
         <UColorModeButton color="neutral" variant="ghost" />
       </div>

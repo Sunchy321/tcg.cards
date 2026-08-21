@@ -36,6 +36,12 @@ export default {
   settings: {
     todo: '待办:API 密钥管理(需登录)。',
   },
+  search: {
+    placeholder: '搜索…',
+    endpoints:   '端点',
+    fields:      '字段',
+    enums:       '枚举',
+  },
   magic,
   hearthstone,
 };
