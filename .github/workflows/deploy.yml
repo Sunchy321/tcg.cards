@@ -136,11 +136,13 @@ jobs:
             ${{ runner.os }}-bun-
       - run: bun install --frozen-lockfile
 
-      - name: Write .env.production
+      - name: Write env files
         run: |
           printf 'NODE_ENV=production\nBETTER_AUTH_SECRET=%s\nBETTER_AUTH_URL=%s\nASSET_BASE_URL=https://asset.tcg.cards\n' \
             "$BETTER_AUTH_SECRET" "$AUTH_URL" \
             > ${{ matrix.site.dir }}/.env.production
+          printf 'BETTER_AUTH_SECRET=%s\n' "$BETTER_AUTH_SECRET" \
+            > ${{ matrix.site.dir }}/secrets.env
         env:
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
           AUTH_URL: ${{ matrix.site.auth }}
@@ -151,7 +153,7 @@ jobs:
 
       - name: Deploy
         working-directory: ${{ matrix.site.dir }}
-        run: bun run deploy
+        run: bunx wrangler deploy --secrets-file secrets.env
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
