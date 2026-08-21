@@ -3,6 +3,7 @@ import { OpenAPIHandler } from '@orpc/openapi/fetch';
 import { OpenAPIGenerator } from '@orpc/openapi';
 import { createDb, runWithDb } from '@tcg-cards/db';
 
+import { authenticate, isConstantEndpoint, pathSegments } from './auth-middleware';
 import { registry } from './registry';
 import type { ApiServiceEnv } from './env';
 
@@ -27,6 +28,24 @@ async function withRequestDb<T>(env: ApiServiceEnv, handler: () => Promise<T>): 
   return runWithDb(database, handler);
 }
 
+/** CORS: open to any origin, allows the Authorization header, no credentials. */
+function corsHeaders(): Record<string, string> {
+  return {
+    'access-control-allow-origin': '*',
+    'access-control-allow-headers': 'authorization, content-type',
+    'access-control-allow-methods': 'GET, OPTIONS',
+  };
+}
+
+/** Constant endpoints are static and CDN-cacheable; make them publicly cacheable. */
+function cacheHeaders(pathname: string): Record<string, string> {
+  if (isConstantEndpoint(pathSegments(pathname))) {
+    return { 'cache-control': 'public, max-age=3600' };
+  }
+
+  return {};
+}
+
 hono.get('/health', c => c.json({
   service: 'service-api',
   status:  'ok',
@@ -42,24 +61,45 @@ hono.get('/openapi.json', async c => {
   return c.json(spec);
 });
 
+hono.options('/v1/*', c => {
+  return new Response(null, { status: 204, headers: corsHeaders() });
+});
+
 async function handleApiRequest(request: Request, env: ApiServiceEnv) {
   installRuntimeBindings(env);
 
-  return withRequestDb(env, async () => {
-    const { response } = await openapiHandler.handle(request, { prefix: '/v1' });
+  const authError = await authenticate(request, env);
 
-    if (response) {
-      return response;
-    }
+  if (authError) {
+    return authError;
+  }
 
-    return new Response(JSON.stringify({ code: 'NOT_FOUND', message: 'Not found' }), {
-      status:  404,
-      headers: { 'content-type': 'application/json' },
-    });
+  const { response } = await openapiHandler.handle(request, { prefix: '/v1' });
+
+  if (response) {
+    return response;
+  }
+
+  return new Response(JSON.stringify({ code: 'NOT_FOUND', message: 'Not found' }), {
+    status:  404,
+    headers: { 'content-type': 'application/json' },
   });
 }
 
-hono.all('/v1/*', c => handleApiRequest(c.req.raw, c.env));
+hono.all('/v1/*', c => {
+  return withRequestDb(c.env, async () => {
+    const result = await handleApiRequest(c.req.raw, c.env);
+
+    for (const [key, value] of Object.entries({
+      ...corsHeaders(),
+      ...cacheHeaders(c.req.path),
+    })) {
+      result.headers.set(key, value);
+    }
+
+    return result;
+  });
+});
 
 // Unversioned paths hit the latest version directly (no redirect).
 hono.all('/:game/*', c => {
@@ -67,7 +107,18 @@ hono.all('/:game/*', c => {
   url.pathname = `/v1${url.pathname}`;
   const request = new Request(url, c.req.raw);
 
-  return handleApiRequest(request, c.env);
+  return withRequestDb(c.env, async () => {
+    const result = await handleApiRequest(request, c.env);
+
+    for (const [key, value] of Object.entries({
+      ...corsHeaders(),
+      ...cacheHeaders(c.req.path),
+    })) {
+      result.headers.set(key, value);
+    }
+
+    return result;
+  });
 });
 
 export default hono;

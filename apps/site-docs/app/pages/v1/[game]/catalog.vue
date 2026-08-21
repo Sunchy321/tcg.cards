@@ -17,6 +17,7 @@
           <p class="mb-2 text-xs font-semibold tracking-[0.14em] text-primary uppercase">{{ $t('reference.output') }}</p>
           <SchemaViewer :node="catalog.output" :base-key="`${game}.fields.${catalog.resource}.${catalog.name}.out`" :game="game" />
         </div>
+        <TryItPanel :endpoint="catalog" />
       </section>
     </article>
   </DocsShell>

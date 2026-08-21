@@ -20,6 +20,13 @@ export default {
     output:    'Output schema',
     resources: 'API resources',
     endpoints: '{n} endpoints',
+    tryIt:     'Try it',
+  },
+  tryIt: {
+    public:          'Public',
+    requiresKey:     'An API key is required for this endpoint.',
+    requiresKeyHint: 'Sign in to manage keys (coming soon) — keys unlock the remaining endpoints.',
+    run:             'Run',
   },
   schema: {
     field:               'Field',

@@ -20,6 +20,13 @@ export default {
     output:    '输出 Schema',
     resources: 'API 资源',
     endpoints: '{n} 个端点',
+    tryIt:     '试一试',
+  },
+  tryIt: {
+    public:          '公共',
+    requiresKey:     '该端点需要 API 密钥。',
+    requiresKeyHint: '登录后即可管理密钥(即将上线)——密钥可解锁其余端点。',
+    run:             '运行',
   },
   schema: {
     field:               '字段',

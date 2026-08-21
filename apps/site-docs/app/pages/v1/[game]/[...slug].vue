@@ -22,6 +22,8 @@
       <div class="mb-5"><p class="text-xs font-semibold tracking-[0.14em] text-primary uppercase">02</p><h2 class="mt-2 text-2xl font-semibold text-highlighted">{{ $t('reference.output') }}</h2></div>
       <SchemaViewer :node="endpoint.output" :base-key="outputBaseKey" :game="game" />
     </section>
+
+    <TryItPanel :endpoint="endpoint" />
     </article>
   </DocsShell>
 </template>
