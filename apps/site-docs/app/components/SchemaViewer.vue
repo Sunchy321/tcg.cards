@@ -16,12 +16,11 @@
           <td class="px-4 py-3">
             <div class="flex flex-wrap items-center gap-1.5">
               <code class="text-primary">
-                <NuxtLink v-if="enumLink(row.schema)" :to="enumLink(row.schema)">{{ typeLabel(row.schema) }}</NuxtLink>
-                <span v-else>{{ typeLabel(row.schema) }}</span>
+                <NuxtLink v-if="enumLink(row.schema)" :to="enumLink(row.schema)">{{ typeText(row.schema) }}</NuxtLink>
+                <span v-else>{{ typeText(row.schema) }}</span>
               </code>
               <UBadge v-if="row.schema.optional" color="neutral" variant="subtle" size="sm">{{ $t('schema.optional') }}</UBadge>
               <UBadge v-else color="primary" variant="subtle" size="sm">{{ $t('schema.required') }}</UBadge>
-              <UBadge v-if="row.schema.nullable" color="warning" variant="subtle" size="sm">null</UBadge>
             </div>
             <div v-if="row.schema.defaultValue !== undefined" class="mt-1 text-xs text-muted">
               {{ $t('schema.default') }}: <code>{{ JSON.stringify(row.schema.defaultValue) }}</code>
@@ -42,8 +41,8 @@
 
   <div v-else class="border-y border-default bg-muted/30 px-4 py-4 font-mono text-sm">
     <span class="text-primary">
-      <NuxtLink v-if="enumLink(node)" :to="enumLink(node)">{{ typeLabel(node) }}</NuxtLink>
-      <span v-else>{{ typeLabel(node) }}</span>
+      <NuxtLink v-if="enumLink(node)" :to="enumLink(node)">{{ typeText(node) }}</NuxtLink>
+      <span v-else>{{ typeText(node) }}</span>
     </span>
     <span v-if="node.kind === 'enum'"> = {{ node.values?.join(' | ') }}</span>
     <span v-if="node.kind === 'literal'"> = {{ JSON.stringify(node.value) }}</span>
@@ -102,6 +101,11 @@ function typeLabel(node: SchemaNode): string {
     return node.name ?? 'enum';
   }
   return node.kind;
+}
+
+/** Produces the type label with a `?` suffix for nullable fields. */
+function typeText(node: SchemaNode): string {
+  return `${typeLabel(node)}${node.nullable ? '?' : ''}`;
 }
 
 /** Returns the enum detail page link for an enum type label (descending arrays). */
