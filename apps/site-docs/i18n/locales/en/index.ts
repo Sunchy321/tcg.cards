@@ -4,7 +4,7 @@ import hearthstone from './hearthstone';
 export default {
   nav: {
     intro:        'Introduction',
-    model:        'Models',
+    model:        'Model',
     overview:     'Overview',
     on_this_page: 'On this page',
     changelog:    'Changelog',

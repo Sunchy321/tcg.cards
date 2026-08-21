@@ -24,9 +24,19 @@
 
         <section class="space-y-2">
           <h2 class="px-2 text-xs font-semibold tracking-[0.14em] text-muted uppercase">{{ $t('nav.model') }}</h2>
-          <NuxtLink v-for="resource in Object.keys(groups)" :key="resource" :to="resource === 'catalog' ? `/v1/${game}/catalog` : `/v1/${game}/models/${resource}`" class="docs-nav-link" active-class="is-active">
-            {{ $t(resourceKey(game, resource)) }}
-          </NuxtLink>
+          <div class="space-y-0.5">
+            <NuxtLink :to="`/v1/${game}/model/enum`" class="docs-nav-link" active-class="is-active">
+              {{ $t(`${game}.enums._self`) }}
+            </NuxtLink>
+            <div class="ml-3 space-y-0.5">
+              <NuxtLink v-for="enumDoc in enums" :key="enumDoc.slug" :to="`/v1/${game}/model/enum/${enumDoc.slug}`" class="docs-nav-link" active-class="is-active">
+                {{ enumDoc.name }}
+              </NuxtLink>
+            </div>
+            <NuxtLink v-for="resource in modelResources" :key="resource" :to="`/v1/${game}/model/${resource}`" class="docs-nav-link" active-class="is-active">
+              {{ $t(resourceKey(game, resource)) }}
+            </NuxtLink>
+          </div>
         </section>
       </nav>
     </aside>
@@ -47,9 +57,11 @@
 </template>
 
 <script setup lang="ts">
-import { groupGameEndpoints } from '../../lib/registry-docs';
+import { collectEnums, groupGameEndpoints } from '../../lib/registry-docs';
 import { endpointLabelKey, resourceKey } from '../../lib/model-keys';
 
 const props = defineProps<{ game: string }>();
 const groups = computed(() => groupGameEndpoints(props.game));
+const enums = computed(() => collectEnums(props.game));
+const modelResources = computed(() => Object.keys(groups.value).filter(resource => resource !== 'catalog'));
 </script>

@@ -1,6 +1,7 @@
 import endpoints from './endpoints';
 import resources from './resources';
 import fields from './fields';
+import enums from './enums';
 
 export default {
   name:        'Magic: The Gathering',
@@ -8,4 +9,5 @@ export default {
   endpoints,
   resources,
   fields,
+  enums,
 };

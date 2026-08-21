@@ -16,7 +16,7 @@
           <td class="px-4 py-3">
             <div class="flex flex-wrap items-center gap-1.5">
               <code class="text-primary">
-                <NuxtLink v-if="enumCatalogLink(row.schema)" :to="enumCatalogLink(row.schema)">{{ typeLabel(row.schema) }}</NuxtLink>
+                <NuxtLink v-if="enumLink(row.schema)" :to="enumLink(row.schema)">{{ typeLabel(row.schema) }}</NuxtLink>
                 <span v-else>{{ typeLabel(row.schema) }}</span>
               </code>
               <UBadge v-if="row.schema.optional" color="neutral" variant="subtle" size="sm">{{ $t('schema.optional') }}</UBadge>
@@ -42,7 +42,7 @@
 
   <div v-else class="border-y border-default bg-muted/30 px-4 py-4 font-mono text-sm">
     <span class="text-primary">
-      <NuxtLink v-if="enumCatalogLink(node)" :to="enumCatalogLink(node)">{{ typeLabel(node) }}</NuxtLink>
+      <NuxtLink v-if="enumLink(node)" :to="enumLink(node)">{{ typeLabel(node) }}</NuxtLink>
       <span v-else>{{ typeLabel(node) }}</span>
     </span>
     <span v-if="node.kind === 'enum'"> = {{ node.values?.join(' | ') }}</span>
@@ -52,7 +52,7 @@
 
 <script setup lang="ts">
 import type { SchemaNode } from '../../lib/introspect';
-import { groupGameEndpoints } from '../../lib/registry-docs';
+import { kebab } from '../../lib/registry-docs';
 
 type Row = {
   key:    string;
@@ -104,17 +104,8 @@ function typeLabel(node: SchemaNode): string {
   return node.kind;
 }
 
-/** Converts a PascalCase enum name into a catalog slug (e.g. "SpellSchool" -> "spell-school"). */
-function kebab(value: string): string {
-  return value.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
-}
-
-const catalogNames = computed(() => new Set(
-  (groupGameEndpoints(props.game).catalog ?? []).map(endpoint => endpoint.name),
-));
-
-/** Returns the catalog page link for an enum (descending arrays), when the game exposes that catalog. */
-function enumCatalogLink(schema: SchemaNode): string | undefined {
+/** Returns the enum detail page link for an enum type label (descending arrays). */
+function enumLink(schema: SchemaNode): string | undefined {
   let node: SchemaNode | undefined = schema;
   while (node?.kind === 'array') {
     node = node.item;
@@ -122,8 +113,7 @@ function enumCatalogLink(schema: SchemaNode): string | undefined {
   if (node?.kind !== 'enum' || !node.name) {
     return undefined;
   }
-  const slug = kebab(node.name);
-  return catalogNames.value.has(slug) ? `/v1/${props.game}/catalog#${slug}` : undefined;
+  return `/v1/${props.game}/model/enum/${kebab(node.name)}`;
 }
 
 const rows = computed(() => flatten(displayNode.value));

@@ -75,3 +75,47 @@ export function listGames() {
     { id: 'hearthstone' },
   ];
 }
+
+export type EnumDoc = {
+  game:   string;
+  name:   string;
+  slug:   string;
+  values: string[];
+};
+
+/** Converts a PascalCase/camelCase identifier into a kebab-case slug. */
+export function kebab(value: string): string {
+  return value.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+}
+
+/** Collects the distinct named enums used across one game's endpoint schemas. */
+export function collectEnums(game: string): EnumDoc[] {
+  const seen = new Map<string, EnumDoc>();
+
+  for (const endpoint of collectEndpoints().filter(ep => ep.game === game)) {
+    walk(endpoint.input);
+    walk(endpoint.output);
+  }
+
+  return [...seen.values()];
+
+  function walk(node: SchemaNode | undefined): void {
+    if (node == null) {
+      return;
+    }
+    if (node.kind === 'enum' && node.name) {
+      if (!seen.has(node.name)) {
+        seen.set(node.name, { game, name: node.name, slug: kebab(node.name), values: node.values ?? [] });
+      }
+      return;
+    }
+    for (const field of node.fields ?? []) {
+      walk(field.schema);
+    }
+    walk(node.item);
+    walk(node.valueSchema);
+    for (const option of node.options ?? []) {
+      walk(option);
+    }
+  }
+}
