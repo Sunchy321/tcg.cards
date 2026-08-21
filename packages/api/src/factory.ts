@@ -4,11 +4,12 @@ import z from 'zod';
 
 /** Generate a catalog contract returning a fixed enum/array. */
 export function defineCatalogContract(config: {
-  tags: string[];
+  tags:   string[];
+  output: z.ZodTypeAny;
 }) {
   return oc
     .route({ method: 'GET', tags: config.tags })
-    .output(z.string().array());
+    .output(config.output);
 }
 
 /** Generate a fact-table contract querying by primary key. */

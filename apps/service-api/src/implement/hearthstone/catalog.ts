@@ -13,7 +13,7 @@ import {
 } from '@tcg-cards/model/hearthstone/schema/basic';
 import { faction, questType, rune } from '@tcg-cards/model/hearthstone/schema/entity';
 
-const values: Record<string, readonly string[]> = {
+const values = {
   'locale':          locale.options,
   'format':          format.options,
   'class':           classes.options,

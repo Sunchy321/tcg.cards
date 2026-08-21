@@ -26,6 +26,10 @@ const resource = computed(() => String(params.value.resource ?? ''));
 const endpoints = computed(() => groupGameEndpoints(game.value)[resource.value] ?? []);
 const schemas = computed(() => endpoints.value.map(endpoint => ({ name: endpoint.name, node: endpoint.output })));
 
+if (resource.value === 'catalog') {
+  await navigateTo(`/v1/${game.value}/catalog`);
+}
+
 if (endpoints.value.length === 0) {
   throw createError({ statusCode: 404, statusMessage: 'Model documentation not found' });
 }

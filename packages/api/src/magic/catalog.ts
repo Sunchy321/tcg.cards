@@ -4,16 +4,22 @@ import z from 'zod';
 
 import { defineCatalogContract } from '../factory';
 
+import { layout, locale, rarity } from '@tcg-cards/model/magic/schema/basic';
+import { category } from '@tcg-cards/model/magic/schema/card';
+import { legality } from '@tcg-cards/model/magic/schema/announcement';
+
+const catalogContract = (schema: z.ZodTypeAny) => defineCatalogContract({ tags: ['Magic', 'Catalog'], output: schema.array() });
+
 export const catalogProcedures = {
-  'category':    defineCatalogContract({ tags: ['Magic', 'Catalog'] }),
-  'rarity':      defineCatalogContract({ tags: ['Magic', 'Catalog'] }),
-  'layout':      defineCatalogContract({ tags: ['Magic', 'Catalog'] }),
-  'locale':      defineCatalogContract({ tags: ['Magic', 'Catalog'] }),
-  'legality':    defineCatalogContract({ tags: ['Magic', 'Catalog'] }),
-  'format':      defineCatalogContract({ tags: ['Magic', 'Catalog'] }),
-  'color':       defineCatalogContract({ tags: ['Magic', 'Catalog'] }),
-  'mana-symbol': defineCatalogContract({ tags: ['Magic', 'Catalog'] }),
-  'symbol':      defineCatalogContract({ tags: ['Magic', 'Catalog'] }),
+  'category':    catalogContract(category),
+  'rarity':      catalogContract(rarity),
+  'layout':      catalogContract(layout),
+  'locale':      catalogContract(locale),
+  'legality':    catalogContract(legality),
+  'format':      catalogContract(z.string()),
+  'color':       catalogContract(z.string()),
+  'mana-symbol': catalogContract(z.string()),
+  'symbol':      catalogContract(z.string()),
 };
 
 export const catalogIndex = oc

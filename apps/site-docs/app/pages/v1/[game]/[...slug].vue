@@ -40,6 +40,10 @@ if (endpoint.value == null) {
   throw createError({ statusCode: 404, statusMessage: 'API endpoint not found' });
 }
 
+if (endpoint.value.resource === 'catalog') {
+  await navigateTo(`/v1/${game.value}/catalog#${endpoint.value.name}`);
+}
+
 const apiPath = computed(() => `/v1/${endpoint.value?.path.join('/')}`);
 const inputBaseKey = computed(() => endpoint.value ? `${game.value}.fields.${endpoint.value.resource}.${endpoint.value.name}.in` : '');
 const outputBaseKey = computed(() => endpoint.value ? `${game.value}.fields.${endpoint.value.resource}.${endpoint.value.name}.out` : '');

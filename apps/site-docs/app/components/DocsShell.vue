@@ -7,17 +7,24 @@
         </NuxtLink>
 
         <section v-for="(endpoints, resource) in groups" :key="resource" class="space-y-2">
-          <h2 class="px-2 text-xs font-semibold tracking-[0.14em] text-muted uppercase">{{ $t(resourceKey(game, resource)) }}</h2>
-          <div class="space-y-0.5">
-            <NuxtLink v-for="endpoint in endpoints" :key="endpoint.path.join('/')" :to="`/v1/${game}/${endpoint.path.slice(1).join('/')}`" class="docs-nav-link" active-class="is-active">
-              {{ $t(endpointLabelKey(game, resource, endpoint.name)) }}
+          <template v-if="resource === 'catalog'">
+            <NuxtLink :to="`/v1/${game}/catalog`" class="docs-nav-section" active-class="is-active">
+              {{ $t(resourceKey(game, resource)) }}
             </NuxtLink>
-          </div>
+          </template>
+          <template v-else>
+            <h2 class="px-2 text-xs font-semibold tracking-[0.14em] text-muted uppercase">{{ $t(resourceKey(game, resource)) }}</h2>
+            <div class="space-y-0.5">
+              <NuxtLink v-for="endpoint in endpoints" :key="endpoint.path.join('/')" :to="`/v1/${game}/${endpoint.path.slice(1).join('/')}`" class="docs-nav-link" active-class="is-active">
+                {{ $t(endpointLabelKey(game, resource, endpoint.name)) }}
+              </NuxtLink>
+            </div>
+          </template>
         </section>
 
         <section class="space-y-2">
           <h2 class="px-2 text-xs font-semibold tracking-[0.14em] text-muted uppercase">{{ $t('nav.model') }}</h2>
-          <NuxtLink v-for="resource in Object.keys(groups)" :key="resource" :to="`/v1/${game}/models/${resource}`" class="docs-nav-link" active-class="is-active">
+          <NuxtLink v-for="resource in Object.keys(groups)" :key="resource" :to="resource === 'catalog' ? `/v1/${game}/catalog` : `/v1/${game}/models/${resource}`" class="docs-nav-link" active-class="is-active">
             {{ $t(resourceKey(game, resource)) }}
           </NuxtLink>
         </section>

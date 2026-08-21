@@ -4,19 +4,24 @@ import z from 'zod';
 
 import { defineCatalogContract } from '../factory';
 
+import { classes, format, fullImageType, layout, locale, race, rarity, spellSchool, types } from '@tcg-cards/model/hearthstone/schema/basic';
+import { faction, questType, rune } from '@tcg-cards/model/hearthstone/schema/entity';
+
+const catalogContract = (schema: z.ZodTypeAny) => defineCatalogContract({ tags: ['Hearthstone', 'Catalog'], output: schema.array() });
+
 export const catalogProcedures = {
-  'locale':          defineCatalogContract({ tags: ['Hearthstone', 'Catalog'] }),
-  'format':          defineCatalogContract({ tags: ['Hearthstone', 'Catalog'] }),
-  'class':           defineCatalogContract({ tags: ['Hearthstone', 'Catalog'] }),
-  'type':            defineCatalogContract({ tags: ['Hearthstone', 'Catalog'] }),
-  'race':            defineCatalogContract({ tags: ['Hearthstone', 'Catalog'] }),
-  'spell-school':    defineCatalogContract({ tags: ['Hearthstone', 'Catalog'] }),
-  'rarity':          defineCatalogContract({ tags: ['Hearthstone', 'Catalog'] }),
-  'layout':          defineCatalogContract({ tags: ['Hearthstone', 'Catalog'] }),
-  'full-image-type': defineCatalogContract({ tags: ['Hearthstone', 'Catalog'] }),
-  'rune':            defineCatalogContract({ tags: ['Hearthstone', 'Catalog'] }),
-  'quest-type':      defineCatalogContract({ tags: ['Hearthstone', 'Catalog'] }),
-  'faction':         defineCatalogContract({ tags: ['Hearthstone', 'Catalog'] }),
+  'locale':          catalogContract(locale),
+  'format':          catalogContract(format),
+  'class':           catalogContract(classes),
+  'type':            catalogContract(types),
+  'race':            catalogContract(race),
+  'spell-school':    catalogContract(spellSchool),
+  'rarity':          catalogContract(rarity),
+  'layout':          catalogContract(layout),
+  'full-image-type': catalogContract(fullImageType),
+  'rune':            catalogContract(rune),
+  'quest-type':      catalogContract(questType),
+  'faction':         catalogContract(faction),
 };
 
 export const catalogIndex = oc

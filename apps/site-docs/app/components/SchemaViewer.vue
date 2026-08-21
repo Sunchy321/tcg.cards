@@ -123,7 +123,7 @@ function enumCatalogLink(schema: SchemaNode): string | undefined {
     return undefined;
   }
   const slug = kebab(node.name);
-  return catalogNames.value.has(slug) ? `/v1/${props.game}/catalog/${slug}` : undefined;
+  return catalogNames.value.has(slug) ? `/v1/${props.game}/catalog#${slug}` : undefined;
 }
 
 const rows = computed(() => flatten(displayNode.value));
