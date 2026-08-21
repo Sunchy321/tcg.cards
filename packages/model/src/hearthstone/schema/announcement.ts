@@ -17,7 +17,7 @@ export const legality = z.enum([
   'minor',
   'unavailable',
   'score',
-]);
+]).describe('legality');
 
 export const changeStatus = z.enum([
   // card_update

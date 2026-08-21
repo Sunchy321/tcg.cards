@@ -5,11 +5,11 @@ import { RENDER_MECHANIC_IDS } from '../constant/tag';
 import { card } from './card';
 import { glowEntry } from './announcement';
 
-export const rune = z.enum(['blood', 'frost', 'unholy']);
-export const questType = z.enum(['normal', 'questline', 'side']);
-export const mercenaryRole = z.enum(['protector', 'fighter', 'caster', 'neutral']);
-export const mercenaryFaction = z.enum(['alliance', 'empire', 'explorer', 'horde', 'legion', 'pirate', 'scourge']);
-export const faction = z.enum(['alliance', 'horde', 'neutral']);
+export const rune = z.enum(['blood', 'frost', 'unholy']).describe('rune');
+export const questType = z.enum(['normal', 'questline', 'side']).describe('questType');
+export const mercenaryRole = z.enum(['protector', 'fighter', 'caster', 'neutral']).describe('mercenaryRole');
+export const mercenaryFaction = z.enum(['alliance', 'empire', 'explorer', 'horde', 'legion', 'pirate', 'scourge']).describe('mercenaryFaction');
+export const faction = z.enum(['alliance', 'horde', 'neutral']).describe('faction');
 
 export const textBuilderType = z.enum([
   'default',
@@ -59,7 +59,7 @@ export const textBuilderType = z.enum([
   'alternate_card_text_with_script_data',
   'battlegrounds_deep_blues_spell',
   'silver_hand_recruit',
-]);
+]).describe('textBuilderType');
 
 export const changeType = z.enum([
   'unknown',
@@ -68,7 +68,7 @@ export const changeType = z.enum([
   'non-functional',
   'wording',
   'bugged',
-]);
+]).describe('changeType');
 
 export type Rune = z.infer<typeof rune>;
 export type QuestType = z.infer<typeof questType>;

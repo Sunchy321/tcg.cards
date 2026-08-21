@@ -15,7 +15,10 @@
           </td>
           <td class="px-4 py-3">
             <div class="flex flex-wrap items-center gap-1.5">
-              <code class="text-primary">{{ typeLabel(row.schema) }}</code>
+              <code class="text-primary">
+                <NuxtLink v-if="enumCatalogLink(row.schema)" :to="enumCatalogLink(row.schema)">{{ typeLabel(row.schema) }}</NuxtLink>
+                <span v-else>{{ typeLabel(row.schema) }}</span>
+              </code>
               <UBadge v-if="row.schema.optional" color="neutral" variant="subtle" size="sm">{{ $t('schema.optional') }}</UBadge>
               <UBadge v-else color="primary" variant="subtle" size="sm">{{ $t('schema.required') }}</UBadge>
               <UBadge v-if="row.schema.nullable" color="warning" variant="subtle" size="sm">null</UBadge>
@@ -38,7 +41,10 @@
   </div>
 
   <div v-else class="border-y border-default bg-muted/30 px-4 py-4 font-mono text-sm">
-    <span class="text-primary">{{ typeLabel(node) }}</span>
+    <span class="text-primary">
+      <NuxtLink v-if="enumCatalogLink(node)" :to="enumCatalogLink(node)">{{ typeLabel(node) }}</NuxtLink>
+      <span v-else>{{ typeLabel(node) }}</span>
+    </span>
     <span v-if="node.kind === 'enum'"> = {{ node.values?.join(' | ') }}</span>
     <span v-if="node.kind === 'literal'"> = {{ JSON.stringify(node.value) }}</span>
   </div>
@@ -46,6 +52,7 @@
 
 <script setup lang="ts">
 import type { SchemaNode } from '../../lib/introspect';
+import { groupGameEndpoints } from '../../lib/registry-docs';
 
 type Row = {
   key:    string;
@@ -57,6 +64,7 @@ type Row = {
 const props = defineProps<{
   node:    SchemaNode;
   baseKey: string;
+  game:    string;
 }>();
 
 /** Resolves array-of-object schemas to their item so nested fields render as a table. */
@@ -82,7 +90,7 @@ function flatten(node: SchemaNode, depth = 0, prefix = ''): Row[] {
 /** Produces the compact type label shown in each schema row. */
 function typeLabel(node: SchemaNode): string {
   if (node.kind === 'array') {
-    return `Array<${typeLabel(node.item ?? { kind: 'unknown' })}>`;
+    return `${typeLabel(node.item ?? { kind: 'unknown' })}[]`;
   }
   if (node.kind === 'record') {
     return `Record<string, ${typeLabel(node.valueSchema ?? { kind: 'unknown' })}>`;
@@ -91,9 +99,31 @@ function typeLabel(node: SchemaNode): string {
     return (node.options ?? []).map(typeLabel).join(' | ');
   }
   if (node.kind === 'enum') {
-    return 'enum';
+    return node.name ?? 'enum';
   }
   return node.kind;
+}
+
+/** Converts a PascalCase enum name into a catalog slug (e.g. "SpellSchool" -> "spell-school"). */
+function kebab(value: string): string {
+  return value.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+}
+
+const catalogNames = computed(() => new Set(
+  (groupGameEndpoints(props.game).catalog ?? []).map(endpoint => endpoint.name),
+));
+
+/** Returns the catalog page link for an enum (descending arrays), when the game exposes that catalog. */
+function enumCatalogLink(schema: SchemaNode): string | undefined {
+  let node: SchemaNode | undefined = schema;
+  while (node?.kind === 'array') {
+    node = node.item;
+  }
+  if (node?.kind !== 'enum' || !node.name) {
+    return undefined;
+  }
+  const slug = kebab(node.name);
+  return catalogNames.value.has(slug) ? `/v1/${props.game}/catalog/${slug}` : undefined;
 }
 
 const rows = computed(() => flatten(displayNode.value));

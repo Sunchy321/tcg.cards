@@ -9,7 +9,7 @@
 
     <section v-for="schema in schemas" :key="schema.name" class="border-b border-default py-10 last:border-0">
       <h2 class="mb-5 font-mono text-xl font-semibold text-highlighted">{{ $t(endpointLabelKey(game, resource, schema.name)) }}</h2>
-      <SchemaViewer :node="schema.node" :base-key="`${game}.fields.${resource}.${schema.name}.out`" />
+      <SchemaViewer :node="schema.node" :base-key="`${game}.fields.${resource}.${schema.name}.out`" :game="game" />
     </section>
     </article>
   </DocsShell>

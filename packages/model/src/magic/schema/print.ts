@@ -4,13 +4,13 @@ import { updation } from '../../common';
 import { fullImageType, locale, layout, rarity } from './basic';
 import { card as card, cardLocalization, cardPart, cardPartLocalization } from './card';
 
-export const frame = z.enum(['1993', '1997', '2003', '2015', 'future']);
-export const borderColor = z.enum(['black', 'borderless', 'gold', 'silver', 'white', 'yellow']);
-export const securityStamp = z.enum(['acorn', 'arena', 'circle', 'heart', 'oval', 'triangle']);
-export const finish = z.enum(['nonfoil', 'foil', 'etched', 'glossy']);
-export const imageStatus = z.enum(['highres_scan', 'lowres', 'missing', 'placeholder']);
-export const game = z.enum(['arena', 'astral', 'mtgo', 'paper', 'sega']);
-export const scryfallFace = z.enum(['back', 'bottom', 'front', 'top']);
+export const frame = z.enum(['1993', '1997', '2003', '2015', 'future']).describe('frame');
+export const borderColor = z.enum(['black', 'borderless', 'gold', 'silver', 'white', 'yellow']).describe('borderColor');
+export const securityStamp = z.enum(['acorn', 'arena', 'circle', 'heart', 'oval', 'triangle']).describe('securityStamp');
+export const finish = z.enum(['nonfoil', 'foil', 'etched', 'glossy']).describe('finish');
+export const imageStatus = z.enum(['highres_scan', 'lowres', 'missing', 'placeholder']).describe('imageStatus');
+export const game = z.enum(['arena', 'astral', 'mtgo', 'paper', 'sega']).describe('game');
+export const scryfallFace = z.enum(['back', 'bottom', 'front', 'top']).describe('scryfallFace');
 
 export type Frame = z.infer<typeof frame>;
 export type BorderColor = z.infer<typeof borderColor>;
