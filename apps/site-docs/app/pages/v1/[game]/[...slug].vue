@@ -1,5 +1,6 @@
 <template>
-  <article v-if="endpoint" class="docs-article max-w-none">
+  <DocsShell v-if="endpoint" :game="game">
+    <article class="docs-article max-w-none">
     <header id="overview" class="border-b border-default pb-9">
       <div class="mb-5 flex flex-wrap items-center gap-3">
         <UBadge color="primary" variant="solid" class="font-mono">{{ endpoint.method }}</UBadge>
@@ -21,13 +22,12 @@
       <div class="mb-5"><p class="text-xs font-semibold tracking-[0.14em] text-primary uppercase">02</p><h2 class="mt-2 text-2xl font-semibold text-highlighted">{{ $t('reference.output') }}</h2></div>
       <SchemaViewer :node="endpoint.output" />
     </section>
-  </article>
+    </article>
+  </DocsShell>
 </template>
 
 <script setup lang="ts">
 import { findEndpoint } from '../../../../lib/registry-docs';
-
-definePageMeta({ layout: 'game' });
 
 const route = useRoute();
 const params = computed(() => route.params as { game?: string, slug?: string[] | string });

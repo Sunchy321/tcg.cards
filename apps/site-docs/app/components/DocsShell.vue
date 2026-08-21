@@ -1,5 +1,5 @@
 <template>
-  <div class="docs-grid">
+  <div class="docs-grid relative left-1/2 min-h-[calc(100dvh-var(--ui-header-height))] w-screen -translate-x-1/2">
     <aside class="docs-sidebar sticky top-15 hidden h-[calc(100dvh-3.75rem)] overflow-y-auto border-r border-default bg-muted/25 px-4 py-7 lg:block">
       <nav aria-label="API navigation" class="space-y-7">
         <NuxtLink :to="`/v1/${game}`" class="docs-nav-link" exact-active-class="is-active">
@@ -42,10 +42,8 @@
 <script setup lang="ts">
 import { groupGameEndpoints } from '../../lib/registry-docs';
 
-const route = useRoute();
-const params = computed(() => route.params as { game?: string });
-const game = computed(() => String(params.value.game ?? ''));
-const groups = computed(() => groupGameEndpoints(game.value));
+const props = defineProps<{ game: string }>();
+const groups = computed(() => groupGameEndpoints(props.game));
 
 /** Formats registry identifiers for navigation labels. */
 function title(value: string): string {

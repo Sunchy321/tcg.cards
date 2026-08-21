@@ -1,5 +1,6 @@
 <template>
-  <article class="docs-article max-w-5xl">
+  <DocsShell :game="game">
+    <article class="docs-article max-w-5xl">
     <header id="overview" class="border-b border-default pb-10">
       <p class="mb-4 text-sm font-medium text-primary">{{ $t('nav.intro') }}</p>
       <h1 class="text-4xl font-semibold tracking-[-0.035em] text-highlighted sm:text-5xl">{{ metadata?.name }} API</h1>
@@ -18,13 +19,12 @@
         </NuxtLink>
       </div>
     </section>
-  </article>
+    </article>
+  </DocsShell>
 </template>
 
 <script setup lang="ts">
 import { groupGameEndpoints, listGames } from '../../../../lib/registry-docs';
-
-definePageMeta({ layout: 'game' });
 
 const route = useRoute();
 const params = computed(() => route.params as { game?: string });

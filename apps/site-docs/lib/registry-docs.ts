@@ -74,7 +74,7 @@ export function groupGameEndpoints(game: string): Record<string, EndpointDoc[]> 
 /** Returns display-ready metadata for each supported game. */
 export function listGames() {
   return [
-    { id: 'magic', name: 'Magic: The Gathering', icon: 'i-simple-icons-wizards-of-the-coast' },
-    { id: 'hearthstone', name: 'Hearthstone', icon: 'i-simple-icons-hearth' },
+    { id: 'magic', name: 'Magic: The Gathering' },
+    { id: 'hearthstone', name: 'Hearthstone' },
   ];
 }

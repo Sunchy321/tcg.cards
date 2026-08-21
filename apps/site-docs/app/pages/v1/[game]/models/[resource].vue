@@ -1,5 +1,6 @@
 <template>
-  <article class="docs-article max-w-none">
+  <DocsShell :game="game">
+    <article class="docs-article max-w-none">
     <header id="overview" class="border-b border-default pb-9">
       <p class="mb-4 text-sm font-medium text-primary">{{ $t('nav.model') }}</p>
       <h1 class="text-4xl font-semibold tracking-[-0.035em] text-highlighted">{{ resource }}</h1>
@@ -10,13 +11,12 @@
       <h2 class="mb-5 font-mono text-xl font-semibold text-highlighted">{{ schema.name }}</h2>
       <SchemaViewer :node="schema.node" />
     </section>
-  </article>
+    </article>
+  </DocsShell>
 </template>
 
 <script setup lang="ts">
 import { groupGameEndpoints } from '../../../../../lib/registry-docs';
-
-definePageMeta({ layout: 'game' });
 
 const route = useRoute();
 const params = computed(() => route.params as { game?: string, resource?: string });
