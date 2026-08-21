@@ -5,7 +5,7 @@
     </h1>
 
     <p class="mt-2 text-muted">
-      TODO: API key management (login required).
+      {{ $t('settings.todo') }}
     </p>
   </div>
 </template>

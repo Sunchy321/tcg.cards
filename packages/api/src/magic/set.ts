@@ -6,9 +6,8 @@ import { set } from '@tcg-cards/model/magic/schema/set';
 
 const detail = oc
   .route({
-    method:      'GET',
-    description: 'Get a set by id',
-    tags:        ['Magic', 'Set'],
+    method: 'GET',
+    tags:   ['Magic', 'Set'],
   })
   .input(z.object({ setId: z.string() }))
   .output(set);

@@ -4,20 +4,18 @@ import z from 'zod';
 
 /** Generate a catalog contract returning a fixed enum/array. */
 export function defineCatalogContract(config: {
-  description: string;
-  tags:        string[];
+  tags: string[];
 }) {
   return oc
-    .route({ method: 'GET', description: config.description, tags: config.tags })
+    .route({ method: 'GET', tags: config.tags })
     .output(z.string().array());
 }
 
 /** Generate a fact-table contract querying by primary key. */
 export function defineFactTableContract<T extends Record<string, { schema: z.ZodTypeAny }>>(config: {
-  description: string;
-  tags:        string[];
-  pk:          T;
-  output:      z.ZodTypeAny;
+  tags:   string[];
+  pk:     T;
+  output: z.ZodTypeAny;
 }) {
   const shape = Object.fromEntries(
     Object.entries(config.pk).map(([key, field]) => [key, field.schema]),
@@ -26,7 +24,7 @@ export function defineFactTableContract<T extends Record<string, { schema: z.Zod
   const input = z.object(shape);
 
   return oc
-    .route({ method: 'GET', description: config.description, tags: config.tags })
+    .route({ method: 'GET', tags: config.tags })
     .input(input)
     .output(config.output);
 }

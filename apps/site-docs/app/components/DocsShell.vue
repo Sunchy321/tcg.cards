@@ -7,10 +7,10 @@
         </NuxtLink>
 
         <section v-for="(endpoints, resource) in groups" :key="resource" class="space-y-2">
-          <h2 class="px-2 text-xs font-semibold tracking-[0.14em] text-muted uppercase">{{ title(resource) }}</h2>
+          <h2 class="px-2 text-xs font-semibold tracking-[0.14em] text-muted uppercase">{{ $t(resourceKey(game, resource)) }}</h2>
           <div class="space-y-0.5">
             <NuxtLink v-for="endpoint in endpoints" :key="endpoint.path.join('/')" :to="`/v1/${game}/${endpoint.path.slice(1).join('/')}`" class="docs-nav-link" active-class="is-active">
-              {{ endpoint.name === '' ? title(resource) : title(endpoint.name) }}
+              {{ $t(endpointLabelKey(game, resource, endpoint.name)) }}
             </NuxtLink>
           </div>
         </section>
@@ -18,7 +18,7 @@
         <section class="space-y-2">
           <h2 class="px-2 text-xs font-semibold tracking-[0.14em] text-muted uppercase">{{ $t('nav.model') }}</h2>
           <NuxtLink v-for="resource in Object.keys(groups)" :key="resource" :to="`/v1/${game}/models/${resource}`" class="docs-nav-link" active-class="is-active">
-            {{ title(resource) }}
+            {{ $t(resourceKey(game, resource)) }}
           </NuxtLink>
         </section>
       </nav>
@@ -41,12 +41,8 @@
 
 <script setup lang="ts">
 import { groupGameEndpoints } from '../../lib/registry-docs';
+import { endpointLabelKey, resourceKey } from '../../lib/model-keys';
 
 const props = defineProps<{ game: string }>();
 const groups = computed(() => groupGameEndpoints(props.game));
-
-/** Formats registry identifiers for navigation labels. */
-function title(value: string): string {
-  return value.split('-').map(part => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(' ');
-}
 </script>

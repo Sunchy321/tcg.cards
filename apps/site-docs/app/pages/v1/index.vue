@@ -13,7 +13,7 @@
           </div>
           <UIcon name="i-lucide-arrow-up-right" class="size-4 text-dimmed transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary" />
         </div>
-        <h2 class="mt-5 text-base font-semibold text-highlighted">{{ game.name }}</h2>
+        <h2 class="mt-5 text-base font-semibold text-highlighted">{{ $t(`${game.id}.name`) }}</h2>
       </NuxtLink>
     </section>
   </div>

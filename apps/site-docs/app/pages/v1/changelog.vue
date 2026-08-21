@@ -11,11 +11,13 @@
 </template>
 
 <script setup lang="ts">
-const markdownFiles = import.meta.glob<string>('/content/changelog.md', {
+const { locale } = useI18n();
+
+const markdownFiles = import.meta.glob<string>('/content/changelog/*.md', {
   eager:  true,
   query:  '?raw',
   import: 'default',
 });
 
-const source = markdownFiles['/content/changelog.md'] ?? '';
+const source = computed(() => markdownFiles[`/content/changelog/${locale.value}.md`] ?? markdownFiles['/content/changelog/en.md'] ?? '');
 </script>

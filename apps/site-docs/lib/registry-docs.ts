@@ -4,21 +4,19 @@ import { registryContract } from '@tcg-cards/api';
 import { describeSchema, type SchemaNode } from './introspect';
 
 export type EndpointDoc = {
-  game:        string;
-  resource:    string;
-  name:        string;
-  path:        string[];
-  method:      string;
-  description: string;
-  tags:        string[];
-  input:       SchemaNode;
-  output:      SchemaNode;
+  game:     string;
+  resource: string;
+  name:     string;
+  path:     string[];
+  method:   string;
+  tags:     string[];
+  input:    SchemaNode;
+  output:   SchemaNode;
 };
 
 type RouteMeta = {
-  method?:      string;
-  description?: string;
-  tags?:        string[];
+  method?: string;
+  tags?:   string[];
 };
 
 /** Collects all public game procedures as stable endpoint documentation records. */
@@ -42,15 +40,14 @@ export function collectEndpoints(): EndpointDoc[] {
     const route = definition.route ?? {};
     const segments = path.filter(Boolean);
     endpoints.push({
-      game:        segments[0] ?? '',
-      resource:    segments[1] ?? 'intro',
-      name:        segments.at(-1) ?? 'intro',
-      path:        segments,
-      method:      route.method ?? 'GET',
-      description: route.description ?? '',
-      tags:        route.tags ?? [],
-      input:       describeSchema(definition.inputSchema as never),
-      output:      describeSchema(definition.outputSchema as never),
+      game:     segments[0] ?? '',
+      resource: segments[1] ?? 'intro',
+      name:     segments.at(-1) ?? 'intro',
+      path:     segments,
+      method:   route.method ?? 'GET',
+      tags:     route.tags ?? [],
+      input:    describeSchema(definition.inputSchema as never),
+      output:   describeSchema(definition.outputSchema as never),
     });
   });
 
@@ -71,10 +68,10 @@ export function groupGameEndpoints(game: string): Record<string, EndpointDoc[]> 
   return groups;
 }
 
-/** Returns display-ready metadata for each supported game. */
+/** Returns the supported games. Display names are localized via `<id>.name`. */
 export function listGames() {
   return [
-    { id: 'magic', name: 'Magic: The Gathering' },
-    { id: 'hearthstone', name: 'Hearthstone' },
+    { id: 'magic' },
+    { id: 'hearthstone' },
   ];
 }

@@ -1,5 +1,5 @@
 <template>
-  <div v-if="node.kind === 'object'" class="schema-table overflow-x-auto border-y border-default">
+  <div v-if="displayNode.kind === 'object'" class="schema-table overflow-x-auto border-y border-default">
     <table class="w-full min-w-3xl border-collapse text-sm">
       <thead>
         <tr class="border-b border-default bg-muted/60 text-left text-xs tracking-wide text-muted uppercase">
@@ -26,11 +26,11 @@
             <div v-for="constraint in row.schema.constraints" :key="constraint" class="mt-1 text-xs text-muted">{{ constraint }}</div>
           </td>
           <td class="px-4 py-3 leading-6 text-muted">
-            <p v-if="row.schema.description">{{ row.schema.description }}</p>
+            <p v-if="$te(descriptionKey(row))">{{ $t(descriptionKey(row)) }}</p>
             <div v-if="row.schema.kind === 'enum'" class="flex flex-wrap gap-1.5">
               <code v-for="value in row.schema.values" :key="value" class="rounded bg-muted px-1.5 py-0.5 text-xs text-highlighted">{{ value }}</code>
             </div>
-            <span v-else class="text-dimmed">{{ $t('schema.description_pending') }}</span>
+            <span v-else-if="!$te(descriptionKey(row))" class="text-dimmed">{{ $t('schema.description_pending') }}</span>
           </td>
         </tr>
       </tbody>
@@ -49,22 +49,31 @@ import type { SchemaNode } from '../../lib/introspect';
 
 type Row = {
   key:    string;
+  path:   string;
   depth:  number;
   schema: SchemaNode;
 };
 
 const props = defineProps<{
-  node: SchemaNode;
+  node:    SchemaNode;
+  baseKey: string;
 }>();
+
+/** Resolves array-of-object schemas to their item so nested fields render as a table. */
+const displayNode = computed(() => {
+  const node = props.node;
+  return node.kind === 'array' && node.item?.kind === 'object' ? node.item : node;
+});
 
 /** Flattens nested objects into the continuous tree table used throughout the docs. */
 function flatten(node: SchemaNode, depth = 0, prefix = ''): Row[] {
   return (node.fields ?? []).flatMap(field => {
-    const row = { key: field.key, depth, schema: field.schema };
+    const path = prefix ? `${prefix}.${field.key}` : field.key;
+    const row = { key: field.key, path, depth, schema: field.schema };
     const nested = field.schema.kind === 'object'
-      ? flatten(field.schema, depth + 1, `${prefix}${field.key}.`)
+      ? flatten(field.schema, depth + 1, path)
       : field.schema.kind === 'array' && field.schema.item?.kind === 'object'
-        ? flatten(field.schema.item, depth + 1, `${prefix}${field.key}.`)
+        ? flatten(field.schema.item, depth + 1, path)
         : [];
     return [row, ...nested];
   });
@@ -87,5 +96,16 @@ function typeLabel(node: SchemaNode): string {
   return node.kind;
 }
 
-const rows = computed(() => flatten(props.node));
+const rows = computed(() => flatten(displayNode.value));
+
+/** True for object (or array-of-object) fields that group nested rows. */
+function isContainer(schema: SchemaNode): boolean {
+  return schema.kind === 'object' || (schema.kind === 'array' && schema.item?.kind === 'object');
+}
+
+/** Builds the localized-description i18n key for one schema row. Containers use a `_self` leaf. */
+function descriptionKey(row: Row): string {
+  const path = isContainer(row.schema) ? `${row.path}._self` : row.path;
+  return `${props.baseKey}.${path}`;
+}
 </script>

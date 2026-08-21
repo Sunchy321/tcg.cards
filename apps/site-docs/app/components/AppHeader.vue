@@ -20,7 +20,8 @@
 </template>
 
 <script setup lang="ts">
+const { t } = useI18n();
 const route = useRoute();
 const game = computed(() => route.path.split('/')[2]);
-const gameName = computed(() => game.value === 'magic' ? 'Magic: The Gathering' : game.value === 'hearthstone' ? 'Hearthstone' : 'API Documentation');
+const gameName = computed(() => game.value === 'magic' || game.value === 'hearthstone' ? t(`${game.value}.name`) : t('portal.title'));
 </script>
