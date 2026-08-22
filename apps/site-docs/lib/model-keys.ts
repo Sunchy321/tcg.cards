@@ -16,7 +16,9 @@ export function endpointLabelKey(game: string, resource: string, name: string): 
   return `${game}.resources.${resource}.${name}`;
 }
 
-/** Collects the full dotted paths of every field rendered by SchemaViewer. */
+/** Collects the full dotted paths of every field rendered by SchemaViewer.
+ * Container fields (object / array-of-object) render their description under
+ * a `_self` leaf, matching SchemaViewer's `descriptionKey`. */
 export function collectFieldPaths(node: SchemaNode | undefined): string[] {
   const paths: string[] = [];
 
@@ -28,17 +30,25 @@ export function collectFieldPaths(node: SchemaNode | undefined): string[] {
   walk(root, '');
   return paths;
 
+  function isContainer(schema: SchemaNode): boolean {
+    return schema.kind === 'object' || (schema.kind === 'array' && schema.item?.kind === 'object');
+  }
+
   function walk(current: SchemaNode | undefined, prefix: string): void {
     if (current?.kind !== 'object') {
       return;
     }
     for (const field of current.fields ?? []) {
       const path = prefix ? `${prefix}.${field.key}` : field.key;
-      paths.push(path);
-      if (field.schema.kind === 'object') {
-        walk(field.schema, path);
-      } else if (field.schema.kind === 'array' && field.schema.item?.kind === 'object') {
-        walk(field.schema.item, path);
+      if (isContainer(field.schema)) {
+        paths.push(`${path}._self`);
+        if (field.schema.kind === 'object') {
+          walk(field.schema, path);
+        } else {
+          walk(field.schema.item, path);
+        }
+      } else {
+        paths.push(path);
       }
     }
   }

@@ -13,8 +13,6 @@ export default {
     'race':            '种族',
     'spell-school':    '法术学派',
     'rarity':          '稀有度',
-    'layout':          '版式',
-    'full-image-type': '全图类型',
     'rune':            '符文',
     'quest-type':      '任务类型',
     'faction':         '阵营',
