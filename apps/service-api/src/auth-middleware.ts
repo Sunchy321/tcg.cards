@@ -22,29 +22,30 @@ export function isConstantEndpoint(segments: string[]): boolean {
 /** Map a plugin error code to a stable HTTP status. */
 function errorStatus(code: string | undefined): number {
   switch (code) {
-    case 'KEY_DISABLED':
-    case 'KEY_EXPIRED':
-      return 403;
-    case 'RATE_LIMITED':
-    case 'USAGE_EXCEEDED':
-      return 429;
-    default:
-      return 401;
+  case 'KEY_DISABLED':
+  case 'KEY_EXPIRED':
+    return 403;
+  case 'RATE_LIMITED':
+  case 'USAGE_EXCEEDED':
+    return 429;
+  default:
+    return 401;
   }
 }
 
 /** Verify the request's API key; returns an error Response on failure, null on success. */
 export async function authenticate(request: Request, env: ApiServiceEnv): Promise<Response | null> {
   const segments = pathSegments(new URL(request.url).pathname);
+
+  // Constant endpoints are public: ignore any Authorization header and never validate.
+  if (isConstantEndpoint(segments)) {
+    return null;
+  }
+
   const authorization = request.headers.get('authorization');
   const bearer = authorization?.match(/^Bearer\s+(.+)$/i);
 
-  // Constant endpoints are public; a missing key is fine for them.
   if (bearer == null) {
-    if (isConstantEndpoint(segments)) {
-      return null;
-    }
-
     return new Response(JSON.stringify({
       code:    'UNAUTHORIZED',
       message: 'Missing API key',

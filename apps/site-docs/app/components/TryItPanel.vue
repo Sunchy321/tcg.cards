@@ -179,7 +179,8 @@ function buildQuery(): string {
 }
 
 function authHeader(): Record<string, string> {
-  if (!apiKey.value) {
+  // Constant (catalog) endpoints are public; never attach a key to them.
+  if (props.endpoint.resource === 'catalog' || !apiKey.value) {
     return {};
   }
   return { authorization: `Bearer ${apiKey.value}` };
