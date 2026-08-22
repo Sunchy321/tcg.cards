@@ -14,6 +14,13 @@
       <div class="ml-auto flex items-center gap-1.5">
         <SearchCommand />
         <UBadge color="neutral" variant="subtle" class="font-mono">v1</UBadge>
+        <UButton
+          icon="i-lucide-settings"
+          color="neutral"
+          variant="ghost"
+          aria-label="Settings"
+          :to="'/settings'"
+        />
         <UColorModeButton color="neutral" variant="ghost" />
       </div>
     </div>
