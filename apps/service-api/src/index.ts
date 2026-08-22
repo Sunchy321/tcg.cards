@@ -31,7 +31,7 @@ async function withRequestDb<T>(env: ApiServiceEnv, handler: () => Promise<T>): 
 /** CORS: open to any origin, allows the Authorization header, no credentials. */
 function corsHeaders(): Record<string, string> {
   return {
-    'access-control-allow-origin': '*',
+    'access-control-allow-origin':  '*',
     'access-control-allow-headers': 'authorization, content-type',
     'access-control-allow-methods': 'GET, OPTIONS',
   };
@@ -45,6 +45,18 @@ function cacheHeaders(pathname: string): Record<string, string> {
 
   return {};
 }
+
+/** Applies CORS (+ constant-endpoint caching) headers to every response. */
+hono.use('*', async (c, next) => {
+  await next();
+
+  for (const [key, value] of Object.entries({
+    ...corsHeaders(),
+    ...cacheHeaders(c.req.path),
+  })) {
+    c.res.headers.set(key, value);
+  }
+});
 
 hono.get('/health', c => c.json({
   service: 'service-api',
@@ -87,18 +99,7 @@ async function handleApiRequest(request: Request, env: ApiServiceEnv) {
 }
 
 hono.all('/v1/*', c => {
-  return withRequestDb(c.env, async () => {
-    const result = await handleApiRequest(c.req.raw, c.env);
-
-    for (const [key, value] of Object.entries({
-      ...corsHeaders(),
-      ...cacheHeaders(c.req.path),
-    })) {
-      result.headers.set(key, value);
-    }
-
-    return result;
-  });
+  return withRequestDb(c.env, async () => handleApiRequest(c.req.raw, c.env));
 });
 
 // Unversioned paths hit the latest version directly (no redirect).
@@ -107,18 +108,7 @@ hono.all('/:game/*', c => {
   url.pathname = `/v1${url.pathname}`;
   const request = new Request(url, c.req.raw);
 
-  return withRequestDb(c.env, async () => {
-    const result = await handleApiRequest(request, c.env);
-
-    for (const [key, value] of Object.entries({
-      ...corsHeaders(),
-      ...cacheHeaders(c.req.path),
-    })) {
-      result.headers.set(key, value);
-    }
-
-    return result;
-  });
+  return withRequestDb(c.env, async () => handleApiRequest(request, c.env));
 });
 
 export default hono;
