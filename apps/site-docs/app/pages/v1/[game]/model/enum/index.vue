@@ -19,10 +19,13 @@
 <script setup lang="ts">
 import { collectEnums } from '../../../../../../lib/registry-docs';
 
+const { t } = useI18n();
 const route = useRoute();
 const params = computed(() => route.params as { game?: string });
 const game = computed(() => String(params.value.game ?? ''));
 const enums = computed(() => collectEnums(game.value));
+
+useTitle(() => t(`${game.value}.enums._self`));
 
 if (enums.value.length === 0) {
   throw createError({ statusCode: 404, statusMessage: 'Enum documentation not found' });

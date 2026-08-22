@@ -11,7 +11,8 @@
 </template>
 
 <script setup lang="ts">
-const { locale } = useI18n();
+const { t, locale } = useI18n();
+useTitle(() => t('nav.guide'));
 
 const markdownFiles = import.meta.glob<string>('/content/guide/*.md', {
   eager:  true,

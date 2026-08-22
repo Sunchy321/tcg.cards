@@ -22,5 +22,8 @@
 <script setup lang="ts">
 import { listGames } from '../../../lib/registry-docs';
 
+const { t } = useI18n();
+useTitle(() => t('portal.title'));
+
 const games = listGames();
 </script>

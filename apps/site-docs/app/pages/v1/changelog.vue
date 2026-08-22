@@ -11,7 +11,8 @@
 </template>
 
 <script setup lang="ts">
-const { locale } = useI18n();
+const { t, locale } = useI18n();
+useTitle(() => t('nav.changelog'));
 
 const markdownFiles = import.meta.glob<string>('/content/changelog/*.md', {
   eager:  true,

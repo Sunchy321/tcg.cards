@@ -28,10 +28,13 @@ import type { EndpointDoc } from '../../../../lib/registry-docs';
 import { groupGameEndpoints, listGames } from '../../../../lib/registry-docs';
 import { endpointDescKey, resourceKey } from '../../../../lib/model-keys';
 
+const { t } = useI18n();
 const route = useRoute();
 const params = computed(() => route.params as { game?: string });
 const game = computed(() => String(params.value.game ?? ''));
 const metadata = computed(() => listGames().find(item => item.id === game.value));
+
+useTitle(() => t(`${game.value}.name`));
 const groups = computed(() => groupGameEndpoints(game.value));
 const resourceCards = computed(() => Object.entries(groups.value).map(([resource, endpoints]) => ({
   resource,

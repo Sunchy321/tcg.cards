@@ -28,10 +28,13 @@ import type { EndpointDoc } from '../../../../lib/registry-docs';
 import { groupGameEndpoints } from '../../../../lib/registry-docs';
 import { endpointDescKey, resourceKey } from '../../../../lib/model-keys';
 
+const { t } = useI18n();
 const route = useRoute();
 const params = computed(() => route.params as { game?: string });
 const game = computed(() => String(params.value.game ?? ''));
 const catalogs = computed(() => groupGameEndpoints(game.value).catalog ?? []);
+
+useTitle(() => t(resourceKey(game.value, 'catalog')));
 
 function pathOf(catalog: EndpointDoc): string {
   return `/v1/${catalog.path.join('/')}`;

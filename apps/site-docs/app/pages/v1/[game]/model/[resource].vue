@@ -19,11 +19,14 @@
 import { groupGameEndpoints } from '../../../../../lib/registry-docs';
 import { endpointLabelKey, resourceKey } from '../../../../../lib/model-keys';
 
+const { t } = useI18n();
 const route = useRoute();
 const params = computed(() => route.params as { game?: string, resource?: string });
 const game = computed(() => String(params.value.game ?? ''));
 const resource = computed(() => String(params.value.resource ?? ''));
 const endpoints = computed(() => groupGameEndpoints(game.value)[resource.value] ?? []);
+
+useTitle(() => t(resourceKey(game.value, resource.value)));
 const schemas = computed(() => endpoints.value.map(endpoint => ({ name: endpoint.name, node: endpoint.output })));
 
 if (resource.value === 'catalog') {

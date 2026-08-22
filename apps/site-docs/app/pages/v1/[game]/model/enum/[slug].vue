@@ -33,6 +33,8 @@ const game = computed(() => String(params.value.game ?? ''));
 const slug = computed(() => String(params.value.slug ?? ''));
 const enumDoc = computed(() => collectEnums(game.value).find(enumDoc => enumDoc.slug === slug.value));
 
+useTitle(() => enumDoc.value?.name ?? '');
+
 if (enumDoc.value == null) {
   throw createError({ statusCode: 404, statusMessage: 'Enum not found' });
 }

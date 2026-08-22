@@ -30,13 +30,16 @@
 
 <script setup lang="ts">
 import { findEndpoint } from '../../../../lib/registry-docs';
-import { endpointDescKey } from '../../../../lib/model-keys';
+import { endpointDescKey, endpointLabelKey } from '../../../../lib/model-keys';
 
+const { t } = useI18n();
 const route = useRoute();
 const params = computed(() => route.params as { game?: string, slug?: string[] | string });
 const game = computed(() => String(params.value.game ?? ''));
 const slug = computed(() => Array.isArray(params.value.slug) ? params.value.slug.map(String) : [String(params.value.slug ?? '')]);
 const endpoint = computed(() => findEndpoint(game.value, slug.value));
+
+useTitle(() => endpoint.value ? t(endpointLabelKey(game.value, endpoint.value.resource, endpoint.value.name)) : t('portal.title'));
 
 if (endpoint.value == null) {
   throw createError({ statusCode: 404, statusMessage: 'API endpoint not found' });
