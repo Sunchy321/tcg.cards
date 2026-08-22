@@ -13,7 +13,23 @@
 
       <div class="ml-auto flex items-center gap-1.5">
         <SearchCommand />
-        <UBadge color="neutral" variant="subtle" class="font-mono">v1</UBadge>
+        <UDropdownMenu v-if="onVersionedPage" :items="versionItems" class="shrink-0">
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            class="font-mono"
+            trailing-icon="i-lucide-chevron-down"
+          >
+            {{ currentVersion }}
+          </UButton>
+          <template #item="{ item }">
+            <span class="flex w-full items-center justify-between gap-6">
+              <span class="font-mono">{{ item.label }}</span>
+              <UIcon v-if="item.label === currentVersion" name="i-lucide-check" class="size-3.5 text-primary" />
+            </span>
+          </template>
+        </UDropdownMenu>
         <UButton
           icon="i-lucide-settings"
           color="neutral"
@@ -28,8 +44,25 @@
 </template>
 
 <script setup lang="ts">
+import { DOC_VERSIONS, versionFromPath, withVersion } from '../../lib/versions';
+
 const { t } = useI18n();
 const route = useRoute();
+const router = useRouter();
+
 const game = computed(() => route.path.split('/')[2]);
 const gameName = computed(() => game.value === 'magic' || game.value === 'hearthstone' ? t(`${game.value}.name`) : t('portal.title'));
+
+const onVersionedPage = computed(() => versionFromPath(route.path) !== null);
+
+const currentVersion = computed(() => versionFromPath(route.path) ?? DOC_VERSIONS[0]);
+
+const versionItems = DOC_VERSIONS.map(version => ({
+  label:  version,
+  onSelect: () => {
+    if (version !== currentVersion.value) {
+      router.push(withVersion(route.path, version));
+    }
+  },
+}));
 </script>
