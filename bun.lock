@@ -69,6 +69,7 @@
         "@orpc/openapi": "^1.14.0",
         "@orpc/server": "^1.14.0",
         "@tcg-cards/api": "workspace:*",
+        "@tcg-cards/auth": "workspace:*",
         "@tcg-cards/db": "workspace:*",
         "@tcg-cards/model": "workspace:*",
         "hono": "^4.10.5",
@@ -185,15 +186,19 @@
     "apps/site-docs": {
       "name": "site-docs",
       "dependencies": {
+        "@better-auth/api-key": "^1.5.5",
         "@iconify-json/lucide": "^1.2.104",
         "@iconify-json/simple-icons": "^1.2.72",
         "@nuxt/icon": "^2.2.1",
         "@nuxt/ui": "4.5.1",
         "@orpc/server": "^1.14.0",
         "@tcg-cards/api": "workspace:*",
+        "@tcg-cards/auth": "workspace:*",
         "@tcg-cards/base": "workspace:*",
+        "@tcg-cards/db": "workspace:*",
         "@tcg-cards/model": "workspace:*",
         "@tcg-cards/ui": "workspace:*",
+        "better-auth": "^1.5.5",
         "markdown-it": "^14.1.1",
         "nuxt": "4.3.1",
         "tailwindcss": "^4.2.2",
@@ -400,6 +405,7 @@
     "packages/auth": {
       "name": "@tcg-cards/auth",
       "dependencies": {
+        "@better-auth/api-key": "^1.5.5",
         "@tcg-cards/base": "workspace:*",
         "better-auth": "^1.5.5",
       },

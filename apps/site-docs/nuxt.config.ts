@@ -24,6 +24,7 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
+      apiBaseUrl:   process.env.API_BASE_URL ?? 'https://api.tcg.cards',
       assetBaseUrl: process.env.ASSET_BASE_URL ?? 'https://asset.tcg.cards',
     },
   },

@@ -12,7 +12,7 @@ export const category = z.enum([
   'minigame',
   'player',
   'token',
-]);
+]).describe('category');
 
 export type Category = z.infer<typeof category>;
 

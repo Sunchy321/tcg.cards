@@ -4,8 +4,7 @@ import { gameInfo } from '../games';
 
 export const info = oc
   .route({
-    method:      'GET',
-    description: 'Hearthstone game info',
-    tags:        ['Hearthstone'],
+    method: 'GET',
+    tags:   ['Hearthstone'],
   })
   .output(gameInfo);

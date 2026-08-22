@@ -81,6 +81,28 @@ body {
   font-weight: 600;
 }
 
+.docs-nav-section {
+  display: block;
+  border-inline-start: 2px solid transparent;
+  padding: 0.45rem 0.75rem;
+  color: var(--ui-text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease;
+}
+
+.docs-nav-section:hover {
+  color: var(--ui-text-highlighted);
+}
+
+.docs-nav-section.is-active {
+  border-inline-start-color: var(--ui-primary);
+  background: color-mix(in srgb, var(--ui-primary) 9%, transparent);
+  color: var(--ui-primary);
+}
+
 .docs-article {
   animation: article-enter 320ms ease-out both;
 }

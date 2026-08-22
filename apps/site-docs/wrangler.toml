@@ -5,9 +5,6 @@ compatibility_flags = ["nodejs_compat"]
 
 workers_dev = false
 
-# Opted out of the shared deploy pipeline.
-deploy = false
-
 [[routes]]
 pattern = "docs.tcg.cards"
 custom_domain = true
@@ -18,3 +15,11 @@ enabled = true
 [assets]
 binding = "ASSETS"
 directory = "./.output/public/"
+
+[vars]
+BETTER_AUTH_URL = "https://docs.tcg.cards"
+
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "34ff130776904528bff88fe51caea444"
+localConnectionString = "postgres://user:password@127.0.0.1:5432/tcg_cards"

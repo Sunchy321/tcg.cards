@@ -12,7 +12,7 @@ import {
   symbols,
 } from '@tcg-cards/model/magic/schema/basic';
 
-const values: Record<string, readonly string[]> = {
+const values = {
   'category':    category.options,
   'rarity':      rarity.options,
   'layout':      layout.options,

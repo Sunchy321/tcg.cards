@@ -21,6 +21,9 @@
 - **旧 `specs/api` 处置** ✅ 已定：直接移除，新设计占据原 `specs/api` 位置（未归档）。
 - **CORS 策略**（评审后新增）✅ 已定：`Allow-Origin: *`、支持 `Authorization` header、无 `credentials`。
 - **guide/changelog 内容承载**（评审后新增）✅ 已定：`@nuxt/content`（Markdown）；模型/枚举说明走 vue-i18n。
+- **鉴权实现方式**（实施期新增）✅ 已定：`service-api` 与 `site-docs` 复用 better-auth `api-key` 插件的鉴权——`service-api` 也运行 better-auth 并挂 `api-key` 插件，每个请求用插件 `verifyApiKey` 校验，不自建哈希比对。理由见文末"实施期定案：统一 better-auth api-key 鉴权"。
+- **常量端点开放**（实施期新增）✅ 已定：catalog（constants）端点为纯静态数据（不查库、构建期固定），无 key 开放并加 `Cache-Control: public, max-age=3600` 供 CDN 缓存；其余端点（search/fact tables/views/utils）需 API key（无 key → 401）。文档站"试一下"对常量端点直连，非常量端点提示需 key（登录懒生成 key 属 P8）。
+- **按端点限流**（实施期新增）🔜 延后：better-auth `api-key` 插件原生限流为按 key 全局（`isRateLimited` 基于 `apikeys` 表字段，同 key 所有端点共享额度），不支持 per-endpoint。是否需要按端点区分额度，v1 延后，先用插件原生 per-key 限流。
 
 ### 可后置
 
@@ -77,3 +80,24 @@
 - 图片服务（纯 R2 静态资产，无服务设计）
 - 写入接口一致性（v1 只读）
 - 第一方网页浏览器直读 API（已确认 v1 无此场景，且不走 session）
+
+---
+
+## 实施期定案：统一 better-auth api-key 鉴权
+
+**决策：`service-api` 与 `site-docs` 复用 better-auth `api-key` 插件的鉴权。`service-api` 也运行 better-auth 并挂 `api-key` 插件，每个请求用插件 `verifyApiKey` 校验，不自建哈希比对。**
+
+`apikeys` 表由 better-auth `api-key` 插件维护（表结构复用该插件 schema，`key` 列为 SHA-256 哈希）。`service-api` 不再自建轻量鉴权中间件直查表，而是与站点一致，统一走 better-auth 的 api-key 校验能力。
+
+### 理由
+
+- **鉴权逻辑统一**：site-docs（key 管理）、service-api（key 校验）复用同一套 better-auth api-key 实现，规则、哈希、错误码全部一致，不维护两套校验逻辑。
+- **key 格式与校验能力复用**：插件已提供 `verifyApiKey` 与 `defaultKeyHasher`，`service-api` 直接调用即可，无需自行实现 SHA-256 比对。
+- **与 key 生命周期管理同源**：key 由 better-auth 插件创建/删除/列表（site-docs `/settings`、P8），service-api 的校验与之一致，不存在两套实现漂移。
+
+### 实现要点
+
+- `service-api` 引入 better-auth 与 `api-key` 插件，构造与站点一致的 auth 实例（复用 `packages/auth` 的 `createServerAuth`，schema 增加 `apikeys`）。
+- 每个 `/v1/*` 业务请求：提取 `Authorization: Bearer <key>` → 调插件 `verifyApiKey`。插件的 `validateApiKey` 已基于 `apikeys` 表字段完成 key 存在性/`enabled`/过期/游戏权限（`permissions`）校验，并内置基于表字段（`rateLimitEnabled`/`rateLimitTimeWindow`/`rateLimitMax`/`requestCount`/`lastRequest`）的按 key 限流。
+- `service-api` 不做自定义限流/错误体实现，鉴权与限流逻辑完全复用 better-auth `api-key` 插件；`service-api` 只负责 HTTP 边界（提取 key、按插件返回映射状态码、CORS）。
+- `packages/api` 保持纯契约，不引入 better-auth；鉴权作为 `service-api` 消费侧的 HTTP 边界基础设施。

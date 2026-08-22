@@ -4,9 +4,9 @@ export const id = 'magic';
 
 export const birthday = '1993-08-05';
 
-export const mainLocale = z.enum(['en', 'zhs', 'zht', 'de', 'fr', 'it', 'ja', 'ko', 'pt', 'ru', 'es']);
+export const mainLocale = z.enum(['en', 'zhs', 'zht', 'de', 'fr', 'it', 'ja', 'ko', 'pt', 'ru', 'es']).describe('mainLocale');
 
-export const locale = z.enum([...mainLocale.options, 'ph', 'he', 'ar', 'sa', 'grc', 'la', 'qya']);
+export const locale = z.enum([...mainLocale.options, 'ph', 'he', 'ar', 'sa', 'grc', 'la', 'qya']).describe('locale');
 
 export const specificManaSymbols = [
   'W', 'U', 'B', 'R', 'G', 'C', 'X', 'Y', 'Z',
@@ -57,7 +57,7 @@ export const colors = ['W', 'U', 'B', 'R', 'G', 'O', 'P'];
 
 export const color = z.string();
 
-export const rarity = z.enum(['bonus', 'common', 'mythic', 'rare', 'special', 'uncommon']);
+export const rarity = z.enum(['bonus', 'common', 'mythic', 'rare', 'special', 'uncommon']).describe('Rarity');
 
 export const layout = z.enum([
   'adventure', 'aftermath', 'augment', 'battle', 'case', 'class',
@@ -65,9 +65,9 @@ export const layout = z.enum([
   'host', 'leveler', 'meld', 'modal_dfc', 'multipart', 'mutate', 'normal',
   'planar', 'prototype', 'reversible_card', 'saga', 'scheme', 'split',
   'split_arena', 'token', 'transform', 'transform_token', 'vanguard',
-]);
+]).describe('Layout');
 
-export const fullImageType = z.enum(['webp', 'jpg', 'png']);
+export const fullImageType = z.enum(['webp', 'jpg', 'png']).describe('FullImageType');
 
 export type MainLocale = z.infer<typeof mainLocale>;
 export type Locale = z.infer<typeof locale>;
