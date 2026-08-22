@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bun run check:i18n && nuxt build",
+    "build": "bun run check:i18n && nuxt build --dotenv .env.production",
     "dev": "nuxt dev",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
