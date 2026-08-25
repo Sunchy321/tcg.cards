@@ -1,5 +1,6 @@
 import { hearthstoneRouter } from './hearthstone';
 import { imageRouter } from './image';
+import { magicRouter } from './magic';
 import { runtimeRouter } from './runtime';
 import { shadowverseRouter } from './shadowverse';
 import { tagRouter } from './tag';
@@ -12,6 +13,7 @@ export const router = {
   runtime:     runtimeRouter,
   hsdata:      hearthstoneRouter,
   hearthstone: hearthstoneRouter,
+  magic:       magicRouter,
   image:       imageRouter,
   shadowverse: shadowverseRouter,
   tag:         tagRouter,

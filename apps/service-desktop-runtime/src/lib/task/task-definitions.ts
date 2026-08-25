@@ -40,5 +40,8 @@ registerTaskDefinition(evolveCardsImportTaskDefinition);
 import { evolveImagesImportTaskDefinition } from '../shadowverse-evolve/task/images-import/definition';
 registerTaskDefinition(evolveImagesImportTaskDefinition);
 
+import { magicScryfallImportTaskDefinition } from '../magic/task/scryfall-import/definition';
+registerTaskDefinition(magicScryfallImportTaskDefinition);
+
 import { testWorkTaskDefinition } from './test-definition';
 registerTaskDefinition(testWorkTaskDefinition);
