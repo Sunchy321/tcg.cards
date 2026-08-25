@@ -7,6 +7,7 @@ import { createAndRunTask } from './task';
 import { magicScryfallImportTaskDefinition } from '../lib/magic/task/scryfall-import';
 import { magicMtgchImportTaskDefinition } from '../lib/magic/task/mtgch-import';
 import { magicMtgjsonImportTaskDefinition } from '../lib/magic/task/mtgjson-import';
+import { magicGathererImportTaskDefinition } from '../lib/magic/task/gatherer-import';
 
 const scryfallImport = os
   .input(z.strictObject({
@@ -57,6 +58,23 @@ const mtgjsonImport = os
     });
   });
 
+const gathererImport = os
+  .input(z.strictObject({
+    level:       z.enum(['fill', 'refresh', 'refresh_all', 'force']).optional(),
+    from:        z.number().int().min(0).optional(),
+    to:          z.number().int().optional(),
+    concurrency: z.number().int().min(1).max(16).optional(),
+  }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    return createAndRunTask(magicGathererImportTaskDefinition.taskType, {
+      taskType:          magicGathererImportTaskDefinition.taskType,
+      definitionVersion: magicGathererImportTaskDefinition.definitionVersion,
+      scope:             { type: magicGathererImportTaskDefinition.scopeType, key: 'global', snapshot: {} },
+      params:            { level: input.level, from: input.from, to: input.to, concurrency: input.concurrency },
+    });
+  });
+
 export const magicRouter = {
-  createTask: { scryfallImport, mtgchImport, mtgjsonImport },
+  createTask: { scryfallImport, mtgchImport, mtgjsonImport, gathererImport },
 };
