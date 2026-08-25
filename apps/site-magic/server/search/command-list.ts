@@ -11,7 +11,7 @@ import { and, arrayContains, asc, desc, eq, gt, gte, inArray, lt, lte, ne, not, 
 import { model } from '#model/magic/search';
 import { CardEditorView, CardPrintView } from '#schema/shared/magic/print';
 
-import { toIdentifier } from '@tcg-cards/shared/magic/string';
+import { slugifyName } from '@tcg-cards/shared/magic/slug';
 
 // import internalData from '@/internal-data';
 
@@ -468,7 +468,7 @@ export const format = cs
 export const counter = cs
   .commands.counter
   .handler(({ value, qualifier }, { table }) => {
-    value = toIdentifier(value);
+    value = slugifyName(value);
 
     if (!qualifier.includes('!')) {
       return arrayContains(table.card.counters, [value]);
@@ -480,7 +480,7 @@ export const counter = cs
 export const keyword = cs
   .commands.keyword
   .handler(({ value, qualifier }, { table }) => {
-    value = toIdentifier(value);
+    value = slugifyName(value);
 
     if (!qualifier.includes('!')) {
       return arrayContains(table.card.keywords, [value]);

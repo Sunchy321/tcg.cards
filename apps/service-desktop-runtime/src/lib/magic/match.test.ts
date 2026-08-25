@@ -1,0 +1,128 @@
+import { describe, expect, test } from 'bun:test';
+
+import { slugifyName } from '@tcg-cards/shared/magic/slug';
+
+import { slugifyCard, type NormalizedCard } from './match';
+
+describe('slugifyName', () => {
+  test('drops apostrophes', () => {
+    expect(slugifyName('Briber\'s Purse')).toBe('bribers-purse');
+  });
+
+  test('decomposes diacritics to base letters without a separator', () => {
+    expect(slugifyName('Jöse')).toBe('jose');
+  });
+
+  test('trims leading/trailing separators', () => {
+    expect(slugifyName('  Aetherflux Reservoir  ')).toBe('aetherflux-reservoir');
+  });
+
+  test('marks double-face with the double-dash boundary', () => {
+    expect(slugifyName('Fire // Ice')).toBe('fire--ice');
+  });
+
+  test('marks single-slash double-face shorthand', () => {
+    expect(slugifyName('Fire/Ice')).toBe('fire--ice');
+  });
+
+  test('exempts the single-faced Summon: Choco/Mog', () => {
+    expect(slugifyName('Summon: Choco/Mog')).toBe('summon-choco-mog');
+  });
+});
+
+function token(overrides: Partial<NormalizedCard> & { face?: Partial<NormalizedCard['faces'][0]> }): NormalizedCard {
+  return {
+    layout:  'token',
+    setName: 'Ravnica Allegiance',
+    faces:   [{
+      name:       'Bird',
+      typeLine:   'Token Creature — Bird',
+      oracleText: 'Flying',
+      colors:     ['W'],
+      power:      '1',
+      toughness:  '1',
+      ...overrides.face,
+    }],
+    ...overrides,
+  };
+}
+
+describe('slugifyCard', () => {
+  test('encodes a keyword token with color and power/toughness', () => {
+    expect(slugifyCard(token({}))).toBe('bird!w-11-f');
+  });
+
+  test('joins multi-word keyword lines', () => {
+    const card = token({ face: { oracleText: 'Flying, hexproof' } });
+    expect(slugifyCard(card)).toBe('bird!w-11-fx');
+  });
+
+  test('marks a non-keyword ability line as a', () => {
+    const card = token({ face: { oracleText: 'Haste\nAt the beginning of your end step, exile this creature.' } });
+    expect(slugifyCard(card)).toBe('bird!w-11-ha');
+  });
+
+  test('uses c for a colorless token', () => {
+    const card = token({ face: { colors: [], power: null, toughness: null, oracleText: null } });
+    expect(slugifyCard(card)).toBe('bird!c');
+  });
+
+  test('drops to the name slug for a simple token', () => {
+    const card = token({ face: { name: 'Treasure', typeLine: 'Token Artifact — Treasure', oracleText: '"{T}, Sacrifice this artifact: Add one mana of any color."' } });
+    expect(slugifyCard(card)).toBe('treasure!');
+  });
+
+  test('uses the name slug when it differs from the subtype', () => {
+    const card = token({ face: { name: 'Peach Child', typeLine: 'Token Creature — Peach' } });
+    expect(slugifyCard(card)).toBe('peach-child!');
+  });
+
+  test('appends e for enchantment creature tokens', () => {
+    const card = token({ face: { typeLine: 'Token Enchantment Creature — Bird' } });
+    expect(slugifyCard(card)).toBe('bird!w-11-f-e');
+  });
+
+  test('returns the name slug for a token without a subtype', () => {
+    const card = token({ face: { typeLine: 'Token Artifact', oracleText: null } });
+    expect(slugifyCard(card)).toBe('bird!');
+  });
+
+  test('keeps the plain name for a card-ish token without a subtype', () => {
+    const card = token({ face: { typeLine: 'Token Creature Card', oracleText: null } });
+    expect(slugifyCard(card)).toBe('bird');
+  });
+
+  test('collapses to the Incubator marker', () => {
+    const card = token({ face: { name: 'Incubator', typeLine: 'Token Artifact — Incubator', oracleText: '"{2}: Transform this artifact."' } });
+    expect(slugifyCard(card)).toBe('incubator!');
+  });
+
+  test('joins double-face names with the double-dash boundary', () => {
+    const card = token({
+      layout: 'split',
+      faces:  [{ name: 'Fire', typeLine: 'Instant', oracleText: null, colors: ['R'], power: null, toughness: null }],
+    });
+    expect(slugifyCard(card)).toBe('fire');
+  });
+
+  test('uses only the first face for reversible cards', () => {
+    const card = token({
+      layout: 'reversible_card',
+      faces:  [
+        { name: 'A', typeLine: 'Creature — Goblin', oracleText: null, colors: ['R'], power: '1', toughness: '1' },
+        { name: 'A', typeLine: 'Creature — Goblin', oracleText: null, colors: ['R'], power: '1', toughness: '1' },
+      ],
+    });
+    expect(slugifyCard(card)).toBe('a');
+  });
+
+  test('returns the plain name for a minigame card', () => {
+    const card = token({ layout: 'normal', setName: 'Unfinity Minigames', face: { typeLine: 'Creature — Goblin' } });
+    expect(slugifyCard(card)).toBe('bird');
+  });
+
+  test('appends theme colors for theme-color cards', () => {
+    const card = token({ layout: 'normal', face: { typeLine: 'Legendary Creature — Shapeshifter', oracleText: '(Theme Color: {W}{U})', colors: ['W', 'U'] } });
+    expect(slugifyCard(card)).toBe('bird-wu');
+  });
+});
