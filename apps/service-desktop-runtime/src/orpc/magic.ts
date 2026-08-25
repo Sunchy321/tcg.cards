@@ -5,6 +5,8 @@ import { taskPageSnapshot } from '@tcg-cards/model/task';
 import { os } from './index';
 import { createAndRunTask } from './task';
 import { magicScryfallImportTaskDefinition } from '../lib/magic/task/scryfall-import';
+import { magicMtgchImportTaskDefinition } from '../lib/magic/task/mtgch-import';
+import { magicMtgjsonImportTaskDefinition } from '../lib/magic/task/mtgjson-import';
 
 const scryfallImport = os
   .input(z.strictObject({
@@ -22,6 +24,39 @@ const scryfallImport = os
     });
   });
 
+const mtgchImport = os
+  .input(z.strictObject({
+    card:   z.string().optional(),
+    oracle: z.string().optional(),
+    flavor: z.string().optional(),
+    ruling: z.string().optional(),
+    set:    z.string().optional(),
+    type:   z.string().optional(),
+  }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    return createAndRunTask(magicMtgchImportTaskDefinition.taskType, {
+      taskType:          magicMtgchImportTaskDefinition.taskType,
+      definitionVersion: magicMtgchImportTaskDefinition.definitionVersion,
+      scope:             { type: magicMtgchImportTaskDefinition.scopeType, key: 'global', snapshot: {} },
+      params:            input,
+    });
+  });
+
+const mtgjsonImport = os
+  .input(z.strictObject({
+    dir: z.string().min(1),
+  }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    return createAndRunTask(magicMtgjsonImportTaskDefinition.taskType, {
+      taskType:          magicMtgjsonImportTaskDefinition.taskType,
+      definitionVersion: magicMtgjsonImportTaskDefinition.definitionVersion,
+      scope:             { type: magicMtgjsonImportTaskDefinition.scopeType, key: 'global', snapshot: {} },
+      params:            { dir: input.dir },
+    });
+  });
+
 export const magicRouter = {
-  createTask: { scryfallImport },
+  createTask: { scryfallImport, mtgchImport, mtgjsonImport },
 };

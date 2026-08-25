@@ -1,10 +1,9 @@
-import { createGunzip } from 'node:zlib';
-import { createReadStream } from 'node:fs';
-
 import { db } from '@tcg-cards/db/db';
 import { ScryfallCard, ScryfallSet, ScryfallRuling } from '@tcg-cards/db/schema/local/magic';
 import type { RawCard, RawRuling } from '@tcg-cards/model/magic/schema/data/scryfall/card';
 import type { RawSet } from '@tcg-cards/model/magic/schema/data/scryfall/set';
+
+import { readJsonl } from '../jsonl';
 
 const BATCH = 1000;
 const CACHE_MS = 30 * 24 * 3600 * 1000;
@@ -135,27 +134,6 @@ function toRulingRow(raw: RawRuling): typeof ScryfallRuling.$inferInsert {
     comment:     raw.comment,
     expiresAt:   new Date(Date.now() + CACHE_MS),
   };
-}
-
-/** Stream JSONL from a plain or gzip file, yielding parsed objects. */
-async function* readJsonl(file: string): AsyncGenerator<Record<string, unknown>> {
-  const stream = file.endsWith('.gz')
-    ? createReadStream(file, { highWaterMark: 4 * 1024 * 1024 }).pipe(createGunzip())
-    : createReadStream(file, { highWaterMark: 4 * 1024 * 1024 });
-
-  let tail = Buffer.alloc(0);
-  for await (const chunk of stream) {
-    tail = Buffer.concat([tail, chunk]);
-    let i;
-    while ((i = tail.indexOf(0x0a)) !== -1) {
-      const line = tail.subarray(0, i);
-      tail = tail.subarray(i + 1);
-      if (line.length === 0) continue;
-      try {
-        yield JSON.parse(line.toString('utf8'));
-      } catch { /* skip malformed lines */ }
-    }
-  }
 }
 
 /** Imports a Scryfall card bulk file into magic_data.scryfall_cards. Returns rows inserted. */

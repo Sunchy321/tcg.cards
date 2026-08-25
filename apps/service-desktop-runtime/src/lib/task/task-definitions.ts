@@ -43,5 +43,11 @@ registerTaskDefinition(evolveImagesImportTaskDefinition);
 import { magicScryfallImportTaskDefinition } from '../magic/task/scryfall-import/definition';
 registerTaskDefinition(magicScryfallImportTaskDefinition);
 
+import { magicMtgchImportTaskDefinition } from '../magic/task/mtgch-import/definition';
+registerTaskDefinition(magicMtgchImportTaskDefinition);
+
+import { magicMtgjsonImportTaskDefinition } from '../magic/task/mtgjson-import/definition';
+registerTaskDefinition(magicMtgjsonImportTaskDefinition);
+
 import { testWorkTaskDefinition } from './test-definition';
 registerTaskDefinition(testWorkTaskDefinition);
