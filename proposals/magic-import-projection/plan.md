@@ -6,127 +6,116 @@
 - [x] 2. Schema：新增 slug 标注表（magic_data）
 - [x] 3. Schema：扩充 magic_data.scryfall 导入表 + 事实表新列
 - [x] 4. 更新 Zod model 定义
-- [ ] 5. 生成数据库迁移（commit 前生成，合并为一次）
-- [ ] 6. 数据源接入：Scryfall 拉取与解析
-- [ ] 7. 数据源接入：Gatherer / MTGCH / MTGJSON
-- [ ] 8. 匹配与 cardId 分配（含冲突预识别）
-- [ ] 9. 投影纯函数 + 单卡测试
-- [ ] 10. 导入管线接入任务系统（runs / change sets / apply）
-- [ ] 11. 控制台 UI（data-source 页）
-- [ ] 12. API 复查与数据来源分工定稿
+- [x] 5. 生成数据库迁移（commit 前生成，合并为一次）
+- [ ] 6. Schema：新建协作/同步表（替换旧 import_*）
+- [ ] 7. 数据源接入：Scryfall 导入任务
+- [ ] 8. 数据源接入：MTGCH / MTGJSON 导入任务
+- [ ] 9. 数据源接入：Gatherer 爬虫导入任务
+- [ ] 10. 匹配与 cardId 分配（含冲突预识别）
+- [ ] 11. 投影纯函数 + 单卡测试（base）
+- [ ] 12. 投影任务接入任务系统（match → 装配 → project → base/overlay 应用）
+- [ ] 13. 协作机制落地（field_commits / field_winners / 审批）
+- [ ] 14. 控制台 UI（data-source 页 + 审批）
+- [ ] 15. API 复查与数据来源分工定稿
 
 ---
 
-## 1. Schema：事实表主键加入 version/source
+## 1. Schema：事实表主键加入 version/source ✅
 
 位置：`packages/db/src/schema/shared/magic/card.ts`、`print.ts`
 
-- `cards`：新增 `version` text NOT NULL default `''`，主键 `(cardId, version)`。
-- `card_localizations`：新增 `version`、`source` text NOT NULL default `''`，主键 `(cardId, version, locale, source)`。
-- `card_parts`：新增 `version`，主键 `(cardId, version, partIndex)`。
-- `card_part_localizations`：新增 `version`、`source`，主键 `(cardId, version, locale, source, partIndex)`。
-- `prints`：新增 `version`、`source`，主键 `(cardId, version, set, number, lang, source)`。
-- `print_parts`：新增 `version`、`source`，主键 `(cardId, version, set, number, lang, source, partIndex)`。
+- `cards`：`(cardId, version)`。
+- `card_localizations`：`(cardId, version, locale, source)`。
+- `card_parts`：`(cardId, version, partIndex)`。
+- `card_part_localizations`：`(cardId, version, locale, source, partIndex)`。
+- `prints`：`(cardId, version, set, number, lang, source)`。
+- `print_parts`：`(cardId, version, set, number, lang, source, partIndex)`。
+- 审计列 `createdAt`/`updatedAt`/`deletedAt`；移除 `__lockedPaths`/`__updations`/`__lastDate`。
+- view 更新（card_view / print_view / card_print_view / card_editor_view）。
 
-同步更新 join view（`card_print_view`、`card_editor_view`）的 join 键与 select 列。
+## 2. Schema：新增 slug 标注表（magic_data）✅
 
-## 2. Schema：新增 slug 标注表（magic_data）
+`magic_data.card_slug_annotations`（slug PK、oracleId、reason、notes）。
 
-位置：`packages/db/src/schema/local/magic/`
+## 3. Schema：扩充 magic_data.scryfall 导入表 + 事实表新列 ✅
 
-新增 `card_slug_annotations` 表（dataSchema）：
+- `magic_data.scryfall_cards`（全字段）/ `scryfall_sets` / `scryfall_rulings`。
+- `magic_data.gatherer`（+`url` 列）、`mtgch_zhs_*`（6 张）、`mtgjson_sets`。
+- `magic_data.card_unified_localizations`（unified）。
+- 事实表新列：`tcgplayerEtchedId`/`imageUpdatedAt`（prints）、`mcmIdExtras`（sets）、`flavorText`（card_localizations）；`cards.resourceId` 移除。
 
-- `slug` text PK
-- `oracleId` uuid NOT NULL
-- `reason` text（如 `split_of_nature` / `duplicate_name`）
-- `notes` text
-- `createdAt` / `updatedAt` timestamp
+## 4. 更新 Zod model 定义 ✅
 
-用于记录人工拆卡的语义化 slug 与 oracle 对象的映射，供匹配阶段查询。
+各源 model（scryfall / gatherer / mtgch / mtgjson / unified）、事实表 model 同步。
 
-## 3. Schema：扩充 magic_data.scryfall 导入表 + 事实表新列
+## 5. 生成数据库迁移 ✅
 
-### 3.1 扩充导入表 `magic_data.scryfall`
+commit `ed474d2` 已含 local + remote 迁移。
 
-位置：`packages/db/src/schema/local/magic/scryfall.ts`
+## 6. Schema：新建协作/同步表（替换旧 import_*）
 
-从仅 `cardId`/`oracleId`/`legalities` 三列，扩为 Scryfall card 对象全字段显式列（对照旧代码 mongoose schema）：
+位置：`packages/db/src/schema/`
 
-- 核心：`lang`、`arenaId`、`mtgoId`、`mtgoFoilId`、`multiverseIds`、`tcgplayerId`、`tcgplayerEtchedId`、`cardmarketId`
-- 玩法：`layout`、`name`、`oracleText`、`typeLine`、`manaCost`、`cmc`、`colors`、`colorIdentity`、`colorIndicator`、`keywords`、`producedMana`、`legalities`、`power`、`toughness`、`loyalty`、`defense`、`handModifier`、`lifeModifier`、`reserved`、`oversized`、`gameChanger`、`contentWarning`、`edhrecRank`、`pennyRank`、`allParts`、`cardFaces`、`resourceId`
-- 印刷：`set`、`setId`、`setName`、`setType`、`collectorNumber`、`rarity`、`releasedAt`、`frame`、`frameEffects`、`borderColor`、`cardBackId`、`artist`、`artistIds`、`flavorText`、`flavorName`、`illustrationId`、`imageUris`、`imageStatus`、`highresImage`、`finishes`、`games`、`booster`、`promo`、`promoTypes`、`fullArt`、`textless`、`storySpotlight`、`reprint`、`digital`、`variation`、`variationOf`、`securityStamp`、`watermark`、`attractionLights`、`printedName`、`printedText`、`printedTypeLine`、`preview`、`prices`、`purchaseUris`、`relatedUris`
-- `createdAt` / `expiresAt`
+- `magic_data`：`field_winners` / `field_commits` / `field_sync_cursors` / `field_conflicts` / `base_change_review` / `source_versions` / `raw_entity_snapshots`
+- `magic_app`：`import_review_actions`
+- remote：`PublishStreamRegistration` / `PublishLedger`
+- 配置（per-game）：`source_catalog` / `field_policies` / `rule_sets`
+- **移除**旧 `import_sources` / `import_rule_sets` / `import_field_rules` / `import_policy_snapshots` / `import_runs` / `import_raw_records` / `import_change_sets` / `import_field_changes` / `import_apply_logs`
+- 参照 `docs/multi-user-data-import.md` §14 与 `shared/hearthstone/field-sync.ts`（field_winners/field_commits/field_conflicts 结构）。
 
-### 3.2 事实表新列（API 复查确认的稳定字段）
-
-- `cards`：`resourceId` text 可空（Scryfall `resource_id`，文档化）。
-- `prints`：`variation` boolean、`variationOf` uuid 可空、`artistIds` uuid[]、`illustrationId` uuid 可空、`resourceId` text 可空。
-
-> 不纳入：`foil`/`nonfoil`（`finishes` 覆盖）、`image_updated_at`（未文档化）、MTGJSON 独有字段（本轮不涉卡）、频繁变化数据（edhrec/prices）。
-
-## 4. 更新 Zod model 定义
-
-位置：`packages/model/src/magic/schema/`
-
-- `card.ts` / `print.ts`：各事实表 schema 加入 `version` / `source` 字段。
-- `card.ts`：`card` 加入 `resourceId`；`print.ts`：`print` 加入 `variation` / `variationOf` / `artistIds` / `illustrationId` / `resourceId`。
-- 新增 slug 标注相关 schema。
-
-## 5. 生成数据库迁移（commit 前生成）
-
-- 使用 `drizzle-kit generate` 生成迁移 SQL，确认包含：fact 表加列 + 主键变更、新标注表、view 重建。
-- **合并为一次迁移**（schema 改动全部就绪后再生成）。
-
-## 6. 数据源接入：Scryfall 拉取与解析
+## 7. 数据源接入：Scryfall 导入任务
 
 位置：`apps/service-desktop-runtime/src/lib/magic/`
 
-- bulk 拉取（oracle_cards / default_cards / rulings / sets）。
-- 解析为原始记录，写入 `import_raw_records`（sourceId = `magic/scryfall`）。
-- 参考旧代码 loader（BulkGetter / CardLoader / RulingLoader / SetGetter）。
+- `magic_scryfall_import`：下载 bulk（oracle_cards / default_cards / sets / rulings）→ 缓存到 `magic_data.scryfall_*`。
 
-## 7. 数据源接入：Gatherer / MTGCH / MTGJSON
+## 8. 数据源接入：MTGCH / MTGJSON 导入任务
 
-- Gatherer：按 multiverseId 拉取官方本地化，写入 `card_localizations`（source = `''`）。
-- MTGCH：民间简中本地化，写入 `card_localizations`（source = `mtgch`）。
-- MTGJSON：仅 Set 数据，以 Scryfall 为骨架补充。
+- `magic_mtgch_import`：读本地导出 JSONL → `magic_data.mtgch_zhs_*`。
+- `magic_mtgjson_import`：下载 set 文件 → `magic_data.mtgjson_sets`。
 
-## 8. 匹配与 cardId 分配（含冲突预识别）
+## 9. 数据源接入：Gatherer 爬虫导入任务
 
-- `cardId = slug(normalized 英文名)`。
-- 批次内构建 `slug → oracle 对象` 映射；同名不同 oracle 对象 → 冲突候选进审核。
-- 审核确认后：合并或拆卡（分配语义化 slug，写入标注表）。
+- `magic_gatherer_import`：从 Scryfall prints 收集 multiverseId，数字升序爬。
+- 每 multiverseId：`gatherer` 有行则跳过；否则 `Details.aspx?multiverseid=N`（308 → 新页）→ 提取 flight CardData → 缓存（含 404 = null）。
+- 状态 = `gatherer` 表本身，可断点续爬。
 
-## 9. 投影纯函数 + 单卡测试
+## 10. 匹配与 cardId 分配（含冲突预识别）
+
+- 批次内 `slug → oracle_ids`；冲突组 → 审核（`card_slug_annotations`）→ 合并或拆卡（语义化 slug）。
+- match 是投影任务的前置步骤。
+
+## 11. 投影纯函数 + 单卡测试（base）
 
 位置：`apps/service-desktop-runtime/src/lib/magic/project/`
 
-- 实现 `projectExtractedCard` 式纯函数：输入快照 + 上下文 → 输出事实表投影结果。
-- 配套单卡测试夹具（bun:test，无数据库）。
+- `projectCard(assembledCard, ...) → ProjectCardResult`：输入按 oracle_id 聚合的卡数据，输出全部事实表行（含 unified）。
+- 单卡测试夹具（bun:test，无数据库）。
 
-## 10. 导入管线接入任务系统
+## 12. 投影任务接入任务系统
 
-- 定义 magic 导入任务（阶段：拉取 → 解析 → 匹配 → 投影 → 变更集 → 应用）。
-- 复用现有任务系统与导入 schema（runs / change sets / field changes / apply logs）。
-- 字段规则 / 决策模式（auto_apply / batch_review / manual_review）。
+- `magic_project`：match → 按卡装配 → project（base）→ 写事实表（尊重 `field_winners`，manual-winner 不覆盖）。
 
-## 11. 控制台 UI（data-source 页）
+## 13. 协作机制落地（field_commits / field_winners / 审批）
 
-位置：`apps/site-console/app/pages/magic/data-source.vue`（或现有页扩展）
+- base 换代 / 手动 overlay 的写入与 winner 维护。
+- 冲突 / A、B 类提醒（base_change_review）。
+- 审批（import_review_actions）与字段策略（field_policies）执行。
 
-- 导入源管理、导入运行、冲突审核、变更集审阅。
+## 14. 控制台 UI（data-source 页 + 审批）
 
-## 12. API 复查与数据来源分工定稿
+- 数据源展示（快照）+ 字段策略矩阵 + 审批队列。
 
-- 逐源核对 Scryfall / Gatherer / MTGCH / MTGJSON API 字段与钩子。
-- 定稿 §2.4 数据来源分工，更新设计文档与 CONTEXT.md。
+## 15. API 复查与数据来源分工定稿
+
+- 逐源核对字段，更新 data-sources.md / CONTEXT.md。
 
 ---
 
 ## 实现顺序
 
-**Phase 1 — 数据层**（task 1-5）：schema + model + 迁移
-**Phase 2 — 数据源**（task 6-7）：各源拉取与解析
-**Phase 3 — 匹配与投影**（task 8-9）：cardId 分配 + 投影纯函数 + 单卡测试
-**Phase 4 — 管线与审核**（task 10-11）：任务系统接入 + 控制台 UI
-**Phase 5 — 定稿**（task 12）：API 复查后更新分工
+**Phase 1 — 数据层**（task 1-6）：schema + model + 迁移 + 协作表
+**Phase 2 — 数据源**（task 7-9）：各源导入任务（含 Gatherer 爬虫）
+**Phase 3 — 匹配与投影**（task 10-12）：cardId 分配 + 投影纯函数 + 投影任务
+**Phase 4 — 协作机制**（task 13）：field_commits / field_winners / 审批
+**Phase 5 — 控制台与定稿**（task 14-15）：UI + 分工定稿

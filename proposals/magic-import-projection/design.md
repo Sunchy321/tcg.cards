@@ -75,38 +75,75 @@
 ### 4.1 运行位置
 
 - 与 hearthstone 对齐：跑在 `service-desktop-runtime` + 本地数据库，使用现有任务系统（executor/scheduler/worker），控制台触发。
+- **此模式适用于所有未来游戏**（每源一个导入任务 + 一个整体投影任务）。
 
-### 4.2 阶段划分
+### 4.2 任务拆分
 
-完整管线，走现有导入 schema（`magic_data.import_sources` / `import_rule_sets` / `import_field_rules` / `import_runs` / `import_raw_records` / `import_change_sets` / `import_field_changes` / `import_apply_logs`）：
+- **每个来源一个导入任务**：
+  - `magic_scryfall_import`（bulk 下载 → 缓存到 `magic_data.scryfall_*`）
+  - `magic_gatherer_import`（爬虫，见 4.3 → `magic_data.gatherer`）
+  - `magic_mtgch_import`（导出文件 → `magic_data.mtgch_zhs_*`）
+  - `magic_mtgjson_import`（set 文件 → `magic_data.mtgjson_sets`）
+- **一个整体投影任务** `magic_project`：match → 按卡装配 → 投影纯函数产出 base → 写事实表（尊重 overlay）。
+- 导入与投影都**自动、确定**；审核/冲突解决走协作机制（见 4.6）。
 
-1. **拉取**：从 Scryfall bulk / Gatherer / MTGCH 拉取原始数据（MTGJSON 仅 Set）。
-2. **解析**：解析为原始记录（`import_raw_records`）。
-3. **匹配**：将记录归并到 cardId / print / set；同名冲突预识别（见 4.3）。
-4. **投影**：纯函数将「卡牌快照 + 上下文」投影为事实表行（见 4.4）。
-5. **变更集与审核**：生成 `import_change_sets` / `import_field_changes`，按字段规则与决策模式走审核/自动应用。
-6. **应用**：通过 `import_apply_logs` 写入事实表。
+### 4.3 Gatherer 爬虫
 
-### 4.3 匹配与 cardId 分配
+- **目标**：从 Scryfall prints 收集全部 multiverseId，**数字升序**。
+- **每个 multiverseId**：
+  - `magic_data.gatherer` 已有行（含 404）→ 跳过（状态 = 表本身）。
+  - 否则 fetch `Details.aspx?multiverseid=N`（308 重定向到新卡页）→ 提取 flight 数据中的**全部 CardData**（该卡所有印刷 + 语言）→ 按 multiverseId 缓存。
+  - 404 → 缓存 `data=null`（记录「不在 Gatherer」）。
+- `url` 列存重定向后的规范卡页 URL。
+- **断点续爬**：数字升序 + 表即状态；**长期缓存**（结果稳定，无需担心过期）。
+
+### 4.4 匹配与 cardId 分配
+
+match 是投影任务内部的**前置步骤**（批次级）。
 
 - 默认 `cardId = slug(normalized 英文名)`。
-- 批次内建立 `slug → oracle 对象` 映射：
+- 批次内建立 `slug → oracle_ids` 映射：
   - 同一 slug 仅一个 oracle 对象 → 直接归属该 cardId。
   - 同一 slug 多个**不同** oracle 对象 → 整组标记「cardId 待定 + 冲突候选」，进入审核，不自动落库。
-- 审核决策：合并（同卡，scryfallOracleId 累积）或拆卡（分配语义化 slug，写入标注表）。
+- 查 `card_slug_annotations`：命中（已人工指定）→ 用指定 slug。
+- 审核决策：合并（同卡，scryfallOracleId 累积）或拆卡（分配语义化 slug，写入标注表）。冲突组跳过投影，解决后再跑。
 
-### 4.4 投影（纯函数 + 单卡测试）
+### 4.5 投影（base 纯函数 + 单卡测试）
 
-- 沿用 hearthstone 的投影模式：`projectExtractedCard` 式纯函数，输入卡牌快照 + 上下文，输出完整投影结果。
+投影任务 = ① 批次 match → ② 按卡装配（collect 同 oracle_id 的所有印刷）→ ③ 纯函数产出 base → ④ 写事实表（尊重 overlay）。
+
+- 纯函数：`projectCard(assembledCard, ...) → ProjectCardResult`，输入按 oracle_id 聚合的卡数据，输出该卡全部事实表行（cards / card_localizations / card_parts / prints / ...，可多行），含 unified。
 - 配套「单卡测试」夹具（bun:test，无数据库），投影行为变更时重新生成夹具。
+
+### 4.6 base + overlay 协作模型（以 docs/multi-user-data-import.md 为准）
+
+- **base**（自动层）= 投影输出，不落表；字段无手动 overlay 时直接作为事实表当前值。
+- **overlay**（手动层）= 字段级 `field_commits`；`accepted` 后物化进事实表并更新 `field_winners`。
+- **field_winners**：每字段当前 winner 来源（`auto:xxx` / `manual:...`）。投影写表时：auto-winner 字段写 base；manual-winner 字段**不覆盖**，保留手动值并对比新 base 判漂移 / 冲突 / A、B 类提醒。
+- **轨道**：默认全字段 `collaborative`（允许手动 overlay）；`publish-owned`（纯 base、换代整体替换）为窄例外，按字段策略个别标记。
+- **切换轻量**：轨道是字段策略配置；投影始终 overlay-aware，切换不改投影机制。collaborative → publish-owned 且已有已接受 overlay 时做一次性清理（折叠/清除）。
+
+### 4.7 导入机制（新表替换旧 import_*）
+
+旧 `magic_data.import_*` 表未与 `docs/multi-user-data-import.md` 对齐，**移除**，替换为：
+
+- `magic_data`：`field_winners` / `field_commits` / `field_sync_cursors` / `field_conflicts` / `base_change_review` / `source_versions` / `raw_entity_snapshots`
+- `magic_app`：`import_review_actions`
+- remote：`PublishStreamRegistration` / `PublishLedger`
+- 配置（per-game schema）：`source_catalog` / `field_policies` / `rule_sets`
+
+链路：源适配器 → 原始载荷入库 → 标准化记录 → 实体匹配 → 字段级 diff → 规则评估 / 基础值决策 → 生成变更集与执行模式（auto_apply / batch_review / manual_review）→ 应用 → 应用日志与回滚。
 
 ## 5. 待确认项
 
-- **API 复查**：逐源核对 Scryfall / Gatherer / MTGCH / MTGJSON 的具体字段与钩子（multiverseId、oracle_id、set 数据形态），再最终定稿数据来源分工与字段映射。
-- **版本手工功能**：未来设计（`version` 列已预留；公告如需前后对比，在 `card_update` 条目内部设计，不加公告级 version/lastVersion）。
-- **印刷本地化拆分细节**：`prints` 平铺行 + `source` 的写入路径。
+- **字段策略初始配置**：来源目录、字段规则/策略的默认值（哪些字段 auto_apply / batch_review / manual_review）与默认协作轨道。
+- **协作机制首次落地**：magic 是首个真正使用 `field_commits` / `field_winners` 的游戏，具体用法需在实现中打磨。
+- **版本手工功能**：未来设计（`version` 列已预留）。
+- **批量审批分组与 UI**：按来源/字段/规则分组的批量审批界面。
 
 ## 6. 关联文档
 
-- `CONTEXT.md` — Magic 段（cardId / card version / localization source / data source ownership / slug annotation）。
+- `docs/multi-user-data-import.md` — base + overlay 多用户导入与同步设计（权威）。
+- `CONTEXT.md` — Magic 段（cardId / card version / localization source / data source ownership / unified localization / slug annotation）。
 - `docs/adr/0001-magic-cardid-identity.md` — cardId 身份模型决策。
+- `data-sources.md` — 数据源结构与字段增量对比。
