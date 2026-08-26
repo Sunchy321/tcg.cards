@@ -1078,7 +1078,11 @@ export async function importDiscoveredTags(
   const discovered: number[] = [];
   let updated = 0;
 
-  const slugConflicts = new Set(existingRows.map(row => row.slug));
+  // Collect every existing slug so a newly discovered tag never collides with a
+  // tag outside this import batch (degenerate raw names like "1" are shared by
+  // many distinct tags).
+  const slugRows = await tx.select({ slug: Tag.slug }).from(Tag);
+  const slugConflicts = new Set(slugRows.map(row => row.slug));
 
   const firstSeenByEnum = new Map<number, DiscoveredTagInput>();
   for (const tag of tags) {
