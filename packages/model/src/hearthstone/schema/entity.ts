@@ -169,7 +169,7 @@ export const entity = z.strictObject({
   techLevel:    z.int().nullable(),
   inBobsTavern: z.boolean(),
   tripleCard:   z.string().nullable(),
-  raceBucket:   race.nullable(),
+  raceBucket:   race.array().nullable(),
   armorBucket:  z.int().nullable(),
   buddy:        z.string().nullable(),
   bannedRace:   z.string().nullable(),

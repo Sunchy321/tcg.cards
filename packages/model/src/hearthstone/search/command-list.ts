@@ -104,7 +104,7 @@ export const techLevel = c
     .done();
 
 export const raceBucket = c
-    .simple
+    .simpleSet
     .id('race-bucket')
     .done();
 

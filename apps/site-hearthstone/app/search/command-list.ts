@@ -114,7 +114,7 @@ export const techLevel = cc
 
 export const raceBucket = cc
   .commands.raceBucket
-  .apply({ id: 'race-bucket', mapValue: true });
+  .apply({ id: 'race-bucket', map: true });
 
 export const mercenaryRole = cc
   .commands.mercenaryRole
