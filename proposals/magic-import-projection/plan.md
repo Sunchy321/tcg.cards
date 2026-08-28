@@ -7,11 +7,11 @@
 - [x] 3. Schema：扩充 magic_data.scryfall 导入表 + 事实表新列
 - [x] 4. 更新 Zod model 定义
 - [x] 5. 生成数据库迁移（commit 前生成，合并为一次）
-- [ ] 6. Schema：新建协作/同步表（替换旧 import_*）
-- [ ] 7. 数据源接入：Scryfall 导入任务
-- [ ] 8. 数据源接入：MTGCH / MTGJSON 导入任务
-- [ ] 9. 数据源接入：Gatherer 爬虫导入任务
-- [ ] 10. 匹配与 cardId 分配（含冲突预识别）
+- [x] 6. Schema：新建协作/同步表（替换旧 import_*）
+- [x] 7. 数据源接入：Scryfall 导入任务
+- [x] 8. 数据源接入：MTGCH / MTGJSON 导入任务
+- [x] 9. 数据源接入：Gatherer 爬虫导入任务
+- [x] 10. 匹配与 cardId 分配（含冲突预识别）
 - [ ] 11. 投影纯函数 + 单卡测试（base）
 - [ ] 12. 投影任务接入任务系统（match → 装配 → project → base/overlay 应用）
 - [ ] 13. 协作机制落地（field_commits / field_winners / 审批）
@@ -52,7 +52,9 @@
 
 commit `ed474d2` 已含 local + remote 迁移。
 
-## 6. Schema：新建协作/同步表（替换旧 import_*）
+## 6. Schema：新建协作/同步表（替换旧 import_*）✅
+
+完成：commit `7fe0c9b`（新增协作/同步表，移除旧 import_*）。
 
 位置：`packages/db/src/schema/`
 
@@ -63,24 +65,32 @@ commit `ed474d2` 已含 local + remote 迁移。
 - **移除**旧 `import_sources` / `import_rule_sets` / `import_field_rules` / `import_policy_snapshots` / `import_runs` / `import_raw_records` / `import_change_sets` / `import_field_changes` / `import_apply_logs`
 - 参照 `docs/multi-user-data-import.md` §14 与 `shared/hearthstone/field-sync.ts`（field_winners/field_commits/field_conflicts 结构）。
 
-## 7. 数据源接入：Scryfall 导入任务
+## 7. 数据源接入：Scryfall 导入任务 ✅
+
+完成：commit `50d80d9`（bulk 下载 → `magic_data.scryfall_*` + orpc 触发）。
 
 位置：`apps/service-desktop-runtime/src/lib/magic/`
 
 - `magic_scryfall_import`：下载 bulk（oracle_cards / default_cards / sets / rulings）→ 缓存到 `magic_data.scryfall_*`。
 
-## 8. 数据源接入：MTGCH / MTGJSON 导入任务
+## 8. 数据源接入：MTGCH / MTGJSON 导入任务 ✅
+
+完成：commit `c4ed4a5`（mtgch 导入 + mtgjson 导入，bun-native 文件解析）。
 
 - `magic_mtgch_import`：读本地导出 JSONL → `magic_data.mtgch_zhs_*`。
 - `magic_mtgjson_import`：下载 set 文件 → `magic_data.mtgjson_sets`。
 
-## 9. 数据源接入：Gatherer 爬虫导入任务
+## 9. 数据源接入：Gatherer 爬虫导入任务 ✅
+
+完成：commit `9671f5b`（自适应缓存、粒度级别、连续区间爬取）。
 
 - `magic_gatherer_import`：从 Scryfall prints 收集 multiverseId，数字升序爬。
 - 每 multiverseId：`gatherer` 有行则跳过；否则 `Details.aspx?multiverseid=N`（308 → 新页）→ 提取 flight CardData → 缓存（含 404 = null）。
 - 状态 = `gatherer` 表本身，可断点续爬。
 
-## 10. 匹配与 cardId 分配（含冲突预识别）
+## 10. 匹配与 cardId 分配（含冲突预识别）✅
+
+完成：commit `bfa8fdb`（slugifyCard + shared slugifyName）+ matchBatch 接通 slugifyCard、dft 拆分、冲突预识别（待提交）。
 
 - 批次内 `slug → oracle_ids`；冲突组 → 审核（`card_slug_annotations`）→ 合并或拆卡（语义化 slug）。
 - match 是投影任务的前置步骤。

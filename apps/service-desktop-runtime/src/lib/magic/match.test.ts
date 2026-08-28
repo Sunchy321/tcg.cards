@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { slugifyName } from '@tcg-cards/shared/magic/slug';
 
-import { slugifyCard, type NormalizedCard } from './match';
+import { slugifyCard, toMatchUnits, type MatchRow, type NormalizedCard } from './match';
 
 describe('slugifyName', () => {
   test('drops apostrophes', () => {
@@ -124,5 +124,65 @@ describe('slugifyCard', () => {
   test('appends theme colors for theme-color cards', () => {
     const card = token({ layout: 'normal', face: { typeLine: 'Legendary Creature — Shapeshifter', oracleText: '(Theme Color: {W}{U})', colors: ['W', 'U'] } });
     expect(slugifyCard(card)).toBe('bird-wu');
+  });
+});
+
+function row(overrides: Partial<MatchRow> & { faces?: Record<string, unknown>[] }): MatchRow {
+  return {
+    oracleId:   'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    layout:     'normal',
+    name:       'Bird',
+    typeLine:   'Creature — Bird',
+    oracleText: 'Flying',
+    colors:     ['W'],
+    power:      '1',
+    toughness:  '1',
+    setName:    'Ravnica Allegiance',
+    cardFaces:  overrides.faces ?? null,
+    ...overrides,
+  };
+}
+
+describe('toMatchUnits', () => {
+  test('keeps a single-faced row as one unit keyed by oracle_id', () => {
+    const units = toMatchUnits(row({}));
+    expect(units).toHaveLength(1);
+    expect(units[0]!.key).toBe('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
+    expect(units[0]!.card.layout).toBe('normal');
+    expect(units[0]!.card.faces).toEqual([{
+      name:       'Bird', typeLine:   'Creature — Bird', oracleText: 'Flying',
+      colors:     ['W'], power:      '1', toughness:  '1',
+    }]);
+  });
+
+  test('uses card_faces for a normal multi-faced card as one unit', () => {
+    const units = toMatchUnits(row({
+      name:      'Fire // Ice',
+      layout:    'split',
+      cardFaces: [
+        { name: 'Fire', type_line: 'Instant', oracle_text: null, colors: ['R'], power: null, toughness: null },
+        { name: 'Ice', type_line: 'Instant', oracle_text: null, colors: ['U'], power: null, toughness: null },
+      ],
+    }));
+    expect(units).toHaveLength(1);
+    expect(units[0]!.key).toBe('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
+    expect(units[0]!.card.faces.map(f => f.name)).toEqual(['Fire', 'Ice']);
+  });
+
+  test('splits a double_faced_token into two token units keyed by face index', () => {
+    const units = toMatchUnits(row({
+      layout:    'double_faced_token',
+      cardFaces: [
+        { name: 'Vampire', type_line: 'Token Creature — Vampire', oracle_text: 'Lifelink', colors: ['W'], power: '1', toughness: '1' },
+        { name: 'Treasure', type_line: 'Token Artifact — Treasure', oracle_text: '{T}, Sacrifice this artifact: Add one mana of any color.', colors: [], power: null, toughness: null },
+      ],
+    }));
+    expect(units).toHaveLength(2);
+    expect(units[0]!.key).toBe('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:0');
+    expect(units[0]!.card.layout).toBe('token');
+    expect(units[0]!.card.faces[0]!.name).toBe('Vampire');
+    expect(units[1]!.key).toBe('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1');
+    expect(units[1]!.card.layout).toBe('token');
+    expect(units[1]!.card.faces[0]!.name).toBe('Treasure');
   });
 });
