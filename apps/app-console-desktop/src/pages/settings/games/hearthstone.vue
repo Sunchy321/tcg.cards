@@ -11,23 +11,7 @@
           </p>
         </div>
 
-        <div class="flex flex-wrap items-center gap-2">
-          <UButton
-            label="查看数据源"
-            icon="i-lucide-database"
-            color="neutral"
-            variant="ghost"
-            to="/hearthstone/data-source"
-          />
-          <UButton
-            label="打开导入"
-            icon="i-lucide-download"
-            color="neutral"
-            variant="ghost"
-            to="/hearthstone/data-import"
-          />
-          <DesktopConfigHeaderActions />
-        </div>
+        <DesktopConfigHeaderActions />
       </div>
 
       <div class="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
