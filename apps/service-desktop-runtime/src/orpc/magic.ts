@@ -52,7 +52,6 @@ const getDataState = os
 const scryfallImport = os
   .input(z.strictObject({
     cards:   z.string().optional(),
-    sets:    z.string().optional(),
     rulings: z.string().optional(),
   }))
   .output(taskPageSnapshot)
@@ -61,7 +60,7 @@ const scryfallImport = os
       taskType:          magicScryfallImportTaskDefinition.taskType,
       definitionVersion: magicScryfallImportTaskDefinition.definitionVersion,
       scope:             { type: magicScryfallImportTaskDefinition.scopeType, key: 'global', snapshot: {} },
-      params:            { cards: input.cards, sets: input.sets, rulings: input.rulings },
+      params:            { cards: input.cards, rulings: input.rulings },
     });
   });
 

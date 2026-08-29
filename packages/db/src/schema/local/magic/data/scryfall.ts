@@ -18,7 +18,9 @@ import { dataSchema } from '../../../shared/magic/schema';
  */
 export const ScryfallCard = dataSchema.table('scryfall_cards', {
   cardId:   uuid('card_id').primaryKey(),
-  oracleId: uuid('oracle_id').notNull(),
+  // Reversible cards carry a null top-level oracle_id; the identity lives on the
+  // faces, so the cache keeps the raw null and projection resolves it from faces.
+  oracleId: uuid('oracle_id'),
   lang:     text('lang').notNull(),
 
   // core
@@ -38,9 +40,11 @@ export const ScryfallCard = dataSchema.table('scryfall_cards', {
   layout:         text('layout').notNull(),
   name:           text('name').notNull(),
   oracleText:     text('oracle_text'),
-  typeLine:       text('type_line').notNull(),
+  // Reversible cards also leave type_line and cmc null at the top level; the raw
+  // null is stored and the projection falls back to the face values.
+  typeLine:       text('type_line'),
   manaCost:       text('mana_cost'),
-  cmc:            doublePrecision('cmc').notNull(),
+  cmc:            doublePrecision('cmc'),
   colors:         text('colors').array(),
   colorIdentity:  text('color_identity').array().notNull(),
   colorIndicator: text('color_indicator').array(),

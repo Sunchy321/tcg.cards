@@ -7,25 +7,19 @@
     :operation="operation"
   >
     <template #params="{ disabled }">
-      <div class="space-y-4 pt-4">
-        <div class="grid gap-4 sm:grid-cols-2">
-          <div class="space-y-2">
-            <label class="text-sm font-medium text-default">级别</label>
-            <USelect v-model="form.level" :items="gathererLevels" :disabled="disabled" class="w-full" />
-          </div>
-          <div class="space-y-2">
-            <label class="text-sm font-medium text-default">并发数</label>
-            <UInput v-model.number="form.concurrency" type="number" min="1" max="16" :disabled="disabled" />
-          </div>
-          <div class="space-y-2">
-            <label class="text-sm font-medium text-default">From（可选）</label>
-            <UInput v-model.number="form.from" type="number" min="0" :disabled="disabled" placeholder="默认 0" />
-          </div>
-          <div class="space-y-2">
-            <label class="text-sm font-medium text-default">To（可选）</label>
-            <UInput v-model.number="form.to" type="number" min="0" :disabled="disabled" placeholder="默认最大值" />
-          </div>
-        </div>
+      <div class="grid gap-4 pt-4 xl:grid-cols-4">
+        <UFormField label="级别" orientation="horizontal" class="flex-1" :ui="formFieldUi">
+          <USelect v-model="form.level" :items="gathererLevels" :disabled="disabled" class="w-full" />
+        </UFormField>
+        <UFormField label="并发数" orientation="horizontal" class="flex-1" :ui="formFieldUi">
+          <UInputNumber v-model="form.concurrency" :min="1" :max="16" :disabled="disabled" class="w-full" />
+        </UFormField>
+        <UFormField label="From" orientation="horizontal" class="flex-1" :ui="formFieldUi">
+          <UInputNumber v-model="form.from" :min="0" :disabled="disabled" placeholder="默认 0" class="w-full" />
+        </UFormField>
+        <UFormField label="To" orientation="horizontal" class="flex-1" :ui="formFieldUi">
+          <UInputNumber v-model="form.to" :min="0" :disabled="disabled" placeholder="默认最大值" class="w-full" />
+        </UFormField>
       </div>
     </template>
   </MagicSourceImportPage>
@@ -39,6 +33,9 @@ import { orpc } from '~/lib/orpc';
 definePageMeta({ layout: 'admin', title: 'Gatherer 爬取' });
 
 const form = reactive({ level: 'refresh', from: null as number | null, to: null as number | null, concurrency: 4 });
+
+/** Horizontal form fields: label next to the control with a small gap, control fills the rest. */
+const formFieldUi = { root: 'flex items-center gap-3', container: 'relative flex-1' };
 
 const gathererLevels = [
   { label: 'fill（补缺）', value: 'fill' },

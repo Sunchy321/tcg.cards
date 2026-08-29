@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, isNotNull } from 'drizzle-orm';
 
 import { db } from '@tcg-cards/db/db';
 import { CardSlugAnnotation, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
@@ -152,12 +152,12 @@ export function slugifyCard(card: NormalizedCard): string {
 }
 
 interface ScryfallFace {
-  name?:       string;
-  type_line?:  string;
+  name?:        string;
+  type_line?:   string;
   oracle_text?: string | null;
-  colors?:     string[] | null;
-  power?:      string | null;
-  toughness?:  string | null;
+  colors?:      string[] | null;
+  power?:       string | null;
+  toughness?:   string | null;
 }
 
 /** One card awaiting a cardId: an oracle card, or one face of a double_faced_token. */
@@ -211,14 +211,16 @@ export function toMatchUnits(row: MatchRow): MatchUnit[] {
     card:     {
       layout:  row.layout,
       setName: row.setName,
-      faces:   faces.length > 0 ? faces.map(toFace) : [{
-        name:       row.name,
-        typeLine:   row.typeLine,
-        oracleText: row.oracleText,
-        colors:     row.colors ?? [],
-        power:      row.power,
-        toughness:  row.toughness,
-      }],
+      faces:   faces.length > 0
+        ? faces.map(toFace)
+        : [{
+          name:       row.name,
+          typeLine:   row.typeLine,
+          oracleText: row.oracleText,
+          colors:     row.colors ?? [],
+          power:      row.power,
+          toughness:  row.toughness,
+        }],
     },
   }];
 }
@@ -253,7 +255,11 @@ export async function matchBatch(database: Db = db): Promise<MatchResult> {
     toughness:  ScryfallCard.toughness,
     setName:    ScryfallCard.setName,
     cardFaces:  ScryfallCard.cardFaces,
-  }).from(ScryfallCard).where(eq(ScryfallCard.lang, 'en'));
+  }).from(ScryfallCard)
+    // Reversible cards have a null top-level oracle_id; they are alt-art printings
+    // of an existing card, so they carry no match unit of their own (their identity
+    // resolves via the faces at projection time).
+    .where(and(eq(ScryfallCard.lang, 'en'), isNotNull(ScryfallCard.oracleId)));
 
   const annotations = await database.select().from(CardSlugAnnotation);
   const annotationByOracle = new Map(annotations.map(a => [a.oracleId, a.slug]));

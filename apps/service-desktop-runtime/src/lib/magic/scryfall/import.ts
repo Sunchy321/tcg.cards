@@ -1,12 +1,12 @@
 import { db } from '@tcg-cards/db/db';
-import { ScryfallCard, ScryfallSet, ScryfallRuling } from '@tcg-cards/db/schema/local/magic';
+import { ScryfallCard, ScryfallRuling } from '@tcg-cards/db/schema/local/magic';
 import type { RawCard, RawRuling } from '@tcg-cards/model/magic/schema/data/scryfall/card';
-import type { RawSet } from '@tcg-cards/model/magic/schema/data/scryfall/set';
 
 import { readJsonl } from '../jsonl';
 import { softDeleteMissing, upsertBatch, type ImportCounts } from '../upsert';
 
-const BATCH = 1000;
+// scryfall_cards is wide (~80 columns); 500 rows × 80 stays under Postgres's 65534 parameter limit.
+const BATCH = 500;
 
 function toCardRow(raw: RawCard): typeof ScryfallCard.$inferInsert {
   return {
@@ -99,31 +99,6 @@ function toCardRow(raw: RawCard): typeof ScryfallCard.$inferInsert {
   };
 }
 
-function toSetRow(raw: RawSet): typeof ScryfallSet.$inferInsert {
-  return {
-    setId:         raw.id,
-    code:          raw.code,
-    mtgoCode:      raw.mtgo_code ?? null,
-    arenaCode:     (raw as any).arena_code ?? null,
-    tcgplayerId:   raw.tcgplayer_id ?? null,
-    name:          raw.name,
-    setType:       raw.set_type,
-    releasedAt:    raw.released_at ?? null,
-    blockCode:     raw.block_code ?? null,
-    block:         raw.block ?? null,
-    parentSetCode: raw.parent_set_code ?? null,
-    cardCount:     raw.card_count,
-    printedSize:   raw.printed_size ?? null,
-    digital:       raw.digital,
-    foilOnly:      raw.foil_only,
-    nonfoilOnly:   raw.nonfoil_only,
-    scryfallUri:   raw.scryfall_uri,
-    uri:           raw.uri,
-    iconSvgUri:    raw.icon_svg_uri,
-    searchUri:     raw.search_uri,
-  };
-}
-
 function toRulingRow(raw: RawRuling): typeof ScryfallRuling.$inferInsert {
   return {
     oracleId:    raw.oracle_id,
@@ -134,9 +109,10 @@ function toRulingRow(raw: RawRuling): typeof ScryfallRuling.$inferInsert {
 }
 
 /** Imports a Scryfall card bulk file into magic_data.scryfall_cards. Returns the import report. */
-export async function importScryfallCards(file: string): Promise<ImportCounts> {
+export async function importScryfallCards(file: string, onProgress?: (done: number) => void): Promise<ImportCounts> {
   const imported = new Set<string>();
   const counts: ImportCounts = { inserted: 0, updated: 0, unchanged: 0, deleted: 0 };
+  let processed = 0;
   let batch: typeof ScryfallCard.$inferInsert[] = [];
   for await (const obj of readJsonl(file)) {
     if (obj.object !== 'card') continue;
@@ -148,6 +124,8 @@ export async function importScryfallCards(file: string): Promise<ImportCounts> {
       counts.inserted += result.inserted;
       counts.updated += result.updated;
       counts.unchanged += result.unchanged;
+      processed += batch.length;
+      onProgress?.(processed);
       batch = [];
     }
   }
@@ -156,43 +134,18 @@ export async function importScryfallCards(file: string): Promise<ImportCounts> {
     counts.inserted += result.inserted;
     counts.updated += result.updated;
     counts.unchanged += result.unchanged;
+    processed += batch.length;
+    onProgress?.(processed);
   }
   counts.deleted = await softDeleteMissing(db, ScryfallCard, [ScryfallCard.cardId], ['cardId'], imported);
   return counts;
 }
 
-/** Imports a Scryfall set bulk file into magic_data.scryfall_sets. Returns the import report. */
-export async function importScryfallSets(file: string): Promise<ImportCounts> {
-  const imported = new Set<string>();
-  const counts: ImportCounts = { inserted: 0, updated: 0, unchanged: 0, deleted: 0 };
-  let batch: typeof ScryfallSet.$inferInsert[] = [];
-  for await (const obj of readJsonl(file)) {
-    if (obj.object !== 'set') continue;
-    const row = toSetRow(obj as unknown as RawSet);
-    imported.add(String(row.setId));
-    batch.push(row);
-    if (batch.length >= BATCH) {
-      const result = await upsertBatch(db, ScryfallSet, batch, ScryfallSet.setId, ['setId']);
-      counts.inserted += result.inserted;
-      counts.updated += result.updated;
-      counts.unchanged += result.unchanged;
-      batch = [];
-    }
-  }
-  if (batch.length) {
-    const result = await upsertBatch(db, ScryfallSet, batch, ScryfallSet.setId, ['setId']);
-    counts.inserted += result.inserted;
-    counts.updated += result.updated;
-    counts.unchanged += result.unchanged;
-  }
-  counts.deleted = await softDeleteMissing(db, ScryfallSet, [ScryfallSet.setId], ['setId'], imported);
-  return counts;
-}
-
 /** Imports a Scryfall rulings bulk file into magic_data.scryfall_rulings. Returns the import report. */
-export async function importScryfallRulings(file: string): Promise<ImportCounts> {
+export async function importScryfallRulings(file: string, onProgress?: (done: number) => void): Promise<ImportCounts> {
   const imported = new Set<string>();
   const counts: ImportCounts = { inserted: 0, updated: 0, unchanged: 0, deleted: 0 };
+  let processed = 0;
   let batch: typeof ScryfallRuling.$inferInsert[] = [];
   for await (const obj of readJsonl(file)) {
     if (obj.object !== 'ruling') continue;
@@ -204,6 +157,8 @@ export async function importScryfallRulings(file: string): Promise<ImportCounts>
       counts.inserted += result.inserted;
       counts.updated += result.updated;
       counts.unchanged += result.unchanged;
+      processed += batch.length;
+      onProgress?.(processed);
       batch = [];
     }
   }
@@ -212,20 +167,10 @@ export async function importScryfallRulings(file: string): Promise<ImportCounts>
     counts.inserted += result.inserted;
     counts.updated += result.updated;
     counts.unchanged += result.unchanged;
+    processed += batch.length;
+    onProgress?.(processed);
   }
   counts.deleted = await softDeleteMissing(db, ScryfallRuling, [ScryfallRuling.id], ['id'], imported);
   return counts;
 }
 
-const emptyCounts: ImportCounts = { inserted: 0, updated: 0, unchanged: 0, deleted: 0 };
-
-/** Imports Scryfall bulk files into the magic_data scryfall caches. */
-export async function importScryfallBulk(
-  paths: { cards?: string, sets?: string, rulings?: string },
-): Promise<{ cards: ImportCounts, sets: ImportCounts, rulings: ImportCounts }> {
-  return {
-    cards:   paths.cards ? await importScryfallCards(paths.cards) : emptyCounts,
-    sets:    paths.sets ? await importScryfallSets(paths.sets) : emptyCounts,
-    rulings: paths.rulings ? await importScryfallRulings(paths.rulings) : emptyCounts,
-  };
-}

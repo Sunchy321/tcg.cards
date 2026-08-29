@@ -4,7 +4,8 @@ import { runWithDb } from '@tcg-cards/db';
 
 import { createDefinition } from '#task/definition';
 import { getLocalDb } from '../../../hearthstone/hsdata-local-db';
-import { importScryfallCards, importScryfallRulings, importScryfallSets } from '../../scryfall/import';
+import { countJsonlLines } from '../../jsonl';
+import { importScryfallCards, importScryfallRulings } from '../../scryfall/import';
 import type { ImportCounts } from '../../upsert';
 
 /** Stable task type for importing Scryfall bulk files into the scryfall caches. */
@@ -19,26 +20,28 @@ const importCounts = z.object({
 
 const input = z.object({
   cards:   z.string().optional(),
-  sets:    z.string().optional(),
   rulings: z.string().optional(),
 });
 
 const output = z.object({
   cards:   importCounts,
-  sets:    importCounts,
   rulings: importCounts,
 });
 
-type TableCounts = Record<'cards' | 'sets' | 'rulings', ImportCounts>;
+type TableCounts = Record<'cards' | 'rulings', ImportCounts>;
 
 const emptyCounts: ImportCounts = { inserted: 0, updated: 0, unchanged: 0, deleted: 0 };
 
-/** Serializable import cursor persisted after every completed bulk file. */
-interface ImportBlockState {
-  stage:   number; // 0 = cards, 1 = sets, 2 = rulings
-  cards:   ImportCounts;
-  sets:    ImportCounts;
-  rulings: ImportCounts;
+/** One bounded per-file stage: total line count known up front, done reported per batch. */
+interface FileBlockState {
+  done:   number;
+  total:  number;
+  counts: ImportCounts;
+}
+
+interface MagicCtx {
+  lineCounts: Record<string, number>;
+  counts:     TableCounts;
 }
 
 const definition = createDefinition(magicScryfallImportTaskType, {
@@ -52,31 +55,49 @@ const definition = createDefinition(magicScryfallImportTaskType, {
   .input(input)
   .output(output)
   .context({ init: values => values })
-  .stage('importing', { label: '导入 Scryfall', progressMode: 'unbound', resumeMode: 'durable' })
-  .entry(async ({ checkpoint }) => {
-    const restored = checkpoint?.blockInput as ImportBlockState | undefined;
-    if (restored) return { blockInput: restored };
-    return { blockInput: { stage: 0, cards: emptyCounts, sets: emptyCounts, rulings: emptyCounts } satisfies ImportBlockState };
+  .stage('prepare', { label: '准备', progressMode: 'simple' })
+  .handler(async ({ ctx }) => {
+    const magic = ctx as unknown as MagicCtx;
+    magic.lineCounts = {};
+    if (ctx.cards) magic.lineCounts.cards = await countJsonlLines(ctx.cards);
+    if (ctx.rulings) magic.lineCounts.rulings = await countJsonlLines(ctx.rulings);
+    magic.counts = { cards: emptyCounts, rulings: emptyCounts };
+    return {};
   })
-  .block(async ({ ctx, blockInput, checkpoint, done }) => {
-    const state = blockInput as ImportBlockState;
-    if (state.stage >= 3) return done(state);
-
-    const next: ImportBlockState = { ...state, stage: state.stage + 1 };
-    if (state.stage === 0 && ctx.cards) {
-      next.cards = await runWithDb(getLocalDb(), () => importScryfallCards(ctx.cards!));
-    } else if (state.stage === 1 && ctx.sets) {
-      next.sets = await runWithDb(getLocalDb(), () => importScryfallSets(ctx.sets!));
-    } else if (state.stage === 2 && ctx.rulings) {
-      next.rulings = await runWithDb(getLocalDb(), () => importScryfallRulings(ctx.rulings!));
-    }
-
+  .stage('cards', { label: '导入 Card', progressMode: 'bounded', resumeMode: 'durable' })
+  .entry(async ({ ctx, checkpoint }) => {
+    const total = (ctx as unknown as MagicCtx).lineCounts.cards ?? 0;
+    const restored = checkpoint?.blockInput as FileBlockState | undefined;
+    if (restored) return { total, blockInput: restored };
+    return { total, blockInput: { done: 0, total, counts: emptyCounts } satisfies FileBlockState };
+  })
+  .block(async ({ ctx, blockInput, progress, checkpoint, done }) => {
+    const counts = await runWithDb(getLocalDb(), () => importScryfallCards(ctx.cards!, p => progress({ done: p, total: blockInput.total })));
+    const next: FileBlockState = { ...blockInput, done: blockInput.total, counts };
     await checkpoint(next);
-    return next.stage >= 3 ? done(next) : next;
+    return done(next);
   })
-  .exit(({ blockInput }) => {
-    const s = blockInput as ImportBlockState;
-    return { cards: s.cards, sets: s.sets, rulings: s.rulings };
+  .exit(({ ctx, blockInput }) => {
+    (ctx as unknown as MagicCtx).counts.cards = blockInput.counts;
+    return blockInput.counts;
+  })
+  .stage('rulings', { label: '导入 Ruling', progressMode: 'bounded', resumeMode: 'durable' })
+  .entry(async ({ ctx, checkpoint }) => {
+    const total = (ctx as unknown as MagicCtx).lineCounts.rulings ?? 0;
+    const restored = checkpoint?.blockInput as FileBlockState | undefined;
+    if (restored) return { total, blockInput: restored };
+    return { total, blockInput: { done: 0, total, counts: emptyCounts } satisfies FileBlockState };
+  })
+  .block(async ({ ctx, blockInput, progress, checkpoint, done }) => {
+    const counts = await runWithDb(getLocalDb(), () => importScryfallRulings(ctx.rulings!, p => progress({ done: p, total: blockInput.total })));
+    const next: FileBlockState = { ...blockInput, done: blockInput.total, counts };
+    await checkpoint(next);
+    return done(next);
+  })
+  .exit(({ ctx, blockInput }) => {
+    const magic = ctx as unknown as MagicCtx;
+    magic.counts.rulings = blockInput.counts;
+    return magic.counts;
   })
   .build();
 

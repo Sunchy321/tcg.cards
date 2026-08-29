@@ -1,17 +1,19 @@
 <template>
-  <div class="flex items-center gap-3">
-    <label class="w-32 shrink-0 text-sm font-medium text-default">
-      {{ label }}<span v-if="required" class="text-destructive"> *</span>
-    </label>
+  <UFormField
+    :label="label"
+    :required="required"
+    orientation="horizontal"
+    :ui="formFieldUi"
+  >
     <USelect
       :model-value="modelValue"
       :items="files"
       :disabled="disabled"
       placeholder="选择文件"
-      class="flex-1"
+      class="w-full"
       @update:model-value="v => emit('update:modelValue', (v as string) ?? '')"
     />
-  </div>
+  </UFormField>
 </template>
 
 <script setup lang="ts">
@@ -24,4 +26,7 @@ defineProps<{
 }>();
 
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>();
+
+/** Horizontal form field: label next to the control with a small gap, control fills the rest. */
+const formFieldUi = { root: 'flex items-center gap-3', container: 'relative flex-1' };
 </script>
