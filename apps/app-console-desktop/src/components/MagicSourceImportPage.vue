@@ -27,6 +27,14 @@
       </template>
     </UAlert>
 
+    <UAlert
+      v-if="loadError"
+      color="error"
+      variant="soft"
+      icon="i-lucide-circle-alert"
+      :description="loadError"
+    />
+
     <div class="grid gap-4">
       <TaskController
         :title="taskTitle"
@@ -60,12 +68,16 @@ const props = defineProps<{
 
 const dataState = ref<MagicDataState | null>(null);
 const loading = ref(false);
+const loadError = ref('');
 const taskResult = ref<Record<string, unknown> | null>(null);
 
 async function load() {
   loading.value = true;
+  loadError.value = '';
   try {
     dataState.value = await getMagicDataState();
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : String(error);
   } finally {
     loading.value = false;
   }

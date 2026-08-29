@@ -244,7 +244,8 @@ export function createTaskStore(db: {
               progressMode: stage.progressMode,
               resumeMode:   stage.resumeMode,
               total:        null,
-              done:         null,
+              // unbound stages require a non-null done counter per the schema check.
+              done:         stage.progressMode === 'unbound' ? 0 : null,
               resumeToken:  null,
               startedAt:    null,
               finishedAt:   null,

@@ -1,6 +1,6 @@
 <template>
-  <div class="space-y-2">
-    <label class="text-sm font-medium text-default">
+  <div class="flex items-center gap-3">
+    <label class="w-32 shrink-0 text-sm font-medium text-default">
       {{ label }}<span v-if="required" class="text-destructive"> *</span>
     </label>
     <USelect
@@ -8,7 +8,7 @@
       :items="files"
       :disabled="disabled"
       placeholder="选择文件"
-      class="w-full"
+      class="flex-1"
       @update:model-value="v => emit('update:modelValue', (v as string) ?? '')"
     />
   </div>

@@ -29,7 +29,11 @@ export const MtgchZhsCard = dataSchema.table('mtgch_zhs_card', {
   extra:        jsonb('extra').$type<unknown>(),
 
   createdAt: timestamp('created_at').notNull().defaultNow(),
-  expiresAt: timestamp('expires_at').notNull(),
+  updatedAt: timestamp('updated_at')
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+  deletedAt: timestamp('deleted_at'),
 });
 
 /** Per-oracle Chinese translations from zhs_oracle.json. */
@@ -54,7 +58,11 @@ export const MtgchZhsOracle = dataSchema.table('mtgch_zhs_oracle', {
   extra:           jsonb('extra').$type<unknown>(),
 
   createdAt: timestamp('created_at').notNull().defaultNow(),
-  expiresAt: timestamp('expires_at').notNull(),
+  updatedAt: timestamp('updated_at')
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+  deletedAt: timestamp('deleted_at'),
 }, table => [
   index('mtgch_zhs_oracle_oracle_id_idx').on(table.oracleId),
 ]);
@@ -76,7 +84,11 @@ export const MtgchZhsFlavor = dataSchema.table('mtgch_zhs_flavor', {
   extra:                jsonb('extra').$type<unknown>(),
 
   createdAt: timestamp('created_at').notNull().defaultNow(),
-  expiresAt: timestamp('expires_at').notNull(),
+  updatedAt: timestamp('updated_at')
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+  deletedAt: timestamp('deleted_at'),
 });
 
 /** Chinese ruling translations from zhs_ruling.json. */
@@ -90,7 +102,11 @@ export const MtgchZhsRuling = dataSchema.table('mtgch_zhs_ruling', {
   extra:           jsonb('extra').$type<unknown>(),
 
   createdAt: timestamp('created_at').notNull().defaultNow(),
-  expiresAt: timestamp('expires_at').notNull(),
+  updatedAt: timestamp('updated_at')
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+  deletedAt: timestamp('deleted_at'),
 });
 
 /** Chinese set names from zhs_set.json. */
@@ -102,7 +118,11 @@ export const MtgchZhsSet = dataSchema.table('mtgch_zhs_set', {
   stage:  integer('stage'),
 
   createdAt: timestamp('created_at').notNull().defaultNow(),
-  expiresAt: timestamp('expires_at').notNull(),
+  updatedAt: timestamp('updated_at')
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+  deletedAt: timestamp('deleted_at'),
 });
 
 /** Chinese type / subtype / supertype translations from zhs_type.json. */
@@ -113,7 +133,11 @@ export const MtgchZhsType = dataSchema.table('mtgch_zhs_type', {
   stage:       integer('stage'),
 
   createdAt: timestamp('created_at').notNull().defaultNow(),
-  expiresAt: timestamp('expires_at').notNull(),
+  updatedAt: timestamp('updated_at')
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+  deletedAt: timestamp('deleted_at'),
 }, table => [
   primaryKey({ columns: [table.typeName, table.typeType] }),
 ]);

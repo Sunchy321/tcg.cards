@@ -15,21 +15,13 @@ export function listScryfallFiles(scryfallDir: string): DataFile[] {
     .map(f => ({ name: f, path: join(scryfallDir, f) }));
 }
 
-/** Most recent MTGCH export directory under the resolved `magic.data.mtgch` directory. */
-function latestMtgchDir(mtgchDir: string): string | null {
-  if (!existsSync(mtgchDir)) return null;
-  const dirs = readdirSync(mtgchDir).filter(f => f.startsWith('magic-cards-zhs-data-')).sort();
-  return dirs.length > 0 ? join(mtgchDir, dirs[dirs.length - 1]!) : null;
-}
-
-/** MTGCH zhs_*.json files under the latest export directory. */
-export function listMtgchFiles(mtgchDir: string): { dir: string | null, files: DataFile[] } {
-  const dir = latestMtgchDir(mtgchDir);
-  if (dir == null || !existsSync(dir)) return { dir: null, files: [] };
-  return {
-    dir,
-    files: readdirSync(dir).filter(f => f.endsWith('.json')).sort().map(f => ({ name: f, path: join(dir, f) })),
-  };
+/** MTGCH archive files under the resolved `magic.data.mtgch` directory. */
+export function listMtgchArchives(mtgchDir: string): DataFile[] {
+  if (!existsSync(mtgchDir)) return [];
+  return readdirSync(mtgchDir)
+    .filter(f => f.startsWith('magic-cards-zhs-data-') && f.endsWith('.tar.gz'))
+    .sort()
+    .map(f => ({ name: f, path: join(mtgchDir, f) }));
 }
 
 /** MTGJSON per-set directory `<mtgjsonDir>/set` and its file count. */

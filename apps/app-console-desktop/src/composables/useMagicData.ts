@@ -10,7 +10,7 @@ export interface MagicDataFile {
 export interface MagicDataState {
   dataDir:  string | null;
   scryfall: MagicDataFile[];
-  mtgch:    { dir: string | null, files: MagicDataFile[] };
+  mtgch:    { archives: MagicDataFile[] };
   mtgjson:  { dir: string | null, fileCount: number };
 }
 

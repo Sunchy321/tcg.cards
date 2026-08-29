@@ -8,10 +8,11 @@ import {
   MtgchZhsType,
 } from '@tcg-cards/db/schema/local/magic';
 
-import { pickSnake, readJsonl } from '../jsonl';
+import { pickSnake } from '../jsonl';
+import { readTarGzJsonl } from '../tar-gz';
+import { softDeleteMissing, upsertBatch, type ImportCounts } from '../upsert';
 
 const BATCH = 1000;
-const CACHE_MS = 30 * 24 * 3600 * 1000;
 
 const cardMap = {
   cardId:       'card_id',
@@ -86,54 +87,84 @@ const typeMap = {
 
 /** Builds a zhs row from a snake_case file object, adding extra + expiry. */
 function zhsRow<T>(obj: Record<string, unknown>, map: Record<string, string>): T {
-  return { ...pickSnake(obj, map as never), extra: obj.extra ?? null, expiresAt: new Date(Date.now() + CACHE_MS) } as unknown as T;
+  return { ...pickSnake(obj, map as never), extra: obj.extra ?? null } as unknown as T;
 }
 
-/** Streams a zhs file, inserting in batches; returns rows inserted. */
-async function importZhsFile<T>(file: string, map: Record<string, string>, table: any): Promise<number> {
-  let count = 0;
+/** Upserts parsed zhs objects in batches, then soft-deletes rows dropped by the source. */
+async function importObjects<T>(
+  objects: AsyncIterable<Record<string, unknown>>,
+  map: Record<string, string>,
+  table: any,
+  target: any,
+  pkNames: string[],
+  pkColumns: any[],
+  onProgress?: (done: number) => void,
+): Promise<ImportCounts> {
+  const importedKeys = new Set<string>();
+  const keyOf = (row: Record<string, unknown>) => pkNames.map(name => String(row[name])).join('|');
+  const counts: ImportCounts = { inserted: 0, updated: 0, unchanged: 0, deleted: 0 };
+  let processed = 0;
   let batch: T[] = [];
-  for await (const obj of readJsonl(file)) {
-    batch.push(zhsRow<T>(obj, map));
+  for await (const obj of objects) {
+    const row = zhsRow<T>(obj, map);
+    batch.push(row);
+    importedKeys.add(keyOf(row as unknown as Record<string, unknown>));
     if (batch.length >= BATCH) {
-      await db.insert(table).values(batch as never).onConflictDoNothing();
-      count += batch.length;
+      const result = await upsertBatch(db, table, batch, target, pkNames);
+      counts.inserted += result.inserted;
+      counts.updated += result.updated;
+      counts.unchanged += result.unchanged;
+      processed += batch.length;
+      onProgress?.(processed);
       batch = [];
     }
   }
   if (batch.length) {
-    await db.insert(table).values(batch as never).onConflictDoNothing();
-    count += batch.length;
+    const result = await upsertBatch(db, table, batch, target, pkNames);
+    counts.inserted += result.inserted;
+    counts.updated += result.updated;
+    counts.unchanged += result.unchanged;
+    processed += batch.length;
+    onProgress?.(processed);
   }
-  return count;
+  counts.deleted = await softDeleteMissing(db, table, pkColumns, pkNames, importedKeys);
+  return counts;
 }
 
-/** Imports zhs_card.json into mtgch_zhs_card. Returns rows inserted. */
-export function importMtgchCard(file: string): Promise<number> {
-  return importZhsFile<typeof MtgchZhsCard.$inferInsert>(file, cardMap, MtgchZhsCard);
+/** Imports the zhs_card.json entry from an MTGCH archive. Returns the import report. */
+export function importMtgchCard(archive: string, onProgress?: (done: number) => void): Promise<ImportCounts> {
+  return importObjects(readTarGzJsonl(archive, 'zhs_card.json'), cardMap, MtgchZhsCard, MtgchZhsCard.cardId, ['cardId'], [MtgchZhsCard.cardId], onProgress);
 }
 
-/** Imports zhs_oracle.json into mtgch_zhs_oracle. Returns rows inserted. */
-export function importMtgchOracle(file: string): Promise<number> {
-  return importZhsFile<typeof MtgchZhsOracle.$inferInsert>(file, oracleMap, MtgchZhsOracle);
+/** Imports the zhs_oracle.json entry from an MTGCH archive. Returns the import report. */
+export function importMtgchOracle(archive: string, onProgress?: (done: number) => void): Promise<ImportCounts> {
+  return importObjects(readTarGzJsonl(archive, 'zhs_oracle.json'), oracleMap, MtgchZhsOracle, MtgchZhsOracle.faceOracleId, ['faceOracleId'], [MtgchZhsOracle.faceOracleId], onProgress);
 }
 
-/** Imports zhs_flavor.json into mtgch_zhs_flavor. Returns rows inserted. */
-export function importMtgchFlavor(file: string): Promise<number> {
-  return importZhsFile<typeof MtgchZhsFlavor.$inferInsert>(file, flavorMap, MtgchZhsFlavor);
+/** Imports the zhs_flavor.json entry from an MTGCH archive. Returns the import report. */
+export function importMtgchFlavor(archive: string, onProgress?: (done: number) => void): Promise<ImportCounts> {
+  return importObjects(readTarGzJsonl(archive, 'zhs_flavor.json'), flavorMap, MtgchZhsFlavor, MtgchZhsFlavor.flavorId, ['flavorId'], [MtgchZhsFlavor.flavorId], onProgress);
 }
 
-/** Imports zhs_ruling.json into mtgch_zhs_ruling. Returns rows inserted. */
-export function importMtgchRuling(file: string): Promise<number> {
-  return importZhsFile<typeof MtgchZhsRuling.$inferInsert>(file, rulingMap, MtgchZhsRuling);
+/** Imports the zhs_ruling.json entry from an MTGCH archive. Returns the import report. */
+export function importMtgchRuling(archive: string, onProgress?: (done: number) => void): Promise<ImportCounts> {
+  return importObjects(readTarGzJsonl(archive, 'zhs_ruling.json'), rulingMap, MtgchZhsRuling, MtgchZhsRuling.ruling, ['ruling'], [MtgchZhsRuling.ruling], onProgress);
 }
 
-/** Imports zhs_set.json into mtgch_zhs_set. Returns rows inserted. */
-export function importMtgchSet(file: string): Promise<number> {
-  return importZhsFile<typeof MtgchZhsSet.$inferInsert>(file, setMap, MtgchZhsSet);
+/** Imports the zhs_set.json entry from an MTGCH archive. Returns the import report. */
+export function importMtgchSet(archive: string, onProgress?: (done: number) => void): Promise<ImportCounts> {
+  return importObjects(readTarGzJsonl(archive, 'zhs_set.json'), setMap, MtgchZhsSet, MtgchZhsSet.setId, ['setId'], [MtgchZhsSet.setId], onProgress);
 }
 
-/** Imports zhs_type.json into mtgch_zhs_type. Returns rows inserted. */
-export function importMtgchType(file: string): Promise<number> {
-  return importZhsFile<typeof MtgchZhsType.$inferInsert>(file, typeMap, MtgchZhsType);
+/** Imports the zhs_type.json entry from an MTGCH archive. Returns the import report. */
+export function importMtgchType(archive: string, onProgress?: (done: number) => void): Promise<ImportCounts> {
+  return importObjects(
+    readTarGzJsonl(archive, 'zhs_type.json'),
+    typeMap,
+    MtgchZhsType,
+    [MtgchZhsType.typeName, MtgchZhsType.typeType],
+    ['typeName', 'typeType'],
+    [MtgchZhsType.typeName, MtgchZhsType.typeType],
+    onProgress,
+  );
 }

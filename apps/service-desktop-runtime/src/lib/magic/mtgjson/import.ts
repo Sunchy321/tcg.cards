@@ -1,7 +1,9 @@
+import { readdirSync } from 'node:fs';
+
 import { db } from '@tcg-cards/db/db';
 import { MtgjsonSet } from '@tcg-cards/db/schema/local/magic';
 
-const CACHE_MS = 30 * 24 * 3600 * 1000;
+import { softDeleteMissing, upsertBatch, type ImportCounts } from '../upsert';
 
 /** Minimal view of the MTGJSON Set object fields stored as columns. */
 interface MtgjsonSetData {
@@ -37,8 +39,8 @@ interface MtgjsonSetFile {
   data: MtgjsonSetData & Record<string, unknown>;
 }
 
-/** Imports one MTGJSON set file into magic_data.mtgjson_sets. Returns rows inserted. */
-export async function importMtgjsonSetFile(file: string): Promise<number> {
+/** Imports one MTGJSON set file into magic_data.mtgjson_sets. Returns the import report. */
+export async function importMtgjsonSetFile(file: string): Promise<ImportCounts> {
   const parsed = await Bun.file(file).json() as MtgjsonSetFile;
   const set = parsed.data;
 
@@ -68,13 +70,15 @@ export async function importMtgjsonSetFile(file: string): Promise<number> {
     languages:        set.languages ?? null,
     translations:     set.translations ?? null,
     data:             set as unknown,
-    expiresAt:        new Date(Date.now() + CACHE_MS),
   };
 
-  const { setId: _setId, ...updateSet } = row;
-  await db.insert(MtgjsonSet).values(row as never).onConflictDoUpdate({
-    target: [MtgjsonSet.setId],
-    set:    updateSet as any,
-  });
-  return 1;
+  const counts = await upsertBatch(db, MtgjsonSet, [row], MtgjsonSet.setId, ['setId']);
+  return { ...counts, deleted: 0 };
+}
+
+/** Soft-deletes cached sets whose code is not present among the dir's set files. */
+export async function finalizeMtgjsonSets(dir: string): Promise<number> {
+  const files = readdirSync(dir).filter(f => f.endsWith('.json'));
+  const imported = new Set(files.map(f => f.replace(/\.json$/, '')));
+  return softDeleteMissing(db, MtgjsonSet, [MtgjsonSet.setId], ['setId'], imported);
 }

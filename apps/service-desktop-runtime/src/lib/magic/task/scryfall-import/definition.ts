@@ -5,9 +5,17 @@ import { runWithDb } from '@tcg-cards/db';
 import { createDefinition } from '#task/definition';
 import { getLocalDb } from '../../../hearthstone/hsdata-local-db';
 import { importScryfallCards, importScryfallRulings, importScryfallSets } from '../../scryfall/import';
+import type { ImportCounts } from '../../upsert';
 
 /** Stable task type for importing Scryfall bulk files into the scryfall caches. */
 export const magicScryfallImportTaskType = 'magic_scryfall_import';
+
+const importCounts = z.object({
+  inserted:  z.number(),
+  updated:   z.number(),
+  unchanged: z.number(),
+  deleted:   z.number(),
+});
 
 const input = z.object({
   cards:   z.string().optional(),
@@ -16,17 +24,21 @@ const input = z.object({
 });
 
 const output = z.object({
-  cards:   z.number(),
-  sets:    z.number(),
-  rulings: z.number(),
+  cards:   importCounts,
+  sets:    importCounts,
+  rulings: importCounts,
 });
+
+type TableCounts = Record<'cards' | 'sets' | 'rulings', ImportCounts>;
+
+const emptyCounts: ImportCounts = { inserted: 0, updated: 0, unchanged: 0, deleted: 0 };
 
 /** Serializable import cursor persisted after every completed bulk file. */
 interface ImportBlockState {
   stage:   number; // 0 = cards, 1 = sets, 2 = rulings
-  cards:   number;
-  sets:    number;
-  rulings: number;
+  cards:   ImportCounts;
+  sets:    ImportCounts;
+  rulings: ImportCounts;
 }
 
 const definition = createDefinition(magicScryfallImportTaskType, {
@@ -44,7 +56,7 @@ const definition = createDefinition(magicScryfallImportTaskType, {
   .entry(async ({ checkpoint }) => {
     const restored = checkpoint?.blockInput as ImportBlockState | undefined;
     if (restored) return { blockInput: restored };
-    return { blockInput: { stage: 0, cards: 0, sets: 0, rulings: 0 } satisfies ImportBlockState };
+    return { blockInput: { stage: 0, cards: emptyCounts, sets: emptyCounts, rulings: emptyCounts } satisfies ImportBlockState };
   })
   .block(async ({ ctx, blockInput, checkpoint, done }) => {
     const state = blockInput as ImportBlockState;

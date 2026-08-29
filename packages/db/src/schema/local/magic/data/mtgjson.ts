@@ -36,5 +36,9 @@ export const MtgjsonSet = dataSchema.table('mtgjson_sets', {
   data:             jsonb('data').$type<unknown>().notNull(),
 
   createdAt: timestamp('created_at').notNull().defaultNow(),
-  expiresAt: timestamp('expires_at').notNull(),
+  updatedAt: timestamp('updated_at')
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+  deletedAt: timestamp('deleted_at'),
 });

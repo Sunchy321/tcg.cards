@@ -111,7 +111,11 @@ export const ScryfallCard = dataSchema.table('scryfall_cards', {
   relatedUris:      jsonb('related_uris').$type<Record<string, string>>(),
 
   createdAt: timestamp('created_at').notNull().defaultNow(),
-  expiresAt: timestamp('expires_at').notNull(),
+  updatedAt: timestamp('updated_at')
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+  deletedAt: timestamp('deleted_at'),
 });
 
 /**
@@ -141,7 +145,11 @@ export const ScryfallSet = dataSchema.table('scryfall_sets', {
   searchUri:     text('search_uri'),
 
   createdAt: timestamp('created_at').notNull().defaultNow(),
-  expiresAt: timestamp('expires_at').notNull(),
+  updatedAt: timestamp('updated_at')
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+  deletedAt: timestamp('deleted_at'),
 });
 
 /**
@@ -156,7 +164,11 @@ export const ScryfallRuling = dataSchema.table('scryfall_rulings', {
   comment:     text('comment').notNull(),
 
   createdAt: timestamp('created_at').notNull().defaultNow(),
-  expiresAt: timestamp('expires_at').notNull(),
+  updatedAt: timestamp('updated_at')
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+  deletedAt: timestamp('deleted_at'),
 }, table => [
   index('scryfall_rulings_oracle_id_idx').on(table.oracleId),
 ]);

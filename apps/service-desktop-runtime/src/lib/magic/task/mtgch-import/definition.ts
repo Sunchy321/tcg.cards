@@ -12,31 +12,48 @@ import {
   importMtgchSet,
   importMtgchType,
 } from '../../mtgch/import';
+import { countTarGzEntryLines } from '../../tar-gz';
+import type { ImportCounts } from '../../upsert';
 
 /** Stable task type for importing the MTGCH zhs export files. */
 export const magicMtgchImportTaskType = 'magic_mtgch_import';
 
+const importCounts = z.object({
+  inserted:  z.number(),
+  updated:   z.number(),
+  unchanged: z.number(),
+  deleted:   z.number(),
+});
+
 const input = z.object({
-  card:   z.string().optional(),
-  oracle: z.string().optional(),
-  flavor: z.string().optional(),
-  ruling: z.string().optional(),
-  set:    z.string().optional(),
-  type:   z.string().optional(),
+  archive: z.string().min(1),
 });
 
 const output = z.object({
-  card:   z.number(),
-  oracle: z.number(),
-  flavor: z.number(),
-  ruling: z.number(),
-  set:    z.number(),
-  type:   z.number(),
+  card:   importCounts,
+  oracle: importCounts,
+  flavor: importCounts,
+  ruling: importCounts,
+  set:    importCounts,
+  type:   importCounts,
 });
 
-interface ImportBlockState {
-  stage: number; // 0..5
-  counts: { card: number; oracle: number; flavor: number; ruling: number; set: number; type: number };
+type EntryCounts = Record<'card' | 'oracle' | 'flavor' | 'ruling' | 'set' | 'type', ImportCounts>;
+
+const emptyCounts: ImportCounts = { inserted: 0, updated: 0, unchanged: 0, deleted: 0 };
+
+const ZHS_ENTRIES = ['zhs_card.json', 'zhs_oracle.json', 'zhs_flavor.json', 'zhs_ruling.json', 'zhs_set.json', 'zhs_type.json'] as const;
+
+/** One bounded per-file stage: total line count known up front, done reported per batch. */
+interface FileBlockState {
+  done:   number;
+  total:  number;
+  counts: ImportCounts;
+}
+
+interface MagicCtx {
+  lineCounts: Record<string, number>;
+  counts:     EntryCounts;
 }
 
 const definition = createDefinition(magicMtgchImportTaskType, {
@@ -50,31 +67,115 @@ const definition = createDefinition(magicMtgchImportTaskType, {
   .input(input)
   .output(output)
   .context({ init: values => values })
-  .stage('importing', { label: '导入 MTGCH', progressMode: 'unbound', resumeMode: 'durable' })
-  .entry(async ({ checkpoint }) => {
-    const restored = checkpoint?.blockInput as ImportBlockState | undefined;
-    if (restored) return { blockInput: restored };
-    return { blockInput: { stage: 0, counts: { card: 0, oracle: 0, flavor: 0, ruling: 0, set: 0, type: 0 } } satisfies ImportBlockState };
+  .stage('prepare', { label: '准备', progressMode: 'simple' })
+  .handler(async ({ ctx }) => {
+    const magic = ctx as unknown as MagicCtx;
+    magic.lineCounts = await countTarGzEntryLines(ctx.archive, [...ZHS_ENTRIES]);
+    magic.counts = { card: emptyCounts, oracle: emptyCounts, flavor: emptyCounts, ruling: emptyCounts, set: emptyCounts, type: emptyCounts };
+    return {};
   })
-  .block(async ({ ctx, blockInput, checkpoint, done }) => {
-    const state = blockInput as ImportBlockState;
-    if (state.stage >= 6) return done(state);
-
-    const next: ImportBlockState = { ...state, stage: state.stage + 1, counts: { ...state.counts } };
-    const db = getLocalDb();
-    if (state.stage === 0 && ctx.card) next.counts.card = await runWithDb(db, () => importMtgchCard(ctx.card!));
-    else if (state.stage === 1 && ctx.oracle) next.counts.oracle = await runWithDb(db, () => importMtgchOracle(ctx.oracle!));
-    else if (state.stage === 2 && ctx.flavor) next.counts.flavor = await runWithDb(db, () => importMtgchFlavor(ctx.flavor!));
-    else if (state.stage === 3 && ctx.ruling) next.counts.ruling = await runWithDb(db, () => importMtgchRuling(ctx.ruling!));
-    else if (state.stage === 4 && ctx.set) next.counts.set = await runWithDb(db, () => importMtgchSet(ctx.set!));
-    else if (state.stage === 5 && ctx.type) next.counts.type = await runWithDb(db, () => importMtgchType(ctx.type!));
-
+  .stage('card', { label: '导入 Card', progressMode: 'bounded', resumeMode: 'durable' })
+  .entry(async ({ ctx, checkpoint }) => {
+    const total = (ctx as unknown as MagicCtx).lineCounts["zhs_card.json"] ?? 0;
+    const restored = checkpoint?.blockInput as FileBlockState | undefined;
+    if (restored) return { total, blockInput: restored };
+    return { total, blockInput: { done: 0, total, counts: emptyCounts } satisfies FileBlockState };
+  })
+  .block(async ({ ctx, blockInput, progress, checkpoint, done }) => {
+    const counts = await runWithDb(getLocalDb(), () => importMtgchCard(ctx.archive, p => progress({ done: p, total: blockInput.total })));
+    const next: FileBlockState = { ...blockInput, done: blockInput.total, counts };
     await checkpoint(next);
-    return next.stage >= 6 ? done(next) : next;
+    return done(next);
   })
-  .exit(({ blockInput }) => {
-    const s = blockInput as ImportBlockState;
-    return s.counts;
+  .exit(({ ctx, blockInput }) => {
+    (ctx as unknown as MagicCtx).counts.card = blockInput.counts;
+    return blockInput.counts;
+  })
+  .stage('oracle', { label: '导入 Oracle', progressMode: 'bounded', resumeMode: 'durable' })
+  .entry(async ({ ctx, checkpoint }) => {
+    const total = (ctx as unknown as MagicCtx).lineCounts["zhs_oracle.json"] ?? 0;
+    const restored = checkpoint?.blockInput as FileBlockState | undefined;
+    if (restored) return { total, blockInput: restored };
+    return { total, blockInput: { done: 0, total, counts: emptyCounts } satisfies FileBlockState };
+  })
+  .block(async ({ ctx, blockInput, progress, checkpoint, done }) => {
+    const counts = await runWithDb(getLocalDb(), () => importMtgchOracle(ctx.archive, p => progress({ done: p, total: blockInput.total })));
+    const next: FileBlockState = { ...blockInput, done: blockInput.total, counts };
+    await checkpoint(next);
+    return done(next);
+  })
+  .exit(({ ctx, blockInput }) => {
+    (ctx as unknown as MagicCtx).counts.oracle = blockInput.counts;
+    return blockInput.counts;
+  })
+  .stage('flavor', { label: '导入 Flavor', progressMode: 'bounded', resumeMode: 'durable' })
+  .entry(async ({ ctx, checkpoint }) => {
+    const total = (ctx as unknown as MagicCtx).lineCounts["zhs_flavor.json"] ?? 0;
+    const restored = checkpoint?.blockInput as FileBlockState | undefined;
+    if (restored) return { total, blockInput: restored };
+    return { total, blockInput: { done: 0, total, counts: emptyCounts } satisfies FileBlockState };
+  })
+  .block(async ({ ctx, blockInput, progress, checkpoint, done }) => {
+    const counts = await runWithDb(getLocalDb(), () => importMtgchFlavor(ctx.archive, p => progress({ done: p, total: blockInput.total })));
+    const next: FileBlockState = { ...blockInput, done: blockInput.total, counts };
+    await checkpoint(next);
+    return done(next);
+  })
+  .exit(({ ctx, blockInput }) => {
+    (ctx as unknown as MagicCtx).counts.flavor = blockInput.counts;
+    return blockInput.counts;
+  })
+  .stage('ruling', { label: '导入 Ruling', progressMode: 'bounded', resumeMode: 'durable' })
+  .entry(async ({ ctx, checkpoint }) => {
+    const total = (ctx as unknown as MagicCtx).lineCounts["zhs_ruling.json"] ?? 0;
+    const restored = checkpoint?.blockInput as FileBlockState | undefined;
+    if (restored) return { total, blockInput: restored };
+    return { total, blockInput: { done: 0, total, counts: emptyCounts } satisfies FileBlockState };
+  })
+  .block(async ({ ctx, blockInput, progress, checkpoint, done }) => {
+    const counts = await runWithDb(getLocalDb(), () => importMtgchRuling(ctx.archive, p => progress({ done: p, total: blockInput.total })));
+    const next: FileBlockState = { ...blockInput, done: blockInput.total, counts };
+    await checkpoint(next);
+    return done(next);
+  })
+  .exit(({ ctx, blockInput }) => {
+    (ctx as unknown as MagicCtx).counts.ruling = blockInput.counts;
+    return blockInput.counts;
+  })
+  .stage('set', { label: '导入 Set', progressMode: 'bounded', resumeMode: 'durable' })
+  .entry(async ({ ctx, checkpoint }) => {
+    const total = (ctx as unknown as MagicCtx).lineCounts["zhs_set.json"] ?? 0;
+    const restored = checkpoint?.blockInput as FileBlockState | undefined;
+    if (restored) return { total, blockInput: restored };
+    return { total, blockInput: { done: 0, total, counts: emptyCounts } satisfies FileBlockState };
+  })
+  .block(async ({ ctx, blockInput, progress, checkpoint, done }) => {
+    const counts = await runWithDb(getLocalDb(), () => importMtgchSet(ctx.archive, p => progress({ done: p, total: blockInput.total })));
+    const next: FileBlockState = { ...blockInput, done: blockInput.total, counts };
+    await checkpoint(next);
+    return done(next);
+  })
+  .exit(({ ctx, blockInput }) => {
+    (ctx as unknown as MagicCtx).counts.set = blockInput.counts;
+    return blockInput.counts;
+  })
+  .stage('type', { label: '导入 Type', progressMode: 'bounded', resumeMode: 'durable' })
+  .entry(async ({ ctx, checkpoint }) => {
+    const total = (ctx as unknown as MagicCtx).lineCounts["zhs_type.json"] ?? 0;
+    const restored = checkpoint?.blockInput as FileBlockState | undefined;
+    if (restored) return { total, blockInput: restored };
+    return { total, blockInput: { done: 0, total, counts: emptyCounts } satisfies FileBlockState };
+  })
+  .block(async ({ ctx, blockInput, progress, checkpoint, done }) => {
+    const counts = await runWithDb(getLocalDb(), () => importMtgchType(ctx.archive, p => progress({ done: p, total: blockInput.total })));
+    const next: FileBlockState = { ...blockInput, done: blockInput.total, counts };
+    await checkpoint(next);
+    return done(next);
+  })
+  .exit(({ ctx, blockInput }) => {
+    const magic = ctx as unknown as MagicCtx;
+    magic.counts.type = blockInput.counts;
+    return magic.counts;
   })
   .build();
 
