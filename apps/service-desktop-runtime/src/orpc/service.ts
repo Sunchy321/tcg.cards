@@ -1,3 +1,5 @@
+import '../lib/game-path-definitions';
+
 import { hearthstoneRouter } from './hearthstone';
 import { imageRouter } from './image';
 import { magicRouter } from './magic';

@@ -7,85 +7,42 @@
             Hearthstone 设置
           </h1>
           <p class="mt-2 text-sm text-muted">
-            配置炉石数据源路径，供数据源管理和导入流程使用。
+            配置炉石数据目录与图片配置。数据叶子未显式设置时自动从全局数据根推导。
           </p>
         </div>
 
-        <DesktopConfigHeaderActions />
+        <div class="flex flex-wrap items-center gap-2">
+          <UButton
+            label="查看数据源"
+            icon="i-lucide-database"
+            color="neutral"
+            variant="ghost"
+            to="/hearthstone/data-source"
+          />
+          <UButton
+            label="打开导入"
+            icon="i-lucide-download"
+            color="neutral"
+            variant="ghost"
+            to="/hearthstone/data-import"
+          />
+          <DesktopConfigHeaderActions />
+        </div>
       </div>
 
       <div class="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
         <DesktopSettingsSidebar />
 
         <div class="space-y-6">
-          <UCard>
-            <template #header>
-              <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div class="font-medium">hsdata 配置</div>
-                  <div class="mt-1 text-xs text-muted">配置本地 hsdata 仓库路径。</div>
-                </div>
-                <div class="flex flex-wrap gap-2">
-                  <UButton
-                    label="查看数据源"
-                    icon="i-lucide-database"
-                    color="neutral"
-                    variant="ghost"
-                    to="/hearthstone/data-source"
-                  />
-                  <UButton
-                    label="打开导入"
-                    icon="i-lucide-download"
-                    color="neutral"
-                    variant="ghost"
-                    to="/hearthstone/data-import"
-                  />
-                </div>
-              </div>
-            </template>
-
-            <div class="space-y-4">
-              <div>
-                <div class="text-sm font-medium text-default">hsdata 数据源路径</div>
-                <div class="mt-1 text-xs text-muted">
-                  通过目录选择框选择 hsdata 数据源目录。选择后会自动校验并保存。
-                </div>
-              </div>
-
-              <DirectoryPickerField
-                :value="hsdataRepoPathInput"
-                placeholder="/absolute/path/to/hsdata"
-                :loading="loadingHsdataRepoPath || pickingHsdataRepoPath"
-                :pick-loading="pickingHsdataRepoPath"
-                :pick-disabled="loadingHsdataRepoPath || savingHsdataRepoPath"
-                :clear-disabled="savingHsdataRepoPath || pickingHsdataRepoPath || hsdataRepoPathInput.trim().length === 0"
-                @pick="pickHsdataRepoPath"
-                @clear="clearHsdataRepoPath"
-              />
-
-              <UAlert
-                v-if="hsdataRepoPathError.length > 0"
-                color="error"
-                variant="soft"
-                icon="i-lucide-circle-alert"
-                :description="hsdataRepoPathError"
-              />
-              <UAlert
-                v-else-if="savedHsdataRepoPath"
-                color="success"
-                variant="soft"
-                icon="i-lucide-circle-check-big"
-                :description="`当前已配置仓库：${savedHsdataRepoPath}`"
-              />
-              <UAlert
-                v-else
-                color="warning"
-                variant="soft"
-                icon="i-lucide-folder-search"
-                description="尚未配置 hsdata 数据源路径。"
-              />
-            </div>
-          </UCard>
+          <PathLeavesCard
+            title="数据目录"
+            key-prefix="hearthstone.data"
+            :root="pathState?.data.root ?? null"
+            :root-explicit="pathState?.data.rootExplicit ?? false"
+            :leaves="pathState?.data.leaves ?? []"
+            :loading="loadingPaths || savingPaths"
+            @save="saveLeaf"
+          />
 
           <UCard>
             <template #header>
@@ -218,11 +175,10 @@ import { getConsoleErrorMessage } from '@tcg-cards/console-core';
 
 import {
   getDesktopHearthstoneImageSettings,
-  getDesktopGameRepo,
   pickDesktopDirectory,
   setDesktopHearthstoneImageSettings,
-  setDesktopGameRepo,
 } from '~/composables/useDesktopSettings';
+import { getGamePathState, setPath, type GamePathState } from '~/composables/useGamePaths';
 import { detectDesktopHearthstoneImageRenderer } from '~/composables/useDesktopRuntimeClient';
 
 definePageMeta({
@@ -230,12 +186,39 @@ definePageMeta({
   title:  'Hearthstone 设置',
 });
 
-const hsdataRepoPathInput = ref('');
-const savedHsdataRepoPath = ref<string | null>(null);
-const loadingHsdataRepoPath = ref(false);
-const pickingHsdataRepoPath = ref(false);
-const savingHsdataRepoPath = ref(false);
-const hsdataRepoPathError = ref('');
+// ── Data directory paths ──
+
+const pathState = ref<GamePathState | null>(null);
+const loadingPaths = ref(false);
+const savingPaths = ref(false);
+const pathError = ref('');
+
+async function loadHearthstonePathState() {
+  loadingPaths.value = true;
+  pathError.value = '';
+  try {
+    pathState.value = await getGamePathState('hearthstone');
+  } catch (error) {
+    pathError.value = getConsoleErrorMessage(error, '数据目录读取失败');
+  } finally {
+    loadingPaths.value = false;
+  }
+}
+
+async function saveLeaf(key: string, value: string | null) {
+  savingPaths.value = true;
+  pathError.value = '';
+  try {
+    await setPath(key, value);
+    await loadHearthstonePathState();
+  } catch (error) {
+    pathError.value = getConsoleErrorMessage(error, '数据目录保存失败');
+  } finally {
+    savingPaths.value = false;
+  }
+}
+
+// ── Image settings ──
 
 const defaultRendererBaseUrl = 'http://localhost:58437';
 const imageRendererBaseUrlInput = ref('');
@@ -249,89 +232,33 @@ const imageSettingsError = ref('');
 const testingImageRenderer = ref(false);
 const imageRendererTestError = ref('');
 const imageRendererTestResult = ref<{
-  service: string;
-  version: string;
+  service:         string;
+  version:         string;
   protocolVersion: string;
-  requestShape: string;
-  outputFormat: string;
-  ready: boolean;
-  message?: string | null;
+  requestShape:    string;
+  outputFormat:    string;
+  ready:           boolean;
+  message?:        string | null;
 } | null>(null);
 const imageRendererTestOk = ref(false);
 
-/** Loads the configured hsdata repository path. */
-async function loadHearthstoneSettings() {
-  loadingHsdataRepoPath.value = true;
+/** Loads the configured Hearthstone image settings. */
+async function loadImageSettings() {
   loadingImageSettings.value = true;
-  hsdataRepoPathError.value = '';
   imageSettingsError.value = '';
 
   try {
-    const repoPath = await getDesktopGameRepo('hearthstone', 'hsdata');
     const imageSettings = await getDesktopHearthstoneImageSettings();
 
-    savedHsdataRepoPath.value = repoPath;
-    hsdataRepoPathInput.value = repoPath ?? '';
     savedImageRendererBaseUrl.value = imageSettings.rendererBaseUrl ?? null;
     savedImageBucketDir.value = imageSettings.bucketDir ?? null;
     imageRendererBaseUrlInput.value = imageSettings.rendererBaseUrl ?? '';
     imageBucketDirInput.value = imageSettings.bucketDir ?? '';
   } catch (error) {
     console.error('Failed to load desktop Hearthstone settings:', error);
-    hsdataRepoPathError.value = getConsoleErrorMessage(error, '设置读取失败');
     imageSettingsError.value = getConsoleErrorMessage(error, '设置读取失败');
   } finally {
-    loadingHsdataRepoPath.value = false;
     loadingImageSettings.value = false;
-  }
-}
-
-/** Persists the hsdata repository path. */
-async function saveHsdataRepoPath(nextPath?: string | null) {
-  savingHsdataRepoPath.value = true;
-  hsdataRepoPathError.value = '';
-
-  try {
-    const repoPathInput = (nextPath ?? hsdataRepoPathInput.value).trim();
-    const repoPath = await setDesktopGameRepo(
-      'hearthstone',
-      'hsdata',
-      repoPathInput.length > 0 ? repoPathInput : null,
-    );
-
-    savedHsdataRepoPath.value = repoPath;
-    hsdataRepoPathInput.value = repoPath ?? '';
-  } catch (error) {
-    console.error('Failed to save desktop Hearthstone settings:', error);
-    hsdataRepoPathError.value = getConsoleErrorMessage(error, '设置保存失败');
-    hsdataRepoPathInput.value = savedHsdataRepoPath.value ?? '';
-  } finally {
-    savingHsdataRepoPath.value = false;
-  }
-}
-
-/** Clears the configured hsdata repository path. */
-async function clearHsdataRepoPath() {
-  await saveHsdataRepoPath('');
-}
-
-/** Opens a directory picker for the hsdata repository path. */
-async function pickHsdataRepoPath() {
-  pickingHsdataRepoPath.value = true;
-  hsdataRepoPathError.value = '';
-
-  try {
-    const directoryInput = hsdataRepoPathInput.value.trim();
-    const directory = await pickDesktopDirectory(directoryInput.length > 0 ? directoryInput : null);
-
-    if (directory) {
-      await saveHsdataRepoPath(directory);
-    }
-  } catch (error) {
-    console.error('Failed to pick desktop Hearthstone repo path:', error);
-    hsdataRepoPathError.value = getConsoleErrorMessage(error, '目录选择失败');
-  } finally {
-    pickingHsdataRepoPath.value = false;
   }
 }
 
@@ -434,7 +361,8 @@ async function testImageRenderer() {
 }
 
 onMounted(() => {
-  void loadHearthstoneSettings();
+  void loadHearthstonePathState();
+  void loadImageSettings();
 });
 
 watch([

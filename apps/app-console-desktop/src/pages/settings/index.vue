@@ -35,6 +35,14 @@
                 to="/settings/database"
               />
               <UButton
+                label="数据目录设置"
+                icon="i-lucide-folder-tree"
+                color="neutral"
+                variant="soft"
+                class="justify-start"
+                to="/settings/data-source"
+              />
+              <UButton
                 label="发布配置"
                 icon="i-lucide-upload"
                 color="neutral"

@@ -1,15 +1,17 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 
 import {
+  applyPathOverrides,
   hasHearthstoneImageOverride,
-  hasHsdataRepoPath,
   hasLocalDatabaseUrl,
+  hasPathOverride,
+  readAllPathOverrides,
   readHearthstoneImageOverride,
-  readHsdataRepoPath,
   readLocalDatabaseUrl,
+  readPathOverride,
   setHearthstoneImageOverride,
-  setHsdataRepoPathOverride,
   setLocalDatabaseUrlOverride,
+  setPathOverride,
   hasYugiohImageOverride,
   readYugiohImageOverride,
   setYugiohImageOverride,
@@ -19,7 +21,7 @@ const originalLocalDatabaseUrl = process.env.DESKTOP_LOCAL_DATABASE_URL;
 
 afterEach(() => {
   setLocalDatabaseUrlOverride(null);
-  setHsdataRepoPathOverride(null);
+  applyPathOverrides({});
   setHearthstoneImageOverride(null);
   setYugiohImageOverride(null);
 
@@ -43,15 +45,34 @@ describe('runtime-config', () => {
     expect(hasLocalDatabaseUrl()).toBe(true);
   });
 
-  test('tracks the hsdata repository override independently from the database URL', () => {
-    expect(readHsdataRepoPath()).toBeNull();
-    expect(hasHsdataRepoPath()).toBe(false);
+  test('tracks path overrides keyed by dotted leaf paths', () => {
+    expect(readPathOverride('hearthstone.data.hsdata')).toBeNull();
+    expect(hasPathOverride('hearthstone.data.hsdata')).toBe(false);
 
-    setHsdataRepoPathOverride('  /tmp/hsdata  ');
+    setPathOverride('hearthstone.data.hsdata', '  /tmp/hsdata  ');
 
-    expect(readHsdataRepoPath()).toBe('/tmp/hsdata');
-    expect(hasHsdataRepoPath()).toBe(true);
+    expect(readPathOverride('hearthstone.data.hsdata')).toBe('/tmp/hsdata');
+    expect(hasPathOverride('hearthstone.data.hsdata')).toBe(true);
+    expect(readAllPathOverrides()).toEqual({ hearthstone: { data: { hsdata: '/tmp/hsdata' } } });
     expect(readLocalDatabaseUrl()).toBeNull();
+  });
+
+  test('applies a nested path tree and re-nests it for transfer', () => {
+    applyPathOverrides({
+      data:        '/data',
+      magic:       { data: { scryfall: '/data/magic/scryfall', mtgch: '/data/magic/mtgch' } },
+      hearthstone: { data: { hsdata: '/hsdata' } },
+    });
+
+    expect(readPathOverride('data')).toBe('/data');
+    expect(readPathOverride('magic.data.scryfall')).toBe('/data/magic/scryfall');
+    expect(readPathOverride('magic.data.mtgch')).toBe('/data/magic/mtgch');
+    expect(readPathOverride('hearthstone.data.hsdata')).toBe('/hsdata');
+    expect(readAllPathOverrides()).toEqual({
+      data:        '/data',
+      magic:       { data: { scryfall: '/data/magic/scryfall', mtgch: '/data/magic/mtgch' } },
+      hearthstone: { data: { hsdata: '/hsdata' } },
+    });
   });
 
   test('tracks the Hearthstone image override independently from other runtime config', () => {
