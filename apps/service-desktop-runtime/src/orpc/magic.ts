@@ -95,8 +95,8 @@ const mtgjsonImport = os
 const gathererImport = os
   .input(z.strictObject({
     level:       z.enum(['fill', 'refresh', 'refresh_all', 'force']).optional(),
-    from:        z.number().int().min(0).optional(),
-    to:          z.number().int().optional(),
+    from:        z.number().int().min(1).optional(),
+    to:          z.number().int().min(1).optional(),
     concurrency: z.number().int().min(1).max(16).optional(),
   }))
   .output(taskPageSnapshot)

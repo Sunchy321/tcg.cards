@@ -73,7 +73,7 @@ export interface TaskStageUpdatePatch {
   total?:       number | null;
   done?:        number | null;
   resumeToken?: Record<string, unknown> | null;
-  segments?:    { name: string, done: number, total: number }[] | null;
+  segments?:    { name: string, done: number, total: number, color?: string }[] | null;
   startedAt?:   Date | string | null;
   finishedAt?:  Date | string | null;
 }

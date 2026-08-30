@@ -63,6 +63,9 @@ export const segmentsItem = z.strictObject({
   name:  z.string(),
   done:  z.int().nonnegative(),
   total: z.int().nonnegative(),
+  // Optional tailwind class for a colored status lane; presence switches the
+  // progress bar from partitioned sub-ranges to a stacked status distribution.
+  color: z.string().optional(),
 });
 
 export const taskStage = z.strictObject({

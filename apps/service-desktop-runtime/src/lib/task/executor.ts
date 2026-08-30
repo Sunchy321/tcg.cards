@@ -84,9 +84,10 @@ async function runBlock(
   stage: TaskStageState,
   block: TaskBlock,
   definition: TaskDefinition,
+  signal?: AbortSignal,
 ): Promise<'ok' | 'pause' | 'cancel' | 'fail'> {
   try {
-    await definition.executeBlock({ run: runInput, stage, block, store, taskRunId });
+    await definition.executeBlock({ run: runInput, stage, block, store, taskRunId, signal });
   } catch (err) {
     await enterFailed(store, taskRunId, stage.stageKey, err);
     return 'fail';
@@ -121,6 +122,31 @@ export function createTaskExecutor(store: TaskExecutorStore, publisher?: TaskEve
       const fresh = await store.getTaskRun(taskRunId);
       if (!fresh) return;
       if (fresh.run.status !== 'pending' && fresh.run.status !== 'resuming') return;
+
+      // Abort controller so a cancel/pause request stops long-running blocks
+      // promptly (blocks check signal.aborted). The poll self-clears once the run
+      // reaches a terminal status.
+      const controller = new AbortController();
+      const poll = setInterval(async () => {
+        try {
+          const current = await store.getTaskRun(taskRunId);
+          const r = current?.run;
+          if (!r) {
+            clearInterval(poll);
+            return;
+          }
+          if (['canceled', 'failed', 'completed', 'abandoned'].includes(r.status)) {
+            clearInterval(poll);
+            return;
+          }
+          if (r.controlRequestKind === 'cancel' || r.controlRequestKind === 'pause'
+            || r.status === 'canceling' || r.status === 'pausing') {
+            controller.abort();
+          }
+        } catch {
+          // A transient DB error must not crash the run; keep polling.
+        }
+      }, 500);
 
       const runInput = toTaskRunInput(snapshot);
       const definition = getTaskDefinition(run.taskType);
@@ -200,7 +226,7 @@ export function createTaskExecutor(store: TaskExecutorStore, publisher?: TaskEve
         const blocks = definition.buildBlocks({ run: runInput, stage: { ...stageState, ...entry }, taskRunId });
 
         for await (const block of blocks) {
-          const result = await runBlock(store, taskRunId, runInput, stageState, block, definition);
+          const result = await runBlock(store, taskRunId, runInput, stageState, block, definition, controller.signal);
 
           if (result === 'cancel') {
             await enterCanceled(store, taskRunId, entry.stageKey);

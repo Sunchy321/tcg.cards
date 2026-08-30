@@ -175,7 +175,7 @@ export const TaskStage = pgTable('task_stages', {
   total:        integer('total'),
   done:         integer('done'),
   resumeToken:  jsonb('resume_token').$type<Record<string, unknown>>(),
-  segments:     jsonb('segments').$type<{ name: string, done: number, total: number }[]>(),
+  segments:     jsonb('segments').$type<{ name: string, done: number, total: number, color?: string }[]>(),
   startedAt:    timestamp('started_at'),
   finishedAt:   timestamp('finished_at'),
   updatedAt:    timestamp('updated_at')

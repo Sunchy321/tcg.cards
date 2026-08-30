@@ -12,16 +12,23 @@ type Db = typeof db;
 export type CrawlLevel = 'fill' | 'refresh' | 'refresh_all' | 'force';
 export const CRAWL_LEVELS: CrawlLevel[] = ['fill', 'refresh', 'refresh_all', 'force'];
 
+/** Per-id crawl outcome, fed into the live progress breakdown. */
+export type CrawlOutcome = 'fresh' | 'fetched' | 'notFound' | 'error';
+
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-function shouldSkip(row: { data: unknown, expiresAt: Date } | undefined, level: CrawlLevel, now: Date): boolean {
-  if (!row) return false;
-  switch (level) {
-  case 'fill': return true; // any existing row → skip
-  case 'refresh': return row.data === null || row.expiresAt > now; // skip 404s and fresh non-null
-  case 'refresh_all': return row.expiresAt > now; // skip only fresh rows
-  case 'force': return false;
-  }
+/**
+ * Outcome for an already-cached row under the given level, or null when the row
+ * should be re-fetched. Any row still within its cache window is `fresh` —
+ * whether it holds card data or a cached 404. Only an expired cached 404 that
+ * refresh refuses to re-check surfaces as `notFound`.
+ */
+function cachedOutcome(row: { data: unknown, expiresAt: Date }, level: CrawlLevel, now: Date): CrawlOutcome | null {
+  if (level === 'force') return null; // refetch regardless
+  if (row.expiresAt > now) return 'fresh'; // still within the cache window, valid or 404
+  if (level === 'fill') return 'fresh'; // fill never re-fetches existing rows
+  if (row.data === null && level === 'refresh') return 'notFound'; // refresh never re-checks cached 404s
+  return null; // expired → refetch
 }
 
 /** Highest multiverseId across all scryfall cards (upper bound of the crawl range). */
@@ -91,6 +98,9 @@ export async function fetchCard(multiverseId: number): Promise<{ url: string, ca
   });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Gatherer HTTP ${res.status} for ${multiverseId}`);
+  // A card page that redirects to the site root means the card is gone: Gatherer
+  // serves the search homepage instead of a 404, so treat it as not-found.
+  if (new URL(res.url).pathname === '/') return null;
   const html = await res.text();
   const cards = extractCardData(html);
   if (cards.length === 0) throw new Error(`No CardData for ${multiverseId}`);
@@ -108,15 +118,18 @@ function nextLevel(currentDays: number): number {
  * cached under its own multiverseId. Stable rows escalate 7→30→60→180→365 days,
  * changed rows reset to 7; 404s are cached as null with the max window.
  */
-export async function crawlOne(database: Db, multiverseId: number, level: CrawlLevel = 'refresh'): Promise<'fetched' | 'not_found' | 'skipped' | 'error'> {
+export async function crawlOne(database: Db, multiverseId: number, level: CrawlLevel = 'refresh', delayMs: number = 0): Promise<CrawlOutcome> {
   const existing = await database.select().from(Gatherer).where(eq(Gatherer.multiverseId, multiverseId)).limit(1);
-  if (shouldSkip(existing[0], level, new Date())) return 'skipped';
+  const outcome = existing[0] ? cachedOutcome(existing[0], level, new Date()) : null;
+  if (outcome) return outcome; // cached row: no request, no rate-limit delay
+
+  if (delayMs) await sleep(delayMs); // rate-limit actual requests to the site
 
   try {
     const result = await fetchCard(multiverseId);
     if (result === null) {
       await upsertCache(database, multiverseId, { url: null, data: null, cacheDays: 365, hash: 'not_found' });
-      return 'not_found';
+      return 'notFound';
     }
 
     for (const card of result.cards) {
@@ -128,7 +141,8 @@ export async function crawlOne(database: Db, multiverseId: number, level: CrawlL
       await upsertCache(database, cardMid, { url: result.url, data: card as never, cacheDays, hash });
     }
     return 'fetched';
-  } catch {
+  } catch (err) {
+    console.warn(`[gatherer] crawl error for multiverseId=${multiverseId}:`, err);
     return 'error';
   }
 }
@@ -153,9 +167,9 @@ function upsertCache(
 }
 
 export interface CrawlReport {
+  fresh:    number;
   fetched:  number;
   notFound: number;
-  skipped:  number;
   errors:   number;
 }
 
@@ -164,23 +178,33 @@ export async function crawlRange(
   database: Db,
   from: number,
   to: number,
-  opts: { level?: CrawlLevel, concurrency?: number, delayMs?: number, onProgress?: (done: number, total: number) => void } = {},
+  opts: {
+    level?:       CrawlLevel;
+    concurrency?: number;
+    delayMs?:     number;
+    stopEvery?:   number;
+    shouldStop?:  () => boolean | Promise<boolean>;
+    onProgress?:  (done: number, total: number, counts: CrawlReport) => void;
+  } = {},
 ): Promise<CrawlReport> {
-  const { level = 'refresh', concurrency = 4, delayMs = 100, onProgress } = opts;
+  const { level = 'refresh', concurrency = 4, delayMs = 100, stopEvery = 50, shouldStop, onProgress } = opts;
   const total = to - from + 1;
-  const counts: CrawlReport = { fetched: 0, notFound: 0, skipped: 0, errors: 0 };
+  const counts: CrawlReport = { fresh: 0, fetched: 0, notFound: 0, errors: 0 };
   let next = from;
   let done = 0;
+  let stopped = false;
 
   async function worker() {
     while (true) {
+      if (stopped) break;
       const mid = next++;
       if (mid > to) break;
-      const r = await crawlOne(database, mid, level);
-      counts[r === 'error' ? 'errors' : r === 'not_found' ? 'notFound' : r]++;
+      const r = await crawlOne(database, mid, level, delayMs);
+      counts[r === 'error' ? 'errors' : r]++;
       done++;
-      onProgress?.(done, total);
-      if (delayMs) await sleep(delayMs);
+      onProgress?.(done, total, counts);
+      // Poll the cancel/pause request periodically so a stop takes effect promptly.
+      if (shouldStop && done % stopEvery === 0 && (await shouldStop())) stopped = true;
     }
   }
 

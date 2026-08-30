@@ -4,9 +4,22 @@
       <span class="text-xs text-muted truncate">{{ leftText }}</span>
       <span v-if="timeLabel" class="text-xs text-muted tabular-nums ml-2 shrink-0">{{ timeLabel }}</span>
     </div>
-    <!-- Multi-segment progress bar -->
+    <!-- Status distribution bar: segments carry a color, stacked over the stage total -->
     <div
-      v-if="stage?.segments && stage.segments.length > 0"
+      v-if="isDistribution && stage?.segments && stage.segments.length > 0"
+      class="h-1.5 mt-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex"
+    >
+      <div
+        v-for="(seg, segIdx) in stage.segments"
+        :key="seg.name"
+        class="h-full transition-all duration-500 ease-out first:rounded-l-full last:rounded-r-full"
+        :class="seg.color ?? segmentColor(segIdx)"
+        :style="{ width: distTotal > 0 ? `${Math.min(seg.done / distTotal * 100, 100)}%` : '0%' }"
+      />
+    </div>
+    <!-- Partitioned sub-range bar: segments without a color, each filling to its own total -->
+    <div
+      v-else-if="stage?.segments && stage.segments.length > 0"
       class="h-1.5 mt-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex"
     >
       <div
@@ -55,7 +68,7 @@
             :key="seg.name"
             class="inline-flex items-center gap-1"
           >
-            <span class="size-2 rounded-full" :class="segmentColor(segIdx)" />
+            <span class="size-2 rounded-full" :class="seg.color ?? segmentColor(segIdx)" />
             {{ seg.name }} {{ seg.done }}/{{ seg.total }}
           </span>
         </template>
@@ -156,6 +169,16 @@ function formatTime(s: number): string {
 const segmentsTotal = computed(() => {
   if (!props.stage?.segments) return 0;
   return props.stage.segments.reduce((s, seg) => s + seg.total, 0);
+});
+
+/** True when segments carry colors → render a stacked status distribution. */
+const isDistribution = computed(() => !!props.stage?.segments?.some(seg => seg.color));
+
+/** Overall denominator for a stacked status distribution: the stage total, else the sum of done. */
+const distTotal = computed(() => {
+  const t = props.stage?.total;
+  if (t && t > 0) return t;
+  return props.stage?.segments?.reduce((s, seg) => s + seg.done, 0) ?? 0;
 });
 
 const segmentColors = [

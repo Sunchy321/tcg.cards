@@ -11,15 +11,15 @@ export const magicGathererImportTaskType = 'magic_gatherer_import';
 
 const input = z.object({
   level:       z.enum(['fill', 'refresh', 'refresh_all', 'force']).optional().default('refresh'),
-  from:        z.number().int().min(0).optional(),
-  to:          z.number().int().optional(),
+  from:        z.number().int().min(1).optional(),
+  to:          z.number().int().min(1).optional(),
   concurrency: z.number().int().min(1).max(16).optional().default(4),
 });
 
 const output = z.object({
+  fresh:    z.number(),
   fetched:  z.number(),
   notFound: z.number(),
-  skipped:  z.number(),
   errors:   z.number(),
 });
 
@@ -30,6 +30,25 @@ interface ImportBlockState {
   to:      number;
   current: number;
   counts:  CrawlReport;
+}
+
+function addCounts(a: CrawlReport, b: CrawlReport): CrawlReport {
+  return {
+    fresh:    a.fresh + b.fresh,
+    fetched:  a.fetched + b.fetched,
+    notFound: a.notFound + b.notFound,
+    errors:   a.errors + b.errors,
+  };
+}
+
+/** Live progress segments: one colored lane per crawl outcome, over the whole range. */
+function buildSegments(counts: CrawlReport, total: number) {
+  return [
+    { name: '成功', done: counts.fetched, total, color: 'bg-success' },
+    { name: '无此卡', done: counts.notFound, total, color: 'bg-warning' },
+    { name: '失败', done: counts.errors, total, color: 'bg-error' },
+    { name: '未过期', done: counts.fresh, total, color: 'bg-info' },
+  ];
 }
 
 const definition = createDefinition(magicGathererImportTaskType, {
@@ -47,12 +66,13 @@ const definition = createDefinition(magicGathererImportTaskType, {
   .entry(async ({ ctx, checkpoint }) => {
     const restored = checkpoint?.blockInput as ImportBlockState | undefined;
     if (restored) return { total: restored.to - restored.from + 1, blockInput: restored };
-    const to = ctx.to ?? await runWithDb(getLocalDb(), () => getMaxMultiverseId());
-    const from = ctx.from ?? 0;
-    const counts: CrawlReport = { fetched: 0, notFound: 0, skipped: 0, errors: 0 };
+    const from = ctx.from ?? 1;
+    // Clamp an out-of-range to < from into an empty range so total never goes negative.
+    const to = Math.max(ctx.to ?? await runWithDb(getLocalDb(), () => getMaxMultiverseId()), from - 1);
+    const counts: CrawlReport = { fresh: 0, fetched: 0, notFound: 0, errors: 0 };
     return { total: to - from + 1, blockInput: { from, to, current: from, counts } satisfies ImportBlockState };
   })
-  .block(async ({ ctx, blockInput, checkpoint, progress, done }) => {
+  .block(async ({ ctx, blockInput, checkpoint, progress, done, signal }) => {
     const state = blockInput as ImportBlockState;
     if (state.current > state.to) return done(state);
 
@@ -61,16 +81,32 @@ const definition = createDefinition(magicGathererImportTaskType, {
       getLocalDb(),
       state.current,
       end,
-      { level: (ctx.level as CrawlLevel | undefined) ?? 'refresh', concurrency: ctx.concurrency ?? 4, onProgress: p => progress({ done: p + (state.current - state.from), total: state.to - state.from + 1 }) },
+      {
+        level:       (ctx.level as CrawlLevel | undefined) ?? 'refresh',
+        concurrency: ctx.concurrency ?? 4,
+        stopEvery:   10,
+        onProgress:  (done, _total, counts) => {
+          const rangeTotal = state.to - state.from + 1;
+          progress({
+            done:     done + (state.current - state.from),
+            total:    rangeTotal,
+            segments: buildSegments(addCounts(state.counts, counts), rangeTotal),
+          });
+        },
+        shouldStop: () => signal?.aborted ?? false,
+      },
     ));
 
+    // Advance by the ids actually crawled: on an early shouldStop the batch ends
+    // partway, and a later pause-resume must restart from that exact position.
+    const processed = report.fresh + report.fetched + report.notFound + report.errors;
     const next: ImportBlockState = {
       ...state,
-      current: end + 1,
+      current: state.current + processed,
       counts:  {
+        fresh:    state.counts.fresh + report.fresh,
         fetched:  state.counts.fetched + report.fetched,
         notFound: state.counts.notFound + report.notFound,
-        skipped:  state.counts.skipped + report.skipped,
         errors:   state.counts.errors + report.errors,
       },
     };

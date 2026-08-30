@@ -267,7 +267,9 @@ export async function matchBatch(database: Db = db): Promise<MatchResult> {
   const cardIdByUnit = new Map<string, string>();
   const slugToUnits = new Map<string, string[]>();
 
-  for (const row of rows) {
+  // isNotNull(oracleId) guarantees a non-null key; the remaining fields are the
+  // canonical non-reversible representative, so their runtime shape matches MatchRow.
+  for (const row of rows as MatchRow[]) {
     for (const unit of toMatchUnits(row)) {
       // Annotations are oracle_id-keyed, unambiguous only for single-unit cards.
       const annotated = unit.key === unit.oracleId ? annotationByOracle.get(unit.oracleId) : undefined;
