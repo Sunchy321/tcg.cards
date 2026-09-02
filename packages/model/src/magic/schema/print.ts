@@ -29,7 +29,6 @@ export const print = z.strictObject({
 
   name:     z.string(),
   typeline: z.string(),
-  text:     z.string(),
 
   layout:        layout,
   frame:         frame,

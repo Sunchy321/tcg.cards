@@ -28,7 +28,6 @@ export const Card = schema.table('cards', {
 
   name:     text('name').notNull(),
   typeline: text('typeline').notNull(),
-  text:     text('text').notNull(),
 
   manaValue:     doublePrecision('mana_value').notNull(),
   colorIdentity: color('color_identity', { dimensions: 16 }).notNull(),
@@ -61,10 +60,8 @@ export const CardLocalization = schema.table('card_localizations', {
   locale:  locale('locale').notNull(),
   source:  text('source').notNull().default(''),
 
-  name:       text('loc_name').notNull(),
-  typeline:   text('loc_typeline').notNull(),
-  text:       text('loc_text').notNull(),
-  flavorText: text('loc_flavor_text'),
+  name:     text('loc_name').notNull(),
+  typeline: text('loc_typeline').notNull(),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at')

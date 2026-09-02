@@ -24,7 +24,6 @@ export const card = z.strictObject({
 
   name:     z.string(),
   typeline: z.string(),
-  text:     z.string(),
 
   manaValue:     z.number(),
   colorIdentity: color,
@@ -50,10 +49,8 @@ export const cardLocalization = z.strictObject({
   locale,
   source:  z.string().default(''),
 
-  name:       z.string(),
-  typeline:   z.string(),
-  text:       z.string(),
-  flavorText: z.string().nullable(),
+  name:     z.string(),
+  typeline: z.string(),
 });
 
 export const cardPart = z.strictObject({

@@ -42,7 +42,6 @@ export const Print = schema.table('prints', {
 
   name:     text('print_name').notNull(),
   typeline: text('print_typeline').notNull(),
-  text:     text('print_text').notNull(),
 
   layout:          layout('layout').notNull(),
   frame:           frame('frame').notNull(),
