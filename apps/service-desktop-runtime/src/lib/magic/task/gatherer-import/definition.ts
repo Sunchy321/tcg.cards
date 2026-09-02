@@ -17,10 +17,11 @@ const input = z.object({
 });
 
 const output = z.object({
-  fresh:    z.number(),
-  fetched:  z.number(),
-  notFound: z.number(),
-  errors:   z.number(),
+  fresh:        z.number(),
+  localMissing: z.number(),
+  fetched:      z.number(),
+  notFound:     z.number(),
+  errors:       z.number(),
 });
 
 const BATCH = 5000;
@@ -34,10 +35,11 @@ interface ImportBlockState {
 
 function addCounts(a: CrawlReport, b: CrawlReport): CrawlReport {
   return {
-    fresh:    a.fresh + b.fresh,
-    fetched:  a.fetched + b.fetched,
-    notFound: a.notFound + b.notFound,
-    errors:   a.errors + b.errors,
+    fresh:        a.fresh + b.fresh,
+    localMissing: a.localMissing + b.localMissing,
+    fetched:      a.fetched + b.fetched,
+    notFound:     a.notFound + b.notFound,
+    errors:       a.errors + b.errors,
   };
 }
 
@@ -45,9 +47,10 @@ function addCounts(a: CrawlReport, b: CrawlReport): CrawlReport {
 function buildSegments(counts: CrawlReport, total: number) {
   return [
     { name: '成功', done: counts.fetched, total, color: 'bg-success' },
-    { name: '无此卡', done: counts.notFound, total, color: 'bg-warning' },
     { name: '失败', done: counts.errors, total, color: 'bg-error' },
+    { name: '无此卡', done: counts.notFound, total, color: 'bg-warning' },
     { name: '未过期', done: counts.fresh, total, color: 'bg-info' },
+    { name: '本地无此卡', done: counts.localMissing, total, color: 'bg-purple-500' },
   ];
 }
 
@@ -69,7 +72,7 @@ const definition = createDefinition(magicGathererImportTaskType, {
     const from = ctx.from ?? 1;
     // Clamp an out-of-range to < from into an empty range so total never goes negative.
     const to = Math.max(ctx.to ?? await runWithDb(getLocalDb(), () => getMaxMultiverseId()), from - 1);
-    const counts: CrawlReport = { fresh: 0, fetched: 0, notFound: 0, errors: 0 };
+    const counts: CrawlReport = { fresh: 0, localMissing: 0, fetched: 0, notFound: 0, errors: 0 };
     return { total: to - from + 1, blockInput: { from, to, current: from, counts } satisfies ImportBlockState };
   })
   .block(async ({ ctx, blockInput, checkpoint, progress, done, signal }) => {
@@ -99,15 +102,16 @@ const definition = createDefinition(magicGathererImportTaskType, {
 
     // Advance by the ids actually crawled: on an early shouldStop the batch ends
     // partway, and a later pause-resume must restart from that exact position.
-    const processed = report.fresh + report.fetched + report.notFound + report.errors;
+    const processed = report.fresh + report.localMissing + report.fetched + report.notFound + report.errors;
     const next: ImportBlockState = {
       ...state,
       current: state.current + processed,
       counts:  {
-        fresh:    state.counts.fresh + report.fresh,
-        fetched:  state.counts.fetched + report.fetched,
-        notFound: state.counts.notFound + report.notFound,
-        errors:   state.counts.errors + report.errors,
+        fresh:        state.counts.fresh + report.fresh,
+        localMissing: state.counts.localMissing + report.localMissing,
+        fetched:      state.counts.fetched + report.fetched,
+        notFound:     state.counts.notFound + report.notFound,
+        errors:       state.counts.errors + report.errors,
       },
     };
     await checkpoint(next);
