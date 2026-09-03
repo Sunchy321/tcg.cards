@@ -124,13 +124,14 @@ export function getGameNavItems(game: Game): ConsoleNavLink[] {
   } else if (game === 'magic') {
     items.push(
       {
-        label: '数据源导入',
-        icon: 'i-lucide-download',
+        label: '数据管线',
+        icon: 'i-lucide-workflow',
         children: [
           { label: 'Scryfall', icon: 'i-lucide-download', to: `/${game}/data-source/scryfall` },
           { label: 'Gatherer', icon: 'i-lucide-globe', to: `/${game}/data-source/gatherer` },
           { label: 'MTGJSON', icon: 'i-lucide-folder', to: `/${game}/data-source/mtgjson` },
           { label: 'MTGCH', icon: 'i-lucide-file-json', to: `/${game}/data-source/mtgch` },
+          { label: '投影', icon: 'i-lucide-box', to: `/${game}/project` },
         ],
       },
       {
