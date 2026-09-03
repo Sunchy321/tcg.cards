@@ -2,7 +2,6 @@ import { bigint, boolean, integer, primaryKey, text, uuid } from 'drizzle-orm/pg
 import { schema } from './schema';
 
 import { locale } from './card';
-import { rarity } from './print';
 
 export const SetLocalization = schema.table('set_localizations', {
   setId: text('set_id').notNull(),
@@ -76,7 +75,7 @@ export const Set = schema.table('sets', {
   printedSize:  integer('printed_size'),
   cardCount:    integer('card_count').notNull(),
   langs:        locale('langs').array().notNull(),
-  rarities:     rarity('rarities').array().notNull(),
+  rarities:     text('rarities').array().notNull(),
 
   type:             text('type').notNull(),
   isDigital:        boolean('is_digital').notNull(),
