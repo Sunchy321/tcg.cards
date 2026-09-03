@@ -52,5 +52,8 @@ registerTaskDefinition(magicMtgjsonImportTaskDefinition);
 import { magicGathererImportTaskDefinition } from '../magic/task/gatherer-import/definition';
 registerTaskDefinition(magicGathererImportTaskDefinition);
 
+import { magicProjectTaskDefinition } from '../magic/task/magic-project/definition';
+registerTaskDefinition(magicProjectTaskDefinition);
+
 import { testWorkTaskDefinition } from './test-definition';
 registerTaskDefinition(testWorkTaskDefinition);

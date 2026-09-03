@@ -10,6 +10,7 @@ import { magicScryfallImportTaskDefinition } from '../lib/magic/task/scryfall-im
 import { magicMtgchImportTaskDefinition } from '../lib/magic/task/mtgch-import';
 import { magicMtgjsonImportTaskDefinition } from '../lib/magic/task/mtgjson-import';
 import { magicGathererImportTaskDefinition } from '../lib/magic/task/gatherer-import';
+import { magicProjectTaskDefinition } from '../lib/magic/task/magic-project';
 
 const magicDataFile = z.strictObject({
   name: z.string(),
@@ -109,7 +110,19 @@ const gathererImport = os
     });
   });
 
+const magicProject = os
+  .input(z.strictObject({}))
+  .output(taskPageSnapshot)
+  .handler(async () => {
+    return createAndRunTask(magicProjectTaskDefinition.taskType, {
+      taskType:          magicProjectTaskDefinition.taskType,
+      definitionVersion: magicProjectTaskDefinition.definitionVersion,
+      scope:             { type: magicProjectTaskDefinition.scopeType, key: 'global', snapshot: {} },
+      params:            {},
+    });
+  });
+
 export const magicRouter = {
   getDataState,
-  createTask: { scryfallImport, mtgchImport, mtgjsonImport, gathererImport },
+  createTask: { scryfallImport, mtgchImport, mtgjsonImport, gathererImport, magicProject },
 };
