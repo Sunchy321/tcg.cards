@@ -44,20 +44,34 @@ export const RawEntitySnapshot = dataSchema.table('raw_entity_snapshots', {
   index('raw_entity_snapshots_projection_state_idx').on(table.projectionState),
 ]);
 
-/** A-class base-change review reminders produced on generation advance. */
-export const BaseChangeReview = dataSchema.table('base_change_review', {
+/**
+ * Unified projection review queue. Three kinds share one model:
+ *   - `slug_conflict`: multiple oracle ids normalize to one slug with no
+ *     resolution yet; resolving writes `card_slug_resolutions`.
+ *   - `card_inconsistency`: a card's non-localized fields disagree across its
+ *     attributed rows; the card is held out of projection until resolved.
+ *   - `card_field_overwrite`: writing a card field would overwrite a current
+ *     value and needs confirmation (base change / unified folk overriding
+ *     official).
+ */
+export const ProjectionReview = dataSchema.table('projection_review', {
   id:         uuid('id').primaryKey().defaultRandom(),
-  generation: text('generation').notNull(),
-  entityType: text('entity_type').notNull(),
-  entityKey:  jsonb('entity_key').$type<JsonMap>().notNull(),
-  fieldPath:  text('field_path').notNull(),
-  oldValue:   jsonb('old_value').$type<unknown>(),
-  newValue:   jsonb('new_value').$type<unknown>(),
+  kind:       text('kind').notNull(),
+  subject:    jsonb('subject').$type<JsonMap>().notNull(),
+  payload:    jsonb('payload').$type<JsonMap>().notNull().default({}),
   status:     text('status').notNull().default('pending'),
+  resolution: jsonb('resolution').$type<JsonMap>(),
+  actor:      text('actor'),
+  resolvedAt: timestamp('resolved_at'),
   handledAt:  timestamp('handled_at'),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
 }, table => [
-  index('base_change_review_entity_field_status_idx').on(table.entityType, table.entityKey, table.fieldPath, table.status),
-  index('base_change_review_generation_idx').on(table.generation),
+  index('projection_review_kind_status_idx').on(table.kind, table.status),
+  index('projection_review_subject_idx').on(table.subject),
 ]);
+

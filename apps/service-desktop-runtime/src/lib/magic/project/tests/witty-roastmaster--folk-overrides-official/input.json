@@ -144,7 +144,9 @@
       "multiverseIds": [
         557681
       ],
+      "tcgPlayerId": null,
       "tcgplayerEtchedId": null,
+      "cardMarketId": null,
       "faces": [
         {
           "typeLine": "Creature — Devil Citizen",

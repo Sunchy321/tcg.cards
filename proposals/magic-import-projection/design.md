@@ -147,3 +147,51 @@ match 是投影任务内部的**前置步骤**（批次级）。
 - `CONTEXT.md` — Magic 段（cardId / card version / localization source / data source ownership / unified localization / slug annotation）。
 - `docs/adr/0001-magic-cardid-identity.md` — cardId 身份模型决策。
 - `data-sources.md` — 数据源结构与字段增量对比。
+
+## 7. 投影管线重构与评审模型（2026-09 决策）
+
+> 本节是投影实现（§4.5 / plan §11-12）在评审中进一步收敛出的设计；以本节为准。
+
+### 7.1 四阶段管线
+
+1. **match/slug 固化（整体）**：计算 unit→cardId；冲突可裁决前**不得进入下一步**。
+2. **逐行投影（印刷行）**：每条原始行 → `prints`/`print_parts`（可并行、低内存）。
+3. **逐卡收集 + 一致性检查（整体）**：提取该卡所有归集行 → 一致性检查 → `cards`/`card_parts`/本地化/unified。
+4. **清理（整体）**：软删陈旧行等。
+
+- 单位（unit）：普通 oracle = `oracleId`；`double_faced_token` = `oracleId:0/1`（一行两卡）；`reversible_card` 无 unit，只按 face 给对应卡补印刷（两 face 同 oracle → 同卡两条 print，number 加 `a`/`b`）；`art_series` 在 DB 查询层排除。
+- 逐行 vs 整体：match 与 reconcile 必须整体；印刷行可逐行；本地化与 unified 是 (卡×语言) 聚合，放第 3 步。
+
+### 7.2 slug 表（`card_slug_annotations` → `card_slug_resolutions`）
+
+- **只在发生过冲突的 slug 上写行**；天然唯一、无冲突的 slug 一律不落表。
+- 表（`magic_data`）：
+  - `slug` PK
+  - `oracle_ids text[]` NOT NULL 默认 `[]`（占用该 slug 的 oracle；空=无占用/墓碑；同一 slug 可对应多个 oracle = 合并卡）
+  - `resolvedTo text[]`（消歧义拆出去的 slug 去向）
+  - `reason` / `notes` / `createdAt` / `updatedAt`
+- 语义：
+  - 合并 → `slug a`，`oracle_ids=[x,y]`；
+  - 拆分（父）→ `slug a`，`oracle_ids=[]` 或 `=[x]`（x 留），`resolvedTo=[a',a'']`；
+  - 某 slug 有行且新 unit 的自然 slug 命中且不在 `oracle_ids` → 进入待审（不自动）。
+- 冲突“待裁决”状态本身**不存本表**，存评审表（见 7.3）。
+
+### 7.3 统一评审（`base_change_review` → `projection_review`）
+
+- 一张表承载三种 review（同一评审 UI/门禁，按 kind 渲染）：
+  - `slug_conflict`：不同 oracle normalize 到同一 slug 且无已解方案；
+  - `card_inconsistency`：第 3 步一致性检查失败（同一卡归集行的**非本地化/卡级**字段不一致，例如“本质同卡但描述略有差异”的 token，可借此获得 slug 重新裁决机会）；
+  - `card_field_overwrite`：(a) base 换代要覆盖人工 overlay / (b) unified 民间(mtgch)覆盖官方 等“写卡字段需确认”。
+- 列：`id` PK；`kind`（三值）；`subject jsonb`（`{slug}`/`{cardId}`/`{cardId, locale, fieldPath}`）；`payload jsonb`（证据：候选成员/不一致行字段值/old-new）；`status`（pending/resolved/dismissed）；`resolution jsonb`；时间列、（可选 `actor`）。
+- 三种触发的落点与结果：
+  - slug_conflict 解决 → 写 `card_slug_resolutions`；
+  - card_inconsistency 解决 → 依裁决改 slug 或卡字段；
+  - card_field_overwrite 解决 → 采用 winner / 生成 commit。
+- 表名随职责更名（`projection_review`/`card_slug_resolutions`），schema 直接建新名，避免日后 rename 迁移。
+
+### 7.4 第 3 步一致性检查（范围与行为）
+
+- **只比“进 `cards`/`card_parts` 的卡级/面级 oracle 非本地化字段”**（`layout` 不进 `cards`，不在比对内）。
+- print 相关字段各写各的行，不做一致性比对。
+- 全部一致 → 正常投影；任一不一致 → 该卡 `card_inconsistency` 待审并**跳过本次写卡**，不影响其它卡投影。
+

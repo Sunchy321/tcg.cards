@@ -1,7 +1,7 @@
 import { and, eq, isNotNull, ne } from 'drizzle-orm';
 
 import { db } from '@tcg-cards/db/db';
-import { CardSlugAnnotation, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
+import { CardSlugResolution, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
 import { slugifyName } from '@tcg-cards/shared/magic/slug';
 
 type Db = typeof db;
@@ -267,8 +267,13 @@ export async function matchBatch(database: Db = db): Promise<MatchResult> {
       ne(ScryfallCard.layout, 'art_series'),
     ));
 
-  const annotations = await database.select().from(CardSlugAnnotation);
-  const annotationByOracle = new Map(annotations.map(a => [a.oracleId, a.slug]));
+  // Slug resolutions map each occupied slug back to its oracle ids; a slug may
+  // be shared by several oracles (a card merged from multiple oracle objects).
+  const resolutions = await database.select().from(CardSlugResolution);
+  const annotationByOracle = new Map<string, string>();
+  for (const r of resolutions) {
+    for (const oid of r.oracleIds) annotationByOracle.set(oid, r.slug);
+  }
 
   const cardIdByUnit = new Map<string, string>();
   const slugToUnits = new Map<string, string[]>();

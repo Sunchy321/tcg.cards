@@ -2,7 +2,7 @@ import { slugifyName } from '@tcg-cards/shared/magic/slug';
 
 import { Card, CardLocalization, CardPart, CardPartLocalization } from '@tcg-cards/db/schema/shared/magic/card';
 import { Print, PrintPart } from '@tcg-cards/db/schema/shared/magic/print';
-import { BaseChangeReview, CardUnifiedLocalization } from '@tcg-cards/db/schema/local/magic';
+import { CardUnifiedLocalization, ProjectionReview } from '@tcg-cards/db/schema/local/magic';
 
 /**
  * Pure projection of one Magic "unit" into its fact-table base rows.
@@ -189,7 +189,7 @@ export interface ProjectCardResult {
   printParts:            (typeof PrintPart)['$inferInsert'][];
   unified:               (typeof CardUnifiedLocalization)['$inferInsert'][];
   /** A-class review rows when a folk translation overrides an official one. */
-  reviews:               (typeof BaseChangeReview)['$inferInsert'][];
+  reviews:               (typeof ProjectionReview)['$inferInsert'][];
 }
 
 // ---------------------------------------------------------------------------
@@ -464,12 +464,12 @@ function resolveFaces(assembled: AssembledCard, localized?: LocalizedFaceDraft[]
  */
 function buildUnified(assembled: AssembledCard): {
   unified: (typeof CardUnifiedLocalization)['$inferInsert'][];
-  reviews: (typeof BaseChangeReview)['$inferInsert'][];
+  reviews: (typeof ProjectionReview)['$inferInsert'][];
 } {
   const cardId = assembled.cardId;
   const version = '';
   const unified: (typeof CardUnifiedLocalization)['$inferInsert'][] = [];
-  const reviews: (typeof BaseChangeReview)['$inferInsert'][] = [];
+  const reviews: (typeof ProjectionReview)['$inferInsert'][] = [];
 
   // Official surfaces keyed by locale (source='', non-English).
   const official = new Map<string, CardLocalizationSurface>();
@@ -498,13 +498,10 @@ function buildUnified(assembled: AssembledCard): {
         const folkBody = joinBody(folkResolved.map(f => f.text));
         if (offBody !== folkBody) {
           reviews.push({
-            generation: '',
-            entityType: 'cardUnifiedLocalization',
-            entityKey:  { cardId, version, locale },
-            fieldPath:  'text',
-            oldValue:   offBody,
-            newValue:   folkBody,
-            status:     'pending',
+            kind:    'card_field_overwrite',
+            subject: { cardId, version, locale, fieldPath: 'text' },
+            payload: { oldValue: offBody, newValue: folkBody },
+            status:  'pending',
           });
         }
       }

@@ -5,7 +5,7 @@ import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { runWithDb } from '@tcg-cards/db';
 import { Card, CardLocalization, CardPart, CardPartLocalization } from '@tcg-cards/db/schema/shared/magic/card';
 import { Print, PrintPart } from '@tcg-cards/db/schema/shared/magic/print';
-import { BaseChangeReview, CardUnifiedLocalization } from '@tcg-cards/db/schema/local/magic';
+import { CardUnifiedLocalization, ProjectionReview } from '@tcg-cards/db/schema/local/magic';
 
 import { createDefinition } from '#task/definition';
 import { getLocalDb } from '../../../hearthstone/hsdata-local-db';
@@ -71,7 +71,7 @@ async function writeUnit(database: ProjectDb, result: ProjectCardResult): Promis
 
   // A-class review reminders are appended (no unique conflict target yet).
   if (result.reviews.length > 0) {
-    await database.insert(BaseChangeReview).values(result.reviews as never);
+    await database.insert(ProjectionReview).values(result.reviews as never);
   }
   counts.reviews = result.reviews.length;
   return counts;

@@ -186,7 +186,9 @@
       "multiverseId": [
         557681
       ],
-      "tcgplayerEtchedId": null
+      "tcgPlayerId": null,
+      "tcgplayerEtchedId": null,
+      "cardMarketId": null
     }
   ],
   "printParts": [
@@ -224,16 +226,17 @@
   ],
   "reviews": [
     {
-      "generation": "",
-      "entityType": "cardUnifiedLocalization",
-      "entityKey": {
+      "kind": "card_field_overwrite",
+      "subject": {
         "cardId": "witty-roastmaster",
         "version": "",
-        "locale": "zhs"
+        "locale": "zhs",
+        "fieldPath": "text"
       },
-      "fieldPath": "text",
-      "oldValue": "联手～每当另一个生物在你的操控下进战场时，诙谐损言师向每位对手各造成1点伤害。",
-      "newValue": "联手～每当另一个由你操控的生物进场时，此生物向每位对手各造成1点伤害。",
+      "payload": {
+        "oldValue": "联手～每当另一个生物在你的操控下进战场时，诙谐损言师向每位对手各造成1点伤害。",
+        "newValue": "联手～每当另一个由你操控的生物进场时，此生物向每位对手各造成1点伤害。"
+      },
       "status": "pending"
     }
   ]
