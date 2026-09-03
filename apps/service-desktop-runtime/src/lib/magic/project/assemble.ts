@@ -1,4 +1,4 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, ne } from 'drizzle-orm';
 
 import type { createDb } from '@tcg-cards/db';
 import { MtgchZhsOracle, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
@@ -36,6 +36,7 @@ interface RawFace {
   watermark?:         string | null;
   illustration_id?:   string | null;
   attraction_lights?: number[] | null;
+  oracle_id?:         string | null;
 }
 
 /** Faces of a print, aligned to the card's oracle faces. */
@@ -108,47 +109,47 @@ function oracleFaces(row: CardRow): OracleFaceDraft[] {
 
 function toPrintDraft(row: CardRow): PrintDraft {
   return {
-    lang: row.lang, set: row.set, number: row.collectorNumber, releasedAt: row.releasedAt,
-    layout:         row.layout,
-    frame:          row.frame,
-    frameEffects:   row.frameEffects ?? null,
-    borderColor:    row.borderColor,
-    cardBackId:     row.cardBackId,
-    securityStamp:  row.securityStamp,
-    promoTypes:     row.promoTypes ?? null,
-    rarity:         row.rarity,
-    isDigital:      row.digital,
-    isPromo:        row.promo,
-    isReprint:      row.reprint,
-    finishes:       row.finishes,
-    hasHighResImage: row.highresImage,
-    imageStatus:    row.imageStatus,
-    imageUpdatedAt: row.imageUpdatedAt,
-    fullImageType:  'jpg',
-    inBooster:      row.booster,
-    games:          row.games,
-    previewDate:    null,
-    previewSource:  null,
-    previewUri:     null,
-    fullArt:        row.fullArt,
-    oversized:      row.oversized,
-    storySpotlight: row.storySpotlight,
-    textless:       row.textless,
-    isVariation:    row.variation,
-    variationOf:    row.variationOf,
-    artistIds:      row.artistIds ?? null,
-    resourceId:     row.resourceId,
-    scryfallOracleId: row.oracleId ?? '',
-    scryfallCardId:   row.cardId,
-    scryfallFace:     null,
+    lang:              row.lang, set:               row.set, number:            row.collectorNumber, releasedAt:        row.releasedAt,
+    layout:            row.layout,
+    frame:             row.frame,
+    frameEffects:      row.frameEffects ?? null,
+    borderColor:       row.borderColor,
+    cardBackId:        row.cardBackId,
+    securityStamp:     row.securityStamp,
+    promoTypes:        row.promoTypes ?? null,
+    rarity:            row.rarity,
+    isDigital:         row.digital,
+    isPromo:           row.promo,
+    isReprint:         row.reprint,
+    finishes:          row.finishes,
+    hasHighResImage:   row.highresImage,
+    imageStatus:       row.imageStatus,
+    imageUpdatedAt:    row.imageUpdatedAt,
+    fullImageType:     'jpg',
+    inBooster:         row.booster,
+    games:             row.games,
+    previewDate:       null,
+    previewSource:     null,
+    previewUri:        null,
+    fullArt:           row.fullArt,
+    oversized:         row.oversized,
+    storySpotlight:    row.storySpotlight,
+    textless:          row.textless,
+    isVariation:       row.variation,
+    variationOf:       row.variationOf,
+    artistIds:         row.artistIds ?? null,
+    resourceId:        row.resourceId,
+    scryfallOracleId:  row.oracleId ?? '',
+    scryfallCardId:    row.cardId,
+    scryfallFace:      null,
     scryfallImageUris: row.imageUris != null ? [row.imageUris] : null,
     arenaId:           row.arenaId,
     mtgoId:            row.mtgoId,
     mtgoFoilId:        row.mtgoFoilId,
     multiverseIds:     row.multiverseIds ?? [],
-    tcgPlayerId:       row.tcgPlayerId,
+    tcgPlayerId:       row.tcgplayerId,
     tcgplayerEtchedId: row.tcgplayerEtchedId,
-    cardMarketId:      row.cardMarketId,
+    cardMarketId:      row.cardmarketId,
     faces:             printFaces(row),
   };
 }
@@ -313,7 +314,11 @@ function unitSlugs(en: CardRow): string[] {
  */
 export async function assembleUnits(database: ProjectDb, oracleId: string): Promise<AssembledCard[]> {
   const enRows = await database.select().from(ScryfallCard)
-    .where(and(eq(ScryfallCard.lang, 'en'), eq(ScryfallCard.oracleId, oracleId)))
+    .where(and(
+      eq(ScryfallCard.lang, 'en'),
+      eq(ScryfallCard.oracleId, oracleId),
+      ne(ScryfallCard.layout, 'art_series'),
+    ))
     .orderBy(asc(ScryfallCard.set), asc(ScryfallCard.collectorNumber))
     .limit(1);
 
@@ -339,22 +344,22 @@ export async function assembleUnits(database: ProjectDb, oracleId: string): Prom
         return draft;
       });
       out.push({
-        unit:          `${oracleId}:${i}`,
-        cardId:        slugs[i] ?? `${oracleId}-${i}`,
+        unit:           `${oracleId}:${i}`,
+        cardId:         slugs[i] ?? `${oracleId}-${i}`,
         oracleId,
-        layout:        'token',
-        setName:       en.setName,
-        cmc:           0,
-        colorIdentity: face.colors ?? [],
-        keywords:      [],
-        producedMana:  null,
-        reserved:      false,
+        layout:         'token',
+        setName:        en.setName,
+        cmc:            0,
+        colorIdentity:  face.colors ?? [],
+        keywords:       [],
+        producedMana:   null,
+        reserved:       false,
         contentWarning: null,
-        legalities:    {},
-        faces:         [face],
-        localizations: officialSurfaces(allRows, i),
+        legalities:     {},
+        faces:          [face],
+        localizations:  officialSurfaces(allRows, i),
         prints,
-        mtgch:         null,
+        mtgch:          null,
       });
     }
     return out;
@@ -366,10 +371,10 @@ export async function assembleUnits(database: ProjectDb, oracleId: string): Prom
   const faces = oracleFaces(en);
   const mtgchFaces = mtgchRows.length === faces.length && mtgchRows.length > 0
     ? mtgchRows.map(r => ({
-        name:     r.translatedName ?? null,
-        typeline: r.translatedType ?? null,
-        text:     r.translatedText ?? null,
-      }))
+      name:     r.translatedName ?? null,
+      typeline: r.translatedType ?? null,
+      text:     r.translatedText ?? null,
+    }))
     : null;
 
   const prints = [
@@ -378,22 +383,22 @@ export async function assembleUnits(database: ProjectDb, oracleId: string): Prom
   ];
 
   return [{
-    unit:            oracleId,
-    cardId:          cardIdFor(en),
+    unit:           oracleId,
+    cardId:         cardIdFor(en),
     oracleId,
-    layout:          en.layout,
-    setName:         en.setName,
-    cmc:             en.cmc ?? 0,
-    colorIdentity:   en.colorIdentity,
-    keywords:        en.keywords,
-    producedMana:    en.producedMana ?? null,
-    reserved:        en.reserved,
-    contentWarning:  en.contentWarning ?? null,
-    legalities:      (en.legalities as Record<string, string>) ?? {},
+    layout:         en.layout,
+    setName:        en.setName,
+    cmc:            en.cmc ?? 0,
+    colorIdentity:  en.colorIdentity,
+    keywords:       en.keywords,
+    producedMana:   en.producedMana ?? null,
+    reserved:       en.reserved,
+    contentWarning: en.contentWarning ?? null,
+    legalities:     (en.legalities as Record<string, string>) ?? {},
     faces,
-    localizations:   officialSurfaces(allRows),
+    localizations:  officialSurfaces(allRows),
     prints,
-    mtgch: mtgchFaces != null ? { faces: mtgchFaces } : null,
+    mtgch:          mtgchFaces != null ? { faces: mtgchFaces } : null,
   }];
 }
 

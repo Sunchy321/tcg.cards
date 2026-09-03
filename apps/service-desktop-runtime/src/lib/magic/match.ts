@@ -1,4 +1,4 @@
-import { and, eq, isNotNull } from 'drizzle-orm';
+import { and, eq, isNotNull, ne } from 'drizzle-orm';
 
 import { db } from '@tcg-cards/db/db';
 import { CardSlugAnnotation, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
@@ -259,7 +259,13 @@ export async function matchBatch(database: Db = db): Promise<MatchResult> {
     // Reversible cards have a null top-level oracle_id; they are alt-art printings
     // of an existing card, so they carry no match unit of their own (their identity
     // resolves via the faces at projection time).
-    .where(and(eq(ScryfallCard.lang, 'en'), isNotNull(ScryfallCard.oracleId)));
+    // art_series rows are standalone art cards (their own oracle ids); they
+    // never represent a playable card, so exclude them from matching.
+    .where(and(
+      eq(ScryfallCard.lang, 'en'),
+      isNotNull(ScryfallCard.oracleId),
+      ne(ScryfallCard.layout, 'art_series'),
+    ));
 
   const annotations = await database.select().from(CardSlugAnnotation);
   const annotationByOracle = new Map(annotations.map(a => [a.oracleId, a.slug]));
