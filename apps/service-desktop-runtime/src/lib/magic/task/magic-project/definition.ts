@@ -18,29 +18,31 @@ import { upsertBatch } from '../../upsert';
 export const magicProjectTaskType = 'magic_project';
 
 const output = z.object({
-  cards:        z.number(),
-  cardParts:    z.number(),
-  cardLocs:     z.number(),
-  cardPartLocs: z.number(),
-  prints:       z.number(),
-  printParts:   z.number(),
-  unified:      z.number(),
-  reviews:      z.number(),
-  softDeleted:  z.number(),
+  openConflicts: z.number(),
+  cards:         z.number(),
+  cardParts:     z.number(),
+  cardLocs:      z.number(),
+  cardPartLocs:  z.number(),
+  prints:        z.number(),
+  printParts:    z.number(),
+  unified:       z.number(),
+  reviews:       z.number(),
+  softDeleted:   z.number(),
 });
 
 type Counts = z.infer<typeof output>;
 
 const emptyCounts: Counts = {
-  cards:        0, cardParts:    0, cardLocs:     0, cardPartLocs: 0,
-  prints:       0, printParts:   0, unified:      0, reviews:      0, softDeleted:  0,
+  openConflicts: 0, cards:         0, cardParts:     0, cardLocs:      0, cardPartLocs:  0,
+  prints:        0, printParts:    0, unified:       0, reviews:       0, softDeleted:   0,
 };
 
 interface ProjectCtx {
-  oracleList: string[];
+  oracleList:    string[];
   /** unit key → resolved cardId for non-conflicting units. */
-  unitToCard: Map<string, string>;
-  counts:     Counts;
+  unitToCard:    Map<string, string>;
+  openConflicts: number;
+  counts:        Counts;
 }
 
 function addAll(target: Counts, delta: Partial<Counts>) {
@@ -119,8 +121,29 @@ const definition = createDefinition(magicProjectTaskType, {
   .stage('match', { label: '匹配', progressMode: 'simple' })
   .handler(async ({ ctx }) => {
     const magic = ctx as unknown as ProjectCtx;
+    magic.counts = { ...emptyCounts };
+    magic.openConflicts = 0;
     await runWithDb(getLocalDb(), async () => {
-      const matched = await matchBatch(getLocalDb());
+      const database = getLocalDb();
+      const matched = await matchBatch(database);
+
+      // Persist open slug conflicts into the unified review queue (kind
+      // slug_conflict). Pending rows are recomputed each run; resolved rows
+      // are left untouched.
+      await database.delete(ProjectionReview)
+        .where(and(eq(ProjectionReview.kind, 'slug_conflict'), eq(ProjectionReview.status, 'pending')));
+      const openRows: (typeof ProjectionReview)['$inferInsert'][] = [];
+      for (const [slug, keys] of matched.conflicts) {
+        openRows.push({ kind: 'slug_conflict', subject: { slug }, payload: { members: keys, reason: 'conflict' }, status: 'pending' });
+      }
+      for (const [slug, keys] of matched.blocked) {
+        openRows.push({ kind: 'slug_conflict', subject: { slug }, payload: { members: keys, reason: 'blocked' }, status: 'pending' });
+      }
+      if (openRows.length > 0) {
+        await database.insert(ProjectionReview).values(openRows as never);
+      }
+      magic.openConflicts = matched.conflicts.size + matched.blocked.size;
+
       const unitToCard = matched.cardIdByUnit;
       const oracleSet = new Set<string>();
       for (const unit of unitToCard.keys()) {
@@ -129,7 +152,6 @@ const definition = createDefinition(magicProjectTaskType, {
       magic.oracleList = [...oracleSet].sort();
       magic.unitToCard = unitToCard;
     });
-    magic.counts = { ...emptyCounts };
     return {};
   })
   .stage('project', { label: '投影', progressMode: 'bounded', resumeMode: 'durable' })
@@ -140,6 +162,13 @@ const definition = createDefinition(magicProjectTaskType, {
   })
   .block(async ({ ctx, blockInput, progress, checkpoint, done }) => {
     const magic = ctx as unknown as ProjectCtx;
+    // Unresolved slug conflicts gate the whole projection.
+    if (magic.openConflicts > 0) {
+      const next = { index: magic.oracleList.length };
+      await checkpoint(next);
+      progress({ done: next.index, total: next.index });
+      return done(next);
+    }
     const CHUNK = 100;
     const slice = magic.oracleList.slice(blockInput.index, blockInput.index + CHUNK);
 
@@ -168,6 +197,9 @@ const definition = createDefinition(magicProjectTaskType, {
   .stage('reconcile', { label: '清理陈旧行', progressMode: 'simple' })
   .handler(async ({ ctx }) => {
     const magic = ctx as unknown as ProjectCtx;
+    if (magic.openConflicts > 0) {
+      return { ...emptyCounts, openConflicts: magic.openConflicts };
+    }
     const target = new Set(magic.unitToCard.values());
     const deleted = await runWithDb(getLocalDb(), async () => {
       const database = getLocalDb();
@@ -178,6 +210,7 @@ const definition = createDefinition(magicProjectTaskType, {
       return n;
     });
     magic.counts.softDeleted = deleted;
+    magic.counts.openConflicts = 0;
     return magic.counts;
   })
   .build();

@@ -4,6 +4,10 @@
 
 **NEVER revert design decisions previously made without the user's explicit request.**
 
+**NEVER commit on your own unless the user explicitly instructs you to commit.**
+
+**NEVER surface development-time concepts in the user-facing frontend UI** — design decisions, design process, internal naming, or pipeline/table/step jargon (e.g. schema names, table names, stage names, review kinds, field paths) must not appear in interface text or be dumped as raw JSON to the screen. UI copy must use product/user language.
+
 ## Code Style
 
 For code style (comments, frontend code, naming), see [docs/code-style.md](./docs/code-style.md).

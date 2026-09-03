@@ -132,6 +132,7 @@ export function getGameNavItems(game: Game): ConsoleNavLink[] {
           { label: 'MTGJSON', icon: 'i-lucide-folder', to: `/${game}/data-source/mtgjson` },
           { label: 'MTGCH', icon: 'i-lucide-file-json', to: `/${game}/data-source/mtgch` },
           { label: '投影', icon: 'i-lucide-box', to: `/${game}/project` },
+          { label: '评审', icon: 'i-lucide-clipboard-list', to: `/${game}/review` },
         ],
       },
       {

@@ -234,6 +234,12 @@ export interface MatchResult {
   cardIdByUnit: Map<string, string>;
   /** slug → match-unit keys[] that need manual review (same slug, distinct cards). */
   conflicts:    Map<string, string[]>;
+  /**
+   * slug → match-unit keys[] whose natural slug already has a resolution row
+   * (occupied by other oracles, or reserved) — they must be reviewed, never
+   * auto-assigned.
+   */
+  blocked:      Map<string, string[]>;
 }
 
 /**
@@ -271,8 +277,10 @@ export async function matchBatch(database: Db = db): Promise<MatchResult> {
   // be shared by several oracles (a card merged from multiple oracle objects).
   const resolutions = await database.select().from(CardSlugResolution);
   const annotationByOracle = new Map<string, string>();
+  const resolutionBySlug = new Map<string, (typeof CardSlugResolution)['$inferSelect']>();
   for (const r of resolutions) {
     for (const oid of r.oracleIds) annotationByOracle.set(oid, r.slug);
+    resolutionBySlug.set(r.slug, r);
   }
 
   const cardIdByUnit = new Map<string, string>();
@@ -296,7 +304,19 @@ export async function matchBatch(database: Db = db): Promise<MatchResult> {
   }
 
   const conflicts = new Map<string, string[]>();
+  const blocked = new Map<string, string[]>();
+
   for (const [slug, keys] of slugToUnits) {
+    const resolution = resolutionBySlug.get(slug);
+    // A slug that already has a resolution row (occupied by other oracles or
+    // reserved) must not be auto-assigned to a new unit — route it to review.
+    if (resolution != null) {
+      const owned = new Set(resolution.oracleIds.map(o => String(o)));
+      if (!keys.every(key => owned.has(key.split(':')[0]!))) {
+        blocked.set(slug, keys);
+        continue;
+      }
+    }
     if (keys.length === 1) {
       cardIdByUnit.set(keys[0], slug);
     } else {
@@ -304,5 +324,5 @@ export async function matchBatch(database: Db = db): Promise<MatchResult> {
     }
   }
 
-  return { cardIdByUnit, conflicts };
+  return { cardIdByUnit, conflicts, blocked };
 }

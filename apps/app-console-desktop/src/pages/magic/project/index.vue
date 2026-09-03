@@ -7,7 +7,7 @@
             <UIcon name="i-lucide-boxes" class="size-5 text-primary" />
             <h1 class="text-xl font-semibold">万智牌投影</h1>
           </div>
-          <p class="mt-1 text-sm text-muted">把本地 magic_data 原始数据投影到事实表与 unified（本地库）。</p>
+          <p class="mt-1 text-sm text-muted">把本地收集的卡牌原始数据整理成站点可用的卡牌数据。</p>
         </div>
       </div>
     </div>
