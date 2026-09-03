@@ -1,0 +1,433 @@
+{
+  "cards": [
+    {
+      "cardId": "krarks-thumb",
+      "version": "",
+      "partCount": 1,
+      "name": "Krark's Thumb",
+      "typeline": "Legendary Artifact",
+      "manaValue": 2,
+      "colorIdentity": "",
+      "keywords": [],
+      "counters": [],
+      "producibleMana": null,
+      "category": "default",
+      "tags": [],
+      "legalities": {
+        "tlr": "legal",
+        "duelcommander": "legal",
+        "brawl": "unavailable",
+        "penny": "legal",
+        "predh": "legal",
+        "future": "unavailable",
+        "legacy": "legal",
+        "modern": "legal",
+        "pauper": "unavailable",
+        "alchemy": "unavailable",
+        "pioneer": "unavailable",
+        "vintage": "legal",
+        "historic": "unavailable",
+        "standard": "unavailable",
+        "timeless": "unavailable",
+        "commander": "legal",
+        "gladiator": "unavailable",
+        "oldschool": "unavailable",
+        "premodern": "unavailable",
+        "oathbreaker": "legal",
+        "standard_brawl": "unavailable",
+        "pauper_commander": "unavailable",
+        "competitivebrawl": "unavailable"
+      },
+      "scryfallOracleId": [
+        "a97c8482-775c-4f11-9872-25b4f9bfcb1a"
+      ]
+    }
+  ],
+  "cardParts": [
+    {
+      "cardId": "krarks-thumb",
+      "version": "",
+      "partIndex": 0,
+      "name": "Krark's Thumb",
+      "typeline": "Legendary Artifact",
+      "text": "If you would flip a coin, instead flip two coins and ignore one.",
+      "cost": [
+        "2"
+      ],
+      "manaValue": 2,
+      "color": "",
+      "colorIndicator": null,
+      "typeSuper": [
+        "legendary"
+      ],
+      "typeMain": [
+        "artifact"
+      ],
+      "typeSub": null,
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    }
+  ],
+  "cardLocalizations": [
+    {
+      "cardId": "krarks-thumb",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "name": "Krark's Thumb",
+      "typeline": "Legendary Artifact"
+    }
+  ],
+  "cardPartLocalizations": [
+    {
+      "cardId": "krarks-thumb",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "Krark's Thumb",
+      "typeline": "Legendary Artifact",
+      "text": "If you would flip a coin, instead flip two coins and ignore one."
+    }
+  ],
+  "prints": [
+    {
+      "cardId": "krarks-thumb",
+      "version": "",
+      "set": "sld",
+      "number": "383b",
+      "lang": "en",
+      "source": "",
+      "name": "Krark's Thumb",
+      "typeline": "Legendary Artifact",
+      "layout": "reversible_card",
+      "frame": "2015",
+      "frameEffects": [
+        "legendary",
+        "inverted"
+      ],
+      "borderColor": "borderless",
+      "cardBack": null,
+      "securityStamp": "oval",
+      "promoTypes": null,
+      "rarity": "rare",
+      "releaseDate": "2022-04-22",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": true,
+      "finishes": [
+        "foil"
+      ],
+      "hasHighResImage": true,
+      "imageStatus": "highres_scan",
+      "imageUpdatedAt": "2026-07-13T06:18:56Z",
+      "fullImageType": "jpg",
+      "inBooster": false,
+      "games": [
+        "paper"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "printTags": [
+        "full-art"
+      ],
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "4f2bf9ef-33f0-4a83-89e3-fc5ec4079031"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "",
+      "scryfallCardId": "9f63277b-e139-46c8-b9e3-0cfb647f44cc",
+      "scryfallFace": "back",
+      "scryfallImageUris": null,
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseId": [],
+      "tcgplayerEtchedId": null
+    },
+    {
+      "cardId": "krarks-thumb",
+      "version": "",
+      "set": "sld",
+      "number": "383a",
+      "lang": "en",
+      "source": "",
+      "name": "Krark's Thumb",
+      "typeline": "Legendary Artifact",
+      "layout": "reversible_card",
+      "frame": "2015",
+      "frameEffects": [
+        "legendary",
+        "inverted"
+      ],
+      "borderColor": "borderless",
+      "cardBack": null,
+      "securityStamp": "oval",
+      "promoTypes": null,
+      "rarity": "rare",
+      "releaseDate": "2022-04-22",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": true,
+      "finishes": [
+        "foil"
+      ],
+      "hasHighResImage": true,
+      "imageStatus": "highres_scan",
+      "imageUpdatedAt": "2026-07-13T06:18:56Z",
+      "fullImageType": "jpg",
+      "inBooster": false,
+      "games": [
+        "paper"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "printTags": [
+        "full-art"
+      ],
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "4f2bf9ef-33f0-4a83-89e3-fc5ec4079031"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "",
+      "scryfallCardId": "9f63277b-e139-46c8-b9e3-0cfb647f44cc",
+      "scryfallFace": "front",
+      "scryfallImageUris": null,
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseId": [],
+      "tcgplayerEtchedId": null
+    },
+    {
+      "cardId": "krarks-thumb",
+      "version": "",
+      "set": "plst",
+      "number": "MRD-190",
+      "lang": "en",
+      "source": "",
+      "name": "Krark's Thumb",
+      "typeline": "Legendary Artifact",
+      "layout": "normal",
+      "frame": "2003",
+      "frameEffects": [],
+      "borderColor": "black",
+      "cardBack": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "securityStamp": null,
+      "promoTypes": null,
+      "rarity": "rare",
+      "releaseDate": "2020-09-01",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": true,
+      "finishes": [
+        "nonfoil"
+      ],
+      "hasHighResImage": true,
+      "imageStatus": "highres_scan",
+      "imageUpdatedAt": "2026-07-13T08:00:36Z",
+      "fullImageType": "jpg",
+      "inBooster": true,
+      "games": [
+        "paper"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "printTags": [],
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "dab52c11-0564-4207-a4a1-c1735c946a65"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "a97c8482-775c-4f11-9872-25b4f9bfcb1a",
+      "scryfallCardId": "d011d66d-7d27-4305-8a1b-7b5c24169769",
+      "scryfallFace": null,
+      "scryfallImageUris": [
+        {
+          "art": "https://cards.scryfall.io/art/front/d/0/d011d66d-7d27-4305-8a1b-7b5c24169769.webp?1783929636",
+          "png": "https://cards.scryfall.io/png/front/d/0/d011d66d-7d27-4305-8a1b-7b5c24169769.png?1783929636",
+          "crop": "https://cards.scryfall.io/crop/front/d/0/d011d66d-7d27-4305-8a1b-7b5c24169769.webp?1783929636",
+          "grid": "https://cards.scryfall.io/grid/front/d/0/d011d66d-7d27-4305-8a1b-7b5c24169769.webp?1783929636",
+          "large": "https://cards.scryfall.io/large/front/d/0/d011d66d-7d27-4305-8a1b-7b5c24169769.jpg?1783929636",
+          "small": "https://cards.scryfall.io/small/front/d/0/d011d66d-7d27-4305-8a1b-7b5c24169769.jpg?1783929636",
+          "thumb": "https://cards.scryfall.io/thumb/front/d/0/d011d66d-7d27-4305-8a1b-7b5c24169769.webp?1783929636",
+          "normal": "https://cards.scryfall.io/normal/front/d/0/d011d66d-7d27-4305-8a1b-7b5c24169769.jpg?1783929636",
+          "display": "https://cards.scryfall.io/display/front/d/0/d011d66d-7d27-4305-8a1b-7b5c24169769.webp?1783929636",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/d/0/d011d66d-7d27-4305-8a1b-7b5c24169769.jpg?1783929636",
+          "border_crop": "https://cards.scryfall.io/border_crop/front/d/0/d011d66d-7d27-4305-8a1b-7b5c24169769.jpg?1783929636"
+        }
+      ],
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseId": [],
+      "tcgplayerEtchedId": null
+    },
+    {
+      "cardId": "krarks-thumb",
+      "version": "",
+      "set": "mrd",
+      "number": "190",
+      "lang": "en",
+      "source": "",
+      "name": "Krark's Thumb",
+      "typeline": "Legendary Artifact",
+      "layout": "normal",
+      "frame": "2003",
+      "frameEffects": [],
+      "borderColor": "black",
+      "cardBack": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "securityStamp": null,
+      "promoTypes": null,
+      "rarity": "rare",
+      "releaseDate": "2003-10-02",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": false,
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "hasHighResImage": true,
+      "imageStatus": "highres_scan",
+      "imageUpdatedAt": "2026-07-13T12:08:37Z",
+      "fullImageType": "jpg",
+      "inBooster": true,
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "printTags": [],
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "dab52c11-0564-4207-a4a1-c1735c946a65"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "a97c8482-775c-4f11-9872-25b4f9bfcb1a",
+      "scryfallCardId": "78a5d49a-747e-4ec8-a20a-ca917c315774",
+      "scryfallFace": null,
+      "scryfallImageUris": [
+        {
+          "art": "https://cards.scryfall.io/art/front/7/8/78a5d49a-747e-4ec8-a20a-ca917c315774.webp?1783944517",
+          "png": "https://cards.scryfall.io/png/front/7/8/78a5d49a-747e-4ec8-a20a-ca917c315774.png?1783944517",
+          "crop": "https://cards.scryfall.io/crop/front/7/8/78a5d49a-747e-4ec8-a20a-ca917c315774.webp?1783944517",
+          "grid": "https://cards.scryfall.io/grid/front/7/8/78a5d49a-747e-4ec8-a20a-ca917c315774.webp?1783944517",
+          "large": "https://cards.scryfall.io/large/front/7/8/78a5d49a-747e-4ec8-a20a-ca917c315774.jpg?1783944517",
+          "small": "https://cards.scryfall.io/small/front/7/8/78a5d49a-747e-4ec8-a20a-ca917c315774.jpg?1783944517",
+          "thumb": "https://cards.scryfall.io/thumb/front/7/8/78a5d49a-747e-4ec8-a20a-ca917c315774.webp?1783944517",
+          "normal": "https://cards.scryfall.io/normal/front/7/8/78a5d49a-747e-4ec8-a20a-ca917c315774.jpg?1783944517",
+          "display": "https://cards.scryfall.io/display/front/7/8/78a5d49a-747e-4ec8-a20a-ca917c315774.webp?1783944517",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/7/8/78a5d49a-747e-4ec8-a20a-ca917c315774.jpg?1783944517",
+          "border_crop": "https://cards.scryfall.io/border_crop/front/7/8/78a5d49a-747e-4ec8-a20a-ca917c315774.jpg?1783944517"
+        }
+      ],
+      "arenaId": null,
+      "mtgoId": 20177,
+      "mtgoFoilId": 20178,
+      "multiverseId": [
+        48923
+      ],
+      "tcgplayerEtchedId": null
+    }
+  ],
+  "printParts": [
+    {
+      "cardId": "krarks-thumb",
+      "version": "",
+      "set": "sld",
+      "number": "383b",
+      "lang": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "Krark's Thumb",
+      "typeline": "Legendary Artifact",
+      "text": "If you would flip a coin, instead flip two coins and ignore one.",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": "The thumb is said to bring its owner good luck up until the end of their life. That duration has yet to be specified.",
+      "artist": "Wooden Cyclops",
+      "watermark": null,
+      "scryfallIllusId": [
+        "f413d15c-7593-4d7d-8ff1-c5b247e0b4f5"
+      ]
+    },
+    {
+      "cardId": "krarks-thumb",
+      "version": "",
+      "set": "sld",
+      "number": "383a",
+      "lang": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "Krark's Thumb",
+      "typeline": "Legendary Artifact",
+      "text": "If you would flip a coin, instead flip two coins and ignore one.",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": "As a child, Slobad fashioned a music box out of the wayward digit. Its simple tune was his sole companion on many lonely nights.",
+      "artist": "Wooden Cyclops",
+      "watermark": null,
+      "scryfallIllusId": [
+        "f9b03190-4d14-422c-b6cb-60a2f58fc8b7"
+      ]
+    },
+    {
+      "cardId": "krarks-thumb",
+      "version": "",
+      "set": "plst",
+      "number": "MRD-190",
+      "lang": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "Krark's Thumb",
+      "typeline": "Legendary Artifact",
+      "text": "If you would flip a coin, instead flip two coins and ignore one.",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": "\"I can think of *one* goblin it ain't so lucky for.\"\n—Slobad, goblin tinkerer",
+      "artist": "Ron Spencer",
+      "watermark": null,
+      "scryfallIllusId": [
+        "53a9cb37-4056-4ad5-a703-65021a07a190"
+      ]
+    },
+    {
+      "cardId": "krarks-thumb",
+      "version": "",
+      "set": "mrd",
+      "number": "190",
+      "lang": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "Krark's Thumb",
+      "typeline": "Legendary Artifact",
+      "text": "If you would flip a coin, instead flip two coins and ignore one.",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": "\"I can think of *one* goblin it ain't so lucky for.\"\n—Slobad, goblin tinkerer",
+      "artist": "Ron Spencer",
+      "watermark": null,
+      "scryfallIllusId": [
+        "53a9cb37-4056-4ad5-a703-65021a07a190"
+      ]
+    }
+  ],
+  "unified": [],
+  "reviews": []
+}

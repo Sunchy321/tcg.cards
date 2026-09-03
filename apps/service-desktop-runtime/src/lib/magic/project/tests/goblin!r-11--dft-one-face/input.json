@@ -1,0 +1,104 @@
+{
+  "unit": "0823fbf2-7b39-4869-b3f0-091b7d7d0a5d:0",
+  "cardId": "goblin!r-11",
+  "oracleId": "0823fbf2-7b39-4869-b3f0-091b7d7d0a5d",
+  "layout": "token",
+  "setName": "GRN Guild Kit Tokens",
+  "cmc": 0,
+  "colorIdentity": [
+    "R"
+  ],
+  "keywords": [],
+  "producedMana": null,
+  "reserved": false,
+  "contentWarning": null,
+  "legalities": {},
+  "faces": [
+    {
+      "name": "Goblin",
+      "typeLine": "Token Creature — Goblin",
+      "oracleText": "",
+      "manaCost": "",
+      "cmc": null,
+      "colors": [
+        "R"
+      ],
+      "colorIndicator": null,
+      "power": "1",
+      "toughness": "1",
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    }
+  ],
+  "localizations": [],
+  "prints": [
+    {
+      "lang": "en",
+      "set": "tgk1",
+      "number": "4",
+      "releasedAt": "2018-11-02",
+      "layout": "double_faced_token",
+      "frame": "2015",
+      "frameEffects": null,
+      "borderColor": "black",
+      "cardBackId": null,
+      "securityStamp": null,
+      "promoTypes": null,
+      "rarity": "common",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": false,
+      "finishes": [
+        "nonfoil"
+      ],
+      "hasHighResImage": true,
+      "imageStatus": "highres_scan",
+      "imageUpdatedAt": "2026-07-13T09:13:28Z",
+      "fullImageType": "jpg",
+      "inBooster": false,
+      "games": [
+        "paper"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "fullArt": false,
+      "oversized": false,
+      "storySpotlight": false,
+      "textless": false,
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "48e2b98c-5467-4671-bd42-4c3746115117",
+        "a4f50310-4b01-4cd3-8ab8-85b31e6876db"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "0823fbf2-7b39-4869-b3f0-091b7d7d0a5d",
+      "scryfallCardId": "64f4dc68-060b-4c63-8f43-00f53c52a251",
+      "scryfallFace": null,
+      "scryfallImageUris": null,
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseIds": [],
+      "tcgplayerEtchedId": null,
+      "faces": [
+        {
+          "typeLine": "Token Creature — Goblin",
+          "printedName": null,
+          "printedTypeLine": null,
+          "printedText": null,
+          "flavorName": null,
+          "flavorText": null,
+          "artist": "Mark Zug",
+          "watermark": null,
+          "illustrationId": "1472da50-4fce-4777-8983-ba5d0a0efdea",
+          "attractionLights": null
+        }
+      ]
+    }
+  ],
+  "mtgch": null
+}

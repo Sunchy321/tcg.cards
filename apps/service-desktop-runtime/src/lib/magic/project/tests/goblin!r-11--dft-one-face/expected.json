@@ -1,0 +1,152 @@
+{
+  "cards": [
+    {
+      "cardId": "goblin!r-11",
+      "version": "",
+      "partCount": 1,
+      "name": "Goblin",
+      "typeline": "Token Creature — Goblin",
+      "manaValue": 0,
+      "colorIdentity": "R",
+      "keywords": [],
+      "counters": [],
+      "producibleMana": null,
+      "category": "token",
+      "tags": [],
+      "legalities": {},
+      "scryfallOracleId": [
+        "0823fbf2-7b39-4869-b3f0-091b7d7d0a5d"
+      ]
+    }
+  ],
+  "cardParts": [
+    {
+      "cardId": "goblin!r-11",
+      "version": "",
+      "partIndex": 0,
+      "name": "Goblin",
+      "typeline": "Token Creature — Goblin",
+      "text": "",
+      "cost": null,
+      "manaValue": null,
+      "color": "R",
+      "colorIndicator": null,
+      "typeSuper": [
+        "token"
+      ],
+      "typeMain": [
+        "creature"
+      ],
+      "typeSub": [
+        "goblin"
+      ],
+      "power": "1",
+      "toughness": "1",
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    }
+  ],
+  "cardLocalizations": [
+    {
+      "cardId": "goblin!r-11",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "name": "Goblin",
+      "typeline": "Token Creature — Goblin"
+    }
+  ],
+  "cardPartLocalizations": [
+    {
+      "cardId": "goblin!r-11",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "Goblin",
+      "typeline": "Token Creature — Goblin",
+      "text": ""
+    }
+  ],
+  "prints": [
+    {
+      "cardId": "goblin!r-11",
+      "version": "",
+      "set": "tgk1",
+      "number": "4",
+      "lang": "en",
+      "source": "",
+      "name": "Goblin",
+      "typeline": "Token Creature — Goblin",
+      "layout": "double_faced_token",
+      "frame": "2015",
+      "frameEffects": [],
+      "borderColor": "black",
+      "cardBack": null,
+      "securityStamp": null,
+      "promoTypes": null,
+      "rarity": "common",
+      "releaseDate": "2018-11-02",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": false,
+      "finishes": [
+        "nonfoil"
+      ],
+      "hasHighResImage": true,
+      "imageStatus": "highres_scan",
+      "imageUpdatedAt": "2026-07-13T09:13:28Z",
+      "fullImageType": "jpg",
+      "inBooster": false,
+      "games": [
+        "paper"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "printTags": [],
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "48e2b98c-5467-4671-bd42-4c3746115117",
+        "a4f50310-4b01-4cd3-8ab8-85b31e6876db"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "0823fbf2-7b39-4869-b3f0-091b7d7d0a5d",
+      "scryfallCardId": "64f4dc68-060b-4c63-8f43-00f53c52a251",
+      "scryfallFace": null,
+      "scryfallImageUris": null,
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseId": [],
+      "tcgplayerEtchedId": null
+    }
+  ],
+  "printParts": [
+    {
+      "cardId": "goblin!r-11",
+      "version": "",
+      "set": "tgk1",
+      "number": "4",
+      "lang": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "Goblin",
+      "typeline": "Token Creature — Goblin",
+      "text": "",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": null,
+      "artist": "Mark Zug",
+      "watermark": null,
+      "scryfallIllusId": [
+        "1472da50-4fce-4777-8983-ba5d0a0efdea"
+      ]
+    }
+  ],
+  "unified": [],
+  "reviews": []
+}

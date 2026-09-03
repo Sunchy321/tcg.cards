@@ -14,6 +14,10 @@ export const CardUnifiedLocalization = dataSchema.table('card_unified_localizati
   cardId:  text('card_id').notNull(),
   version: text('version').notNull().default(''),
   locale:  locale('locale').notNull(),
+  // Winner localization source: '' = established by an official print (recorded
+  // in sourceSet/sourceNumber/sourceReleaseDate), 'mtgch' = established by the
+  // community Chinese translation. English canonical text is never stored here.
+  source:  text('source').notNull().default(''),
 
   name:       text('unified_name').notNull(),
   typeline:   text('unified_typeline').notNull(),

@@ -1,0 +1,192 @@
+{
+  "cards": [
+    {
+      "cardId": "lightning-bolt",
+      "version": "",
+      "partCount": 1,
+      "name": "Lightning Bolt",
+      "typeline": "Instant",
+      "manaValue": 1,
+      "colorIdentity": "R",
+      "keywords": [],
+      "counters": [],
+      "producibleMana": null,
+      "category": "default",
+      "tags": [],
+      "legalities": {
+        "tlr": "legal",
+        "duelcommander": "legal",
+        "brawl": "legal",
+        "penny": "unavailable",
+        "predh": "legal",
+        "future": "unavailable",
+        "legacy": "legal",
+        "modern": "legal",
+        "pauper": "legal",
+        "alchemy": "unavailable",
+        "pioneer": "unavailable",
+        "vintage": "legal",
+        "historic": "banned",
+        "standard": "unavailable",
+        "timeless": "legal",
+        "commander": "legal",
+        "gladiator": "legal",
+        "oldschool": "legal",
+        "premodern": "legal",
+        "oathbreaker": "legal",
+        "standard_brawl": "unavailable",
+        "pauper_commander": "legal",
+        "competitivebrawl": "legal"
+      },
+      "scryfallOracleId": [
+        "4457ed35-7c10-48c8-9776-456485fdf070"
+      ]
+    }
+  ],
+  "cardParts": [
+    {
+      "cardId": "lightning-bolt",
+      "version": "",
+      "partIndex": 0,
+      "name": "Lightning Bolt",
+      "typeline": "Instant",
+      "text": "Lightning Bolt deals 3 damage to any target.",
+      "cost": [
+        "R"
+      ],
+      "manaValue": 1,
+      "color": "R",
+      "colorIndicator": null,
+      "typeSuper": null,
+      "typeMain": [
+        "instant"
+      ],
+      "typeSub": null,
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    }
+  ],
+  "cardLocalizations": [
+    {
+      "cardId": "lightning-bolt",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "name": "Lightning Bolt",
+      "typeline": "Instant"
+    }
+  ],
+  "cardPartLocalizations": [
+    {
+      "cardId": "lightning-bolt",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "Lightning Bolt",
+      "typeline": "Instant",
+      "text": "Lightning Bolt deals 3 damage to any target."
+    }
+  ],
+  "prints": [
+    {
+      "cardId": "lightning-bolt",
+      "version": "",
+      "set": "msc",
+      "number": "806",
+      "lang": "en",
+      "source": "",
+      "name": "Lightning Bolt",
+      "typeline": "Instant",
+      "layout": "normal",
+      "frame": "2015",
+      "frameEffects": [],
+      "borderColor": "black",
+      "cardBack": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "securityStamp": null,
+      "promoTypes": [
+        "universesbeyond"
+      ],
+      "rarity": "uncommon",
+      "releaseDate": "2026-06-26",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": true,
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "hasHighResImage": true,
+      "imageStatus": "highres_scan",
+      "imageUpdatedAt": "2026-07-13T00:36:48Z",
+      "fullImageType": "jpg",
+      "inBooster": false,
+      "games": [
+        "paper",
+        "mtgo",
+        "arena"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "printTags": [],
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "1eced451-4da5-42bc-b49d-70c41246581f"
+      ],
+      "resourceId": "A59396A4D646C69A1DD41F9906BE9A9CDECE83F18DC5C53501DD7BAE50511DBB",
+      "scryfallOracleId": "4457ed35-7c10-48c8-9776-456485fdf070",
+      "scryfallCardId": "7673784e-db4b-43a1-8d55-1bb9fc1e284f",
+      "scryfallFace": null,
+      "scryfallImageUris": [
+        {
+          "art": "https://cards.scryfall.io/art/front/7/6/7673784e-db4b-43a1-8d55-1bb9fc1e284f.webp?1783903008",
+          "png": "https://cards.scryfall.io/png/front/7/6/7673784e-db4b-43a1-8d55-1bb9fc1e284f.png?1783903008",
+          "crop": "https://cards.scryfall.io/crop/front/7/6/7673784e-db4b-43a1-8d55-1bb9fc1e284f.webp?1783903008",
+          "grid": "https://cards.scryfall.io/grid/front/7/6/7673784e-db4b-43a1-8d55-1bb9fc1e284f.webp?1783903008",
+          "large": "https://cards.scryfall.io/large/front/7/6/7673784e-db4b-43a1-8d55-1bb9fc1e284f.jpg?1783903008",
+          "small": "https://cards.scryfall.io/small/front/7/6/7673784e-db4b-43a1-8d55-1bb9fc1e284f.jpg?1783903008",
+          "thumb": "https://cards.scryfall.io/thumb/front/7/6/7673784e-db4b-43a1-8d55-1bb9fc1e284f.webp?1783903008",
+          "normal": "https://cards.scryfall.io/normal/front/7/6/7673784e-db4b-43a1-8d55-1bb9fc1e284f.jpg?1783903008",
+          "display": "https://cards.scryfall.io/display/front/7/6/7673784e-db4b-43a1-8d55-1bb9fc1e284f.webp?1783903008",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/7/6/7673784e-db4b-43a1-8d55-1bb9fc1e284f.jpg?1783903008",
+          "border_crop": "https://cards.scryfall.io/border_crop/front/7/6/7673784e-db4b-43a1-8d55-1bb9fc1e284f.jpg?1783903008"
+        }
+      ],
+      "arenaId": 105816,
+      "mtgoId": 152037,
+      "mtgoFoilId": null,
+      "multiverseId": [],
+      "tcgplayerEtchedId": null
+    }
+  ],
+  "printParts": [
+    {
+      "cardId": "lightning-bolt",
+      "version": "",
+      "set": "msc",
+      "number": "806",
+      "lang": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "Lightning Bolt",
+      "typeline": "Instant",
+      "text": "Lightning Bolt deals 3 damage to any target.",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": "\"I am the god of thunder, the lord of the savage lightning, and the very skies must tremble when speaks The Mighty Thor!\"",
+      "artist": "Milivoj Ćeran",
+      "watermark": null,
+      "scryfallIllusId": [
+        "58884d99-ed2d-4efd-b192-b1eb6f87c39f"
+      ]
+    }
+  ],
+  "unified": [],
+  "reviews": []
+}

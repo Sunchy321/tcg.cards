@@ -1,0 +1,146 @@
+{
+  "unit": "4457ed35-7c10-48c8-9776-456485fdf070",
+  "cardId": "lightning-bolt",
+  "oracleId": "4457ed35-7c10-48c8-9776-456485fdf070",
+  "layout": "normal",
+  "setName": "Unlimited Edition",
+  "cmc": 1,
+  "colorIdentity": [
+    "R"
+  ],
+  "keywords": [],
+  "producedMana": null,
+  "reserved": false,
+  "contentWarning": null,
+  "legalities": {
+    "tlr": "legal",
+    "duel": "legal",
+    "brawl": "legal",
+    "penny": "not_legal",
+    "predh": "legal",
+    "future": "not_legal",
+    "legacy": "legal",
+    "modern": "legal",
+    "pauper": "legal",
+    "alchemy": "not_legal",
+    "pioneer": "not_legal",
+    "vintage": "legal",
+    "historic": "banned",
+    "standard": "not_legal",
+    "timeless": "legal",
+    "commander": "legal",
+    "gladiator": "legal",
+    "oldschool": "legal",
+    "premodern": "legal",
+    "oathbreaker": "legal",
+    "standardbrawl": "not_legal",
+    "paupercommander": "legal",
+    "competitivebrawl": "legal"
+  },
+  "faces": [
+    {
+      "name": "Lightning Bolt",
+      "typeLine": "Instant",
+      "oracleText": "Lightning Bolt deals 3 damage to any target.",
+      "manaCost": "{R}",
+      "cmc": 1,
+      "colors": [
+        "R"
+      ],
+      "colorIndicator": null,
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    }
+  ],
+  "localizations": [],
+  "prints": [
+    {
+      "lang": "en",
+      "set": "msc",
+      "number": "806",
+      "releasedAt": "2026-06-26",
+      "layout": "normal",
+      "frame": "2015",
+      "frameEffects": null,
+      "borderColor": "black",
+      "cardBackId": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "securityStamp": null,
+      "promoTypes": [
+        "universesbeyond"
+      ],
+      "rarity": "uncommon",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": true,
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "hasHighResImage": true,
+      "imageStatus": "highres_scan",
+      "imageUpdatedAt": "2026-07-13T00:36:48Z",
+      "fullImageType": "jpg",
+      "inBooster": false,
+      "games": [
+        "paper",
+        "mtgo",
+        "arena"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "fullArt": false,
+      "oversized": false,
+      "storySpotlight": false,
+      "textless": false,
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "1eced451-4da5-42bc-b49d-70c41246581f"
+      ],
+      "resourceId": "A59396A4D646C69A1DD41F9906BE9A9CDECE83F18DC5C53501DD7BAE50511DBB",
+      "scryfallOracleId": "4457ed35-7c10-48c8-9776-456485fdf070",
+      "scryfallCardId": "7673784e-db4b-43a1-8d55-1bb9fc1e284f",
+      "scryfallFace": null,
+      "scryfallImageUris": [
+        {
+          "art": "https://cards.scryfall.io/art/front/7/6/7673784e-db4b-43a1-8d55-1bb9fc1e284f.webp?1783903008",
+          "png": "https://cards.scryfall.io/png/front/7/6/7673784e-db4b-43a1-8d55-1bb9fc1e284f.png?1783903008",
+          "crop": "https://cards.scryfall.io/crop/front/7/6/7673784e-db4b-43a1-8d55-1bb9fc1e284f.webp?1783903008",
+          "grid": "https://cards.scryfall.io/grid/front/7/6/7673784e-db4b-43a1-8d55-1bb9fc1e284f.webp?1783903008",
+          "large": "https://cards.scryfall.io/large/front/7/6/7673784e-db4b-43a1-8d55-1bb9fc1e284f.jpg?1783903008",
+          "small": "https://cards.scryfall.io/small/front/7/6/7673784e-db4b-43a1-8d55-1bb9fc1e284f.jpg?1783903008",
+          "thumb": "https://cards.scryfall.io/thumb/front/7/6/7673784e-db4b-43a1-8d55-1bb9fc1e284f.webp?1783903008",
+          "normal": "https://cards.scryfall.io/normal/front/7/6/7673784e-db4b-43a1-8d55-1bb9fc1e284f.jpg?1783903008",
+          "display": "https://cards.scryfall.io/display/front/7/6/7673784e-db4b-43a1-8d55-1bb9fc1e284f.webp?1783903008",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/7/6/7673784e-db4b-43a1-8d55-1bb9fc1e284f.jpg?1783903008",
+          "border_crop": "https://cards.scryfall.io/border_crop/front/7/6/7673784e-db4b-43a1-8d55-1bb9fc1e284f.jpg?1783903008"
+        }
+      ],
+      "arenaId": 105816,
+      "mtgoId": 152037,
+      "mtgoFoilId": null,
+      "multiverseIds": [],
+      "tcgplayerEtchedId": null,
+      "faces": [
+        {
+          "typeLine": "Instant",
+          "printedName": null,
+          "printedTypeLine": null,
+          "printedText": null,
+          "flavorName": null,
+          "flavorText": "\"I am the god of thunder, the lord of the savage lightning, and the very skies must tremble when speaks The Mighty Thor!\"",
+          "artist": "Milivoj Ćeran",
+          "watermark": null,
+          "illustrationId": "58884d99-ed2d-4efd-b192-b1eb6f87c39f",
+          "attractionLights": null
+        }
+      ]
+    }
+  ],
+  "mtgch": null
+}

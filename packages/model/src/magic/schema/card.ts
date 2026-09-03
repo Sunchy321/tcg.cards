@@ -95,6 +95,7 @@ export const cardUnifiedLocalization = z.strictObject({
   cardId:  z.string(),
   version: z.string().default(''),
   locale,
+  source:  z.string().default(''),
 
   name:       z.string(),
   typeline:   z.string(),

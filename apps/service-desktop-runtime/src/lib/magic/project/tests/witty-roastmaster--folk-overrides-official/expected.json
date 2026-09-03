@@ -1,0 +1,240 @@
+{
+  "cards": [
+    {
+      "cardId": "witty-roastmaster",
+      "version": "",
+      "partCount": 1,
+      "name": "Witty Roastmaster",
+      "typeline": "Creature — Devil Citizen",
+      "manaValue": 3,
+      "colorIdentity": "R",
+      "keywords": [
+        "alliance"
+      ],
+      "counters": [],
+      "producibleMana": null,
+      "category": "default",
+      "tags": [],
+      "legalities": {
+        "tlr": "legal",
+        "duelcommander": "legal",
+        "brawl": "legal",
+        "penny": "unavailable",
+        "predh": "unavailable",
+        "future": "unavailable",
+        "legacy": "legal",
+        "modern": "legal",
+        "pauper": "legal",
+        "alchemy": "unavailable",
+        "pioneer": "legal",
+        "vintage": "legal",
+        "historic": "legal",
+        "standard": "unavailable",
+        "timeless": "legal",
+        "commander": "legal",
+        "gladiator": "legal",
+        "oldschool": "unavailable",
+        "premodern": "unavailable",
+        "oathbreaker": "legal",
+        "standard_brawl": "unavailable",
+        "pauper_commander": "legal",
+        "competitivebrawl": "legal"
+      },
+      "scryfallOracleId": [
+        "34edbf1b-0826-49f1-a04d-15cc8c543b22"
+      ]
+    }
+  ],
+  "cardParts": [
+    {
+      "cardId": "witty-roastmaster",
+      "version": "",
+      "partIndex": 0,
+      "name": "Witty Roastmaster",
+      "typeline": "Creature — Devil Citizen",
+      "text": "Alliance — Whenever another creature you control enters, this creature deals 1 damage to each opponent.",
+      "cost": [
+        "2",
+        "R"
+      ],
+      "manaValue": 3,
+      "color": "R",
+      "colorIndicator": null,
+      "typeSuper": null,
+      "typeMain": [
+        "creature"
+      ],
+      "typeSub": [
+        "devil",
+        "citizen"
+      ],
+      "power": "3",
+      "toughness": "2",
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    }
+  ],
+  "cardLocalizations": [
+    {
+      "cardId": "witty-roastmaster",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "name": "Witty Roastmaster",
+      "typeline": "Creature — Devil Citizen"
+    },
+    {
+      "cardId": "witty-roastmaster",
+      "version": "",
+      "locale": "zhs",
+      "source": "",
+      "name": "诙谐损言师",
+      "typeline": "生物 ～魔鬼／市民"
+    }
+  ],
+  "cardPartLocalizations": [
+    {
+      "cardId": "witty-roastmaster",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "Witty Roastmaster",
+      "typeline": "Creature — Devil Citizen",
+      "text": "Alliance — Whenever another creature you control enters, this creature deals 1 damage to each opponent."
+    },
+    {
+      "cardId": "witty-roastmaster",
+      "version": "",
+      "locale": "zhs",
+      "source": "",
+      "partIndex": 0,
+      "name": "诙谐损言师",
+      "typeline": "生物 ～魔鬼／市民",
+      "text": "联手～每当另一个生物在你的操控下进战场时，诙谐损言师向每位对手各造成1点伤害。"
+    }
+  ],
+  "prints": [
+    {
+      "cardId": "witty-roastmaster",
+      "version": "",
+      "set": "snc",
+      "number": "131",
+      "lang": "zhs",
+      "source": "",
+      "name": "诙谐损言师",
+      "typeline": "生物 ～魔鬼／市民",
+      "layout": "normal",
+      "frame": "2015",
+      "frameEffects": [],
+      "borderColor": "black",
+      "cardBack": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "securityStamp": null,
+      "promoTypes": null,
+      "rarity": "common",
+      "releaseDate": "2022-04-29",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": false,
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "hasHighResImage": false,
+      "imageStatus": "lowres",
+      "imageUpdatedAt": "2026-06-30T21:44:58Z",
+      "fullImageType": "jpg",
+      "inBooster": true,
+      "games": [
+        "paper",
+        "mtgo",
+        "arena"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "printTags": [],
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "13b6c9ee-f7a8-46a4-934f-ea6b4a1b14b2"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "34edbf1b-0826-49f1-a04d-15cc8c543b22",
+      "scryfallCardId": "08560d3a-3509-4136-b6a5-63ac1ed469d6",
+      "scryfallFace": null,
+      "scryfallImageUris": [
+        {
+          "art": "https://cards.scryfall.io/art/front/0/8/08560d3a-3509-4136-b6a5-63ac1ed469d6.webp?1782855898",
+          "png": "https://cards.scryfall.io/png/front/0/8/08560d3a-3509-4136-b6a5-63ac1ed469d6.png?1782855898",
+          "crop": "https://cards.scryfall.io/crop/front/0/8/08560d3a-3509-4136-b6a5-63ac1ed469d6.webp?1782855898",
+          "grid": "https://cards.scryfall.io/grid/front/0/8/08560d3a-3509-4136-b6a5-63ac1ed469d6.webp?1782855898",
+          "large": "https://cards.scryfall.io/large/front/0/8/08560d3a-3509-4136-b6a5-63ac1ed469d6.jpg?1782855898",
+          "small": "https://cards.scryfall.io/small/front/0/8/08560d3a-3509-4136-b6a5-63ac1ed469d6.jpg?1782855898",
+          "thumb": "https://cards.scryfall.io/thumb/front/0/8/08560d3a-3509-4136-b6a5-63ac1ed469d6.webp?1782855898",
+          "normal": "https://cards.scryfall.io/normal/front/0/8/08560d3a-3509-4136-b6a5-63ac1ed469d6.jpg?1782855898",
+          "display": "https://cards.scryfall.io/display/front/0/8/08560d3a-3509-4136-b6a5-63ac1ed469d6.webp?1782855898",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/0/8/08560d3a-3509-4136-b6a5-63ac1ed469d6.jpg?1782855898",
+          "border_crop": "https://cards.scryfall.io/border_crop/front/0/8/08560d3a-3509-4136-b6a5-63ac1ed469d6.jpg?1782855898"
+        }
+      ],
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseId": [
+        557681
+      ],
+      "tcgplayerEtchedId": null
+    }
+  ],
+  "printParts": [
+    {
+      "cardId": "witty-roastmaster",
+      "version": "",
+      "set": "snc",
+      "number": "131",
+      "lang": "zhs",
+      "source": "",
+      "partIndex": 0,
+      "name": "诙谐损言师",
+      "typeline": "生物 ～魔鬼／市民",
+      "text": "联手～每当另一个生物在你的操控下进战场时，诙谐损言师向每位对手各造成1点伤害。",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": "运气好的话，离场时只有自尊受损。",
+      "artist": "Joe Slucher",
+      "watermark": "cabaretti",
+      "scryfallIllusId": [
+        "7d5e4ea9-1506-49e3-bc62-e5a5cbd4f6cc"
+      ]
+    }
+  ],
+  "unified": [
+    {
+      "cardId": "witty-roastmaster",
+      "version": "",
+      "locale": "zhs",
+      "source": "mtgch",
+      "name": "诙谐损言师",
+      "typeline": "生物～魔鬼／市民",
+      "text": "联手～每当另一个由你操控的生物进场时，此生物向每位对手各造成1点伤害。"
+    }
+  ],
+  "reviews": [
+    {
+      "generation": "",
+      "entityType": "cardUnifiedLocalization",
+      "entityKey": {
+        "cardId": "witty-roastmaster",
+        "version": "",
+        "locale": "zhs"
+      },
+      "fieldPath": "text",
+      "oldValue": "联手～每当另一个生物在你的操控下进战场时，诙谐损言师向每位对手各造成1点伤害。",
+      "newValue": "联手～每当另一个由你操控的生物进场时，此生物向每位对手各造成1点伤害。",
+      "status": "pending"
+    }
+  ]
+}
