@@ -1,0 +1,230 @@
+{
+  "cards": [
+    {
+      "cardId": "bounty-miron-tillas-jr--wanted",
+      "version": "",
+      "partCount": 2,
+      "name": "Bounty: Miron Tillas Jr. // Wanted!",
+      "typeline": "Card // Card",
+      "manaValue": 0,
+      "colorIdentity": "",
+      "keywords": [
+        "treasure"
+      ],
+      "counters": [],
+      "producibleMana": null,
+      "category": "default",
+      "tags": [
+        "dev:token"
+      ],
+      "legalities": {
+        "tlr": "unavailable",
+        "duelcommander": "unavailable",
+        "brawl": "unavailable",
+        "penny": "unavailable",
+        "predh": "unavailable",
+        "future": "unavailable",
+        "legacy": "unavailable",
+        "modern": "unavailable",
+        "pauper": "unavailable",
+        "alchemy": "unavailable",
+        "pioneer": "unavailable",
+        "vintage": "unavailable",
+        "historic": "unavailable",
+        "standard": "unavailable",
+        "timeless": "unavailable",
+        "commander": "unavailable",
+        "gladiator": "unavailable",
+        "oldschool": "unavailable",
+        "premodern": "unavailable",
+        "oathbreaker": "unavailable",
+        "standard_brawl": "unavailable",
+        "pauper_commander": "unavailable",
+        "competitivebrawl": "unavailable"
+      },
+      "scryfallOracleId": [
+        "0f49692c-534f-443a-b0f8-59dfb44c3549"
+      ]
+    }
+  ],
+  "cardParts": [
+    {
+      "cardId": "bounty-miron-tillas-jr--wanted",
+      "version": "",
+      "partIndex": 0,
+      "name": "Bounty: Miron Tillas Jr.",
+      "typeline": "Card",
+      "text": "At the beginning of your end step, if the nearest opponent to your left as the turn began was dealt combat damage this turn, collect your reward.",
+      "cost": null,
+      "manaValue": null,
+      "color": "",
+      "colorIndicator": null,
+      "typeSuper": null,
+      "typeMain": [
+        "card"
+      ],
+      "typeSub": null,
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    },
+    {
+      "cardId": "bounty-miron-tillas-jr--wanted",
+      "version": "",
+      "partIndex": 1,
+      "name": "Wanted!",
+      "typeline": "Card",
+      "text": "Before the game, shuffle at least 6 unique bounty cards into a face-down pile.\nAs the starting player's third turn begins, reveal the top bounty card.\nClaim the revealed bounty during your turn and collect your reward!\nAs each turn begins, if no bounty is being offered, reveal the next one. If the pile is empty, shuffle all claimed bounties and restock\nIf the bounty went unclaimed last turn, increase its reward to the next level.\nRewards\n1 — Create a Treasure token\n2 — Create two Treasure tokens\n3 — Create two Treasure tokens *or* draw a card\n4 — (Max) Create two Treasure tokens *and* draw a card.",
+      "cost": null,
+      "manaValue": null,
+      "color": "",
+      "colorIndicator": null,
+      "typeSuper": null,
+      "typeMain": [
+        "card"
+      ],
+      "typeSub": null,
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    }
+  ],
+  "cardLocalizations": [
+    {
+      "cardId": "bounty-miron-tillas-jr--wanted",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "name": "Bounty: Miron Tillas Jr. // Wanted!",
+      "typeline": "Card // Card"
+    }
+  ],
+  "cardPartLocalizations": [
+    {
+      "cardId": "bounty-miron-tillas-jr--wanted",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "Bounty: Miron Tillas Jr.",
+      "typeline": "Card",
+      "text": "At the beginning of your end step, if the nearest opponent to your left as the turn began was dealt combat damage this turn, collect your reward."
+    },
+    {
+      "cardId": "bounty-miron-tillas-jr--wanted",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "partIndex": 1,
+      "name": "Wanted!",
+      "typeline": "Card",
+      "text": "Before the game, shuffle at least 6 unique bounty cards into a face-down pile.\nAs the starting player's third turn begins, reveal the top bounty card.\nClaim the revealed bounty during your turn and collect your reward!\nAs each turn begins, if no bounty is being offered, reveal the next one. If the pile is empty, shuffle all claimed bounties and restock\nIf the bounty went unclaimed last turn, increase its reward to the next level.\nRewards\n1 — Create a Treasure token\n2 — Create two Treasure tokens\n3 — Create two Treasure tokens *or* draw a card\n4 — (Max) Create two Treasure tokens *and* draw a card."
+    }
+  ],
+  "prints": [
+    {
+      "cardId": "bounty-miron-tillas-jr--wanted",
+      "version": "",
+      "set": "totc",
+      "number": "35",
+      "lang": "en",
+      "source": "",
+      "name": "Bounty: Miron Tillas Jr. // Wanted!",
+      "typeline": "Card // Card",
+      "layout": "transform_token",
+      "frame": "2015",
+      "frameEffects": [],
+      "borderColor": "black",
+      "cardBack": null,
+      "securityStamp": null,
+      "promoTypes": null,
+      "rarity": "common",
+      "releaseDate": "2024-04-19",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": false,
+      "finishes": [
+        "nonfoil"
+      ],
+      "hasHighResImage": true,
+      "imageStatus": "highres_scan",
+      "imageUpdatedAt": "2026-07-13T03:01:10Z",
+      "fullImageType": "jpg",
+      "inBooster": false,
+      "games": [
+        "paper"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "printTags": [],
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "6ff8fc0f-be8f-4c3d-9b3c-851ccaa436a4"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "0f49692c-534f-443a-b0f8-59dfb44c3549",
+      "scryfallCardId": "0fd5b9c3-9c18-446d-9d81-7a3a90d7bbee",
+      "scryfallFace": null,
+      "scryfallImageUris": null,
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseId": [],
+      "tcgPlayerId": null,
+      "tcgplayerEtchedId": null,
+      "cardMarketId": null
+    }
+  ],
+  "printParts": [
+    {
+      "cardId": "bounty-miron-tillas-jr--wanted",
+      "version": "",
+      "set": "totc",
+      "number": "35",
+      "lang": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "Bounty: Miron Tillas Jr.",
+      "typeline": "Card",
+      "text": "At the beginning of your end step, if the nearest opponent to your left as the turn began was dealt combat damage this turn, collect your reward.",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": null,
+      "artist": "Kev Fang",
+      "watermark": null,
+      "scryfallIllusId": [
+        "72e60769-04a1-4cbd-9671-bbf35620c7b5"
+      ]
+    },
+    {
+      "cardId": "bounty-miron-tillas-jr--wanted",
+      "version": "",
+      "set": "totc",
+      "number": "35",
+      "lang": "en",
+      "source": "",
+      "partIndex": 1,
+      "name": "Wanted!",
+      "typeline": "Card",
+      "text": "Before the game, shuffle at least 6 unique bounty cards into a face-down pile.\nAs the starting player's third turn begins, reveal the top bounty card.\nClaim the revealed bounty during your turn and collect your reward!\nAs each turn begins, if no bounty is being offered, reveal the next one. If the pile is empty, shuffle all claimed bounties and restock\nIf the bounty went unclaimed last turn, increase its reward to the next level.\nRewards\n1 — Create a Treasure token\n2 — Create two Treasure tokens\n3 — Create two Treasure tokens *or* draw a card\n4 — (Max) Create two Treasure tokens *and* draw a card.",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": null,
+      "artist": "Kev Fang",
+      "watermark": null,
+      "scryfallIllusId": [
+        "50514098-177a-441a-9d30-70324cbbe277"
+      ]
+    }
+  ],
+  "unified": [],
+  "reviews": []
+}

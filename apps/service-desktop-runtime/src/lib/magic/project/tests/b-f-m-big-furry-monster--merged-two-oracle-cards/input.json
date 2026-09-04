@@ -1,0 +1,227 @@
+{
+  "unit": "8fd7503b-e722-49a7-a8ac-786e7354bc95",
+  "cardId": "b-f-m-big-furry-monster",
+  "oracleId": "8fd7503b-e722-49a7-a8ac-786e7354bc95",
+  "layout": "normal",
+  "setName": "Unglued",
+  "cmc": 15,
+  "colorIdentity": [
+    "B"
+  ],
+  "keywords": [],
+  "producedMana": null,
+  "reserved": false,
+  "contentWarning": null,
+  "legalities": {
+    "tlr": "not_legal",
+    "duel": "not_legal",
+    "brawl": "not_legal",
+    "penny": "not_legal",
+    "predh": "not_legal",
+    "future": "not_legal",
+    "legacy": "not_legal",
+    "modern": "not_legal",
+    "pauper": "not_legal",
+    "alchemy": "not_legal",
+    "pioneer": "not_legal",
+    "vintage": "not_legal",
+    "historic": "not_legal",
+    "standard": "not_legal",
+    "timeless": "not_legal",
+    "commander": "not_legal",
+    "gladiator": "not_legal",
+    "oldschool": "not_legal",
+    "premodern": "not_legal",
+    "oathbreaker": "not_legal",
+    "standardbrawl": "not_legal",
+    "paupercommander": "not_legal",
+    "competitivebrawl": "not_legal"
+  },
+  "faces": [
+    {
+      "name": "B.F.M. (Big Furry Monster)",
+      "typeLine": "Creature — The Biggest, Baddest, Nastiest, Scariest Creature You'll Ever See",
+      "oracleText": "You must cast both B.F.M. cards to put B.F.M. onto the battlefield. If one B.F.M. card leaves the battlefield, sacrifice the other.\nB.F.M. can't be blocked except by three or more creatures.",
+      "manaCost": "{B}{B}{B}{B}{B}{B}{B}{B}{B}{B}{B}{B}{B}{B}{B}",
+      "cmc": 15,
+      "colors": [
+        "B"
+      ],
+      "colorIndicator": null,
+      "power": "99",
+      "toughness": "99",
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    }
+  ],
+  "localizations": [],
+  "prints": [
+    {
+      "lang": "en",
+      "set": "ugl",
+      "number": "29",
+      "releasedAt": "1998-08-11",
+      "layout": "combined",
+      "frame": "1997",
+      "frameEffects": null,
+      "borderColor": "silver",
+      "cardBackId": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "securityStamp": null,
+      "promoTypes": null,
+      "rarity": "rare",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": false,
+      "finishes": [
+        "nonfoil"
+      ],
+      "hasHighResImage": true,
+      "imageStatus": "highres_scan",
+      "imageUpdatedAt": "2026-07-13T12:40:31Z",
+      "fullImageType": "jpg",
+      "inBooster": true,
+      "games": [
+        "paper"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "fullArt": false,
+      "oversized": false,
+      "storySpotlight": false,
+      "textless": false,
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "a9ddb513-51c7-455c-ab8f-5b90aae9f75b"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "d0bd00f2-91bb-4c9c-a8e7-f8aeadc0bbb9",
+      "scryfallCardId": "d15c6375-2e4e-47f7-88e1-d90794e7f724",
+      "scryfallFace": "right",
+      "scryfallImageUris": [
+        {
+          "art": "https://cards.scryfall.io/art/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.webp?1783946431",
+          "png": "https://cards.scryfall.io/png/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.png?1783946431",
+          "crop": "https://cards.scryfall.io/crop/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.webp?1783946431",
+          "grid": "https://cards.scryfall.io/grid/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.webp?1783946431",
+          "large": "https://cards.scryfall.io/large/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.jpg?1783946431",
+          "small": "https://cards.scryfall.io/small/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.jpg?1783946431",
+          "thumb": "https://cards.scryfall.io/thumb/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.webp?1783946431",
+          "normal": "https://cards.scryfall.io/normal/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.jpg?1783946431",
+          "display": "https://cards.scryfall.io/display/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.webp?1783946431",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.jpg?1783946431",
+          "border_crop": "https://cards.scryfall.io/border_crop/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.jpg?1783946431"
+        }
+      ],
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseIds": [
+        9844
+      ],
+      "tcgPlayerId": 829,
+      "tcgplayerEtchedId": null,
+      "cardMarketId": 11869,
+      "faces": [
+        {
+          "typeLine": "Scariest Creature You'll Ever See",
+          "printedName": null,
+          "printedTypeLine": null,
+          "printedText": null,
+          "flavorName": null,
+          "flavorText": "than that. Even bigger. Keep going. More.\ndreadnoughts for jewelry. It was *big*!\"\n—Arna Kennerüd, skyknight",
+          "artist": "Douglas Shuler",
+          "watermark": null,
+          "illustrationId": "c85bd9c9-2a73-4e76-8c58-5903134b674d",
+          "attractionLights": null
+        }
+      ]
+    },
+    {
+      "lang": "en",
+      "set": "ugl",
+      "number": "28",
+      "releasedAt": "1998-08-11",
+      "layout": "combined",
+      "frame": "1997",
+      "frameEffects": null,
+      "borderColor": "silver",
+      "cardBackId": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "securityStamp": null,
+      "promoTypes": null,
+      "rarity": "rare",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": false,
+      "finishes": [
+        "nonfoil"
+      ],
+      "hasHighResImage": true,
+      "imageStatus": "highres_scan",
+      "imageUpdatedAt": "2026-07-13T12:40:32Z",
+      "fullImageType": "jpg",
+      "inBooster": true,
+      "games": [
+        "paper"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "fullArt": false,
+      "oversized": false,
+      "storySpotlight": false,
+      "textless": false,
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "a9ddb513-51c7-455c-ab8f-5b90aae9f75b"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "8fd7503b-e722-49a7-a8ac-786e7354bc95",
+      "scryfallCardId": "a9f9c279-e382-4feb-9575-196e7cf5d7dc",
+      "scryfallFace": "left",
+      "scryfallImageUris": [
+        {
+          "art": "https://cards.scryfall.io/art/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.webp?1783946432",
+          "png": "https://cards.scryfall.io/png/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.png?1783946432",
+          "crop": "https://cards.scryfall.io/crop/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.webp?1783946432",
+          "grid": "https://cards.scryfall.io/grid/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.webp?1783946432",
+          "large": "https://cards.scryfall.io/large/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.jpg?1783946432",
+          "small": "https://cards.scryfall.io/small/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.jpg?1783946432",
+          "thumb": "https://cards.scryfall.io/thumb/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.webp?1783946432",
+          "normal": "https://cards.scryfall.io/normal/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.jpg?1783946432",
+          "display": "https://cards.scryfall.io/display/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.webp?1783946432",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.jpg?1783946432",
+          "border_crop": "https://cards.scryfall.io/border_crop/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.jpg?1783946432"
+        }
+      ],
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseIds": [
+        9780
+      ],
+      "tcgPlayerId": 828,
+      "tcgplayerEtchedId": null,
+      "cardMarketId": 11868,
+      "faces": [
+        {
+          "typeLine": "Creature — The Biggest, Baddest, Nastiest,",
+          "printedName": null,
+          "printedTypeLine": null,
+          "printedText": null,
+          "flavorName": null,
+          "flavorText": "\"It was big. Really, really big. No, bigger\nNo, more. Look, we're talking krakens and",
+          "artist": "Douglas Shuler",
+          "watermark": null,
+          "illustrationId": "604f7df7-c364-444a-9224-b7a952aa8512",
+          "attractionLights": null
+        }
+      ]
+    }
+  ],
+  "mtgch": null
+}

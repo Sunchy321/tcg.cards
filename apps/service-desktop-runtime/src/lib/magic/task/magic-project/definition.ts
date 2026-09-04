@@ -152,65 +152,7 @@ const definition = createDefinition(magicProjectTaskType, {
       magic.oracleList = [...oracleSet].sort();
       magic.unitToCard = unitToCard;
     });
-    return {};
-  })
-  .stage('project', { label: '投影', progressMode: 'bounded', resumeMode: 'durable' })
-  .entry(async ({ ctx, checkpoint }) => {
-    const total = (ctx as unknown as ProjectCtx).oracleList.length;
-    const restored = checkpoint?.blockInput as { index: number } | undefined;
-    return { total, blockInput: restored ?? { index: 0 } };
-  })
-  .block(async ({ ctx, blockInput, progress, checkpoint, done }) => {
-    const magic = ctx as unknown as ProjectCtx;
-    // Unresolved slug conflicts gate the whole projection.
-    if (magic.openConflicts > 0) {
-      const next = { index: magic.oracleList.length };
-      await checkpoint(next);
-      progress({ done: next.index, total: next.index });
-      return done(next);
-    }
-    const CHUNK = 100;
-    const slice = magic.oracleList.slice(blockInput.index, blockInput.index + CHUNK);
-
-    const perTable = await runWithDb(getLocalDb(), async () => {
-      const database = getLocalDb();
-      const delta: Partial<Counts> = {};
-      for (const oracleId of slice) {
-        const units = await assembleUnits(database, oracleId);
-        for (const assembled of units) {
-          if (!magic.unitToCard.has(assembled.unit)) continue;
-          assembled.cardId = magic.unitToCard.get(assembled.unit)!;
-          const d = await writeUnit(database, projectCard(assembled));
-          addAll(delta as Counts, d);
-        }
-      }
-      return delta;
-    });
-    addAll(magic.counts, perTable as Counts);
-
-    const next = { index: blockInput.index + slice.length };
-    await checkpoint(next);
-    progress({ done: next.index, total: magic.oracleList.length });
-    return next.index >= magic.oracleList.length ? done(next) : next;
-  })
-  .exit(({ ctx }) => (ctx as unknown as ProjectCtx).counts)
-  .stage('reconcile', { label: '清理陈旧行', progressMode: 'simple' })
-  .handler(async ({ ctx }) => {
-    const magic = ctx as unknown as ProjectCtx;
-    if (magic.openConflicts > 0) {
-      return { ...emptyCounts, openConflicts: magic.openConflicts };
-    }
-    const target = new Set(magic.unitToCard.values());
-    const deleted = await runWithDb(getLocalDb(), async () => {
-      const database = getLocalDb();
-      let n = 0;
-      for (const def of BASE_TABLES) {
-        n += await softDeleteStale(database, def.table, def.table.cardId, target);
-      }
-      return n;
-    });
-    magic.counts.softDeleted = deleted;
-    magic.counts.openConflicts = 0;
+    magic.counts.openConflicts = magic.openConflicts;
     return magic.counts;
   })
   .build();

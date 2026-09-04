@@ -1,0 +1,153 @@
+{
+  "cards": [
+    {
+      "cardId": "zombie!b-22",
+      "version": "",
+      "partCount": 1,
+      "name": "Zombie",
+      "typeline": "Token Creature — Zombie",
+      "manaValue": 0,
+      "colorIdentity": "B",
+      "keywords": [],
+      "counters": [],
+      "producibleMana": null,
+      "category": "token",
+      "tags": [],
+      "legalities": {},
+      "scryfallOracleId": [
+        "f25149b9-f19d-41ac-8228-ec7a7b95fcae"
+      ]
+    }
+  ],
+  "cardParts": [
+    {
+      "cardId": "zombie!b-22",
+      "version": "",
+      "partIndex": 0,
+      "name": "Zombie",
+      "typeline": "Token Creature — Zombie",
+      "text": "",
+      "cost": null,
+      "manaValue": null,
+      "color": "B",
+      "colorIndicator": null,
+      "typeSuper": [
+        "token"
+      ],
+      "typeMain": [
+        "creature"
+      ],
+      "typeSub": [
+        "zombie"
+      ],
+      "power": "2",
+      "toughness": "2",
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    }
+  ],
+  "cardLocalizations": [
+    {
+      "cardId": "zombie!b-22",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "name": "Zombie",
+      "typeline": "Token Creature — Zombie"
+    }
+  ],
+  "cardPartLocalizations": [
+    {
+      "cardId": "zombie!b-22",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "Zombie",
+      "typeline": "Token Creature — Zombie",
+      "text": ""
+    }
+  ],
+  "prints": [
+    {
+      "cardId": "zombie!b-22",
+      "version": "",
+      "set": "tust",
+      "number": "9",
+      "lang": "en",
+      "source": "",
+      "name": "Zombie",
+      "typeline": "Token Creature — Zombie",
+      "layout": "transform_token",
+      "frame": "2015",
+      "frameEffects": [],
+      "borderColor": "black",
+      "cardBack": null,
+      "securityStamp": null,
+      "promoTypes": null,
+      "rarity": "common",
+      "releaseDate": "2017-12-08",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": false,
+      "finishes": [
+        "foil"
+      ],
+      "hasHighResImage": true,
+      "imageStatus": "highres_scan",
+      "imageUpdatedAt": "2026-07-13T09:35:59Z",
+      "fullImageType": "jpg",
+      "inBooster": true,
+      "games": [
+        "paper"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "printTags": [],
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "b0f15e74-0dd6-4156-959e-c5e30c5cdc52"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "f25149b9-f19d-41ac-8228-ec7a7b95fcae",
+      "scryfallCardId": "5a561f84-5696-44a5-8dc1-227af883341d",
+      "scryfallFace": null,
+      "scryfallImageUris": null,
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseId": [],
+      "tcgPlayerId": 152592,
+      "tcgplayerEtchedId": null,
+      "cardMarketId": 313712
+    }
+  ],
+  "printParts": [
+    {
+      "cardId": "zombie!b-22",
+      "version": "",
+      "set": "tust",
+      "number": "9",
+      "lang": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "Zombie",
+      "typeline": "Token Creature — Zombie",
+      "text": "",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": null,
+      "artist": "Craig J Spearing",
+      "watermark": null,
+      "scryfallIllusId": [
+        "2c6c9ac5-bb7b-4f9a-811d-4be9eb072914"
+      ]
+    }
+  ],
+  "unified": [],
+  "reviews": []
+}

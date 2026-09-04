@@ -1,0 +1,305 @@
+{
+  "cards": [
+    {
+      "cardId": "b-f-m-big-furry-monster",
+      "version": "",
+      "partCount": 1,
+      "name": "B.F.M. (Big Furry Monster)",
+      "typeline": "Creature — The Biggest, Baddest, Nastiest, Scariest Creature You'll Ever See",
+      "manaValue": 15,
+      "colorIdentity": "B",
+      "keywords": [],
+      "counters": [],
+      "producibleMana": null,
+      "category": "default",
+      "tags": [],
+      "legalities": {
+        "tlr": "unavailable",
+        "duelcommander": "unavailable",
+        "brawl": "unavailable",
+        "penny": "unavailable",
+        "predh": "unavailable",
+        "future": "unavailable",
+        "legacy": "unavailable",
+        "modern": "unavailable",
+        "pauper": "unavailable",
+        "alchemy": "unavailable",
+        "pioneer": "unavailable",
+        "vintage": "unavailable",
+        "historic": "unavailable",
+        "standard": "unavailable",
+        "timeless": "unavailable",
+        "commander": "unavailable",
+        "gladiator": "unavailable",
+        "oldschool": "unavailable",
+        "premodern": "unavailable",
+        "oathbreaker": "unavailable",
+        "standard_brawl": "unavailable",
+        "pauper_commander": "unavailable",
+        "competitivebrawl": "unavailable"
+      },
+      "scryfallOracleId": [
+        "8fd7503b-e722-49a7-a8ac-786e7354bc95"
+      ]
+    }
+  ],
+  "cardParts": [
+    {
+      "cardId": "b-f-m-big-furry-monster",
+      "version": "",
+      "partIndex": 0,
+      "name": "B.F.M. (Big Furry Monster)",
+      "typeline": "Creature — The Biggest, Baddest, Nastiest, Scariest Creature You'll Ever See",
+      "text": "You must cast both B.F.M. cards to put B.F.M. onto the battlefield. If one B.F.M. card leaves the battlefield, sacrifice the other.\nB.F.M. can't be blocked except by three or more creatures.",
+      "cost": [
+        "B",
+        "B",
+        "B",
+        "B",
+        "B",
+        "B",
+        "B",
+        "B",
+        "B",
+        "B",
+        "B",
+        "B",
+        "B",
+        "B",
+        "B"
+      ],
+      "manaValue": 15,
+      "color": "B",
+      "colorIndicator": null,
+      "typeSuper": null,
+      "typeMain": [
+        "creature"
+      ],
+      "typeSub": [
+        "the",
+        "biggest",
+        "baddest",
+        "nastiest",
+        "scariest",
+        "creature",
+        "youll",
+        "ever",
+        "see"
+      ],
+      "power": "99",
+      "toughness": "99",
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    }
+  ],
+  "cardLocalizations": [
+    {
+      "cardId": "b-f-m-big-furry-monster",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "name": "B.F.M. (Big Furry Monster)",
+      "typeline": "Creature — The Biggest, Baddest, Nastiest, Scariest Creature You'll Ever See"
+    }
+  ],
+  "cardPartLocalizations": [
+    {
+      "cardId": "b-f-m-big-furry-monster",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "B.F.M. (Big Furry Monster)",
+      "typeline": "Creature — The Biggest, Baddest, Nastiest, Scariest Creature You'll Ever See",
+      "text": "You must cast both B.F.M. cards to put B.F.M. onto the battlefield. If one B.F.M. card leaves the battlefield, sacrifice the other.\nB.F.M. can't be blocked except by three or more creatures."
+    }
+  ],
+  "prints": [
+    {
+      "cardId": "b-f-m-big-furry-monster",
+      "version": "",
+      "set": "ugl",
+      "number": "29",
+      "lang": "en",
+      "source": "",
+      "name": "B.F.M. (Big Furry Monster)",
+      "typeline": "Creature — The Biggest, Baddest, Nastiest, Scariest Creature You'll Ever See",
+      "layout": "combined",
+      "frame": "1997",
+      "frameEffects": [],
+      "borderColor": "silver",
+      "cardBack": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "securityStamp": null,
+      "promoTypes": null,
+      "rarity": "rare",
+      "releaseDate": "1998-08-11",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": false,
+      "finishes": [
+        "nonfoil"
+      ],
+      "hasHighResImage": true,
+      "imageStatus": "highres_scan",
+      "imageUpdatedAt": "2026-07-13T12:40:31Z",
+      "fullImageType": "jpg",
+      "inBooster": true,
+      "games": [
+        "paper"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "printTags": [],
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "a9ddb513-51c7-455c-ab8f-5b90aae9f75b"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "d0bd00f2-91bb-4c9c-a8e7-f8aeadc0bbb9",
+      "scryfallCardId": "d15c6375-2e4e-47f7-88e1-d90794e7f724",
+      "scryfallFace": "right",
+      "scryfallImageUris": [
+        {
+          "art": "https://cards.scryfall.io/art/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.webp?1783946431",
+          "png": "https://cards.scryfall.io/png/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.png?1783946431",
+          "crop": "https://cards.scryfall.io/crop/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.webp?1783946431",
+          "grid": "https://cards.scryfall.io/grid/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.webp?1783946431",
+          "large": "https://cards.scryfall.io/large/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.jpg?1783946431",
+          "small": "https://cards.scryfall.io/small/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.jpg?1783946431",
+          "thumb": "https://cards.scryfall.io/thumb/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.webp?1783946431",
+          "normal": "https://cards.scryfall.io/normal/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.jpg?1783946431",
+          "display": "https://cards.scryfall.io/display/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.webp?1783946431",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.jpg?1783946431",
+          "border_crop": "https://cards.scryfall.io/border_crop/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.jpg?1783946431"
+        }
+      ],
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseId": [
+        9844
+      ],
+      "tcgPlayerId": 829,
+      "tcgplayerEtchedId": null,
+      "cardMarketId": 11869
+    },
+    {
+      "cardId": "b-f-m-big-furry-monster",
+      "version": "",
+      "set": "ugl",
+      "number": "28",
+      "lang": "en",
+      "source": "",
+      "name": "B.F.M. (Big Furry Monster)",
+      "typeline": "Creature — The Biggest, Baddest, Nastiest, Scariest Creature You'll Ever See",
+      "layout": "combined",
+      "frame": "1997",
+      "frameEffects": [],
+      "borderColor": "silver",
+      "cardBack": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "securityStamp": null,
+      "promoTypes": null,
+      "rarity": "rare",
+      "releaseDate": "1998-08-11",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": false,
+      "finishes": [
+        "nonfoil"
+      ],
+      "hasHighResImage": true,
+      "imageStatus": "highres_scan",
+      "imageUpdatedAt": "2026-07-13T12:40:32Z",
+      "fullImageType": "jpg",
+      "inBooster": true,
+      "games": [
+        "paper"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "printTags": [],
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "a9ddb513-51c7-455c-ab8f-5b90aae9f75b"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "8fd7503b-e722-49a7-a8ac-786e7354bc95",
+      "scryfallCardId": "a9f9c279-e382-4feb-9575-196e7cf5d7dc",
+      "scryfallFace": "left",
+      "scryfallImageUris": [
+        {
+          "art": "https://cards.scryfall.io/art/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.webp?1783946432",
+          "png": "https://cards.scryfall.io/png/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.png?1783946432",
+          "crop": "https://cards.scryfall.io/crop/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.webp?1783946432",
+          "grid": "https://cards.scryfall.io/grid/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.webp?1783946432",
+          "large": "https://cards.scryfall.io/large/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.jpg?1783946432",
+          "small": "https://cards.scryfall.io/small/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.jpg?1783946432",
+          "thumb": "https://cards.scryfall.io/thumb/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.webp?1783946432",
+          "normal": "https://cards.scryfall.io/normal/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.jpg?1783946432",
+          "display": "https://cards.scryfall.io/display/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.webp?1783946432",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.jpg?1783946432",
+          "border_crop": "https://cards.scryfall.io/border_crop/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.jpg?1783946432"
+        }
+      ],
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseId": [
+        9780
+      ],
+      "tcgPlayerId": 828,
+      "tcgplayerEtchedId": null,
+      "cardMarketId": 11868
+    }
+  ],
+  "printParts": [
+    {
+      "cardId": "b-f-m-big-furry-monster",
+      "version": "",
+      "set": "ugl",
+      "number": "29",
+      "lang": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "B.F.M. (Big Furry Monster)",
+      "typeline": "Creature — The Biggest, Baddest, Nastiest, Scariest Creature You'll Ever See",
+      "text": "You must cast both B.F.M. cards to put B.F.M. onto the battlefield. If one B.F.M. card leaves the battlefield, sacrifice the other.\nB.F.M. can't be blocked except by three or more creatures.",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": "than that. Even bigger. Keep going. More.\ndreadnoughts for jewelry. It was *big*!\"\n—Arna Kennerüd, skyknight",
+      "artist": "Douglas Shuler",
+      "watermark": null,
+      "scryfallIllusId": [
+        "c85bd9c9-2a73-4e76-8c58-5903134b674d"
+      ]
+    },
+    {
+      "cardId": "b-f-m-big-furry-monster",
+      "version": "",
+      "set": "ugl",
+      "number": "28",
+      "lang": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "B.F.M. (Big Furry Monster)",
+      "typeline": "Creature — The Biggest, Baddest, Nastiest, Scariest Creature You'll Ever See",
+      "text": "You must cast both B.F.M. cards to put B.F.M. onto the battlefield. If one B.F.M. card leaves the battlefield, sacrifice the other.\nB.F.M. can't be blocked except by three or more creatures.",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": "\"It was big. Really, really big. No, bigger\nNo, more. Look, we're talking krakens and",
+      "artist": "Douglas Shuler",
+      "watermark": null,
+      "scryfallIllusId": [
+        "604f7df7-c364-444a-9224-b7a952aa8512"
+      ]
+    }
+  ],
+  "unified": [],
+  "reviews": []
+}

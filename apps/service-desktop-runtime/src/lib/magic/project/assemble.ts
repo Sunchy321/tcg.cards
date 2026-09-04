@@ -1,9 +1,10 @@
-import { and, asc, eq, ne } from 'drizzle-orm';
+import { and, asc, eq, inArray, ne } from 'drizzle-orm';
 
 import type { createDb } from '@tcg-cards/db';
 import { MtgchZhsOracle, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
 
-import { slugifyCard, toMatchUnits } from '../match';
+import { isArtBackDoubleFacedToken, isSingleCardDoubleFacedToken, slugifyCard, toMatchUnits } from '../match';
+import { findCardMergeGroup } from '../merge-cards';
 
 import type { AssembledCard, CardLocalizationSurface, LocalizedFaceDraft, OracleFaceDraft, PrintDraft, PrintFaceDraft } from './project-card';
 
@@ -318,6 +319,7 @@ export async function assembleUnits(database: ProjectDb, oracleId: string): Prom
       eq(ScryfallCard.lang, 'en'),
       eq(ScryfallCard.oracleId, oracleId),
       ne(ScryfallCard.layout, 'art_series'),
+      ne(ScryfallCard.layout, 'front_card'),
     ))
     .orderBy(asc(ScryfallCard.set), asc(ScryfallCard.collectorNumber))
     .limit(1);
@@ -329,20 +331,104 @@ export async function assembleUnits(database: ProjectDb, oracleId: string): Prom
     throw new Error('assemble: reversible_card rows carry no unit; handle as prints to their faces');
   }
 
+  // Hard-merged oracle pairs (B.F.M.): one card, two prints. The primary
+  // member assembles the merged card; the secondary contributes no unit of
+  // its own — its rows surface as prints under the primary's assembly.
+  const mergeGroup = findCardMergeGroup(oracleId);
+  if (mergeGroup != null) {
+    if (oracleId !== mergeGroup.primaryOracleId) return [];
+    const allRows = await database.select().from(ScryfallCard)
+      .where(inArray(ScryfallCard.oracleId, mergeGroup.memberOracleIds))
+      .orderBy(asc(ScryfallCard.set), asc(ScryfallCard.collectorNumber));
+    const secondaryId = mergeGroup.memberOracleIds.find(id => id !== mergeGroup.primaryOracleId);
+    const secondaryEn = allRows.find(r => r.lang === 'en' && r.oracleId === secondaryId);
+    if (secondaryEn == null) throw new Error(`assemble: merge group ${mergeGroup.slug} has no secondary English row`);
+    // The right half carries the merged card's mana cost and P/T; the type
+    // line and rules text come from the group (the halves' lines misalign).
+    const face = { ...oracleFaces(secondaryEn)[0]!, typeLine: mergeGroup.face.typeLine, oracleText: mergeGroup.face.oracleText };
+    // Prints stay the raw halves: each keeps its own number, half rules text,
+    // and half flavor text. The `combined` layout marks them as the two panels
+    // of one spread; scryfallFace (the same field reversible prints use for
+    // front/back) says which side each panel occupies.
+    const prints = allRows.map(r => {
+      const draft = toPrintDraft(r);
+      draft.layout = 'combined';
+      draft.scryfallFace = r.oracleId === mergeGroup.primaryOracleId ? 'left' : 'right';
+      return draft;
+    });
+    return [{
+      unit:           mergeGroup.primaryOracleId,
+      cardId:         mergeGroup.slug,
+      oracleId:       mergeGroup.primaryOracleId,
+      layout:         en.layout,
+      setName:        en.setName,
+      cmc:            secondaryEn.cmc ?? 0,
+      colorIdentity:  en.colorIdentity,
+      keywords:       en.keywords,
+      producedMana:   en.producedMana ?? null,
+      reserved:       en.reserved,
+      contentWarning: en.contentWarning ?? null,
+      legalities:     (en.legalities as Record<string, string>) ?? {},
+      faces:          [face],
+      localizations:  officialSurfaces(allRows),
+      prints,
+      // The folk zhs source also stores the two halves; no merged text exists.
+      mtgch:          null,
+    }];
+  }
+
   const allRows = await database.select().from(ScryfallCard)
     .where(eq(ScryfallCard.oracleId, oracleId));
 
-  if (en.layout === 'double_faced_token') {
-    const faces = oracleFaces(en);
+  const enFaces = oracleFaces(en);
+  if (en.layout === 'double_faced_token' && isArtBackDoubleFacedToken(enFaces.map(f => f.name), enFaces)) {
+    // Art-back token: the back is pure illustration, not a card part. Project as
+    // a single-face card but keep the prints flippable (transform_token layout).
+    const front = enFaces[0]!;
+    const prints = allRows.map(r => {
+      const draft = toPrintDraft(r);
+      draft.layout = 'transform_token';
+      draft.faces = [printFaceAt(r, 0)];
+      return draft;
+    });
+    const localizations = officialSurfaces(allRows, 0);
+    return [{
+      unit:           oracleId,
+      cardId:         cardIdFor(en),
+      oracleId,
+      layout:         'token',
+      setName:        en.setName,
+      cmc:            0,
+      colorIdentity:  front.colors ?? [],
+      keywords:       [],
+      producedMana:   null,
+      reserved:       false,
+      contentWarning: null,
+      legalities:     {},
+      faces:          [front],
+      localizations,
+      prints,
+      mtgch:          null,
+    }];
+  }
+  if (en.layout === 'double_faced_token' && !isSingleCardDoubleFacedToken(enFaces.map(f => f.name))) {
+    const faces = enFaces;
     const slugs = unitSlugs(en);
     const out: AssembledCard[] = [];
     for (let i = 0; i < faces.length; i++) {
       const face = faces[i]!;
+      const suffix = i === 0 ? 'a' : 'b';
       const prints = allRows.map(r => {
         const draft = toPrintDraft(r);
+        draft.layout = 'token';
+        draft.number = `${draft.number}${suffix}`;
         draft.faces = [printFaceAt(r, i)];
         return draft;
       });
+      // Official localization provenance must point at the suffixed print rows.
+      const localizations = officialSurfaces(allRows, i).map(s => s.provenance
+        ? { ...s, provenance: { ...s.provenance, number: `${s.provenance.number}${suffix}` } }
+        : s);
       out.push({
         unit:           `${oracleId}:${i}`,
         cardId:         slugs[i] ?? `${oracleId}-${i}`,
@@ -357,7 +443,7 @@ export async function assembleUnits(database: ProjectDb, oracleId: string): Prom
         contentWarning: null,
         legalities:     {},
         faces:          [face],
-        localizations:  officialSurfaces(allRows, i),
+        localizations,
         prints,
         mtgch:          null,
       });
@@ -381,6 +467,12 @@ export async function assembleUnits(database: ProjectDb, oracleId: string): Prom
     ...allRows.map(toPrintDraft),
     ...(await reversiblePrintsFor(database, oracleId)),
   ];
+
+  // Single double-sided tokens (Incubator//Phyrexian, Bounty//Wanted,
+  // Day//Night, The Ring) stay one card; their prints flip like transform.
+  if (en.layout === 'double_faced_token') {
+    for (const p of prints) p.layout = 'transform_token';
+  }
 
   return [{
     unit:           oracleId,

@@ -1,0 +1,239 @@
+{
+  "cards": [
+    {
+      "cardId": "incubator!",
+      "version": "",
+      "partCount": 2,
+      "name": "Incubator // Phyrexian",
+      "typeline": "Token Artifact — Incubator // Token Artifact Creature — Phyrexian",
+      "manaValue": 0,
+      "colorIdentity": "",
+      "keywords": [
+        "transform"
+      ],
+      "counters": [],
+      "producibleMana": null,
+      "category": "token",
+      "tags": [],
+      "legalities": {
+        "tlr": "unavailable",
+        "duelcommander": "unavailable",
+        "brawl": "unavailable",
+        "penny": "unavailable",
+        "predh": "unavailable",
+        "future": "unavailable",
+        "legacy": "unavailable",
+        "modern": "unavailable",
+        "pauper": "unavailable",
+        "alchemy": "unavailable",
+        "pioneer": "unavailable",
+        "vintage": "unavailable",
+        "historic": "unavailable",
+        "standard": "unavailable",
+        "timeless": "unavailable",
+        "commander": "unavailable",
+        "gladiator": "unavailable",
+        "oldschool": "unavailable",
+        "premodern": "unavailable",
+        "oathbreaker": "unavailable",
+        "standard_brawl": "unavailable",
+        "pauper_commander": "unavailable",
+        "competitivebrawl": "unavailable"
+      },
+      "scryfallOracleId": [
+        "dd3bf75e-9ef0-4ded-9b65-1a60a78a6253"
+      ]
+    }
+  ],
+  "cardParts": [
+    {
+      "cardId": "incubator!",
+      "version": "",
+      "partIndex": 0,
+      "name": "Incubator",
+      "typeline": "Token Artifact — Incubator",
+      "text": "{2}: Transform this artifact.",
+      "cost": null,
+      "manaValue": null,
+      "color": "",
+      "colorIndicator": null,
+      "typeSuper": [
+        "token"
+      ],
+      "typeMain": [
+        "artifact"
+      ],
+      "typeSub": [
+        "incubator"
+      ],
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    },
+    {
+      "cardId": "incubator!",
+      "version": "",
+      "partIndex": 1,
+      "name": "Phyrexian",
+      "typeline": "Token Artifact Creature — Phyrexian",
+      "text": "",
+      "cost": null,
+      "manaValue": null,
+      "color": "",
+      "colorIndicator": null,
+      "typeSuper": [
+        "token"
+      ],
+      "typeMain": [
+        "artifact",
+        "creature"
+      ],
+      "typeSub": [
+        "phyrexian"
+      ],
+      "power": "0",
+      "toughness": "0",
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    }
+  ],
+  "cardLocalizations": [
+    {
+      "cardId": "incubator!",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "name": "Incubator // Phyrexian",
+      "typeline": "Token Artifact — Incubator // Token Artifact Creature — Phyrexian"
+    }
+  ],
+  "cardPartLocalizations": [
+    {
+      "cardId": "incubator!",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "Incubator",
+      "typeline": "Token Artifact — Incubator",
+      "text": "{2}: Transform this artifact."
+    },
+    {
+      "cardId": "incubator!",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "partIndex": 1,
+      "name": "Phyrexian",
+      "typeline": "Token Artifact Creature — Phyrexian",
+      "text": ""
+    }
+  ],
+  "prints": [
+    {
+      "cardId": "incubator!",
+      "version": "",
+      "set": "teoc",
+      "number": "15",
+      "lang": "en",
+      "source": "",
+      "name": "Incubator // Phyrexian",
+      "typeline": "Token Artifact — Incubator // Token Artifact Creature — Phyrexian",
+      "layout": "transform_token",
+      "frame": "2015",
+      "frameEffects": [],
+      "borderColor": "black",
+      "cardBack": null,
+      "securityStamp": null,
+      "promoTypes": null,
+      "rarity": "common",
+      "releaseDate": "2025-08-01",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": true,
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "hasHighResImage": true,
+      "imageStatus": "highres_scan",
+      "imageUpdatedAt": "2026-07-13T01:23:13Z",
+      "fullImageType": "jpg",
+      "inBooster": false,
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "printTags": [],
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "d92e2dd9-9ef6-43f6-81f8-df87f9066983"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "dd3bf75e-9ef0-4ded-9b65-1a60a78a6253",
+      "scryfallCardId": "c5229eb0-9356-43a6-9b1b-6366f3c1e405",
+      "scryfallFace": null,
+      "scryfallImageUris": null,
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseId": [],
+      "tcgPlayerId": null,
+      "tcgplayerEtchedId": null,
+      "cardMarketId": 706602
+    }
+  ],
+  "printParts": [
+    {
+      "cardId": "incubator!",
+      "version": "",
+      "set": "teoc",
+      "number": "15",
+      "lang": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "Incubator",
+      "typeline": "Token Artifact — Incubator",
+      "text": "{2}: Transform this artifact.",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": null,
+      "artist": "Johann Bodin",
+      "watermark": null,
+      "scryfallIllusId": [
+        "ce90ea1c-279c-4419-b18d-c4e021501efc"
+      ]
+    },
+    {
+      "cardId": "incubator!",
+      "version": "",
+      "set": "teoc",
+      "number": "15",
+      "lang": "en",
+      "source": "",
+      "partIndex": 1,
+      "name": "Phyrexian",
+      "typeline": "Token Artifact Creature — Phyrexian",
+      "text": "",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": null,
+      "artist": "Johann Bodin",
+      "watermark": null,
+      "scryfallIllusId": [
+        "84c3c067-2050-4864-aee0-b2257f651108"
+      ]
+    }
+  ],
+  "unified": [],
+  "reviews": []
+}

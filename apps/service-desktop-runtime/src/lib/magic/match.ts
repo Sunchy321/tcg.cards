@@ -4,6 +4,8 @@ import { db } from '@tcg-cards/db/db';
 import { CardSlugResolution, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
 import { slugifyName } from '@tcg-cards/shared/magic/slug';
 
+import { findCardMergeGroup } from './merge-cards';
+
 type Db = typeof db;
 
 /** Source-agnostic face data consumed by cardId derivation. */
@@ -83,7 +85,8 @@ const SIMPLE_TOKENS = new Set(['treasure', 'food', 'gold', 'shard', 'clue', 'blo
  * Card → cardId slug, ported from the legacy getId. Non-token cards fall back to
  * the name slug (double-face names joined with `--`); tokens whose name matches
  * their subtype encode color / power-toughness / keyword-coded abilities (`a`
- * for any non-keyword line) so distinct tokens keep distinct ids.
+ * for any non-keyword line) plus type markers (`e` enchantment, `a` artifact)
+ * so distinct tokens keep distinct ids.
  */
 export function slugifyCard(card: NormalizedCard): string {
   const faces = card.layout === 'reversible_card' ? card.faces.slice(0, 1) : card.faces;
@@ -132,6 +135,12 @@ export function slugifyCard(card: NormalizedCard): string {
 
     if (face.typeLine.includes('Creature') && face.typeLine.includes('Enchantment')) {
       attrs.push('e');
+    }
+
+    // Same rationale as the enchantment marker: an artifact-only difference
+    // must keep otherwise-identical tokens on distinct slugs.
+    if (face.typeLine.includes('Creature') && face.typeLine.includes('Artifact')) {
+      attrs.push('a');
     }
 
     return `${subtype}!${attrs.join('-')}`;
@@ -193,11 +202,70 @@ export interface MatchRow {
   cardFaces:  unknown[] | null;
 }
 
+/**
+ * Double-sided tokens that are ONE card (their two faces belong together),
+ * not two independent token cards — do not split them:
+ *   - "Bounty: <name> // Wanted!"
+ *   - "Incubator // Phyrexian"
+ *   - "Day // Night"
+ *   - "The Ring // The Ring Tempts You"
+ *   - "Punchcard // Punchcard" (both faces are real content, day//night-like)
+ */
+export function isSingleCardDoubleFacedToken(names: string[]): boolean {
+  if (names.length !== 2) return false;
+  const [a, b] = names;
+  if (/^Bounty: /i.test(a ?? '') && b === 'Wanted!') return true;
+  if (a === 'Incubator' && b === 'Phyrexian') return true;
+  if (a === 'Day' && b === 'Night') return true;
+  if (a === 'The Ring' && b === 'The Ring Tempts You') return true;
+  if (a === 'Punchcard' && b === 'Punchcard') return true;
+  if (a === 'Start Your Engines!' && b === 'Max Speed') return true;
+  return isContinuedDoubleFacedToken(a ?? '', b ?? '');
+}
+
+/**
+ * Playtest-style helper cards whose back face continues the front's rules text
+ * (`X // X (cont'd)`, optionally `(minigame)` on the front): one physical
+ * card, not two faces.
+ */
+function isContinuedDoubleFacedToken(front: string, back: string): boolean {
+  if (!back.endsWith(' (cont\'d)')) return false;
+  return back.replace(/ \(cont'd\)$/, '') === front.replace(/ \(minigame\)$/, '');
+}
+
+/**
+ * Double-sided tokens where the back is a pure art/illustration face (no rules
+ * text, no power/toughness) — the back is NOT a card part, it only shows the
+ * illustration. These are one card with a single part.
+ */
+export function isArtBackDoubleFacedToken(names: string[], faces: { oracleText: string | null, power: string | null, toughness: string | null }[]): boolean {
+  if (names.length !== 2) return false;
+  // Punchcard-like names keep both faces; the art-back rule only applies to
+  // same-name tokens whose back face carries no rules text nor P/T.
+  if (names[0] === 'Punchcard' && names[1] === 'Punchcard') return false;
+  const back = faces[1];
+  if (back == null) return false;
+  const backIsArt = (back.oracleText ?? '') === '' && back.power == null && back.toughness == null;
+  return names[0] === names[1] && backIsArt;
+}
+
 /** Expand one scryfall row into the match units it contributes. */
 export function toMatchUnits(row: MatchRow): MatchUnit[] {
   const faces = (row.cardFaces ?? []) as ScryfallFace[];
 
-  if (row.layout === 'double_faced_token' && faces.length > 0) {
+  if (row.layout === 'double_faced_token' && faces.length > 0 && !isSingleCardDoubleFacedToken(faces.map(f => f.name ?? ''))) {
+    // Art-back tokens keep only their front face as a card (the back is just
+    // illustration); regular double-faced tokens split into two cards per face.
+    if (isArtBackDoubleFacedToken(
+      faces.map(f => f.name ?? ''),
+      faces.map(f => ({ oracleText: f.oracle_text ?? null, power: f.power ?? null, toughness: f.toughness ?? null })),
+    )) {
+      return [{
+        key:      row.oracleId,
+        oracleId: row.oracleId,
+        card:     { layout: 'token', setName: row.setName, faces: [toFace(faces[0]!)] },
+      }];
+    }
     return faces.map((face, i) => ({
       key:      `${row.oracleId}:${i}`,
       oracleId: row.oracleId,
@@ -267,19 +335,22 @@ export async function matchBatch(database: Db = db): Promise<MatchResult> {
     // resolves via the faces at projection time).
     // art_series rows are standalone art cards (their own oracle ids); they
     // never represent a playable card, so exclude them from matching.
+    // front_card rows are single-word "front" pages (not playable cards).
     .where(and(
       eq(ScryfallCard.lang, 'en'),
       isNotNull(ScryfallCard.oracleId),
       ne(ScryfallCard.layout, 'art_series'),
+      ne(ScryfallCard.layout, 'front_card'),
     ));
 
-  // Slug resolutions map each occupied slug back to its oracle ids; a slug may
-  // be shared by several oracles (a card merged from multiple oracle objects).
+  // Slug resolutions map member units (oracle id, or `oracleId:faceIndex` for a
+  // double-faced-token face) to their resolved slug. A slug may be shared by
+  // several units (a card merged from multiple oracle/face objects).
   const resolutions = await database.select().from(CardSlugResolution);
-  const annotationByOracle = new Map<string, string>();
+  const annotationByUnit = new Map<string, string>();
   const resolutionBySlug = new Map<string, (typeof CardSlugResolution)['$inferSelect']>();
   for (const r of resolutions) {
-    for (const oid of r.oracleIds) annotationByOracle.set(oid, r.slug);
+    for (const unitId of r.unitIds) annotationByUnit.set(unitId, r.slug);
     resolutionBySlug.set(r.slug, r);
   }
 
@@ -290,10 +361,16 @@ export async function matchBatch(database: Db = db): Promise<MatchResult> {
   // canonical non-reversible representative, so their runtime shape matches MatchRow.
   for (const row of rows as MatchRow[]) {
     for (const unit of toMatchUnits(row)) {
-      // Annotations are oracle_id-keyed, unambiguous only for single-unit cards.
-      const annotated = unit.key === unit.oracleId ? annotationByOracle.get(unit.oracleId) : undefined;
+      // Resolutions are keyed by the exact unit key (incl. DFT `oracleId:face`).
+      const annotated = annotationByUnit.get(unit.key);
       if (annotated !== undefined) {
         cardIdByUnit.set(unit.key, annotated);
+        continue;
+      }
+      // Hard-merged oracle pairs (B.F.M.) share one cardId and never conflict.
+      const mergeGroup = findCardMergeGroup(unit.oracleId);
+      if (mergeGroup != null) {
+        cardIdByUnit.set(unit.key, mergeGroup.slug);
         continue;
       }
       const slug = slugifyCard(unit.card);
@@ -308,11 +385,11 @@ export async function matchBatch(database: Db = db): Promise<MatchResult> {
 
   for (const [slug, keys] of slugToUnits) {
     const resolution = resolutionBySlug.get(slug);
-    // A slug that already has a resolution row (occupied by other oracles or
+    // A slug that already has a resolution row (occupied by other units or
     // reserved) must not be auto-assigned to a new unit — route it to review.
     if (resolution != null) {
-      const owned = new Set(resolution.oracleIds.map(o => String(o)));
-      if (!keys.every(key => owned.has(key.split(':')[0]!))) {
+      const owned = new Set(resolution.unitIds);
+      if (!keys.every(key => owned.has(key))) {
         blocked.set(slug, keys);
         continue;
       }

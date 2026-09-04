@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 
-import { slugifyName } from '@tcg-cards/shared/magic/slug';
+import { slugifyName, slugifySlugInput } from '@tcg-cards/shared/magic/slug';
 
-import { slugifyCard, toMatchUnits, type MatchRow, type NormalizedCard } from './match';
+import { isSingleCardDoubleFacedToken, slugifyCard, toMatchUnits, type MatchRow, type NormalizedCard } from './match';
 
 describe('slugifyName', () => {
   test('drops apostrophes', () => {
@@ -27,6 +27,34 @@ describe('slugifyName', () => {
 
   test('exempts the single-faced Summon: Choco/Mog', () => {
     expect(slugifyName('Summon: Choco/Mog')).toBe('summon-choco-mog');
+  });
+
+  test('normalizes underscore-only names to one canonical slug', () => {
+    expect(slugifyName('_____')).toBe('_____');
+    expect(slugifyName('_')).toBe('_____');
+    expect(slugifyName('___')).toBe('_____');
+  });
+
+  test('keeps blank prefixes only for underscore runs of 4+', () => {
+    expect(slugifyName('_____ Goblin')).toBe('_____-goblin');
+    expect(slugifyName('___ Goblin')).toBe('goblin');
+    expect(slugifyName('foo_bar')).toBe('foo-bar');
+    expect(slugifyName('foo_____bar')).toBe('foo_____bar');
+  });
+});
+
+describe('slugifySlugInput', () => {
+  test('keeps the ! marker in place', () => {
+    expect(slugifySlugInput('zombie!b-22')).toBe('zombie!b-22');
+  });
+
+  test('keeps underscores in place as typed', () => {
+    expect(slugifySlugInput('my_slug')).toBe('my_slug');
+    expect(slugifySlugInput('___')).toBe('___');
+  });
+
+  test('still normalizes other separators', () => {
+    expect(slugifySlugInput('  My Slug  ')).toBe('my-slug');
   });
 });
 
@@ -82,6 +110,16 @@ describe('slugifyCard', () => {
     expect(slugifyCard(card)).toBe('bird!w-11-f-e');
   });
 
+  test('appends a for artifact creature tokens', () => {
+    const card = token({ face: { typeLine: 'Token Artifact Creature — Bird' } });
+    expect(slugifyCard(card)).toBe('bird!w-11-f-a');
+  });
+
+  test('appends both type markers in e-then-a order', () => {
+    const card = token({ face: { typeLine: 'Token Artifact Enchantment Creature — Bird' } });
+    expect(slugifyCard(card)).toBe('bird!w-11-f-e-a');
+  });
+
   test('returns the name slug for a token without a subtype', () => {
     const card = token({ face: { typeLine: 'Token Artifact', oracleText: null } });
     expect(slugifyCard(card)).toBe('bird!');
@@ -125,6 +163,11 @@ describe('slugifyCard', () => {
     const card = token({ layout: 'normal', face: { typeLine: 'Legendary Creature — Shapeshifter', oracleText: '(Theme Color: {W}{U})', colors: ['W', 'U'] } });
     expect(slugifyCard(card)).toBe('bird-wu');
   });
+
+  test('derives the canonical underscore slug for an underscore-only card', () => {
+    const card = token({ layout: 'normal', face: { name: '_____', typeLine: 'Creature — Goblin' } });
+    expect(slugifyCard(card)).toBe('_____');
+  });
 });
 
 function row(overrides: Partial<MatchRow> & { faces?: Record<string, unknown>[] }): MatchRow {
@@ -142,6 +185,22 @@ function row(overrides: Partial<MatchRow> & { faces?: Record<string, unknown>[] 
     ...overrides,
   };
 }
+
+describe('isSingleCardDoubleFacedToken', () => {
+  test('keeps the Start Your Engines speed marker as one card', () => {
+    expect(isSingleCardDoubleFacedToken(['Start Your Engines!', 'Max Speed'])).toBe(true);
+  });
+
+  test('keeps continued playtest cards as one card', () => {
+    expect(isSingleCardDoubleFacedToken(['Base Race', 'Base Race (cont\'d)'])).toBe(true);
+    expect(isSingleCardDoubleFacedToken(['Demon\'s Due (minigame)', 'Demon\'s Due (cont\'d)'])).toBe(true);
+  });
+
+  test('still splits regular two-token objects', () => {
+    expect(isSingleCardDoubleFacedToken(['Goblin', 'Soldier'])).toBe(false);
+    expect(isSingleCardDoubleFacedToken(['Goblin', 'Blood'])).toBe(false);
+  });
+});
 
 describe('toMatchUnits', () => {
   test('keeps a single-faced row as one unit keyed by oracle_id', () => {

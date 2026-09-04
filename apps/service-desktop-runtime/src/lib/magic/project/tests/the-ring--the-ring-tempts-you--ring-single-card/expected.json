@@ -1,0 +1,228 @@
+{
+  "cards": [
+    {
+      "cardId": "the-ring--the-ring-tempts-you",
+      "version": "",
+      "partCount": 2,
+      "name": "The Ring // The Ring Tempts You",
+      "typeline": "Emblem // Card",
+      "manaValue": 0,
+      "colorIdentity": "",
+      "keywords": [],
+      "counters": [],
+      "producibleMana": null,
+      "category": "default",
+      "tags": [],
+      "legalities": {
+        "tlr": "unavailable",
+        "duelcommander": "unavailable",
+        "brawl": "unavailable",
+        "penny": "unavailable",
+        "predh": "unavailable",
+        "future": "unavailable",
+        "legacy": "unavailable",
+        "modern": "unavailable",
+        "pauper": "unavailable",
+        "alchemy": "unavailable",
+        "pioneer": "unavailable",
+        "vintage": "unavailable",
+        "historic": "unavailable",
+        "standard": "unavailable",
+        "timeless": "unavailable",
+        "commander": "unavailable",
+        "gladiator": "unavailable",
+        "oldschool": "unavailable",
+        "premodern": "unavailable",
+        "oathbreaker": "unavailable",
+        "standard_brawl": "unavailable",
+        "pauper_commander": "unavailable",
+        "competitivebrawl": "unavailable"
+      },
+      "scryfallOracleId": [
+        "98737456-ac2a-420d-aa0e-778ba3a22cec"
+      ]
+    }
+  ],
+  "cardParts": [
+    {
+      "cardId": "the-ring--the-ring-tempts-you",
+      "version": "",
+      "partIndex": 0,
+      "name": "The Ring",
+      "typeline": "Emblem",
+      "text": "Your Ring-bearer is legendary and can't be blocked by creatures with greater power.\nWhenever your Ring-bearer attacks, draw a card, then discard a card.\nWhenever your Ring-bearer becomes blocked by a creature, that creature's controller sacrifices it at end of combat.\nWhenever your Ring-bearer deals combat damage to a player, each opponent loses 3 life.",
+      "cost": null,
+      "manaValue": null,
+      "color": "",
+      "colorIndicator": null,
+      "typeSuper": null,
+      "typeMain": [
+        "emblem"
+      ],
+      "typeSub": null,
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    },
+    {
+      "cardId": "the-ring--the-ring-tempts-you",
+      "version": "",
+      "partIndex": 1,
+      "name": "The Ring Tempts You",
+      "typeline": "Card",
+      "text": "As the Ring tempts you, you get an emblem named The Ring if you don't have one. Then your emblem gains its next ability and you choose a creature you control to become or remain your Ring-bearer.\n• The Ring can tempt you even if you don't control a creature.\n• The Ring gains its abilities in order from top to bottom. Once it gains an ability, it has that ability for the rest of the game.\n• Each time the Ring tempts you, you must choose a creature if you control one.\n• Each player can have only one emblem named The Ring and only one Ring-bearer at a time.",
+      "cost": null,
+      "manaValue": null,
+      "color": "",
+      "colorIndicator": null,
+      "typeSuper": null,
+      "typeMain": [
+        "card"
+      ],
+      "typeSub": null,
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    }
+  ],
+  "cardLocalizations": [
+    {
+      "cardId": "the-ring--the-ring-tempts-you",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "name": "The Ring // The Ring Tempts You",
+      "typeline": "Emblem // Card"
+    }
+  ],
+  "cardPartLocalizations": [
+    {
+      "cardId": "the-ring--the-ring-tempts-you",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "The Ring",
+      "typeline": "Emblem",
+      "text": "Your Ring-bearer is legendary and can't be blocked by creatures with greater power.\nWhenever your Ring-bearer attacks, draw a card, then discard a card.\nWhenever your Ring-bearer becomes blocked by a creature, that creature's controller sacrifices it at end of combat.\nWhenever your Ring-bearer deals combat damage to a player, each opponent loses 3 life."
+    },
+    {
+      "cardId": "the-ring--the-ring-tempts-you",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "partIndex": 1,
+      "name": "The Ring Tempts You",
+      "typeline": "Card",
+      "text": "As the Ring tempts you, you get an emblem named The Ring if you don't have one. Then your emblem gains its next ability and you choose a creature you control to become or remain your Ring-bearer.\n• The Ring can tempt you even if you don't control a creature.\n• The Ring gains its abilities in order from top to bottom. Once it gains an ability, it has that ability for the rest of the game.\n• Each time the Ring tempts you, you must choose a creature if you control one.\n• Each player can have only one emblem named The Ring and only one Ring-bearer at a time."
+    }
+  ],
+  "prints": [
+    {
+      "cardId": "the-ring--the-ring-tempts-you",
+      "version": "",
+      "set": "tltr",
+      "number": "H13",
+      "lang": "en",
+      "source": "",
+      "name": "The Ring // The Ring Tempts You",
+      "typeline": "Emblem // Card",
+      "layout": "transform_token",
+      "frame": "2015",
+      "frameEffects": [],
+      "borderColor": "black",
+      "cardBack": null,
+      "securityStamp": "triangle",
+      "promoTypes": [
+        "universesbeyond"
+      ],
+      "rarity": "common",
+      "releaseDate": "2023-06-23",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": false,
+      "finishes": [
+        "nonfoil"
+      ],
+      "hasHighResImage": true,
+      "imageStatus": "highres_scan",
+      "imageUpdatedAt": "2026-07-13T04:14:10Z",
+      "fullImageType": "jpg",
+      "inBooster": false,
+      "games": [
+        "paper"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "printTags": [],
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "92dfef2a-d0fa-42fd-bdd6-bc4c9286cb56"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "98737456-ac2a-420d-aa0e-778ba3a22cec",
+      "scryfallCardId": "7215460e-8c06-47d0-94e5-d1832d0218af",
+      "scryfallFace": null,
+      "scryfallImageUris": null,
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseId": [],
+      "tcgPlayerId": null,
+      "tcgplayerEtchedId": null,
+      "cardMarketId": null
+    }
+  ],
+  "printParts": [
+    {
+      "cardId": "the-ring--the-ring-tempts-you",
+      "version": "",
+      "set": "tltr",
+      "number": "H13",
+      "lang": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "The Ring",
+      "typeline": "Emblem",
+      "text": "Your Ring-bearer is legendary and can't be blocked by creatures with greater power.\nWhenever your Ring-bearer attacks, draw a card, then discard a card.\nWhenever your Ring-bearer becomes blocked by a creature, that creature's controller sacrifices it at end of combat.\nWhenever your Ring-bearer deals combat damage to a player, each opponent loses 3 life.",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": null,
+      "artist": "Viko Menezes",
+      "watermark": null,
+      "scryfallIllusId": [
+        "5586c035-4934-4384-92f3-c765228cfff2"
+      ]
+    },
+    {
+      "cardId": "the-ring--the-ring-tempts-you",
+      "version": "",
+      "set": "tltr",
+      "number": "H13",
+      "lang": "en",
+      "source": "",
+      "partIndex": 1,
+      "name": "The Ring Tempts You",
+      "typeline": "Card",
+      "text": "As the Ring tempts you, you get an emblem named The Ring if you don't have one. Then your emblem gains its next ability and you choose a creature you control to become or remain your Ring-bearer.\n• The Ring can tempt you even if you don't control a creature.\n• The Ring gains its abilities in order from top to bottom. Once it gains an ability, it has that ability for the rest of the game.\n• Each time the Ring tempts you, you must choose a creature if you control one.\n• Each player can have only one emblem named The Ring and only one Ring-bearer at a time.",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": null,
+      "artist": "Viko Menezes",
+      "watermark": null,
+      "scryfallIllusId": [
+        "9c8bc3e5-8c90-4995-810c-3ac59d1db6ce"
+      ]
+    }
+  ],
+  "unified": [],
+  "reviews": []
+}
