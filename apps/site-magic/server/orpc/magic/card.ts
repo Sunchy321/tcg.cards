@@ -218,13 +218,13 @@ const profile = os
     }
 
     const versions = await db.select({
-      lang:          Print.lang,
-      set:           Print.set,
-      number:        Print.number,
-      rarity:        Print.rarity,
-      layout:        Print.layout,
-      fullImageType: Print.fullImageType,
-      releaseDate:   Print.releaseDate,
+      lang:        Print.lang,
+      set:         Print.set,
+      number:      Print.number,
+      rarity:      Print.rarity,
+      layout:      Print.layout,
+      imageType:   Print.imageType,
+      releaseDate: Print.releaseDate,
     }).from(Print).where(eq(Print.cardId, cardId));
 
     return {
@@ -467,7 +467,7 @@ const update = os
 //     const { set, number, lang, layout, partIndex } = input;
 
 //     const print = await db.select({
-//       fullImageType: Print.fullImageType,
+//       imageType: Print.imageType,
 //     })
 //       .from(Print)
 //       .where(and(
@@ -481,7 +481,7 @@ const update = os
 //       throw new ORPCError('NOT_FOUND');
 //     }
 
-//     const ext = print.fullImageType;
+//     const ext = print.imageType;
 
 //     const urls = (() => {
 //       if ([

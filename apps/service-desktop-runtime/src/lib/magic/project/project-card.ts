@@ -93,27 +93,26 @@ export interface PrintDraft {
   number:     string;
   releasedAt: string;
 
-  layout:          string;
-  frame:           string;
-  frameEffects:    string[] | null;
-  borderColor:     string;
-  cardBackId:      string | null;
-  securityStamp:   string | null;
-  promoTypes:      string[] | null;
-  rarity:          string;
-  isDigital:       boolean;
-  isPromo:         boolean;
-  isReprint:       boolean;
-  finishes:        string[];
-  hasHighResImage: boolean;
-  imageStatus:     string;
-  imageUpdatedAt:  string | null;
-  fullImageType:   string;
-  inBooster:       boolean;
-  games:           string[];
-  previewDate:     string | null;
-  previewSource:   string | null;
-  previewUri:      string | null;
+  layout:         string;
+  frame:          string;
+  frameEffects:   string[] | null;
+  borderColor:    string;
+  cardBackId:     string | null;
+  securityStamp:  string | null;
+  promoTypes:     string[] | null;
+  rarity:         string;
+  isDigital:      boolean;
+  isPromo:        boolean;
+  isReprint:      boolean;
+  finishes:       string[];
+  imageStatus:    string;
+  imageUpdatedAt: string | null;
+  imageType:      string;
+  inBooster:      boolean;
+  games:          string[];
+  previewDate:    string | null;
+  previewSource:  string | null;
+  previewUri:     string | null;
 
   fullArt:        boolean;
   oversized:      boolean;
@@ -380,10 +379,9 @@ function projectPrints(assembled: AssembledCard): {
       isPromo:           draft.isPromo,
       isReprint:         draft.isReprint,
       finishes:          draft.finishes as (typeof Print)['$inferInsert']['finishes'],
-      hasHighResImage:   draft.hasHighResImage,
       imageStatus:       draft.imageStatus as (typeof Print)['$inferInsert']['imageStatus'],
       imageUpdatedAt:    draft.imageUpdatedAt,
-      fullImageType:     draft.fullImageType as (typeof Print)['$inferInsert']['fullImageType'],
+      imageType:         draft.imageType as (typeof Print)['$inferInsert']['imageType'],
       inBooster:         draft.inBooster,
       games:             draft.games as (typeof Print)['$inferInsert']['games'],
       previewDate:       draft.previewDate,

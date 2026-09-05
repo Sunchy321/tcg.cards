@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { fullImageType, locale, layout, rarity } from './basic';
+import { imageType, locale, layout, rarity } from './basic';
 import { card as card, cardLocalization, cardPart, cardPartLocalization } from './card';
 
 export const frame = z.enum(['1993', '1997', '2003', '2015', 'future']).describe('frame');
@@ -40,14 +40,20 @@ export const print = z.strictObject({
   rarity:        rarity,
   releaseDate:   z.iso.date(),
 
-  isDigital:       z.boolean(),
-  isPromo:         z.boolean(),
-  isReprint:       z.boolean(),
-  finishes:        finish.array(),
-  hasHighResImage: z.boolean(),
+  isDigital:         z.boolean(),
+  isPromo:           z.boolean(),
+  isReprint:         z.boolean(),
+  finishes:          finish.array(),
   imageStatus,
-  imageUpdatedAt:  z.string().nullable(),
-  fullImageType,
+  imageUpdatedAt:    z.string().nullable(),
+  imageType,
+  imageSha256:       z.string().nullable(),
+  imageWidth:        z.int().nullable(),
+  imageHeight:       z.int().nullable(),
+  imageByteSize:     z.int().nullable(),
+  imageSource:       z.string().nullable(),
+  imageQualityScore: z.number().nullable(),
+  imageVerifiedAt:   z.iso.datetime().nullable(),
 
   inBooster: z.boolean(),
   games:     game.array(),

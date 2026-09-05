@@ -80,7 +80,7 @@
 </template>
 
 <script setup lang="ts">
-import type { Layout, FullImageType } from '#model/magic/schema/basic';
+import type { Layout, ImageType } from '#model/magic/schema/basic';
 import type { ImageStatus } from '#model/magic/schema/print';
 
 const { public: { assetBaseUrl } } = useRuntimeConfig();
@@ -92,7 +92,7 @@ const props = withDefaults(
     number:        string;
     part?:         number;
     layout:        Layout;
-    fullImageType: FullImageType;
+    imageType: ImageType;
     imageStatus?:  ImageStatus;
     rotate?:       boolean | null;
     refreshToken?: string;
@@ -160,16 +160,16 @@ const turnable = computed(() => [
 const imageUrlValues = computed(() => {
   if (turnable.value) {
     return [
-      `${assetBaseUrl}/magic/card/large/${props.set}/${props.lang}/${props.number}-0.${props.fullImageType}`,
-      `${assetBaseUrl}/magic/card/large/${props.set}/${props.lang}/${props.number}-1.${props.fullImageType}`,
+      `${assetBaseUrl}/magic/card/large/${props.set}/${props.lang}/${props.number}-0.${props.imageType}`,
+      `${assetBaseUrl}/magic/card/large/${props.set}/${props.lang}/${props.number}-1.${props.imageType}`,
     ];
   } else if (['flip_token_top', 'flip_token_bottom'].includes(props.layout)) {
     return [
-      `${assetBaseUrl}/magic/card/large/${props.set}/${props.lang}/${props.number.split('-')[0]}.${props.fullImageType}`,
+      `${assetBaseUrl}/magic/card/large/${props.set}/${props.lang}/${props.number.split('-')[0]}.${props.imageType}`,
     ];
   } else {
     return [
-      `${assetBaseUrl}/magic/card/large/${props.set}/${props.lang}/${props.number}.${props.fullImageType}`,
+      `${assetBaseUrl}/magic/card/large/${props.set}/${props.lang}/${props.number}.${props.imageType}`,
     ];
   }
 });

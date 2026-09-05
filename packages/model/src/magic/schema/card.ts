@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { legality } from './announcement';
-import { color, fullImageType, locale, layout, rarity } from './basic';
+import { color, imageType, locale, layout, rarity } from './basic';
 
 export const category = z.enum([
   'advertisement',
@@ -134,7 +134,7 @@ export const cardProfile = z.strictObject({
     number:      z.string(),
     rarity,
     layout,
-    fullImageType,
+    imageType,
     releaseDate: z.string(),
   }).array(),
 });

@@ -190,7 +190,7 @@ print.scryfallImageUris.{kind}
 | `cardLocalization` | `cardLocalization.name`、`cardLocalization.typeline`、`cardLocalization.text` |
 | `cardPart` | `cardPart.name`、`cardPart.typeline`、`cardPart.text`、`cardPart.cost`、`cardPart.manaValue`、`cardPart.color`、`cardPart.colorIndicator`、`cardPart.typeSuper`、`cardPart.typeMain`、`cardPart.typeSub`、`cardPart.power`、`cardPart.toughness`、`cardPart.loyalty`、`cardPart.defense`、`cardPart.handModifier`、`cardPart.lifeModifier` |
 | `cardPartLocalization` | `cardPartLocalization.name`、`cardPartLocalization.typeline`、`cardPartLocalization.text` |
-| `print` | `print.name`、`print.typeline`、`print.text`、`print.layout`、`print.frame`、`print.frameEffects`、`print.borderColor`、`print.cardBack`、`print.securityStamp`、`print.promoTypes`、`print.rarity`、`print.releaseDate`、`print.isDigital`、`print.isPromo`、`print.isReprint`、`print.finishes`、`print.hasHighResImage`、`print.imageStatus`、`print.fullImageType`、`print.inBooster`、`print.games`、`print.previewDate`、`print.previewSource`、`print.previewUri`、`print.printTags`、`print.scryfallOracleId`、`print.scryfallCardId`、`print.scryfallFace`、`print.scryfallImageUris.{kind}`、`print.arenaId`、`print.mtgoId`、`print.mtgoFoilId`、`print.multiverseId`、`print.tcgPlayerId`、`print.cardMarketId` |
+| `print` | `print.name`、`print.typeline`、`print.text`、`print.layout`、`print.frame`、`print.frameEffects`、`print.borderColor`、`print.cardBack`、`print.securityStamp`、`print.promoTypes`、`print.rarity`、`print.releaseDate`、`print.isDigital`、`print.isPromo`、`print.isReprint`、`print.finishes`、`print.imageStatus`、`print.imageType`、`print.inBooster`、`print.games`、`print.previewDate`、`print.previewSource`、`print.previewUri`、`print.printTags`、`print.scryfallOracleId`、`print.scryfallCardId`、`print.scryfallFace`、`print.scryfallImageUris.{kind}`、`print.arenaId`、`print.mtgoId`、`print.mtgoFoilId`、`print.multiverseId`、`print.tcgPlayerId`、`print.cardMarketId` |
 | `printPart` | `printPart.name`、`printPart.typeline`、`printPart.text`、`printPart.attractionLights`、`printPart.flavorName`、`printPart.flavorText`、`printPart.artist`、`printPart.watermark`、`printPart.scryfallIllusId` |
 
 ### 7.4 注册表要求
@@ -351,7 +351,6 @@ P0 仅允许以下类型字段进入 `auto_apply`：
   - `print.previewDate`
   - `print.previewSource`
   - `print.previewUri`
-  - `print.hasHighResImage`
   - `print.imageStatus`
 - 官方或强标识字段在“当前为空”时的补全：
   - `print.multiverseId`
@@ -384,7 +383,7 @@ P0 默认以下字段族进入 `batch_review`：
   - `print.securityStamp`
   - `print.promoTypes`
   - `print.finishes`
-  - `print.fullImageType`
+  - `print.imageType`
   - `print.games`
   - `print.printTags`
 - 可批量审核的部件展示信息：

@@ -11,7 +11,7 @@
               :number="data.number"
               :part="partIndex"
               :layout="data.print.layout"
-              :full-image-type="data.print.fullImageType"
+              :image-type="data.print.imageType"
               :image-status="data.print.imageStatus"
               :rotate="rotate"
               @update:part="partIndex = $event"

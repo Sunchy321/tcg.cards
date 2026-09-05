@@ -399,7 +399,7 @@ export const imageStatus = cs
 
 export const imageType = cs
   .commands.imageType
-  .apply(table => table.print.fullImageType, {});
+  .apply(table => table.print.imageType, {});
 
 export const rarity = cs
   .commands.rarity
