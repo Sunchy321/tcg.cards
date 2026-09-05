@@ -1,9 +1,11 @@
 import { z } from 'zod';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { ORPCError } from '@orpc/server';
 
+import { runWithDb } from '@tcg-cards/db';
 import { taskPageSnapshot } from '@tcg-cards/model/task';
 import { CardSlugResolution, ProjectionReview, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
+import { Print } from '@tcg-cards/db/schema/shared/magic/print';
 
 import { os } from './index';
 import { createAndRunTask } from './task';
@@ -16,6 +18,9 @@ import { magicMtgchImportTaskDefinition } from '../lib/magic/task/mtgch-import';
 import { magicMtgjsonImportTaskDefinition } from '../lib/magic/task/mtgjson-import';
 import { magicGathererImportTaskDefinition } from '../lib/magic/task/gatherer-import';
 import { magicProjectTaskDefinition } from '../lib/magic/task/magic-project';
+import { magicScryfallImageImportTaskDefinition } from '../lib/magic/task/scryfall-image-import/definition';
+import { magicGathererImageImportTaskDefinition } from '../lib/magic/task/gatherer-image-import/definition';
+import { magicManualImageReplaceTaskDefinition } from '../lib/magic/task/manual-image-replace/definition';
 import { magicPublishTaskDefinition } from '../lib/magic/task/publish';
 
 const magicDataFile = z.strictObject({
@@ -383,9 +388,71 @@ const publishTask = os
     });
   });
 
+const scryfallImageImport = os
+  .input(z.strictObject({
+    scope: z.enum(['full', 'set']),
+    set:   z.string().optional(),
+    lang:  z.string().optional(),
+  }).refine(v => v.scope === 'full' || !!v.set, { message: 'set is required when scope=set' }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    return createAndRunTask(magicScryfallImageImportTaskDefinition.taskType, {
+      taskType:          magicScryfallImageImportTaskDefinition.taskType,
+      definitionVersion: magicScryfallImageImportTaskDefinition.definitionVersion,
+      scope:             { type: magicScryfallImageImportTaskDefinition.scopeType, key: 'global', snapshot: {} },
+      params:            { scope: input.scope, set: input.set, lang: input.lang },
+    });
+  });
+
+const gathererImageImport = os
+  .input(z.strictObject({ set: z.string().min(1), lang: z.string().optional() }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    return createAndRunTask(magicGathererImageImportTaskDefinition.taskType, {
+      taskType:          magicGathererImageImportTaskDefinition.taskType,
+      definitionVersion: magicGathererImageImportTaskDefinition.definitionVersion,
+      scope:             { type: magicGathererImageImportTaskDefinition.scopeType, key: 'global', snapshot: {} },
+      params:            { set: input.set, lang: input.lang },
+    });
+  });
+
+const manualImageReplace = os
+  .input(z.strictObject({
+    mode:       z.enum(['single', 'zip']),
+    set:        z.string().min(1),
+    lang:       z.string().min(1),
+    number:     z.string().optional(),
+    faceIndex:  z.number().int().min(0).max(15).optional(),
+    fileName:   z.string().optional(),
+    dataBase64: z.string().optional(),
+    zipBase64:  z.string().optional(),
+  }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    return createAndRunTask(magicManualImageReplaceTaskDefinition.taskType, {
+      taskType:          magicManualImageReplaceTaskDefinition.taskType,
+      definitionVersion: magicManualImageReplaceTaskDefinition.definitionVersion,
+      scope:             { type: magicManualImageReplaceTaskDefinition.scopeType, key: 'global', snapshot: {} },
+      params:            input,
+    });
+  });
+
+const listImageSets = os
+  .input(z.object({}))
+  .output(z.array(z.strictObject({ code: z.string(), prints: z.number() })))
+  .handler(async () => {
+    const db = getLocalDb();
+    const rows = await runWithDb(db, () => db.select({
+      code:   Print.set,
+      prints: sql<number>`count(*)::int`,
+    }).from(Print).where(isNull(Print.deletedAt)).groupBy(Print.set).orderBy(Print.set));
+    return rows.map(r => ({ code: r.code, prints: Number(r.prints) }));
+  });
+
 export const magicRouter = {
   getDataState,
-  createTask: { scryfallImport, mtgchImport, mtgjsonImport, gathererImport, magicProject },
+  images:     { sets: listImageSets },
+  createTask: { scryfallImport, mtgchImport, mtgjsonImport, gathererImport, magicProject, scryfallImageImport, gathererImageImport, manualImageReplace },
   publish:    { publishTask },
   slug:       { listConflicts: listSlugConflicts, resolveConflict: resolveSlugConflict, member: slugMember },
   review:     { list: reviewList },

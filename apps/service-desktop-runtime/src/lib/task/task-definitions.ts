@@ -56,6 +56,12 @@ import { magicProjectTaskDefinition } from '../magic/task/magic-project/definiti
 import { magicPublishTaskDefinition } from '../magic/task/publish/definition';
 registerTaskDefinition(magicProjectTaskDefinition);
 registerTaskDefinition(magicPublishTaskDefinition);
+import { magicScryfallImageImportTaskDefinition } from '../magic/task/scryfall-image-import/definition';
+import { magicGathererImageImportTaskDefinition } from '../magic/task/gatherer-image-import/definition';
+import { magicManualImageReplaceTaskDefinition } from '../magic/task/manual-image-replace/definition';
+registerTaskDefinition(magicScryfallImageImportTaskDefinition);
+registerTaskDefinition(magicGathererImageImportTaskDefinition);
+registerTaskDefinition(magicManualImageReplaceTaskDefinition);
 
 import { testWorkTaskDefinition } from './test-definition';
 registerTaskDefinition(testWorkTaskDefinition);

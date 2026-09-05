@@ -13,6 +13,7 @@ import { matchBatch } from '../../match';
 import { assembleUnits, loadReversibleRows, type ProjectDb, type ScryfallRow } from '../../project/assemble';
 import { inconsistentMergedSlugs } from '../../project/consistency';
 import { projectCard, type AssembledCard, type ProjectCardResult } from '../../project/project-card';
+import { preserveExistingPrintImages } from '../../project/preserve-print-images';
 import { upsertBatch } from '../../upsert';
 
 /** Stable task type for projecting magic raw caches into the fact tables. */
@@ -206,6 +207,8 @@ const definition = createDefinition(magicProjectTaskType, {
     await runWithDb(getLocalDb(), async () => {
       const database = getLocalDb();
       for (const oracle of chunk) {
+        const oraclePrints: (typeof Print)['$inferInsert'][] = [];
+        const oraclePrintParts: (typeof PrintPart)['$inferInsert'][] = [];
         for (const raw of await assembleUnits(database, oracle, magic.reversibleRows)) {
           const assembled = withResolvedCardId(raw, magic.unitToCard);
           if (assembled == null) continue;
@@ -213,9 +216,13 @@ const definition = createDefinition(magicProjectTaskType, {
           // print rows per raw row are written regardless of card-level
           // agreement (§7.4).
           const result = projectCard(assembled);
-          counts.prints += await writeSection(database, Print, result.prints, [...PRINT_PK]);
-          counts.printParts += await writeSection(database, PrintPart, result.printParts, [...PRINT_PK, 'partIndex']);
+          oraclePrints.push(...result.prints);
+          oraclePrintParts.push(...result.printParts);
         }
+        // 重复投影时保留已导入的本地图字段(含 manual),避免覆盖。
+        await preserveExistingPrintImages(database, oraclePrints);
+        counts.prints += await writeSection(database, Print, oraclePrints, [...PRINT_PK]);
+        counts.printParts += await writeSection(database, PrintPart, oraclePrintParts, [...PRINT_PK, 'partIndex']);
         doneRows += rowCounts.get(oracle) ?? 0;
         // Submit progress after every oracle so the processed-row counter
         // scrolls continuously instead of jumping at block boundaries.

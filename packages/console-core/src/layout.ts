@@ -136,6 +136,15 @@ export function getGameNavItems(game: Game): ConsoleNavLink[] {
         ],
       },
       {
+        label: '卡图导入',
+        icon: 'i-lucide-image',
+        children: [
+          { label: 'Scryfall', icon: 'i-lucide-download', to: `/${game}/image-import/scryfall` },
+          { label: 'Gatherer', icon: 'i-lucide-globe', to: `/${game}/image-import/gatherer` },
+          { label: '手动替换', icon: 'i-lucide-wand-2', to: `/${game}/image-import/manual` },
+        ],
+      },
+      {
         label: '数据浏览',
         icon: 'i-lucide-database',
         children: [
