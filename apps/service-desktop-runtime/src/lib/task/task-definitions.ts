@@ -53,7 +53,9 @@ import { magicGathererImportTaskDefinition } from '../magic/task/gatherer-import
 registerTaskDefinition(magicGathererImportTaskDefinition);
 
 import { magicProjectTaskDefinition } from '../magic/task/magic-project/definition';
+import { magicPublishTaskDefinition } from '../magic/task/publish/definition';
 registerTaskDefinition(magicProjectTaskDefinition);
+registerTaskDefinition(magicPublishTaskDefinition);
 
 import { testWorkTaskDefinition } from './test-definition';
 registerTaskDefinition(testWorkTaskDefinition);

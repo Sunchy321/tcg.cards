@@ -16,6 +16,7 @@ import { magicMtgchImportTaskDefinition } from '../lib/magic/task/mtgch-import';
 import { magicMtgjsonImportTaskDefinition } from '../lib/magic/task/mtgjson-import';
 import { magicGathererImportTaskDefinition } from '../lib/magic/task/gatherer-import';
 import { magicProjectTaskDefinition } from '../lib/magic/task/magic-project';
+import { magicPublishTaskDefinition } from '../lib/magic/task/publish';
 
 const magicDataFile = z.strictObject({
   name: z.string(),
@@ -365,9 +366,27 @@ const reviewList = os
     return { items };
   });
 
+const publishTask = os
+  .input(z.strictObject({
+    publishTarget: z.string().trim().min(1),
+    environment:   z.string().trim().min(1),
+    dryRun:        z.boolean().optional().default(false),
+    force:         z.boolean().optional().default(false),
+  }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    return createAndRunTask(magicPublishTaskDefinition.taskType, {
+      taskType:          magicPublishTaskDefinition.taskType,
+      definitionVersion: magicPublishTaskDefinition.definitionVersion,
+      scope:             { type: magicPublishTaskDefinition.scopeType, key: 'global', snapshot: {} },
+      params:            { publishTarget: input.publishTarget, environment: input.environment, dryRun: input.dryRun, force: input.force },
+    });
+  });
+
 export const magicRouter = {
   getDataState,
   createTask: { scryfallImport, mtgchImport, mtgjsonImport, gathererImport, magicProject },
+  publish:    { publishTask },
   slug:       { listConflicts: listSlugConflicts, resolveConflict: resolveSlugConflict, member: slugMember },
   review:     { list: reviewList },
 };

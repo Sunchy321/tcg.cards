@@ -10,3 +10,4 @@ export * from './field-sync';
 export * from './sync';
 export * from './config';
 export * from './review';
+export * from './publish';

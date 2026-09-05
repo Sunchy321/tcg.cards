@@ -52,6 +52,21 @@ fn build_desktop_state_payload(app: &AppHandle) -> Result<serde_json::Value, Str
     let yugioh_image_settings = load_yugioh_image_settings(app)?;
     let ai_config = load_ai_config(app)?;
 
+    // Publish rows are derived from config profiles and carry a credential_key
+    // that must not reach the runtime, so they are projected per game instead
+    // of serialized verbatim.
+    let rows_for = |game: &str| -> Vec<serde_json::Value> {
+        publish_targets.iter()
+            .filter(|target| target.publish_target == game)
+            .map(|target| json!({
+                "publishTarget": target.publish_target,
+                "environment": target.environment,
+                "targetFingerprint": target.target_fingerprint,
+                "connectionString": target.connection_string,
+            }))
+            .collect()
+    };
+
     Ok(json!({
         "localDatabase": {
             "connectionString": connection_string,
@@ -60,17 +75,10 @@ fn build_desktop_state_payload(app: &AppHandle) -> Result<serde_json::Value, Str
         "games": {
             "hearthstone": {
                 "image": image_settings,
-                // publish rows are derived from config profiles and carry a
-                // credential_key that must not reach the runtime, so they are
-                // projected here instead of serialized verbatim.
-                "publish": publish_targets.iter().map(|target| {
-                    json!({
-                        "publishTarget": target.publish_target,
-                        "environment": target.environment,
-                        "targetFingerprint": target.target_fingerprint,
-                        "connectionString": target.connection_string,
-                    })
-                }).collect::<Vec<_>>(),
+                "publish": rows_for("hearthstone"),
+            },
+            "magic": {
+                "publish": rows_for("magic"),
             },
             "yugioh": {
                 "image": {

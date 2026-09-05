@@ -15,6 +15,7 @@ import {
   setEditorIdentity,
   setHearthstoneImageOverride,
   setHearthstonePublishTargetOverrides,
+  setMagicPublishTargetOverrides,
   setLocalDatabaseUrlOverride,
   setPathOverride,
   setYugiohImageOverride,
@@ -73,6 +74,14 @@ const configureDesktopStateInput = z.strictObject({
   }),
   paths: z.record(z.string(), pathNodeSchema),
   games: z.strictObject({
+    magic: z.strictObject({
+      publish: z.array(z.strictObject({
+        publishTarget:     z.string().trim().min(1).nullable(),
+        environment:       z.string().trim().min(1).nullable(),
+        targetFingerprint: z.string().trim().min(1).nullable(),
+        connectionString:  z.string().trim().min(1).nullable(),
+      })),
+    }),
     hearthstone: z.strictObject({
       image: z.strictObject({
         rendererBaseUrl: z.string().trim().min(1).nullable(),
@@ -114,6 +123,7 @@ function applyDesktopState(
   setHearthstonePublishTargetOverrides(input.games.hearthstone.publish);
   setYugiohImageOverride(input.games.yugioh.image);
   setYugiohPublishTargetOverride(input.games.yugioh.publish);
+  setMagicPublishTargetOverrides(input.games.magic.publish);
   if (input.ai) {
     setAiConfig({
       apiKey:  input.ai.apiKey,

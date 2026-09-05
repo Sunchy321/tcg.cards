@@ -35,6 +35,38 @@ export interface YugiohPublishTargetOverride {
   connectionString:  string | null;
 }
 
+/** Publish-target override payload injected for the magic desktop workflow. */
+export interface MagicPublishTargetOverride {
+  publishTarget:     string | null;
+  environment:       string | null;
+  targetFingerprint: string | null;
+  connectionString:  string | null;
+}
+
+const magicPublishTargetOverrides = {
+  current: [] as MagicPublishTargetOverride[],
+};
+
+/** Stores runtime-local magic publish target overrides provided by the desktop shell. */
+export function setMagicPublishTargetOverrides(value: MagicPublishTargetOverride[]) {
+  magicPublishTargetOverrides.current = value;
+}
+
+/** Lists runtime-local magic publish target overrides. */
+export function readMagicPublishTargetOverrides() {
+  return magicPublishTargetOverrides.current;
+}
+
+/** Reports whether the runtime has any complete magic publish target override. */
+export function hasMagicPublishTargetOverride() {
+  return readMagicPublishTargetOverrides().some(target => {
+    return target.publishTarget != null
+      && target.environment != null
+      && target.targetFingerprint != null
+      && target.connectionString != null;
+  });
+}
+
 const yugiohPublishTargetOverride = {
   current: null as YugiohPublishTargetOverride | null,
 };
@@ -230,6 +262,7 @@ export interface RuntimeOverrides {
   paths:                     PathOverrides;
   hearthstoneImage:          HearthstoneImageOverride | null;
   hearthstonePublishTargets: HearthstonePublishTargetOverride[];
+  magicPublishTargets:       MagicPublishTargetOverride[];
   aiConfig:                  AiConfig | null;
   editorIdentity:            string | null;
 }
@@ -241,6 +274,7 @@ export function collectRuntimeOverrides(): RuntimeOverrides {
     paths:                     readAllPathOverrides(),
     hearthstoneImage:          readHearthstoneImageOverride(),
     hearthstonePublishTargets: readHearthstonePublishTargetOverrides(),
+    magicPublishTargets:       readMagicPublishTargetOverrides(),
     aiConfig:                  readAiConfig(),
     editorIdentity:            readEditorIdentity(),
   };
@@ -252,6 +286,7 @@ export function applyRuntimeOverrides(data: RuntimeOverrides): void {
   applyPathOverrides(data.paths);
   setHearthstoneImageOverride(data.hearthstoneImage);
   setHearthstonePublishTargetOverrides(data.hearthstonePublishTargets);
+  setMagicPublishTargetOverrides(data.magicPublishTargets);
   setAiConfig(data.aiConfig);
   setEditorIdentity(data.editorIdentity);
 }

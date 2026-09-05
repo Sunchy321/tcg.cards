@@ -146,6 +146,13 @@ export function getGameNavItems(game: Game): ConsoleNavLink[] {
           { label: '规则', icon: 'i-lucide-book-open', to: `/${game}/rule` },
         ],
       },
+      {
+        label: '发布管线',
+        icon: 'i-lucide-upload',
+        children: [
+          { label: '发布', icon: 'i-lucide-upload', to: `/${game}/publish` },
+        ],
+      },
     );
   } else {
     items.push(
