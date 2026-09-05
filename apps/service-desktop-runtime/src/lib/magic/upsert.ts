@@ -43,7 +43,10 @@ export interface ImportCounts extends UpsertCounts {
 /**
  * Upserts one batch. `xmax` is 0 for rows that were newly inserted and non-zero
  * for rows that matched the conflict and were updated; rows whose data was
- * identical are skipped by the change WHERE and counted as unchanged.
+ * identical are skipped by the change WHERE and counted as unchanged. Batches
+ * are split internally by a bind-parameter budget — postgres.js caps one
+ * statement at 65534 parameters, and heavily printed cards (basic lands) yield
+ * thousands of rows per unit.
  */
 export async function upsertBatch<T>(
   database: any,
@@ -52,16 +55,24 @@ export async function upsertBatch<T>(
   target: any,
   pkNames: string[],
 ): Promise<UpsertCounts> {
+  if (batch.length === 0) return { inserted: 0, updated: 0, unchanged: 0 };
   const first = batch[0] as unknown as Record<string, unknown>;
   const set = buildExcludedSet(table, first, pkNames);
   const where = buildChangeWhere(table, first, pkNames);
-  const rows = await database.insert(table).values(batch as never)
-    .onConflictDoUpdate({ target, set, where })
-    .returning({ __xmax: sql`xmax` });
-  const inserted = rows.filter((row: { __xmax: number }) => row.__xmax === 0).length;
-  const updated = rows.length - inserted;
-  const unchanged = batch.length - rows.length;
-  return { inserted, updated, unchanged };
+  const chunkSize = Math.max(1, Math.floor(60_000 / Object.keys(first).length));
+
+  const counts: UpsertCounts = { inserted: 0, updated: 0, unchanged: 0 };
+  for (let i = 0; i < batch.length; i += chunkSize) {
+    const chunk = batch.slice(i, i + chunkSize) as never[];
+    const rows = await database.insert(table).values(chunk)
+      .onConflictDoUpdate({ target, set, where })
+      .returning({ __xmax: sql`xmax` });
+    const inserted = rows.filter((row: { __xmax: number }) => row.__xmax === 0).length;
+    counts.inserted += inserted;
+    counts.updated += rows.length - inserted;
+    counts.unchanged += chunk.length - rows.length;
+  }
+  return counts;
 }
 
 /**
