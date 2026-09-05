@@ -41,7 +41,9 @@
 | 1 Scryfall | jpg,672×936 | 英文主体(lea/en 295 张、dmu/en 451 张、clb/en 936 张全为它);非 en 零散(one/en 高编号 78 张、mh3/zhs 54 张);ko/ru 中有 11,062 张 jpg 恰为此尺寸 |
 | 2 中文扫图(带火焰水印) | jpg,745×1040 | 9ed/zhs 的 350 张即此规格(用户确认全是扫图);与来源 3 同尺寸,**元数据无法区分,需内容/水印判定** |
 | 3 官方 card gallery | jpg,745×1040 | 只提取了中文;与来源 2 撞指纹 |
-| 4 官方 gatherer | webp,744×1039 | webp 全部集中在 109 个系列(现代为主);另有少量 265×370(小图档)与 646×902 |
+| 4 官方 gatherer | webp,744×1039,**带 alpha 透明圆角(yuva420p)** | webp 全部集中在 109 个系列(现代为主);另有少量 265×370(小图档)与 646×902 |
+
+补充事实(2026-09-05 修正):jpg 系(Scryfall large 672×936、gallery 745×1040 等)**方形无 alpha**;webp/png 系(官方 webp、Scryfall png)**圆角带 alpha**——资产中两种形态本就并存,无法全库统一。官方 png 为 745×1040 RGBA,large 为其降采样方形 JPG(672×936)。经同一张卡的对比页人工评审:两者各自转 q50 webp 后**质量肉眼无差别**(672 方形 49KB vs 745 圆角 60KB),差异只在分辨率档与圆角形态。
 
 ### 2.1 需要警惕的"中间档"与异常
 
@@ -56,6 +58,16 @@
 - clb(2022):en 全 672×936;ja 以 265×370 为主;de/fr/ru/ko/zhs 为 646×902 与 265×370 的混合。
 - 10e:全部语言(de/es/fr/it/ja/pt/ru/zhs)都是 744×1039(webp)或 672×936(jpg),俄文反而高清——说明"非 en 一定小"不成立,取决于该语言印刷与抓取批次。
 - **结论:不能按语言一刀切下质量结论,必须逐文件判定;但经验规律"en 整体高清、zhs 大体高清、其余语言普遍存在小尺寸档"与用户目测一致。**
+
+### 2.3 存量 webp 等效质量评估(2026-09-05)
+
+WebP 容器不记录编码质量。用"体积匹配 + MAE 饱和点"双估计器反推存量 webp 的等效 cwebp 质量档(分层抽样 189 张:语言 × 尺寸档 × 字节档,含 bok/brr 与 ru/ko 小字节组):
+
+- 用已知质量样本标定误差:真值 40/60/80/90 → 估计 50/70/80/90(低档偏高约 10,高档精确);
+- **189 张估计值全部为 q80**(各语言、各尺寸档、各字节档一致),与旧项目 `conv-webp.sh` 默认 `-q 80` 完全吻合 → 存量 webp 应为该脚本统一产物;
+- 修正此前的误读:bok/brr、ru/ko 的"18KB 中位"是**小分辨率档**(200×285/223×311/265×370/646×902)造成的,不是编码质量低;它们的估 q 同样是 80;
+- **重压决策输入**:存量 21GB 若整体重压到 q50-m4,体积加权平均省 33.3%(样本区间 26%–38%,646×902 档最省)→ **21GB → 约 14GB**。代价是 q80→q50 的二次有损;按 §4.5 与人工评审,该代际损失肉眼不可感知。是否重压待定;
+- 局限:估计误差 ±10;推断基于 cwebp 尺寸曲线匹配,原编码器参数(滤波/sharp_yuv/方法)差异未计入。
 
 ## 3. jpg → webp 压缩实验
 
@@ -109,7 +121,7 @@
 - jpg 30.78GB:q80 基线预计 → **约 19–20GB**(全套约 40–41GB);按实测体积比曲线(q50 ≈ q80 的 0.609)**定稿 q50 下 jpg → 约 12GB、全套约 33GB**(q60 约 34–35GB;q40 约再省 13%)。
 - 文字区可承受极低质量(人工评审至 q20 仍锐利);质量-体积曲线在 q70–q45 呈收益递减平台,定稿取平台下沿 q50(见 3.2)。
 - 吞吐:10 并行约 120 张/秒(1,105 张实测 9.2s),21.5 万张**约 30 分钟**。
-- **已存在 webp(21GB)不要重转**(二次有损、无收益)。jpg 母本均可从 Scryfall/官方重新获取,统一 webp 作为展示/工作格式可接受;若要留档,把原 jpg 挪旁即可。
+- **存量 webp(21GB)重转与否待定**:实测其等效质量统一为 q80(见 §2.3);维持"不重转"的理由是二次有损,但 q80→q50 的重压可省约 7GB(21GB→14GB)且代际损失经评审肉眼不可感——是否执行待用户决策。jpg 母本均可从 Scryfall/官方重新获取,统一 webp 作为展示/工作格式可接受;若要留档,把原 jpg 挪旁即可。
 - 低清对象(bok/brr、ru/ko 小档)转 webp 不解决任何问题,它们需要的是补源。
 
 ## 4. "大而糊"卡图的量化检测(核心结论)
@@ -163,24 +175,27 @@ E = 灰度图拉普拉斯(4 邻域核)响应的方差
 
 ## 5. 库内字段现状(与图片相关的存量事实)
 
-- `magic.prints` 已存:`image_status`(从 Scryfall 原样复制,枚举 `highres_scan|lowres|missing|placeholder`)、`has_high_res_image`、`image_updated_at`、`illustration_id`、`scryfall_image_uris`(jsonb)。
-- `full_image_type`(text,模型枚举 `webp|jpg|png`):这是"整卡图存储格式声明",**目前 `assemble.ts` 硬编码写 'jpg'**。它与 search 命令里的 `imageType`(scryfall 图片尺寸:png/large/normal/small/art_crop/border_crop,用于远程图选择)是两回事。
+- `magic.prints` 已存:`image_status`(从 Scryfall 原样复制,枚举 `highres_scan|lowres|missing|placeholder`)、`image_updated_at`、`illustration_id`、`scryfall_image_uris`(jsonb)。`has_high_res_image` 已于 2026-09-05 移除——它等价于 `image_status='highres_scan'`(实测 8,359 行零不一致),且无任何消费方,属冗余镜像。
+- `image_type`(text,模型枚举 `webp|jpg|png`):"整卡图存储格式"声明,2026-09-05 由 `full_image_type` 全链路改名而来(含列名、模型枚举、UI 属性与投影映射);`assemble.ts` 写死值已由 'jpg' 改为 'webp'。注意它与 search 命令里同名的 `imageType`(scryfall 图片尺寸:png/large/normal/small/art_crop/border_crop,用于远程图选择)**不是同一个概念**。
 - site-magic `server/orpc/magic/card.ts` 有一段被注释的旧取图代码,还原了当初的设计意图:
   - 基础 URL 约定:`{asset_base}/magic/card/large/{set}/{lang}/{number}.{ext}`(`asset_base` 为部署时配置的资产域名/桶前缀);
   - DFC 布局(transform/modal_dfc/transform_token/minigame/reversible_card/double_faced/battle/art_series)取 `{number}-0.{ext}` 与 `{number}-1.{ext}`;flip_token 用 `number.split('-')[0]`;
-  - `ext` 来自 `full_image_type`。
+  - `ext` 来自 `image_type`。
   - **实测资产目录与这套约定完全同构**(见 §1.2),说明"图键按约定派生、不逐张存 URL"是可行且与历史一致的。
 - 部署层:仓库外的同步脚本用 rclone 把 `asset/` 同步到远端对象存储(CDN)与 NAS,压缩收益同时作用于远端存储与外网带宽。
 
 ## 6. 已同意的设计方向(未冻结,备忘)
 
-多轮讨论中已同意、但尚未写成 spec 的决定:
+多轮讨论中已同意、已落到代码但尚未写成 spec 的决定(2026-09-05 已实现字段):
 
 - **不新建独立图片表**,直接在 `magic.prints` 上加列(用户决定,理由是没必要分表)。
-- **全部统一存 webp**:`full_image_type` 语义即"存储格式",随导入改为 `webp` 常量(存量迁移一并 UPDATE),不需要另加 content_type 列。
+- **全部统一存 webp**:`image_type` 语义即"存储格式",`assemble.ts` 已写 'webp' 常量(存量迁移一并 UPDATE),不需要另加 content_type 列。
 - **不设 watermark 概念**:带水印扫图要么不进正式库,要么接受其不可溯源。
-- **sizes 必须保留**:`image_width/image_height` 是质量分档的主要依据(见 §4.3),外加 `image_byte_size`;`image_sha256` 用于幂等与复核。
-- **`image_status` 与质量判定合并成一个字段**,由导入过程按实测覆写(具体枚举取值、字段命名待定;候选方向是沿用 `missing|placeholder|lowres|highres_scan` 四值,语义改为"该印张最终服务图的清晰档")。
+- **已在 prints 落地的字段**(db 层 + 模型层同步,迁移 SQL 待提交时生成):`image_sha256`、`image_width`、`image_height`、`image_byte_size`、`image_source`、`image_quality_score`(细节损失率数值,0–1)、`image_verified_at`(本地图完成校验写入的时间),全部可空。`image_quality_version` 曾短暂加入后按用户决定移除——算法/阈值升级时以全量重扫 + 导入流程版本记录代替版本列。
+- **`image_status` 复用为"最终图档位"**:不新增列,沿用 `missing|placeholder|lowres|highres_scan` 四值,语义由 scryfall 远程可用性改为"该印张最终服务图的清晰档",由导入过程按实测覆写(与 quality 判定合并)。
+- **手动替换防覆盖**:不加锁定布尔列,以 `image_source='manual'` 表达;自动导入(scryfall/gatherer)跳过 `image_source='manual'` 的印张。
+- **scryfall 导入定稿:抓 `png`(745×1040 RGBA)再转 q50 webp**(2026-09-05 用户定稿):保留 745 档与 alpha 圆角,最终文件约 60KB(仍小于存量官方 webp 的 80–110KB);代价是下载流量约为 large 的 3–10 倍。UI 侧结论:site-magic 展示最宽约 200–400 CSS px,672 档本已足够、圆角由 CSS(border-radius 4.75%)渲染——png 的价值主要在分辨率档与形态一致性,决策以用户确认为准。
+- 三模块(模块一 scryfall 全量/指定 set;模块二 gatherer 指定 set 爬取;模块三 手动单张/压缩包替换)的导入结果均参与投影(assemble/project-card),投影映射按上述新列扩展。
 
 ## 7. 未决/待办
 
@@ -188,7 +203,7 @@ E = 灰度图拉普拉斯(4 邻域核)响应的方差
 2. 阈值在全语料的标定:全量跑 ko/ru 11,062 张 + 扩展其他语言,产出"大而糊"候选清单供人工抽查;本文 grn/ru 验证集(14 张糊 + 3/58/273 等负例)可作回归基准。
 3. 在线补源范围:非 en/zhs 印张的 265×370/646×902 档与 bok/brr 类低清,从 Scryfall/官方重抓高清的取舍(待定)。
 4. DFC:老系列(如 isd)是否都有 `-0/-1` 分面文件,需对照 `prints` 做完整性审计;导入时对"编号-面序号"文件名形式的解析规则。
-5. 质量判定算法/阈值若日后升级,是否需要版本号字段以便整体重判(倾向:判定只写结果档位,指标不落库;重判靠重扫资产)。
+5. 质量判定参数已定:细节损失率数值落 `image_quality_score`(0–1);不设版本列,算法/阈值升级时以全量重扫 + 导入流程版本记录代替(旧"指标不落库"倾向已撤销)。
 6. 导入/清洗的批处理工作态(如 magic_data 的批次/候选表、计数、幂等)是否引入、何时引入,未定。
 7. 646×902 中间档与 210×300/怪名的定性(来源、是否可接受),未定。
 
