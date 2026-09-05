@@ -22,6 +22,7 @@ export default {
     'ar':  'Arabic',
     'sa':  'Sanskrit',
     'ph':  'Phyrexian',
+    'dw':  'Dwarvish',
 
     'en:asia': 'English (Asia)',
     'zhs:pro': 'Simplified Chinese (YGOPro)',

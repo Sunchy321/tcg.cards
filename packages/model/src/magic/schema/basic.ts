@@ -6,7 +6,7 @@ export const birthday = '1993-08-05';
 
 export const mainLocale = z.enum(['en', 'zhs', 'zht', 'de', 'fr', 'it', 'ja', 'ko', 'pt', 'ru', 'es']).describe('mainLocale');
 
-export const locale = z.enum([...mainLocale.options, 'ph', 'he', 'ar', 'sa', 'grc', 'la', 'qya']).describe('locale');
+export const locale = z.enum([...mainLocale.options, 'ph', 'he', 'ar', 'sa', 'grc', 'la', 'qya', 'dw']).describe('locale');
 
 export const specificManaSymbols = [
   'W', 'U', 'B', 'R', 'G', 'C', 'X', 'Y', 'Z',
