@@ -9,7 +9,7 @@ import { Print } from '@tcg-cards/db/schema/shared/magic/print';
 
 import { createDefinition } from '#task/definition';
 import { getLocalDb } from '../../../hearthstone/hsdata-local-db';
-import { assessQuality, encodeWebp, faceIndexOf, mapWithConcurrency, writeCanonical } from '../../image-import/common';
+import { assessQuality, encodeWebp, faceIndexOf, mapWithConcurrency, removeSameStemJpg, writeCanonical } from '../../image-import/common';
 
 /** Stable task type for the module-B Gatherer image crawl (by set only). */
 export const magicGathererImageImportTaskType = 'magic_gatherer_image_import';
@@ -17,9 +17,10 @@ export const magicGathererImageImportTaskType = 'magic_gatherer_image_import';
 type Db = ReturnType<typeof getLocalDb>;
 
 const input = z.strictObject({
-  set:   z.string().min(1),
-  lang:  z.string().optional(),
-  force: z.boolean().optional().default(false),
+  set:        z.string().min(1),
+  lang:       z.string().optional(),
+  force:      z.boolean().optional().default(false),
+  cleanupJpg: z.boolean().optional().default(false),
 });
 
 const output = z.strictObject({
@@ -29,10 +30,11 @@ const output = z.strictObject({
   failed:     z.number(),
   missingId:  z.number(),
   lowQuality: z.number(),
+  cleanedJpg: z.number(),
 });
 
 type Output = z.infer<typeof output>;
-const emptyCounts: Output = { processed: 0, written: 0, unchanged: 0, failed: 0, missingId: 0, lowQuality: 0 };
+const emptyCounts: Output = { processed: 0, written: 0, unchanged: 0, failed: 0, missingId: 0, lowQuality: 0, cleanedJpg: 0 };
 
 interface QueueRow {
   cardId: string; version: string; set: string; number: string;
@@ -42,9 +44,10 @@ interface QueueRow {
 }
 
 interface BlockState {
-  rows:   QueueRow[];
-  offset: number;
-  counts: Output;
+  rows:       QueueRow[];
+  offset:     number;
+  counts:     Output;
+  cleanupJpg: boolean;
 }
 
 const BATCH = 24;
@@ -57,6 +60,7 @@ function addCounts(a: Output, b: Output): Output {
     failed:     a.failed + b.failed,
     missingId:  a.missingId + b.missingId,
     lowQuality: a.lowQuality + b.lowQuality,
+    cleanedJpg: a.cleanedJpg + b.cleanedJpg,
   };
 }
 
@@ -64,7 +68,7 @@ function gathererUrl(multiverseId: number): string {
   return `https://gatherer.wizards.com/Handlers/Image.ashx?multiverseid=${multiverseId}&type=card`;
 }
 
-async function processRow(db: Db, row: QueueRow, tmpDir: string): Promise<Output> {
+async function processRow(db: Db, row: QueueRow, tmpDir: string, cleanupJpg: boolean): Promise<Output> {
   const out = { ...emptyCounts, processed: 1 };
 
   if (row.multiverseId == null) {
@@ -114,6 +118,8 @@ async function processRow(db: Db, row: QueueRow, tmpDir: string): Promise<Output
 
   if (res === 'written') out.written = 1;
   if (res === 'unchanged') out.unchanged = 1;
+
+  if (cleanupJpg && removeSameStemJpg(row.set, row.lang, row.number, row.faceIndex)) out.cleanedJpg = 1;
   await db.update(Print).set({
     imageType:         'webp',
     imageSource:       'gatherer',
@@ -167,7 +173,7 @@ const definition = createDefinition(magicGathererImageImportTaskType, {
       multiverseId: (r.multiverseId?.[0] as number | undefined) ?? null,
       faceIndex:    faceIndexOf(r.scryfallFace),
     }));
-    const state: BlockState = { rows: queue, offset: 0, counts: emptyCounts };
+    const state: BlockState = { rows: queue, offset: 0, counts: emptyCounts, cleanupJpg: !!ctx.cleanupJpg };
     return { total: queue.length, blockInput: state };
   })
   .block(async ({ blockInput, checkpoint, progress, done, signal }) => {
@@ -181,7 +187,7 @@ const definition = createDefinition(magicGathererImageImportTaskType, {
         const results = await mapWithConcurrency(
           batch,
           4,
-          row => processRow(db, row, tmpDir),
+          row => processRow(db, row, tmpDir, state.cleanupJpg),
           () => signal?.aborted ?? false,
         );
         return results.reduce(addCounts, emptyCounts);

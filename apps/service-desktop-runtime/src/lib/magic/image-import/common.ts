@@ -167,3 +167,18 @@ export async function mapWithConcurrency<T, R>(
   await Promise.all(lanes);
   return results;
 }
+
+/** Remove a legacy same-stem jpg after its webp replacement was written. */
+export function removeSameStemJpg(set: string, lang: string, number: string, faceIndex?: number): boolean {
+  const stem = faceIndex == null ? number.replaceAll('/', '_') : `${number.replaceAll('/', '_')}-${faceIndex}`;
+  try {
+    const file = join(printImageDir(set, lang), `${stem}.jpg`);
+    if (existsSync(file)) {
+      rmSync(file);
+      return true;
+    }
+  } catch {
+    // removal is best-effort
+  }
+  return false;
+}

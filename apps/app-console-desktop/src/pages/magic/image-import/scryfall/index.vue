@@ -48,6 +48,7 @@
                 />
               </UFormField>
               <UCheckbox v-model="form.force" label="Force" :disabled="disabled" />
+              <UCheckbox v-model="form.cleanupJpg" label="清理 JPG" :disabled="disabled" />
             </div>
           </div>
         </template>
@@ -65,7 +66,7 @@ import { orpc } from '~/lib/orpc';
 
 definePageMeta({ layout: 'admin', title: 'Scryfall 卡图导入' });
 
-const form = useLocalPersist('magic-image-import:scryfall', { set: '__all__' as string, lang: '__all__' as string, force: false });
+const form = useLocalPersist('magic-image-import:scryfall', { set: '__all__' as string, lang: '__all__' as string, force: false, cleanupJpg: false });
 if (typeof form.set !== 'string') form.set = '__all__';
 if (typeof form.lang !== 'string') form.lang = '__all__';
 
@@ -119,6 +120,7 @@ const operation = computed<TaskOperation>(() => ({
     set:   form.set === '__all__' ? undefined : form.set,
     lang:  form.lang === '__all__' ? undefined : form.lang,
     force: !!form.force,
+    cleanupJpg: !!form.cleanupJpg,
   }) as Promise<TaskPageSnapshot>,
 }));
 </script>

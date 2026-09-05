@@ -390,10 +390,11 @@ const publishTask = os
 
 const scryfallImageImport = os
   .input(z.strictObject({
-    scope: z.enum(['full', 'set']),
-    set:   z.string().optional(),
-    lang:  z.string().optional(),
-    force: z.boolean().optional(),
+    scope:      z.enum(['full', 'set']),
+    set:        z.string().optional(),
+    lang:       z.string().optional(),
+    force:      z.boolean().optional(),
+    cleanupJpg: z.boolean().optional(),
   }).refine(v => v.scope === 'full' || !!v.set, { message: 'set is required when scope=set' }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
@@ -401,19 +402,19 @@ const scryfallImageImport = os
       taskType:          magicScryfallImageImportTaskDefinition.taskType,
       definitionVersion: magicScryfallImageImportTaskDefinition.definitionVersion,
       scope:             { type: magicScryfallImageImportTaskDefinition.scopeType, key: 'global', snapshot: {} },
-      params:            { scope: input.scope, set: input.set, lang: input.lang, force: input.force },
+      params:            { scope: input.scope, set: input.set, lang: input.lang, force: input.force, cleanupJpg: input.cleanupJpg },
     });
   });
 
 const gathererImageImport = os
-  .input(z.strictObject({ set: z.string().min(1), lang: z.string().optional(), force: z.boolean().optional() }))
+  .input(z.strictObject({ set: z.string().min(1), lang: z.string().optional(), force: z.boolean().optional(), cleanupJpg: z.boolean().optional() }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
     return createAndRunTask(magicGathererImageImportTaskDefinition.taskType, {
       taskType:          magicGathererImageImportTaskDefinition.taskType,
       definitionVersion: magicGathererImageImportTaskDefinition.definitionVersion,
       scope:             { type: magicGathererImageImportTaskDefinition.scopeType, key: 'global', snapshot: {} },
-      params:            { set: input.set, lang: input.lang, force: input.force },
+      params:            { set: input.set, lang: input.lang, force: input.force, cleanupJpg: input.cleanupJpg },
     });
   });
 

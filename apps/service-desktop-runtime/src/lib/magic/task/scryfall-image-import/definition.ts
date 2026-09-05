@@ -9,7 +9,7 @@ import { Print } from '@tcg-cards/db/schema/shared/magic/print';
 
 import { createDefinition } from '#task/definition';
 import { getLocalDb } from '../../../hearthstone/hsdata-local-db';
-import { assessQuality, encodeWebp, faceIndexOf, mapWithConcurrency, writeCanonical } from '../../image-import/common';
+import { assessQuality, encodeWebp, faceIndexOf, mapWithConcurrency, removeSameStemJpg, writeCanonical } from '../../image-import/common';
 
 /** Stable task type for the module-A Scryfall image import (png -> webp q50). */
 export const magicScryfallImageImportTaskType = 'magic_scryfall_image_import';
@@ -17,10 +17,11 @@ export const magicScryfallImageImportTaskType = 'magic_scryfall_image_import';
 type Db = ReturnType<typeof getLocalDb>;
 
 const input = z.strictObject({
-  scope: z.enum(['full', 'set']),
-  set:   z.string().optional(),
-  lang:  z.string().optional(),
-  force: z.boolean().optional().default(false),
+  scope:      z.enum(['full', 'set']),
+  set:        z.string().optional(),
+  lang:       z.string().optional(),
+  force:      z.boolean().optional().default(false),
+  cleanupJpg: z.boolean().optional().default(false),
 }).refine(v => v.scope === 'full' || !!v.set, { message: 'set is required when scope=set' });
 
 const output = z.strictObject({
@@ -30,10 +31,11 @@ const output = z.strictObject({
   failed:     z.number(),
   missingUrl: z.number(),
   lowQuality: z.number(),
+  cleanedJpg: z.number(),
 });
 
 type Output = z.infer<typeof output>;
-const emptyCounts: Output = { processed: 0, written: 0, unchanged: 0, failed: 0, missingUrl: 0, lowQuality: 0 };
+const emptyCounts: Output = { processed: 0, written: 0, unchanged: 0, failed: 0, missingUrl: 0, lowQuality: 0, cleanedJpg: 0 };
 
 interface QueueRow {
   cardId: string; version: string; set: string; number: string;
@@ -43,9 +45,10 @@ interface QueueRow {
 }
 
 interface BlockState {
-  rows:   QueueRow[];
-  offset: number;
-  counts: Output;
+  rows:       QueueRow[];
+  offset:     number;
+  counts:     Output;
+  cleanupJpg: boolean;
 }
 
 const BATCH = 24;
@@ -58,6 +61,7 @@ function addCounts(a: Output, b: Output): Output {
     failed:     a.failed + b.failed,
     missingUrl: a.missingUrl + b.missingUrl,
     lowQuality: a.lowQuality + b.lowQuality,
+    cleanedJpg: a.cleanedJpg + b.cleanedJpg,
   };
 }
 
@@ -74,7 +78,7 @@ async function fetchToFile(url: string, file: string): Promise<boolean> {
   }
 }
 
-async function processRow(db: Db, row: QueueRow, tmpDir: string): Promise<Output> {
+async function processRow(db: Db, row: QueueRow, tmpDir: string, cleanupJpg: boolean): Promise<Output> {
   const out = { ...emptyCounts, processed: 1 };
 
   if (!row.url) {
@@ -110,6 +114,8 @@ async function processRow(db: Db, row: QueueRow, tmpDir: string): Promise<Output
   if (res === 'written') out.written = 1;
 
   if (res === 'unchanged') out.unchanged = 1;
+
+  if (cleanupJpg && removeSameStemJpg(row.set, row.lang, row.number, row.faceIndex)) out.cleanedJpg = 1;
   await db.update(Print).set({
     imageType:         'webp',
     imageSource:       'scryfall',
@@ -167,7 +173,7 @@ const definition = createDefinition(magicScryfallImageImportTaskType, {
         faceIndex: faceIndexOf(r.scryfallFace),
       };
     });
-    const state: BlockState = { rows: queue, offset: 0, counts: emptyCounts };
+    const state: BlockState = { rows: queue, offset: 0, counts: emptyCounts, cleanupJpg: !!ctx.cleanupJpg };
     return { total: queue.length, blockInput: state };
   })
   .block(async ({ blockInput, checkpoint, progress, done, signal }) => {
@@ -181,7 +187,7 @@ const definition = createDefinition(magicScryfallImageImportTaskType, {
         const results = await mapWithConcurrency(
           batch,
           4,
-          row => processRow(db, row, tmpDir),
+          row => processRow(db, row, tmpDir, state.cleanupJpg),
           () => signal?.aborted ?? false,
         );
         return results.reduce(addCounts, emptyCounts);
