@@ -12,7 +12,6 @@ import {
   cardEditorView,
   cardFullView,
 } from '#model/magic/schema/print';
-import { legality } from '#model/magic/schema/game-change';
 
 // import CardNameExtractor from '../extract-name';
 
