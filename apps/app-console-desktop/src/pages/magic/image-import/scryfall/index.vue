@@ -47,6 +47,7 @@
                   :disabled="disabled"
                 />
               </UFormField>
+              <UCheckbox v-model="form.force" label="Force" :disabled="disabled" />
             </div>
           </div>
         </template>
@@ -64,7 +65,7 @@ import { orpc } from '~/lib/orpc';
 
 definePageMeta({ layout: 'admin', title: 'Scryfall 卡图导入' });
 
-const form = useLocalPersist('magic-image-import:scryfall', { set: '__all__' as string, lang: '__all__' as string });
+const form = useLocalPersist('magic-image-import:scryfall', { set: '__all__' as string, lang: '__all__' as string, force: false });
 if (typeof form.set !== 'string') form.set = '__all__';
 if (typeof form.lang !== 'string') form.lang = '__all__';
 
@@ -117,6 +118,7 @@ const operation = computed<TaskOperation>(() => ({
     scope: form.set === '__all__' ? 'full' : 'set',
     set:   form.set === '__all__' ? undefined : form.set,
     lang:  form.lang === '__all__' ? undefined : form.lang,
+    force: !!form.force,
   }) as Promise<TaskPageSnapshot>,
 }));
 </script>

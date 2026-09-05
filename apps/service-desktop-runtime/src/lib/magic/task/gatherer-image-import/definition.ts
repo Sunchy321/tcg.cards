@@ -17,8 +17,9 @@ export const magicGathererImageImportTaskType = 'magic_gatherer_image_import';
 type Db = ReturnType<typeof getLocalDb>;
 
 const input = z.strictObject({
-  set:  z.string().min(1),
-  lang: z.string().optional(),
+  set:   z.string().min(1),
+  lang:  z.string().optional(),
+  force: z.boolean().optional().default(false),
 });
 
 const output = z.strictObject({
@@ -157,6 +158,7 @@ const definition = createDefinition(magicGathererImageImportTaskType, {
     }).from(Print).where(and(
       eq(Print.set, ctx.set),
       ctx.lang ? sql`${Print.lang} = ${ctx.lang}` : undefined,
+      ctx.force ? undefined : sql`${Print.imageSource} is null`,
       sql`${Print.imageSource} is distinct from 'manual'`,
     )));
     const queue: QueueRow[] = rows.map(r => ({

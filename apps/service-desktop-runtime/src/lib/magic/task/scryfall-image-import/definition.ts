@@ -20,6 +20,7 @@ const input = z.strictObject({
   scope: z.enum(['full', 'set']),
   set:   z.string().optional(),
   lang:  z.string().optional(),
+  force: z.boolean().optional().default(false),
 }).refine(v => v.scope === 'full' || !!v.set, { message: 'set is required when scope=set' });
 
 const output = z.strictObject({
@@ -153,6 +154,7 @@ const definition = createDefinition(magicScryfallImageImportTaskType, {
     }).from(Print).where(and(
       ctx.scope === 'set' ? eq(Print.set, ctx.set!) : undefined,
       ctx.lang ? sql`${Print.lang} = ${ctx.lang}` : undefined,
+      ctx.force ? undefined : sql`${Print.imageSource} is null`,
       sql`${Print.imageSource} is distinct from 'manual'`,
     )));
     const queue: QueueRow[] = rows.map(r => {
