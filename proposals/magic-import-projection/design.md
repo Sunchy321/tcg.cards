@@ -115,7 +115,7 @@ match 是投影任务内部的**前置步骤**（批次级）。
 - 纯函数：`projectCard(assembledCard, ...) → ProjectCardResult`，输入按 oracle_id 聚合的卡数据，输出该卡全部事实表行（cards / card_localizations / card_parts / prints / ...，可多行），含 unified。
 - 配套「单卡测试」夹具（bun:test，无数据库），投影行为变更时重新生成夹具。
 
-### 4.6 base + overlay 协作模型（以 docs/multi-user-data-import.md 为准）
+### 4.6 base + overlay 协作模型（以 docs/multi-user-data-import.zh-CN.md 为准）
 
 - **base**（自动层）= 投影输出，不落表；字段无手动 overlay 时直接作为事实表当前值。
 - **overlay**（手动层）= 字段级 `field_commits`；`accepted` 后物化进事实表并更新 `field_winners`。
@@ -125,7 +125,7 @@ match 是投影任务内部的**前置步骤**（批次级）。
 
 ### 4.7 导入机制（新表替换旧 import_*）
 
-旧 `magic_data.import_*` 表未与 `docs/multi-user-data-import.md` 对齐，**移除**，替换为：
+旧 `magic_data.import_*` 表未与 `docs/multi-user-data-import.zh-CN.md` 对齐，**移除**，替换为：
 
 - `magic_data`：`field_winners` / `field_commits` / `field_sync_cursors` / `field_conflicts` / `base_change_review` / `source_versions` / `raw_entity_snapshots`
 - `magic_app`：`import_review_actions`
@@ -143,7 +143,7 @@ match 是投影任务内部的**前置步骤**（批次级）。
 
 ## 6. 关联文档
 
-- `docs/multi-user-data-import.md` — base + overlay 多用户导入与同步设计（权威）。
+- `docs/multi-user-data-import.zh-CN.md` — base + overlay 多用户导入与同步设计（权威）。
 - `CONTEXT.md` — Magic 段（cardId / card version / localization source / data source ownership / unified localization / slug annotation）。
 - `docs/adr/0001-magic-cardid-identity.md` — cardId 身份模型决策。
 - `data-sources.md` — 数据源结构与字段增量对比。

@@ -114,7 +114,7 @@ commit `ed474d2` 已含 local + remote 迁移；修订删除迁移见 commit `4f
 - remote：`PublishStreamRegistration` / `PublishLedger`
 - 配置（per-game）：`source_catalog` / `field_policies` / `rule_sets`
 - **移除**旧 `import_sources` / `import_rule_sets` / `import_field_rules` / `import_policy_snapshots` / `import_runs` / `import_raw_records` / `import_change_sets` / `import_field_changes` / `import_apply_logs`
-- 参照 `docs/multi-user-data-import.md` §14 与 `shared/hearthstone/field-sync.ts`（field_winners/field_commits/field_conflicts 结构）。
+- 参照 `docs/multi-user-data-import.zh-CN.md` §14 与 `shared/hearthstone/field-sync.ts`（field_winners/field_commits/field_conflicts 结构）。
 
 ## 7. 数据源接入：Scryfall 导入任务 ✅
 

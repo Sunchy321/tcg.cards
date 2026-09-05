@@ -255,7 +255,7 @@ hearthstone-card-image-results.{exportId}.zip
 
 ### 9.1 支持的 RenderMechanic
 
-完整列表及 enum ID 见 [炉石图片渲染器协议](../../docs/hearthstone-image-renderer-protocol.zh-CN.md) 的 `renderMechanics` 小节，此处不重复枚举。
+完整列表及 enum ID 见 [炉石图片渲染器协议](../../docs/hearthstone/image-renderer-protocol.zh-CN.md) 的 `renderMechanics` 小节，此处不重复枚举。
 
 ### 9.2 示例
 

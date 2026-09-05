@@ -109,7 +109,7 @@
 
 ### `renderMechanics`
 
-完整列表见 [炉石图片渲染器协议](../../docs/hearthstone-image-renderer-protocol.zh-CN.md) 的 `renderMechanics` 小节。
+完整列表见 [炉石图片渲染器协议](../../docs/hearthstone/image-renderer-protocol.zh-CN.md) 的 `renderMechanics` 小节。
 
 ## 阶段计划
 
