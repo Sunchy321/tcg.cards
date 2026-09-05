@@ -10,6 +10,9 @@ import type { AssembledCard, CardLocalizationSurface, LocalizedFaceDraft, Oracle
 
 type CardRow = (typeof ScryfallCard)['$inferSelect'];
 
+/** One raw scryfall card row (source of assembly and print drafts). */
+export type { CardRow as ScryfallRow };
+
 /** Database client shape used by assembly (created by the caller). */
 export type ProjectDb = ReturnType<typeof createDb>;
 
@@ -226,12 +229,17 @@ function localizedFaceAt(row: CardRow, faceIndex: number): LocalizedFaceDraft {
  * Reversible rows that reference `oracleId` become extra prints of that card.
  * A reversible physical object prints the referenced card on one or both of its
  * faces; each contributing face keeps a distinct print with the collector
- * number decorated by the face side ('a' for face 0, 'b' for face 1).
+ * number decorated by the face side ('a' for face 0, 'b' for face 1). The
+ * reversible pool is static during a projection run, so `reversibleRows` lets
+ * callers load it once instead of scanning per oracle.
  */
-async function reversiblePrintsFor(database: ProjectDb, oracleId: string): Promise<PrintDraft[]> {
-  const rows = await database.select().from(ScryfallCard)
+export async function loadReversibleRows(database: ProjectDb): Promise<CardRow[]> {
+  return database.select().from(ScryfallCard)
     .where(and(eq(ScryfallCard.lang, 'en'), eq(ScryfallCard.layout, 'reversible_card')));
+}
 
+/** Prints a card gains from reversible rows whose faces reference it. */
+function reversiblePrintsFrom(rows: CardRow[], oracleId: string): PrintDraft[] {
   const out: PrintDraft[] = [];
   for (const row of rows) {
     const faces = (row.cardFaces as RawFace[] | null) ?? [];
@@ -241,6 +249,9 @@ async function reversiblePrintsFor(database: ProjectDb, oracleId: string): Promi
       draft.number = `${draft.number}${i === 0 ? 'a' : 'b'}`;
       draft.faces = [printFaceAt(row, i)];
       draft.scryfallFace = i === 0 ? 'front' : 'back';
+      // Reversible rows carry no top-level oracle id; the print's identity is
+      // the referenced face's oracle id (NOT NULL on the print table).
+      draft.scryfallOracleId = f.oracle_id ?? oracleId;
       out.push(draft);
     });
   }
@@ -313,7 +324,7 @@ function unitSlugs(en: CardRow): string[] {
  * `double_faced_token` yields one unit per face. `reversible_card` produces no
  * units here (it only contributes prints to the units its faces reference).
  */
-export async function assembleUnits(database: ProjectDb, oracleId: string): Promise<AssembledCard[]> {
+export async function assembleUnits(database: ProjectDb, oracleId: string, reversibleRows?: CardRow[]): Promise<AssembledCard[]> {
   const enRows = await database.select().from(ScryfallCard)
     .where(and(
       eq(ScryfallCard.lang, 'en'),
@@ -465,7 +476,7 @@ export async function assembleUnits(database: ProjectDb, oracleId: string): Prom
 
   const prints = [
     ...allRows.map(toPrintDraft),
-    ...(await reversiblePrintsFor(database, oracleId)),
+    ...reversiblePrintsFrom(reversibleRows ?? await loadReversibleRows(database), oracleId),
   ];
 
   // Single double-sided tokens (Incubator//Phyrexian, Bounty//Wanted,

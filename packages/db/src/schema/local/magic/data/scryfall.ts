@@ -120,7 +120,9 @@ export const ScryfallCard = dataSchema.table('scryfall_cards', {
     .defaultNow()
     .$onUpdate(() => new Date()),
   deletedAt: timestamp('deleted_at'),
-});
+}, table => [
+  index('scryfall_cards_oracle_id_idx').on(table.oracleId),
+]);
 
 /**
  * Raw Scryfall set object cache. One row per Scryfall set, holding every
