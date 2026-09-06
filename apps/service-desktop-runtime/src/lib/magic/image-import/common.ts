@@ -282,12 +282,14 @@ export async function assessQuality(encoded: EncodedImage, input: Buffer): Promi
 
 /**
  * Multi-face prints: the face file index of this (single-face) print row.
- * front/top/left -> 0, back/bottom/right -> 1; single-face rows (scryfallFace=null) get no face suffix.
+ * front/top -> 0, back/bottom -> 1; single-face rows (scryfallFace=null) get no face suffix.
+ * combined prints (B.F.M. halves) also get no suffix: their left/right mark is
+ * the half of a spread, not a face — each half is a standalone single-face print.
  */
 export function faceIndexOf(scryfallFace: string | null): number | undefined {
   if (scryfallFace == null) return undefined;
-  if (scryfallFace === 'front' || scryfallFace === 'top' || scryfallFace === 'left') return 0;
-  if (scryfallFace === 'back' || scryfallFace === 'bottom' || scryfallFace === 'right') return 1;
+  if (scryfallFace === 'front' || scryfallFace === 'top') return 0;
+  if (scryfallFace === 'back' || scryfallFace === 'bottom') return 1;
   return undefined;
 }
 

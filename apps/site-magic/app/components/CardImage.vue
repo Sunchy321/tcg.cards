@@ -1,13 +1,24 @@
 <template>
-  <div class="card-image">
-    <div
-      class="image"
-      :class="[
-        `layout-${layout}`,
-        `part-${realPart}`,
-        { rotated: realRotate, turnable }
-      ]"
-    >
+  <div class="card-image" :class="{ combined: isCombined }">
+    <!--
+      SPECIAL CASE (the only `combined` card): B.F.M. (Big Furry Monster, ugl).
+      Its two prints are the left/right halves of one spread on adjacent
+      collector numbers (left = even, right = odd), so both are rendered side
+      by side instead of one print at a time. Everything below is dead code
+      for any other card.
+    -->
+    <div v-if="isCombined" class="panels">
+      <img
+        v-for="url in combinedUrls"
+        :key="url"
+        class="panel"
+        :src="url"
+        loading="lazy"
+        @error="(e) => ((e.target as HTMLImageElement).src = '/card-not-found.svg')"
+      >
+    </div>
+
+    <div v-else class="image" :class="[`layout-${layout}`, `part-${realPart}`, { rotated: realRotate, turnable }]">
       <img
         class="front w-full"
         :src="imageUrls[0]"
@@ -182,6 +193,18 @@ const imageUrls = computed(() => {
   }
 });
 
+// SPECIAL CASE: see the template comment — B.F.M. is the only `combined`
+// card; its halves sit on adjacent collector numbers (left = even) and are
+// standalone single-face prints, so their files use the plain number.
+const isCombined = computed(() => props.layout === 'combined');
+
+const combinedUrls = computed(() => {
+  const n = Number.parseInt(props.number, 10);
+  if (!Number.isFinite(n)) return [];
+  const panels = n % 2 === 0 ? [n, n + 1] : [n - 1, n];
+  return panels.map(panel => `${assetBaseUrl}/magic/card/large/${props.set}/${props.lang}/${panel}.${props.imageType}`);
+});
+
 watch(() => props.layout, () => {
   innerRotate.value = null;
 });
@@ -213,6 +236,22 @@ watch(() => props.rotate, () => {
     img {
       filter: brightness(0.85);
     }
+  }
+}
+
+.panels {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+
+  .panel {
+    width: 50%;
+    height: auto;
+    min-width: 0;
   }
 }
 
