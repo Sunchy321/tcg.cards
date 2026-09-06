@@ -59,6 +59,7 @@
 
 <script setup lang="ts">
 import type { TaskPageSnapshot } from '@tcg-cards/model/task';
+import { locale, mainLocale } from '@tcg-cards/model/magic/schema/basic';
 import type { TaskOperation } from '~/components/task/TaskController.vue';
 import { orpc } from '~/lib/orpc';
 
@@ -69,19 +70,13 @@ const form = useLocalPersist('magic-image-import:gatherer', { set: '', lang: '__
 if (typeof form.set !== 'string') form.set = '';
 if (typeof form.lang !== 'string') form.lang = '__all__';
 
+/** Main locales first, then a separator and the remaining (secondary) locales. */
+const mainCodeSet = new Set<string>(mainLocale.options);
 const LANG_OPTIONS = [
   { label: '不限', value: '__all__' },
-  { label: 'EN', value: 'en' },
-  { label: 'ZHS', value: 'zhs' },
-  { label: 'ZHT', value: 'zht' },
-  { label: 'JA', value: 'ja' },
-  { label: 'DE', value: 'de' },
-  { label: 'FR', value: 'fr' },
-  { label: 'ES', value: 'es' },
-  { label: 'IT', value: 'it' },
-  { label: 'PT', value: 'pt' },
-  { label: 'RU', value: 'ru' },
-  { label: 'KO', value: 'ko' },
+  ...mainLocale.options.map(code => ({ label: code.toUpperCase(), value: code })),
+  { type: 'separator' },
+  ...locale.options.filter(code => !mainCodeSet.has(code)).map(code => ({ label: code.toUpperCase(), value: code })),
 ];
 const langOptions = LANG_OPTIONS;
 const setOptions = ref<string[]>([]);
