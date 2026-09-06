@@ -53,7 +53,7 @@ export const print = z.strictObject({
   imageByteSize:     z.int().nullable(),
   imageSource:       z.string().nullable(),
   imageQualityScore: z.number().nullable(),
-  imageVerifiedAt:   z.iso.datetime().nullable(),
+  imageVerifiedAt:   z.date().nullable(),
 
   inBooster: z.boolean(),
   games:     game.array(),
