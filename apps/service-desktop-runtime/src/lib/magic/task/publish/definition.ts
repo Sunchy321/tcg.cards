@@ -86,6 +86,8 @@ interface TableScanState {
   updatedRows:   number;
   deletedRows:   number;
   unchangedRows: number;
+  /** Row keys seen across all scan pages of this table, for the final delete sweep. */
+  sweptKeys:     Set<string>;
 }
 
 interface LoadingBlockInput {
@@ -202,6 +204,7 @@ const definition = createDefinition(magicPublishTaskType, {
       updatedRows:   0,
       deletedRows:   0,
       unchangedRows: 0,
+      sweptKeys:     new Set(),
     }));
     const total = PUBLISH_TABLES.reduce((sum, name) => sum + totals[name], 0);
     return { total, blockInput: { tableIndex: 0, states } satisfies LoadingBlockInput };
@@ -227,7 +230,7 @@ const definition = createDefinition(magicPublishTaskType, {
       state.cursor = lastKey;
       state.scannedRows += rows.length;
 
-      const sweptKeys = new Set<string>();
+      const sweptKeys = state.sweptKeys;
       for (const row of rows) {
         const key = rowKeyOf(config, row);
         const hash = rowHashOf(config, row);
