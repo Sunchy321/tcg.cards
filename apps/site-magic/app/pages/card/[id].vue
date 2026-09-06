@@ -758,7 +758,7 @@ const jsonCardLink = computed(() => {
     locale:    data.value.locale,
     partIndex: partIndex.value.toString(),
   });
-  return `/rpc/magic/card?${params.toString()}`;
+  return `/api/magic/card?${params.toString()}`;
 });
 
 const jsonPrintLink = computed(() => {
@@ -770,6 +770,6 @@ const jsonPrintLink = computed(() => {
     lang:      data.value.lang,
     partIndex: partIndex.value.toString(),
   });
-  return `/rpc/magic/print?${params.toString()}`;
+  return `/api/magic/print?${params.toString()}`;
 });
 </script>
