@@ -1,6 +1,3 @@
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { and, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -68,7 +65,7 @@ function gathererUrl(multiverseId: number): string {
   return `https://gatherer.wizards.com/Handlers/Image.ashx?multiverseid=${multiverseId}&type=card`;
 }
 
-async function processRow(db: Db, row: QueueRow, tmpDir: string, cleanupJpg: boolean): Promise<Output> {
+async function processRow(db: Db, row: QueueRow, cleanupJpg: boolean): Promise<Output> {
   const out = { ...emptyCounts, processed: 1 };
 
   if (row.multiverseId == null) {
@@ -76,7 +73,7 @@ async function processRow(db: Db, row: QueueRow, tmpDir: string, cleanupJpg: boo
     return out;
   }
 
-  const tmp = join(tmpDir, 'card.img');
+  let source: Buffer | null;
   try {
     const res = await fetch(gathererUrl(row.multiverseId), { signal: AbortSignal.timeout(60_000), headers: { 'user-agent': 'tcg-cards/desktop' } });
 
@@ -86,28 +83,24 @@ async function processRow(db: Db, row: QueueRow, tmpDir: string, cleanupJpg: boo
     }
 
     const buf = Buffer.from(await res.arrayBuffer());
+    source = buf.length > 0 ? buf : null;
 
-    if (buf.length === 0) {
+    if (!source) {
       out.failed = 1;
       return out;
     }
-
-    const { writeFileSync } = await import('node:fs');
-    writeFileSync(tmp, buf);
   } catch {
     out.failed = 1;
     return out;
   }
-  const enc = encodeWebp(tmp);
+  const enc = await encodeWebp(source);
 
   if (!enc) {
-    rmSync(tmp, { force: true });
     out.failed = 1;
     return out;
   }
 
-  const tier = assessQuality(enc, tmp);
-  rmSync(tmp, { force: true });
+  const tier = await assessQuality(enc, source);
   if (tier.score != null && tier.status === 'lowres') out.lowQuality = 1;
   const res = writeCanonical(row.set, row.lang, row.number, row.faceIndex, enc);
 
@@ -180,14 +173,13 @@ const definition = createDefinition(magicGathererImageImportTaskType, {
     const state = blockInput as BlockState;
     if (state.offset >= state.rows.length) return done(state);
     const batch = state.rows.slice(state.offset, state.offset + BATCH);
-    const tmpDir = mkdtempSync(join(tmpdir(), 'magic-img-b-'));
     try {
       const db = getLocalDb();
       const counts = await runWithDb(db, async () => {
         const results = await mapWithConcurrency(
           batch,
           4,
-          row => processRow(db, row, tmpDir, state.cleanupJpg),
+          row => processRow(db, row, state.cleanupJpg),
           () => signal?.aborted ?? false,
         );
         return results.reduce(addCounts, emptyCounts);
@@ -199,7 +191,7 @@ const definition = createDefinition(magicGathererImageImportTaskType, {
       if (state.offset >= state.rows.length) return done(state);
       return state;
     } finally {
-      rmSync(tmpDir, { recursive: true, force: true });
+      // in-memory only: nothing to clean up
     }
   })
   .exit(({ blockInput }) => (blockInput as BlockState).counts)

@@ -114,17 +114,13 @@ function collectZipItems(zipBase64: string): QueueItem[] {
 }
 
 async function processItem(db: Db, item: QueueItem, set: string, lang: string): Promise<Partial<Output>> {
-  const tmp = join(tmpdir(), `magic-img-item-${process.pid}-${Math.random().toString(36).slice(2)}.${item.ext}`);
-  writeFileSync(tmp, item.data);
-  const enc = encodeWebp(tmp);
+  const enc = await encodeWebp(item.data);
 
   if (!enc) {
-    rmSync(tmp, { force: true });
     return { failed: 1 };
   }
 
-  const tier = assessQuality(enc, tmp);
-  rmSync(tmp, { force: true });
+  const tier = await assessQuality(enc, item.data);
   const res = writeCanonical(set, lang, item.number, item.faceIndex, enc);
   if (res === 'error') return { failed: 1 };
   const result = await db.update(Print).set({

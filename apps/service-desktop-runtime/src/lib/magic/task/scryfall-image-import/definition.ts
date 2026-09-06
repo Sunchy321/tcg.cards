@@ -1,6 +1,3 @@
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { and, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -65,20 +62,18 @@ function addCounts(a: Output, b: Output): Output {
   };
 }
 
-async function fetchToFile(url: string, file: string): Promise<boolean> {
+async function fetchToBuffer(url: string): Promise<Buffer | null> {
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(60_000), headers: { 'user-agent': 'tcg-cards/desktop' } });
-    if (!res.ok) return false;
+    if (!res.ok) return null;
     const buf = Buffer.from(await res.arrayBuffer());
-    const { writeFileSync } = await import('node:fs');
-    writeFileSync(file, buf);
-    return buf.length > 0;
+    return buf.length > 0 ? buf : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
-async function processRow(db: Db, row: QueueRow, tmpDir: string, cleanupJpg: boolean): Promise<Output> {
+async function processRow(db: Db, row: QueueRow, cleanupJpg: boolean): Promise<Output> {
   const out = { ...emptyCounts, processed: 1 };
 
   if (!row.url) {
@@ -86,23 +81,21 @@ async function processRow(db: Db, row: QueueRow, tmpDir: string, cleanupJpg: boo
     return out;
   }
 
-  const tmp = join(tmpDir, 'card.img');
+  const source = await fetchToBuffer(row.url);
 
-  if (!await fetchToFile(row.url, tmp)) {
+  if (!source) {
     out.failed = 1;
     return out;
   }
 
-  const enc = encodeWebp(tmp);
+  const enc = await encodeWebp(source);
 
   if (!enc) {
-    rmSync(tmp, { force: true });
     out.failed = 1;
     return out;
   }
 
-  const tier = assessQuality(enc, tmp);
-  rmSync(tmp, { force: true });
+  const tier = await assessQuality(enc, source);
   if (tier.score != null && tier.status === 'lowres') out.lowQuality = 1;
   const res = writeCanonical(row.set, row.lang, row.number, row.faceIndex, enc);
 
@@ -180,14 +173,13 @@ const definition = createDefinition(magicScryfallImageImportTaskType, {
     const state = blockInput as BlockState;
     if (state.offset >= state.rows.length) return done(state);
     const batch = state.rows.slice(state.offset, state.offset + BATCH);
-    const tmpDir = mkdtempSync(join(tmpdir(), 'magic-img-a-'));
     try {
       const db = getLocalDb();
       const counts = await runWithDb(db, async () => {
         const results = await mapWithConcurrency(
           batch,
           4,
-          row => processRow(db, row, tmpDir, state.cleanupJpg),
+          row => processRow(db, row, state.cleanupJpg),
           () => signal?.aborted ?? false,
         );
         return results.reduce(addCounts, emptyCounts);
@@ -199,7 +191,7 @@ const definition = createDefinition(magicScryfallImageImportTaskType, {
       if (state.offset >= state.rows.length) return done(state);
       return state;
     } finally {
-      rmSync(tmpDir, { recursive: true, force: true });
+      // in-memory only: nothing to clean up
     }
   })
   .exit(({ blockInput }) => (blockInput as BlockState).counts)
