@@ -88,7 +88,10 @@ onMounted(async () => {
   try {
     const list = await orpc.magic.images.sets({});
     setOptions.value = list.map(x => x.code);
-    form.set = list[0]!.code;
+    // Keep the persisted selection when still valid; only fall back to the first set otherwise.
+    if (!setOptions.value.includes(form.set)) {
+      form.set = list[0]!.code;
+    }
   } finally {
     loadingSets.value = false;
   }
