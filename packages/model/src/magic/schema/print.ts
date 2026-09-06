@@ -9,7 +9,7 @@ export const securityStamp = z.enum(['acorn', 'arena', 'circle', 'heart', 'oval'
 export const finish = z.enum(['nonfoil', 'foil', 'etched', 'glossy']).describe('finish');
 export const imageStatus = z.enum(['highres_scan', 'lowres', 'missing', 'placeholder']).describe('imageStatus');
 export const game = z.enum(['arena', 'astral', 'mtgo', 'paper', 'sega']).describe('game');
-export const scryfallFace = z.enum(['back', 'bottom', 'front', 'top']).describe('scryfallFace');
+export const scryfallFace = z.enum(['back', 'bottom', 'front', 'left', 'right', 'top']).describe('scryfallFace');
 
 export type Frame = z.infer<typeof frame>;
 export type BorderColor = z.infer<typeof borderColor>;
