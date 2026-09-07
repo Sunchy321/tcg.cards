@@ -2,6 +2,7 @@ import { and, eq, inArray, isNull, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { runWithDb } from '@tcg-cards/db';
+import { ScryfallCard } from '@tcg-cards/db/schema/local/magic';
 import { Print } from '@tcg-cards/db/schema/shared/magic/print';
 
 import { createDefinition } from '#task/definition';
@@ -45,6 +46,7 @@ const output = z.strictObject({
   failed:            z.number(),
   skipped:           z.number(),
   skippedUpload:     z.number(),
+  placeholder:       z.number(),
   unmatched:         z.number(),
   unrecognized:      z.number(),
   lowQuality:        z.number(),
@@ -64,6 +66,7 @@ const emptyCounts = (): MutableOutput => ({
   failed:            0,
   skipped:           0,
   skippedUpload:     0,
+  placeholder:       0,
   unmatched:         0,
   unrecognized:      0,
   lowQuality:        0,
@@ -72,7 +75,7 @@ const emptyCounts = (): MutableOutput => ({
   warnings:          [],
 });
 
-const numericCountKeys = ['processed', 'written', 'unchanged', 'failed', 'skipped', 'skippedUpload', 'unmatched', 'unrecognized', 'lowQuality'] as const;
+const numericCountKeys = ['processed', 'written', 'unchanged', 'failed', 'skipped', 'skippedUpload', 'placeholder', 'unmatched', 'unrecognized', 'lowQuality'] as const;
 const listCountKeys = ['unmatchedNumbers', 'unrecognizedNames', 'warnings'] as const;
 
 /** Upper bound per output list so huge archives cannot flood the task result. */
@@ -97,11 +100,12 @@ const rowColumns = {
   printName:         Print.name,
   scryfallFace:      Print.scryfallFace,
   scryfallImageUris: Print.scryfallImageUris,
+  scryfallImageStatus: ScryfallCard.imageStatus,
   multiverseId:      Print.multiverseId,
 };
 
 function queryPrintRows(db: Db, where: SQL | undefined) {
-  return db.select(rowColumns).from(Print).where(where);
+  return db.select(rowColumns).from(Print).leftJoin(ScryfallCard, eq(Print.scryfallCardId, ScryfallCard.cardId)).where(where);
 }
 
 type SelectedRow = Awaited<ReturnType<typeof queryPrintRows>>[number];
@@ -230,7 +234,17 @@ async function buildDownloadItems(db: Db, ctx: { source: string, set: string, la
     pushCapped(counts.unmatchedNumbers, ctx.number);
     return [];
   }
-  const keptRows = applySkipRules(rows, ctx.source, ctx.force, counts);
+  // Scryfall placeholder art (unprinted/digital-only cards) must not be downloaded.
+  const downloadable = ctx.source === 'scryfall'
+    ? rows.filter(row => {
+      if (row.scryfallImageStatus === 'placeholder') {
+        counts.placeholder += 1;
+        return false;
+      }
+      return true;
+    })
+    : rows;
+  const keptRows = applySkipRules(downloadable, ctx.source, ctx.force, counts);
   return keptRows.map(row => {
     const uris = (row.scryfallImageUris ?? []) as unknown as Record<string, string>[];
     return {

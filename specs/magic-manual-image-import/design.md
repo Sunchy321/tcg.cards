@@ -29,6 +29,7 @@
 
 - 写入 prints 的 `image_source` 为所选值,语义与 A/B 一致:已导过的行不会被批量任务(force=false)重复下载。
 - 面号:上传组沿用现有手动输入 faceIndex;下载组由 `scryfall_face` 经 `faceIndexOf` 推导,界面隐藏 faceIndex 输入。
+- Scryfall 图源(下载组 `scryfall` 与模块 A)经 `prints.scryfall_card_id` 关联 `scryfall_cards.image_status`,跳过标记为 `placeholder` 的印刷(未印刷/纯数字卡的占位图),计数 `placeholder`。
 - 值域分类在代码中以常量组维护(上传组/下载组),不引入新表或新列。
 
 ## 3. force 语义(已评审定案)

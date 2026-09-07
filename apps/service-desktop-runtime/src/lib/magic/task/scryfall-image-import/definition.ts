@@ -2,6 +2,7 @@ import { and, eq, isNull, notInArray, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { runWithDb } from '@tcg-cards/db';
+import { ScryfallCard } from '@tcg-cards/db/schema/local/magic';
 import { Print } from '@tcg-cards/db/schema/shared/magic/print';
 
 import { createDefinition } from '#task/definition';
@@ -22,17 +23,18 @@ const input = z.strictObject({
 }).refine(v => v.scope === 'full' || !!v.set, { message: 'set is required when scope=set' });
 
 const output = z.strictObject({
-  processed:  z.number(),
-  written:    z.number(),
-  unchanged:  z.number(),
-  failed:     z.number(),
-  missingUrl: z.number(),
-  lowQuality: z.number(),
-  cleanedJpg: z.number(),
+  processed:   z.number(),
+  written:     z.number(),
+  unchanged:   z.number(),
+  failed:      z.number(),
+  missingUrl:  z.number(),
+  placeholder: z.number(),
+  lowQuality:  z.number(),
+  cleanedJpg:  z.number(),
 });
 
 type Output = z.infer<typeof output>;
-const emptyCounts: Output = { processed: 0, written: 0, unchanged: 0, failed: 0, missingUrl: 0, lowQuality: 0, cleanedJpg: 0 };
+const emptyCounts: Output = { processed: 0, written: 0, unchanged: 0, failed: 0, missingUrl: 0, placeholder: 0, lowQuality: 0, cleanedJpg: 0 };
 
 interface QueueRow {
   cardId: string; version: string; set: string; number: string;
@@ -52,13 +54,14 @@ const BATCH = 24;
 
 function addCounts(a: Output, b: Output): Output {
   return {
-    processed:  a.processed + b.processed,
-    written:    a.written + b.written,
-    unchanged:  a.unchanged + b.unchanged,
-    failed:     a.failed + b.failed,
-    missingUrl: a.missingUrl + b.missingUrl,
-    lowQuality: a.lowQuality + b.lowQuality,
-    cleanedJpg: a.cleanedJpg + b.cleanedJpg,
+    processed:   a.processed + b.processed,
+    written:     a.written + b.written,
+    unchanged:   a.unchanged + b.unchanged,
+    failed:      a.failed + b.failed,
+    missingUrl:  a.missingUrl + b.missingUrl,
+    placeholder: a.placeholder + b.placeholder,
+    lowQuality:  a.lowQuality + b.lowQuality,
+    cleanedJpg:  a.cleanedJpg + b.cleanedJpg,
   };
 }
 
@@ -131,7 +134,7 @@ async function processRow(db: Db, row: QueueRow, cleanupJpg: boolean): Promise<O
 }
 
 const definition = createDefinition(magicScryfallImageImportTaskType, {
-  version:     '2026-09-05:v1',
+  version:     '2026-09-07:v1',
   effectModel: 'reconcilable',
 })
   .scope(z.object({}), {
@@ -147,26 +150,35 @@ const definition = createDefinition(magicScryfallImageImportTaskType, {
     if (restored) return { total: restored.rows.length, blockInput: restored };
     const db = getLocalDb();
     const rows = await runWithDb(db, () => db.select({
-      cardId:            Print.cardId, version:           Print.version, set:               Print.set, number:            Print.number,
-      lang:              Print.lang, source:            Print.source, scryfallFace:      Print.scryfallFace,
-      scryfallImageUris: Print.scryfallImageUris,
-    }).from(Print).where(and(
+      cardId:              Print.cardId, version:             Print.version, set:                 Print.set, number:              Print.number,
+      lang:                Print.lang, source:              Print.source, scryfallFace:        Print.scryfallFace,
+      scryfallImageUris:   Print.scryfallImageUris,
+      scryfallImageStatus: ScryfallCard.imageStatus,
+    }).from(Print).leftJoin(ScryfallCard, eq(Print.scryfallCardId, ScryfallCard.cardId)).where(and(
       ctx.scope === 'set' ? eq(Print.set, ctx.set!) : undefined,
       ctx.lang ? sql`${Print.lang} = ${ctx.lang}` : undefined,
       ctx.force ? undefined : sql`${Print.imageSource} is null`,
       or(isNull(Print.imageSource), notInArray(Print.imageSource, [...uploadImageSources])),
     )));
-    const queue: QueueRow[] = rows.map(r => {
+    // Placeholder art (unprinted/digital-only cards) would import as generic
+    // card backs; keep them out of the queue regardless of the force mode.
+    const queue: QueueRow[] = [];
+    let placeholder = 0;
+    for (const r of rows) {
+      if (r.scryfallImageStatus === 'placeholder') {
+        placeholder += 1;
+        continue;
+      }
       const uris = (r.scryfallImageUris ?? []) as unknown as Record<string, string>[] | null;
       const url = (uris?.[0]?.['png'] ?? uris?.[0]?.['large']) as string | undefined;
-      return {
+      queue.push({
         cardId:    r.cardId, version:   r.version, set:       r.set, number:    r.number,
         lang:      r.lang, source:    r.source,
         url:       url ?? null,
         faceIndex: faceIndexOf(r.scryfallFace),
-      };
-    });
-    const state: BlockState = { rows: queue, offset: 0, counts: emptyCounts, cleanupJpg: !!ctx.cleanupJpg };
+      });
+    }
+    const state: BlockState = { rows: queue, offset: 0, counts: { ...emptyCounts, placeholder }, cleanupJpg: !!ctx.cleanupJpg };
     return { total: queue.length, blockInput: state };
   })
   .block(async ({ blockInput, checkpoint, progress, done, signal }) => {
