@@ -29,7 +29,7 @@ export const imageInfoMeta = z.strictObject({
   height:       z.int(),
   byteSize:     z.int(),
   qualityScore: z.number().nullable(),
-  verifiedAt:   z.date(),
+  verifiedAt:   z.iso.datetime({ local: true, offset: true }),
 });
 
 export const imageInfo = z.array(imageInfoMeta.nullable());
