@@ -8,6 +8,13 @@ import { resolvePath } from '../../game-paths';
 /** Canonical webp preset decided in docs/magic experiments (2026-09-05). */
 export const WEBP_QUALITY = 50;
 
+/**
+ * Image sources written through explicit local uploads (hand-picked files or
+ * import archives). Bulk import tasks never overwrite rows carrying one of
+ * these sources, so curated localization images survive sweep re-imports.
+ */
+export const uploadImageSources = ['manual', 'mtgch', 'mtgflame'] as const;
+
 export const qualityGoodThreshold = 0.75;
 /** Images with a short edge below this are marked lowres directly without running the detail-loss metric. */
 export const smallEdgePx = 370;

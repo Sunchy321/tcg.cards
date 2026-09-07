@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, notInArray, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { runWithDb } from '@tcg-cards/db';
@@ -6,7 +6,7 @@ import { Print } from '@tcg-cards/db/schema/shared/magic/print';
 
 import { createDefinition } from '#task/definition';
 import { getLocalDb } from '../../../hearthstone/hsdata-local-db';
-import { assessQuality, encodeWebp, faceIndexOf, mapWithConcurrency, removeSameStemJpg, writeCanonical } from '../../image-import/common';
+import { assessQuality, encodeWebp, faceIndexOf, mapWithConcurrency, removeSameStemJpg, uploadImageSources, writeCanonical } from '../../image-import/common';
 
 /** Stable task type for the module-B Gatherer image crawl (by set only). */
 export const magicGathererImageImportTaskType = 'magic_gatherer_image_import';
@@ -158,7 +158,7 @@ const definition = createDefinition(magicGathererImageImportTaskType, {
       eq(Print.set, ctx.set),
       ctx.lang ? sql`${Print.lang} = ${ctx.lang}` : undefined,
       ctx.force ? undefined : sql`${Print.imageSource} is null`,
-      sql`${Print.imageSource} is distinct from 'manual'`,
+      or(isNull(Print.imageSource), notInArray(Print.imageSource, [...uploadImageSources])),
     )));
     const queue: QueueRow[] = rows.map(r => ({
       cardId:       r.cardId, version:      r.version, set:          r.set, number:       r.number,

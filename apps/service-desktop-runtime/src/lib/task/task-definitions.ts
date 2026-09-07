@@ -58,10 +58,10 @@ registerTaskDefinition(magicProjectTaskDefinition);
 registerTaskDefinition(magicPublishTaskDefinition);
 import { magicScryfallImageImportTaskDefinition } from '../magic/task/scryfall-image-import/definition';
 import { magicGathererImageImportTaskDefinition } from '../magic/task/gatherer-image-import/definition';
-import { magicManualImageReplaceTaskDefinition } from '../magic/task/manual-image-replace/definition';
+import { magicManualImageImportTaskDefinition } from '../magic/task/manual-image-import/definition';
 registerTaskDefinition(magicScryfallImageImportTaskDefinition);
 registerTaskDefinition(magicGathererImageImportTaskDefinition);
-registerTaskDefinition(magicManualImageReplaceTaskDefinition);
+registerTaskDefinition(magicManualImageImportTaskDefinition);
 
 import { testWorkTaskDefinition } from './test-definition';
 registerTaskDefinition(testWorkTaskDefinition);

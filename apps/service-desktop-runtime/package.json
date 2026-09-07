@@ -25,6 +25,7 @@
     "@tcg-cards/db": "workspace:*",
     "@tcg-cards/model": "workspace:*",
     "@tcg-cards/shared": "workspace:*",
+    "@zip.js/zip.js": "^2.11.2",
     "ai": "^7.0.31",
     "canonicalize": "^3.0.0",
     "cheerio": "^1.2.0",

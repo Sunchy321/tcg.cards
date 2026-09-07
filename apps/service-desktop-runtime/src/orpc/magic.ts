@@ -20,7 +20,8 @@ import { magicGathererImportTaskDefinition } from '../lib/magic/task/gatherer-im
 import { magicProjectTaskDefinition } from '../lib/magic/task/magic-project';
 import { magicScryfallImageImportTaskDefinition } from '../lib/magic/task/scryfall-image-import/definition';
 import { magicGathererImageImportTaskDefinition } from '../lib/magic/task/gatherer-image-import/definition';
-import { magicManualImageReplaceTaskDefinition } from '../lib/magic/task/manual-image-replace/definition';
+import { magicManualImageImportTaskDefinition } from '../lib/magic/task/manual-image-import/definition';
+import { analyzeImportZip } from '../lib/magic/image-import/analyze';
 import { magicPublishTaskDefinition } from '../lib/magic/task/publish';
 
 const magicDataFile = z.strictObject({
@@ -418,23 +419,37 @@ const gathererImageImport = os
     });
   });
 
-const manualImageReplace = os
+const analyzeManualImportZip = os
+  .input(z.strictObject({ zipPath: z.string().min(1) }))
+  .output(z.strictObject({
+    convention:   z.enum(['face', 'named', 'plain']).nullable(),
+    entryCount:   z.number(),
+    unrecognized: z.array(z.string()),
+    candidates:   z.array(z.strictObject({ set: z.string(), lang: z.string(), rate: z.number() })),
+  }))
+  .handler(async ({ input }) => {
+    const db = getLocalDb();
+    return analyzeImportZip(db, input.zipPath);
+  });
+
+const manualImageImport = os
   .input(z.strictObject({
-    mode:       z.enum(['single', 'zip']),
+    source:     z.enum(['manual', 'mtgch', 'mtgflame', 'scryfall', 'gatherer']),
     set:        z.string().min(1),
     lang:       z.string().min(1),
+    force:      z.boolean().optional(),
     number:     z.string().optional(),
     faceIndex:  z.number().int().min(0).max(15).optional(),
     fileName:   z.string().optional(),
     dataBase64: z.string().optional(),
-    zipBase64:  z.string().optional(),
+    zipPath:    z.string().optional(),
   }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
-    return createAndRunTask(magicManualImageReplaceTaskDefinition.taskType, {
-      taskType:          magicManualImageReplaceTaskDefinition.taskType,
-      definitionVersion: magicManualImageReplaceTaskDefinition.definitionVersion,
-      scope:             { type: magicManualImageReplaceTaskDefinition.scopeType, key: 'global', snapshot: {} },
+    return createAndRunTask(magicManualImageImportTaskDefinition.taskType, {
+      taskType:          magicManualImageImportTaskDefinition.taskType,
+      definitionVersion: magicManualImageImportTaskDefinition.definitionVersion,
+      scope:             { type: magicManualImageImportTaskDefinition.scopeType, key: 'global', snapshot: {} },
       params:            input,
     });
   });
@@ -454,7 +469,8 @@ const listImageSets = os
 export const magicRouter = {
   getDataState,
   images:     { sets: listImageSets },
-  createTask: { scryfallImport, mtgchImport, mtgjsonImport, gathererImport, magicProject, scryfallImageImport, gathererImageImport, manualImageReplace },
+  analyze:    { manualImportZip: analyzeManualImportZip },
+  createTask: { scryfallImport, mtgchImport, mtgjsonImport, gathererImport, magicProject, scryfallImageImport, gathererImageImport, manualImageImport },
   publish:    { publishTask },
   slug:       { listConflicts: listSlugConflicts, resolveConflict: resolveSlugConflict, member: slugMember },
   review:     { list: reviewList },

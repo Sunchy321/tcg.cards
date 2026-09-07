@@ -1068,6 +1068,7 @@ pub fn run() {
         .manage(DesktopDatabaseConnectionStringCache::default())
         .manage(YugiohPublishTargetConnectionStringCache::default())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             sync_desktop_runtime_config_blocking(&app.handle().clone());
             start_desktop_runtime_config_sync_loop(app.handle().clone());
