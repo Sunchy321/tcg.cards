@@ -2,7 +2,7 @@ import { ORPCError, os } from '@orpc/server';
 
 import z from 'zod';
 import { random as randomInt, omit } from 'lodash-es';
-import { and, asc, desc, eq, getTableColumns, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, getColumns, sql } from 'drizzle-orm';
 
 import { formats as formatList, locale } from '#model/magic/schema/basic';
 import { cardProfile, cardView } from '#model/magic/schema/card';
@@ -173,7 +173,7 @@ const fuzzy = os
     }).from(CardPrintView).where(eq(CardPrintView.cardId, cardId)).orderBy(desc(CardPrintView.print.releaseDate));
 
     const rulings = await db.select({
-      ...omit(getTableColumns(Ruling), 'id'),
+      ...omit(getColumns(Ruling), 'id'),
     }).from(Ruling).where(eq(Ruling.cardId, cardId));
 
     const sourceRelation = await db.select({
@@ -223,14 +223,14 @@ const profile = os
       number:      Print.number,
       rarity:      Print.rarity,
       layout:      Print.layout,
-      imageType:   Print.imageType,
+      imageInfo:   Print.imageInfo,
       releaseDate: Print.releaseDate,
     }).from(Print).where(eq(Print.cardId, cardId));
 
     return {
       cardId,
       localization: cardLocalizations,
-      versions,
+      versions:     versions.map(v => ({ ...v, imageType: v.imageInfo?.[0]?.type ?? 'webp' })),
     };
   });
 

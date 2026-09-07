@@ -1,13 +1,14 @@
-import { and, eq, isNull, notInArray, or, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { runWithDb } from '@tcg-cards/db';
 import { ScryfallCard } from '@tcg-cards/db/schema/local/magic';
 import { Print } from '@tcg-cards/db/schema/shared/magic/print';
+import type { ImageInfo, ImageStatus } from '#model/magic/schema/print';
 
 import { createDefinition } from '#task/definition';
 import { getLocalDb } from '../../../hearthstone/hsdata-local-db';
-import { assessQuality, encodeWebp, faceIndexOf, mapWithConcurrency, removeSameStemJpg, uploadImageSources, writeCanonical } from '../../image-import/common';
+import { assessQuality, encodeWebp, faceIndexOf, importablePrintCondition, mapWithConcurrency, removeSameStemJpg, writeCanonical } from '../../image-import/common';
 
 /** Stable task type for the module-A Scryfall image import (png -> webp q50). */
 export const magicScryfallImageImportTaskType = 'magic_scryfall_image_import';
@@ -36,11 +37,17 @@ const output = z.strictObject({
 type Output = z.infer<typeof output>;
 const emptyCounts: Output = { processed: 0, written: 0, unchanged: 0, failed: 0, missingUrl: 0, placeholder: 0, lowQuality: 0, cleanedJpg: 0 };
 
+interface QueueFace {
+  faceIndex: number;
+  url:       string | null;
+}
+
 interface QueueRow {
   cardId: string; version: string; set: string; number: string;
   lang: string; source: string;
-  url:       string | null;
-  faceIndex: number | undefined;
+  /** Download target per face (array index = face index). */
+  faces:     QueueFace[];
+  imageInfo: ImageInfo;
 }
 
 interface BlockState {
@@ -76,53 +83,85 @@ async function fetchToBuffer(url: string): Promise<Buffer | null> {
   }
 }
 
+/** Picks the preferred download url of one scryfall face uris map. */
+function faceUrl(uris: Record<string, string> | null | undefined): string | null {
+  return uris?.['png'] ?? uris?.['large'] ?? null;
+}
+
 async function processRow(db: Db, row: QueueRow, cleanupJpg: boolean): Promise<Output> {
   const out = { ...emptyCounts, processed: 1 };
 
-  if (!row.url) {
-    out.missingUrl = 1;
-    return out;
+  // One import pass per face; the row update happens once with the merged
+  // image_info array, and the column snapshot tracks the primary (face 0).
+  const infos: ImageInfo = [...(row.imageInfo ?? [])];
+  let written = 0;
+  let unchanged = 0;
+  let failed = 0;
+  let missingUrl = 0;
+  let lowQuality = 0;
+  let face0Status: ImageStatus | null = null;
+  let face0Imported = false;
+
+  for (const face of row.faces) {
+    const i = face.faceIndex;
+    const url = face.url;
+    if (!url) {
+      missingUrl += 1;
+      continue;
+    }
+    const source = await fetchToBuffer(url);
+    if (!source) {
+      failed += 1;
+      continue;
+    }
+    const enc = await encodeWebp(source);
+    if (!enc) {
+      failed += 1;
+      continue;
+    }
+    const tier = await assessQuality(enc, source);
+    if (tier.score != null && tier.status === 'lowres') lowQuality += 1;
+    const res = writeCanonical(row.set, row.lang, row.number, i, enc);
+    if (res === 'error') {
+      failed += 1;
+      continue;
+    }
+    if (res === 'written') written += 1;
+    if (res === 'unchanged') unchanged += 1;
+    if (i === 0 && cleanupJpg && removeSameStemJpg(row.set, row.lang, row.number, undefined)) out.cleanedJpg += 1;
+
+    infos[i] = {
+      status:       tier.status,
+      type:         'webp',
+      source:       'scryfall',
+      sha256:       enc.sha256,
+      width:        enc.width,
+      height:       enc.height,
+      byteSize:     enc.byteSize,
+      qualityScore: tier.score,
+      verifiedAt:   new Date(),
+    };
+    if (i === 0) {
+      face0Status = tier.status;
+      face0Imported = true;
+    }
   }
 
-  const source = await fetchToBuffer(row.url);
+  out.written = written;
+  out.unchanged = unchanged;
+  out.failed = failed;
+  out.missingUrl = missingUrl;
+  out.lowQuality = lowQuality;
 
-  if (!source) {
-    out.failed = 1;
-    return out;
+  if (written + unchanged === 0) return out;
+
+  const patch: Partial<typeof Print.$inferInsert> = { imageInfo: infos };
+
+  if (face0Imported && face0Status != null) {
+    patch.imageStatus = face0Status;
   }
 
-  const enc = await encodeWebp(source);
-
-  if (!enc) {
-    out.failed = 1;
-    return out;
-  }
-
-  const tier = await assessQuality(enc, source);
-  if (tier.score != null && tier.status === 'lowres') out.lowQuality = 1;
-  const res = writeCanonical(row.set, row.lang, row.number, row.faceIndex, enc);
-
-  if (res === 'error') {
-    out.failed = 1;
-    return out;
-  }
-
-  if (res === 'written') out.written = 1;
-
-  if (res === 'unchanged') out.unchanged = 1;
-
-  if (cleanupJpg && removeSameStemJpg(row.set, row.lang, row.number, row.faceIndex)) out.cleanedJpg = 1;
-  await db.update(Print).set({
-    imageType:         'webp',
-    imageSource:       'scryfall',
-    imageStatus:       tier.status,
-    imageSha256:       enc.sha256,
-    imageWidth:        enc.width,
-    imageHeight:       enc.height,
-    imageByteSize:     enc.byteSize,
-    imageQualityScore: tier.score,
-    imageVerifiedAt:   new Date(),
-  }).where(and(
+  await db.update(Print).set(patch).where(and(
     eq(Print.cardId, row.cardId),
     eq(Print.version, row.version),
     eq(Print.set, row.set),
@@ -134,7 +173,7 @@ async function processRow(db: Db, row: QueueRow, cleanupJpg: boolean): Promise<O
 }
 
 const definition = createDefinition(magicScryfallImageImportTaskType, {
-  version:     '2026-09-07:v1',
+  version:     '2026-09-07:v2',
   effectModel: 'reconcilable',
 })
   .scope(z.object({}), {
@@ -152,16 +191,18 @@ const definition = createDefinition(magicScryfallImageImportTaskType, {
     const rows = await runWithDb(db, () => db.select({
       cardId:              Print.cardId, version:             Print.version, set:                 Print.set, number:              Print.number,
       lang:                Print.lang, source:              Print.source, scryfallFace:        Print.scryfallFace,
-      scryfallImageUris:   Print.scryfallImageUris,
+      imageInfo:           Print.imageInfo,
       scryfallImageStatus: ScryfallCard.imageStatus,
+      scryfallImageUris:   ScryfallCard.imageUris,
+      scryfallCardFaces:   ScryfallCard.cardFaces,
     }).from(Print).leftJoin(ScryfallCard, eq(Print.scryfallCardId, ScryfallCard.cardId)).where(and(
       ctx.scope === 'set' ? eq(Print.set, ctx.set!) : undefined,
       ctx.lang ? sql`${Print.lang} = ${ctx.lang}` : undefined,
-      ctx.force ? undefined : sql`${Print.imageSource} is null`,
-      or(isNull(Print.imageSource), notInArray(Print.imageSource, [...uploadImageSources])),
+      importablePrintCondition(!!ctx.force),
     )));
+
     // Placeholder art (unprinted/digital-only cards) would import as generic
-    // card backs; keep them out of the queue regardless of the force mode.
+    // card backs; keep it out of the queue regardless of the force mode.
     const queue: QueueRow[] = [];
     let placeholder = 0;
     for (const r of rows) {
@@ -169,13 +210,20 @@ const definition = createDefinition(magicScryfallImageImportTaskType, {
         placeholder += 1;
         continue;
       }
-      const uris = (r.scryfallImageUris ?? []) as unknown as Record<string, string>[] | null;
-      const url = (uris?.[0]?.['png'] ?? uris?.[0]?.['large']) as string | undefined;
+      // Face-level uris: multi-face cards carry them in card_faces, single-face
+      // cards at the top level.
+      const rawFaces = (r.scryfallCardFaces ?? []) as Array<{ image_uris?: Record<string, string> | null }>;
+      const faceUris = rawFaces.length > 0
+        ? rawFaces.map(f => f.image_uris ?? null)
+        : [r.scryfallImageUris];
+      // Reversible-style rows are pinned to one face of their scryfall card.
+      const pinned = faceIndexOf(r.scryfallFace);
+      const allFaces: QueueFace[] = faceUris.map((uris, i) => ({ faceIndex: i, url: faceUrl(uris) }));
       queue.push({
         cardId:    r.cardId, version:   r.version, set:       r.set, number:    r.number,
         lang:      r.lang, source:    r.source,
-        url:       url ?? null,
-        faceIndex: faceIndexOf(r.scryfallFace),
+        faces:     pinned == null ? allFaces : allFaces.filter(f => f.faceIndex === pinned),
+        imageInfo: r.imageInfo ?? [],
       });
     }
     const state: BlockState = { rows: queue, offset: 0, counts: { ...emptyCounts, placeholder }, cleanupJpg: !!ctx.cleanupJpg };

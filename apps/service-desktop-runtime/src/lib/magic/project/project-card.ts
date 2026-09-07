@@ -93,26 +93,24 @@ export interface PrintDraft {
   number:     string;
   releasedAt: string;
 
-  layout:         string;
-  frame:          string;
-  frameEffects:   string[] | null;
-  borderColor:    string;
-  cardBackId:     string | null;
-  securityStamp:  string | null;
-  promoTypes:     string[] | null;
-  rarity:         string;
-  isDigital:      boolean;
-  isPromo:        boolean;
-  isReprint:      boolean;
-  finishes:       string[];
-  imageStatus:    string;
-  imageUpdatedAt: string | null;
-  imageType:      string;
-  inBooster:      boolean;
-  games:          string[];
-  previewDate:    string | null;
-  previewSource:  string | null;
-  previewUri:     string | null;
+  layout:        string;
+  frame:         string;
+  frameEffects:  string[] | null;
+  borderColor:   string;
+  cardBackId:    string | null;
+  securityStamp: string | null;
+  promoTypes:    string[] | null;
+  rarity:        string;
+  isDigital:     boolean;
+  isPromo:       boolean;
+  isReprint:     boolean;
+  finishes:      string[];
+  imageStatus:   string;
+  inBooster:     boolean;
+  games:         string[];
+  previewDate:   string | null;
+  previewSource: string | null;
+  previewUri:    string | null;
 
   fullArt:        boolean;
   oversized:      boolean;
@@ -124,10 +122,9 @@ export interface PrintDraft {
   artistIds:   string[] | null;
   resourceId:  string | null;
 
-  scryfallOracleId:  string;
-  scryfallCardId:    string;
-  scryfallFace:      string | null;
-  scryfallImageUris: Record<string, string>[] | null;
+  scryfallOracleId: string;
+  scryfallCardId:   string;
+  scryfallFace:     string | null;
 
   arenaId:           number | null;
   mtgoId:            number | null;
@@ -380,8 +377,6 @@ function projectPrints(assembled: AssembledCard): {
       isReprint:         draft.isReprint,
       finishes:          draft.finishes as (typeof Print)['$inferInsert']['finishes'],
       imageStatus:       draft.imageStatus as (typeof Print)['$inferInsert']['imageStatus'],
-      imageUpdatedAt:    draft.imageUpdatedAt,
-      imageType:         draft.imageType as (typeof Print)['$inferInsert']['imageType'],
       inBooster:         draft.inBooster,
       games:             draft.games as (typeof Print)['$inferInsert']['games'],
       previewDate:       draft.previewDate,
@@ -395,7 +390,6 @@ function projectPrints(assembled: AssembledCard): {
       scryfallOracleId:  draft.scryfallOracleId,
       scryfallCardId:    draft.scryfallCardId,
       scryfallFace:      draft.scryfallFace as (typeof Print)['$inferInsert']['scryfallFace'],
-      scryfallImageUris: draft.scryfallImageUris,
       arenaId:           draft.arenaId,
       mtgoId:            draft.mtgoId,
       mtgoFoilId:        draft.mtgoFoilId,

@@ -397,10 +397,6 @@ export const imageStatus = cs
   .commands.imageStatus
   .apply(table => table.print.imageStatus, {});
 
-export const imageType = cs
-  .commands.imageType
-  .apply(table => table.print.imageType, {});
-
 export const rarity = cs
   .commands.rarity
   .handler(({ value, operator, qualifier }, { table }) => {

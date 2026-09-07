@@ -1,12 +1,13 @@
-import { and, eq, isNull, notInArray, or, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { runWithDb } from '@tcg-cards/db';
 import { Print } from '@tcg-cards/db/schema/shared/magic/print';
+import type { ImageInfo, ImageStatus } from '#model/magic/schema/print';
 
 import { createDefinition } from '#task/definition';
 import { getLocalDb } from '../../../hearthstone/hsdata-local-db';
-import { assessQuality, encodeWebp, faceIndexOf, mapWithConcurrency, removeSameStemJpg, uploadImageSources, writeCanonical } from '../../image-import/common';
+import { assessQuality, encodeWebp, faceIndexOf, importablePrintCondition, mapWithConcurrency, removeSameStemJpg, writeCanonical } from '../../image-import/common';
 
 /** Stable task type for the module-B Gatherer image crawl (by set only). */
 export const magicGathererImageImportTaskType = 'magic_gatherer_image_import';
@@ -33,11 +34,17 @@ const output = z.strictObject({
 type Output = z.infer<typeof output>;
 const emptyCounts: Output = { processed: 0, written: 0, unchanged: 0, failed: 0, missingId: 0, lowQuality: 0, cleanedJpg: 0 };
 
+interface QueueFace {
+  faceIndex:    number;
+  multiverseId: number | null;
+}
+
 interface QueueRow {
   cardId: string; version: string; set: string; number: string;
   lang: string; source: string;
-  multiverseId: number | null;
-  faceIndex:    number | undefined;
+  /** One multiverse id per face (faceIndex = face index). */
+  faces:     QueueFace[];
+  imageInfo: ImageInfo;
 }
 
 interface BlockState {
@@ -68,62 +75,89 @@ function gathererUrl(multiverseId: number): string {
 async function processRow(db: Db, row: QueueRow, cleanupJpg: boolean): Promise<Output> {
   const out = { ...emptyCounts, processed: 1 };
 
-  if (row.multiverseId == null) {
-    out.missingId = 1;
-    return out;
-  }
+  // One import pass per face; the row update happens once with the merged
+  // image_info array, and the column snapshot tracks the primary (face 0).
+  const infos: ImageInfo = [...(row.imageInfo ?? [])];
+  let written = 0;
+  let unchanged = 0;
+  let failed = 0;
+  let missingId = 0;
+  let lowQuality = 0;
+  let face0Status: ImageStatus | null = null;
+  let face0Imported = false;
 
-  let source: Buffer | null;
-  try {
-    const res = await fetch(gathererUrl(row.multiverseId), { signal: AbortSignal.timeout(60_000), headers: { 'user-agent': 'tcg-cards/desktop' } });
-
-    if (!res.ok) {
-      out.failed = 1;
-      return out;
+  for (const face of row.faces) {
+    const i = face.faceIndex;
+    const multiverseId = face.multiverseId;
+    if (multiverseId == null) {
+      missingId += 1;
+      continue;
     }
-
-    const buf = Buffer.from(await res.arrayBuffer());
-    source = buf.length > 0 ? buf : null;
-
-    if (!source) {
-      out.failed = 1;
-      return out;
+    let source: Buffer | null;
+    try {
+      const res = await fetch(gathererUrl(multiverseId), { signal: AbortSignal.timeout(60_000), headers: { 'user-agent': 'tcg-cards/desktop' } });
+      if (!res.ok) {
+        failed += 1;
+        continue;
+      }
+      const buf = Buffer.from(await res.arrayBuffer());
+      source = buf.length > 0 ? buf : null;
+      if (!source) {
+        failed += 1;
+        continue;
+      }
+    } catch {
+      failed += 1;
+      continue;
     }
-  } catch {
-    out.failed = 1;
-    return out;
+    const enc = await encodeWebp(source);
+    if (!enc) {
+      failed += 1;
+      continue;
+    }
+    const tier = await assessQuality(enc, source);
+    if (tier.score != null && tier.status === 'lowres') lowQuality += 1;
+    const res = writeCanonical(row.set, row.lang, row.number, i, enc);
+    if (res === 'error') {
+      failed += 1;
+      continue;
+    }
+    if (res === 'written') written += 1;
+    if (res === 'unchanged') unchanged += 1;
+    if (i === 0 && cleanupJpg && removeSameStemJpg(row.set, row.lang, row.number, undefined)) out.cleanedJpg += 1;
+
+    infos[i] = {
+      status:       tier.status,
+      type:         'webp',
+      source:       'gatherer',
+      sha256:       enc.sha256,
+      width:        enc.width,
+      height:       enc.height,
+      byteSize:     enc.byteSize,
+      qualityScore: tier.score,
+      verifiedAt:   new Date(),
+    };
+    if (i === 0) {
+      face0Status = tier.status;
+      face0Imported = true;
+    }
   }
-  const enc = await encodeWebp(source);
 
-  if (!enc) {
-    out.failed = 1;
-    return out;
+  out.written = written;
+  out.unchanged = unchanged;
+  out.failed = failed;
+  out.missingId = missingId;
+  out.lowQuality = lowQuality;
+
+  if (written + unchanged === 0) return out;
+
+  const patch: Partial<typeof Print.$inferInsert> = { imageInfo: infos };
+
+  if (face0Imported && face0Status != null) {
+    patch.imageStatus = face0Status;
   }
 
-  const tier = await assessQuality(enc, source);
-  if (tier.score != null && tier.status === 'lowres') out.lowQuality = 1;
-  const res = writeCanonical(row.set, row.lang, row.number, row.faceIndex, enc);
-
-  if (res === 'error') {
-    out.failed = 1;
-    return out;
-  }
-
-  if (res === 'written') out.written = 1;
-  if (res === 'unchanged') out.unchanged = 1;
-
-  if (cleanupJpg && removeSameStemJpg(row.set, row.lang, row.number, row.faceIndex)) out.cleanedJpg = 1;
-  await db.update(Print).set({
-    imageType:         'webp',
-    imageSource:       'gatherer',
-    imageStatus:       tier.status,
-    imageSha256:       enc.sha256,
-    imageWidth:        enc.width,
-    imageHeight:       enc.height,
-    imageByteSize:     enc.byteSize,
-    imageQualityScore: tier.score,
-    imageVerifiedAt:   new Date(),
-  }).where(and(
+  await db.update(Print).set(patch).where(and(
     eq(Print.cardId, row.cardId),
     eq(Print.version, row.version),
     eq(Print.set, row.set),
@@ -135,7 +169,7 @@ async function processRow(db: Db, row: QueueRow, cleanupJpg: boolean): Promise<O
 }
 
 const definition = createDefinition(magicGathererImageImportTaskType, {
-  version:     '2026-09-05:v1',
+  version:     '2026-09-07:v2',
   effectModel: 'reconcilable',
 })
   .scope(z.object({}), {
@@ -153,19 +187,24 @@ const definition = createDefinition(magicGathererImageImportTaskType, {
     const rows = await runWithDb(db, () => db.select({
       cardId:       Print.cardId, version:      Print.version, set:          Print.set, number:       Print.number,
       lang:         Print.lang, source:       Print.source, scryfallFace: Print.scryfallFace,
+      imageInfo:    Print.imageInfo,
       multiverseId: Print.multiverseId,
     }).from(Print).where(and(
       eq(Print.set, ctx.set),
       ctx.lang ? sql`${Print.lang} = ${ctx.lang}` : undefined,
-      ctx.force ? undefined : sql`${Print.imageSource} is null`,
-      or(isNull(Print.imageSource), notInArray(Print.imageSource, [...uploadImageSources])),
+      importablePrintCondition(!!ctx.force),
     )));
-    const queue: QueueRow[] = rows.map(r => ({
-      cardId:       r.cardId, version:      r.version, set:          r.set, number:       r.number,
-      lang:         r.lang, source:       r.source,
-      multiverseId: (r.multiverseId?.[0] as number | undefined) ?? null,
-      faceIndex:    faceIndexOf(r.scryfallFace),
-    }));
+    const queue: QueueRow[] = rows.map(r => {
+      const ids = ((r.multiverseId ?? []) as Array<number | null>).map((id, i) => ({ faceIndex: i, multiverseId: id }));
+      // Reversible-style rows are pinned to one face of their id array.
+      const pinned = faceIndexOf(r.scryfallFace);
+      return {
+        cardId:    r.cardId, version:   r.version, set:       r.set, number:    r.number,
+        lang:      r.lang, source:    r.source,
+        faces:     pinned == null ? ids : ids.filter(f => f.faceIndex === pinned),
+        imageInfo: r.imageInfo ?? [],
+      };
+    });
     const state: BlockState = { rows: queue, offset: 0, counts: emptyCounts, cleanupJpg: !!ctx.cleanupJpg };
     return { total: queue.length, blockInput: state };
   })

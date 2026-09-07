@@ -11,7 +11,7 @@
               :number="data.number"
               :part="partIndex"
               :layout="data.print.layout"
-              :image-type="data.print.imageType"
+              :image-type="data.print.imageInfo?.[0]?.type ?? 'webp'"
               :image-status="data.print.imageStatus"
               :rotate="rotate"
               @update:part="partIndex = $event"

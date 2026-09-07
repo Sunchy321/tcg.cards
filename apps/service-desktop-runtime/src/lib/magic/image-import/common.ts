@@ -3,6 +3,11 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { join } from 'node:path';
 import { inflateSync } from 'node:zlib';
 
+import { isNull, notInArray, or, sql, type SQL } from 'drizzle-orm';
+
+import { Print } from '@tcg-cards/db/schema/shared/magic/print';
+import type { ImageInfo, ImageInfoMeta } from '#model/magic/schema/print';
+
 import { resolvePath } from '../../game-paths';
 
 /** Canonical webp preset decided in docs/magic experiments (2026-09-05). */
@@ -44,10 +49,35 @@ export function printImageDir(set: string, lang: string): string {
   return dir;
 }
 
-/** File name for one print/face, mirroring the {number} / {number}-{face} convention. */
+/** File name for one print/face: face 0 and single-face prints have no suffix, the back face carries the ⁑ mark. */
 export function imageFileName(number: string, faceIndex?: number): string {
   const safe = number.replaceAll('/', '_');
-  return faceIndex == null ? `${safe}.webp` : `${safe}-${faceIndex}.webp`;
+  if (faceIndex == null || faceIndex === 0) return `${safe}.webp`;
+  if (faceIndex === 1) return `${safe}⁑.webp`;
+  return `${safe}-${faceIndex}.webp`;
+}
+
+/**
+ * Merges one face's metadata into the image_info array (index = face index),
+ * preserving the other slots; un-imported faces stay as explicit nulls.
+ */
+export function mergeImageInfo(existing: ImageInfo | null, faceIndex: number | undefined, meta: ImageInfoMeta): ImageInfo {
+  const index = faceIndex ?? 0;
+  const length = Math.max(existing?.length ?? 0, index + 1);
+  const merged = Array.from({ length }, (_, i) => existing?.[i] ?? null);
+  merged[index] = meta;
+  return merged;
+}
+
+/**
+ * Import-protection condition over the image_info column: with force the rows
+ * whose primary face carries a non-upload source are also importable.
+ */
+export function importablePrintCondition(force: boolean): SQL {
+  const primarySource = sql`coalesce(${Print.imageInfo}->0->>'source', '')`;
+  return force
+    ? or(isNull(Print.imageInfo), notInArray(primarySource, [...uploadImageSources]))!
+    : isNull(Print.imageInfo)!;
 }
 
 export function sha256Hex(data: Uint8Array | Buffer): string {

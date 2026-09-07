@@ -103,7 +103,7 @@ const props = withDefaults(
     number:        string;
     part?:         number;
     layout:        Layout;
-    imageType: ImageType;
+    imageType:     ImageType;
     imageStatus?:  ImageStatus;
     rotate?:       boolean | null;
     refreshToken?: string;
@@ -172,7 +172,7 @@ const imageUrlValues = computed(() => {
   if (turnable.value) {
     return [
       `${assetBaseUrl}/magic/card/large/${props.set}/${props.lang}/${props.number}-0.${props.imageType}`,
-      `${assetBaseUrl}/magic/card/large/${props.set}/${props.lang}/${props.number}-1.${props.imageType}`,
+      `${assetBaseUrl}/magic/card/large/${props.set}/${props.lang}/${props.number}⁑.${props.imageType}`,
     ];
   } else if (['flip_token_top', 'flip_token_bottom'].includes(props.layout)) {
     return [

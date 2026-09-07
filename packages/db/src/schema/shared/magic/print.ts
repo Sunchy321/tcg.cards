@@ -1,7 +1,6 @@
 import { and, eq, getColumns, sql } from 'drizzle-orm';
 import {
   boolean,
-  doublePrecision,
   integer,
   jsonb,
   primaryKey,
@@ -16,7 +15,8 @@ import { omit } from 'lodash-es';
 
 import { schema } from './schema';
 
-import type { CardEditorView as ICardEditorView } from '#model/magic/schema/print';
+import type { BorderColor, CardEditorView as ICardEditorView, Frame, Game, ImageInfo, ImageStatus, ScryfallFace, SecurityStamp, Finish } from '#model/magic/schema/print';
+import type { Layout, Rarity } from '#model/magic/schema/basic';
 
 import { Card, CardLocalization, CardPart, CardPartLocalization, locale } from './card';
 
@@ -31,32 +31,24 @@ export const Print = schema.table('prints', {
   name:     text('print_name').notNull(),
   typeline: text('print_typeline').notNull(),
 
-  layout:        text('layout').notNull(),
-  frame:         text('frame').notNull(),
+  layout:        text('layout').$type<Layout>().notNull(),
+  frame:         text('frame').$type<Frame>().notNull(),
   frameEffects:  text('frame_effects').array().notNull(),
-  borderColor:   text('border_color').notNull(),
+  borderColor:   text('border_color').$type<BorderColor>().notNull(),
   cardBack:      uuid('card_back'),
-  securityStamp: text('security_stamp'),
+  securityStamp: text('security_stamp').$type<SecurityStamp>(),
   promoTypes:    text('promo_types').array(),
-  rarity:        text('rarity').notNull(),
+  rarity:        text('rarity').$type<Rarity>().notNull(),
   releaseDate:   text('release_date').notNull(),
   isDigital:     boolean('is_digital').notNull(),
   isPromo:       boolean('is_promo').notNull(),
   isReprint:     boolean('is_reprint').notNull(),
-  finishes:      text('finishes').array().notNull(),
+  finishes:      text('finishes').$type<Finish>().array().notNull(),
 
-  imageStatus:       text('image_status').notNull(),
-  imageUpdatedAt:    text('image_updated_at'),
-  imageType:         text('image_type').notNull(),
-  imageSha256:       text('image_sha256'),
-  imageWidth:        integer('image_width'),
-  imageHeight:       integer('image_height'),
-  imageByteSize:     integer('image_byte_size'),
-  imageSource:       text('image_source'),
-  imageQualityScore: doublePrecision('image_quality_score'),
-  imageVerifiedAt:   timestamp('image_verified_at'),
-  inBooster:         boolean('in_booster').notNull(),
-  games:             text('games').array().notNull(),
+  imageStatus: text('image_status').$type<ImageStatus>().notNull(),
+  imageInfo:   jsonb('image_info').$type<ImageInfo>(),
+  inBooster:   boolean('in_booster').notNull(),
+  games:       text('games').$type<Game>().array().notNull(),
 
   previewDate:   text('preview_date'),
   previewSource: text('preview_source'),
@@ -73,8 +65,7 @@ export const Print = schema.table('prints', {
 
   scryfallOracleId:  uuid('print_scryfall_oracle_id').notNull(),
   scryfallCardId:    uuid('scryfall_card_id'),
-  scryfallFace:      text('scryfall_face'),
-  scryfallImageUris: jsonb('scryfall_image_uris').$type<Record<string, string>[]>(),
+  scryfallFace:      text('scryfall_face').$type<ScryfallFace>(),
   arenaId:           integer('arena_id'),
   mtgoId:            integer('mtgo_id'),
   mtgoFoilId:        integer('mtgo_foil_id'),

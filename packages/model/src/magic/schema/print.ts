@@ -19,6 +19,24 @@ export type ImageStatus = z.infer<typeof imageStatus>;
 export type Game = z.infer<typeof game>;
 export type ScryfallFace = z.infer<typeof scryfallFace>;
 
+/** Metadata of one face's local image; array index in `imageInfo` is the face index. */
+export const imageInfoMeta = z.strictObject({
+  status:       imageStatus,
+  type:         imageType,
+  source:       z.string(),
+  sha256:       z.string(),
+  width:        z.int(),
+  height:       z.int(),
+  byteSize:     z.int(),
+  qualityScore: z.number().nullable(),
+  verifiedAt:   z.date(),
+});
+
+export const imageInfo = z.array(imageInfoMeta.nullable());
+
+export type ImageInfoMeta = z.infer<typeof imageInfoMeta>;
+export type ImageInfo = z.infer<typeof imageInfo>;
+
 export const print = z.strictObject({
   cardId:  z.string(),
   version: z.string().default(''),
@@ -40,20 +58,12 @@ export const print = z.strictObject({
   rarity:        rarity,
   releaseDate:   z.iso.date(),
 
-  isDigital:         z.boolean(),
-  isPromo:           z.boolean(),
-  isReprint:         z.boolean(),
-  finishes:          finish.array(),
+  isDigital: z.boolean(),
+  isPromo:   z.boolean(),
+  isReprint: z.boolean(),
+  finishes:  finish.array(),
   imageStatus,
-  imageUpdatedAt:    z.string().nullable(),
-  imageType,
-  imageSha256:       z.string().nullable(),
-  imageWidth:        z.int().nullable(),
-  imageHeight:       z.int().nullable(),
-  imageByteSize:     z.int().nullable(),
-  imageSource:       z.string().nullable(),
-  imageQualityScore: z.number().nullable(),
-  imageVerifiedAt:   z.date().nullable(),
+  imageInfo: imageInfo.nullable(),
 
   inBooster: z.boolean(),
   games:     game.array(),
@@ -71,10 +81,9 @@ export const print = z.strictObject({
   illustrationId: z.uuid().nullable(),
   resourceId:     z.string().nullable(),
 
-  scryfallOracleId:  z.uuid(),
-  scryfallCardId:    z.uuid().nullable(),
-  scryfallFace:      scryfallFace.nullable(),
-  scryfallImageUris: z.record(z.string(), z.url()).array().nullable(),
+  scryfallOracleId: z.uuid(),
+  scryfallCardId:   z.uuid().nullable(),
+  scryfallFace:     scryfallFace.nullable(),
 
   arenaId:           z.int().nullable(),
   mtgoId:            z.int().nullable(),

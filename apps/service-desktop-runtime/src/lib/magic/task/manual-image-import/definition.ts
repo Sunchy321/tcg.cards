@@ -7,7 +7,8 @@ import { Print } from '@tcg-cards/db/schema/shared/magic/print';
 
 import { createDefinition } from '#task/definition';
 import { getLocalDb } from '../../../hearthstone/hsdata-local-db';
-import { assessQuality, encodeWebp, faceIndexOf, uploadImageSources, writeCanonical } from '../../image-import/common';
+import { assessQuality, encodeWebp, faceIndexOf, mergeImageInfo, uploadImageSources, writeCanonical } from '../../image-import/common';
+import type { ImageInfo, ImageInfoMeta } from '#model/magic/schema/print';
 import { chooseNamingPattern, numberCandidates, parseImageStem, parseTreeLayout, stemOf } from '../../image-import/parse';
 import type { ParsedTreeEntry } from '../../image-import/parse';
 import { listZipImages, readZipImages } from '../../image-import/zip';
@@ -24,11 +25,11 @@ const uploadSources = [...uploadImageSources] as const;
 const downloadSources = ['scryfall', 'gatherer'] as const;
 
 const input = z.strictObject({
-  source: z.enum([...uploadSources, ...downloadSources]),
+  source:     z.enum([...uploadSources, ...downloadSources]),
   // Storage-tree archives carry set/lang in their paths, so both are optional there.
-  set:    z.string().min(1).optional(),
-  lang:   z.string().min(1).optional(),
-  force:  z.boolean().optional().default(true),
+  set:        z.string().min(1).optional(),
+  lang:       z.string().min(1).optional(),
+  force:      z.boolean().optional().default(true),
   // upload single image
   number:     z.string().optional(),
   faceIndex:  z.number().int().min(0).max(15).optional(),
@@ -98,17 +99,19 @@ function pushCapped(list: string[], value: string): void {
 }
 
 const rowColumns = {
-  cardId:            Print.cardId,
-  version:           Print.version,
-  set:               Print.set,
-  lang:              Print.lang,
-  number:            Print.number,
-  source:            Print.source,
-  printName:         Print.name,
-  scryfallFace:      Print.scryfallFace,
-  scryfallImageUris: Print.scryfallImageUris,
+  cardId:              Print.cardId,
+  version:             Print.version,
+  set:                 Print.set,
+  lang:                Print.lang,
+  number:              Print.number,
+  source:              Print.source,
+  printName:           Print.name,
+  scryfallFace:        Print.scryfallFace,
+  imageInfo:           Print.imageInfo,
   scryfallImageStatus: ScryfallCard.imageStatus,
-  multiverseId:      Print.multiverseId,
+  scryfallImageUris:   ScryfallCard.imageUris,
+  scryfallCardFaces:   ScryfallCard.cardFaces,
+  multiverseId:        Print.multiverseId,
 };
 
 function queryPrintRows(db: Db, where: SQL | undefined) {
@@ -117,8 +120,15 @@ function queryPrintRows(db: Db, where: SQL | undefined) {
 
 type SelectedRow = Awaited<ReturnType<typeof queryPrintRows>>[number];
 
-/** Whether `rowSource` may be overwritten given the chosen import source and force mode. */
-function mayOverwrite(rowSource: string, source: string, force: boolean): boolean {
+/** Primary-face image source of a row (null when the print has no local image). */
+function rowImageSource(row: SelectedRow): string | null {
+  return row.imageInfo?.[0]?.source ?? null;
+}
+
+/** Whether the row may be overwritten given the chosen import source and force mode. */
+function mayOverwrite(row: SelectedRow, source: string, force: boolean): boolean {
+  const rowSource = rowImageSource(row);
+  if (rowSource == null) return true;
   if ((uploadImageSources as readonly string[]).includes(rowSource)) {
     return (uploadSources as readonly string[]).includes(source) && force;
   }
@@ -129,9 +139,9 @@ function mayOverwrite(rowSource: string, source: string, force: boolean): boolea
 function applySkipRules(rows: SelectedRow[], source: string, force: boolean, counts: MutableOutput): SelectedRow[] {
   const kept: SelectedRow[] = [];
   for (const row of rows) {
-    if (mayOverwrite(row.source, source, force)) {
+    if (mayOverwrite(row, source, force)) {
       kept.push(row);
-    } else if ((uploadImageSources as readonly string[]).includes(row.source)) {
+    } else if ((uploadImageSources as readonly string[]).includes(rowImageSource(row)!)) {
       counts.skippedUpload += 1;
     } else {
       counts.skipped += 1;
@@ -141,10 +151,10 @@ function applySkipRules(rows: SelectedRow[], source: string, force: boolean, cou
 }
 
 interface UploadItem {
-  kind: 'upload';
+  kind:        'upload';
   /** Collector number as written in the archive name (or the form input). */
-  number:     string;
-  faceIndex?: number;
+  number:      string;
+  faceIndex?:  number;
   /** Archive card name, kept for the print-name mismatch warning. */
   name?:       string;
   /** Zip entry filename; absent for single uploads. */
@@ -152,16 +162,17 @@ interface UploadItem {
   /** Single-upload image payload. */
   dataBase64?: string;
   /** Non-skipped prints this item updates. */
-  rows: SelectedRow[];
+  rows:        SelectedRow[];
 }
 
 interface DownloadItem {
-  kind: 'download';
-  cardId:    string;
-  version:   string;
-  number:    string;
-  source:    string;
-  faceIndex?: number;
+  kind:         'download';
+  cardId:       string;
+  version:      string;
+  number:       string;
+  source:       string;
+  faceIndex:    number;
+  imageInfo:    ImageInfo;
   url:          string | null;
   multiverseId: number | null;
 }
@@ -203,11 +214,11 @@ async function buildUploadZipItems(db: Db, ctx: { source: string, set?: string, 
   const rows = numbers.length === 0
     ? []
     : await runWithDb(db, () => queryPrintRows(db, and(
-        eq(Print.set, ctx.set!),
-        eq(Print.lang, ctx.lang! as typeof Print.$inferSelect.lang),
-        isNull(Print.deletedAt),
-        inArray(Print.number, numbers),
-      )));
+      eq(Print.set, ctx.set!),
+      eq(Print.lang, ctx.lang! as typeof Print.$inferSelect.lang),
+      isNull(Print.deletedAt),
+      inArray(Print.number, numbers),
+    )));
   const rowsByNumber = new Map<string, SelectedRow[]>();
   for (const row of rows) {
     const bucket = rowsByNumber.get(row.number) ?? [];
@@ -307,19 +318,41 @@ async function buildDownloadItems(db: Db, ctx: { source: string, set: string, la
     })
     : rows;
   const keptRows = applySkipRules(downloadable, ctx.source, ctx.force, counts);
-  return keptRows.map(row => {
-    const uris = (row.scryfallImageUris ?? []) as unknown as Record<string, string>[];
-    return {
-      kind:      'download',
-      cardId:    row.cardId,
-      version:   row.version,
-      number:    row.number,
-      source:    row.source,
-      faceIndex: faceIndexOf(row.scryfallFace),
-      url:          ctx.source === 'scryfall' ? (uris[0]?.['png'] ?? uris[0]?.['large'] ?? null) : null,
-      multiverseId: ctx.source === 'gatherer' ? (row.multiverseId?.[0] as number | undefined ?? null) : null,
-    } satisfies DownloadItem;
-  });
+
+  // One download item per face: multi-face cards take urls from card_faces,
+  // single-face cards from the top-level uris; gatherer uses the id array.
+  const items: QueueItem[] = [];
+  for (const row of keptRows) {
+    const rawFaces = (row.scryfallCardFaces ?? []) as Array<{ image_uris?: Record<string, string> | null }>;
+    const faceCount = ctx.source === 'gatherer'
+      ? Math.max(((row.multiverseId ?? []) as unknown[]).length, 1)
+      : Math.max(rawFaces.length, 1);
+    const faceUris = ctx.source === 'scryfall'
+      ? (rawFaces.length > 0 ? rawFaces.map(f => f.image_uris ?? null) : [row.scryfallImageUris])
+      : [];
+    // Reversible-style rows are pinned to one face of their scryfall card.
+    const pinned = faceIndexOf(row.scryfallFace);
+    for (let i = 0; i < faceCount; i++) {
+      if (pinned != null && i !== pinned) continue;
+      items.push({
+        kind:         'download',
+        cardId:       row.cardId,
+        version:      row.version,
+        number:       row.number,
+        source:       row.source,
+        faceIndex:    i,
+        imageInfo:    row.imageInfo ?? [],
+        url:          ctx.source === 'scryfall' ? faceUrlOf(faceUris[i]) : null,
+        multiverseId: ctx.source === 'gatherer' ? ((row.multiverseId ?? [])[i] as number | undefined ?? null) : null,
+      } satisfies DownloadItem);
+    }
+  }
+  return items;
+}
+
+/** Picks the preferred download url of one scryfall face uris map. */
+function faceUrlOf(uris: Record<string, string> | null | undefined): string | null {
+  return uris?.['png'] ?? uris?.['large'] ?? null;
 }
 
 async function processUploadItem(item: UploadItem, ctx: { source: string }, data: Buffer | undefined, db: Db): Promise<OutputDelta> {
@@ -348,17 +381,21 @@ async function processUploadItem(item: UploadItem, ctx: { source: string }, data
     if (item.name && row.printName && item.name !== row.printName.trim()) {
       pushCapped(warnings, `${item.number}: 名称「${item.name}」与印刷名「${row.printName}」不一致`);
     }
-    await db.update(Print).set({
-      imageType:         'webp',
-      imageSource:       ctx.source,
-      imageStatus:       tier.status,
-      imageSha256:       enc.sha256,
-      imageWidth:        enc.width,
-      imageHeight:       enc.height,
-      imageByteSize:     enc.byteSize,
-      imageQualityScore: tier.score,
-      imageVerifiedAt:   new Date(),
-    }).where(and(
+    const meta: ImageInfoMeta = {
+      status:       tier.status,
+      type:         'webp',
+      source:       ctx.source,
+      sha256:       enc.sha256,
+      width:        enc.width,
+      height:       enc.height,
+      byteSize:     enc.byteSize,
+      qualityScore: tier.score,
+      verifiedAt:   new Date(),
+    };
+    const patch: Partial<typeof Print.$inferInsert> = { imageInfo: mergeImageInfo(row.imageInfo, item.faceIndex, meta) };
+    // The column snapshot tracks the primary face only.
+    if (item.faceIndex == null || item.faceIndex === 0) patch.imageStatus = tier.status;
+    await db.update(Print).set(patch).where(and(
       eq(Print.cardId, row.cardId),
       eq(Print.version, row.version),
       eq(Print.set, row.set),
@@ -368,7 +405,7 @@ async function processUploadItem(item: UploadItem, ctx: { source: string }, data
     ));
   }
   return {
-    processed: 1,
+    processed:  1,
     written,
     unchanged,
     lowQuality: tier.score != null && tier.status === 'lowres' ? 1 : 0,
@@ -398,17 +435,20 @@ async function processDownloadItem(db: Db, item: DownloadItem, ctx: { source: st
     const res = writeCanonical(ctx.set, ctx.lang, item.number, item.faceIndex, enc);
     if (res === 'error') return { processed: 1, failed: 1 };
 
-    await db.update(Print).set({
-      imageType:         'webp',
-      imageSource:       ctx.source,
-      imageStatus:       tier.status,
-      imageSha256:       enc.sha256,
-      imageWidth:        enc.width,
-      imageHeight:       enc.height,
-      imageByteSize:     enc.byteSize,
-      imageQualityScore: tier.score,
-      imageVerifiedAt:   new Date(),
-    }).where(and(
+    const meta: ImageInfoMeta = {
+      status:       tier.status,
+      type:         'webp',
+      source:       ctx.source,
+      sha256:       enc.sha256,
+      width:        enc.width,
+      height:       enc.height,
+      byteSize:     enc.byteSize,
+      qualityScore: tier.score,
+      verifiedAt:   new Date(),
+    };
+    const patch: Partial<typeof Print.$inferInsert> = { imageInfo: mergeImageInfo(item.imageInfo, item.faceIndex, meta) };
+    if (item.faceIndex === 0) patch.imageStatus = tier.status;
+    await db.update(Print).set(patch).where(and(
       eq(Print.cardId, item.cardId),
       eq(Print.version, item.version),
       eq(Print.set, ctx.set),
@@ -417,9 +457,9 @@ async function processDownloadItem(db: Db, item: DownloadItem, ctx: { source: st
       eq(Print.source, item.source),
     ));
     return {
-      processed: 1,
-      written:   res === 'written' ? 1 : 0,
-      unchanged: res === 'unchanged' ? 1 : 0,
+      processed:  1,
+      written:    res === 'written' ? 1 : 0,
+      unchanged:  res === 'unchanged' ? 1 : 0,
       lowQuality: tier.score != null && tier.status === 'lowres' ? 1 : 0,
     };
   } catch {
@@ -461,13 +501,15 @@ const definition = createDefinition(magicManualImageImportTaskType, {
         items = [];
       } else {
         const keptRows = applySkipRules(rows, ctx.source, ctx.force, counts);
-        items = keptRows.length === 0 ? [] : [{
-          kind:      'upload',
-          number:    ctx.number!,
-          faceIndex: ctx.faceIndex,
-          dataBase64: ctx.dataBase64,
-          rows:      keptRows,
-        }];
+        items = keptRows.length === 0
+          ? []
+          : [{
+            kind:       'upload',
+            number:     ctx.number!,
+            faceIndex:  ctx.faceIndex,
+            dataBase64: ctx.dataBase64,
+            rows:       keptRows,
+          }];
       }
     } else {
       items = await buildDownloadItems(db, { source: ctx.source, set: ctx.set!, lang: ctx.lang!, force: ctx.force, number: ctx.number! }, counts);

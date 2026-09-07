@@ -7,10 +7,10 @@ export type ZipConvention = ImageNameKind | 'tree';
 /** One archive image entry name resolved into import fields. */
 export interface ParsedImageName {
   /** Full entry filename including directory segments. */
-  filename: string;
-  kind:     ImageNameKind;
+  filename:   string;
+  kind:       ImageNameKind;
   /** Collector number as written in the filename. */
-  number:   string;
+  number:     string;
   /** Trailing `-N` face index of multi-face images. */
   faceIndex?: number;
   /** Card name after the separator of `number<sep>name` filenames. */
@@ -19,10 +19,10 @@ export interface ParsedImageName {
 
 /** One archive entry resolved through the storage-mirroring tree layout. */
 export interface ParsedTreeEntry {
-  filename: string;
-  set:      string;
-  lang:     string;
-  number:   string;
+  filename:   string;
+  set:        string;
+  lang:       string;
+  number:     string;
   faceIndex?: number;
 }
 
@@ -45,6 +45,8 @@ export function parseImageStem(stem: string): ParsedImageName | null {
   const clean = stem.trim();
   const face = facePattern.exec(clean);
   if (face?.groups) return { filename: stem, kind: 'face', number: face.groups.number, faceIndex: Number(face.groups.face) };
+  // The canonical back-face mark (storage convention), accepted as an input too.
+  if (clean.endsWith('⁑')) return { filename: stem, kind: 'face', number: clean.slice(0, -1), faceIndex: 1 };
   const named = namedPattern.exec(clean);
   if (named?.groups) return { filename: stem, kind: 'named', number: named.groups.number.trim(), name: named.groups.name.trim() };
   if (plainPattern.test(clean)) return { filename: stem, kind: 'plain', number: clean };
@@ -88,13 +90,13 @@ export function parseTreeEntryPath(filename: string, validLangs: ReadonlySet<str
   if (!validLangs.has(lang) || !/^[a-z0-9]+$/.test(set)) return null;
   const stem = stemOf(file);
   const face = /^(?<number>.+)-(?<face>\d+)$/.exec(stem);
-  return {
-    filename,
-    set,
-    lang,
-    number: face?.groups?.number ?? stem,
-    faceIndex: face?.groups?.face != null ? Number(face.groups.face) : undefined,
-  };
+  if (face?.groups != null) {
+    return { filename, set, lang, number: face.groups.number, faceIndex: Number(face.groups.face) };
+  }
+  if (stem.endsWith('⁑')) {
+    return { filename, set, lang, number: stem.slice(0, -1), faceIndex: 1 };
+  }
+  return { filename, set, lang, number: stem, faceIndex: undefined };
 }
 
 /**

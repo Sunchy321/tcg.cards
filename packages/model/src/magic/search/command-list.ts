@@ -138,11 +138,6 @@ export const imageStatus = c
   .id('image-status')
   .done();
 
-export const imageType = c
-  .simple
-  .id('image-type')
-  .done();
-
 export const rarity = c
   .simple
   .alt('r')

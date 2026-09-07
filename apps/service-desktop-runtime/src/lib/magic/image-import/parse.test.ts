@@ -16,6 +16,12 @@ describe('parseImageStem', () => {
     expect(parseImageStem('12-1')).toMatchObject({ kind: 'face', number: '12', faceIndex: 1 });
   });
 
+  test('parses the asterism back-face mark', () => {
+    expect(parseImageStem('165⁑')).toMatchObject({ kind: 'face', number: '165', faceIndex: 1 });
+    expect(parseTreeLayout([{ filename: 'large/m10/en/165⁑.webp' }], treeLangs)![0])
+      .toMatchObject({ set: 'm10', lang: 'en', number: '165', faceIndex: 1 });
+  });
+
   test('parses plain collector numbers with letter suffixes', () => {
     expect(parseImageStem('001')).toMatchObject({ kind: 'plain', number: '001' });
     expect(parseImageStem('100a')).toMatchObject({ kind: 'plain', number: '100a' });
