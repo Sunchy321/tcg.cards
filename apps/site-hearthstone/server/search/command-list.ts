@@ -284,6 +284,21 @@ export const artist = cs
     caseSensitive: false,
   });
 
+export const collectible = cs
+  .commands.collectible
+  .handler(({ value }, { table }) => {
+    switch (value.toLowerCase()) {
+    case 'true':
+      return eq(table.collectible, true);
+    case 'false':
+      return eq(table.collectible, false);
+    case 'all':
+      return sql`true`;
+    default:
+      throw new QueryError({ type: 'invalid-query' });
+    }
+  });
+
 export const change = cs
   .commands.change
   .handler(({ value }, { table }) => {

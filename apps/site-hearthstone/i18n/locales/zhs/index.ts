@@ -229,6 +229,7 @@ export default {
         'format-available':       '在{format}模式中可用',
         'format-with-status':     '在{format}模式中的状态为{status}',
         'format-with-status-not': '在{format}模式中的状态不为{status}',
+        'collectible':            '显示{value}卡牌',
       },
 
       'command': {
@@ -254,6 +255,7 @@ export default {
         'mercenary-faction': '佣兵阵营',
         'rarity':            '稀有度',
         'artist':            '画师',
+        'collectible':       '可收藏',
         'change':            '变更类型',
         'format':            '赛制',
         'order':             '排序',
@@ -442,6 +444,12 @@ export default {
           rare:      '稀有',
           epic:      '史诗',
           legendary: '传说',
+        },
+
+        'collectible': {
+          true:  '可收藏',
+          false: '不可收藏',
+          all:   '全部',
         },
 
         'order': {

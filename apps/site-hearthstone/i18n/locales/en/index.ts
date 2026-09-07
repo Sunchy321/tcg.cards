@@ -228,6 +228,7 @@ export default {
         'format-available':       'available in {format}',
         'format-with-status':     'status is {status} in {format}',
         'format-with-status-not': 'status is not {status} in {format}',
+        'collectible':            'showing {value} cards',
       },
 
       'command': {
@@ -252,6 +253,7 @@ export default {
         'mercenary-faction': 'mercenary faction',
         'rarity':            'rarity',
         'artist':            'artist',
+        'collectible':       'collectible',
         'change':            'change type',
         'format':            'format',
         'order':             'order',
@@ -436,6 +438,12 @@ export default {
           rare:      'Rare',
           epic:      'Epic',
           legendary: 'Legendary',
+        },
+
+        'collectible': {
+          true:  'collectible',
+          false: 'non-collectible',
+          all:   'all',
         },
 
         'order': {
