@@ -2,10 +2,11 @@ import { and, desc, inArray, isNull, sql } from 'drizzle-orm';
 import { runWithDb } from '@tcg-cards/db';
 import { Print } from '@tcg-cards/db/schema/shared/magic/print';
 import { Set as MagicSet } from '@tcg-cards/db/schema/shared/magic/set';
+import { locale } from '@tcg-cards/model/magic/schema/basic';
 
 import type { LocalDb } from '../../hearthstone/hsdata-local-db';
-import { chooseNamingPattern, numberCandidates, parseImageStem, stemOf } from './parse';
-import type { ImageNameKind } from './parse';
+import { chooseNamingPattern, numberCandidates, parseImageStem, parseTreeLayout, stemOf } from './parse';
+import type { ZipConvention } from './parse';
 import { listZipImages } from './zip';
 import type { ZipImageInfo } from './zip';
 
@@ -19,12 +20,12 @@ export interface ImportZipCandidate {
 /** Result of analyzing one import archive without extracting any image data. */
 export interface ImportZipAnalysis {
   /** Selected naming convention; null when no pattern reaches the coverage threshold. */
-  convention:   ImageNameKind | null;
+  convention:   ZipConvention | null;
   /** Total image entry count of the archive. */
   entryCount:   number;
   /** Entries outside the selected naming convention (capped list). */
   unrecognized: string[];
-  /** set/lang candidates ordered by combined match rate. */
+  /** set/lang candidates ordered by match rate; tree layouts report their path pairs. */
   candidates:   ImportZipCandidate[];
 }
 
@@ -62,6 +63,31 @@ interface CandidateScore {
 /** Infers the naming convention and set/lang candidates of an import zip against the local prints. */
 export async function analyzeImportZip(db: LocalDb, zipPath: string): Promise<ImportZipAnalysis> {
   const infos = await listZipImages(zipPath);
+  const localeSet = new Set<string>(locale.options);
+
+  // Storage-tree layouts carry set/lang/number in the path itself, so they are
+  // recognized first and skip all name-based inference.
+  const treeEntries = parseTreeLayout(infos, localeSet);
+  if (treeEntries != null) {
+    const treeFilenames = new Set(treeEntries.map(entry => entry.filename));
+    const pairs = new Map<string, ImportZipCandidate>();
+    for (const entry of treeEntries) {
+      const key = `${entry.set}|${entry.lang}`;
+      const candidate = pairs.get(key) ?? { set: entry.set, lang: entry.lang, rate: 0 };
+      candidate.rate += 1 / treeEntries.length;
+      pairs.set(key, candidate);
+    }
+    return {
+      convention: 'tree',
+      entryCount: infos.length,
+      unrecognized: infos
+        .map(info => info.filename)
+        .filter(filename => !treeFilenames.has(filename))
+        .slice(0, maxUnrecognized),
+      candidates: [...pairs.values()].sort((a, b) => b.rate - a.rate),
+    };
+  }
+
   const parsed = infos
     .flatMap(info => {
       const parsedName = parseImageStem(stemOf(info.filename));

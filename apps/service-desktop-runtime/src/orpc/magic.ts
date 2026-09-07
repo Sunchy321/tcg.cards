@@ -422,7 +422,7 @@ const gathererImageImport = os
 const analyzeManualImportZip = os
   .input(z.strictObject({ zipPath: z.string().min(1) }))
   .output(z.strictObject({
-    convention:   z.enum(['face', 'named', 'plain']).nullable(),
+    convention:   z.enum(['face', 'named', 'plain', 'tree']).nullable(),
     entryCount:   z.number(),
     unrecognized: z.array(z.string()),
     candidates:   z.array(z.strictObject({ set: z.string(), lang: z.string(), rate: z.number() })),
@@ -434,9 +434,10 @@ const analyzeManualImportZip = os
 
 const manualImageImport = os
   .input(z.strictObject({
-    source:     z.enum(['manual', 'mtgch', 'mtgflame', 'scryfall', 'gatherer']),
-    set:        z.string().min(1),
-    lang:       z.string().min(1),
+    source:     z.enum(['manual', 'mtgch', 'mtgflame', 'hunterer', 'scryfall', 'gatherer']),
+    // storage-tree archives carry set/lang in their paths, so both are optional
+    set:        z.string().min(1).optional(),
+    lang:       z.string().min(1).optional(),
     force:      z.boolean().optional(),
     number:     z.string().optional(),
     faceIndex:  z.number().int().min(0).max(15).optional(),

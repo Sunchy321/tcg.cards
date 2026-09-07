@@ -1,6 +1,6 @@
 # 万智卡图手动导入细化设计
 
-**日期:2026-09-07**
+**日期:2026-09-07**(修订:新增 hunterer 旧来源标注与目录结构压缩包模式;Scryfall 图源过滤 placeholder)
 **前置**:[proposals/magic-image-import/design.md](../magic-image-import/design.md) 模块 C(手动替换)的细化与泛化。本文档假设模块 A/B/C 的现状实现(scryfall/gatherer 图片导入任务、手动替换任务)已在线。
 
 ## 1. 背景与目标
@@ -20,9 +20,9 @@
 
 ## 2. 来源(source)分组
 
-`source ∈ manual | mtgch | mtgflame | scryfall | gatherer`,按导入机制分两组:
+`source ∈ manual | mtgch | mtgflame | hunterer | scryfall | gatherer`,按导入机制分两组:
 
-- **上传组(manual / mtgch / mtgflame)**:三者机制完全相同,均为本地文件来源(单张或 zip),唯一差别是写入 prints 的 `image_source` 值——用于区分手工图、mtgch 汉化图、mtgflame 水印图等图源出处。
+- **上传组(manual / mtgch / mtgflame / hunterer)**:本地文件来源(单张或 zip),写入 prints 的 `image_source` 为所选值。前三者区分手工图、mtgch 汉化图、mtgflame 水印图;`hunterer` 用于标注来自已失效旧来源 hunterer 的旧图(上传机制完全相同,仅作为标注值),其压缩包走目录结构模式。
 - **下载组(scryfall / gatherer)**:无需上传文件。按 set+lang+number 选定印刷行,取库内已存的 `scryfall_image_uris` / `multiverse_id` 下载。等价于模块 A/B 的「指定编号子集」版。
 
 公共行为:
@@ -35,16 +35,17 @@
 ## 3. force 语义(已评审定案)
 
 - 页面默认 **force=true**,提供开关(勾掉即「仅补缺」)。
-- 行筛选规则,与 A/B 对齐(上传组=manual/mtgch/mtgflame):
+- 行筛选规则,与 A/B 对齐(上传组=manual/mtgch/mtgflame/hunterer):
   - `force=false`:仅处理 `image_source is null` 的行;
   - `force=true`:处理 `image_source is null` 或下载组来源的行;
-  - 上传组来源且 `force=true`:连同既有上传组行(manual/mtgch/mtgflame)一并覆盖(汉化包 v2 重导 v1 的预期行为;人工覆盖人工)。
-- 下载组来源:遇上传组行(manual/mtgch/mtgflame)**一律跳过并计数**(skippedUpload),不提供覆盖选项——防止选错 set 大范围下载时批量刷掉手工/汉化图;确需覆盖则用上传组来源导对应文件。
+  - 上传组来源且 `force=true`:连同既有上传组行(manual/mtgch/mtgflame/hunterer)一并覆盖(汉化包 v2 重导 v1 的预期行为;人工覆盖人工)。
+- 下载组来源:遇上传组行(manual/mtgch/mtgflame/hunterer)**一律跳过并计数**(skippedUpload),不提供覆盖选项——防止选错 set 大范围下载时批量刷掉手工/汉化图;确需覆盖则用上传组来源导对应文件。
 - 输出计数:`processed / written / unchanged / failed / skipped / skippedUpload / unmatched(编号无匹配行) / unrecognized(命名不识别) / lowQuality`。
 - **联动改动**:模块 A/B 的既有硬保护 `image_source is distinct from 'manual'` 扩展为「不在上传组」(`not in (manual, mtgch, mtgflame)`),使 mtgch/mtgflame 图与 manual 在批量任务下获得同等保护。这是「mtgch/mtgflame 与 manual 没区别」的直接推论。
 
 ## 4. zip 命名约定识别
 
+- **目录结构模式(优先)**:条目路径形如 `{任意前缀}/{set}/{lang}/{编号}[-{面}].webp`(与图库存储结构一致,语言段须为合法 locale)且覆盖率 ≥95% 时,直接按路径解析 set/lang/编号,优先于平面文件名识别;一个压缩包可同时包含多个系列与语言,此时无需填写 set/lang。匹配仍按编号候选集进行,写文件与 DB 更新一律以 DB 行为准。
 - 递归收集图片条目(png/jpg/jpeg/webp),忽略 `__MACOSX/`、`._*`、`.DS_Store`、目录与非图片。
 - 文件名 stem 按序尝试:
   1. 编号-数字面:`^(?<num>.+)-(?<face>\d+)$`(先于分隔符模式,`-` 不作名称分隔符);
@@ -59,13 +60,14 @@
 
 - 交互:用户选定 zip 路径后,runtime 即时分析并**自动填入 set/lang,用户可修改;正式任务开始后以任务输入为准,后端不再改动**。
 - 实现:新增 orpc 即时端点(非任务)「分析压缩包」:
-  1. 读 zip central directory 条目名(不提取数据),跑 §4 识别器;
-  2. set/lang 推断,双信号联合评分:
+  1. 读 zip central directory 条目名(不提取数据),先判目录结构模式(§4),再跑平面命名识别器;
+  2. 目录结构模式:set/lang 由路径直接得出(候选列表=路径中的 set/lang 对及其占比),跳过名称推断,表单 set/lang 不需要填写;
+  3. 平面模式推断,双信号联合评分:
      - **文件名/目录名信号**:zip 文件名去扩展名、zip 内顶层目录名,与库内 `sets` 表代码匹配(如 `dst.zip` → `dst`);命中即成为 set 的强先验;
      - **名称/编号命中率信号**:以名称集对 prints 粗筛(`print_name IN (…)` 按 set,lang 分组计命中率,名称区分度高,决定 lang 并校验 set),再以编号候选集验证联合命中率;
      - 两信号合并排序得 (set,lang) 候选列表(仅文件名信号命中时 lang 缺失,由名称信号补齐);
-  3. 返回:约定、条目数、未识别清单、(set,lang) 候选及命中率。
-- UI:最高命中 ≥90% 且唯一则自动填入,否则展示候选列表;两信号均无(纯编号 zip 且文件名不匹配)退回手填。
+  4. 返回:约定、条目数、未识别清单、(set,lang) 候选及命中率。
+- UI:最高命中 ≥90% 且唯一则自动填入,否则展示候选列表;两信号均无(纯编号 zip 且文件名不匹配)退回手填;目录结构模式下 set/lang 表单禁用。
 - 单张模式无压缩包,不做推断,set/lang/number 手填。
 - 名称字段与 `print_name` 不一致仅记 warning(民间译名与官方译名不同属常态),不阻断导入。
 
@@ -82,12 +84,12 @@
 
 - 任务类型更名:`magic_manual_image_replace` → **`magic_manual_image_import`**(原类型退役);orpc `createTask.manualImageImport`;stage 沿用单阶段 bounded。
 - 输入 schema:
-  - 公共:`source(manual | mtgch | mtgflame | scryfall | gatherer)`、`set`、`lang`、`force`(默认 true);
-  - 上传组单张:`number`、`faceIndex?`、`fileName?`、`dataBase64`;
-  - 上传组 zip:`zipPath`;
+  - 公共:`source(manual | mtgch | mtgflame | hunterer | scryfall | gatherer)`、`force`(默认 true);`set/lang` 可省略(目录结构压缩包由路径提供);
+  - 上传单张:`number`、`faceIndex?`、`fileName?`、`dataBase64`;
+  - 上传 zip:`zipPath`;
   - 下载组:`number`。
 - 分析端点:`analyzeManualImportZip({ zipPath })` → §5 结果。
-- 前端:页面路径不变(`/magic/image-import/manual`),标题与侧栏文案改为「手动导入卡图」;表单按来源组切换(下载组隐藏文件选择与 faceIndex;上传组三来源仅影响写入的 image_source,界面呈现方式相同)。
+- 前端:页面路径不变(`/magic/image-import/manual`),标题与侧栏文案改为「手动导入卡图」;表单按来源与导入方式切换——下载组仅下载,上传组提供单张/压缩包;目录结构模式下 set/lang 表单禁用。
 - 输出:§3 计数 + unrecognized/unmatched/warning 清单。
 
 ## 8. 数据与投影影响

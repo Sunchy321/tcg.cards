@@ -41,7 +41,7 @@
                   autocomplete="off"
                   autocapitalize="off"
                   spellcheck="false"
-                  :disabled="disabled"
+                  :disabled="disabled || treeMode"
                 />
               </UFormField>
               <UFormField orientation="horizontal" :ui="{ root: '!justify-start' }" label="语言" required>
@@ -51,18 +51,19 @@
                   value-key="value"
                   placeholder="语言"
                   class="w-32"
-                  :disabled="disabled"
+                  :disabled="disabled || treeMode"
                 />
               </UFormField>
               <UCheckbox v-model="form.force" label="覆盖已有卡图" :disabled="disabled" />
             </div>
 
-            <template v-if="isUpload">
+            <template v-if="isZipCapable">
               <div class="grid grid-cols-2 gap-4">
                 <UFormField orientation="horizontal" :ui="{ root: '!justify-start' }" label="导入方式">
                   <USelect
                     v-model="form.mode"
                     :items="modeOptions"
+                    value-key="value"
                     class="w-40"
                     :disabled="disabled"
                   />
@@ -111,25 +112,36 @@
                     未识别文件(示例):<span class="font-mono text-xs">{{ analysis.unrecognized.slice(0, 5).join('、') }}{{ analysis.unrecognized.length > 5 ? ' …' : '' }}</span>
                   </div>
                   <div v-if="analysis.candidates.length > 0" class="flex flex-wrap items-center gap-2">
-                    <span class="text-muted">疑似系列:</span>
-                    <UButton
-                      v-for="candidate in analysis.candidates"
-                      :key="`${candidate.set}/${candidate.lang}`"
-                      :variant="form.set === candidate.set && form.lang === candidate.lang ? 'solid' : 'soft'"
-                      size="xs"
-                      :disabled="disabled"
-                      @click="applyCandidate(candidate)"
-                    >
-                      {{ candidate.set }} / {{ candidate.lang }} · {{ Math.round(candidate.rate * 100) }}%
-                    </UButton>
+                    <span class="text-muted">{{ analysis.convention === 'tree' ? '目录包含:' : '疑似系列:' }}</span>
+                    <template v-if="analysis.convention === 'tree'">
+                      <span
+                        v-for="candidate in analysis.candidates"
+                        :key="`${candidate.set}/${candidate.lang}`"
+                        class="font-mono text-xs"
+                      >
+                        {{ candidate.set }} / {{ candidate.lang }} · {{ Math.round(candidate.rate * 100) }}%
+                      </span>
+                    </template>
+                    <template v-else>
+                      <UButton
+                        v-for="candidate in analysis.candidates"
+                        :key="`${candidate.set}/${candidate.lang}`"
+                        :variant="form.set === candidate.set && form.lang === candidate.lang ? 'solid' : 'soft'"
+                        size="xs"
+                        :disabled="disabled"
+                        @click="applyCandidate(candidate)"
+                      >
+                        {{ candidate.set }} / {{ candidate.lang }} · {{ Math.round(candidate.rate * 100) }}%
+                      </UButton>
+                    </template>
                   </div>
                 </div>
                 <p class="text-xs text-muted">
-                  支持文件名「编号」「编号-面」「编号#名称」等常见格式,可自动识别系列与语言,识别结果可修改。
+                  支持文件名「编号」「编号-面」「编号#名称」等常见格式,或与图库目录一致的「large/系列/语言/编号」结构(可含多个系列与语言),识别结果可修改。
                 </p>
               </template>
             </template>
-            <template v-else>
+            <template v-else-if="isDownload">
               <div class="grid grid-cols-2 gap-4">
                 <UFormField orientation="horizontal" :ui="{ root: '!justify-start' }" label="编号" required>
                   <UInput v-model="form.number" placeholder="如 123" :disabled="disabled" />
@@ -169,22 +181,20 @@ const SOURCE_OPTIONS = [
   { label: '手动上传', value: 'manual' },
   { label: 'MTGCH', value: 'mtgch' },
   { label: 'MTGFlame', value: 'mtgflame' },
+  { label: 'Hunterer', value: 'hunterer' },
   { type: 'separator' },
-  { label: 'Scryfall 下载', value: 'scryfall' },
-  { label: 'Gatherer 下载', value: 'gatherer' },
+  { label: 'Scryfall', value: 'scryfall' },
+  { label: 'Gatherer', value: 'gatherer' },
 ] as const;
 
-const uploadSources = ['manual', 'mtgch', 'mtgflame'];
-
-const modeOptions = [
-  { label: '单张图片', value: 'single' },
-  { label: '压缩包', value: 'zip' },
-];
+/** Sources that accept local uploads. */
+const zipCapableSources = ['manual', 'mtgch', 'mtgflame', 'hunterer'];
 
 const CONVENTION_LABELS: Record<string, string> = {
   face:  '编号-面',
   named: '编号-名称',
   plain: '纯编号',
+  tree:  '目录结构',
 };
 
 const LIST_LABELS: Record<string, string> = {
@@ -206,9 +216,26 @@ const form = useLocalPersist('magic-image-import:manual', {
   dataBase64: '',
 }, ['source', 'mode', 'set', 'lang', 'force', 'number', 'faceIndex', 'zipPath']);
 
-const isUpload = computed(() => uploadSources.includes(form.source));
-const isUploadSingle = computed(() => isUpload.value && form.mode === 'single');
-const isUploadZip = computed(() => isUpload.value && form.mode === 'zip');
+const isZipCapable = computed(() => zipCapableSources.includes(form.source));
+const isUploadSingle = computed(() => isZipCapable.value && form.mode === 'single');
+const isUploadZip = computed(() => isZipCapable.value && form.mode === 'zip');
+const isDownload = computed(() => form.source === 'scryfall' || form.source === 'gatherer');
+const treeMode = computed(() => isUploadZip.value && analysis.value?.convention === 'tree');
+
+/** Import modes available for the chosen source. */
+const modeOptions = computed(() => {
+  if (form.source === 'scryfall' || form.source === 'gatherer') return [{ label: '按编号下载', value: 'download' }];
+  return [
+    { label: '单张图片', value: 'single' },
+    { label: '压缩包', value: 'zip' },
+  ];
+});
+
+watch(() => form.source, () => {
+  if (!modeOptions.value.some(option => option.value === form.mode)) {
+    form.mode = modeOptions.value[0]!.value;
+  }
+});
 
 const fileInput = ref<HTMLInputElement | null>(null);
 const file = ref<{ name: string } | null>(null);
@@ -258,7 +285,7 @@ interface ZipCandidate {
 }
 
 interface ZipAnalysis {
-  convention:   'face' | 'named' | 'plain' | null;
+  convention:   'face' | 'named' | 'plain' | 'tree' | null;
   entryCount:   number;
   unrecognized: string[];
   candidates:   ZipCandidate[];
@@ -286,9 +313,10 @@ async function runAnalyze() {
   try {
     const result = await orpc.magic.analyze.manualImportZip({ zipPath: form.zipPath.trim() }) as ZipAnalysis;
     analysis.value = result;
-    // Auto-fill the set/language only on a confident unique match; the user can still edit.
+    // Auto-fill the set/language only on a confident unique match of a flat
+    // archive; tree layouts carry set/lang in their paths instead.
     const [top, second] = result.candidates;
-    if (top && top.rate >= 0.9 && (!second || top.rate > second.rate)) {
+    if (result.convention !== 'tree' && top && top.rate >= 0.9 && (!second || top.rate > second.rate)) {
       form.set = top.set;
       form.lang = top.lang;
     }
@@ -338,7 +366,7 @@ const listResults = computed(() => {
 });
 
 const operation = computed<TaskOperation>(() => {
-  const baseReady = !!form.set.trim() && !!form.lang.trim();
+  const baseReady = treeMode.value || (!!form.set.trim() && !!form.lang.trim());
   const ready = isUploadSingle.value
     ? baseReady && !!form.number.trim() && !!form.dataBase64
     : isUploadZip.value
@@ -351,8 +379,8 @@ const operation = computed<TaskOperation>(() => {
     disabled: !ready,
     create:   async () => orpc.magic.createTask.manualImageImport({
       source:     form.source,
-      set:        form.set.trim(),
-      lang:       form.lang.trim(),
+      set:        form.set.trim() || undefined,
+      lang:       form.lang.trim() || undefined,
       force:      !!form.force,
       number:     !isUploadZip.value ? form.number.trim() || undefined : undefined,
       faceIndex:  isUploadSingle.value && form.faceIndex.trim() ? Number(form.faceIndex) : undefined,

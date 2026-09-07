@@ -1,6 +1,9 @@
 /** Naming pattern of one archive image entry. */
 export type ImageNameKind = 'face' | 'named' | 'plain';
 
+/** Archive-wide naming convention, including the storage-mirroring tree layout. */
+export type ZipConvention = ImageNameKind | 'tree';
+
 /** One archive image entry name resolved into import fields. */
 export interface ParsedImageName {
   /** Full entry filename including directory segments. */
@@ -12,6 +15,15 @@ export interface ParsedImageName {
   faceIndex?: number;
   /** Card name after the separator of `number<sep>name` filenames. */
   name?:      string;
+}
+
+/** One archive entry resolved through the storage-mirroring tree layout. */
+export interface ParsedTreeEntry {
+  filename: string;
+  set:      string;
+  lang:     string;
+  number:   string;
+  faceIndex?: number;
 }
 
 /** Smallest share of entries one naming pattern must cover to be selected automatically. */
@@ -62,4 +74,38 @@ export function numberCandidates(number: string): string[] {
   const raw = number.trim();
   const stripped = raw.replace(/^0+(?=\d)/, '');
   return stripped === raw ? [raw] : [raw, stripped];
+}
+
+/** Resolves one entry as a storage-tree path `{root…}/{set}/{lang}/{number[-face]}.ext`, or null. */
+export function parseTreeEntryPath(filename: string, validLangs: ReadonlySet<string>): ParsedTreeEntry | null {
+  const segments = filename.split('/');
+  if (segments.length < 3) return null;
+  const file = segments[segments.length - 1]!;
+  const lang = segments[segments.length - 2]!;
+  const set = segments[segments.length - 3]!;
+  // The language segment must be a real locale and the set segment a plausible
+  // code; together they rule out coincidental flat names inside subdirectories.
+  if (!validLangs.has(lang) || !/^[a-z0-9]+$/.test(set)) return null;
+  const stem = stemOf(file);
+  const face = /^(?<number>.+)-(?<face>\d+)$/.exec(stem);
+  return {
+    filename,
+    set,
+    lang,
+    number: face?.groups?.number ?? stem,
+    faceIndex: face?.groups?.face != null ? Number(face.groups.face) : undefined,
+  };
+}
+
+/**
+ * Parses the whole archive as a storage tree layout when at least `coverage`
+ * of the image entries resolve as tree paths; null otherwise. Leading path
+ * segments (e.g. `large/`) are ignored, mirroring the canonical image root.
+ */
+export function parseTreeLayout<T extends { filename: string }>(entries: T[], validLangs: ReadonlySet<string>, coverage: number = namingCoverageThreshold): ParsedTreeEntry[] | null {
+  if (entries.length === 0) return null;
+  const parsed = entries
+    .map(entry => parseTreeEntryPath(entry.filename, validLangs))
+    .filter((entry): entry is ParsedTreeEntry => entry != null);
+  return parsed.length / entries.length >= coverage ? parsed : null;
 }

@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 
-import { chooseNamingPattern, numberCandidates, parseImageStem } from './parse';
+import { chooseNamingPattern, numberCandidates, parseImageStem, parseTreeLayout } from './parse';
+
+const treeLangs = new Set(['en', 'zhs']);
 
 describe('parseImageStem', () => {
   test('parses number#name archives', () => {
@@ -54,5 +56,26 @@ describe('numberCandidates', () => {
     expect(numberCandidates('7')).toEqual(['7']);
     expect(numberCandidates('100a')).toEqual(['100a']);
     expect(numberCandidates('000')).toEqual(['000', '0']);
+  });
+});
+
+describe('parseTreeLayout', () => {
+  test('resolves storage-tree paths across sets, languages and faces', () => {
+    const parsed = parseTreeLayout([
+      { filename: 'large/m10/en/165.webp' },
+      { filename: 'large/m10/zhs/165-1.webp' },
+      { filename: 'dst/zhs/001.png' },
+    ], treeLangs);
+    expect(parsed).not.toBeNull();
+    expect(parsed![0]).toMatchObject({ set: 'm10', lang: 'en', number: '165' });
+    expect(parsed![1]).toMatchObject({ set: 'm10', lang: 'zhs', number: '165', faceIndex: 1 });
+    expect(parsed![2]).toMatchObject({ set: 'dst', lang: 'zhs', number: '001' });
+  });
+
+  test('rejects archives that are not storage trees', () => {
+    expect(parseTreeLayout([{ filename: '001#名称.png' }], treeLangs)).toBeNull();
+    expect(parseTreeLayout([{ filename: 'large/m10/klingon/165.webp' }], treeLangs)).toBeNull();
+    expect(parseTreeLayout([{ filename: 'large/m10/165.webp' }], treeLangs)).toBeNull();
+    expect(parseTreeLayout([], treeLangs)).toBeNull();
   });
 });

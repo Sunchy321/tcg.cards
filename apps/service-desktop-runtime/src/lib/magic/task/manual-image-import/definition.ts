@@ -8,21 +8,26 @@ import { Print } from '@tcg-cards/db/schema/shared/magic/print';
 import { createDefinition } from '#task/definition';
 import { getLocalDb } from '../../../hearthstone/hsdata-local-db';
 import { assessQuality, encodeWebp, faceIndexOf, uploadImageSources, writeCanonical } from '../../image-import/common';
-import { chooseNamingPattern, numberCandidates, parseImageStem, stemOf } from '../../image-import/parse';
+import { chooseNamingPattern, numberCandidates, parseImageStem, parseTreeLayout, stemOf } from '../../image-import/parse';
+import type { ParsedTreeEntry } from '../../image-import/parse';
 import { listZipImages, readZipImages } from '../../image-import/zip';
+import type { ZipImageInfo } from '../../image-import/zip';
+import { locale } from '@tcg-cards/model/magic/schema/basic';
 
 /** Stable task type for the manual per-target image import (uploads and download sources). */
 export const magicManualImageImportTaskType = 'magic_manual_image_import';
 
 type Db = ReturnType<typeof getLocalDb>;
 
+/** Sources that accept local file uploads; `hunterer` relabels the defunct legacy source. */
 const uploadSources = [...uploadImageSources] as const;
 const downloadSources = ['scryfall', 'gatherer'] as const;
 
 const input = z.strictObject({
   source: z.enum([...uploadSources, ...downloadSources]),
-  set:    z.string().min(1),
-  lang:   z.string().min(1),
+  // Storage-tree archives carry set/lang in their paths, so both are optional there.
+  set:    z.string().min(1).optional(),
+  lang:   z.string().min(1).optional(),
   force:  z.boolean().optional().default(true),
   // upload single image
   number:     z.string().optional(),
@@ -32,12 +37,12 @@ const input = z.strictObject({
   // upload zip archive
   zipPath:    z.string().optional(),
 }).refine(v => {
-  const isUpload = (uploadImageSources as readonly string[]).includes(v.source);
+  const isUpload = (uploadSources as readonly string[]).includes(v.source);
   if (v.zipPath != null) return isUpload && v.dataBase64 == null;
-  if (v.dataBase64 != null) return isUpload && !!v.number;
+  if (v.dataBase64 != null) return isUpload && !!v.number && !!v.set && !!v.lang;
   // download sources: the face index is derived from scryfall_face, not caller input
-  return !isUpload && !!v.number && v.faceIndex == null;
-}, { message: '上传 zip 需要 zipPath;上传单张需要 number+dataBase64;下载来源需要 number' });
+  return (v.source === 'scryfall' || v.source === 'gatherer') && !!v.number && !!v.set && !!v.lang && v.faceIndex == null;
+}, { message: '上传 zip 需要 zipPath;上传单张与下载来源需要 number+系列+语言' });
 
 const output = z.strictObject({
   processed:         z.number(),
@@ -95,6 +100,8 @@ function pushCapped(list: string[], value: string): void {
 const rowColumns = {
   cardId:            Print.cardId,
   version:           Print.version,
+  set:               Print.set,
+  lang:              Print.lang,
   number:            Print.number,
   source:            Print.source,
   printName:         Print.name,
@@ -113,7 +120,7 @@ type SelectedRow = Awaited<ReturnType<typeof queryPrintRows>>[number];
 /** Whether `rowSource` may be overwritten given the chosen import source and force mode. */
 function mayOverwrite(rowSource: string, source: string, force: boolean): boolean {
   if ((uploadImageSources as readonly string[]).includes(rowSource)) {
-    return (uploadImageSources as readonly string[]).includes(source) && force;
+    return (uploadSources as readonly string[]).includes(source) && force;
   }
   return force;
 }
@@ -169,8 +176,17 @@ interface BlockState {
 
 const BATCH = 10;
 
-async function buildUploadZipItems(db: Db, ctx: { source: string, set: string, lang: string, force: boolean, zipPath: string }, counts: MutableOutput): Promise<QueueItem[]> {
+async function buildUploadZipItems(db: Db, ctx: { source: string, set?: string, lang?: string, force: boolean, zipPath: string }, counts: MutableOutput): Promise<QueueItem[]> {
   const infos = await listZipImages(ctx.zipPath);
+  const localeSet = new Set<string>(locale.options);
+
+  // Storage-tree layouts (mirroring large/{set}/{lang}/{number}.webp) carry
+  // set/lang/number in the path and may span many sets and languages.
+  const treeEntries = parseTreeLayout(infos, localeSet);
+  if (treeEntries != null) return buildTreeItems(db, ctx, treeEntries, infos, counts);
+
+  if (!ctx.set || !ctx.lang) throw new Error('该压缩包为平面文件名布局,需要先选择系列与语言');
+
   const parsed = infos.flatMap(info => {
     const parsedName = parseImageStem(stemOf(info.filename));
     return parsedName == null ? [] : [{ info, parsedName }];
@@ -187,8 +203,8 @@ async function buildUploadZipItems(db: Db, ctx: { source: string, set: string, l
   const rows = numbers.length === 0
     ? []
     : await runWithDb(db, () => queryPrintRows(db, and(
-        eq(Print.set, ctx.set),
-        eq(Print.lang, ctx.lang as typeof Print.$inferSelect.lang),
+        eq(Print.set, ctx.set!),
+        eq(Print.lang, ctx.lang! as typeof Print.$inferSelect.lang),
         isNull(Print.deletedAt),
         inArray(Print.number, numbers),
       )));
@@ -216,6 +232,52 @@ async function buildUploadZipItems(db: Db, ctx: { source: string, set: string, l
       faceIndex: parsedName.faceIndex,
       name:      parsedName.name,
       filename:  info.filename,
+      rows:      keptRows,
+    });
+  }
+  return items;
+}
+
+async function buildTreeItems(db: Db, ctx: { source: string, force: boolean }, treeEntries: ParsedTreeEntry[], infos: ZipImageInfo[], counts: MutableOutput): Promise<QueueItem[]> {
+  const treeFilenames = new Set(treeEntries.map(entry => entry.filename));
+  counts.unrecognized = infos.length - treeEntries.length;
+  for (const info of infos) {
+    if (!treeFilenames.has(info.filename)) pushCapped(counts.unrecognizedNames, info.filename);
+  }
+
+  const numbers = [...new Set(treeEntries.flatMap(entry => numberCandidates(entry.number)))];
+  const sets = [...new Set(treeEntries.map(entry => entry.set))];
+  const langs = [...new Set(treeEntries.map(entry => entry.lang))];
+  const rows = await runWithDb(db, () => queryPrintRows(db, and(
+    inArray(Print.set, sets),
+    inArray(Print.lang, langs as typeof Print.$inferSelect.lang[]),
+    isNull(Print.deletedAt),
+    inArray(Print.number, numbers),
+  )));
+  const rowsByPath = new Map<string, SelectedRow[]>();
+  for (const row of rows) {
+    const key = `${row.set}|${row.lang}|${row.number}`;
+    const bucket = rowsByPath.get(key) ?? [];
+    bucket.push(row);
+    rowsByPath.set(key, bucket);
+  }
+
+  const items: QueueItem[] = [];
+  for (const entry of treeEntries) {
+    const candidates = numberCandidates(entry.number);
+    const matched = candidates.flatMap(number => rowsByPath.get(`${entry.set}|${entry.lang}|${number}`) ?? []);
+    if (matched.length === 0) {
+      counts.unmatched += 1;
+      pushCapped(counts.unmatchedNumbers, `${entry.set}/${entry.lang}/${entry.number}`);
+      continue;
+    }
+    const keptRows = applySkipRules(matched, ctx.source, ctx.force, counts);
+    if (keptRows.length === 0) continue;
+    items.push({
+      kind:      'upload',
+      number:    entry.number,
+      faceIndex: entry.faceIndex,
+      filename:  entry.filename,
       rows:      keptRows,
     });
   }
@@ -260,7 +322,7 @@ async function buildDownloadItems(db: Db, ctx: { source: string, set: string, la
   });
 }
 
-async function processUploadItem(item: UploadItem, ctx: { source: string, set: string, lang: string }, data: Buffer | undefined, db: Db): Promise<OutputDelta> {
+async function processUploadItem(item: UploadItem, ctx: { source: string }, data: Buffer | undefined, db: Db): Promise<OutputDelta> {
   if (data == null) return { processed: 1, failed: 1 };
 
   const enc = await encodeWebp(data);
@@ -269,15 +331,16 @@ async function processUploadItem(item: UploadItem, ctx: { source: string, set: s
   const tier = await assessQuality(enc, data);
   const warnings: string[] = [];
 
-  // One canonical file per distinct print number; every matched row is stamped
-  // with the chosen source.
-  const writtenNumbers = new Set<string>();
+  // One canonical file per distinct print; the set/lang/number all come from
+  // the matched print row (tree archives span many sets and languages).
+  const writtenRows = new Set<string>();
   let written = 0;
   let unchanged = 0;
   for (const row of item.rows) {
-    if (!writtenNumbers.has(row.number)) {
-      writtenNumbers.add(row.number);
-      const res = writeCanonical(ctx.set, ctx.lang, row.number, item.faceIndex, enc);
+    const rowKey = `${row.set}|${row.lang}|${row.number}|${item.faceIndex ?? ''}`;
+    if (!writtenRows.has(rowKey)) {
+      writtenRows.add(rowKey);
+      const res = writeCanonical(row.set, row.lang, row.number, item.faceIndex, enc);
       if (res === 'error') return { processed: 1, failed: 1 };
       if (res === 'written') written += 1;
       if (res === 'unchanged') unchanged += 1;
@@ -298,9 +361,9 @@ async function processUploadItem(item: UploadItem, ctx: { source: string, set: s
     }).where(and(
       eq(Print.cardId, row.cardId),
       eq(Print.version, row.version),
-      eq(Print.set, ctx.set),
+      eq(Print.set, row.set),
       eq(Print.number, row.number),
-      eq(Print.lang, ctx.lang as typeof Print.$inferSelect.lang),
+      eq(Print.lang, row.lang as typeof Print.$inferSelect.lang),
       eq(Print.source, row.source),
     ));
   }
@@ -387,8 +450,8 @@ const definition = createDefinition(magicManualImageImportTaskType, {
       items = await buildUploadZipItems(db, { source: ctx.source, set: ctx.set, lang: ctx.lang, force: ctx.force, zipPath: ctx.zipPath }, counts);
     } else if (ctx.dataBase64 != null) {
       const rows = await runWithDb(db, () => queryPrintRows(db, and(
-        eq(Print.set, ctx.set),
-        eq(Print.lang, ctx.lang as typeof Print.$inferSelect.lang),
+        eq(Print.set, ctx.set!),
+        eq(Print.lang, ctx.lang! as typeof Print.$inferSelect.lang),
         eq(Print.number, ctx.number!),
         isNull(Print.deletedAt),
       )));
@@ -407,7 +470,7 @@ const definition = createDefinition(magicManualImageImportTaskType, {
         }];
       }
     } else {
-      items = await buildDownloadItems(db, { source: ctx.source, set: ctx.set, lang: ctx.lang, force: ctx.force, number: ctx.number! }, counts);
+      items = await buildDownloadItems(db, { source: ctx.source, set: ctx.set!, lang: ctx.lang!, force: ctx.force, number: ctx.number! }, counts);
     }
     const state: BlockState = { items, offset: 0, counts };
     return { total: items.length, blockInput: state };
@@ -429,8 +492,8 @@ const definition = createDefinition(magicManualImageImportTaskType, {
       for (const item of batch) {
         if (signal?.aborted) break;
         const delta = item.kind === 'upload'
-          ? await processUploadItem(item, { source: ctx.source, set: ctx.set, lang: ctx.lang }, item.filename ? zipData.get(item.filename) : Buffer.from(item.dataBase64!, 'base64'), db)
-          : await processDownloadItem(db, item, { source: ctx.source, set: ctx.set, lang: ctx.lang });
+          ? await processUploadItem(item, { source: ctx.source }, item.filename ? zipData.get(item.filename) : Buffer.from(item.dataBase64!, 'base64'), db)
+          : await processDownloadItem(db, item, { source: ctx.source, set: ctx.set!, lang: ctx.lang! });
         acc = addCounts(acc, delta);
       }
       return acc;
