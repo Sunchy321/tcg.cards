@@ -4,10 +4,13 @@ import {
   desc,
   eq,
   isNull,
+  sql,
 } from 'drizzle-orm';
 
 import {
   Card,
+  CardLocalization,
+  CardNameVariant,
   CardSource,
   ImportBatch,
   ImportFailure,
@@ -116,20 +119,6 @@ function cardValues(card: NormalizedCard) {
   return {
     cid: card.cid,
     password: card.password,
-    cnName: card.cnName,
-    scName: card.scName,
-    mdName: card.mdName,
-    nwbbsName: card.nwbbsName,
-    cnocgName: card.cnocgName,
-    jpRuby: card.jpRuby,
-    jpName: card.jpName,
-    enName: card.enName,
-    mdEnName: card.mdEnName,
-    wikiEnName: card.wikiEnName,
-    setExt: card.setExt,
-    typesText: card.typesText,
-    pendulumDescription: card.pendulumDescription,
-    description: card.description,
     ot: card.ot,
     setcode: card.setcode == null ? null : BigInt(card.setcode),
     type: card.type,
@@ -139,6 +128,112 @@ function cardValues(card: NormalizedCard) {
     race: card.race,
     attribute: card.attribute,
   };
+}
+
+/** Localized card content projected from one normalized source record. */
+export function projectCardLocalizations(card: NormalizedCard, cardId: number) {
+  return [
+    {
+      cardId,
+      locale: 'zhs' as const,
+      name: card.cnName,
+      nameRuby: null,
+      typesText: card.typesText,
+      pendulumDescription: card.pendulumDescription,
+      description: card.description,
+    },
+    ...(card.jpName != null || card.jpRuby != null
+      ? [{
+          cardId,
+          locale: 'ja' as const,
+          name: card.jpName,
+          nameRuby: card.jpRuby,
+          typesText: null,
+          pendulumDescription: null,
+          description: null,
+        }]
+      : []),
+    ...(card.enName != null
+      ? [{
+          cardId,
+          locale: 'en' as const,
+          name: card.enName,
+          nameRuby: null,
+          typesText: null,
+          pendulumDescription: null,
+          description: null,
+        }]
+      : []),
+  ];
+}
+
+/** Chinese alternative names projected from the named source fields. */
+export function projectCardNameVariants(card: NormalizedCard, cardId: number) {
+  const candidates = [
+    { kind: 'official' as const, name: card.scName },
+    { kind: 'master_duel' as const, name: card.mdName },
+    { kind: 'nwbbs' as const, name: card.nwbbsName },
+    { kind: 'cnocg' as const, name: card.cnocgName },
+  ];
+
+  return candidates
+    .filter((candidate): candidate is { kind: typeof candidate.kind; name: string } => (
+      candidate.name != null && candidate.name !== card.cnName
+    ))
+    .map(candidate => ({
+      cardId,
+      locale: 'zhs' as const,
+      ...candidate,
+    }));
+}
+
+/** Replaces imported card text and searchable Chinese-name variants as one source projection. */
+async function replaceCardContent(
+  tx: Parameters<Parameters<ReturnType<typeof getYugiohLocalDb>['transaction']>[0]>[0],
+  card: NormalizedCard,
+  cardId: number,
+  now: Date,
+) {
+  const localizations = projectCardLocalizations(card, cardId);
+  const variants = projectCardNameVariants(card, cardId);
+
+  await tx.update(CardLocalization)
+    .set({ deletedAt: now, updatedAt: now })
+    .where(eq(CardLocalization.cardId, cardId));
+
+  await tx.insert(CardLocalization)
+    .values(localizations)
+    .onConflictDoUpdate({
+      target: [CardLocalization.cardId, CardLocalization.locale],
+      set: {
+        name: sql`excluded.name`,
+        nameRuby: sql`excluded.name_ruby`,
+        typesText: sql`excluded.types_text`,
+        pendulumDescription: sql`excluded.pendulum_description`,
+        description: sql`excluded.description`,
+        deletedAt: null,
+        updatedAt: now,
+      },
+    });
+
+  await tx.update(CardNameVariant)
+    .set({ deletedAt: now, updatedAt: now })
+    .where(eq(CardNameVariant.cardId, cardId));
+
+  if (variants.length === 0) {
+    return;
+  }
+
+  await tx.insert(CardNameVariant)
+    .values(variants)
+    .onConflictDoUpdate({
+      target: [CardNameVariant.cardId, CardNameVariant.locale, CardNameVariant.kind],
+      set: {
+        name: sql`excluded.name`,
+        deletedAt: null,
+        updatedAt: now,
+      },
+    });
 }
 
 /** One database import batch row converted into the stable desktop report shape. */
@@ -219,6 +314,8 @@ async function applyCard(
         throw new Error('Card insert did not return an internal ID.');
       }
 
+      await replaceCardContent(tx, card, inserted.id, now);
+
       await tx.insert(CardSource).values({
         source: yugiohCardsSource,
         sourceRecordId: card.sourceRecordId,
@@ -262,6 +359,8 @@ async function applyCard(
     await tx.update(Card)
       .set({ ...cardValues(card), deletedAt: null, updatedAt: now })
       .where(eq(Card.id, identity.cardId));
+
+    await replaceCardContent(tx, card, identity.cardId, now);
 
     if (mapping == null) {
       await tx.insert(CardSource).values({
@@ -362,6 +461,15 @@ async function softDeleteMissingCards(
         .set({ deletedAt: now, updatedAt: now })
         .where(and(eq(Card.id, mapping.cardId), isNull(Card.deletedAt)))
         .returning({ id: Card.id });
+
+      if (rows.length > 0) {
+        await tx.update(CardLocalization)
+          .set({ deletedAt: now, updatedAt: now })
+          .where(eq(CardLocalization.cardId, mapping.cardId));
+        await tx.update(CardNameVariant)
+          .set({ deletedAt: now, updatedAt: now })
+          .where(eq(CardNameVariant.cardId, mapping.cardId));
+      }
 
       return rows.length > 0;
     });

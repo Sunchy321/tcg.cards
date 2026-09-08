@@ -160,3 +160,11 @@ Scryfall supplies the majority of card data and the data skeleton. Gatherer supp
 
 ### localization source (本地化来源)
 The named provenance of a localization row. Only the localization layer is source-dimensioned: the same card + version + locale may hold multiple source rows that coexist, so official and community translations are distinguished and never overwrite each other. Structured card fields (cost, stats, colors, keywords) come from a single authoritative oracle and carry no source. The localization source set is NOT the import-source list — most import sources contribute no localization — it is a small, fixed-per-game list stored as plain text (no enum, no migration). The `source` column is non-null with `''` (empty string) as the default value for the official/default localization; community sources use their own id (for MTG, `mtgch`). The frontend renders all (locale, source) localization combinations side by side rather than auto-selecting one source; the official marker is never shown as a label — only non-official (community) sources get a visible source label. For MTG the only source that produces its own localization today is `mtgch` (community Chinese). Print localization follows the same split-by-lang/source row model so it can participate in queries; it is never embedded in JSON.
+
+## Yu-Gi-Oh! (游戏王)
+
+### card name variant (卡名变体)
+同一张游戏王卡在同一语言下可用于展示或检索的一种名称。它不是另一张卡，也不等同于导入来源。当前百鸽数据中的 `md_name`、`nwbbs_n`、`cnocg_n` 等中文名称均属于卡名变体，必须随卡导入并可参与中文检索。
+
+### primary Chinese name (中文主名称)
+游戏王站点默认展示的简中名称。当前采用百鸽 `cn_name` 所表示的 YGOPro 译名；官方简中、MD、CNOCG、NWBBS 等其他中文名称仍作为卡名变体保留并参与检索。

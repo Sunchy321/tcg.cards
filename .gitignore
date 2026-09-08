@@ -80,4 +80,7 @@ logs
 
 # raw reference files
 /references/*/raw/
+
+# local asset buckets (card images etc.)
+/data/
 .env.ci

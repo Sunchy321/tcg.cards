@@ -28,5 +28,17 @@ registerTaskDefinition(referencePublishTaskDefinition);
 import { hearthstonePurgeTaskDefinition } from '../hearthstone/task/purge/definition';
 registerTaskDefinition(hearthstonePurgeTaskDefinition);
 
+import { cardsImportTaskDefinition } from '../shadowverse/task/cards-import/definition';
+registerTaskDefinition(cardsImportTaskDefinition);
+
+import { imageImportTaskDefinition } from '../shadowverse/task/image-import/definition';
+registerTaskDefinition(imageImportTaskDefinition);
+
+import { evolveCardsImportTaskDefinition } from '../shadowverse-evolve/task/cards-import/definition';
+registerTaskDefinition(evolveCardsImportTaskDefinition);
+
+import { evolveImagesImportTaskDefinition } from '../shadowverse-evolve/task/images-import/definition';
+registerTaskDefinition(evolveImagesImportTaskDefinition);
+
 import { testWorkTaskDefinition } from './test-definition';
 registerTaskDefinition(testWorkTaskDefinition);

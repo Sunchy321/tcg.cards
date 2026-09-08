@@ -6,6 +6,8 @@
     ".": "./src/index.ts",
     "./orpc": "./src/orpc/service.ts",
     "./lib/hearthstone/*": "./src/lib/hearthstone/*.ts",
+    "./lib/shadowverse/*": "./src/lib/shadowverse/*.ts",
+    "./lib/shadowverse-evolve/*": "./src/lib/shadowverse-evolve/*.ts",
     "./lib/yugioh/*": "./src/lib/yugioh/*.ts"
   },
   "scripts": {
