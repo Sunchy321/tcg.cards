@@ -358,11 +358,6 @@ function faceUrlOf(uris: Record<string, string> | null | undefined): string | nu
   return uris?.['png'] ?? uris?.['large'] ?? null;
 }
 
-/** jpg stem of a face: face 0 shares the plain number stem, like the webp files. */
-function jpgFace(faceIndex: number | undefined): number | undefined {
-  return faceIndex == null || faceIndex === 0 ? undefined : faceIndex;
-}
-
 async function processUploadItem(item: UploadItem, ctx: { source: string, cleanupJpg: boolean }, data: Buffer | undefined, db: Db): Promise<OutputDelta> {
   if (data == null) return { processed: 1, failed: 1 };
 
@@ -386,7 +381,7 @@ async function processUploadItem(item: UploadItem, ctx: { source: string, cleanu
       if (res === 'error') return { processed: 1, failed: 1 };
       if (res === 'written') written += 1;
       if (res === 'unchanged') unchanged += 1;
-      if (ctx.cleanupJpg && removeSameStemJpg(row.set, row.lang, row.number, jpgFace(item.faceIndex))) cleanedJpg += 1;
+      if (ctx.cleanupJpg) cleanedJpg += removeSameStemJpg(row.set, row.lang, row.number);
     }
     if (item.name && row.printName && item.name !== row.printName.trim()) {
       pushCapped(warnings, `${item.number}: 名称「${item.name}」与印刷名「${row.printName}」不一致`);
@@ -419,6 +414,7 @@ async function processUploadItem(item: UploadItem, ctx: { source: string, cleanu
     written,
     unchanged,
     lowQuality: tier.score != null && tier.status === 'lowres' ? 1 : 0,
+    cleanedJpg,
     warnings,
   };
 }
@@ -458,6 +454,7 @@ async function processDownloadItem(db: Db, item: DownloadItem, ctx: { source: st
     };
     const patch: Partial<typeof Print.$inferInsert> = { imageInfo: mergeImageInfo(item.imageInfo, item.faceIndex, meta) };
     if (item.faceIndex === 0) patch.imageStatus = tier.status;
+    const cleanedJpg = ctx.cleanupJpg ? removeSameStemJpg(ctx.set, ctx.lang, item.number) : 0;
     await db.update(Print).set(patch).where(and(
       eq(Print.cardId, item.cardId),
       eq(Print.version, item.version),
@@ -471,6 +468,7 @@ async function processDownloadItem(db: Db, item: DownloadItem, ctx: { source: st
       written:    res === 'written' ? 1 : 0,
       unchanged:  res === 'unchanged' ? 1 : 0,
       lowQuality: tier.score != null && tier.status === 'lowres' ? 1 : 0,
+      cleanedJpg,
     };
   } catch {
     return { processed: 1, failed: 1 };

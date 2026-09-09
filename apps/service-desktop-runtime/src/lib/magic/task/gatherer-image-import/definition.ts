@@ -124,7 +124,7 @@ async function processRow(db: Db, row: QueueRow, cleanupJpg: boolean): Promise<O
     }
     if (res === 'written') written += 1;
     if (res === 'unchanged') unchanged += 1;
-    if (i === 0 && cleanupJpg && removeSameStemJpg(row.set, row.lang, row.number, undefined)) out.cleanedJpg += 1;
+    if (i === 0 && cleanupJpg) out.cleanedJpg += removeSameStemJpg(row.set, row.lang, row.number);
 
     infos[i] = {
       status:       tier.status,

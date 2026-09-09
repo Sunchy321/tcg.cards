@@ -351,17 +351,24 @@ export async function mapWithConcurrency<T, R>(
   return results;
 }
 
-/** Remove a legacy same-stem jpg after its webp replacement was written. */
-export function removeSameStemJpg(set: string, lang: string, number: string, faceIndex?: number): boolean {
-  const stem = faceIndex == null ? number.replaceAll('/', '_') : `${number.replaceAll('/', '_')}-${faceIndex}`;
-  try {
-    const file = join(printImageDir(set, lang), `${stem}.jpg`);
-    if (existsSync(file)) {
-      rmSync(file);
-      return true;
+/**
+ * Remove the legacy jpg files of one print after its webp replacement was
+ * written: the plain stem plus both face variants, so a double-faced card is
+ * swept in one pass. Returns how many files were removed.
+ */
+export function removeSameStemJpg(set: string, lang: string, number: string): number {
+  const safe = number.replaceAll('/', '_');
+  let removed = 0;
+  for (const stem of [safe, `${safe}-0`, `${safe}-1`]) {
+    try {
+      const file = join(printImageDir(set, lang), `${stem}.jpg`);
+      if (existsSync(file)) {
+        rmSync(file);
+        removed += 1;
+      }
+    } catch {
+      // removal is best-effort
     }
-  } catch {
-    // removal is best-effort
   }
-  return false;
+  return removed;
 }
