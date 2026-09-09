@@ -1244,8 +1244,8 @@ const expected: CardProjectionExpected = {
 describe('BG24_005-race-bucket (BG24_005 @ 249896)', () => {
   test('projects the full card result', () => {
     const result = runProjection(input);
-    expect(result.entity).toEqual(expected.entity);
-    expect(result.localizations).toEqual(expected.localizations);
-    expect(result.relations).toEqual(expected.relations);
+    expect(result.entity).toEqual(expected.entity!);
+    expect(result.localizations).toEqual(expected.localizations!);
+    expect(result.relations).toEqual(expected.relations!);
   });
 });

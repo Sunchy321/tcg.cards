@@ -1281,8 +1281,8 @@ const expected: CardProjectionExpected = {
 describe('DEEP_015-dual-class (DEEP_015 @ 248348)', () => {
   test('projects the full card result', () => {
     const result = runProjection(input);
-    expect(result.entity).toEqual(expected.entity);
-    expect(result.localizations).toEqual(expected.localizations);
-    expect(result.relations).toEqual(expected.relations);
+    expect(result.entity).toEqual(expected.entity!);
+    expect(result.localizations).toEqual(expected.localizations!);
+    expect(result.relations).toEqual(expected.relations!);
   });
 });

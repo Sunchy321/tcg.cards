@@ -19,6 +19,9 @@ import {
 
 const originalLocalDatabaseUrl = process.env.DESKTOP_LOCAL_DATABASE_URL;
 
+/** Database URL the current environment resolves to; tests must not assume it is unset. */
+const envLocalDatabaseUrl = () => process.env.DESKTOP_LOCAL_DATABASE_URL?.trim() || null;
+
 afterEach(() => {
   setLocalDatabaseUrlOverride(null);
   applyPathOverrides({});
@@ -54,7 +57,7 @@ describe('runtime-config', () => {
     expect(readPathOverride('hearthstone.data.hsdata')).toBe('/tmp/hsdata');
     expect(hasPathOverride('hearthstone.data.hsdata')).toBe(true);
     expect(readAllPathOverrides()).toEqual({ hearthstone: { data: { hsdata: '/tmp/hsdata' } } });
-    expect(readLocalDatabaseUrl()).toBeNull();
+    expect(readLocalDatabaseUrl()).toBe(envLocalDatabaseUrl());
   });
 
   test('applies a nested path tree and re-nests it for transfer', () => {
@@ -89,7 +92,7 @@ describe('runtime-config', () => {
       bucketDir:       '/tmp/hearthstone-assets',
     });
     expect(hasHearthstoneImageOverride()).toBe(true);
-    expect(readLocalDatabaseUrl()).toBeNull();
+    expect(readLocalDatabaseUrl()).toBe(envLocalDatabaseUrl());
   });
 
   test('tracks the Yu-Gi-Oh! image bucket independently from other runtime config', () => {
@@ -100,6 +103,6 @@ describe('runtime-config', () => {
 
     expect(readYugiohImageOverride()).toEqual({ bucketDir: '/tmp/yugioh-assets' });
     expect(hasYugiohImageOverride()).toBe(true);
-    expect(readLocalDatabaseUrl()).toBeNull();
+    expect(readLocalDatabaseUrl()).toBe(envLocalDatabaseUrl());
   });
 });
