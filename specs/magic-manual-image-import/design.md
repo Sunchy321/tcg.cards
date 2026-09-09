@@ -84,7 +84,7 @@
 
 - 任务类型更名:`magic_manual_image_replace` → **`magic_manual_image_import`**(原类型退役);orpc `createTask.manualImageImport`;stage 沿用单阶段 bounded。
 - 输入 schema:
-  - 公共:`source(manual | mtgch | mtgflame | hunterer | scryfall | gatherer)`、`force`(默认 true);`set/lang` 可省略(目录结构压缩包由路径提供);
+  - 公共:`source(manual | mtgch | mtgflame | hunterer | scryfall | gatherer)`、`force`(默认 true)、`cleanupJpg`(默认 false,写入后清理同名 jpg,与 A/B 一致);`set/lang` 可省略(目录结构压缩包由路径提供);
   - 上传单张:`number`、`faceIndex?`、`fileName?`、`dataBase64`;
   - 上传 zip:`zipPath`;
   - 下载组:`number`。

@@ -439,6 +439,7 @@ const manualImageImport = os
     set:        z.string().min(1).optional(),
     lang:       z.string().min(1).optional(),
     force:      z.boolean().optional(),
+    cleanupJpg: z.boolean().optional(),
     number:     z.string().optional(),
     faceIndex:  z.number().int().min(0).max(15).optional(),
     fileName:   z.string().optional(),

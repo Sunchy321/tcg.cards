@@ -55,6 +55,7 @@
                 />
               </UFormField>
               <UCheckbox v-model="form.force" label="覆盖已有卡图" :disabled="disabled" />
+              <UCheckbox v-model="form.cleanupJpg" label="清理 JPG" :disabled="disabled" />
             </div>
 
             <template v-if="isZipCapable">
@@ -209,12 +210,13 @@ const form = useLocalPersist('magic-image-import:manual', {
   set:      '',
   lang:     '',
   force:    true,
+  cleanupJpg: false,
   number:   '',
   faceIndex: '',
   zipPath:  '',
   fileName: '',
   dataBase64: '',
-}, ['source', 'mode', 'set', 'lang', 'force', 'number', 'faceIndex', 'zipPath']);
+}, ['source', 'mode', 'set', 'lang', 'force', 'cleanupJpg', 'number', 'faceIndex', 'zipPath']);
 
 const isZipCapable = computed(() => zipCapableSources.includes(form.source));
 const isUploadSingle = computed(() => isZipCapable.value && form.mode === 'single');
@@ -382,6 +384,7 @@ const operation = computed<TaskOperation>(() => {
       set:        form.set.trim() || undefined,
       lang:       form.lang.trim() || undefined,
       force:      !!form.force,
+      cleanupJpg: !!form.cleanupJpg,
       number:     !isUploadZip.value ? form.number.trim() || undefined : undefined,
       faceIndex:  isUploadSingle.value && form.faceIndex.trim() ? Number(form.faceIndex) : undefined,
       fileName:   isUploadSingle.value ? form.fileName || undefined : undefined,

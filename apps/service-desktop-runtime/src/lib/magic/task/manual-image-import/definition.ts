@@ -7,7 +7,7 @@ import { Print } from '@tcg-cards/db/schema/shared/magic/print';
 
 import { createDefinition } from '#task/definition';
 import { getLocalDb } from '../../../hearthstone/hsdata-local-db';
-import { assessQuality, encodeWebp, faceIndexOf, mergeImageInfo, uploadImageSources, writeCanonical } from '../../image-import/common';
+import { assessQuality, encodeWebp, faceIndexOf, mergeImageInfo, removeSameStemJpg, uploadImageSources, writeCanonical } from '../../image-import/common';
 import type { ImageInfo, ImageInfoMeta } from '#model/magic/schema/print';
 import { chooseNamingPattern, numberCandidates, parseImageStem, parseTreeLayout, stemOf } from '../../image-import/parse';
 import type { ParsedTreeEntry } from '../../image-import/parse';
@@ -30,6 +30,7 @@ const input = z.strictObject({
   set:        z.string().min(1).optional(),
   lang:       z.string().min(1).optional(),
   force:      z.boolean().optional().default(true),
+  cleanupJpg: z.boolean().optional().default(false),
   // upload single image
   number:     z.string().optional(),
   faceIndex:  z.number().int().min(0).max(15).optional(),
@@ -56,6 +57,7 @@ const output = z.strictObject({
   unmatched:         z.number(),
   unrecognized:      z.number(),
   lowQuality:        z.number(),
+  cleanedJpg:        z.number(),
   unmatchedNumbers:  z.array(z.string()),
   unrecognizedNames: z.array(z.string()),
   warnings:          z.array(z.string()),
@@ -76,12 +78,13 @@ const emptyCounts = (): MutableOutput => ({
   unmatched:         0,
   unrecognized:      0,
   lowQuality:        0,
+  cleanedJpg:        0,
   unmatchedNumbers:  [],
   unrecognizedNames: [],
   warnings:          [],
 });
 
-const numericCountKeys = ['processed', 'written', 'unchanged', 'failed', 'skipped', 'skippedUpload', 'placeholder', 'unmatched', 'unrecognized', 'lowQuality'] as const;
+const numericCountKeys = ['processed', 'written', 'unchanged', 'failed', 'skipped', 'skippedUpload', 'placeholder', 'unmatched', 'unrecognized', 'lowQuality', 'cleanedJpg'] as const;
 const listCountKeys = ['unmatchedNumbers', 'unrecognizedNames', 'warnings'] as const;
 
 /** Upper bound per output list so huge archives cannot flood the task result. */
@@ -355,7 +358,12 @@ function faceUrlOf(uris: Record<string, string> | null | undefined): string | nu
   return uris?.['png'] ?? uris?.['large'] ?? null;
 }
 
-async function processUploadItem(item: UploadItem, ctx: { source: string }, data: Buffer | undefined, db: Db): Promise<OutputDelta> {
+/** jpg stem of a face: face 0 shares the plain number stem, like the webp files. */
+function jpgFace(faceIndex: number | undefined): number | undefined {
+  return faceIndex == null || faceIndex === 0 ? undefined : faceIndex;
+}
+
+async function processUploadItem(item: UploadItem, ctx: { source: string, cleanupJpg: boolean }, data: Buffer | undefined, db: Db): Promise<OutputDelta> {
   if (data == null) return { processed: 1, failed: 1 };
 
   const enc = await encodeWebp(data);
@@ -369,6 +377,7 @@ async function processUploadItem(item: UploadItem, ctx: { source: string }, data
   const writtenRows = new Set<string>();
   let written = 0;
   let unchanged = 0;
+  let cleanedJpg = 0;
   for (const row of item.rows) {
     const rowKey = `${row.set}|${row.lang}|${row.number}|${item.faceIndex ?? ''}`;
     if (!writtenRows.has(rowKey)) {
@@ -377,6 +386,7 @@ async function processUploadItem(item: UploadItem, ctx: { source: string }, data
       if (res === 'error') return { processed: 1, failed: 1 };
       if (res === 'written') written += 1;
       if (res === 'unchanged') unchanged += 1;
+      if (ctx.cleanupJpg && removeSameStemJpg(row.set, row.lang, row.number, jpgFace(item.faceIndex))) cleanedJpg += 1;
     }
     if (item.name && row.printName && item.name !== row.printName.trim()) {
       pushCapped(warnings, `${item.number}: 名称「${item.name}」与印刷名「${row.printName}」不一致`);
@@ -390,7 +400,7 @@ async function processUploadItem(item: UploadItem, ctx: { source: string }, data
       height:       enc.height,
       byteSize:     enc.byteSize,
       qualityScore: tier.score,
-      verifiedAt:   new Date(),
+      verifiedAt:   new Date().toISOString(),
     };
     const patch: Partial<typeof Print.$inferInsert> = { imageInfo: mergeImageInfo(row.imageInfo, item.faceIndex, meta) };
     // The column snapshot tracks the primary face only.
@@ -413,7 +423,7 @@ async function processUploadItem(item: UploadItem, ctx: { source: string }, data
   };
 }
 
-async function processDownloadItem(db: Db, item: DownloadItem, ctx: { source: string, set: string, lang: string }): Promise<OutputDelta> {
+async function processDownloadItem(db: Db, item: DownloadItem, ctx: { source: string, set: string, lang: string, cleanupJpg: boolean }): Promise<OutputDelta> {
   const url = ctx.source === 'scryfall' ? item.url : null;
   const multiverseId = ctx.source === 'gatherer' ? item.multiverseId : null;
 
@@ -444,7 +454,7 @@ async function processDownloadItem(db: Db, item: DownloadItem, ctx: { source: st
       height:       enc.height,
       byteSize:     enc.byteSize,
       qualityScore: tier.score,
-      verifiedAt:   new Date(),
+      verifiedAt:   new Date().toISOString(),
     };
     const patch: Partial<typeof Print.$inferInsert> = { imageInfo: mergeImageInfo(item.imageInfo, item.faceIndex, meta) };
     if (item.faceIndex === 0) patch.imageStatus = tier.status;
@@ -534,8 +544,8 @@ const definition = createDefinition(magicManualImageImportTaskType, {
       for (const item of batch) {
         if (signal?.aborted) break;
         const delta = item.kind === 'upload'
-          ? await processUploadItem(item, { source: ctx.source }, item.filename ? zipData.get(item.filename) : Buffer.from(item.dataBase64!, 'base64'), db)
-          : await processDownloadItem(db, item, { source: ctx.source, set: ctx.set!, lang: ctx.lang! });
+          ? await processUploadItem(item, { source: ctx.source, cleanupJpg: ctx.cleanupJpg }, item.filename ? zipData.get(item.filename) : Buffer.from(item.dataBase64!, 'base64'), db)
+          : await processDownloadItem(db, item, { source: ctx.source, set: ctx.set!, lang: ctx.lang!, cleanupJpg: ctx.cleanupJpg });
         acc = addCounts(acc, delta);
       }
       return acc;

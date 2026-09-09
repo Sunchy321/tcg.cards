@@ -135,7 +135,7 @@ async function processRow(db: Db, row: QueueRow, cleanupJpg: boolean): Promise<O
       height:       enc.height,
       byteSize:     enc.byteSize,
       qualityScore: tier.score,
-      verifiedAt:   new Date(),
+      verifiedAt:   new Date().toISOString(),
     };
     if (i === 0) {
       face0Status = tier.status;
