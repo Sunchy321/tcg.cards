@@ -1102,8 +1102,6 @@ pub fn run() {
             desktop_set_yugioh_publish_target,
             desktop_test_yugioh_publish_target,
             desktop_validate_yugioh_publish_target_binding,
-            desktop_get_game_repo,
-            desktop_set_game_repo,
             desktop_get_path,
             desktop_set_path,
             desktop_pick_directory,

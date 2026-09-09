@@ -14,7 +14,6 @@ use crate::desktop_yugioh_publish_target::{
     load_publish_target_connection_string as load_yugioh_publish_target_connection_string,
     load_publish_target_profile as load_yugioh_publish_target_profile,
 };
-use crate::load_desktop_game_repo_path;
 use crate::load_desktop_paths;
 
 const DESKTOP_RUNTIME_HTTP_BASE_URL: &str = "http://127.0.0.1:4318";
