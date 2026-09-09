@@ -75,12 +75,12 @@
       "cardId": "goblin!r-11",
       "version": "",
       "set": "tgk1",
-      "number": "4",
+      "number": "4a",
       "lang": "en",
       "source": "",
       "name": "Goblin",
       "typeline": "Token Creature — Goblin",
-      "layout": "double_faced_token",
+      "layout": "token",
       "frame": "2015",
       "frameEffects": [],
       "borderColor": "black",
@@ -95,10 +95,7 @@
       "finishes": [
         "nonfoil"
       ],
-      "hasHighResImage": true,
       "imageStatus": "highres_scan",
-      "imageUpdatedAt": "2026-07-13T09:13:28Z",
-      "fullImageType": "jpg",
       "inBooster": false,
       "games": [
         "paper"
@@ -117,12 +114,13 @@
       "scryfallOracleId": "0823fbf2-7b39-4869-b3f0-091b7d7d0a5d",
       "scryfallCardId": "64f4dc68-060b-4c63-8f43-00f53c52a251",
       "scryfallFace": null,
-      "scryfallImageUris": null,
       "arenaId": null,
       "mtgoId": null,
       "mtgoFoilId": null,
       "multiverseId": [],
-      "tcgplayerEtchedId": null
+      "tcgPlayerId": 179417,
+      "tcgplayerEtchedId": null,
+      "cardMarketId": 366024
     }
   ],
   "printParts": [
@@ -130,7 +128,7 @@
       "cardId": "goblin!r-11",
       "version": "",
       "set": "tgk1",
-      "number": "4",
+      "number": "4a",
       "lang": "en",
       "source": "",
       "partIndex": 0,

@@ -37,9 +37,9 @@
     {
       "lang": "en",
       "set": "tgk1",
-      "number": "4",
+      "number": "4a",
       "releasedAt": "2018-11-02",
-      "layout": "double_faced_token",
+      "layout": "token",
       "frame": "2015",
       "frameEffects": null,
       "borderColor": "black",
@@ -53,10 +53,7 @@
       "finishes": [
         "nonfoil"
       ],
-      "hasHighResImage": true,
       "imageStatus": "highres_scan",
-      "imageUpdatedAt": "2026-07-13T09:13:28Z",
-      "fullImageType": "jpg",
       "inBooster": false,
       "games": [
         "paper"
@@ -78,12 +75,13 @@
       "scryfallOracleId": "0823fbf2-7b39-4869-b3f0-091b7d7d0a5d",
       "scryfallCardId": "64f4dc68-060b-4c63-8f43-00f53c52a251",
       "scryfallFace": null,
-      "scryfallImageUris": null,
       "arenaId": null,
       "mtgoId": null,
       "mtgoFoilId": null,
       "multiverseIds": [],
+      "tcgPlayerId": 179417,
       "tcgplayerEtchedId": null,
+      "cardMarketId": 366024,
       "faces": [
         {
           "typeLine": "Token Creature — Goblin",

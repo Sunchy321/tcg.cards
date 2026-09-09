@@ -315,6 +315,15 @@ function unitSlugs(en: CardRow): string[] {
 }
 
 /**
+ * Whether a front-face type line marks a battle card. Scryfall keeps battles
+ * under the `transform` layout, but a battle's front is printed sideways, so
+ * the projection gives its prints a dedicated layout for the UI to rotate.
+ */
+export function isBattleFront(typeLine: string | null | undefined): boolean {
+  return typeLine?.includes('Battle') ?? false;
+}
+
+/**
  * Assemble every unit of one oracle id from magic_data into `AssembledCard`
  * snapshots. A normal (single/multi-face) oracle card is one unit; a
  * `double_faced_token` yields one unit per face. `reversible_card` produces no
@@ -479,6 +488,13 @@ export async function assembleUnits(database: ProjectDb, oracleId: string, rever
   // Day//Night, The Ring) stay one card; their prints flip like transform.
   if (en.layout === 'double_faced_token') {
     for (const p of prints) p.layout = 'transform_token';
+  }
+
+  // Battle cards keep Scryfall's transform layout, but a battle's front face is
+  // printed sideways and the UI rotates it by layout; the legacy importer gave
+  // them a dedicated layout for exactly this reason.
+  if (isBattleFront(faces[0]?.typeLine)) {
+    for (const p of prints) p.layout = 'battle';
   }
 
   return [{

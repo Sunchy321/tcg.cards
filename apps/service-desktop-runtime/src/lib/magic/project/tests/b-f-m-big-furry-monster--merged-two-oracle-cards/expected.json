@@ -141,10 +141,7 @@
       "finishes": [
         "nonfoil"
       ],
-      "hasHighResImage": true,
       "imageStatus": "highres_scan",
-      "imageUpdatedAt": "2026-07-13T12:40:31Z",
-      "fullImageType": "jpg",
       "inBooster": true,
       "games": [
         "paper"
@@ -162,21 +159,6 @@
       "scryfallOracleId": "d0bd00f2-91bb-4c9c-a8e7-f8aeadc0bbb9",
       "scryfallCardId": "d15c6375-2e4e-47f7-88e1-d90794e7f724",
       "scryfallFace": "right",
-      "scryfallImageUris": [
-        {
-          "art": "https://cards.scryfall.io/art/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.webp?1783946431",
-          "png": "https://cards.scryfall.io/png/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.png?1783946431",
-          "crop": "https://cards.scryfall.io/crop/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.webp?1783946431",
-          "grid": "https://cards.scryfall.io/grid/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.webp?1783946431",
-          "large": "https://cards.scryfall.io/large/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.jpg?1783946431",
-          "small": "https://cards.scryfall.io/small/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.jpg?1783946431",
-          "thumb": "https://cards.scryfall.io/thumb/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.webp?1783946431",
-          "normal": "https://cards.scryfall.io/normal/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.jpg?1783946431",
-          "display": "https://cards.scryfall.io/display/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.webp?1783946431",
-          "art_crop": "https://cards.scryfall.io/art_crop/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.jpg?1783946431",
-          "border_crop": "https://cards.scryfall.io/border_crop/front/d/1/d15c6375-2e4e-47f7-88e1-d90794e7f724.jpg?1783946431"
-        }
-      ],
       "arenaId": null,
       "mtgoId": null,
       "mtgoFoilId": null,
@@ -211,10 +193,7 @@
       "finishes": [
         "nonfoil"
       ],
-      "hasHighResImage": true,
       "imageStatus": "highres_scan",
-      "imageUpdatedAt": "2026-07-13T12:40:32Z",
-      "fullImageType": "jpg",
       "inBooster": true,
       "games": [
         "paper"
@@ -232,21 +211,6 @@
       "scryfallOracleId": "8fd7503b-e722-49a7-a8ac-786e7354bc95",
       "scryfallCardId": "a9f9c279-e382-4feb-9575-196e7cf5d7dc",
       "scryfallFace": "left",
-      "scryfallImageUris": [
-        {
-          "art": "https://cards.scryfall.io/art/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.webp?1783946432",
-          "png": "https://cards.scryfall.io/png/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.png?1783946432",
-          "crop": "https://cards.scryfall.io/crop/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.webp?1783946432",
-          "grid": "https://cards.scryfall.io/grid/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.webp?1783946432",
-          "large": "https://cards.scryfall.io/large/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.jpg?1783946432",
-          "small": "https://cards.scryfall.io/small/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.jpg?1783946432",
-          "thumb": "https://cards.scryfall.io/thumb/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.webp?1783946432",
-          "normal": "https://cards.scryfall.io/normal/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.jpg?1783946432",
-          "display": "https://cards.scryfall.io/display/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.webp?1783946432",
-          "art_crop": "https://cards.scryfall.io/art_crop/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.jpg?1783946432",
-          "border_crop": "https://cards.scryfall.io/border_crop/front/a/9/a9f9c279-e382-4feb-9575-196e7cf5d7dc.jpg?1783946432"
-        }
-      ],
       "arenaId": null,
       "mtgoId": null,
       "mtgoFoilId": null,

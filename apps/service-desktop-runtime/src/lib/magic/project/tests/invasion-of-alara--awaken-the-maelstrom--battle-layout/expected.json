@@ -1,0 +1,238 @@
+{
+  "cards": [
+    {
+      "cardId": "invasion-of-alara--awaken-the-maelstrom",
+      "version": "",
+      "partCount": 2,
+      "name": "Invasion of Alara // Awaken the Maelstrom",
+      "typeline": "Battle — Siege // Sorcery",
+      "manaValue": 5,
+      "colorIdentity": "WUBRG",
+      "keywords": [
+        "transform"
+      ],
+      "counters": [],
+      "producibleMana": null,
+      "category": "default",
+      "tags": [
+        "dev:token",
+        "dev:counter"
+      ],
+      "legalities": {
+        "tlr": "unavailable",
+        "duelcommander": "legal",
+        "brawl": "legal",
+        "penny": "legal",
+        "predh": "unavailable",
+        "future": "unavailable",
+        "legacy": "legal",
+        "modern": "legal",
+        "pauper": "unavailable",
+        "alchemy": "unavailable",
+        "pioneer": "legal",
+        "vintage": "legal",
+        "historic": "legal",
+        "standard": "unavailable",
+        "timeless": "legal",
+        "commander": "legal",
+        "gladiator": "legal",
+        "oldschool": "unavailable",
+        "premodern": "unavailable",
+        "oathbreaker": "legal",
+        "standard_brawl": "unavailable",
+        "pauper_commander": "unavailable",
+        "competitivebrawl": "legal"
+      },
+      "scryfallOracleId": [
+        "8faa4330-07bb-4b65-810a-bbce29d3cd42"
+      ]
+    }
+  ],
+  "cardParts": [
+    {
+      "cardId": "invasion-of-alara--awaken-the-maelstrom",
+      "version": "",
+      "partIndex": 0,
+      "name": "Invasion of Alara",
+      "typeline": "Battle — Siege",
+      "text": "When this Siege enters, exile cards from the top of your library until you exile two nonland cards with mana value 4 or less. You may cast one of those two cards without paying its mana cost. Put one of them into your hand. Then put the other cards exiled this way on the bottom of your library in a random order.",
+      "cost": [
+        "W",
+        "U",
+        "B",
+        "R",
+        "G"
+      ],
+      "manaValue": null,
+      "color": "WUBRG",
+      "colorIndicator": null,
+      "typeSuper": null,
+      "typeMain": [
+        "battle"
+      ],
+      "typeSub": [
+        "siege"
+      ],
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": "7",
+      "handModifier": null,
+      "lifeModifier": null
+    },
+    {
+      "cardId": "invasion-of-alara--awaken-the-maelstrom",
+      "version": "",
+      "partIndex": 1,
+      "name": "Awaken the Maelstrom",
+      "typeline": "Sorcery",
+      "text": "Awaken the Maelstrom is all colors.\nTarget player draws two cards. You may put an artifact card from your hand onto the battlefield. Create a token that's a copy of a permanent you control. Distribute three +1/+1 counters among one, two, or three creatures you control. Destroy target permanent an opponent controls.",
+      "cost": null,
+      "manaValue": null,
+      "color": "WUBRG",
+      "colorIndicator": null,
+      "typeSuper": null,
+      "typeMain": [
+        "sorcery"
+      ],
+      "typeSub": null,
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    }
+  ],
+  "cardLocalizations": [
+    {
+      "cardId": "invasion-of-alara--awaken-the-maelstrom",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "name": "Invasion of Alara // Awaken the Maelstrom",
+      "typeline": "Battle — Siege // Sorcery"
+    }
+  ],
+  "cardPartLocalizations": [
+    {
+      "cardId": "invasion-of-alara--awaken-the-maelstrom",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "Invasion of Alara",
+      "typeline": "Battle — Siege",
+      "text": "When this Siege enters, exile cards from the top of your library until you exile two nonland cards with mana value 4 or less. You may cast one of those two cards without paying its mana cost. Put one of them into your hand. Then put the other cards exiled this way on the bottom of your library in a random order."
+    },
+    {
+      "cardId": "invasion-of-alara--awaken-the-maelstrom",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "partIndex": 1,
+      "name": "Awaken the Maelstrom",
+      "typeline": "Sorcery",
+      "text": "Awaken the Maelstrom is all colors.\nTarget player draws two cards. You may put an artifact card from your hand onto the battlefield. Create a token that's a copy of a permanent you control. Distribute three +1/+1 counters among one, two, or three creatures you control. Destroy target permanent an opponent controls."
+    }
+  ],
+  "prints": [
+    {
+      "cardId": "invasion-of-alara--awaken-the-maelstrom",
+      "version": "",
+      "set": "pmom",
+      "number": "230s",
+      "lang": "en",
+      "source": "",
+      "name": "Invasion of Alara // Awaken the Maelstrom",
+      "typeline": "Battle — Siege // Sorcery",
+      "layout": "battle",
+      "frame": "2015",
+      "frameEffects": [],
+      "borderColor": "black",
+      "cardBack": null,
+      "securityStamp": "oval",
+      "promoTypes": [
+        "prerelease",
+        "datestamped"
+      ],
+      "rarity": "rare",
+      "releaseDate": "2023-04-21",
+      "isDigital": false,
+      "isPromo": true,
+      "isReprint": false,
+      "finishes": [
+        "foil"
+      ],
+      "imageStatus": "highres_scan",
+      "inBooster": false,
+      "games": [
+        "paper"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "printTags": [],
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "2ae0dd12-047c-4efb-80d7-bccc3bac5fba"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "8faa4330-07bb-4b65-810a-bbce29d3cd42",
+      "scryfallCardId": "4b717f04-4162-4d80-a739-5d848481d2bf",
+      "scryfallFace": null,
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseId": [],
+      "tcgPlayerId": 493184,
+      "tcgplayerEtchedId": null,
+      "cardMarketId": 706364
+    }
+  ],
+  "printParts": [
+    {
+      "cardId": "invasion-of-alara--awaken-the-maelstrom",
+      "version": "",
+      "set": "pmom",
+      "number": "230s",
+      "lang": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "Invasion of Alara",
+      "typeline": "Battle — Siege",
+      "text": "When this Siege enters, exile cards from the top of your library until you exile two nonland cards with mana value 4 or less. You may cast one of those two cards without paying its mana cost. Put one of them into your hand. Then put the other cards exiled this way on the bottom of your library in a random order.",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": null,
+      "artist": "Mathias Kollros",
+      "watermark": null,
+      "scryfallIllusId": [
+        "f580122c-7d41-48f1-95fb-00ef6346b125"
+      ]
+    },
+    {
+      "cardId": "invasion-of-alara--awaken-the-maelstrom",
+      "version": "",
+      "set": "pmom",
+      "number": "230s",
+      "lang": "en",
+      "source": "",
+      "partIndex": 1,
+      "name": "Awaken the Maelstrom",
+      "typeline": "Sorcery",
+      "text": "Awaken the Maelstrom is all colors.\nTarget player draws two cards. You may put an artifact card from your hand onto the battlefield. Create a token that's a copy of a permanent you control. Distribute three +1/+1 counters among one, two, or three creatures you control. Destroy target permanent an opponent controls.",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": null,
+      "artist": "Mathias Kollros",
+      "watermark": null,
+      "scryfallIllusId": [
+        "9890958e-7f57-449e-ac4c-adfb0591ae2a"
+      ]
+    }
+  ],
+  "unified": [],
+  "reviews": []
+}

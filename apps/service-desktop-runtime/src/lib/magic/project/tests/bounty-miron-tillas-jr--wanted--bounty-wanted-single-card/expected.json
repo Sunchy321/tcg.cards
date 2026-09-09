@@ -152,10 +152,7 @@
       "finishes": [
         "nonfoil"
       ],
-      "hasHighResImage": true,
       "imageStatus": "highres_scan",
-      "imageUpdatedAt": "2026-07-13T03:01:10Z",
-      "fullImageType": "jpg",
       "inBooster": false,
       "games": [
         "paper"
@@ -173,7 +170,6 @@
       "scryfallOracleId": "0f49692c-534f-443a-b0f8-59dfb44c3549",
       "scryfallCardId": "0fd5b9c3-9c18-446d-9d81-7a3a90d7bbee",
       "scryfallFace": null,
-      "scryfallImageUris": null,
       "arenaId": null,
       "mtgoId": null,
       "mtgoFoilId": null,
