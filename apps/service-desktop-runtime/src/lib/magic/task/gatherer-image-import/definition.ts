@@ -2,6 +2,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { runWithDb } from '@tcg-cards/db';
+import { Gatherer } from '@tcg-cards/db/schema/local/magic';
 import { Print } from '@tcg-cards/db/schema/shared/magic/print';
 import type { ImageInfo, ImageStatus } from '#model/magic/schema/print';
 
@@ -27,22 +28,24 @@ const output = z.strictObject({
   unchanged:  z.number(),
   failed:     z.number(),
   missingId:  z.number(),
+  missingUrl: z.number(),
+  skipped:    z.number(),
   lowQuality: z.number(),
   cleanedJpg: z.number(),
 });
 
 type Output = z.infer<typeof output>;
-const emptyCounts: Output = { processed: 0, written: 0, unchanged: 0, failed: 0, missingId: 0, lowQuality: 0, cleanedJpg: 0 };
+const emptyCounts: Output = { processed: 0, written: 0, unchanged: 0, failed: 0, missingId: 0, missingUrl: 0, skipped: 0, lowQuality: 0, cleanedJpg: 0 };
 
 interface QueueFace {
-  faceIndex:    number;
-  multiverseId: number | null;
+  faceIndex: number;
+  url:       string;
 }
 
 interface QueueRow {
   cardId: string; version: string; set: string; number: string;
   lang: string; source: string;
-  /** One multiverse id per face (faceIndex = face index). */
+  /** Download target per face (faceIndex = face index). */
   faces:     QueueFace[];
   imageInfo: ImageInfo;
 }
@@ -52,6 +55,7 @@ interface BlockState {
   offset:     number;
   counts:     Output;
   cleanupJpg: boolean;
+  force:      boolean;
 }
 
 const BATCH = 24;
@@ -63,16 +67,19 @@ function addCounts(a: Output, b: Output): Output {
     unchanged:  a.unchanged + b.unchanged,
     failed:     a.failed + b.failed,
     missingId:  a.missingId + b.missingId,
+    missingUrl: a.missingUrl + b.missingUrl,
+    skipped:    a.skipped + b.skipped,
     lowQuality: a.lowQuality + b.lowQuality,
     cleanedJpg: a.cleanedJpg + b.cleanedJpg,
   };
 }
 
-function gathererUrl(multiverseId: number): string {
-  return `https://gatherer.wizards.com/Handlers/Image.ashx?multiverseid=${multiverseId}&type=card`;
+/** Preferred gatherer-static image URL of one url map (full-resolution png, then webp). */
+function pickImageUrl(urls: Record<string, string> | null | undefined): string | null {
+  return urls?.['default'] ?? urls?.['medium'] ?? null;
 }
 
-async function processRow(db: Db, row: QueueRow, cleanupJpg: boolean): Promise<Output> {
+async function processRow(db: Db, row: QueueRow, cleanupJpg: boolean, force: boolean): Promise<Output> {
   const out = { ...emptyCounts, processed: 1 };
 
   // One import pass per face; the row update happens once with the merged
@@ -81,21 +88,22 @@ async function processRow(db: Db, row: QueueRow, cleanupJpg: boolean): Promise<O
   let written = 0;
   let unchanged = 0;
   let failed = 0;
-  let missingId = 0;
   let lowQuality = 0;
   let face0Status: ImageStatus | null = null;
   let face0Imported = false;
+  let skipped = 0;
 
   for (const face of row.faces) {
     const i = face.faceIndex;
-    const multiverseId = face.multiverseId;
-    if (multiverseId == null) {
-      missingId += 1;
+    // Without force an already imported face is left untouched, so a row with a
+    // front-only image still gets its missing back filled.
+    if (!force && row.imageInfo?.[i] != null) {
+      skipped += 1;
       continue;
     }
     let source: Buffer | null;
     try {
-      const res = await fetch(gathererUrl(multiverseId), { signal: AbortSignal.timeout(60_000), headers: { 'user-agent': 'tcg-cards/desktop' } });
+      const res = await fetch(face.url, { signal: AbortSignal.timeout(60_000), headers: { 'user-agent': 'tcg-cards/desktop' } });
       if (!res.ok) {
         failed += 1;
         continue;
@@ -146,7 +154,7 @@ async function processRow(db: Db, row: QueueRow, cleanupJpg: boolean): Promise<O
   out.written = written;
   out.unchanged = unchanged;
   out.failed = failed;
-  out.missingId = missingId;
+  out.skipped = skipped;
   out.lowQuality = lowQuality;
 
   if (written + unchanged === 0) return out;
@@ -169,7 +177,7 @@ async function processRow(db: Db, row: QueueRow, cleanupJpg: boolean): Promise<O
 }
 
 const definition = createDefinition(magicGathererImageImportTaskType, {
-  version:     '2026-09-07:v2',
+  version:     '2026-09-08:v1',
   effectModel: 'reconcilable',
 })
   .scope(z.object({}), {
@@ -184,28 +192,57 @@ const definition = createDefinition(magicGathererImageImportTaskType, {
     const restored = checkpoint?.blockInput as BlockState | undefined;
     if (restored) return { total: restored.rows.length, blockInput: restored };
     const db = getLocalDb();
+    // Expected face count: 1 for prints pinned to a face, 2 when the cache row
+    // carries a composite (back) face, 1 otherwise.
+    const expectedFaces = sql`case
+      when ${Print.scryfallFace} is not null then 1
+      when ${Gatherer.data}->'compositeCard'->'imageUrls' is not null then 2
+      else 1 end`;
+    // Image urls come from the gatherer cache rather than Image.ashx: the cache
+    // row of the front multiverse id carries the back face's url in
+    // compositeCard, which is the only way to reach back images (Scryfall often
+    // stores just the front id, and Gatherer's image handler is unreliable).
     const rows = await runWithDb(db, () => db.select({
       cardId:       Print.cardId, version:      Print.version, set:          Print.set, number:       Print.number,
       lang:         Print.lang, source:       Print.source, scryfallFace: Print.scryfallFace,
       imageInfo:    Print.imageInfo,
       multiverseId: Print.multiverseId,
-    }).from(Print).where(and(
-      eq(Print.set, ctx.set),
-      ctx.lang ? sql`${Print.lang} = ${ctx.lang}` : undefined,
-      importablePrintCondition(!!ctx.force),
-    )));
-    const queue: QueueRow[] = rows.map(r => {
-      const ids = ((r.multiverseId ?? []) as Array<number | null>).map((id, i) => ({ faceIndex: i, multiverseId: id }));
-      // Reversible-style rows are pinned to one face of their id array.
+      gathererData: Gatherer.data,
+    }).from(Print)
+      .leftJoin(Gatherer, sql`${Gatherer.multiverseId} = ${Print.multiverseId}[1]`)
+      .where(and(
+        eq(Print.set, ctx.set),
+        ctx.lang ? sql`${Print.lang} = ${ctx.lang}` : undefined,
+        importablePrintCondition(!!ctx.force, expectedFaces),
+      )));
+
+    const counts = { ...emptyCounts };
+    const queue: QueueRow[] = [];
+    for (const r of rows) {
+      if ((r.multiverseId ?? []).length === 0) {
+        counts.missingId += 1;
+        continue;
+      }
+      const frontUrl = pickImageUrl(r.gathererData?.imageUrls);
+      if (frontUrl == null) {
+        counts.missingUrl += 1;
+        continue;
+      }
+      const backUrl = pickImageUrl(r.gathererData?.compositeCard?.imageUrls);
+      const faces: QueueFace[] = [
+        { faceIndex: 0, url: frontUrl },
+        ...(backUrl != null ? [{ faceIndex: 1, url: backUrl }] : []),
+      ];
+      // Reversible-style rows are pinned to one face of their card.
       const pinned = faceIndexOf(r.scryfallFace);
-      return {
+      queue.push({
         cardId:    r.cardId, version:   r.version, set:       r.set, number:    r.number,
         lang:      r.lang, source:    r.source,
-        faces:     pinned == null ? ids : ids.filter(f => f.faceIndex === pinned),
+        faces:     pinned == null ? faces : faces.filter(f => f.faceIndex === pinned),
         imageInfo: r.imageInfo ?? [],
-      };
-    });
-    const state: BlockState = { rows: queue, offset: 0, counts: emptyCounts, cleanupJpg: !!ctx.cleanupJpg };
+      });
+    }
+    const state: BlockState = { rows: queue, offset: 0, counts, cleanupJpg: !!ctx.cleanupJpg, force: !!ctx.force };
     return { total: queue.length, blockInput: state };
   })
   .block(async ({ blockInput, checkpoint, progress, done, signal }) => {
@@ -218,7 +255,7 @@ const definition = createDefinition(magicGathererImageImportTaskType, {
         const results = await mapWithConcurrency(
           batch,
           4,
-          row => processRow(db, row, state.cleanupJpg),
+          row => processRow(db, row, state.cleanupJpg, state.force),
           () => signal?.aborted ?? false,
         );
         return results.reduce(addCounts, emptyCounts);

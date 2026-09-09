@@ -171,7 +171,7 @@ const turnable = computed(() => [
 const imageUrlValues = computed(() => {
   if (turnable.value) {
     return [
-      `${assetBaseUrl}/magic/card/large/${props.set}/${props.lang}/${props.number}-0.${props.imageType}`,
+      `${assetBaseUrl}/magic/card/large/${props.set}/${props.lang}/${props.number}.${props.imageType}`,
       `${assetBaseUrl}/magic/card/large/${props.set}/${props.lang}/${props.number}⁑.${props.imageType}`,
     ];
   } else if (['flip_token_top', 'flip_token_bottom'].includes(props.layout)) {

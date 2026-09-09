@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { join } from 'node:path';
 import { inflateSync } from 'node:zlib';
 
-import { isNull, notInArray, or, sql, type SQL } from 'drizzle-orm';
+import { and, isNull, notInArray, or, sql, type SQL } from 'drizzle-orm';
 
 import { Print } from '@tcg-cards/db/schema/shared/magic/print';
 import type { ImageInfo, ImageInfoMeta } from '#model/magic/schema/print';
@@ -69,15 +69,34 @@ export function mergeImageInfo(existing: ImageInfo | null, faceIndex: number | u
   return merged;
 }
 
-/**
- * Import-protection condition over the image_info column: with force the rows
- * whose primary face carries a non-upload source are also importable.
- */
-export function importablePrintCondition(force: boolean): SQL {
+/** Rows whose primary face is not an upload-sourced image: sweep imports never overwrite those. */
+function uploadProtectedExclusion(): SQL {
   const primarySource = sql`coalesce(${Print.imageInfo}->0->>'source', '')`;
+  return or(isNull(Print.imageInfo), notInArray(primarySource, [...uploadImageSources]))!;
+}
+
+/**
+ * Rows still missing at least one face out of `expectedFaces`: no image_info at
+ * all, a shorter array, or an explicit null slot. Face-level rather than
+ * row-level, so a partially imported double-faced card is still selectable.
+ */
+function missingFaceCondition(expectedFaces: SQL): SQL {
+  return sql`(
+    ${Print.imageInfo} is null
+    or jsonb_array_length(${Print.imageInfo}) < ${expectedFaces}
+    or exists (select 1 from jsonb_array_elements(${Print.imageInfo}) as e where jsonb_typeof(e) = 'null')
+  )`;
+}
+
+/**
+ * Import selection for sweep tasks: upload-protected rows are always skipped;
+ * with force=false only rows still missing a face are kept. `expectedFaces` is
+ * the per-row face count SQL expression of the task's data source.
+ */
+export function importablePrintCondition(force: boolean, expectedFaces: SQL): SQL {
   return force
-    ? or(isNull(Print.imageInfo), notInArray(primarySource, [...uploadImageSources]))!
-    : isNull(Print.imageInfo)!;
+    ? uploadProtectedExclusion()
+    : and(uploadProtectedExclusion(), missingFaceCondition(expectedFaces))!;
 }
 
 export function sha256Hex(data: Uint8Array | Buffer): string {

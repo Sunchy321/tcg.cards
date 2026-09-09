@@ -30,12 +30,13 @@ const output = z.strictObject({
   failed:      z.number(),
   missingUrl:  z.number(),
   placeholder: z.number(),
+  skipped:     z.number(),
   lowQuality:  z.number(),
   cleanedJpg:  z.number(),
 });
 
 type Output = z.infer<typeof output>;
-const emptyCounts: Output = { processed: 0, written: 0, unchanged: 0, failed: 0, missingUrl: 0, placeholder: 0, lowQuality: 0, cleanedJpg: 0 };
+const emptyCounts: Output = { processed: 0, written: 0, unchanged: 0, failed: 0, missingUrl: 0, placeholder: 0, skipped: 0, lowQuality: 0, cleanedJpg: 0 };
 
 interface QueueFace {
   faceIndex: number;
@@ -55,6 +56,7 @@ interface BlockState {
   offset:     number;
   counts:     Output;
   cleanupJpg: boolean;
+  force:      boolean;
 }
 
 const BATCH = 24;
@@ -67,6 +69,7 @@ function addCounts(a: Output, b: Output): Output {
     failed:      a.failed + b.failed,
     missingUrl:  a.missingUrl + b.missingUrl,
     placeholder: a.placeholder + b.placeholder,
+    skipped:     a.skipped + b.skipped,
     lowQuality:  a.lowQuality + b.lowQuality,
     cleanedJpg:  a.cleanedJpg + b.cleanedJpg,
   };
@@ -88,7 +91,7 @@ function faceUrl(uris: Record<string, string> | null | undefined): string | null
   return uris?.['png'] ?? uris?.['large'] ?? null;
 }
 
-async function processRow(db: Db, row: QueueRow, cleanupJpg: boolean): Promise<Output> {
+async function processRow(db: Db, row: QueueRow, cleanupJpg: boolean, force: boolean): Promise<Output> {
   const out = { ...emptyCounts, processed: 1 };
 
   // One import pass per face; the row update happens once with the merged
@@ -101,9 +104,16 @@ async function processRow(db: Db, row: QueueRow, cleanupJpg: boolean): Promise<O
   let lowQuality = 0;
   let face0Status: ImageStatus | null = null;
   let face0Imported = false;
+  let skipped = 0;
 
   for (const face of row.faces) {
     const i = face.faceIndex;
+    // Without force an already imported face is left untouched, so a row with a
+    // front-only image still gets its missing back filled.
+    if (!force && row.imageInfo?.[i] != null) {
+      skipped += 1;
+      continue;
+    }
     const url = face.url;
     if (!url) {
       missingUrl += 1;
@@ -151,6 +161,7 @@ async function processRow(db: Db, row: QueueRow, cleanupJpg: boolean): Promise<O
   out.unchanged = unchanged;
   out.failed = failed;
   out.missingUrl = missingUrl;
+  out.skipped = skipped;
   out.lowQuality = lowQuality;
 
   if (written + unchanged === 0) return out;
@@ -188,6 +199,11 @@ const definition = createDefinition(magicScryfallImageImportTaskType, {
     const restored = checkpoint?.blockInput as BlockState | undefined;
     if (restored) return { total: restored.rows.length, blockInput: restored };
     const db = getLocalDb();
+    // Expected face count of a row: the card's face count, or 1 for prints
+    // pinned to a single face (reversible rows).
+    const expectedFaces = sql`case when ${Print.scryfallFace} is null
+      then greatest(jsonb_array_length(coalesce(${ScryfallCard.cardFaces}, '[]'::jsonb)), 1)
+      else 1 end`;
     const rows = await runWithDb(db, () => db.select({
       cardId:              Print.cardId, version:             Print.version, set:                 Print.set, number:              Print.number,
       lang:                Print.lang, source:              Print.source, scryfallFace:        Print.scryfallFace,
@@ -198,7 +214,7 @@ const definition = createDefinition(magicScryfallImageImportTaskType, {
     }).from(Print).leftJoin(ScryfallCard, eq(Print.scryfallCardId, ScryfallCard.cardId)).where(and(
       ctx.scope === 'set' ? eq(Print.set, ctx.set!) : undefined,
       ctx.lang ? sql`${Print.lang} = ${ctx.lang}` : undefined,
-      importablePrintCondition(!!ctx.force),
+      importablePrintCondition(!!ctx.force, expectedFaces),
     )));
 
     // Placeholder art (unprinted/digital-only cards) would import as generic
@@ -226,7 +242,7 @@ const definition = createDefinition(magicScryfallImageImportTaskType, {
         imageInfo: r.imageInfo ?? [],
       });
     }
-    const state: BlockState = { rows: queue, offset: 0, counts: { ...emptyCounts, placeholder }, cleanupJpg: !!ctx.cleanupJpg };
+    const state: BlockState = { rows: queue, offset: 0, counts: { ...emptyCounts, placeholder }, cleanupJpg: !!ctx.cleanupJpg, force: !!ctx.force };
     return { total: queue.length, blockInput: state };
   })
   .block(async ({ blockInput, checkpoint, progress, done, signal }) => {
@@ -239,7 +255,7 @@ const definition = createDefinition(magicScryfallImageImportTaskType, {
         const results = await mapWithConcurrency(
           batch,
           4,
-          row => processRow(db, row, state.cleanupJpg),
+          row => processRow(db, row, state.cleanupJpg, state.force),
           () => signal?.aborted ?? false,
         );
         return results.reduce(addCounts, emptyCounts);

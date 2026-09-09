@@ -1,8 +1,8 @@
-import { and, eq, inArray, isNull, type SQL } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { runWithDb } from '@tcg-cards/db';
-import { ScryfallCard } from '@tcg-cards/db/schema/local/magic';
+import { Gatherer, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
 import { Print } from '@tcg-cards/db/schema/shared/magic/print';
 
 import { createDefinition } from '#task/definition';
@@ -115,36 +115,45 @@ const rowColumns = {
   scryfallImageUris:   ScryfallCard.imageUris,
   scryfallCardFaces:   ScryfallCard.cardFaces,
   multiverseId:        Print.multiverseId,
+  gathererData:        Gatherer.data,
 };
 
 function queryPrintRows(db: Db, where: SQL | undefined) {
-  return db.select(rowColumns).from(Print).leftJoin(ScryfallCard, eq(Print.scryfallCardId, ScryfallCard.cardId)).where(where);
+  return db.select(rowColumns).from(Print)
+    .leftJoin(ScryfallCard, eq(Print.scryfallCardId, ScryfallCard.cardId))
+    .leftJoin(Gatherer, sql`${Gatherer.multiverseId} = ${Print.multiverseId}[1]`)
+    .where(where);
 }
 
 type SelectedRow = Awaited<ReturnType<typeof queryPrintRows>>[number];
 
-/** Primary-face image source of a row (null when the print has no local image). */
-function rowImageSource(row: SelectedRow): string | null {
-  return row.imageInfo?.[0]?.source ?? null;
+/** Image source of one face slot (null when that face carries no local image). */
+function faceImageSource(row: SelectedRow, faceIndex: number | undefined): string | null {
+  return row.imageInfo?.[faceIndex ?? 0]?.source ?? null;
 }
 
-/** Whether the row may be overwritten given the chosen import source and force mode. */
-function mayOverwrite(row: SelectedRow, source: string, force: boolean): boolean {
-  const rowSource = rowImageSource(row);
-  if (rowSource == null) return true;
-  if ((uploadImageSources as readonly string[]).includes(rowSource)) {
+/**
+ * Whether the targeted face may be written given the chosen import source and
+ * force mode: an empty slot always may, an existing one follows the source and
+ * force rules. Per-face rather than per-row, so filling a missing back face
+ * works without force.
+ */
+function mayOverwrite(row: SelectedRow, source: string, force: boolean, faceIndex: number | undefined): boolean {
+  const slotSource = faceImageSource(row, faceIndex);
+  if (slotSource == null) return true;
+  if ((uploadImageSources as readonly string[]).includes(slotSource)) {
     return (uploadSources as readonly string[]).includes(source) && force;
   }
   return force;
 }
 
-/** Splits matched rows into writable rows and skip counters per the force rules. */
-function applySkipRules(rows: SelectedRow[], source: string, force: boolean, counts: MutableOutput): SelectedRow[] {
+/** Splits matched rows into writable rows and skip counters per the face force rules. */
+function applySkipRules(rows: SelectedRow[], source: string, force: boolean, counts: MutableOutput, faceIndex: number | undefined): SelectedRow[] {
   const kept: SelectedRow[] = [];
   for (const row of rows) {
-    if (mayOverwrite(row, source, force)) {
+    if (mayOverwrite(row, source, force, faceIndex)) {
       kept.push(row);
-    } else if ((uploadImageSources as readonly string[]).includes(rowImageSource(row)!)) {
+    } else if ((uploadImageSources as readonly string[]).includes(faceImageSource(row, faceIndex) ?? '')) {
       counts.skippedUpload += 1;
     } else {
       counts.skipped += 1;
@@ -169,15 +178,14 @@ interface UploadItem {
 }
 
 interface DownloadItem {
-  kind:         'download';
-  cardId:       string;
-  version:      string;
-  number:       string;
-  source:       string;
-  faceIndex:    number;
-  imageInfo:    ImageInfo;
-  url:          string | null;
-  multiverseId: number | null;
+  kind:      'download';
+  cardId:    string;
+  version:   string;
+  number:    string;
+  source:    string;
+  faceIndex: number;
+  imageInfo: ImageInfo;
+  url:       string;
 }
 
 type QueueItem = UploadItem | DownloadItem;
@@ -238,7 +246,7 @@ async function buildUploadZipItems(db: Db, ctx: { source: string, set?: string, 
       pushCapped(counts.unmatchedNumbers, parsedName.number);
       continue;
     }
-    const keptRows = applySkipRules(matched, ctx.source, ctx.force, counts);
+    const keptRows = applySkipRules(matched, ctx.source, ctx.force, counts, parsedName.faceIndex);
     if (keptRows.length === 0) continue;
     items.push({
       kind:      'upload',
@@ -285,7 +293,7 @@ async function buildTreeItems(db: Db, ctx: { source: string, force: boolean }, t
       pushCapped(counts.unmatchedNumbers, `${entry.set}/${entry.lang}/${entry.number}`);
       continue;
     }
-    const keptRows = applySkipRules(matched, ctx.source, ctx.force, counts);
+    const keptRows = applySkipRules(matched, ctx.source, ctx.force, counts, entry.faceIndex);
     if (keptRows.length === 0) continue;
     items.push({
       kind:      'upload',
@@ -320,37 +328,49 @@ async function buildDownloadItems(db: Db, ctx: { source: string, set: string, la
       return true;
     })
     : rows;
-  const keptRows = applySkipRules(downloadable, ctx.source, ctx.force, counts);
-
-  // One download item per face: multi-face cards take urls from card_faces,
-  // single-face cards from the top-level uris; gatherer uses the id array.
+  // One download item per face. Scryfall takes urls from card_faces (multi-face)
+  // or the top-level uris; gatherer takes them from its cache row, whose
+  // compositeCard carries the back face's url. Each face slot follows the
+  // source/force rules on its own, so a missing back face can be filled
+  // without force.
   const items: QueueItem[] = [];
-  for (const row of keptRows) {
+  for (const row of downloadable) {
     const rawFaces = (row.scryfallCardFaces ?? []) as Array<{ image_uris?: Record<string, string> | null }>;
-    const faceCount = ctx.source === 'gatherer'
-      ? Math.max(((row.multiverseId ?? []) as unknown[]).length, 1)
-      : Math.max(rawFaces.length, 1);
-    const faceUris = ctx.source === 'scryfall'
-      ? (rawFaces.length > 0 ? rawFaces.map(f => f.image_uris ?? null) : [row.scryfallImageUris])
-      : [];
-    // Reversible-style rows are pinned to one face of their scryfall card.
+    const faceUrls: Array<string | null> = ctx.source === 'gatherer'
+      ? [
+          gathererUrlOf(row.gathererData?.imageUrls),
+          gathererUrlOf(row.gathererData?.compositeCard?.imageUrls),
+        ]
+      : (rawFaces.length > 0 ? rawFaces.map(f => faceUrlOf(f.image_uris)) : [faceUrlOf(row.scryfallImageUris)]);
+    // Reversible-style rows are pinned to one face of their card.
     const pinned = faceIndexOf(row.scryfallFace);
-    for (let i = 0; i < faceCount; i++) {
+    for (let i = 0; i < faceUrls.length; i++) {
       if (pinned != null && i !== pinned) continue;
+      const url = faceUrls[i];
+      if (url == null) continue;
+      if (!mayOverwrite(row, ctx.source, ctx.force, i)) {
+        if ((uploadImageSources as readonly string[]).includes(faceImageSource(row, i) ?? '')) counts.skippedUpload += 1;
+        else counts.skipped += 1;
+        continue;
+      }
       items.push({
-        kind:         'download',
-        cardId:       row.cardId,
-        version:      row.version,
-        number:       row.number,
-        source:       row.source,
-        faceIndex:    i,
-        imageInfo:    row.imageInfo ?? [],
-        url:          ctx.source === 'scryfall' ? faceUrlOf(faceUris[i]) : null,
-        multiverseId: ctx.source === 'gatherer' ? ((row.multiverseId ?? [])[i] as number | undefined ?? null) : null,
+        kind:      'download',
+        cardId:    row.cardId,
+        version:   row.version,
+        number:    row.number,
+        source:    row.source,
+        faceIndex: i,
+        imageInfo: row.imageInfo ?? [],
+        url,
       } satisfies DownloadItem);
     }
   }
   return items;
+}
+
+/** Preferred gatherer-static image URL of one url map (full-resolution png, then webp). */
+function gathererUrlOf(urls: Record<string, string> | null | undefined): string | null {
+  return urls?.['default'] ?? urls?.['medium'] ?? null;
 }
 
 /** Picks the preferred download url of one scryfall face uris map. */
@@ -420,18 +440,10 @@ async function processUploadItem(item: UploadItem, ctx: { source: string, cleanu
 }
 
 async function processDownloadItem(db: Db, item: DownloadItem, ctx: { source: string, set: string, lang: string, cleanupJpg: boolean }): Promise<OutputDelta> {
-  const url = ctx.source === 'scryfall' ? item.url : null;
-  const multiverseId = ctx.source === 'gatherer' ? item.multiverseId : null;
-
   try {
     let data: Buffer | null = null;
-    if (url != null) {
-      const res = await fetch(url, { signal: AbortSignal.timeout(60_000), headers: { 'user-agent': 'tcg-cards/desktop' } });
-      if (res.ok) data = Buffer.from(await res.arrayBuffer());
-    } else if (multiverseId != null) {
-      const res = await fetch(`https://gatherer.wizards.com/Handlers/Image.ashx?multiverseid=${multiverseId}&type=card`, { signal: AbortSignal.timeout(60_000), headers: { 'user-agent': 'tcg-cards/desktop' } });
-      if (res.ok) data = Buffer.from(await res.arrayBuffer());
-    }
+    const response = await fetch(item.url, { signal: AbortSignal.timeout(60_000), headers: { 'user-agent': 'tcg-cards/desktop' } });
+    if (response.ok) data = Buffer.from(await response.arrayBuffer());
     if (data == null || data.length === 0) return { processed: 1, failed: 1 };
 
     const enc = await encodeWebp(data);
@@ -508,7 +520,7 @@ const definition = createDefinition(magicManualImageImportTaskType, {
         pushCapped(counts.unmatchedNumbers, ctx.number!);
         items = [];
       } else {
-        const keptRows = applySkipRules(rows, ctx.source, ctx.force, counts);
+        const keptRows = applySkipRules(rows, ctx.source, ctx.force, counts, ctx.faceIndex);
         items = keptRows.length === 0
           ? []
           : [{

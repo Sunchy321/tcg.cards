@@ -37,6 +37,17 @@ const ruling = z.strictObject({
   rulingStatement: z.string(),
 });
 
+/**
+ * Other face of a double-faced card: Gatherer puts the back face's card data
+ * here instead of giving it a reachable multiverse id, which is why the back
+ * image URL can only be read from this field.
+ */
+const compositeCard = z.looseObject({
+  instanceName:  z.string().optional(),
+  compositeType: z.string().optional(),
+  imageUrls:     z.record(z.string(), z.string()).optional(),
+});
+
 /** A single Gatherer CardData payload, extracted from the site's RSC flight data. */
 export const gathererCard = z.strictObject({
   resourceId:           z.string(),
@@ -77,6 +88,7 @@ export const gathererCard = z.strictObject({
   instanceSubtypes:     z.string().array(),
   instanceSupertypes:   z.string().array(),
   imageUrls:            z.record(z.string(), z.string()),
+  compositeCard:        compositeCard.nullable().optional(),
   colors:               color.array(),
   formatLegalities:     formatLegality.array(),
   relatedCardInstances: relatedCardInstance.array(),

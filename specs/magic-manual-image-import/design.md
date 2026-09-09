@@ -23,7 +23,7 @@
 `source ∈ manual | mtgch | mtgflame | hunterer | scryfall | gatherer`,按导入机制分两组:
 
 - **上传组(manual / mtgch / mtgflame / hunterer)**:本地文件来源(单张或 zip),写入 prints 的 `image_source` 为所选值。前三者区分手工图、mtgch 汉化图、mtgflame 水印图;`hunterer` 用于标注来自已失效旧来源 hunterer 的旧图(上传机制完全相同,仅作为标注值),其压缩包走目录结构模式。
-- **下载组(scryfall / gatherer)**:无需上传文件。按 set+lang+number 选定印刷行,取库内已存的 `scryfall_image_uris` / `multiverse_id` 下载。等价于模块 A/B 的「指定编号子集」版。
+- **下载组(scryfall / gatherer)**:无需上传文件。按 set+lang+number 选定印刷行后取图:`scryfall` 从关联的 `scryfall_cards` 取面级 `image_uris`(多面卡取 `card_faces[i].image_uris`);`gatherer` 从 `magic_data.gatherer` 缓存取静态图 URL(正面 `imageUrls`、背面 `compositeCard.imageUrls`——Scryfall 对多数双面卡只存正面 multiverse id,背面图只能由此获得)。等价于模块 A/B 的「指定编号子集」版。
 
 公共行为:
 
@@ -32,16 +32,18 @@
 - Scryfall 图源(下载组 `scryfall` 与模块 A)经 `prints.scryfall_card_id` 关联 `scryfall_cards.image_status`,跳过标记为 `placeholder` 的印刷(未印刷/纯数字卡的占位图),计数 `placeholder`。
 - 值域分类在代码中以常量组维护(上传组/下载组),不引入新表或新列。
 
-## 3. force 语义(已评审定案)
+## 3. force 语义(已评审定案;面级判定)
 
 - 页面默认 **force=true**,提供开关(勾掉即「仅补缺」)。
-- 行筛选规则,与 A/B 对齐(上传组=manual/mtgch/mtgflame/hunterer):
-  - `force=false`:仅处理 `image_source is null` 的行;
-  - `force=true`:处理 `image_source is null` 或下载组来源的行;
-  - 上传组来源且 `force=true`:连同既有上传组行(manual/mtgch/mtgflame/hunterer)一并覆盖(汉化包 v2 重导 v1 的预期行为;人工覆盖人工)。
-- 下载组来源:遇上传组行(manual/mtgch/mtgflame/hunterer)**一律跳过并计数**(skippedUpload),不提供覆盖选项——防止选错 set 大范围下载时批量刷掉手工/汉化图;确需覆盖则用上传组来源导对应文件。
-- 输出计数:`processed / written / unchanged / failed / skipped / skippedUpload / unmatched(编号无匹配行) / unrecognized(命名不识别) / lowQuality`。
-- **联动改动**:模块 A/B 的既有硬保护 `image_source is distinct from 'manual'` 扩展为「不在上传组」(`not in (manual, mtgch, mtgflame)`),使 mtgch/mtgflame 图与 manual 在批量任务下获得同等保护。这是「mtgch/mtgflame 与 manual 没区别」的直接推论。
+- **面级而非行级**:`image_info` 是按面存储的数组,「缺图」指某个面槽位为空(整列为 NULL、数组短于期望面数、或槽位为 null)。一行只有正面时,背面仍属缺失,`force=false` 必须能补它。
+- 期望面数:下载组按数据源计算——`scryfall` 取 `card_faces` 长度(钉扎到单面的 reversible 行取 1);`gatherer` 取缓存行是否有 `compositeCard`(有则 2,否则 1;钉扎行取 1)。
+- 筛选规则(A/B 批量任务,上传组=manual/mtgch/mtgflame/hunterer):
+  - `force=false`:仅处理仍缺面的行,且**只下载缺失的面**,已导入的面不重下、不改来源;
+  - `force=true`:处理全部非上传组行,逐面重下覆盖;
+  - 上传组行在任何 force 下都不被下载组覆盖(`skippedUpload` 计数)。
+- 手动导入:覆盖判定同样按目标面进行——目标面槽位为空即允许写入,已有图则按来源/force 规则决定(因此不勾 force 也能补背面)。
+- 输出计数(A/B):`processed / written / unchanged / failed / missingId / missingUrl / skipped / placeholder / lowQuality / cleanedJpg`;手动导入另含 `skippedUpload / unmatched / unrecognized` 与清单。
+- **联动改动**:模块 A/B 的既有硬保护 `image_source is distinct from 'manual'` 扩展为「不在上传组」(`not in (manual, mtgch, mtgflame, hunterer)`),使 mtgch/mtgflame/hunterer 图与 manual 在批量任务下获得同等保护。
 
 ## 4. zip 命名约定识别
 
