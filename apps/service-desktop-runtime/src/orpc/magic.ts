@@ -18,10 +18,11 @@ import { magicMtgchImportTaskDefinition } from '../lib/magic/task/mtgch-import';
 import { magicMtgjsonImportTaskDefinition } from '../lib/magic/task/mtgjson-import';
 import { magicGathererImportTaskDefinition } from '../lib/magic/task/gatherer-import';
 import { magicProjectTaskDefinition } from '../lib/magic/task/magic-project';
-import { magicScryfallImageImportTaskDefinition } from '../lib/magic/task/scryfall-image-import/definition';
-import { magicGathererImageImportTaskDefinition } from '../lib/magic/task/gatherer-image-import/definition';
-import { magicManualImageImportTaskDefinition } from '../lib/magic/task/manual-image-import/definition';
+import { magicImageImportRemoteTaskDefinition } from '../lib/magic/task/image-import-remote/definition';
+import { magicImageImportLocalTaskDefinition } from '../lib/magic/task/image-import-local/definition';
+import { magicImageImportSingleTaskDefinition } from '../lib/magic/task/image-import-single/definition';
 import { analyzeImportZip } from '../lib/magic/image-import/analyze';
+import { compareImageSources, imageCompareResult } from '../lib/magic/image-import/compare';
 import { magicPublishTaskDefinition } from '../lib/magic/task/publish';
 
 const magicDataFile = z.strictObject({
@@ -389,37 +390,71 @@ const publishTask = os
     });
   });
 
-const scryfallImageImport = os
+const imageImportRemote = os
   .input(z.strictObject({
+    source:     z.enum(['scryfall', 'gatherer']),
     scope:      z.enum(['full', 'set']),
     set:        z.string().optional(),
     lang:       z.string().optional(),
     force:      z.boolean().optional(),
     cleanupJpg: z.boolean().optional(),
-  }).refine(v => v.scope === 'full' || !!v.set, { message: 'set is required when scope=set' }))
+  }).refine(
+    v => v.source === 'gatherer' ? v.scope === 'set' && !!v.set : v.scope === 'full' || !!v.set,
+    { message: 'scope=set 需要 set;gatherer 只支持 scope=set' },
+  ))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
-    return createAndRunTask(magicScryfallImageImportTaskDefinition.taskType, {
-      taskType:          magicScryfallImageImportTaskDefinition.taskType,
-      definitionVersion: magicScryfallImageImportTaskDefinition.definitionVersion,
-      scope:             { type: magicScryfallImageImportTaskDefinition.scopeType, key: 'global', snapshot: {} },
-      params:            { scope: input.scope, set: input.set, lang: input.lang, force: input.force, cleanupJpg: input.cleanupJpg },
+    return createAndRunTask(magicImageImportRemoteTaskDefinition.taskType, {
+      taskType:          magicImageImportRemoteTaskDefinition.taskType,
+      definitionVersion: magicImageImportRemoteTaskDefinition.definitionVersion,
+      scope:             { type: magicImageImportRemoteTaskDefinition.scopeType, key: 'global', snapshot: {} },
+      params:            input,
     });
   });
 
-const gathererImageImport = os
-  .input(z.strictObject({ set: z.string().min(1), lang: z.string().optional(), force: z.boolean().optional(), cleanupJpg: z.boolean().optional() }))
+const imageImportLocal = os
+  .input(z.strictObject({
+    source:     z.enum(['manual', 'mtgch', 'mtgflame', 'hunterer']),
+    // storage-tree archives carry set/lang in their paths, so both are optional
+    set:        z.string().min(1).optional(),
+    lang:       z.string().min(1).optional(),
+    force:      z.boolean().optional(),
+    cleanupJpg: z.boolean().optional(),
+    zipPath:    z.string().min(1),
+  }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
-    return createAndRunTask(magicGathererImageImportTaskDefinition.taskType, {
-      taskType:          magicGathererImageImportTaskDefinition.taskType,
-      definitionVersion: magicGathererImageImportTaskDefinition.definitionVersion,
-      scope:             { type: magicGathererImageImportTaskDefinition.scopeType, key: 'global', snapshot: {} },
-      params:            { set: input.set, lang: input.lang, force: input.force, cleanupJpg: input.cleanupJpg },
+    return createAndRunTask(magicImageImportLocalTaskDefinition.taskType, {
+      taskType:          magicImageImportLocalTaskDefinition.taskType,
+      definitionVersion: magicImageImportLocalTaskDefinition.definitionVersion,
+      scope:             { type: magicImageImportLocalTaskDefinition.scopeType, key: 'global', snapshot: {} },
+      params:            input,
     });
   });
 
-const analyzeManualImportZip = os
+const imageImportSingle = os
+  .input(z.strictObject({
+    source:     z.enum(['manual', 'mtgch', 'mtgflame', 'hunterer', 'scryfall', 'gatherer']),
+    set:        z.string().min(1),
+    lang:       z.string().min(1),
+    number:     z.string().min(1),
+    force:      z.boolean().optional(),
+    cleanupJpg: z.boolean().optional(),
+    faceIndex:  z.number().int().min(0).max(15).optional(),
+    fileName:   z.string().optional(),
+    dataBase64: z.string().optional(),
+  }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    return createAndRunTask(magicImageImportSingleTaskDefinition.taskType, {
+      taskType:          magicImageImportSingleTaskDefinition.taskType,
+      definitionVersion: magicImageImportSingleTaskDefinition.definitionVersion,
+      scope:             { type: magicImageImportSingleTaskDefinition.scopeType, key: 'global', snapshot: {} },
+      params:            input,
+    });
+  });
+
+const analyzeImageArchive = os
   .input(z.strictObject({ zipPath: z.string().min(1) }))
   .output(z.strictObject({
     convention:   z.enum(['face', 'named', 'plain', 'tree']).nullable(),
@@ -432,28 +467,14 @@ const analyzeManualImportZip = os
     return analyzeImportZip(db, input.zipPath);
   });
 
-const manualImageImport = os
-  .input(z.strictObject({
-    source:     z.enum(['manual', 'mtgch', 'mtgflame', 'hunterer', 'scryfall', 'gatherer']),
-    // storage-tree archives carry set/lang in their paths, so both are optional
-    set:        z.string().min(1).optional(),
-    lang:       z.string().min(1).optional(),
-    force:      z.boolean().optional(),
-    cleanupJpg: z.boolean().optional(),
-    number:     z.string().optional(),
-    faceIndex:  z.number().int().min(0).max(15).optional(),
-    fileName:   z.string().optional(),
-    dataBase64: z.string().optional(),
-    zipPath:    z.string().optional(),
-  }))
-  .output(taskPageSnapshot)
+const compareImages = os
+  .input(z.strictObject({ set: z.string().min(1), lang: z.string().min(1), number: z.string().min(1) }))
+  .output(imageCompareResult)
   .handler(async ({ input }) => {
-    return createAndRunTask(magicManualImageImportTaskDefinition.taskType, {
-      taskType:          magicManualImageImportTaskDefinition.taskType,
-      definitionVersion: magicManualImageImportTaskDefinition.definitionVersion,
-      scope:             { type: magicManualImageImportTaskDefinition.scopeType, key: 'global', snapshot: {} },
-      params:            input,
-    });
+    const db = getLocalDb();
+    const result = await compareImageSources(db, input);
+    if (!result) throw new ORPCError('NOT_FOUND', { message: '未找到该印张' });
+    return result;
   });
 
 const listImageSets = os
@@ -470,9 +491,9 @@ const listImageSets = os
 
 export const magicRouter = {
   getDataState,
-  images:     { sets: listImageSets },
-  analyze:    { manualImportZip: analyzeManualImportZip },
-  createTask: { scryfallImport, mtgchImport, mtgjsonImport, gathererImport, magicProject, scryfallImageImport, gathererImageImport, manualImageImport },
+  images:     { sets: listImageSets, compare: compareImages },
+  analyze:    { imageArchive: analyzeImageArchive },
+  createTask: { scryfallImport, mtgchImport, mtgjsonImport, gathererImport, magicProject, imageImportRemote, imageImportLocal, imageImportSingle },
   publish:    { publishTask },
   slug:       { listConflicts: listSlugConflicts, resolveConflict: resolveSlugConflict, member: slugMember },
   review:     { list: reviewList },

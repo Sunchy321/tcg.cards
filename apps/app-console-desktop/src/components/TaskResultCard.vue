@@ -53,14 +53,17 @@ function isImportCounts(value: unknown): boolean {
 
 const props = defineProps<{
   result: Record<string, unknown> | null;
+  /** Optional result-key → display-label mapping; unmapped keys keep the raw key. */
+  labels?: Record<string, string>;
 }>();
 
 const groups = computed<ReportGroup[]>(() => {
   if (!props.result) return [];
-  return Object.entries(props.result).map(([label, value]) => (
-    isImportCounts(value)
+  return Object.entries(props.result).map(([key, value]) => {
+    const label = props.labels?.[key] ?? key;
+    return isImportCounts(value)
       ? { label, counts: value as ImportCountsLike }
-      : { label, value: value as string | number }
-  ));
+      : { label, value: value as string | number };
+  });
 });
 </script>

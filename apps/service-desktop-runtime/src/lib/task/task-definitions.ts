@@ -56,12 +56,12 @@ import { magicProjectTaskDefinition } from '../magic/task/magic-project/definiti
 import { magicPublishTaskDefinition } from '../magic/task/publish/definition';
 registerTaskDefinition(magicProjectTaskDefinition);
 registerTaskDefinition(magicPublishTaskDefinition);
-import { magicScryfallImageImportTaskDefinition } from '../magic/task/scryfall-image-import/definition';
-import { magicGathererImageImportTaskDefinition } from '../magic/task/gatherer-image-import/definition';
-import { magicManualImageImportTaskDefinition } from '../magic/task/manual-image-import/definition';
-registerTaskDefinition(magicScryfallImageImportTaskDefinition);
-registerTaskDefinition(magicGathererImageImportTaskDefinition);
-registerTaskDefinition(magicManualImageImportTaskDefinition);
+import { magicImageImportRemoteTaskDefinition } from '../magic/task/image-import-remote/definition';
+import { magicImageImportLocalTaskDefinition } from '../magic/task/image-import-local/definition';
+import { magicImageImportSingleTaskDefinition } from '../magic/task/image-import-single/definition';
+registerTaskDefinition(magicImageImportRemoteTaskDefinition);
+registerTaskDefinition(magicImageImportLocalTaskDefinition);
+registerTaskDefinition(magicImageImportSingleTaskDefinition);
 
 import { testWorkTaskDefinition } from './test-definition';
 registerTaskDefinition(testWorkTaskDefinition);

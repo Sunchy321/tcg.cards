@@ -133,15 +133,7 @@ export function getGameNavItems(game: Game): ConsoleNavLink[] {
           { label: 'MTGCH', icon: 'i-lucide-file-json', to: `/${game}/data-source/mtgch` },
           { label: '投影', icon: 'i-lucide-box', to: `/${game}/project` },
           { label: '评审', icon: 'i-lucide-clipboard-list', to: `/${game}/review` },
-        ],
-      },
-      {
-        label: '卡图导入',
-        icon: 'i-lucide-image',
-        children: [
-          { label: 'Scryfall', icon: 'i-lucide-download', to: `/${game}/image-import/scryfall` },
-          { label: 'Gatherer', icon: 'i-lucide-globe', to: `/${game}/image-import/gatherer` },
-          { label: '手动导入', icon: 'i-lucide-wand-2', to: `/${game}/image-import/manual` },
+          { label: '卡图导入', icon: 'i-lucide-image', to: `/${game}/image-import` },
         ],
       },
       {
