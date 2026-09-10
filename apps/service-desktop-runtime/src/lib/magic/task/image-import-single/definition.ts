@@ -42,6 +42,7 @@ const rowColumns = {
   lang:                Print.lang,
   number:              Print.number,
   source:              Print.source,
+  layout:              Print.layout,
   printName:           Print.name,
   scryfallFace:        Print.scryfallFace,
   imageInfo:           Print.imageInfo,
@@ -76,8 +77,8 @@ async function runSingle(ctx: Input): Promise<ImageImportOutput> {
     const data = Buffer.from(ctx.dataBase64, 'base64');
     let counts: ImageImportOutput = emptyImageImportOutput();
     for (const row of rows) {
-      const { kept, skipped, skippedUpload } = applySkipRules([row], ctx.source, !!ctx.force, ctx.faceIndex);
-      counts = addImageImportOutput(counts, { skipped, skippedUpload });
+      const { kept, skipped, skippedUpload, singleImageFaces } = applySkipRules([row], ctx.source, !!ctx.force, ctx.faceIndex);
+      counts = addImageImportOutput(counts, { skipped, skippedUpload, warnings: singleImageFaces });
       for (const target of kept) {
         counts = addImageImportOutput(counts, await ingestUploadItem(db, { number: ctx.number, faceIndex: ctx.faceIndex, rows: [target] }, data, {
           imageSource: ctx.source,

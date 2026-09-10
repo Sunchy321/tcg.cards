@@ -9,7 +9,7 @@ import { imageStatus } from '@tcg-cards/model/magic/schema/print';
 import type { LocalDb } from '../../hearthstone/hsdata-local-db';
 import { assessQuality, encodeWebp, faceIndexOf } from './common';
 import { fetchImageBuffer } from './fetch';
-import { gathererFaceUrl, scryfallFaceUrl } from './source';
+import { gathererRowUrls, scryfallRowUrls } from './source';
 
 /** One compared source of one face. */
 export const imageCompareSide = z.discriminatedUnion('status', [
@@ -47,6 +47,7 @@ export type ImageCompareResult = z.infer<typeof imageCompareResult>;
 const equalScoreGap = 0.05;
 
 const rowColumns = {
+  layout:              Print.layout,
   scryfallCardId:      Print.scryfallCardId,
   scryfallFace:        Print.scryfallFace,
   scryfallImageStatus: ScryfallCard.imageStatus,
@@ -56,8 +57,7 @@ const rowColumns = {
   gathererData:        Gatherer.data,
 };
 
-type CompareRow = Awaited<ReturnType<typeof queryRow>>[number];
-
+/** Reads the print row that the comparison runs on. */
 function queryRow(db: LocalDb, set: string, lang: string, number: string) {
   return db.select(rowColumns).from(Print)
     .leftJoin(ScryfallCard, eq(Print.scryfallCardId, ScryfallCard.cardId))
@@ -68,22 +68,6 @@ function queryRow(db: LocalDb, set: string, lang: string, number: string) {
       eq(Print.number, number),
       isNull(Print.deletedAt),
     ));
-}
-
-/** Per-face scryfall urls of one row (multi-face cards carry them in card_faces). */
-function scryfallUrlsOf(row: CompareRow): Array<string | null> {
-  const rawFaces = (row.scryfallCardFaces ?? []) as Array<{ image_uris?: Record<string, string> | null }>;
-  return rawFaces.length > 0
-    ? rawFaces.map(face => scryfallFaceUrl(face.image_uris))
-    : [scryfallFaceUrl(row.scryfallImageUris)];
-}
-
-/** Per-face gatherer urls of one row; the composite cache entry carries the back face. */
-function gathererUrlsOf(row: CompareRow): Array<string | null> {
-  return [
-    gathererFaceUrl(row.gathererData?.imageUrls),
-    gathererFaceUrl(row.gathererData?.compositeCard?.imageUrls),
-  ];
 }
 
 /** Downloads, encodes and evaluates one side; `blocked` short-circuits to a reason. */
@@ -137,8 +121,9 @@ export async function compareImageSources(
   const row = rows[0];
   if (!row) return null;
 
-  const scryfallUrls = scryfallUrlsOf(row);
-  const gathererUrls = gathererUrlsOf(row);
+  // Same url rule as the import, so the comparison shows what an import writes.
+  const scryfallUrls = scryfallRowUrls(row);
+  const gathererUrls = gathererRowUrls(row);
   const faceCount = Math.max(scryfallUrls.length, gathererUrls.length);
 
   // Rows pinned to one face of their scryfall card only carry that face.

@@ -1,7 +1,8 @@
-import { sql, type SQL } from 'drizzle-orm';
+import { and, isNull, notInArray, sql, type SQL } from 'drizzle-orm';
 
 import { Gatherer, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
 import { Print } from '@tcg-cards/db/schema/shared/magic/print';
+import { isTwoImageLayout, twoImageLayouts } from '@tcg-cards/shared/magic/print-image';
 import type { ImageInfo } from '#model/magic/schema/print';
 
 import { faceIndexOf } from './common';
@@ -25,6 +26,8 @@ export interface RemoteQueueRow {
   source:    string;
   faces:     FaceTarget[];
   imageInfo: ImageInfo;
+  /** Printed images this row may store; `image_info` is rebuilt to this length on write. */
+  faceCount: 1 | 2;
 }
 
 /** Rows or faces the remote source could not supply, counted while the queue is built. */
@@ -49,18 +52,30 @@ export function gathererFaceUrl(urls: Record<string, string> | null | undefined)
 }
 
 /**
- * Expected face count of one row as a SQL expression, for `importablePrintCondition`.
- * Scryfall counts the card's faces; gatherer counts 2 when the cache row carries a
- * composite (back) face. Rows pinned to a single face always expect 1.
+ * Whether a row's images come one per face (front/back layouts, or a row pinned
+ * to one face of such a card) instead of one shared image for the whole card.
+ */
+function perFaceImages(row: { layout: string, scryfallFace: string | null }): boolean {
+  return isTwoImageLayout(row.layout) || faceIndexOf(row.scryfallFace) != null;
+}
+
+/**
+ * Expected number of printed images of one row as a SQL expression, for
+ * `importablePrintCondition`. A card only carries a second image when its layout
+ * prints one (see `isTwoImageLayout`) and its source actually has it: scryfall
+ * puts per-face uris on front/back cards only, and gatherer serves the back
+ * through `compositeCard`. Rows pinned to a single face always expect 1.
  */
 export function remoteExpectedFaces(source: RemoteImageSource): SQL {
+  const singleImage = and(isNull(Print.scryfallFace), notInArray(Print.layout, [...twoImageLayouts]))!;
   return source === 'scryfall'
-    ? sql`case when ${Print.scryfallFace} is null
-        then greatest(jsonb_array_length(coalesce(${ScryfallCard.cardFaces}, '[]'::jsonb)), 1)
+    ? sql`case when ${singleImage} then 1
+        when jsonb_array_length(coalesce(${ScryfallCard.cardFaces}, '[]'::jsonb)) > 1
+          and ${ScryfallCard.cardFaces}->0->'image_uris' is not null then 2
         else 1 end`
-    : sql`case
-        when ${Print.scryfallFace} is not null then 1
-        when ${Gatherer.data}->'compositeCard'->'imageUrls' is not null then 2
+    : sql`case when ${singleImage} then 1
+        when ${Gatherer.data}->'compositeCard'->'imageUrls'->>'default' is not null
+          or ${Gatherer.data}->'compositeCard'->'imageUrls'->>'medium' is not null then 2
         else 1 end`;
 }
 
@@ -71,18 +86,21 @@ interface QueueRowColumns {
   number:       string;
   lang:         string;
   source:       string;
+  layout:       string;
   scryfallFace: string | null;
   imageInfo:    ImageInfo | null;
 }
 
 /**
- * Turns the per-face urls of one row into a queue entry. Faces pinned out by the
- * row's scryfall face are dropped; faces without a url count as `missingUrl`.
+ * Turns the face urls of one row into a queue entry. Faces beyond the layout's
+ * printed images and faces pinned out by the row's scryfall face are dropped;
+ * faces without a url count as `missingUrl`.
  */
 function queueRow(row: QueueRowColumns, urls: Array<string | null>, skipped: RemoteSkipped): RemoteQueueRow | null {
   const pinned = faceIndexOf(row.scryfallFace);
+  const faceCount: 1 | 2 = perFaceImages(row) ? 2 : 1;
   const faces: FaceTarget[] = [];
-  for (let i = 0; i < urls.length; i++) {
+  for (let i = 0; i < Math.min(urls.length, faceCount); i++) {
     if (pinned != null && i !== pinned) continue;
     const url = urls[i];
     if (url == null) {
@@ -100,6 +118,7 @@ function queueRow(row: QueueRowColumns, urls: Array<string | null>, skipped: Rem
     lang:      row.lang,
     source:    row.source,
     faces,
+    faceCount,
     imageInfo: row.imageInfo ?? [],
   };
 }
@@ -123,6 +142,47 @@ export interface GathererImageRow extends QueueRowColumns {
   gathererData: GathererImageData | null;
 }
 
+/**
+ * Scryfall download urls of one row, one per printed image. Scryfall only gives
+ * per-face uris when the faces have images of their own — adventure, split,
+ * flip and prepare carry a single top-level uri map instead, so their card is
+ * reached through it rather than through empty face entries.
+ */
+export function scryfallRowUrls(row: ScryfallUrlColumns): Array<string | null> {
+  const rawFaces = (row.scryfallCardFaces ?? []) as Array<{ image_uris?: Record<string, string> | null }>;
+  const perFace = rawFaces.map(face => scryfallFaceUrl(face.image_uris));
+  return perFace.some(url => url != null) ? perFace : [scryfallFaceUrl(row.scryfallImageUris)];
+}
+
+/**
+ * Gatherer download urls of one row, one per printed image. The cache row of
+ * the front multiverse id is the only way to reach a back image, but it repeats
+ * the front image for cards whose parts share one printed image (adventure,
+ * split, flip, meld and even some single-faced cards), so its `compositeCard` is
+ * read for front/back layouts only.
+ */
+export function gathererRowUrls(row: GathererUrlColumns): Array<string | null> {
+  const front = gathererFaceUrl(row.gathererData?.imageUrls);
+  return perFaceImages(row)
+    ? [front, gathererFaceUrl(row.gathererData?.compositeCard?.imageUrls)]
+    : [front];
+}
+
+/** Columns the scryfall url rule needs. */
+interface ScryfallUrlColumns {
+  layout:            string;
+  scryfallFace:      string | null;
+  scryfallImageUris: Record<string, string> | null;
+  scryfallCardFaces: unknown;
+}
+
+/** Columns the gatherer url rule needs. */
+interface GathererUrlColumns {
+  layout:       string;
+  scryfallFace: string | null;
+  gathererData: GathererImageData | null;
+}
+
 /** Queues one scryfall print row; placeholder art is skipped and counted. */
 export function scryfallQueueRow(row: ScryfallImageRow, skipped: RemoteSkipped): RemoteQueueRow | null {
   // Placeholder art (unprinted/digital-only cards) would import as generic card
@@ -131,27 +191,14 @@ export function scryfallQueueRow(row: ScryfallImageRow, skipped: RemoteSkipped):
     skipped.placeholder += 1;
     return null;
   }
-  const rawFaces = (row.scryfallCardFaces ?? []) as Array<{ image_uris?: Record<string, string> | null }>;
-  // Multi-face cards carry the uris per face; single-face cards at the top level.
-  const urls = rawFaces.length > 0
-    ? rawFaces.map(face => scryfallFaceUrl(face.image_uris))
-    : [scryfallFaceUrl(row.scryfallImageUris)];
-  return queueRow(row, urls, skipped);
+  return queueRow(row, scryfallRowUrls(row), skipped);
 }
 
-/**
- * Queues one gatherer print row. The urls come from the gatherer cache rather
- * than Image.ashx: the cache row of the front multiverse id carries the back
- * face's url in `compositeCard`, which is the only way to reach back images.
- */
+/** Queues one gatherer print row from its cache urls. */
 export function gathererQueueRow(row: GathererImageRow, skipped: RemoteSkipped): RemoteQueueRow | null {
   if ((row.multiverseId ?? []).length === 0) {
     skipped.missingId += 1;
     return null;
   }
-  const urls = [
-    gathererFaceUrl(row.gathererData?.imageUrls),
-    gathererFaceUrl(row.gathererData?.compositeCard?.imageUrls),
-  ];
-  return queueRow(row, urls, skipped);
+  return queueRow(row, gathererRowUrls(row), skipped);
 }

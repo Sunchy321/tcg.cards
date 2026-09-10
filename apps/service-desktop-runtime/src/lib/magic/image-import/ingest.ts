@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 
 import { Print } from '@tcg-cards/db/schema/shared/magic/print';
+import { isTwoImageLayout } from '@tcg-cards/shared/magic/print-image';
 import type { ImageInfo, ImageInfoMeta, ImageStatus } from '#model/magic/schema/print';
 
 import type { LocalDb } from '../../hearthstone/hsdata-local-db';
@@ -79,9 +80,13 @@ function printKeyCondition(key: PrintKey) {
   );
 }
 
-/** Persists one face's metadata; the column snapshot tracks the primary face only. */
-export async function updateRowFace(db: LocalDb, key: PrintKey, imageInfo: ImageInfo | null, faceIndex: number | undefined, meta: ImageInfoMeta): Promise<void> {
-  const patch: Partial<typeof Print.$inferInsert> = { imageInfo: mergeImageInfo(imageInfo, faceIndex, meta) };
+/**
+ * Persists one face's metadata; the column snapshot tracks the primary face
+ * only. The array is cut to `faceCount` so a one-image card cannot keep a stale
+ * second face after its front is written.
+ */
+export async function updateRowFace(db: LocalDb, key: PrintKey, imageInfo: ImageInfo | null, faceIndex: number | undefined, meta: ImageInfoMeta, faceCount: 1 | 2): Promise<void> {
+  const patch: Partial<typeof Print.$inferInsert> = { imageInfo: mergeImageInfo(imageInfo, faceIndex, meta).slice(0, faceCount) };
   if (faceIndex == null || faceIndex === 0) patch.imageStatus = meta.status;
   await db.update(Print).set(patch).where(printKeyCondition(key));
 }
@@ -114,16 +119,24 @@ export function mayOverwrite(imageInfo: ImageInfo | null, faceIndex: number | un
 }
 
 /** Splits matched rows into writable rows and skip counters per the face force rules. */
-export function applySkipRules<T extends { imageInfo: ImageInfo | null }>(
+export function applySkipRules<T extends { layout: string, number: string, imageInfo: ImageInfo | null }>(
   rows: T[],
   source: string,
   force: boolean,
   faceIndex: number | undefined,
-): { kept: T[], skipped: number, skippedUpload: number } {
+): { kept: T[], skipped: number, skippedUpload: number, singleImageFaces: string[] } {
   const kept: T[] = [];
+  const singleImageFaces: string[] = [];
   let skipped = 0;
   let skippedUpload = 0;
   for (const row of rows) {
+    // A card whose parts share one printed image (adventure, split, flip, …) has
+    // no second face to write, whatever the caller asks for.
+    if (faceIndex != null && faceIndex >= 1 && !isTwoImageLayout(row.layout)) {
+      skipped += 1;
+      pushCapped(singleImageFaces, `${row.number}⁑: 该牌只有一张卡图,已忽略背面`);
+      continue;
+    }
     if (mayOverwrite(row.imageInfo, faceIndex, source, force)) {
       kept.push(row);
     } else if ((uploadImageSources as readonly string[]).includes(faceImageSource(row.imageInfo, faceIndex) ?? '')) {
@@ -132,7 +145,7 @@ export function applySkipRules<T extends { imageInfo: ImageInfo | null }>(
       skipped += 1;
     }
   }
-  return { kept, skipped, skippedUpload };
+  return { kept, skipped, skippedUpload, singleImageFaces };
 }
 
 /** How one remote row pass should treat already-imported faces. */
@@ -148,7 +161,11 @@ export interface RemoteRowOptions {
  * tracks the primary (face 0).
  */
 export async function ingestRemoteRow(db: LocalDb, row: RemoteQueueRow, options: RemoteRowOptions): Promise<ImageImportDelta> {
-  const infos: ImageInfo = [...(row.imageInfo ?? [])];
+  // Rebuild the array at the row's printed-image count: a stale second face on a
+  // one-image card (adventure, split, …) is dropped even when this pass writes
+  // nothing, so a re-import converges the row without force.
+  const infos: ImageInfo = Array.from({ length: row.faceCount }, (_, i) => row.imageInfo?.[i] ?? null);
+  const trimmed = (row.imageInfo?.length ?? 0) > row.faceCount;
   let written = 0;
   let unchanged = 0;
   let failed = 0;
@@ -193,7 +210,7 @@ export async function ingestRemoteRow(db: LocalDb, row: RemoteQueueRow, options:
     }
   }
 
-  if (written + unchanged > 0) {
+  if (written + unchanged > 0 || trimmed) {
     await updateRowFaces(db, row, infos, face0Imported ? face0Status : null);
   }
 
@@ -202,6 +219,7 @@ export async function ingestRemoteRow(db: LocalDb, row: RemoteQueueRow, options:
 
 /** One matched print row that an uploaded image writes into. */
 export interface UploadRow extends PrintKey {
+  layout:    string;
   printName: string;
   imageInfo: ImageInfo | null;
 }
@@ -209,11 +227,11 @@ export interface UploadRow extends PrintKey {
 /** One uploaded image matched onto the prints it updates. */
 export interface UploadItem {
   /** Collector number as written in the archive name (or the form input). */
-  number:    string;
+  number:     string;
   faceIndex?: number;
   /** Archive card name, kept for the print-name mismatch warning. */
-  name?:     string;
-  rows:      UploadRow[];
+  name?:      string;
+  rows:       UploadRow[];
 }
 
 export interface UploadOptions {
@@ -249,7 +267,7 @@ export async function ingestUploadItem(db: LocalDb, item: UploadItem, data: Buff
     if (item.name && row.printName && item.name !== row.printName.trim()) {
       pushCapped(warnings, `${item.number}: 名称「${item.name}」与印刷名「${row.printName}」不一致`);
     }
-    await updateRowFace(db, row, row.imageInfo, item.faceIndex, prepared.meta);
+    await updateRowFace(db, row, row.imageInfo, item.faceIndex, prepared.meta, isTwoImageLayout(row.layout) ? 2 : 1);
   }
 
   return {

@@ -40,6 +40,7 @@ const printColumns = {
   lang:      Print.lang,
   number:    Print.number,
   source:    Print.source,
+  layout:    Print.layout,
   printName: Print.name,
   imageInfo: Print.imageInfo,
 };
@@ -62,9 +63,10 @@ interface QueueContext {
   counts: ImageImportDelta;
 }
 
-function collectSkip(counts: ImageImportDelta, skipped: number, skippedUpload: number): void {
+function collectSkip(counts: ImageImportDelta, skipped: number, skippedUpload: number, singleImageFaces: string[] = []): void {
   counts.skipped = (counts.skipped ?? 0) + skipped;
   counts.skippedUpload = (counts.skippedUpload ?? 0) + skippedUpload;
+  for (const warning of singleImageFaces) pushCapped(counts.warnings!, warning);
 }
 
 async function buildTreeItems(db: Db, ctx: QueueContext, treeEntries: ParsedTreeEntry[], infos: ZipImageInfo[]): Promise<ZipUploadItem[]> {
@@ -100,8 +102,8 @@ async function buildTreeItems(db: Db, ctx: QueueContext, treeEntries: ParsedTree
       pushCapped(ctx.counts.unmatchedNumbers!, `${entry.set}/${entry.lang}/${entry.number}`);
       continue;
     }
-    const { kept, skipped, skippedUpload } = applySkipRules(matched, ctx.source, ctx.force, entry.faceIndex);
-    collectSkip(ctx.counts, skipped, skippedUpload);
+    const { kept, skipped, skippedUpload, singleImageFaces } = applySkipRules(matched, ctx.source, ctx.force, entry.faceIndex);
+    collectSkip(ctx.counts, skipped, skippedUpload, singleImageFaces);
     if (kept.length === 0) continue;
     items.push({ number: entry.number, faceIndex: entry.faceIndex, filename: entry.filename, rows: kept });
   }
@@ -156,8 +158,8 @@ async function buildUploadZipItems(db: Db, ctx: QueueContext & { set?: string, l
       pushCapped(ctx.counts.unmatchedNumbers!, parsedName.number);
       continue;
     }
-    const { kept, skipped, skippedUpload } = applySkipRules(matched, ctx.source, ctx.force, parsedName.faceIndex);
-    collectSkip(ctx.counts, skipped, skippedUpload);
+    const { kept, skipped, skippedUpload, singleImageFaces } = applySkipRules(matched, ctx.source, ctx.force, parsedName.faceIndex);
+    collectSkip(ctx.counts, skipped, skippedUpload, singleImageFaces);
     if (kept.length === 0) continue;
     items.push({
       number:    parsedName.number,
