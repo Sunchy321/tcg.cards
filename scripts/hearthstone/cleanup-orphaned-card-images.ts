@@ -13,10 +13,8 @@
  *   bun --env-file=scripts/.env run scripts/hearthstone/cleanup-orphaned-card-images.ts --write
  */
 
-import { createHash } from 'node:crypto';
 import { readdir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
-import canonicalize from 'canonicalize';
 
 import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 
@@ -24,9 +22,11 @@ import { Entity, EntityLocalization } from '@tcg-cards/db/schema/shared/hearthst
 import { Announcement, AnnouncementItem } from '@tcg-cards/db/schema/shared/hearthstone/announcement';
 import { CardImageAsset } from '@tcg-cards/db/schema/shared/hearthstone/card-image';
 import type { RenderModel } from '@tcg-cards/model/hearthstone/schema/entity';
-import { glowPart, type GlowEntry } from '@tcg-cards/model/hearthstone/schema/announcement';
+import type { GlowEntry } from '@tcg-cards/model/hearthstone/schema/announcement';
 import { locale, type Locale } from '@tcg-cards/model/hearthstone/schema/basic';
 import { isCardImageVariantAllowed } from '@tcg-cards/shared/hearthstone/card-image-variant';
+import { sortGlow } from '@tcg-cards/shared/hearthstone/glow';
+import { computeRenderHash } from '@tcg-cards/shared/hearthstone/render-hash';
 import { loadVariantMechanicIds } from '@tcg-cards/console-api/lib/hearthstone/card-image';
 import type { ImageCategory, ImagePremium, ImageTemplate, ImageZone } from '@tcg-cards/model/hearthstone/schema/data/image';
 
@@ -37,20 +37,6 @@ const write = process.argv.includes('--write');
 const bucketDir = process.env.BUCKET_DIR ?? parseArg('--bucket-dir=');
 if (!bucketDir) {
   throw new Error('Missing image bucket directory: set BUCKET_DIR or pass --bucket-dir=');
-}
-
-// ── inline hash helpers (mirror @tcg-cards/shared/hearthstone) ──
-
-function computeRenderHash(model: RenderModel): string {
-  return createHash('sha256').update(canonicalize(model)!).digest('hex');
-}
-
-const GLOW_PART_ORDER = new Map(glowPart.options.map((part, index) => [part, index]));
-
-function sortGlow(glow: GlowEntry[]): GlowEntry[] {
-  return [...glow].sort(
-    (a, b) => (GLOW_PART_ORDER.get(a.part) ?? Number.MAX_SAFE_INTEGER) - (GLOW_PART_ORDER.get(b.part) ?? Number.MAX_SAFE_INTEGER),
-  );
 }
 
 function mergeDelta(model: RenderModel, delta?: Partial<RenderModel>): RenderModel {
