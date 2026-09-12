@@ -371,20 +371,32 @@ export async function mapWithConcurrency<T, R>(
 }
 
 /**
- * Remove the legacy jpg files of one print after its webp replacement was
- * written: the plain stem plus both face variants, so a double-faced card is
- * swept in one pass. Returns how many files were removed.
+ * Remove the legacy image files of one print after its webp replacement was
+ * written: the bare jpg plus the `-0`/`-1` face variants the old library used
+ * for a double-faced card, so one pass sweeps the whole print. The canonical
+ * webp names (bare stem, `⁑` back face) are never touched. Returns how many
+ * files were removed.
+ *
+ * The face variants are swept only while both faces are on disk: a lone
+ * `{number}-1.webp` is the canonical image of a print whose collector number
+ * literally ends in `-1` (e.g. `2025-1`), not a face of this print, and with a
+ * single face present nothing on disk tells the two apart.
  */
 export function removeSameStemJpg(set: string, lang: string, number: string): number {
   const safe = number.replaceAll('/', '_');
+  const dir = printImageDir(set, lang);
+  const present = (stem: string) => [`${stem}.jpg`, `${stem}.webp`].filter(name => existsSync(join(dir, name)));
+
+  const front = present(`${safe}-0`);
+  const back = present(`${safe}-1`);
+  const faces = front.length > 0 && back.length > 0 ? [...front, ...back] : [];
+  const stale = [`${safe}.jpg`, ...faces].filter(name => existsSync(join(dir, name)));
+
   let removed = 0;
-  for (const stem of [safe, `${safe}-0`, `${safe}-1`]) {
+  for (const name of stale) {
     try {
-      const file = join(printImageDir(set, lang), `${stem}.jpg`);
-      if (existsSync(file)) {
-        rmSync(file);
-        removed += 1;
-      }
+      rmSync(join(dir, name));
+      removed += 1;
     } catch {
       // removal is best-effort
     }
