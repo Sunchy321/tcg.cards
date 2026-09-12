@@ -1,10 +1,20 @@
 import { GAMES, type Game } from '@tcg-cards/base';
 
+/** One leaf navigation item. */
 export interface ConsoleNavItem {
   label: string;
   icon: string;
   to: string;
   exact?: boolean;
+}
+
+/** One navigation entry: either a leaf link or a collapsible group with children. */
+export interface ConsoleNavLink {
+  label: string;
+  icon: string;
+  to?: string;
+  exact?: boolean;
+  children?: ConsoleNavLink[];
 }
 
 export interface ConsoleSelectItem {
@@ -15,6 +25,8 @@ export interface ConsoleSelectItem {
 export const GAME_LABELS: Record<Game, string> = {
   magic: 'Magic: The Gathering',
   hearthstone: 'Hearthstone',
+  yugioh: 'Yu-Gi-Oh!',
+  shadowverse: 'Shadowverse',
 };
 
 export function resolveGameFromPath(path: string): Game | null {
@@ -60,161 +72,123 @@ export function getGameSelectItems(games: readonly Game[]): ConsoleSelectItem[] 
   }));
 }
 
-export function getGameNavItems(game: Game): ConsoleNavItem[][] {
-  const groups: ConsoleNavItem[][] = [];
-
-  // Group 1: Overview
-  groups.push([
+/**
+ * Game navigation: the overview link, then one collapsible group per category.
+ * Groups carry a label so the hierarchy (game → category → item) is explicit.
+ */
+export function getGameNavItems(game: Game): ConsoleNavLink[] {
+  const items: ConsoleNavLink[] = [
     {
       label: '概览',
       icon: 'i-lucide-layout-dashboard',
       to: `/${game}`,
       exact: true,
     },
-  ]);
+  ];
 
   if (game === 'hearthstone') {
-    // Group 2: Data pipeline
-    groups.push([
+    items.push(
       {
-        label: '版本管理',
-        icon: 'i-lucide-git-branch',
-        to: `/${game}/version`,
+        label: '数据管线',
+        icon: 'i-lucide-workflow',
+        children: [
+          { label: '版本管理', icon: 'i-lucide-git-branch', to: `/${game}/version` },
+          { label: '拆包导入', icon: 'i-lucide-package-open', to: `/${game}/unpack-import` },
+          { label: 'hsdata导入', icon: 'i-lucide-download', to: `/${game}/hsdata-import` },
+          { label: '数据投影', icon: 'i-lucide-box', to: `/${game}/projection` },
+        ],
       },
       {
-        label: '拆包导入',
-        icon: 'i-lucide-package-open',
-        to: `/${game}/unpack-import`,
+        label: '数据浏览',
+        icon: 'i-lucide-database',
+        children: [
+          { label: '图片', icon: 'i-lucide-image', to: `/${game}/image` },
+          { label: '标签', icon: 'i-lucide-tags', to: `/${game}/tag` },
+          { label: '卡牌', icon: 'i-lucide-layers', to: `/${game}/card` },
+          { label: '系列', icon: 'i-lucide-folder-open', to: `/${game}/set` },
+          { label: '赛制', icon: 'i-lucide-shield-check', to: `/${game}/format` },
+          { label: '公告', icon: 'i-lucide-megaphone', to: `/${game}/announcement` },
+        ],
       },
       {
-        label: 'hsdata导入',
-        icon: 'i-lucide-download',
-        to: `/${game}/hsdata-import`,
-      },
-      {
-        label: '数据投影',
-        icon: 'i-lucide-box',
-        to: `/${game}/projection`,
-      },
-    ]);
-
-    // Group 3: Data browsing
-    const dataItems: ConsoleNavItem[] = [
-      {
-        label: '图片',
-        icon: 'i-lucide-image',
-        to: `/${game}/image`,
-      },
-      {
-        label: '标签',
-        icon: 'i-lucide-tags',
-        to: `/${game}/tag`,
-      },
-      {
-        label: '卡牌',
-        icon: 'i-lucide-layers',
-        to: `/${game}/card`,
-      },
-      {
-        label: '系列',
-        icon: 'i-lucide-folder-open',
-        to: `/${game}/set`,
-      },
-      {
-        label: '赛制',
-        icon: 'i-lucide-shield-check',
-        to: `/${game}/format`,
-      },
-      {
-        label: '公告',
-        icon: 'i-lucide-megaphone',
-        to: `/${game}/announcement`,
-      },
-    ];
-    groups.push(dataItems);
-
-    // Group 4: Release pipeline
-    groups.push([
-      {
-        label: '发布',
+        label: '发布管线',
         icon: 'i-lucide-upload',
-        to: `/${game}/publish`,
+        children: [
+          { label: '发布', icon: 'i-lucide-upload', to: `/${game}/publish` },
+          { label: '推送', icon: 'i-lucide-cloud-upload', to: `/${game}/push` },
+          { label: '提交', icon: 'i-lucide-git-commit-horizontal', to: `/${game}/commit` },
+          { label: '冲突', icon: 'i-lucide-git-compare-arrows', to: `/${game}/conflict` },
+        ],
+      },
+    );
+  } else if (game === 'magic') {
+    items.push(
+      {
+        label: '数据管线',
+        icon: 'i-lucide-workflow',
+        children: [
+          { label: 'Scryfall', icon: 'i-lucide-download', to: `/${game}/data-source/scryfall` },
+          { label: 'Gatherer', icon: 'i-lucide-globe', to: `/${game}/data-source/gatherer` },
+          { label: 'MTGJSON', icon: 'i-lucide-folder', to: `/${game}/data-source/mtgjson` },
+          { label: 'MTGCH', icon: 'i-lucide-file-json', to: `/${game}/data-source/mtgch` },
+          { label: '投影', icon: 'i-lucide-box', to: `/${game}/project` },
+          { label: '评审', icon: 'i-lucide-clipboard-list', to: `/${game}/review` },
+          { label: '卡图导入', icon: 'i-lucide-image', to: `/${game}/image-import` },
+        ],
       },
       {
-        label: '推送',
-        icon: 'i-lucide-cloud-upload',
-        to: `/${game}/push`,
+        label: '数据浏览',
+        icon: 'i-lucide-database',
+        children: [
+          { label: '卡牌', icon: 'i-lucide-layers', to: `/${game}/card` },
+          { label: '系列', icon: 'i-lucide-folder-open', to: `/${game}/set` },
+          { label: '赛制', icon: 'i-lucide-shield-check', to: `/${game}/format` },
+          { label: '公告', icon: 'i-lucide-megaphone', to: `/${game}/announcement` },
+          { label: '规则', icon: 'i-lucide-book-open', to: `/${game}/rule` },
+        ],
       },
       {
-        label: '提交',
-        icon: 'i-lucide-git-commit-horizontal',
-        to: `/${game}/commit`,
+        label: '发布管线',
+        icon: 'i-lucide-upload',
+        children: [
+          { label: '发布', icon: 'i-lucide-upload', to: `/${game}/publish` },
+        ],
       },
-      {
-        label: '冲突',
-        icon: 'i-lucide-git-compare-arrows',
-        to: `/${game}/conflict`,
-      },
-    ]);
+    );
   } else {
-    // Non-hearthstone: simpler structure
-    groups.push([
+    items.push(
       {
-        label: '数据导入',
-        icon: 'i-lucide-download',
-        to: `/${game}/hsdata-import`,
+        label: '数据浏览',
+        icon: 'i-lucide-database',
+        children: [
+          { label: '卡牌', icon: 'i-lucide-layers', to: `/${game}/card` },
+          { label: '系列', icon: 'i-lucide-folder-open', to: `/${game}/set` },
+          { label: '赛制', icon: 'i-lucide-shield-check', to: `/${game}/format` },
+          { label: '公告', icon: 'i-lucide-megaphone', to: `/${game}/announcement` },
+        ],
       },
-      {
-        label: '卡牌',
-        icon: 'i-lucide-layers',
-        to: `/${game}/card`,
-      },
-      {
-        label: '系列',
-        icon: 'i-lucide-folder-open',
-        to: `/${game}/set`,
-      },
-      {
-        label: '赛制',
-        icon: 'i-lucide-shield-check',
-        to: `/${game}/format`,
-      },
-      {
-        label: '公告',
-        icon: 'i-lucide-megaphone',
-        to: `/${game}/announcement`,
-      },
-      ...(game === 'magic'
-        ? [
-          {
-            label: '规则',
-            icon: 'i-lucide-book-open',
-            to: `/${game}/rule`,
-          },
-        ]
-        : []),
-    ]);
+    );
   }
 
-  return groups;
+  return items;
 }
 
-export function getUserNavItems(): ConsoleNavItem[][] {
-  return [[
+export function getUserNavItems(): ConsoleNavLink[] {
+  return [
     {
       label: '用户',
       icon: 'i-lucide-users',
       to: '/user',
     },
-  ]];
+  ];
 }
 
-export function getDevNavItems(): ConsoleNavItem[][] {
-  return [[
+export function getDevNavItems(): ConsoleNavLink[] {
+  return [
     {
       label: 'Task 测试',
       icon: 'i-lucide-flask-conical',
       to: '/test/task-card',
     },
-  ]];
+  ];
 }

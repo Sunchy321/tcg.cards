@@ -54,7 +54,7 @@ export const BaseEntity = schema.table('entities', {
   techLevel:    integer('tech_level'),
   inBobsTavern: boolean('in_bobs_tavern').notNull().default(false),
   tripleCard:   text('triple_card'),
-  raceBucket:   text('race_bucket').$type<NonNullable<IEntity['raceBucket']>>(),
+  raceBucket:   text('race_bucket').array().$type<NonNullable<IEntity['raceBucket']>[number]>(),
   armorBucket:  integer('armor_bucket'),
   buddy:        text('buddy'),
   bannedRace:   text('banned_race'),

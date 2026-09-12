@@ -229,6 +229,7 @@ export default {
         'format-available':       '在{format}模式中可用',
         'format-with-status':     '在{format}模式中的状态为{status}',
         'format-with-status-not': '在{format}模式中的状态不为{status}',
+        'collectible':            '显示{value}卡牌',
       },
 
       'command': {
@@ -254,6 +255,7 @@ export default {
         'mercenary-faction': '佣兵阵营',
         'rarity':            '稀有度',
         'artist':            '画师',
+        'collectible':       '可收藏',
         'change':            '变更类型',
         'format':            '赛制',
         'order':             '排序',
@@ -444,6 +446,12 @@ export default {
           legendary: '传说',
         },
 
+        'collectible': {
+          true:  '可收藏',
+          false: '不可收藏',
+          all:   '全部',
+        },
+
         'order': {
           name:   '名称',
           cost:   '费用',
@@ -496,11 +504,19 @@ export default {
 
     group: {
       core_rotation:   '核心系列轮换',
-      bg_hero:         '酒馆战棋英雄',
-      bg_minion:       '酒馆战棋随从',
-      bg_trinket:      '酒馆战棋饰品',
-      bg_tavern_spell: '酒馆战棋法术',
-      bg_anomaly:      '酒馆战棋异常',
+      bg_hero:         '战棋英雄',
+      bg_minion:       '战棋随从',
+      bg_trinket:      '战棋饰品',
+      bg_tavern_spell: '战棋法术',
+      bg_anomaly:      '战棋畸变',
+      bg_buddy:        '战棋伙伴',
+      bg_timewarped:   '战棋时空扭曲',
+      bg_dm_prize:     '战棋暗月奖品',
+      quest:           '任务牌',
+      c_thun:          '克苏恩',
+      hero:            '英雄牌',
+      invoke:          '祈求牌',
+      odd_even:        '奇偶牌',
     },
 
     changeType: {

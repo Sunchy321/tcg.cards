@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { legality } from './announcement';
-import { color, fullImageType, locale, layout, rarity } from './basic';
+import { color, imageType, locale, layout, rarity } from './basic';
 
 export const category = z.enum([
   'advertisement',
@@ -12,18 +12,18 @@ export const category = z.enum([
   'minigame',
   'player',
   'token',
-]);
+]).describe('category');
 
 export type Category = z.infer<typeof category>;
 
 export const card = z.strictObject({
-  cardId: z.string(),
+  cardId:  z.string(),
+  version: z.string().default(''),
 
   partCount: z.int().min(1).default(1),
 
   name:     z.string(),
   typeline: z.string(),
-  text:     z.string(),
 
   manaValue:     z.number(),
   colorIdentity: color,
@@ -38,24 +38,24 @@ export const card = z.strictObject({
 
   legalities: z.record(z.string(), legality.or(z.string())),
 
-  contentWarning: z.boolean().nullable(),
+  hasContentWarning: z.boolean().nullable(),
 
   scryfallOracleId: z.array(z.string()),
 });
 
 export const cardLocalization = z.strictObject({
-  cardId: z.string(),
+  cardId:  z.string(),
+  version: z.string().default(''),
   locale,
+  source:  z.string().default(''),
 
   name:     z.string(),
   typeline: z.string(),
-  text:     z.string(),
-
-  __lastDate: z.string(),
 });
 
 export const cardPart = z.strictObject({
   cardId:    z.string(),
+  version:   z.string().default(''),
   partIndex: z.int().min(0),
 
   name:     z.string(),
@@ -81,7 +81,9 @@ export const cardPart = z.strictObject({
 
 export const cardPartLocalization = z.strictObject({
   cardId:    z.string(),
+  version:   z.string().default(''),
   locale,
+  source:    z.string().default(''),
   partIndex: z.int().min(0),
 
   name:     z.string(),
@@ -89,15 +91,33 @@ export const cardPartLocalization = z.strictObject({
   text:     z.string(),
 });
 
+export const cardUnifiedLocalization = z.strictObject({
+  cardId:  z.string(),
+  version: z.string().default(''),
+  locale,
+  source:  z.string().default(''),
+
+  name:       z.string(),
+  typeline:   z.string(),
+  text:       z.string(),
+  flavorText: z.string().nullable(),
+
+  sourceSet:         z.string().nullable(),
+  sourceNumber:      z.string().nullable(),
+  sourceReleaseDate: z.string().nullable(),
+});
+
 export const cardView = z.strictObject({
   cardId:    z.string(),
-  partIndex: z.int().min(0),
+  version:   z.string(),
   locale,
+  source:    z.string(),
+  partIndex: z.int().min(0),
 
-  card:             card.omit({ cardId: true }),
-  localization:     cardLocalization.omit({ cardId: true, locale: true }),
-  part:             cardPart.omit({ cardId: true, partIndex: true }),
-  partLocalization: cardPartLocalization.omit({ cardId: true, partIndex: true, locale: true }),
+  card:             card.omit({ cardId: true, version: true }),
+  localization:     cardLocalization.omit({ cardId: true, version: true, locale: true, source: true }),
+  part:             cardPart.omit({ cardId: true, version: true, partIndex: true }),
+  partLocalization: cardPartLocalization.omit({ cardId: true, version: true, partIndex: true, locale: true, source: true }),
 });
 
 export const cardProfile = z.strictObject({
@@ -114,7 +134,7 @@ export const cardProfile = z.strictObject({
     number:      z.string(),
     rarity,
     layout,
-    fullImageType,
+    imageType,
     releaseDate: z.string(),
   }).array(),
 });
@@ -123,6 +143,7 @@ export type Card = z.infer<typeof card>;
 export type CardLocalization = z.infer<typeof cardLocalization>;
 export type CardPart = z.infer<typeof cardPart>;
 export type CardPartLocalization = z.infer<typeof cardPartLocalization>;
+export type CardUnifiedLocalization = z.infer<typeof cardUnifiedLocalization>;
 
 export type CardView = z.infer<typeof cardView>;
 export type CardProfile = z.infer<typeof cardProfile>;

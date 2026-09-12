@@ -136,10 +136,6 @@ export const imageStatus = cc
   .commands.imageStatus
   .apply({ id: 'image-status', mapValue: true });
 
-export const imageType = cc
-  .commands.imageType
-  .apply({ id: 'image-type', mapValue: true });
-
 export const rarity = cc
   .commands.rarity
   .apply({ id: 'rarity', mapValue: true });

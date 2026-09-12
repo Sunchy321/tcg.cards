@@ -17,16 +17,9 @@ export const imageVariant = z.strictObject({
   premium:  imagePremium,
 });
 
-export const imageStyle = z.strictObject({
-  styleKey:              z.string(),
-  category:              imageCategory,
-  zone:                  imageZone,
-  template:              imageTemplate,
-  premium:               imagePremium,
-  layout:                z.string(),
-  width:                 z.int().positive(),
-  height:                z.int().positive(),
-  transparentBackground: z.boolean(),
+export const imageRequestOverride = z.strictObject({
+  cardId:        z.string().optional(),
+  portraitImage: z.string().optional(),
 });
 
 export const imageRequestCard = z.strictObject({
@@ -63,7 +56,7 @@ export const imageRequirementRequest = z.strictObject({
   card:        imageRequestCard,
   variant:     imageVariant,
   renderMode:  imageRenderMode.default('full-set'),
-  style:       imageStyle,
+  override:    imageRequestOverride.optional(),
   output:      imageRequestOutput,
   target:      imageRequestTarget,
   renderModel: imageRequestRenderModel,
@@ -174,7 +167,7 @@ export type ImageTemplate = z.infer<typeof imageTemplate>;
 export type ImagePremium = z.infer<typeof imagePremium>;
 export type ImageAssetStatus = z.infer<typeof imageAssetStatus>;
 export type ImageVariant = z.infer<typeof imageVariant>;
-export type ImageStyle = z.infer<typeof imageStyle>;
+export type ImageRequestOverride = z.infer<typeof imageRequestOverride>;
 export type ImageRequestCard = z.infer<typeof imageRequestCard>;
 export type ImageRequestOutput = z.infer<typeof imageRequestOutput>;
 export type ImageRequestTarget = z.infer<typeof imageRequestTarget>;

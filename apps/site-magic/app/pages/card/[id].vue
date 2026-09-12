@@ -11,7 +11,7 @@
               :number="data.number"
               :part="partIndex"
               :layout="data.print.layout"
-              :full-image-type="data.print.fullImageType"
+              :image-type="data.print.imageInfo?.[0]?.type ?? 'webp'"
               :image-status="data.print.imageStatus"
               :rotate="rotate"
               @update:part="partIndex = $event"
@@ -758,7 +758,7 @@ const jsonCardLink = computed(() => {
     locale:    data.value.locale,
     partIndex: partIndex.value.toString(),
   });
-  return `/rpc/magic/card?${params.toString()}`;
+  return `/api/magic/card?${params.toString()}`;
 });
 
 const jsonPrintLink = computed(() => {
@@ -770,6 +770,6 @@ const jsonPrintLink = computed(() => {
     lang:      data.value.lang,
     partIndex: partIndex.value.toString(),
   });
-  return `/rpc/magic/print?${params.toString()}`;
+  return `/api/magic/print?${params.toString()}`;
 });
 </script>

@@ -73,7 +73,7 @@ export interface TaskStageUpdatePatch {
   total?:       number | null;
   done?:        number | null;
   resumeToken?: Record<string, unknown> | null;
-  segments?:    { name: string, done: number, total: number }[] | null;
+  segments?:    { name: string, done: number, total: number, color?: string }[] | null;
   startedAt?:   Date | string | null;
   finishedAt?:  Date | string | null;
 }
@@ -244,7 +244,8 @@ export function createTaskStore(db: {
               progressMode: stage.progressMode,
               resumeMode:   stage.resumeMode,
               total:        null,
-              done:         null,
+              // unbound stages require a non-null done counter per the schema check.
+              done:         stage.progressMode === 'unbound' ? 0 : null,
               resumeToken:  null,
               startedAt:    null,
               finishedAt:   null,

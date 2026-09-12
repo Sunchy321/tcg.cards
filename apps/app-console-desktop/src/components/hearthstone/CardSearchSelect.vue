@@ -26,34 +26,37 @@
   </UInputMenu>
 
   <template v-else>
-    <UInputMenu
-      v-model="singleValue"
-      v-model:search-term="searchTerm"
-      :items="items"
-      :placeholder="placeholder"
-      value-key="value"
-      label-key="label"
-      ignore-filter
-      :create-item="{ when: 'empty' }"
-      class="w-full"
-    >
-      <template #content-top>
-        <p v-if="searching" class="px-3 py-2 text-sm text-slate-400">搜索中…</p>
-        <p v-else-if="searchError" class="px-3 py-2 text-sm text-red-500">{{ searchError }}</p>
-      </template>
-      <template #empty>
-        <p class="px-3 py-2 text-sm text-slate-400">无匹配结果</p>
-      </template>
-      <template #create-item-label="{ item }">
-        <span>直接使用 {{ item }}</span>
-      </template>
-    </UInputMenu>
-    <p v-if="singleName" class="mt-1 text-xs text-slate-500">{{ singleName }}</p>
+    <div class="flex w-full flex-col">
+      <UInputMenu
+        v-model="singleValue"
+        v-model:search-term="searchTerm"
+        :items="items"
+        :placeholder="placeholder"
+        value-key="value"
+        label-key="label"
+        ignore-filter
+        :create-item="{ when: 'empty' }"
+        class="w-full"
+      >
+        <template #content-top>
+          <p v-if="searching" class="px-3 py-2 text-sm text-slate-400">搜索中…</p>
+          <p v-else-if="searchError" class="px-3 py-2 text-sm text-red-500">{{ searchError }}</p>
+        </template>
+        <template #empty>
+          <p class="px-3 py-2 text-sm text-slate-400">无匹配结果</p>
+        </template>
+        <template #create-item-label="{ item }">
+          <span>直接使用 {{ item }}</span>
+        </template>
+      </UInputMenu>
+      <p v-if="singleName" class="mt-1 text-xs text-slate-500">{{ singleName }}</p>
+    </div>
   </template>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { isMarker } from '@tcg-cards/shared/hearthstone/pool';
 
 /** One card matched by the local card search RPC. */
 interface CardSearchResult {
@@ -72,11 +75,11 @@ interface ResolvedCardName {
 }
 
 interface SearchItem {
-  value:       string;
-  label:       string;
+  value:        string;
+  label:        string;
   description?: string;
   /** Bilingual display name, when known. */
-  name?:       string;
+  name?:        string;
 }
 
 const props = defineProps<{
@@ -161,6 +164,14 @@ let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 watch(searchTerm, term => {
   if (debounceTimer) clearTimeout(debounceTimer);
   const query = term.trim();
+  // Group/operation markers (e.g. #full, #quest, @...) commit directly and are never searched.
+  if (isMarker(query)) {
+    searchResults.value = [];
+    searchError.value = '';
+    searching.value = false;
+    if (!props.multiple) singleValue.value = query;
+    return;
+  }
   // Skip searching when the text just echoes the current single selected id.
   if (!query || (!props.multiple && query === props.modelValue.trim())) {
     searchResults.value = [];

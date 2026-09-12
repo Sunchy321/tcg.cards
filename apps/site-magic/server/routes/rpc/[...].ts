@@ -13,6 +13,22 @@ const handler = new RPCHandler(router, {
       if (error instanceof DrizzleQueryError) {
         console.error('[orpc] cause:', error.cause);
       }
+
+      // Probe: dump every layer of the failure (zod issues, error data) so
+      // validation rejections identify the exact offending field/path.
+      const seen = new Set<unknown>();
+      let current: unknown = error;
+      while (current != null && typeof current === 'object' && !seen.has(current)) {
+        seen.add(current);
+        const e = current as { name?: string, message?: string, issues?: unknown, data?: unknown, cause?: unknown };
+        if (e.name !== 'Error' && e.name != null) console.error('[orpc] error layer:', e.name, '|', e.message);
+        if (e.issues != null) {
+          console.error('[orpc] zod issues:', JSON.stringify(e.issues));
+          break;
+        }
+        if (e.data !== undefined) console.error('[orpc] error data:', JSON.stringify(e.data));
+        current = e.cause;
+      }
     }),
   ],
 });

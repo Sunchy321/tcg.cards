@@ -1,0 +1,171 @@
+{
+  "unit": "8faa4330-07bb-4b65-810a-bbce29d3cd42",
+  "cardId": "invasion-of-alara--awaken-the-maelstrom",
+  "oracleId": "8faa4330-07bb-4b65-810a-bbce29d3cd42",
+  "layout": "transform",
+  "setName": "March of the Machine",
+  "cmc": 5,
+  "colorIdentity": [
+    "B",
+    "G",
+    "R",
+    "U",
+    "W"
+  ],
+  "keywords": [
+    "Transform"
+  ],
+  "producedMana": null,
+  "reserved": false,
+  "contentWarning": null,
+  "legalities": {
+    "tlr": "not_legal",
+    "duel": "legal",
+    "brawl": "legal",
+    "penny": "legal",
+    "predh": "not_legal",
+    "future": "not_legal",
+    "legacy": "legal",
+    "modern": "legal",
+    "pauper": "not_legal",
+    "alchemy": "not_legal",
+    "pioneer": "legal",
+    "vintage": "legal",
+    "historic": "legal",
+    "standard": "not_legal",
+    "timeless": "legal",
+    "commander": "legal",
+    "gladiator": "legal",
+    "oldschool": "not_legal",
+    "premodern": "not_legal",
+    "oathbreaker": "legal",
+    "standardbrawl": "not_legal",
+    "paupercommander": "not_legal",
+    "competitivebrawl": "legal"
+  },
+  "faces": [
+    {
+      "name": "Invasion of Alara",
+      "typeLine": "Battle — Siege",
+      "oracleText": "When this Siege enters, exile cards from the top of your library until you exile two nonland cards with mana value 4 or less. You may cast one of those two cards without paying its mana cost. Put one of them into your hand. Then put the other cards exiled this way on the bottom of your library in a random order.",
+      "manaCost": "{W}{U}{B}{R}{G}",
+      "cmc": null,
+      "colors": [
+        "B",
+        "G",
+        "R",
+        "U",
+        "W"
+      ],
+      "colorIndicator": null,
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": "7",
+      "handModifier": null,
+      "lifeModifier": null
+    },
+    {
+      "name": "Awaken the Maelstrom",
+      "typeLine": "Sorcery",
+      "oracleText": "Awaken the Maelstrom is all colors.\nTarget player draws two cards. You may put an artifact card from your hand onto the battlefield. Create a token that's a copy of a permanent you control. Distribute three +1/+1 counters among one, two, or three creatures you control. Destroy target permanent an opponent controls.",
+      "manaCost": "",
+      "cmc": null,
+      "colors": [
+        "B",
+        "G",
+        "R",
+        "U",
+        "W"
+      ],
+      "colorIndicator": null,
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    }
+  ],
+  "localizations": [],
+  "prints": [
+    {
+      "lang": "en",
+      "set": "pmom",
+      "number": "230s",
+      "releasedAt": "2023-04-21",
+      "layout": "battle",
+      "frame": "2015",
+      "frameEffects": null,
+      "borderColor": "black",
+      "cardBackId": null,
+      "securityStamp": "oval",
+      "promoTypes": [
+        "prerelease",
+        "datestamped"
+      ],
+      "rarity": "rare",
+      "isDigital": false,
+      "isPromo": true,
+      "isReprint": false,
+      "finishes": [
+        "foil"
+      ],
+      "imageStatus": "highres_scan",
+      "inBooster": false,
+      "games": [
+        "paper"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "fullArt": false,
+      "oversized": false,
+      "storySpotlight": false,
+      "textless": false,
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "2ae0dd12-047c-4efb-80d7-bccc3bac5fba"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "8faa4330-07bb-4b65-810a-bbce29d3cd42",
+      "scryfallCardId": "4b717f04-4162-4d80-a739-5d848481d2bf",
+      "scryfallFace": null,
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseIds": [],
+      "tcgPlayerId": 493184,
+      "tcgplayerEtchedId": null,
+      "cardMarketId": 706364,
+      "faces": [
+        {
+          "typeLine": "Battle — Siege",
+          "printedName": null,
+          "printedTypeLine": null,
+          "printedText": null,
+          "flavorName": null,
+          "flavorText": null,
+          "artist": "Mathias Kollros",
+          "watermark": null,
+          "illustrationId": "f580122c-7d41-48f1-95fb-00ef6346b125",
+          "attractionLights": null
+        },
+        {
+          "typeLine": "Sorcery",
+          "printedName": null,
+          "printedTypeLine": null,
+          "printedText": null,
+          "flavorName": null,
+          "flavorText": null,
+          "artist": "Mathias Kollros",
+          "watermark": null,
+          "illustrationId": "9890958e-7f57-449e-ac4c-adfb0591ae2a",
+          "attractionLights": null
+        }
+      ]
+    }
+  ],
+  "mtgch": null
+}

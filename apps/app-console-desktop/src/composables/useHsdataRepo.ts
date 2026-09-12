@@ -2,7 +2,7 @@ import type { PublishReport, SingleCardPublishReport } from 'service-desktop-run
 import { getConsoleErrorMessage } from '@tcg-cards/console-core';
 
 import { useDesktopRuntimeClient } from './useDesktopRuntimeClient';
-import { getDesktopGameRepo, setDesktopGameRepo } from './useDesktopSettings';
+import { getDesktopPath, setDesktopPath } from './useDesktopSettings';
 
 export interface HsdataRepoState {
   repoPath?: string;
@@ -280,11 +280,11 @@ export interface ReportMetric {
 }
 
 export function getHsdataRepoPath() {
-  return getDesktopGameRepo('hearthstone', 'hsdata');
+  return getDesktopPath('hearthstone.data.hsdata');
 }
 
 export function setHsdataRepoPath(repoPath: string | null) {
-  return setDesktopGameRepo('hearthstone', 'hsdata', repoPath);
+  return setDesktopPath('hearthstone.data.hsdata', repoPath);
 }
 
 export async function getHsdataRepoState() {

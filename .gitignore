@@ -80,4 +80,13 @@ logs
 
 # raw reference files
 /references/*/raw/
+
+# local asset buckets (card images etc.)
+/data/
 .env.ci
+
+# ZCode session artifacts
+/.zcode/
+
+# Agent working artifacts (specs and tickets)
+/.scratch/

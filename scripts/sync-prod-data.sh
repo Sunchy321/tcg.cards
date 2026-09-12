@@ -29,6 +29,11 @@ TABLES=(
   "hearthstone.entity_relations"
   "hearthstone.cards"
   "hearthstone.patches"
+  "hearthstone.sets"
+  "hearthstone.formats"
+  "hearthstone.tags"
+  "hearthstone.announcements"
+  "hearthstone.announcement_items"
 )
 
 echo "=== Truncating target tables ==="
@@ -58,5 +63,15 @@ psql "$TARGET" -c "
   UNION ALL
   SELECT 'cards', count(*) FROM hearthstone.cards
   UNION ALL
-  SELECT 'patches', count(*) FROM hearthstone.patches;
+  SELECT 'patches', count(*) FROM hearthstone.patches
+  UNION ALL
+  SELECT 'sets', count(*) FROM hearthstone.sets
+  UNION ALL
+  SELECT 'formats', count(*) FROM hearthstone.formats
+  UNION ALL
+  SELECT 'tags', count(*) FROM hearthstone.tags
+  UNION ALL
+  SELECT 'announcements', count(*) FROM hearthstone.announcements
+  UNION ALL
+  SELECT 'announcement_items', count(*) FROM hearthstone.announcement_items;
 "

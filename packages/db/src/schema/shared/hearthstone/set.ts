@@ -1,19 +1,12 @@
-import { text, integer, primaryKey } from 'drizzle-orm/pg-core';
+import { text, integer, jsonb } from 'drizzle-orm/pg-core';
 
 import { schema } from './schema';
 
-export const SetLocalization = schema.table('set_localizations', {
-  setId: text('set_id').notNull(),
-  lang:  text('lang').notNull(),
-  name:  text('name').notNull(),
-}, table => [
-  primaryKey({ columns: [table.setId, table.lang] }),
-]);
+import type { SetLocalization as ISetLocalization } from '#model/hearthstone/schema/set';
 
 export const Set = schema.table('sets', {
   setId:   text('set_id').primaryKey(),
   dbfId:   integer('dbf_id'),
-  slug:    text('slug'),
   rawName: text('raw_name'),
 
   type:          text('type').notNull(),
@@ -21,20 +14,7 @@ export const Set = schema.table('sets', {
   cardCountFull: integer('card_count_full'),
   cardCount:     integer('card_count'),
 
-  group: text('group'),
-  year:  text('year'),
-});
-
-export const SetView = schema.view('set_view').as(qb => {
-  return qb.select({
-    setId:       Set.setId,
-    dbfId:       Set.dbfId,
-    slug:        Set.slug,
-    rawName:     Set.rawName,
-    type:        Set.type,
-    releaseDate: Set.releaseDate,
-    cardCount:   Set.cardCount,
-    group:       Set.group,
-  })
-    .from(Set);
+  group:        text('group'),
+  year:         text('year'),
+  localization: jsonb('localization').$type<ISetLocalization>().notNull().default({}),
 });

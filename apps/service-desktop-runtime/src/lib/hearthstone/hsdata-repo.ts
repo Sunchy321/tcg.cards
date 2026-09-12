@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 
 import { ORPCError } from '@orpc/server';
 
-import { readHsdataRepoPath } from '../../runtime-config';
+import { resolvePath } from '../game-paths';
 import {
   parseHsdataXmlStream,
   readNormalizedHsdataXmlStream,
@@ -268,9 +268,9 @@ export const resolveHsdataRepoRoot = (repoPath: string) => {
   return root;
 };
 
-/** Resolves the active hsdata repository root from the runtime override. */
+/** Resolves the active hsdata repository root from the effective `hearthstone.data.hsdata` path. */
 export const requireHsdataRepoRoot = () => {
-  const repoPath = readHsdataRepoPath();
+  const repoPath = resolvePath('hearthstone.data.hsdata');
 
   if (!repoPath) {
     throw new ORPCError('INTERNAL_SERVER_ERROR', {
@@ -289,7 +289,7 @@ export const requireHsdataRepoRoot = () => {
 
 /** Resolves the current hsdata repository state without throwing when the repo is unset. */
 export const getHsdataRepoState = () => {
-  const repoPath = readHsdataRepoPath();
+  const repoPath = resolvePath('hearthstone.data.hsdata');
   if (!repoPath) {
     return {} satisfies HsdataRepoState;
   }

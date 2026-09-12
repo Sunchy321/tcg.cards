@@ -103,9 +103,6 @@ export interface DesktopRawConfig {
   file: DesktopConfigFileInfo;
 }
 
-export type DesktopSettingsGame = 'hearthstone' | 'magic';
-export type DesktopGameRepoKey = 'hsdata';
-
 /** Raw desktop config loaded from the desktop runtime. */
 export function getDesktopRawConfig() {
   return invoke<DesktopRawConfig>('desktop_get_raw_config');
@@ -125,6 +122,7 @@ export function getDesktopConfigFileInfo() {
 
 /** Desktop config directory opened by the desktop runtime. */
 export function openDesktopConfigDirectory() {
+  // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
   return invoke<void>('desktop_open_config_directory');
 }
 
@@ -285,25 +283,21 @@ export function validateDesktopYugiohPublishTargetBinding(
   );
 }
 
-/** Game repository path loaded from the desktop runtime. */
-export function getDesktopGameRepo(game: DesktopSettingsGame, repoKey: DesktopGameRepoKey) {
-  return invoke<string | null>('desktop_get_game_repo', { game, repoKey });
+/** One dotted `{game}.{ns}.{leaf}` path value loaded from the desktop runtime. */
+export function getDesktopPath(key: string) {
+  return invoke<string | null>('desktop_get_path', { key });
 }
 
-/** Game repository path persisted in the desktop runtime. */
-export function setDesktopGameRepo(
-  game: DesktopSettingsGame,
-  repoKey: DesktopGameRepoKey,
-  repoPath: string | null,
-) {
-  return invoke<string | null>('desktop_set_game_repo', { game, repoKey, repoPath });
+/** One dotted `{game}.{ns}.{leaf}` path value persisted in the desktop runtime. */
+export function setDesktopPath(key: string, path: string | null) {
+  return invoke<string | null>('desktop_set_path', { key, path });
 }
 
 /** AI config returned by the desktop runtime. */
 export interface DesktopAiConfig {
-  apiKey: string | null;
+  apiKey:  string | null;
   baseUrl: string | null;
-  model: string | null;
+  model:   string | null;
 }
 
 /** AI config loaded from the desktop runtime. */

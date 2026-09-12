@@ -37,7 +37,7 @@
           :number="card.number"
           :lang="imageLang(card)"
           :layout="card.print.layout"
-          :full-image-type="card.print.fullImageType"
+          :image-type="card.print.imageInfo?.[0]?.type ?? 'webp'"
           :image-status="card.print.imageStatus"
           :part="card.partIndex"
           class="w-50"

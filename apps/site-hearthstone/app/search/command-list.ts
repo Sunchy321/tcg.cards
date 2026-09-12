@@ -114,7 +114,7 @@ export const techLevel = cc
 
 export const raceBucket = cc
   .commands.raceBucket
-  .apply({ id: 'race-bucket', mapValue: true });
+  .apply({ id: 'race-bucket', map: true });
 
 export const mercenaryRole = cc
   .commands.mercenaryRole
@@ -135,6 +135,17 @@ export const rarity = cc
 export const artist = cc
   .commands.artist
   .apply({ id: 'artist' });
+
+export const collectible = cc
+  .commands.collectible
+  .explain((args, i18n) => {
+    const value = String(args.value).toLowerCase();
+    const valueText = ['true', 'false', 'all'].includes(value)
+      ? i18n(`$.parameter.collectible.${value}`)
+      : value;
+
+    return i18n('$.full-command.collectible', { value: valueText });
+  });
 
 export const change = cc
   .commands.change

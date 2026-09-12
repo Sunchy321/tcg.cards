@@ -12,6 +12,10 @@ mod desktop_hearthstone_image;
 mod desktop_publish_target;
 #[allow(dead_code)]
 mod desktop_runtime_config_sync;
+#[allow(dead_code)]
+mod desktop_yugioh_image;
+#[allow(dead_code)]
+mod desktop_yugioh_publish_target;
 
 use crate::desktop_ai_config::{
     desktop_get_ai_config, desktop_set_ai_config,
@@ -35,6 +39,14 @@ use crate::desktop_publish_target::{
 use crate::desktop_runtime_config_sync::{
     schedule_desktop_runtime_config_sync, start_desktop_runtime_config_sync_loop,
     sync_desktop_runtime_config_blocking,
+};
+use crate::desktop_yugioh_image::{
+    desktop_get_yugioh_image_settings, desktop_set_yugioh_image_settings,
+};
+use crate::desktop_yugioh_publish_target::{
+    desktop_get_yugioh_publish_target, desktop_set_yugioh_publish_target,
+    desktop_test_yugioh_publish_target, desktop_validate_yugioh_publish_target_binding,
+    YugiohPublishTargetConnectionStringCache,
 };
 use reqwest::cookie::{CookieStore, Jar};
 use reqwest::{Client, Method, Url};
@@ -176,6 +188,11 @@ pub(crate) struct DesktopConfig {
     external_database_connection_string: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     publish: Vec<StoredPublishTargetProfile>,
+    /// Generic data/image directory paths as a nested `{game}.{ns}.{leaf}` object
+    /// tree (or the global roots `data` / `asset`). Only explicit overrides and
+    /// roots are stored; auto-derived leaves are resolved by the runtime.
+    #[serde(default = "default_desktop_paths", skip_serializing_if = "desktop_paths_is_empty")]
+    paths: serde_json::Value,
     #[serde(default, skip_serializing_if = "DesktopGamesSettings::is_empty")]
     games: DesktopGamesSettings,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -188,10 +205,19 @@ impl Default for DesktopConfig {
             version: desktop_config_version(),
             external_database_connection_string: None,
             publish: Vec::new(),
+            paths: serde_json::json!({}),
             games: DesktopGamesSettings::default(),
             ai: None,
         }
     }
+}
+
+fn default_desktop_paths() -> serde_json::Value {
+    serde_json::json!({})
+}
+
+fn desktop_paths_is_empty(paths: &serde_json::Value) -> bool {
+    paths.as_object().map_or(true, |object| object.is_empty())
 }
 
 #[derive(Default, Deserialize, Serialize)]
@@ -200,21 +226,21 @@ impl Default for DesktopConfig {
 struct DesktopGamesSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     hearthstone: Option<StoredHearthstoneSettings>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    yugioh: Option<StoredYugiohSettings>,
 }
 
 impl DesktopGamesSettings {
     /// Whether the config currently contains any persisted game settings.
     fn is_empty(&self) -> bool {
-        self.hearthstone.is_none()
+        self.hearthstone.is_none() && self.yugioh.is_none()
     }
 }
 
 #[derive(Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-/// Hearthstone-specific settings persisted in the desktop config file.
+/// Hearthstone-specific non-path settings persisted in the desktop config file.
 struct StoredHearthstoneSettings {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    hsdata: Option<StoredRepoPath>,
     #[serde(skip_serializing_if = "Option::is_none")]
     image: Option<StoredHearthstoneImageSettings>,
 }
@@ -222,15 +248,8 @@ struct StoredHearthstoneSettings {
 impl StoredHearthstoneSettings {
     /// Whether the Hearthstone settings currently contain any persisted values.
     fn is_empty(&self) -> bool {
-        self.hsdata.is_none() && self.image.is_none()
+        self.image.is_none()
     }
-}
-
-#[derive(Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-/// Local repository path persisted for one game integration.
-struct StoredRepoPath {
-    repo_path: String,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -253,6 +272,40 @@ struct StoredPublishTargetProfile {
 struct StoredHearthstoneImageSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     renderer_base_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    bucket_dir: Option<String>,
+}
+
+#[derive(Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Yu-Gi-Oh!-specific settings persisted in the desktop config file.
+struct StoredYugiohSettings {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    image: Option<StoredYugiohImageSettings>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    publish: Option<StoredYugiohPublishTargetProfile>,
+}
+
+impl StoredYugiohSettings {
+    /// Whether the Yu-Gi-Oh! settings currently contain any persisted values.
+    fn is_empty(&self) -> bool {
+        self.image.is_none() && self.publish.is_none()
+    }
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Publish target profile persisted for the Yu-Gi-Oh! test environment.
+struct StoredYugiohPublishTargetProfile {
+    publish_target_id: String,
+    environment: String,
+    target_fingerprint: String,
+}
+
+#[derive(Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Yu-Gi-Oh! local primary-image bucket persisted in the desktop config file.
+struct StoredYugiohImageSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     bucket_dir: Option<String>,
 }
@@ -455,13 +508,59 @@ pub(crate) fn store_desktop_config(
     Ok(())
 }
 
-fn desktop_repo_label(game: &str, repo_key: &str) -> Result<&'static str, String> {
-    match (game, repo_key) {
-        ("hearthstone", "hsdata") => Ok("Local hsdata repo"),
-        _ => Err(format!(
-            "Unsupported desktop repo setting: {game}.{repo_key}"
-        )),
+/// Navigates the nested `paths` object tree by a dotted key and returns the leaf
+/// string, or `None` when the key is absent or points at an intermediate object.
+fn get_desktop_path(config: &DesktopConfig, key: &str) -> Option<String> {
+    let mut node = &config.paths;
+    for part in key.split('.') {
+        node = node.get(part)?;
     }
+    node.as_str().map(str::to_string)
+}
+
+/// Inserts or removes one dotted key in the nested `paths` object tree.
+fn set_desktop_path(config: &mut DesktopConfig, key: &str, path: Option<String>) -> Result<(), String> {
+    let parts: Vec<&str> = key.split('.').collect();
+    if parts.is_empty() {
+        return Ok(());
+    }
+
+    if let Some(value) = path {
+        let mut node = &mut config.paths;
+        for part in &parts[..parts.len() - 1] {
+            node = node
+                .as_object_mut()
+                .ok_or_else(|| "path container must be an object".to_string())?
+                .entry(part.to_string())
+                .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
+        }
+        node.as_object_mut()
+            .ok_or_else(|| "path container must be an object".to_string())?
+            .insert(parts[parts.len() - 1].to_string(), serde_json::json!(value));
+    } else {
+        let mut node = &mut config.paths;
+        for part in &parts[..parts.len() - 1] {
+            node = node
+                .as_object_mut()
+                .and_then(|object| object.get_mut(*part))
+                .ok_or_else(|| "path container must be an object".to_string())?;
+        }
+        if let Some(object) = node.as_object_mut() {
+            object.remove(parts[parts.len() - 1]);
+        }
+    }
+
+    Ok(())
+}
+
+pub(crate) fn load_desktop_paths(app: &AppHandle) -> Result<serde_json::Value, String> {
+    let config = load_desktop_config(app)?;
+    Ok(config.paths.clone())
+}
+
+pub(crate) fn load_desktop_path(app: &AppHandle, key: &str) -> Result<Option<String>, String> {
+    let config = load_desktop_config(app)?;
+    Ok(get_desktop_path(&config, key))
 }
 
 fn trim_non_empty(value: Option<String>) -> Option<String> {
@@ -627,105 +726,13 @@ fn pick_directory(_directory: Option<String>) -> Result<Option<String>, String> 
     Err("Directory picker is not supported on this platform".to_string())
 }
 
-fn get_desktop_game_repo_path(
-    config: &DesktopConfig,
-    game: &str,
-    repo_key: &str,
-) -> Result<Option<String>, String> {
-    match (game, repo_key) {
-        ("hearthstone", "hsdata") => Ok(config
-            .games
-            .hearthstone
-            .as_ref()
-            .and_then(|settings| settings.hsdata.as_ref())
-            .map(|repo| repo.repo_path.clone())),
-        _ => Err(format!(
-            "Unsupported desktop repo setting: {game}.{repo_key}"
-        )),
+/// Canonicalizes an existing path; keeps the raw value when the target does not
+/// exist yet so a leaf can be configured before its folder is created.
+fn resolve_desktop_path(path: &str) -> Result<String, String> {
+    match fs::canonicalize(path) {
+        Ok(canonical) => Ok(canonical.to_string_lossy().to_string()),
+        Err(_) => Ok(path.to_string()),
     }
-}
-
-fn set_desktop_game_repo_path(
-    config: &mut DesktopConfig,
-    game: &str,
-    repo_key: &str,
-    repo_path: Option<String>,
-) -> Result<(), String> {
-    match (game, repo_key) {
-        ("hearthstone", "hsdata") => {
-            if let Some(repo_path) = repo_path {
-                let settings = config
-                    .games
-                    .hearthstone
-                    .get_or_insert_with(StoredHearthstoneSettings::default);
-                settings.hsdata = Some(StoredRepoPath { repo_path });
-            } else if let Some(settings) = config.games.hearthstone.as_mut() {
-                settings.hsdata = None;
-
-                if settings.is_empty() {
-                    config.games.hearthstone = None;
-                }
-            }
-
-            Ok(())
-        }
-        _ => Err(format!(
-            "Unsupported desktop repo setting: {game}.{repo_key}"
-        )),
-    }
-}
-
-pub(crate) fn load_desktop_game_repo_path(
-    app: &AppHandle,
-    game: &str,
-    repo_key: &str,
-) -> Result<Option<String>, String> {
-    let config = load_desktop_config(app)?;
-    get_desktop_game_repo_path(&config, game, repo_key)
-}
-
-fn trim_git_output(output: String) -> String {
-    output.trim().to_string()
-}
-
-fn run_git(repo_path: &str, args: &[&str]) -> Result<String, String> {
-    let output = Command::new("git")
-        .current_dir(repo_path)
-        .args(args)
-        .output()
-        .map_err(|error| format!("Failed to run git {:?}: {error}", args))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        let message = if stderr.is_empty() {
-            format!("git {:?} exited with status {}", args, output.status)
-        } else {
-            stderr
-        };
-
-        return Err(message);
-    }
-
-    String::from_utf8(output.stdout)
-        .map_err(|error| format!("Failed to decode git output: {error}"))
-}
-
-fn resolve_repo_root(repo_path: &str) -> Result<String, String> {
-    let canonical = fs::canonicalize(repo_path)
-        .map_err(|error| format!("Failed to access repo path: {error}"))?;
-    let canonical = canonical.to_string_lossy().to_string();
-    let root = trim_git_output(run_git(&canonical, &["rev-parse", "--show-toplevel"])?);
-
-    if root.is_empty() {
-        return Err("Failed to resolve hsdata repo root".to_string());
-    }
-
-    let card_defs = Path::new(&root).join("CardDefs.xml");
-    if !card_defs.exists() {
-        return Err("CardDefs.xml was not found in the configured hsdata repo".to_string());
-    }
-
-    Ok(root)
 }
 async fn parse_error(response: reqwest::Response) -> String {
     let status = response.status();
@@ -912,35 +919,28 @@ async fn auth_sign_out(app: AppHandle, state: tauri::State<'_, AuthState>) -> Re
 const CREDENTIAL_SERVICE: &str = "tcg-cards-console-desktop";
 
 #[tauri::command]
-fn desktop_get_game_repo(
-    app: AppHandle,
-    game: String,
-    repo_key: String,
-) -> Result<Option<String>, String> {
-    desktop_repo_label(&game, &repo_key)?;
-    load_desktop_game_repo_path(&app, &game, &repo_key)
+fn desktop_get_path(app: AppHandle, key: String) -> Result<Option<String>, String> {
+    load_desktop_path(&app, &key)
 }
 
 #[tauri::command]
-fn desktop_set_game_repo(
+fn desktop_set_path(
     app: AppHandle,
-    game: String,
-    repo_key: String,
-    repo_path: Option<String>,
+    key: String,
+    path: Option<String>,
 ) -> Result<Option<String>, String> {
-    desktop_repo_label(&game, &repo_key)?;
-    let repo_path = trim_non_empty(repo_path);
-    let resolved_repo_path = match repo_path {
-        Some(repo_path) => Some(resolve_repo_root(&repo_path)?),
+    let path = trim_non_empty(path);
+    let resolved_path = match path {
+        Some(path) => Some(resolve_desktop_path(&path)?),
         None => None,
     };
     let mut config = load_desktop_config(&app)?;
 
-    set_desktop_game_repo_path(&mut config, &game, &repo_key, resolved_repo_path.clone())?;
+    set_desktop_path(&mut config, &key, resolved_path.clone())?;
     store_desktop_config(&app, &config)?;
     schedule_desktop_runtime_config_sync(app.clone());
 
-    Ok(resolved_repo_path)
+    Ok(resolved_path)
 }
 
 #[tauri::command]
@@ -1066,7 +1066,9 @@ pub fn run() {
     tauri::Builder::default()
         .manage(AuthState::default())
         .manage(DesktopDatabaseConnectionStringCache::default())
+        .manage(YugiohPublishTargetConnectionStringCache::default())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             sync_desktop_runtime_config_blocking(&app.handle().clone());
             start_desktop_runtime_config_sync_loop(app.handle().clone());
@@ -1094,8 +1096,14 @@ pub fn run() {
             desktop_set_publish_targets,
             desktop_test_publish_target,
             desktop_validate_publish_target_binding,
-            desktop_get_game_repo,
-            desktop_set_game_repo,
+            desktop_get_yugioh_image_settings,
+            desktop_set_yugioh_image_settings,
+            desktop_get_yugioh_publish_target,
+            desktop_set_yugioh_publish_target,
+            desktop_test_yugioh_publish_target,
+            desktop_validate_yugioh_publish_target_binding,
+            desktop_get_path,
+            desktop_set_path,
             desktop_pick_directory,
             credential_get,
             credential_set,

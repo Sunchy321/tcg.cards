@@ -1,4 +1,3 @@
-import { aiParse } from './ai-parse';
 import { cardMeta } from './card-meta';
 import { computeCardGlow } from './compute-glow';
 import { cardMetas } from './card-metas';
@@ -11,7 +10,6 @@ import { downloadItemImages, getItemImages, getRenderRequests, previewImage, pre
 
 export const announcementRouter = {
   ...announcementCrudRouter,
-  aiParse,
   cardMeta,
   cardMetas,
   computeCardGlow,

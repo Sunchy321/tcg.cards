@@ -228,6 +228,7 @@ export default {
         'format-available':       'available in {format}',
         'format-with-status':     'status is {status} in {format}',
         'format-with-status-not': 'status is not {status} in {format}',
+        'collectible':            'showing {value} cards',
       },
 
       'command': {
@@ -252,6 +253,7 @@ export default {
         'mercenary-faction': 'mercenary faction',
         'rarity':            'rarity',
         'artist':            'artist',
+        'collectible':       'collectible',
         'change':            'change type',
         'format':            'format',
         'order':             'order',
@@ -438,6 +440,12 @@ export default {
           legendary: 'Legendary',
         },
 
+        'collectible': {
+          true:  'collectible',
+          false: 'non-collectible',
+          all:   'all',
+        },
+
         'order': {
           name:   'name',
           cost:   'cost',
@@ -495,6 +503,14 @@ export default {
       bg_trinket:      'Battlegrounds trinkets',
       bg_tavern_spell: 'Battlegrounds spells',
       bg_anomaly:      'Battlegrounds anomalies',
+      bg_buddy:        'Battlegrounds buddies',
+      bg_timewarped:   'Battlegrounds Timewarped',
+      bg_dm_prize:     'Battlegrounds Darkmoon Faire prizes',
+      quest:           'Quest cards',
+      c_thun:          'C\'Thun',
+      hero:            'Hero cards',
+      invoke:          'Invoke cards',
+      odd_even:        'Odd & even cards',
     },
 
     changeType: {

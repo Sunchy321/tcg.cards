@@ -17,25 +17,14 @@ import {
 import type { PublishCardRow } from './cards-publish';
 
 /** Complete card row used by deterministic publish-plan tests. */
-function makeCard(overrides: Partial<PublishCardRow> = {}): PublishCardRow {
-  return {
+function makeCard(
+  overrides: Partial<PublishCardRow['card']> = {},
+  localizationOverrides: Partial<PublishCardRow['localizations'][number]> = {},
+): PublishCardRow {
+  const card = {
     id: 1,
     cid: 4007,
     password: '89631139',
-    cnName: '青眼白龙',
-    scName: '青眼白龙',
-    mdName: null,
-    nwbbsName: null,
-    cnocgName: null,
-    jpRuby: null,
-    jpName: null,
-    enName: 'Blue-Eyes White Dragon',
-    mdEnName: null,
-    wikiEnName: null,
-    setExt: null,
-    typesText: '[怪兽|通常]',
-    pendulumDescription: null,
-    description: '传说之龙。',
     ot: 11,
     setcode: 221n,
     type: 17,
@@ -56,6 +45,24 @@ function makeCard(overrides: Partial<PublishCardRow> = {}): PublishCardRow {
     updatedAt: new Date('2026-08-05T00:00:00.000Z'),
     deletedAt: null,
     ...overrides,
+  };
+
+  return {
+    card,
+    localizations: [{
+      cardId: card.id,
+      locale: 'zhs',
+      name: '青眼白龙',
+      nameRuby: null,
+      typesText: '[怪兽|通常]',
+      pendulumDescription: null,
+      description: '传说之龙。',
+      createdAt: new Date('2026-08-05T00:00:00.000Z'),
+      updatedAt: new Date('2026-08-05T00:00:00.000Z'),
+      deletedAt: null,
+      ...localizationOverrides,
+    }],
+    nameVariants: [],
   };
 }
 
@@ -78,11 +85,11 @@ describe('buildCardPublishPlan', () => {
 
   test('plans unchanged and updated rows from stable hashes', () => {
     const original = makeCard();
-    const previous = new Map([[original.id, hashCardRow(original)]]);
+    const previous = new Map([[original.card.id, hashCardRow(original)]]);
 
     expect(buildCardPublishPlan([original], previous).rows[0]?.action).toBe('unchanged');
     expect(buildCardPublishPlan([
-      makeCard({ description: 'updated' }),
+      makeCard({}, { description: 'updated' }),
     ], previous).rows[0]?.action).toBe('update');
   });
 
@@ -122,6 +129,24 @@ describe('buildRemoteCardValues', () => {
 
     expect(buildRemoteCardValues(card)).toMatchObject(image);
     expect(hashCardRow(card)).not.toBe(hashCardRow(makeCard()));
+  });
+
+  test('includes searchable Chinese name variants in the card manifest', () => {
+    const card = makeCard();
+    const withMasterDuelName: PublishCardRow = {
+      ...card,
+      nameVariants: [{
+        cardId: card.card.id,
+        locale: 'zhs',
+        kind: 'master_duel',
+        name: '青眼白龙',
+        createdAt: new Date('2026-08-05T00:00:00.000Z'),
+        updatedAt: new Date('2026-08-05T00:00:00.000Z'),
+        deletedAt: null,
+      }],
+    };
+
+    expect(hashCardRow(withMasterDuelName)).not.toBe(hashCardRow(card));
   });
 });
 
@@ -196,7 +221,7 @@ describe('remote publish safeguards', () => {
 
   test('accepts only baseline or planned row values while recovering an interrupted batch', () => {
     const previous = makeCard();
-    const current = makeCard({ description: 'updated' });
+    const current = makeCard({}, { description: 'updated' });
     const rows = [{
       cardId: 1,
       previousRowHash: hashCardRow(previous),
@@ -207,13 +232,13 @@ describe('remote publish safeguards', () => {
     expect(() => assertRemoteRowsRecoverable([previous], rows)).not.toThrow();
     expect(() => assertRemoteRowsRecoverable([current], rows)).not.toThrow();
     expect(() => assertRemoteRowsRecoverable([
-      makeCard({ description: 'uncontrolled drift' }),
+      makeCard({}, { description: 'uncontrolled drift' }),
     ], rows)).toThrow('Remote card 1 differs from both the baseline and the planned row.');
   });
 
   test('requires applied and skipped rows to retain their planned values', () => {
     const previous = makeCard();
-    const current = makeCard({ description: 'updated' });
+    const current = makeCard({}, { description: 'updated' });
     const row = {
       cardId: 1,
       previousRowHash: hashCardRow(previous),

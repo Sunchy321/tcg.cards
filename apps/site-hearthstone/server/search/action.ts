@@ -92,6 +92,40 @@ async function detectVariant(dsl: string): Promise<VariantValue> {
   }
 }
 
+/** Whether the query carries an explicit collectible command, which replaces
+ * the default visibility filter and disables the non-strict fallback. */
+function hasCollectibleCommand(dsl: string): boolean {
+  try {
+    const simplified = simplify(new Parser(dsl).parse());
+
+    let found = false;
+
+    const walk = (node: Expression): void => {
+      if (found) return;
+
+      if (node.type === 'simple') {
+        if (node.cmd === 'collectible') found = true;
+        return;
+      }
+
+      if (node.type === 'not' || node.type === 'paren') {
+        walk(node.expr);
+        return;
+      }
+
+      if (node.type === 'logic') {
+        for (const child of node.exprs) walk(child);
+      }
+    };
+
+    walk(simplified);
+
+    return found;
+  } catch {
+    return false;
+  }
+}
+
 type SearchOption = {
   page:     number;
   pageSize: number;
@@ -139,6 +173,7 @@ export const search = as
         table: LatestCardEntityView as any,
       });
     const hasLangCommand = /\blang[:=]/.test(dsl ?? '');
+    const collectibleOverride = hasCollectibleCommand(dsl);
 
     const executeSearch = async (strict: boolean) => {
       const baseQuery = hasLangCommand
@@ -170,10 +205,10 @@ export const search = as
       return { displayedResult: result, total };
     };
 
-    let { displayedResult, total } = await executeSearch(true);
-    let strict = true;
+    let { displayedResult, total } = await executeSearch(!collectibleOverride);
+    let strict = !collectibleOverride;
 
-    if (total === 0) {
+    if (!collectibleOverride && total === 0) {
       ({ displayedResult, total } = await executeSearch(false));
       strict = false;
     }

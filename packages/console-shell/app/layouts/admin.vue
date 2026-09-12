@@ -18,21 +18,29 @@
               @update:model-value="void handleGameSelect($event as Game)"
             />
           </div>
-          <UNavigationMenu :items="gameNavItems" orientation="vertical" class="w-full" />
+          <SidebarNavMenu :items="gameNavItems" />
         </template>
 
         <template v-if="showUserManagement">
+          <div
+            v-if="accessibleGames.length > 0"
+            class="mx-2 my-2 border-t border-gray-200 dark:border-gray-800"
+          />
           <div class="px-2 py-2">
             <p class="mb-1 px-1 text-xs font-medium text-gray-400 dark:text-gray-500">用户管理</p>
           </div>
-          <UNavigationMenu :items="userNavItems" orientation="vertical" class="w-full" />
+          <SidebarNavMenu :items="userNavItems" />
         </template>
 
         <template v-if="devNavItems.length > 0">
+          <div
+            v-if="accessibleGames.length > 0 || showUserManagement"
+            class="mx-2 my-2 border-t border-gray-200 dark:border-gray-800"
+          />
           <div class="px-2 py-2">
             <p class="mb-1 px-1 text-xs font-medium text-gray-400 dark:text-gray-500">开发</p>
           </div>
-          <UNavigationMenu :items="devNavItems" orientation="vertical" class="w-full" />
+          <SidebarNavMenu :items="devNavItems" />
         </template>
       </nav>
 
@@ -131,6 +139,7 @@ import {
   getGameSelectItems,
   getUserNavItems,
   resolveGameFromPath,
+  type ConsoleNavLink,
 } from '@tcg-cards/console-core';
 
 import { useConsolePlatform } from '@tcg-cards/console-platform';
@@ -167,23 +176,42 @@ const showUserManagement = computed(() => canManageUsers(userRole.value));
 const gameSelectItems = computed(() => getGameSelectItems(accessibleGames.value));
 const userNavItems = getUserNavItems();
 const devNavItems = computed(() => {
-  return getDevNavItems()
-    .map(group => group.filter(item => isRouteAccessible(item.to)))
-    .filter(group => group.length > 0);
+  return getDevNavItems().filter(item => isRouteAccessible(item.to!));
 });
 
 const currentGame = useState<Game | null>('console-admin-current-game', () =>
   resolveGameFromPath(route.path) ?? accessibleGames.value[0] ?? null,
 );
 
+/** Drops links whose route is inaccessible; prunes groups that end up empty. */
+function filterAccessibleNav(items: ConsoleNavLink[]): ConsoleNavLink[] {
+  const result: ConsoleNavLink[] = [];
+
+  for (const item of items) {
+    if (item.children) {
+      const children = filterAccessibleNav(item.children);
+      if (children.length > 0) {
+        result.push({ ...item, children });
+      }
+    } else if (item.to && isRouteAccessible(item.to)) {
+      result.push(item);
+    }
+  }
+
+  return result;
+}
+
+/** Flattens nested groups into a flat link list for the page-title lookup. */
+function flattenNav(items: ConsoleNavLink[]): ConsoleNavLink[] {
+  return items.flatMap(item => (item.children ? flattenNav(item.children) : [item]));
+}
+
 const gameNavItems = computed(() => {
   if (!currentGame.value) {
     return [];
   }
 
-  return getGameNavItems(currentGame.value)
-    .map(group => group.filter(item => isRouteAccessible(item.to)))
-    .filter(group => group.length > 0);
+  return filterAccessibleNav(getGameNavItems(currentGame.value));
 });
 
 const currentTitle = computed(() => {
@@ -194,9 +222,9 @@ const currentTitle = computed(() => {
   }
 
   const items = [
-    ...gameNavItems.value.flat(),
-    ...userNavItems.flat(),
-    ...devNavItems.value.flat(),
+    ...flattenNav(gameNavItems.value),
+    ...flattenNav(userNavItems),
+    ...flattenNav(devNavItems.value),
     { label: '设置', to: '/settings' },
   ];
 

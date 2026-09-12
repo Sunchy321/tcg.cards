@@ -14,6 +14,7 @@ import { hsdataImportTaskDefinition } from '../../lib/hearthstone/task/import';
 import { projectTaskDefinition } from '../../lib/hearthstone/task/project';
 import { unpackImportTaskDefinition } from '../../lib/hearthstone/task/unpack-import';
 import { announcementPublishTaskDefinition } from '../../lib/hearthstone/task/announcement-publish/definition';
+import { referencePublishTaskDefinition } from '../../lib/hearthstone/task/reference-publish/definition';
 import { hearthstonePurgeTaskDefinition } from '../../lib/hearthstone/task/purge';
 
 /** If there's an active task on this scope from a previous boot, abandon it. */
@@ -194,6 +195,29 @@ const announcementPublish = os
     });
   });
 
+/** Mirrors the local small reference tables (sets/formats/patches/tags) to the publish target as a full replace. */
+const referencePublish = os
+  .input(z.strictObject({
+    publishTarget: z.literal('hearthstone'),
+    environment:   z.string().trim().min(1),
+    dryRun:        z.boolean().optional(),
+  }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    const scope = { publishTarget: input.publishTarget, environment: input.environment };
+    const resolved = referencePublishTaskDefinition.resolveScope(scope);
+    await abandonStaleTask(referencePublishTaskDefinition.taskType, referencePublishTaskDefinition.scopeType, resolved.key);
+    const active = await getStore().getActiveTaskRun(referencePublishTaskDefinition.taskType, referencePublishTaskDefinition.scopeType, resolved.key);
+    if (active) throw new Error(`Reference publish task already exists for stream ${resolved.key}`);
+
+    return createAndRunTask(referencePublishTaskDefinition.taskType, {
+      taskType:          referencePublishTaskDefinition.taskType,
+      definitionVersion: referencePublishTaskDefinition.definitionVersion,
+      scope:             { type: referencePublishTaskDefinition.scopeType, key: resolved.key, snapshot: resolved.snapshot as Record<string, unknown> },
+      params:            { dryRun: input.dryRun },
+    });
+  });
+
 /** Hard-deletes soft-deleted rows and their orphaned images as a task run. */
 const purge = os
   .input(z.strictObject({ dryRun: z.boolean().optional() }))
@@ -212,4 +236,4 @@ const purge = os
     });
   });
 
-export const createTask = { publish, pin, imageRender, imageDownload, hsdataImport, hsdataProjection, unpackImport, announcementPublish, purge };
+export const createTask = { publish, pin, imageRender, imageDownload, hsdataImport, hsdataProjection, unpackImport, announcementPublish, referencePublish, purge };

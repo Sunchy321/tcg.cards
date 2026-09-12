@@ -498,7 +498,6 @@ async function insertPlaceholderSets(dbfIds: number[]): Promise<number> {
         chunk.map(dbfId => ({
           setId:         buildHsdataPlaceholderSetId(dbfId),
           dbfId,
-          slug:          null,
           rawName:       null,
           type:          'unknown',
           releaseDate:   '',

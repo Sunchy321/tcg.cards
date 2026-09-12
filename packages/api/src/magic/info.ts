@@ -4,8 +4,7 @@ import { gameInfo } from '../games';
 
 export const info = oc
   .route({
-    method:      'GET',
-    description: 'Magic: The Gathering game info',
-    tags:        ['Magic'],
+    method: 'GET',
+    tags:   ['Magic'],
   })
   .output(gameInfo);

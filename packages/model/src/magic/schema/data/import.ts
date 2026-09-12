@@ -118,7 +118,6 @@ export const sourceFieldPolicyView = z.strictObject({
   batchGroupBy:      z.string().array(),
   reasonCode:        z.string(),
   allowExplicitNull: z.boolean(),
-  lockedPathAware:   z.boolean(),
 });
 
 export const importBoundaryTable = z.strictObject({
@@ -129,12 +128,10 @@ export const importBoundaryTable = z.strictObject({
 });
 
 export const importBoundary = z.strictObject({
-  dataTables:       importBoundaryTable.array(),
-  appTables:        importBoundaryTable.array(),
-  domainTables:     importBoundaryTable.array(),
-  derivedFields:    z.string().array(),
-  lockedPathPolicy: z.string(),
-  updationPolicy:   z.string(),
+  dataTables:    importBoundaryTable.array(),
+  appTables:     importBoundaryTable.array(),
+  domainTables:  importBoundaryTable.array(),
+  derivedFields: z.string().array(),
 });
 
 export const importP1Input = z.strictObject({
@@ -330,20 +327,18 @@ export const magicImportFields: ImportField[] = [
   field('card', 'partCount', 'Part count', 'structure', 'medium'),
   field('card', 'name', 'Oracle name', 'oracle', 'high'),
   field('card', 'typeline', 'Oracle type line', 'oracle', 'high'),
-  field('card', 'text', 'Oracle text', 'oracle', 'high'),
   field('card', 'manaValue', 'Mana value', 'gameplay', 'medium'),
   field('card', 'colorIdentity', 'Color identity', 'gameplay', 'medium'),
   field('card', 'keywords', 'Keywords', 'gameplay', 'medium'),
   field('card', 'counters', 'Counters', 'gameplay', 'medium'),
   field('card', 'producibleMana', 'Producible mana', 'gameplay', 'medium', { nullable: true }),
-  field('card', 'contentWarning', 'Content warning', 'classification', 'low', { nullable: true }),
+  field('card', 'hasContentWarning', 'Content warning', 'classification', 'low', { nullable: true }),
   field('card', 'category', 'Category', 'classification', 'medium'),
   field('card', 'tags', 'Tags', 'classification', 'medium'),
   field('card', 'legalities.{format}', 'Legality by format', 'legality', 'medium', { placeholder: true }),
   field('card', 'scryfallOracleId', 'Scryfall oracle ID', 'external_id', 'low'),
   field('cardLocalization', 'name', 'Localized name', 'localization', 'medium'),
   field('cardLocalization', 'typeline', 'Localized type line', 'localization', 'medium'),
-  field('cardLocalization', 'text', 'Localized text', 'localization', 'medium'),
   field('cardPart', 'name', 'Part name', 'oracle', 'high'),
   field('cardPart', 'typeline', 'Part type line', 'oracle', 'high'),
   field('cardPart', 'text', 'Part text', 'oracle', 'high'),
@@ -365,7 +360,6 @@ export const magicImportFields: ImportField[] = [
   field('cardPartLocalization', 'text', 'Localized part text', 'localization', 'medium'),
   field('print', 'name', 'Print name', 'print_display', 'high'),
   field('print', 'typeline', 'Print type line', 'print_display', 'high'),
-  field('print', 'text', 'Print text', 'print_display', 'high'),
   field('print', 'layout', 'Layout', 'print_metadata', 'medium'),
   field('print', 'frame', 'Frame', 'print_metadata', 'medium'),
   field('print', 'frameEffects', 'Frame effects', 'print_metadata', 'medium'),
@@ -379,19 +373,22 @@ export const magicImportFields: ImportField[] = [
   field('print', 'isPromo', 'Promo flag', 'print_metadata', 'high'),
   field('print', 'isReprint', 'Reprint flag', 'print_metadata', 'high'),
   field('print', 'finishes', 'Finishes', 'print_metadata', 'medium'),
-  field('print', 'hasHighResImage', 'High resolution image flag', 'image', 'low'),
   field('print', 'imageStatus', 'Image status', 'image', 'low'),
-  field('print', 'fullImageType', 'Full image type', 'image', 'low'),
+  field('print', 'imageInfo', 'Per-face image metadata', 'image', 'low'),
   field('print', 'inBooster', 'In booster flag', 'print_metadata', 'high'),
   field('print', 'games', 'Games', 'print_metadata', 'medium'),
   field('print', 'previewDate', 'Preview date', 'print_metadata', 'low', { nullable: true }),
   field('print', 'previewSource', 'Preview source', 'print_metadata', 'low', { nullable: true }),
   field('print', 'previewUri', 'Preview URI', 'print_metadata', 'low', { nullable: true }),
   field('print', 'printTags', 'Print tags', 'classification', 'medium'),
+  field('print', 'variation', 'Variation flag', 'print_metadata', 'medium'),
+  field('print', 'variationOf', 'Variation of', 'print_metadata', 'low', { nullable: true }),
+  field('print', 'artistIds', 'Artist IDs', 'art', 'low'),
+  field('print', 'illustrationId', 'Illustration ID', 'art', 'low', { nullable: true }),
+  field('print', 'resourceId', 'Resource ID', 'external_id', 'low', { nullable: true }),
   field('print', 'scryfallOracleId', 'Print Scryfall oracle ID', 'external_id', 'low'),
   field('print', 'scryfallCardId', 'Scryfall card ID', 'external_id', 'low', { nullable: true }),
   field('print', 'scryfallFace', 'Scryfall face', 'external_id', 'low', { nullable: true }),
-  field('print', 'scryfallImageUris.{kind}', 'Scryfall image URI by kind', 'image', 'low', { nullable: true, placeholder: true }),
   field('print', 'arenaId', 'Arena ID', 'external_id', 'low', { nullable: true }),
   field('print', 'mtgoId', 'MTGO ID', 'external_id', 'low', { nullable: true }),
   field('print', 'mtgoFoilId', 'MTGO foil ID', 'external_id', 'low', { nullable: true }),
@@ -438,8 +435,8 @@ export const magicImportFieldStateRules: z.infer<typeof importFieldStateRule>[] 
 ];
 
 interface CoverageRule {
-  coverage: ImportCoverageState;
-  note: string;
+  coverage:   ImportCoverageState;
+  note:       string;
   condition?: string;
 }
 
@@ -535,7 +532,6 @@ function policyFor(
     batchGroupBy:      [] as string[],
     reasonCode:        'source_unsupported',
     allowExplicitNull: false,
-    lockedPathAware:   true,
   };
 
   if (coverageRule.coverage === 'unsupported') {
@@ -687,25 +683,25 @@ function compileSnapshot(): ImportPolicySnapshot {
       }
 
       return {
-        sourceId:  source.sourceId,
-        coverage:  policy.coverage,
-        note:      policy.coverageNote,
+        sourceId: source.sourceId,
+        coverage: policy.coverage,
+        note:     policy.coverageNote,
         ...(policy.coverageCondition === undefined ? {} : { condition: policy.coverageCondition }),
       };
     }),
   }));
 
   return validateSnapshot({
-    version:             'magic-import-p0',
-    publishedAt:         '2026-04-18T00:00:00.000Z',
-    sources:             magicImportSources,
-    entities:            magicImportEntities,
-    fields:              magicImportFields,
-    fieldStates:         magicImportFieldStateRules,
-    matcherOperators:    [...matcherOperators],
+    version:          'magic-import-p0',
+    publishedAt:      '2026-04-18T00:00:00.000Z',
+    sources:          magicImportSources,
+    entities:         magicImportEntities,
+    fields:           magicImportFields,
+    fieldStates:      magicImportFieldStateRules,
+    matcherOperators: [...matcherOperators],
     fieldCoverageMatrix,
     policies,
-    filterOptions:       {
+    filterOptions:    {
       sourceIds:      [...sourceIds],
       entityTypes:    [...entityTypes],
       fieldGroups:    [...fieldGroups],
@@ -762,8 +758,6 @@ function compileSnapshot(): ImportPolicySnapshot {
         'import_change_sets.appliedAt',
         'import_field_changes.appliedAt',
       ],
-      lockedPathPolicy: 'Fields listed in __lockedPaths can never auto apply and require review override handling.',
-      updationPolicy:   'The new import pipeline never writes new candidates into __updations.',
     },
     p1Inputs: {
       tables: [

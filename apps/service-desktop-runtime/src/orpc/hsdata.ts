@@ -1,4 +1,4 @@
-import { ORPCError, eventIterator } from '@orpc/server';
+import { ORPCError } from '@orpc/server';
 import { runWithDb } from '@tcg-cards/db';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
@@ -345,8 +345,13 @@ const listPublishHistoryRoute = os
   .output(z.array(publishReport))
   .handler(async ({ input }) => {
     const db = getLocalDb();
-    const isAnnouncement = input.publishType === 'announcement_data';
-    const taskType = isAnnouncement ? 'hearthstone_announcement_publish' : 'hearthstone_publish';
+    const publishType = input.publishType;
+    const taskTypeByPublishType: Record<string, string> = {
+      card_data:         'hearthstone_publish',
+      announcement_data: 'hearthstone_announcement_publish',
+      reference_data:    'hearthstone_reference_publish',
+    };
+    const taskType = taskTypeByPublishType[publishType] ?? 'hearthstone_publish';
     const rows = await db.select()
       .from(TaskRun)
       .where(and(
@@ -367,7 +372,7 @@ const listPublishHistoryRoute = os
         publishTarget:        String(scope.publishTarget ?? ''),
         environment:          String(scope.environment ?? ''),
         targetFingerprint:    '',
-        publishType:          isAnnouncement ? 'announcement_data' : String(scope.publishType ?? 'card_data'),
+        publishType,
         operationKind:        String(params.operationKind ?? 'publish'),
         status:               r.status,
         manifestHash:         String(res.manifestHash ?? ''),

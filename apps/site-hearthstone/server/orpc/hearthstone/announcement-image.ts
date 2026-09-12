@@ -76,13 +76,15 @@ export async function resolveAnnouncementItemImages(
     } else if (item.type === 'card_update') {
       const currBuild = item.version ?? item.announcementVersion;
       const prevBuild = item.lastVersion ?? item.announcementLastVersion ?? item.announcementVersion;
-      const prevModel = modelAt(item.cardId, prevBuild);
+      // A delta.prev.cardId overrides the "before" card for a different-card comparison.
+      const prevModel = modelAt(item.delta?.prev?.cardId ?? item.cardId, prevBuild);
       if (prevModel) {
         sides.push({ side: 'prev', hash: computeRenderHash(mergedOf(prevModel, item.delta?.prev)), category: 'base', template });
       }
       const currModel = modelAt(item.cardId, currBuild);
       if (currModel) {
-        const merged = mergedOf(currModel, item.delta?.curr);
+        // A delta.curr.cardId override is ignored; the curr card is item.cardId.
+        const merged = { ...mergedOf(currModel, item.delta?.curr), cardId: item.cardId };
         const hasGlow = item.glow != null && item.glow.length > 0;
         if (hasGlow) merged.glow = sortGlow(item.glow!);
         sides.push({ side: 'curr', hash: computeRenderHash(merged), category: hasGlow ? 'glow' : 'base', template });

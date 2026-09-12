@@ -21,9 +21,8 @@ const detail = os.hearthstone.set.detail
     return {
       setId:         row.setId,
       dbfId:         row.dbfId ?? null,
-      slug:          row.slug ?? null,
       rawName:       row.rawName ?? null,
-      localization:  [],
+      localization:  row.localization,
       type:          row.type,
       releaseDate:   row.releaseDate,
       cardCountFull: row.cardCountFull ?? null,

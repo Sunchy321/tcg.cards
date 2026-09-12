@@ -1,3 +1,4 @@
+import { apiKey } from '@better-auth/api-key';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { betterAuth } from 'better-auth';
 import { admin, username } from 'better-auth/plugins';
@@ -10,6 +11,7 @@ export interface CreateServerAuthOptions {
   database: Parameters<typeof drizzleAdapter>[0];
   schema: {
     accounts: any;
+    apikeys: any;
     sessions: any;
     users: any;
     verifications: any;
@@ -55,6 +57,13 @@ export function createServerAuth(options: CreateServerAuthOptions) {
         roles,
         adminRoles:   ['admin', 'owner'],
         adminUserIds: options.adminUserIds ?? ['Sunchy321'],
+      }),
+      apiKey({
+        rateLimit: {
+          enabled:     true,
+          timeWindow:  1000,
+          maxRequests: 100,
+        },
       }),
     ],
   });

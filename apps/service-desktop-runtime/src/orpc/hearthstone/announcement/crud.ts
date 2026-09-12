@@ -3,12 +3,13 @@
 
 import { ORPCError, os } from '@orpc/server';
 import { z } from 'zod';
-import { asc, desc, eq } from 'drizzle-orm';
+import { asc, desc, eq, inArray, sql } from 'drizzle-orm';
 
 import { Announcement, AnnouncementItem, Entity } from '@tcg-cards/db/schema/local/hearthstone';
 
 import { getLocalDb } from '../../../lib/hearthstone/hsdata-local-db';
 import { sortGlow } from '@tcg-cards/shared/hearthstone/glow';
+import { changeStatus, gameChangeType, group } from '#model/hearthstone/schema/announcement';
 
 const FORMAT_KEYWORD_MAP: Record<string, string[]> = {
   standard:    ['standard'],
@@ -45,25 +46,38 @@ async function resolveCards(
 
 const list = os
   .route({
-    method: 'GET', description: 'Get the list of announcements',
-    tags: ['Desktop', 'Hearthstone', 'Announcement'],
+    method:      'GET', description: 'Get the list of announcements',
+    tags:        ['Desktop', 'Hearthstone', 'Announcement'],
   })
   .input(z.any())
   .output(z.any())
   .handler(async () => {
     const db = getLocalDb();
-    return db.select({
-      id: Announcement.id, source: Announcement.source,
-      date: Announcement.date, name: Announcement.name,
+    const announcements = await db.select({
+      id:     Announcement.id, source: Announcement.source,
+      date:   Announcement.date, name:   Announcement.name,
     })
       .from(Announcement)
       .orderBy(desc(Announcement.date));
+
+    const counts = announcements.length > 0
+      ? await db.select({
+        announcementId: AnnouncementItem.announcementId,
+        count:          sql<number>`count(*)::int`,
+      })
+        .from(AnnouncementItem)
+        .where(inArray(AnnouncementItem.announcementId, announcements.map(a => a.id)))
+        .groupBy(AnnouncementItem.announcementId)
+      : [];
+
+    const countByAnnouncement = new Map(counts.map(c => [c.announcementId, c.count]));
+    return announcements.map(a => ({ ...a, itemCount: countByAnnouncement.get(a.id) ?? 0 }));
   });
 
 const get = os
   .route({
-    method: 'GET', description: 'Get announcement by ID',
-    tags: ['Desktop', 'Hearthstone', 'Announcement'],
+    method:      'GET', description: 'Get announcement by ID',
+    tags:        ['Desktop', 'Hearthstone', 'Announcement'],
   })
   .input(z.object({ id: z.uuid() }))
   .output(z.any())
@@ -74,30 +88,30 @@ const get = os
     const items = await db.select().from(AnnouncementItem).where(eq(AnnouncementItem.announcementId, input.id)).orderBy(asc(AnnouncementItem.order));
     return {
       ...row,
-      link: row.link,
+      link:      row.link,
       createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(),
-      items: items.map(item => ({
+      items:     items.map(item => ({
         ...item,
-        glow: item.glow, delta: item.delta,
+        glow:      item.glow, delta:     item.delta,
         createdAt: item.createdAt.toISOString(), updatedAt: item.updatedAt.toISOString(),
       })),
     };
   });
 
 const itemInput = z.object({
-  type:          z.string(),
-  effectiveDate: z.string().nullable().optional(),
-  format:        z.string().nullable().optional(),
-  status:        z.string().nullable().optional(),
-  score:         z.number().int().nullable().optional(),
-  group:         z.string().nullable().optional(),
-  version:       z.number().int().nullable().optional(),
-  lastVersion:   z.number().int().nullable().optional(),
-  delta:         z.any().nullable().optional(),
-  glow:          z.any().nullable().optional(),
-  cardId:        z.string().nullable().optional(),
-  setId:         z.string().nullable().optional(),
-  ruleId:        z.string().nullable().optional(),
+  type:          gameChangeType,
+  effectiveDate: z.string().nullish(),
+  format:        z.string().nullish(),
+  status:        changeStatus.nullish(),
+  score:         z.number().int().nullish(),
+  group:         group.nullish(),
+  version:       z.number().int().nullish(),
+  lastVersion:   z.number().int().nullish(),
+  delta:         z.any().nullish(),
+  glow:          z.any().nullish(),
+  cardId:        z.string().nullish(),
+  setId:         z.string().nullish(),
+  ruleId:        z.string().nullish(),
   relatedCards:  z.string().array().default([]),
 });
 
@@ -126,23 +140,23 @@ function toItemRow(item: ItemInput, announcementId: string, order?: number) {
 
 const create = os
   .route({
-    method: 'POST', description: 'Create a new announcement',
-    tags: ['Desktop', 'Hearthstone', 'Announcement'],
+    method:      'POST', description: 'Create a new announcement',
+    tags:        ['Desktop', 'Hearthstone', 'Announcement'],
   })
   .input(z.object({
-    source: z.string(), date: z.string(), name: z.string(),
-    version: z.number().int(), lastVersion: z.number().int().nullable().optional(),
+    source:        z.string(), date:          z.string(), name:          z.string(),
+    version:       z.number().int(), lastVersion:   z.number().int().nullable().optional(),
     effectiveDate: z.string().nullable().optional(),
-    link: z.array(z.object({ url: z.string(), label: z.string().optional() })).default([]),
-    items: itemInput.array().default([]),
+    link:          z.array(z.object({ url: z.string(), label: z.string().optional() })).default([]),
+    items:         itemInput.array().default([]),
   }))
   .output(z.any())
   .handler(async ({ input }) => {
     const db = getLocalDb();
     const result = await db.insert(Announcement).values({
-      source: input.source, date: input.date, name: input.name,
-      version: input.version, lastVersion: input.lastVersion,
-      effectiveDate: input.effectiveDate ?? null, link: input.link,
+      source:        input.source, date:          input.date, name:          input.name,
+      version:       input.version, lastVersion:   input.lastVersion,
+      effectiveDate: input.effectiveDate ?? null, link:          input.link,
     }).returning();
     const row = result[0]!;
 
@@ -155,24 +169,24 @@ const create = os
 
 const update = os
   .route({
-    method: 'PUT', description: 'Update an announcement',
-    tags: ['Desktop', 'Hearthstone', 'Announcement'],
+    method:      'PUT', description: 'Update an announcement',
+    tags:        ['Desktop', 'Hearthstone', 'Announcement'],
   })
   .input(z.object({
-    id: z.uuid(), source: z.string(), date: z.string(), name: z.string(),
-    version: z.number().int(), lastVersion: z.number().int().nullable().optional(),
+    id:            z.uuid(), source:        z.string(), date:          z.string(), name:          z.string(),
+    version:       z.number().int(), lastVersion:   z.number().int().nullable().optional(),
     effectiveDate: z.string().nullable().optional(),
-    link: z.array(z.object({ url: z.string(), label: z.string().optional() })).default([]),
-    items: itemInput.array().default([]),
+    link:          z.array(z.object({ url: z.string(), label: z.string().optional() })).default([]),
+    items:         itemInput.array().default([]),
   }))
   .output(z.void())
   .handler(async ({ input }) => {
     const db = getLocalDb();
     const { id, ...data } = input;
     await db.update(Announcement).set({
-      source: data.source, date: data.date, name: data.name,
-      version: data.version, lastVersion: data.lastVersion,
-      effectiveDate: data.effectiveDate ?? null, link: data.link,
+      source:        data.source, date:          data.date, name:          data.name,
+      version:       data.version, lastVersion:   data.lastVersion,
+      effectiveDate: data.effectiveDate ?? null, link:          data.link,
     }).where(eq(Announcement.id, id));
 
     // Full replace: the form edits the complete item list and rows carry no user-facing identity.
@@ -184,8 +198,8 @@ const update = os
 
 const remove = os
   .route({
-    method: 'DELETE', description: 'Delete an announcement',
-    tags: ['Desktop', 'Hearthstone', 'Announcement'],
+    method:      'DELETE', description: 'Delete an announcement',
+    tags:        ['Desktop', 'Hearthstone', 'Announcement'],
   })
   .input(z.object({ id: z.uuid() }))
   .output(z.void())
@@ -197,8 +211,8 @@ const remove = os
 
 const projectItems = os
   .route({
-    method: 'POST', description: 'Run projection on all items of an announcement',
-    tags: ['Desktop', 'Hearthstone', 'Announcement'],
+    method:      'POST', description: 'Run projection on all items of an announcement',
+    tags:        ['Desktop', 'Hearthstone', 'Announcement'],
   })
   .input(z.object({ announcementId: z.uuid() }))
   .output(z.void())

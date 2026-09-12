@@ -84,19 +84,12 @@ const dbMock = {
 
 mock.module('@tcg-cards/db/db', () => ({ db: dbMock }));
 mock.module('@tcg-cards/db/schema/shared/hearthstone', () => schemaMock);
-mock.module('@tcg-cards/model/src/hearthstone/schema/data/image', async () => {
-  return await import('@tcg-cards/model/src/hearthstone/schema/data/image');
-});
-mock.module('@tcg-cards/model/src/hearthstone/constant/tag', async () => {
-  return await import('@tcg-cards/model/src/hearthstone/constant/tag');
-});
 
 const {
   buildCardImageImportPlan,
   buildCardImagePngFileName,
   buildCardImageR2Key,
   buildCardImageRequestId,
-  buildCardImageStyle,
   collectImageRequirementRequests,
   importCardImageArchiveFromBrowser,
 } = await import('./card-image');
@@ -231,7 +224,6 @@ function buildSingleRequestRequirementFile(input?: {
       },
       variant,
       renderMode: 'full-set',
-      style:      buildCardImageStyle(variant),
       output: {
         fileName:              buildCardImagePngFileName(requestId),
         format:                'png',
@@ -308,7 +300,6 @@ function buildMultiRequestRequirementFile(renderHashes: string[]): ImageRequirem
         },
         variant,
         renderMode: 'full-set',
-        style:  buildCardImageStyle(variant),
         output: {
           fileName:              buildCardImagePngFileName(requestId),
           format:                'png',
@@ -353,25 +344,13 @@ describe('card image helpers', () => {
     expect(buildCardImagePngFileName(requestId)).toBe(`${requestId.slice('sha256:'.length)}.png`);
   });
 
-  test('builds style and r2 key from variant', () => {
+  test('builds r2 key from variant', () => {
     const variant = {
       category: 'base',
       zone:     'play',
       template: 'battlegrounds',
       premium:  'golden',
     } as const;
-
-    expect(buildCardImageStyle(variant)).toEqual({
-      styleKey:              'base.play.battlegrounds.golden',
-      category:              'base',
-      zone:                  'play',
-      template:              'battlegrounds',
-      premium:               'golden',
-      layout:                'card.play.v1',
-      width:                 512,
-      height:                768,
-      transparentBackground: true,
-    });
 
     expect(buildCardImageR2Key('9f2c0f6e4e0c7f4d0f0b8c2e9c8d7a1a3c6b4e5f60123456789abcdef01', variant))
       .toBe('hearthstone/card/base/play/battlegrounds/golden/9f/9f2c0f6e4e0c7f4d0f0b8c2e9c8d7a1a3c6b4e5f60123456789abcdef01.webp');
@@ -421,7 +400,7 @@ describe('card image helpers', () => {
     ] satisfies ImageCandidateRow[];
 
     const readyKeys = new Set([
-      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u0000hand\u0000normal\u0000golden',
+      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u0000base\u0000hand\u0000normal\u0000golden',
     ]);
 
     const result = collectImageRequirementRequests({
@@ -563,7 +542,6 @@ describe('card image helpers', () => {
           },
           variant,
           renderMode: 'full-set',
-          style:  buildCardImageStyle(variant),
           output: {
             fileName:              buildCardImagePngFileName(requestId),
             format:                'png',
@@ -593,7 +571,6 @@ describe('card image helpers', () => {
           },
           variant,
           renderMode: 'full-set',
-          style:  buildCardImageStyle(variant),
           output: {
             fileName:              `${buildCardImageRequestId(`${renderHash.slice(0, -1)}2`, variant).replace('sha256:', '')}.png`,
             format:                'png',

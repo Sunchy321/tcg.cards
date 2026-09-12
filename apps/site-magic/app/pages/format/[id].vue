@@ -92,8 +92,9 @@
           <span class="text-lg font-semibold font-mono">{{ n.date }}</span>
           <a
             v-for="l in n.link"
-            :key="l"
-            :href="l"
+            :key="l.url"
+            :href="l.url"
+            :title="l.label"
             target="_blank"
             class="text-gray-400 hover:text-gray-600"
           >
@@ -172,7 +173,7 @@
               <a
                 v-if="item.link.length > 0"
                 class="text-xs text-gray-400 shrink-0 font-mono"
-                :href="item.link[0]"
+                :href="item.link[0]?.url"
                 target="_blank"
               >{{ item.date }}</a>
               <span v-else class="text-xs text-gray-400 shrink-0 font-mono">{{ item.date }}</span>
@@ -226,7 +227,7 @@
             <a
               v-if="card.link.length > 0"
               class="text-xs text-gray-400 shrink-0 font-mono"
-              :href="card.link[0]"
+              :href="card.link[0]?.url"
               target="_blank"
             >{{ card.date }}</a>
             <span v-else class="text-xs text-gray-400 shrink-0 font-mono">{{ card.date }}</span>
@@ -239,10 +240,10 @@
 </template>
 
 <script setup lang="ts">
-import { uniq, last } from 'lodash-es';
+import { last } from 'lodash-es';
 
 import type { Format } from '#model/magic/schema/format';
-import type { FormatChange, Legality } from '#model/magic/schema/game-change';
+import type { Legality, LinkEntry } from '#model/magic/schema/announcement';
 
 import { birthday as magicBirthday, formats as magicFormats } from '#model/magic/schema/basic';
 
@@ -250,7 +251,7 @@ import { birthday as magicBirthday, formats as magicFormats } from '#model/magic
 
 interface BanlistItem {
   date:   string;
-  link:   string[];
+  link:   LinkEntry[];
   cardId: string;
   status: Legality;
   score?: number;
@@ -273,7 +274,7 @@ type DisplayBanlistEntry = DisplayBanlistItem | DisplayBanlistGroup;
 
 interface TimelineNode {
   date:    string;
-  link:    string[];
+  link:    LinkEntry[];
   sets:    { setId: string, status: 'legal' | 'unavailable' }[];
   banlist: { cardId: string, status: Legality, score?: number, group?: string }[];
 }
@@ -421,6 +422,9 @@ const statusKey = (status: Legality, score?: number | null) => {
 
 // ── Data loading ──────────────────────────────────────────────────────────────
 
+/** One format change event, typed from the ORPC client output schema. */
+type FormatChange = Awaited<ReturnType<typeof $orpc.magic.format.changes>>[number];
+
 const data = ref<Format | null>(null);
 const changes = ref<FormatChange[]>([]);
 
@@ -477,7 +481,7 @@ const nodes = computed<TimelineNode[]>(() => {
   }
 
   for (const v of result) {
-    v.link = uniq(v.link);
+    v.link = [...new Map(v.link.map(l => [l.url, l])).values()];
 
     v.sets.sort((a, b) => {
       if (a.status !== b.status) return a.status === 'legal' ? -1 : 1;

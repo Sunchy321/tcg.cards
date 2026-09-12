@@ -19,8 +19,8 @@ import {
   type CardImageRequirementExportResult,
   type ImageRequirementFile,
   type ImageRequirementRequest,
+  type ImageRequestOverride,
   type ImageRequestRenderModel,
-  type ImageStyle,
   type ImageVariant,
 } from '@tcg-cards/model/hearthstone/schema/data/image';
 import { CardImageAsset, CardImageExport, CardImageImport } from '@tcg-cards/db/schema/shared/hearthstone/card-image';
@@ -238,19 +238,10 @@ function imageKey(renderHash: string, variant: ImageVariant) {
   return `${renderHash}\u0000${variant.category}\u0000${variant.zone}\u0000${variant.template}\u0000${variant.premium}`;
 }
 
-export function buildCardImageStyle(variant: ImageVariant): ImageStyle {
-  return {
-    styleKey:              `${variant.category}.${variant.zone}.${variant.template}.${variant.premium}`,
-    category:              variant.category,
-    zone:                  variant.zone,
-    template:              variant.template,
-    premium:               variant.premium,
-    layout:                variant.zone === 'play' ? 'card.play.v1' : 'card.hand.v1',
-    width:                 512,
-    height:                768,
-    transparentBackground: true,
-  };
-}
+/** Fixed output spec for card renders; kept as task metadata only, not consumed by the renderer. */
+const cardImageOutputWidth = 512;
+const cardImageOutputHeight = 768;
+const cardImageOutputTransparentBackground = true;
 
 export function buildCardImageRequestId(renderHash: string, variant: ImageVariant) {
   const digest = sha256([
@@ -297,14 +288,6 @@ export function validateRequirementRequest(request: ImageRequirementRequest) {
   if (request.target.r2Key !== expectedR2Key) {
     throw new Error(`Request ${request.card.cardId} has mismatched target.r2Key`);
   }
-
-  if (request.output.width !== request.style.width || request.output.height !== request.style.height) {
-    throw new Error(`Request ${request.card.cardId} has mismatched output and style dimensions`);
-  }
-
-  if (request.output.transparentBackground !== request.style.transparentBackground) {
-    throw new Error(`Request ${request.card.cardId} has mismatched transparency settings`);
-  }
 }
 
 function buildExportId(now = new Date()) {
@@ -347,8 +330,8 @@ export function buildRequest(
   row: ImageCandidateRow,
   variant: ImageVariant,
   r2Bucket: string,
+  override?: ImageRequestOverride,
 ): ImageRequirementRequest {
-  const style = buildCardImageStyle(variant);
   const requestId = buildCardImageRequestId(row.renderHash, variant);
 
   return {
@@ -363,13 +346,13 @@ export function buildRequest(
     },
     variant,
     renderMode: 'full-set',
-    style,
+    override: override ? { ...override } : undefined,
     output: {
       fileName:              buildCardImagePngFileName(requestId),
       format:                'png',
-      width:                 style.width,
-      height:                style.height,
-      transparentBackground: style.transparentBackground,
+      width:                 cardImageOutputWidth,
+      height:                cardImageOutputHeight,
+      transparentBackground: cardImageOutputTransparentBackground,
     },
     target: {
       r2Bucket,

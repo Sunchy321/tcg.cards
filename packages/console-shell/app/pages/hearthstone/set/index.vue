@@ -7,7 +7,7 @@
             <UIcon name="i-lucide-folder-open" class="size-5 text-primary-500" />
             <h1 class="text-xl font-semibold">Set 管理</h1>
           </div>
-          <p class="mt-1 text-sm text-slate-500">查询和编辑 hearthstone.sets 与 hearthstone.set_localizations。</p>
+          <p class="mt-1 text-sm text-slate-500">查询和编辑 hearthstone.sets 的本地化名称。</p>
         </div>
         <UButton label="刷新" icon="i-lucide-refresh-cw" color="neutral" variant="ghost" :loading="loading" @click="loadSets()" />
       </div>
@@ -18,7 +18,7 @@
         <div class="rounded-xl border border-slate-200 bg-white p-4">
           <div class="mb-3 font-medium text-slate-700">筛选</div>
           <div class="space-y-3">
-            <UInput v-model="filters.q" icon="i-lucide-search" placeholder="搜索 setId / dbfId / slug / rawName" class="w-full" @keyup.enter="searchSets" />
+            <UInput v-model="filters.q" icon="i-lucide-search" placeholder="搜索 setId / dbfId / rawName" class="w-full" @keyup.enter="searchSets" />
             <div class="grid gap-3 md:grid-cols-2">
               <UInput v-model="filters.type" placeholder="按 type 筛选" class="w-full" @keyup.enter="searchSets" />
               <UInput v-model="filters.group" placeholder="按 group 筛选" class="w-full" @keyup.enter="searchSets" />
@@ -63,7 +63,6 @@
                 <UBadge :label="item.type" color="primary" variant="soft" size="xs" />
               </div>
               <div class="mt-2 flex flex-wrap gap-1">
-                <UBadge v-if="item.slug" :label="item.slug" color="neutral" variant="soft" size="xs" />
                 <UBadge v-if="item.rawName" :label="item.rawName" color="neutral" variant="soft" size="xs" />
                 <UBadge v-if="item.group" :label="item.group" color="warning" variant="soft" size="xs" />
               </div>
@@ -114,51 +113,54 @@
           </div>
           <div class="grid gap-3 md:grid-cols-2">
             <div class="space-y-1">
-              <div class="text-xs text-slate-400">slug</div>
-              <UInput v-model="form.slug" placeholder="set slug，可留空" class="w-full" />
-            </div>
-            <div class="space-y-1">
               <div class="text-xs text-slate-400">rawName</div>
               <UInput v-model="form.rawName" placeholder="来源原始名称" class="w-full" />
             </div>
-          </div>
-          <div class="grid gap-3 md:grid-cols-2">
             <div class="space-y-1">
               <div class="text-xs text-slate-400">type</div>
               <UInput v-model="form.type" placeholder="例如 expansion / mini_set" class="w-full" />
             </div>
+          </div>
+          <div class="grid gap-3 md:grid-cols-2">
             <div class="space-y-1">
               <div class="text-xs text-slate-400">releaseDate</div>
               <UInput v-model="form.releaseDate" type="date" class="w-full" />
             </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="space-y-1">
+                <div class="text-xs text-slate-400">cardCountFull</div>
+                <UInput v-model="form.cardCountFull" placeholder="整数" class="w-full font-mono" />
+              </div>
+              <div class="space-y-1">
+                <div class="text-xs text-slate-400">cardCount</div>
+                <UInput v-model="form.cardCount" placeholder="整数" class="w-full font-mono" />
+              </div>
+            </div>
           </div>
-          <div class="grid gap-3 md:grid-cols-3">
-            <div class="space-y-1">
-              <div class="text-xs text-slate-400">cardCountFull</div>
-              <UInput v-model="form.cardCountFull" placeholder="整数，可留空" class="w-full font-mono" />
-            </div>
-            <div class="space-y-1">
-              <div class="text-xs text-slate-400">cardCount</div>
-              <UInput v-model="form.cardCount" placeholder="整数，可留空" class="w-full font-mono" />
-            </div>
-            <div class="space-y-1">
-              <div class="text-xs text-slate-400">group</div>
-              <UInput v-model="form.group" placeholder="group，可留空" class="w-full" />
-            </div>
+          <div class="space-y-1">
+            <div class="text-xs text-slate-400">group</div>
+            <UInput v-model="form.group" placeholder="group，可留空" class="w-full" />
           </div>
           <div class="space-y-3">
             <div class="flex items-center justify-between">
               <div>
                 <div class="font-medium text-slate-700">Localization</div>
-                <p class="text-xs text-slate-400">建议至少维护 `zhs` 与 `en`。</p>
+                <p class="text-xs text-slate-400">建议至少维护 `zhs` 与 `en`。full 必填，其余可留空。</p>
               </div>
               <UButton label="添加语言" icon="i-lucide-plus" size="sm" variant="ghost" @click="addLocalization" />
             </div>
             <div class="space-y-3">
-              <div v-for="item in form.localization" :key="item.key" class="grid gap-3 rounded-lg border border-slate-200 p-3 md:grid-cols-[120px_minmax(0,1fr)_auto]">
-                <UInput v-model="item.lang" placeholder="lang" class="w-full font-mono" />
-                <UInput v-model="item.name" placeholder="本地化名称" class="w-full" />
-                <UButton icon="i-lucide-trash-2" color="error" variant="ghost" @click="removeLocalization(item.key)" />
+              <div v-for="item in form.localization" :key="item.key" class="rounded-lg border border-slate-200 p-3">
+                <div class="grid gap-3 md:grid-cols-[120px_minmax(0,1fr)_auto]">
+                  <UInput v-model="item.lang" placeholder="lang" class="w-full font-mono" />
+                  <UInput v-model="item.full" placeholder="完整名（必填）" class="w-full" />
+                  <UButton icon="i-lucide-trash-2" color="error" variant="ghost" @click="removeLocalization(item.key)" />
+                </div>
+                <div class="mt-2 grid gap-3 md:grid-cols-3">
+                  <UInput v-model="item.short" placeholder="短名" class="w-full" />
+                  <UInput v-model="item.initials" placeholder="缩写" class="w-full" />
+                  <UInput v-model="item.mini" placeholder="迷你系列名" class="w-full" />
+                </div>
               </div>
               <div v-if="form.localization.length === 0" class="rounded-lg border border-dashed border-slate-200 py-6 text-center text-sm text-slate-400">
                 还没有 localization，点击“添加语言”开始维护。
@@ -180,16 +182,19 @@ definePageMeta({
 import { useConsolePlatform } from '@tcg-cards/console-platform';
 import { computed, onMounted, reactive, ref } from 'vue';
 
-import type { SetLocalization, SetProfile } from '@tcg-cards/model/hearthstone/schema/set';
+import type { SetProfile } from '@tcg-cards/model/hearthstone/schema/set';
 
 const platform = useConsolePlatform();
 const orpc: any = platform.api.createClient();
 
-/** Editable localization row used by the set form. */
+/** Editable per-language localization row used by the set form. */
 interface LocalizationFormItem {
   key: string;
   lang: string;
-  name: string;
+  full: string;
+  short: string;
+  initials: string;
+  mini: string;
 }
 
 const filters = reactive({ q: '', type: '', group: '' });
@@ -208,7 +213,6 @@ const form = reactive({
   originalSetId: '',
   setId: '',
   dbfId: '',
-  slug: '',
   rawName: '',
   type: '',
   releaseDate: '',
@@ -233,18 +237,26 @@ function showToast(input: { title: string; description?: string; color?: 'error'
 }
 
 /** Localization form rows created for the editable set profile. */
-function createLocRow(item?: Partial<SetLocalization>): LocalizationFormItem {
+function createLocRow(names?: SetProfile['localization'][string]): LocalizationFormItem {
   nextLocKey.value += 1;
-  return { key: `loc-${nextLocKey.value}`, lang: item?.lang ?? '', name: item?.name ?? '' };
+  return {
+    key: `loc-${nextLocKey.value}`,
+    lang: '',
+    full: names?.full ?? '',
+    short: names?.short ?? '',
+    initials: names?.initials ?? '',
+    mini: names?.mini ?? '',
+  };
 }
 
 /** Preferred display name derived from the available localizations. */
 function preferredName(item: SetProfile) {
-  const zh = item.localization.find(loc => loc.lang === 'zhs');
-  if (zh) return zh.name;
-  const en = item.localization.find(loc => loc.lang === 'en');
-  if (en) return en.name;
-  return item.localization[0]?.name ?? item.rawName ?? item.slug ?? '未命名';
+  const zh = item.localization.zhs;
+  if (zh?.full) return zh.full;
+  const en = item.localization.en;
+  if (en?.full) return en.full;
+  const first = Object.values(item.localization)[0];
+  return first?.full ?? item.rawName ?? item.setId;
 }
 
 /** Selected set profile copied into the editable form. */
@@ -252,14 +264,16 @@ function applyProfile(item: SetProfile) {
   form.originalSetId = item.setId;
   form.setId = item.setId;
   form.dbfId = item.dbfId == null ? '' : String(item.dbfId);
-  form.slug = item.slug ?? '';
   form.rawName = item.rawName ?? '';
   form.type = item.type;
   form.releaseDate = item.releaseDate;
   form.cardCountFull = item.cardCountFull == null ? '' : String(item.cardCountFull);
   form.cardCount = item.cardCount == null ? '' : String(item.cardCount);
   form.group = item.group ?? '';
-  form.localization = item.localization.map(loc => createLocRow(loc));
+  form.localization = Object.entries(item.localization).map(([lang, names]) => ({
+    ...createLocRow(names),
+    lang,
+  }));
   formError.value = '';
 }
 
@@ -268,7 +282,6 @@ function resetForm() {
   form.originalSetId = '';
   form.setId = '';
   form.dbfId = '';
-  form.slug = '';
   form.rawName = '';
   form.type = '';
   form.releaseDate = '';
@@ -291,11 +304,22 @@ function parseOptionalInt(value: string) {
   return parsed;
 }
 
-/** Persisted localization rows normalized from the form. */
+/** Localization record normalized from the form rows. */
 function normalizeLocalizations() {
-  return form.localization
-    .map(item => ({ lang: item.lang.trim(), name: item.name.trim() }))
-    .filter(item => item.lang.length > 0 && item.name.length > 0);
+  const result: Record<string, { full: string, short?: string, initials?: string, mini?: string }> = {};
+  for (const item of form.localization) {
+    const lang = item.lang.trim();
+    if (!lang) continue;
+    const full = item.full.trim();
+    if (!full) continue;
+    result[lang] = {
+      full,
+      ...(item.short.trim() ? { short: item.short.trim() } : {}),
+      ...(item.initials.trim() ? { initials: item.initials.trim() } : {}),
+      ...(item.mini.trim() ? { mini: item.mini.trim() } : {}),
+    };
+  }
+  return result;
 }
 
 /** Set list loaded for the current filter and page. */
@@ -379,7 +403,6 @@ async function saveSet() {
       originalSetId: form.originalSetId,
       setId: form.setId.trim(),
       dbfId: parseOptionalInt(form.dbfId),
-      slug: form.slug.trim() || null,
       rawName: form.rawName.trim() || null,
       type: form.type.trim(),
       releaseDate: form.releaseDate,

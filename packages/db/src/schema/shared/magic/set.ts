@@ -2,7 +2,6 @@ import { bigint, boolean, integer, primaryKey, text, uuid } from 'drizzle-orm/pg
 import { schema } from './schema';
 
 import { locale } from './card';
-import { rarity } from './print';
 
 export const SetLocalization = schema.table('set_localizations', {
   setId: text('set_id').notNull(),
@@ -71,23 +70,37 @@ export const Set = schema.table('sets', {
   block:  text('block'),
   parent: text('parent'),
 
-  printedSize: integer('printed_size'),
-  cardCount:   integer('card_count').notNull(),
-  langs:       locale('langs').array().notNull(),
-  rarities:    rarity('rarities').array().notNull(),
+  baseSetSize:  integer('base_set_size'),
+  totalSetSize: integer('total_set_size'),
+  printedSize:  integer('printed_size'),
+  cardCount:    integer('card_count').notNull(),
+  langs:        locale('langs').array().notNull(),
+  rarities:     text('rarities').array().notNull(),
 
-  type:            text('type').notNull(),
-  isDigital:       boolean('is_digital').notNull(),
-  isFoilOnly:      boolean('is_foil_only').notNull(),
-  isNonfoilOnly:   boolean('is_nonfoil_only').notNull(),
-  symbolStyle:     text('symbol_style').array(),
-  doubleFacedIcon: text('double_faced_icon').array(),
+  type:             text('type').notNull(),
+  isDigital:        boolean('is_digital').notNull(),
+  isOnlineOnly:     boolean('is_online_only'),
+  isPaperOnly:      boolean('is_paper_only'),
+  isForeignOnly:    boolean('is_foreign_only'),
+  isPartialPreview: boolean('is_partial_preview'),
+  isFoilOnly:       boolean('is_foil_only').notNull(),
+  isNonfoilOnly:    boolean('is_nonfoil_only').notNull(),
+  symbolStyle:      text('symbol_style').array(),
+  doubleFacedIcon:  text('double_faced_icon').array(),
+  keyruneCode:      text('keyrune_code'),
 
   releaseDate: text('release_date'),
 
   scryfallId:   uuid('scryfall_id').notNull(),
   scryfallCode: text('scryfall_code').notNull(),
 
-  mtgoCode:    text('mtgo_code'),
-  tcgPlayerId: integer('tcg_player_id'),
+  mtgoCode:         text('mtgo_code'),
+  arenaCode:        text('arena_code'),
+  tcgPlayerId:      integer('tcg_player_id'),
+  tcgplayerGroupId: integer('tcgplayer_group_id'),
+  mcmId:            integer('mcm_id'),
+  mcmIdExtras:      integer('mcm_id_extras'),
+  mcmName:          text('mcm_name'),
+  cardsphereSetId:  integer('cardsphere_set_id'),
+  tokenSetCode:     text('token_set_code'),
 });

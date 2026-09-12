@@ -6,12 +6,11 @@
 //    file can be removed and replaced by a thin local-db adapter.
 
 import { ORPCError, os } from '@orpc/server';
-import { asc, eq, inArray } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 
 import {
-  Entity,
+  BaseEntity,
   Set as HearthstoneSet,
-  SetLocalization as HearthstoneSetLocalization,
 } from '@tcg-cards/db/schema/local/hearthstone';
 import {
   setGetInput,
@@ -21,6 +20,7 @@ import {
   setUpdateInput,
   type SetListInput,
   type SetProfile,
+  type SetUpdateInput,
 } from '@tcg-cards/model/hearthstone/schema/set';
 
 import { getLocalDb } from '../../lib/hearthstone/hsdata-local-db';
@@ -55,49 +55,32 @@ function matchesSearch(profile: SetProfile, input: SetListInput) {
   return [
     profile.setId,
     profile.dbfId == null ? null : String(profile.dbfId),
-    profile.slug,
     profile.rawName,
     profile.type,
     profile.releaseDate,
     profile.group,
-    ...profile.localization.flatMap(item => [item.lang, item.name]),
+    ...Object.entries(profile.localization).flatMap(([lang, names]) => [
+      lang,
+      names.full,
+      names.short,
+      names.initials,
+      names.mini,
+    ]),
   ].some(value => value?.toLowerCase().includes(q));
 }
 
-async function loadLocalizations(db: LocalDb, setIds: string[]) {
-  if (setIds.length === 0) {
-    return new Map<string, Array<{ lang: string; name: string }>>();
-  }
-
-  const rows = await db.select()
-    .from(HearthstoneSetLocalization)
-    .where(inArray(HearthstoneSetLocalization.setId, setIds))
-    .orderBy(
-      asc(HearthstoneSetLocalization.setId),
-      asc(HearthstoneSetLocalization.lang),
-    );
-
-  const map = new Map<string, Array<{ lang: string; name: string }>>();
-  for (const row of rows) {
-    const items = map.get(row.setId) ?? [];
-    items.push({ lang: row.lang, name: row.name });
-    map.set(row.setId, items);
-  }
-  return map;
-}
-
-function toProfile(row: typeof HearthstoneSet.$inferSelect, locs: Array<{ lang: string; name: string }> = []): SetProfile {
+function toProfile(row: typeof HearthstoneSet.$inferSelect): SetProfile {
   return {
     setId:         row.setId,
     dbfId:         row.dbfId,
-    slug:          row.slug,
     rawName:       row.rawName,
-    localization:  locs,
+    localization:  row.localization,
     type:          row.type,
     releaseDate:   row.releaseDate,
     cardCountFull: row.cardCountFull,
     cardCount:     row.cardCount,
     group:         row.group,
+    year:          row.year,
   };
 }
 
@@ -119,9 +102,8 @@ const list = os
         asc(HearthstoneSet.setId),
       );
 
-    const localizationBySetId = await loadLocalizations(db, rows.map(row => row.setId));
     const profiles = rows
-      .map(row => toProfile(row, localizationBySetId.get(row.setId) ?? []))
+      .map(toProfile)
       .filter(profile => matchesSearch(profile, input));
 
     const offset = (input.page - 1) * input.limit;
@@ -154,9 +136,7 @@ const get = os
       throw new ORPCError('NOT_FOUND', { message: 'Set not found' });
     }
 
-    const localizationBySetId = await loadLocalizations(db, [row.setId]);
-
-    return toProfile(row, localizationBySetId.get(row.setId) ?? []);
+    return toProfile(row);
   });
 
 const update = os
@@ -197,8 +177,8 @@ const update = os
         .set({
           setId:         nextSetId,
           dbfId:         input.dbfId,
-          slug:          normalizeText(input.slug),
           rawName:       normalizeText(input.rawName),
+          localization:  input.localization,
           type:          normalizeRequiredText(input.type),
           releaseDate:   input.releaseDate,
           cardCountFull: input.cardCountFull,
@@ -208,25 +188,9 @@ const update = os
         .where(eq(HearthstoneSet.setId, originalSetId));
 
       if (originalSetId !== nextSetId) {
-        await tx.update(Entity)
+        await tx.update(BaseEntity)
           .set({ set: nextSetId })
-          .where(eq(Entity.set, originalSetId));
-      }
-
-      await tx.delete(HearthstoneSetLocalization)
-        .where(eq(HearthstoneSetLocalization.setId, originalSetId));
-
-      const localization = input.localization
-        .map(item => ({ lang: item.lang.trim(), name: item.name.trim() }))
-        .filter(item => item.lang.length > 0 && item.name.length > 0);
-
-      if (localization.length > 0) {
-        await tx.insert(HearthstoneSetLocalization)
-          .values(localization.map(item => ({
-            setId: nextSetId,
-            lang:  item.lang,
-            name:  item.name,
-          })));
+          .where(eq(BaseEntity.set, originalSetId));
       }
 
       const row = await tx.select()
@@ -238,7 +202,7 @@ const update = os
         throw new ORPCError('NOT_FOUND', { message: 'Set not found' });
       }
 
-      return toProfile(row, localization);
+      return toProfile(row);
     });
   });
 

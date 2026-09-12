@@ -51,19 +51,25 @@ export const computeCardGlow = os
   }))
   .output(z.array(glowEntry))
   .handler(async ({ input }) => {
-    const [currModel, prevModel] = await Promise.all([
-      resolveSideModel(input.cardId, input.version, input.lang),
-      resolveSideModel(input.cardId, input.lastVersion, input.lang),
-    ]);
-
+    // A `delta.prev.cardId` overrides the "before" card so a card_update can
+    // compare against a different card; the rest of the delta still applies.
+    const prevCardId = (input.delta?.prev?.cardId as string | undefined) ?? input.cardId;
+    const currModel = await resolveSideModel(input.cardId, input.version, input.lang);
     if (!currModel) {
       throw new ORPCError('NOT_FOUND', { message: `cardId ${input.cardId} 在版本 ${input.version} 查不到数据` });
     }
+    // When the compared (different) card no longer exists, fall back to the item
+    // card's art at the curr build; the old stats come from delta.prev.
+    let prevModel = await resolveSideModel(prevCardId, input.lastVersion, input.lang);
+    if (!prevModel && prevCardId !== input.cardId) {
+      prevModel = await resolveSideModel(input.cardId, input.version, input.lang);
+    }
     if (!prevModel) {
-      throw new ORPCError('NOT_FOUND', { message: `cardId ${input.cardId} 在版本 ${input.lastVersion} 查不到数据` });
+      throw new ORPCError('NOT_FOUND', { message: `cardId ${prevCardId} 在版本 ${input.lastVersion} 查不到数据` });
     }
 
-    const curr = input.delta?.curr ? { ...currModel, ...input.delta.curr } : currModel;
+    // The curr side always stays on the item's cardId; a delta.curr.cardId is ignored.
+    const curr = input.delta?.curr ? { ...currModel, ...input.delta.curr, cardId: input.cardId } : currModel;
     const prev = input.delta?.prev ? { ...prevModel, ...input.delta.prev } : prevModel;
 
     return computeGlowDiff(curr as RenderModel, prev as RenderModel);
