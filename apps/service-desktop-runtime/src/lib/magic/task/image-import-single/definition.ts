@@ -1,4 +1,4 @@
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { runWithDb } from '@tcg-cards/db';
@@ -12,14 +12,14 @@ import { applySkipRules, ingestRemoteRow, ingestUploadItem } from '../../image-i
 import { addImageImportOutput, emptyImageImportOutput, imageImportOutput, pushCapped, type ImageImportOutput } from '../../image-import/result';
 import { emptyRemoteSkipped, gathererQueueRow, scryfallQueueRow } from '../../image-import/source';
 
-/** Single-target import: one print, uploaded as a file or downloaded by number. */
+/** Single-target import: one or more prints, uploaded as a file or downloaded by number. */
 export const magicImageImportSingleTaskType = 'magic_image_import_single';
 
 const input = z.strictObject({
   source:     z.enum([...uploadImageSources, 'scryfall', 'gatherer']),
   set:        z.string().min(1),
   lang:       z.string().min(1),
-  number:     z.string().min(1),
+  numbers:    z.array(z.string().min(1)).min(1),
   force:      z.boolean().optional().default(false),
   cleanupJpg: z.boolean().optional().default(false),
   // Upload single image only.
@@ -28,10 +28,11 @@ const input = z.strictObject({
   dataBase64: z.string().optional(),
 }).refine(v => {
   const isUpload = (uploadImageSources as readonly string[]).includes(v.source);
-  if (v.dataBase64 != null) return isUpload;
+  // One uploaded file belongs to one print, so an upload carries exactly one number.
+  if (v.dataBase64 != null) return isUpload && v.numbers.length === 1;
   // Download sources derive the face index from scryfall_face, never from the caller.
   return !isUpload && v.faceIndex == null;
-}, { message: '上传单张需要 dataBase64 与上传来源;下载来源不接受 faceIndex' });
+}, { message: '上传单张需要 dataBase64 与单个编号;下载来源不接受 faceIndex' });
 
 type Input = z.infer<typeof input>;
 
@@ -62,54 +63,64 @@ async function runSingle(ctx: Input): Promise<ImageImportOutput> {
     .where(and(
       eq(Print.set, ctx.set),
       eq(Print.lang, ctx.lang as typeof Print.$inferSelect.lang),
-      eq(Print.number, ctx.number),
+      inArray(Print.number, ctx.numbers),
       isNull(Print.deletedAt),
     )));
 
-  if (rows.length === 0) {
-    const counts = emptyImageImportOutput();
-    counts.unmatched = 1;
-    pushCapped(counts.unmatchedNumbers, ctx.number);
-    return counts;
+  // One requested number stands for every print carrying it; a number the set
+  // does not have is reported instead of written.
+  const rowsByNumber = new Map<string, typeof rows>();
+  for (const row of rows) {
+    const bucket = rowsByNumber.get(row.number);
+    if (bucket) bucket.push(row);
+    else rowsByNumber.set(row.number, [row]);
   }
 
-  if (ctx.dataBase64 != null) {
-    const data = Buffer.from(ctx.dataBase64, 'base64');
-    let counts: ImageImportOutput = emptyImageImportOutput();
-    for (const row of rows) {
-      const { kept, skipped, skippedUpload, singleImageFaces } = applySkipRules([row], ctx.source, !!ctx.force, ctx.faceIndex);
+  const data = ctx.dataBase64 != null ? Buffer.from(ctx.dataBase64, 'base64') : null;
+  const remoteSkipped = emptyRemoteSkipped();
+  let counts: ImageImportOutput = emptyImageImportOutput();
+
+  for (const number of ctx.numbers) {
+    const matched = rowsByNumber.get(number) ?? [];
+    if (matched.length === 0) {
+      counts.unmatched += 1;
+      pushCapped(counts.unmatchedNumbers, number);
+      continue;
+    }
+
+    if (data != null) {
+      const { kept, skipped, skippedUpload, singleImageFaces } = applySkipRules(matched, ctx.source, !!ctx.force, ctx.faceIndex);
       counts = addImageImportOutput(counts, { skipped, skippedUpload, warnings: singleImageFaces });
       for (const target of kept) {
-        counts = addImageImportOutput(counts, await ingestUploadItem(db, { number: ctx.number, faceIndex: ctx.faceIndex, rows: [target] }, data, {
+        counts = addImageImportOutput(counts, await ingestUploadItem(db, { number, faceIndex: ctx.faceIndex, rows: [target] }, data, {
           imageSource: ctx.source,
           cleanupJpg:  !!ctx.cleanupJpg,
         }));
       }
+      continue;
     }
-    return counts;
+
+    // Download sources: every face of the print, resolved by the source's own rules.
+    for (const row of matched) {
+      const queued = ctx.source === 'gatherer' ? gathererQueueRow(row, remoteSkipped) : scryfallQueueRow(row, remoteSkipped);
+      if (!queued) continue;
+      counts = addImageImportOutput(counts, await ingestRemoteRow(db, queued, {
+        imageSource: ctx.source,
+        cleanupJpg:  !!ctx.cleanupJpg,
+        force:       !!ctx.force,
+      }));
+    }
   }
 
-  // Download sources: every face of the print, resolved by the source's own rules.
-  const skipped = emptyRemoteSkipped();
-  let counts: ImageImportOutput = emptyImageImportOutput();
-  for (const row of rows) {
-    const queued = ctx.source === 'gatherer' ? gathererQueueRow(row, skipped) : scryfallQueueRow(row, skipped);
-    if (!queued) continue;
-    counts = addImageImportOutput(counts, await ingestRemoteRow(db, queued, {
-      imageSource: ctx.source,
-      cleanupJpg:  !!ctx.cleanupJpg,
-      force:       !!ctx.force,
-    }));
-  }
   return addImageImportOutput(counts, {
-    placeholder: skipped.placeholder,
-    missingId:   skipped.missingId,
-    missingUrl:  skipped.missingUrl,
+    placeholder: remoteSkipped.placeholder,
+    missingId:   remoteSkipped.missingId,
+    missingUrl:  remoteSkipped.missingUrl,
   });
 }
 
 const definition = createDefinition(magicImageImportSingleTaskType, {
-  version:     '2026-09-09:v1',
+  version:     '2026-09-12:v1',
   effectModel: 'reconcilable',
 })
   .scope(z.object({}), {

@@ -437,7 +437,7 @@ const imageImportSingle = os
     source:     z.enum(['manual', 'mtgch', 'mtgflame', 'hunterer', 'scryfall', 'gatherer']),
     set:        z.string().min(1),
     lang:       z.string().min(1),
-    number:     z.string().min(1),
+    numbers:    z.array(z.string().min(1)).min(1),
     force:      z.boolean().optional(),
     cleanupJpg: z.boolean().optional(),
     faceIndex:  z.number().int().min(0).max(15).optional(),

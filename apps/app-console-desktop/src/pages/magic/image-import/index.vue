@@ -75,7 +75,7 @@
               <UFormField orientation="horizontal" :ui="{ root: '!justify-start' }" label="编号" :required="isSingle" class="min-w-40">
                 <UInput
                   v-model="form.number"
-                  placeholder="如 123"
+                  :placeholder="isDownloadSingle ? '如 123、1-19、1,3,5' : '如 123'"
                   autocomplete="off"
                   spellcheck="false"
                   :disabled="disabled || !isSingle"
@@ -97,6 +97,9 @@
                   {{ file?.name ?? '选择单张图片(png/jpg/webp)' }}
                 </UButton>
               </div>
+              <p v-if="numbers.length > 1" class="text-sm text-error">
+                上传单张只能填一个编号。
+              </p>
             </template>
             <template v-else-if="isUploadZip">
               <UFormField orientation="horizontal" :ui="{ root: '!justify-start' }" label="压缩包路径" required class="max-w-xl">
@@ -160,6 +163,12 @@
               <p class="text-xs text-muted">
                 将按系列、语言和编号从所选来源下载卡图,面序号按卡牌正反面自动判断。
               </p>
+              <p class="text-xs text-muted">
+                编号可填多个:用逗号分隔(如 1,3,5),或用 1-19 表示一段连续编号;范围只支持纯数字编号。
+              </p>
+              <p v-if="numbers.length > 1" class="text-xs text-muted">
+                本次将处理 <span class="font-mono">{{ numbers.length }}</span> 个编号。
+              </p>
             </template>
             <input ref="fileInput" type="file" class="hidden" accept=".png,.jpg,.jpeg,.webp" @change="onFilePicked">
           </div>
@@ -175,7 +184,7 @@
         </div>
       </div>
 
-      <ImageCompareCard :set="form.set" :lang="form.lang" :number="form.number" />
+      <ImageCompareCard :set="form.set" :lang="form.lang" :number="compareNumber" :multiple="numbers.length > 1" />
     </div>
   </div>
 </template>
@@ -187,6 +196,7 @@ import { open } from '@tauri-apps/plugin-dialog';
 import type { TaskOperation } from '~/components/task/TaskController.vue';
 import ImageCompareCard from '~/components/magic/ImageCompareCard.vue';
 import { orpc } from '~/lib/orpc';
+import { parseNumberInput } from '~/utils/import-numbers';
 
 definePageMeta({ layout: 'admin', title: '卡图导入' });
 
@@ -255,6 +265,11 @@ const isUploadSingle = computed(() => !isRemote.value && form.uploadMode === 'si
 const isUploadZip = computed(() => !isRemote.value && form.uploadMode === 'zip');
 const isSingle = computed(() => isDownloadSingle.value || isUploadSingle.value);
 const treeMode = computed(() => isUploadZip.value && analysis.value?.convention === 'tree');
+
+/** Every collector number the 编号 field stands for; a comma list or a range holds more than one. */
+const numbers = computed(() => parseNumberInput(form.number));
+/** The one number the compare panel works on, empty while the field holds a list. */
+const compareNumber = computed(() => (numbers.value.length === 1 ? numbers.value[0]! : ''));
 
 /** The mode select of the second form field, driven by the source group. */
 const remoteOrUploadMode = computed({
@@ -432,9 +447,10 @@ const operation = computed<TaskOperation>(() => {
   if (isRemoteBatch.value) {
     ready = form.source === 'scryfall' ? (form.set === ALL_SETS || setChosen) : setChosen;
   } else if (isDownloadSingle.value) {
-    ready = setChosen && langChosen && !!form.number.trim();
+    ready = setChosen && langChosen && numbers.value.length > 0;
   } else if (isUploadSingle.value) {
-    ready = setChosen && langChosen && !!form.number.trim() && !!form.dataBase64;
+    // One uploaded file belongs to exactly one print, so a list or a range blocks the run.
+    ready = setChosen && langChosen && numbers.value.length === 1 && !!form.dataBase64;
   } else {
     ready = treeMode.value ? !!form.zipPath.trim() : setChosen && langChosen && !!form.zipPath.trim();
   }
@@ -468,7 +484,7 @@ const operation = computed<TaskOperation>(() => {
         source: form.source as 'manual' | 'mtgch' | 'mtgflame' | 'hunterer' | 'scryfall' | 'gatherer',
         set:    form.set,
         lang:   form.lang,
-        number: form.number.trim(),
+        numbers: numbers.value,
         faceIndex: isUploadSingle.value && form.faceIndex.trim() ? Number(form.faceIndex) : undefined,
         fileName: isUploadSingle.value ? form.fileName || undefined : undefined,
         dataBase64: isUploadSingle.value ? form.dataBase64 : undefined,

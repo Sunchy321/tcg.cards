@@ -22,7 +22,14 @@
 
     <div v-show="open" class="space-y-3 border-t border-slate-200 p-4">
       <UAlert
-        v-if="!ready"
+        v-if="multiple"
+        color="neutral"
+        variant="soft"
+        icon="i-lucide-info"
+        description="编号栏填了多个编号,比对一次只处理一个编号;改成单个编号后即可比对。"
+      />
+      <UAlert
+        v-else-if="!ready"
         color="neutral"
         variant="soft"
         icon="i-lucide-info"
@@ -79,15 +86,15 @@ import { orpc } from '~/lib/orpc';
 import CompareSidePanel from '~/components/magic/CompareSidePanel.vue';
 
 interface CompareSide {
-  status:     'ok' | 'unavailable';
-  source:     'scryfall' | 'gatherer';
-  reason?:    string;
-  width?:     number;
-  height?:    number;
-  byteSize?:  number;
+  status:        'ok' | 'unavailable';
+  source:        'scryfall' | 'gatherer';
+  reason?:       string;
+  width?:        number;
+  height?:       number;
+  byteSize?:     number;
   qualityScore?: number | null;
-  tier?:      string;
-  preview?:   string;
+  tier?:         string;
+  preview?:      string;
 }
 
 interface CompareFace {
@@ -98,9 +105,11 @@ interface CompareFace {
 }
 
 const props = defineProps<{
-  set:    string;
-  lang:   string;
-  number: string;
+  set:       string;
+  lang:      string;
+  number:    string;
+  /** The number field holds a list or a range, which one comparison cannot cover. */
+  multiple?: boolean;
 }>();
 
 const open = ref(false);
@@ -108,7 +117,7 @@ const comparing = ref(false);
 const error = ref('');
 const result = ref<{ faces: CompareFace[] } | null>(null);
 
-const ready = computed(() => !!props.set.trim() && !!props.lang.trim() && !!props.number.trim());
+const ready = computed(() => !props.multiple && !!props.set.trim() && !!props.lang.trim() && !!props.number.trim());
 
 watch(ready, value => {
   if (!value) {
