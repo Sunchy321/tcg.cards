@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "0f2ccf34-6287-4df5-ae5a-fc3d2677dafa",
+  "id": "91cac765-986b-4ac9-9254-b0ef6fdcee40",
   "prevIds": [
-    "73b260e2-ffd2-4cb8-9f06-c43e59c39c24"
+    "3e5af11a-0800-4369-a3e9-6eae290b3dd9"
   ],
   "ddl": [
     {
@@ -129,7 +129,8 @@
         "sa",
         "grc",
         "la",
-        "qya"
+        "qya",
+        "dw"
       ],
       "name": "locale",
       "entityType": "enums",
@@ -197,148 +198,6 @@
         "superseded"
       ],
       "name": "document_version_lifecycle_status",
-      "entityType": "enums",
-      "schema": "magic"
-    },
-    {
-      "values": [
-        "black",
-        "borderless",
-        "gold",
-        "silver",
-        "white",
-        "yellow"
-      ],
-      "name": "border_color",
-      "entityType": "enums",
-      "schema": "magic"
-    },
-    {
-      "values": [
-        "nonfoil",
-        "foil",
-        "etched",
-        "glossy"
-      ],
-      "name": "finish",
-      "entityType": "enums",
-      "schema": "magic"
-    },
-    {
-      "values": [
-        "1993",
-        "1997",
-        "2003",
-        "2015",
-        "future"
-      ],
-      "name": "frame",
-      "entityType": "enums",
-      "schema": "magic"
-    },
-    {
-      "values": [
-        "webp",
-        "jpg",
-        "png"
-      ],
-      "name": "full_image_type",
-      "entityType": "enums",
-      "schema": "magic"
-    },
-    {
-      "values": [
-        "arena",
-        "astral",
-        "mtgo",
-        "paper",
-        "sega"
-      ],
-      "name": "game",
-      "entityType": "enums",
-      "schema": "magic"
-    },
-    {
-      "values": [
-        "highres_scan",
-        "lowres",
-        "missing",
-        "placeholder"
-      ],
-      "name": "image_status",
-      "entityType": "enums",
-      "schema": "magic"
-    },
-    {
-      "values": [
-        "adventure",
-        "aftermath",
-        "augment",
-        "battle",
-        "case",
-        "class",
-        "double_faced",
-        "emblem",
-        "flip",
-        "flip_token_bottom",
-        "flip_token_top",
-        "host",
-        "leveler",
-        "meld",
-        "modal_dfc",
-        "multipart",
-        "mutate",
-        "normal",
-        "planar",
-        "prototype",
-        "reversible_card",
-        "saga",
-        "scheme",
-        "split",
-        "split_arena",
-        "token",
-        "transform",
-        "transform_token",
-        "vanguard"
-      ],
-      "name": "layout",
-      "entityType": "enums",
-      "schema": "magic"
-    },
-    {
-      "values": [
-        "bonus",
-        "common",
-        "mythic",
-        "rare",
-        "special",
-        "uncommon"
-      ],
-      "name": "rarity",
-      "entityType": "enums",
-      "schema": "magic"
-    },
-    {
-      "values": [
-        "back",
-        "bottom",
-        "front",
-        "top"
-      ],
-      "name": "scryfall_face",
-      "entityType": "enums",
-      "schema": "magic"
-    },
-    {
-      "values": [
-        "acorn",
-        "arena",
-        "circle",
-        "heart",
-        "oval",
-        "triangle"
-      ],
-      "name": "security_stamp",
       "entityType": "enums",
       "schema": "magic"
     },
@@ -3581,7 +3440,7 @@
       "type": "text",
       "typeSchema": null,
       "notNull": false,
-      "dimensions": 0,
+      "dimensions": 1,
       "default": null,
       "generated": null,
       "identity": null,
@@ -6672,19 +6531,6 @@
       "table": "cards"
     },
     {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "text",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "cards"
-    },
-    {
       "type": "double precision",
       "typeSchema": null,
       "notNull": true,
@@ -6927,32 +6773,6 @@
       "generated": null,
       "identity": null,
       "name": "loc_typeline",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "card_localizations"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "loc_text",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "card_localizations"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "loc_flavor_text",
       "entityType": "columns",
       "schema": "magic",
       "table": "card_localizations"
@@ -8746,27 +8566,14 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "print_text",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "prints"
-    },
-    {
-      "type": "layout",
-      "typeSchema": "magic",
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
       "name": "layout",
       "entityType": "columns",
       "schema": "magic",
       "table": "prints"
     },
     {
-      "type": "frame",
-      "typeSchema": "magic",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -8791,8 +8598,8 @@
       "table": "prints"
     },
     {
-      "type": "border_color",
-      "typeSchema": "magic",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -8817,8 +8624,8 @@
       "table": "prints"
     },
     {
-      "type": "security_stamp",
-      "typeSchema": "magic",
+      "type": "text",
+      "typeSchema": null,
       "notNull": false,
       "dimensions": 0,
       "default": null,
@@ -8843,8 +8650,8 @@
       "table": "prints"
     },
     {
-      "type": "rarity",
-      "typeSchema": "magic",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -8908,8 +8715,8 @@
       "table": "prints"
     },
     {
-      "type": "finish",
-      "typeSchema": "magic",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 1,
       "default": null,
@@ -8921,21 +8728,8 @@
       "table": "prints"
     },
     {
-      "type": "boolean",
+      "type": "text",
       "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "has_high_res_image",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "prints"
-    },
-    {
-      "type": "image_status",
-      "typeSchema": "magic",
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -8947,27 +8741,14 @@
       "table": "prints"
     },
     {
-      "type": "text",
+      "type": "jsonb",
       "typeSchema": null,
       "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "image_updated_at",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "prints"
-    },
-    {
-      "type": "full_image_type",
-      "typeSchema": "magic",
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "full_image_type",
+      "name": "image_info",
       "entityType": "columns",
       "schema": "magic",
       "table": "prints"
@@ -8986,8 +8767,8 @@
       "table": "prints"
     },
     {
-      "type": "game",
-      "typeSchema": "magic",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 1,
       "default": null,
@@ -9142,27 +8923,14 @@
       "table": "prints"
     },
     {
-      "type": "scryfall_face",
-      "typeSchema": "magic",
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "scryfall_face",
-      "entityType": "columns",
-      "schema": "magic",
-      "table": "prints"
-    },
-    {
-      "type": "jsonb",
+      "type": "text",
       "typeSchema": null,
       "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "scryfall_image_uris",
+      "name": "scryfall_face",
       "entityType": "columns",
       "schema": "magic",
       "table": "prints"
@@ -10481,8 +10249,8 @@
       "table": "sets"
     },
     {
-      "type": "rarity",
-      "typeSchema": "magic",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 1,
       "default": null,
@@ -17911,7 +17679,7 @@
       "schema": "hearthstone"
     },
     {
-      "definition": "select \"magic\".\"cards\".\"card_id\", \"magic\".\"cards\".\"version\", \"magic\".\"card_localizations\".\"locale\", \"magic\".\"card_localizations\".\"source\", \"magic\".\"card_parts\".\"part_index\", \"magic\".\"cards\".\"part_count\", \"magic\".\"cards\".\"name\", \"magic\".\"cards\".\"typeline\", \"magic\".\"cards\".\"text\", \"magic\".\"cards\".\"mana_value\", \"magic\".\"cards\".\"color_identity\", \"magic\".\"cards\".\"keywords\", \"magic\".\"cards\".\"counters\", \"magic\".\"cards\".\"producible_mana\", \"magic\".\"cards\".\"content_warning\", \"magic\".\"cards\".\"category\", \"magic\".\"cards\".\"tags\", \"magic\".\"cards\".\"legalities\", \"magic\".\"cards\".\"scryfall_oracle_id\", \"magic\".\"card_localizations\".\"loc_name\", \"magic\".\"card_localizations\".\"loc_typeline\", \"magic\".\"card_localizations\".\"loc_text\", \"magic\".\"card_localizations\".\"loc_flavor_text\", \"magic\".\"card_parts\".\"part_name\", \"magic\".\"card_parts\".\"part_typeline\", \"magic\".\"card_parts\".\"part_text\", \"magic\".\"card_parts\".\"cost\", \"magic\".\"card_parts\".\"part_mana_value\", \"magic\".\"card_parts\".\"color\", \"magic\".\"card_parts\".\"color_indicator\", \"magic\".\"card_parts\".\"type_super\", \"magic\".\"card_parts\".\"type_main\", \"magic\".\"card_parts\".\"type_sub\", \"magic\".\"card_parts\".\"power\", \"magic\".\"card_parts\".\"toughness\", \"magic\".\"card_parts\".\"loyalty\", \"magic\".\"card_parts\".\"defense\", \"magic\".\"card_parts\".\"hand_modifier\", \"magic\".\"card_parts\".\"life_modifier\", \"magic\".\"card_part_localizations\".\"part_loc_name\", \"magic\".\"card_part_localizations\".\"part_loc_typeline\", \"magic\".\"card_part_localizations\".\"part_loc_text\" from \"magic\".\"cards\" inner join \"magic\".\"card_localizations\" on (\"magic\".\"card_localizations\".\"card_id\" = \"magic\".\"cards\".\"card_id\" and \"magic\".\"card_localizations\".\"version\" = \"magic\".\"cards\".\"version\") inner join \"magic\".\"card_parts\" on (\"magic\".\"card_parts\".\"card_id\" = \"magic\".\"cards\".\"card_id\" and \"magic\".\"card_parts\".\"version\" = \"magic\".\"cards\".\"version\") inner join \"magic\".\"card_part_localizations\" on (\"magic\".\"card_part_localizations\".\"card_id\" = \"magic\".\"card_parts\".\"card_id\" and \"magic\".\"card_part_localizations\".\"version\" = \"magic\".\"card_parts\".\"version\" and \"magic\".\"card_part_localizations\".\"locale\" = \"magic\".\"card_localizations\".\"locale\" and \"magic\".\"card_part_localizations\".\"source\" = \"magic\".\"card_localizations\".\"source\" and \"magic\".\"card_part_localizations\".\"part_index\" = \"magic\".\"card_parts\".\"part_index\")",
+      "definition": "select \"magic\".\"cards\".\"card_id\", \"magic\".\"cards\".\"version\", \"magic\".\"card_localizations\".\"locale\", \"magic\".\"card_localizations\".\"source\", \"magic\".\"card_parts\".\"part_index\", \"magic\".\"cards\".\"part_count\", \"magic\".\"cards\".\"name\", \"magic\".\"cards\".\"typeline\", \"magic\".\"cards\".\"mana_value\", \"magic\".\"cards\".\"color_identity\", \"magic\".\"cards\".\"keywords\", \"magic\".\"cards\".\"counters\", \"magic\".\"cards\".\"producible_mana\", \"magic\".\"cards\".\"content_warning\", \"magic\".\"cards\".\"category\", \"magic\".\"cards\".\"tags\", \"magic\".\"cards\".\"legalities\", \"magic\".\"cards\".\"scryfall_oracle_id\", \"magic\".\"card_localizations\".\"loc_name\", \"magic\".\"card_localizations\".\"loc_typeline\", \"magic\".\"card_parts\".\"part_name\", \"magic\".\"card_parts\".\"part_typeline\", \"magic\".\"card_parts\".\"part_text\", \"magic\".\"card_parts\".\"cost\", \"magic\".\"card_parts\".\"part_mana_value\", \"magic\".\"card_parts\".\"color\", \"magic\".\"card_parts\".\"color_indicator\", \"magic\".\"card_parts\".\"type_super\", \"magic\".\"card_parts\".\"type_main\", \"magic\".\"card_parts\".\"type_sub\", \"magic\".\"card_parts\".\"power\", \"magic\".\"card_parts\".\"toughness\", \"magic\".\"card_parts\".\"loyalty\", \"magic\".\"card_parts\".\"defense\", \"magic\".\"card_parts\".\"hand_modifier\", \"magic\".\"card_parts\".\"life_modifier\", \"magic\".\"card_part_localizations\".\"part_loc_name\", \"magic\".\"card_part_localizations\".\"part_loc_typeline\", \"magic\".\"card_part_localizations\".\"part_loc_text\" from \"magic\".\"cards\" inner join \"magic\".\"card_localizations\" on (\"magic\".\"card_localizations\".\"card_id\" = \"magic\".\"cards\".\"card_id\" and \"magic\".\"card_localizations\".\"version\" = \"magic\".\"cards\".\"version\") inner join \"magic\".\"card_parts\" on (\"magic\".\"card_parts\".\"card_id\" = \"magic\".\"cards\".\"card_id\" and \"magic\".\"card_parts\".\"version\" = \"magic\".\"cards\".\"version\") inner join \"magic\".\"card_part_localizations\" on (\"magic\".\"card_part_localizations\".\"card_id\" = \"magic\".\"card_parts\".\"card_id\" and \"magic\".\"card_part_localizations\".\"version\" = \"magic\".\"card_parts\".\"version\" and \"magic\".\"card_part_localizations\".\"locale\" = \"magic\".\"card_localizations\".\"locale\" and \"magic\".\"card_part_localizations\".\"source\" = \"magic\".\"card_localizations\".\"source\" and \"magic\".\"card_part_localizations\".\"part_index\" = \"magic\".\"card_parts\".\"part_index\")",
       "with": null,
       "withNoData": null,
       "using": null,
@@ -17922,7 +17690,7 @@
       "schema": "magic"
     },
     {
-      "definition": "select \"magic\".\"cards\".\"card_id\", \"magic\".\"cards\".\"version\", \"magic\".\"card_localizations\".\"locale\", \"magic\".\"card_localizations\".\"source\", \"magic\".\"card_parts\".\"part_index\", \"magic\".\"prints\".\"lang\", \"magic\".\"prints\".\"set\", \"magic\".\"prints\".\"number\", \"magic\".\"cards\".\"part_count\", \"magic\".\"cards\".\"name\", \"magic\".\"cards\".\"typeline\", \"magic\".\"cards\".\"text\", \"magic\".\"cards\".\"mana_value\", \"magic\".\"cards\".\"color_identity\", \"magic\".\"cards\".\"keywords\", \"magic\".\"cards\".\"counters\", \"magic\".\"cards\".\"producible_mana\", \"magic\".\"cards\".\"content_warning\", \"magic\".\"cards\".\"category\", \"magic\".\"cards\".\"tags\", \"magic\".\"cards\".\"legalities\", \"magic\".\"cards\".\"scryfall_oracle_id\", \"magic\".\"card_localizations\".\"loc_name\", \"magic\".\"card_localizations\".\"loc_typeline\", \"magic\".\"card_localizations\".\"loc_text\", \"magic\".\"card_localizations\".\"loc_flavor_text\", \"magic\".\"card_parts\".\"part_name\", \"magic\".\"card_parts\".\"part_typeline\", \"magic\".\"card_parts\".\"part_text\", \"magic\".\"card_parts\".\"cost\", \"magic\".\"card_parts\".\"part_mana_value\", \"magic\".\"card_parts\".\"color\", \"magic\".\"card_parts\".\"color_indicator\", \"magic\".\"card_parts\".\"type_super\", \"magic\".\"card_parts\".\"type_main\", \"magic\".\"card_parts\".\"type_sub\", \"magic\".\"card_parts\".\"power\", \"magic\".\"card_parts\".\"toughness\", \"magic\".\"card_parts\".\"loyalty\", \"magic\".\"card_parts\".\"defense\", \"magic\".\"card_parts\".\"hand_modifier\", \"magic\".\"card_parts\".\"life_modifier\", \"magic\".\"card_part_localizations\".\"part_loc_name\", \"magic\".\"card_part_localizations\".\"part_loc_typeline\", \"magic\".\"card_part_localizations\".\"part_loc_text\", \"magic\".\"prints\".\"print_name\", \"magic\".\"prints\".\"print_typeline\", \"magic\".\"prints\".\"print_text\", \"magic\".\"prints\".\"layout\", \"magic\".\"prints\".\"frame\", \"magic\".\"prints\".\"frame_effects\", \"magic\".\"prints\".\"border_color\", \"magic\".\"prints\".\"card_back\", \"magic\".\"prints\".\"security_stamp\", \"magic\".\"prints\".\"promo_types\", \"magic\".\"prints\".\"rarity\", \"magic\".\"prints\".\"release_date\", \"magic\".\"prints\".\"is_digital\", \"magic\".\"prints\".\"is_promo\", \"magic\".\"prints\".\"is_reprint\", \"magic\".\"prints\".\"finishes\", \"magic\".\"prints\".\"has_high_res_image\", \"magic\".\"prints\".\"image_status\", \"magic\".\"prints\".\"image_updated_at\", \"magic\".\"prints\".\"full_image_type\", \"magic\".\"prints\".\"in_booster\", \"magic\".\"prints\".\"games\", \"magic\".\"prints\".\"preview_date\", \"magic\".\"prints\".\"preview_source\", \"magic\".\"prints\".\"preview_uri\", \"magic\".\"prints\".\"print_tags\", \"magic\".\"prints\".\"variation\", \"magic\".\"prints\".\"variation_of\", \"magic\".\"prints\".\"artist_ids\", \"magic\".\"prints\".\"illustration_id\", \"magic\".\"prints\".\"resource_id\", \"magic\".\"prints\".\"print_scryfall_oracle_id\", \"magic\".\"prints\".\"scryfall_card_id\", \"magic\".\"prints\".\"scryfall_face\", \"magic\".\"prints\".\"scryfall_image_uris\", \"magic\".\"prints\".\"arena_id\", \"magic\".\"prints\".\"mtgo_id\", \"magic\".\"prints\".\"mtgo_foil_id\", \"magic\".\"prints\".\"multiverse_id\", \"magic\".\"prints\".\"tcg_player_id\", \"magic\".\"prints\".\"tcgplayer_etched_id\", \"magic\".\"prints\".\"card_market_id\", \"magic\".\"print_parts\".\"print_part_name\", \"magic\".\"print_parts\".\"print_part_typeline\", \"magic\".\"print_parts\".\"print_part_text\", \"magic\".\"print_parts\".\"attraction_lights\", \"magic\".\"print_parts\".\"flavor_name\", \"magic\".\"print_parts\".\"flavor_text\", \"magic\".\"print_parts\".\"artist\", \"magic\".\"print_parts\".\"watermark\", \"magic\".\"print_parts\".\"scryfall_illus_id\", true as \"in_database\", jsonb_build_object() as \"original\" from \"magic\".\"cards\" inner join \"magic\".\"card_localizations\" on (\"magic\".\"card_localizations\".\"card_id\" = \"magic\".\"cards\".\"card_id\" and \"magic\".\"card_localizations\".\"version\" = \"magic\".\"cards\".\"version\") inner join \"magic\".\"card_parts\" on (\"magic\".\"card_parts\".\"card_id\" = \"magic\".\"cards\".\"card_id\" and \"magic\".\"card_parts\".\"version\" = \"magic\".\"cards\".\"version\") inner join \"magic\".\"card_part_localizations\" on (\"magic\".\"card_part_localizations\".\"card_id\" = \"magic\".\"card_parts\".\"card_id\" and \"magic\".\"card_part_localizations\".\"version\" = \"magic\".\"card_parts\".\"version\" and \"magic\".\"card_part_localizations\".\"locale\" = \"magic\".\"card_localizations\".\"locale\" and \"magic\".\"card_part_localizations\".\"source\" = \"magic\".\"card_localizations\".\"source\" and \"magic\".\"card_part_localizations\".\"part_index\" = \"magic\".\"card_parts\".\"part_index\") inner join \"magic\".\"prints\" on (\"magic\".\"cards\".\"card_id\" = \"magic\".\"prints\".\"card_id\" and \"magic\".\"cards\".\"version\" = \"magic\".\"prints\".\"version\" and \"magic\".\"card_localizations\".\"source\" = \"magic\".\"prints\".\"source\" and \"magic\".\"prints\".\"lang\" = (\n                CASE\n                    WHEN EXISTS (SELECT 1 FROM \"magic\".\"prints\" WHERE card_id = \"magic\".\"cards\".\"card_id\" AND lang = \"magic\".\"card_localizations\".\"locale\")\n                    THEN \"magic\".\"card_localizations\".\"locale\"\n                    ELSE 'en'\n                END\n            )) inner join \"magic\".\"print_parts\" on (\"magic\".\"cards\".\"card_id\" = \"magic\".\"print_parts\".\"card_id\" and \"magic\".\"cards\".\"version\" = \"magic\".\"print_parts\".\"version\" and \"magic\".\"prints\".\"set\" = \"magic\".\"print_parts\".\"set\" and \"magic\".\"prints\".\"number\" = \"magic\".\"print_parts\".\"number\" and \"magic\".\"prints\".\"lang\" = \"magic\".\"print_parts\".\"lang\" and \"magic\".\"prints\".\"source\" = \"magic\".\"print_parts\".\"source\" and \"magic\".\"card_parts\".\"part_index\" = \"magic\".\"print_parts\".\"part_index\")",
+      "definition": "select \"magic\".\"cards\".\"card_id\", \"magic\".\"cards\".\"version\", \"magic\".\"card_localizations\".\"locale\", \"magic\".\"card_localizations\".\"source\", \"magic\".\"card_parts\".\"part_index\", \"magic\".\"prints\".\"lang\", \"magic\".\"prints\".\"set\", \"magic\".\"prints\".\"number\", \"magic\".\"cards\".\"part_count\", \"magic\".\"cards\".\"name\", \"magic\".\"cards\".\"typeline\", \"magic\".\"cards\".\"mana_value\", \"magic\".\"cards\".\"color_identity\", \"magic\".\"cards\".\"keywords\", \"magic\".\"cards\".\"counters\", \"magic\".\"cards\".\"producible_mana\", \"magic\".\"cards\".\"content_warning\", \"magic\".\"cards\".\"category\", \"magic\".\"cards\".\"tags\", \"magic\".\"cards\".\"legalities\", \"magic\".\"cards\".\"scryfall_oracle_id\", \"magic\".\"card_localizations\".\"loc_name\", \"magic\".\"card_localizations\".\"loc_typeline\", \"magic\".\"card_parts\".\"part_name\", \"magic\".\"card_parts\".\"part_typeline\", \"magic\".\"card_parts\".\"part_text\", \"magic\".\"card_parts\".\"cost\", \"magic\".\"card_parts\".\"part_mana_value\", \"magic\".\"card_parts\".\"color\", \"magic\".\"card_parts\".\"color_indicator\", \"magic\".\"card_parts\".\"type_super\", \"magic\".\"card_parts\".\"type_main\", \"magic\".\"card_parts\".\"type_sub\", \"magic\".\"card_parts\".\"power\", \"magic\".\"card_parts\".\"toughness\", \"magic\".\"card_parts\".\"loyalty\", \"magic\".\"card_parts\".\"defense\", \"magic\".\"card_parts\".\"hand_modifier\", \"magic\".\"card_parts\".\"life_modifier\", \"magic\".\"card_part_localizations\".\"part_loc_name\", \"magic\".\"card_part_localizations\".\"part_loc_typeline\", \"magic\".\"card_part_localizations\".\"part_loc_text\", \"magic\".\"prints\".\"print_name\", \"magic\".\"prints\".\"print_typeline\", \"magic\".\"prints\".\"layout\", \"magic\".\"prints\".\"frame\", \"magic\".\"prints\".\"frame_effects\", \"magic\".\"prints\".\"border_color\", \"magic\".\"prints\".\"card_back\", \"magic\".\"prints\".\"security_stamp\", \"magic\".\"prints\".\"promo_types\", \"magic\".\"prints\".\"rarity\", \"magic\".\"prints\".\"release_date\", \"magic\".\"prints\".\"is_digital\", \"magic\".\"prints\".\"is_promo\", \"magic\".\"prints\".\"is_reprint\", \"magic\".\"prints\".\"finishes\", \"magic\".\"prints\".\"image_status\", \"magic\".\"prints\".\"image_info\", \"magic\".\"prints\".\"in_booster\", \"magic\".\"prints\".\"games\", \"magic\".\"prints\".\"preview_date\", \"magic\".\"prints\".\"preview_source\", \"magic\".\"prints\".\"preview_uri\", \"magic\".\"prints\".\"print_tags\", \"magic\".\"prints\".\"variation\", \"magic\".\"prints\".\"variation_of\", \"magic\".\"prints\".\"artist_ids\", \"magic\".\"prints\".\"illustration_id\", \"magic\".\"prints\".\"resource_id\", \"magic\".\"prints\".\"print_scryfall_oracle_id\", \"magic\".\"prints\".\"scryfall_card_id\", \"magic\".\"prints\".\"scryfall_face\", \"magic\".\"prints\".\"arena_id\", \"magic\".\"prints\".\"mtgo_id\", \"magic\".\"prints\".\"mtgo_foil_id\", \"magic\".\"prints\".\"multiverse_id\", \"magic\".\"prints\".\"tcg_player_id\", \"magic\".\"prints\".\"tcgplayer_etched_id\", \"magic\".\"prints\".\"card_market_id\", \"magic\".\"print_parts\".\"print_part_name\", \"magic\".\"print_parts\".\"print_part_typeline\", \"magic\".\"print_parts\".\"print_part_text\", \"magic\".\"print_parts\".\"attraction_lights\", \"magic\".\"print_parts\".\"flavor_name\", \"magic\".\"print_parts\".\"flavor_text\", \"magic\".\"print_parts\".\"artist\", \"magic\".\"print_parts\".\"watermark\", \"magic\".\"print_parts\".\"scryfall_illus_id\", true as \"in_database\", jsonb_build_object() as \"original\" from \"magic\".\"cards\" inner join \"magic\".\"card_localizations\" on (\"magic\".\"card_localizations\".\"card_id\" = \"magic\".\"cards\".\"card_id\" and \"magic\".\"card_localizations\".\"version\" = \"magic\".\"cards\".\"version\") inner join \"magic\".\"card_parts\" on (\"magic\".\"card_parts\".\"card_id\" = \"magic\".\"cards\".\"card_id\" and \"magic\".\"card_parts\".\"version\" = \"magic\".\"cards\".\"version\") inner join \"magic\".\"card_part_localizations\" on (\"magic\".\"card_part_localizations\".\"card_id\" = \"magic\".\"card_parts\".\"card_id\" and \"magic\".\"card_part_localizations\".\"version\" = \"magic\".\"card_parts\".\"version\" and \"magic\".\"card_part_localizations\".\"locale\" = \"magic\".\"card_localizations\".\"locale\" and \"magic\".\"card_part_localizations\".\"source\" = \"magic\".\"card_localizations\".\"source\" and \"magic\".\"card_part_localizations\".\"part_index\" = \"magic\".\"card_parts\".\"part_index\") inner join \"magic\".\"prints\" on (\"magic\".\"cards\".\"card_id\" = \"magic\".\"prints\".\"card_id\" and \"magic\".\"cards\".\"version\" = \"magic\".\"prints\".\"version\" and \"magic\".\"card_localizations\".\"source\" = \"magic\".\"prints\".\"source\" and \"magic\".\"prints\".\"lang\" = (\n                CASE\n                    WHEN EXISTS (SELECT 1 FROM \"magic\".\"prints\" WHERE card_id = \"magic\".\"cards\".\"card_id\" AND lang = \"magic\".\"card_localizations\".\"locale\")\n                    THEN \"magic\".\"card_localizations\".\"locale\"\n                    ELSE 'en'\n                END\n            )) inner join \"magic\".\"print_parts\" on (\"magic\".\"cards\".\"card_id\" = \"magic\".\"print_parts\".\"card_id\" and \"magic\".\"cards\".\"version\" = \"magic\".\"print_parts\".\"version\" and \"magic\".\"prints\".\"set\" = \"magic\".\"print_parts\".\"set\" and \"magic\".\"prints\".\"number\" = \"magic\".\"print_parts\".\"number\" and \"magic\".\"prints\".\"lang\" = \"magic\".\"print_parts\".\"lang\" and \"magic\".\"prints\".\"source\" = \"magic\".\"print_parts\".\"source\" and \"magic\".\"card_parts\".\"part_index\" = \"magic\".\"print_parts\".\"part_index\")",
       "with": null,
       "withNoData": null,
       "using": null,
@@ -17933,7 +17701,7 @@
       "schema": "magic"
     },
     {
-      "definition": "select \"magic\".\"cards\".\"card_id\", \"magic\".\"cards\".\"version\", \"magic\".\"card_localizations\".\"locale\", \"magic\".\"card_localizations\".\"source\", \"magic\".\"card_parts\".\"part_index\", \"magic\".\"prints\".\"lang\", \"magic\".\"prints\".\"set\", \"magic\".\"prints\".\"number\", \"magic\".\"cards\".\"part_count\", \"magic\".\"cards\".\"name\", \"magic\".\"cards\".\"typeline\", \"magic\".\"cards\".\"text\", \"magic\".\"cards\".\"mana_value\", \"magic\".\"cards\".\"color_identity\", \"magic\".\"cards\".\"keywords\", \"magic\".\"cards\".\"counters\", \"magic\".\"cards\".\"producible_mana\", \"magic\".\"cards\".\"content_warning\", \"magic\".\"cards\".\"category\", \"magic\".\"cards\".\"tags\", \"magic\".\"cards\".\"legalities\", \"magic\".\"cards\".\"scryfall_oracle_id\", \"magic\".\"card_localizations\".\"loc_name\", \"magic\".\"card_localizations\".\"loc_typeline\", \"magic\".\"card_localizations\".\"loc_text\", \"magic\".\"card_localizations\".\"loc_flavor_text\", \"magic\".\"card_parts\".\"part_name\", \"magic\".\"card_parts\".\"part_typeline\", \"magic\".\"card_parts\".\"part_text\", \"magic\".\"card_parts\".\"cost\", \"magic\".\"card_parts\".\"part_mana_value\", \"magic\".\"card_parts\".\"color\", \"magic\".\"card_parts\".\"color_indicator\", \"magic\".\"card_parts\".\"type_super\", \"magic\".\"card_parts\".\"type_main\", \"magic\".\"card_parts\".\"type_sub\", \"magic\".\"card_parts\".\"power\", \"magic\".\"card_parts\".\"toughness\", \"magic\".\"card_parts\".\"loyalty\", \"magic\".\"card_parts\".\"defense\", \"magic\".\"card_parts\".\"hand_modifier\", \"magic\".\"card_parts\".\"life_modifier\", \"magic\".\"card_part_localizations\".\"part_loc_name\", \"magic\".\"card_part_localizations\".\"part_loc_typeline\", \"magic\".\"card_part_localizations\".\"part_loc_text\", \"magic\".\"prints\".\"print_name\", \"magic\".\"prints\".\"print_typeline\", \"magic\".\"prints\".\"print_text\", \"magic\".\"prints\".\"layout\", \"magic\".\"prints\".\"frame\", \"magic\".\"prints\".\"frame_effects\", \"magic\".\"prints\".\"border_color\", \"magic\".\"prints\".\"card_back\", \"magic\".\"prints\".\"security_stamp\", \"magic\".\"prints\".\"promo_types\", \"magic\".\"prints\".\"rarity\", \"magic\".\"prints\".\"release_date\", \"magic\".\"prints\".\"is_digital\", \"magic\".\"prints\".\"is_promo\", \"magic\".\"prints\".\"is_reprint\", \"magic\".\"prints\".\"finishes\", \"magic\".\"prints\".\"has_high_res_image\", \"magic\".\"prints\".\"image_status\", \"magic\".\"prints\".\"image_updated_at\", \"magic\".\"prints\".\"full_image_type\", \"magic\".\"prints\".\"in_booster\", \"magic\".\"prints\".\"games\", \"magic\".\"prints\".\"preview_date\", \"magic\".\"prints\".\"preview_source\", \"magic\".\"prints\".\"preview_uri\", \"magic\".\"prints\".\"print_tags\", \"magic\".\"prints\".\"variation\", \"magic\".\"prints\".\"variation_of\", \"magic\".\"prints\".\"artist_ids\", \"magic\".\"prints\".\"illustration_id\", \"magic\".\"prints\".\"resource_id\", \"magic\".\"prints\".\"print_scryfall_oracle_id\", \"magic\".\"prints\".\"scryfall_card_id\", \"magic\".\"prints\".\"scryfall_face\", \"magic\".\"prints\".\"scryfall_image_uris\", \"magic\".\"prints\".\"arena_id\", \"magic\".\"prints\".\"mtgo_id\", \"magic\".\"prints\".\"mtgo_foil_id\", \"magic\".\"prints\".\"multiverse_id\", \"magic\".\"prints\".\"tcg_player_id\", \"magic\".\"prints\".\"tcgplayer_etched_id\", \"magic\".\"prints\".\"card_market_id\", \"magic\".\"print_parts\".\"print_part_name\", \"magic\".\"print_parts\".\"print_part_typeline\", \"magic\".\"print_parts\".\"print_part_text\", \"magic\".\"print_parts\".\"attraction_lights\", \"magic\".\"print_parts\".\"flavor_name\", \"magic\".\"print_parts\".\"flavor_text\", \"magic\".\"print_parts\".\"artist\", \"magic\".\"print_parts\".\"watermark\", \"magic\".\"print_parts\".\"scryfall_illus_id\" from \"magic\".\"cards\" inner join \"magic\".\"card_localizations\" on (\"magic\".\"card_localizations\".\"card_id\" = \"magic\".\"cards\".\"card_id\" and \"magic\".\"card_localizations\".\"version\" = \"magic\".\"cards\".\"version\") inner join \"magic\".\"card_parts\" on (\"magic\".\"card_parts\".\"card_id\" = \"magic\".\"cards\".\"card_id\" and \"magic\".\"card_parts\".\"version\" = \"magic\".\"cards\".\"version\") inner join \"magic\".\"card_part_localizations\" on (\"magic\".\"card_part_localizations\".\"card_id\" = \"magic\".\"card_parts\".\"card_id\" and \"magic\".\"card_part_localizations\".\"version\" = \"magic\".\"card_parts\".\"version\" and \"magic\".\"card_part_localizations\".\"locale\" = \"magic\".\"card_localizations\".\"locale\" and \"magic\".\"card_part_localizations\".\"source\" = \"magic\".\"card_localizations\".\"source\" and \"magic\".\"card_part_localizations\".\"part_index\" = \"magic\".\"card_parts\".\"part_index\") inner join \"magic\".\"prints\" on (\"magic\".\"cards\".\"card_id\" = \"magic\".\"prints\".\"card_id\" and \"magic\".\"cards\".\"version\" = \"magic\".\"prints\".\"version\" and \"magic\".\"card_localizations\".\"source\" = \"magic\".\"prints\".\"source\" and \"magic\".\"prints\".\"lang\" = (\n                CASE\n                    WHEN EXISTS (SELECT 1 FROM \"magic\".\"prints\" WHERE card_id = \"magic\".\"cards\".\"card_id\" AND lang = \"magic\".\"card_localizations\".\"locale\")\n                    THEN \"magic\".\"card_localizations\".\"locale\"\n                    ELSE 'en'\n                END\n            )) inner join \"magic\".\"print_parts\" on (\"magic\".\"cards\".\"card_id\" = \"magic\".\"print_parts\".\"card_id\" and \"magic\".\"cards\".\"version\" = \"magic\".\"print_parts\".\"version\" and \"magic\".\"prints\".\"set\" = \"magic\".\"print_parts\".\"set\" and \"magic\".\"prints\".\"number\" = \"magic\".\"print_parts\".\"number\" and \"magic\".\"prints\".\"lang\" = \"magic\".\"print_parts\".\"lang\" and \"magic\".\"prints\".\"source\" = \"magic\".\"print_parts\".\"source\" and \"magic\".\"card_parts\".\"part_index\" = \"magic\".\"print_parts\".\"part_index\")",
+      "definition": "select \"magic\".\"cards\".\"card_id\", \"magic\".\"cards\".\"version\", \"magic\".\"card_localizations\".\"locale\", \"magic\".\"card_localizations\".\"source\", \"magic\".\"card_parts\".\"part_index\", \"magic\".\"prints\".\"lang\", \"magic\".\"prints\".\"set\", \"magic\".\"prints\".\"number\", \"magic\".\"cards\".\"part_count\", \"magic\".\"cards\".\"name\", \"magic\".\"cards\".\"typeline\", \"magic\".\"cards\".\"mana_value\", \"magic\".\"cards\".\"color_identity\", \"magic\".\"cards\".\"keywords\", \"magic\".\"cards\".\"counters\", \"magic\".\"cards\".\"producible_mana\", \"magic\".\"cards\".\"content_warning\", \"magic\".\"cards\".\"category\", \"magic\".\"cards\".\"tags\", \"magic\".\"cards\".\"legalities\", \"magic\".\"cards\".\"scryfall_oracle_id\", \"magic\".\"card_localizations\".\"loc_name\", \"magic\".\"card_localizations\".\"loc_typeline\", \"magic\".\"card_parts\".\"part_name\", \"magic\".\"card_parts\".\"part_typeline\", \"magic\".\"card_parts\".\"part_text\", \"magic\".\"card_parts\".\"cost\", \"magic\".\"card_parts\".\"part_mana_value\", \"magic\".\"card_parts\".\"color\", \"magic\".\"card_parts\".\"color_indicator\", \"magic\".\"card_parts\".\"type_super\", \"magic\".\"card_parts\".\"type_main\", \"magic\".\"card_parts\".\"type_sub\", \"magic\".\"card_parts\".\"power\", \"magic\".\"card_parts\".\"toughness\", \"magic\".\"card_parts\".\"loyalty\", \"magic\".\"card_parts\".\"defense\", \"magic\".\"card_parts\".\"hand_modifier\", \"magic\".\"card_parts\".\"life_modifier\", \"magic\".\"card_part_localizations\".\"part_loc_name\", \"magic\".\"card_part_localizations\".\"part_loc_typeline\", \"magic\".\"card_part_localizations\".\"part_loc_text\", \"magic\".\"prints\".\"print_name\", \"magic\".\"prints\".\"print_typeline\", \"magic\".\"prints\".\"layout\", \"magic\".\"prints\".\"frame\", \"magic\".\"prints\".\"frame_effects\", \"magic\".\"prints\".\"border_color\", \"magic\".\"prints\".\"card_back\", \"magic\".\"prints\".\"security_stamp\", \"magic\".\"prints\".\"promo_types\", \"magic\".\"prints\".\"rarity\", \"magic\".\"prints\".\"release_date\", \"magic\".\"prints\".\"is_digital\", \"magic\".\"prints\".\"is_promo\", \"magic\".\"prints\".\"is_reprint\", \"magic\".\"prints\".\"finishes\", \"magic\".\"prints\".\"image_status\", \"magic\".\"prints\".\"image_info\", \"magic\".\"prints\".\"in_booster\", \"magic\".\"prints\".\"games\", \"magic\".\"prints\".\"preview_date\", \"magic\".\"prints\".\"preview_source\", \"magic\".\"prints\".\"preview_uri\", \"magic\".\"prints\".\"print_tags\", \"magic\".\"prints\".\"variation\", \"magic\".\"prints\".\"variation_of\", \"magic\".\"prints\".\"artist_ids\", \"magic\".\"prints\".\"illustration_id\", \"magic\".\"prints\".\"resource_id\", \"magic\".\"prints\".\"print_scryfall_oracle_id\", \"magic\".\"prints\".\"scryfall_card_id\", \"magic\".\"prints\".\"scryfall_face\", \"magic\".\"prints\".\"arena_id\", \"magic\".\"prints\".\"mtgo_id\", \"magic\".\"prints\".\"mtgo_foil_id\", \"magic\".\"prints\".\"multiverse_id\", \"magic\".\"prints\".\"tcg_player_id\", \"magic\".\"prints\".\"tcgplayer_etched_id\", \"magic\".\"prints\".\"card_market_id\", \"magic\".\"print_parts\".\"print_part_name\", \"magic\".\"print_parts\".\"print_part_typeline\", \"magic\".\"print_parts\".\"print_part_text\", \"magic\".\"print_parts\".\"attraction_lights\", \"magic\".\"print_parts\".\"flavor_name\", \"magic\".\"print_parts\".\"flavor_text\", \"magic\".\"print_parts\".\"artist\", \"magic\".\"print_parts\".\"watermark\", \"magic\".\"print_parts\".\"scryfall_illus_id\" from \"magic\".\"cards\" inner join \"magic\".\"card_localizations\" on (\"magic\".\"card_localizations\".\"card_id\" = \"magic\".\"cards\".\"card_id\" and \"magic\".\"card_localizations\".\"version\" = \"magic\".\"cards\".\"version\") inner join \"magic\".\"card_parts\" on (\"magic\".\"card_parts\".\"card_id\" = \"magic\".\"cards\".\"card_id\" and \"magic\".\"card_parts\".\"version\" = \"magic\".\"cards\".\"version\") inner join \"magic\".\"card_part_localizations\" on (\"magic\".\"card_part_localizations\".\"card_id\" = \"magic\".\"card_parts\".\"card_id\" and \"magic\".\"card_part_localizations\".\"version\" = \"magic\".\"card_parts\".\"version\" and \"magic\".\"card_part_localizations\".\"locale\" = \"magic\".\"card_localizations\".\"locale\" and \"magic\".\"card_part_localizations\".\"source\" = \"magic\".\"card_localizations\".\"source\" and \"magic\".\"card_part_localizations\".\"part_index\" = \"magic\".\"card_parts\".\"part_index\") inner join \"magic\".\"prints\" on (\"magic\".\"cards\".\"card_id\" = \"magic\".\"prints\".\"card_id\" and \"magic\".\"cards\".\"version\" = \"magic\".\"prints\".\"version\" and \"magic\".\"card_localizations\".\"source\" = \"magic\".\"prints\".\"source\" and \"magic\".\"prints\".\"lang\" = (\n                CASE\n                    WHEN EXISTS (SELECT 1 FROM \"magic\".\"prints\" WHERE card_id = \"magic\".\"cards\".\"card_id\" AND lang = \"magic\".\"card_localizations\".\"locale\")\n                    THEN \"magic\".\"card_localizations\".\"locale\"\n                    ELSE 'en'\n                END\n            )) inner join \"magic\".\"print_parts\" on (\"magic\".\"cards\".\"card_id\" = \"magic\".\"print_parts\".\"card_id\" and \"magic\".\"cards\".\"version\" = \"magic\".\"print_parts\".\"version\" and \"magic\".\"prints\".\"set\" = \"magic\".\"print_parts\".\"set\" and \"magic\".\"prints\".\"number\" = \"magic\".\"print_parts\".\"number\" and \"magic\".\"prints\".\"lang\" = \"magic\".\"print_parts\".\"lang\" and \"magic\".\"prints\".\"source\" = \"magic\".\"print_parts\".\"source\" and \"magic\".\"card_parts\".\"part_index\" = \"magic\".\"print_parts\".\"part_index\")",
       "with": null,
       "withNoData": null,
       "using": null,
@@ -17944,7 +17712,7 @@
       "schema": "magic"
     },
     {
-      "definition": "select \"magic\".\"prints\".\"card_id\", \"magic\".\"prints\".\"version\", \"magic\".\"prints\".\"set\", \"magic\".\"prints\".\"number\", \"magic\".\"prints\".\"lang\", \"magic\".\"prints\".\"source\", \"magic\".\"print_parts\".\"part_index\", \"magic\".\"prints\".\"print_name\", \"magic\".\"prints\".\"print_typeline\", \"magic\".\"prints\".\"print_text\", \"magic\".\"prints\".\"layout\", \"magic\".\"prints\".\"frame\", \"magic\".\"prints\".\"frame_effects\", \"magic\".\"prints\".\"border_color\", \"magic\".\"prints\".\"card_back\", \"magic\".\"prints\".\"security_stamp\", \"magic\".\"prints\".\"promo_types\", \"magic\".\"prints\".\"rarity\", \"magic\".\"prints\".\"release_date\", \"magic\".\"prints\".\"is_digital\", \"magic\".\"prints\".\"is_promo\", \"magic\".\"prints\".\"is_reprint\", \"magic\".\"prints\".\"finishes\", \"magic\".\"prints\".\"has_high_res_image\", \"magic\".\"prints\".\"image_status\", \"magic\".\"prints\".\"image_updated_at\", \"magic\".\"prints\".\"full_image_type\", \"magic\".\"prints\".\"in_booster\", \"magic\".\"prints\".\"games\", \"magic\".\"prints\".\"preview_date\", \"magic\".\"prints\".\"preview_source\", \"magic\".\"prints\".\"preview_uri\", \"magic\".\"prints\".\"print_tags\", \"magic\".\"prints\".\"variation\", \"magic\".\"prints\".\"variation_of\", \"magic\".\"prints\".\"artist_ids\", \"magic\".\"prints\".\"illustration_id\", \"magic\".\"prints\".\"resource_id\", \"magic\".\"prints\".\"print_scryfall_oracle_id\", \"magic\".\"prints\".\"scryfall_card_id\", \"magic\".\"prints\".\"scryfall_face\", \"magic\".\"prints\".\"scryfall_image_uris\", \"magic\".\"prints\".\"arena_id\", \"magic\".\"prints\".\"mtgo_id\", \"magic\".\"prints\".\"mtgo_foil_id\", \"magic\".\"prints\".\"multiverse_id\", \"magic\".\"prints\".\"tcg_player_id\", \"magic\".\"prints\".\"tcgplayer_etched_id\", \"magic\".\"prints\".\"card_market_id\", \"magic\".\"print_parts\".\"print_part_name\", \"magic\".\"print_parts\".\"print_part_typeline\", \"magic\".\"print_parts\".\"print_part_text\", \"magic\".\"print_parts\".\"attraction_lights\", \"magic\".\"print_parts\".\"flavor_name\", \"magic\".\"print_parts\".\"flavor_text\", \"magic\".\"print_parts\".\"artist\", \"magic\".\"print_parts\".\"watermark\", \"magic\".\"print_parts\".\"scryfall_illus_id\" from \"magic\".\"prints\" inner join \"magic\".\"print_parts\" on (\"magic\".\"prints\".\"card_id\" = \"magic\".\"print_parts\".\"card_id\" and \"magic\".\"prints\".\"version\" = \"magic\".\"print_parts\".\"version\" and \"magic\".\"prints\".\"set\" = \"magic\".\"print_parts\".\"set\" and \"magic\".\"prints\".\"number\" = \"magic\".\"print_parts\".\"number\" and \"magic\".\"prints\".\"lang\" = \"magic\".\"print_parts\".\"lang\" and \"magic\".\"prints\".\"source\" = \"magic\".\"print_parts\".\"source\")",
+      "definition": "select \"magic\".\"prints\".\"card_id\", \"magic\".\"prints\".\"version\", \"magic\".\"prints\".\"set\", \"magic\".\"prints\".\"number\", \"magic\".\"prints\".\"lang\", \"magic\".\"prints\".\"source\", \"magic\".\"print_parts\".\"part_index\", \"magic\".\"prints\".\"print_name\", \"magic\".\"prints\".\"print_typeline\", \"magic\".\"prints\".\"layout\", \"magic\".\"prints\".\"frame\", \"magic\".\"prints\".\"frame_effects\", \"magic\".\"prints\".\"border_color\", \"magic\".\"prints\".\"card_back\", \"magic\".\"prints\".\"security_stamp\", \"magic\".\"prints\".\"promo_types\", \"magic\".\"prints\".\"rarity\", \"magic\".\"prints\".\"release_date\", \"magic\".\"prints\".\"is_digital\", \"magic\".\"prints\".\"is_promo\", \"magic\".\"prints\".\"is_reprint\", \"magic\".\"prints\".\"finishes\", \"magic\".\"prints\".\"image_status\", \"magic\".\"prints\".\"image_info\", \"magic\".\"prints\".\"in_booster\", \"magic\".\"prints\".\"games\", \"magic\".\"prints\".\"preview_date\", \"magic\".\"prints\".\"preview_source\", \"magic\".\"prints\".\"preview_uri\", \"magic\".\"prints\".\"print_tags\", \"magic\".\"prints\".\"variation\", \"magic\".\"prints\".\"variation_of\", \"magic\".\"prints\".\"artist_ids\", \"magic\".\"prints\".\"illustration_id\", \"magic\".\"prints\".\"resource_id\", \"magic\".\"prints\".\"print_scryfall_oracle_id\", \"magic\".\"prints\".\"scryfall_card_id\", \"magic\".\"prints\".\"scryfall_face\", \"magic\".\"prints\".\"arena_id\", \"magic\".\"prints\".\"mtgo_id\", \"magic\".\"prints\".\"mtgo_foil_id\", \"magic\".\"prints\".\"multiverse_id\", \"magic\".\"prints\".\"tcg_player_id\", \"magic\".\"prints\".\"tcgplayer_etched_id\", \"magic\".\"prints\".\"card_market_id\", \"magic\".\"print_parts\".\"print_part_name\", \"magic\".\"print_parts\".\"print_part_typeline\", \"magic\".\"print_parts\".\"print_part_text\", \"magic\".\"print_parts\".\"attraction_lights\", \"magic\".\"print_parts\".\"flavor_name\", \"magic\".\"print_parts\".\"flavor_text\", \"magic\".\"print_parts\".\"artist\", \"magic\".\"print_parts\".\"watermark\", \"magic\".\"print_parts\".\"scryfall_illus_id\" from \"magic\".\"prints\" inner join \"magic\".\"print_parts\" on (\"magic\".\"prints\".\"card_id\" = \"magic\".\"print_parts\".\"card_id\" and \"magic\".\"prints\".\"version\" = \"magic\".\"print_parts\".\"version\" and \"magic\".\"prints\".\"set\" = \"magic\".\"print_parts\".\"set\" and \"magic\".\"prints\".\"number\" = \"magic\".\"print_parts\".\"number\" and \"magic\".\"prints\".\"lang\" = \"magic\".\"print_parts\".\"lang\" and \"magic\".\"prints\".\"source\" = \"magic\".\"print_parts\".\"source\")",
       "with": null,
       "withNoData": null,
       "using": null,
