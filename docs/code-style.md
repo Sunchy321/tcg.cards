@@ -6,7 +6,7 @@ All code comments must be written in English. When editing files, translate any 
 
 When code is not obvious at a glance, add comments that explain the local reasoning, invariants, edge cases, or cross-step dependencies that a reader would otherwise have to recover from design documents, specs, or historical context.
 
-Do not rely on proposals, specs, reviews, plans, PR descriptions, or commit history as the only place where non-obvious implementation intent is explained. The relevant code should remain understandable in place.
+Do not rely on specs, tickets, PR descriptions, or commit history as the only place where non-obvious implementation intent is explained. The relevant code should remain understandable in place.
 
 Keep these comments focused and high-signal. Explain why the code is shaped this way or what must remain true, not line-by-line mechanics that are already obvious from the code itself.
 
@@ -44,7 +44,7 @@ Workspace app names under `apps/` must use prefixes that match the deployment sh
 - `app-` for applications deployed as installable apps
 - `service-` for non-website services
 
-Use these prefixes consistently in new workspace names, proposal examples, specs, and implementation plans.
+Use these prefixes consistently in new workspace names, specs, and tickets.
 
 ## Zod
 
