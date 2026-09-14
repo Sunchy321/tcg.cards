@@ -2,7 +2,7 @@ import { slugifyName } from '@tcg-cards/shared/magic/slug';
 
 import { Card, CardLocalization, CardPart, CardPartLocalization } from '@tcg-cards/db/schema/shared/magic/card';
 import { Print, PrintPart } from '@tcg-cards/db/schema/shared/magic/print';
-import { CardUnifiedLocalization, ProjectionReview } from '@tcg-cards/db/schema/local/magic';
+import { CardLocalizationAuthority, ProjectionReview } from '@tcg-cards/db/schema/local/magic';
 
 /**
  * Pure projection of one Magic "unit" into its fact-table base rows.
@@ -138,7 +138,7 @@ export interface PrintDraft {
   faces: PrintFaceDraft[];
 }
 
-/** mtgch oracle-level community translation surfaces, aligned per oracle face (unified, §S4). */
+/** MTGCH community Simplified-Chinese surfaces, aligned per oracle face (§S4). */
 export interface MtgchOracleDraft {
   faces: LocalizedFaceDraft[];
 }
@@ -183,8 +183,8 @@ export interface ProjectCardResult {
   cardPartLocalizations: (typeof CardPartLocalization)['$inferInsert'][];
   prints:                (typeof Print)['$inferInsert'][];
   printParts:            (typeof PrintPart)['$inferInsert'][];
-  unified:               (typeof CardUnifiedLocalization)['$inferInsert'][];
-  /** A-class review rows when a folk translation overrides an official one. */
+  authorities:           (typeof CardLocalizationAuthority)['$inferInsert'][];
+  /** Audit rows recording where a community translation replaced the print surface. */
   reviews:               (typeof ProjectionReview)['$inferInsert'][];
 }
 
@@ -423,14 +423,68 @@ function projectPrints(assembled: AssembledCard): {
 }
 
 // ---------------------------------------------------------------------------
-// unified (§S4)
+// Localization authority (§S4)
 // ---------------------------------------------------------------------------
 
-/** Face separator inside a unified whole-card body text. */
-const FACE_SEPARATOR = '-'.repeat(20);
+/** Face separator inside a joined whole-card body text. */
+const TEXT_FACE_SEPARATOR = `\n${'-'.repeat(20)}\n`;
+/** Face separator inside a joined whole-card name or type line. */
+const LINE_FACE_SEPARATOR = ' // ';
+/** The locale the MTGCH community source translates. */
+const MTGCH_LOCALE = 'zhs';
+/** The localization role a community-supplied row carries. */
+const MTGCH_SOURCE = 'mtgch';
 
-function joinBody(texts: string[]): string {
-  return texts.filter(t => t !== '').join(`\n${FACE_SEPARATOR}\n`);
+/**
+ * Join per-face values into the whole-card form.
+ *
+ * Lossless on purpose: every face contributes exactly one segment, empty faces
+ * included, so splitting the stored value back into faces is exact. Dropping
+ * empty segments — what a join of the non-empty parts would do — collapses a
+ * two-face card whose first face is empty into a single segment, and the split
+ * would then land the surviving text on the wrong face. Neither separator occurs
+ * in the source data, so the encoding stays unambiguous.
+ */
+function joinFaces(values: string[], separator: string): string {
+  return values.join(separator);
+}
+
+/** Split a joined whole-card value back into its per-face segments. */
+function splitFaces(value: string, separator: string): string[] {
+  return value.split(separator);
+}
+
+/**
+ * Whether the unit's MTGCH translation may be adopted at all.
+ *
+ * A translation is adopted whole or not at all: it is dropped entirely rather
+ * than filled in field by field. A face may only be missing a value the card
+ * does not have in the first place — the empty rules text of a vanilla creature
+ * — because then there is nothing to translate, and the row still carries the
+ * translated name. A value missing where the card does have one disqualifies the
+ * whole translation. Machine translation counts as usable (`*_source` is 'gpt'
+ * for 166 oracle rows); only a missing or empty text where one was to be
+ * expected disqualifies.
+ *
+ * The dataset also grades its translations in `mtgch_zhs_oracle.name_stage`,
+ * `type_stage` and `text_stage`, but those numbers are undocumented (the dataset
+ * ships no manifest and nothing in this repository defines them) and they do not
+ * line up with one another: `name_stage` 0 always means machine translation,
+ * `text_stage` 0 means either no text or machine translation, and `type_stage` 0
+ * marks nine un-set cards whose type line is deliberately half-translated.
+ * Adoption therefore reads the values themselves and ignores the stage numbers.
+ */
+function adoptableMtgchFaces(assembled: AssembledCard): LocalizedFaceDraft[] | null {
+  const faces = assembled.mtgch?.faces;
+  if (faces == null || faces.length !== assembled.faces.length) return null;
+  const present = (value: string | null | undefined) => value != null && value !== '';
+  const complete = faces.every((face, i) => {
+    const oracle = assembled.faces[i]!;
+    return (present(face.name) || !present(oracle.name))
+      && (present(face.typeline) || !present(oracle.typeLine))
+      && (present(face.text) || !present(oracle.oracleText));
+  });
+  return complete ? faces : null;
 }
 
 /** Resolve per-face localized content (null falls back to the English oracle face). */
@@ -446,24 +500,36 @@ function resolveFaces(assembled: AssembledCard, localized?: LocalizedFaceDraft[]
 }
 
 /**
- * Build the unified canonical rows (magic_data.card_unified_localizations).
+ * Build the localization authority rows (magic_data.card_localization_authorities).
  *
- * English is never stored here (its canonical text is the oracle text). For
- * zhs the folk (mtgch) translation wins when present; when an official print
- * surface also exists and its assembled body differs, an A-class review row is
- * emitted for later approval/audit. Other locales are stored only when an
- * official print surface exists, with its provenance.
+ * One row per (card, version, locale, source), and at most one row per
+ * (card, locale): `source` names the role the row plays.
+ *   ''       official standard row — the oracle-aligned text in the official
+ *            style. For zhs that is the community translation, which translates
+ *            the oracle text in the official style; in every other language the
+ *            newest print's surface stands in until an oracle-aligned source
+ *            exists.
+ *   'mtgch'  folk substitute row — present only when no official standard row
+ *            can be formed, most often because the card has no official name in
+ *            that language.
+ *
+ * English is never stored (its text of record is the oracle text), and the print
+ * that established the text is recorded only when the text really came from a
+ * print: a row that uses MTGCH is overwritten by MTGCH whatever print it anchors
+ * to, so it records no print. Where both the print surface and the community
+ * translation exist and their bodies differ, an audit row is emitted — the
+ * authority keeps the community text.
  */
-function buildUnified(assembled: AssembledCard): {
-  unified: (typeof CardUnifiedLocalization)['$inferInsert'][];
-  reviews: (typeof ProjectionReview)['$inferInsert'][];
+function buildAuthorities(assembled: AssembledCard): {
+  authorities: (typeof CardLocalizationAuthority)['$inferInsert'][];
+  reviews:     (typeof ProjectionReview)['$inferInsert'][];
 } {
   const cardId = assembled.cardId;
   const version = '';
-  const unified: (typeof CardUnifiedLocalization)['$inferInsert'][] = [];
+  const authorities: (typeof CardLocalizationAuthority)['$inferInsert'][] = [];
   const reviews: (typeof ProjectionReview)['$inferInsert'][] = [];
 
-  // Official surfaces keyed by locale (source='', non-English).
+  // Print surfaces keyed by locale (source='', non-English, newest print).
   const official = new Map<string, CardLocalizationSurface>();
   for (const s of assembled.localizations ?? []) {
     if (s.source === '' && s.locale !== 'en' && !official.has(s.locale)) {
@@ -471,56 +537,105 @@ function buildUnified(assembled: AssembledCard): {
     }
   }
 
-  const folkFaces = assembled.mtgch?.faces;
+  const folkFaces = adoptableMtgchFaces(assembled);
   const locales = new Set(official.keys());
-  if (folkFaces != null && folkFaces.length > 0) locales.add('zhs');
+  if (folkFaces != null) locales.add(MTGCH_LOCALE);
 
   for (const locale of locales) {
     const off = official.get(locale);
     const offResolved = off != null ? resolveFaces(assembled, off.faces) : null;
-    const folkResolved = locale === 'zhs' && folkFaces != null ? resolveFaces(assembled, folkFaces) : null;
+    const folkResolved = locale === MTGCH_LOCALE && folkFaces != null ? resolveFaces(assembled, folkFaces) : null;
 
     let source: string;
     let chosen: { name: string, typeline: string, text: string }[];
-    if (folkResolved != null) {
-      source = 'mtgch';
-      chosen = folkResolved;
-      if (offResolved != null) {
-        const offBody = joinBody(offResolved.map(f => f.text));
-        const folkBody = joinBody(folkResolved.map(f => f.text));
+    // The provenance triple is written only when a print really established the
+    // text; a row carrying community text records no print.
+    let provenance: CardLocalizationSurface['provenance'] = null;
+
+    if (offResolved != null) {
+      source = '';
+      chosen = folkResolved ?? offResolved;
+      provenance = folkResolved == null ? off?.provenance ?? null : null;
+      if (folkResolved != null) {
+        const offBody = joinFaces(offResolved.map(f => f.text), TEXT_FACE_SEPARATOR);
+        const folkBody = joinFaces(folkResolved.map(f => f.text), TEXT_FACE_SEPARATOR);
         if (offBody !== folkBody) {
           reviews.push({
             kind:    'card_field_overwrite',
-            subject: { cardId, version, locale, fieldPath: 'text' },
+            subject: { cardId, version, locale, source: MTGCH_SOURCE, fieldPath: 'text' },
             payload: { oldValue: offBody, newValue: folkBody },
             status:  'pending',
           });
         }
       }
-    } else if (offResolved != null) {
-      source = '';
-      chosen = offResolved;
+    } else if (folkResolved != null) {
+      source = MTGCH_SOURCE;
+      chosen = folkResolved;
     } else {
       continue;
     }
 
-    const prov = source === '' ? off?.provenance ?? null : null;
-    const row: (typeof CardUnifiedLocalization)['$inferInsert'] = {
+    authorities.push({
       cardId,
       version,
-      locale:   locale as (typeof CardUnifiedLocalization.$inferInsert)['locale'],
+      locale:   locale as (typeof CardLocalizationAuthority.$inferInsert)['locale'],
       source,
-      name:     chosen.map(f => f.name).join(' // '),
-      typeline: chosen.map(f => f.typeline).join(' // '),
-      text:     joinBody(chosen.map(f => f.text)),
-      ...(prov != null
-        ? { sourceSet: prov.set, sourceNumber: prov.number, sourceReleaseDate: prov.releasedAt }
+      name:      joinFaces(chosen.map(f => f.name), LINE_FACE_SEPARATOR),
+      typeline:  joinFaces(chosen.map(f => f.typeline), LINE_FACE_SEPARATOR),
+      text:      joinFaces(chosen.map(f => f.text), TEXT_FACE_SEPARATOR),
+      partCount: assembled.faces.length,
+      ...(provenance != null
+        ? { sourceSet: provenance.set, sourceNumber: provenance.number, sourceReleaseDate: provenance.releasedAt }
         : {}),
-    };
-    unified.push(row);
+    });
   }
 
-  return { unified, reviews };
+  return { authorities, reviews };
+}
+
+/**
+ * Derive one authority row's display rows.
+ *
+ * The authority is the text of record; `card_localizations` and
+ * `card_part_localizations` are its materialised projection, never a second
+ * source of text. Kept as a standalone pure function so the derivation can be
+ * re-run on its own if an authority row is ever edited outside projection, and
+ * so the split-back is covered by the offline fixtures.
+ */
+export function deriveLocalizations(
+  authority: (typeof CardLocalizationAuthority)['$inferInsert'],
+): {
+  cardLocalization:      (typeof CardLocalization)['$inferInsert'];
+  cardPartLocalizations: (typeof CardPartLocalization)['$inferInsert'][];
+} {
+  const names = splitFaces(authority.name, LINE_FACE_SEPARATOR);
+  const typelines = splitFaces(authority.typeline, LINE_FACE_SEPARATOR);
+  const texts = splitFaces(authority.text, TEXT_FACE_SEPARATOR);
+
+  const cardLocalization: (typeof CardLocalization)['$inferInsert'] = {
+    cardId:   authority.cardId,
+    version:  authority.version,
+    locale:   authority.locale,
+    source:   authority.source,
+    name:     authority.name,
+    typeline: authority.typeline,
+  };
+
+  const cardPartLocalizations: (typeof CardPartLocalization)['$inferInsert'][] = Array.from(
+    { length: authority.partCount },
+    (_, partIndex) => ({
+      cardId:   authority.cardId,
+      version:  authority.version,
+      locale:   authority.locale,
+      source:   authority.source,
+      partIndex,
+      name:     names[partIndex] ?? '',
+      typeline: typelines[partIndex] ?? '',
+      text:     texts[partIndex] ?? '',
+    }),
+  );
+
+  return { cardLocalization, cardPartLocalizations };
 }
 
 // ---------------------------------------------------------------------------
@@ -530,10 +645,10 @@ function buildUnified(assembled: AssembledCard): {
 /**
  * Project one unit's assembled material into its base (version='') fact rows.
  *
- * Implements: cards + card_parts (English oracle), card_localizations +
- * card_part_localizations (English + non-English surfaces), official
- * prints/print_parts (§S3), and the unified canonical rows + A-class review
- * rows for folk-overrides-official cases (§S4).
+ * Implements: cards + card_parts (English oracle), the localization authority
+ * rows (§S4) and the display rows derived from them, official prints/print_parts
+ * (§S3), and the audit rows recording where a community translation replaced the
+ * print surface.
  */
 export function projectCard(assembled: AssembledCard): ProjectCardResult {
   const cardId = assembled.cardId;
@@ -606,8 +721,8 @@ export function projectCard(assembled: AssembledCard): ProjectCardResult {
     version,
     locale:   'en',
     source:   '',
-    name:     enFaces.map(f => f.name).join(' // '),
-    typeline: enFaces.map(f => f.typeline).join(' // '),
+    name:     joinFaces(enFaces.map(f => f.name), LINE_FACE_SEPARATOR),
+    typeline: joinFaces(enFaces.map(f => f.typeline), LINE_FACE_SEPARATOR),
   });
   enFaces.forEach((f, i) => {
     cardPartLocalizations.push({
@@ -617,37 +732,19 @@ export function projectCard(assembled: AssembledCard): ProjectCardResult {
     });
   });
 
-  // Non-English surfaces: per-face fields fall back to the English oracle face.
-  for (const surface of assembled.localizations ?? []) {
-    const resolved = faces.map((face, i) => {
-      const lf = surface.faces[i];
-      return {
-        name:     lf?.name ?? face.name,
-        typeline: lf?.typeline ?? face.typeLine ?? '',
-        text:     purifyText(lf?.text ?? face.oracleText ?? ''),
-      };
-    });
-    const locale = surface.locale as (typeof CardLocalization.$inferInsert)['locale'];
-    cardLocalizations.push({
-      cardId, version,
-      locale:   locale, source:   surface.source,
-      name:     resolved.map(f => f.name).join(' // '),
-      typeline: resolved.map(f => f.typeline).join(' // '),
-    });
-    resolved.forEach((f, i) => {
-      cardPartLocalizations.push({
-        cardId, version,
-        locale:    locale, source:    surface.source, partIndex: i,
-        name:      f.name, typeline:  f.typeline, text:      f.text,
-      });
-    });
+  // --- Localization authority + the display rows derived from it (§S4) ---
+  // Non-English display rows never come from the assembly directly: the
+  // authority row is the text of record, and these are its materialised
+  // projection, so the two cannot drift apart.
+  const { authorities, reviews } = buildAuthorities(assembled);
+  for (const authority of authorities) {
+    const derived = deriveLocalizations(authority);
+    cardLocalizations.push(derived.cardLocalization);
+    cardPartLocalizations.push(...derived.cardPartLocalizations);
   }
 
   // --- Official prints (prints / print_parts) ---
   const { prints, printParts } = projectPrints(assembled);
-
-  // --- unified canonical rows (§S4) ---
-  const { unified, reviews } = buildUnified(assembled);
 
   return {
     cards: [cardRow],
@@ -656,7 +753,7 @@ export function projectCard(assembled: AssembledCard): ProjectCardResult {
     cardPartLocalizations,
     prints,
     printParts,
-    unified,
+    authorities,
     reviews,
   };
 }

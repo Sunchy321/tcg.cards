@@ -191,7 +191,10 @@ export const CardPrintView = schema.view('card_print_view').as(qb => {
     .innerJoin(Print, and(
       eq(Card.cardId, Print.cardId),
       eq(Card.version, Print.version),
-      eq(CardLocalization.source, Print.source),
+      // Resolved by locale, never by source: a localization row carries the role
+      // it plays, and a folk substitute row has no print of its own, so it
+      // anchors to this locale's print — falling back to English when the card
+      // has no print in that language.
       sql`${Print.lang} = (
                 CASE
                     WHEN EXISTS (SELECT 1 FROM ${Print} WHERE card_id = ${Card.cardId} AND lang = ${CardLocalization.locale})
@@ -262,7 +265,10 @@ export const CardEditorView = schema.view('card_editor_view').as(qb => {
     .innerJoin(Print, and(
       eq(Card.cardId, Print.cardId),
       eq(Card.version, Print.version),
-      eq(CardLocalization.source, Print.source),
+      // Resolved by locale, never by source: a localization row carries the role
+      // it plays, and a folk substitute row has no print of its own, so it
+      // anchors to this locale's print — falling back to English when the card
+      // has no print in that language.
       sql`${Print.lang} = (
                 CASE
                     WHEN EXISTS (SELECT 1 FROM ${Print} WHERE card_id = ${Card.cardId} AND lang = ${CardLocalization.locale})

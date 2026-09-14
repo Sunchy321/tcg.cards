@@ -4,7 +4,7 @@ export * from './data/mtgch';
 export * from './data/mtgjson';
 export * from './data/scryfall';
 export * from './slug-annotation';
-export * from './unified';
+export * from './localization-authority';
 export * from './document';
 export * from './field-sync';
 export * from './sync';

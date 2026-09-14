@@ -28,9 +28,10 @@ const APPLY_CHUNK_SIZE = 1000;
 
 // ── Table registry ──
 
-/** The six magic fact tables published as one card_data surface. Unified
- * localization is NOT published: it is projection-side annotation recording
- * how the unified facts were established, not a fact table itself. */
+/** The six magic fact tables published as one card_data surface. The
+ * localization authority is NOT published: it is projection-side annotation
+ * recording where the published localization text came from, not a fact table
+ * itself. */
 export const PUBLISH_TABLES = [
   'cards',
   'card_parts',

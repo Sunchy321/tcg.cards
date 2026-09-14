@@ -1,0 +1,131 @@
+{
+  "cards": [
+    {
+      "cardId": "road-of-return",
+      "version": "",
+      "partCount": 1,
+      "name": "Road of Return",
+      "typeline": "Sorcery",
+      "manaValue": 2,
+      "colorIdentity": "G",
+      "keywords": [
+        "entwine"
+      ],
+      "counters": [],
+      "producibleMana": null,
+      "category": "default",
+      "tags": [],
+      "legalities": {
+        "tlr": "legal",
+        "duelcommander": "legal",
+        "brawl": "unavailable",
+        "penny": "unavailable",
+        "predh": "unavailable",
+        "future": "unavailable",
+        "legacy": "legal",
+        "modern": "unavailable",
+        "pauper": "unavailable",
+        "alchemy": "unavailable",
+        "pioneer": "unavailable",
+        "vintage": "legal",
+        "historic": "unavailable",
+        "standard": "unavailable",
+        "timeless": "unavailable",
+        "commander": "legal",
+        "gladiator": "unavailable",
+        "oldschool": "unavailable",
+        "premodern": "unavailable",
+        "oathbreaker": "legal",
+        "standard_brawl": "unavailable",
+        "pauper_commander": "unavailable",
+        "competitivebrawl": "unavailable"
+      },
+      "scryfallOracleId": [
+        "0007c283-5b7a-4c00-9ca1-b455c8dff8c3"
+      ]
+    }
+  ],
+  "cardParts": [
+    {
+      "cardId": "road-of-return",
+      "version": "",
+      "partIndex": 0,
+      "name": "Road of Return",
+      "typeline": "Sorcery",
+      "text": "Choose one —\n• Return target permanent card from your graveyard to your hand.\n• Put your commander into your hand from the command zone.\nEntwine {2} (Choose both if you pay the entwine cost.)",
+      "cost": [
+        "G",
+        "G"
+      ],
+      "manaValue": 2,
+      "color": "G",
+      "colorIndicator": null,
+      "typeSuper": null,
+      "typeMain": [
+        "sorcery"
+      ],
+      "typeSub": null,
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    }
+  ],
+  "cardLocalizations": [
+    {
+      "cardId": "road-of-return",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "name": "Road of Return",
+      "typeline": "Sorcery"
+    },
+    {
+      "cardId": "road-of-return",
+      "version": "",
+      "locale": "zhs",
+      "source": "mtgch",
+      "name": "归返之路",
+      "typeline": "法术"
+    }
+  ],
+  "cardPartLocalizations": [
+    {
+      "cardId": "road-of-return",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "Road of Return",
+      "typeline": "Sorcery",
+      "text": "Choose one —\n• Return target permanent card from your graveyard to your hand.\n• Put your commander into your hand from the command zone.\nEntwine {2} (Choose both if you pay the entwine cost.)"
+    },
+    {
+      "cardId": "road-of-return",
+      "version": "",
+      "locale": "zhs",
+      "source": "mtgch",
+      "partIndex": 0,
+      "name": "归返之路",
+      "typeline": "法术",
+      "text": "选择一项～\n•将目标永久物牌从你的坟墓场移回你手上。\n•将你的指挥官从统帅区置于你手上。\n打包{2}（若你支付打包费用，则两项都选。）"
+    }
+  ],
+  "prints": [],
+  "printParts": [],
+  "authorities": [
+    {
+      "cardId": "road-of-return",
+      "version": "",
+      "locale": "zhs",
+      "source": "mtgch",
+      "name": "归返之路",
+      "typeline": "法术",
+      "text": "选择一项～\n•将目标永久物牌从你的坟墓场移回你手上。\n•将你的指挥官从统帅区置于你手上。\n打包{2}（若你支付打包费用，则两项都选。）",
+      "partCount": 1
+    }
+  ],
+  "reviews": []
+}

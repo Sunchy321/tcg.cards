@@ -340,7 +340,7 @@ const reviewItem = z.strictObject({
   members: z.array(slugConflictMember).optional(),
 });
 
-/** List all pending projection reviews (any kind) for the unified review UI. */
+/** List all pending projection reviews (any kind) for the shared review UI. */
 const reviewList = os
   .output(z.strictObject({ items: z.array(reviewItem) }))
   .handler(async () => {

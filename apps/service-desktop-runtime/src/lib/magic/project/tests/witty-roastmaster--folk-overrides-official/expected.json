@@ -91,7 +91,7 @@
       "locale": "zhs",
       "source": "",
       "name": "诙谐损言师",
-      "typeline": "生物 ～魔鬼／市民"
+      "typeline": "生物～魔鬼／市民"
     }
   ],
   "cardPartLocalizations": [
@@ -112,8 +112,8 @@
       "source": "",
       "partIndex": 0,
       "name": "诙谐损言师",
-      "typeline": "生物 ～魔鬼／市民",
-      "text": "联手～每当另一个生物在你的操控下进战场时，诙谐损言师向每位对手各造成1点伤害。"
+      "typeline": "生物～魔鬼／市民",
+      "text": "联手～每当另一个由你操控的生物进场时，此生物向每位对手各造成1点伤害。"
     }
   ],
   "prints": [
@@ -195,15 +195,16 @@
       ]
     }
   ],
-  "unified": [
+  "authorities": [
     {
       "cardId": "witty-roastmaster",
       "version": "",
       "locale": "zhs",
-      "source": "mtgch",
+      "source": "",
       "name": "诙谐损言师",
       "typeline": "生物～魔鬼／市民",
-      "text": "联手～每当另一个由你操控的生物进场时，此生物向每位对手各造成1点伤害。"
+      "text": "联手～每当另一个由你操控的生物进场时，此生物向每位对手各造成1点伤害。",
+      "partCount": 1
     }
   ],
   "reviews": [
@@ -213,6 +214,7 @@
         "cardId": "witty-roastmaster",
         "version": "",
         "locale": "zhs",
+        "source": "mtgch",
         "fieldPath": "text"
       },
       "payload": {

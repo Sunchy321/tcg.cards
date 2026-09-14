@@ -97,19 +97,19 @@ export const defense = c
 export const name = c
   .text
   .alt('n')
-  .mod({ oracle: 'on', unified: 'un', printed: 'pn' })
+  .mod({ oracle: 'on', localized: 'ln', printed: 'pn' })
   .done();
 
 export const type = c
   .text
   .alt('t')
-  .mod({ oracle: 'ot', unified: 'ut', printed: 'pt' })
+  .mod({ oracle: 'ot', localized: 'lt', printed: 'pt' })
   .done();
 
 export const text = c
   .text
   .alt('x')
-  .mod({ oracle: 'ox', unified: 'ux', printed: 'px' })
+  .mod({ oracle: 'ox', localized: 'lx', printed: 'px' })
   .done();
 
 export const oracle = c

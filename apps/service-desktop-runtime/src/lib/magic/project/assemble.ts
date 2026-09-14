@@ -222,6 +222,49 @@ function localizedFaceAt(row: CardRow, faceIndex: number): LocalizedFaceDraft {
 }
 
 /**
+ * Normalize one MTGCH translation value for projection.
+ *
+ * The dataset escapes newlines as `\\n` — two literal backslashes followed by
+ * "n", never one — and marks a missing translation with an empty string as well
+ * as with NULL. 20,374 of its 34,330 non-empty oracle texts carry the escape and
+ * none carries a real newline, so both are cleaned up here, at the source, and
+ * the projection stores neither.
+ */
+function normalizeMtgchText(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const text = value.replace(/\\\\n/g, '\n');
+  return text === '' ? null : text;
+}
+
+/** One raw MTGCH oracle row, as stored in the cache. */
+type MtgchRow = (typeof MtgchZhsOracle)['$inferSelect'];
+
+/**
+ * Order MTGCH rows so that row i belongs to oracle face i.
+ *
+ * The cache has no face-order column and holds one row per face in whatever
+ * order the import wrote them, so position is not a reliable key: for
+ * `Beluna's Gatekeeper // Entry Denied` the community rows arrive
+ * adventure-first while the Scryfall faces are creature-first, and both rows
+ * carry the same timestamp, so nothing distinguishes them. Each row does carry
+ * the English face name, so faces are matched by name instead. If any row fails
+ * to match a face, or two rows claim the same one, the rows keep their stored
+ * order — the behaviour before name matching, and the only option left for the
+ * few rows whose names do not line up.
+ */
+function alignMtgchFaces(rows: MtgchRow[], faces: OracleFaceDraft[]): MtgchRow[] {
+  if (rows.length < 2) return rows;
+  const indexByName = new Map(faces.map((face, i) => [face.name, i]));
+  const ordered: (MtgchRow | undefined)[] = new Array(rows.length);
+  for (const row of rows) {
+    const index = row.name != null ? indexByName.get(row.name) : undefined;
+    if (index == null || ordered[index] != null) return rows;
+    ordered[index] = row;
+  }
+  return ordered as MtgchRow[];
+}
+
+/**
  * Reversible rows that reference `oracleId` become extra prints of that card.
  * A reversible physical object prints the referenced card on one or both of its
  * faces; each contributing face keeps a distinct print with the collector
@@ -471,11 +514,15 @@ export async function assembleUnits(database: ProjectDb, oracleId: string, rever
   const mtgchRows = await database.select().from(MtgchZhsOracle)
     .where(eq(MtgchZhsOracle.oracleId, oracleId));
   const faces = oracleFaces(en);
-  const mtgchFaces = mtgchRows.length === faces.length && mtgchRows.length > 0
-    ? mtgchRows.map(r => ({
-      name:     r.translatedName ?? null,
-      typeline: r.translatedType ?? null,
-      text:     r.translatedText ?? null,
+  // Both MTGCH values are normalized here (see normalizeMtgchText).
+  const aligned = mtgchRows.length === faces.length && mtgchRows.length > 0
+    ? alignMtgchFaces(mtgchRows, faces)
+    : [];
+  const mtgchFaces = aligned.length > 0
+    ? aligned.map(r => ({
+      name:     normalizeMtgchText(r.translatedName),
+      typeline: normalizeMtgchText(r.translatedType),
+      text:     normalizeMtgchText(r.translatedText),
     }))
     : null;
 

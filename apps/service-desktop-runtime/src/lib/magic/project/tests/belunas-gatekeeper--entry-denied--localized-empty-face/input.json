@@ -1,0 +1,190 @@
+{
+  "unit": "52fd9309-b849-419a-8d19-5882c00a72b4",
+  "cardId": "belunas-gatekeeper--entry-denied",
+  "oracleId": "52fd9309-b849-419a-8d19-5882c00a72b4",
+  "layout": "adventure",
+  "setName": "Wilds of Eldraine",
+  "cmc": 6,
+  "colorIdentity": [
+    "U"
+  ],
+  "keywords": [],
+  "producedMana": null,
+  "reserved": false,
+  "contentWarning": null,
+  "legalities": {
+    "tlr": "not_legal",
+    "duel": "legal",
+    "brawl": "legal",
+    "penny": "not_legal",
+    "predh": "not_legal",
+    "future": "legal",
+    "legacy": "legal",
+    "modern": "legal",
+    "pauper": "legal",
+    "alchemy": "not_legal",
+    "pioneer": "legal",
+    "vintage": "legal",
+    "historic": "legal",
+    "standard": "legal",
+    "timeless": "legal",
+    "commander": "legal",
+    "gladiator": "legal",
+    "oldschool": "not_legal",
+    "premodern": "not_legal",
+    "oathbreaker": "legal",
+    "standardbrawl": "legal",
+    "paupercommander": "legal",
+    "competitivebrawl": "legal"
+  },
+  "faces": [
+    {
+      "name": "Beluna's Gatekeeper",
+      "typeLine": "Creature — Giant Soldier",
+      "oracleText": "",
+      "manaCost": "{5}{U}",
+      "cmc": null,
+      "colors": null,
+      "colorIndicator": null,
+      "power": "6",
+      "toughness": "5",
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    },
+    {
+      "name": "Entry Denied",
+      "typeLine": "Sorcery — Adventure",
+      "oracleText": "Return target creature you don't control with mana value 3 or less to its owner's hand. (Then exile this card. You may cast the creature later from exile.)",
+      "manaCost": "{1}{U}",
+      "cmc": null,
+      "colors": null,
+      "colorIndicator": null,
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    }
+  ],
+  "localizations": [
+    {
+      "locale": "zhs",
+      "source": "",
+      "faces": [
+        {
+          "name": "Beluna's Gatekeeper",
+          "typeline": "生物 — 巨人／士兵",
+          "text": null
+        },
+        {
+          "name": "禁止入内",
+          "typeline": "法术～历险",
+          "text": "将目标不由你操控且法术力值等于或小于3的生物移回其拥有者手上。（然后放逐此牌。之后你还可以从放逐区施放该生物。）"
+        }
+      ],
+      "provenance": {
+        "set": "woe",
+        "number": "43",
+        "releasedAt": "2023-09-08"
+      }
+    }
+  ],
+  "prints": [
+    {
+      "lang": "zhs",
+      "set": "woe",
+      "number": "43",
+      "releasedAt": "2023-09-08",
+      "layout": "adventure",
+      "frame": "2015",
+      "frameEffects": null,
+      "borderColor": "black",
+      "cardBackId": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "securityStamp": null,
+      "promoTypes": null,
+      "rarity": "common",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": false,
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "imageStatus": "lowres",
+      "inBooster": true,
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "fullArt": false,
+      "oversized": false,
+      "storySpotlight": false,
+      "textless": false,
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "dcd3cf0d-67b7-4b73-8e62-1d318bf6209c"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "52fd9309-b849-419a-8d19-5882c00a72b4",
+      "scryfallCardId": "7f13a44a-0065-4195-9008-a3e968222bf0",
+      "scryfallFace": null,
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseIds": [
+        631371
+      ],
+      "tcgPlayerId": null,
+      "tcgplayerEtchedId": null,
+      "cardMarketId": null,
+      "faces": [
+        {
+          "typeLine": "Creature — Giant Soldier",
+          "printedName": "Beluna's Gatekeeper",
+          "printedTypeLine": "生物 — 巨人／士兵",
+          "printedText": null,
+          "flavorName": null,
+          "flavorText": "「小家伙，你又为什么会觉得巨风女王想要接见*你*呢？」",
+          "artist": "Kai Carpenter",
+          "watermark": null,
+          "illustrationId": "cb3e9af1-8870-419f-a033-bb7a2a67a9c3",
+          "attractionLights": null
+        },
+        {
+          "typeLine": "Sorcery — Adventure",
+          "printedName": "禁止入内",
+          "printedTypeLine": "法术～历险",
+          "printedText": "将目标不由你操控且法术力值等于或小于3的生物移回其拥有者手上。（然后放逐此牌。之后你还可以从放逐区施放该生物。）",
+          "flavorName": null,
+          "flavorText": null,
+          "artist": "Kai Carpenter",
+          "watermark": null,
+          "illustrationId": null,
+          "attractionLights": null
+        }
+      ]
+    }
+  ],
+  "mtgch": {
+    "faces": [
+      {
+        "name": "贝伦娜的门卫",
+        "typeline": "生物～巨人／士兵",
+        "text": null
+      },
+      {
+        "name": "禁止入内",
+        "typeline": "法术～历险",
+        "text": "将目标不由你操控且法术力值等于或小于3的生物移回其拥有者手上。（然后放逐此牌。之后你还可以从放逐区施放该生物。）"
+      }
+    ]
+  }
+}

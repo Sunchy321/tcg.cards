@@ -126,11 +126,11 @@
               </UButton>
               <UButton
                 size="xs"
-                :variant="textMode === 'unified' ? 'solid' : 'outline'"
+                :variant="textMode === 'localized' ? 'solid' : 'outline'"
                 class="rounded-none border-x-0"
-                @click="textMode = 'unified'"
+                @click="textMode = 'localized'"
               >
-                Unified
+                Localized
               </UButton>
               <UButton
                 size="xs"
@@ -387,16 +387,16 @@ const { data } = await useAsyncData(
 
 useTitle(() => {
   if (!data.value) return '';
-  const unifiedName = data.value.cardPartLocalization.name;
+  const localizedName = data.value.cardPartLocalization.name;
   const oracleName = data.value.cardPart.name;
-  return unifiedName === oracleName
-    ? unifiedName
-    : `${unifiedName} (${oracleName})`;
+  return localizedName === oracleName
+    ? localizedName
+    : `${localizedName} (${oracleName})`;
 });
 
-type TextMode = 'oracle' | 'unified' | 'printed';
+type TextMode = 'oracle' | 'localized' | 'printed';
 
-const textMode = ref<TextMode>('unified');
+const textMode = ref<TextMode>('localized');
 
 // ─── Part switching ───────────────────────────────────────────────────────────
 
@@ -467,7 +467,7 @@ const displayPart = computed(() => {
       text:     data.value.printPart.text,
     };
   }
-  // unified (default)
+  // localized (default)
   return {
     name:     stripArena(data.value.cardPartLocalization.name),
     typeline: data.value.cardPartLocalization.typeline,

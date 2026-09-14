@@ -1,0 +1,275 @@
+{
+  "cards": [
+    {
+      "cardId": "belunas-gatekeeper--entry-denied",
+      "version": "",
+      "partCount": 2,
+      "name": "Beluna's Gatekeeper // Entry Denied",
+      "typeline": "Creature — Giant Soldier // Sorcery — Adventure",
+      "manaValue": 6,
+      "colorIdentity": "U",
+      "keywords": [],
+      "counters": [],
+      "producibleMana": null,
+      "category": "default",
+      "tags": [],
+      "legalities": {
+        "tlr": "unavailable",
+        "duelcommander": "legal",
+        "brawl": "legal",
+        "penny": "unavailable",
+        "predh": "unavailable",
+        "future": "legal",
+        "legacy": "legal",
+        "modern": "legal",
+        "pauper": "legal",
+        "alchemy": "unavailable",
+        "pioneer": "legal",
+        "vintage": "legal",
+        "historic": "legal",
+        "standard": "legal",
+        "timeless": "legal",
+        "commander": "legal",
+        "gladiator": "legal",
+        "oldschool": "unavailable",
+        "premodern": "unavailable",
+        "oathbreaker": "legal",
+        "standard_brawl": "legal",
+        "pauper_commander": "legal",
+        "competitivebrawl": "legal"
+      },
+      "scryfallOracleId": [
+        "52fd9309-b849-419a-8d19-5882c00a72b4"
+      ]
+    }
+  ],
+  "cardParts": [
+    {
+      "cardId": "belunas-gatekeeper--entry-denied",
+      "version": "",
+      "partIndex": 0,
+      "name": "Beluna's Gatekeeper",
+      "typeline": "Creature — Giant Soldier",
+      "text": "",
+      "cost": [
+        "5",
+        "U"
+      ],
+      "manaValue": null,
+      "color": null,
+      "colorIndicator": null,
+      "typeSuper": null,
+      "typeMain": [
+        "creature"
+      ],
+      "typeSub": [
+        "giant",
+        "soldier"
+      ],
+      "power": "6",
+      "toughness": "5",
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    },
+    {
+      "cardId": "belunas-gatekeeper--entry-denied",
+      "version": "",
+      "partIndex": 1,
+      "name": "Entry Denied",
+      "typeline": "Sorcery — Adventure",
+      "text": "Return target creature you don't control with mana value 3 or less to its owner's hand. (Then exile this card. You may cast the creature later from exile.)",
+      "cost": [
+        "1",
+        "U"
+      ],
+      "manaValue": null,
+      "color": null,
+      "colorIndicator": null,
+      "typeSuper": null,
+      "typeMain": [
+        "sorcery"
+      ],
+      "typeSub": [
+        "adventure"
+      ],
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    }
+  ],
+  "cardLocalizations": [
+    {
+      "cardId": "belunas-gatekeeper--entry-denied",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "name": "Beluna's Gatekeeper // Entry Denied",
+      "typeline": "Creature — Giant Soldier // Sorcery — Adventure"
+    },
+    {
+      "cardId": "belunas-gatekeeper--entry-denied",
+      "version": "",
+      "locale": "zhs",
+      "source": "",
+      "name": "贝伦娜的门卫 // 禁止入内",
+      "typeline": "生物～巨人／士兵 // 法术～历险"
+    }
+  ],
+  "cardPartLocalizations": [
+    {
+      "cardId": "belunas-gatekeeper--entry-denied",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "Beluna's Gatekeeper",
+      "typeline": "Creature — Giant Soldier",
+      "text": ""
+    },
+    {
+      "cardId": "belunas-gatekeeper--entry-denied",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "partIndex": 1,
+      "name": "Entry Denied",
+      "typeline": "Sorcery — Adventure",
+      "text": "Return target creature you don't control with mana value 3 or less to its owner's hand. (Then exile this card. You may cast the creature later from exile.)"
+    },
+    {
+      "cardId": "belunas-gatekeeper--entry-denied",
+      "version": "",
+      "locale": "zhs",
+      "source": "",
+      "partIndex": 0,
+      "name": "贝伦娜的门卫",
+      "typeline": "生物～巨人／士兵",
+      "text": ""
+    },
+    {
+      "cardId": "belunas-gatekeeper--entry-denied",
+      "version": "",
+      "locale": "zhs",
+      "source": "",
+      "partIndex": 1,
+      "name": "禁止入内",
+      "typeline": "法术～历险",
+      "text": "将目标不由你操控且法术力值等于或小于3的生物移回其拥有者手上。（然后放逐此牌。之后你还可以从放逐区施放该生物。）"
+    }
+  ],
+  "prints": [
+    {
+      "cardId": "belunas-gatekeeper--entry-denied",
+      "version": "",
+      "set": "woe",
+      "number": "43",
+      "lang": "zhs",
+      "source": "",
+      "name": "Beluna's Gatekeeper // 禁止入内",
+      "typeline": "生物 — 巨人／士兵 // 法术～历险",
+      "layout": "adventure",
+      "frame": "2015",
+      "frameEffects": [],
+      "borderColor": "black",
+      "cardBack": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "securityStamp": null,
+      "promoTypes": null,
+      "rarity": "common",
+      "releaseDate": "2023-09-08",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": false,
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "imageStatus": "lowres",
+      "inBooster": true,
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "printTags": [],
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "dcd3cf0d-67b7-4b73-8e62-1d318bf6209c"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "52fd9309-b849-419a-8d19-5882c00a72b4",
+      "scryfallCardId": "7f13a44a-0065-4195-9008-a3e968222bf0",
+      "scryfallFace": null,
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseId": [
+        631371
+      ],
+      "tcgPlayerId": null,
+      "tcgplayerEtchedId": null,
+      "cardMarketId": null
+    }
+  ],
+  "printParts": [
+    {
+      "cardId": "belunas-gatekeeper--entry-denied",
+      "version": "",
+      "set": "woe",
+      "number": "43",
+      "lang": "zhs",
+      "source": "",
+      "partIndex": 0,
+      "name": "Beluna's Gatekeeper",
+      "typeline": "生物 — 巨人／士兵",
+      "text": "",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": "「小家伙，你又为什么会觉得巨风女王想要接见*你*呢？」",
+      "artist": "Kai Carpenter",
+      "watermark": null,
+      "scryfallIllusId": [
+        "cb3e9af1-8870-419f-a033-bb7a2a67a9c3"
+      ]
+    },
+    {
+      "cardId": "belunas-gatekeeper--entry-denied",
+      "version": "",
+      "set": "woe",
+      "number": "43",
+      "lang": "zhs",
+      "source": "",
+      "partIndex": 1,
+      "name": "禁止入内",
+      "typeline": "法术～历险",
+      "text": "将目标不由你操控且法术力值等于或小于3的生物移回其拥有者手上。（然后放逐此牌。之后你还可以从放逐区施放该生物。）",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": null,
+      "artist": "Kai Carpenter",
+      "watermark": null,
+      "scryfallIllusId": null
+    }
+  ],
+  "authorities": [
+    {
+      "cardId": "belunas-gatekeeper--entry-denied",
+      "version": "",
+      "locale": "zhs",
+      "source": "",
+      "name": "贝伦娜的门卫 // 禁止入内",
+      "typeline": "生物～巨人／士兵 // 法术～历险",
+      "text": "\n--------------------\n将目标不由你操控且法术力值等于或小于3的生物移回其拥有者手上。（然后放逐此牌。之后你还可以从放逐区施放该生物。）",
+      "partCount": 2
+    }
+  ],
+  "reviews": []
+}

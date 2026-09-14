@@ -1,0 +1,72 @@
+{
+  "unit": "0007c283-5b7a-4c00-9ca1-b455c8dff8c3",
+  "cardId": "road-of-return",
+  "oracleId": "0007c283-5b7a-4c00-9ca1-b455c8dff8c3",
+  "layout": "normal",
+  "setName": "Commander 2019",
+  "cmc": 2,
+  "colorIdentity": [
+    "G"
+  ],
+  "keywords": [
+    "Entwine"
+  ],
+  "producedMana": null,
+  "reserved": false,
+  "contentWarning": null,
+  "legalities": {
+    "tlr": "legal",
+    "duel": "legal",
+    "brawl": "not_legal",
+    "penny": "not_legal",
+    "predh": "not_legal",
+    "future": "not_legal",
+    "legacy": "legal",
+    "modern": "not_legal",
+    "pauper": "not_legal",
+    "alchemy": "not_legal",
+    "pioneer": "not_legal",
+    "vintage": "legal",
+    "historic": "not_legal",
+    "standard": "not_legal",
+    "timeless": "not_legal",
+    "commander": "legal",
+    "gladiator": "not_legal",
+    "oldschool": "not_legal",
+    "premodern": "not_legal",
+    "oathbreaker": "legal",
+    "standardbrawl": "not_legal",
+    "paupercommander": "not_legal",
+    "competitivebrawl": "not_legal"
+  },
+  "faces": [
+    {
+      "name": "Road of Return",
+      "typeLine": "Sorcery",
+      "oracleText": "Choose one —\n• Return target permanent card from your graveyard to your hand.\n• Put your commander into your hand from the command zone.\nEntwine {2} (Choose both if you pay the entwine cost.)",
+      "manaCost": "{G}{G}",
+      "cmc": 2,
+      "colors": [
+        "G"
+      ],
+      "colorIndicator": null,
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    }
+  ],
+  "localizations": [],
+  "prints": [],
+  "mtgch": {
+    "faces": [
+      {
+        "name": "归返之路",
+        "typeline": "法术",
+        "text": "选择一项～\n•将目标永久物牌从你的坟墓场移回你手上。\n•将你的指挥官从统帅区置于你手上。\n打包{2}（若你支付打包费用，则两项都选。）"
+      }
+    ]
+  }
+}

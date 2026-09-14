@@ -260,7 +260,7 @@ export const name = cs
         args:   { value, operator, qualifier },
         ctx:    { meta: { multiline: false }, table },
       });
-    case 'unified':
+    case 'localized':
       return builtin.text.call({
         column: table => table.cardPartLocalization.name,
         args:   { value, operator, qualifier },
@@ -298,7 +298,7 @@ export const type = cs
         args:   { value, operator, qualifier },
         ctx:    { meta: { multiline: false }, table },
       });
-    case 'unified':
+    case 'localized':
       return builtin.text.call({
         column: table => table.cardPartLocalization.typeline,
         args:   { value, operator, qualifier },
@@ -336,7 +336,7 @@ export const text = cs
         args:   { value, operator, qualifier },
         ctx:    { meta: { multiline: true }, table },
       });
-    case 'unified':
+    case 'localized':
       return builtin.text.call({
         column: table => table.cardPartLocalization.text,
         args:   { value, operator, qualifier },

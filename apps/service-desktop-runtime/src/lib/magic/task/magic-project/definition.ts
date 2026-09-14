@@ -5,7 +5,7 @@ import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { runWithDb } from '@tcg-cards/db';
 import { Card, CardLocalization, CardPart, CardPartLocalization } from '@tcg-cards/db/schema/shared/magic/card';
 import { Print, PrintPart } from '@tcg-cards/db/schema/shared/magic/print';
-import { CardSlugResolution, CardUnifiedLocalization, ProjectionReview, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
+import { CardLocalizationAuthority, CardSlugResolution, ProjectionReview, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
 
 import { createDefinition } from '#task/definition';
 import { getLocalDb } from '../../../hearthstone/hsdata-local-db';
@@ -30,7 +30,7 @@ const output = z.object({
   cardPartLocs:  z.number(),
   prints:        z.number(),
   printParts:    z.number(),
-  unified:       z.number(),
+  authorities:   z.number(),
   reviews:       z.number(),
   softDeleted:   z.number(),
 });
@@ -39,7 +39,7 @@ type Counts = z.infer<typeof output>;
 
 const emptyCounts: Counts = {
   openConflicts: 0, cards:         0, cardParts:     0, cardLocs:      0, cardPartLocs:  0,
-  prints:        0, printParts:    0, unified:       0, reviews:       0, softDeleted:   0,
+  prints:        0, printParts:    0, authorities:   0, reviews:       0, softDeleted:   0,
 };
 
 interface ProjectCtx {
@@ -114,7 +114,7 @@ const BASE_TABLES = [
   { table: CardPartLocalization, pk: ['cardId', 'version', 'locale', 'source', 'partIndex'] },
   { table: Print, pk: ['cardId', 'version', 'set', 'number', 'lang', 'source'] },
   { table: PrintPart, pk: ['cardId', 'version', 'set', 'number', 'lang', 'source', 'partIndex'] },
-  { table: CardUnifiedLocalization, pk: ['cardId', 'version', 'locale'] },
+  { table: CardLocalizationAuthority, pk: ['cardId', 'version', 'locale', 'source'] },
 ];
 
 /**
@@ -154,7 +154,7 @@ const definition = createDefinition(magicProjectTaskType, {
       const database = getLocalDb();
       const matched = await matchBatch(database);
 
-      // Persist open slug conflicts into the unified review queue (kind
+      // Persist open slug conflicts into the shared review queue (kind
       // slug_conflict). Pending rows are recomputed each run; resolved rows
       // are left untouched.
       await database.delete(ProjectionReview)
@@ -261,10 +261,16 @@ const definition = createDefinition(magicProjectTaskType, {
       }
       magic.cardsByCardId = byCard;
       magic.cardIdList = [...byCard.keys()].sort();
-      // Pending inconsistency reviews are recomputed each run; resolved rows
-      // are left untouched.
+      // Pending inconsistency and overwrite rows are recomputed each run;
+      // resolved rows are left untouched. The overwrite rows are an audit trail
+      // of where a community translation replaced the print surface, so they are
+      // rewritten rather than appended — appending would pile up a fresh copy of
+      // the same change on every run.
       await database.delete(ProjectionReview)
-        .where(and(eq(ProjectionReview.kind, 'card_inconsistency'), eq(ProjectionReview.status, 'pending')));
+        .where(and(
+          inArray(ProjectionReview.kind, ['card_inconsistency', 'card_field_overwrite']),
+          eq(ProjectionReview.status, 'pending'),
+        ));
     });
     magic.counts ??= { ...emptyCounts };
     const restored = checkpoint?.blockInput as ChunkState | undefined;
@@ -276,7 +282,7 @@ const definition = createDefinition(magicProjectTaskType, {
     const magic = ctx as unknown as ProjectCtx;
     const chunk = magic.cardIdList.slice(blockInput.index, blockInput.index + CARD_CHUNK_SIZE);
 
-    const counts = { cards: 0, cardParts: 0, cardLocs: 0, cardPartLocs: 0, unified: 0, reviews: 0 };
+    const counts = { cards: 0, cardParts: 0, cardLocs: 0, cardPartLocs: 0, authorities: 0, reviews: 0 };
     await runWithDb(getLocalDb(), async () => {
       const database = getLocalDb();
 
@@ -346,7 +352,9 @@ const definition = createDefinition(magicProjectTaskType, {
         counts.cardParts += await writeSection(database, CardPart, result.cardParts, [...CARD_PK, 'partIndex']);
         counts.cardLocs += await writeSection(database, CardLocalization, result.cardLocalizations, [...CARD_PK, 'locale', 'source']);
         counts.cardPartLocs += await writeSection(database, CardPartLocalization, result.cardPartLocalizations, [...CARD_PK, 'locale', 'source', 'partIndex']);
-        counts.unified += await writeSection(database, CardUnifiedLocalization, result.unified, [...CARD_PK, 'locale']);
+        // The authority rows are written before the display rows derived from
+        // them, so a resume never leaves a display row whose authority is absent.
+        counts.authorities += await writeSection(database, CardLocalizationAuthority, result.authorities, [...CARD_PK, 'locale', 'source']);
         // A-class review reminders are appended (no unique conflict target yet).
         if (result.reviews.length > 0) {
           await database.insert(ProjectionReview).values(result.reviews as never);
@@ -367,7 +375,7 @@ const definition = createDefinition(magicProjectTaskType, {
         cardParts:    (blockInput.counts.cardParts ?? 0) + counts.cardParts,
         cardLocs:     (blockInput.counts.cardLocs ?? 0) + counts.cardLocs,
         cardPartLocs: (blockInput.counts.cardPartLocs ?? 0) + counts.cardPartLocs,
-        unified:      (blockInput.counts.unified ?? 0) + counts.unified,
+        authorities:  (blockInput.counts.authorities ?? 0) + counts.authorities,
         reviews:      (blockInput.counts.reviews ?? 0) + counts.reviews,
       },
     };

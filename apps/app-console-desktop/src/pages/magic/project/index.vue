@@ -20,7 +20,7 @@
       @create-error="onCreateError"
     />
 
-    <TaskResultCard :result="taskResult" />
+    <TaskResultCard :result="taskResult" :labels="PROJECT_RESULT_LABELS" />
   </div>
 </template>
 
@@ -32,6 +32,20 @@ import { orpc } from '~/lib/orpc';
 definePageMeta({ layout: 'admin', title: '投影' });
 
 const taskResult = ref<Record<string, unknown> | null>(null);
+
+/** Report labels for this task's result keys. */
+const PROJECT_RESULT_LABELS: Record<string, string> = {
+  openConflicts: '身份冲突',
+  cards:         '卡牌',
+  cardParts:     '卡牌面',
+  cardLocs:      '卡牌译名',
+  cardPartLocs:  '卡牌面译文',
+  prints:        '印刷',
+  printParts:    '印刷面',
+  authorities:   '译本',
+  reviews:       '待审记录',
+  softDeleted:   '已清理',
+};
 
 const projectOperation = computed<TaskOperation>(() => ({
   key:    'project',

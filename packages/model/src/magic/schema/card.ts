@@ -91,16 +91,16 @@ export const cardPartLocalization = z.strictObject({
   text:     z.string(),
 });
 
-export const cardUnifiedLocalization = z.strictObject({
+export const cardLocalizationAuthority = z.strictObject({
   cardId:  z.string(),
   version: z.string().default(''),
   locale,
   source:  z.string().default(''),
 
-  name:       z.string(),
-  typeline:   z.string(),
-  text:       z.string(),
-  flavorText: z.string().nullable(),
+  name:      z.string(),
+  typeline:  z.string(),
+  text:      z.string(),
+  partCount: z.int().min(1),
 
   sourceSet:         z.string().nullable(),
   sourceNumber:      z.string().nullable(),
@@ -143,7 +143,7 @@ export type Card = z.infer<typeof card>;
 export type CardLocalization = z.infer<typeof cardLocalization>;
 export type CardPart = z.infer<typeof cardPart>;
 export type CardPartLocalization = z.infer<typeof cardPartLocalization>;
-export type CardUnifiedLocalization = z.infer<typeof cardUnifiedLocalization>;
+export type CardLocalizationAuthority = z.infer<typeof cardLocalizationAuthority>;
 
 export type CardView = z.infer<typeof cardView>;
 export type CardProfile = z.infer<typeof cardProfile>;
