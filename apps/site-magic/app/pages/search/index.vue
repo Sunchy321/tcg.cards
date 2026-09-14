@@ -117,7 +117,7 @@ const imageLang = (card: CardPrintView): string => {
 };
 
 const cardLink = (card: CardPrintView) =>
-  `/card/${card.cardId}?set=${card.set}&number=${card.number}&lang=${card.lang}&part=${card.partIndex}`;
+  `/card/${card.cardId}?set=${card.set}&number=${card.number}&locale=${card.locale}&part=${card.partIndex}`;
 
 const changePage = (newPage: number) => {
   if (page.value !== newPage) {
