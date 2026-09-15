@@ -126,34 +126,37 @@ export interface EncodedImage {
   byteSize: number;
 }
 
+/** Outcome of one image processing step: the value, or why it failed. */
+export type StepResult<T> = { ok: true, value: T } | { ok: false, error: string };
+
 /** Encode any decodable image (png/jpg/webp/...) to webp via the Bun built-in Image (byte-identical to `cwebp -q 50 -m 4`). */
-export async function encodeWebp(input: Buffer): Promise<EncodedImage | null> {
+export async function encodeWebp(input: Buffer): Promise<StepResult<EncodedImage>> {
   try {
     const img = new AnyImage(input);
     await img.buffer();
     const encoded = await img.webp({ quality: WEBP_QUALITY });
     const data = await encoded.buffer();
     const dims = webpDims(data);
-    if (!dims) return null;
-    return { data, sha256: sha256Hex(data), width: dims.width, height: dims.height, byteSize: data.length };
-  } catch {
-    return null;
+    if (!dims) return { ok: false, error: '编码结果无效' };
+    return { ok: true, value: { data, sha256: sha256Hex(data), width: dims.width, height: dims.height, byteSize: data.length } };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 
 /**
  * Write canonical file with sha dedupe.
- * Returns 'written' | 'unchanged' | 'error'.
+ * Returns 'written' | 'unchanged', or the fs error message.
  */
-export function writeCanonical(set: string, lang: string, number: string, faceIndex: number | undefined, image: EncodedImage): 'written' | 'unchanged' | 'error' {
+export function writeCanonical(set: string, lang: string, number: string, faceIndex: number | undefined, image: EncodedImage): StepResult<'written' | 'unchanged'> {
   try {
     const dir = printImageDir(set, lang);
     const file = join(dir, imageFileName(number, faceIndex));
-    if (existsSync(file) && sha256Hex(readFileSync(file)) === image.sha256) return 'unchanged';
+    if (existsSync(file) && sha256Hex(readFileSync(file)) === image.sha256) return { ok: true, value: 'unchanged' };
     writeFileSync(file, image.data);
-    return 'written';
-  } catch {
-    return 'error';
+    return { ok: true, value: 'written' };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 

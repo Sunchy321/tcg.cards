@@ -75,22 +75,22 @@ async function resolveSide(source: 'scryfall' | 'gatherer', url: string | null, 
   if (blocked != null) return { status: 'unavailable', source, reason: blocked };
   if (url == null) return { status: 'unavailable', source, reason: '该面没有可用的图源' };
 
-  const bytes = await fetchImageBuffer(url);
-  if (!bytes) return { status: 'unavailable', source, reason: '取图失败' };
+  const fetched = await fetchImageBuffer(url);
+  if (!fetched.ok) return { status: 'unavailable', source, reason: `取图失败(${fetched.error})` };
 
-  const encoded = await encodeWebp(bytes);
-  if (!encoded) return { status: 'unavailable', source, reason: '图片无法解码' };
+  const encoded = await encodeWebp(fetched.data);
+  if (!encoded.ok) return { status: 'unavailable', source, reason: `图片无法解码(${encoded.error})` };
 
-  const tier = await assessQuality(encoded, bytes);
+  const tier = await assessQuality(encoded.value, fetched.data);
   return {
     status:       'ok',
     source,
-    width:        encoded.width,
-    height:       encoded.height,
-    byteSize:     encoded.byteSize,
+    width:        encoded.value.width,
+    height:       encoded.value.height,
+    byteSize:     encoded.value.byteSize,
     qualityScore: tier.score,
     tier:         tier.status,
-    preview:      `data:image/webp;base64,${encoded.data.toString('base64')}`,
+    preview:      `data:image/webp;base64,${encoded.value.data.toString('base64')}`,
   };
 }
 

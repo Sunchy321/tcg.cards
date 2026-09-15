@@ -5,7 +5,7 @@ import { isTwoImageLayout } from '@tcg-cards/shared/magic/print-image';
 import type { ImageInfo, ImageInfoMeta, ImageStatus } from '#model/magic/schema/print';
 
 import type { LocalDb } from '../../hearthstone/hsdata-local-db';
-import { assessQuality, encodeWebp, mergeImageInfo, removeSameStemJpg, uploadImageSources, writeCanonical, type EncodedImage, type QualityTier } from './common';
+import { assessQuality, encodeWebp, mergeImageInfo, removeSameStemJpg, uploadImageSources, writeCanonical, type EncodedImage, type QualityTier, type StepResult } from './common';
 import { fetchImageBuffer } from './fetch';
 import type { ImageImportDelta } from './result';
 import { pushCapped } from './result';
@@ -29,29 +29,35 @@ export interface PreparedFace {
 }
 
 /** Result of writing one prepared face to the canonical image file. */
-export interface FaceWrite {
-  result:     'written' | 'unchanged' | 'error';
-  cleanedJpg: number;
+export type FaceWrite = { result: 'written' | 'unchanged', cleanedJpg: number } | { result: 'error', error: string };
+
+/** `系列/语言/编号` of one face, marked like the file name (`⁑` = back face). */
+function rowLabel(set: string, lang: string, number: string, faceIndex: number | undefined): string {
+  const face = faceIndex == null || faceIndex === 0 ? '' : faceIndex === 1 ? '⁑' : `-${faceIndex}`;
+  return `${set}/${lang}/${number}${face}`;
 }
 
 /** Encodes raw image bytes and evaluates quality, producing the `image_info` payload. */
-export async function prepareFace(data: Buffer, source: string): Promise<PreparedFace | null> {
+export async function prepareFace(data: Buffer, source: string): Promise<StepResult<PreparedFace>> {
   const encoded = await encodeWebp(data);
-  if (!encoded) return null;
-  const tier = await assessQuality(encoded, data);
+  if (!encoded.ok) return { ok: false, error: `图片解码失败(${encoded.error})` };
+  const tier = await assessQuality(encoded.value, data);
   return {
-    encoded,
-    tier,
-    meta: {
-      status:       tier.status,
-      type:         'webp',
-      source,
-      sha256:       encoded.sha256,
-      width:        encoded.width,
-      height:       encoded.height,
-      byteSize:     encoded.byteSize,
-      qualityScore: tier.score,
-      verifiedAt:   new Date().toISOString(),
+    ok: true,
+    value: {
+      encoded: encoded.value,
+      tier,
+      meta: {
+        status:       tier.status,
+        type:         'webp',
+        source,
+        sha256:       encoded.value.sha256,
+        width:        encoded.value.width,
+        height:       encoded.value.height,
+        byteSize:     encoded.value.byteSize,
+        qualityScore: tier.score,
+        verifiedAt:   new Date().toISOString(),
+      },
     },
   };
 }
@@ -62,11 +68,11 @@ export async function prepareFace(data: Buffer, source: string): Promise<Prepare
  */
 export function writeFace(set: string, lang: string, number: string, faceIndex: number | undefined, prepared: PreparedFace, cleanupJpg: boolean): FaceWrite {
   const result = writeCanonical(set, lang, number, faceIndex, prepared.encoded);
-  if (result === 'error') return { result, cleanedJpg: 0 };
+  if (!result.ok) return { result: 'error', error: result.error };
   const cleanedJpg = cleanupJpg && (faceIndex == null || faceIndex === 0)
     ? removeSameStemJpg(set, lang, number)
     : 0;
-  return { result, cleanedJpg };
+  return { result: result.value, cleanedJpg };
 }
 
 function printKeyCondition(key: PrintKey) {
@@ -174,38 +180,43 @@ export async function ingestRemoteRow(db: LocalDb, row: RemoteQueueRow, options:
   let cleanedJpg = 0;
   let face0Status: ImageStatus | null = null;
   let face0Imported = false;
+  const failures: string[] = [];
 
   for (const face of row.faces) {
     const i = face.faceIndex;
+    const label = rowLabel(row.set, row.lang, row.number, i);
     // Without force an already imported face is left untouched, so a row with a
     // front-only image still gets its missing back filled.
     if (!options.force && row.imageInfo?.[i] != null) {
       skipped += 1;
       continue;
     }
-    const bytes = await fetchImageBuffer(face.url);
-    if (!bytes) {
+    const fetched = await fetchImageBuffer(face.url);
+    if (!fetched.ok) {
       failed += 1;
+      pushCapped(failures, `${label}: 下载失败(${fetched.error})`);
       continue;
     }
-    const prepared = await prepareFace(bytes, options.imageSource);
-    if (!prepared) {
+    const prepared = await prepareFace(fetched.data, options.imageSource);
+    if (!prepared.ok) {
       failed += 1;
+      pushCapped(failures, `${label}: ${prepared.error}`);
       continue;
     }
-    const write = writeFace(row.set, row.lang, row.number, i, prepared, options.cleanupJpg);
+    const write = writeFace(row.set, row.lang, row.number, i, prepared.value, options.cleanupJpg);
     if (write.result === 'error') {
       failed += 1;
+      pushCapped(failures, `${label}: 写入失败(${write.error})`);
       continue;
     }
     if (write.result === 'written') written += 1;
     else unchanged += 1;
     cleanedJpg += write.cleanedJpg;
-    if (prepared.tier.score != null && prepared.tier.status === 'lowres') lowQuality += 1;
+    if (prepared.value.tier.score != null && prepared.value.tier.status === 'lowres') lowQuality += 1;
 
-    infos[i] = prepared.meta;
+    infos[i] = prepared.value.meta;
     if (i === 0) {
-      face0Status = prepared.tier.status;
+      face0Status = prepared.value.tier.status;
       face0Imported = true;
     }
   }
@@ -214,7 +225,7 @@ export async function ingestRemoteRow(db: LocalDb, row: RemoteQueueRow, options:
     await updateRowFaces(db, row, infos, face0Imported ? face0Status : null);
   }
 
-  return { processed: 1, written, unchanged, failed, skipped, lowQuality, cleanedJpg };
+  return { processed: 1, written, unchanged, failed, skipped, lowQuality, cleanedJpg, failures };
 }
 
 /** One matched print row that an uploaded image writes into. */
@@ -241,12 +252,16 @@ export interface UploadOptions {
 
 /** Writes one uploaded image onto every print it matched. */
 export async function ingestUploadItem(db: LocalDb, item: UploadItem, data: Buffer | undefined, options: UploadOptions): Promise<ImageImportDelta> {
-  if (data == null) return { processed: 1, failed: 1 };
+  // Every caller keeps at least one matched row, so its set/lang names the image.
+  const label = rowLabel(item.rows[0]!.set, item.rows[0]!.lang, item.number, item.faceIndex);
+  if (data == null) return { processed: 1, failed: 1, failures: [`${label}: 读取压缩包图片失败`] };
 
   const prepared = await prepareFace(data, options.imageSource);
-  if (!prepared) return { processed: 1, failed: 1 };
+  if (!prepared.ok) return { processed: 1, failed: 1, failures: [`${label}: ${prepared.error}`] };
+  const face = prepared.value;
 
   const warnings: string[] = [];
+  const failures: string[] = [];
   // One canonical file per distinct print; set/lang/number all come from the
   // matched print row (tree archives span many sets and languages).
   const writtenRows = new Set<string>();
@@ -258,8 +273,10 @@ export async function ingestUploadItem(db: LocalDb, item: UploadItem, data: Buff
     const rowKey = `${row.set}|${row.lang}|${row.number}|${item.faceIndex ?? ''}`;
     if (!writtenRows.has(rowKey)) {
       writtenRows.add(rowKey);
-      const write = writeFace(row.set, row.lang, row.number, item.faceIndex, prepared, options.cleanupJpg);
-      if (write.result === 'error') return { processed: 1, failed: 1 };
+      const write = writeFace(row.set, row.lang, row.number, item.faceIndex, face, options.cleanupJpg);
+      if (write.result === 'error') {
+        return { processed: 1, failed: 1, failures: [`${rowLabel(row.set, row.lang, row.number, item.faceIndex)}: 写入失败(${write.error})`] };
+      }
       if (write.result === 'written') written += 1;
       else unchanged += 1;
       cleanedJpg += write.cleanedJpg;
@@ -267,7 +284,7 @@ export async function ingestUploadItem(db: LocalDb, item: UploadItem, data: Buff
     if (item.name && row.printName && item.name !== row.printName.trim()) {
       pushCapped(warnings, `${item.number}: 名称「${item.name}」与印刷名「${row.printName}」不一致`);
     }
-    await updateRowFace(db, row, row.imageInfo, item.faceIndex, prepared.meta, isTwoImageLayout(row.layout) ? 2 : 1);
+    await updateRowFace(db, row, row.imageInfo, item.faceIndex, face.meta, isTwoImageLayout(row.layout) ? 2 : 1);
   }
 
   return {
@@ -275,7 +292,8 @@ export async function ingestUploadItem(db: LocalDb, item: UploadItem, data: Buff
     written,
     unchanged,
     cleanedJpg,
-    lowQuality: prepared.tier.score != null && prepared.tier.status === 'lowres' ? 1 : 0,
+    lowQuality: face.tier.score != null && face.tier.status === 'lowres' ? 1 : 0,
     warnings,
+    failures,
   };
 }

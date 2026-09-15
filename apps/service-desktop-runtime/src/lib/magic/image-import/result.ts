@@ -24,6 +24,9 @@ export const imageImportOutput = z.strictObject({
   unmatchedNumbers:  z.array(z.string()),
   unrecognizedNames: z.array(z.string()),
   warnings:          z.array(z.string()),
+  // Why each failed item failed, one `编号: 原因` entry per failed face/image.
+  // Defaulted so counters checkpointed before this field existed still parse.
+  failures:          z.array(z.string()).default([]),
 });
 
 export type ImageImportOutput = z.infer<typeof imageImportOutput>;
@@ -36,7 +39,7 @@ const numericKeys = [
   'processed', 'written', 'unchanged', 'failed', 'skipped', 'lowQuality', 'cleanedJpg',
   'missingUrl', 'missingId', 'placeholder', 'skippedUpload', 'unmatched', 'unrecognized',
 ] as const;
-const listKeys = ['unmatchedNumbers', 'unrecognizedNames', 'warnings'] as const;
+const listKeys = ['unmatchedNumbers', 'unrecognizedNames', 'warnings', 'failures'] as const;
 
 export function emptyImageImportOutput(): ImageImportOutput {
   return {
@@ -56,6 +59,7 @@ export function emptyImageImportOutput(): ImageImportOutput {
     unmatchedNumbers:  [],
     unrecognizedNames: [],
     warnings:          [],
+    failures:          [],
   };
 }
 
@@ -66,7 +70,9 @@ export function addImageImportOutput(a: ImageImportOutput, b: ImageImportDelta):
     merged[key] = a[key] + (b[key] ?? 0);
   }
   for (const key of listKeys) {
-    merged[key] = [...a[key], ...(b[key] ?? [])].slice(0, maxListEntries);
+    // `?? []` also keeps counters restored from an older checkpoint (no
+    // `failures` yet) mergeable.
+    merged[key] = [...(a[key] ?? []), ...(b[key] ?? [])].slice(0, maxListEntries);
   }
   return merged;
 }

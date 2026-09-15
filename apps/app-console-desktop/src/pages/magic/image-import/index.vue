@@ -177,12 +177,7 @@
 
       <TaskResultCard :result="countResult" :labels="RESULT_LABELS" />
 
-      <div v-if="listResults.length > 0" class="rounded-xl border border-slate-200 bg-white p-4">
-        <div v-for="group in listResults" :key="group.label" class="py-1 text-sm">
-          <span class="font-medium">{{ group.label }}({{ group.items.length }}):</span>
-          <span class="font-mono text-xs text-muted">{{ group.items.join('、') }}</span>
-        </div>
-      </div>
+      <ImportResultLists :groups="listGroups" />
 
       <ImageCompareCard :set="form.set" :lang="form.lang" :number="compareNumber" :multiple="numbers.length > 1" />
     </div>
@@ -195,6 +190,7 @@ import { locale, mainLocale } from '@tcg-cards/model/magic/schema/basic';
 import { open } from '@tauri-apps/plugin-dialog';
 import type { TaskOperation } from '~/components/task/TaskController.vue';
 import ImageCompareCard from '~/components/magic/ImageCompareCard.vue';
+import ImportResultLists from '~/components/magic/ImportResultLists.vue';
 import { orpc } from '~/lib/orpc';
 import { parseNumberInput } from '~/utils/import-numbers';
 
@@ -231,6 +227,7 @@ const LIST_LABELS: Record<string, string> = {
   unmatchedNumbers:  '未匹配编号',
   unrecognizedNames: '未识别文件',
   warnings:          '名称提示',
+  failures:          '失败明细',
 };
 
 const CONVENTION_LABELS: Record<string, string> = {
@@ -438,6 +435,13 @@ const listResults = computed(() => {
   return Object.entries(taskResult.value)
     .filter(([key, value]) => Array.isArray(value) && value.length > 0 && LIST_LABELS[key])
     .map(([key, value]) => ({ label: LIST_LABELS[key]!, items: value as string[] }));
+});
+
+/** Failures first — the list the reader came for — then the remaining lists in report order. */
+const listGroups = computed(() => {
+  const failures = listResults.value.filter(group => group.label === LIST_LABELS.failures);
+  const rest = listResults.value.filter(group => group.label !== LIST_LABELS.failures);
+  return [...failures, ...rest];
 });
 
 const operation = computed<TaskOperation>(() => {
