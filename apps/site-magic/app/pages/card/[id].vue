@@ -94,7 +94,7 @@
                 <img :src="partIcon.src" class="w-6 h-6">
               </button>
               <img v-if="isArenaVariant" src="/arena.svg" class="w-5 h-5 shrink-0">
-              <h1 class="text-3xl font-bold" :class="data.printPart.flavorName != null ? 'text-gray-500 dark:text-gray-400 italic' : ''">
+              <h1 class="text-3xl font-bold" :lang="titleLang" :class="data.printPart.flavorName != null ? 'text-gray-500 dark:text-gray-400 italic' : ''">
                 {{ data.printPart.flavorName ?? displayPart.name }}
               </h1>
             </div>
@@ -109,7 +109,7 @@
           </div>
           <div class="flex items-center justify-between gap-2 mb-4" :style="effectStyle">
             <p class="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-              <span v-if="data.printPart.flavorName != null">{{ displayPart.name }}</span>
+              <span v-if="data.printPart.flavorName != null" :lang="displayLang">{{ displayPart.name }}</span>
               <span
                 v-if="textMode !== 'oracle'"
                 class="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded px-1"
@@ -148,12 +148,12 @@
               v-if="data.cardPart.colorIndicator"
               :value="data.cardPart.colorIndicator"
             />
-            <span class="font-medium flex-1">{{ displayPart.typeline }}</span>
+            <span class="font-medium flex-1" :lang="displayLang">{{ displayPart.typeline }}</span>
             <span v-if="stats != null" class="font-medium shrink-0">{{ stats }}</span>
           </div>
 
           <div class="border-l-2 border-primary bg-gray-50 dark:bg-gray-800 rounded-r-lg p-4 mb-6 leading-relaxed space-y-2" :style="effectStyle">
-            <RichText>
+            <RichText :lang="displayLang">
               {{ displayPart.text }}
             </RichText>
           </div>
@@ -170,7 +170,7 @@
           </div>
 
           <div v-if="data.printPart.flavorText" class="border-l-2 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 italic text-gray-500 dark:text-gray-400 rounded-r-lg p-4 mb-6" :style="effectStyle">
-            <RichText detect-emph>
+            <RichText detect-emph :lang="printLang">
               {{ data.printPart.flavorText }}
             </RichText>
           </div>
@@ -385,10 +385,16 @@ const { data } = await useAsyncData(
   { watch: [query] },
 );
 
+/** Script-font locales: the tab title bar cannot render their fonts, so use the English name */
+const SCRIPT_FONT_LANGS = ['ph', 'qya'];
+
 useTitle(() => {
   if (!data.value) return '';
   const localizedName = data.value.cardPartLocalization.name;
   const oracleName = data.value.cardPart.name;
+  if (SCRIPT_FONT_LANGS.includes(data.value.locale)) {
+    return oracleName;
+  }
   return localizedName === oracleName
     ? localizedName
     : `${localizedName} (${oracleName})`;
@@ -474,6 +480,19 @@ const displayPart = computed(() => {
     text:     data.value.cardPartLocalization.text,
   };
 });
+
+/** Font language of the section shown by the current text mode */
+const displayLang = computed(() => {
+  if (!data.value || textMode.value === 'oracle') return undefined;
+  return textMode.value === 'printed' ? data.value.lang : data.value.locale;
+});
+
+/** Language of print-physical content (printed names, flavor text) */
+const printLang = computed(() => data.value?.lang);
+
+const titleLang = computed(() =>
+  data.value?.printPart.flavorName != null ? printLang.value : displayLang.value,
+);
 
 const stats = computed(() => {
   if (!data.value) return null;

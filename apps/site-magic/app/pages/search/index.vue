@@ -42,7 +42,7 @@
           :part="card.partIndex"
           class="w-50"
         />
-        <div class="mt-1 px-1 text-center text-sm text-white/80 truncate w-50">
+        <div class="mt-1 px-1 text-center text-sm text-white/80 truncate w-50" :lang="card.locale">
           {{ card.cardPartLocalization.name }}
         </div>
       </NuxtLink>
