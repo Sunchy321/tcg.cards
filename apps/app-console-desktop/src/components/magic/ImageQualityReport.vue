@@ -56,6 +56,7 @@ interface QualityReport {
   set:      string;
   prints:   number;
   images:   number;
+  baseline: number | null;
   problems: QualityProblem[];
   missing:  Array<{ lang: string, number: string }>;
 }
