@@ -23,6 +23,7 @@ import { magicImageImportLocalTaskDefinition } from '../lib/magic/task/image-imp
 import { magicImageImportSingleTaskDefinition } from '../lib/magic/task/image-import-single/definition';
 import { analyzeImportZip } from '../lib/magic/image-import/analyze';
 import { compareImageSources, imageCompareResult } from '../lib/magic/image-import/compare';
+import { checkImageQuality, imageQualityReport } from '../lib/magic/image-import/quality';
 import { magicPublishTaskDefinition } from '../lib/magic/task/publish';
 
 const magicDataFile = z.strictObject({
@@ -489,9 +490,17 @@ const listImageSets = os
     return rows.map(r => ({ code: r.code, prints: Number(r.prints) }));
   });
 
+const checkImagesQuality = os
+  .input(z.strictObject({ set: z.string().min(1) }))
+  .output(imageQualityReport)
+  .handler(async ({ input }) => {
+    const db = getLocalDb();
+    return checkImageQuality(db, input.set);
+  });
+
 export const magicRouter = {
   getDataState,
-  images:     { sets: listImageSets, compare: compareImages },
+  images:     { sets: listImageSets, compare: compareImages, qualityCheck: checkImagesQuality },
   analyze:    { imageArchive: analyzeImageArchive },
   createTask: { scryfallImport, mtgchImport, mtgjsonImport, gathererImport, magicProject, imageImportRemote, imageImportLocal, imageImportSingle },
   publish:    { publishTask },

@@ -12,6 +12,15 @@
           </p>
         </div>
         <div class="ml-auto flex gap-2">
+          <UButton
+            label="图片质量检查"
+            icon="i-lucide-search-check"
+            color="info"
+            variant="soft"
+            :disabled="!qualityReady"
+            :loading="checkingQuality"
+            @click="runQualityCheck"
+          />
           <UButton label="打开设置" icon="i-lucide-settings" color="neutral" variant="soft" to="/settings/games/magic" />
         </div>
       </div>
@@ -175,6 +184,12 @@
         </template>
       </TaskController>
 
+      <ImageQualityReport
+        :report="qualityReport"
+        :error="qualityError"
+        @close="clearQualityCheck"
+      />
+
       <TaskResultCard :result="countResult" :labels="RESULT_LABELS" />
 
       <ImportResultLists :groups="listGroups" />
@@ -190,6 +205,7 @@ import { locale, mainLocale } from '@tcg-cards/model/magic/schema/basic';
 import { open } from '@tauri-apps/plugin-dialog';
 import type { TaskOperation } from '~/components/task/TaskController.vue';
 import ImageCompareCard from '~/components/magic/ImageCompareCard.vue';
+import ImageQualityReport from '~/components/magic/ImageQualityReport.vue';
 import ImportResultLists from '~/components/magic/ImportResultLists.vue';
 import { orpc } from '~/lib/orpc';
 import { parseNumberInput } from '~/utils/import-numbers';
@@ -208,19 +224,19 @@ const SOURCE_OPTIONS = [
 
 /** Result-key → report label for the unified import output. */
 const RESULT_LABELS: Record<string, string> = {
-  processed:         '处理数',
-  written:           '写入',
-  unchanged:         '未变化',
-  failed:            '失败',
-  skipped:           '已跳过',
-  lowQuality:        '低清',
-  cleanedJpg:        '清理 JPG',
-  missingUrl:        '缺少图片地址',
-  missingId:         '缺少 Gatherer 编号',
-  placeholder:       '占位图',
-  skippedUpload:     '跳过上传图',
-  unmatched:         '未匹配编号',
-  unrecognized:      '未识别文件',
+  processed:     '处理数',
+  written:       '写入',
+  unchanged:     '未变化',
+  failed:        '失败',
+  skipped:       '已跳过',
+  lowQuality:    '低清',
+  cleanedJpg:    '清理 JPG',
+  missingUrl:    '缺少图片地址',
+  missingId:     '缺少 Gatherer 编号',
+  placeholder:   '占位图',
+  skippedUpload: '跳过上传图',
+  unmatched:     '未匹配编号',
+  unrecognized:  '未识别文件',
 };
 
 const LIST_LABELS: Record<string, string> = {
@@ -346,9 +362,9 @@ async function runAnalyze() {
 async function browse() {
   try {
     const picked = await open({
-      multiple: false,
+      multiple:  false,
       directory: false,
-      filters: [{ name: 'Zip', extensions: ['zip'] }],
+      filters:   [{ name: 'Zip', extensions: ['zip'] }],
     });
     if (typeof picked === 'string') form.zipPath = picked;
   } catch {
@@ -384,6 +400,7 @@ function onFilePicked(event: Event) {
 
 const setOptions = ref<string[]>([]);
 const loadingSets = ref(false);
+
 onMounted(async () => {
   loadingSets.value = true;
   try {
@@ -416,6 +433,36 @@ const setItems = computed(() => {
     ? [{ label: '不限(全量)', value: ALL_SETS }, ...sets]
     : sets;
 });
+
+/** The quality check runs on one whole set across all languages, so it needs a concrete set. */
+const qualityReady = computed(() => form.set.trim() !== '' && form.set !== ALL_SETS);
+
+const checkingQuality = ref(false);
+const qualityReport = ref<Awaited<ReturnType<typeof orpc.magic.images.qualityCheck>> | null>(null);
+const qualityError = ref('');
+
+function clearQualityCheck() {
+  qualityReport.value = null;
+  qualityError.value = '';
+}
+
+// A report belongs to the set it was produced from; switching sets would only mislead.
+watch(() => form.set, () => clearQualityCheck());
+
+async function runQualityCheck() {
+  const set = form.set.trim();
+  if (!set || set === ALL_SETS) return;
+  checkingQuality.value = true;
+  qualityError.value = '';
+  try {
+    qualityReport.value = await orpc.magic.images.qualityCheck({ set });
+  } catch (error) {
+    qualityReport.value = null;
+    qualityError.value = error instanceof Error ? error.message : String(error);
+  } finally {
+    checkingQuality.value = false;
+  }
+}
 
 function onCompleted(snap: TaskPageSnapshot) {
   taskResult.value = (snap.result as Record<string, unknown> | undefined) ?? null;
@@ -477,20 +524,20 @@ const operation = computed<TaskOperation>(() => {
       }
       if (isUploadZip.value) {
         return orpc.magic.createTask.imageImportLocal({
-          source: form.source as 'manual' | 'mtgch' | 'mtgflame' | 'hunterer',
-          set:    treeMode.value ? undefined : form.set,
-          lang:   treeMode.value ? undefined : form.lang,
+          source:  form.source as 'manual' | 'mtgch' | 'mtgflame' | 'hunterer',
+          set:     treeMode.value ? undefined : form.set,
+          lang:    treeMode.value ? undefined : form.lang,
           zipPath: form.zipPath.trim(),
           ...common,
         }) as Promise<TaskPageSnapshot>;
       }
       return orpc.magic.createTask.imageImportSingle({
-        source: form.source as 'manual' | 'mtgch' | 'mtgflame' | 'hunterer' | 'scryfall' | 'gatherer',
-        set:    form.set,
-        lang:   form.lang,
-        numbers: numbers.value,
-        faceIndex: isUploadSingle.value && form.faceIndex.trim() ? Number(form.faceIndex) : undefined,
-        fileName: isUploadSingle.value ? form.fileName || undefined : undefined,
+        source:     form.source as 'manual' | 'mtgch' | 'mtgflame' | 'hunterer' | 'scryfall' | 'gatherer',
+        set:        form.set,
+        lang:       form.lang,
+        numbers:    numbers.value,
+        faceIndex:  isUploadSingle.value && form.faceIndex.trim() ? Number(form.faceIndex) : undefined,
+        fileName:   isUploadSingle.value ? form.fileName || undefined : undefined,
         dataBase64: isUploadSingle.value ? form.dataBase64 : undefined,
         ...common,
       }) as Promise<TaskPageSnapshot>;

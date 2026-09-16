@@ -57,3 +57,44 @@ export function parseNumberInput(text: string): string[] {
   }
   return numbers;
 }
+
+/** Whether one collector number is written as pure digits, the only form a range span accepts. */
+function pureNumber(number: string): number | null {
+  return /^\d+$/.test(number) ? Number(number) : null;
+}
+
+/**
+ * 编号 field text one number list stands for — the inverse of parseNumberInput.
+ * Numbers sort by leading value, and runs of consecutive pure-digit numbers
+ * collapse into `a-b` spans; everything else stays literal, joined by commas.
+ */
+export function formatNumberInput(numbers: string[]): string {
+  const sorted = [...new Set(numbers)].sort((a, b) => {
+    const na = pureNumber(a);
+    const nb = pureNumber(b);
+    if (na != null && nb != null) return na - nb || a.localeCompare(b);
+    if (na != null) return -1;
+    if (nb != null) return 1;
+    return a.localeCompare(b);
+  });
+
+  const items: string[] = [];
+  let run: { from: string, to: string, value: number } | null = null;
+  const flushRun = () => {
+    if (!run) return;
+    items.push(run.from === run.to ? run.from : `${run.from}-${run.to}`);
+    run = null;
+  };
+  for (const number of sorted) {
+    const value = pureNumber(number);
+    if (value != null && run && value === run.value + 1) {
+      run = { from: run.from, to: number, value };
+      continue;
+    }
+    flushRun();
+    if (value != null) run = { from: number, to: number, value };
+    else items.push(number);
+  }
+  flushRun();
+  return items.join(',');
+}
