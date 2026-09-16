@@ -5,12 +5,13 @@ import { runWithDb } from '@tcg-cards/db';
 import { Gatherer, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
 import { Print } from '@tcg-cards/db/schema/shared/magic/print';
 
-import { createDefinition } from '#task/definition';
+import { createDefinition, type BlockDone } from '#task/definition';
 import { getLocalDb } from '../../../hearthstone/hsdata-local-db';
 import { uploadImageSources } from '../../image-import/common';
+import { createImportBatchState, runImportBlock, type ImportBatchState } from '../../image-import/batch';
 import { applySkipRules, ingestRemoteRow, ingestUploadItem } from '../../image-import/ingest';
 import { addImageImportOutput, emptyImageImportOutput, imageImportOutput, pushCapped, type ImageImportOutput } from '../../image-import/result';
-import { emptyRemoteSkipped, gathererQueueRow, scryfallQueueRow } from '../../image-import/source';
+import { emptyRemoteSkipped, gathererQueueRow, scryfallQueueRow, type RemoteSkipped } from '../../image-import/source';
 
 /** Single-target import: one or more prints, uploaded as a file or downloaded by number. */
 export const magicImageImportSingleTaskType = 'magic_image_import_single';
@@ -54,73 +55,18 @@ const rowColumns = {
   gathererData:        Gatherer.data,
 };
 
-/** Runs one single-target import and returns its report. */
-async function runSingle(ctx: Input): Promise<ImageImportOutput> {
-  const db = getLocalDb();
-  const rows = await runWithDb(db, () => db.select(rowColumns).from(Print)
-    .leftJoin(ScryfallCard, eq(Print.scryfallCardId, ScryfallCard.cardId))
-    .leftJoin(Gatherer, sql`${Gatherer.multiverseId} = ${Print.multiverseId}[1]`)
-    .where(and(
-      eq(Print.set, ctx.set),
-      eq(Print.lang, ctx.lang as typeof Print.$inferSelect.lang),
-      inArray(Print.number, ctx.numbers),
-      isNull(Print.deletedAt),
-    )));
-
-  // One requested number stands for every print carrying it; a number the set
-  // does not have is reported instead of written.
-  const rowsByNumber = new Map<string, typeof rows>();
-  for (const row of rows) {
-    const bucket = rowsByNumber.get(row.number);
-    if (bucket) bucket.push(row);
-    else rowsByNumber.set(row.number, [row]);
-  }
-
-  const data = ctx.dataBase64 != null ? Buffer.from(ctx.dataBase64, 'base64') : null;
-  const remoteSkipped = emptyRemoteSkipped();
-  let counts: ImageImportOutput = emptyImageImportOutput();
-
-  for (const number of ctx.numbers) {
-    const matched = rowsByNumber.get(number) ?? [];
-    if (matched.length === 0) {
-      counts.unmatched += 1;
-      pushCapped(counts.unmatchedNumbers, number);
-      continue;
-    }
-
-    if (data != null) {
-      const { kept, skipped, skippedUpload, singleImageFaces } = applySkipRules(matched, ctx.source, !!ctx.force, ctx.faceIndex);
-      counts = addImageImportOutput(counts, { skipped, skippedUpload, warnings: singleImageFaces });
-      for (const target of kept) {
-        counts = addImageImportOutput(counts, await ingestUploadItem(db, { number, faceIndex: ctx.faceIndex, rows: [target] }, data, {
-          imageSource: ctx.source,
-          cleanupJpg:  !!ctx.cleanupJpg,
-        }));
-      }
-      continue;
-    }
-
-    // Download sources: every face of the print, resolved by the source's own rules.
-    for (const row of matched) {
-      const queued = ctx.source === 'gatherer' ? gathererQueueRow(row, remoteSkipped) : scryfallQueueRow(row, remoteSkipped);
-      if (!queued) continue;
-      counts = addImageImportOutput(counts, await ingestRemoteRow(db, queued, {
-        imageSource: ctx.source,
-        cleanupJpg:  !!ctx.cleanupJpg,
-        force:       !!ctx.force,
-      }));
-    }
-  }
-
-  return addImageImportOutput(counts, {
-    placeholder: remoteSkipped.placeholder,
-    missingId:   remoteSkipped.missingId,
-    missingUrl:  remoteSkipped.missingUrl,
-  });
+/** Checkpointable state of one single-import stage: the number list plus the upload payload. */
+interface SingleImportState extends ImportBatchState<string> {
+  data:         string | null;
+  faceIndex:    number | null;
+  remoteSkipped: RemoteSkipped;
 }
 
+/** One block processes exactly one number, so the progress bar advances per number. */
+const NUMBERS_PER_BLOCK = 1;
+
 const definition = createDefinition(magicImageImportSingleTaskType, {
-  version:     '2026-09-12:v1',
+  version:     '2026-09-16:v1',
   effectModel: 'reconcilable',
 })
   .scope(z.object({}), {
@@ -130,8 +76,100 @@ const definition = createDefinition(magicImageImportSingleTaskType, {
   .input(input)
   .output(imageImportOutput)
   .context({ init: values => values })
-  .stage('import', { label: '卡图单条导入', progressMode: 'simple' })
-  .handler(({ ctx }) => runSingle(ctx))
+  .stage('import', { label: '卡图单条导入', progressMode: 'bounded' })
+  .entry(({ ctx, checkpoint }) => {
+    const restored = checkpoint?.blockInput as SingleImportState | undefined;
+    if (restored) return { total: restored.items.length, blockInput: restored };
+
+    const state = createImportBatchState([...ctx.numbers], emptyImageImportOutput(), {
+      cleanupJpg: !!ctx.cleanupJpg,
+      force:      !!ctx.force,
+    }) as SingleImportState;
+    state.data = ctx.dataBase64 ?? null;
+    state.faceIndex = ctx.faceIndex ?? null;
+    state.remoteSkipped = emptyRemoteSkipped();
+    return { total: state.items.length, blockInput: state };
+  })
+  .block(async ({ ctx, blockInput, progress, checkpoint, done, signal }) => {
+    const state = blockInput as SingleImportState;
+    // The framework hands back callbacks typed for the declared block input; the
+    // runtime state is always the fuller SingleImportState, so widen for the
+    // shared batch runner.
+    const checkpointState = checkpoint as (state: ImportBatchState<string>) => Promise<void>;
+    const doneState = done as (state: ImportBatchState<string>) => BlockDone;
+    return runImportBlock({
+      state,
+      batchSize: NUMBERS_PER_BLOCK,
+      run: async numbers => {
+        const db = getLocalDb();
+        // One requested number stands for every print carrying it; a number the
+        // set does not have is reported instead of written. Rows are re-read per
+        // block so the checkpointed state stays small.
+        const rows = await runWithDb(db, () => db.select(rowColumns).from(Print)
+          .leftJoin(ScryfallCard, eq(Print.scryfallCardId, ScryfallCard.cardId))
+          .leftJoin(Gatherer, sql`${Gatherer.multiverseId} = ${Print.multiverseId}[1]`)
+          .where(and(
+            eq(Print.set, ctx.set),
+            eq(Print.lang, ctx.lang as typeof Print.$inferSelect.lang),
+            inArray(Print.number, numbers),
+            isNull(Print.deletedAt),
+          )));
+        const rowsByNumber = new Map<string, typeof rows>();
+        for (const row of rows) {
+          const bucket = rowsByNumber.get(row.number);
+          if (bucket) bucket.push(row);
+          else rowsByNumber.set(row.number, [row]);
+        }
+
+        let counts: ImageImportOutput = emptyImageImportOutput();
+        for (const number of numbers) {
+          const matched = rowsByNumber.get(number) ?? [];
+          if (matched.length === 0) {
+            counts.unmatched += 1;
+            pushCapped(counts.unmatchedNumbers, number);
+            continue;
+          }
+
+          if (state.data != null) {
+            const data = Buffer.from(state.data, 'base64');
+            const { kept, skipped, skippedUpload, singleImageFaces } = applySkipRules(matched, ctx.source, state.force, state.faceIndex ?? undefined);
+            counts = addImageImportOutput(counts, { skipped, skippedUpload, warnings: singleImageFaces });
+            for (const target of kept) {
+              counts = addImageImportOutput(counts, await ingestUploadItem(db, { number, faceIndex: state.faceIndex ?? undefined, rows: [target] }, data, {
+                imageSource: ctx.source,
+                cleanupJpg:  state.cleanupJpg,
+              }));
+            }
+            continue;
+          }
+
+          // Download sources: every face of the print, resolved by the source's own rules.
+          for (const row of matched) {
+            const queued = ctx.source === 'gatherer' ? gathererQueueRow(row, state.remoteSkipped) : scryfallQueueRow(row, state.remoteSkipped);
+            if (!queued) continue;
+            counts = addImageImportOutput(counts, await ingestRemoteRow(db, queued, {
+              imageSource: ctx.source,
+              cleanupJpg:  state.cleanupJpg,
+              force:       state.force,
+            }));
+          }
+        }
+        return counts;
+      },
+      progress,
+      checkpoint: checkpointState,
+      done:       doneState,
+      signal,
+    }) as Promise<SingleImportState | BlockDone>;
+  })
+  .exit(({ blockInput }) => {
+    const state = blockInput as SingleImportState;
+    return addImageImportOutput(state.counts, {
+      placeholder: state.remoteSkipped.placeholder,
+      missingId:   state.remoteSkipped.missingId,
+      missingUrl:  state.remoteSkipped.missingUrl,
+    });
+  })
   .build();
 
 export const magicImageImportSingleTaskDefinition = definition;
