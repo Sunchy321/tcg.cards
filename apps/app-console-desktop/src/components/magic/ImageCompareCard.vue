@@ -22,18 +22,11 @@
 
     <div v-show="open" class="space-y-3 border-t border-slate-200 p-4">
       <UAlert
-        v-if="multiple"
+        v-if="!ready"
         color="neutral"
         variant="soft"
         icon="i-lucide-info"
-        description="编号栏填了多个编号,比对一次只处理一个编号;改成单个编号后即可比对。"
-      />
-      <UAlert
-        v-else-if="!ready"
-        color="neutral"
-        variant="soft"
-        icon="i-lucide-info"
-        description="请先在上方选择单条形态,并填写系列、语言与编号。"
+        description="请先填写系列、语言与编号。"
       />
       <UAlert
         v-else-if="error"
@@ -105,11 +98,9 @@ interface CompareFace {
 }
 
 const props = defineProps<{
-  set:       string;
-  lang:      string;
-  number:    string;
-  /** The number field holds a list or a range, which one comparison cannot cover. */
-  multiple?: boolean;
+  set:    string;
+  lang:   string;
+  number: string;
 }>();
 
 const open = ref(false);
@@ -117,7 +108,7 @@ const comparing = ref(false);
 const error = ref('');
 const result = ref<{ faces: CompareFace[] } | null>(null);
 
-const ready = computed(() => !props.multiple && !!props.set.trim() && !!props.lang.trim() && !!props.number.trim());
+const ready = computed(() => !!props.set.trim() && !!props.lang.trim() && !!props.number.trim());
 
 watch(ready, value => {
   if (!value) {

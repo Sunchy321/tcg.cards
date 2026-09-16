@@ -19,7 +19,7 @@ export const magicImageImportSingleTaskType = 'magic_image_import_single';
 const input = z.strictObject({
   source:     z.enum([...uploadImageSources, 'scryfall', 'gatherer']),
   set:        z.string().min(1),
-  lang:       z.string().min(1),
+  langs:      z.array(z.string()).min(1),
   numbers:    z.array(z.string().min(1)).min(1),
   force:      z.boolean().optional().default(false),
   cleanupJpg: z.boolean().optional().default(false),
@@ -34,8 +34,6 @@ const input = z.strictObject({
   // Download sources derive the face index from scryfall_face, never from the caller.
   return !isUpload && v.faceIndex == null;
 }, { message: '上传单张需要 dataBase64 与单个编号;下载来源不接受 faceIndex' });
-
-type Input = z.infer<typeof input>;
 
 const rowColumns = {
   cardId:              Print.cardId,
@@ -57,8 +55,8 @@ const rowColumns = {
 
 /** Checkpointable state of one single-import stage: the number list plus the upload payload. */
 interface SingleImportState extends ImportBatchState<string> {
-  data:         string | null;
-  faceIndex:    number | null;
+  data:          string | null;
+  faceIndex:     number | null;
   remoteSkipped: RemoteSkipped;
 }
 
@@ -66,7 +64,7 @@ interface SingleImportState extends ImportBatchState<string> {
 const NUMBERS_PER_BLOCK = 1;
 
 const definition = createDefinition(magicImageImportSingleTaskType, {
-  version:     '2026-09-16:v1',
+  version:     '2026-09-16:v2',
   effectModel: 'reconcilable',
 })
   .scope(z.object({}), {
@@ -100,7 +98,7 @@ const definition = createDefinition(magicImageImportSingleTaskType, {
     return runImportBlock({
       state,
       batchSize: NUMBERS_PER_BLOCK,
-      run: async numbers => {
+      run:       async numbers => {
         const db = getLocalDb();
         // One requested number stands for every print carrying it; a number the
         // set does not have is reported instead of written. Rows are re-read per
@@ -110,7 +108,7 @@ const definition = createDefinition(magicImageImportSingleTaskType, {
           .leftJoin(Gatherer, sql`${Gatherer.multiverseId} = ${Print.multiverseId}[1]`)
           .where(and(
             eq(Print.set, ctx.set),
-            eq(Print.lang, ctx.lang as typeof Print.$inferSelect.lang),
+            inArray(Print.lang, ctx.langs as typeof Print.$inferSelect.lang[]),
             inArray(Print.number, numbers),
             isNull(Print.deletedAt),
           )));

@@ -36,18 +36,36 @@
           <div class="space-y-4 pt-4">
             <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
               <UFormField orientation="horizontal" :ui="{ root: '!justify-start' }" label="来源" required>
-                <USelect
-                  v-model="form.source"
-                  :items="SOURCE_OPTIONS"
-                  value-key="value"
-                  class="w-44"
-                  :disabled="disabled"
-                />
+                <div class="flex items-center gap-2">
+                  <UFieldGroup>
+                    <UButton
+                      v-for="s in uploadSources"
+                      :key="s"
+                      :label="SOURCE_LABELS[s]"
+                      :color="form.source === s ? 'primary' : 'neutral'"
+                      :variant="form.source === s ? 'solid' : 'soft'"
+                      :disabled="disabled"
+                      @click="{ form.source = s; }"
+                    />
+                  </UFieldGroup>
+                  <span class="h-5 w-px bg-slate-200" aria-hidden="true" />
+                  <UFieldGroup>
+                    <UButton
+                      v-for="s in remoteSources"
+                      :key="s"
+                      :label="SOURCE_LABELS[s]"
+                      :color="form.source === s ? 'primary' : 'neutral'"
+                      :variant="form.source === s ? 'solid' : 'soft'"
+                      :disabled="disabled"
+                      @click="{ form.source = s; }"
+                    />
+                  </UFieldGroup>
+                </div>
               </UFormField>
-              <UFormField orientation="horizontal" :ui="{ root: '!justify-start' }" :label="isRemote ? '导入范围' : '导入方式'" required>
+              <UFormField v-if="!isRemote" orientation="horizontal" :ui="{ root: '!justify-start' }" label="导入方式" required>
                 <USelect
-                  v-model="remoteOrUploadMode"
-                  :items="modeOptions"
+                  v-model="form.uploadMode"
+                  :items="UPLOAD_MODE_OPTIONS"
                   value-key="value"
                   class="w-40"
                   :disabled="disabled"
@@ -71,16 +89,6 @@
                   :disabled="disabled || treeMode"
                 />
               </UFormField>
-              <UFormField orientation="horizontal" :ui="{ root: '!justify-start' }" label="语言" :required="langRequired">
-                <USelect
-                  v-model="form.lang"
-                  :items="langItems"
-                  value-key="value"
-                  placeholder="语言"
-                  class="w-36"
-                  :disabled="disabled || treeMode"
-                />
-              </UFormField>
               <UFormField orientation="horizontal" :ui="{ root: '!justify-start' }" label="编号" :required="isSingle" class="min-w-40">
                 <UInput
                   v-model="form.number"
@@ -90,14 +98,52 @@
                   :disabled="disabled || !isSingle"
                 />
               </UFormField>
+              <UCheckbox
+                v-if="isRemote"
+                v-model="allScope"
+                label="全部"
+                :disabled="disabled"
+              />
             </div>
 
-            <template v-if="isRemoteBatch">
-              <p class="text-xs text-muted">
-                {{ form.source === 'scryfall' ? '从 Scryfall 抓取官方 png 并转 q50 webp;质量按细节损失率分档;跳过手动替换过的印张。' : '从 Gatherer 按系列抓取卡图,质量不做保证,导入后按实测分档(可能大量低清,可手动替换)。' }}
-              </p>
-            </template>
-            <template v-else-if="isUploadSingle">
+            <UFormField orientation="horizontal" :ui="{ root: '!justify-start' }" label="语言" :required="!treeMode">
+              <div class="flex flex-wrap items-center gap-1">
+                <UFieldGroup>
+                  <UButton
+                    v-for="code in mainLocales"
+                    :key="code"
+                    :label="code.toUpperCase()"
+                    size="sm"
+                    :color="form.langs.includes(code) ? 'primary' : 'neutral'"
+                    :variant="form.langs.includes(code) ? 'solid' : 'soft'"
+                    :disabled="disabled || treeMode"
+                    @click="toggleLang(code)"
+                  />
+                </UFieldGroup>
+                <span class="h-5 w-px bg-slate-200" aria-hidden="true" />
+                <UFieldGroup>
+                  <UButton
+                    v-for="code in secondaryLocales"
+                    :key="code"
+                    :label="code.toUpperCase()"
+                    size="sm"
+                    :color="form.langs.includes(code) ? 'primary' : 'neutral'"
+                    :variant="form.langs.includes(code) ? 'solid' : 'soft'"
+                    :disabled="disabled || treeMode"
+                    @click="toggleLang(code)"
+                  />
+                </UFieldGroup>
+                <UCheckbox
+                  class="ml-2"
+                  :model-value="langAllSelected ? true : langSomeSelected ? 'indeterminate' : false"
+                  label="全选"
+                  :disabled="disabled || treeMode"
+                  @update:model-value="toggleAllLangs"
+                />
+              </div>
+            </UFormField>
+
+            <template v-if="isUploadSingle">
               <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
                 <UFormField orientation="horizontal" :ui="{ root: '!justify-start' }" label="面序号(可选)">
                   <UInput v-model="form.faceIndex" placeholder="留空=单面,多面填 0/1" class="w-44" :disabled="disabled" />
@@ -108,6 +154,9 @@
               </div>
               <p v-if="numbers.length > 1" class="text-sm text-error">
                 上传单张只能填一个编号。
+              </p>
+              <p v-else-if="form.langs.length > 1" class="text-sm text-error">
+                上传单张只能选一个语言。
               </p>
             </template>
             <template v-else-if="isUploadZip">
@@ -126,6 +175,9 @@
                   </UButton>
                 </div>
               </UFormField>
+              <p v-if="!treeMode && form.langs.length > 1" class="text-sm text-error">
+                压缩包导入一次只能选一个语言。
+              </p>
               <div v-if="analyzing" class="flex items-center gap-2 text-sm text-muted">
                 <UIcon name="i-lucide-loader-circle" class="size-4 animate-spin" />
                 正在识别压缩包…
@@ -154,7 +206,7 @@
                     <UButton
                       v-for="candidate in analysis.candidates"
                       :key="`${candidate.set}/${candidate.lang}`"
-                      :variant="form.set === candidate.set && form.lang === candidate.lang ? 'solid' : 'soft'"
+                      :variant="form.set === candidate.set && form.langs.length === 1 && form.langs[0] === candidate.lang ? 'solid' : 'soft'"
                       size="xs"
                       :disabled="disabled"
                       @click="applyCandidate(candidate)"
@@ -164,17 +216,8 @@
                   </template>
                 </div>
               </div>
-              <p class="text-xs text-muted">
-                支持文件名「编号」「编号-面」「编号#名称」等常见格式,或与图库目录一致的「large/系列/语言/编号」结构(可含多个系列与语言),识别结果可修改。
-              </p>
             </template>
             <template v-else-if="isDownloadSingle">
-              <p class="text-xs text-muted">
-                将按系列、语言和编号从所选来源下载卡图,面序号按卡牌正反面自动判断。
-              </p>
-              <p class="text-xs text-muted">
-                编号可填多个:用逗号分隔(如 1,3,5),或用 1-19 表示一段连续编号;范围只支持纯数字编号。
-              </p>
               <p v-if="numbers.length > 1" class="text-xs text-muted">
                 本次将处理 <span class="font-mono">{{ numbers.length }}</span> 个编号。
               </p>
@@ -194,7 +237,7 @@
 
       <ImportResultLists :groups="listGroups" />
 
-      <ImageCompareCard :set="form.set" :lang="form.lang" :number="compareNumber" :multiple="numbers.length > 1" />
+      <ImageCompareCard :set="form.set" :lang="compareLang" :number="compareNumber" />
     </div>
   </div>
 </template>
@@ -212,14 +255,20 @@ import { parseNumberInput } from '~/utils/import-numbers';
 
 definePageMeta({ layout: 'admin', title: '卡图导入' });
 
-const SOURCE_OPTIONS = [
-  { label: '手动上传', value: 'manual' },
-  { label: 'MTGCH', value: 'mtgch' },
-  { label: 'MTGFlame', value: 'mtgflame' },
-  { label: 'Hunterer', value: 'hunterer' },
-  { type: 'separator' },
-  { label: 'Scryfall', value: 'scryfall' },
-  { label: 'Gatherer', value: 'gatherer' },
+const SOURCE_LABELS = {
+  manual:   '手动上传',
+  mtgch:    'MTGCH',
+  mtgflame: 'MTGFlame',
+  hunterer: 'Hunterer',
+  scryfall: 'Scryfall',
+  gatherer: 'Gatherer',
+} as const;
+
+type SourceKey = keyof typeof SOURCE_LABELS;
+
+const UPLOAD_MODE_OPTIONS = [
+  { label: '单张图片', value: 'single' },
+  { label: '压缩包', value: 'zip' },
 ] as const;
 
 /** Result-key → report label for the unified import output. */
@@ -254,14 +303,16 @@ const CONVENTION_LABELS: Record<string, string> = {
 };
 
 /** Sources that accept local uploads; remote ones download instead. */
-const uploadSources = ['manual', 'mtgch', 'mtgflame', 'hunterer'];
+const uploadSources: SourceKey[] = ['manual', 'mtgch', 'mtgflame', 'hunterer'];
+/** Download-over-HTTP sources, rendered as the second button group. */
+const remoteSources: SourceKey[] = ['scryfall', 'gatherer'];
 
 const form = useLocalPersist('magic-image-import', {
-  source:     'manual',
+  source:     'manual' as SourceKey,
   remoteMode: 'batch',
   uploadMode: 'single',
   set:        '',
-  lang:       '',
+  langs:      ['en'],
   force:      false,
   cleanupJpg: false,
   number:     '',
@@ -269,7 +320,7 @@ const form = useLocalPersist('magic-image-import', {
   zipPath:    '',
   fileName:   '',
   dataBase64: '',
-}, ['source', 'remoteMode', 'uploadMode', 'set', 'lang', 'force', 'cleanupJpg', 'number', 'faceIndex', 'zipPath']);
+}, ['source', 'remoteMode', 'uploadMode', 'set', 'langs', 'force', 'cleanupJpg', 'number', 'faceIndex', 'zipPath']);
 
 const isRemote = computed(() => !uploadSources.includes(form.source));
 const isRemoteBatch = computed(() => isRemote.value && form.remoteMode === 'batch');
@@ -281,34 +332,26 @@ const treeMode = computed(() => isUploadZip.value && analysis.value?.convention 
 
 /** Every collector number the 编号 field stands for; a comma list or a range holds more than one. */
 const numbers = computed(() => parseNumberInput(form.number));
-/** The one number the compare panel works on, empty while the field holds a list. */
-const compareNumber = computed(() => (numbers.value.length === 1 ? numbers.value[0]! : ''));
+/** The comparison always works on the first number the 编号 field selects — of a list or of a range alike. */
+const compareNumber = computed(() => numbers.value[0] ?? '');
+/** The comparison works on the first selected language, falling back to English. */
+const compareLang = computed(() => selectedLangs.value[0] ?? 'en');
 
-/** The mode select of the second form field, driven by the source group. */
-const remoteOrUploadMode = computed({
-  get: () => isRemote.value ? form.remoteMode : form.uploadMode,
-  set: (value: string) => {
-    if (isRemote.value) form.remoteMode = value;
-    else form.uploadMode = value;
+/** 全部 checked = sweep the remote source as a batch, unchecked = import by number. */
+const allScope = computed({
+  get: () => form.remoteMode === 'batch',
+  set: (value: boolean) => {
+    form.remoteMode = value ? 'batch' : 'number';
   },
 });
 
-const modeOptions = computed(() => {
-  if (isRemote.value) return [{ label: '批量导入', value: 'batch' }, { label: '按编号', value: 'number' }];
-  return [{ label: '单张图片', value: 'single' }, { label: '压缩包', value: 'zip' }];
-});
-
 watch(() => form.source, () => {
-  // Remote batch keeps a set; switching groups resets to the group's default mode.
+  // Switching source groups resets to the group's default mode.
   if (isRemote.value && !['batch', 'number'].includes(form.remoteMode)) form.remoteMode = 'batch';
   if (!isRemote.value && !['single', 'zip'].includes(form.uploadMode)) form.uploadMode = 'single';
-  // The no-language sentinel only exists in the remote batch form.
-  if (isRemote.value && form.lang === '') form.lang = ALL_LANGUAGES;
-  if (!isRemote.value && form.lang === ALL_LANGUAGES) form.lang = '';
 });
 
 const setRequired = computed(() => !(isRemoteBatch.value && form.source === 'scryfall' && form.set === '__all__'));
-const langRequired = computed(() => !isRemoteBatch.value);
 
 interface ZipCandidate {
   set:  string;
@@ -350,7 +393,7 @@ async function runAnalyze() {
     const [top, second] = result.candidates;
     if (result.convention !== 'tree' && top && top.rate >= 0.9 && (!second || top.rate > second.rate)) {
       form.set = top.set;
-      form.lang = top.lang;
+      form.langs = [top.lang];
     }
   } catch (error) {
     analysisError.value = error instanceof Error ? error.message : String(error);
@@ -374,7 +417,7 @@ async function browse() {
 
 function applyCandidate(candidate: ZipCandidate) {
   form.set = candidate.set;
-  form.lang = candidate.lang;
+  form.langs = [candidate.lang];
 }
 
 const fileInput = ref<HTMLInputElement | null>(null);
@@ -411,21 +454,28 @@ onMounted(async () => {
   }
 });
 
-/** Main locales first, then a separator and the remaining (secondary) locales. */
-const mainCodeSet = new Set<string>(mainLocale.options);
-const ALL_LANGUAGES = '__all__';
 const ALL_SETS = '__all__';
 
-const langItems = computed(() => {
-  const locales = [
-    ...mainLocale.options.map(code => ({ label: code.toUpperCase(), value: code })),
-    { type: 'separator' },
-    ...locale.options.filter(code => !mainCodeSet.has(code)).map(code => ({ label: code.toUpperCase(), value: code })),
-  ];
-  return isRemoteBatch.value
-    ? [{ label: '不限', value: ALL_LANGUAGES }, ...locales]
-    : locales;
-});
+/** Locales in group order: main locales first, then the remaining secondary ones. */
+const mainLocales: string[] = [...mainLocale.options];
+const secondaryLocales: string[] = locale.options.filter(code => !(mainLocale.options as readonly string[]).includes(code));
+const allLocales: string[] = [...mainLocales, ...secondaryLocales];
+
+/** Selected languages normalized to group order; drives the import scope and the comparison. */
+const selectedLangs = computed(() => allLocales.filter(code => form.langs.includes(code)));
+
+const langAllSelected = computed(() => selectedLangs.value.length === allLocales.length);
+const langSomeSelected = computed(() => selectedLangs.value.length > 0 && !langAllSelected.value);
+
+function toggleLang(code: string) {
+  form.langs = form.langs.includes(code)
+    ? form.langs.filter(candidate => candidate !== code)
+    : [...form.langs, code];
+}
+
+function toggleAllLangs() {
+  form.langs = langAllSelected.value ? [] : [...allLocales];
+}
 
 const setItems = computed(() => {
   const sets = setOptions.value.map(code => ({ label: code, value: code }));
@@ -493,17 +543,19 @@ const listGroups = computed(() => {
 
 const operation = computed<TaskOperation>(() => {
   const setChosen = form.set.trim() !== '' && form.set !== ALL_SETS;
-  const langChosen = form.lang.trim() !== '' && form.lang !== ALL_LANGUAGES;
+  const hasLang = selectedLangs.value.length > 0;
   let ready: boolean;
   if (isRemoteBatch.value) {
-    ready = form.source === 'scryfall' ? (form.set === ALL_SETS || setChosen) : setChosen;
+    ready = hasLang && (form.source === 'scryfall' ? (form.set === ALL_SETS || setChosen) : setChosen);
   } else if (isDownloadSingle.value) {
-    ready = setChosen && langChosen && numbers.value.length > 0;
+    ready = setChosen && hasLang && numbers.value.length > 0;
   } else if (isUploadSingle.value) {
-    // One uploaded file belongs to exactly one print, so a list or a range blocks the run.
-    ready = setChosen && langChosen && numbers.value.length === 1 && !!form.dataBase64;
+    // One uploaded file belongs to exactly one print in one language, so a
+    // number list or a second language blocks the run.
+    ready = setChosen && selectedLangs.value.length === 1 && numbers.value.length === 1 && !!form.dataBase64;
   } else {
-    ready = treeMode.value ? !!form.zipPath.trim() : setChosen && langChosen && !!form.zipPath.trim();
+    // A flat archive carries one language, so exactly one must be selected.
+    ready = treeMode.value ? !!form.zipPath.trim() : setChosen && selectedLangs.value.length === 1 && !!form.zipPath.trim();
   }
 
   return {
@@ -518,7 +570,7 @@ const operation = computed<TaskOperation>(() => {
           source: form.source as 'scryfall' | 'gatherer',
           scope:  form.set === ALL_SETS ? 'full' : 'set',
           set:    form.set === ALL_SETS ? undefined : form.set,
-          lang:   form.lang === ALL_LANGUAGES ? undefined : form.lang,
+          langs:  selectedLangs.value,
           ...common,
         }) as Promise<TaskPageSnapshot>;
       }
@@ -526,7 +578,7 @@ const operation = computed<TaskOperation>(() => {
         return orpc.magic.createTask.imageImportLocal({
           source:  form.source as 'manual' | 'mtgch' | 'mtgflame' | 'hunterer',
           set:     treeMode.value ? undefined : form.set,
-          lang:    treeMode.value ? undefined : form.lang,
+          lang:    treeMode.value ? undefined : form.langs[0],
           zipPath: form.zipPath.trim(),
           ...common,
         }) as Promise<TaskPageSnapshot>;
@@ -534,7 +586,7 @@ const operation = computed<TaskOperation>(() => {
       return orpc.magic.createTask.imageImportSingle({
         source:     form.source as 'manual' | 'mtgch' | 'mtgflame' | 'hunterer' | 'scryfall' | 'gatherer',
         set:        form.set,
-        lang:       form.lang,
+        langs:      selectedLangs.value,
         numbers:    numbers.value,
         faceIndex:  isUploadSingle.value && form.faceIndex.trim() ? Number(form.faceIndex) : undefined,
         fileName:   isUploadSingle.value ? form.fileName || undefined : undefined,

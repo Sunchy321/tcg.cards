@@ -396,7 +396,7 @@ const imageImportRemote = os
     source:     z.enum(['scryfall', 'gatherer']),
     scope:      z.enum(['full', 'set']),
     set:        z.string().optional(),
-    lang:       z.string().optional(),
+    langs:      z.array(z.string()).min(1).optional(),
     force:      z.boolean().optional(),
     cleanupJpg: z.boolean().optional(),
   }).refine(
@@ -437,7 +437,7 @@ const imageImportSingle = os
   .input(z.strictObject({
     source:     z.enum(['manual', 'mtgch', 'mtgflame', 'hunterer', 'scryfall', 'gatherer']),
     set:        z.string().min(1),
-    lang:       z.string().min(1),
+    langs:      z.array(z.string()).min(1),
     numbers:    z.array(z.string().min(1)).min(1),
     force:      z.boolean().optional(),
     cleanupJpg: z.boolean().optional(),

@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { runWithDb } from '@tcg-cards/db';
@@ -20,7 +20,7 @@ const input = z.strictObject({
   source:     z.enum(['scryfall', 'gatherer']),
   scope:      z.enum(['full', 'set']),
   set:        z.string().optional(),
-  lang:       z.string().optional(),
+  langs:      z.array(z.string()).min(1).optional(),
   force:      z.boolean().optional().default(false),
   cleanupJpg: z.boolean().optional().default(false),
 }).refine(
@@ -34,7 +34,7 @@ const BATCH = 24;
 const CONCURRENCY = 4;
 
 const definition = createDefinition(magicImageImportRemoteTaskType, {
-  version:     '2026-09-09:v1',
+  version:     '2026-09-16:v1',
   effectModel: 'reconcilable',
 })
   .scope(z.object({}), {
@@ -53,7 +53,7 @@ const definition = createDefinition(magicImageImportRemoteTaskType, {
     const skipped = emptyRemoteSkipped();
     const where = (extra: ReturnType<typeof eq> | undefined) => and(
       extra,
-      ctx.lang ? sql`${Print.lang} = ${ctx.lang}` : undefined,
+      ctx.langs?.length ? inArray(Print.lang, ctx.langs as typeof Print.$inferSelect.lang[]) : undefined,
       importablePrintCondition(!!ctx.force, remoteExpectedFaces(ctx.source)),
     );
 
