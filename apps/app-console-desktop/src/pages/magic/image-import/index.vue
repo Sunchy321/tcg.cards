@@ -32,6 +32,17 @@
         :operations="[operation]"
         @completed="onCompleted"
       >
+        <template #actions-before="{ disabled }">
+          <UButton
+            label="清空图片"
+            icon="i-lucide-eraser"
+            color="error"
+            variant="soft"
+            :disabled="!clearReady || disabled"
+            :loading="clearing"
+            @click="{ clearOpen = true }"
+          />
+        </template>
         <template #params="{ disabled }">
           <div class="space-y-4 pt-4">
             <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
@@ -233,6 +244,15 @@
         @close="clearQualityCheck"
       />
 
+      <UModal v-model:open="clearOpen" title="确认清空" :description="clearScopeText">
+        <template #footer>
+          <div class="flex justify-end gap-2">
+            <UButton label="取消" color="neutral" variant="ghost" @click="{ clearOpen = false }" />
+            <UButton label="确认清空" color="error" :loading="clearing" @click="runClear" />
+          </div>
+        </template>
+      </UModal>
+
       <TaskResultCard :result="countResult" :labels="RESULT_LABELS" />
 
       <ImportResultLists :groups="listGroups" />
@@ -245,6 +265,7 @@
 <script setup lang="ts">
 import type { TaskPageSnapshot } from '@tcg-cards/model/task';
 import { locale, mainLocale } from '@tcg-cards/model/magic/schema/basic';
+import { useToast } from '@nuxt/ui/composables';
 import { open } from '@tauri-apps/plugin-dialog';
 import type { TaskOperation } from '~/components/task/TaskController.vue';
 import ImageCompareCard from '~/components/magic/ImageCompareCard.vue';
@@ -439,6 +460,41 @@ function onFilePicked(event: Event) {
     file.value = { name: picked.name };
   };
   reader.readAsDataURL(picked);
+}
+
+/** The clear action follows the import scope rules: a concrete set, at least one language, and numbers unless 全部. */
+const clearReady = computed(() => {
+  if (form.set.trim() === '' || form.set === ALL_SETS) return false;
+  if (selectedLangs.value.length === 0) return false;
+  return isRemoteBatch.value || numbers.value.length > 0;
+});
+
+const clearOpen = ref(false);
+const clearing = ref(false);
+
+/** What the confirm dialog spells out before anything is deleted. */
+const clearScopeText = computed(() => {
+  const langs = selectedLangs.value.map(code => code.toUpperCase()).join('、');
+  const scope = isRemoteBatch.value ? '全部编号' : `${numbers.value.length} 个编号`;
+  return `将清空系列 ${form.set} 的 ${langs}(${scope})的已导入卡图并删除对应文件,此操作不可撤销。`;
+});
+
+async function runClear() {
+  if (!clearReady.value) return;
+  clearing.value = true;
+  try {
+    const result = await orpc.magic.images.clear({
+      set:     form.set.trim(),
+      langs:   selectedLangs.value,
+      numbers: isRemoteBatch.value ? undefined : numbers.value,
+    });
+    useToast().add({ title: '已清空', description: `清空 ${result.cleared} 个印张,删除 ${result.files} 个文件`, color: 'info' });
+    clearOpen.value = false;
+  } catch (error) {
+    useToast().add({ title: '清空失败', description: error instanceof Error ? error.message : String(error), color: 'error' });
+  } finally {
+    clearing.value = false;
+  }
 }
 
 const setOptions = ref<string[]>([]);
