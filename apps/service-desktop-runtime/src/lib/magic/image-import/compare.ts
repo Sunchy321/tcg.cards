@@ -7,7 +7,7 @@ import { Print } from '@tcg-cards/db/schema/shared/magic/print';
 import { imageStatus } from '@tcg-cards/model/magic/schema/print';
 
 import type { LocalDb } from '../../hearthstone/hsdata-local-db';
-import { assessQuality, encodeWebp, faceIndexOf } from './common';
+import { assessQuality, encodeWebp } from './common';
 import { fetchImageBuffer } from './fetch';
 import { gathererRowUrls, scryfallRowUrls } from './source';
 
@@ -122,15 +122,13 @@ export async function compareImageSources(
   if (!row) return null;
 
   // Same url rule as the import, so the comparison shows what an import writes.
+  // Both rules return one url per printed image, so the slots compare pairwise;
+  // a row pinned to one face of its scryfall card (a reversible print) arrives
+  // as its single face already.
   const scryfallUrls = scryfallRowUrls(row);
   const gathererUrls = gathererRowUrls(row);
   const faceCount = Math.max(scryfallUrls.length, gathererUrls.length);
-
-  // Rows pinned to one face of their scryfall card only carry that face.
-  const pinned = faceIndexOf(row.scryfallFace);
-  const indices = pinned != null
-    ? [pinned]
-    : Array.from({ length: faceCount }, (_, i) => i);
+  const indices = Array.from({ length: faceCount }, (_, i) => i);
 
   const scryfallBlocked = row.scryfallCardId == null
     ? 'Scryfall 无该印张的图源信息'

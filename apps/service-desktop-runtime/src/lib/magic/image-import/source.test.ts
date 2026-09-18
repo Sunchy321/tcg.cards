@@ -93,14 +93,25 @@ describe('scryfallQueueRow', () => {
     expect(queued?.faceCount).toBe(1);
   });
 
-  test('keeps only the pinned face of a row pinned to one face', () => {
-    const queued = scryfallQueueRow(scryfallRow({
+  // A reversible print is one single-face print of a split reversible object:
+  // it stores its own face at slot 0 under its own collector number, whatever
+  // side of the physical object that face is.
+  test('stores the pinned face of a reversible print as its single image', () => {
+    const back = scryfallQueueRow(scryfallRow({
       layout:            'reversible_card',
       scryfallFace:      'back',
       scryfallCardFaces: [{ image_uris: { png: frontPng } }, { image_uris: { png: backPng } }],
     }), emptyRemoteSkipped());
-    expect(queued?.faces).toEqual([{ faceIndex: 1, url: backPng, remoteSource: 'scryfall' }]);
-    expect(queued?.faceCount).toBe(2);
+    expect(back?.faces).toEqual([{ faceIndex: 0, url: backPng, remoteSource: 'scryfall' }]);
+    expect(back?.faceCount).toBe(1);
+
+    const front = scryfallQueueRow(scryfallRow({
+      layout:            'reversible_card',
+      scryfallFace:      'front',
+      scryfallCardFaces: [{ image_uris: { png: frontPng } }, { image_uris: { png: backPng } }],
+    }), emptyRemoteSkipped());
+    expect(front?.faces).toEqual([{ faceIndex: 0, url: frontPng, remoteSource: 'scryfall' }]);
+    expect(front?.faceCount).toBe(1);
   });
 });
 
@@ -123,6 +134,17 @@ describe('gathererRowUrls', () => {
       gathererData: { imageUrls: frontGatherer, compositeCard: { imageUrls: backGatherer } },
     };
     expect(gathererRowUrls(row)).toEqual([frontGathererUrl, backGathererUrl]);
+  });
+
+  // A reversible print pinned to the back face carries the composite image —
+  // the physical back — as its single printed image.
+  test('resolves a back-pinned row to the composite image', () => {
+    const row = {
+      layout:       'reversible_card',
+      scryfallFace: 'back',
+      gathererData: { imageUrls: frontGatherer, compositeCard: { imageUrls: backGatherer } },
+    };
+    expect(gathererRowUrls(row)).toEqual([backGathererUrl]);
   });
 });
 

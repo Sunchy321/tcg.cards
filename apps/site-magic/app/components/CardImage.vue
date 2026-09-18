@@ -48,7 +48,7 @@
         icon="mdi:rotate-right"
         size="sm"
         square
-        @click.prevent.stop="realRotate = !realRotate"
+        @click.prevent.stop="void (realRotate = !realRotate)"
       />
     </div>
 
@@ -60,7 +60,7 @@
         icon="mdi:rotate-3d-variant"
         size="xl"
         square
-        @click.prevent.stop="realPart = realPart === 1 ? 0 : 1"
+        @click.prevent.stop="void (realPart = realPart === 1 ? 0 : 1)"
       />
     </div>
 
@@ -72,7 +72,7 @@
         icon="mdi:autorenew"
         size="xl"
         square
-        @click.prevent.stop="realPart = realPart === 1 ? 0 : 1"
+        @click.prevent.stop="void (realPart = realPart === 1 ? 0 : 1)"
       />
     </div>
 
@@ -84,7 +84,7 @@
         icon="mdi:rotate-right"
         size="xl"
         square
-        @click.prevent.stop="realPart = realPart === 1 ? 0 : 1"
+        @click.prevent.stop="void (realPart = realPart === 1 ? 0 : 1)"
       />
     </div>
   </div>
@@ -129,6 +129,8 @@ const realPart = computed({
   set(newValue: number) {
     innerPart.value = newValue;
 
+    // A reversible flip crosses prints (sibling a/b numbers), not parts of
+    // this print, so the card page's part state must not move.
     if (props.layout !== 'reversible_card') {
       emit('update:part', newValue);
     }
@@ -168,22 +170,26 @@ const turnable = computed(() => [
   'art_series',
 ].includes(props.layout));
 
-const imageUrlValues = computed(() => {
-  if (turnable.value) {
-    return [
-      `${assetBaseUrl}/magic/card/large/${props.set}/${props.lang}/${props.number}.${props.imageType}`,
-      `${assetBaseUrl}/magic/card/large/${props.set}/${props.lang}/${props.number}⁑.${props.imageType}`,
-    ];
-  } else if (['flip_token_top', 'flip_token_bottom'].includes(props.layout)) {
-    return [
-      `${assetBaseUrl}/magic/card/large/${props.set}/${props.lang}/${props.number.split('-')[0]}.${props.imageType}`,
-    ];
-  } else {
-    return [
-      `${assetBaseUrl}/magic/card/large/${props.set}/${props.lang}/${props.number}.${props.imageType}`,
-    ];
-  }
+// A reversible print is one side of a split reversible object: its collector
+// number carries the side suffix (a/b), and the flip shows the sibling print,
+// which stores the other side's image under its own number.
+const reversibleSiblingNumber = computed(() => {
+  const side = props.number.slice(-1);
+  if (side !== 'a' && side !== 'b') return props.number;
+  return `${props.number.slice(0, -1)}${side === 'a' ? 'b' : 'a'}`;
 });
+
+/** File stems of the printed images this layout renders, front first. */
+const imageStems = computed(() => {
+  if (props.layout === 'reversible_card') return [props.number, reversibleSiblingNumber.value];
+  if (turnable.value) return [props.number, `${props.number}⁑`];
+  if (['flip_token_top', 'flip_token_bottom'].includes(props.layout)) return [props.number.split('-')[0]];
+  return [props.number];
+});
+
+const imageUrlValues = computed(() => imageStems.value.map(stem =>
+  `${assetBaseUrl}/magic/card/large/${props.set}/${props.lang}/${stem}.${props.imageType}`,
+));
 
 const imageUrls = computed(() => {
   if (props.refreshToken != null) {
