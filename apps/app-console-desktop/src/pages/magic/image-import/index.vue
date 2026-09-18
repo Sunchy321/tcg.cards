@@ -40,7 +40,7 @@
             variant="soft"
             :disabled="!clearReady || disabled"
             :loading="clearing"
-            @click="{ clearOpen = true }"
+            @click="clearOpen = true"
           />
         </template>
         <template #params="{ disabled }">
@@ -247,7 +247,7 @@
       <UModal v-model:open="clearOpen" title="确认清空" :description="clearScopeText">
         <template #footer>
           <div class="flex justify-end gap-2">
-            <UButton label="取消" color="neutral" variant="ghost" @click="{ clearOpen = false }" />
+            <UButton label="取消" color="neutral" variant="ghost" @click="clearOpen = false" />
             <UButton label="确认清空" color="error" :loading="clearing" @click="runClear" />
           </div>
         </template>
@@ -277,12 +277,13 @@ import { parseNumberInput } from '~/utils/import-numbers';
 definePageMeta({ layout: 'admin', title: '卡图导入' });
 
 const SOURCE_LABELS = {
-  manual:   '手动上传',
-  mtgch:    'MTGCH',
-  mtgflame: 'MTGFlame',
-  hunterer: 'Hunterer',
-  scryfall: 'Scryfall',
-  gatherer: 'Gatherer',
+  manual:          '手动上传',
+  mtgch:           'MTGCH',
+  mtgflame:        'MTGFlame',
+  hunterer:        'Hunterer',
+  scryfall:        'Scryfall',
+  gatherer:        'Gatherer',
+  prefer_gatherer: 'Gatherer优先',
 } as const;
 
 type SourceKey = keyof typeof SOURCE_LABELS;
@@ -326,7 +327,7 @@ const CONVENTION_LABELS: Record<string, string> = {
 /** Sources that accept local uploads; remote ones download instead. */
 const uploadSources: SourceKey[] = ['manual', 'mtgch', 'mtgflame', 'hunterer'];
 /** Download-over-HTTP sources, rendered as the second button group. */
-const remoteSources: SourceKey[] = ['scryfall', 'gatherer'];
+const remoteSources: SourceKey[] = ['scryfall', 'gatherer', 'prefer_gatherer'];
 
 const form = useLocalPersist('magic-image-import', {
   source:     'manual' as SourceKey,
@@ -353,8 +354,8 @@ const treeMode = computed(() => isUploadZip.value && analysis.value?.convention 
 
 /** Every collector number the 编号 field stands for; a comma list or a range holds more than one. */
 const numbers = computed(() => parseNumberInput(form.number));
-/** The comparison always works on the first number the 编号 field selects — of a list or of a range alike. */
-const compareNumber = computed(() => numbers.value[0] ?? '');
+/** The comparison works on the first number the 编号 field selects; with 全部 checked and an empty field it falls back to number 1. */
+const compareNumber = computed(() => numbers.value[0] ?? (isRemoteBatch.value ? '1' : ''));
 /** The comparison works on the first selected language, falling back to English. */
 const compareLang = computed(() => selectedLangs.value[0] ?? 'en');
 
@@ -623,7 +624,7 @@ const operation = computed<TaskOperation>(() => {
       const common = { force: !!form.force, cleanupJpg: !!form.cleanupJpg };
       if (isRemoteBatch.value) {
         return orpc.magic.createTask.imageImportRemote({
-          source: form.source as 'scryfall' | 'gatherer',
+          source: form.source as 'scryfall' | 'gatherer' | 'prefer_gatherer',
           scope:  form.set === ALL_SETS ? 'full' : 'set',
           set:    form.set === ALL_SETS ? undefined : form.set,
           langs:  selectedLangs.value,
@@ -640,7 +641,7 @@ const operation = computed<TaskOperation>(() => {
         }) as Promise<TaskPageSnapshot>;
       }
       return orpc.magic.createTask.imageImportSingle({
-        source:     form.source as 'manual' | 'mtgch' | 'mtgflame' | 'hunterer' | 'scryfall' | 'gatherer',
+        source:     form.source as 'manual' | 'mtgch' | 'mtgflame' | 'hunterer' | 'scryfall' | 'gatherer' | 'prefer_gatherer',
         set:        form.set,
         langs:      selectedLangs.value,
         numbers:    numbers.value,

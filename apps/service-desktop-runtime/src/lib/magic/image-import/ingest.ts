@@ -43,11 +43,11 @@ export async function prepareFace(data: Buffer, source: string): Promise<StepRes
   if (!encoded.ok) return { ok: false, error: `图片解码失败(${encoded.error})` };
   const tier = await assessQuality(encoded.value, data);
   return {
-    ok: true,
+    ok:    true,
     value: {
       encoded: encoded.value,
       tier,
-      meta: {
+      meta:    {
         status:       tier.status,
         type:         'webp',
         source,
@@ -197,7 +197,7 @@ export async function ingestRemoteRow(db: LocalDb, row: RemoteQueueRow, options:
       pushCapped(failures, `${label}: 下载失败(${fetched.error})`);
       continue;
     }
-    const prepared = await prepareFace(fetched.data, options.imageSource);
+    const prepared = await prepareFace(fetched.data, face.remoteSource);
     if (!prepared.ok) {
       failed += 1;
       pushCapped(failures, `${label}: ${prepared.error}`);

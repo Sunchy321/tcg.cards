@@ -394,7 +394,7 @@ const publishTask = os
 
 const imageImportRemote = os
   .input(z.strictObject({
-    source:     z.enum(['scryfall', 'gatherer']),
+    source:     z.enum(['scryfall', 'gatherer', 'prefer_gatherer']),
     scope:      z.enum(['full', 'set']),
     set:        z.string().optional(),
     langs:      z.array(z.string()).min(1).optional(),
@@ -436,7 +436,7 @@ const imageImportLocal = os
 
 const imageImportSingle = os
   .input(z.strictObject({
-    source:     z.enum(['manual', 'mtgch', 'mtgflame', 'hunterer', 'scryfall', 'gatherer']),
+    source:     z.enum(['manual', 'mtgch', 'mtgflame', 'hunterer', 'scryfall', 'gatherer', 'prefer_gatherer']),
     set:        z.string().min(1),
     langs:      z.array(z.string()).min(1),
     numbers:    z.array(z.string().min(1)).min(1),

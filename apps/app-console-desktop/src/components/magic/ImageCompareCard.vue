@@ -26,7 +26,7 @@
         color="neutral"
         variant="soft"
         icon="i-lucide-info"
-        description="请先填写系列、语言与编号。"
+        description="请先填写系列与编号。"
       />
       <UAlert
         v-else-if="error"

@@ -69,7 +69,7 @@ describe('scryfallQueueRow', () => {
       scryfallImageUris: { png: topLevelPng },
       scryfallCardFaces: [{ image_uris: undefined }, { image_uris: undefined }],
     }), emptyRemoteSkipped());
-    expect(queued?.faces).toEqual([{ faceIndex: 0, url: topLevelPng }]);
+    expect(queued?.faces).toEqual([{ faceIndex: 0, url: topLevelPng, remoteSource: 'scryfall' }]);
     expect(queued?.faceCount).toBe(1);
   });
 
@@ -99,7 +99,7 @@ describe('scryfallQueueRow', () => {
       scryfallFace:      'back',
       scryfallCardFaces: [{ image_uris: { png: frontPng } }, { image_uris: { png: backPng } }],
     }), emptyRemoteSkipped());
-    expect(queued?.faces).toEqual([{ faceIndex: 1, url: backPng }]);
+    expect(queued?.faces).toEqual([{ faceIndex: 1, url: backPng, remoteSource: 'scryfall' }]);
     expect(queued?.faceCount).toBe(2);
   });
 });
@@ -132,7 +132,7 @@ describe('gathererQueueRow', () => {
       layout:       'adventure',
       gathererData: { imageUrls: frontGatherer, compositeCard: { imageUrls: backGatherer } },
     }), emptyRemoteSkipped());
-    expect(queued?.faces).toEqual([{ faceIndex: 0, url: frontGathererUrl }]);
+    expect(queued?.faces).toEqual([{ faceIndex: 0, url: frontGathererUrl, remoteSource: 'gatherer' }]);
     expect(queued?.faceCount).toBe(1);
   });
 

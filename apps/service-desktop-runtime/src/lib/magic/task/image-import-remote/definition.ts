@@ -11,20 +11,20 @@ import { createImportBatchState, emptyImageImportOutput, runImportBlock, type Im
 import { importablePrintCondition, mapWithConcurrency } from '../../image-import/common';
 import { ingestRemoteRow } from '../../image-import/ingest';
 import { addImageImportOutput, imageImportOutput } from '../../image-import/result';
-import { emptyRemoteSkipped, gathererQueueRow, remoteExpectedFaces, scryfallQueueRow, type RemoteQueueRow } from '../../image-import/source';
+import { emptyRemoteSkipped, gathererQueueRow, preferGathererQueueRow, remoteExpectedFaces, scryfallQueueRow, type RemoteQueueRow } from '../../image-import/source';
 
-/** Remote batch sweep: downloads every importable print of one source (scryfall/gatherer). */
+/** Remote batch sweep: downloads every importable print of one source (scryfall/gatherer/gatherer-first hybrid). */
 export const magicImageImportRemoteTaskType = 'magic_image_import_remote';
 
 const input = z.strictObject({
-  source:     z.enum(['scryfall', 'gatherer']),
+  source:     z.enum(['scryfall', 'gatherer', 'prefer_gatherer']),
   scope:      z.enum(['full', 'set']),
   set:        z.string().optional(),
   langs:      z.array(z.string()).min(1).optional(),
   force:      z.boolean().optional().default(false),
   cleanupJpg: z.boolean().optional().default(false),
 }).refine(
-  v => v.source === 'gatherer'
+  v => v.source === 'gatherer' || v.source === 'prefer_gatherer'
     ? v.scope === 'set' && !!v.set
     : v.scope === 'full' || !!v.set,
   { message: 'scope=set 需要 set;gatherer 只支持 scope=set' },
@@ -34,7 +34,7 @@ const BATCH = 24;
 const CONCURRENCY = 4;
 
 const definition = createDefinition(magicImageImportRemoteTaskType, {
-  version:     '2026-09-16:v1',
+  version:     '2026-09-18:v1',
   effectModel: 'reconcilable',
 })
   .scope(z.object({}), {
@@ -79,7 +79,7 @@ const definition = createDefinition(magicImageImportRemoteTaskType, {
         const queued = scryfallQueueRow(row, skipped);
         if (queued) queue.push(queued);
       }
-    } else {
+    } else if (ctx.source === 'gatherer') {
       const rows = await runWithDb(db, () => db.select({
         cardId:       Print.cardId,
         version:      Print.version,
@@ -97,6 +97,30 @@ const definition = createDefinition(magicImageImportRemoteTaskType, {
         .where(where(ctx.scope === 'set' ? eq(Print.set, ctx.set!) : undefined)));
       for (const row of rows) {
         const queued = gathererQueueRow(row, skipped);
+        if (queued) queue.push(queued);
+      }
+    } else {
+      const rows = await runWithDb(db, () => db.select({
+        cardId:              Print.cardId,
+        version:             Print.version,
+        set:                 Print.set,
+        number:              Print.number,
+        lang:                Print.lang,
+        source:              Print.source,
+        layout:              Print.layout,
+        scryfallFace:        Print.scryfallFace,
+        imageInfo:           Print.imageInfo,
+        scryfallImageStatus: ScryfallCard.imageStatus,
+        scryfallImageUris:   ScryfallCard.imageUris,
+        scryfallCardFaces:   ScryfallCard.cardFaces,
+        multiverseId:        Print.multiverseId,
+        gathererData:        Gatherer.data,
+      }).from(Print)
+        .leftJoin(ScryfallCard, eq(Print.scryfallCardId, ScryfallCard.cardId))
+        .leftJoin(Gatherer, sql`${Gatherer.multiverseId} = ${Print.multiverseId}[1]`)
+        .where(where(ctx.scope === 'set' ? eq(Print.set, ctx.set!) : undefined)));
+      for (const row of rows) {
+        const queued = preferGathererQueueRow(row, skipped);
         if (queued) queue.push(queued);
       }
     }

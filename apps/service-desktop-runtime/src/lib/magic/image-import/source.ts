@@ -10,10 +10,15 @@ import { faceIndexOf } from './common';
 /** Image sources fetched over HTTP rather than uploaded from local files. */
 export type RemoteImageSource = 'scryfall' | 'gatherer';
 
+/** A sweep source: either one remote source, or the gatherer-first hybrid. */
+export type SweepSource = RemoteImageSource | 'prefer_gatherer';
+
 /** One downloadable face of a queued print row. */
 export interface FaceTarget {
-  faceIndex: number;
-  url:       string;
+  faceIndex:    number;
+  url:          string;
+  /** Which remote source supplied this face; the ingest stamps it into the face meta. */
+  remoteSource: RemoteImageSource;
 }
 
 /** One print row queued for a remote download pass, with its resolvable faces. */
@@ -64,19 +69,23 @@ function perFaceImages(row: { layout: string, scryfallFace: string | null }): bo
  * `importablePrintCondition`. A card only carries a second image when its layout
  * prints one (see `isTwoImageLayout`) and its source actually has it: scryfall
  * puts per-face uris on front/back cards only, and gatherer serves the back
- * through `compositeCard`. Rows pinned to a single face always expect 1.
+ * through `compositeCard`. Rows pinned to a single face always expect 1. The
+ * hybrid expects whatever the better of the two sources can deliver, because
+ * its faces fall back per face.
  */
-export function remoteExpectedFaces(source: RemoteImageSource): SQL {
+export function remoteExpectedFaces(source: SweepSource): SQL {
   const singleImage = and(isNull(Print.scryfallFace), notInArray(Print.layout, [...twoImageLayouts]))!;
-  return source === 'scryfall'
-    ? sql`case when ${singleImage} then 1
-        when jsonb_array_length(coalesce(${ScryfallCard.cardFaces}, '[]'::jsonb)) > 1
-          and ${ScryfallCard.cardFaces}->0->'image_uris' is not null then 2
-        else 1 end`
-    : sql`case when ${singleImage} then 1
-        when ${Gatherer.data}->'compositeCard'->'imageUrls'->>'default' is not null
-          or ${Gatherer.data}->'compositeCard'->'imageUrls'->>'medium' is not null then 2
-        else 1 end`;
+  const scryfallExpr = sql`case when ${singleImage} then 1
+      when jsonb_array_length(coalesce(${ScryfallCard.cardFaces}, '[]'::jsonb)) > 1
+        and ${ScryfallCard.cardFaces}->0->'image_uris' is not null then 2
+      else 1 end`;
+  const gathererExpr = sql`case when ${singleImage} then 1
+      when ${Gatherer.data}->'compositeCard'->'imageUrls'->>'default' is not null
+        or ${Gatherer.data}->'compositeCard'->'imageUrls'->>'medium' is not null then 2
+      else 1 end`;
+  if (source === 'scryfall') return scryfallExpr;
+  if (source === 'gatherer') return gathererExpr;
+  return sql`greatest(${scryfallExpr}, ${gathererExpr})`;
 }
 
 interface QueueRowColumns {
@@ -96,7 +105,7 @@ interface QueueRowColumns {
  * printed images and faces pinned out by the row's scryfall face are dropped;
  * faces without a url count as `missingUrl`.
  */
-function queueRow(row: QueueRowColumns, urls: Array<string | null>, skipped: RemoteSkipped): RemoteQueueRow | null {
+function queueRow(row: QueueRowColumns, urls: Array<string | null>, skipped: RemoteSkipped, remoteSource: RemoteImageSource): RemoteQueueRow | null {
   const pinned = faceIndexOf(row.scryfallFace);
   const faceCount: 1 | 2 = perFaceImages(row) ? 2 : 1;
   const faces: FaceTarget[] = [];
@@ -107,7 +116,7 @@ function queueRow(row: QueueRowColumns, urls: Array<string | null>, skipped: Rem
       skipped.missingUrl += 1;
       continue;
     }
-    faces.push({ faceIndex: i, url });
+    faces.push({ faceIndex: i, url, remoteSource });
   }
   if (faces.length === 0) return null;
   return {
@@ -191,7 +200,7 @@ export function scryfallQueueRow(row: ScryfallImageRow, skipped: RemoteSkipped):
     skipped.placeholder += 1;
     return null;
   }
-  return queueRow(row, scryfallRowUrls(row), skipped);
+  return queueRow(row, scryfallRowUrls(row), skipped, 'scryfall');
 }
 
 /** Queues one gatherer print row from its cache urls. */
@@ -200,5 +209,34 @@ export function gathererQueueRow(row: GathererImageRow, skipped: RemoteSkipped):
     skipped.missingId += 1;
     return null;
   }
-  return queueRow(row, gathererRowUrls(row), skipped);
+  return queueRow(row, gathererRowUrls(row), skipped, 'gatherer');
+}
+
+/** Selected columns of one print row for the gatherer-first hybrid: both sources' columns at once. */
+export interface PreferredImageRow extends QueueRowColumns, ScryfallImageRow, GathererImageRow {}
+
+/**
+ * Queues one print row preferring gatherer face by face: every face gatherer
+ * supplies keeps its gatherer url, and only the faces it cannot supply fall
+ * back to scryfall. The gatherer attempt stays silent toward the counters —
+ * the row still gets its images, so only the scryfall side's misses count.
+ */
+export function preferGathererQueueRow(row: PreferredImageRow, skipped: RemoteSkipped): RemoteQueueRow | null {
+  const silent: RemoteSkipped = { placeholder: 0, missingId: 0, missingUrl: 0 };
+  const gatherer = gathererQueueRow(row, silent);
+  if (!gatherer) return scryfallQueueRow(row, skipped);
+
+  const scryfall = scryfallQueueRow(row, silent);
+  if (!scryfall) return gatherer;
+
+  const faces = [...gatherer.faces];
+  for (const face of scryfall.faces) {
+    if (!faces.some(candidate => candidate.faceIndex === face.faceIndex)) faces.push(face);
+  }
+  faces.sort((a, b) => a.faceIndex - b.faceIndex);
+  return {
+    ...gatherer,
+    faces,
+    faceCount: Math.max(gatherer.faceCount, scryfall.faceCount) as 1 | 2,
+  };
 }
