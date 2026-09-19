@@ -76,6 +76,13 @@ function toDocumentVersionId(versionId: string): string {
   return `magic-cr:${versionId}`;
 }
 
+/** Normalizes a compact YYYYMMDD date to the archive's dashed form; dashed input passes through. */
+function toDashedVersionDate(versionId: string): string {
+  return /^\d{8}$/.test(versionId)
+    ? `${versionId.slice(0, 4)}-${versionId.slice(4, 6)}-${versionId.slice(6, 8)}`
+    : versionId;
+}
+
 export const deleteVersion = os
   .route({
     method:      'DELETE',
@@ -132,12 +139,15 @@ export const syncLatest = os
       throw new Error('Could not extract version date from TXT filename');
     }
 
-    console.log(`[SyncLatest] Found version: ${versionDate}, TXT: ${links.txt}`);
+    // Bucket keys follow the archive layout: dashed dates and the `doc` folder (not `docx`).
+    const dashedDate = toDashedVersionDate(versionDate);
 
-    const dataR2Key = `magic/rule/${versionDate}.txt`;
-    const assetTxtKey = `magic/rule/txt/${versionDate}.txt`;
-    const assetDocxKey = links.docx ? `magic/rule/docx/${versionDate}.docx` : null;
-    const assetPdfKey = links.pdf ? `magic/rule/pdf/${versionDate}.pdf` : null;
+    console.log(`[SyncLatest] Found version: ${dashedDate}, TXT: ${links.txt}`);
+
+    const dataR2Key = `magic/rule/${dashedDate}.txt`;
+    const assetTxtKey = `magic/rule/txt/${dashedDate}.txt`;
+    const assetDocxKey = links.docx ? `magic/rule/doc/${dashedDate}.docx` : null;
+    const assetPdfKey = links.pdf ? `magic/rule/pdf/${dashedDate}.pdf` : null;
 
     console.log('[SyncLatest] Checking if files exist in R2...');
     const [existingData, existingTxt, existingDocx, existingPdf] = await Promise.all([
@@ -151,7 +161,7 @@ export const syncLatest = os
       console.log('[SyncLatest] Files already exist in R2, skipping download');
       return {
         success:    true,
-        sourceId:   versionDate,
+        sourceId:   dashedDate,
         message:    'Files already exist in R2',
         downloaded: false,
       };
@@ -184,7 +194,7 @@ export const syncLatest = os
     const uploadToAsset = async (key: string, data: { content: ArrayBuffer, contentType: string }, originalUrl: string) => {
       await env.R2_ASSET.put(key, data.content, {
         httpMetadata:   { contentType: data.contentType },
-        customMetadata: { source: 'wizards', version: versionDate, originalUrl },
+        customMetadata: { source: 'wizards', version: dashedDate, originalUrl },
       });
       console.log(`[SyncLatest] Uploaded to asset bucket: ${key}`);
     };
@@ -199,14 +209,14 @@ export const syncLatest = os
       const normalized = normalizeRuleText(new TextDecoder().decode(txtData.content));
       await env.R2_DATA.put(dataR2Key, normalized, {
         httpMetadata:   { contentType: 'text/plain' },
-        customMetadata: { source: 'wizards', version: versionDate, originalUrl: links.txt },
+        customMetadata: { source: 'wizards', version: dashedDate, originalUrl: links.txt },
       });
       console.log(`[SyncLatest] Uploaded to data bucket: ${dataR2Key}`);
     }
 
     return {
       success:    true,
-      sourceId:   versionDate,
+      sourceId:   dashedDate,
       message:    'Successfully downloaded latest rules to R2',
       downloaded: true,
     };
@@ -219,7 +229,7 @@ export const loadFromData = os
     tags:        ['Magic', 'Rule'],
   })
   .input(z.object({
-    versionId: z.string().regex(/^\d{8}$/, 'Version ID must be YYYYMMDD format'),
+    versionId: z.string().regex(/^\d{4}-\d{2}-\d{2}$|^\d{8}$/, 'Version ID must be YYYY-MM-DD or YYYYMMDD format'),
   }))
   .output(z.strictObject({
     success:          z.boolean(),
@@ -239,7 +249,7 @@ export const loadFromData = os
   }))
   .handler(async ({ input, context }) => {
     const env = context.env;
-    const { versionId } = input;
+    const versionId = toDashedVersionDate(input.versionId);
 
     const r2Key = `magic/rule/${versionId}.txt`;
     console.log(`[LoadFromData] Checking R2 for ${r2Key}`);
@@ -287,7 +297,7 @@ export const uploadToR2 = os
   .input(z.object({
     content:     z.string(),
     fileType:    z.enum(['txt', 'pdf', 'docx']).default('txt'),
-    versionDate: z.string().regex(/^\d{8}$/, 'Version date must be YYYYMMDD format'),
+    versionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$|^\d{8}$/, 'Version date must be YYYY-MM-DD or YYYYMMDD format'),
   }))
   .output(z.strictObject({
     success:  z.boolean(),
@@ -296,12 +306,13 @@ export const uploadToR2 = os
   }))
   .handler(async ({ input, context }) => {
     const env = context.env;
-    const versionDate = input.versionDate;
+    const versionDate = toDashedVersionDate(input.versionDate);
 
-    const ext = input.fileType;
-    const r2Key = ext === 'txt'
+    // Archive layout: per-format folders, with word files living under `doc`.
+    const folder = input.fileType === 'docx' ? 'doc' : input.fileType;
+    const r2Key = input.fileType === 'txt'
       ? `magic/rule/${versionDate}.txt`
-      : `magic/rule/${ext}/${versionDate}.${ext}`;
+      : `magic/rule/${folder}/${versionDate}.${input.fileType}`;
 
     const contentType = {
       txt:  'text/plain',
@@ -375,7 +386,7 @@ export const uploadArchive = os
 
     for (const file of input.files) {
       try {
-        const versionDate = file.versionDate;
+        const versionDate = file.versionDate ? toDashedVersionDate(file.versionDate) : null;
 
         if (!versionDate) {
           results.push({ name: file.name, status: 'error', error: 'Could not extract version date from filename' });
@@ -399,7 +410,9 @@ export const uploadArchive = os
           const contentType = file.fileType === 'pdf'
             ? 'application/pdf'
             : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-          const r2Key = `magic/rule/${file.fileType}/${versionDate}.${file.fileType}`;
+          // Archive layout: word files live under `doc`, keeping their own extension.
+          const folder = file.fileType === 'docx' ? 'doc' : file.fileType;
+          const r2Key = `magic/rule/${folder}/${versionDate}.${file.fileType}`;
 
           const binaryString = atob(file.content);
           const binary = new Uint8Array(binaryString.length);

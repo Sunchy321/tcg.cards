@@ -12,6 +12,7 @@ import { createAndRunTask } from './task';
 import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
 import { inconsistentMergedSlugs, unitViewFace, type FaceLike } from '../lib/magic/project/consistency';
 import { listMtgchArchives, listMtgjsonFiles, listScryfallFiles } from '../lib/magic/data-dir';
+import { magicRuleRouter } from './magic-rule';
 import { resolvePath } from '../lib/game-paths';
 import { magicScryfallImportTaskDefinition } from '../lib/magic/task/scryfall-import';
 import { magicMtgchImportTaskDefinition } from '../lib/magic/task/mtgch-import';
@@ -516,6 +517,7 @@ export const magicRouter = {
   images:     { sets: listImageSets, compare: compareImages, qualityCheck: checkImagesQuality, clear: clearPrintImages },
   analyze:    { imageArchive: analyzeImageArchive },
   createTask: { scryfallImport, mtgchImport, mtgjsonImport, gathererImport, magicProject, imageImportRemote, imageImportLocal, imageImportSingle },
+  rule:       magicRuleRouter,
   publish:    { publishTask },
   slug:       { listConflicts: listSlugConflicts, resolveConflict: resolveSlugConflict, member: slugMember },
   review:     { list: reviewList },
