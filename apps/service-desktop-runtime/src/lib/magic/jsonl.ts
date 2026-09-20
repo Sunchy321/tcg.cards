@@ -1,3 +1,21 @@
+/**
+ * Parse one JSONL line, or null when unparseable. MTGCH exports double-escape
+ * quotes inside strings (`\\"` where `\"` is meant), so every row whose text
+ * contains a quote fails strict JSON; those lines are retried once with the
+ * over-escaping collapsed before being given up on.
+ */
+export function parseJsonlLine(line: string): Record<string, unknown> | null {
+  try {
+    return JSON.parse(line) as Record<string, unknown>;
+  } catch {
+    try {
+      return JSON.parse(line.replace(/\\\\"/g, '\\"')) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  }
+}
+
 /** Stream JSONL from a plain or gzip file, yielding parsed objects. Bun-native. */
 export async function* readJsonl(file: string): AsyncGenerator<Record<string, unknown>> {
   let source = Bun.file(file).stream();
@@ -17,9 +35,8 @@ export async function* readJsonl(file: string): AsyncGenerator<Record<string, un
       const line = buffer.slice(0, idx);
       buffer = buffer.slice(idx + 1);
       if (line.length === 0) continue;
-      try {
-        yield JSON.parse(line);
-      } catch { /* skip malformed lines */ }
+      const parsed = parseJsonlLine(line);
+      if (parsed != null) yield parsed;
     }
   }
 }
