@@ -6,24 +6,29 @@ import { z } from 'zod';
  * report card for every source instead of three different shapes.
  */
 export const imageImportOutput = z.strictObject({
-  processed:    z.number(),
-  written:      z.number(),
-  unchanged:    z.number(),
-  failed:       z.number(),
-  skipped:      z.number(),
-  lowQuality:   z.number(),
-  cleanedJpg:   z.number(),
+  processed:         z.number(),
+  written:           z.number(),
+  unchanged:         z.number(),
+  failed:            z.number(),
+  skipped:           z.number(),
+  lowQuality:        z.number(),
+  cleanedJpg:        z.number(),
   // Remote batch only: rows/faces the data source could not supply.
-  missingUrl:   z.number(),
-  missingId:    z.number(),
-  placeholder:  z.number(),
+  missingUrl:        z.number(),
+  missingId:         z.number(),
+  placeholder:       z.number(),
+  // Rows skipped for the locally confirmed no-image mark. Defaulted so
+  // counters checkpointed before this field existed still parse.
+  markedPlaceholder: z.number().default(0),
   // Local batch and single only: archive matching outcomes.
-  skippedUpload: z.number(),
-  unmatched:     z.number(),
-  unrecognized:  z.number(),
+  skippedUpload:     z.number(),
+  unmatched:         z.number(),
+  unrecognized:      z.number(),
   unmatchedNumbers:  z.array(z.string()),
   unrecognizedNames: z.array(z.string()),
   warnings:          z.array(z.string()),
+  // Prints a remote pass did not touch because of the confirmed no-image mark.
+  markedNumbers:     z.array(z.string()).default([]),
   // Why each failed item failed, one `编号: 原因` entry per failed face/image.
   // Defaulted so counters checkpointed before this field existed still parse.
   failures:          z.array(z.string()).default([]),
@@ -37,9 +42,9 @@ export const maxListEntries = 50;
 
 const numericKeys = [
   'processed', 'written', 'unchanged', 'failed', 'skipped', 'lowQuality', 'cleanedJpg',
-  'missingUrl', 'missingId', 'placeholder', 'skippedUpload', 'unmatched', 'unrecognized',
+  'missingUrl', 'missingId', 'placeholder', 'markedPlaceholder', 'skippedUpload', 'unmatched', 'unrecognized',
 ] as const;
-const listKeys = ['unmatchedNumbers', 'unrecognizedNames', 'warnings', 'failures'] as const;
+const listKeys = ['unmatchedNumbers', 'unrecognizedNames', 'warnings', 'markedNumbers', 'failures'] as const;
 
 export function emptyImageImportOutput(): ImageImportOutput {
   return {
@@ -53,12 +58,14 @@ export function emptyImageImportOutput(): ImageImportOutput {
     missingUrl:        0,
     missingId:         0,
     placeholder:       0,
+    markedPlaceholder: 0,
     skippedUpload:     0,
     unmatched:         0,
     unrecognized:      0,
     unmatchedNumbers:  [],
     unrecognizedNames: [],
     warnings:          [],
+    markedNumbers:     [],
     failures:          [],
   };
 }

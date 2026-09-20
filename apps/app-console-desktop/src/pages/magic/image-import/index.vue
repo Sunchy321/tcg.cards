@@ -34,6 +34,15 @@
       >
         <template #actions-before="{ disabled }">
           <UButton
+            label="标记无图"
+            icon="i-lucide-image-off"
+            color="warning"
+            variant="soft"
+            :disabled="!clearReady || disabled"
+            :loading="marking"
+            @click="markOpen = true"
+          />
+          <UButton
             label="清空图片"
             icon="i-lucide-eraser"
             color="error"
@@ -253,6 +262,20 @@
         </template>
       </UModal>
 
+      <UModal v-model:open="markOpen" title="确认标记无图" :description="markScopeText">
+        <template #body>
+          <p class="text-sm text-muted">
+            范围内 Scryfall 只有占位图、且尚未导入卡图的印刷会被标记为无图(前台显示占位徽标并回退英文图,且不再被远程导入覆盖);已有卡图的印刷不受影响。
+          </p>
+        </template>
+        <template #footer>
+          <div class="flex justify-end gap-2">
+            <UButton label="取消" color="neutral" variant="ghost" @click="markOpen = false" />
+            <UButton label="确认标记" color="warning" :loading="marking" @click="runMark" />
+          </div>
+        </template>
+      </UModal>
+
       <TaskResultCard :result="countResult" :labels="RESULT_LABELS" />
 
       <ImportResultLists :groups="listGroups" />
@@ -295,25 +318,27 @@ const UPLOAD_MODE_OPTIONS = [
 
 /** Result-key → report label for the unified import output. */
 const RESULT_LABELS: Record<string, string> = {
-  processed:     '处理数',
-  written:       '写入',
-  unchanged:     '未变化',
-  failed:        '失败',
-  skipped:       '已跳过',
-  lowQuality:    '低清',
-  cleanedJpg:    '清理 JPG',
-  missingUrl:    '缺少图片地址',
-  missingId:     '缺少 Gatherer 编号',
-  placeholder:   '占位图',
-  skippedUpload: '跳过上传图',
-  unmatched:     '未匹配编号',
-  unrecognized:  '未识别文件',
+  processed:         '处理数',
+  written:           '写入',
+  unchanged:         '未变化',
+  failed:            '失败',
+  skipped:           '已跳过',
+  lowQuality:        '低清',
+  cleanedJpg:        '清理 JPG',
+  missingUrl:        '缺少图片地址',
+  missingId:         '缺少 Gatherer 编号',
+  placeholder:       '占位图',
+  markedPlaceholder: '已标记无图',
+  skippedUpload:     '跳过上传图',
+  unmatched:         '未匹配编号',
+  unrecognized:      '未识别文件',
 };
 
 const LIST_LABELS: Record<string, string> = {
   unmatchedNumbers:  '未匹配编号',
   unrecognizedNames: '未识别文件',
   warnings:          '名称提示',
+  markedNumbers:     '已标记无图',
   failures:          '失败明细',
 };
 
@@ -489,12 +514,48 @@ async function runClear() {
       langs:   selectedLangs.value,
       numbers: isRemoteBatch.value ? undefined : numbers.value,
     });
-    useToast().add({ title: '已清空', description: `清空 ${result.cleared} 个印张,删除 ${result.files} 个文件`, color: 'info' });
+    const marked = result.marked > 0 ? `,其中 ${result.marked} 个为无图占位状态` : '';
+    useToast().add({ title: '已清空', description: `清空 ${result.cleared} 个印张,删除 ${result.files} 个文件${marked}`, color: 'info' });
     clearOpen.value = false;
   } catch (error) {
     useToast().add({ title: '清空失败', description: error instanceof Error ? error.message : String(error), color: 'error' });
   } finally {
     clearing.value = false;
+  }
+}
+
+const markOpen = ref(false);
+const marking = ref(false);
+
+const markScopeText = computed(() => {
+  const langs = selectedLangs.value.map(code => code.toUpperCase()).join('、');
+  const scope = isRemoteBatch.value ? '全部编号' : `${numbers.value.length} 个编号`;
+  return `将处理系列 ${form.set} 的 ${langs}(${scope})。`;
+});
+
+async function runMark() {
+  if (!clearReady.value) return;
+  marking.value = true;
+  try {
+    const result = await orpc.magic.images.mark({
+      set:     form.set.trim(),
+      langs:   selectedLangs.value,
+      numbers: isRemoteBatch.value ? undefined : numbers.value,
+    });
+    const parts = [
+      result.skippedImage > 0 ? `跳过 ${result.skippedImage} 个(已有卡图)` : '',
+      result.ignored > 0 ? `忽略 ${result.ignored} 个(Scryfall 有真图)` : '',
+    ].filter(Boolean).join('，');
+    useToast().add({
+      title:       '已标记',
+      description: `标记 ${result.marked} 个印张为无图${parts ? `，${parts}` : ''}`,
+      color:       'info',
+    });
+    markOpen.value = false;
+  } catch (error) {
+    useToast().add({ title: '标记失败', description: error instanceof Error ? error.message : String(error), color: 'error' });
+  } finally {
+    marking.value = false;
   }
 }
 

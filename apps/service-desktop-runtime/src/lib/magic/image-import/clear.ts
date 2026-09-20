@@ -4,14 +4,16 @@ import { join } from 'node:path';
 import { z } from 'zod';
 
 import { runWithDb } from '@tcg-cards/db';
+import { ScryfallCard } from '@tcg-cards/db/schema/local/magic';
 import { Print } from '@tcg-cards/db/schema/shared/magic/print';
 
 import type { LocalDb } from '../../hearthstone/hsdata-local-db';
-import { cardImageRoot, printImageDir, removeSameStemJpg } from './common';
+import { cardImageRoot, printKeyCondition, removePrintImageFiles } from './common';
 
 export const imageClearResult = z.strictObject({
   cleared: z.number(),
   files:   z.number(),
+  marked:  z.number(),
 });
 
 export type ImageClearResult = z.infer<typeof imageClearResult>;
@@ -21,6 +23,11 @@ export type ImageClearResult = z.infer<typeof imageClearResult>;
  * numbers loses its image_info and its library files are removed. Numbers left
  * out means the whole set. Idempotent — prints without image data stay untouched
  * and language folders left empty by an earlier pass are still swept.
+ *
+ * The column snapshot is rebuilt while clearing, so no stale status survives:
+ * every print falls back to what scryfall currently reports. A print scryfall
+ * itself holds in the placeholder state therefore lands back in that state,
+ * which shows the placeholder badge on the site and blocks remote re-imports.
  */
 export async function clearImages(
   db: LocalDb,
@@ -37,27 +44,34 @@ export async function clearImages(
   )!;
 
   const rows = await runWithDb(db, () => db.select({
-    lang:   Print.lang,
-    number: Print.number,
-  }).from(Print).where(scope));
+    cardId:         Print.cardId,
+    version:        Print.version,
+    source:         Print.source,
+    lang:           Print.lang,
+    number:         Print.number,
+    printStatus:    Print.imageStatus,
+    scryfallStatus: ScryfallCard.imageStatus,
+  }).from(Print)
+    .leftJoin(ScryfallCard, eq(Print.scryfallCardId, ScryfallCard.cardId))
+    .where(scope));
 
   const prints = new Map<string, { lang: string, number: string }>();
   for (const row of rows) prints.set(`${row.lang}/${row.number}`, { lang: row.lang, number: row.number });
 
   let files = 0;
+  let marked = 0;
   if (prints.size > 0) {
-    await runWithDb(db, () => db.update(Print).set({ imageInfo: null }).where(scope));
+    for (const row of rows) {
+      // The scryfall column is plain text, so the fallback needs the enum cast.
+      const status = (row.scryfallStatus ?? row.printStatus) as typeof Print.$inferInsert['imageStatus'];
+      if (row.scryfallStatus === 'placeholder') marked += 1;
+      await runWithDb(db, () => db.update(Print)
+        .set({ imageInfo: null, imageStatus: status })
+        .where(printKeyCondition({ cardId: row.cardId, version: row.version, set: input.set, number: row.number, lang: row.lang, source: row.source })));
+    }
 
     for (const print of prints.values()) {
-      const dir = printImageDir(input.set, print.lang);
-      const safe = print.number.replaceAll('/', '_');
-      for (const name of [`${safe}.webp`, `${safe}⁑.webp`]) {
-        const file = join(dir, name);
-        if (!existsSync(file)) continue;
-        rmSync(file);
-        files += 1;
-      }
-      files += removeSameStemJpg(input.set, print.lang, print.number);
+      files += removePrintImageFiles(input.set, print.lang, print.number);
     }
   }
 
@@ -69,5 +83,5 @@ export async function clearImages(
     if (existsSync(dir) && readdirSync(dir).length === 0) rmSync(dir, { recursive: true });
   }
 
-  return { cleared: prints.size, files };
+  return { cleared: prints.size, files, marked };
 }

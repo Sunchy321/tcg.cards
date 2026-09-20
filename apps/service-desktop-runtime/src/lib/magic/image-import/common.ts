@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { join } from 'node:path';
 import { inflateSync } from 'node:zlib';
 
-import { and, isNull, notInArray, or, sql, type SQL } from 'drizzle-orm';
+import { and, eq, isNull, ne, notInArray, or, sql, type SQL } from 'drizzle-orm';
 
 import { Print } from '@tcg-cards/db/schema/shared/magic/print';
 import type { ImageInfo, ImageInfoMeta } from '#model/magic/schema/print';
@@ -91,12 +91,50 @@ function missingFaceCondition(expectedFaces: SQL): SQL {
 /**
  * Import selection for sweep tasks: upload-protected rows are always skipped;
  * with force=false only rows still missing a face are kept. `expectedFaces` is
- * the per-row face count SQL expression of the task's data source.
+ * the per-row face count SQL expression of the task's data source. Rows in the
+ * placeholder state (see `placeholderMarkExclusion`) are never selected.
  */
 export function importablePrintCondition(force: boolean, expectedFaces: SQL): SQL {
   return force
-    ? uploadProtectedExclusion()
-    : and(uploadProtectedExclusion(), missingFaceCondition(expectedFaces))!;
+    ? and(uploadProtectedExclusion(), placeholderMarkExclusion())!
+    : and(uploadProtectedExclusion(), placeholderMarkExclusion(), missingFaceCondition(expectedFaces))!;
+}
+
+/**
+ * Rows whose image status is placeholder: scryfall has no real image for them
+ * (its placeholder status projects into the column), so any remote image would
+ * be a stand-in. Never remote-imported, whatever the force mode. Prints that
+ * do carry a local image hold that image's quality tier instead, so they stay
+ * importable and the clear action is what flips them into the blocked state.
+ */
+function placeholderMarkExclusion(): SQL {
+  return ne(Print.imageStatus, 'placeholder')!;
+}
+
+/** Primary-key condition of one print row, as needed by every image write. */
+export function printKeyCondition(key: { cardId: string, version: string, set: string, number: string, lang: string, source: string }) {
+  return and(
+    eq(Print.cardId, key.cardId),
+    eq(Print.version, key.version),
+    eq(Print.set, key.set),
+    eq(Print.number, key.number),
+    eq(Print.lang, key.lang as typeof Print.$inferSelect.lang),
+    eq(Print.source, key.source),
+  );
+}
+
+/** Removes the canonical webp files of one print (front and ⁑ back face) plus its legacy jpg variants. */
+export function removePrintImageFiles(set: string, lang: string, number: string): number {
+  const safe = number.replaceAll('/', '_');
+  const dir = printImageDir(set, lang);
+  let files = 0;
+  for (const name of [`${safe}.webp`, `${safe}⁑.webp`]) {
+    const file = join(dir, name);
+    if (!existsSync(file)) continue;
+    rmSync(file);
+    files += 1;
+  }
+  return files + removeSameStemJpg(set, lang, number);
 }
 
 export function sha256Hex(data: Uint8Array | Buffer): string {

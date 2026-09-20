@@ -1,11 +1,9 @@
-import { and, eq } from 'drizzle-orm';
-
 import { Print } from '@tcg-cards/db/schema/shared/magic/print';
 import { isTwoImageLayout } from '@tcg-cards/shared/magic/print-image';
 import type { ImageInfo, ImageInfoMeta, ImageStatus } from '#model/magic/schema/print';
 
 import type { LocalDb } from '../../hearthstone/hsdata-local-db';
-import { assessQuality, encodeWebp, mergeImageInfo, removeSameStemJpg, uploadImageSources, writeCanonical, type EncodedImage, type QualityTier, type StepResult } from './common';
+import { assessQuality, encodeWebp, mergeImageInfo, printKeyCondition, removeSameStemJpg, uploadImageSources, writeCanonical, type EncodedImage, type QualityTier, type StepResult } from './common';
 import { fetchImageBuffer } from './fetch';
 import type { ImageImportDelta } from './result';
 import { pushCapped } from './result';
@@ -73,17 +71,6 @@ export function writeFace(set: string, lang: string, number: string, faceIndex: 
     ? removeSameStemJpg(set, lang, number)
     : 0;
   return { result: result.value, cleanedJpg };
-}
-
-function printKeyCondition(key: PrintKey) {
-  return and(
-    eq(Print.cardId, key.cardId),
-    eq(Print.version, key.version),
-    eq(Print.set, key.set),
-    eq(Print.number, key.number),
-    eq(Print.lang, key.lang as typeof Print.$inferSelect.lang),
-    eq(Print.source, key.source),
-  );
 }
 
 /**

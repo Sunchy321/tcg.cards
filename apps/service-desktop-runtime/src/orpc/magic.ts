@@ -24,6 +24,7 @@ import { magicImageImportLocalTaskDefinition } from '../lib/magic/task/image-imp
 import { magicImageImportSingleTaskDefinition } from '../lib/magic/task/image-import-single/definition';
 import { analyzeImportZip } from '../lib/magic/image-import/analyze';
 import { clearImages, imageClearResult } from '../lib/magic/image-import/clear';
+import { imageMarkResult, markPlaceholderImages } from '../lib/magic/image-import/mark';
 import { compareImageSources, imageCompareResult } from '../lib/magic/image-import/compare';
 import { checkImageQuality, imageQualityReport } from '../lib/magic/image-import/quality';
 import { magicPublishTaskDefinition } from '../lib/magic/task/publish';
@@ -512,9 +513,21 @@ const clearPrintImages = os
     return clearImages(db, input);
   });
 
+const markPrintImages = os
+  .input(z.strictObject({
+    set:     z.string().min(1),
+    langs:   z.array(z.string()).min(1),
+    numbers: z.array(z.string()).min(1).optional(),
+  }))
+  .output(imageMarkResult)
+  .handler(async ({ input }) => {
+    const db = getLocalDb();
+    return markPlaceholderImages(db, input);
+  });
+
 export const magicRouter = {
   getDataState,
-  images:     { sets: listImageSets, compare: compareImages, qualityCheck: checkImagesQuality, clear: clearPrintImages },
+  images:     { sets: listImageSets, compare: compareImages, qualityCheck: checkImagesQuality, clear: clearPrintImages, mark: markPrintImages },
   analyze:    { imageArchive: analyzeImageArchive },
   createTask: { scryfallImport, mtgchImport, mtgjsonImport, gathererImport, magicProject, imageImportRemote, imageImportLocal, imageImportSingle },
   rule:       magicRuleRouter,

@@ -34,7 +34,7 @@ const BATCH = 24;
 const CONCURRENCY = 4;
 
 const definition = createDefinition(magicImageImportRemoteTaskType, {
-  version:     '2026-09-18:v1',
+  version:     '2026-09-21:v2',
   effectModel: 'reconcilable',
 })
   .scope(z.object({}), {
@@ -125,10 +125,22 @@ const definition = createDefinition(magicImageImportRemoteTaskType, {
       }
     }
 
+    // Rows the placeholder state removed from the candidate pool: the guard in
+    // `importablePrintCondition` excludes them silently, so list them here.
+    const markedRows = await runWithDb(db, () => db.selectDistinct({ number: Print.number }).from(Print)
+      .where(and(
+        ctx.scope === 'set' ? eq(Print.set, ctx.set!) : undefined,
+        ctx.langs?.length ? inArray(Print.lang, ctx.langs as typeof Print.$inferSelect.lang[]) : undefined,
+        eq(Print.imageStatus, 'placeholder'),
+      )));
+    const markedNumbers = markedRows.map(row => row.number);
+
     const counts = addImageImportOutput(emptyImageImportOutput(), {
-      placeholder: skipped.placeholder,
-      missingId:   skipped.missingId,
-      missingUrl:  skipped.missingUrl,
+      placeholder:       skipped.placeholder,
+      missingId:         skipped.missingId,
+      missingUrl:        skipped.missingUrl,
+      markedPlaceholder: markedNumbers.length,
+      markedNumbers,
     });
     const state = createImportBatchState(queue, counts, { cleanupJpg: !!ctx.cleanupJpg, force: !!ctx.force });
     return { total: queue.length, blockInput: state };

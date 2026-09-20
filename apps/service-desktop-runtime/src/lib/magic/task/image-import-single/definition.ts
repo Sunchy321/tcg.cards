@@ -46,6 +46,7 @@ const rowColumns = {
   printName:           Print.name,
   scryfallFace:        Print.scryfallFace,
   imageInfo:           Print.imageInfo,
+  printStatus:         Print.imageStatus,
   scryfallImageStatus: ScryfallCard.imageStatus,
   scryfallImageUris:   ScryfallCard.imageUris,
   scryfallCardFaces:   ScryfallCard.cardFaces,
@@ -73,7 +74,7 @@ interface SingleImportState extends ImportBatchState<SingleRowKey> {
 const ROWS_PER_BLOCK = 1;
 
 const definition = createDefinition(magicImageImportSingleTaskType, {
-  version:     '2026-09-18:v1',
+  version:     '2026-09-21:v2',
   effectModel: 'reconcilable',
 })
   .scope(z.object({}), {
@@ -163,6 +164,13 @@ const definition = createDefinition(magicImageImportSingleTaskType, {
           }
 
           // Download sources: every face of the print, resolved by the source's own rules.
+          // A print in the placeholder state has no real image anywhere —
+          // never fetch a stand-in for it.
+          if (row.printStatus === 'placeholder') {
+            counts = addImageImportOutput(counts, { markedPlaceholder: 1 });
+            pushCapped(counts.markedNumbers, row.number);
+            continue;
+          }
           const queued = ctx.source === 'gatherer'
             ? gathererQueueRow(row, state.remoteSkipped)
             : ctx.source === 'prefer_gatherer'

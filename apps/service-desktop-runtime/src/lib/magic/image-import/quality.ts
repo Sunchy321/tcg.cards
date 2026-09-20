@@ -82,9 +82,10 @@ function baselineWidth(allWidths: number[]): number | null {
  */
 export async function checkImageQuality(db: LocalDb, set: string): Promise<ImageQualityReport> {
   const rows = await runWithDb(db, () => db.select({
-    number:    Print.number,
-    lang:      Print.lang,
-    imageInfo: Print.imageInfo,
+    number:      Print.number,
+    lang:        Print.lang,
+    imageStatus: Print.imageStatus,
+    imageInfo:   Print.imageInfo,
   }).from(Print).where(and(eq(Print.set, set), isNull(Print.deletedAt))));
 
   // Several rows can share one printed image (versions/sources), so the
@@ -97,6 +98,9 @@ export async function checkImageQuality(db: LocalDb, set: string): Promise<Image
     const key = `${row.lang}/${row.number}`;
     const faces = (row.imageInfo ?? []).filter(face => face != null);
     if (faces.length === 0) {
+      // A placeholder status (the local no-image mark, or scryfall reporting
+      // the print that way) is a settled state, not something left to import.
+      if (row.imageStatus === 'placeholder') continue;
       if (!imagePrints.has(key)) missingPrints.set(key, { lang: row.lang, number: row.number });
       continue;
     }
