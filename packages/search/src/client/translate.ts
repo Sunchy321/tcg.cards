@@ -173,6 +173,26 @@ export function translate(
 
   // raw expr
   if (expr.type === 'raw') {
+    // A raw value may still carry a syntax pattern (e.g. `inv#12` print
+    // references, `[3]` loyalty) — mirror the server and try pattern commands
+    // first, falling back to the plain text search when none matches.
+    if (typeof value === 'string') {
+      const patternCommand = commands.find(c =>
+        c.options.input.pattern != null && matchPattern(c.options.input.pattern, value) != null);
+
+      if (patternCommand != null) {
+        const pattern = matchPattern(patternCommand.options.input.pattern!, value)!;
+
+        return simpleTranslate(patternCommand, {
+          modifier:  undefined,
+          pattern,
+          value,
+          operator:  ':',
+          qualifier: [],
+        } satisfies CommonCommandInput, i18n);
+      }
+    }
+
     const command = commands.find(c => c.options.type === 'none');
 
     if (command == null) {
