@@ -5,8 +5,10 @@ import { dataSchema } from '../../../shared/magic/schema';
 /**
  * MTGCH exported Chinese-localization dataset caches. MTGCH no longer exposes a
  * web API; the source is a set of JSONL files under
- * `../data/magic/mtgch/magic-cards-zhs-data-<date>/`. The scryfall_card.json
- * skeleton is not cached — the Scryfall source already provides card data.
+ * `../data/magic/mtgch/magic-cards-zhs-data-<date>/`.
+ *   scryfall_card.json  MTGCH's Scryfall card skeleton; its own uuid space keys
+ *                       zhs_card rows and `scryfall_id` bridges to the real
+ *                       Scryfall card (the two id systems are unrelated values)
  *   zhs_card.json       per-card Chinese name / type line / text
  *   zhs_oracle.json     per-oracle Chinese translations
  *   zhs_flavor.json     Chinese flavor text
@@ -14,6 +16,43 @@ import { dataSchema } from '../../../shared/magic/schema';
  *   zhs_set.json        Chinese set names
  *   zhs_type.json       Chinese type / subtype / supertype translations
  */
+
+/**
+ * MTGCH's Scryfall card skeleton from scryfall_card.json. `cardId` is MTGCH's
+ * own uuid (equal to zhs_card.card_id, NOT a Scryfall id); `scryfallId` is the
+ * real Scryfall card id. `faceIndex` is -1 for whole-card rows and the
+ * card_faces index for face-split rows.
+ */
+export const MtgchScryfallCard = dataSchema.table('mtgch_scryfall_card', {
+  cardId:     text('card_id').primaryKey(),
+  scryfallId: text('scryfall_id'),
+  faceIndex:  integer('face_index'),
+  lang:       text('lang'),
+
+  oracleId:        text('oracle_id'),
+  faceOracleId:    text('face_oracle_id'),
+  setCode:         text('set_code'),
+  setId:           text('set_id'),
+  collectorNumber: text('collector_number'),
+  multiverseId:    integer('multiverse_id'),
+
+  name:     text('name'),
+  faceName: text('face_name'),
+
+  printedName:     text('printed_name'),
+  printedTypeLine: text('printed_type_line'),
+  printedText:     text('printed_text'),
+
+  layout:     text('layout'),
+  releasedAt: text('released_at'),
+
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at')
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+  deletedAt: timestamp('deleted_at'),
+});
 
 /** Per-card Chinese name / type line / text from zhs_card.json. */
 export const MtgchZhsCard = dataSchema.table('mtgch_zhs_card', {

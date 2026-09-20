@@ -9,6 +9,7 @@ import {
   importMtgchFlavor,
   importMtgchOracle,
   importMtgchRuling,
+  importMtgchScryfallCard,
   importMtgchSet,
   importMtgchType,
 } from '../../mtgch/import';
@@ -30,19 +31,20 @@ const input = z.object({
 });
 
 const output = z.object({
-  card:   importCounts,
-  oracle: importCounts,
-  flavor: importCounts,
-  ruling: importCounts,
-  set:    importCounts,
-  type:   importCounts,
+  card:     importCounts,
+  scryfall: importCounts,
+  oracle:   importCounts,
+  flavor:   importCounts,
+  ruling:   importCounts,
+  set:      importCounts,
+  type:     importCounts,
 });
 
-type EntryCounts = Record<'card' | 'oracle' | 'flavor' | 'ruling' | 'set' | 'type', ImportCounts>;
+type EntryCounts = Record<'card' | 'scryfall' | 'oracle' | 'flavor' | 'ruling' | 'set' | 'type', ImportCounts>;
 
 const emptyCounts: ImportCounts = { inserted: 0, updated: 0, unchanged: 0, deleted: 0 };
 
-const ZHS_ENTRIES = ['zhs_card.json', 'zhs_oracle.json', 'zhs_flavor.json', 'zhs_ruling.json', 'zhs_set.json', 'zhs_type.json'] as const;
+const ZHS_ENTRIES = ['scryfall_card.json', 'zhs_card.json', 'zhs_oracle.json', 'zhs_flavor.json', 'zhs_ruling.json', 'zhs_set.json', 'zhs_type.json'] as const;
 
 /** One bounded per-file stage: total line count known up front, done reported per batch. */
 interface FileBlockState {
@@ -57,7 +59,7 @@ interface MagicCtx {
 }
 
 const definition = createDefinition(magicMtgchImportTaskType, {
-  version:     '2026-08-25:v1',
+  version:     '2026-09-20:v1',
   effectModel: 'reconcilable',
 })
   .scope(z.object({}), {
@@ -71,8 +73,25 @@ const definition = createDefinition(magicMtgchImportTaskType, {
   .handler(async ({ ctx }) => {
     const magic = ctx as unknown as MagicCtx;
     magic.lineCounts = await countTarGzEntryLines(ctx.archive, [...ZHS_ENTRIES]);
-    magic.counts = { card: emptyCounts, oracle: emptyCounts, flavor: emptyCounts, ruling: emptyCounts, set: emptyCounts, type: emptyCounts };
+    magic.counts = { card: emptyCounts, scryfall: emptyCounts, oracle: emptyCounts, flavor: emptyCounts, ruling: emptyCounts, set: emptyCounts, type: emptyCounts };
     return {};
+  })
+  .stage('scryfall', { label: '导入 Scryfall Card', progressMode: 'bounded', resumeMode: 'durable' })
+  .entry(async ({ ctx, checkpoint }) => {
+    const total = (ctx as unknown as MagicCtx).lineCounts["scryfall_card.json"] ?? 0;
+    const restored = checkpoint?.blockInput as FileBlockState | undefined;
+    if (restored) return { total, blockInput: restored };
+    return { total, blockInput: { done: 0, total, counts: emptyCounts } satisfies FileBlockState };
+  })
+  .block(async ({ ctx, blockInput, progress, checkpoint, done }) => {
+    const counts = await runWithDb(getLocalDb(), () => importMtgchScryfallCard(ctx.archive, p => progress({ done: p, total: blockInput.total })));
+    const next: FileBlockState = { ...blockInput, done: blockInput.total, counts };
+    await checkpoint(next);
+    return done(next);
+  })
+  .exit(({ ctx, blockInput }) => {
+    (ctx as unknown as MagicCtx).counts.scryfall = blockInput.counts;
+    return blockInput.counts;
   })
   .stage('card', { label: '导入 Card', progressMode: 'bounded', resumeMode: 'durable' })
   .entry(async ({ ctx, checkpoint }) => {
