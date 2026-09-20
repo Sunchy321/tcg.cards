@@ -1,0 +1,224 @@
+{
+  "cards": [
+    {
+      "cardId": "crusading-knight",
+      "version": "",
+      "partCount": 1,
+      "name": "Crusading Knight",
+      "typeline": "Creature — Human Knight",
+      "manaValue": 4,
+      "colorIdentity": "W",
+      "keywords": [
+        "protection"
+      ],
+      "counters": [],
+      "producibleMana": null,
+      "category": "default",
+      "tags": [],
+      "legalities": {
+        "tlr": "unavailable",
+        "duelcommander": "legal",
+        "brawl": "unavailable",
+        "penny": "unavailable",
+        "predh": "legal",
+        "future": "unavailable",
+        "legacy": "legal",
+        "modern": "unavailable",
+        "pauper": "unavailable",
+        "alchemy": "unavailable",
+        "pioneer": "unavailable",
+        "vintage": "legal",
+        "historic": "unavailable",
+        "standard": "unavailable",
+        "timeless": "unavailable",
+        "commander": "legal",
+        "gladiator": "unavailable",
+        "oldschool": "unavailable",
+        "premodern": "legal",
+        "oathbreaker": "legal",
+        "standard_brawl": "unavailable",
+        "pauper_commander": "unavailable",
+        "competitivebrawl": "unavailable"
+      },
+      "scryfallOracleId": [
+        "59385809-3223-4bc2-a824-9bab257c917a"
+      ]
+    }
+  ],
+  "cardParts": [
+    {
+      "cardId": "crusading-knight",
+      "version": "",
+      "partIndex": 0,
+      "name": "Crusading Knight",
+      "typeline": "Creature — Human Knight",
+      "text": "Protection from black\nThis creature gets +1/+1 for each Swamp your opponents control.",
+      "cost": [
+        "2",
+        "W",
+        "W"
+      ],
+      "manaValue": 4,
+      "color": "W",
+      "colorIndicator": null,
+      "typeSuper": null,
+      "typeMain": [
+        "creature"
+      ],
+      "typeSub": [
+        "human",
+        "knight"
+      ],
+      "power": "2",
+      "toughness": "2",
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    }
+  ],
+  "cardLocalizations": [
+    {
+      "cardId": "crusading-knight",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "name": "Crusading Knight",
+      "typeline": "Creature — Human Knight"
+    },
+    {
+      "cardId": "crusading-knight",
+      "version": "",
+      "locale": "zhs",
+      "source": "",
+      "name": "圣战骑士",
+      "typeline": "生物～人类／骑士"
+    }
+  ],
+  "cardPartLocalizations": [
+    {
+      "cardId": "crusading-knight",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "Crusading Knight",
+      "typeline": "Creature — Human Knight",
+      "text": "Protection from black\nThis creature gets +1/+1 for each Swamp your opponents control."
+    },
+    {
+      "cardId": "crusading-knight",
+      "version": "",
+      "locale": "zhs",
+      "source": "",
+      "partIndex": 0,
+      "name": "圣战骑士",
+      "typeline": "生物～人类／骑士",
+      "text": "反黑保护\n所有对手每操控一个沼泽，此生物便得+1/+1。"
+    }
+  ],
+  "prints": [
+    {
+      "cardId": "crusading-knight",
+      "version": "",
+      "set": "inv",
+      "number": "12",
+      "lang": "zhs",
+      "source": "",
+      "name": "圣战骑士",
+      "typeline": "生物～骑士",
+      "layout": "normal",
+      "frame": "1997",
+      "frameEffects": [],
+      "borderColor": "black",
+      "cardBack": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "securityStamp": null,
+      "promoTypes": null,
+      "rarity": "rare",
+      "releaseDate": "2000-10-02",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": false,
+      "finishes": [
+        "nonfoil"
+      ],
+      "imageStatus": "placeholder",
+      "inBooster": true,
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "printTags": [],
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "b845b8ee-aeea-4822-bcf9-7230625ac95c"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "59385809-3223-4bc2-a824-9bab257c917a",
+      "scryfallCardId": "dd7271ce-c480-4ada-9881-086fb8fa7166",
+      "scryfallFace": null,
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseId": [],
+      "tcgPlayerId": null,
+      "tcgplayerEtchedId": null,
+      "cardMarketId": null
+    }
+  ],
+  "printParts": [
+    {
+      "cardId": "crusading-knight",
+      "version": "",
+      "set": "inv",
+      "number": "12",
+      "lang": "zhs",
+      "source": "",
+      "partIndex": 0,
+      "name": "圣战骑士",
+      "typeline": "生物～骑士",
+      "text": "反黑保护\n对手每操控一张沼泽，圣战骑士便得+1/+1。",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": null,
+      "artist": "Edward P. Beard, Jr.",
+      "watermark": null,
+      "scryfallIllusId": [
+        "a066720c-f3d1-426a-a3af-a2f4b6ee49e6"
+      ]
+    }
+  ],
+  "authorities": [
+    {
+      "cardId": "crusading-knight",
+      "version": "",
+      "locale": "zhs",
+      "source": "",
+      "name": "圣战骑士",
+      "typeline": "生物～人类／骑士",
+      "text": "反黑保护\n所有对手每操控一个沼泽，此生物便得+1/+1。",
+      "partCount": 1
+    }
+  ],
+  "reviews": [
+    {
+      "kind": "card_field_overwrite",
+      "subject": {
+        "cardId": "crusading-knight",
+        "version": "",
+        "locale": "zhs",
+        "source": "mtgch",
+        "fieldPath": "text"
+      },
+      "payload": {
+        "oldValue": "Protection from black\nThis creature gets +1/+1 for each Swamp your opponents control.",
+        "newValue": "反黑保护\n所有对手每操控一个沼泽，此生物便得+1/+1。"
+      },
+      "status": "pending"
+    }
+  ]
+}

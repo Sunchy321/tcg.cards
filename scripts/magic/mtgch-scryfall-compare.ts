@@ -67,6 +67,8 @@ const cjk = /[\u4e00-\u9fff]/;
  */
 function norm(value: string): string {
   return value
+    .replace(/\\\\r\\\\n/g, '\n')
+    .replace(/\\\\r/g, '\n')
     .replace(/\\\\n/g, '\n')
     .replace(/\\n/g, '\n')
     .replace(/[\s\u3000]+/g, ' ')
@@ -207,22 +209,31 @@ function zhsSurface(skel: SkeletonRow): ScryfallSide | null {
 
 const isFace = (skel: SkeletonRow) => skel.faceIndex != null && skel.faceIndex >= 0;
 
+/**
+ * Scryfall sometimes stores the joined whole-card value (`A // B`) on each
+ * card_faces[i].printed_* slot; split it back and take this face's segment.
+ */
+function faceValue(value: string | null, faceIndex: number | null): string | null {
+  if (value == null || faceIndex == null || faceIndex < 0 || !value.includes(' // ')) return value;
+  return value.split(' // ')[faceIndex] ?? value;
+}
+
 const fields: FieldStat[] = [
   {
     label: '名称',
-    pick: (card, skel, side) => classify(isFace(skel) ? card.faceName : card.name, side?.name ?? null, side == null),
+    pick: (card, skel, side) => classify(card.faceName?.trim() ? card.faceName : card.name, faceValue(side?.name ?? null, skel.faceIndex), side == null),
     counts: emptyCounts(),
     samples: {},
   },
   {
     label: '类别行',
-    pick: (card, _skel, side) => classify(card.typeLine, side?.type ?? null, side == null),
+    pick: (card, skel, side) => classify(card.typeLine, faceValue(side?.type ?? null, skel.faceIndex), side == null),
     counts: emptyCounts(),
     samples: {},
   },
   {
     label: '规则文字',
-    pick: (card, _skel, side) => classify(card.text, side?.text ?? null, side == null),
+    pick: (card, skel, side) => classify(card.text, faceValue(side?.text ?? null, skel.faceIndex), side == null),
     counts: emptyCounts(),
     samples: {},
   },

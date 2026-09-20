@@ -136,6 +136,14 @@ export interface PrintDraft {
 
   /** Printed surfaces aligned with this unit's faces (drives print_parts). */
   faces: PrintFaceDraft[];
+
+  /**
+   * MTGCH Chinese printed surfaces for zhs prints, aligned with `faces`
+   * (entry i feeds face slot i; a null entry means no community value for
+   * that slot). Absent/null for non-zhs prints and prints without data —
+   * the projection then keeps the scryfall/English fallback chain.
+   */
+  mtgchFaces?: (LocalizedFaceDraft | null)[] | null;
 }
 
 /** MTGCH community Simplified-Chinese surfaces, aligned per oracle face (§S4). */
@@ -308,16 +316,25 @@ function cardTypeline(assembled: AssembledCard): string {
   return assembled.faces.map(f => f.typeLine ?? '').join(' // ');
 }
 
-/** Printed display name of a face, falling back to its English oracle name. */
-function displayName(pf: PrintFaceDraft | undefined, oracle: OracleFaceDraft): string {
+/**
+ * Printed display name of a face. zhs prints take the MTGCH community surface
+ * as the authority (verified field-by-field against scryfall; the scryfall
+ * printed name is out of the zhs chain), falling back to the English oracle
+ * name where MTGCH has nothing. Other languages keep the scryfall printed
+ * surface with the oracle fallback.
+ */
+function displayName(pf: PrintFaceDraft | undefined, oracle: OracleFaceDraft, mtgch?: LocalizedFaceDraft | null): string {
+  if (mtgch != null) return mtgch.name ?? oracle.name;
   return pf?.printedName ?? oracle.name;
 }
 
-function displayTypeline(pf: PrintFaceDraft | undefined, oracle: OracleFaceDraft): string {
+function displayTypeline(pf: PrintFaceDraft | undefined, oracle: OracleFaceDraft, mtgch?: LocalizedFaceDraft | null): string {
+  if (mtgch != null) return mtgch.typeline ?? oracle.typeLine ?? '';
   return pf?.printedTypeLine ?? oracle.typeLine ?? '';
 }
 
-function displayText(pf: PrintFaceDraft | undefined, oracle: OracleFaceDraft): string {
+function displayText(pf: PrintFaceDraft | undefined, oracle: OracleFaceDraft, mtgch?: LocalizedFaceDraft | null): string {
+  if (mtgch != null) return purifyText(mtgch.text ?? oracle.oracleText ?? '');
   return purifyText(pf?.printedText ?? oracle.oracleText ?? '');
 }
 
@@ -336,12 +353,16 @@ function projectPrints(assembled: AssembledCard): {
   const printParts: (typeof PrintPart)['$inferInsert'][] = [];
 
   for (const draft of assembled.prints ?? []) {
+    // MTGCH faces ride only on zhs drafts (see assembly); the slot may still be
+    // null when the community source has no value for that position.
+    const mtgchFaces = draft.lang === 'zhs' ? draft.mtgchFaces : null;
     const resolved = draft.faces.map((pf, i) => {
       const oracle = assembled.faces[i];
+      const mtgch = mtgchFaces?.[i];
       return {
-        name:             displayName(pf, oracle),
-        typeline:         displayTypeline(pf, oracle),
-        text:             displayText(pf, oracle),
+        name:             displayName(pf, oracle, mtgch),
+        typeline:         displayTypeline(pf, oracle, mtgch),
+        text:             displayText(pf, oracle, mtgch),
         flavorName:       pf.flavorName ?? null,
         flavorText:       pf.flavorText ?? null,
         artist:           pf.artist ?? null,
@@ -578,7 +599,7 @@ function buildAuthorities(assembled: AssembledCard): {
     authorities.push({
       cardId,
       version,
-      locale:   locale as (typeof CardLocalizationAuthority.$inferInsert)['locale'],
+      locale:    locale as (typeof CardLocalizationAuthority.$inferInsert)['locale'],
       source,
       name:      joinFaces(chosen.map(f => f.name), LINE_FACE_SEPARATOR),
       typeline:  joinFaces(chosen.map(f => f.typeline), LINE_FACE_SEPARATOR),

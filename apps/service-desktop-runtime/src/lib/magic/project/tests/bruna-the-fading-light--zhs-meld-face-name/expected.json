@@ -1,0 +1,231 @@
+{
+  "cards": [
+    {
+      "cardId": "bruna-the-fading-light",
+      "version": "",
+      "partCount": 1,
+      "name": "Bruna, the Fading Light",
+      "typeline": "Legendary Creature — Angel Horror",
+      "manaValue": 7,
+      "colorIdentity": "W",
+      "keywords": [
+        "flying",
+        "vigilance"
+      ],
+      "counters": [],
+      "producibleMana": null,
+      "category": "default",
+      "tags": [],
+      "legalities": {
+        "tlr": "unavailable",
+        "duelcommander": "legal",
+        "brawl": "legal",
+        "penny": "legal",
+        "predh": "unavailable",
+        "future": "unavailable",
+        "legacy": "legal",
+        "modern": "legal",
+        "pauper": "unavailable",
+        "alchemy": "unavailable",
+        "pioneer": "legal",
+        "vintage": "legal",
+        "historic": "legal",
+        "standard": "unavailable",
+        "timeless": "legal",
+        "commander": "legal",
+        "gladiator": "legal",
+        "oldschool": "unavailable",
+        "premodern": "unavailable",
+        "oathbreaker": "legal",
+        "standard_brawl": "unavailable",
+        "pauper_commander": "unavailable",
+        "competitivebrawl": "legal"
+      },
+      "scryfallOracleId": [
+        "bce7e45d-b2c5-43aa-91a6-3a3c24f30850"
+      ]
+    }
+  ],
+  "cardParts": [
+    {
+      "cardId": "bruna-the-fading-light",
+      "version": "",
+      "partIndex": 0,
+      "name": "Bruna, the Fading Light",
+      "typeline": "Legendary Creature — Angel Horror",
+      "text": "When you cast this spell, you may return target Angel or Human creature card from your graveyard to the battlefield.\nFlying, vigilance\n(Melds with Gisela, the Broken Blade.)",
+      "cost": [
+        "5",
+        "W",
+        "W"
+      ],
+      "manaValue": 7,
+      "color": "W",
+      "colorIndicator": null,
+      "typeSuper": [
+        "legendary"
+      ],
+      "typeMain": [
+        "creature"
+      ],
+      "typeSub": [
+        "angel",
+        "horror"
+      ],
+      "power": "5",
+      "toughness": "7",
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    }
+  ],
+  "cardLocalizations": [
+    {
+      "cardId": "bruna-the-fading-light",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "name": "Bruna, the Fading Light",
+      "typeline": "Legendary Creature — Angel Horror"
+    },
+    {
+      "cardId": "bruna-the-fading-light",
+      "version": "",
+      "locale": "zhs",
+      "source": "",
+      "name": "渐逝之光布鲁娜",
+      "typeline": "传奇生物～天使／惊惧兽"
+    }
+  ],
+  "cardPartLocalizations": [
+    {
+      "cardId": "bruna-the-fading-light",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "Bruna, the Fading Light",
+      "typeline": "Legendary Creature — Angel Horror",
+      "text": "When you cast this spell, you may return target Angel or Human creature card from your graveyard to the battlefield.\nFlying, vigilance\n(Melds with Gisela, the Broken Blade.)"
+    },
+    {
+      "cardId": "bruna-the-fading-light",
+      "version": "",
+      "locale": "zhs",
+      "source": "",
+      "partIndex": 0,
+      "name": "渐逝之光布鲁娜",
+      "typeline": "传奇生物～天使／惊惧兽",
+      "text": "当你施放此咒语时，你可以将目标天使或人类生物牌从你的坟墓场移回战场。\n飞行，警戒\n（与破碎之刃姬瑟拉融合。）"
+    }
+  ],
+  "prints": [
+    {
+      "cardId": "bruna-the-fading-light",
+      "version": "",
+      "set": "emn",
+      "number": "15",
+      "lang": "zhs",
+      "source": "",
+      "name": "渐逝之光布鲁娜",
+      "typeline": "传奇生物～天使／惊惧兽",
+      "layout": "meld",
+      "frame": "2015",
+      "frameEffects": [],
+      "borderColor": "black",
+      "cardBack": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "securityStamp": "oval",
+      "promoTypes": null,
+      "rarity": "rare",
+      "releaseDate": "2016-07-22",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": false,
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "imageStatus": "lowres",
+      "inBooster": true,
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "printTags": [],
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "03b75350-d5a0-4e3a-b3b4-8d4a5554385b"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "bce7e45d-b2c5-43aa-91a6-3a3c24f30850",
+      "scryfallCardId": "00cc1f00-929d-43b3-95e5-000c2d72449d",
+      "scryfallFace": null,
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseId": [
+        414527,
+        414528
+      ],
+      "tcgPlayerId": null,
+      "tcgplayerEtchedId": null,
+      "cardMarketId": null
+    }
+  ],
+  "printParts": [
+    {
+      "cardId": "bruna-the-fading-light",
+      "version": "",
+      "set": "emn",
+      "number": "15",
+      "lang": "zhs",
+      "source": "",
+      "partIndex": 0,
+      "name": "渐逝之光布鲁娜",
+      "typeline": "传奇生物～天使／惊惧兽",
+      "text": "当你施放渐逝之光布鲁娜时，你可以将目标天使或人类生物牌从你的坟墓场移回战场。\n飞行，警戒\n（与破碎之刃姬瑟拉融合。）",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": "她双眼只见伊莫库目中残景。",
+      "artist": "Clint Cearley",
+      "watermark": null,
+      "scryfallIllusId": [
+        "4c8cee4a-a9a4-42eb-9cbf-fcc6c6344d00"
+      ]
+    }
+  ],
+  "authorities": [
+    {
+      "cardId": "bruna-the-fading-light",
+      "version": "",
+      "locale": "zhs",
+      "source": "",
+      "name": "渐逝之光布鲁娜",
+      "typeline": "传奇生物～天使／惊惧兽",
+      "text": "当你施放此咒语时，你可以将目标天使或人类生物牌从你的坟墓场移回战场。\n飞行，警戒\n（与破碎之刃姬瑟拉融合。）",
+      "partCount": 1
+    }
+  ],
+  "reviews": [
+    {
+      "kind": "card_field_overwrite",
+      "subject": {
+        "cardId": "bruna-the-fading-light",
+        "version": "",
+        "locale": "zhs",
+        "source": "mtgch",
+        "fieldPath": "text"
+      },
+      "payload": {
+        "oldValue": "当你施放渐逝之光布鲁娜时，你可以将目标天使或人类生物牌从你的坟墓场移回战场。\n飞行，警戒\n（与破碎之刃姬瑟拉融合。）",
+        "newValue": "当你施放此咒语时，你可以将目标天使或人类生物牌从你的坟墓场移回战场。\n飞行，警戒\n（与破碎之刃姬瑟拉融合。）"
+      },
+      "status": "pending"
+    }
+  ]
+}

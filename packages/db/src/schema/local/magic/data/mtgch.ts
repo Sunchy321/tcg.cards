@@ -52,7 +52,11 @@ export const MtgchScryfallCard = dataSchema.table('mtgch_scryfall_card', {
     .defaultNow()
     .$onUpdate(() => new Date()),
   deletedAt: timestamp('deleted_at'),
-});
+}, table => [
+  // Projection resolves the skeleton per card (one lookup per oracle), the same
+  // access pattern the sibling data tables index for.
+  index('mtgch_scryfall_card_oracle_id_idx').on(table.oracleId),
+]);
 
 /** Per-card Chinese name / type line / text from zhs_card.json. */
 export const MtgchZhsCard = dataSchema.table('mtgch_zhs_card', {

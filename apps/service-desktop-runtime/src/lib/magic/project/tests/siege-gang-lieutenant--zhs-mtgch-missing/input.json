@@ -1,0 +1,159 @@
+{
+  "unit": "9e9d538b-a9e5-4d59-b7c1-208fe18110e3",
+  "cardId": "siege-gang-lieutenant",
+  "oracleId": "9e9d538b-a9e5-4d59-b7c1-208fe18110e3",
+  "layout": "normal",
+  "setName": "Modern Horizons 3 Commander",
+  "cmc": 4,
+  "colorIdentity": [
+    "R"
+  ],
+  "keywords": [
+    "Lieutenant"
+  ],
+  "producedMana": null,
+  "reserved": false,
+  "contentWarning": null,
+  "legalities": {
+    "tlr": "not_legal",
+    "duel": "legal",
+    "brawl": "not_legal",
+    "penny": "legal",
+    "predh": "not_legal",
+    "future": "not_legal",
+    "legacy": "legal",
+    "modern": "not_legal",
+    "pauper": "not_legal",
+    "alchemy": "not_legal",
+    "pioneer": "not_legal",
+    "vintage": "legal",
+    "historic": "not_legal",
+    "standard": "not_legal",
+    "timeless": "not_legal",
+    "commander": "legal",
+    "gladiator": "not_legal",
+    "oldschool": "not_legal",
+    "premodern": "not_legal",
+    "oathbreaker": "legal",
+    "standardbrawl": "not_legal",
+    "paupercommander": "not_legal",
+    "competitivebrawl": "not_legal"
+  },
+  "faces": [
+    {
+      "name": "Siege-Gang Lieutenant",
+      "typeLine": "Creature — Goblin",
+      "oracleText": "Lieutenant — At the beginning of combat on your turn, if you control your commander, create two 1/1 red Goblin creature tokens. Those tokens gain haste until end of turn.\n{2}, Sacrifice a Goblin: This creature deals 1 damage to any target.",
+      "manaCost": "{3}{R}",
+      "cmc": 4,
+      "colors": [
+        "R"
+      ],
+      "colorIndicator": null,
+      "power": "2",
+      "toughness": "2",
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    }
+  ],
+  "localizations": [
+    {
+      "locale": "zhs",
+      "source": "",
+      "faces": [
+        {
+          "name": "攻城副官",
+          "typeline": "生物 — 鬼怪",
+          "text": "副官～在你回合的战斗开始时，若你操控你的指挥官，则派出两个1/1红色鬼怪衍生生物。这些衍生物获得敏捷异能直到回合结束。\n{2}，牺牲一个鬼怪：攻城副官对任意一个目标造成1点伤害。"
+        }
+      ],
+      "provenance": {
+        "set": "m3c",
+        "number": "61",
+        "releasedAt": "2024-06-14"
+      }
+    }
+  ],
+  "prints": [
+    {
+      "lang": "zhs",
+      "set": "m3c",
+      "number": "61",
+      "releasedAt": "2024-06-14",
+      "layout": "normal",
+      "frame": "2015",
+      "frameEffects": null,
+      "borderColor": "black",
+      "cardBackId": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "securityStamp": "oval",
+      "promoTypes": [
+        "ripplefoil",
+        "boosterfun"
+      ],
+      "rarity": "rare",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": false,
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "imageStatus": "lowres",
+      "inBooster": false,
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "fullArt": false,
+      "oversized": false,
+      "storySpotlight": false,
+      "textless": false,
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "002c739e-aa1f-4c1d-921b-37cb2d1b1c5b"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "9e9d538b-a9e5-4d59-b7c1-208fe18110e3",
+      "scryfallCardId": "9d011ca4-9c7e-462a-afe7-925770ae129d",
+      "scryfallFace": null,
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseIds": [
+        665279
+      ],
+      "tcgPlayerId": null,
+      "tcgplayerEtchedId": null,
+      "cardMarketId": null,
+      "faces": [
+        {
+          "typeLine": "Creature — Goblin",
+          "printedName": "攻城副官",
+          "printedTypeLine": "生物 — 鬼怪",
+          "printedText": "副官～在你回合的战斗开始时，若你操控你的指挥官，则派出两个1/1红色鬼怪衍生生物。这些衍生物获得敏捷异能直到回合结束。\n{2}，牺牲一个鬼怪：攻城副官对任意一个目标造成1点伤害。",
+          "flavorName": null,
+          "flavorText": "他手下每天都能将事故率维持在100%，并以此为傲。",
+          "artist": "Warren Mahy",
+          "watermark": null,
+          "illustrationId": "675610b7-8207-4cf2-8420-ea6fa815fe77",
+          "attractionLights": null
+        }
+      ]
+    }
+  ],
+  "mtgch": {
+    "faces": [
+      {
+        "name": "攻城副官",
+        "typeline": "生物～鬼怪",
+        "text": "副官～在你回合的战斗开始时，若你操控你的指挥官，则派出两个1/1红色鬼怪衍生生物。这些衍生物获得敏捷异能直到回合结束。\n{2}，牺牲一个鬼怪：此生物对任意一个目标造成1点伤害。"
+      }
+    ]
+  }
+}

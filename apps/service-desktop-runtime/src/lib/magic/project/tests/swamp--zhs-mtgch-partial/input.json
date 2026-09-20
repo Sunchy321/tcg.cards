@@ -1,0 +1,163 @@
+{
+  "unit": "56719f6a-1a6c-4c0a-8d21-18f7d7350b68",
+  "cardId": "swamp",
+  "oracleId": "56719f6a-1a6c-4c0a-8d21-18f7d7350b68",
+  "layout": "normal",
+  "setName": "Tenth Edition",
+  "cmc": 0,
+  "colorIdentity": [
+    "B"
+  ],
+  "keywords": [],
+  "producedMana": [
+    "B"
+  ],
+  "reserved": false,
+  "contentWarning": null,
+  "legalities": {
+    "tlr": "legal",
+    "duel": "legal",
+    "brawl": "legal",
+    "penny": "legal",
+    "predh": "legal",
+    "future": "legal",
+    "legacy": "legal",
+    "modern": "legal",
+    "pauper": "legal",
+    "alchemy": "legal",
+    "pioneer": "legal",
+    "vintage": "legal",
+    "historic": "legal",
+    "standard": "legal",
+    "timeless": "legal",
+    "commander": "legal",
+    "gladiator": "legal",
+    "oldschool": "not_legal",
+    "premodern": "legal",
+    "oathbreaker": "legal",
+    "standardbrawl": "legal",
+    "paupercommander": "legal",
+    "competitivebrawl": "legal"
+  },
+  "faces": [
+    {
+      "name": "Swamp",
+      "typeLine": "Basic Land — Swamp",
+      "oracleText": "({T}: Add {B}.)",
+      "manaCost": "",
+      "cmc": 0,
+      "colors": [],
+      "colorIndicator": null,
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    }
+  ],
+  "localizations": [
+    {
+      "locale": "zhs",
+      "source": "",
+      "faces": [
+        {
+          "name": "沼泽",
+          "typeline": "基本地 — 沼泽",
+          "text": null
+        }
+      ],
+      "provenance": {
+        "set": "acr",
+        "number": "105",
+        "releasedAt": "2024-07-05"
+      }
+    }
+  ],
+  "prints": [
+    {
+      "lang": "zhs",
+      "set": "acr",
+      "number": "105",
+      "releasedAt": "2024-07-05",
+      "layout": "normal",
+      "frame": "2015",
+      "frameEffects": null,
+      "borderColor": "black",
+      "cardBackId": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "securityStamp": "triangle",
+      "promoTypes": [
+        "universesbeyond"
+      ],
+      "rarity": "common",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": true,
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "imageStatus": "lowres",
+      "inBooster": true,
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "fullArt": true,
+      "oversized": false,
+      "storySpotlight": false,
+      "textless": false,
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "6bd18163-aa22-4a41-82f6-8cdb8269d3c8"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "56719f6a-1a6c-4c0a-8d21-18f7d7350b68",
+      "scryfallCardId": "f3c56699-8339-4806-a943-e69635e63e35",
+      "scryfallFace": null,
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseIds": [
+        666785
+      ],
+      "tcgPlayerId": null,
+      "tcgplayerEtchedId": null,
+      "cardMarketId": null,
+      "faces": [
+        {
+          "typeLine": "Basic Land — Swamp",
+          "printedName": "沼泽",
+          "printedTypeLine": "基本地 — 沼泽",
+          "printedText": null,
+          "flavorName": null,
+          "flavorText": null,
+          "artist": "Wei Guan",
+          "watermark": null,
+          "illustrationId": "e343f2c5-31f4-4828-9af0-164e287a035f",
+          "attractionLights": null
+        }
+      ],
+      "mtgchFaces": [
+        {
+          "name": "沼泽",
+          "typeline": "基本地～沼泽",
+          "text": null
+        }
+      ]
+    }
+  ],
+  "mtgch": {
+    "faces": [
+      {
+        "name": "沼泽",
+        "typeline": "基本地～沼泽",
+        "text": "（{T}：加{B}。）"
+      }
+    ]
+  }
+}

@@ -1,0 +1,225 @@
+{
+  "cards": [
+    {
+      "cardId": "urborg-skeleton",
+      "version": "",
+      "partCount": 1,
+      "name": "Urborg Skeleton",
+      "typeline": "Creature — Skeleton",
+      "manaValue": 1,
+      "colorIdentity": "B",
+      "keywords": [
+        "regenerate",
+        "kicker"
+      ],
+      "counters": [],
+      "producibleMana": null,
+      "category": "default",
+      "tags": [
+        "dev:counter"
+      ],
+      "legalities": {
+        "tlr": "legal",
+        "duelcommander": "legal",
+        "brawl": "unavailable",
+        "penny": "unavailable",
+        "predh": "legal",
+        "future": "unavailable",
+        "legacy": "legal",
+        "modern": "unavailable",
+        "pauper": "legal",
+        "alchemy": "unavailable",
+        "pioneer": "unavailable",
+        "vintage": "legal",
+        "historic": "unavailable",
+        "standard": "unavailable",
+        "timeless": "unavailable",
+        "commander": "legal",
+        "gladiator": "unavailable",
+        "oldschool": "unavailable",
+        "premodern": "legal",
+        "oathbreaker": "legal",
+        "standard_brawl": "unavailable",
+        "pauper_commander": "legal",
+        "competitivebrawl": "unavailable"
+      },
+      "scryfallOracleId": [
+        "712d7eb4-4044-4852-a5da-57635d3086b0"
+      ]
+    }
+  ],
+  "cardParts": [
+    {
+      "cardId": "urborg-skeleton",
+      "version": "",
+      "partIndex": 0,
+      "name": "Urborg Skeleton",
+      "typeline": "Creature — Skeleton",
+      "text": "Kicker {3} (You may pay an additional {3} as you cast this spell.)\n{B}: Regenerate this creature.\nIf this creature was kicked, it enters with a +1/+1 counter on it.",
+      "cost": [
+        "B"
+      ],
+      "manaValue": 1,
+      "color": "B",
+      "colorIndicator": null,
+      "typeSuper": null,
+      "typeMain": [
+        "creature"
+      ],
+      "typeSub": [
+        "skeleton"
+      ],
+      "power": "0",
+      "toughness": "1",
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    }
+  ],
+  "cardLocalizations": [
+    {
+      "cardId": "urborg-skeleton",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "name": "Urborg Skeleton",
+      "typeline": "Creature — Skeleton"
+    },
+    {
+      "cardId": "urborg-skeleton",
+      "version": "",
+      "locale": "zhs",
+      "source": "",
+      "name": "乌尔博格骷髅妖",
+      "typeline": "生物～骷髅妖"
+    }
+  ],
+  "cardPartLocalizations": [
+    {
+      "cardId": "urborg-skeleton",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "Urborg Skeleton",
+      "typeline": "Creature — Skeleton",
+      "text": "Kicker {3} (You may pay an additional {3} as you cast this spell.)\n{B}: Regenerate this creature.\nIf this creature was kicked, it enters with a +1/+1 counter on it."
+    },
+    {
+      "cardId": "urborg-skeleton",
+      "version": "",
+      "locale": "zhs",
+      "source": "",
+      "partIndex": 0,
+      "name": "乌尔博格骷髅妖",
+      "typeline": "生物～骷髅妖",
+      "text": "增幅{3}（你施放此咒语时可以额外支付{3}。）\n{B}：重生此生物。\n如果此生物已增幅，则它进场时上面有一个+1/+1指示物。"
+    }
+  ],
+  "prints": [
+    {
+      "cardId": "urborg-skeleton",
+      "version": "",
+      "set": "inv",
+      "number": "134",
+      "lang": "zhs",
+      "source": "",
+      "name": "Urborg Skeleton",
+      "typeline": "Creature — Skeleton",
+      "layout": "normal",
+      "frame": "1997",
+      "frameEffects": [],
+      "borderColor": "black",
+      "cardBack": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "securityStamp": null,
+      "promoTypes": null,
+      "rarity": "common",
+      "releaseDate": "2000-10-02",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": false,
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "imageStatus": "placeholder",
+      "inBooster": true,
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "printTags": [],
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "c4e0aa7c-a008-4d71-80ce-d5a1ca0b251b"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "712d7eb4-4044-4852-a5da-57635d3086b0",
+      "scryfallCardId": "c2011d6a-5e32-4bce-ae69-f506576785e0",
+      "scryfallFace": null,
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseId": [],
+      "tcgPlayerId": null,
+      "tcgplayerEtchedId": null,
+      "cardMarketId": null
+    }
+  ],
+  "printParts": [
+    {
+      "cardId": "urborg-skeleton",
+      "version": "",
+      "set": "inv",
+      "number": "134",
+      "lang": "zhs",
+      "source": "",
+      "partIndex": 0,
+      "name": "Urborg Skeleton",
+      "typeline": "Creature — Skeleton",
+      "text": "Kicker {3} (You may pay an additional {3} as you cast this spell.)\n{B}: Regenerate this creature.\nIf this creature was kicked, it enters with a +1/+1 counter on it.",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": null,
+      "artist": "Tom Wänerstrand",
+      "watermark": null,
+      "scryfallIllusId": [
+        "a07d5bf5-3469-45e4-bbda-4978427f2e6f"
+      ]
+    }
+  ],
+  "authorities": [
+    {
+      "cardId": "urborg-skeleton",
+      "version": "",
+      "locale": "zhs",
+      "source": "",
+      "name": "乌尔博格骷髅妖",
+      "typeline": "生物～骷髅妖",
+      "text": "增幅{3}（你施放此咒语时可以额外支付{3}。）\n{B}：重生此生物。\n如果此生物已增幅，则它进场时上面有一个+1/+1指示物。",
+      "partCount": 1
+    }
+  ],
+  "reviews": [
+    {
+      "kind": "card_field_overwrite",
+      "subject": {
+        "cardId": "urborg-skeleton",
+        "version": "",
+        "locale": "zhs",
+        "source": "mtgch",
+        "fieldPath": "text"
+      },
+      "payload": {
+        "oldValue": "Kicker {3} (You may pay an additional {3} as you cast this spell.)\n{B}: Regenerate this creature.\nIf this creature was kicked, it enters with a +1/+1 counter on it.",
+        "newValue": "增幅{3}（你施放此咒语时可以额外支付{3}。）\n{B}：重生此生物。\n如果此生物已增幅，则它进场时上面有一个+1/+1指示物。"
+      },
+      "status": "pending"
+    }
+  ]
+}

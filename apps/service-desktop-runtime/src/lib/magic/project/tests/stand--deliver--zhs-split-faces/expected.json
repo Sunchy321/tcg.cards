@@ -1,0 +1,281 @@
+{
+  "cards": [
+    {
+      "cardId": "stand--deliver",
+      "version": "",
+      "partCount": 2,
+      "name": "Stand // Deliver",
+      "typeline": "Instant // Instant",
+      "manaValue": 4,
+      "colorIdentity": "WU",
+      "keywords": [],
+      "counters": [],
+      "producibleMana": null,
+      "category": "default",
+      "tags": [],
+      "legalities": {
+        "tlr": "legal",
+        "duelcommander": "legal",
+        "brawl": "unavailable",
+        "penny": "unavailable",
+        "predh": "legal",
+        "future": "unavailable",
+        "legacy": "legal",
+        "modern": "unavailable",
+        "pauper": "unavailable",
+        "alchemy": "unavailable",
+        "pioneer": "unavailable",
+        "vintage": "legal",
+        "historic": "unavailable",
+        "standard": "unavailable",
+        "timeless": "unavailable",
+        "commander": "legal",
+        "gladiator": "unavailable",
+        "oldschool": "unavailable",
+        "premodern": "legal",
+        "oathbreaker": "legal",
+        "standard_brawl": "unavailable",
+        "pauper_commander": "unavailable",
+        "competitivebrawl": "unavailable"
+      },
+      "scryfallOracleId": [
+        "6343aa78-2df6-41f3-9366-4933f9e6a93e"
+      ]
+    }
+  ],
+  "cardParts": [
+    {
+      "cardId": "stand--deliver",
+      "version": "",
+      "partIndex": 0,
+      "name": "Stand",
+      "typeline": "Instant",
+      "text": "Prevent the next 2 damage that would be dealt to target creature this turn.",
+      "cost": [
+        "W"
+      ],
+      "manaValue": null,
+      "color": null,
+      "colorIndicator": null,
+      "typeSuper": null,
+      "typeMain": [
+        "instant"
+      ],
+      "typeSub": null,
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    },
+    {
+      "cardId": "stand--deliver",
+      "version": "",
+      "partIndex": 1,
+      "name": "Deliver",
+      "typeline": "Instant",
+      "text": "Return target permanent to its owner's hand.",
+      "cost": [
+        "2",
+        "U"
+      ],
+      "manaValue": null,
+      "color": null,
+      "colorIndicator": null,
+      "typeSuper": null,
+      "typeMain": [
+        "instant"
+      ],
+      "typeSub": null,
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    }
+  ],
+  "cardLocalizations": [
+    {
+      "cardId": "stand--deliver",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "name": "Stand // Deliver",
+      "typeline": "Instant // Instant"
+    },
+    {
+      "cardId": "stand--deliver",
+      "version": "",
+      "locale": "zhs",
+      "source": "",
+      "name": "忍受 // 运送",
+      "typeline": "瞬间 // 瞬间"
+    }
+  ],
+  "cardPartLocalizations": [
+    {
+      "cardId": "stand--deliver",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "Stand",
+      "typeline": "Instant",
+      "text": "Prevent the next 2 damage that would be dealt to target creature this turn."
+    },
+    {
+      "cardId": "stand--deliver",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "partIndex": 1,
+      "name": "Deliver",
+      "typeline": "Instant",
+      "text": "Return target permanent to its owner's hand."
+    },
+    {
+      "cardId": "stand--deliver",
+      "version": "",
+      "locale": "zhs",
+      "source": "",
+      "partIndex": 0,
+      "name": "忍受",
+      "typeline": "瞬间",
+      "text": "于本回合中，防止接下来将对目标生物造成的2点伤害。"
+    },
+    {
+      "cardId": "stand--deliver",
+      "version": "",
+      "locale": "zhs",
+      "source": "",
+      "partIndex": 1,
+      "name": "运送",
+      "typeline": "瞬间",
+      "text": "将目标永久物移回其拥有者手上。"
+    }
+  ],
+  "prints": [
+    {
+      "cardId": "stand--deliver",
+      "version": "",
+      "set": "inv",
+      "number": "292",
+      "lang": "zhs",
+      "source": "",
+      "name": "忍受 // 运送",
+      "typeline": "瞬间 // 瞬间",
+      "layout": "split",
+      "frame": "1997",
+      "frameEffects": [],
+      "borderColor": "black",
+      "cardBack": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "securityStamp": null,
+      "promoTypes": null,
+      "rarity": "uncommon",
+      "releaseDate": "2000-10-02",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": false,
+      "finishes": [
+        "nonfoil"
+      ],
+      "imageStatus": "placeholder",
+      "inBooster": true,
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "printTags": [],
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "996ad764-4ae0-4952-8bb5-5a75c9d68275"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "6343aa78-2df6-41f3-9366-4933f9e6a93e",
+      "scryfallCardId": "3fa04a89-e35b-4f01-af9d-0e5bd37efb1a",
+      "scryfallFace": null,
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseId": [],
+      "tcgPlayerId": null,
+      "tcgplayerEtchedId": null,
+      "cardMarketId": null
+    }
+  ],
+  "printParts": [
+    {
+      "cardId": "stand--deliver",
+      "version": "",
+      "set": "inv",
+      "number": "292",
+      "lang": "zhs",
+      "source": "",
+      "partIndex": 0,
+      "name": "忍受",
+      "typeline": "瞬间",
+      "text": "于本回合中，为目标生物防止接下来的2点伤害。",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": null,
+      "artist": "David Martin",
+      "watermark": null,
+      "scryfallIllusId": [
+        "f3af351f-8933-44cc-886a-cc83abd42ff6"
+      ]
+    },
+    {
+      "cardId": "stand--deliver",
+      "version": "",
+      "set": "inv",
+      "number": "292",
+      "lang": "zhs",
+      "source": "",
+      "partIndex": 1,
+      "name": "运送",
+      "typeline": "瞬间",
+      "text": "将目标永久物移回其拥有者的手上。",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": null,
+      "artist": "David Martin",
+      "watermark": null,
+      "scryfallIllusId": null
+    }
+  ],
+  "authorities": [
+    {
+      "cardId": "stand--deliver",
+      "version": "",
+      "locale": "zhs",
+      "source": "",
+      "name": "忍受 // 运送",
+      "typeline": "瞬间 // 瞬间",
+      "text": "于本回合中，防止接下来将对目标生物造成的2点伤害。\n--------------------\n将目标永久物移回其拥有者手上。",
+      "partCount": 2
+    }
+  ],
+  "reviews": [
+    {
+      "kind": "card_field_overwrite",
+      "subject": {
+        "cardId": "stand--deliver",
+        "version": "",
+        "locale": "zhs",
+        "source": "mtgch",
+        "fieldPath": "text"
+      },
+      "payload": {
+        "oldValue": "Prevent the next 2 damage that would be dealt to target creature this turn.\n--------------------\nReturn target permanent to its owner's hand.",
+        "newValue": "于本回合中，防止接下来将对目标生物造成的2点伤害。\n--------------------\n将目标永久物移回其拥有者手上。"
+      },
+      "status": "pending"
+    }
+  ]
+}

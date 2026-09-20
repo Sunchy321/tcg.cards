@@ -1,0 +1,155 @@
+{
+  "unit": "712d7eb4-4044-4852-a5da-57635d3086b0",
+  "cardId": "urborg-skeleton",
+  "oracleId": "712d7eb4-4044-4852-a5da-57635d3086b0",
+  "layout": "normal",
+  "setName": "Invasion",
+  "cmc": 1,
+  "colorIdentity": [
+    "B"
+  ],
+  "keywords": [
+    "Regenerate",
+    "Kicker"
+  ],
+  "producedMana": null,
+  "reserved": false,
+  "contentWarning": null,
+  "legalities": {
+    "tlr": "legal",
+    "duel": "legal",
+    "brawl": "not_legal",
+    "penny": "not_legal",
+    "predh": "legal",
+    "future": "not_legal",
+    "legacy": "legal",
+    "modern": "not_legal",
+    "pauper": "legal",
+    "alchemy": "not_legal",
+    "pioneer": "not_legal",
+    "vintage": "legal",
+    "historic": "not_legal",
+    "standard": "not_legal",
+    "timeless": "not_legal",
+    "commander": "legal",
+    "gladiator": "not_legal",
+    "oldschool": "not_legal",
+    "premodern": "legal",
+    "oathbreaker": "legal",
+    "standardbrawl": "not_legal",
+    "paupercommander": "legal",
+    "competitivebrawl": "not_legal"
+  },
+  "faces": [
+    {
+      "name": "Urborg Skeleton",
+      "typeLine": "Creature — Skeleton",
+      "oracleText": "Kicker {3} (You may pay an additional {3} as you cast this spell.)\n{B}: Regenerate this creature.\nIf this creature was kicked, it enters with a +1/+1 counter on it.",
+      "manaCost": "{B}",
+      "cmc": 1,
+      "colors": [
+        "B"
+      ],
+      "colorIndicator": null,
+      "power": "0",
+      "toughness": "1",
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    }
+  ],
+  "localizations": [
+    {
+      "locale": "zhs",
+      "source": "",
+      "faces": [
+        {
+          "name": null,
+          "typeline": null,
+          "text": null
+        }
+      ],
+      "provenance": {
+        "set": "inv",
+        "number": "134",
+        "releasedAt": "2000-10-02"
+      }
+    }
+  ],
+  "prints": [
+    {
+      "lang": "zhs",
+      "set": "inv",
+      "number": "134",
+      "releasedAt": "2000-10-02",
+      "layout": "normal",
+      "frame": "1997",
+      "frameEffects": null,
+      "borderColor": "black",
+      "cardBackId": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "securityStamp": null,
+      "promoTypes": null,
+      "rarity": "common",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": false,
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "imageStatus": "placeholder",
+      "inBooster": true,
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "fullArt": false,
+      "oversized": false,
+      "storySpotlight": false,
+      "textless": false,
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "c4e0aa7c-a008-4d71-80ce-d5a1ca0b251b"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "712d7eb4-4044-4852-a5da-57635d3086b0",
+      "scryfallCardId": "c2011d6a-5e32-4bce-ae69-f506576785e0",
+      "scryfallFace": null,
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseIds": [],
+      "tcgPlayerId": null,
+      "tcgplayerEtchedId": null,
+      "cardMarketId": null,
+      "faces": [
+        {
+          "typeLine": "Creature — Skeleton",
+          "printedName": null,
+          "printedTypeLine": null,
+          "printedText": null,
+          "flavorName": null,
+          "flavorText": null,
+          "artist": "Tom Wänerstrand",
+          "watermark": null,
+          "illustrationId": "a07d5bf5-3469-45e4-bbda-4978427f2e6f",
+          "attractionLights": null
+        }
+      ]
+    }
+  ],
+  "mtgch": {
+    "faces": [
+      {
+        "name": "乌尔博格骷髅妖",
+        "typeline": "生物～骷髅妖",
+        "text": "增幅{3}（你施放此咒语时可以额外支付{3}。）\n{B}：重生此生物。\n如果此生物已增幅，则它进场时上面有一个+1/+1指示物。"
+      }
+    ]
+  }
+}
