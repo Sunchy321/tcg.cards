@@ -24,6 +24,13 @@ export const hash = c
   .pattern('#{{tag}}')
   .done();
 
+/** Print reference `set#number` or `set#number#lang`, matched on the whole raw text. */
+export const print = c
+  .simple
+  .pattern('{{set}}#{{number}}', true)
+  .id('print')
+  .done();
+
 export const set = c
   .simple
   .alt(['expansion', 's', 'e'])

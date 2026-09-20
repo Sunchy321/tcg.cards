@@ -4,6 +4,8 @@ export default {
     'raw-mana':               '法术力费用或描述包含{value}',
     'stats':                  '力量是{power}并且防御力是{toughness}',
     'hash':                   '具有标签 {tag}',
+    'print':                  '系列 {set} 编号 {number}',
+    'print-lang':             '系列 {set} 编号 {number}（{lang}）',
     'order':                  '按{value}排序',
     'order-ascending':        '按{value}排序（升序）',
     'order-descending':       '按{value}排序（降序）',

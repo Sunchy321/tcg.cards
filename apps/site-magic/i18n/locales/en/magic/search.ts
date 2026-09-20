@@ -4,6 +4,8 @@ export default {
     'raw-mana':               'mana cost or text includes {value}',
     'stats':                  'power is {power} and toughness is {toughness}',
     'hash':                   'has tag {tag}',
+    'print':                  'set {set} number {number}',
+    'print-lang':             'set {set} number {number} in {lang}',
     'order':                  'order by {value}',
     'order-ascending':        'order by {value} (ascending)',
     'order-descending':       'order by {value} (descending)',

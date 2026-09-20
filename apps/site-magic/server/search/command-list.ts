@@ -156,6 +156,28 @@ export const set = cs
   .commands.set
   .apply(table => table.set, {});
 
+export const print = cs
+  .commands.print
+  .handler(({ value, qualifier }, { table }) => {
+    const parts = String(value).split('#');
+    const wellFormed = (parts.length === 2 || parts.length === 3)
+      && /^[a-z0-9]+$/.test(parts[0]!.toLowerCase())
+      && parts[1] !== ''
+      && (parts.length === 2 || /^[a-z]+$/.test(parts[2]!.toLowerCase()));
+
+    // Anything that does not read as a print reference stays a plain text search.
+    if (!wellFormed) {
+      return raw.call({ value: String(value), operator: '', qualifier }, { meta: {}, table });
+    }
+
+    const [set, number, lang] = parts as [string, string, string?];
+    return and(
+      eq(table.set, set.toLowerCase()),
+      eq(table.number, number),
+      lang != null ? eq(table.lang, lang.toLowerCase()) : undefined,
+    )!;
+  });
+
 export const number = cs
   .commands.number
   .apply(table => table.number, {});

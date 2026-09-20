@@ -42,6 +42,28 @@ export const hash = cc
     return i18n('$.full-command.hash', { tag });
   });
 
+export const print = cc
+  .commands.print
+  .explain((args, i18n) => {
+    const text = String(args.value ?? '');
+    const parts = text.toLowerCase().split('#');
+    const [set, number, lang] = parts as [string?, string?, string?];
+    const wellFormed = (parts.length === 2 || parts.length === 3)
+      && set != null && /^[a-z0-9]+$/.test(set)
+      && number != null && number !== ''
+      && (parts.length === 2 || (lang != null && /^[a-z]+$/.test(lang)));
+
+    // Same shape rule as the server handler: anything else is a plain text search.
+    if (!wellFormed) {
+      return i18n('$.full-command.raw', { value: text });
+    }
+
+    if (lang != null) {
+      return i18n('$.full-command.print-lang', { set: set!, number: number!, lang });
+    }
+    return i18n('$.full-command.print', { set: set!, number: number! });
+  });
+
 export const set = cc
   .commands.set
   .apply({ id: 'set' });
