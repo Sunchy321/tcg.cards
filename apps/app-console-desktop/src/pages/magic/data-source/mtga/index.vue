@@ -6,7 +6,7 @@
     task-title="MTGA 注音导入"
     :operation="operation"
   >
-    <template #params="{ disabled, dataState }">
+    <template #params="{ dataState }">
       <div class="space-y-4 pt-4">
         <div class="rounded-lg border border-default p-3">
           <div class="text-xs text-muted">MTGA 数据目录</div>
