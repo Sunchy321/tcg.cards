@@ -8,6 +8,7 @@ import { os } from './index';
 import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
 import { loadNameRubyLookup } from '../lib/magic/name-ruby';
 import { applyNameRuby, type NameRubyLocale } from '../lib/magic/name-ruby-write';
+import { storedFacePreview } from '../lib/magic/image-import/common';
 import { normalizeRubyParens, validateNameRuby } from '@tcg-cards/model/magic/name-ruby';
 
 const rubyKind = z.enum(['name', 'flavor_name']);
@@ -256,9 +257,36 @@ const targets = os
     return out;
   });
 
+/**
+ * Card images for the review rows: the reviewer checks a reading against the
+ * printed card, so each row needs its stored image. Batched and downscaled —
+ * the console loads a page of thumbnails in one call, and a face without a
+ * stored image simply comes back without one.
+ */
+const previews = os
+  .input(z.strictObject({
+    targets: z.array(z.strictObject({
+      set:       z.string(),
+      lang:      z.string(),
+      number:    z.string(),
+      partIndex: z.number().int().min(0),
+    })).max(60),
+  }))
+  .output(z.record(z.string(), z.string()))
+  .handler(async ({ input }) => {
+    const out: Record<string, string> = {};
+    for (const target of input.targets) {
+      const key = `${target.set}\u0000${target.lang}\u0000${target.number}\u0000${target.partIndex}`;
+      const preview = await storedFacePreview(target.set, target.lang, target.number, target.partIndex);
+      if (preview != null) out[key] = preview;
+    }
+    return out;
+  });
+
 export const magicRubyRouter = {
   list,
   promote,
   update,
   targets,
+  previews,
 };

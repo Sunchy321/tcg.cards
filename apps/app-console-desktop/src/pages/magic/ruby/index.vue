@@ -49,6 +49,7 @@
       <table v-else class="w-full text-sm">
         <thead class="border-b border-slate-200 text-left text-xs text-muted">
           <tr>
+            <th class="p-3 w-20">卡图</th>
             <th class="p-3">名称</th>
             <th class="p-3">注音预览</th>
             <th class="p-3 w-32">来源</th>
@@ -58,6 +59,18 @@
         </thead>
         <tbody>
           <tr v-for="row in items" :key="`${row.lang}:${row.kind}:${row.name}`" class="border-b border-slate-100 last:border-0">
+            <td class="p-3">
+              <img
+                v-if="previewOf(row)"
+                :src="previewOf(row)"
+                :alt="row.name"
+                class="w-16 rounded border border-slate-200"
+              >
+              <div
+                v-else
+                class="flex h-20 w-16 items-center justify-center rounded border border-dashed border-slate-300 text-[10px] text-muted"
+              >无卡图</div>
+            </td>
             <td class="p-3">
               <div class="font-medium">{{ row.name }}</div>
               <div v-if="targetOf(row)" class="font-mono text-xs text-muted">
@@ -182,8 +195,20 @@ const counts = ref<{
   bySource: Array<{ source: string, status: RubyStatus, count: number }>;
 }>({ draft: 0, reviewed: 0, bySource: [] });
 
-/** One representative card page per reading, so a row can be checked against the site. */
+/** One representative printing per reading, so a row can be checked against the site. */
 const targets = ref<Record<string, RubyTarget>>({});
+
+/** Stored card image of that printing, keyed the same way as `targets`. */
+const previews = ref<Record<string, string>>({});
+
+function previewOf(row: RubyRow): string | undefined {
+  return previews.value[previewKey(row)];
+}
+
+function previewKey(row: RubyRow): string {
+  const target = targetOf(row);
+  return target == null ? '' : `${target.set}\u0000${row.lang}\u0000${target.number}\u0000${target.partIndex}`;
+}
 
 const statusItems = [
   { label: '草稿', value: 'draft' },
@@ -233,10 +258,28 @@ async function load() {
         keys: items.value.map(row => ({ lang: row.lang, kind: row.kind, name: row.name })),
       })
       : {};
+    await loadPreviews();
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err);
   } finally {
     loading.value = false;
+  }
+}
+
+/** Thumbnails load separately: rows render immediately, images fill in after. */
+async function loadPreviews() {
+  previews.value = {};
+  const requests = [...new Set(items.value.map(row => previewKey(row)).filter(key => key !== ''))]
+    .map(key => {
+      const [set, lang, number, partIndex] = key.split('\u0000');
+      return { set: set!, lang: lang!, number: number!, partIndex: Number(partIndex) };
+    });
+  if (requests.length === 0) return;
+  try {
+    previews.value = await orpc.magic.ruby.previews({ targets: requests });
+  } catch {
+    // A missing or unreadable image must not fail the review list itself.
+    previews.value = {};
   }
 }
 
