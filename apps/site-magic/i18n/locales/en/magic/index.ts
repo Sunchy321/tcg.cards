@@ -4,6 +4,92 @@ export default {
   $self: 'Magic',
   $full: 'Magic: The Gathering',
 
+  dataSources: {
+    $self: 'Data Sources',
+
+    intro: 'This site is an unofficial fan project. Card data, text, and images all come from the public sources below — many of them maintained by volunteer communities. We are grateful to every project and contributor.',
+
+    sections: {
+      cardData: {
+        title: 'Card Data',
+
+        groups: {
+          prints: {
+            body: 'The card database is built on data published by Scryfall: sets and prints, collector numbers, rarities, mana costs, colors, and most of what a card page shows.',
+          },
+          text: {
+            title: 'Text & Translations',
+            body:  'A card can be read three ways on this site: the translated text (the standard text this site prepares for your language), the oracle text (the authoritative English text), and the printed text (the wording actually printed on one specific print, in that print\'s language). Standard translations are assembled per language from the sources below, and the printed text comes from Scryfall\'s per-language print data. Where a card has no official translation in a language, a community translation stands in — the only place community text appears in the data.',
+          },
+        },
+      },
+      cardImages: {
+        title: 'Card Images',
+
+        groups: {
+          main: {
+            body: 'Card images come in two kinds: images downloaded from public image sources, and images produced by hand or contributed by the community. Images that already come from a hand-made or community source are never overwritten by batch downloads.',
+          },
+        },
+      },
+      setData: {
+        title: 'Set Data',
+
+        groups: {
+          main: {},
+        },
+      },
+      otherData: {
+        title: 'Other Data',
+
+        groups: {
+          freshness: {
+            title: 'Data Freshness',
+            body:  'Updates are applied by the site maintainers after new sets are released or upstream sources publish changes. This site can therefore briefly lag behind the source websites; real-time sync is not promised.',
+          },
+          attribution: {
+            title:     'Attribution & Legal',
+            fanPolicy: 'This site is unofficial Fan Content permitted under the Wizards of the Coast Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©WIZARDS OF THE COAST LLC.',
+            credits:   'Scryfall, Gatherer, MTGCH, and MTGJSON are credited above. Card data and images remain the property of their respective rights holders; this site uses them under the terms described in the documents below.',
+          },
+        },
+      },
+    },
+
+    sources: {
+      scryfall: {
+        name: 'Scryfall',
+        desc: 'Provides the backbone of the database — sets, prints, print metadata, rulings, and card text in most languages.',
+      },
+      mtgch: {
+        name: 'MTGCH',
+        desc: 'A community-maintained Simplified Chinese card database. It translates the oracle text in the official style, so its text serves as this site\'s standard Simplified Chinese; it also supplies community names and text for cards that never received an official Chinese name.',
+      },
+      scryfallImages: {
+        name: 'Scryfall',
+        desc: 'The primary download source for print images in every language.',
+      },
+      gatherer: {
+        name: 'Gatherer',
+        desc: 'Wizards of the Coast\'s official card database, and the image source for some older prints.',
+      },
+      community: {
+        name: 'Hand-made & community images',
+        desc: 'Images produced by hand or contributed by the community, including Chinese card scans. They are preserved as-is.',
+      },
+      mtgjson: {
+        name: 'MTGJSON',
+        desc: 'Supplementary set-level information, layered on top of the Scryfall backbone.',
+      },
+    },
+
+    legal: {
+      legal:   'Legal Notice',
+      terms:   'Terms of Service',
+      privacy: 'Privacy Policy',
+    },
+  },
+
   set: {
     $self: 'Sets',
 
@@ -1032,27 +1118,27 @@ export default {
     names: {
       cr: 'Comprehensive Rules',
     },
-    compare_versions:   'Compare Versions',
-    back_to_document:   'Back to Document',
-    outline:            'Outline',
-    copy_text:          'Copy Text',
-    copy_link:          'Copy Link',
-    example:            'Example',
-    load_failed:        'Failed to load document reader data.',
+    compare_versions: 'Compare Versions',
+    back_to_document: 'Back to Document',
+    outline:          'Outline',
+    copy_text:        'Copy Text',
+    copy_link:        'Copy Link',
+    example:          'Example',
+    load_failed:      'Failed to load document reader data.',
 
     diff: {
-      $self:          'Version Diff',
-      from_version:   'From Version',
-      to_version:     'To Version',
-      old_content:    'Old',
-      new_content:    'New',
-      total_changes:  '{count} changes',
-      no_changes:     'No changes match the current filter.',
-      load_failed:    'Failed to load version comparison data.',
-      filter_all:     'All Types',
-      other:          'Other',
-      omitted:        '{count} sections omitted',
-      type: {
+      $self:         'Version Diff',
+      from_version:  'From Version',
+      to_version:    'To Version',
+      old_content:   'Old',
+      new_content:   'New',
+      total_changes: '{count} changes',
+      no_changes:    'No changes match the current filter.',
+      load_failed:   'Failed to load version comparison data.',
+      filter_all:    'All Types',
+      other:         'Other',
+      omitted:       '{count} sections omitted',
+      type:          {
         added:            'Added',
         removed:          'Removed',
         modified:         'Modified',

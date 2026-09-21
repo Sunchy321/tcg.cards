@@ -1,4 +1,8 @@
 export default {
+  footer: {
+    dataSources: '数据来源',
+  },
+
   locale: {
     '$self': '简体中文',
 

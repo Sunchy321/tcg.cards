@@ -4,6 +4,92 @@ export default {
   $self: '万智牌',
   $full: '万智牌',
 
+  dataSources: {
+    $self: '数据来源',
+
+    intro: '本站是一个非官方的粉丝项目。卡牌数据、文本与卡图均来自下列公开来源，其中许多由社区志愿者维护。感谢每一个项目与贡献者。',
+
+    sections: {
+      cardData: {
+        title: '卡牌数据',
+
+        groups: {
+          prints: {
+            body: '本站卡牌数据库以 Scryfall 发布的数据为基础：系列与印刷、收藏编号、稀有度、法术力费用、颜色，以及卡牌页面上的大部分内容。',
+          },
+          text: {
+            title: '文本与翻译',
+            body:  '在本站，一张牌可以三种方式阅读：译本（本站为你所用语言准备的标准文本）、原文（以英文写就的权威文本）与印文（某张特定印刷上实际印出的文字，使用该印刷的语言）。各语言的标准文本由下列来源组装而成，印文则来自 Scryfall 记录的各语言印刷文本。当一张牌在某语言没有官方译名时，由社区翻译补位——这也是社区文本在数据中出现的唯一场合。',
+          },
+        },
+      },
+      cardImages: {
+        title: '卡牌图片',
+
+        groups: {
+          main: {
+            body: '卡图分两类：从公开图源下载的图像，以及由手工制作或社区提供的图像。来自手工与社区来源的卡图不会被批量下载覆盖。',
+          },
+        },
+      },
+      setData: {
+        title: '系列数据',
+
+        groups: {
+          main: {},
+        },
+      },
+      otherData: {
+        title: '其他数据',
+
+        groups: {
+          freshness: {
+            title: '数据新鲜度',
+            body:  '数据由本站维护者在新系列发售或上游来源更新后手动导入。因此本站可能短暂滞后于来源网站，并非实时同步。',
+          },
+          attribution: {
+            title:     '归属与声明',
+            fanPolicy: '本站为依据威世智《粉丝内容政策》许可的非官方粉丝内容，未经威世智批准，亦不代表其立场。所使用的部分素材为威世智财产。©WIZARDS OF THE COAST LLC.',
+            credits:   '感谢上文列出的 Scryfall、Gatherer、MTGCH 与 MTGJSON。卡牌数据与卡图版权归各自权利人所有；本站依下列文档所述方式使用这些内容。',
+          },
+        },
+      },
+    },
+
+    sources: {
+      scryfall: {
+        name: 'Scryfall',
+        desc: '提供数据库的骨架——系列、印刷、印刷信息、规则注释，以及多数语言的卡牌文本。',
+      },
+      mtgch: {
+        name: 'MTGCH',
+        desc: '社区维护的简中卡牌数据库。它按官方风格翻译卡牌原文，构成本站简中标准文本；从未拥有官方译名的卡牌，也由它提供社区译名与文本。',
+      },
+      scryfallImages: {
+        name: 'Scryfall',
+        desc: '各语言印刷卡图的主要下载来源。',
+      },
+      gatherer: {
+        name: 'Gatherer',
+        desc: '威世智官方卡牌数据库，部分较早印刷的卡图来源。',
+      },
+      community: {
+        name: '手工与社区图源',
+        desc: '由手工制作或社区提供的卡图（包括中文扫描图），按原样保留。',
+      },
+      mtgjson: {
+        name: 'MTGJSON',
+        desc: '在 Scryfall 骨架之上补充系列层面的信息。',
+      },
+    },
+
+    legal: {
+      legal:   '法律声明',
+      terms:   '服务条款',
+      privacy: '隐私政策',
+    },
+  },
+
   set: {
     $self: '系列',
 
@@ -615,27 +701,27 @@ export default {
     names: {
       cr: '综合规则',
     },
-    compare_versions:   '比较版本',
-    back_to_document:   '返回文档',
-    outline:            '目录',
-    copy_text:          '复制文本',
-    copy_link:          '复制链接',
-    example:            '示例',
-    load_failed:        '加载文档阅读数据失败。',
+    compare_versions: '比较版本',
+    back_to_document: '返回文档',
+    outline:          '目录',
+    copy_text:        '复制文本',
+    copy_link:        '复制链接',
+    example:          '示例',
+    load_failed:      '加载文档阅读数据失败。',
 
     diff: {
-      $self:          '版本对比',
-      from_version:   '旧版本',
-      to_version:     '新版本',
-      old_content:    '旧',
-      new_content:    '新',
-      total_changes:  '共 {count} 条变更',
-      no_changes:     '没有匹配当前筛选的变更。',
-      load_failed:    '加载版本对比数据失败。',
-      filter_all:     '全部类型',
-      other:          '其他',
-      omitted:        '已省略 {count} 条规则',
-      type: {
+      $self:         '版本对比',
+      from_version:  '旧版本',
+      to_version:    '新版本',
+      old_content:   '旧',
+      new_content:   '新',
+      total_changes: '共 {count} 条变更',
+      no_changes:    '没有匹配当前筛选的变更。',
+      load_failed:   '加载版本对比数据失败。',
+      filter_all:    '全部类型',
+      other:         '其他',
+      omitted:       '已省略 {count} 条规则',
+      type:          {
         added:            '新增',
         removed:          '删除',
         modified:         '修改',

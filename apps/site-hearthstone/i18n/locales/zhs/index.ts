@@ -162,6 +162,82 @@ export default {
     $self: '炉石传说',
     $full: '炉石传说',
 
+    dataSources: {
+      $self: '数据来源',
+
+      intro: '本站是一个非官方的粉丝项目。卡牌数据、文本与卡图均提取自游戏自带数据；感谢让这一切成为可能的社区项目。',
+
+      sections: {
+        cardData: {
+          title: '卡牌数据',
+
+          groups: {
+            cards: {
+              body: '卡牌数据提取自《炉石传说》游戏客户端自带的卡牌定义数据，按游戏补丁版本组织。每张卡牌页面都对应游戏的一个具体补丁。',
+            },
+            text: {
+              title: '文本与语言',
+              body:  '卡牌文本即游戏内自带文本，覆盖游戏支持的全部语言。简体中文文本直接来自官方游戏数据，与游戏内措辞一致。',
+            },
+          },
+        },
+        cardImages: {
+          title: '卡牌图片',
+
+          groups: {
+            main: {
+              body: '本站所有卡图均由本站依据游戏数据自行渲染生成，不取用任何第三方图站；每张卡图与它所伴随的数据出自同一补丁。',
+            },
+          },
+        },
+        setData: {
+          title: '系列数据',
+
+          groups: {
+            main: {
+              body: '系列与补丁信息和卡牌数据同源，按补丁版本组织。',
+            },
+          },
+        },
+        otherData: {
+          title: '其他数据',
+
+          groups: {
+            announcements: {
+              title: '官方公告',
+              body:  '平衡调整与玩法公告整理自暴雪官方公告。',
+            },
+            freshness: {
+              title: '数据新鲜度',
+              body:  '数据由本站维护者在游戏新补丁上线后手动更新；公告会尽快跟进，但不承诺实时同步。',
+            },
+            attribution: {
+              title:      '归属与声明',
+              disclaimer: '本站与暴雪娱乐无隶属关系，亦未获其认可。《炉石传说》（Hearthstone）与暴雪娱乐的名称和商标为暴雪娱乐公司在美国及/或其他国家/地区的商标或注册商标。',
+              credits:    '感谢上文列出的 HearthSim hsdata 项目。游戏数据与图像为暴雪娱乐财产；本站依下列文档所述方式使用这些内容。',
+            },
+          },
+        },
+      },
+
+      sources: {
+        hsdata: {
+          name: 'HearthSim hsdata',
+          desc: '社区维护的游戏数据提取仓库，本站按补丁从中导入卡牌定义数据。',
+        },
+        blizzardNews: {
+          name: '暴雪',
+          desc: '暴雪官方公告发布渠道，本站公告页面的来源。',
+        },
+      },
+
+      legal: {
+        legal:   '法律声明',
+        terms:   '服务条款',
+        privacy: '隐私政策',
+      },
+    },
+
     home: {
       randomCard:       '随机卡牌',
       randomCardHint:   '点击随机打开一张卡牌详情',

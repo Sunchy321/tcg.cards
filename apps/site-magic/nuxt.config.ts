@@ -24,7 +24,8 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
-      assetBaseUrl: process.env.ASSET_BASE_URL ?? 'https://asset.tcg.cards',
+      assetBaseUrl:       process.env.ASSET_BASE_URL ?? 'https://asset.tcg.cards',
+      hasDataSourcesPage: true,
     },
   },
 
@@ -43,7 +44,8 @@ export default defineNuxtConfig({
   ],
 
   routeRules: {
-    '/': { prerender: true },
+    '/':             { prerender: true },
+    '/data-sources': { prerender: true },
   },
 
   compatibilityDate: '2025-07-15',

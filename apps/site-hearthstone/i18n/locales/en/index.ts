@@ -163,6 +163,82 @@ export default {
     $self: 'Hearthstone',
     $full: 'Hearthstone',
 
+    dataSources: {
+      $self: 'Data Sources',
+
+      intro: 'This site is an unofficial fan project. Card data, text, and images are all derived from the game\'s own data; we owe a great deal to the community projects that make this possible.',
+
+      sections: {
+        cardData: {
+          title: 'Card Data',
+
+          groups: {
+            cards: {
+              body: 'Card data is extracted from the card definitions shipped with the Hearthstone game client and organized by game patch. Each card page reflects one specific patch of the game.',
+            },
+            text: {
+              title: 'Text & Languages',
+              body:  'Card text is the game\'s own text, in every language the game ships. Simplified Chinese text comes straight from official game data, so what you read here matches the in-game wording.',
+            },
+          },
+        },
+        cardImages: {
+          title: 'Card Images',
+
+          groups: {
+            main: {
+              body: 'All card images on this site are rendered by the site itself from game data. Nothing is taken from third-party image sites, and each image reflects the same patch as the data it accompanies.',
+            },
+          },
+        },
+        setData: {
+          title: 'Set Data',
+
+          groups: {
+            main: {
+              body: 'Set and patch information shares the same game-data source as the card data and is organized by patch version.',
+            },
+          },
+        },
+        otherData: {
+          title: 'Other Data',
+
+          groups: {
+            announcements: {
+              title: 'Official Announcements',
+              body:  'Balance changes and gameplay announcements are curated from Blizzard\'s official announcements.',
+            },
+            freshness: {
+              title: 'Data Freshness',
+              body:  'Data is updated manually as new game patches ship. Announcements are followed as soon as practical, but real-time sync is not promised.',
+            },
+            attribution: {
+              title:      'Attribution & Legal',
+              disclaimer: 'This site is not affiliated with or endorsed by Blizzard Entertainment. Hearthstone and Blizzard Entertainment are trademarks or registered trademarks of Blizzard Entertainment, Inc. in the U.S. and/or other countries.',
+              credits:    'The HearthSim project\'s hsdata repository is credited above. Game data and images remain the property of Blizzard Entertainment; this site uses them under the terms described in the documents below.',
+            },
+          },
+        },
+      },
+
+      sources: {
+        hsdata: {
+          name: 'HearthSim hsdata',
+          desc: 'A community-maintained repository of extracted game data; this site imports card definitions from it patch by patch.',
+        },
+        blizzardNews: {
+          name: 'Blizzard',
+          desc: 'Blizzard\'s official announcement channel, and the source of this site\'s announcement pages.',
+        },
+      },
+
+      legal: {
+        legal:   'Legal Notice',
+        terms:   'Terms of Service',
+        privacy: 'Privacy Policy',
+      },
+    },
+
     home: {
       randomCard:       'Random Card',
       randomCardHint:   'Open one random card detail page',

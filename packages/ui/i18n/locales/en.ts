@@ -1,4 +1,8 @@
 export default {
+  footer: {
+    dataSources: 'Data Sources',
+  },
+
   locale: {
     '$self': 'English',
 
