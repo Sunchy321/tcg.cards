@@ -10,6 +10,7 @@ import { CardLocalizationAuthority, CardSlugResolution, ProjectionReview, Scryfa
 import { createDefinition } from '#task/definition';
 import { getLocalDb } from '../../../hearthstone/hsdata-local-db';
 import { matchBatch } from '../../match';
+import { loadNameRubyLookup, type NameRubyLookup } from '../../name-ruby';
 import { assembleUnits, loadReversibleRows, type ProjectDb, type ScryfallRow } from '../../project/assemble';
 import { inconsistentMergedSlugs } from '../../project/consistency';
 import { projectCard, type AssembledCard, type ProjectCardResult } from '../../project/project-card';
@@ -49,6 +50,8 @@ interface ProjectCtx {
   oracleList:     string[];
   /** English reversible rows, static per run — the pool prints attribute from. */
   reversibleRows: ScryfallRow[];
+  /** Reviewed name-ruby lookup, static per run — fills the ruby_* columns. */
+  rubies:         NameRubyLookup;
   /** Sorted distinct cardIds with their member unit keys (stage 3). */
   cardsByCardId:  Map<string, string[]>;
   cardIdList:     string[];
@@ -135,7 +138,7 @@ async function softDeleteStale(database: ProjectDb, table: any, cardIdCol: any, 
 }
 
 const definition = createDefinition(magicProjectTaskType, {
-  version:     '2026-09-04:v1',
+  version:     '2026-09-21:v1',
   effectModel: 'reconcilable',
 })
   .scope(z.object({}), {
@@ -186,6 +189,7 @@ const definition = createDefinition(magicProjectTaskType, {
       magic.unitToCard = matched.cardIdByUnit;
       magic.oracleList = [...new Set([...matched.cardIdByUnit.keys()].map(k => (k.includes(':') ? k.slice(0, k.indexOf(':')) : k)))].sort();
       magic.reversibleRows = await loadReversibleRows(database);
+      magic.rubies = await loadNameRubyLookup(database);
     });
     magic.counts ??= { ...emptyCounts };
     const restored = checkpoint?.blockInput as ChunkState | undefined;
@@ -215,7 +219,7 @@ const definition = createDefinition(magicProjectTaskType, {
           // Prints are written before the card-consistency stage by design:
           // print rows per raw row are written regardless of card-level
           // agreement (§7.4).
-          const result = projectCard(assembled);
+          const result = projectCard(assembled, magic.rubies);
           oraclePrints.push(...result.prints);
           oraclePrintParts.push(...result.printParts);
         }
@@ -253,6 +257,7 @@ const definition = createDefinition(magicProjectTaskType, {
       const matched = await matchBatch(database);
       magic.unitToCard = matched.cardIdByUnit;
       magic.reversibleRows = await loadReversibleRows(database);
+      magic.rubies = await loadNameRubyLookup(database);
       const byCard = new Map<string, string[]>();
       for (const [unit, cardId] of matched.cardIdByUnit) {
         const list = byCard.get(cardId) ?? [];
@@ -341,7 +346,7 @@ const definition = createDefinition(magicProjectTaskType, {
           continue;
         }
 
-        const result: ProjectCardResult = projectCard(members[0]!);
+        const result: ProjectCardResult = projectCard(members[0]!, magic.rubies);
         // The card row records every contributing oracle id, not just the
         // canonical member whose faces supplied the content — merged cards
         // (slug resolutions, BFM) must stay discoverable from all members.

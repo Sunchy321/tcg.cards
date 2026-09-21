@@ -1,4 +1,5 @@
 import { slugifyName } from '@tcg-cards/shared/magic/slug';
+import { resolveNameRuby, type NameRubyLookup } from '@tcg-cards/model/magic/name-ruby';
 
 import { Card, CardLocalization, CardPart, CardPartLocalization } from '@tcg-cards/db/schema/shared/magic/card';
 import { Print, PrintPart } from '@tcg-cards/db/schema/shared/magic/print';
@@ -343,7 +344,7 @@ function displayText(pf: PrintFaceDraft | undefined, oracle: OracleFaceDraft, mt
  * `layout`, rarity, frames etc. arrive from assembly already valid for the
  * schema; this function only fills display text and derivable print tags.
  */
-function projectPrints(assembled: AssembledCard): {
+function projectPrints(assembled: AssembledCard, rubies?: NameRubyLookup): {
   prints:     (typeof Print)['$inferInsert'][];
   printParts: (typeof PrintPart)['$inferInsert'][];
 } {
@@ -372,6 +373,20 @@ function projectPrints(assembled: AssembledCard): {
       };
     });
 
+    // Ruby columns exist only when the lookup is supplied; per-face values are
+    // independent, while the joined print name carries ruby only when every
+    // face resolves, so the stored base keeps matching the joined name.
+    const withRuby = rubies != null;
+    const rubyByFace = resolved.map(r => withRuby
+      ? (resolveNameRuby(rubies!, { lang: draft.lang, kind: 'name', name: r.name, set: draft.set, number: draft.number }) ?? null)
+      : undefined);
+    const joinedRubyPrint = withRuby
+      ? (rubyByFace.every(r => r != null) ? rubyByFace.map(r => r!).join(LINE_FACE_SEPARATOR) : null)
+      : undefined;
+    const rubyFlavorByFace = resolved.map(r => withRuby && r.flavorName != null
+      ? (resolveNameRuby(rubies!, { lang: draft.lang, kind: 'flavor_name', name: r.flavorName, set: draft.set, number: draft.number }) ?? null)
+      : (withRuby ? null : undefined));
+
     const printTags: string[] = [
       ...(draft.fullArt ? ['full-art'] : []),
       ...(draft.oversized ? ['oversized'] : []),
@@ -383,6 +398,7 @@ function projectPrints(assembled: AssembledCard): {
       cardId, version,
       set:               draft.set, number:            draft.number, lang:              draft.lang as (typeof Print)['$inferInsert']['lang'], source:            '',
       name:              resolved.map(r => r.name).join(' // '),
+      rubyName:          joinedRubyPrint,
       typeline:          resolved.map(r => r.typeline).join(' // '),
       layout:            draft.layout as (typeof Print)['$inferInsert']['layout'],
       frame:             draft.frame as (typeof Print)['$inferInsert']['frame'],
@@ -427,10 +443,12 @@ function projectPrints(assembled: AssembledCard): {
         set:              draft.set, number:           draft.number,
         lang:             printRow.lang, source:           '', partIndex:        i,
         name:             r.name,
+        rubyName:         rubyByFace[i],
         typeline:         r.typeline,
         text:             r.text,
         attractionLights: r.attractionLights,
         flavorName:       r.flavorName,
+        rubyFlavorName:   rubyFlavorByFace[i],
         flavorText:       r.flavorText,
         artist:           r.artist,
         watermark:        r.watermark,
@@ -625,6 +643,7 @@ function buildAuthorities(assembled: AssembledCard): {
  */
 export function deriveLocalizations(
   authority: (typeof CardLocalizationAuthority)['$inferInsert'],
+  rubies?: NameRubyLookup,
 ): {
   cardLocalization:      (typeof CardLocalization)['$inferInsert'];
   cardPartLocalizations: (typeof CardPartLocalization)['$inferInsert'][];
@@ -633,6 +652,22 @@ export function deriveLocalizations(
   const typelines = splitFaces(authority.typeline, LINE_FACE_SEPARATOR);
   const texts = splitFaces(authority.text, TEXT_FACE_SEPARATOR);
 
+  // Ruby resolves per face against the print that established the authority
+  // text, so a `set:number` exception matches that printing, not the card.
+  const rubyByFace = rubies == null
+    ? undefined
+    : names.map(n =>
+      resolveNameRuby(rubies, {
+        lang:   authority.locale,
+        kind:   'name',
+        name:   n,
+        set:    authority.sourceSet ?? null,
+        number: authority.sourceNumber ?? null,
+      }) ?? null);
+  const joinedRuby = rubies == null
+    ? undefined
+    : (rubyByFace!.every(r => r != null) ? rubyByFace!.map(r => r!).join(LINE_FACE_SEPARATOR) : null);
+
   const cardLocalization: (typeof CardLocalization)['$inferInsert'] = {
     cardId:   authority.cardId,
     version:  authority.version,
@@ -640,6 +675,7 @@ export function deriveLocalizations(
     source:   authority.source,
     name:     authority.name,
     typeline: authority.typeline,
+    rubyName: joinedRuby,
   };
 
   const cardPartLocalizations: (typeof CardPartLocalization)['$inferInsert'][] = Array.from(
@@ -653,6 +689,7 @@ export function deriveLocalizations(
       name:     names[partIndex] ?? '',
       typeline: typelines[partIndex] ?? '',
       text:     texts[partIndex] ?? '',
+      rubyName: rubyByFace?.[partIndex],
     }),
   );
 
@@ -670,8 +707,13 @@ export function deriveLocalizations(
  * rows (§S4) and the display rows derived from them, official prints/print_parts
  * (§S3), and the audit rows recording where a community translation replaced the
  * print surface.
+ *
+ * `rubies` is the reviewed lookup of the name-ruby authority; when supplied,
+ * the projected rows carry their `ruby_*` columns (annotations resolved per
+ * face, `set:number` exceptions honored), and columns resolve to null where
+ * the authority has nothing. When omitted, the columns stay unset.
  */
-export function projectCard(assembled: AssembledCard): ProjectCardResult {
+export function projectCard(assembled: AssembledCard, rubies?: NameRubyLookup): ProjectCardResult {
   const cardId = assembled.cardId;
   const version = '';
   const faces = assembled.faces;
@@ -732,6 +774,10 @@ export function projectCard(assembled: AssembledCard): ProjectCardResult {
 
   // English display rows mirror the oracle content so the wide views (which join
   // card_localizations × card_part_localizations by locale/source) can render en.
+  // With a ruby lookup supplied, the en rows carry `rubyName: null` so every row
+  // in the write batch shares the same column set — upsert builds its column
+  // list from the first row.
+  const enRuby = rubies == null ? undefined : null;
   const enFaces = faces.map(f => ({
     name:     f.name,
     typeline: f.typeLine ?? '',
@@ -744,12 +790,14 @@ export function projectCard(assembled: AssembledCard): ProjectCardResult {
     source:   '',
     name:     joinFaces(enFaces.map(f => f.name), LINE_FACE_SEPARATOR),
     typeline: joinFaces(enFaces.map(f => f.typeline), LINE_FACE_SEPARATOR),
+    rubyName: enRuby,
   });
   enFaces.forEach((f, i) => {
     cardPartLocalizations.push({
       cardId, version,
       locale:    'en', source:    '', partIndex: i,
       name:      f.name, typeline:  f.typeline, text:      f.text,
+      rubyName:  enRuby,
     });
   });
 
@@ -759,13 +807,13 @@ export function projectCard(assembled: AssembledCard): ProjectCardResult {
   // projection, so the two cannot drift apart.
   const { authorities, reviews } = buildAuthorities(assembled);
   for (const authority of authorities) {
-    const derived = deriveLocalizations(authority);
+    const derived = deriveLocalizations(authority, rubies);
     cardLocalizations.push(derived.cardLocalization);
     cardPartLocalizations.push(...derived.cardPartLocalizations);
   }
 
   // --- Official prints (prints / print_parts) ---
-  const { prints, printParts } = projectPrints(assembled);
+  const { prints, printParts } = projectPrints(assembled, rubies);
 
   return {
     cards: [cardRow],

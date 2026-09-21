@@ -2,6 +2,7 @@ export * from '../../shared/magic/index';
 export * from './data/gatherer';
 export * from './data/mtgch';
 export * from './data/mtgjson';
+export * from './data/name-rubies';
 export * from './data/scryfall';
 export * from './slug-annotation';
 export * from './localization-authority';

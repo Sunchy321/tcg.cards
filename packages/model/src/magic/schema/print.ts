@@ -46,6 +46,7 @@ export const print = z.strictObject({
   source:  z.string().default(''),
 
   name:     z.string(),
+  rubyName: z.string().nullable(),
   typeline: z.string(),
 
   layout:        layout,
@@ -104,15 +105,17 @@ export const printPart = z.strictObject({
   partIndex: cardPart.shape.partIndex,
 
   name:     z.string(),
+  rubyName: z.string().nullable(),
   typeline: z.string(),
   text:     z.string(),
 
   attractionLights: z.string().nullable(),
 
-  flavorName: z.string().nullable(),
-  flavorText: z.string().nullable(),
-  artist:     z.string().nullable(),
-  watermark:  z.string().nullable(),
+  flavorName:     z.string().nullable(),
+  rubyFlavorName: z.string().nullable().optional(),
+  flavorText:     z.string().nullable(),
+  artist:         z.string().nullable(),
+  watermark:      z.string().nullable(),
 
   scryfallIllusId: z.uuid().array().nullable(),
 });

@@ -95,7 +95,8 @@
               </button>
               <img v-if="isArenaVariant" src="/arena.svg" class="w-5 h-5 shrink-0">
               <h1 class="text-3xl font-bold" :lang="titleLang" :class="data.printPart.flavorName != null ? 'text-gray-500 dark:text-gray-400 italic' : ''">
-                {{ data.printPart.flavorName ?? displayPart.name }}
+                <NameRuby v-if="data.printPart.flavorName != null" :name="data.printPart.flavorName" :ruby="data.printPart.rubyFlavorName" />
+                <NameRuby v-else :name="displayPart.name" :ruby="displayPart.ruby" />
               </h1>
             </div>
             <div v-if="data.cardPart.cost" class="flex items-center gap-0.5 shrink-0 text-2xl">
@@ -109,7 +110,9 @@
           </div>
           <div class="flex items-center justify-between gap-2 mb-4" :style="effectStyle">
             <p class="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-              <span v-if="data.printPart.flavorName != null" :lang="displayLang">{{ displayPart.name }}</span>
+              <span v-if="data.printPart.flavorName != null" :lang="displayLang">
+                <NameRuby :name="displayPart.name" :ruby="displayPart.ruby" />
+              </span>
               <span
                 v-if="textMode !== 'oracle'"
                 class="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded px-1"
@@ -458,12 +461,13 @@ const stripArena = (name: string) => name.startsWith('A-') ? name.slice(2) : nam
 const isArenaVariant = computed(() => data.value?.cardPart.name.startsWith('A-') ?? false);
 
 const displayPart = computed(() => {
-  if (!data.value) return { name: '', typeline: '', text: '' };
+  if (!data.value) return { name: '', typeline: '', text: '', ruby: null as string | null };
   if (textMode.value === 'oracle') {
     return {
       name:     stripArena(data.value.cardPart.name),
       typeline: data.value.cardPart.typeline,
       text:     data.value.cardPart.text,
+      ruby:     null,
     };
   }
   if (textMode.value === 'printed') {
@@ -471,6 +475,7 @@ const displayPart = computed(() => {
       name:     stripArena(data.value.printPart.name),
       typeline: data.value.printPart.typeline,
       text:     data.value.printPart.text,
+      ruby:     data.value.printPart.rubyName ?? null,
     };
   }
   // localized (default)
@@ -478,6 +483,7 @@ const displayPart = computed(() => {
     name:     stripArena(data.value.cardPartLocalization.name),
     typeline: data.value.cardPartLocalization.typeline,
     text:     data.value.cardPartLocalization.text,
+    ruby:     data.value.cardPartLocalization.rubyName ?? null,
   };
 });
 

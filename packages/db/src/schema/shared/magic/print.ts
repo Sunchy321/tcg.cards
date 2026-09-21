@@ -29,6 +29,8 @@ export const Print = schema.table('prints', {
   source:  text('source').notNull().default(''),
 
   name:     text('print_name').notNull(),
+  /** Annotation string (`名（かな）`, ADR 0013) resolved from the name-ruby authority. */
+  rubyName: text('ruby_print_name'),
   typeline: text('print_typeline').notNull(),
 
   layout:        text('layout').$type<Layout>().notNull(),
@@ -94,11 +96,14 @@ export const PrintPart = schema.table('print_parts', {
   partIndex: smallint('part_index').notNull(),
 
   name:     text('print_part_name').notNull(),
+  /** Annotation strings (`名（かな）`, ADR 0013) resolved from the name-ruby authority. */
+  rubyName: text('ruby_print_part_name'),
   typeline: text('print_part_typeline').notNull(),
   text:     text('print_part_text').notNull(),
 
   attractionLights: bitset('123456')('attraction_lights'),
   flavorName:       text('flavor_name'),
+  rubyFlavorName:   text('ruby_flavor_name'),
   flavorText:       text('flavor_text'),
   artist:           text('artist'),
   watermark:        text('watermark'),
