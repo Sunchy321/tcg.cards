@@ -52,6 +52,9 @@ registerTaskDefinition(magicMtgjsonImportTaskDefinition);
 import { magicGathererImportTaskDefinition } from '../magic/task/gatherer-import/definition';
 registerTaskDefinition(magicGathererImportTaskDefinition);
 
+import { magicRubyImportTaskDefinition } from '../magic/task/magic-ruby-import/definition';
+registerTaskDefinition(magicRubyImportTaskDefinition);
+
 import { magicProjectTaskDefinition } from '../magic/task/magic-project/definition';
 import { magicPublishTaskDefinition } from '../magic/task/publish/definition';
 registerTaskDefinition(magicProjectTaskDefinition);

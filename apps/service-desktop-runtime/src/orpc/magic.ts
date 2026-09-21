@@ -1,3 +1,6 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { z } from 'zod';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { ORPCError } from '@orpc/server';
@@ -18,6 +21,7 @@ import { magicScryfallImportTaskDefinition } from '../lib/magic/task/scryfall-im
 import { magicMtgchImportTaskDefinition } from '../lib/magic/task/mtgch-import';
 import { magicMtgjsonImportTaskDefinition } from '../lib/magic/task/mtgjson-import';
 import { magicGathererImportTaskDefinition } from '../lib/magic/task/gatherer-import';
+import { magicRubyImportTaskDefinition } from '../lib/magic/task/magic-ruby-import';
 import { magicProjectTaskDefinition } from '../lib/magic/task/magic-project';
 import { magicImageImportRemoteTaskDefinition } from '../lib/magic/task/image-import-remote/definition';
 import { magicImageImportLocalTaskDefinition } from '../lib/magic/task/image-import-local/definition';
@@ -44,6 +48,10 @@ const magicDataState = z.strictObject({
     dir:       z.string().nullable(),
     fileCount: z.number(),
   }),
+  mtga: z.strictObject({
+    dir:          z.string().nullable(),
+    cardDatabase: z.boolean(),
+  }),
 });
 
 const getDataState = os
@@ -59,11 +67,13 @@ const getDataState = os
     const mtgchDir = resolvePath('magic.data.mtgch');
     const mtgjsonDir = resolvePath('magic.data.mtgjson');
     const mtgjson = mtgjsonDir != null ? listMtgjsonFiles(mtgjsonDir) : { dir: null, fileCount: 0 };
+    const mtgaDir = resolvePath('magic.data.mtga');
     return {
       dataDir,
       scryfall: scryfallDir != null ? listScryfallFiles(scryfallDir) : [],
       mtgch:    { archives: mtgchDir != null ? listMtgchArchives(mtgchDir) : [] },
       mtgjson:  { dir: mtgjson.dir, fileCount: mtgjson.fileCount },
+      mtga:     { dir: mtgaDir, cardDatabase: mtgaDir != null && existsSync(join(mtgaDir, 'Raw_CardDatabase.mtga')) },
     };
   });
 
@@ -124,6 +134,20 @@ const gathererImport = os
       definitionVersion: magicGathererImportTaskDefinition.definitionVersion,
       scope:             { type: magicGathererImportTaskDefinition.scopeType, key: 'global', snapshot: {} },
       params:            { level: input.level, from: input.from, to: input.to, concurrency: input.concurrency },
+    });
+  });
+
+const rubyImport = os
+  .input(z.strictObject({
+    dir: z.string().min(1),
+  }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    return createAndRunTask(magicRubyImportTaskDefinition.taskType, {
+      taskType:          magicRubyImportTaskDefinition.taskType,
+      definitionVersion: magicRubyImportTaskDefinition.definitionVersion,
+      scope:             { type: magicRubyImportTaskDefinition.scopeType, key: 'global', snapshot: {} },
+      params:            { dir: input.dir },
     });
   });
 
@@ -529,7 +553,7 @@ export const magicRouter = {
   getDataState,
   images:     { sets: listImageSets, compare: compareImages, qualityCheck: checkImagesQuality, clear: clearPrintImages, mark: markPrintImages },
   analyze:    { imageArchive: analyzeImageArchive },
-  createTask: { scryfallImport, mtgchImport, mtgjsonImport, gathererImport, magicProject, imageImportRemote, imageImportLocal, imageImportSingle },
+  createTask: { scryfallImport, mtgchImport, mtgjsonImport, gathererImport, rubyImport, magicProject, imageImportRemote, imageImportLocal, imageImportSingle },
   rule:       magicRuleRouter,
   publish:    { publishTask },
   slug:       { listConflicts: listSlugConflicts, resolveConflict: resolveSlugConflict, member: slugMember },

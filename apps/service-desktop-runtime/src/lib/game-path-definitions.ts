@@ -6,6 +6,7 @@ registerGamePaths('magic', {
     { name: 'mtgch', label: 'MTGCH' },
     { name: 'mtgjson', label: 'MTGJSON' },
     { name: 'gatherer', label: 'Gatherer' },
+    { name: 'mtga', label: 'MTGA' },
   ],
   image: [
     { name: 'card', label: '卡图' },
