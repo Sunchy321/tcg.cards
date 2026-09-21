@@ -26,8 +26,8 @@ export interface PreparedFace {
   meta:    ImageInfoMeta;
 }
 
-/** Result of writing one prepared face to the canonical image file. */
-export type FaceWrite = { result: 'written' | 'unchanged', cleanedJpg: number } | { result: 'error', error: string };
+/** Result of writing one prepared face to the canonical image file, with the pass's signed net byte change. */
+export type FaceWrite = { result: 'written' | 'unchanged', cleanedJpg: number, sizeDelta: number } | { result: 'error', error: string };
 
 /** `系列/语言/编号` of one face, marked like the file name (`⁑` = back face). */
 function rowLabel(set: string, lang: string, number: string, faceIndex: number | undefined): string {
@@ -67,10 +67,13 @@ export async function prepareFace(data: Buffer, source: string): Promise<StepRes
 export function writeFace(set: string, lang: string, number: string, faceIndex: number | undefined, prepared: PreparedFace, cleanupJpg: boolean): FaceWrite {
   const result = writeCanonical(set, lang, number, faceIndex, prepared.encoded);
   if (!result.ok) return { result: 'error', error: result.error };
-  const cleanedJpg = cleanupJpg && (faceIndex == null || faceIndex === 0)
+  const jpg = cleanupJpg && (faceIndex == null || faceIndex === 0)
     ? removeSameStemJpg(set, lang, number)
-    : 0;
-  return { result: result.value, cleanedJpg };
+    : { files: 0, bytes: 0 };
+  // Signed net change: a written file adds its encoded size minus the size of
+  // the file it displaced, and each swept legacy jpg subtracts its size.
+  const sizeDelta = (result.value.result === 'written' ? prepared.encoded.byteSize - (result.value.previousBytes ?? 0) : 0) - jpg.bytes;
+  return { result: result.value.result, cleanedJpg: jpg.files, sizeDelta };
 }
 
 /**
@@ -165,6 +168,7 @@ export async function ingestRemoteRow(db: LocalDb, row: RemoteQueueRow, options:
   let skipped = 0;
   let lowQuality = 0;
   let cleanedJpg = 0;
+  let sizeDelta = 0;
   let face0Status: ImageStatus | null = null;
   let face0Imported = false;
   const failures: string[] = [];
@@ -199,6 +203,7 @@ export async function ingestRemoteRow(db: LocalDb, row: RemoteQueueRow, options:
     if (write.result === 'written') written += 1;
     else unchanged += 1;
     cleanedJpg += write.cleanedJpg;
+    sizeDelta += write.sizeDelta;
     if (prepared.value.tier.score != null && prepared.value.tier.status === 'lowres') lowQuality += 1;
 
     infos[i] = prepared.value.meta;
@@ -212,7 +217,7 @@ export async function ingestRemoteRow(db: LocalDb, row: RemoteQueueRow, options:
     await updateRowFaces(db, row, infos, face0Imported ? face0Status : null);
   }
 
-  return { processed: 1, written, unchanged, failed, skipped, lowQuality, cleanedJpg, failures };
+  return { processed: 1, written, unchanged, failed, skipped, lowQuality, cleanedJpg, sizeDelta, failures };
 }
 
 /** One matched print row that an uploaded image writes into. */
@@ -255,6 +260,7 @@ export async function ingestUploadItem(db: LocalDb, item: UploadItem, data: Buff
   let written = 0;
   let unchanged = 0;
   let cleanedJpg = 0;
+  let sizeDelta = 0;
 
   for (const row of item.rows) {
     const rowKey = `${row.set}|${row.lang}|${row.number}|${item.faceIndex ?? ''}`;
@@ -267,6 +273,7 @@ export async function ingestUploadItem(db: LocalDb, item: UploadItem, data: Buff
       if (write.result === 'written') written += 1;
       else unchanged += 1;
       cleanedJpg += write.cleanedJpg;
+      sizeDelta += write.sizeDelta;
     }
     if (item.name && row.printName && item.name !== row.printName.trim()) {
       pushCapped(warnings, `${item.number}: 名称「${item.name}」与印刷名「${row.printName}」不一致`);
@@ -280,6 +287,7 @@ export async function ingestUploadItem(db: LocalDb, item: UploadItem, data: Buff
     unchanged,
     cleanedJpg,
     lowQuality: face.tier.score != null && face.tier.status === 'lowres' ? 1 : 0,
+    sizeDelta,
     warnings,
     failures,
   };

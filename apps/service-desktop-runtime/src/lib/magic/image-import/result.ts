@@ -32,6 +32,10 @@ export const imageImportOutput = z.strictObject({
   // Why each failed item failed, one `编号: 原因` entry per failed face/image.
   // Defaulted so counters checkpointed before this field existed still parse.
   failures:          z.array(z.string()).default([]),
+  // Net disk-usage change of the run in bytes: sizes of written webp files
+  // (inserts and replacements) minus the sizes they displaced and the swept
+  // legacy jpg bytes. Defaulted for the same checkpoint-compat reason.
+  sizeDelta:         z.number().default(0),
 });
 
 export type ImageImportOutput = z.infer<typeof imageImportOutput>;
@@ -43,6 +47,7 @@ export const maxListEntries = 50;
 const numericKeys = [
   'processed', 'written', 'unchanged', 'failed', 'skipped', 'lowQuality', 'cleanedJpg',
   'missingUrl', 'missingId', 'placeholder', 'markedPlaceholder', 'skippedUpload', 'unmatched', 'unrecognized',
+  'sizeDelta',
 ] as const;
 const listKeys = ['unmatchedNumbers', 'unrecognizedNames', 'warnings', 'markedNumbers', 'failures'] as const;
 
@@ -67,6 +72,7 @@ export function emptyImageImportOutput(): ImageImportOutput {
     warnings:          [],
     markedNumbers:     [],
     failures:          [],
+    sizeDelta:         0,
   };
 }
 
@@ -74,7 +80,9 @@ export function emptyImageImportOutput(): ImageImportOutput {
 export function addImageImportOutput(a: ImageImportOutput, b: ImageImportDelta): ImageImportOutput {
   const merged: ImageImportOutput = { ...a };
   for (const key of numericKeys) {
-    merged[key] = a[key] + (b[key] ?? 0);
+    // `?? 0` on both sides also keeps counters restored from an older
+    // checkpoint (fields added later) mergeable.
+    merged[key] = (a[key] ?? 0) + (b[key] ?? 0);
   }
   for (const key of listKeys) {
     // `?? []` also keeps counters restored from an older checkpoint (no

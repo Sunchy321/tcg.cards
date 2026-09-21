@@ -71,7 +71,7 @@ export async function clearImages(
     }
 
     for (const print of prints.values()) {
-      files += removePrintImageFiles(input.set, print.lang, print.number);
+      files += removePrintImageFiles(input.set, print.lang, print.number).files;
     }
   }
 

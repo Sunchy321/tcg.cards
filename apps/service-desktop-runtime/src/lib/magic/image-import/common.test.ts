@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, test } from 'bun:test';
 
 import { applyPathOverrides, setPathOverride } from '../../../runtime-config';
-import { removeSameStemJpg } from './common';
+import { removePrintImageFiles, removeSameStemJpg, sha256Hex, writeCanonical, type EncodedImage } from './common';
 
 afterEach(() => {
   applyPathOverrides({});
@@ -29,12 +29,17 @@ function expectFiles(dir: string, expected: string[]) {
   expect(readdirSync(dir).sort()).toEqual([...expected].sort());
 }
 
+/** Expected RemovedFiles for files whose content is their own name, as `write` lays them down. */
+function removed(names: string[]) {
+  return { files: names.length, bytes: names.reduce((sum, name) => sum + Buffer.byteLength(name), 0) };
+}
+
 describe('removeSameStemJpg', () => {
   test('sweeps the bare jpg and both legacy face variants, keeping the canonical webp', () => {
     const dir = freshImageDir();
     write(dir, ['100.webp', '100⁑.webp', '100.jpg', '100-0.jpg', '100-1.jpg', '100-0.webp', '100-1.webp']);
 
-    expect(removeSameStemJpg('mid', 'en', '100')).toBe(5);
+    expect(removeSameStemJpg('mid', 'en', '100')).toEqual(removed(['100.jpg', '100-0.jpg', '100-1.jpg', '100-0.webp', '100-1.webp']));
     expectFiles(dir, ['100.webp', '100⁑.webp']);
   });
 
@@ -42,7 +47,7 @@ describe('removeSameStemJpg', () => {
     const dir = freshImageDir();
     write(dir, ['100-0.jpg', '100-1.webp']);
 
-    expect(removeSameStemJpg('mid', 'en', '100')).toBe(2);
+    expect(removeSameStemJpg('mid', 'en', '100')).toEqual(removed(['100-0.jpg', '100-1.webp']));
     expectFiles(dir, []);
   });
 
@@ -50,7 +55,7 @@ describe('removeSameStemJpg', () => {
     const dir = freshImageDir('purl');
     write(dir, ['2025-1.webp', '2025.jpg']);
 
-    expect(removeSameStemJpg('purl', 'en', '2025')).toBe(1);
+    expect(removeSameStemJpg('purl', 'en', '2025')).toEqual(removed(['2025.jpg']));
     expectFiles(dir, ['2025-1.webp']);
   });
 
@@ -58,7 +63,38 @@ describe('removeSameStemJpg', () => {
     const dir = freshImageDir();
     write(dir, ['100.webp', '100⁑.webp']);
 
-    expect(removeSameStemJpg('mid', 'en', '100')).toBe(0);
+    expect(removeSameStemJpg('mid', 'en', '100')).toEqual({ files: 0, bytes: 0 });
     expectFiles(dir, ['100.webp', '100⁑.webp']);
+  });
+});
+
+describe('removePrintImageFiles', () => {
+  test('removes both canonical webp faces plus the legacy jpg and reports their bytes', () => {
+    const dir = freshImageDir();
+    write(dir, ['100.webp', '100⁑.webp', '100.jpg']);
+
+    expect(removePrintImageFiles('mid', 'en', '100')).toEqual(removed(['100.webp', '100⁑.webp', '100.jpg']));
+    expectFiles(dir, []);
+  });
+});
+
+describe('writeCanonical', () => {
+  /** A minimal EncodedImage standing in for a real webp encode. */
+  const encoded = (content: string): EncodedImage => {
+    const data = Buffer.from(content);
+    return { data, sha256: sha256Hex(data), width: 1, height: 1, byteSize: data.length };
+  };
+
+  test('an insert reports no previous size, a replace reports the displaced file size', () => {
+    freshImageDir();
+
+    const insert = writeCanonical('mid', 'en', '100', undefined, encoded('aaaa'));
+    expect(insert).toEqual({ ok: true, value: { result: 'written', previousBytes: null } });
+
+    const unchanged = writeCanonical('mid', 'en', '100', undefined, encoded('aaaa'));
+    expect(unchanged).toEqual({ ok: true, value: { result: 'unchanged', previousBytes: 4 } });
+
+    const replace = writeCanonical('mid', 'en', '100', undefined, encoded('bbbbbb'));
+    expect(replace).toEqual({ ok: true, value: { result: 'written', previousBytes: 4 } });
   });
 });

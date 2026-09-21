@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { inflateSync } from 'node:zlib';
 
@@ -123,18 +123,27 @@ export function printKeyCondition(key: { cardId: string, version: string, set: s
   );
 }
 
+/** Files removed from disk by one sweep: how many, and how many bytes they held. */
+export interface RemovedFiles {
+  files: number;
+  bytes: number;
+}
+
 /** Removes the canonical webp files of one print (front and ⁑ back face) plus its legacy jpg variants. */
-export function removePrintImageFiles(set: string, lang: string, number: string): number {
+export function removePrintImageFiles(set: string, lang: string, number: string): RemovedFiles {
   const safe = number.replaceAll('/', '_');
   const dir = printImageDir(set, lang);
   let files = 0;
+  let bytes = 0;
   for (const name of [`${safe}.webp`, `${safe}⁑.webp`]) {
     const file = join(dir, name);
     if (!existsSync(file)) continue;
+    bytes += statSync(file).size;
     rmSync(file);
     files += 1;
   }
-  return files + removeSameStemJpg(set, lang, number);
+  const jpg = removeSameStemJpg(set, lang, number);
+  return { files: files + jpg.files, bytes: bytes + jpg.bytes };
 }
 
 export function sha256Hex(data: Uint8Array | Buffer): string {
@@ -182,17 +191,25 @@ export async function encodeWebp(input: Buffer): Promise<StepResult<EncodedImage
   }
 }
 
+/** Outcome of one canonical write; `previousBytes` is the size the path held before, null when it held nothing. */
+export interface CanonicalWrite {
+  result:        'written' | 'unchanged';
+  previousBytes: number | null;
+}
+
 /**
- * Write canonical file with sha dedupe.
- * Returns 'written' | 'unchanged', or the fs error message.
+ * Write canonical file with sha dedupe. Returns the write outcome plus the
+ * size the path held before the write, so the import report can account a
+ * replacement against the file it displaced.
  */
-export function writeCanonical(set: string, lang: string, number: string, faceIndex: number | undefined, image: EncodedImage): StepResult<'written' | 'unchanged'> {
+export function writeCanonical(set: string, lang: string, number: string, faceIndex: number | undefined, image: EncodedImage): StepResult<CanonicalWrite> {
   try {
     const dir = printImageDir(set, lang);
     const file = join(dir, imageFileName(number, faceIndex));
-    if (existsSync(file) && sha256Hex(readFileSync(file)) === image.sha256) return { ok: true, value: 'unchanged' };
+    const previousBytes = existsSync(file) ? statSync(file).size : null;
+    if (previousBytes != null && sha256Hex(readFileSync(file)) === image.sha256) return { ok: true, value: { result: 'unchanged', previousBytes } };
     writeFileSync(file, image.data);
-    return { ok: true, value: 'written' };
+    return { ok: true, value: { result: 'written', previousBytes } };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
@@ -416,14 +433,14 @@ export async function mapWithConcurrency<T, R>(
  * written: the bare jpg plus the `-0`/`-1` face variants the old library used
  * for a double-faced card, so one pass sweeps the whole print. The canonical
  * webp names (bare stem, `⁑` back face) are never touched. Returns how many
- * files were removed.
+ * files were removed and how many bytes they held.
  *
  * The face variants are swept only while both faces are on disk: a lone
  * `{number}-1.webp` is the canonical image of a print whose collector number
  * literally ends in `-1` (e.g. `2025-1`), not a face of this print, and with a
  * single face present nothing on disk tells the two apart.
  */
-export function removeSameStemJpg(set: string, lang: string, number: string): number {
+export function removeSameStemJpg(set: string, lang: string, number: string): RemovedFiles {
   const safe = number.replaceAll('/', '_');
   const dir = printImageDir(set, lang);
   const present = (stem: string) => [`${stem}.jpg`, `${stem}.webp`].filter(name => existsSync(join(dir, name)));
@@ -433,14 +450,17 @@ export function removeSameStemJpg(set: string, lang: string, number: string): nu
   const faces = front.length > 0 && back.length > 0 ? [...front, ...back] : [];
   const stale = [`${safe}.jpg`, ...faces].filter(name => existsSync(join(dir, name)));
 
-  let removed = 0;
+  let files = 0;
+  let bytes = 0;
   for (const name of stale) {
     try {
+      const size = statSync(join(dir, name)).size;
       rmSync(join(dir, name));
-      removed += 1;
+      files += 1;
+      bytes += size;
     } catch {
       // removal is best-effort
     }
   }
-  return removed;
+  return { files, bytes };
 }

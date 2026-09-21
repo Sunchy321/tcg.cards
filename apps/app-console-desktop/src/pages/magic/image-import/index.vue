@@ -332,6 +332,7 @@ const RESULT_LABELS: Record<string, string> = {
   skippedUpload:     '跳过上传图',
   unmatched:         '未匹配编号',
   unrecognized:      '未识别文件',
+  sizeDelta:         '磁盘占用变化',
 };
 
 const LIST_LABELS: Record<string, string> = {
@@ -638,11 +639,29 @@ function onCompleted(snap: TaskPageSnapshot) {
 
 const taskResult = ref<Record<string, unknown> | null>(null);
 
+/** Byte count in compact binary units, matching the compare panel's format. */
+function formatBytes(size: number): string {
+  if (size >= 1024 ** 3) return `${(size / 1024 ** 3).toFixed(2)} GB`;
+  if (size >= 1024 ** 2) return `${(size / 1024 ** 2).toFixed(2)} MB`;
+  if (size >= 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${size} B`;
+}
+
+/** Signed byte change, e.g. `+12.3 MB` / `-45.6 MB`; zero shows without a sign. */
+function signedBytes(size: number): string {
+  return size === 0 ? formatBytes(0) : `${size > 0 ? '+' : '-'}${formatBytes(Math.abs(size))}`;
+}
+
 const countResult = computed(() => {
   if (!taskResult.value) return null;
-  return Object.fromEntries(
-    Object.entries(taskResult.value).filter(([, value]) => typeof value === 'number'),
+  // The size delta is a raw byte count that belongs in the report human-readable,
+  // so it is taken out of the number pass and reattached formatted, last.
+  const counts = Object.fromEntries(
+    Object.entries(taskResult.value).filter(([key, value]) => typeof value === 'number' && key !== 'sizeDelta'),
   );
+  const sizeDelta = taskResult.value.sizeDelta;
+  if (typeof sizeDelta === 'number') counts.sizeDelta = signedBytes(sizeDelta);
+  return counts;
 });
 
 const listResults = computed(() => {
