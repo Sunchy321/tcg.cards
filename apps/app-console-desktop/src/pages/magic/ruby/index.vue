@@ -37,9 +37,13 @@
       </div>
       <div class="mt-3 flex flex-wrap items-center gap-3 text-sm">
         <span class="text-muted">草稿 {{ counts.draft }} · 已通过 {{ counts.reviewed }}</span>
-        <span v-for="s in counts.bySource" :key="`${s.source}:${s.status}`" class="rounded bg-slate-100 px-2 py-0.5 text-xs">
-          {{ sourceLabel(s.source) }} / {{ s.status === 'draft' ? '草稿' : '已通过' }} {{ s.count }}
-        </span>
+        <UBadge
+          v-for="s in counts.bySource"
+          :key="`${s.source}:${s.status}`"
+          :label="`${sourceLabel(s.source)} / ${s.status === 'draft' ? '草稿' : '已通过'} ${s.count}`"
+          color="neutral"
+          variant="soft"
+        />
       </div>
     </div>
 
@@ -103,10 +107,11 @@
               </div>
             </td>
             <td class="p-3">
-              <span
-                class="rounded px-2 py-0.5 text-xs"
-                :class="row.status === 'reviewed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'"
-              >{{ row.status === 'reviewed' ? '已通过' : '草稿' }}</span>
+              <UBadge
+                :label="row.status === 'reviewed' ? '已通过' : '草稿'"
+                :color="row.status === 'reviewed' ? 'success' : 'warning'"
+                variant="soft"
+              />
             </td>
             <td class="p-3">
               <div class="flex justify-end gap-2">
@@ -149,7 +154,7 @@
             <div class="mt-1 text-xl">
               <NameRuby :name="editForm.name" :ruby="editForm.rubyName || null" />
             </div>
-            <div v-if="editError" class="mt-2 text-xs text-red-600">{{ editError }}</div>
+            <div v-if="editError" class="mt-2 text-xs text-error">{{ editError }}</div>
           </div>
           <UFormField label="注音串" help="形如 名称（かな）：括号内为假名读音，基底须与名称逐字一致。">
             <UInput v-model="editForm.rubyName" class="w-full font-mono" placeholder="包囲（ほうい）の搭（とう）" />
