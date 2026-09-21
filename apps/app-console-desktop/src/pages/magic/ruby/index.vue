@@ -49,7 +49,7 @@
       <table v-else class="w-full text-sm">
         <thead class="border-b border-slate-200 text-left text-xs text-muted">
           <tr>
-            <th class="p-3 w-20">卡图</th>
+            <th class="p-3 w-80">牌面卡名区</th>
             <th class="p-3">名称</th>
             <th class="p-3">注音预览</th>
             <th class="p-3 w-32">来源</th>
@@ -60,15 +60,31 @@
         <tbody>
           <tr v-for="row in items" :key="`${row.lang}:${row.kind}:${row.name}`" class="border-b border-slate-100 last:border-0">
             <td class="p-3">
-              <img
+              <!--
+                The name band of the printed card, shown at full width so the
+                reading is legible. Only the stored image's own pixels are
+                shown — nothing is resampled or re-encoded, the box clips.
+                The band spans the title bar of every frame generation: old
+                frames carry it low, borderless prints carry it high.
+              -->
+              <button
                 v-if="previewOf(row)"
-                :src="previewOf(row)"
-                :alt="row.name"
-                class="w-16 rounded border border-slate-200"
+                type="button"
+                class="block w-80 cursor-zoom-in"
+                @click="zoom(row)"
               >
+                <div class="overflow-hidden rounded border border-slate-200" style="aspect-ratio: 353 / 100">
+                  <img
+                    :src="previewOf(row)"
+                    :alt="row.name"
+                    class="w-full"
+                    style="transform: translateY(-0.7%)"
+                  >
+                </div>
+              </button>
               <div
                 v-else
-                class="flex h-20 w-16 items-center justify-center rounded border border-dashed border-slate-300 text-[10px] text-muted"
+                class="flex items-center justify-center rounded border border-dashed border-slate-300 py-6 text-xs text-muted"
               >无卡图</div>
             </td>
             <td class="p-3">
@@ -111,6 +127,18 @@
         </div>
       </div>
     </div>
+
+    <!-- zoom: the stored image at full size, for reading the printed reading off the card -->
+    <UModal v-model:open="zoomOpen" :title="zoomTitle">
+      <template #body>
+        <img
+          v-if="zoomSrc"
+          :src="zoomSrc"
+          :alt="zoomTitle"
+          class="mx-auto max-h-[75vh] w-auto rounded border border-slate-200"
+        >
+      </template>
+    </UModal>
 
     <!-- edit dialog: the preview is the site's own renderer, so what is reviewed is what ships -->
     <UModal v-model:open="editOpen" :title="`修正注音 — ${editForm.name}`">
@@ -203,6 +231,19 @@ const previews = ref<Record<string, string>>({});
 
 function previewOf(row: RubyRow): string | undefined {
   return previews.value[previewKey(row)];
+}
+
+const zoomOpen = ref(false);
+const zoomSrc = ref('');
+const zoomTitle = ref('');
+
+/** The image is already stored at native resolution; the dialog only gives it room. */
+function zoom(row: RubyRow) {
+  const src = previewOf(row);
+  if (src == null) return;
+  zoomSrc.value = src;
+  zoomTitle.value = row.name;
+  zoomOpen.value = true;
 }
 
 function previewKey(row: RubyRow): string {

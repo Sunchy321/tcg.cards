@@ -50,8 +50,14 @@ export function printImageDir(set: string, lang: string): string {
 }
 
 /**
- * Reads the stored image of one print face and returns a downscaled webp data
- * URL, for review surfaces that must show the printed card next to its data.
+ * Reads the stored image of one print face and returns it as a data URL, for
+ * review surfaces that show the printed card beside its data.
+ *
+ * Deliberately the stored bytes, unresized and un-re-encoded: a reviewer reads
+ * the printed reading off the card, and every downscale or re-encode loses
+ * exactly the detail that check depends on. The stored files are already
+ * webp in the tens of kilobytes, so handing them over whole is cheap.
+ *
  * Returns null when the image root is unconfigured or the face has no file —
  * a missing image is a normal state, never an error.
  */
@@ -60,7 +66,6 @@ export async function storedFacePreview(
   lang: string,
   number: string,
   faceIndex: number,
-  maxWidth = 240,
 ): Promise<string | null> {
   let root: string;
   try {
@@ -70,17 +75,7 @@ export async function storedFacePreview(
   }
   const file = join(root, 'large', set, lang, imageFileName(number, faceIndex));
   if (!existsSync(file)) return null;
-
-  const bytes = readFileSync(file);
-  const dims = webpDims(bytes);
-  if (dims == null) return null;
-
-  const scale = Math.min(1, maxWidth / dims.width);
-  const img = new AnyImage(bytes);
-  const resized = await img.resize(Math.max(1, Math.round(dims.width * scale)), Math.max(1, Math.round(dims.height * scale)));
-  const encoded = await resized.webp({ quality: 60 });
-  const data = await encoded.buffer();
-  return `data:image/webp;base64,${Buffer.from(data).toString('base64')}`;
+  return `data:image/webp;base64,${readFileSync(file).toString('base64')}`;
 }
 
 /** File name for one print/face: face 0 and single-face prints have no suffix, the back face carries the ⁑ mark. */
