@@ -6,6 +6,8 @@ import { MtgchScryfallCard, MtgchZhsCard, MtgchZhsOracle, ScryfallCard } from '@
 import { isArtBackDoubleFacedToken, isSingleCardDoubleFacedToken, slugifyCard, toMatchUnits } from '../match';
 import { findCardMergeGroup } from '../merge-cards';
 
+import { stripNameRuby } from '@tcg-cards/model/magic/name-ruby';
+
 import type { AssembledCard, CardLocalizationSurface, LocalizedFaceDraft, OracleFaceDraft, PrintDraft, PrintFaceDraft } from './project-card';
 
 type CardRow = (typeof ScryfallCard)['$inferSelect'];
@@ -55,16 +57,23 @@ export function faceValue(value: string | null | undefined, faceIndex: number): 
   return value.split(' // ')[faceIndex] ?? value;
 }
 
+
+/** Strips upstream-flattened furigana glosses (`漢字（かな）`) from Japanese print surfaces. */
+function cleanSurface(row: CardRow, value: string | null): string | null {
+  if (row.lang !== 'ja' || value == null) return value;
+  return stripNameRuby(value);
+}
+
 /** Faces of a print, aligned to the card's oracle faces. */
 function printFaces(row: CardRow): PrintFaceDraft[] {
   const faces = (row.cardFaces as RawFace[] | null) ?? [];
   if (faces.length === 0) {
     return [{
       typeLine:         row.typeLine ?? null,
-      printedName:      row.printedName ?? null,
-      printedTypeLine:  row.printedTypeLine ?? null,
+      printedName:      cleanSurface(row, row.printedName ?? null),
+      printedTypeLine:  cleanSurface(row, row.printedTypeLine ?? null),
       printedText:      row.printedText ?? null,
-      flavorName:       row.flavorName ?? null,
+      flavorName:       cleanSurface(row, row.flavorName ?? null),
       flavorText:       row.flavorText ?? null,
       artist:           row.artist ?? null,
       watermark:        row.watermark ?? null,
@@ -74,10 +83,10 @@ function printFaces(row: CardRow): PrintFaceDraft[] {
   }
   return faces.map((f, i) => ({
     typeLine:         f.type_line ?? null,
-    printedName:      faceValue(f.printed_name, i),
-    printedTypeLine:  faceValue(f.printed_type_line, i),
+    printedName:      cleanSurface(row, faceValue(f.printed_name, i)),
+    printedTypeLine:  cleanSurface(row, faceValue(f.printed_type_line, i)),
     printedText:      f.printed_text ?? null,
-    flavorName:       f.flavor_name ?? null,
+    flavorName:       cleanSurface(row, f.flavor_name ?? null),
     flavorText:       f.flavor_text ?? null,
     artist:           f.artist ?? null,
     watermark:        f.watermark ?? null,
@@ -171,14 +180,14 @@ function localizedFaces(row: CardRow): LocalizedFaceDraft[] {
   const faces = (row.cardFaces as RawFace[] | null) ?? [];
   if (faces.length === 0) {
     return [{
-      name:     row.printedName ?? null,
-      typeline: row.printedTypeLine ?? null,
+      name:     cleanSurface(row, row.printedName ?? null),
+      typeline: cleanSurface(row, row.printedTypeLine ?? null),
       text:     row.printedText ?? null,
     }];
   }
   return faces.map((f, i) => ({
-    name:     faceValue(f.printed_name, i),
-    typeline: faceValue(f.printed_type_line, i),
+    name:     cleanSurface(row, faceValue(f.printed_name, i)),
+    typeline: cleanSurface(row, faceValue(f.printed_type_line, i)),
     text:     f.printed_text ?? null,
   }));
 }
@@ -190,10 +199,10 @@ function printFaceAt(row: CardRow, faceIndex: number): PrintFaceDraft {
   if (f == null) {
     return {
       typeLine:         row.typeLine ?? null,
-      printedName:      row.printedName ?? null,
-      printedTypeLine:  row.printedTypeLine ?? null,
+      printedName:      cleanSurface(row, row.printedName ?? null),
+      printedTypeLine:  cleanSurface(row, row.printedTypeLine ?? null),
       printedText:      row.printedText ?? null,
-      flavorName:       row.flavorName ?? null,
+      flavorName:       cleanSurface(row, row.flavorName ?? null),
       flavorText:       row.flavorText ?? null,
       artist:           row.artist ?? null,
       watermark:        row.watermark ?? null,
@@ -221,14 +230,14 @@ function localizedFaceAt(row: CardRow, faceIndex: number): LocalizedFaceDraft {
   const f = faces[faceIndex];
   if (f == null) {
     return {
-      name:     row.printedName ?? null,
-      typeline: row.printedTypeLine ?? null,
+      name:     cleanSurface(row, row.printedName ?? null),
+      typeline: cleanSurface(row, row.printedTypeLine ?? null),
       text:     row.printedText ?? null,
     };
   }
   return {
-    name:     faceValue(f.printed_name, faceIndex),
-    typeline: faceValue(f.printed_type_line, faceIndex),
+    name:     cleanSurface(row, faceValue(f.printed_name, faceIndex)),
+    typeline: cleanSurface(row, faceValue(f.printed_type_line, faceIndex)),
     text:     f.printed_text ?? null,
   };
 }
