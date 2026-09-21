@@ -1,7 +1,7 @@
 <template>
-  <span v-if="segments">
+  <span v-if="segments" class="name-ruby">
     <template v-for="(s, i) in segments" :key="i">
-      <ruby v-if="s.ruby">{{ s.text }}<rt class="text-[0.55em] font-normal opacity-80">{{ s.ruby }}</rt></ruby>
+      <ruby v-if="s.ruby">{{ s.text }}<rp>（</rp><rt :data-ruby="s.ruby"/><rp>）</rp></ruby>
       <template v-else>{{ s.text }}</template>
     </template>
   </span>
@@ -17,6 +17,10 @@ import { parseNameRuby, type NameRubySegment } from '#model/magic/name-ruby';
  * markup. Any annotation whose base runs do not rebuild the name — or that is
  * missing, draft-gated away upstream, or malformed — degrades to the plain
  * name.
+ *
+ * The reading is drawn by `::after` from a data attribute rather than stored
+ * as element text: generated content is invisible to selection and copy in
+ * every engine, so copying a name yields the name alone, never the reading.
  */
 const props = defineProps<{
   name:  string;
@@ -30,3 +34,13 @@ const segments = computed<NameRubySegment[] | null>(() => {
   return parsed.map(s => s.text).join('') === props.name ? parsed : null;
 });
 </script>
+
+<style scoped>
+.name-ruby rt::after {
+  content: attr(data-ruby);
+  font-size: 0.6em;
+  font-weight: normal;
+  opacity: 0.8;
+  user-select: none;
+}
+</style>
