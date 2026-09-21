@@ -43,7 +43,7 @@
           class="w-50"
         />
         <div class="mt-1 px-1 text-center text-sm text-white/80 truncate w-50" :lang="card.locale">
-          {{ card.cardPartLocalization.name }}
+          <NameRuby :name="card.cardPartLocalization.name" :ruby="card.cardPartLocalization.rubyName" />
         </div>
       </NuxtLink>
       <div v-for="i in 20" :key="`dummy-${i}`" class="w-50" aria-hidden="true" />

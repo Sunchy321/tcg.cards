@@ -46,7 +46,7 @@ export const print = z.strictObject({
   source:  z.string().default(''),
 
   name:     z.string(),
-  rubyName: z.string().nullable(),
+  rubyName: z.string().nullable().optional(),
   typeline: z.string(),
 
   layout:        layout,
@@ -105,7 +105,7 @@ export const printPart = z.strictObject({
   partIndex: cardPart.shape.partIndex,
 
   name:     z.string(),
-  rubyName: z.string().nullable(),
+  rubyName: z.string().nullable().optional(),
   typeline: z.string(),
   text:     z.string(),
 

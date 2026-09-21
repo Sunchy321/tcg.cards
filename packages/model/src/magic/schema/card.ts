@@ -50,7 +50,7 @@ export const cardLocalization = z.strictObject({
   source:  z.string().default(''),
 
   name:     z.string(),
-  rubyName: z.string().nullable(),
+  rubyName: z.string().nullable().optional(),
   typeline: z.string(),
 });
 
@@ -91,7 +91,7 @@ export const cardPartLocalization = z.strictObject({
   typeline: z.string(),
   text:     z.string(),
 
-  rubyName: z.string().nullable(),
+  rubyName: z.string().nullable().optional(),
 });
 
 export const cardLocalizationAuthority = z.strictObject({
