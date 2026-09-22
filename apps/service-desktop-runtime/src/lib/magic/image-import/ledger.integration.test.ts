@@ -234,4 +234,17 @@ integrationTest('remote and upload ingest mirror files into the ledger and clear
   expect(cleared.cleared).toBe(1);
   expect(await db.select().from(AssetImage).where(eq(AssetImage.key, key))).toHaveLength(0);
   expect(await db.select().from(Print).where(eq(Print.cardId, cardId))).toHaveLength(1);
+
+  // The operator's reset lands the print in the placeholder state (no real
+  // image anywhere); a backfill now records that as a tombstone — the memory
+  // survives outside the fact row — and a rerun recognizes it.
+  await db.update(Print).set({ imageStatus: 'placeholder', imageInfo: null }).where(eq(Print.cardId, cardId));
+  const thirdBackfill = await backfillAssetLedger(db);
+  expect(thirdBackfill.tombstones).toBe(1);
+  const tombstone = await db.select().from(AssetImage).where(eq(AssetImage.key, key));
+  expect(tombstone[0]!.status).toBe('placeholder');
+  expect(tombstone[0]!.byteSize).toBe(0);
+  const fourthBackfill = await backfillAssetLedger(db);
+  expect(fourthBackfill.tombstoneUnchanged).toBe(1);
+  expect(await db.select().from(AssetImage).where(eq(AssetImage.key, key))).toHaveLength(1);
 }, 180_000);

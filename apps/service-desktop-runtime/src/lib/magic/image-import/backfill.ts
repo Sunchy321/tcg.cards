@@ -80,6 +80,10 @@ export interface AssetLedgerBackfillCounts {
   mismatched:   number;
   missingKeys:  string[];
   mismatchKeys: string[];
+  /** Placeholder tombstones written for prints already marked as no-image. */
+  tombstones:        number;
+  /** Prints whose placeholder state is already represented in the ledger. */
+  tombstoneUnchanged: number;
 }
 
 const CHUNK = 500;
@@ -94,6 +98,7 @@ export async function backfillAssetLedger(db: LocalDb, scope: { set?: string; la
   const verifiedAt = new Date();
   const counts: AssetLedgerBackfillCounts = {
     faces: 0, seeded: 0, updated: 0, unchanged: 0, missing: 0, mismatched: 0, missingKeys: [], mismatchKeys: [],
+    tombstones: 0, tombstoneUnchanged: 0,
   };
 
   const conditions = [
@@ -163,6 +168,63 @@ export async function backfillAssetLedger(db: LocalDb, scope: { set?: string; la
       }
     }
     for (const printKey of prints.keys()) done.add(printKey);
+    if (rows.length < CHUNK) break;
+  }
+
+  // Second pass: prints already marked placeholder carry the reset memory —
+  // "no image here, never fetch one" — as tombstone rows. The fact rows stay
+  // untouched, and a key that already has a ledger row is never demoted.
+  const placeholderWhere = and(
+    isNull(Print.deletedAt),
+    eq(Print.imageStatus, 'placeholder'),
+    isNull(Print.imageInfo),
+    ...(scope.set != null ? [eq(Print.set, scope.set)] : []),
+    ...(scope.langs?.length ? [inArray(Print.lang, scope.langs as typeof Print.$inferSelect.lang[])] : []),
+  );
+  for (let offset = 0; ; offset += CHUNK) {
+    const rows = await runWithDb(db, () => db.select({
+      set:    Print.set,
+      lang:   Print.lang,
+      number: Print.number,
+    }).from(Print).where(placeholderWhere)
+      .orderBy(Print.cardId, Print.version, Print.set, Print.number, Print.lang, Print.source)
+      .limit(CHUNK)
+      .offset(offset));
+    if (rows.length === 0) break;
+
+    const batch: Array<(typeof AssetImage)['$inferInsert']> = [];
+    for (const r of rows) {
+      const printKey = `${r.lang}/${r.number}`;
+      if (done.has(printKey)) continue;
+      batch.push({
+        key:          printImageKey(r.set, r.lang, r.number),
+        format:       '',
+        source:       '',
+        sha256:       '',
+        width:        0,
+        height:       0,
+        byteSize:     0,
+        status:       'placeholder',
+        qualityScore: null,
+        verifiedAt,
+      });
+    }
+    if (batch.length > 0) {
+      const existing = await runWithDb(db, () => db.select({ key: AssetImage.key }).from(AssetImage).where(inArray(AssetImage.key, batch.map(row => row.key))));
+      const occupied = new Set(existing.map(row => row.key));
+      const toWrite = batch.filter(row => {
+        if (occupied.has(row.key)) {
+          counts.tombstoneUnchanged += 1;
+          return false;
+        }
+        return true;
+      });
+      if (toWrite.length > 0) {
+        const result = await runWithDb(db, () => upsertBatch(db, AssetImage, toWrite, [AssetImage.key], ['key']));
+        counts.tombstones += result.inserted + result.updated;
+      }
+    }
+    for (const r of rows) done.add(`${r.lang}/${r.number}`);
     if (rows.length < CHUNK) break;
   }
   return counts;
