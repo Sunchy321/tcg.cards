@@ -1,3 +1,5 @@
+import { inArray } from 'drizzle-orm';
+
 import { AssetImage } from '@tcg-cards/db/schema/local/magic';
 import { Print } from '@tcg-cards/db/schema/shared/magic/print';
 import { isTwoImageLayout, printImageKey } from '@tcg-cards/shared/magic/print-image';
@@ -93,6 +95,19 @@ export async function updateRowFaces(db: LocalDb, key: PrintKey, imageInfo: Imag
   const patch: Partial<typeof Print.$inferInsert> = { imageInfo };
   if (face0Status != null) patch.imageStatus = face0Status;
   await db.update(Print).set(patch).where(printKeyCondition(key));
+}
+
+/**
+ * Per-face guard read from the asset ledger: a tombstone pins the key as
+ * deliberately empty, and a real row's provenance is the authoritative upload
+ * protection — it survives fact-table rebuilds, unlike the fact slot's copy.
+ */
+async function faceGuard(db: LocalDb, set: string, lang: string, number: string): Promise<Map<number, typeof AssetImage.$inferSelect>> {
+  const backKey = printImageKey(set, lang, number, 1);
+  const entries = await db.select().from(AssetImage).where(inArray(AssetImage.key, [printImageKey(set, lang, number), backKey]));
+  const byFace = new Map<number, typeof AssetImage.$inferSelect>();
+  for (const entry of entries) byFace.set(entry.key === backKey ? 1 : 0, entry);
+  return byFace;
 }
 
 /**
@@ -215,15 +230,34 @@ export async function ingestRemoteRow(db: LocalDb, row: RemoteQueueRow, options:
   let sizeDelta = 0;
   let face0Status: ImageStatus | null = null;
   let face0Imported = false;
+  let markedPlaceholder = 0;
+  let skippedUpload = 0;
   const failures: string[] = [];
 
+  const guard = await faceGuard(db, row.set, row.lang, row.number);
   for (const face of row.faces) {
     const i = face.faceIndex;
     const label = rowLabel(row.set, row.lang, row.number, i);
-    // Without force an already imported face is left untouched, so a row with a
-    // front-only image still gets its missing back filled.
-    if (!options.force && row.imageInfo?.[i] != null) {
+    const pinned = guard.get(i);
+    if (pinned?.status === 'placeholder') {
+      // A tombstone pins this key as deliberately empty: no fetch, ever.
+      markedPlaceholder += 1;
       skipped += 1;
+      continue;
+    }
+    const slotMeta = row.imageInfo?.[i] ?? null;
+    const slotSource = pinned?.source ?? slotMeta?.source ?? null;
+    // Without force an already imported face is left untouched, so a row with
+    // a front-only image still gets its missing back filled. The ledger counts
+    // as imported even when the fact slot's copy is gone.
+    if (!options.force && (slotMeta != null || pinned != null)) {
+      skipped += 1;
+      continue;
+    }
+    if (slotSource != null && (uploadImageSources as readonly string[]).includes(slotSource)
+        && !(uploadImageSources as readonly string[]).includes(options.imageSource)) {
+      // Download sources never take a curated image, whatever the force mode.
+      skippedUpload += 1;
       continue;
     }
     const fetched = await fetchImageBuffer(face.url);
@@ -264,7 +298,7 @@ export async function ingestRemoteRow(db: LocalDb, row: RemoteQueueRow, options:
     await updateRowFaces(db, row, infos, face0Imported ? face0Status : null);
   }
 
-  return { processed: 1, written, unchanged, failed, skipped, lowQuality, cleanedJpg, sizeDelta, failures };
+  return { processed: 1, written, unchanged, failed, skipped, lowQuality, cleanedJpg, sizeDelta, markedPlaceholder, skippedUpload, failures };
 }
 
 /** One matched print row that an uploaded image writes into. */

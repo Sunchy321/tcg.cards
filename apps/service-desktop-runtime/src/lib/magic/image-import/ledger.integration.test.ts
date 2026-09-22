@@ -1,6 +1,6 @@
 import { afterAll, afterEach, expect, test } from 'bun:test';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { deflateSync } from 'node:zlib';
@@ -17,6 +17,7 @@ import { applyPathOverrides, setPathOverride } from '../../../runtime-config';
 import { backfillAssetLedger } from './backfill';
 import { clearImages } from './clear';
 import { ingestRemoteRow, ingestUploadItem } from './ingest';
+import { fillPrintImagesFromLedger, loadPrintLedgerEntries } from '../project/fill-print-images';
 
 /** Opt-in integration database, mirroring the yugioh image import test. */
 const adminUrl = process.env.MAGIC_IMAGE_TEST_DATABASE_URL?.trim() ?? null;
@@ -229,22 +230,52 @@ integrationTest('remote and upload ingest mirror files into the ledger and clear
   expect(rebuilt).toHaveLength(1);
   expect(rebuilt[0]!.source).toBe('manual');
 
-  // Clear removes the files and their ledger rows together.
+  // The operator resets with the print landing in the placeholder state
+  // (scryfall itself has no real image): clear sweeps the file and both
+  // copies, and pins a tombstone so no download task may fetch again.
+  await db.update(Print).set({ imageStatus: 'placeholder' }).where(eq(Print.cardId, cardId));
   const cleared = await clearImages(db, { set: 'mid', langs: ['en'] });
   expect(cleared.cleared).toBe(1);
-  expect(await db.select().from(AssetImage).where(eq(AssetImage.key, key))).toHaveLength(0);
-  expect(await db.select().from(Print).where(eq(Print.cardId, cardId))).toHaveLength(1);
-
-  // The operator's reset lands the print in the placeholder state (no real
-  // image anywhere); a backfill now records that as a tombstone — the memory
-  // survives outside the fact row — and a rerun recognizes it.
-  await db.update(Print).set({ imageStatus: 'placeholder', imageInfo: null }).where(eq(Print.cardId, cardId));
-  const thirdBackfill = await backfillAssetLedger(db);
-  expect(thirdBackfill.tombstones).toBe(1);
+  expect(existsSync(join(imageRoot, key))).toBe(false);
+  expect(await db.select().from(AssetImage).where(eq(AssetImage.key, key))).toHaveLength(1);
   const tombstone = await db.select().from(AssetImage).where(eq(AssetImage.key, key));
   expect(tombstone[0]!.status).toBe('placeholder');
   expect(tombstone[0]!.byteSize).toBe(0);
-  const fourthBackfill = await backfillAssetLedger(db);
-  expect(fourthBackfill.tombstoneUnchanged).toBe(1);
-  expect(await db.select().from(AssetImage).where(eq(AssetImage.key, key))).toHaveLength(1);
+  expect(await db.select().from(Print).where(eq(Print.cardId, cardId))).toHaveLength(1);
+
+  // A backfill rerun recognizes the tombstone instead of writing a second one.
+  const postClearBackfill = await backfillAssetLedger(db);
+  expect(postClearBackfill.tombstoneUnchanged).toBe(1);
+
+  // The operator's remedy is a manual upload: it replaces the tombstone with
+  // a real row and restores the fact metadata.
+  const remedy = await ingestUploadItem(
+    db,
+    { number: '297', name: 'Test Card', rows: [{ cardId, version: '', set: 'mid', number: '297', lang: 'en', source: '', layout: 'normal', printName: 'Test Card', imageInfo: null }] },
+    Buffer.from(await buildWebp(320, 480, 3)),
+    { imageSource: 'manual', cleanupJpg: true },
+  );
+  expect(remedy.written).toBe(1);
+  const restored = await db.select().from(AssetImage).where(eq(AssetImage.key, key));
+  expect(restored[0]!.byteSize).toBeGreaterThan(0);
+  const remedied = await db.select().from(Print).where(eq(Print.cardId, cardId));
+  expect(remedied[0]!.imageInfo?.[0]?.sha256).toBe(restored[0]!.sha256);
+
+  // Cutover regression: with the fact row wiped, the projection's image fill
+  // rebuilds both fields from the ledger alone.
+  await db.delete(Print).where(eq(Print.cardId, cardId));
+  const draft: (typeof Print)['$inferInsert'] = {
+    cardId, version:          '', set:              'mid', number:           '297', lang:             'en', source:           '',
+    name:             'Test Card', typeline:         'Test Creature', layout:           'normal', frame:            '2015',
+    frameEffects:     [], borderColor:      'black', rarity:           'common', releaseDate:      '2021-11-19',
+    isDigital:        false, isPromo:          false, isReprint:        false, finishes:         ['nonfoil'],
+    imageStatus:      'lowres', imageInfo:        null, inBooster:        false, games:            ['paper'],
+    printTags:        [], multiverseId:     [], scryfallOracleId: randomUUID(),
+  };
+  const ledgerRows = await loadPrintLedgerEntries(db, [draft]);
+  fillPrintImagesFromLedger(ledgerRows, [draft]);
+  expect(draft.imageStatus).toBe('lowres');
+  expect(draft.imageInfo).toHaveLength(1);
+  expect(draft.imageInfo![0]!.source).toBe('manual');
+  expect(draft.imageInfo![0]!.sha256).toBe(restored[0]!.sha256);
 }, 180_000);

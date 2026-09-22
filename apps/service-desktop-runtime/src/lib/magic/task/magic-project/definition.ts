@@ -12,9 +12,9 @@ import { getLocalDb } from '../../../hearthstone/hsdata-local-db';
 import { matchBatch } from '../../match';
 import { loadNameRubyLookup, type NameRubyLookup } from '../../name-ruby';
 import { assembleUnits, loadReversibleRows, type ProjectDb, type ScryfallRow } from '../../project/assemble';
+import { fillPrintImagesFromLedger, loadPrintLedgerEntries } from '../../project/fill-print-images';
 import { inconsistentMergedSlugs } from '../../project/consistency';
 import { projectCard, type AssembledCard, type ProjectCardResult } from '../../project/project-card';
-import { preserveExistingPrintImages } from '../../project/preserve-print-images';
 import { upsertBatch } from '../../upsert';
 
 /** Stable task type for projecting magic raw caches into the fact tables. */
@@ -223,8 +223,11 @@ const definition = createDefinition(magicProjectTaskType, {
           oraclePrints.push(...result.prints);
           oraclePrintParts.push(...result.printParts);
         }
-        // 重复投影时保留已导入的本地图字段(含 manual),避免覆盖。
-        await preserveExistingPrintImages(database, oraclePrints);
+        // The prints' image fields come from the asset ledger — the ledger is
+        // where image facts live, so a fact-table wipe still projects fully;
+        // prints without a ledger row keep the scryfall source-side status.
+        const ledger = await loadPrintLedgerEntries(database, oraclePrints);
+        fillPrintImagesFromLedger(ledger, oraclePrints);
         counts.prints += await writeSection(database, Print, oraclePrints, [...PRINT_PK]);
         counts.printParts += await writeSection(database, PrintPart, oraclePrintParts, [...PRINT_PK, 'partIndex']);
         doneRows += rowCounts.get(oracle) ?? 0;

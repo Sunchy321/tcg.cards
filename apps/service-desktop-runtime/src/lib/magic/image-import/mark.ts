@@ -2,11 +2,13 @@ import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { runWithDb } from '@tcg-cards/db';
-import { ScryfallCard } from '@tcg-cards/db/schema/local/magic';
+import { AssetImage, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
 import { Print } from '@tcg-cards/db/schema/shared/magic/print';
+import { printImageKey } from '@tcg-cards/shared/magic/print-image';
 
 import type { LocalDb } from '../../hearthstone/hsdata-local-db';
 import { printKeyCondition } from './common';
+import { upsertBatch } from '../upsert';
 
 export const imageMarkResult = z.strictObject({
   marked:       z.number(),
@@ -55,6 +57,28 @@ export async function markPlaceholderImages(
     await runWithDb(db, () => db.update(Print)
       .set({ imageStatus: 'placeholder' })
       .where(printKeyCondition({ cardId: row.cardId, version: row.version, set: input.set, number: row.number, lang: row.lang, source: row.source })));
+  }
+
+  // Each mark is pinned as a ledger tombstone: the no-fetch guarantee then
+  // survives fact-table rebuilds, and download tasks can read it straight
+  // from the ledger instead of the fact row's copy.
+  if (eligible.length > 0) {
+    const tombstones = eligible.map(row => ({
+      key:          printImageKey(input.set, row.lang, row.number),
+      format:       '',
+      source:       '',
+      sha256:       '',
+      width:        0,
+      height:       0,
+      byteSize:     0,
+      status:       'placeholder',
+      qualityScore: null,
+      verifiedAt:   new Date(),
+    }));
+    for (let i = 0; i < tombstones.length; i += 10_000) {
+      const chunk = tombstones.slice(i, i + 10_000);
+      await runWithDb(db, () => upsertBatch(db, AssetImage, chunk, [AssetImage.key], ['key']));
+    }
   }
 
   return { marked: eligible.length, skippedImage, ignored };

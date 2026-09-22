@@ -10,6 +10,7 @@ import { printImageKey } from '@tcg-cards/shared/magic/print-image';
 
 import type { LocalDb } from '../../hearthstone/hsdata-local-db';
 import { cardImageRoot, printKeyCondition, removePrintImageFiles } from './common';
+import { upsertBatch } from '../upsert';
 
 export const imageClearResult = z.strictObject({
   cleared: z.number(),
@@ -61,11 +62,15 @@ export async function clearImages(
 
   let files = 0;
   let marked = 0;
+  const tombstoneKeys = new Set<string>();
   if (prints.size > 0) {
     for (const row of rows) {
       // The scryfall column is plain text, so the fallback needs the enum cast.
       const status = (row.scryfallStatus ?? row.printStatus) as typeof Print.$inferInsert['imageStatus'];
       if (row.scryfallStatus === 'placeholder') marked += 1;
+      // A print reset into the placeholder state is pinned as a ledger
+      // tombstone below, so no download task may fetch for it afterwards.
+      if (status === 'placeholder') tombstoneKeys.add(printImageKey(input.set, row.lang, row.number));
       await runWithDb(db, () => db.update(Print)
         .set({ imageInfo: null, imageStatus: status })
         .where(printKeyCondition({ cardId: row.cardId, version: row.version, set: input.set, number: row.number, lang: row.lang, source: row.source })));
@@ -87,6 +92,27 @@ export async function clearImages(
     for (let i = 0; i < keys.length; i += 10_000) {
       const chunk = keys.slice(i, i + 10_000);
       await runWithDb(db, () => db.delete(AssetImage).where(inArray(AssetImage.key, chunk)));
+    }
+
+    // Tombstones go in after the sweep, or the sweep would delete them: they
+    // pin the reset so the blocked state survives fact-table rebuilds too.
+    if (tombstoneKeys.size > 0) {
+      const tombstones = [...tombstoneKeys].map(key => ({
+        key,
+        format:       '',
+        source:       '',
+        sha256:       '',
+        width:        0,
+        height:       0,
+        byteSize:     0,
+        status:       'placeholder',
+        qualityScore: null,
+        verifiedAt:   new Date(),
+      }));
+      for (let i = 0; i < tombstones.length; i += 10_000) {
+        const chunk = tombstones.slice(i, i + 10_000);
+        await runWithDb(db, () => upsertBatch(db, AssetImage, chunk, [AssetImage.key], ['key']));
+      }
     }
   }
 
