@@ -14,6 +14,7 @@ import { printImageKey } from '@tcg-cards/shared/magic/print-image';
 import type { ImageInfo } from '#model/magic/schema/print';
 
 import { applyPathOverrides, setPathOverride } from '../../../runtime-config';
+import { backfillAssetLedger } from './backfill';
 import { clearImages } from './clear';
 import { ingestRemoteRow, ingestUploadItem } from './ingest';
 
@@ -215,6 +216,18 @@ integrationTest('remote and upload ingest mirror files into the ledger and clear
   const uploaded = await db.select().from(AssetImage).where(eq(AssetImage.key, key));
   expect(uploaded).toHaveLength(1);
   expect(uploaded[0]!.source).toBe('manual');
+
+  // Backfill converges: a row already identical to its metadata is skipped,
+  // and a deleted row is rebuilt from the fact row's metadata while its file
+  // verifies at the recorded size.
+  const firstBackfill = await backfillAssetLedger(db);
+  expect(firstBackfill.unchanged).toBe(1);
+  await db.delete(AssetImage).where(eq(AssetImage.key, key));
+  const secondBackfill = await backfillAssetLedger(db);
+  expect(secondBackfill.seeded).toBe(1);
+  const rebuilt = await db.select().from(AssetImage).where(eq(AssetImage.key, key));
+  expect(rebuilt).toHaveLength(1);
+  expect(rebuilt[0]!.source).toBe('manual');
 
   // Clear removes the files and their ledger rows together.
   const cleared = await clearImages(db, { set: 'mid', langs: ['en'] });

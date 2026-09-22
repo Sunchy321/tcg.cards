@@ -11,7 +11,11 @@ export function buildExcludedSet(table: any, row: Record<string, unknown>, pkNam
     }
   }
   set.updatedAt = new Date();
-  set.deletedAt = null;
+  // Only soft-delete tables carry a deleted_at column to clear; hard-delete
+  // ledgers (e.g. the image asset ledger) have none and must not reference it.
+  if ((table as any).deletedAt != null) {
+    set.deletedAt = null;
+  }
   return set;
 }
 
@@ -67,7 +71,9 @@ export async function upsertBatch<T>(
     const rows = await database.insert(table).values(chunk)
       .onConflictDoUpdate({ target, set, where })
       .returning({ __xmax: sql`xmax` });
-    const inserted = rows.filter((row: { __xmax: number }) => row.__xmax === 0).length;
+    // postgres.js returns int8 as a string, so a literal `=== 0` would count
+    // every insert as an update.
+    const inserted = rows.filter((row: { __xmax: number | string }) => Number(row.__xmax) === 0).length;
     counts.inserted += inserted;
     counts.updated += rows.length - inserted;
     counts.unchanged += chunk.length - rows.length;
