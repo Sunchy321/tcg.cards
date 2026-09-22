@@ -6,6 +6,7 @@ import { inflateSync } from 'node:zlib';
 import { and, eq, isNull, ne, notInArray, or, sql, type SQL } from 'drizzle-orm';
 
 import { Print } from '@tcg-cards/db/schema/shared/magic/print';
+import { printImageFileName, printImageKey } from '@tcg-cards/shared/magic/print-image';
 import type { ImageInfo, ImageInfoMeta } from '#model/magic/schema/print';
 
 import { resolvePath } from '../../game-paths';
@@ -73,17 +74,9 @@ export async function storedFacePreview(
   } catch {
     return null;
   }
-  const file = join(root, 'large', set, lang, imageFileName(number, faceIndex));
+  const file = join(root, printImageKey(set, lang, number, faceIndex));
   if (!existsSync(file)) return null;
   return `data:image/webp;base64,${readFileSync(file).toString('base64')}`;
-}
-
-/** File name for one print/face: face 0 and single-face prints have no suffix, the back face carries the ⁑ mark. */
-export function imageFileName(number: string, faceIndex?: number): string {
-  const safe = number.replaceAll('/', '_');
-  if (faceIndex == null || faceIndex === 0) return `${safe}.webp`;
-  if (faceIndex === 1) return `${safe}⁑.webp`;
-  return `${safe}-${faceIndex}.webp`;
 }
 
 /**
@@ -234,7 +227,7 @@ export interface CanonicalWrite {
 export function writeCanonical(set: string, lang: string, number: string, faceIndex: number | undefined, image: EncodedImage): StepResult<CanonicalWrite> {
   try {
     const dir = printImageDir(set, lang);
-    const file = join(dir, imageFileName(number, faceIndex));
+    const file = join(dir, printImageFileName(number, faceIndex));
     const previousBytes = existsSync(file) ? statSync(file).size : null;
     if (previousBytes != null && sha256Hex(readFileSync(file)) === image.sha256) return { ok: true, value: { result: 'unchanged', previousBytes } };
     writeFileSync(file, image.data);

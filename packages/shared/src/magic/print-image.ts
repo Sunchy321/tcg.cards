@@ -32,3 +32,63 @@ export const twoImageLayouts = [
 export function isTwoImageLayout(layout: string | null | undefined): boolean {
   return layout != null && (twoImageLayouts as readonly string[]).includes(layout);
 }
+
+/**
+ * File name of one print's canonical image file: face 0 and single-face
+ * prints have no suffix, the back face carries the ⁑ mark, further faces a
+ * numeric one. Slashes are the one character a file name may not carry and
+ * a collector number may contain, so they become underscores.
+ */
+export function printImageFileName(number: string, faceIndex?: number): string {
+  const safe = number.replaceAll('/', '_');
+  if (faceIndex == null || faceIndex === 0) return `${safe}.webp`;
+  if (faceIndex === 1) return `${safe}⁑.webp`;
+  return `${safe}-${faceIndex}.webp`;
+}
+
+/**
+ * Asset-store key of one print's canonical image file, relative to the
+ * asset root. The same key addresses the local file and the remote object:
+ * the local asset bucket mirrors the remote layout exactly (CONTEXT.md,
+ * local asset bucket), and the image asset ledger rows use this string as
+ * their primary key.
+ */
+export function printImageKey(set: string, lang: string, number: string, faceIndex?: number): string {
+  return `large/${set}/${lang}/${printImageFileName(number, faceIndex)}`;
+}
+
+/** One print coordinate parsed back out of an image key. */
+export interface PrintImageRef {
+  set:       string;
+  lang:      string;
+  number:    string;
+  faceIndex: number;
+}
+
+/**
+ * Parses one asset-store key back into print coordinates, or null when the
+ * key is not a print image (foreign prefix, other extension, wrong depth,
+ * empty segment). Forward derivation is the authority — reverse parsing
+ * serves diagnostics — so a `-N` suffix reads as face N only from 2 up,
+ * which is all `printImageFileName` ever emits; a collector number with a
+ * hyphen and no face suffix therefore round-trips untouched.
+ */
+export function parsePrintImageKey(key: string): PrintImageRef | null {
+  const prefix = 'large/';
+  const extension = '.webp';
+  if (!key.startsWith(prefix) || !key.endsWith(extension)) return null;
+  const parts = key.slice(prefix.length, -extension.length).split('/');
+  if (parts.length !== 3) return null;
+  const [set, lang, stem] = parts;
+  if (set == null || lang == null || stem == null || set === '' || lang === '' || stem === '') return null;
+  if (stem.endsWith('⁑')) {
+    const number = stem.slice(0, -1);
+    return number === '' ? null : { set, lang, number, faceIndex: 1 };
+  }
+  const hyphen = stem.lastIndexOf('-');
+  const tail = hyphen > 0 ? stem.slice(hyphen + 1) : '';
+  if (/^[2-9]\d*$/.test(tail)) {
+    return { set, lang, number: stem.slice(0, hyphen), faceIndex: Number(tail) };
+  }
+  return { set, lang, number: stem, faceIndex: 0 };
+}

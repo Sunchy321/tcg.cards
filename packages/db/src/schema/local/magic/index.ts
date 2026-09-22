@@ -1,4 +1,5 @@
 export * from '../../shared/magic/index';
+export * from './data/asset-image';
 export * from './data/gatherer';
 export * from './data/mtgch';
 export * from './data/mtgjson';
