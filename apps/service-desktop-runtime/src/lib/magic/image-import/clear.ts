@@ -4,8 +4,9 @@ import { join } from 'node:path';
 import { z } from 'zod';
 
 import { runWithDb } from '@tcg-cards/db';
-import { ScryfallCard } from '@tcg-cards/db/schema/local/magic';
+import { AssetImage, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
 import { Print } from '@tcg-cards/db/schema/shared/magic/print';
+import { printImageKey } from '@tcg-cards/shared/magic/print-image';
 
 import type { LocalDb } from '../../hearthstone/hsdata-local-db';
 import { cardImageRoot, printKeyCondition, removePrintImageFiles } from './common';
@@ -72,6 +73,20 @@ export async function clearImages(
 
     for (const print of prints.values()) {
       files += removePrintImageFiles(input.set, print.lang, print.number).files;
+    }
+
+    // The ledger mirrors the files: every key whose file the sweep removed
+    // loses its row. Faces 0 and 1 are the only faces a print stores.
+    const keys: string[] = [];
+    for (const print of prints.values()) {
+      keys.push(
+        printImageKey(input.set, print.lang, print.number),
+        printImageKey(input.set, print.lang, print.number, 1),
+      );
+    }
+    for (let i = 0; i < keys.length; i += 10_000) {
+      const chunk = keys.slice(i, i + 10_000);
+      await runWithDb(db, () => db.delete(AssetImage).where(inArray(AssetImage.key, chunk)));
     }
   }
 

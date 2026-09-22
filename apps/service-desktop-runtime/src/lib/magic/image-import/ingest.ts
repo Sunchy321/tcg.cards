@@ -1,5 +1,6 @@
+import { AssetImage } from '@tcg-cards/db/schema/local/magic';
 import { Print } from '@tcg-cards/db/schema/shared/magic/print';
-import { isTwoImageLayout } from '@tcg-cards/shared/magic/print-image';
+import { isTwoImageLayout, printImageKey } from '@tcg-cards/shared/magic/print-image';
 import type { ImageInfo, ImageInfoMeta, ImageStatus } from '#model/magic/schema/print';
 
 import type { LocalDb } from '../../hearthstone/hsdata-local-db';
@@ -92,6 +93,49 @@ export async function updateRowFaces(db: LocalDb, key: PrintKey, imageInfo: Imag
   const patch: Partial<typeof Print.$inferInsert> = { imageInfo };
   if (face0Status != null) patch.imageStatus = face0Status;
   await db.update(Print).set(patch).where(printKeyCondition(key));
+}
+
+/**
+ * Builds one asset ledger row from a prepared face's metadata — the single
+ * mapping between the import product and the ledger columns.
+ */
+export function assetImageValues(key: string, meta: ImageInfoMeta) {
+  return {
+    key,
+    format:       meta.type,
+    source:       meta.source,
+    sha256:       meta.sha256,
+    width:        meta.width,
+    height:       meta.height,
+    byteSize:     meta.byteSize,
+    status:       meta.status,
+    qualityScore: meta.qualityScore,
+    verifiedAt:   new Date(meta.verifiedAt),
+  };
+}
+
+/**
+ * Upserts one asset ledger row for a written face. Content-hash idempotence
+ * lives in the write itself, so an unchanged file re-import lands the same
+ * values and the upsert can run on every pass without duplicating a row.
+ */
+export async function upsertAssetImage(db: LocalDb, key: string, meta: ImageInfoMeta): Promise<void> {
+  const values = assetImageValues(key, meta);
+  await db.insert(AssetImage).values(values).onConflictDoUpdate({
+    target: AssetImage.key,
+    set:    {
+      format:       values.format,
+      source:       values.source,
+      sha256:       values.sha256,
+      width:        values.width,
+      height:       values.height,
+      byteSize:     values.byteSize,
+      status:       values.status,
+      qualityScore: values.qualityScore,
+      verifiedAt:   values.verifiedAt,
+      updatedAt:    new Date(),
+    },
+  });
 }
 
 /** Image source of one face slot (null when that face carries no local image). */
@@ -200,6 +244,9 @@ export async function ingestRemoteRow(db: LocalDb, row: RemoteQueueRow, options:
       pushCapped(failures, `${label}: 写入失败(${write.error})`);
       continue;
     }
+    // File first, then the ledger row that mirrors it; the fact row follows
+    // after the loop, so a pass never shows a fact that lacks its ledger.
+    await upsertAssetImage(db, printImageKey(row.set, row.lang, row.number, i), prepared.value.meta);
     if (write.result === 'written') written += 1;
     else unchanged += 1;
     cleanedJpg += write.cleanedJpg;
@@ -270,6 +317,7 @@ export async function ingestUploadItem(db: LocalDb, item: UploadItem, data: Buff
       if (write.result === 'error') {
         return { processed: 1, failed: 1, failures: [`${rowLabel(row.set, row.lang, row.number, item.faceIndex)}: 写入失败(${write.error})`] };
       }
+      await upsertAssetImage(db, printImageKey(row.set, row.lang, row.number, item.faceIndex), face.meta);
       if (write.result === 'written') written += 1;
       else unchanged += 1;
       cleanedJpg += write.cleanedJpg;
