@@ -261,6 +261,9 @@ The phonetic annotation (振り仮名) of a localized card name, stored as an **
 ### image source (卡图来源)
 The provenance stored on a print's image: `manual`, `mtgch`, `mtgflame`, `hunterer`, `scryfall`, or `gatherer`. The first four form the upload group — hand-made, community, watermark, and legacy-sourced images that batch download tasks must never overwrite under any `force` setting. The remaining two are download sources. A locally imported image is never overwritten by re-projection.
 
+### asset images (资产图片)
+The per-game ledger of the image files the deployment locally holds: one row per file in the asset store, carrying its content hash, dimensions, byte size, quality, and `image source` provenance. Every game keeps its own table under the same name and structure in `{game}_data` (`asset_images`), named after the `asset_<type>` family whose generic fallback is `asset_files` — a file lives in exactly one table of the family, and a type earns its own table once it needs columns of its own. The ledger lives outside the fact tables and survives fact-table rebuilds: the magic projection fills a print's image fields from this ledger, so `image_info` on a print is derived truth rather than self-preserved state.
+
 ## Yu-Gi-Oh! (游戏王)
 
 ### card name variant (卡名变体)
