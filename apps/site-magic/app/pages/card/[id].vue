@@ -17,6 +17,9 @@
               @update:part="partIndex = $event"
               @update:rotate="rotate = $event"
             />
+            <div v-if="imageSource" class="mt-2 text-center text-xs text-gray-400">
+              {{ $t('magic.cardImageSource.label') }}：{{ $te(imageSource.key) ? $t(imageSource.key) : imageSource.id }}
+            </div>
             <div class="mt-4 space-y-2">
               <UButton
                 v-if="scryfallLink"
@@ -721,6 +724,17 @@ const imageLang = computed(() => {
     .find(v => v != null);
 
   return fallback?.lang ?? 'en';
+});
+
+// ─── Image source caption ────────────────────────────────────────────────────
+
+/** Where the shown card image came from, as the asset ledger recorded it. */
+const imageSource = computed<{ id: string, key: string } | null>(() => {
+  const info = data.value?.print.imageInfo;
+  if (!info || info.length === 0) return null;
+  const source = (info[partIndex.value] ?? info[0])?.source;
+  if (!source) return null;
+  return { id: source, key: `magic.cardImageSource.sources.${source}` };
 });
 
 // ─── Special effects ─────────────────────────────────────────────────────────

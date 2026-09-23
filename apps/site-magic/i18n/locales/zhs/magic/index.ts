@@ -4,6 +4,18 @@ export default {
   $self: '万智牌',
   $full: '万智牌',
 
+  cardImageSource: {
+    label:   '图片来源',
+    sources: {
+      scryfall: 'Scryfall',
+      gatherer: 'Gatherer',
+      mtgch:    'mtgch',
+      mtgflame: '万智烽火',
+      hunterer: 'Hunterer',
+      manual:   '手工制作',
+    },
+  },
+
   dataSources: {
     $self: '数据来源',
 

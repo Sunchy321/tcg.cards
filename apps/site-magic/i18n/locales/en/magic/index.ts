@@ -4,6 +4,18 @@ export default {
   $self: 'Magic',
   $full: 'Magic: The Gathering',
 
+  cardImageSource: {
+    label:   'Image source',
+    sources: {
+      scryfall: 'Scryfall',
+      gatherer: 'Gatherer',
+      mtgch:    'mtgch',
+      mtgflame: 'mtgflame',
+      hunterer: 'Hunterer',
+      manual:   'Hand-made',
+    },
+  },
+
   dataSources: {
     $self: 'Data Sources',
 
