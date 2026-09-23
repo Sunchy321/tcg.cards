@@ -1,10 +1,16 @@
 import { z } from 'zod';
-import { and, asc, count, eq, ilike, inArray, sql, type SQL } from 'drizzle-orm';
+import { and, asc, count, eq, ilike, inArray, isNotNull, isNull, notExists, sql, type SQL } from 'drizzle-orm';
 
-import { PrintCommit, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
+import { MtgchScryfallCard, MtgchZhsCard, PrintCommit, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
 
 import { os } from './index';
 import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
+import {
+  buildCandidateFaces,
+  candidateFaceCount,
+  candidateOracleEligible,
+  type CandidateFaceRow,
+} from '../lib/magic/commit-candidates';
 import {
   commitFaceSummary,
   normalizeCommitFaces,
@@ -68,6 +74,225 @@ const commitAnchor = z.strictObject({
   number:   z.string().min(1),
   lang:     z.string().min(1),
 });
+
+// ---------------------------------------------------------------------------
+// Completion suggestions: MTGCH zhs positions Scryfall has no zhs row for.
+// The scan is read-only advice; only the per-set adoption writes commits.
+// ---------------------------------------------------------------------------
+
+/** Whether the MTGCH translation row asserts any content (blank/escape-only counts as none). */
+const mtgchHasContent = sql`(
+  NULLIF(trim(coalesce(${MtgchZhsCard.faceName}, '')), '') IS NOT NULL
+  OR NULLIF(trim(coalesce(${MtgchZhsCard.name}, '')), '') IS NOT NULL
+  OR NULLIF(trim(coalesce(${MtgchZhsCard.typeLine}, '')), '') IS NOT NULL
+  OR NULLIF(trim(coalesce(${MtgchZhsCard.text}, '')), '') IS NOT NULL
+)`;
+
+/**
+ * Candidate positions of one set (or all sets when `setCode` is null): MTGCH
+ * skeleton rows carrying zhs content, whose (oracle, set, number) has no
+ * Scryfall zhs row and no commit yet.
+ */
+function candidateQuery(database: ReturnType<typeof getLocalDb>, setCode: string | null) {
+  const filters: SQL[] = [
+    isNull(MtgchScryfallCard.deletedAt),
+    isNull(MtgchZhsCard.deletedAt),
+    mtgchHasContent,
+    // nullable column: a row without an oracle id cannot anchor a commit
+    isNotNull(MtgchScryfallCard.oracleId),
+    isNotNull(MtgchScryfallCard.setCode),
+    isNotNull(MtgchScryfallCard.collectorNumber),
+  ];
+  if (setCode != null) filters.push(sql`lower(${MtgchScryfallCard.setCode}) = ${setCode.toLowerCase()}`);
+  return database.selectDistinct({
+    oracleId: MtgchScryfallCard.oracleId,
+    set:      sql<string>`lower(${MtgchScryfallCard.setCode})`.as('set'),
+    number:   MtgchScryfallCard.collectorNumber,
+  })
+    .from(MtgchScryfallCard)
+    .innerJoin(MtgchZhsCard, eq(MtgchZhsCard.cardId, MtgchScryfallCard.cardId))
+    .where(and(...filters, ...[
+      // No Scryfall zhs row at the same position, no commit of any origin yet.
+      notExists(database.select({ one: sql`1` }).from(ScryfallCard).where(and(
+        eq(ScryfallCard.lang, 'zhs'),
+        isNull(ScryfallCard.deletedAt),
+        eq(ScryfallCard.oracleId, MtgchScryfallCard.oracleId),
+        eq(ScryfallCard.set, sql`lower(${MtgchScryfallCard.setCode})`),
+        eq(ScryfallCard.collectorNumber, MtgchScryfallCard.collectorNumber),
+      ))),
+      notExists(database.select({ one: sql`1` }).from(PrintCommit).where(and(
+        eq(PrintCommit.lang, 'zhs'),
+        eq(PrintCommit.oracleId, MtgchScryfallCard.oracleId),
+        eq(PrintCommit.set, sql`lower(${MtgchScryfallCard.setCode})`),
+        eq(PrintCommit.number, MtgchScryfallCard.collectorNumber),
+      ))),
+    ]));
+}
+
+/** English prints of one set, keyed `oracleId|number` — the clone baselines. */
+async function englishPrintsByPosition(database: ReturnType<typeof getLocalDb>, setCode: string) {
+  const rows = await database.select({
+    oracleId:        ScryfallCard.oracleId,
+    name:            ScryfallCard.name,
+    set:             ScryfallCard.set,
+    collectorNumber: ScryfallCard.collectorNumber,
+    layout:          ScryfallCard.layout,
+    cardFaces:       ScryfallCard.cardFaces,
+  }).from(ScryfallCard)
+    .where(and(eq(ScryfallCard.lang, 'en'), isNull(ScryfallCard.deletedAt), eq(ScryfallCard.set, setCode.toLowerCase())));
+  const map = new Map<string, {
+    oracleId: string, name: string, layout: string, cardFaces: Array<{ name?: string, oracle_text?: string | null, power?: string | null, toughness?: string | null }> | null,
+  }>();
+  for (const row of rows) {
+    map.set(`${String(row.oracleId)}|${row.collectorNumber}`, {
+      oracleId:  String(row.oracleId),
+      name:      row.name,
+      layout:    row.layout,
+      cardFaces: row.cardFaces as never,
+    });
+  }
+  return map;
+}
+
+/** MTGCH face rows of one set, grouped `oracleId|number`. */
+async function mtgchFacesByPosition(database: ReturnType<typeof getLocalDb>, setCode: string) {
+  const rows = await database.select({
+    oracleId:        MtgchScryfallCard.oracleId,
+    collectorNumber: MtgchScryfallCard.collectorNumber,
+    faceIndex:       MtgchScryfallCard.faceIndex,
+    faceName:        MtgchZhsCard.faceName,
+    name:            MtgchZhsCard.name,
+    typeLine:        MtgchZhsCard.typeLine,
+    text:            MtgchZhsCard.text,
+  }).from(MtgchScryfallCard)
+    .innerJoin(MtgchZhsCard, eq(MtgchZhsCard.cardId, MtgchScryfallCard.cardId))
+    .where(and(
+      isNull(MtgchScryfallCard.deletedAt),
+      isNull(MtgchZhsCard.deletedAt),
+      sql`lower(${MtgchScryfallCard.setCode}) = ${setCode.toLowerCase()}`,
+    ));
+  const map = new Map<string, CandidateFaceRow[]>();
+  for (const row of rows) {
+    const key = `${String(row.oracleId)}|${row.collectorNumber}`;
+    const list = map.get(key) ?? [];
+    list.push({ faceIndex: row.faceIndex, faceName: row.faceName, name: row.name, typeLine: row.typeLine, text: row.text });
+    map.set(key, list);
+  }
+  return map;
+}
+
+/** Per-set suggestion counts (advisory; exotic layouts may overestimate slightly). */
+const candidateSets = os
+  .output(z.strictObject({ sets: z.array(z.strictObject({ code: z.string(), candidates: z.number() })) }))
+  .handler(async () => {
+    const db = getLocalDb();
+    const rows = await candidateQuery(db, null);
+    const counts = new Map<string, number>();
+    for (const row of rows) counts.set(row.set, (counts.get(row.set) ?? 0) + 1);
+    return {
+      sets: [...counts.entries()]
+        .map(([code, candidates]) => ({ code, candidates }))
+        .sort((a, b) => b.candidates - a.candidates),
+    };
+  });
+
+/** One set's candidate positions with card names and a per-position adoptability verdict. */
+const candidateList = os
+  .input(z.strictObject({ set: z.string().min(1) }))
+  .output(z.strictObject({
+    items: z.array(z.strictObject({
+      oracleId:  z.string(),
+      set:       z.string(),
+      number:    z.string(),
+      cardName:  z.string().nullable(),
+      summary:   z.string(),
+      adoptable: z.boolean(),
+    })),
+    total:       z.number(),
+    adoptable:   z.number(),
+    ineligible:  z.number(),
+  }))
+  .handler(async ({ input }) => {
+    const db = getLocalDb();
+    const positions = await candidateQuery(db, input.set);
+    const english = await englishPrintsByPosition(db, input.set);
+    const mtgch = await mtgchFacesByPosition(db, input.set);
+
+    const items = positions.map(position => {
+      const key = `${position.oracleId}|${position.number}`;
+      const card = english.get(key) ?? null;
+      const adoptable = card != null && candidateOracleEligible({
+        layout: card.layout, name: card.name, cardFaces: card.cardFaces,
+      });
+      const faces = buildCandidateFaces(mtgch.get(key) ?? [], card != null ? candidateFaceCount({
+        layout: card.layout, name: card.name, cardFaces: card.cardFaces,
+      }) : 1);
+      return {
+        oracleId:  position.oracleId ?? '',
+        set:       position.set,
+        number:    position.number ?? '',
+        cardName:  card?.name ?? null,
+        summary:   commitFaceSummary(faces as never),
+        adoptable,
+      };
+    }).sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true }));
+
+    return {
+      items,
+      total: items.length,
+      adoptable: items.filter(i => i.adoptable).length,
+      ineligible: items.filter(i => !i.adoptable).length,
+    };
+  });
+
+/** Adopts one set's candidates into print commits (origin auto, MTGCH faces). */
+const adoptCandidates = os
+  .input(z.strictObject({ set: z.string().min(1) }))
+  .output(z.strictObject({
+    adopted:     z.number(),
+    ineligible:  z.number(),
+    note:        z.string(),
+  }))
+  .handler(async ({ input }) => {
+    const db = getLocalDb();
+    const positions = await candidateQuery(db, input.set);
+    const english = await englishPrintsByPosition(db, input.set);
+    const mtgch = await mtgchFacesByPosition(db, input.set);
+
+    const values: (typeof PrintCommit)['$inferInsert'][] = [];
+    let ineligible = 0;
+    for (const position of positions) {
+      const key = `${position.oracleId}|${position.number}`;
+      const card = english.get(key) ?? null;
+      if (card == null || !candidateOracleEligible({ layout: card.layout, name: card.name, cardFaces: card.cardFaces })) {
+        ineligible += 1;
+        continue;
+      }
+      const faces = buildCandidateFaces(mtgch.get(key) ?? [], candidateFaceCount({
+        layout: card.layout, name: card.name, cardFaces: card.cardFaces,
+      }));
+      values.push({
+        oracleId: position.oracleId as never,
+        set:      position.set,
+        number:   position.number ?? '',
+        lang:     'zhs',
+        origin:   'auto',
+        faces,
+        metadata: null,
+        note:     '数据来源：MTGCH',
+      });
+    }
+    if (values.length > 0) {
+      await db.insert(PrintCommit).values(values).onConflictDoNothing({
+        target: [PrintCommit.oracleId, PrintCommit.set, PrintCommit.number, PrintCommit.lang],
+      });
+    }
+    return {
+      adopted: values.length,
+      ineligible,
+      note: '数据来源：MTGCH',
+    };
+  });
 
 /** English scryfall row of one oracle (representative print). */
 async function englishCard(database: ReturnType<typeof getLocalDb>, oracleId: string) {
@@ -293,4 +518,5 @@ export const magicCommitsRouter = {
   cardSearch,
   save,
   remove,
+  candidates:    { sets: candidateSets, list: candidateList, adopt: adoptCandidates },
 };

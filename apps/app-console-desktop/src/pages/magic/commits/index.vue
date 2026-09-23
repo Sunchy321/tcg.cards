@@ -17,6 +17,86 @@
 
     <UAlert v-if="error" color="error" variant="soft" icon="i-lucide-circle-alert" :description="error" />
 
+    <!-- completion suggestions: read-only gap scan, adoption is per set -->
+    <div class="rounded-xl border border-slate-200 bg-white">
+      <div class="flex items-center gap-2 p-4">
+        <UIcon name="i-lucide-lightbulb" class="size-5 text-primary" />
+        <span class="font-medium">补全建议</span>
+        <span class="hidden text-sm text-muted md:inline">各来源缺失但译文已备的位置，按系列采纳</span>
+        <div class="ml-auto flex items-center gap-2">
+          <UButton label="计算" icon="i-lucide-calculator" color="primary" variant="soft" :loading="suggestionsLoading" @click="loadSuggestions" />
+          <UButton
+            :icon="suggestionsOpen ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+            color="neutral"
+            variant="ghost"
+            aria-label="展开或收起"
+            @click="suggestionsOpen = !suggestionsOpen"
+          />
+        </div>
+      </div>
+      <div v-if="suggestionsOpen" class="border-t border-slate-200 p-4">
+        <div class="mb-3 text-xs text-muted">只读扫描全部数据源，统计各系列可补全的位置；扫描不写入任何数据。</div>
+        <div v-if="suggestionError" class="mb-3 text-sm text-error">{{ suggestionError }}</div>
+        <div v-if="suggestions.length === 0 && !suggestionsLoading" class="text-sm text-muted">
+          {{ scanned ? '未发现可补全的位置。' : '尚未计算。' }}
+        </div>
+        <table v-else class="w-full text-sm">
+          <thead class="border-b border-slate-200 text-left text-xs text-muted">
+            <tr>
+              <th class="p-2 w-32">系列</th>
+              <th class="p-2 w-40">可补全位置</th>
+              <th class="p-2"/>
+            </tr>
+          </thead>
+          <tbody>
+            <template v-for="s in suggestions" :key="s.code">
+              <tr class="border-b border-slate-100">
+                <td class="p-2 font-mono">{{ s.code }}</td>
+                <td class="p-2">{{ s.candidates }}</td>
+                <td class="p-2">
+                  <div class="flex justify-end gap-2">
+                    <UButton
+                      :label="expandedSet === s.code ? '收起' : '查看'"
+                      size="xs"
+                      color="neutral"
+                      variant="outline"
+                      @click="togglePreview(s.code)"
+                    />
+                    <UButton label="采纳该系列" size="xs" color="primary" variant="soft" :loading="adopting === s.code" @click="confirmAdopt(s.code)" />
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="expandedSet === s.code">
+                <td colspan="3" class="bg-slate-50 p-3">
+                  <div v-if="previewLoading" class="text-sm text-muted">加载中…</div>
+                  <div v-else-if="preview == null" class="text-sm text-muted">无数据。</div>
+                  <template v-else>
+                    <div class="mb-2 text-xs text-muted">
+                      共 {{ preview.total }} 条 · 可采纳 {{ preview.adoptable }} · 无法自动补全 {{ preview.ineligible }}（如可逆卡、拆分双面牌）
+                    </div>
+                    <div class="max-h-72 overflow-y-auto rounded border border-slate-200">
+                      <table class="w-full text-sm">
+                        <tbody>
+                          <tr v-for="c in preview.items" :key="c.oracleId + ':' + c.number" class="border-b border-slate-100 last:border-0">
+                            <td class="p-2 font-mono text-xs">{{ c.number }}</td>
+                            <td class="p-2">{{ c.cardName ?? '（未识别卡牌）' }}</td>
+                            <td class="p-2 text-muted">{{ c.summary !== '' ? c.summary : '（无译文，仅补位置）' }}</td>
+                            <td class="p-2 w-24">
+                              <UBadge v-if="!c.adoptable" label="不可补全" color="warning" variant="soft" />
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </template>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- filters -->
     <div class="rounded-xl border border-slate-200 bg-white p-4">
       <div class="flex flex-wrap items-end gap-4">
@@ -196,6 +276,20 @@
         </div>
       </template>
     </UModal>
+    <!-- adopt confirmation -->
+    <UModal v-model:open="adoptOpen" :title="'采纳系列 ' + adoptSet">
+      <template #body>
+        <p class="text-sm">
+          将把该系列所有可自动补全的位置写入补全列表（简体中文，译文取自社区数据源），运行投影后生效。继续？
+        </p>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-end gap-2">
+          <UButton label="取消" color="neutral" variant="ghost" @click="adoptOpen = false" />
+          <UButton label="采纳" color="primary" :loading="adopting !== null" @click="doAdopt" />
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>
 
@@ -266,7 +360,7 @@ const langItems = [
 ];
 
 const rarityItems = [
-  { label: '（不覆盖）', value: '' },
+  { label: '（不覆盖）', value: 'none' },
   { label: '秘稀', value: 'mythic' },
   { label: '金', value: 'rare' },
   { label: '银', value: 'uncommon' },
@@ -372,7 +466,7 @@ const form = reactive<{
   number:      '',
   lang:        'zhs',
   faces:       [],
-  rarity:      '',
+  rarity:      'none',
   releaseDate: '',
   note:        '',
 });
@@ -430,7 +524,7 @@ function openCreate() {
   form.number = '';
   form.lang = 'zhs';
   form.faces = [];
-  form.rarity = '';
+  form.rarity = 'none';
   form.releaseDate = '';
   form.note = '';
   cardSearchInput.value = '';
@@ -445,7 +539,7 @@ async function openEdit(row: CommitRow) {
   form.set = row.set;
   form.number = row.number;
   form.lang = row.lang;
-  form.rarity = '';
+  form.rarity = 'none';
   form.releaseDate = '';
   form.note = row.note ?? '';
   try {
@@ -473,7 +567,7 @@ async function openEdit(row: CommitRow) {
     });
     form.faces = faces;
     const metadata = full.metadata as { rarity?: string, releaseDate?: string } | null;
-    form.rarity = metadata?.rarity ?? '';
+    form.rarity = metadata?.rarity ?? 'none';
     form.releaseDate = metadata?.releaseDate ?? '';
   } catch (err) {
     formError.value = err instanceof Error ? err.message : String(err);
@@ -496,7 +590,7 @@ async function save() {
       lang:     form.lang,
       faces:    form.faces,
       metadata: {
-        ...(form.rarity !== '' ? { rarity: form.rarity } : {}),
+        ...(form.rarity !== 'none' && form.rarity.trim() !== '' ? { rarity: form.rarity } : {}),
         ...(form.releaseDate.trim() !== '' ? { releaseDate: form.releaseDate.trim() } : {}),
       },
       note: form.note.trim() === '' ? null : form.note.trim(),
@@ -547,4 +641,89 @@ async function doRemove() {
 onMounted(() => {
   void load();
 });
+
+// --- completion suggestions ---
+interface SuggestionSet { code: string, candidates: number }
+interface CandidateItem {
+  oracleId:  string;
+  set:       string;
+  number:    string;
+  cardName:  string | null;
+  summary:   string;
+  adoptable: boolean;
+}
+
+const suggestionsOpen = ref(false);
+const suggestionsLoading = ref(false);
+const suggestionError = ref('');
+const suggestions = ref<SuggestionSet[]>([]);
+/** Whether a scan has been run at least once — an empty list before that is not an empty result. */
+const scanned = ref(false);
+
+const expandedSet = ref<string | null>(null);
+const previewLoading = ref(false);
+const preview = ref<{ items: CandidateItem[], total: number, adoptable: number, ineligible: number } | null>(null);
+
+const adopting = ref<string | null>(null);
+const adoptOpen = ref(false);
+const adoptSet = ref('');
+
+async function loadSuggestions() {
+  suggestionsLoading.value = true;
+  suggestionError.value = '';
+  try {
+    suggestions.value = (await orpc.magic.commits.candidates.sets()).sets;
+    scanned.value = true;
+    suggestionsOpen.value = true;
+  } catch (err) {
+    suggestionError.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    suggestionsLoading.value = false;
+  }
+}
+
+async function togglePreview(code: string) {
+  if (expandedSet.value === code) {
+    expandedSet.value = null;
+    preview.value = null;
+    return;
+  }
+  expandedSet.value = code;
+  previewLoading.value = true;
+  preview.value = null;
+  try {
+    preview.value = await orpc.magic.commits.candidates.list({ set: code });
+  } catch (err) {
+    suggestionError.value = err instanceof Error ? err.message : String(err);
+    expandedSet.value = null;
+  } finally {
+    previewLoading.value = false;
+  }
+}
+
+function confirmAdopt(code: string) {
+  adoptSet.value = code;
+  adoptOpen.value = true;
+}
+
+async function doAdopt() {
+  const code = adoptSet.value;
+  if (code === '') return;
+  adopting.value = code;
+  error.value = '';
+  try {
+    const result = await orpc.magic.commits.candidates.adopt({ set: code });
+    adoptOpen.value = false;
+    preview.value = null;
+    expandedSet.value = null;
+    await Promise.all([loadSuggestions(), load()]);
+    error.value = result.adopted > 0
+      ? ''
+      : '该系列没有可采纳的位置（可能均已存在或无法自动补全）。';
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    adopting.value = null;
+  }
+}
 </script>
