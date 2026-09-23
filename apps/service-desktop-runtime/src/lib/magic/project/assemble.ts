@@ -643,6 +643,9 @@ export async function assembleUnits(
         }
         draft.number = `${draft.number}${suffix}`;
         draft.faces = [printFaceAt(r, i)];
+        // The image import resolves a row's download url by this pin, so
+        // without it both halves of the token fetch the front image.
+        draft.scryfallFace = i === 0 ? 'front' : 'back';
         return draft;
       });
       // Official localization provenance must point at the suffixed print rows.
