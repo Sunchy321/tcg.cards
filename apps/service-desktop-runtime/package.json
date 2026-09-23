@@ -12,7 +12,7 @@
   },
   "scripts": {
     "build": "echo No build needed",
-    "dev": "bun --watch src/index.ts",
+    "dev": "bun --hot src/index.ts",
     "lint": "eslint .",
     "start": "bun src/index.ts",
     "test": "bun test",
