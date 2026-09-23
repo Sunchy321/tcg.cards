@@ -181,6 +181,11 @@ An uploaded, not-yet-applied copy of a source snapshot. It is visible only to th
 ### source mapping (来源映射)
 The link from one source feed's record to a card. It is the anchor that makes re-import idempotent, and the only way a record without a usable external code is matched to its existing card. Names never take part in matching.
 
+## Fact Table Rebuildability (事实表可重建性)
+
+### rebuildable fact table (可重建事实表)
+A fact table served by a projection pipeline or an edit-review pipeline holds only rows the pipeline regenerates: every value in it is produced by projection from `{game}_data` inputs or by an accepted review action, so wiping the table and re-running the pipeline loses no data. A fact table must not store any datum a wipe-and-reproject would destroy — data that originates outside the sources (manual completions, corrections) lands in `{game}_data` first and reaches fact tables only through the pipeline. `created_at` / `updated_at` / `deleted_at` timestamps are the only exception.
+
 ## Field Sync (字段同步)
 
 ### field commit (字段提交)
