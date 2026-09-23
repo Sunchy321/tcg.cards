@@ -514,7 +514,7 @@ export function isBattleFront(typeLine: string | null | undefined): boolean {
  * snapshots. A normal (single/multi-face) oracle card is one unit; a
  * `double_faced_token` yields one unit per face. `reversible_card` produces no
  * units here (it only contributes prints to the units its faces reference).
- * `printCommits` are the oracle's reviewed print commits; only the normal
+ * `printCommits` are the oracle's print commits; only the normal
  * branch consumes them — merge groups, art-back tokens and split DFTs are out
  * of the commit path's scope.
  */

@@ -40,14 +40,13 @@ export interface PrintCommitMetadata {
  * One manual submission completing a whole print position that no source
  * records — the whole-print sibling of a field commit. Anchored by the
  * Scryfall oracle the position belongs to, so the projection's existing match
- * resolves the card identity; the projection synthesizes reviewed commits as
- * print rows whose PK `source` is `manual` (a provenance tag, not authority
- * data). The commit row is the only copy of the data: rows are never
- * hard-deleted, `withdrawn`/`rejected` merely leave the projection.
+ * resolves the card identity; the projection synthesizes commits as print
+ * rows whose PK `source` is `manual` (a provenance tag, not authority data).
  *
- * Status flow: draft → reviewed (takes effect); draft → rejected (kept so a
- * candidate generator never recreates it); reviewed → withdrawn (data kept,
- * no longer projected).
+ * Desktop-local single-user truth: the table has no review gate — a row
+ * present here is projected as-is, and removing the row withdraws the print
+ * (the projection's per-print recycle soft-deletes its fact rows). No sync,
+ * no cloud: this table exists only in the local build database.
  */
 export const PrintCommit = dataSchema.table('print_commits', {
   oracleId: uuid('oracle_id').notNull(),
@@ -55,7 +54,6 @@ export const PrintCommit = dataSchema.table('print_commits', {
   number:   text('number').notNull(),
   lang:     text('lang').notNull(),
 
-  status: text('status').notNull().default('draft'),
   origin: text('origin').notNull().default('manual'),
 
   /** Per-face printed surfaces aligned with the oracle's face slots. */
@@ -72,6 +70,5 @@ export const PrintCommit = dataSchema.table('print_commits', {
     .$onUpdate(() => new Date()),
 }, table => [
   primaryKey({ columns: [table.oracleId, table.set, table.number, table.lang] }),
-  index('print_commits_status_idx').on(table.status),
   index('print_commits_set_idx').on(table.set),
 ]);

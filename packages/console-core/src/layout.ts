@@ -134,8 +134,6 @@ export function getGameNavItems(game: Game): ConsoleNavLink[] {
           { label: 'MTGA 注音', icon: 'i-lucide-languages', to: `/${game}/data-source/mtga` },
           { label: '投影', icon: 'i-lucide-box', to: `/${game}/project` },
           { label: '评审', icon: 'i-lucide-clipboard-list', to: `/${game}/review` },
-          { label: '卡名注音', icon: 'i-lucide-languages', to: `/${game}/ruby` },
-          { label: '卡图导入', icon: 'i-lucide-image', to: `/${game}/image-import` },
         ],
       },
       {
@@ -147,6 +145,9 @@ export function getGameNavItems(game: Game): ConsoleNavLink[] {
           { label: '赛制', icon: 'i-lucide-shield-check', to: `/${game}/format` },
           { label: '公告', icon: 'i-lucide-megaphone', to: `/${game}/announcement` },
           { label: '规则', icon: 'i-lucide-book-open', to: `/${game}/rule` },
+          { label: '卡名注音', icon: 'i-lucide-languages', to: `/${game}/ruby` },
+          { label: '卡牌补全', icon: 'i-lucide-puzzle', to: `/${game}/commits` },
+          { label: '卡图导入', icon: 'i-lucide-image', to: `/${game}/image-import` },
         ],
       },
       {

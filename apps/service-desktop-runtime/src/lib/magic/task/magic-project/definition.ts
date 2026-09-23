@@ -55,7 +55,7 @@ interface ProjectCtx {
   reversibleRows: ScryfallRow[];
   /** Reviewed name-ruby lookup, static per run — fills the ruby_* columns. */
   rubies:         NameRubyLookup;
-  /** Reviewed print commits by oracle, static per run — synthesized as manual prints. */
+  /** Print commits by oracle, static per run — synthesized as manual prints. */
   printCommits:   Map<string, LoadedPrintCommit[]>;
   /** Sorted distinct cardIds with their member unit keys (stage 3). */
   cardsByCardId:  Map<string, string[]>;
@@ -108,9 +108,10 @@ const CARD_PK = ['cardId', 'version'] as const;
 /** Row budget of one recycle UPDATE batch. */
 const MANUAL_RECYCLE_CHUNK = 200;
 
-/** Loads the reviewed print commits grouped by their anchoring oracle. */
-async function loadReviewedPrintCommits(database: ProjectDb): Promise<Map<string, LoadedPrintCommit[]>> {
-  const rows = await database.select().from(PrintCommit).where(eq(PrintCommit.status, 'reviewed'));
+/** Loads the print commits grouped by their anchoring oracle. The table is
+ * desktop-local single-user truth: every row projects, there is no gate. */
+async function loadPrintCommits(database: ProjectDb): Promise<Map<string, LoadedPrintCommit[]>> {
+  const rows = await database.select().from(PrintCommit);
   const map = new Map<string, LoadedPrintCommit[]>();
   for (const row of rows) {
     const list = map.get(row.oracleId) ?? [];
@@ -194,7 +195,7 @@ async function softDeleteStale(database: ProjectDb, table: any, cardIdCol: any, 
 }
 
 const definition = createDefinition(magicProjectTaskType, {
-  version:     '2026-09-23:v1',
+  version:     '2026-09-23:v2',
   effectModel: 'reconcilable',
 })
   .scope(z.object({}), {
@@ -246,7 +247,7 @@ const definition = createDefinition(magicProjectTaskType, {
       magic.oracleList = [...new Set([...matched.cardIdByUnit.keys()].map(k => (k.includes(':') ? k.slice(0, k.indexOf(':')) : k)))].sort();
       magic.reversibleRows = await loadReversibleRows(database);
       magic.rubies = await loadNameRubyLookup(database);
-      magic.printCommits = await loadReviewedPrintCommits(database);
+      magic.printCommits = await loadPrintCommits(database);
     });
     magic.counts ??= { ...emptyCounts };
     const restored = checkpoint?.blockInput as ChunkState | undefined;

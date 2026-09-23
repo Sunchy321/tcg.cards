@@ -17,6 +17,7 @@ import { inconsistentMergedSlugs, unitViewFace, type FaceLike } from '../lib/mag
 import { listMtgchArchives, listMtgjsonFiles, listScryfallFiles } from '../lib/magic/data-dir';
 import { magicRuleRouter } from './magic-rule';
 import { magicRubyRouter } from './magic-ruby';
+import { magicCommitsRouter } from './magic-commits';
 import { resolvePath } from '../lib/game-paths';
 import { magicScryfallImportTaskDefinition } from '../lib/magic/task/scryfall-import';
 import { magicMtgchImportTaskDefinition } from '../lib/magic/task/mtgch-import';
@@ -557,6 +558,7 @@ export const magicRouter = {
   createTask: { scryfallImport, mtgchImport, mtgjsonImport, gathererImport, rubyImport, magicProject, imageImportRemote, imageImportLocal, imageImportSingle },
   rule:       magicRuleRouter,
   ruby:       magicRubyRouter,
+  commits:    magicCommitsRouter,
   publish:    { publishTask },
   slug:       { listConflicts: listSlugConflicts, resolveConflict: resolveSlugConflict, member: slugMember },
   review:     { list: reviewList },
