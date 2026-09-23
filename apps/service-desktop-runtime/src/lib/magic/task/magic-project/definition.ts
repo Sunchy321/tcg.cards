@@ -1,11 +1,11 @@
 import { z } from 'zod';
 
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
 import { runWithDb } from '@tcg-cards/db';
 import { Card, CardLocalization, CardPart, CardPartLocalization } from '@tcg-cards/db/schema/shared/magic/card';
 import { Print, PrintPart } from '@tcg-cards/db/schema/shared/magic/print';
-import { CardLocalizationAuthority, CardSlugResolution, ProjectionReview, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
+import { CardLocalizationAuthority, CardSlugResolution, PrintCommit, ProjectionReview, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
 
 import { createDefinition } from '#task/definition';
 import { getLocalDb } from '../../../hearthstone/hsdata-local-db';
@@ -14,6 +14,7 @@ import { loadNameRubyLookup, type NameRubyLookup } from '../../name-ruby';
 import { assembleUnits, loadReversibleRows, type ProjectDb, type ScryfallRow } from '../../project/assemble';
 import { fillPrintImagesFromLedger, loadPrintLedgerEntries } from '../../project/fill-print-images';
 import { inconsistentMergedSlugs } from '../../project/consistency';
+import { MANUAL_PRINT_SOURCE, manualPrintKey, staleManualPrints, type LoadedPrintCommit } from '../../project/print-commits';
 import { projectCard, type AssembledCard, type ProjectCardResult } from '../../project/project-card';
 import { upsertBatch } from '../../upsert';
 
@@ -24,23 +25,25 @@ const ORACLE_CHUNK_SIZE = 200;
 const CARD_CHUNK_SIZE = 200;
 
 const output = z.object({
-  openConflicts: z.number(),
-  cards:         z.number(),
-  cardParts:     z.number(),
-  cardLocs:      z.number(),
-  cardPartLocs:  z.number(),
-  prints:        z.number(),
-  printParts:    z.number(),
-  authorities:   z.number(),
-  reviews:       z.number(),
-  softDeleted:   z.number(),
+  openConflicts:  z.number(),
+  cards:          z.number(),
+  cardParts:      z.number(),
+  cardLocs:       z.number(),
+  cardPartLocs:   z.number(),
+  prints:         z.number(),
+  printParts:     z.number(),
+  authorities:    z.number(),
+  reviews:        z.number(),
+  softDeleted:    z.number(),
+  manualRecycled: z.number(),
 });
 
 type Counts = z.infer<typeof output>;
 
 const emptyCounts: Counts = {
-  openConflicts: 0, cards:         0, cardParts:     0, cardLocs:      0, cardPartLocs:  0,
-  prints:        0, printParts:    0, authorities:   0, reviews:       0, softDeleted:   0,
+  openConflicts:  0, cards:          0, cardParts:      0, cardLocs:       0, cardPartLocs:   0,
+  prints:         0, printParts:     0, authorities:    0, reviews:        0, softDeleted:    0,
+  manualRecycled: 0,
 };
 
 interface ProjectCtx {
@@ -52,6 +55,8 @@ interface ProjectCtx {
   reversibleRows: ScryfallRow[];
   /** Reviewed name-ruby lookup, static per run — fills the ruby_* columns. */
   rubies:         NameRubyLookup;
+  /** Reviewed print commits by oracle, static per run — synthesized as manual prints. */
+  printCommits:   Map<string, LoadedPrintCommit[]>;
   /** Sorted distinct cardIds with their member unit keys (stage 3). */
   cardsByCardId:  Map<string, string[]>;
   cardIdList:     string[];
@@ -61,11 +66,13 @@ interface ProjectCtx {
 
 /** One bounded chunked stage's durable checkpoint state. */
 interface ChunkState {
-  index:  number;
-  total:  number;
+  index:       number;
+  total:       number;
   /** Progress unit processed so far (source rows for the prints stage). */
-  done?:  number;
-  counts: Partial<Counts>;
+  done?:       number;
+  counts:      Partial<Counts>;
+  /** `cardId|set|number|lang` of the manual prints emitted so far (prints stage). */
+  manualKeys?: string[];
 }
 
 /** Source-row count per oracle (all languages; the rows assembleUnits consumes). */
@@ -97,6 +104,55 @@ async function writeSection(database: ProjectDb, table: any, rows: unknown[] | u
 
 const PRINT_PK = ['cardId', 'version', 'set', 'number', 'lang', 'source'] as const;
 const CARD_PK = ['cardId', 'version'] as const;
+
+/** Row budget of one recycle UPDATE batch. */
+const MANUAL_RECYCLE_CHUNK = 200;
+
+/** Loads the reviewed print commits grouped by their anchoring oracle. */
+async function loadReviewedPrintCommits(database: ProjectDb): Promise<Map<string, LoadedPrintCommit[]>> {
+  const rows = await database.select().from(PrintCommit).where(eq(PrintCommit.status, 'reviewed'));
+  const map = new Map<string, LoadedPrintCommit[]>();
+  for (const row of rows) {
+    const list = map.get(row.oracleId) ?? [];
+    list.push({ set: row.set, number: row.number, lang: row.lang, faces: row.faces ?? [], metadata: row.metadata ?? null });
+    map.set(row.oracleId, list);
+  }
+  return map;
+}
+
+/**
+ * Soft-delete manual print rows (and their parts) outside this run's emitted
+ * manual keys — the per-print counterpart of the cardId-granular stale sweep,
+ * which cannot see a withdrawn position inside a live card.
+ */
+async function softDeleteStaleManualPrints(database: ProjectDb, emitted: Set<string>): Promise<number> {
+  const active = await database.select({
+    cardId: Print.cardId,
+    set:    Print.set,
+    number: Print.number,
+    lang:   Print.lang,
+  })
+    .from(Print)
+    .where(and(isNull(Print.deletedAt), eq(Print.version, ''), eq(Print.source, MANUAL_PRINT_SOURCE)));
+  const stale = staleManualPrints(active, emitted);
+  let deleted = 0;
+  for (let i = 0; i < stale.length; i += MANUAL_RECYCLE_CHUNK) {
+    const batch = stale.slice(i, i + MANUAL_RECYCLE_CHUNK);
+    for (const table of [Print, PrintPart] as any[]) {
+      const positions = batch.map(r => and(
+        eq(table.cardId, r.cardId),
+        eq(table.set, r.set),
+        eq(table.number, r.number),
+        eq(table.lang, r.lang),
+      ));
+      await database.update(table)
+        .set({ deletedAt: new Date() })
+        .where(and(eq(table.version, ''), eq(table.source, MANUAL_PRINT_SOURCE), or(...positions)));
+    }
+    deleted += batch.length;
+  }
+  return deleted;
+}
 
 /**
  * Override a unit's natural slug with its match-resolved cardId (resolutions
@@ -138,7 +194,7 @@ async function softDeleteStale(database: ProjectDb, table: any, cardIdCol: any, 
 }
 
 const definition = createDefinition(magicProjectTaskType, {
-  version:     '2026-09-21:v1',
+  version:     '2026-09-23:v1',
   effectModel: 'reconcilable',
 })
   .scope(z.object({}), {
@@ -190,6 +246,7 @@ const definition = createDefinition(magicProjectTaskType, {
       magic.oracleList = [...new Set([...matched.cardIdByUnit.keys()].map(k => (k.includes(':') ? k.slice(0, k.indexOf(':')) : k)))].sort();
       magic.reversibleRows = await loadReversibleRows(database);
       magic.rubies = await loadNameRubyLookup(database);
+      magic.printCommits = await loadReviewedPrintCommits(database);
     });
     magic.counts ??= { ...emptyCounts };
     const restored = checkpoint?.blockInput as ChunkState | undefined;
@@ -207,13 +264,14 @@ const definition = createDefinition(magicProjectTaskType, {
     const rowCounts = await runWithDb(getLocalDb(), () => sourceRowCounts(getLocalDb(), chunk));
 
     const counts = { prints: 0, printParts: 0 };
+    const manualKeys: string[] = [];
     let doneRows = blockInput.done ?? 0;
     await runWithDb(getLocalDb(), async () => {
       const database = getLocalDb();
       for (const oracle of chunk) {
         const oraclePrints: (typeof Print)['$inferInsert'][] = [];
         const oraclePrintParts: (typeof PrintPart)['$inferInsert'][] = [];
-        for (const raw of await assembleUnits(database, oracle, magic.reversibleRows)) {
+        for (const raw of await assembleUnits(database, oracle, magic.reversibleRows, magic.printCommits.get(oracle))) {
           const assembled = withResolvedCardId(raw, magic.unitToCard);
           if (assembled == null) continue;
           // Prints are written before the card-consistency stage by design:
@@ -230,6 +288,12 @@ const definition = createDefinition(magicProjectTaskType, {
         fillPrintImagesFromLedger(ledger, oraclePrints);
         counts.prints += await writeSection(database, Print, oraclePrints, [...PRINT_PK]);
         counts.printParts += await writeSection(database, PrintPart, oraclePrintParts, [...PRINT_PK, 'partIndex']);
+        // Manual positions emitted this chunk — the recycle's kept set travels
+        // through the checkpoint so a resumed run recycles exactly what it
+        // itself emitted.
+        for (const row of oraclePrints) {
+          if (row.source === MANUAL_PRINT_SOURCE) manualKeys.push(manualPrintKey(row));
+        }
         doneRows += rowCounts.get(oracle) ?? 0;
         // Submit progress after every oracle so the processed-row counter
         // scrolls continuously instead of jumping at block boundaries.
@@ -238,10 +302,11 @@ const definition = createDefinition(magicProjectTaskType, {
     });
 
     const next: ChunkState = {
-      index:  blockInput.index + chunk.length,
-      done:   doneRows,
-      total:  blockInput.total,
-      counts: { prints: (blockInput.counts.prints ?? 0) + counts.prints, printParts: (blockInput.counts.printParts ?? 0) + counts.printParts },
+      index:      blockInput.index + chunk.length,
+      done:       doneRows,
+      total:      blockInput.total,
+      counts:     { prints: (blockInput.counts.prints ?? 0) + counts.prints, printParts: (blockInput.counts.printParts ?? 0) + counts.printParts },
+      manualKeys: [...(blockInput.manualKeys ?? []), ...manualKeys],
     };
     await checkpoint(next);
     progress({ done: doneRows, total: blockInput.total });
@@ -250,7 +315,13 @@ const definition = createDefinition(magicProjectTaskType, {
   .exit(({ ctx, blockInput }) => {
     const magic = ctx as unknown as ProjectCtx;
     addAll(magic.counts, blockInput.counts);
-    return magic.counts;
+    return runWithDb(getLocalDb(), async () => {
+      // Recycle against exactly what this run emitted — symmetric with
+      // synthesis even where the commit path skipped a branch.
+      const emitted = new Set(blockInput.manualKeys ?? []);
+      magic.counts.manualRecycled = await softDeleteStaleManualPrints(getLocalDb(), emitted);
+      return magic.counts;
+    });
   })
   .stage('cards', { label: '卡片投影', progressMode: 'bounded', resumeMode: 'durable' })
   .entry(async ({ ctx, checkpoint }) => {

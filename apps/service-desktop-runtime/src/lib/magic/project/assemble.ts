@@ -5,6 +5,7 @@ import { MtgchScryfallCard, MtgchZhsCard, MtgchZhsOracle, ScryfallCard } from '@
 
 import { isArtBackDoubleFacedToken, isSingleCardDoubleFacedToken, slugifyCard, toMatchUnits } from '../match';
 import { findCardMergeGroup } from '../merge-cards';
+import { synthesizePrintCommits, type LoadedPrintCommit } from './print-commits';
 
 import { stripNameRuby } from '@tcg-cards/model/magic/name-ruby';
 
@@ -513,8 +514,16 @@ export function isBattleFront(typeLine: string | null | undefined): boolean {
  * snapshots. A normal (single/multi-face) oracle card is one unit; a
  * `double_faced_token` yields one unit per face. `reversible_card` produces no
  * units here (it only contributes prints to the units its faces reference).
+ * `printCommits` are the oracle's reviewed print commits; only the normal
+ * branch consumes them — merge groups, art-back tokens and split DFTs are out
+ * of the commit path's scope.
  */
-export async function assembleUnits(database: ProjectDb, oracleId: string, reversibleRows?: CardRow[]): Promise<AssembledCard[]> {
+export async function assembleUnits(
+  database: ProjectDb,
+  oracleId: string,
+  reversibleRows?: CardRow[],
+  printCommits?: LoadedPrintCommit[],
+): Promise<AssembledCard[]> {
   const enRows = await database.select().from(ScryfallCard)
     .where(and(
       eq(ScryfallCard.lang, 'en'),
@@ -681,10 +690,12 @@ export async function assembleUnits(database: ProjectDb, oracleId: string, rever
   const mtgchPrintMap = await loadMtgchPrintMap(database, [oracleId]);
   const baseDrafts = allRows.map(toPrintDraft);
   withMtgchFaces(mtgchPrintMap, baseDrafts);
-  const prints = [
-    ...baseDrafts,
-    ...reversiblePrintsFrom(reversibleRows ?? await loadReversibleRows(database), oracleId, mtgchPrintMap),
-  ];
+  const reversiblePrints = reversiblePrintsFrom(reversibleRows ?? await loadReversibleRows(database), oracleId, mtgchPrintMap);
+  // Print commits ride after the source chain: a committed surface is
+  // self-contained, so MTGCH never attaches to it, while the layout
+  // normalization below still treats it like any other print of the unit.
+  const committedPrints = synthesizePrintCommits(baseDrafts, printCommits ?? []);
+  const prints = [...baseDrafts, ...reversiblePrints, ...committedPrints];
 
   // Single double-sided tokens (Incubator//Phyrexian, Bounty//Wanted,
   // Day//Night, The Ring) stay one card; their prints flip like transform.

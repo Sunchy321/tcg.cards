@@ -5,6 +5,7 @@ export * from './data/mtgch';
 export * from './data/mtgjson';
 export * from './data/name-rubies';
 export * from './data/scryfall';
+export * from './print-commits';
 export * from './slug-annotation';
 export * from './localization-authority';
 export * from './document';

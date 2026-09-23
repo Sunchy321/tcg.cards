@@ -1,0 +1,221 @@
+{
+  "cards": [
+    {
+      "cardId": "lightning-bolt",
+      "version": "",
+      "partCount": 1,
+      "name": "Lightning Bolt",
+      "typeline": "Instant",
+      "manaValue": 1,
+      "colorIdentity": "R",
+      "keywords": [],
+      "counters": [],
+      "producibleMana": null,
+      "category": "default",
+      "tags": [],
+      "legalities": {
+        "legacy": "legal"
+      },
+      "scryfallOracleId": [
+        "4457ed35-7c10-48c8-9776-456485fdf070"
+      ]
+    }
+  ],
+  "cardParts": [
+    {
+      "cardId": "lightning-bolt",
+      "version": "",
+      "partIndex": 0,
+      "name": "Lightning Bolt",
+      "typeline": "Instant",
+      "text": "Lightning Bolt deals 3 damage to any target.",
+      "cost": [
+        "R"
+      ],
+      "manaValue": 1,
+      "color": "R",
+      "colorIndicator": null,
+      "typeSuper": null,
+      "typeMain": [
+        "instant"
+      ],
+      "typeSub": null,
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "handModifier": null,
+      "lifeModifier": null
+    }
+  ],
+  "cardLocalizations": [
+    {
+      "cardId": "lightning-bolt",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "name": "Lightning Bolt",
+      "typeline": "Instant"
+    }
+  ],
+  "cardPartLocalizations": [
+    {
+      "cardId": "lightning-bolt",
+      "version": "",
+      "locale": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "Lightning Bolt",
+      "typeline": "Instant",
+      "text": "Lightning Bolt deals 3 damage to any target."
+    }
+  ],
+  "prints": [
+    {
+      "cardId": "lightning-bolt",
+      "version": "",
+      "set": "msc",
+      "number": "806",
+      "lang": "en",
+      "source": "",
+      "name": "Lightning Bolt",
+      "typeline": "Instant",
+      "layout": "normal",
+      "frame": "2015",
+      "frameEffects": [],
+      "borderColor": "black",
+      "cardBack": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "securityStamp": null,
+      "promoTypes": null,
+      "rarity": "uncommon",
+      "releaseDate": "2026-06-26",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": true,
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "imageStatus": "highres_scan",
+      "inBooster": false,
+      "games": [
+        "paper"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "printTags": [],
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "1eced451-4da5-42bc-b49d-70c41246581f"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "4457ed35-7c10-48c8-9776-456485fdf070",
+      "scryfallCardId": "7673784e-db4b-43a1-8d55-1bb9fc1e284f",
+      "scryfallFace": null,
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseId": [],
+      "tcgPlayerId": null,
+      "tcgplayerEtchedId": null,
+      "cardMarketId": null
+    },
+    {
+      "cardId": "lightning-bolt",
+      "version": "",
+      "set": "msc",
+      "number": "806",
+      "lang": "zhs",
+      "source": "manual",
+      "name": "闪电击",
+      "typeline": "瞬间",
+      "layout": "normal",
+      "frame": "2015",
+      "frameEffects": [],
+      "borderColor": "black",
+      "cardBack": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "securityStamp": null,
+      "promoTypes": null,
+      "rarity": "uncommon",
+      "releaseDate": "2026-06-26",
+      "isDigital": false,
+      "isPromo": false,
+      "isReprint": true,
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "imageStatus": "missing",
+      "inBooster": false,
+      "games": [
+        "paper"
+      ],
+      "previewDate": null,
+      "previewSource": null,
+      "previewUri": null,
+      "printTags": [],
+      "isVariation": false,
+      "variationOf": null,
+      "artistIds": [
+        "1eced451-4da5-42bc-b49d-70c41246581f"
+      ],
+      "resourceId": null,
+      "scryfallOracleId": "4457ed35-7c10-48c8-9776-456485fdf070",
+      "scryfallCardId": null,
+      "scryfallFace": null,
+      "arenaId": null,
+      "mtgoId": null,
+      "mtgoFoilId": null,
+      "multiverseId": [],
+      "tcgPlayerId": null,
+      "tcgplayerEtchedId": null,
+      "cardMarketId": null
+    }
+  ],
+  "printParts": [
+    {
+      "cardId": "lightning-bolt",
+      "version": "",
+      "set": "msc",
+      "number": "806",
+      "lang": "en",
+      "source": "",
+      "partIndex": 0,
+      "name": "Lightning Bolt",
+      "typeline": "Instant",
+      "text": "Lightning Bolt deals 3 damage to any target.",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": "\"I am the god of thunder, the lord of the savage lightning, and the very skies must tremble when speaks The Mighty Thor!\"",
+      "artist": "Milivoj Ćeran",
+      "watermark": null,
+      "scryfallIllusId": [
+        "58884d99-ed2d-4efd-b192-b1eb6f87c39f"
+      ]
+    },
+    {
+      "cardId": "lightning-bolt",
+      "version": "",
+      "set": "msc",
+      "number": "806",
+      "lang": "zhs",
+      "source": "manual",
+      "partIndex": 0,
+      "name": "闪电击",
+      "typeline": "瞬间",
+      "text": "闪电击向任意一个目标造成3点伤害。",
+      "attractionLights": null,
+      "flavorName": null,
+      "flavorText": "「我是雷神，狂野闪电之主，苍穹亦在我言语间震颤。」",
+      "artist": "Milivoj Ćeran",
+      "watermark": null,
+      "scryfallIllusId": [
+        "58884d99-ed2d-4efd-b192-b1eb6f87c39f"
+      ]
+    }
+  ],
+  "authorities": [],
+  "reviews": []
+}

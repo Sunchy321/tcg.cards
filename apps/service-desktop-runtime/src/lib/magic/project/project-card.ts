@@ -124,7 +124,8 @@ export interface PrintDraft {
   resourceId:  string | null;
 
   scryfallOracleId: string;
-  scryfallCardId:   string;
+  /** null for prints synthesized from print commits (no upstream object). */
+  scryfallCardId:   string | null;
   scryfallFace:     string | null;
 
   arenaId:           number | null;
@@ -137,6 +138,13 @@ export interface PrintDraft {
 
   /** Printed surfaces aligned with this unit's faces (drives print_parts). */
   faces: PrintFaceDraft[];
+
+  /**
+   * PK `source` of the emitted fact rows. Empty for source-derived prints;
+   * print-commit synthesis sets `manual` so committed positions occupy their
+   * own PK slot instead of colliding with a source row.
+   */
+  source?: string;
 
   /**
    * MTGCH Chinese printed surfaces for zhs prints, aligned with `faces`
@@ -396,7 +404,7 @@ function projectPrints(assembled: AssembledCard, rubies?: NameRubyLookup): {
 
     const printRow: (typeof Print)['$inferInsert'] = {
       cardId, version,
-      set:               draft.set, number:            draft.number, lang:              draft.lang as (typeof Print)['$inferInsert']['lang'], source:            '',
+      set:               draft.set, number:            draft.number, lang:              draft.lang as (typeof Print)['$inferInsert']['lang'], source:            draft.source ?? '',
       name:              resolved.map(r => r.name).join(' // '),
       rubyName:          joinedRubyPrint,
       typeline:          resolved.map(r => r.typeline).join(' // '),
@@ -441,7 +449,7 @@ function projectPrints(assembled: AssembledCard, rubies?: NameRubyLookup): {
       const partRow: (typeof PrintPart)['$inferInsert'] = {
         cardId, version,
         set:              draft.set, number:           draft.number,
-        lang:             printRow.lang, source:           '', partIndex:        i,
+        lang:             printRow.lang, source:           draft.source ?? '', partIndex:        i,
         name:             r.name,
         rubyName:         rubyByFace[i],
         typeline:         r.typeline,
