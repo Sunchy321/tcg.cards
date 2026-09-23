@@ -8,6 +8,7 @@ import type { ImageInfo, ImageInfoMeta, ImageStatus } from '#model/magic/schema/
 import type { LocalDb } from '../../hearthstone/hsdata-local-db';
 import { assessQuality, encodeWebp, mergeImageInfo, printKeyCondition, removeSameStemJpg, uploadImageSources, writeCanonical, type EncodedImage, type QualityTier, type StepResult } from './common';
 import { fetchImageBuffer } from './fetch';
+import { probeImageImport } from './probe';
 import type { ImageImportDelta } from './result';
 import { pushCapped } from './result';
 import type { RemoteQueueRow } from './source';
@@ -99,8 +100,10 @@ export async function updateRowFaces(db: LocalDb, key: PrintKey, imageInfo: Imag
 
 /**
  * Per-face guard read from the asset ledger: a tombstone pins the key as
- * deliberately empty, and a real row's provenance is the authoritative upload
- * protection — it survives fact-table rebuilds, unlike the fact slot's copy.
+ * deliberately empty and blocks the fetch, and a real row's provenance is the
+ * authoritative upload protection — it survives fact-table rebuilds, unlike
+ * the fact slot's copy. A force pass ignores the tombstone: the operator has
+ * explicitly asked for the download.
  */
 async function faceGuard(db: LocalDb, set: string, lang: string, number: string): Promise<Map<number, typeof AssetImage.$inferSelect>> {
   const backKey = printImageKey(set, lang, number, 1);
@@ -239,8 +242,10 @@ export async function ingestRemoteRow(db: LocalDb, row: RemoteQueueRow, options:
     const i = face.faceIndex;
     const label = rowLabel(row.set, row.lang, row.number, i);
     const pinned = guard.get(i);
-    if (pinned?.status === 'placeholder') {
-      // A tombstone pins this key as deliberately empty: no fetch, ever.
+    if (pinned?.status === 'placeholder' && !options.force) {
+      // A tombstone pins this key as deliberately empty: no fetch — unless the
+      // operator forced this pass, which is the explicit way to lift it.
+      probeImageImport({ kind: 'ledger-tombstone-skip', number: row.number, ledgerStatus: pinned.status });
       markedPlaceholder += 1;
       skipped += 1;
       continue;
@@ -255,7 +260,7 @@ export async function ingestRemoteRow(db: LocalDb, row: RemoteQueueRow, options:
       continue;
     }
     if (slotSource != null && (uploadImageSources as readonly string[]).includes(slotSource)
-        && !(uploadImageSources as readonly string[]).includes(options.imageSource)) {
+      && !(uploadImageSources as readonly string[]).includes(options.imageSource)) {
       // Download sources never take a curated image, whatever the force mode.
       skippedUpload += 1;
       continue;

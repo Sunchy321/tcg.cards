@@ -11,6 +11,7 @@ import { uploadImageSources } from '../../image-import/common';
 import { createImportBatchState, runImportBlock, type ImportBatchState } from '../../image-import/batch';
 import { applySkipRules, ingestRemoteRow, ingestUploadItem } from '../../image-import/ingest';
 import { addImageImportOutput, emptyImageImportOutput, imageImportOutput, pushCapped, type ImageImportOutput } from '../../image-import/result';
+import { probeImageImport } from '../../image-import/probe';
 import { emptyRemoteSkipped, gathererQueueRow, preferGathererQueueRow, scryfallQueueRow, type RemoteSkipped } from '../../image-import/source';
 
 /** Single-target import: one or more prints, uploaded as a file or downloaded by number. */
@@ -54,10 +55,11 @@ const rowColumns = {
   gathererData:        Gatherer.data,
 };
 
-/** One work unit: a print row identified by its primary key. */
+/** One work unit: a print row identified by its primary key. `set` must ride along — one card shares its number and language across many sets. */
 interface SingleRowKey {
   cardId:  string;
   version: string;
+  set:     string;
   source:  string;
   lang:    string;
   number:  string;
@@ -93,6 +95,7 @@ const definition = createDefinition(magicImageImportSingleTaskType, {
     const keys: SingleRowKey[] = await runWithDb(db, () => db.select({
       cardId:  Print.cardId,
       version: Print.version,
+      set:     Print.set,
       source:  Print.source,
       lang:    Print.lang,
       number:  Print.number,
@@ -137,17 +140,36 @@ const definition = createDefinition(magicImageImportSingleTaskType, {
         let counts: ImageImportOutput = emptyImageImportOutput();
         for (const key of keys) {
           // The full row is re-read at process time by its primary key so the
-          // checkpointed state stays a small list of keys.
-          const row = (await runWithDb(db, () => db.select(rowColumns).from(Print)
+          // checkpointed state stays a small list of keys. `set` is part of
+          // the key: one card shares its number and language across sets.
+          const rowQuery = db.select(rowColumns).from(Print)
             .leftJoin(ScryfallCard, eq(Print.scryfallCardId, ScryfallCard.cardId))
             .leftJoin(Gatherer, sql`${Gatherer.multiverseId} = ${Print.multiverseId}[1]`)
             .where(and(
               eq(Print.cardId, key.cardId),
               eq(Print.version, key.version),
+              eq(Print.set, key.set),
               eq(Print.source, key.source),
               eq(Print.lang, key.lang as typeof Print.$inferSelect.lang),
               eq(Print.number, key.number),
-            ))))[0];
+            ));
+          const { sql: rowSqlText, params: rowSqlParams } = rowQuery.toSQL();
+          const rowSqlInline = rowSqlParams.reduce(
+            (acc: string, param, index) => acc.replace(`$${index + 1}`, param == null ? 'null' : typeof param === 'number' ? String(param) : `'${String(param).replaceAll('\'', '\'\'')}'`),
+            rowSqlText,
+          );
+          const row = (await runWithDb(db, () => rowQuery))[0];
+          const probeDb = await db.$client.unsafe('select current_database() as db, inet_server_port()::text as port, pg_postmaster_start_time()::text as pg_start');
+          probeImageImport({
+            kind:                'single-row-read',
+            rowSql:              rowSqlInline,
+            number:              row?.number,
+            force:               state.force,
+            printStatus:         JSON.stringify(row?.printStatus ?? null),
+            scryfallImageStatus: JSON.stringify(row?.scryfallImageStatus ?? null),
+            imageInfoNull:       row?.imageInfo == null,
+            db:                  probeDb[0],
+          });
           if (!row) continue;
 
           if (state.data != null) {
@@ -165,8 +187,9 @@ const definition = createDefinition(magicImageImportSingleTaskType, {
 
           // Download sources: every face of the print, resolved by the source's own rules.
           // A print in the placeholder state has no real image anywhere —
-          // never fetch a stand-in for it.
-          if (row.printStatus === 'placeholder') {
+          // never fetch a stand-in for it, unless the operator forced this
+          // pass: force is the explicit way to override the placeholder.
+          if (row.printStatus === 'placeholder' && !state.force) {
             counts = addImageImportOutput(counts, { markedPlaceholder: 1 });
             pushCapped(counts.markedNumbers, row.number);
             continue;

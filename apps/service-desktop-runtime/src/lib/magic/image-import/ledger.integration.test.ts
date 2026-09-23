@@ -247,6 +247,17 @@ integrationTest('remote and upload ingest mirror files into the ledger and clear
   const postClearBackfill = await backfillAssetLedger(db);
   expect(postClearBackfill.tombstoneUnchanged).toBe(1);
 
+  // Without force the tombstone blocks the fetch; a forced pass is the
+  // explicit override that ignores it and lands a real row.
+  const blocked = await ingestRemoteRow(db, row(cardId, [], faceUrl), { imageSource: 'scryfall', cleanupJpg: true, force: false });
+  expect(blocked.markedPlaceholder).toBe(1);
+  expect(blocked.written).toBe(0);
+  const override = await ingestRemoteRow(db, row(cardId, [], faceUrl), { imageSource: 'scryfall', cleanupJpg: true, force: true });
+  expect(override.written).toBe(1);
+  const overridden = await db.select().from(AssetImage).where(eq(AssetImage.key, key));
+  expect(overridden[0]!.status).not.toBe('placeholder');
+  expect(overridden[0]!.byteSize).toBeGreaterThan(0);
+
   // The operator's remedy is a manual upload: it replaces the tombstone with
   // a real row and restores the fact metadata.
   const remedy = await ingestUploadItem(

@@ -6,6 +6,7 @@ import { isTwoImageLayout, twoImageLayouts } from '@tcg-cards/shared/magic/print
 import type { ImageInfo } from '#model/magic/schema/print';
 
 import { faceIndexOf } from './common';
+import { probeImageImport } from './probe';
 
 /** Image sources fetched over HTTP rather than uploaded from local files. */
 export type RemoteImageSource = 'scryfall' | 'gatherer';
@@ -204,6 +205,7 @@ export function scryfallQueueRow(row: ScryfallImageRow, skipped: RemoteSkipped):
   // Placeholder art (unprinted/digital-only cards) would import as generic card
   // backs; keep it out of the queue regardless of the force mode.
   if (row.scryfallImageStatus === 'placeholder') {
+    probeImageImport({ kind: 'queue-skip-placeholder', number: row.number, scryfallImageStatus: JSON.stringify(row.scryfallImageStatus) });
     skipped.placeholder += 1;
     return null;
   }
