@@ -1,4 +1,4 @@
-import { index, integer, jsonb, primaryKey, text, timestamp } from 'drizzle-orm/pg-core';
+import { index, integer, jsonb, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 import { dataSchema } from '../../../shared/magic/schema';
 
@@ -25,12 +25,12 @@ import { dataSchema } from '../../../shared/magic/schema';
  */
 export const MtgchScryfallCard = dataSchema.table('mtgch_scryfall_card', {
   cardId:     text('card_id').primaryKey(),
-  scryfallId: text('scryfall_id'),
+  scryfallId: uuid('scryfall_id'),
   faceIndex:  integer('face_index'),
   lang:       text('lang'),
 
-  oracleId:        text('oracle_id'),
-  faceOracleId:    text('face_oracle_id'),
+  oracleId:        uuid('oracle_id'),
+  faceOracleId:    uuid('face_oracle_id'),
   setCode:         text('set_code'),
   setId:           text('set_id'),
   collectorNumber: text('collector_number'),
@@ -81,8 +81,8 @@ export const MtgchZhsCard = dataSchema.table('mtgch_zhs_card', {
 
 /** Per-oracle Chinese translations from zhs_oracle.json. */
 export const MtgchZhsOracle = dataSchema.table('mtgch_zhs_oracle', {
-  faceOracleId:    text('face_oracle_id').primaryKey(),
-  oracleId:        text('oracle_id').notNull(),
+  faceOracleId:    uuid('face_oracle_id').primaryKey(),
+  oracleId:        uuid('oracle_id').notNull(),
   name:            text('name').notNull(),
   set:             text('set').notNull(),
   collectorNumber: text('collector_number').notNull(),
