@@ -24,7 +24,7 @@ const input = z.strictObject({
   force:      z.boolean().optional().default(false),
   cleanupJpg: z.boolean().optional().default(false),
 }).refine(
-  v => v.source === 'gatherer' || v.source === 'prefer_gatherer'
+  v => v.source === 'gatherer'
     ? v.scope === 'set' && !!v.set
     : v.scope === 'full' || !!v.set,
   { message: 'scope=set 需要 set;gatherer 只支持 scope=set' },

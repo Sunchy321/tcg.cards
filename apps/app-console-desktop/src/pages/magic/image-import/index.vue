@@ -378,6 +378,9 @@ const isUploadZip = computed(() => !isRemote.value && form.uploadMode === 'zip')
 const isSingle = computed(() => isDownloadSingle.value || isUploadSingle.value);
 const treeMode = computed(() => isUploadZip.value && analysis.value?.convention === 'tree');
 
+/** Remote batch sources whose sweep may cover every set; gatherer-only remains set-scoped. */
+const canSweepAllSets = computed(() => isRemoteBatch.value && ['scryfall', 'prefer_gatherer'].includes(form.source));
+
 /** Every collector number the 编号 field stands for; a comma list or a range holds more than one. */
 const numbers = computed(() => parseNumberInput(form.number));
 /** The comparison works on the first number the 编号 field selects; with 全部 checked and an empty field it falls back to number 1. */
@@ -399,7 +402,7 @@ watch(() => form.source, () => {
   if (!isRemote.value && !['single', 'zip'].includes(form.uploadMode)) form.uploadMode = 'single';
 });
 
-const setRequired = computed(() => !(isRemoteBatch.value && form.source === 'scryfall' && form.set === '__all__'));
+const setRequired = computed(() => !(canSweepAllSets.value && form.set === '__all__'));
 
 interface ZipCandidate {
   set:  string;
@@ -598,7 +601,7 @@ function toggleAllLangs() {
 
 const setItems = computed(() => {
   const sets = setOptions.value.map(code => ({ label: code, value: code }));
-  return isRemoteBatch.value && form.source === 'scryfall'
+  return canSweepAllSets.value
     ? [{ label: '不限(全量)', value: ALL_SETS }, ...sets]
     : sets;
 });
@@ -683,7 +686,7 @@ const operation = computed<TaskOperation>(() => {
   const hasLang = selectedLangs.value.length > 0;
   let ready: boolean;
   if (isRemoteBatch.value) {
-    ready = hasLang && (form.source === 'scryfall' ? (form.set === ALL_SETS || setChosen) : setChosen);
+    ready = hasLang && (canSweepAllSets.value ? (form.set === ALL_SETS || setChosen) : setChosen);
   } else if (isDownloadSingle.value) {
     ready = setChosen && hasLang && numbers.value.length > 0;
   } else if (isUploadSingle.value) {
