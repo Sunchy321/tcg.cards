@@ -25,11 +25,15 @@ export function createImportBatchState<TItem>(
 /**
  * Runs one block of a chunked import stage: takes the next batch, executes it
  * inside one DB scope, checkpoints, reports progress and signals completion.
+ * Progress also advances between checkpoints: the runner hands `run` a
+ * `reportItem` callback that each item calls as soon as its own work
+ * (download + write) is finished, so the counter tracks single items instead
+ * of jumping one batch at a time.
  */
 export async function runImportBlock<TItem>(args: {
   state:      ImportBatchState<TItem>;
   batchSize:  number;
-  run:        (batch: TItem[], signal?: AbortSignal) => Promise<ImageImportDelta>;
+  run:        (batch: TItem[], signal: AbortSignal | undefined, reportItem: () => void) => Promise<ImageImportDelta>;
   progress:   (update: { done: number, total: number }) => void;
   checkpoint: (state: ImportBatchState<TItem>) => Promise<void>;
   done:       (state: ImportBatchState<TItem>) => BlockDone;
@@ -40,7 +44,12 @@ export async function runImportBlock<TItem>(args: {
 
   const batch = state.items.slice(state.offset, state.offset + batchSize);
   const db = getLocalDb();
-  const counts = await runWithDb(db, () => run(batch, signal));
+  let completedInBatch = 0;
+  const reportItem = () => {
+    completedInBatch += 1;
+    progress({ done: state.offset + completedInBatch, total: state.items.length });
+  };
+  const counts = await runWithDb(db, () => run(batch, signal, reportItem));
 
   state.counts = addImageImportOutput(state.counts, counts);
   state.offset += batch.length;

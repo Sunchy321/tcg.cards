@@ -149,12 +149,16 @@ const definition = createDefinition(magicImageImportRemoteTaskType, {
     return runImportBlock({
       state:     blockInput as ImportBatchState<RemoteQueueRow>,
       batchSize: BATCH,
-      run:       async (batch, sig) => {
+      run:       async (batch, sig, reportItem) => {
         const db = getLocalDb();
         const results = await mapWithConcurrency(
           batch,
           CONCURRENCY,
-          row => ingestRemoteRow(db, row, { imageSource: ctx.source, cleanupJpg: !!ctx.cleanupJpg, force: !!ctx.force }),
+          async row => {
+            const result = await ingestRemoteRow(db, row, { imageSource: ctx.source, cleanupJpg: !!ctx.cleanupJpg, force: !!ctx.force });
+            reportItem();
+            return result;
+          },
           () => sig?.aborted ?? false,
         );
         return results.reduce(addImageImportOutput, emptyImageImportOutput());
