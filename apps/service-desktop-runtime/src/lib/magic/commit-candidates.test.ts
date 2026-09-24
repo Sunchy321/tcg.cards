@@ -8,7 +8,16 @@ import {
 } from './commit-candidates';
 
 function row(faceIndex: number | null, faceName: string | null, overrides: Partial<CandidateFaceRow> = {}): CandidateFaceRow {
-  return { faceIndex, faceName, name: '全名', typeLine: '生物', text: '文字', ...overrides };
+  return {
+    faceIndex,
+    faceName,
+    name:       '全名',
+    typeLine:   '生物',
+    text:       '文字',
+    flavorName: null,
+    flavorText: null,
+    ...overrides,
+  };
 }
 
 test('buildCandidateFaces aligns per-face rows by index and prefers the face name', () => {
@@ -19,6 +28,32 @@ test('buildCandidateFaces aligns per-face rows by index and prefers the face nam
   expect(faces).toEqual([
     { printedName: '正面名', printedTypeLine: '生物', printedText: '文字' },
     { printedName: '背面名', printedTypeLine: '瞬间\n转移', printedText: '文字' },
+  ]);
+});
+
+test('buildCandidateFaces carries the flavor name and text of the row', () => {
+  const faces = buildCandidateFaces([
+    row(-1, null, { flavorName: '瓦纳·迪尔的冒险者', flavorText: '石板上刻着如尼文字：\\\\n巴林\\\\n芬丁之子' }),
+  ], 1);
+  expect(faces).toEqual([{
+    printedName:     '全名',
+    printedTypeLine: '生物',
+    printedText:     '文字',
+    flavorName:      '瓦纳·迪尔的冒险者',
+    flavorText:      '石板上刻着如尼文字：\n巴林\n芬丁之子',
+  }]);
+});
+
+test('buildCandidateFaces omits flavor the row does not assert', () => {
+  const faces = buildCandidateFaces([row(-1, null, { flavorText: '', flavorName: null })], 1);
+  expect(faces).toEqual([{ printedName: '全名', printedTypeLine: '生物', printedText: '文字' }]);
+});
+
+test('buildCandidateFaces keeps flavor out of the face a row does not fill', () => {
+  const faces = buildCandidateFaces([row(1, '只有背面', { flavorText: '背面的风味' })], 2);
+  expect(faces).toEqual([
+    {},
+    { printedName: '只有背面', printedTypeLine: '生物', printedText: '文字', flavorText: '背面的风味' },
   ]);
 });
 

@@ -13,20 +13,22 @@ import { normalizeMtgchText } from './project/assemble';
 
 /** Raw face-slot inputs of one MTGCH position, as the join returns them. */
 export interface CandidateFaceRow {
-  faceIndex: number | null;
-  faceName:  string | null;
-  name:      string | null;
-  typeLine:  string | null;
-  text:      string | null;
+  faceIndex:  number | null;
+  faceName:   string | null;
+  name:       string | null;
+  typeLine:   string | null;
+  text:       string | null;
+  flavorName: string | null;
+  flavorText: string | null;
 }
 
 /**
  * Builds the commit face slots for one candidate position, aligned with the
  * oracle's face count. Per-face MTGCH rows feed multi-face cards by index; a
  * whole-card row (faceIndex < 0) feeds a single face. The per-face name wins
- * over the joined whole-card name, MTGCH newline escapes normalize, and a
- * slot with no asserted content stays empty so the projection's baseline
- * cloning covers it.
+ * over the joined whole-card name, MTGCH newline escapes normalize (the flavor
+ * fields share the text field's escape convention), and a slot with no
+ * asserted content stays empty so the projection's baseline cloning covers it.
  */
 export function buildCandidateFaces(rows: CandidateFaceRow[], faceCount: number): Array<Record<string, string>> {
   const slots: Array<Record<string, string>> = Array.from({ length: faceCount }, () => ({}));
@@ -51,10 +53,14 @@ export function buildCandidateFaces(rows: CandidateFaceRow[], faceCount: number)
     const name = normalizeMtgchText(present(row.faceName) ? row.faceName : row.name);
     const typeline = normalizeMtgchText(row.typeLine);
     const text = normalizeMtgchText(row.text);
+    const flavorName = normalizeMtgchText(row.flavorName);
+    const flavorText = normalizeMtgchText(row.flavorText);
     const slot = slots[i]!;
     if (name != null) slot.printedName = name;
     if (typeline != null) slot.printedTypeLine = typeline;
     if (text != null) slot.printedText = text;
+    if (flavorName != null) slot.flavorName = flavorName;
+    if (flavorText != null) slot.flavorText = flavorText;
     return slot;
   });
 }

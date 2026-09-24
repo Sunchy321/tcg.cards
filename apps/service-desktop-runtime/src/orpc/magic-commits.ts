@@ -141,7 +141,7 @@ async function englishPrintsByPosition(database: ReturnType<typeof getLocalDb>, 
   }).from(ScryfallCard)
     .where(and(eq(ScryfallCard.lang, 'en'), isNull(ScryfallCard.deletedAt), eq(ScryfallCard.set, setCode.toLowerCase())));
   const map = new Map<string, {
-    oracleId: string, name: string, layout: string, cardFaces: Array<{ name?: string, oracle_text?: string | null, power?: string | null, toughness?: string | null }> | null,
+    oracleId: string; name: string; layout: string; cardFaces: Array<{ name?: string, oracle_text?: string | null, power?: string | null, toughness?: string | null }> | null;
   }>();
   for (const row of rows) {
     map.set(`${String(row.oracleId)}|${row.collectorNumber}`, {
@@ -164,6 +164,8 @@ async function mtgchFacesByPosition(database: ReturnType<typeof getLocalDb>, set
     name:            MtgchZhsCard.name,
     typeLine:        MtgchZhsCard.typeLine,
     text:            MtgchZhsCard.text,
+    flavorName:      MtgchZhsCard.flavorName,
+    flavorText:      MtgchZhsCard.flavorText,
   }).from(MtgchScryfallCard)
     .innerJoin(MtgchZhsCard, eq(MtgchZhsCard.cardId, MtgchScryfallCard.cardId))
     .where(and(
@@ -175,7 +177,15 @@ async function mtgchFacesByPosition(database: ReturnType<typeof getLocalDb>, set
   for (const row of rows) {
     const key = `${String(row.oracleId)}|${row.collectorNumber}`;
     const list = map.get(key) ?? [];
-    list.push({ faceIndex: row.faceIndex, faceName: row.faceName, name: row.name, typeLine: row.typeLine, text: row.text });
+    list.push({
+      faceIndex:  row.faceIndex,
+      faceName:   row.faceName,
+      name:       row.name,
+      typeLine:   row.typeLine,
+      text:       row.text,
+      flavorName: row.flavorName,
+      flavorText: row.flavorText,
+    });
     map.set(key, list);
   }
   return map;
@@ -208,9 +218,9 @@ const candidateList = os
       summary:   z.string(),
       adoptable: z.boolean(),
     })),
-    total:       z.number(),
-    adoptable:   z.number(),
-    ineligible:  z.number(),
+    total:      z.number(),
+    adoptable:  z.number(),
+    ineligible: z.number(),
   }))
   .handler(async ({ input }) => {
     const db = getLocalDb();
@@ -224,23 +234,25 @@ const candidateList = os
       const adoptable = card != null && candidateOracleEligible({
         layout: card.layout, name: card.name, cardFaces: card.cardFaces,
       });
-      const faces = buildCandidateFaces(mtgch.get(key) ?? [], card != null ? candidateFaceCount({
-        layout: card.layout, name: card.name, cardFaces: card.cardFaces,
-      }) : 1);
+      const faces = buildCandidateFaces(mtgch.get(key) ?? [], card != null
+        ? candidateFaceCount({
+          layout: card.layout, name: card.name, cardFaces: card.cardFaces,
+        })
+        : 1);
       return {
-        oracleId:  position.oracleId ?? '',
-        set:       position.set,
-        number:    position.number ?? '',
-        cardName:  card?.name ?? null,
-        summary:   commitFaceSummary(faces as never),
+        oracleId: position.oracleId ?? '',
+        set:      position.set,
+        number:   position.number ?? '',
+        cardName: card?.name ?? null,
+        summary:  commitFaceSummary(faces as never),
         adoptable,
       };
     }).sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true }));
 
     return {
       items,
-      total: items.length,
-      adoptable: items.filter(i => i.adoptable).length,
+      total:      items.length,
+      adoptable:  items.filter(i => i.adoptable).length,
       ineligible: items.filter(i => !i.adoptable).length,
     };
   });
@@ -249,9 +261,9 @@ const candidateList = os
 const adoptCandidates = os
   .input(z.strictObject({ set: z.string().min(1) }))
   .output(z.strictObject({
-    adopted:     z.number(),
-    ineligible:  z.number(),
-    note:        z.string(),
+    adopted:    z.number(),
+    ineligible: z.number(),
+    note:       z.string(),
   }))
   .handler(async ({ input }) => {
     const db = getLocalDb();
@@ -290,18 +302,18 @@ const adoptCandidates = os
     return {
       adopted: values.length,
       ineligible,
-      note: '数据来源：MTGCH',
+      note:    '数据来源：MTGCH',
     };
   });
 
 /** English scryfall row of one oracle (representative print). */
 async function englishCard(database: ReturnType<typeof getLocalDb>, oracleId: string) {
   return database.select({
-    oracleId:  ScryfallCard.oracleId,
-    name:      ScryfallCard.name,
-    set:       ScryfallCard.set,
+    oracleId:        ScryfallCard.oracleId,
+    name:            ScryfallCard.name,
+    set:             ScryfallCard.set,
     collectorNumber: ScryfallCard.collectorNumber,
-    cardFaces: ScryfallCard.cardFaces,
+    cardFaces:       ScryfallCard.cardFaces,
   }).from(ScryfallCard)
     .where(and(eq(ScryfallCard.lang, 'en'), eq(ScryfallCard.oracleId, oracleId as never)))
     .then(rows => rows[0]);
@@ -518,5 +530,5 @@ export const magicCommitsRouter = {
   cardSearch,
   save,
   remove,
-  candidates:    { sets: candidateSets, list: candidateList, adopt: adoptCandidates },
+  candidates: { sets: candidateSets, list: candidateList, adopt: adoptCandidates },
 };
