@@ -10,7 +10,7 @@ export type LocalDb = ReturnType<typeof createDb>;
 /** One cached desktop-local database client paired with its connection string. */
 interface LocalDbState {
   connectionString: string;
-  db: LocalDb;
+  db:               LocalDb;
 }
 
 let localDbState: LocalDbState | null = null;

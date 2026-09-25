@@ -11,11 +11,22 @@
         </div>
       </div>
       <p class="mt-1 text-sm text-muted">
-        补充各数据源都缺失、但实际存在的印刷（语言、印文等）。保存后需运行投影才会生效；删除一条补全并重新投影，对应印刷会从站点撤下。
+        补充各数据源都缺失、但实际存在的印刷（语言、印文等）。保存后投影才会生效：可对单条立即投影，或在下方投影全部补全项；删除补全并重新投影后，对应印刷会从站点撤下。
       </p>
     </div>
 
     <UAlert v-if="error" color="error" variant="soft" icon="i-lucide-circle-alert" :description="error" />
+    <UAlert v-if="projectNote" color="success" variant="soft" icon="i-lucide-circle-check" :description="projectNote" />
+
+    <!-- project all commits: task run with in-page progress -->
+    <TaskController
+      title="补全项投影"
+      :operations="[projectAllOperation]"
+      @completed="onProjectAllCompleted"
+      @failed="onProjectAllFailed"
+      @create-error="onProjectAllCreateError"
+    />
+    <TaskResultCard :result="projectAllResult" :labels="PROJECT_RESULT_LABELS" />
 
     <!-- completion suggestions: read-only gap scan, adoption is per set or per card -->
     <div class="rounded-xl border border-slate-200 bg-white">
@@ -214,6 +225,7 @@
             <td class="p-3 text-xs text-muted">{{ row.note ?? '' }}</td>
             <td class="p-3">
               <div class="flex justify-end gap-2">
+                <UButton label="投影" size="xs" color="neutral" variant="outline" :loading="projectingRow === rowKey(row)" @click="projectOneCommit(row)" />
                 <UButton label="编辑" size="xs" color="neutral" variant="outline" @click="openEdit(row)" />
                 <UButton label="删除" size="xs" color="error" variant="ghost" @click="confirmRemove(row)" />
               </div>
@@ -383,6 +395,8 @@
 </template>
 
 <script setup lang="ts">
+import type { TaskPageSnapshot } from '@tcg-cards/model/task';
+import type { TaskOperation } from '~/components/task/TaskController.vue';
 import { orpc } from '~/lib/orpc';
 
 definePageMeta({ layout: 'admin', title: '卡牌补全' });
@@ -530,6 +544,52 @@ async function runProject() {
     projecting.value = false;
   }
 }
+
+const projectingRow = ref<string | null>(null);
+const projectNote = ref('');
+
+/** Projects one commit's card in place; the counts return synchronously. */
+async function projectOneCommit(row: CommitRow) {
+  projectingRow.value = rowKey(row);
+  error.value = '';
+  projectNote.value = '';
+  try {
+    const r = await orpc.magic.commits.projectOne({
+      oracleId: row.oracleId, set: row.set, number: row.number, lang: row.lang,
+    });
+    projectNote.value = r.unresolved > 0
+      ? '该卡未能定位，补全未投影。'
+      : `投影完成：涉及卡牌 ${r.oracles}，写入印刷 ${r.prints}，撤下印刷 ${r.manualRecycled}。`;
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    projectingRow.value = null;
+  }
+}
+
+// --- project all commits: task run with in-page progress ---
+const PROJECT_RESULT_LABELS: Record<string, string> = {
+  oracles:        '涉及卡牌',
+  unresolved:     '未能投影的卡牌',
+  prints:         '写入印刷',
+  printParts:     '写入印刷面',
+  manualRecycled: '撤下印刷',
+};
+
+const projectAllOperation = computed<TaskOperation>(() => ({
+  key:   'project-commits',
+  label: '投影全部补全项',
+  icon:  'i-lucide-layers',
+  create: async () => orpc.magic.commits.projectAll({}) as Promise<TaskPageSnapshot>,
+}));
+
+const projectAllResult = ref<Record<string, unknown> | null>(null);
+
+function onProjectAllCompleted(snap: TaskPageSnapshot) {
+  projectAllResult.value = (snap.result as Record<string, unknown> | undefined) ?? null;
+}
+function onProjectAllFailed() {}
+function onProjectAllCreateError() {}
 
 // --- entry / edit form ---
 const formOpen = ref(false);

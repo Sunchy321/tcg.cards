@@ -1,10 +1,14 @@
 import { z } from 'zod';
 import { and, asc, count, eq, ilike, inArray, isNotNull, isNull, notExists, sql, type SQL } from 'drizzle-orm';
 
+import { taskPageSnapshot } from '@tcg-cards/model/task';
 import { MtgchScryfallCard, MtgchZhsCard, PrintCommit, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
 
 import { os } from './index';
+import { createAndRunTask } from './task';
 import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
+import { magicProjectCommitsTaskDefinition } from '../lib/magic/task/magic-project-commits';
+import { runCommitsProjection } from '../lib/magic/task/magic-project-commits/projection';
 import {
   buildCandidateFaces,
   candidateFaceCount,
@@ -528,11 +532,46 @@ const remove = os
     return { removed: true };
   });
 
+/** Projects one commit's card synchronously (merge siblings included,
+ * withdrawn manual positions of the card recycled). A single-card scope is
+ * cheaper than a task run, so the counts return inline. */
+const projectOne = os
+  .input(commitAnchor)
+  .output(z.strictObject({
+    oracles:        z.number(),
+    unresolved:     z.number(),
+    prints:         z.number(),
+    printParts:     z.number(),
+    manualRecycled: z.number(),
+  }))
+  .handler(async ({ input }) => {
+    return runCommitsProjection(getLocalDb(), [input.oracleId]);
+  });
+
+/** Starts a scoped projection run covering every commit in the list. */
+const projectAll = os
+  .input(z.strictObject({}))
+  .output(taskPageSnapshot)
+  .handler(async () => {
+    const db = getLocalDb();
+    const rows = await db.selectDistinct({ oracleId: PrintCommit.oracleId }).from(PrintCommit);
+    const oracleIds = rows.map(r => String(r.oracleId));
+    if (oracleIds.length === 0) throw new Error('当前没有可投影的补全记录。');
+    return createAndRunTask(magicProjectCommitsTaskDefinition.taskType, {
+      taskType:          magicProjectCommitsTaskDefinition.taskType,
+      definitionVersion: magicProjectCommitsTaskDefinition.definitionVersion,
+      scope:             { type: magicProjectCommitsTaskDefinition.scopeType, key: 'global', snapshot: {} },
+      params:            { oracleIds },
+    });
+  });
+
 export const magicCommitsRouter = {
   list,
   get,
   cardSearch,
   save,
   remove,
+  projectOne,
+  projectAll,
   candidates: { sets: candidateSets, list: candidateList, adopt: adoptCandidates },
 };

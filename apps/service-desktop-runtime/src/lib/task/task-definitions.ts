@@ -59,6 +59,8 @@ import { magicProjectTaskDefinition } from '../magic/task/magic-project/definiti
 import { magicPublishTaskDefinition } from '../magic/task/publish/definition';
 registerTaskDefinition(magicProjectTaskDefinition);
 registerTaskDefinition(magicPublishTaskDefinition);
+import { magicProjectCommitsTaskDefinition } from '../magic/task/magic-project-commits/definition';
+registerTaskDefinition(magicProjectCommitsTaskDefinition);
 import { magicImageImportRemoteTaskDefinition } from '../magic/task/image-import-remote/definition';
 import { magicImageImportLocalTaskDefinition } from '../magic/task/image-import-local/definition';
 import { magicImageImportSingleTaskDefinition } from '../magic/task/image-import-single/definition';

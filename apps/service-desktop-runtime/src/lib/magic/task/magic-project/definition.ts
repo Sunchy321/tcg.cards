@@ -1,22 +1,27 @@
 import { z } from 'zod';
 
-import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 
 import { runWithDb } from '@tcg-cards/db';
 import { Card, CardLocalization, CardPart, CardPartLocalization } from '@tcg-cards/db/schema/shared/magic/card';
 import { Print, PrintPart } from '@tcg-cards/db/schema/shared/magic/print';
-import { CardLocalizationAuthority, CardSlugResolution, PrintCommit, ProjectionReview, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
+import { CardLocalizationAuthority, CardSlugResolution, ProjectionReview, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
 
 import { createDefinition } from '#task/definition';
 import { getLocalDb } from '../../../hearthstone/hsdata-local-db';
 import { matchBatch } from '../../match';
 import { loadNameRubyLookup, type NameRubyLookup } from '../../name-ruby';
 import { assembleUnits, loadReversibleRows, type ProjectDb, type ScryfallRow } from '../../project/assemble';
-import { carryOverPrintImages, fillPrintImagesFromLedger, loadExistingPrintImages, loadPrintLedgerEntries } from '../../project/fill-print-images';
 import { inconsistentMergedSlugs } from '../../project/consistency';
-import { MANUAL_PRINT_SOURCE, manualPrintKey, staleManualPrints, type LoadedPrintCommit } from '../../project/print-commits';
+import type { LoadedPrintCommit } from '../../project/print-commits';
 import { projectCard, type AssembledCard, type ProjectCardResult } from '../../project/project-card';
-import { upsertBatch } from '../../upsert';
+import {
+  loadPrintCommits,
+  projectOraclePrints,
+  softDeleteStaleManualPrints,
+  withResolvedCardId,
+  writeSection,
+} from './oracle-prints';
 
 /** Stable task type for projecting magic raw caches into the fact tables. */
 export const magicProjectTaskType = 'magic_project';
@@ -94,77 +99,7 @@ function addAll(target: Counts, delta: Partial<Counts>) {
   });
 }
 
-/** Upsert one result section into its fact table; returns affected row count. */
-async function writeSection(database: ProjectDb, table: any, rows: unknown[] | undefined, pk: string[]): Promise<number> {
-  if (rows == null || rows.length === 0) return 0;
-  const target = pk.map(name => (table as any)[name]);
-  const r = await upsertBatch(database, table, rows as never, target, pk);
-  return r.inserted + r.updated + r.unchanged;
-}
-
-const PRINT_PK = ['cardId', 'version', 'set', 'number', 'lang', 'source'] as const;
 const CARD_PK = ['cardId', 'version'] as const;
-
-/** Row budget of one recycle UPDATE batch. */
-const MANUAL_RECYCLE_CHUNK = 200;
-
-/** Loads the print commits grouped by their anchoring oracle. The table is
- * desktop-local single-user truth: every row projects, there is no gate. */
-async function loadPrintCommits(database: ProjectDb): Promise<Map<string, LoadedPrintCommit[]>> {
-  const rows = await database.select().from(PrintCommit);
-  const map = new Map<string, LoadedPrintCommit[]>();
-  for (const row of rows) {
-    const list = map.get(row.oracleId) ?? [];
-    list.push({ set: row.set, number: row.number, lang: row.lang, faces: row.faces ?? [], metadata: row.metadata ?? null });
-    map.set(row.oracleId, list);
-  }
-  return map;
-}
-
-/**
- * Soft-delete manual print rows (and their parts) outside this run's emitted
- * manual keys — the per-print counterpart of the cardId-granular stale sweep,
- * which cannot see a withdrawn position inside a live card.
- */
-async function softDeleteStaleManualPrints(database: ProjectDb, emitted: Set<string>): Promise<number> {
-  const active = await database.select({
-    cardId: Print.cardId,
-    set:    Print.set,
-    number: Print.number,
-    lang:   Print.lang,
-  })
-    .from(Print)
-    .where(and(isNull(Print.deletedAt), eq(Print.version, ''), eq(Print.source, MANUAL_PRINT_SOURCE)));
-  const stale = staleManualPrints(active, emitted);
-  let deleted = 0;
-  for (let i = 0; i < stale.length; i += MANUAL_RECYCLE_CHUNK) {
-    const batch = stale.slice(i, i + MANUAL_RECYCLE_CHUNK);
-    for (const table of [Print, PrintPart] as any[]) {
-      const positions = batch.map(r => and(
-        eq(table.cardId, r.cardId),
-        eq(table.set, r.set),
-        eq(table.number, r.number),
-        eq(table.lang, r.lang),
-      ));
-      await database.update(table)
-        .set({ deletedAt: new Date() })
-        .where(and(eq(table.version, ''), eq(table.source, MANUAL_PRINT_SOURCE), or(...positions)));
-    }
-    deleted += batch.length;
-  }
-  return deleted;
-}
-
-/**
- * Override a unit's natural slug with its match-resolved cardId (resolutions
- * and merge groups may diverge from the natural name slug). Returns null when
- * the unit has no resolved cardId and must not project.
- */
-function withResolvedCardId(assembled: AssembledCard, unitToCard: Map<string, string>): AssembledCard | null {
-  const cardId = unitToCard.get(assembled.unit);
-  if (cardId == null) return null;
-  return cardId === assembled.cardId ? assembled : { ...assembled, cardId };
-}
 
 /** Table writers used by the reconcile stage: soft-delete stale base rows. */
 const BASE_TABLES = [
@@ -270,37 +205,13 @@ const definition = createDefinition(magicProjectTaskType, {
     await runWithDb(getLocalDb(), async () => {
       const database = getLocalDb();
       for (const oracle of chunk) {
-        const oraclePrints: (typeof Print)['$inferInsert'][] = [];
-        const oraclePrintParts: (typeof PrintPart)['$inferInsert'][] = [];
-        for (const raw of await assembleUnits(database, oracle, magic.reversibleRows, magic.printCommits.get(oracle))) {
-          const assembled = withResolvedCardId(raw, magic.unitToCard);
-          if (assembled == null) continue;
-          // Prints are written before the card-consistency stage by design:
-          // print rows per raw row are written regardless of card-level
-          // agreement (§7.4).
-          const result = projectCard(assembled, magic.rubies);
-          oraclePrints.push(...result.prints);
-          oraclePrintParts.push(...result.printParts);
-        }
-        // The prints' image fields come from the asset ledger — the ledger is
-        // where image facts live, so a fact-table wipe still projects fully.
-        // Beneath it, a fact row that already holds image data carries that
-        // data across: images imported before the ledger existed have no
-        // ledger row, and dropping to the raw source-side status would stamp
-        // a scryfall `placeholder` over a real local image. Prints neither
-        // layer can speak for keep the scryfall source-side status.
-        const carries = await loadExistingPrintImages(database, oraclePrints);
-        carryOverPrintImages(carries, oraclePrints);
-        const ledger = await loadPrintLedgerEntries(database, oraclePrints);
-        fillPrintImagesFromLedger(ledger, oraclePrints);
-        counts.prints += await writeSection(database, Print, oraclePrints, [...PRINT_PK]);
-        counts.printParts += await writeSection(database, PrintPart, oraclePrintParts, [...PRINT_PK, 'partIndex']);
+        const wrote = await projectOraclePrints(database, oracle, magic);
+        counts.prints += wrote.prints;
+        counts.printParts += wrote.printParts;
         // Manual positions emitted this chunk — the recycle's kept set travels
         // through the checkpoint so a resumed run recycles exactly what it
         // itself emitted.
-        for (const row of oraclePrints) {
-          if (row.source === MANUAL_PRINT_SOURCE) manualKeys.push(manualPrintKey(row));
-        }
+        manualKeys.push(...wrote.manualKeys);
         doneRows += rowCounts.get(oracle) ?? 0;
         // Submit progress after every oracle so the processed-row counter
         // scrolls continuously instead of jumping at block boundaries.
