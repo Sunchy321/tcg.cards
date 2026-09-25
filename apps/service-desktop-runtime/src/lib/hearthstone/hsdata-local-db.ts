@@ -35,6 +35,20 @@ function disposeLocalDb(db: LocalDb) {
   });
 }
 
+/** Closes the cached desktop-local client and clears the cache, so the next getLocalDb call reconnects from scratch. */
+export const closeLocalDb = async () => {
+  const previous = localDbState;
+  localDbState = null;
+
+  if (!previous) return;
+
+  // Awaited so callers that are about to exit can rely on the sockets being gone;
+  // the timeout bounds the wait if a query is still holding a connection.
+  await previous.db.$client.end({ timeout: 1 }).catch(() => {
+    // Shutdown races are harmless: the client is being discarded either way.
+  });
+};
+
 /** Returns the shared desktop-local database client for the current configured connection. */
 export const getLocalDb = () => {
   const connectionString = requireLocalDatabaseUrl();
