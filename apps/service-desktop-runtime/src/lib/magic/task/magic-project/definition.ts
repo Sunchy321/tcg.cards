@@ -12,7 +12,7 @@ import { getLocalDb } from '../../../hearthstone/hsdata-local-db';
 import { matchBatch } from '../../match';
 import { loadNameRubyLookup, type NameRubyLookup } from '../../name-ruby';
 import { assembleUnits, loadReversibleRows, type ProjectDb, type ScryfallRow } from '../../project/assemble';
-import { fillPrintImagesFromLedger, loadPrintLedgerEntries } from '../../project/fill-print-images';
+import { carryOverPrintImages, fillPrintImagesFromLedger, loadExistingPrintImages, loadPrintLedgerEntries } from '../../project/fill-print-images';
 import { inconsistentMergedSlugs } from '../../project/consistency';
 import { MANUAL_PRINT_SOURCE, manualPrintKey, staleManualPrints, type LoadedPrintCommit } from '../../project/print-commits';
 import { projectCard, type AssembledCard, type ProjectCardResult } from '../../project/project-card';
@@ -283,8 +283,14 @@ const definition = createDefinition(magicProjectTaskType, {
           oraclePrintParts.push(...result.printParts);
         }
         // The prints' image fields come from the asset ledger — the ledger is
-        // where image facts live, so a fact-table wipe still projects fully;
-        // prints without a ledger row keep the scryfall source-side status.
+        // where image facts live, so a fact-table wipe still projects fully.
+        // Beneath it, a fact row that already holds image data carries that
+        // data across: images imported before the ledger existed have no
+        // ledger row, and dropping to the raw source-side status would stamp
+        // a scryfall `placeholder` over a real local image. Prints neither
+        // layer can speak for keep the scryfall source-side status.
+        const carries = await loadExistingPrintImages(database, oraclePrints);
+        carryOverPrintImages(carries, oraclePrints);
         const ledger = await loadPrintLedgerEntries(database, oraclePrints);
         fillPrintImagesFromLedger(ledger, oraclePrints);
         counts.prints += await writeSection(database, Print, oraclePrints, [...PRINT_PK]);

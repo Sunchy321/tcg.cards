@@ -1,4 +1,4 @@
-import { inArray } from 'drizzle-orm';
+import { and, eq, inArray, or } from 'drizzle-orm';
 
 import { AssetImage } from '@tcg-cards/db/schema/local/magic';
 import { Print } from '@tcg-cards/db/schema/shared/magic/print';
@@ -25,11 +25,12 @@ export async function loadPrintLedgerEntries(database: Db, rows: PrintInsert[]):
 }
 
 /**
- * Fills the draft prints' image fields from the ledger — the replacement for
- * reading them off the fact table's own previous state. A real row becomes the
- * face's metadata, a placeholder tombstone pins the blocked state, and an
- * absent key leaves the scryfall source-side status standing. Mutates the
- * draft rows in place.
+ * Fills the draft prints' image fields from the ledger — the top tier of the
+ * projection's image sources. A real row becomes the face's metadata, a
+ * placeholder tombstone pins the blocked state, and an absent key falls
+ * through to the tier beneath: the print's own carried fact row (`carryOverPrintImages`),
+ * or the scryfall source-side status when neither layer holds image data.
+ * Mutates the draft rows in place.
  */
 export function fillPrintImagesFromLedger(ledger: Map<string, LedgerEntry>, rows: PrintImageDraft[]): void {
   for (const row of rows) {
@@ -81,4 +82,84 @@ export interface PrintImageDraft {
   number:       string;
   imageStatus?: string | null;
   imageInfo?:   ImageInfo | null;
+}
+
+/** The slice of a draft print row that identifies the fact row a carry-over reads. */
+export interface PrintImageCarryDraft {
+  cardId:       string;
+  version?:     string;
+  set:          string;
+  number:       string;
+  lang:         string;
+  source?:      string;
+  imageStatus?: string | null;
+  imageInfo?:   ImageInfo | null;
+}
+
+/** Image fields of one stored fact row, as the carry-over hands them to a draft. */
+export interface PrintImageCarry {
+  imageStatus: string | null;
+  imageInfo:   ImageInfo;
+}
+
+/** Primary-key identity of one print row, as the carry-over matches drafts to stored rows. */
+function printCarryKey(row: { cardId: string, version?: string, set: string, number: string, lang: string, source?: string }): string {
+  return [row.cardId, row.version ?? '', row.set, row.number, row.lang, row.source ?? ''].join('\u0000');
+}
+
+/**
+ * Loads the stored fact rows' image facts for the given draft prints — the
+ * fallback tier beneath the ledger. Images imported before the ledger existed
+ * (and any fact written without its ledger row) live only in the fact table,
+ * and a projection that fell straight through to the source-side status would
+ * stamp a raw `placeholder` over such a real local image. Only rows whose
+ * stored image_info carries data join the map: rows without image data have
+ * nothing to carry, and their status keeps coming from the raw source.
+ */
+export async function loadExistingPrintImages(database: Db, rows: PrintImageCarryDraft[]): Promise<Map<string, PrintImageCarry>> {
+  if (rows.length === 0) return new Map();
+  const conditions = rows.map(row => and(
+    eq(Print.cardId, row.cardId),
+    eq(Print.version, row.version ?? ''),
+    eq(Print.set, row.set),
+    eq(Print.number, row.number),
+    eq(Print.lang, row.lang as typeof Print.$inferSelect.lang),
+    eq(Print.source, row.source ?? ''),
+  ))!;
+  const stored = await database.select({
+    cardId:      Print.cardId,
+    version:     Print.version,
+    set:         Print.set,
+    number:      Print.number,
+    lang:        Print.lang,
+    source:      Print.source,
+    imageStatus: Print.imageStatus,
+    imageInfo:   Print.imageInfo,
+  }).from(Print).where(or(...conditions)) as Array<{
+    cardId: string; version: string; set: string; number: string; lang: string; source: string;
+    imageStatus: string | null; imageInfo: ImageInfo | null;
+  }>;
+  const carries = new Map<string, PrintImageCarry>();
+  for (const row of stored) {
+    if (row.imageInfo == null) continue;
+    carries.set(printCarryKey(row), { imageStatus: row.imageStatus, imageInfo: row.imageInfo });
+  }
+  return carries;
+}
+
+/**
+ * Carries each stored image fact into its draft, before the ledger fill runs
+ * so a ledger row outranks it. The outer status derives from the carried faces
+ * (the first non-null face, the same fallback the ledger fill applies) instead
+ * of being copied, so a stored outer column that contradicts the stored facts
+ * — the mismatch the ledger-less projection once wrote — heals on the next run
+ * instead of persisting.
+ */
+export function carryOverPrintImages(carries: Map<string, PrintImageCarry>, rows: PrintImageCarryDraft[]): void {
+  for (const row of rows) {
+    const carry = carries.get(printCarryKey(row));
+    if (carry == null) continue;
+    row.imageInfo = carry.imageInfo;
+    row.imageStatus = carry.imageInfo.find(face => face != null)?.status ?? carry.imageStatus;
+  }
 }

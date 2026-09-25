@@ -17,7 +17,7 @@ import { applyPathOverrides, setPathOverride } from '../../../runtime-config';
 import { backfillAssetLedger } from './backfill';
 import { clearImages } from './clear';
 import { ingestRemoteRow, ingestUploadItem } from './ingest';
-import { fillPrintImagesFromLedger, loadPrintLedgerEntries } from '../project/fill-print-images';
+import { carryOverPrintImages, fillPrintImagesFromLedger, loadExistingPrintImages, loadPrintLedgerEntries } from '../project/fill-print-images';
 
 /** Opt-in integration database, mirroring the yugioh image import test. */
 const adminUrl = process.env.MAGIC_IMAGE_TEST_DATABASE_URL?.trim() ?? null;
@@ -289,4 +289,63 @@ integrationTest('remote and upload ingest mirror files into the ledger and clear
   expect(draft.imageInfo).toHaveLength(1);
   expect(draft.imageInfo![0]!.source).toBe('manual');
   expect(draft.imageInfo![0]!.sha256).toBe(restored[0]!.sha256);
+
+  // Wedge regression: an image imported before the ledger existed has no
+  // ledger row, and a projection that fell through to the source-side status
+  // once stamped scryfall's `placeholder` over its outer column while the
+  // fact metadata survived. The carry-over heals the pair, and the absent
+  // ledger row leaves the healed facts standing.
+  const wedgedCard = randomUUID();
+  const wedgedInfo: ImageInfo = [{
+    status:       'highres_scan',
+    type:         'webp',
+    source:       'mtgflame',
+    sha256:       'c'.repeat(64),
+    width:        780,
+    height:       1082,
+    byteSize:     4096,
+    qualityScore: 0.88,
+    verifiedAt:   '2026-09-20T00:00:00.000Z',
+  }];
+  await db.insert(Print).values({
+    cardId:           wedgedCard,
+    version:          '',
+    set:              'mid',
+    number:           '298',
+    lang:             'en',
+    source:           '',
+    name:             'Wedged Card',
+    typeline:         'Test Creature',
+    layout:           'normal',
+    frame:            '2015',
+    frameEffects:     [],
+    borderColor:      'black',
+    rarity:           'common',
+    releaseDate:      '2021-11-19',
+    isDigital:        false,
+    isPromo:          false,
+    isReprint:        false,
+    finishes:         ['nonfoil'],
+    imageStatus:      'placeholder',
+    imageInfo:        wedgedInfo,
+    inBooster:        false,
+    games:            ['paper'],
+    printTags:        [],
+    multiverseId:     [],
+    scryfallOracleId: randomUUID(),
+  });
+  const wedgedDraft: (typeof Print)['$inferInsert'] = {
+    cardId:           wedgedCard, version:          '', set:              'mid', number:           '298', lang:             'en', source:           '',
+    name:             'Wedged Card', typeline:         'Test Creature', layout:           'normal', frame:            '2015',
+    frameEffects:     [], borderColor:      'black', rarity:           'common', releaseDate:      '2021-11-19',
+    isDigital:        false, isPromo:          false, isReprint:        false, finishes:         ['nonfoil'],
+    imageStatus:      'placeholder', imageInfo:        null, inBooster:        false, games:            ['paper'],
+    printTags:        [], multiverseId:     [], scryfallOracleId: randomUUID(),
+  };
+  const wedgedCarries = await loadExistingPrintImages(db, [wedgedDraft]);
+  carryOverPrintImages(wedgedCarries, [wedgedDraft]);
+  const wedgedLedger = await loadPrintLedgerEntries(db, [wedgedDraft]);
+  fillPrintImagesFromLedger(wedgedLedger, [wedgedDraft]);
+  expect(wedgedDraft.imageStatus).toBe('highres_scan');
+  expect(wedgedDraft.imageInfo).toEqual(wedgedInfo);
 }, 180_000);
