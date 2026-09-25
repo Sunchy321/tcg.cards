@@ -17,14 +17,14 @@
 
     <UAlert v-if="error" color="error" variant="soft" icon="i-lucide-circle-alert" :description="error" />
 
-    <!-- completion suggestions: read-only gap scan, adoption is per set -->
+    <!-- completion suggestions: read-only gap scan, adoption is per set or per card -->
     <div class="rounded-xl border border-slate-200 bg-white">
       <div class="flex items-center gap-2 p-4">
         <UIcon name="i-lucide-lightbulb" class="size-5 text-primary" />
         <span class="font-medium">补全建议</span>
-        <span class="hidden text-sm text-muted md:inline">各来源缺失但译文已备的位置，按系列采纳</span>
+        <span class="hidden text-sm text-muted md:inline">各来源缺失但译文已备的位置，按系列或单卡采纳</span>
         <div class="ml-auto flex items-center gap-2">
-          <UButton label="计算" icon="i-lucide-calculator" color="primary" variant="soft" :loading="suggestionsLoading" @click="loadSuggestions" />
+          <UButton label="计算全部系列" icon="i-lucide-calculator" color="primary" variant="soft" :loading="suggestionsLoading" @click="loadSuggestions" />
           <UButton
             :icon="suggestionsOpen ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
             color="neutral"
@@ -33,6 +33,80 @@
             @click="suggestionsOpen = !suggestionsOpen"
           />
         </div>
+      </div>
+      <!-- direct entry: compute one set or one card without the full scan -->
+      <div class="flex flex-wrap items-end gap-3 border-t border-slate-200 p-4">
+        <UFormField label="系列代码" class="w-36">
+          <UInput v-model="directSet" class="w-full font-mono" placeholder="如 msc" @keydown.enter="computeDirectSet" />
+        </UFormField>
+        <UButton label="计算该系列" color="neutral" variant="outline" :loading="directSetLoading" @click="computeDirectSet" />
+        <UFormField label="卡牌（英文名检索）" class="min-w-56 flex-1">
+          <template v-if="directCard == null">
+            <UInput
+              v-model="directCardSearchInput"
+              class="w-full"
+              placeholder="输入英文卡名检索"
+              icon="i-lucide-search"
+              @update:model-value="onDirectCardSearchInput"
+            />
+            <div v-if="directCardCandidates.length > 0" class="mt-2 max-h-48 space-y-1 overflow-y-auto">
+              <button
+                v-for="c in directCardCandidates"
+                :key="c.oracleId"
+                type="button"
+                class="block w-full rounded border border-slate-200 p-2 text-left text-sm hover:border-primary-400"
+                @click="chooseDirectCard(c)"
+              >
+                <span class="font-medium">{{ c.name }}</span>
+                <span class="ml-2 font-mono text-xs text-muted">如 {{ c.set }}:{{ c.number }}</span>
+              </button>
+            </div>
+          </template>
+          <div v-else class="flex items-center justify-between gap-2">
+            <span class="truncate text-sm font-medium">{{ directCard.name }}</span>
+            <UButton label="重选" size="xs" color="neutral" variant="ghost" @click="resetDirectCard" />
+          </div>
+        </UFormField>
+        <UButton
+          label="计算该卡"
+          color="neutral"
+          variant="outline"
+          :disabled="directCard == null || directSet.trim() === ''"
+          :loading="directCardLoading"
+          @click="computeDirectCard"
+        />
+      </div>
+      <!-- single-card result: computed positions with per-card adoption -->
+      <div v-if="cardResultOpen" class="border-t border-slate-200 p-4">
+        <div class="mb-2 text-sm font-medium">{{ directCard?.name ?? '' }} 在 {{ cardResultSet }} 的可补全位置</div>
+        <div v-if="cardResultError" class="mb-2 text-sm text-error">{{ cardResultError }}</div>
+        <div v-if="cardResultLoading" class="text-sm text-muted">加载中…</div>
+        <template v-else-if="cardResult != null">
+          <div v-if="cardResult.items.length === 0" class="text-sm text-muted">
+            没有可补全的位置（可能译文已存在，或已写入补全）。
+          </div>
+          <template v-else>
+            <div class="mb-2 text-xs text-muted">
+              共 {{ cardResult.total }} 条 · 可采纳 {{ cardResult.adoptable }} · 无法自动补全 {{ cardResult.ineligible }}（如可逆卡、拆分双面牌）
+            </div>
+            <div class="mb-3 max-h-72 overflow-y-auto rounded border border-slate-200">
+              <table class="w-full text-sm">
+                <tbody>
+                  <tr v-for="c in cardResult.items" :key="c.oracleId + ':' + c.number" class="border-b border-slate-100 last:border-0">
+                    <td class="p-2 font-mono text-xs">{{ c.number }}</td>
+                    <td class="p-2">{{ c.cardName ?? '（未识别卡牌）' }}</td>
+                    <td class="p-2 text-muted">{{ c.summary !== '' ? c.summary : '（无译文，仅补位置）' }}</td>
+                    <td class="p-2 w-24">
+                      <UBadge v-if="!c.adoptable" label="不可补全" color="warning" variant="soft" />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <UButton label="采纳该卡" size="xs" color="primary" variant="soft" :loading="adoptingCard" @click="cardAdoptOpen = true" />
+          </template>
+          <div v-if="cardAdoptNote !== ''" class="mt-2 text-sm text-success">{{ cardAdoptNote }}</div>
+        </template>
       </div>
       <div v-if="suggestionsOpen" class="border-t border-slate-200 p-4">
         <div class="mb-3 text-xs text-muted">只读扫描全部数据源，统计各系列可补全的位置；扫描不写入任何数据。</div>
@@ -70,6 +144,7 @@
                 <td colspan="3" class="bg-slate-50 p-3">
                   <div v-if="previewLoading" class="text-sm text-muted">加载中…</div>
                   <div v-else-if="preview == null" class="text-sm text-muted">无数据。</div>
+                  <div v-else-if="preview.total === 0" class="text-sm text-muted">该系列没有可补全的位置。</div>
                   <template v-else>
                     <div class="mb-2 text-xs text-muted">
                       共 {{ preview.total }} 条 · 可采纳 {{ preview.adoptable }} · 无法自动补全 {{ preview.ineligible }}（如可逆卡、拆分双面牌）
@@ -287,6 +362,20 @@
         <div class="flex w-full justify-end gap-2">
           <UButton label="取消" color="neutral" variant="ghost" @click="adoptOpen = false" />
           <UButton label="采纳" color="primary" :loading="adopting !== null" @click="doAdopt" />
+        </div>
+      </template>
+    </UModal>
+    <!-- single-card adopt confirmation -->
+    <UModal v-model:open="cardAdoptOpen" :title="'采纳卡牌 ' + (directCard?.name ?? '')">
+      <template #body>
+        <p class="text-sm">
+          将把该卡在系列 {{ cardResultSet }} 可自动补全的位置写入补全列表（简体中文，译文取自社区数据源），运行投影后生效。继续？
+        </p>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-end gap-2">
+          <UButton label="取消" color="neutral" variant="ghost" @click="cardAdoptOpen = false" />
+          <UButton label="采纳" color="primary" :loading="adoptingCard" @click="doAdoptCard" />
         </div>
       </template>
     </UModal>
@@ -724,6 +813,129 @@ async function doAdopt() {
     error.value = err instanceof Error ? err.message : String(err);
   } finally {
     adopting.value = null;
+  }
+}
+
+// --- direct entry: per-set and per-card computation without the full scan ---
+const directSet = ref('');
+const directSetLoading = ref(false);
+
+const directCardSearchInput = ref('');
+const directCardCandidates = ref<CardCandidate[]>([]);
+const directCard = ref<CardCandidate | null>(null);
+const directCardLoading = ref(false);
+let directCardTimer: ReturnType<typeof setTimeout> | null = null;
+
+const cardResultOpen = ref(false);
+const cardResultSet = ref('');
+const cardResultLoading = ref(false);
+const cardResultError = ref('');
+const cardResult = ref<{ items: CandidateItem[], total: number, adoptable: number, ineligible: number } | null>(null);
+const cardAdoptNote = ref('');
+
+const cardAdoptOpen = ref(false);
+const adoptingCard = ref(false);
+
+/** Debounced English-name search feeding the direct-entry card picker. */
+function onDirectCardSearchInput() {
+  if (directCardTimer != null) clearTimeout(directCardTimer);
+  const term = directCardSearchInput.value.trim();
+  if (term === '') {
+    directCardCandidates.value = [];
+    return;
+  }
+  directCardTimer = setTimeout(async () => {
+    try {
+      directCardCandidates.value = await orpc.magic.commits.cardSearch({ search: term });
+    } catch {
+      directCardCandidates.value = [];
+    }
+  }, 250);
+}
+
+function chooseDirectCard(candidate: CardCandidate) {
+  directCard.value = candidate;
+  directCardCandidates.value = [];
+  directCardSearchInput.value = '';
+}
+
+function resetDirectCard() {
+  directCard.value = null;
+  cardResultOpen.value = false;
+  cardResult.value = null;
+  cardResultError.value = '';
+  cardAdoptNote.value = '';
+}
+
+/** Computes one set's candidates straight from its code and expands its row
+ * in the scan table, so adoption reuses the per-set flow. */
+async function computeDirectSet() {
+  const code = directSet.value.trim().toLowerCase();
+  if (code === '') {
+    suggestionError.value = '请先输入系列代码。';
+    return;
+  }
+  directSetLoading.value = true;
+  suggestionError.value = '';
+  try {
+    const res = await orpc.magic.commits.candidates.list({ set: code });
+    const row = { code, candidates: res.total };
+    const existing = suggestions.value.findIndex(s => s.code === code);
+    if (existing >= 0) suggestions.value[existing] = row;
+    else suggestions.value.push(row);
+    suggestionsOpen.value = true;
+    expandedSet.value = code;
+    previewLoading.value = false;
+    preview.value = res;
+  } catch (err) {
+    suggestionError.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    directSetLoading.value = false;
+  }
+}
+
+/** Computes one card's candidate positions within the entered set. */
+async function computeDirectCard() {
+  const card = directCard.value;
+  const code = directSet.value.trim().toLowerCase();
+  if (card == null || code === '') return;
+  directCardLoading.value = true;
+  cardResultOpen.value = true;
+  cardResultSet.value = code;
+  cardResultLoading.value = true;
+  cardResultError.value = '';
+  cardAdoptNote.value = '';
+  try {
+    cardResult.value = await orpc.magic.commits.candidates.list({ set: code, oracleId: card.oracleId });
+  } catch (err) {
+    cardResultError.value = err instanceof Error ? err.message : String(err);
+    cardResult.value = null;
+  } finally {
+    directCardLoading.value = false;
+    cardResultLoading.value = false;
+  }
+}
+
+/** Adopts the computed card's positions, then re-runs the computation so the
+ * result reflects what is left (usually nothing) and refreshes the commit list. */
+async function doAdoptCard() {
+  const card = directCard.value;
+  const code = cardResultSet.value;
+  if (card == null || code === '') return;
+  adoptingCard.value = true;
+  error.value = '';
+  try {
+    const result = await orpc.magic.commits.candidates.adopt({ set: code, oracleId: card.oracleId });
+    cardAdoptOpen.value = false;
+    await computeDirectCard();
+    cardAdoptNote.value = result.adopted > 0
+      ? `已写入 ${result.adopted} 条补全，运行投影后生效。`
+      : '没有可采纳的位置（可能均已存在或无法自动补全）。';
+    await load();
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    adoptingCard.value = false;
   }
 }
 </script>

@@ -77,7 +77,8 @@ const commitAnchor = z.strictObject({
 
 // ---------------------------------------------------------------------------
 // Completion suggestions: MTGCH zhs positions Scryfall has no zhs row for.
-// The scan is read-only advice; only the per-set adoption writes commits.
+// The scan is read-only advice; only the per-set or per-card adoption writes
+// commits.
 // ---------------------------------------------------------------------------
 
 /** Whether the MTGCH translation row asserts any content (blank/escape-only counts as none). */
@@ -89,11 +90,11 @@ const mtgchHasContent = sql`(
 )`;
 
 /**
- * Candidate positions of one set (or all sets when `setCode` is null): MTGCH
- * skeleton rows carrying zhs content, whose (oracle, set, number) has no
- * Scryfall zhs row and no commit yet.
+ * Candidate positions of one set (or all sets when `setCode` is null), narrowed
+ * to one oracle when `oracleId` is given: MTGCH skeleton rows carrying zhs
+ * content, whose (oracle, set, number) has no Scryfall zhs row and no commit yet.
  */
-function candidateQuery(database: ReturnType<typeof getLocalDb>, setCode: string | null) {
+function candidateQuery(database: ReturnType<typeof getLocalDb>, setCode: string | null, oracleId?: string) {
   const filters: SQL[] = [
     isNull(MtgchScryfallCard.deletedAt),
     isNull(MtgchZhsCard.deletedAt),
@@ -104,6 +105,7 @@ function candidateQuery(database: ReturnType<typeof getLocalDb>, setCode: string
     isNotNull(MtgchScryfallCard.collectorNumber),
   ];
   if (setCode != null) filters.push(sql`lower(${MtgchScryfallCard.setCode}) = ${setCode.toLowerCase()}`);
+  if (oracleId != null) filters.push(eq(MtgchScryfallCard.oracleId, oracleId as never));
   return database.selectDistinct({
     oracleId: MtgchScryfallCard.oracleId,
     set:      sql<string>`lower(${MtgchScryfallCard.setCode})`.as('set'),
@@ -206,9 +208,10 @@ const candidateSets = os
     };
   });
 
-/** One set's candidate positions with card names and a per-position adoptability verdict. */
+/** One set's candidate positions (one oracle's only when `oracleId` is given),
+ * with card names and a per-position adoptability verdict. */
 const candidateList = os
-  .input(z.strictObject({ set: z.string().min(1) }))
+  .input(z.strictObject({ set: z.string().min(1), oracleId: z.string().optional() }))
   .output(z.strictObject({
     items: z.array(z.strictObject({
       oracleId:  z.string(),
@@ -224,7 +227,7 @@ const candidateList = os
   }))
   .handler(async ({ input }) => {
     const db = getLocalDb();
-    const positions = await candidateQuery(db, input.set);
+    const positions = await candidateQuery(db, input.set, input.oracleId);
     const english = await englishPrintsByPosition(db, input.set);
     const mtgch = await mtgchFacesByPosition(db, input.set);
 
@@ -257,9 +260,10 @@ const candidateList = os
     };
   });
 
-/** Adopts one set's candidates into print commits (origin auto, MTGCH faces). */
+/** Adopts one set's candidates (one oracle's only when `oracleId` is given)
+ * into print commits (origin auto, MTGCH faces). */
 const adoptCandidates = os
-  .input(z.strictObject({ set: z.string().min(1) }))
+  .input(z.strictObject({ set: z.string().min(1), oracleId: z.string().optional() }))
   .output(z.strictObject({
     adopted:    z.number(),
     ineligible: z.number(),
@@ -267,7 +271,7 @@ const adoptCandidates = os
   }))
   .handler(async ({ input }) => {
     const db = getLocalDb();
-    const positions = await candidateQuery(db, input.set);
+    const positions = await candidateQuery(db, input.set, input.oracleId);
     const english = await englishPrintsByPosition(db, input.set);
     const mtgch = await mtgchFacesByPosition(db, input.set);
 
