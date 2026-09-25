@@ -23,6 +23,16 @@
       </div>
     </Teleport>
 
+    <!-- Query errors -->
+    <div v-if="errorTexts.length > 0" class="mt-16 py-4 px-12 flex justify-center">
+      <div class="max-w-xl w-fit p-3 rounded-lg bg-yellow-100 dark:bg-yellow-500/20 border border-yellow-300 dark:border-yellow-400/40 text-yellow-700 dark:text-yellow-200 text-sm flex items-start gap-2">
+        <UIcon name="lucide:alert-triangle" class="shrink-0 mt-0.5" />
+        <div class="flex flex-col gap-1">
+          <span v-for="(text, i) in errorTexts" :key="i">{{ text }}</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Card grid -->
     <div class="result mt-16 py-4 px-12 flex flex-wrap justify-center gap-2">
       <NuxtLink
@@ -106,6 +116,12 @@ const explained = computed(() => model.explain(q.value ?? '', (key: string, name
 const cards = computed<CardPrintView[]>(() => (data.value?.result?.result ?? []) as CardPrintView[]);
 const total = computed(() => data.value?.result?.total ?? 0);
 const pageCount = computed(() => data.value?.result?.totalPage ?? Math.ceil(total.value / pageSize.value));
+
+// Server-side query errors (parse and validation); unknown types fall back to a generic message.
+const errorTexts = computed(() => (data.value?.errors ?? []).map((e: any) => {
+  const key = `search.error.${e.type}`;
+  return i18n.te(key) ? i18n.t(key, e.payload ?? {}) : i18n.t('search.error.fallback');
+}));
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

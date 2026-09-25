@@ -45,6 +45,9 @@ export default {
     error: {
       'unknown-token':   '未知符号',
       'unknown-command': '未知命令{name}',
+      'mixed-separator': '「{value}」里混用了多种分隔符，同一取值内请只使用一种分隔符',
+      'empty-term':      '「{value}」里存在空项，请检查分隔符是否多余（分隔符后不能有空格）',
+      'fallback':        '查询无法解析，请检查写法后重试',
     },
 
     separator: {
@@ -139,8 +142,8 @@ export default {
     },
 
     game: {
-      $self:    '游戏',
-      language: '游戏语言',
+      $self:            '游戏',
+      language:         '游戏语言',
       searchLayout:     '搜索布局',
       searchLayoutGrid: '网格',
       searchLayoutList: '列表',

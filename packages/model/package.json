@@ -23,6 +23,8 @@
   },
   "exports": {
     ".": "./src/index.ts",
-    "./*": "./src/*.ts"
+    "./*": "./src/*.ts",
+    "./magic/search": "./src/magic/search/index.ts",
+    "./magic/search/*": "./src/magic/search/*.ts"
   }
 }
