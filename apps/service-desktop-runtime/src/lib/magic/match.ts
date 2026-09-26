@@ -210,6 +210,10 @@ export interface MatchRow {
  *   - "Day // Night"
  *   - "The Ring // The Ring Tempts You"
  *   - "Punchcard // Punchcard" (both faces are real content, day//night-like)
+ *   - minigame cards: back titled "… (cont'd)" (the continuation marker
+ *     alone decides; front naming drifts and is irrelevant), or the one
+ *     known unrelated-back pair "Into the Story: Assassin Edition //
+ *     Story Beats"
  */
 export function isSingleCardDoubleFacedToken(names: string[]): boolean {
   if (names.length !== 2) return false;
@@ -220,17 +224,19 @@ export function isSingleCardDoubleFacedToken(names: string[]): boolean {
   if (a === 'The Ring' && b === 'The Ring Tempts You') return true;
   if (a === 'Punchcard' && b === 'Punchcard') return true;
   if (a === 'Start Your Engines!' && b === 'Max Speed') return true;
-  return isContinuedDoubleFacedToken(a ?? '', b ?? '');
+  return isMinigameDoubleFacedToken(a ?? '', b ?? '');
 }
 
 /**
- * Playtest-style helper cards whose back face continues the front's rules text
- * (`X // X (cont'd)`, optionally `(minigame)` on the front): one physical
- * card, not two faces.
+ * Minigame cards: one physical card whose back continues the front's rules
+ * text, not two faces. `(cont'd)` on the back is WotC's continuation marker
+ * and alone decides — front naming drifts (case, subtitles) and must not
+ * gate the match. Minigames with an unrelated back title are listed
+ * explicitly.
  */
-function isContinuedDoubleFacedToken(front: string, back: string): boolean {
-  if (!back.endsWith(' (cont\'d)')) return false;
-  return back.replace(/ \(cont'd\)$/, '') === front.replace(/ \(minigame\)$/, '');
+function isMinigameDoubleFacedToken(front: string, back: string): boolean {
+  if (back.trim().toLowerCase().endsWith(' (cont\'d)')) return true;
+  return front === 'Into the Story: Assassin Edition' && back === 'Story Beats';
 }
 
 /**

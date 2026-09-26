@@ -191,14 +191,21 @@ describe('isSingleCardDoubleFacedToken', () => {
     expect(isSingleCardDoubleFacedToken(['Start Your Engines!', 'Max Speed'])).toBe(true);
   });
 
-  test('keeps continued playtest cards as one card', () => {
+  test('keeps minigame cards as one card', () => {
+    // the (cont'd) back marker alone decides, whatever the front is titled
     expect(isSingleCardDoubleFacedToken(['Base Race', 'Base Race (cont\'d)'])).toBe(true);
     expect(isSingleCardDoubleFacedToken(['Demon\'s Due (minigame)', 'Demon\'s Due (cont\'d)'])).toBe(true);
+    expect(isSingleCardDoubleFacedToken(['Day Vs. Night', 'Day vs. Night (cont\'d)'])).toBe(true);
+    expect(isSingleCardDoubleFacedToken(['Completely Unrelated', 'Something (cont\'d)'])).toBe(true);
+    // the one known minigame with an unrelated back title
+    expect(isSingleCardDoubleFacedToken(['Into the Story: Assassin Edition', 'Story Beats'])).toBe(true);
   });
 
   test('still splits regular two-token objects', () => {
     expect(isSingleCardDoubleFacedToken(['Goblin', 'Soldier'])).toBe(false);
     expect(isSingleCardDoubleFacedToken(['Goblin', 'Blood'])).toBe(false);
+    // an unrelated back title is not enough without the explicit entry
+    expect(isSingleCardDoubleFacedToken(['Into the Story: Horror Edition', 'Story Beats'])).toBe(false);
   });
 });
 
