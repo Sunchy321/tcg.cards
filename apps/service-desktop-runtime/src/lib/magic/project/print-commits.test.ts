@@ -58,7 +58,7 @@ function draft(overrides: Partial<PrintDraft>): PrintDraft {
 
 /** Minimal commit targeting the factory draft's position; tests override what they care about. */
 function commit(overrides: Partial<LoadedPrintCommit>): LoadedPrintCommit {
-  return { set: 'msc', number: '806', lang: 'zhs', faces: [], metadata: null, ...overrides };
+  return { set: 'msc', number: '806', lang: 'zhs', faces: [], data: null, ...overrides };
 }
 
 test('clones the same-position English print and empties upstream identity', () => {
@@ -104,7 +104,7 @@ test('commit faces overlay the baseline slot field by field', () => {
 test('metadata overrides win over the baseline', () => {
   const base = draft({ rarity: 'uncommon', releasedAt: '2026-06-26', finishes: ['nonfoil', 'foil'] });
   const [manual] = synthesizePrintCommits([base], [commit({
-    metadata: { rarity: 'rare', releaseDate: '1995-01-01', finishes: ['nonfoil'] },
+    data: { rarity: 'rare', releaseDate: '1995-01-01', finishes: ['nonfoil'] },
   })]);
   expect(manual!.rarity).toBe('rare');
   expect(manual!.releasedAt).toBe('1995-01-01');
@@ -129,6 +129,18 @@ test('commit face slots beyond the unit face count are ignored', () => {
   })]);
   expect(manual!.faces).toHaveLength(1);
   expect(manual!.faces[0]!.printedName).toBe('闪电击');
+});
+
+test('the committed position takes its multiverse ids from the commit data', () => {
+  const base = draft({ multiverseIds: [3] });
+  // the ids were fixed into the commit at write time — the draft carries
+  // them, never the English print's ids
+  const [withIds] = synthesizePrintCommits([base], [commit({ data: { multiverseIds: [988036, 988037] } })]);
+  expect(withIds!.multiverseIds).toEqual([988036, 988037]);
+  // no full gatherer coverage at write time: the array stays empty rather
+  // than partial
+  const [without] = synthesizePrintCommits([base], [commit({})]);
+  expect(without!.multiverseIds).toEqual([]);
 });
 
 test('staleManualPrints keeps exactly the emitted keys and recycles the rest', () => {

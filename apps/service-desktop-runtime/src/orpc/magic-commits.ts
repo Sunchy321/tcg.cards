@@ -2,7 +2,14 @@ import { z } from 'zod';
 import { and, asc, count, eq, ilike, inArray, isNotNull, isNull, notExists, sql, type SQL } from 'drizzle-orm';
 
 import { taskPageSnapshot } from '@tcg-cards/model/task';
-import { MtgchScryfallCard, MtgchZhsCard, PrintCommit, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
+import {
+  MtgchScryfallCard,
+  MtgchZhsCard,
+  PrintCommit,
+  ScryfallCard,
+  type PrintCommitData,
+  type PrintCommitFace,
+} from '@tcg-cards/db/schema/local/magic';
 
 import { os } from './index';
 import { createAndRunTask } from './task';
@@ -16,11 +23,17 @@ import {
   type CandidateFaceRow,
 } from '../lib/magic/commit-candidates';
 import {
+  buildGathererFaces,
+  gathererSurfacesAgree,
+  type GathererFaceRow,
+} from '../lib/magic/gatherer-candidates';
+import {
   commitFaceSummary,
+  normalizeCommitData,
   normalizeCommitFaces,
-  normalizeCommitMetadata,
   validateCommitSave,
 } from '../lib/magic/commits';
+import { loadGathererMultiverseIds, type CommitAnchor } from '../lib/magic/task/magic-project/oracle-prints';
 
 /** One printed-surface override as submitted by the console form. */
 const commitFace = z.strictObject({
@@ -56,8 +69,8 @@ const cardCandidate = z.strictObject({
   faceNames: z.array(z.string()),
 });
 
-/** Whitelisted print metadata overrides, as stored on the commit row. */
-const commitMetadata = z.strictObject({
+/** Whitelisted commit payload, as stored on the commit row. */
+const commitData = z.strictObject({
   rarity:        z.string().optional(),
   releaseDate:   z.string().optional(),
   frame:         z.string().optional(),
@@ -69,6 +82,7 @@ const commitMetadata = z.strictObject({
   isDigital:     z.boolean().optional(),
   isPromo:       z.boolean().optional(),
   inBooster:     z.boolean().optional(),
+  multiverseIds: z.array(z.number()).optional(),
 });
 
 /** The four-column anchor of a print commit (oracle + print position). */
@@ -80,10 +94,16 @@ const commitAnchor = z.strictObject({
 });
 
 // ---------------------------------------------------------------------------
-// Completion suggestions: MTGCH zhs positions Scryfall has no zhs row for.
-// The scan is read-only advice; only the per-set or per-card adoption writes
+// Completion suggestions: positions no source records, offered by MTGCH (zhs)
+// and by the cached Gatherer pages (every locale the official site carries).
+// Where both sources offer a zhs translation and the wording differs, the
+// candidate stays unresolved until the console picks a side. The scan is
+// read-only advice; only the per-set / per-card / per-side adoption writes
 // commits.
 // ---------------------------------------------------------------------------
+
+/** Source of a completion candidate's translation. */
+const candidateSource = z.enum(['mtgch', 'gatherer']);
 
 /** Whether the MTGCH translation row asserts any content (blank/escape-only counts as none). */
 const mtgchHasContent = sql`(
@@ -197,14 +217,224 @@ async function mtgchFacesByPosition(database: ReturnType<typeof getLocalDb>, set
   return map;
 }
 
-/** Per-set suggestion counts (advisory; exotic layouts may overestimate slightly). */
+/**
+ * Gatherer candidate rows of one set (all sets when `setCode` is null),
+ * narrowed to one oracle when `oracleId` is given: every cached foreign
+ * locale face joined to the English position by face name, whose (oracle,
+ * set, number, lang) has neither a Scryfall row nor a commit yet.
+ */
+const GATHERER_LANG = sql`CASE
+  WHEN g.data->>'languageCode' = 'zh'
+    THEN CASE WHEN g.data->'language'->>'englishName' = 'Chinese Traditional' THEN 'zht' ELSE 'zhs' END
+  ELSE g.data->>'languageCode'
+END`;
+
+function gathererCandidateRows(setCode: string | null, oracleId?: string): SQL {
+  const filters: SQL[] = [
+    sql`g.data IS NOT NULL`,
+    sql`g.data->>'kind' = 'CardData'`,
+    sql`g.data->>'languageCode' IS NOT NULL AND g.data->>'languageCode' <> 'en'`,
+  ];
+  if (setCode != null) filters.push(sql`lower(g.data->>'setCode') = ${setCode.toLowerCase()}`);
+  if (oracleId != null) filters.push(sql`sc.oracle_id = ${oracleId}::uuid`);
+  return sql`
+    SELECT
+      c."oracleId", c."set", c."number", c."lang",
+      c."oracleName", c."instanceName", c."instanceTypeLine",
+      c."instanceText", c."flavorText"
+    FROM (
+      SELECT
+        sc.oracle_id AS "oracleId",
+        lower(g.data->>'setCode') AS "set",
+        g.data->>'cardNumber' AS "number",
+        ${GATHERER_LANG} AS "lang",
+        g.data->>'languageCode' AS "languageCode",
+        g.data->'language'->>'englishName' AS "languageName",
+        g.data->>'oracleName' AS "oracleName",
+        g.data->>'instanceName' AS "instanceName",
+        g.data->>'instanceTypeLine' AS "instanceTypeLine",
+        g.data->>'instanceText' AS "instanceText",
+        g.data->>'flavorText' AS "flavorText"
+      FROM magic_data.gatherer g
+      JOIN magic_data.scryfall_cards sc
+        ON sc.lang = 'en' AND sc.deleted_at IS NULL
+       AND sc.set = lower(g.data->>'setCode')
+       AND sc.collector_number = g.data->>'cardNumber'
+       AND (sc.name = g.data->>'oracleName'
+            OR split_part(sc.name, ' // ', 1) = g.data->>'oracleName'
+            OR split_part(sc.name, ' // ', 2) = g.data->>'oracleName')
+      WHERE ${sql.join(filters, sql` AND `)}
+    ) c
+    WHERE NOT EXISTS (
+        SELECT 1 FROM magic_data.scryfall_cards s2
+        WHERE s2.deleted_at IS NULL AND s2.lang = c."lang"
+          AND s2.oracle_id = c."oracleId"
+          AND s2.set = c."set"
+          AND s2.collector_number = c."number")
+      AND NOT EXISTS (
+        SELECT 1 FROM magic_data.print_commits pc
+        WHERE pc.oracle_id = c."oracleId"
+          AND pc.set = c."set"
+          AND pc.number = c."number"
+          AND pc.lang = c."lang")`;
+}
+
+interface GathererCandidateRow {
+  oracleId:         string;
+  set:              string;
+  number:           string;
+  lang:             string;
+  languageCode:     string;
+  languageName:     string;
+  oracleName:       string;
+  instanceName:     string;
+  instanceTypeLine: string;
+  instanceText:     string;
+  flavorText:       string;
+}
+
+/** Gatherer candidate faces of one set, grouped `oracleId|number|lang`. */
+async function gathererFacesByPosition(
+  database: ReturnType<typeof getLocalDb>,
+  setCode: string,
+  oracleId?: string,
+): Promise<Map<string, GathererFaceRow[]>> {
+  const result = await database.execute(gathererCandidateRows(setCode, oracleId));
+  const map = new Map<string, GathererFaceRow[]>();
+  for (const row of result as unknown as GathererCandidateRow[]) {
+    const key = `${row.oracleId}|${row.number}|${row.lang}`;
+    const list = map.get(key) ?? [];
+    list.push({
+      languageCode:     row.languageCode,
+      languageName:     row.languageName,
+      oracleName:       row.oracleName,
+      instanceName:     row.instanceName,
+      instanceTypeLine: row.instanceTypeLine,
+      instanceText:     row.instanceText,
+      flavorText:       row.flavorText,
+    });
+    map.set(key, list);
+  }
+  return map;
+}
+
+/**
+ * One merged suggestion: an anchor position whose translation comes from one
+ * source — or from both, when the two zhs surfaces disagree and the console
+ * must pick. `facesBySource` carries each source's built slots so adoption
+ * writes the chosen side without re-querying.
+ */
+interface ResolvedCandidate {
+  oracleId:      string;
+  set:           string;
+  number:        string;
+  lang:          string;
+  cardName:      string | null;
+  adoptable:     boolean;
+  source:        'mtgch' | 'gatherer';
+  conflict:      boolean;
+  options:       Array<{ source: 'mtgch' | 'gatherer', summary: string }>;
+  facesBySource: Partial<Record<'mtgch' | 'gatherer', Array<Partial<PrintCommitFace>>>>;
+}
+
+/**
+ * Merges both sources' candidates of one set (one oracle's only when
+ * `oracleId` is given): MTGCH zhs positions as today, Gatherer locales whose
+ * rows the anchor lacks, and the disagreeing zhs positions flagged for a
+ * manual source choice. Adoption never auto-writes a conflict.
+ */
+async function resolveCandidates(
+  database: ReturnType<typeof getLocalDb>,
+  setCode: string,
+  oracleId?: string,
+): Promise<ResolvedCandidate[]> {
+  const english = await englishPrintsByPosition(database, setCode);
+  const mtgchPositions = await candidateQuery(database, setCode, oracleId);
+  const mtgch = await mtgchFacesByPosition(database, setCode);
+  const gatherer = await gathererFacesByPosition(database, setCode, oracleId);
+
+  const eligibility = (key: string) => {
+    const card = english.get(key) ?? null;
+    return {
+      card,
+      adoptable: card != null && candidateOracleEligible({
+        layout: card.layout, name: card.name, cardFaces: card.cardFaces,
+      }),
+      faceCount: card != null
+        ? candidateFaceCount({ layout: card.layout, name: card.name, cardFaces: card.cardFaces })
+        : 1,
+      faceNames: faceNamesOf(card ?? undefined),
+    };
+  };
+
+  const items: ResolvedCandidate[] = [];
+  for (const position of mtgchPositions) {
+    const key = `${position.oracleId}|${position.number}`;
+    const facts = eligibility(key);
+    const faces = buildCandidateFaces(mtgch.get(key) ?? [], facts.faceCount);
+    const gathererKey = `${key}|zhs`;
+    const gathererRows = gatherer.get(gathererKey);
+    gatherer.delete(gathererKey);
+    if (gathererRows != null && gathererRows.length > 0) {
+      const gathererFaces = buildGathererFaces(gathererRows, facts.faceNames, facts.faceCount);
+      if (gathererSurfacesAgree(faces, gathererFaces)) {
+        items.push({
+          oracleId:      position.oracleId ?? '', set:           position.set, number:        position.number ?? '',
+          lang:          'zhs', cardName:      facts.card?.name ?? null, adoptable:     facts.adoptable,
+          source:        'mtgch', conflict:      false, options:       [],
+          facesBySource: { mtgch: faces },
+        });
+        continue;
+      }
+      items.push({
+        oracleId:  position.oracleId ?? '', set:       position.set, number:    position.number ?? '',
+        lang:      'zhs', cardName:  facts.card?.name ?? null, adoptable: facts.adoptable,
+        source:    'mtgch', conflict:  true,
+        options:   [
+          { source: 'mtgch', summary: commitFaceSummary(faces) },
+          { source: 'gatherer', summary: commitFaceSummary(gathererFaces) },
+        ],
+        facesBySource: { mtgch: faces, gatherer: gathererFaces },
+      });
+      continue;
+    }
+    items.push({
+      oracleId:      position.oracleId ?? '', set:           position.set, number:        position.number ?? '',
+      lang:          'zhs', cardName:      facts.card?.name ?? null, adoptable:     facts.adoptable,
+      source:        'mtgch', conflict:      false, options:       [],
+      facesBySource: { mtgch: faces },
+    });
+  }
+  for (const [key, rows] of gatherer) {
+    const [oracleId, number, lang] = key.split('|');
+    if (oracleId == null || number == null || lang == null) continue;
+    const facts = eligibility(`${oracleId}|${number}`);
+    const faces = buildGathererFaces(rows, facts.faceNames, facts.faceCount);
+    items.push({
+      oracleId, set:           setCode.toLowerCase(), number, lang,
+      cardName:      facts.card?.name ?? null, adoptable:     facts.adoptable,
+      source:        'gatherer', conflict:      false, options:       [],
+      facesBySource: { gatherer: faces },
+    });
+  }
+  return items.sort((a, b) =>
+    a.number.localeCompare(b.number, undefined, { numeric: true }) || a.lang.localeCompare(b.lang));
+}
+
+/** Per-set suggestion counts across both sources (advisory; exotic layouts may overestimate slightly). */
 const candidateSets = os
   .output(z.strictObject({ sets: z.array(z.strictObject({ code: z.string(), candidates: z.number() })) }))
   .handler(async () => {
     const db = getLocalDb();
-    const rows = await candidateQuery(db, null);
     const counts = new Map<string, number>();
-    for (const row of rows) counts.set(row.set, (counts.get(row.set) ?? 0) + 1);
+    for (const row of await candidateQuery(db, null)) counts.set(row.set, (counts.get(row.set) ?? 0) + 1);
+    const gathererResult = await db.execute(sql`
+      SELECT c."set" AS code, count(DISTINCT (c."oracleId", c."number", c."lang")) AS candidates
+      FROM (${gathererCandidateRows(null)}) c
+      GROUP BY c."set"`);
+    for (const row of gathererResult as unknown as Array<{ code: string, candidates: string }>) {
+      counts.set(row.code, (counts.get(row.code) ?? 0) + Number(row.candidates));
+    }
     return {
       sets: [...counts.entries()]
         .map(([code, candidates]) => ({ code, candidates }))
@@ -213,7 +443,8 @@ const candidateSets = os
   });
 
 /** One set's candidate positions (one oracle's only when `oracleId` is given),
- * with card names and a per-position adoptability verdict. */
+ * with card names, source and language labels, and a per-position
+ * adoptability verdict. */
 const candidateList = os
   .input(z.strictObject({ set: z.string().min(1), oracleId: z.string().optional() }))
   .output(z.strictObject({
@@ -221,86 +452,90 @@ const candidateList = os
       oracleId:  z.string(),
       set:       z.string(),
       number:    z.string(),
+      lang:      z.string(),
       cardName:  z.string().nullable(),
+      source:    candidateSource,
+      conflict:  z.boolean(),
+      options:   z.array(z.strictObject({ source: candidateSource, summary: z.string() })),
       summary:   z.string(),
       adoptable: z.boolean(),
     })),
     total:      z.number(),
     adoptable:  z.number(),
     ineligible: z.number(),
+    conflicts:  z.number(),
   }))
   .handler(async ({ input }) => {
-    const db = getLocalDb();
-    const positions = await candidateQuery(db, input.set, input.oracleId);
-    const english = await englishPrintsByPosition(db, input.set);
-    const mtgch = await mtgchFacesByPosition(db, input.set);
-
-    const items = positions.map(position => {
-      const key = `${position.oracleId}|${position.number}`;
-      const card = english.get(key) ?? null;
-      const adoptable = card != null && candidateOracleEligible({
-        layout: card.layout, name: card.name, cardFaces: card.cardFaces,
-      });
-      const faces = buildCandidateFaces(mtgch.get(key) ?? [], card != null
-        ? candidateFaceCount({
-          layout: card.layout, name: card.name, cardFaces: card.cardFaces,
-        })
-        : 1);
+    const items = await resolveCandidates(getLocalDb(), input.set, input.oracleId);
+    const view = items.map(item => {
+      const faces = item.facesBySource[item.source] ?? [];
       return {
-        oracleId: position.oracleId ?? '',
-        set:      position.set,
-        number:   position.number ?? '',
-        cardName: card?.name ?? null,
-        summary:  commitFaceSummary(faces as never),
-        adoptable,
+        oracleId:  item.oracleId,
+        set:       item.set,
+        number:    item.number,
+        lang:      item.lang,
+        cardName:  item.cardName,
+        source:    item.source,
+        conflict:  item.conflict,
+        options:   item.options,
+        summary:   commitFaceSummary(faces),
+        adoptable: item.adoptable,
       };
-    }).sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true }));
-
+    });
     return {
-      items,
-      total:      items.length,
-      adoptable:  items.filter(i => i.adoptable).length,
-      ineligible: items.filter(i => !i.adoptable).length,
+      items:      view,
+      total:      view.length,
+      adoptable:  view.filter(i => i.adoptable && !i.conflict).length,
+      ineligible: view.filter(i => !i.adoptable).length,
+      conflicts:  view.filter(i => i.conflict).length,
     };
   });
 
-/** Adopts one set's candidates (one oracle's only when `oracleId` is given)
- * into print commits (origin auto, MTGCH faces). */
+/** Adopts one set's resolved candidates (one oracle's only when `oracleId` is
+ * given) into print commits. A position whose two zhs sources disagree is
+ * never auto-written — it waits for a per-side choice. */
 const adoptCandidates = os
   .input(z.strictObject({ set: z.string().min(1), oracleId: z.string().optional() }))
   .output(z.strictObject({
     adopted:    z.number(),
     ineligible: z.number(),
+    conflicts:  z.number(),
     note:       z.string(),
   }))
   .handler(async ({ input }) => {
     const db = getLocalDb();
-    const positions = await candidateQuery(db, input.set, input.oracleId);
-    const english = await englishPrintsByPosition(db, input.set);
-    const mtgch = await mtgchFacesByPosition(db, input.set);
+    const items = await resolveCandidates(db, input.set, input.oracleId);
 
     const values: (typeof PrintCommit)['$inferInsert'][] = [];
     let ineligible = 0;
-    for (const position of positions) {
-      const key = `${position.oracleId}|${position.number}`;
-      const card = english.get(key) ?? null;
-      if (card == null || !candidateOracleEligible({ layout: card.layout, name: card.name, cardFaces: card.cardFaces })) {
+    let conflicts = 0;
+    const adopted: CommitAnchor[] = [];
+    for (const item of items) {
+      if (item.conflict) {
+        conflicts += 1;
+        continue;
+      }
+      if (!item.adoptable) {
         ineligible += 1;
         continue;
       }
-      const faces = buildCandidateFaces(mtgch.get(key) ?? [], candidateFaceCount({
-        layout: card.layout, name: card.name, cardFaces: card.cardFaces,
-      }));
+      adopted.push({ oracleId: item.oracleId, set: item.set, number: item.number, lang: item.lang });
       values.push({
-        oracleId: position.oracleId as never,
-        set:      position.set,
-        number:   position.number ?? '',
-        lang:     'zhs',
+        oracleId: item.oracleId as never,
+        set:      item.set,
+        number:   item.number,
+        lang:     item.lang,
         origin:   'auto',
-        faces,
-        metadata: null,
-        note:     '数据来源：MTGCH',
+        faces:    item.facesBySource[item.source] ?? [],
+        note:     item.source === 'mtgch' ? '数据来源：MTGCH' : '数据来源：Gatherer',
       });
+    }
+    // Fix each position's face-aligned multiverse IDs at write time; a
+    // position the cache cannot fully cover stores none.
+    const idsMap = await loadGathererMultiverseIds(db, adopted);
+    for (const value of values) {
+      const ids = idsMap.get(`${value.oracleId}|${value.set}|${value.number}|${value.lang}`);
+      value.data = ids != null ? { multiverseIds: ids } : null;
     }
     if (values.length > 0) {
       await db.insert(PrintCommit).values(values).onConflictDoNothing({
@@ -310,8 +545,83 @@ const adoptCandidates = os
     return {
       adopted: values.length,
       ineligible,
-      note:    '数据来源：MTGCH',
+      conflicts,
+      note:    '数据来源：MTGCH、Gatherer',
     };
+  });
+
+/** Adopts one candidate position with an explicitly chosen source — the
+ * resolution path for a position whose two zhs surfaces disagree. */
+const adoptOne = os
+  .input(z.strictObject({
+    oracleId: z.string().min(1),
+    set:      z.string().min(1),
+    number:   z.string().min(1),
+    lang:     z.string().min(1),
+    source:   candidateSource,
+  }))
+  .output(z.strictObject({ saved: z.boolean(), note: z.string() }))
+  .handler(async ({ input }) => {
+    const db = getLocalDb();
+    const card = await db.select({
+      oracleId:  ScryfallCard.oracleId,
+      name:      ScryfallCard.name,
+      layout:    ScryfallCard.layout,
+      cardFaces: ScryfallCard.cardFaces,
+    }).from(ScryfallCard).where(and(
+      eq(ScryfallCard.lang, 'en'),
+      isNull(ScryfallCard.deletedAt),
+      eq(ScryfallCard.oracleId, input.oracleId as never),
+      eq(ScryfallCard.set, input.set.toLowerCase()),
+      eq(ScryfallCard.collectorNumber, input.number),
+    )).then(rows => rows[0]);
+    if (card == null) throw new Error('该位置没有英文印刷，无法补全。');
+    if (!candidateOracleEligible({ layout: card.layout, name: card.name, cardFaces: card.cardFaces as never })) {
+      throw new Error('该卡牌无法自动补全（如可逆卡、拆分双面牌）。');
+    }
+    const faceCount = candidateFaceCount({ layout: card.layout, name: card.name, cardFaces: card.cardFaces as never });
+    const faceNames = faceNamesOf({ name: card.name, cardFaces: card.cardFaces });
+
+    let faces: Array<Partial<PrintCommitFace>>;
+    let note: string;
+    if (input.source === 'mtgch') {
+      if (input.lang !== 'zhs') throw new Error('MTGCH 只提供简体中文译文。');
+      const mtgch = await mtgchFacesByPosition(db, input.set);
+      const rows = mtgch.get(`${input.oracleId}|${input.number}`);
+      if (rows == null || rows.length === 0) throw new Error('MTGCH 没有该位置的译文。');
+      faces = buildCandidateFaces(rows, faceCount);
+      note = '数据来源：MTGCH';
+    } else {
+      const gatherer = await gathererFacesByPosition(db, input.set, input.oracleId);
+      const rows = gatherer.get(`${input.oracleId}|${input.number}|${input.lang}`);
+      if (rows == null || rows.length === 0) throw new Error('Gatherer 缓存里没有该位置的语言版本，请先运行 Gatherer 抓取。');
+      faces = buildGathererFaces(rows, faceNames, faceCount);
+      note = '数据来源：Gatherer';
+    }
+
+    // Whatever source provided the translation, the multiverse ids are
+    // Gatherer's — fixed into the commit row at write time when the cache
+    // covers every face.
+    const anchor: CommitAnchor = { oracleId: input.oracleId, set: input.set, number: input.number, lang: input.lang };
+    const ids = (await loadGathererMultiverseIds(db, [anchor])).get(`${anchor.oracleId}|${anchor.set}|${anchor.number}|${anchor.lang}`) ?? null;
+    const data: PrintCommitData | null = ids != null ? { multiverseIds: ids } : null;
+
+    await db.insert(PrintCommit).values({
+      oracleId: input.oracleId as never,
+      set:      input.set,
+      number:   input.number,
+      lang:     input.lang,
+      origin:   'auto',
+      faces,
+      data,
+      note,
+    }).onConflictDoUpdate({
+      target: [PrintCommit.oracleId, PrintCommit.set, PrintCommit.number, PrintCommit.lang],
+      // A re-adoption refreshes the fixed ids only when the cache still
+      // resolves them; a coverage gap must not wipe the stored ones.
+      set:    { faces, note, ...(ids != null ? { data } : {}) },
+    });
+    return { saved: true, note };
   });
 
 /** English scryfall row of one oracle (representative print). */
@@ -407,7 +717,7 @@ const get = os
   .input(commitAnchor)
   .output(z.strictObject({
     faces:     z.array(commitFace),
-    metadata:  commitMetadata.nullable(),
+    data:      commitData.nullable(),
     note:      z.string().nullable(),
     origin:    z.string(),
     faceNames: z.array(z.string()),
@@ -425,7 +735,7 @@ const get = os
     const card = await englishCard(db, input.oracleId);
     return {
       faces:     row.faces ?? [],
-      metadata:  row.metadata ?? null,
+      data:      row.data ?? null,
       note:      row.note,
       origin:    row.origin,
       faceNames: faceNamesOf(card),
@@ -469,7 +779,10 @@ const cardSearch = os
   });
 
 /** Upserts one commit. The anchor's English position must exist — the
- * projection clones it, so a commit without one would silently never project. */
+ * projection clones it, so a commit without one would silently never project.
+ * The form-edited payload keys are replaced wholesale; the fixed multiverse
+ * ids are re-resolved from the Gatherer cache, falling back to the stored
+ * ones when the cache cannot cover the position. */
 const save = os
   .input(z.strictObject({
     oracleId: z.string().min(1),
@@ -477,7 +790,7 @@ const save = os
     number:   z.string().min(1),
     lang:     z.string().min(1),
     faces:    z.array(commitFace),
-    metadata: commitMetadata.nullable(),
+    data:     commitData.nullable(),
     note:     z.string().nullable(),
   }))
   .output(z.strictObject({ saved: z.boolean() }))
@@ -499,8 +812,22 @@ const save = os
     if (error != null) throw new Error(error);
 
     const faces = normalizeCommitFaces(input.faces);
-    const metadata = normalizeCommitMetadata(input.metadata as never);
+    const data = normalizeCommitData(input.data);
     const note = input.note?.trim() || null;
+
+    const anchor: CommitAnchor = { oracleId: input.oracleId, set: input.set, number: input.number, lang: input.lang };
+    const existing = await db.select({ data: PrintCommit.data }).from(PrintCommit).where(and(
+      eq(PrintCommit.oracleId, input.oracleId as never),
+      eq(PrintCommit.set, input.set),
+      eq(PrintCommit.number, input.number),
+      eq(PrintCommit.lang, input.lang),
+    )).then(rows => rows[0]);
+    const ids = (await loadGathererMultiverseIds(db, [anchor])).get(`${anchor.oracleId}|${anchor.set}|${anchor.number}|${anchor.lang}`)
+      ?? existing?.data?.multiverseIds
+      ?? null;
+    const storedData: PrintCommitData | null = ids != null && ids.length > 0
+      ? { ...(data ?? {}), multiverseIds: ids }
+      : data;
 
     await db.insert(PrintCommit).values({
       oracleId: input.oracleId as never,
@@ -508,11 +835,11 @@ const save = os
       number:   input.number,
       lang:     input.lang,
       faces,
-      metadata,
+      data:     storedData,
       note,
     }).onConflictDoUpdate({
       target: [PrintCommit.oracleId, PrintCommit.set, PrintCommit.number, PrintCommit.lang],
-      set:    { faces, metadata, note },
+      set:    { faces, data: storedData, note },
     });
     return { saved: true };
   });
@@ -573,5 +900,5 @@ export const magicCommitsRouter = {
   remove,
   projectOne,
   projectAll,
-  candidates: { sets: candidateSets, list: candidateList, adopt: adoptCandidates },
+  candidates: { sets: candidateSets, list: candidateList, adopt: adoptCandidates, adoptOne },
 };

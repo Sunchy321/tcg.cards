@@ -1,8 +1,8 @@
 import { test, expect } from 'bun:test';
 import {
   commitFaceSummary,
+  normalizeCommitData,
   normalizeCommitFaces,
-  normalizeCommitMetadata,
   validateCommitSave,
   type CommitSaveInput,
 } from './commits';
@@ -13,7 +13,7 @@ const valid: CommitSaveInput = {
   number:   '806',
   lang:     'zhs',
   faces:    [],
-  metadata: null,
+  data:     null,
   note:     null,
 };
 
@@ -46,11 +46,17 @@ test('normalizeCommitFaces trims strings, keeps interior slots, drops trailing e
   ]);
 });
 
-test('normalizeCommitMetadata keeps only whitelisted non-empty values', () => {
-  expect(normalizeCommitMetadata({ rarity: ' rare ', releaseDate: ' ', isPromo: true })).toEqual({ rarity: 'rare', isPromo: true });
-  expect(normalizeCommitMetadata({ finishes: [' nonfoil ', ''] })).toEqual({ finishes: ['nonfoil'] });
-  expect(normalizeCommitMetadata({ rarity: ' ' })).toBeNull();
-  expect(normalizeCommitMetadata(null)).toBeNull();
+test('normalizeCommitData keeps only whitelisted non-empty values', () => {
+  expect(normalizeCommitData({ rarity: ' rare ', releaseDate: ' ', isPromo: true })).toEqual({ rarity: 'rare', isPromo: true });
+  expect(normalizeCommitData({ finishes: [' nonfoil ', ''] })).toEqual({ finishes: ['nonfoil'] });
+  expect(normalizeCommitData({ rarity: ' ' })).toBeNull();
+  expect(normalizeCommitData(null)).toBeNull();
+});
+
+test('normalizeCommitData keeps integer multiverse ids and drops empties', () => {
+  expect(normalizeCommitData({ multiverseIds: [588126, 588127] })).toEqual({ multiverseIds: [588126, 588127] });
+  expect(normalizeCommitData({ multiverseIds: [] })).toBeNull();
+  expect(normalizeCommitData({ multiverseIds: [1.5, Number.NaN] as never })).toBeNull();
 });
 
 test('commitFaceSummary surfaces the first asserted printed name', () => {

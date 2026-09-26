@@ -1,8 +1,9 @@
-import { and, eq, inArray, isNull, or } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
-import { Print, PrintCommit, PrintPart } from '@tcg-cards/db/schema/local/magic';
+import { Print, PrintCommit, PrintPart, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
 
 import type { NameRubyLookup } from '../../name-ruby';
+import { alignedGathererMultiverseIds, gathererLocaleMatches } from '../../gatherer-candidates';
 import type { ProjectDb, ScryfallRow } from '../../project/assemble';
 import { assembleUnits } from '../../project/assemble';
 import {
@@ -60,14 +61,106 @@ export async function writeSection(database: ProjectDb, table: any, rows: unknow
   return r.inserted + r.updated + r.unchanged;
 }
 
+/** Anchor fields of one print commit, as the loader and its enrichment key them. */
+export interface CommitAnchor {
+  oracleId: string;
+  set:      string;
+  number:   string;
+  lang:     string;
+}
+
+/** `oracleId|set|number|lang` identity of one commit anchor. */
+function commitKey(row: CommitAnchor): string {
+  return `${row.oracleId}|${row.set}|${row.number}|${row.lang}`;
+}
+
+/**
+ * Resolves each anchor's multiverse IDs from the Gatherer cache. Whatever
+ * source provided the translation, the committed position's multiverse id is
+ * Gatherer's to provide — it is the only upstream id space where the position
+ * exists. Face slots align with the oracle's English face names; a position
+ * whose cached rows do not cover every face resolves to nothing, and the
+ * commit is then stored without multiverse ids rather than with a partially
+ * aligned array.
+ */
+export async function loadGathererMultiverseIds(database: ProjectDb, commits: CommitAnchor[]): Promise<Map<string, number[]>> {
+  const resolved = new Map<string, number[]>();
+  if (commits.length === 0) return resolved;
+
+  const sets = [...new Set(commits.map(c => c.set.toLowerCase()))];
+  const oracleIds = [...new Set(commits.map(c => c.oracleId))];
+
+  // English face names per commit position, the slot-alignment reference.
+  const enRows = await database.select({
+    oracleId:        ScryfallCard.oracleId,
+    set:             ScryfallCard.set,
+    collectorNumber: ScryfallCard.collectorNumber,
+    name:            ScryfallCard.name,
+    cardFaces:       ScryfallCard.cardFaces,
+  }).from(ScryfallCard).where(and(
+    eq(ScryfallCard.lang, 'en'),
+    isNull(ScryfallCard.deletedAt),
+    inArray(ScryfallCard.oracleId, oracleIds as never),
+    inArray(ScryfallCard.set, sets),
+  ));
+  const faceNames = new Map<string, string[]>();
+  for (const row of enRows) {
+    const faces = (row.cardFaces as Array<{ name?: string }> | null) ?? [];
+    faceNames.set(
+      `${String(row.oracleId)}|${row.set}|${row.collectorNumber}`,
+      faces.length === 0 ? [row.name] : faces.map(f => f.name ?? ''),
+    );
+  }
+
+  // Cached Gatherer rows of the involved sets — one row per face of one locale.
+  const gRows = await database.execute(sql`
+    SELECT lower(g.data->>'setCode') AS "set",
+           g.data->>'cardNumber' AS "number",
+           g.data->>'languageCode' AS "languageCode",
+           g.data->'language'->>'englishName' AS "languageName",
+           g.data->>'oracleName' AS "oracleName",
+           (g.data->>'multiverseId')::int AS "multiverseId"
+    FROM magic_data.gatherer g
+    WHERE g.data IS NOT NULL AND g.data->>'kind' = 'CardData'
+      AND lower(g.data->>'setCode') IN (${sql.join(sets.map(s => sql`${s}`), sql`, `)})`);
+  const cached = new Map<string, Array<{ multiverseId: number, oracleName: string, languageCode: string, languageName: string }>>();
+  for (const row of gRows as unknown as Array<{
+    set: string; number: string; languageCode: string; languageName: string; oracleName: string; multiverseId: number;
+  }>) {
+    const key = `${row.set}|${row.number}`;
+    const list = cached.get(key) ?? [];
+    list.push({ multiverseId: row.multiverseId, oracleName: row.oracleName, languageCode: row.languageCode, languageName: row.languageName });
+    cached.set(key, list);
+  }
+
+  for (const commit of commits) {
+    const names = faceNames.get(`${commit.oracleId}|${commit.set.toLowerCase()}|${commit.number}`);
+    const rows = cached.get(`${commit.set.toLowerCase()}|${commit.number}`)
+      ?.filter(r => gathererLocaleMatches(commit.lang, r)) ?? [];
+    if (names == null || rows.length === 0) continue;
+    const ids = alignedGathererMultiverseIds(rows, names, Math.max(names.length, 1));
+    if (ids != null) resolved.set(commitKey(commit), ids);
+  }
+  return resolved;
+}
+
 /** Loads the print commits grouped by their anchoring oracle. The table is
- * desktop-local single-user truth: every row projects, there is no gate. */
+ * desktop-local single-user truth: every row projects, there is no gate.
+ * Each commit carries the payload fixed into its row when it was written
+ * (adopted or saved) — attribute overrides plus the Gatherer multiverse IDs
+ * — and the projection never re-resolves either. */
 export async function loadPrintCommits(database: ProjectDb): Promise<Map<string, LoadedPrintCommit[]>> {
   const rows = await database.select().from(PrintCommit);
   const map = new Map<string, LoadedPrintCommit[]>();
   for (const row of rows) {
     const list = map.get(row.oracleId) ?? [];
-    list.push({ set: row.set, number: row.number, lang: row.lang, faces: row.faces ?? [], metadata: row.metadata ?? null });
+    list.push({
+      set:    row.set,
+      number: row.number,
+      lang:   row.lang,
+      faces:  row.faces ?? [],
+      data:   row.data ?? null,
+    });
     map.set(row.oracleId, list);
   }
   return map;

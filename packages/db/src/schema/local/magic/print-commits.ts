@@ -18,11 +18,16 @@ export interface PrintCommitFace {
 }
 
 /**
- * Print metadata overrides of a print commit. Absent fields clone the
- * same-position English print. Only fields a completion can legitimately
- * assert about the physical object are whitelisted.
+ * Structured payload of a print commit beyond position, language, and the
+ * printed faces: optional print attribute overrides (absent fields clone the
+ * same-position English print) plus the face-aligned Gatherer multiverse IDs
+ * fixed when the commit is written — whatever source provided the
+ * translation, the multiverse id is Gatherer's to provide, since it is the
+ * only upstream id space where a completion position exists. Absent ids mean
+ * the cache had no full face coverage at write time; the projection then
+ * emits the print without them.
  */
-export interface PrintCommitMetadata {
+export interface PrintCommitData {
   rarity?:        string;
   releaseDate?:   string;
   frame?:         string;
@@ -34,6 +39,7 @@ export interface PrintCommitMetadata {
   inBooster?:     boolean;
   promoTypes?:    string[];
   artistIds?:     string[];
+  multiverseIds?: number[];
 }
 
 /**
@@ -57,11 +63,11 @@ export const PrintCommit = dataSchema.table('print_commits', {
   origin: text('origin').notNull().default('manual'),
 
   /** Per-face printed surfaces aligned with the oracle's face slots. */
-  faces:    jsonb('faces').$type<PrintCommitFace[]>(),
-  /** Optional print metadata overrides (absent fields clone the English print). */
-  metadata: jsonb('metadata').$type<PrintCommitMetadata>(),
+  faces: jsonb('faces').$type<PrintCommitFace[]>(),
+  /** Structured commit payload: attribute overrides + fixed multiverse IDs. */
+  data:  jsonb('data').$type<PrintCommitData>(),
   /** Free-text provenance: where the committed data came from. */
-  note:     text('note'),
+  note:  text('note'),
 
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at')

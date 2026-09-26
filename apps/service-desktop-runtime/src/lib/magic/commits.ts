@@ -1,4 +1,4 @@
-import type { PrintCommitFace, PrintCommitMetadata } from '@tcg-cards/db/schema/local/magic';
+import type { PrintCommitData, PrintCommitFace } from '@tcg-cards/db/schema/local/magic';
 
 /**
  * Print-commit console logic that is pure by construction: validation and
@@ -14,7 +14,7 @@ export interface CommitSaveInput {
   number:   string;
   lang:     string;
   faces:    Array<Partial<PrintCommitFace>>;
-  metadata: Partial<PrintCommitMetadata> | null;
+  data:     Partial<PrintCommitData> | null;
   note:     string | null;
 }
 
@@ -74,24 +74,32 @@ const METADATA_STRINGS = ['rarity', 'releaseDate', 'frame', 'borderColor', 'secu
 const METADATA_STRINGS_ARRAYS = ['finishes', 'promoTypes', 'artistIds'] as const;
 const METADATA_BOOLEANS = ['isDigital', 'isPromo', 'inBooster'] as const;
 
-/** Keeps only whitelisted, non-empty metadata overrides; null when nothing is asserted. */
-export function normalizeCommitMetadata(metadata: Partial<PrintCommitMetadata> | null): PrintCommitMetadata | null {
-  if (metadata == null) return null;
-  const out: PrintCommitMetadata = {};
+/**
+ * Keeps only whitelisted, non-empty commit data; null when nothing is
+ * asserted. Multiverse IDs are the one fixed-identity entry: an empty array
+ * counts as absent, like every other silent field.
+ */
+export function normalizeCommitData(data: Partial<PrintCommitData> | null): PrintCommitData | null {
+  if (data == null) return null;
+  const out: PrintCommitData = {};
   for (const key of METADATA_STRINGS) {
-    const value = metadata[key];
+    const value = data[key];
     if (typeof value === 'string' && value.trim() !== '') out[key] = value.trim();
   }
   for (const key of METADATA_STRINGS_ARRAYS) {
-    const value = metadata[key];
+    const value = data[key];
     if (Array.isArray(value)) {
       const list = value.map(v => String(v).trim()).filter(v => v !== '');
       if (list.length > 0) out[key] = list;
     }
   }
   for (const key of METADATA_BOOLEANS) {
-    const value = metadata[key];
+    const value = data[key];
     if (typeof value === 'boolean') out[key] = value;
+  }
+  if (Array.isArray(data.multiverseIds)) {
+    const ids = data.multiverseIds.filter(v => Number.isInteger(v));
+    if (ids.length > 0) out.multiverseIds = ids;
   }
   return Object.keys(out).length > 0 ? out : null;
 }

@@ -6,25 +6,37 @@
         <h1 class="text-xl font-semibold">卡牌补全</h1>
         <div class="ml-auto flex gap-2">
           <UButton label="刷新" icon="i-lucide-refresh-cw" color="neutral" variant="ghost" :loading="loading" @click="load" />
+          <UButton
+            label="投影全部补全项"
+            icon="i-lucide-layers"
+            color="primary"
+            variant="soft"
+            :loading="projectStarting"
+            :disabled="projectTaskActive"
+            @click="startProjectAll"
+          />
           <UButton label="运行投影" icon="i-lucide-box" color="primary" variant="soft" :loading="projecting" @click="runProject" />
           <UButton label="新增补全" icon="i-lucide-plus" @click="openCreate" />
         </div>
       </div>
       <p class="mt-1 text-sm text-muted">
-        补充各数据源都缺失、但实际存在的印刷（语言、印文等）。保存后投影才会生效：可对单条立即投影，或在下方投影全部补全项；删除补全并重新投影后，对应印刷会从站点撤下。
+        补充各数据源都缺失、但实际存在的印刷（语言、印文等）。保存后投影才会生效：可对单条立即投影，或用上方按钮投影全部补全项；删除补全并重新投影后，对应印刷会从站点撤下。
       </p>
     </div>
 
     <UAlert v-if="error" color="error" variant="soft" icon="i-lucide-circle-alert" :description="error" />
     <UAlert v-if="projectNote" color="success" variant="soft" icon="i-lucide-circle-check" :description="projectNote" />
 
-    <!-- project all commits: task run with in-page progress -->
+    <!-- project all commits: the progress card exists only while a run is active -->
     <TaskController
+      v-show="projectTaskActive"
+      ref="projectController"
       title="补全项投影"
-      :operations="[projectAllOperation]"
+      :operations="[]"
       @completed="onProjectAllCompleted"
       @failed="onProjectAllFailed"
       @create-error="onProjectAllCreateError"
+      @status-change="onProjectStatusChange"
     />
     <TaskResultCard :result="projectAllResult" :labels="PROJECT_RESULT_LABELS" />
 
@@ -33,7 +45,7 @@
       <div class="flex items-center gap-2 p-4">
         <UIcon name="i-lucide-lightbulb" class="size-5 text-primary" />
         <span class="font-medium">补全建议</span>
-        <span class="hidden text-sm text-muted md:inline">各来源缺失但译文已备的位置，按系列或单卡采纳</span>
+        <span class="hidden text-sm text-muted md:inline">各来源缺失但译文已备的位置，按系列或单卡采纳；译文来自社区数据源与 Gatherer 官方页面</span>
         <div class="ml-auto flex items-center gap-2">
           <UButton label="计算全部系列" icon="i-lucide-calculator" color="primary" variant="soft" :loading="suggestionsLoading" @click="loadSuggestions" />
           <UButton
@@ -98,30 +110,43 @@
           </div>
           <template v-else>
             <div class="mb-2 text-xs text-muted">
-              共 {{ cardResult.total }} 条 · 可采纳 {{ cardResult.adoptable }} · 无法自动补全 {{ cardResult.ineligible }}（如可逆卡、拆分双面牌）
+              共 {{ cardResult.total }} 条 · 可采纳 {{ cardResult.adoptable }} · 无法自动补全 {{ cardResult.ineligible }}（如可逆卡、拆分双面牌）<template v-if="cardResult.conflicts > 0"> · 两源不一致 {{ cardResult.conflicts }}（需逐条选择）</template>
             </div>
             <div class="mb-3 max-h-72 overflow-y-auto rounded border border-slate-200">
               <table class="w-full text-sm">
                 <tbody>
-                  <tr v-for="c in cardResult.items" :key="c.oracleId + ':' + c.number" class="border-b border-slate-100 last:border-0">
+                  <tr v-for="c in cardResult.items" :key="candidateKey(c)" class="border-b border-slate-100 last:border-0">
                     <td class="p-2 font-mono text-xs">{{ c.number }}</td>
                     <td class="p-2">{{ c.cardName ?? '（未识别卡牌）' }}</td>
+                    <td class="p-2 w-20">{{ langLabel(c.lang) }}</td>
                     <td class="p-2 text-muted">{{ c.summary !== '' ? c.summary : '（无译文，仅补位置）' }}</td>
-                    <td class="p-2 w-24">
-                      <UBadge v-if="!c.adoptable" label="不可补全" color="warning" variant="soft" />
+                    <td class="p-2 w-44">
+                      <span class="text-xs text-muted">{{ sourceLabel(c.source) }}</span>
+                      <UBadge v-if="c.conflict" label="两源不一致" color="warning" variant="soft" class="ml-1" />
+                      <UBadge v-else-if="!c.adoptable" label="不可补全" color="warning" variant="soft" class="ml-1" />
+                    </td>
+                    <td v-if="c.conflict && c.adoptable" class="p-2 w-52">
+                      <div class="flex justify-end gap-1">
+                        <UButton label="采纳社区版" size="xs" color="primary" variant="soft" :loading="resolving === candidateKey(c) + ':mtgch'" @click="adoptOneCandidate(c, 'mtgch')" />
+                        <UButton label="采纳官方版" size="xs" color="primary" variant="soft" :loading="resolving === candidateKey(c) + ':gatherer'" @click="adoptOneCandidate(c, 'gatherer')" />
+                      </div>
                     </td>
                   </tr>
                 </tbody>
               </table>
             </div>
-            <UButton label="采纳该卡" size="xs" color="primary" variant="soft" :loading="adoptingCard" @click="cardAdoptOpen = true" />
+            <div class="flex items-center gap-2">
+              <UButton label="采纳该卡" size="xs" color="primary" variant="soft" :loading="adoptingCard" @click="cardAdoptOpen = true" />
+              <span v-if="cardAdoptNote !== ''" class="text-sm text-success">{{ cardAdoptNote }}</span>
+              <span v-if="itemAdoptNote !== ''" class="text-sm text-success">{{ itemAdoptNote }}</span>
+            </div>
           </template>
-          <div v-if="cardAdoptNote !== ''" class="mt-2 text-sm text-success">{{ cardAdoptNote }}</div>
         </template>
       </div>
       <div v-if="suggestionsOpen" class="border-t border-slate-200 p-4">
-        <div class="mb-3 text-xs text-muted">只读扫描全部数据源，统计各系列可补全的位置；扫描不写入任何数据。</div>
+        <div class="mb-3 text-xs text-muted">只读扫描社区数据源（MTGCH）与 Gatherer 官方页面缓存，统计各系列可补全的位置；扫描不写入任何数据。</div>
         <div v-if="suggestionError" class="mb-3 text-sm text-error">{{ suggestionError }}</div>
+        <div v-if="suggestionNote !== ''" class="mb-3 text-sm text-success">{{ suggestionNote }}</div>
         <div v-if="suggestions.length === 0 && !suggestionsLoading" class="text-sm text-muted">
           {{ scanned ? '未发现可补全的位置。' : '尚未计算。' }}
         </div>
@@ -158,22 +183,32 @@
                   <div v-else-if="preview.total === 0" class="text-sm text-muted">该系列没有可补全的位置。</div>
                   <template v-else>
                     <div class="mb-2 text-xs text-muted">
-                      共 {{ preview.total }} 条 · 可采纳 {{ preview.adoptable }} · 无法自动补全 {{ preview.ineligible }}（如可逆卡、拆分双面牌）
+                      共 {{ preview.total }} 条 · 可采纳 {{ preview.adoptable }} · 无法自动补全 {{ preview.ineligible }}（如可逆卡、拆分双面牌）<template v-if="preview.conflicts > 0"> · 两源不一致 {{ preview.conflicts }}（需逐条选择）</template>
                     </div>
                     <div class="max-h-72 overflow-y-auto rounded border border-slate-200">
                       <table class="w-full text-sm">
                         <tbody>
-                          <tr v-for="c in preview.items" :key="c.oracleId + ':' + c.number" class="border-b border-slate-100 last:border-0">
+                          <tr v-for="c in preview.items" :key="candidateKey(c)" class="border-b border-slate-100 last:border-0">
                             <td class="p-2 font-mono text-xs">{{ c.number }}</td>
                             <td class="p-2">{{ c.cardName ?? '（未识别卡牌）' }}</td>
+                            <td class="p-2 w-20">{{ langLabel(c.lang) }}</td>
                             <td class="p-2 text-muted">{{ c.summary !== '' ? c.summary : '（无译文，仅补位置）' }}</td>
-                            <td class="p-2 w-24">
-                              <UBadge v-if="!c.adoptable" label="不可补全" color="warning" variant="soft" />
+                            <td class="p-2 w-44">
+                              <span class="text-xs text-muted">{{ sourceLabel(c.source) }}</span>
+                              <UBadge v-if="c.conflict" label="两源不一致" color="warning" variant="soft" class="ml-1" />
+                              <UBadge v-else-if="!c.adoptable" label="不可补全" color="warning" variant="soft" class="ml-1" />
+                            </td>
+                            <td v-if="c.conflict && c.adoptable" class="p-2 w-52">
+                              <div class="flex justify-end gap-1">
+                                <UButton label="采纳社区版" size="xs" color="primary" variant="soft" :loading="resolving === candidateKey(c) + ':mtgch'" @click="adoptOneCandidate(c, 'mtgch')" />
+                                <UButton label="采纳官方版" size="xs" color="primary" variant="soft" :loading="resolving === candidateKey(c) + ':gatherer'" @click="adoptOneCandidate(c, 'gatherer')" />
+                              </div>
                             </td>
                           </tr>
                         </tbody>
                       </table>
                     </div>
+                    <div v-if="itemAdoptNote !== ''" class="mt-2 text-sm text-success">{{ itemAdoptNote }}</div>
                   </template>
                 </td>
               </tr>
@@ -284,16 +319,24 @@
           </div>
 
           <!-- position -->
-          <div class="flex gap-3">
-            <UFormField label="系列代码" class="flex-1">
-              <UInput v-model="form.set" class="w-full font-mono" placeholder="如 msc" :disabled="editing || form.card == null" />
-            </UFormField>
-            <UFormField label="收藏编号" class="flex-1">
-              <UInput v-model="form.number" class="w-full font-mono" placeholder="如 806" :disabled="editing || form.card == null" />
-            </UFormField>
-            <UFormField label="语言" class="flex-1">
-              <USelect v-model="form.lang" :items="langItems" class="w-full" :disabled="form.card == null" />
-            </UFormField>
+          <div class="space-y-2">
+            <div class="flex gap-3">
+              <UFormField label="系列代码" class="flex-1">
+                <UInput v-model="form.set" class="w-full font-mono" placeholder="如 msc" :disabled="editing || form.card == null" />
+              </UFormField>
+              <UFormField label="收藏编号" class="flex-1">
+                <UInput v-model="form.number" class="w-full font-mono" placeholder="如 806" :disabled="editing || form.card == null" />
+              </UFormField>
+              <UFormField label="语言" class="flex-1">
+                <USelect v-model="form.lang" :items="langItems" class="w-full" :disabled="form.card == null" />
+              </UFormField>
+            </div>
+            <div v-if="editing" class="text-xs text-muted">
+              <template v-if="formMultiverseIds != null && formMultiverseIds.length > 0">
+                Gatherer 编号：{{ formMultiverseIds.join('、') }}（写入时自动解析，无需手填）
+              </template>
+              <template v-else>Gatherer 编号：未解析到（该位置在缓存里覆盖不全，投影后印刷不带 multiverse ID）</template>
+            </div>
           </div>
 
           <!-- per-face printed surfaces -->
@@ -327,7 +370,7 @@
             </div>
           </div>
 
-          <!-- optional metadata + note -->
+          <!-- optional overrides + note -->
           <div class="flex gap-3">
             <UFormField label="稀有度（可选覆盖）" class="flex-1">
               <USelect v-model="form.rarity" :items="rarityItems" class="w-full" />
@@ -367,7 +410,7 @@
     <UModal v-model:open="adoptOpen" :title="'采纳系列 ' + adoptSet">
       <template #body>
         <p class="text-sm">
-          将把该系列所有可自动补全的位置写入补全列表（简体中文，译文取自社区数据源），运行投影后生效。继续？
+          将把该系列所有可自动补全的位置写入补全列表（含多种语言，译文来源以各行标记为准）。简中两个来源译文不一致的位置不会自动写入，需在候选列表中逐条选择。运行投影后生效。继续？
         </p>
       </template>
       <template #footer>
@@ -381,7 +424,7 @@
     <UModal v-model:open="cardAdoptOpen" :title="'采纳卡牌 ' + (directCard?.name ?? '')">
       <template #body>
         <p class="text-sm">
-          将把该卡在系列 {{ cardResultSet }} 可自动补全的位置写入补全列表（简体中文，译文取自社区数据源），运行投影后生效。继续？
+          将把该卡在系列 {{ cardResultSet }} 可自动补全的位置写入补全列表（含多种语言，译文来源以各行标记为准）。简中两个来源译文不一致的位置不会自动写入，需在候选列表中逐条选择。运行投影后生效。继续？
         </p>
       </template>
       <template #footer>
@@ -395,7 +438,7 @@
 </template>
 
 <script setup lang="ts">
-import type { TaskPageSnapshot } from '@tcg-cards/model/task';
+import type { TaskPageSnapshot, TaskRunStatus } from '@tcg-cards/model/task';
 import type { TaskOperation } from '~/components/task/TaskController.vue';
 import { orpc } from '~/lib/orpc';
 
@@ -567,7 +610,9 @@ async function projectOneCommit(row: CommitRow) {
   }
 }
 
-// --- project all commits: task run with in-page progress ---
+// --- project all commits: the start button lives in the page header; the
+// progress card is shown only while a run is active and hides on its
+// terminal status (results stay on the TaskResultCard below) ---
 const PROJECT_RESULT_LABELS: Record<string, string> = {
   oracles:        '涉及卡牌',
   unresolved:     '未能投影的卡牌',
@@ -576,20 +621,54 @@ const PROJECT_RESULT_LABELS: Record<string, string> = {
   manualRecycled: '撤下印刷',
 };
 
+const projectController = ref<{
+  execute:          (op: TaskOperation) => Promise<void>;
+  currentTaskRunId: string | null;
+} | null>(null);
+const projectTaskActive = ref(false);
+const projectStarting = ref(false);
+
 const projectAllOperation = computed<TaskOperation>(() => ({
-  key:   'project-commits',
-  label: '投影全部补全项',
-  icon:  'i-lucide-layers',
+  key:    'project-commits',
+  label:  '投影全部补全项',
+  icon:   'i-lucide-layers',
   create: async () => orpc.magic.commits.projectAll({}) as Promise<TaskPageSnapshot>,
 }));
 
 const projectAllResult = ref<Record<string, unknown> | null>(null);
 
+/** Starts the projection task through the hidden controller; the card becomes
+ * visible only once a run is actually attached. */
+async function startProjectAll() {
+  if (projectTaskActive.value || projectStarting.value) return;
+  projectStarting.value = true;
+  try {
+    await projectController.value?.execute(projectAllOperation.value);
+    projectTaskActive.value = projectController.value?.currentTaskRunId != null;
+  } finally {
+    projectStarting.value = false;
+  }
+}
+
 function onProjectAllCompleted(snap: TaskPageSnapshot) {
   projectAllResult.value = (snap.result as Record<string, unknown> | undefined) ?? null;
 }
-function onProjectAllFailed() {}
-function onProjectAllCreateError() {}
+
+function onProjectAllFailed(_taskRunId: string, _errorCode: string | null, errorMessage: string | null) {
+  error.value = errorMessage != null && errorMessage !== ''
+    ? `投影任务失败：${errorMessage}`
+    : '投影任务失败。';
+}
+
+function onProjectAllCreateError() {
+  projectTaskActive.value = false;
+}
+
+const PROJECT_TERMINAL_STATUSES: readonly string[] = ['completed', 'failed', 'canceled', 'abandoned'];
+
+function onProjectStatusChange(status: TaskRunStatus) {
+  if (PROJECT_TERMINAL_STATUSES.includes(status)) projectTaskActive.value = false;
+}
 
 // --- entry / edit form ---
 const formOpen = ref(false);
@@ -619,6 +698,9 @@ const form = reactive<{
   releaseDate: '',
   note:        '',
 });
+
+/** Gatherer IDs fixed into the edited commit, shown read-only in the dialog. */
+const formMultiverseIds = ref<number[] | null>(null);
 
 const formTitle = computed(() => (editing.value ? '编辑补全' : '新增补全'));
 
@@ -676,6 +758,7 @@ function openCreate() {
   form.rarity = 'none';
   form.releaseDate = '';
   form.note = '';
+  formMultiverseIds.value = null;
   cardSearchInput.value = '';
   candidates.value = [];
   formOpen.value = true;
@@ -715,9 +798,10 @@ async function openEdit(row: CommitRow) {
       target.watermark = face.watermark ?? '';
     });
     form.faces = faces;
-    const metadata = full.metadata as { rarity?: string, releaseDate?: string } | null;
-    form.rarity = metadata?.rarity ?? 'none';
-    form.releaseDate = metadata?.releaseDate ?? '';
+    const data = full.data as { rarity?: string, releaseDate?: string, multiverseIds?: number[] } | null;
+    form.rarity = data?.rarity ?? 'none';
+    form.releaseDate = data?.releaseDate ?? '';
+    formMultiverseIds.value = data?.multiverseIds ?? null;
   } catch (err) {
     formError.value = err instanceof Error ? err.message : String(err);
   }
@@ -738,7 +822,7 @@ async function save() {
       number:   form.number.trim(),
       lang:     form.lang,
       faces:    form.faces,
-      metadata: {
+      data:     {
         ...(form.rarity !== 'none' && form.rarity.trim() !== '' ? { rarity: form.rarity } : {}),
         ...(form.releaseDate.trim() !== '' ? { releaseDate: form.releaseDate.trim() } : {}),
       },
@@ -793,14 +877,22 @@ onMounted(() => {
 
 // --- completion suggestions ---
 interface SuggestionSet { code: string, candidates: number }
+type CandidateSource = 'mtgch' | 'gatherer';
+
 interface CandidateItem {
   oracleId:  string;
   set:       string;
   number:    string;
+  lang:      string;
   cardName:  string | null;
+  source:    CandidateSource;
+  conflict:  boolean;
+  options:   Array<{ source: CandidateSource, summary: string }>;
   summary:   string;
   adoptable: boolean;
 }
+
+interface CandidateListResult { items: CandidateItem[], total: number, adoptable: number, ineligible: number, conflicts: number }
 
 const suggestionsOpen = ref(false);
 const suggestionsLoading = ref(false);
@@ -811,15 +903,17 @@ const scanned = ref(false);
 
 const expandedSet = ref<string | null>(null);
 const previewLoading = ref(false);
-const preview = ref<{ items: CandidateItem[], total: number, adoptable: number, ineligible: number } | null>(null);
+const preview = ref<CandidateListResult | null>(null);
 
 const adopting = ref<string | null>(null);
 const adoptOpen = ref(false);
 const adoptSet = ref('');
+const suggestionNote = ref('');
 
 async function loadSuggestions() {
   suggestionsLoading.value = true;
   suggestionError.value = '';
+  suggestionNote.value = '';
   try {
     suggestions.value = (await orpc.magic.commits.candidates.sets()).sets;
     scanned.value = true;
@@ -863,12 +957,19 @@ async function doAdopt() {
   try {
     const result = await orpc.magic.commits.candidates.adopt({ set: code });
     adoptOpen.value = false;
-    preview.value = null;
-    expandedSet.value = null;
-    await Promise.all([loadSuggestions(), load()]);
-    error.value = result.adopted > 0
-      ? ''
-      : '该系列没有可采纳的位置（可能均已存在或无法自动补全）。';
+    itemAdoptNote.value = '';
+    if (result.adopted === 0 && result.conflicts === 0) {
+      suggestionNote.value = '';
+      error.value = '该系列没有可采纳的位置（可能均已存在或无法自动补全）。';
+    } else {
+      error.value = '';
+      suggestionNote.value = result.conflicts > 0
+        ? `已写入 ${result.adopted} 条；另有 ${result.conflicts} 条简中两源不一致，需在候选列表中逐条选择。`
+        : `已写入 ${result.adopted} 条，运行投影后生效。`;
+      // Keep the set expanded so the remaining conflict rows are ready for the per-side choice.
+      await loadSuggestions();
+      if (expandedSet.value === code) await togglePreview(code);
+    }
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err);
   } finally {
@@ -890,8 +991,40 @@ const cardResultOpen = ref(false);
 const cardResultSet = ref('');
 const cardResultLoading = ref(false);
 const cardResultError = ref('');
-const cardResult = ref<{ items: CandidateItem[], total: number, adoptable: number, ineligible: number } | null>(null);
+const cardResult = ref<CandidateListResult | null>(null);
 const cardAdoptNote = ref('');
+
+/** Stable row key of one candidate: the anchor plus its language. */
+function candidateKey(item: CandidateItem): string {
+  return `${item.oracleId}:${item.set}:${item.number}:${item.lang}`;
+}
+
+function sourceLabel(source: CandidateSource): string {
+  return source === 'mtgch' ? '社区数据源' : 'Gatherer 官方';
+}
+
+/** Adopts one candidate position with an explicitly chosen source — the
+ * resolution path for positions whose two zhs sources disagree. */
+const resolving = ref<string | null>(null);
+const itemAdoptNote = ref('');
+
+async function adoptOneCandidate(item: CandidateItem, source: CandidateSource) {
+  resolving.value = candidateKey(item) + ':' + source;
+  itemAdoptNote.value = '';
+  suggestionError.value = '';
+  try {
+    await orpc.magic.commits.candidates.adoptOne({
+      oracleId: item.oracleId, set: item.set, number: item.number, lang: item.lang, source,
+    });
+    itemAdoptNote.value = `已按${sourceLabel(source)}译文写入（${langLabel(item.lang)}），运行投影后生效。`;
+    if (cardResultOpen.value) await computeDirectCard();
+    else if (expandedSet.value != null) await togglePreview(expandedSet.value);
+  } catch (err) {
+    suggestionError.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    resolving.value = null;
+  }
+}
 
 const cardAdoptOpen = ref(false);
 const adoptingCard = ref(false);
@@ -988,8 +1121,8 @@ async function doAdoptCard() {
     const result = await orpc.magic.commits.candidates.adopt({ set: code, oracleId: card.oracleId });
     cardAdoptOpen.value = false;
     await computeDirectCard();
-    cardAdoptNote.value = result.adopted > 0
-      ? `已写入 ${result.adopted} 条补全，运行投影后生效。`
+    cardAdoptNote.value = result.adopted > 0 || result.conflicts > 0
+      ? `已写入 ${result.adopted} 条${result.conflicts > 0 ? `，另有 ${result.conflicts} 条简中两源不一致，请逐条选择` : ''}。`
       : '没有可采纳的位置（可能均已存在或无法自动补全）。';
     await load();
   } catch (err) {

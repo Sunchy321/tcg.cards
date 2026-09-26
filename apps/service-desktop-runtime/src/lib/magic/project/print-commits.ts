@@ -1,4 +1,4 @@
-import type { PrintCommitFace, PrintCommitMetadata } from '@tcg-cards/db/schema/local/magic';
+import type { PrintCommitData, PrintCommitFace } from '@tcg-cards/db/schema/local/magic';
 
 import type { PrintDraft } from './project-card';
 
@@ -17,18 +17,26 @@ const COMMITTED_IMAGE_STATUS = 'missing';
 
 /** One reviewed print commit, reduced to what synthesis consumes. */
 export interface LoadedPrintCommit {
-  set:      string;
-  number:   string;
-  lang:     string;
-  faces:    PrintCommitFace[];
-  metadata: PrintCommitMetadata | null;
+  set:    string;
+  number: string;
+  lang:   string;
+  faces:  PrintCommitFace[];
+  /**
+   * The commit's structured payload: optional attribute overrides plus the
+   * face-aligned Gatherer multiverse IDs fixed into the commit row when it
+   * was written — whatever source provided the translation, the multiverse
+   * id is Gatherer's to provide, since it is the only upstream id space
+   * where the position exists. Absent ids mean the write-time cache had no
+   * full face coverage; the draft then carries no multiverse ids at all.
+   */
+  data:   PrintCommitData | null;
 }
 
 /**
  * The English print at the commit's position — the clone baseline for every
  * physical attribute the commit does not assert. Strictly same-position: a
  * commit whose position has no English row is skipped rather than dressed in
- * another position's metadata. Split double-faced tokens never reach here
+ * another position's data. Split double-faced tokens never reach here
  * (their units are out of the commit path's scope).
  */
 function baselineFor(basePrints: PrintDraft[], commit: LoadedPrintCommit): PrintDraft | null {
@@ -70,15 +78,18 @@ export function synthesizePrintCommits(basePrints: PrintDraft[], commits: Loaded
       set:    commit.set,
       number: commit.number,
 
-      // The committed position has no object of its own in any upstream id
-      // space; identity columns stay empty instead of borrowing the English
-      // print's.
+      // The committed position has no object of its own in Scryfall's or the
+      // game servers' id spaces; those identity columns stay empty instead of
+      // borrowing the English print's. The multiverse id is the exception:
+      // the Gatherer cache knows the position, and its face-aligned IDs were
+      // fixed into the commit row at write time — absent only when the write
+      // time cache had no full coverage.
       scryfallCardId:    null,
       scryfallFace:      null,
       arenaId:           null,
       mtgoId:            null,
       mtgoFoilId:        null,
-      multiverseIds:     [],
+      multiverseIds:     commit.data?.multiverseIds ?? [],
       tcgPlayerId:       null,
       tcgplayerEtchedId: null,
       cardMarketId:      null,
@@ -88,19 +99,19 @@ export function synthesizePrintCommits(basePrints: PrintDraft[], commits: Loaded
 
       imageStatus: COMMITTED_IMAGE_STATUS,
 
-      ...commit.metadata != null
+      ...commit.data != null
         ? {
-          rarity:        commit.metadata.rarity ?? baseline.rarity,
-          releasedAt:    commit.metadata.releaseDate ?? baseline.releasedAt,
-          frame:         commit.metadata.frame ?? baseline.frame,
-          borderColor:   commit.metadata.borderColor ?? baseline.borderColor,
-          securityStamp: commit.metadata.securityStamp ?? baseline.securityStamp,
-          finishes:      commit.metadata.finishes ?? baseline.finishes,
-          isDigital:     commit.metadata.isDigital ?? baseline.isDigital,
-          isPromo:       commit.metadata.isPromo ?? baseline.isPromo,
-          inBooster:     commit.metadata.inBooster ?? baseline.inBooster,
-          promoTypes:    commit.metadata.promoTypes ?? baseline.promoTypes,
-          artistIds:     commit.metadata.artistIds ?? baseline.artistIds,
+          rarity:        commit.data.rarity ?? baseline.rarity,
+          releasedAt:    commit.data.releaseDate ?? baseline.releasedAt,
+          frame:         commit.data.frame ?? baseline.frame,
+          borderColor:   commit.data.borderColor ?? baseline.borderColor,
+          securityStamp: commit.data.securityStamp ?? baseline.securityStamp,
+          finishes:      commit.data.finishes ?? baseline.finishes,
+          isDigital:     commit.data.isDigital ?? baseline.isDigital,
+          isPromo:       commit.data.isPromo ?? baseline.isPromo,
+          inBooster:     commit.data.inBooster ?? baseline.inBooster,
+          promoTypes:    commit.data.promoTypes ?? baseline.promoTypes,
+          artistIds:     commit.data.artistIds ?? baseline.artistIds,
         }
         : {},
 
