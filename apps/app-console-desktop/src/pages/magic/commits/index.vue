@@ -15,7 +15,6 @@
             :disabled="projectTaskActive"
             @click="startProjectAll"
           />
-          <UButton label="运行投影" icon="i-lucide-box" color="primary" variant="soft" :loading="projecting" @click="runProject" />
           <UButton label="新增补全" icon="i-lucide-plus" @click="openCreate" />
         </div>
       </div>
@@ -115,23 +114,49 @@
             <div class="mb-3 max-h-72 overflow-y-auto rounded border border-slate-200">
               <table class="w-full text-sm">
                 <tbody>
-                  <tr v-for="c in cardResult.items" :key="candidateKey(c)" class="border-b border-slate-100 last:border-0">
-                    <td class="p-2 font-mono text-xs">{{ c.number }}</td>
-                    <td class="p-2">{{ c.cardName ?? '（未识别卡牌）' }}</td>
-                    <td class="p-2 w-20">{{ langLabel(c.lang) }}</td>
-                    <td class="p-2 text-muted">{{ c.summary !== '' ? c.summary : '（无译文，仅补位置）' }}</td>
-                    <td class="p-2 w-44">
-                      <span class="text-xs text-muted">{{ sourceLabel(c.source) }}</span>
-                      <UBadge v-if="c.conflict" label="两源不一致" color="warning" variant="soft" class="ml-1" />
-                      <UBadge v-else-if="!c.adoptable" label="不可补全" color="warning" variant="soft" class="ml-1" />
-                    </td>
-                    <td v-if="c.conflict && c.adoptable" class="p-2 w-52">
-                      <div class="flex justify-end gap-1">
-                        <UButton label="采纳社区版" size="xs" color="primary" variant="soft" :loading="resolving === candidateKey(c) + ':mtgch'" @click="adoptOneCandidate(c, 'mtgch')" />
-                        <UButton label="采纳官方版" size="xs" color="primary" variant="soft" :loading="resolving === candidateKey(c) + ':gatherer'" @click="adoptOneCandidate(c, 'gatherer')" />
-                      </div>
-                    </td>
-                  </tr>
+                  <template v-for="c in cardResult.items" :key="candidateKey(c)">
+                    <tr class="border-b border-slate-100">
+                      <td class="p-2 font-mono text-xs">{{ c.number }}</td>
+                      <td class="p-2">{{ c.cardName ?? '（未识别卡牌）' }}</td>
+                      <td class="p-2 w-20">{{ langLabel(c.lang) }}</td>
+                      <td class="p-2 text-muted">{{ c.summary !== '' ? c.summary : '（无译文，仅补位置）' }}</td>
+                      <td class="p-2 w-44">
+                        <span class="text-xs text-muted">{{ sourceLabel(c.source) }}</span>
+                        <UBadge v-if="c.conflict" label="两源不一致" color="warning" variant="soft" class="ml-1" />
+                        <UBadge v-else-if="!c.adoptable" label="不可补全" color="warning" variant="soft" class="ml-1" />
+                      </td>
+                      <td v-if="c.conflict && c.adoptable" class="p-2 w-64">
+                        <div class="flex justify-end gap-1">
+                          <UButton
+                            label="对比"
+                            size="xs"
+                            color="neutral"
+                            variant="outline"
+                            :icon="conflictOpen[candidateKey(c)] ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                            @click="toggleConflict(candidateKey(c))"
+                          />
+                          <UButton label="采纳社区版" size="xs" color="primary" variant="soft" :loading="resolving === candidateKey(c) + ':mtgch'" @click="adoptOneCandidate(c, 'mtgch')" />
+                          <UButton label="采纳官方版" size="xs" color="primary" variant="soft" :loading="resolving === candidateKey(c) + ':gatherer'" @click="adoptOneCandidate(c, 'gatherer')" />
+                        </div>
+                      </td>
+                    </tr>
+                    <tr v-if="c.conflict && conflictOpen[candidateKey(c)]">
+                      <td colspan="6" class="bg-slate-50 p-3">
+                        <div class="grid grid-cols-2 gap-3">
+                          <div v-for="o in c.options" :key="o.source" class="rounded-lg border border-slate-200 bg-white p-3 text-xs">
+                            <div class="mb-2 font-medium">{{ sourceLabel(o.source) }}译文</div>
+                            <div v-for="(f, fi) in o.faces" :key="fi" class="mb-2 border-b border-slate-100 pb-2 last:border-0 last:pb-0">
+                              <div class="mb-1 text-muted">面 {{ fi + 1 }}</div>
+                              <div class="font-medium">{{ f.printedName ?? '（无印文名）' }}</div>
+                              <div class="text-muted">{{ f.printedTypeLine ?? '' }}</div>
+                              <div class="whitespace-pre-wrap">{{ f.printedText ?? '' }}</div>
+                              <div v-if="f.flavorText" class="mt-1 italic text-muted">{{ f.flavorText }}</div>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  </template>
                 </tbody>
               </table>
             </div>
@@ -188,23 +213,49 @@
                     <div class="max-h-72 overflow-y-auto rounded border border-slate-200">
                       <table class="w-full text-sm">
                         <tbody>
-                          <tr v-for="c in preview.items" :key="candidateKey(c)" class="border-b border-slate-100 last:border-0">
-                            <td class="p-2 font-mono text-xs">{{ c.number }}</td>
-                            <td class="p-2">{{ c.cardName ?? '（未识别卡牌）' }}</td>
-                            <td class="p-2 w-20">{{ langLabel(c.lang) }}</td>
-                            <td class="p-2 text-muted">{{ c.summary !== '' ? c.summary : '（无译文，仅补位置）' }}</td>
-                            <td class="p-2 w-44">
-                              <span class="text-xs text-muted">{{ sourceLabel(c.source) }}</span>
-                              <UBadge v-if="c.conflict" label="两源不一致" color="warning" variant="soft" class="ml-1" />
-                              <UBadge v-else-if="!c.adoptable" label="不可补全" color="warning" variant="soft" class="ml-1" />
-                            </td>
-                            <td v-if="c.conflict && c.adoptable" class="p-2 w-52">
-                              <div class="flex justify-end gap-1">
-                                <UButton label="采纳社区版" size="xs" color="primary" variant="soft" :loading="resolving === candidateKey(c) + ':mtgch'" @click="adoptOneCandidate(c, 'mtgch')" />
-                                <UButton label="采纳官方版" size="xs" color="primary" variant="soft" :loading="resolving === candidateKey(c) + ':gatherer'" @click="adoptOneCandidate(c, 'gatherer')" />
-                              </div>
-                            </td>
-                          </tr>
+                          <template v-for="c in preview.items" :key="candidateKey(c)">
+                            <tr class="border-b border-slate-100">
+                              <td class="p-2 font-mono text-xs">{{ c.number }}</td>
+                              <td class="p-2">{{ c.cardName ?? '（未识别卡牌）' }}</td>
+                              <td class="p-2 w-20">{{ langLabel(c.lang) }}</td>
+                              <td class="p-2 text-muted">{{ c.summary !== '' ? c.summary : '（无译文，仅补位置）' }}</td>
+                              <td class="p-2 w-44">
+                                <span class="text-xs text-muted">{{ sourceLabel(c.source) }}</span>
+                                <UBadge v-if="c.conflict" label="两源不一致" color="warning" variant="soft" class="ml-1" />
+                                <UBadge v-else-if="!c.adoptable" label="不可补全" color="warning" variant="soft" class="ml-1" />
+                              </td>
+                              <td v-if="c.conflict && c.adoptable" class="p-2 w-64">
+                                <div class="flex justify-end gap-1">
+                                  <UButton
+                                    label="对比"
+                                    size="xs"
+                                    color="neutral"
+                                    variant="outline"
+                                    :icon="conflictOpen[candidateKey(c)] ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                                    @click="toggleConflict(candidateKey(c))"
+                                  />
+                                  <UButton label="采纳社区版" size="xs" color="primary" variant="soft" :loading="resolving === candidateKey(c) + ':mtgch'" @click="adoptOneCandidate(c, 'mtgch')" />
+                                  <UButton label="采纳官方版" size="xs" color="primary" variant="soft" :loading="resolving === candidateKey(c) + ':gatherer'" @click="adoptOneCandidate(c, 'gatherer')" />
+                                </div>
+                              </td>
+                            </tr>
+                            <tr v-if="c.conflict && conflictOpen[candidateKey(c)]">
+                              <td colspan="6" class="bg-slate-50 p-3">
+                                <div class="grid grid-cols-2 gap-3">
+                                  <div v-for="o in c.options" :key="o.source" class="rounded-lg border border-slate-200 bg-white p-3 text-xs">
+                                    <div class="mb-2 font-medium">{{ sourceLabel(o.source) }}译文</div>
+                                    <div v-for="(f, fi) in o.faces" :key="fi" class="mb-2 border-b border-slate-100 pb-2 last:border-0 last:pb-0">
+                                      <div class="mb-1 text-muted">面 {{ fi + 1 }}</div>
+                                      <div class="font-medium">{{ f.printedName ?? '（无印文名）' }}</div>
+                                      <div class="text-muted">{{ f.printedTypeLine ?? '' }}</div>
+                                      <div class="whitespace-pre-wrap">{{ f.printedText ?? '' }}</div>
+                                      <div v-if="f.flavorText" class="mt-1 italic text-muted">{{ f.flavorText }}</div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          </template>
                         </tbody>
                       </table>
                     </div>
@@ -478,7 +529,6 @@ interface FaceForm {
 const loading = ref(false);
 const saving = ref(false);
 const removing = ref(false);
-const projecting = ref(false);
 const error = ref('');
 
 const items = ref<CommitRow[]>([]);
@@ -574,19 +624,6 @@ watch(setFilter, () => {
   page.value = 1;
   void load();
 });
-
-async function runProject() {
-  projecting.value = true;
-  error.value = '';
-  try {
-    await orpc.magic.createTask.magicProject({});
-    await navigateTo('/magic/project');
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : String(err);
-  } finally {
-    projecting.value = false;
-  }
-}
 
 const projectingRow = ref<string | null>(null);
 const projectNote = ref('');
@@ -880,6 +917,20 @@ onMounted(() => {
 interface SuggestionSet { code: string, candidates: number }
 type CandidateSource = 'mtgch' | 'gatherer';
 
+interface CandidateFaceSurface {
+  printedName?:     string | null;
+  printedTypeLine?: string | null;
+  printedText?:     string | null;
+  flavorName?:      string | null;
+  flavorText?:      string | null;
+}
+
+interface CandidateOption {
+  source:  CandidateSource;
+  summary: string;
+  faces:   CandidateFaceSurface[];
+}
+
 interface CandidateItem {
   oracleId:  string;
   set:       string;
@@ -888,7 +939,7 @@ interface CandidateItem {
   cardName:  string | null;
   source:    CandidateSource;
   conflict:  boolean;
-  options:   Array<{ source: CandidateSource, summary: string }>;
+  options:   CandidateOption[];
   summary:   string;
   adoptable: boolean;
 }
@@ -1008,6 +1059,13 @@ function sourceLabel(source: CandidateSource): string {
  * resolution path for positions whose two zhs sources disagree. */
 const resolving = ref<string | null>(null);
 const itemAdoptNote = ref('');
+
+/** Expanded conflict rows (candidateKey → open), showing both sources' faces. */
+const conflictOpen = ref<Record<string, boolean>>({});
+
+function toggleConflict(key: string) {
+  conflictOpen.value = { ...conflictOpen.value, [key]: !conflictOpen.value[key] };
+}
 
 async function adoptOneCandidate(item: CandidateItem, source: CandidateSource) {
   resolving.value = candidateKey(item) + ':' + source;

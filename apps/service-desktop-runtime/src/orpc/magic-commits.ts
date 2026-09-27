@@ -456,7 +456,11 @@ const candidateList = os
       cardName:  z.string().nullable(),
       source:    candidateSource,
       conflict:  z.boolean(),
-      options:   z.array(z.strictObject({ source: candidateSource, summary: z.string() })),
+      options:   z.array(z.strictObject({
+        source: candidateSource,
+        summary: z.string(),
+        faces:   z.array(commitFace),
+      })),
       summary:   z.string(),
       adoptable: z.boolean(),
     })),
@@ -477,7 +481,11 @@ const candidateList = os
         cardName:  item.cardName,
         source:    item.source,
         conflict:  item.conflict,
-        options:   item.options,
+        options:   item.options.map(o => ({
+          source:  o.source,
+          summary: commitFaceSummary(item.facesBySource[o.source] ?? []),
+          faces:   item.facesBySource[o.source] ?? [],
+        })),
         summary:   commitFaceSummary(faces),
         adoptable: item.adoptable,
       };
