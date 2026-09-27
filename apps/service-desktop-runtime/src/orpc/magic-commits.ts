@@ -421,27 +421,6 @@ async function resolveCandidates(
     a.number.localeCompare(b.number, undefined, { numeric: true }) || a.lang.localeCompare(b.lang));
 }
 
-/** Per-set suggestion counts across both sources (advisory; exotic layouts may overestimate slightly). */
-const candidateSets = os
-  .output(z.strictObject({ sets: z.array(z.strictObject({ code: z.string(), candidates: z.number() })) }))
-  .handler(async () => {
-    const db = getLocalDb();
-    const counts = new Map<string, number>();
-    for (const row of await candidateQuery(db, null)) counts.set(row.set, (counts.get(row.set) ?? 0) + 1);
-    const gathererResult = await db.execute(sql`
-      SELECT c."set" AS code, count(DISTINCT (c."oracleId", c."number", c."lang")) AS candidates
-      FROM (${gathererCandidateRows(null)}) c
-      GROUP BY c."set"`);
-    for (const row of gathererResult as unknown as Array<{ code: string, candidates: string }>) {
-      counts.set(row.code, (counts.get(row.code) ?? 0) + Number(row.candidates));
-    }
-    return {
-      sets: [...counts.entries()]
-        .map(([code, candidates]) => ({ code, candidates }))
-        .sort((a, b) => b.candidates - a.candidates),
-    };
-  });
-
 /** One set's candidate positions (one oracle's only when `oracleId` is given),
  * with card names, source and language labels, and a per-position
  * adoptability verdict. */
@@ -449,15 +428,15 @@ const candidateList = os
   .input(z.strictObject({ set: z.string().min(1), oracleId: z.string().optional() }))
   .output(z.strictObject({
     items: z.array(z.strictObject({
-      oracleId:  z.string(),
-      set:       z.string(),
-      number:    z.string(),
-      lang:      z.string(),
-      cardName:  z.string().nullable(),
-      source:    candidateSource,
-      conflict:  z.boolean(),
-      options:   z.array(z.strictObject({
-        source: candidateSource,
+      oracleId: z.string(),
+      set:      z.string(),
+      number:   z.string(),
+      lang:     z.string(),
+      cardName: z.string().nullable(),
+      source:   candidateSource,
+      conflict: z.boolean(),
+      options:  z.array(z.strictObject({
+        source:  candidateSource,
         summary: z.string(),
         faces:   z.array(commitFace),
       })),
@@ -474,14 +453,14 @@ const candidateList = os
     const view = items.map(item => {
       const faces = item.facesBySource[item.source] ?? [];
       return {
-        oracleId:  item.oracleId,
-        set:       item.set,
-        number:    item.number,
-        lang:      item.lang,
-        cardName:  item.cardName,
-        source:    item.source,
-        conflict:  item.conflict,
-        options:   item.options.map(o => ({
+        oracleId: item.oracleId,
+        set:      item.set,
+        number:   item.number,
+        lang:     item.lang,
+        cardName: item.cardName,
+        source:   item.source,
+        conflict: item.conflict,
+        options:  item.options.map(o => ({
           source:  o.source,
           summary: commitFaceSummary(item.facesBySource[o.source] ?? []),
           faces:   item.facesBySource[o.source] ?? [],
@@ -909,5 +888,5 @@ export const magicCommitsRouter = {
   remove,
   projectOne,
   projectAll,
-  candidates: { sets: candidateSets, list: candidateList, adopt: adoptCandidates, adoptOne },
+  candidates: { list: candidateList, adopt: adoptCandidates, adoptOne },
 };

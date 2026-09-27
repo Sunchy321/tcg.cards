@@ -46,7 +46,6 @@
         <span class="font-medium">补全建议</span>
         <span class="hidden text-sm text-muted md:inline">各来源缺失但译文已备的位置，按系列或单卡采纳；译文来自社区数据源与 Gatherer 官方页面</span>
         <div class="ml-auto flex items-center gap-2">
-          <UButton label="计算全部系列" icon="i-lucide-calculator" color="primary" variant="soft" :loading="suggestionsLoading" @click="loadSuggestions" />
           <UButton
             :icon="suggestionsOpen ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
             color="neutral"
@@ -169,11 +168,11 @@
         </template>
       </div>
       <div v-if="suggestionsOpen" class="border-t border-slate-200 p-4">
-        <div class="mb-3 text-xs text-muted">只读扫描社区数据源（MTGCH）与 Gatherer 官方页面缓存，统计各系列可补全的位置；扫描不写入任何数据。</div>
+        <div class="mb-3 text-xs text-muted">列出本次计算过的系列；计算不写入任何数据，采纳后才写入补全列表。</div>
         <div v-if="suggestionError" class="mb-3 text-sm text-error">{{ suggestionError }}</div>
         <div v-if="suggestionNote !== ''" class="mb-3 text-sm text-success">{{ suggestionNote }}</div>
-        <div v-if="suggestions.length === 0 && !suggestionsLoading" class="text-sm text-muted">
-          {{ scanned ? '未发现可补全的位置。' : '尚未计算。' }}
+        <div v-if="suggestions.length === 0" class="text-sm text-muted">
+          尚未计算。在上方输入系列代码后点击「计算该系列」。
         </div>
         <table v-else class="w-full text-sm">
           <thead class="border-b border-slate-200 text-left text-xs text-muted">
@@ -947,11 +946,8 @@ interface CandidateItem {
 interface CandidateListResult { items: CandidateItem[], total: number, adoptable: number, ineligible: number, conflicts: number }
 
 const suggestionsOpen = ref(false);
-const suggestionsLoading = ref(false);
 const suggestionError = ref('');
 const suggestions = ref<SuggestionSet[]>([]);
-/** Whether a scan has been run at least once — an empty list before that is not an empty result. */
-const scanned = ref(false);
 
 const expandedSet = ref<string | null>(null);
 const previewLoading = ref(false);
@@ -961,21 +957,6 @@ const adopting = ref<string | null>(null);
 const adoptOpen = ref(false);
 const adoptSet = ref('');
 const suggestionNote = ref('');
-
-async function loadSuggestions() {
-  suggestionsLoading.value = true;
-  suggestionError.value = '';
-  suggestionNote.value = '';
-  try {
-    suggestions.value = (await orpc.magic.commits.candidates.sets()).sets;
-    scanned.value = true;
-    suggestionsOpen.value = true;
-  } catch (err) {
-    suggestionError.value = err instanceof Error ? err.message : String(err);
-  } finally {
-    suggestionsLoading.value = false;
-  }
-}
 
 async function togglePreview(code: string) {
   if (expandedSet.value === code) {
@@ -1018,9 +999,17 @@ async function doAdopt() {
       suggestionNote.value = result.conflicts > 0
         ? `已写入 ${result.adopted} 条；另有 ${result.conflicts} 条简中两源不一致，需在候选列表中逐条选择。`
         : `已写入 ${result.adopted} 条，运行投影后生效。`;
-      // Keep the set expanded so the remaining conflict rows are ready for the per-side choice.
-      await loadSuggestions();
-      if (expandedSet.value === code) await togglePreview(code);
+      // Reload only this set's preview (staying expanded so the remaining
+      // conflict rows are ready for the per-side choice) — never the
+      // all-sets suggestion scan.
+      expandedSet.value = code;
+      previewLoading.value = true;
+      try {
+        preview.value = await orpc.magic.commits.candidates.list({ set: code });
+      } finally {
+        previewLoading.value = false;
+      }
+      await load();
     }
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err);
