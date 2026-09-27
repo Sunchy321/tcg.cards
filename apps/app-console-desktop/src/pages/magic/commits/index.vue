@@ -619,6 +619,7 @@ const PROJECT_RESULT_LABELS: Record<string, string> = {
   prints:         '写入印刷',
   printParts:     '写入印刷面',
   manualRecycled: '撤下印刷',
+  sourceRecycled: '撤下过时印刷',
 };
 
 const projectController = ref<{

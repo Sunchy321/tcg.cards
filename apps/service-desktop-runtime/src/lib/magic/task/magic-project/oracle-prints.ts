@@ -216,17 +216,60 @@ export async function softDeleteStaleManualPrints(
 }
 
 /**
+ * Soft-deletes source-derived prints (and their parts) of the cards this run
+ * projected whose identity the sources no longer produce — a renamed
+ * collector number, or a unit that shrank. Scoped to the run's emitted keys,
+ * so untouched cards are never judged; manual prints have their own recycle.
+ */
+export async function softDeleteStaleSourcePrints(database: ProjectDb, sourceKeys: string[]): Promise<number> {
+  if (sourceKeys.length === 0) return 0;
+  const emitted = new Set(sourceKeys);
+  const touchedCards = [...new Set(sourceKeys.map(key => key.split('|')[0]!))];
+  const active = await database.select({
+    cardId: Print.cardId,
+    set:    Print.set,
+    number: Print.number,
+    lang:   Print.lang,
+  })
+    .from(Print)
+    .where(and(
+      isNull(Print.deletedAt),
+      eq(Print.version, ''),
+      eq(Print.source, ''),
+      inArray(Print.cardId, touchedCards),
+    ));
+  const stale = active.filter(r => !emitted.has(`${r.cardId}|${r.set}|${r.number}|${r.lang}`));
+  let deleted = 0;
+  for (let i = 0; i < stale.length; i += MANUAL_RECYCLE_CHUNK) {
+    const batch = stale.slice(i, i + MANUAL_RECYCLE_CHUNK);
+    for (const table of [Print, PrintPart] as any[]) {
+      const positions = batch.map(r => and(
+        eq(table.cardId, r.cardId),
+        eq(table.set, r.set),
+        eq(table.number, r.number),
+        eq(table.lang, r.lang),
+      ));
+      await database.update(table)
+        .set({ deletedAt: new Date() })
+        .where(and(eq(table.version, ''), eq(table.source, ''), or(...positions)));
+    }
+    deleted += batch.length;
+  }
+  return deleted;
+}
+
+/**
  * Writes one oracle's print-level facts: assemble the oracle's units with
  * their manual commits, resolve cardIds, then upsert Print/PrintPart with
- * image carryover and ledger fill. Returns affected row counts and the manual
- * print keys emitted — the recycle's kept set for both the full and scoped
- * runs.
+ * image carryover and ledger fill. Returns affected row counts plus the
+ * manual and source print keys emitted — each recycle's kept set for both
+ * the full and scoped runs.
  */
 export async function projectOraclePrints(
   database: ProjectDb,
   oracle: string,
   ctx: OraclePrintsContext,
-): Promise<{ prints: number, printParts: number, manualKeys: string[] }> {
+): Promise<{ prints: number, printParts: number, manualKeys: string[], sourceKeys: string[] }> {
   const oraclePrints: (typeof Print)['$inferInsert'][] = [];
   const oraclePrintParts: (typeof PrintPart)['$inferInsert'][] = [];
   for (const raw of await assembleUnits(database, oracle, ctx.reversibleRows, ctx.printCommits.get(oracle))) {
@@ -252,8 +295,10 @@ export async function projectOraclePrints(
   const prints = await writeSection(database, Print, oraclePrints, [...PRINT_PK]);
   const printParts = await writeSection(database, PrintPart, oraclePrintParts, [...PRINT_PK, 'partIndex']);
   const manualKeys: string[] = [];
+  const sourceKeys: string[] = [];
   for (const row of oraclePrints) {
     if (row.source === MANUAL_PRINT_SOURCE) manualKeys.push(manualPrintKey(row));
+    else if (row.source === '') sourceKeys.push(`${row.cardId}|${row.set}|${row.number}|${row.lang}`);
   }
-  return { prints, printParts, manualKeys };
+  return { prints, printParts, manualKeys, sourceKeys };
 }

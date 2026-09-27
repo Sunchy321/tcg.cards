@@ -870,6 +870,7 @@ const projectOne = os
     prints:         z.number(),
     printParts:     z.number(),
     manualRecycled: z.number(),
+    sourceRecycled: z.number(),
   }))
   .handler(async ({ input }) => {
     return runCommitsProjection(getLocalDb(), [input.oracleId]);

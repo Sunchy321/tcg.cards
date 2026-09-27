@@ -7,6 +7,7 @@ import {
   loadPrintCommits,
   projectOraclePrints,
   softDeleteStaleManualPrints,
+  softDeleteStaleSourcePrints,
 } from '../magic-project/oracle-prints';
 
 /** Result counts of one commits-only projection pass. */
@@ -16,6 +17,7 @@ export interface CommitsProjectionResult {
   prints:         number;
   printParts:     number;
   manualRecycled: number;
+  sourceRecycled: number;
 }
 
 /** Card scope of a commits-only projection: the requested oracles' resolved
@@ -64,6 +66,7 @@ export async function runCommitsProjection(database: ProjectDb, oracleIds: strin
     let prints = 0;
     let printParts = 0;
     const manualKeys = new Set<string>();
+    const sourceKeys = new Set<string>();
     for (const oracle of scope.oracleList) {
       const wrote = await projectOraclePrints(database, oracle, {
         unitToCard: matched.cardIdByUnit,
@@ -74,14 +77,17 @@ export async function runCommitsProjection(database: ProjectDb, oracleIds: strin
       prints += wrote.prints;
       printParts += wrote.printParts;
       for (const key of wrote.manualKeys) manualKeys.add(key);
+      for (const key of wrote.sourceKeys) sourceKeys.add(key);
     }
     const manualRecycled = await softDeleteStaleManualPrints(database, manualKeys, scope.cardIdScope);
+    const sourceRecycled = await softDeleteStaleSourcePrints(database, [...sourceKeys]);
     return {
       oracles:    scope.oracleList.length,
       unresolved: scope.unresolved,
       prints,
       printParts,
       manualRecycled,
+      sourceRecycled,
     };
   });
 }

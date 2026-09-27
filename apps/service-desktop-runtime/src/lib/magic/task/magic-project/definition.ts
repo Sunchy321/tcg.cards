@@ -19,6 +19,7 @@ import {
   loadPrintCommits,
   projectOraclePrints,
   softDeleteStaleManualPrints,
+  softDeleteStaleSourcePrints,
   withResolvedCardId,
   writeSection,
 } from './oracle-prints';
@@ -78,6 +79,8 @@ interface ChunkState {
   counts:      Partial<Counts>;
   /** `cardId|set|number|lang` of the manual prints emitted so far (prints stage). */
   manualKeys?: string[];
+  /** `cardId|set|number|lang` of the source prints emitted so far (prints stage). */
+  sourceKeys?: string[];
 }
 
 /** Source-row count per oracle (all languages; the rows assembleUnits consumes). */
@@ -192,7 +195,7 @@ const definition = createDefinition(magicProjectTaskType, {
     // contribute prints to the card they reference).
     const rowCounts = await sourceRowCounts(getLocalDb(), magic.oracleList);
     const total = [...rowCounts.values()].reduce((a, b) => a + b, 0);
-    return { total, blockInput: { index: 0, done: 0, total, counts: {} } };
+    return { total, blockInput: { index: 0, done: 0, total, counts: {}, sourceKeys: [] } };
   })
   .block(async ({ ctx, blockInput, progress, checkpoint, done }) => {
     const magic = ctx as unknown as ProjectCtx;
@@ -201,6 +204,7 @@ const definition = createDefinition(magicProjectTaskType, {
 
     const counts = { prints: 0, printParts: 0 };
     const manualKeys: string[] = [];
+    const sourceKeys: string[] = [];
     let doneRows = blockInput.done ?? 0;
     await runWithDb(getLocalDb(), async () => {
       const database = getLocalDb();
@@ -208,10 +212,10 @@ const definition = createDefinition(magicProjectTaskType, {
         const wrote = await projectOraclePrints(database, oracle, magic);
         counts.prints += wrote.prints;
         counts.printParts += wrote.printParts;
-        // Manual positions emitted this chunk — the recycle's kept set travels
-        // through the checkpoint so a resumed run recycles exactly what it
-        // itself emitted.
+        // The recycles' kept sets travel through the checkpoint so a resumed
+        // run recycles exactly what it itself emitted.
         manualKeys.push(...wrote.manualKeys);
+        sourceKeys.push(...wrote.sourceKeys);
         doneRows += rowCounts.get(oracle) ?? 0;
         // Submit progress after every oracle so the processed-row counter
         // scrolls continuously instead of jumping at block boundaries.
@@ -225,6 +229,7 @@ const definition = createDefinition(magicProjectTaskType, {
       total:      blockInput.total,
       counts:     { prints: (blockInput.counts.prints ?? 0) + counts.prints, printParts: (blockInput.counts.printParts ?? 0) + counts.printParts },
       manualKeys: [...(blockInput.manualKeys ?? []), ...manualKeys],
+      sourceKeys: [...(blockInput.sourceKeys ?? []), ...sourceKeys],
     };
     await checkpoint(next);
     progress({ done: doneRows, total: blockInput.total });
@@ -238,6 +243,10 @@ const definition = createDefinition(magicProjectTaskType, {
       // synthesis even where the commit path skipped a branch.
       const emitted = new Set(blockInput.manualKeys ?? []);
       magic.counts.manualRecycled = await softDeleteStaleManualPrints(getLocalDb(), emitted);
+      // Stale source prints ride the same rule: rows the sources no longer
+      // produce (renamed collector numbers, shrunken units) within the cards
+      // this run projected.
+      magic.counts.softDeleted = await softDeleteStaleSourcePrints(getLocalDb(), blockInput.sourceKeys ?? []);
       return magic.counts;
     });
   })
@@ -383,7 +392,17 @@ const definition = createDefinition(magicProjectTaskType, {
   .exit(({ ctx, blockInput }) => {
     const magic = ctx as unknown as ProjectCtx;
     addAll(magic.counts, blockInput.counts);
-    return magic.counts;
+    return runWithDb(getLocalDb(), async () => {
+      // The full run is the only judge of global staleness: base rows whose
+      // cardId the match no longer projects — vanished units, withdrawn
+      // merges — are soft-deleted across every base table. Scoped runs never
+      // touch this: their slice cannot tell what is stale elsewhere.
+      const target = new Set(magic.cardIdList);
+      for (const { table } of BASE_TABLES) {
+        magic.counts.softDeleted += await softDeleteStale(getLocalDb(), table, table.cardId, target);
+      }
+      return magic.counts;
+    });
   })
   .build();
 

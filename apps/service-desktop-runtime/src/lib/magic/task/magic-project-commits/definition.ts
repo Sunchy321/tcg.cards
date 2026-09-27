@@ -11,6 +11,7 @@ import {
   loadPrintCommits,
   projectOraclePrints,
   softDeleteStaleManualPrints,
+  softDeleteStaleSourcePrints,
   type OraclePrintsContext,
 } from '../magic-project/oracle-prints';
 import { resolveCommitScope } from './projection';
@@ -26,6 +27,7 @@ const output = z.object({
   prints:         z.number(),
   printParts:     z.number(),
   manualRecycled: z.number(),
+  sourceRecycled: z.number(),
 });
 
 interface ChunkState {
@@ -34,6 +36,8 @@ interface ChunkState {
   counts:     { prints: number, printParts: number };
   /** `cardId|set|number|lang` of the manual prints emitted so far. */
   manualKeys: string[];
+  /** `cardId|set|number|lang` of the source prints emitted so far. */
+  sourceKeys: string[];
 }
 
 interface CommitsProjectCtx extends OraclePrintsContext {
@@ -82,7 +86,7 @@ const definition = createDefinition(magicProjectCommitsTaskType, {
     const restored = checkpoint?.blockInput as ChunkState | undefined;
     if (restored) return { total: restored.total, blockInput: restored };
     const total = magic.oracleList.length;
-    return { total, blockInput: { index: 0, total, counts: { prints: 0, printParts: 0 }, manualKeys: [] } };
+    return { total, blockInput: { index: 0, total, counts: { prints: 0, printParts: 0 }, manualKeys: [], sourceKeys: [] } };
   })
   .block(async ({ ctx, blockInput, progress, checkpoint, done }) => {
     const magic = ctx as unknown as CommitsProjectCtx;
@@ -90,15 +94,17 @@ const definition = createDefinition(magicProjectCommitsTaskType, {
 
     const counts = { prints: 0, printParts: 0 };
     const manualKeys: string[] = [];
+    const sourceKeys: string[] = [];
     await runWithDb(getLocalDb(), async () => {
       const database = getLocalDb();
       for (let i = 0; i < chunk.length; i++) {
         const wrote = await projectOraclePrints(database, chunk[i]!, magic);
         counts.prints += wrote.prints;
         counts.printParts += wrote.printParts;
-        // The recycle's kept set travels through the checkpoint so a resumed
+        // The recycles' kept sets travel through the checkpoint so a resumed
         // run recycles exactly what it itself emitted.
         manualKeys.push(...wrote.manualKeys);
+        sourceKeys.push(...wrote.sourceKeys);
         progress({ done: blockInput.index + i + 1, total: blockInput.total });
       }
     });
@@ -111,6 +117,7 @@ const definition = createDefinition(magicProjectCommitsTaskType, {
         printParts: (blockInput.counts.printParts ?? 0) + counts.printParts,
       },
       manualKeys: [...(blockInput.manualKeys ?? []), ...manualKeys],
+      sourceKeys: [...(blockInput.sourceKeys ?? []), ...sourceKeys],
     };
     await checkpoint(next);
     progress({ done: Math.min(next.index, next.total), total: next.total });
@@ -119,19 +126,21 @@ const definition = createDefinition(magicProjectCommitsTaskType, {
   .exit(({ ctx, blockInput }) => {
     const magic = ctx as unknown as CommitsProjectCtx;
     return runWithDb(getLocalDb(), async () => {
-      // Recycle only within the scoped cards — other cards' manual prints are
-      // not this run's to judge.
+      // Recycle only within the scoped cards — other cards' prints are not
+      // this run's to judge.
       const manualRecycled = await softDeleteStaleManualPrints(
         getLocalDb(),
         new Set(blockInput.manualKeys ?? []),
         magic.cardIdScope,
       );
+      const sourceRecycled = await softDeleteStaleSourcePrints(getLocalDb(), blockInput.sourceKeys ?? []);
       return {
         oracles:    magic.oracleList.length,
         unresolved: magic.unresolved,
         prints:     (blockInput.counts.prints ?? 0),
         printParts: (blockInput.counts.printParts ?? 0),
         manualRecycled,
+        sourceRecycled,
       };
     });
   })
