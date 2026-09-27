@@ -97,12 +97,16 @@ test('alignedGathererMultiverseIds aligns face rows by English name', () => {
   expect(ids).toEqual([588126, 588127]);
 });
 
-test('alignedGathererMultiverseIds needs full coverage and refuses partial arrays', () => {
+test('alignedGathererMultiverseIds fills what it has and refuses only nothing', () => {
+  // single-page flip print: one Gatherer row, two faces — the row identifies
+  // the print; the result is compact, no null padding
   expect(alignedGathererMultiverseIds([
-    { oracleName: 'Arcee, Sharpshooter', multiverseId: 588126 },
-  ], ['Arcee, Sharpshooter', 'Arcee, Acrobatic Coupe'], 2)).toBeNull();
+    { oracleName: 'Bushi Tenderfoot', multiverseId: 86428 },
+  ], ['Bushi Tenderfoot', 'Kenzo the Hardhearted'], 2)).toEqual([86428]);
   // a single-faced card needs the one row it has
   expect(alignedGathererMultiverseIds([
     { oracleName: 'Lightning Bolt', multiverseId: 42 },
   ], ['Lightning Bolt'], 1)).toEqual([42]);
+  // no rows at all: nothing to align
+  expect(alignedGathererMultiverseIds([], ['A'], 1)).toBeNull();
 });

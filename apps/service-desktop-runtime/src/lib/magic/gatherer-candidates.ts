@@ -162,8 +162,12 @@ export function gathererLocaleMatches(lang: string, row: Pick<GathererFaceRow, '
 /**
  * Per-face Gatherer multiverse IDs of one position, aligned with the oracle's
  * face slots by English face name — the same matching rules as
- * buildGathererFaces. Null unless every slot carries an ID: a partially known
- * identity array would misstate which face each ID belongs to.
+ * buildGathererFaces. Gatherer represents some two-faced prints (flip, most
+ * single-page transform locals) as ONE row for the whole print; such a row
+ * fills face 0 and the back face simply has no id. The result is compact —
+ * only the ids that exist, in face order — so `[86428]` is a one-page flip
+ * print and `[588126, 588127]` a two-row transform. Null when Gatherer has
+ * no row for the position at all.
  */
 export function alignedGathererMultiverseIds(
   rows: Array<Pick<GathererFaceRow, 'oracleName'> & { multiverseId: number }>,
@@ -184,11 +188,13 @@ export function alignedGathererMultiverseIds(
       unmatched.push(row);
     }
   }
+  // Name-unmatched rows fill the remaining slots in order — one Gatherer row
+  // per print still identifies the print, whichever face it names.
   for (const row of unmatched) {
     const index = ids.findIndex((_, i) => !filled.has(i));
     if (index < 0) break;
     ids[index] = row.multiverseId;
     filled.add(index);
   }
-  return filled.size < faceCount ? null : ids as number[];
+  return filled.size === 0 ? null : ids.filter((id): id is number => id != null);
 }
