@@ -32,17 +32,19 @@ const input = z.strictObject({
   fileName:       z.string().optional(),
   dataBase64:     z.string().optional(),
   // Local asset import only: read the matching webp/jpg straight from the
-  // asset directory instead of receiving an upload. One number, one language.
+  // asset directory instead of receiving an upload. Any number and any
+  // language selection — prints without a source image are skipped.
   fromLocalAsset: z.boolean().optional(),
 }).refine(v => {
   const isUpload = (uploadImageSources as readonly string[]).includes(v.source);
   // One uploaded file belongs to one print, so an upload carries exactly one number.
   if (v.dataBase64 != null) return isUpload && v.numbers.length === 1;
-  // Local import reads the file from the asset directory: one print, one language.
-  if (v.fromLocalAsset === true) return isUpload && v.numbers.length === 1 && v.langs.length === 1;
+  // Local import scans the asset directory per print row: any number and any
+  // language selection is fine — prints without a source image are skipped.
+  if (v.fromLocalAsset === true) return isUpload;
   // Download sources derive the face index from scryfall_face, never from the caller.
   return !isUpload && v.faceIndex == null;
-}, { message: '上传单张需要 dataBase64 与单个编号;本地导入需要单个编号与单个语言;下载来源不接受 faceIndex' });
+}, { message: '上传单张需要 dataBase64 与单个编号;本地导入需要 upload 源;下载来源不接受 faceIndex' });
 
 const rowColumns = {
   cardId:              Print.cardId,
@@ -185,13 +187,14 @@ const definition = createDefinition(magicImageImportSingleTaskType, {
 
           // Local asset import: the matching webp/jpg files are read straight
           // from the asset directory, one per face (two-image layouts read the
-          // legacy `-0`/`-1` forms when the canonical ones are absent). All
-          // sources are read into memory BEFORE anything is written, and a
-          // source file is removed only after its own face was imported
-          // successfully — a sweep can no longer destroy a face that has not
-          // been read yet.
+          // legacy `-0`/`-1` forms when the canonical ones are absent). The
+          // directory is the row's own language — multi-language runs scan
+          // each language's tree. All sources are read into memory BEFORE
+          // anything is written, and a source file is removed only after its
+          // own face was imported successfully — a sweep can no longer destroy
+          // a face that has not been read yet.
           if (state.fromLocalAsset) {
-            const dir = printImageDir(ctx.set, ctx.langs[0]!);
+            const dir = printImageDir(row.set, row.lang);
             const faces = isTwoImageLayout(row.layout) ? [0, 1] : [0];
             const sources: Array<{ faceIndex: number, path: string, data: Buffer }> = [];
             for (const faceIndex of faces) {

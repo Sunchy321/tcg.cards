@@ -523,7 +523,8 @@ const listImageSets = os
   });
 
 /** Local-import preview: the asset files the import would pick for one print,
- * read as data URLs so the console can show them before importing. */
+ * read as data URLs so the console can show them before importing. Only for
+ * single-number imports — multi-number runs show no preview. */
 const localImagePreview = os
   .input(z.strictObject({ set: z.string().min(1), lang: z.string().min(1), number: z.string().min(1) }))
   .output(z.strictObject({

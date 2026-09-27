@@ -112,7 +112,7 @@
               <UFormField orientation="horizontal" :ui="{ root: '!justify-start' }" label="编号" :required="isSingle" class="min-w-40">
                 <UInput
                   v-model="form.number"
-                  :placeholder="isDownloadSingle ? '如 123、1-19、1,3,5' : '如 123'"
+                  :placeholder="isDownloadSingle || isUploadLocal ? '如 123、1-19、1,3,5' : '如 123'"
                   autocomplete="off"
                   spellcheck="false"
                   :disabled="disabled || !isSingle"
@@ -183,16 +183,11 @@
               <div class="flex flex-wrap items-start gap-6">
                 <div class="max-w-md space-y-2">
                   <p class="text-sm text-muted">
-                    无需选择图片：导入时直接从卡图资产目录读取「编号.webp / .jpg / .jpeg」（旧版
-                    <span class="font-mono">-0 / -1</span>
-                    命名自动识别，双面 layout 会同时导入背面）。仅支持单编号、单语言。
+                    无需选择图片：导入时按印刷逐张从卡图资产目录读取「编号-面.webp / 编号.jpg /
+                    .jpeg」等原始图片（<span class="font-mono">-0 / -1</span>
+                    旧版命名自动识别；编号.webp 这类最终格式不算原始图片）。没有原始图片的印刷会跳过。编号支持逗号分隔的多张，语言可多选。
                   </p>
-                  <p v-if="numbers.length > 1" class="text-sm text-error">
-                    本地导入只能填一个编号。
-                  </p>
-                  <p v-else-if="form.langs.length > 1" class="text-sm text-error">
-                    本地导入只能选一个语言。
-                  </p>
+                  <p v-if="numbers.length > 1" class="text-xs text-muted">多编号时不显示预览。</p>
                 </div>
                 <div class="flex gap-3">
                   <div v-if="localPreviewLoading" class="flex h-40 items-center text-sm text-muted">读取预览…</div>
@@ -419,6 +414,11 @@ let localPreviewTimer: ReturnType<typeof setTimeout> | null = null;
 
 function scheduleLocalPreview() {
   if (!isUploadLocal.value) {
+    localPreview.value = null;
+    return;
+  }
+  // 预览只服务单编号；多编号（或区间展开后的多张）不显示预览。
+  if (numbers.value.length !== 1) {
     localPreview.value = null;
     return;
   }
@@ -763,9 +763,10 @@ const operation = computed<TaskOperation>(() => {
     // number list or a second language blocks the run.
     ready = setChosen && selectedLangs.value.length === 1 && numbers.value.length === 1 && !!form.dataBase64;
   } else if (isUploadLocal.value) {
-    // The local import reads the file from the asset directory itself: one
-    // print in one language, no image to pick.
-    ready = setChosen && selectedLangs.value.length === 1 && numbers.value.length === 1;
+    // The local import reads files from the asset directory itself: any
+    // number list and any language selection — prints without a source image
+    // are skipped.
+    ready = setChosen && selectedLangs.value.length > 0 && numbers.value.length > 0;
   } else {
     // A flat archive carries one language, so exactly one must be selected.
     ready = treeMode.value ? !!form.zipPath.trim() : setChosen && selectedLangs.value.length === 1 && !!form.zipPath.trim();
