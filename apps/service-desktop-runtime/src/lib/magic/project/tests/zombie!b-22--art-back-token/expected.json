@@ -80,7 +80,7 @@
       "source": "",
       "name": "Zombie",
       "typeline": "Token Creature — Zombie",
-      "layout": "transform_token",
+      "layout": "art_back_token",
       "frame": "2015",
       "frameEffects": [],
       "borderColor": "black",

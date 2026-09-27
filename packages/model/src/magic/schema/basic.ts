@@ -60,11 +60,12 @@ export const color = z.string();
 export const rarity = z.enum(['bonus', 'common', 'mythic', 'rare', 'special', 'uncommon']).describe('Rarity');
 
 export const layout = z.enum([
-  'adventure', 'aftermath', 'augment', 'battle', 'case', 'class', 'combined',
-  'double_faced', 'emblem', 'flip', 'flip_token_bottom', 'flip_token_top',
-  'host', 'leveler', 'meld', 'modal_dfc', 'multipart', 'mutate', 'normal',
-  'planar', 'prepare', 'prototype', 'reversible_card', 'saga', 'scheme', 'split',
-  'split_arena', 'token', 'transform', 'transform_token', 'vanguard',
+  'adventure', 'aftermath', 'art_back_token', 'augment', 'battle', 'case',
+  'class', 'combined', 'double_faced', 'emblem', 'flip', 'flip_token_bottom',
+  'flip_token_top', 'host', 'leveler', 'meld', 'modal_dfc', 'multipart',
+  'mutate', 'normal', 'planar', 'prepare', 'prototype', 'reversible_card',
+  'saga', 'scheme', 'split', 'split_arena', 'token', 'transform',
+  'transform_token', 'vanguard',
 ]).describe('Layout');
 
 export const imageType = z.enum(['webp', 'jpg', 'png']).describe('ImageType');

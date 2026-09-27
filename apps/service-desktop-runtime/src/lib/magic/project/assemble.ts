@@ -594,13 +594,17 @@ export async function assembleUnits(
 
   const enFaces = oracleFaces(en);
   if (en.layout === 'double_faced_token' && isArtBackDoubleFacedToken(enFaces.map(f => f.name), enFaces)) {
-    // Art-back token: the back is pure illustration, not a card part. Project as
-    // a single-face card but keep the prints flippable (transform_token layout).
+    // Art-back token: the back is a pure-illustration flip side of the same
+    // token. One plain-token card; the print carries both faces under the
+    // dedicated art_back_token layout so the site can flip to the
+    // illustration.
     const front = enFaces[0]!;
     const mtgchMap = await loadMtgchPrintMap(database, [oracleId]);
     const prints = allRows.map(r => {
       const draft = toPrintDraft(r);
-      draft.layout = 'transform_token';
+      draft.layout = 'art_back_token';
+      // The illustration back has no text surfaces to store — its image rides
+      // the print's image_info second entry (twoImageLayouts).
       draft.faces = [printFaceAt(r, 0)];
       return draft;
     });

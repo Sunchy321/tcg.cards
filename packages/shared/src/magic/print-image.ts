@@ -14,6 +14,7 @@
  * lists are not identical.
  */
 export const twoImageLayouts = [
+  'art_back_token',
   'battle',
   'double_faced',
   'modal_dfc',

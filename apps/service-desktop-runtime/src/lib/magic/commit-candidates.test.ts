@@ -87,20 +87,22 @@ test('candidateOracleEligible accepts normal cards and single-card DFTs', () => 
   }))).toBe(true);
 });
 
-test('candidateOracleEligible rejects reversible cards, art-back and split DFTs', () => {
+test('candidateOracleEligible rejects reversible cards and split DFTs', () => {
   expect(candidateOracleEligible(card({ layout: 'reversible_card' }))).toBe(false);
-  // art-back: same-name faces without rules text nor P/T
-  expect(candidateOracleEligible(card({
-    layout: 'double_faced_token',
-    name: 'Zombie // Zombie',
-    cardFaces: [{ name: 'Zombie' }, { name: 'Zombie' }],
-  }))).toBe(false);
   // split DFT: two differently-named faces that are not a known single-card pair
   expect(candidateOracleEligible(card({
     layout: 'double_faced_token',
     name: 'Angel // Demon',
     cardFaces: [{ name: 'Angel' }, { name: 'Demon' }],
   }))).toBe(false);
+});
+
+test('candidateOracleEligible accepts art-back tokens — they project as two-face cards', () => {
+  expect(candidateOracleEligible(card({
+    layout: 'double_faced_token',
+    name: 'Zombie // Zombie',
+    cardFaces: [{ name: 'Zombie' }, { name: 'Zombie' }],
+  }))).toBe(true);
 });
 
 test('candidateFaceCount reads the face slots, defaulting to one', () => {

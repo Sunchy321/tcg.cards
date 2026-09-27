@@ -129,9 +129,11 @@ const realPart = computed({
   set(newValue: number) {
     innerPart.value = newValue;
 
-    // A reversible flip crosses prints (sibling a/b numbers), not parts of
-    // this print, so the card page's part state must not move.
-    if (props.layout !== 'reversible_card') {
+    // Two flips stay within this print's text: a reversible flip crosses
+    // prints (sibling a/b numbers), and an art-back flip shows only the
+    // illustration back (there is no second part to show) — neither moves
+    // the card page's part state.
+    if (props.layout !== 'reversible_card' && props.layout !== 'art_back_token') {
       emit('update:part', newValue);
     }
   },
@@ -160,6 +162,7 @@ const realRotate = computed({
 });
 
 const turnable = computed(() => [
+  'art_back_token',
   'transform',
   'modal_dfc',
   'transform_token',

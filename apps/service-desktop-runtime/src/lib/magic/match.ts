@@ -260,8 +260,10 @@ export function toMatchUnits(row: MatchRow): MatchUnit[] {
   const faces = (row.cardFaces ?? []) as ScryfallFace[];
 
   if (row.layout === 'double_faced_token' && faces.length > 0 && !isSingleCardDoubleFacedToken(faces.map(f => f.name ?? ''))) {
-    // Art-back tokens keep only their front face as a card (the back is just
-    // illustration); regular double-faced tokens split into two cards per face.
+    // Art-back tokens keep only their front face as a card identity (the back
+    // is an illustration flip side; its image rides the print's layout), so
+    // they merge with the plain tokens they are. Regular double-faced tokens
+    // split into two cards per face.
     if (isArtBackDoubleFacedToken(
       faces.map(f => f.name ?? ''),
       faces.map(f => ({ oracleText: f.oracle_text ?? null, power: f.power ?? null, toughness: f.toughness ?? null })),

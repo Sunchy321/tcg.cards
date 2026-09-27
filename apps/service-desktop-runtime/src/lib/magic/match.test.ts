@@ -100,6 +100,15 @@ describe('slugifyCard', () => {
     expect(slugifyCard(card)).toBe('treasure!');
   });
 
+  test('slugs an art-back double-faced token by its front face attributes', () => {
+    const card: NormalizedCard = {
+      layout:  'token',
+      setName: 'Unstable Tokens',
+      faces:   [{ name: 'Zombie', typeLine: 'Token Creature — Zombie', oracleText: null, colors: ['B'], power: '2', toughness: '2' }],
+    };
+    expect(slugifyCard(card)).toBe('zombie!b-22');
+  });
+
   test('uses the name slug when it differs from the subtype', () => {
     const card = token({ face: { name: 'Peach Child', typeLine: 'Token Creature — Peach' } });
     expect(slugifyCard(card)).toBe('peach-child!');
@@ -250,5 +259,19 @@ describe('toMatchUnits', () => {
     expect(units[1]!.key).toBe('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1');
     expect(units[1]!.card.layout).toBe('token');
     expect(units[1]!.card.faces[0]!.name).toBe('Treasure');
+  });
+
+  test('keeps an art-back double_faced_token as one plain-token unit (front face only)', () => {
+    const units = toMatchUnits(row({
+      layout:    'double_faced_token',
+      cardFaces: [
+        { name: 'Zombie', type_line: 'Token Creature — Zombie', oracle_text: null, colors: ['B'], power: '2', toughness: '2' },
+        { name: 'Zombie', type_line: 'Token', oracle_text: null, colors: null, power: null, toughness: null },
+      ],
+    }));
+    expect(units).toHaveLength(1);
+    expect(units[0]!.key).toBe('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
+    expect(units[0]!.card.layout).toBe('token');
+    expect(units[0]!.card.faces.map(f => f.name)).toEqual(['Zombie']);
   });
 });

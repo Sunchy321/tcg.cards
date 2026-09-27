@@ -87,12 +87,16 @@ export function candidateOracleEligible(card: CandidateCardFacts): boolean {
   if (card.layout === 'double_faced_token') {
     const names = cardFacesNames(card);
     const faces = card.cardFaces ?? [];
-    if (isArtBackDoubleFacedToken(names, faces.map(f => ({
-      oracleText: f.oracle_text ?? null,
-      power:      f.power ?? null,
-      toughness:  f.toughness ?? null,
-    })))) return false;
-    if (!isSingleCardDoubleFacedToken(names)) return false;
+    // Art-back tokens project as normal two-face cards, so they are eligible;
+    // only regular double-faced tokens (which split per face) are not.
+    if (
+      !isSingleCardDoubleFacedToken(names)
+      && !isArtBackDoubleFacedToken(names, faces.map(f => ({
+        oracleText: f.oracle_text ?? null,
+        power:      f.power ?? null,
+        toughness:  f.toughness ?? null,
+      })))
+    ) return false;
   }
   return true;
 }
