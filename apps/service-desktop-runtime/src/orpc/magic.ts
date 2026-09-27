@@ -28,6 +28,8 @@ import { magicProjectTaskDefinition } from '../lib/magic/task/magic-project';
 import { magicImageImportRemoteTaskDefinition } from '../lib/magic/task/image-import-remote/definition';
 import { magicImageImportLocalTaskDefinition } from '../lib/magic/task/image-import-local/definition';
 import { magicImageImportSingleTaskDefinition } from '../lib/magic/task/image-import-single/definition';
+import { loadLocalAssetPreview } from '../lib/magic/image-import/local';
+import { printImageDir } from '../lib/magic/image-import/common';
 import { analyzeImportZip } from '../lib/magic/image-import/analyze';
 import { clearImages, imageClearResult } from '../lib/magic/image-import/clear';
 import { imageMarkResult, markPlaceholderImages } from '../lib/magic/image-import/mark';
@@ -464,15 +466,16 @@ const imageImportLocal = os
 
 const imageImportSingle = os
   .input(z.strictObject({
-    source:     z.enum(['manual', 'mtgch', 'mtgflame', 'hunterer', 'scryfall', 'gatherer', 'prefer_gatherer']),
-    set:        z.string().min(1),
-    langs:      z.array(z.string()).min(1),
-    numbers:    z.array(z.string().min(1)).min(1),
-    force:      z.boolean().optional(),
-    cleanupJpg: z.boolean().optional(),
-    faceIndex:  z.number().int().min(0).max(15).optional(),
-    fileName:   z.string().optional(),
-    dataBase64: z.string().optional(),
+    source:         z.enum(['manual', 'mtgch', 'mtgflame', 'hunterer', 'scryfall', 'gatherer', 'prefer_gatherer']),
+    set:            z.string().min(1),
+    langs:          z.array(z.string()).min(1),
+    numbers:        z.array(z.string().min(1)).min(1),
+    force:          z.boolean().optional(),
+    cleanupJpg:     z.boolean().optional(),
+    faceIndex:      z.number().int().min(0).max(15).optional(),
+    fileName:       z.string().optional(),
+    dataBase64:     z.string().optional(),
+    fromLocalAsset: z.boolean().optional(),
   }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
@@ -519,6 +522,34 @@ const listImageSets = os
     return rows.map(r => ({ code: r.code, prints: Number(r.prints) }));
   });
 
+/** Local-import preview: the asset files the import would pick for one print,
+ * read as data URLs so the console can show them before importing. */
+const localImagePreview = os
+  .input(z.strictObject({ set: z.string().min(1), lang: z.string().min(1), number: z.string().min(1) }))
+  .output(z.strictObject({
+    layout: z.string().nullable(),
+    faces:  z.array(z.strictObject({
+      faceIndex: z.number(),
+      fileName:  z.string().nullable(),
+      found:     z.boolean(),
+      dataUrl:   z.string().nullable(),
+    })),
+  }))
+  .handler(async ({ input }) => {
+    const db = getLocalDb();
+    const row = await db.select({ layout: Print.layout })
+      .from(Print)
+      .where(and(
+        eq(Print.set, input.set),
+        eq(Print.lang, input.lang as typeof Print.$inferSelect.lang),
+        eq(Print.number, input.number),
+        isNull(Print.deletedAt),
+      ))
+      .limit(1)
+      .then(rows => rows[0] ?? null);
+    return loadLocalAssetPreview(printImageDir(input.set, input.lang), row?.layout ?? null, input.number);
+  });
+
 const checkImagesQuality = os
   .input(z.strictObject({ set: z.string().min(1) }))
   .output(imageQualityReport)
@@ -553,7 +584,7 @@ const markPrintImages = os
 
 export const magicRouter = {
   getDataState,
-  images:     { sets: listImageSets, compare: compareImages, qualityCheck: checkImagesQuality, clear: clearPrintImages, mark: markPrintImages },
+  images:     { sets: listImageSets, compare: compareImages, qualityCheck: checkImagesQuality, clear: clearPrintImages, mark: markPrintImages, localPreview: localImagePreview },
   analyze:    { imageArchive: analyzeImageArchive },
   createTask: { scryfallImport, mtgchImport, mtgjsonImport, gathererImport, rubyImport, magicProject, imageImportRemote, imageImportLocal, imageImportSingle },
   rule:       magicRuleRouter,

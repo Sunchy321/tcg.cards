@@ -179,6 +179,37 @@
                 上传单张只能选一个语言。
               </p>
             </template>
+            <template v-else-if="isUploadLocal">
+              <div class="flex flex-wrap items-start gap-6">
+                <div class="max-w-md space-y-2">
+                  <p class="text-sm text-muted">
+                    无需选择图片：导入时直接从卡图资产目录读取「编号.webp / .jpg / .jpeg」（旧版
+                    <span class="font-mono">-0 / -1</span>
+                    命名自动识别，双面 layout 会同时导入背面）。仅支持单编号、单语言。
+                  </p>
+                  <p v-if="numbers.length > 1" class="text-sm text-error">
+                    本地导入只能填一个编号。
+                  </p>
+                  <p v-else-if="form.langs.length > 1" class="text-sm text-error">
+                    本地导入只能选一个语言。
+                  </p>
+                </div>
+                <div class="flex gap-3">
+                  <div v-if="localPreviewLoading" class="flex h-40 items-center text-sm text-muted">读取预览…</div>
+                  <template v-else>
+                    <div v-for="f in localPreview?.faces ?? []" :key="f.faceIndex" class="text-center text-xs">
+                      <div class="mb-1 text-muted">面 {{ f.faceIndex }}</div>
+                      <img v-if="f.dataUrl" :src="f.dataUrl" class="h-40 w-auto rounded border border-slate-200">
+                      <div v-else class="flex h-40 w-28 items-center justify-center rounded border border-dashed border-slate-300 text-muted">未找到</div>
+                      <div class="mt-1 font-mono text-muted">{{ f.fileName ?? '—' }}</div>
+                    </div>
+                    <div v-if="localPreview != null && localPreview.faces.length === 0" class="flex h-40 items-center text-sm text-muted">
+                      无法读取（卡图路径未配置或未匹配到印刷）。
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
             <template v-else-if="isUploadZip">
               <UFormField orientation="horizontal" :ui="{ root: '!justify-start' }" label="压缩包路径" required class="max-w-xl">
                 <div class="flex w-full items-center gap-2">
@@ -313,6 +344,7 @@ type SourceKey = keyof typeof SOURCE_LABELS;
 
 const UPLOAD_MODE_OPTIONS = [
   { label: '单张图片', value: 'single' },
+  { label: '本地导入', value: 'local' },
   { label: '压缩包', value: 'zip' },
 ] as const;
 
@@ -374,8 +406,42 @@ const isRemote = computed(() => !uploadSources.includes(form.source));
 const isRemoteBatch = computed(() => isRemote.value && form.remoteMode === 'batch');
 const isDownloadSingle = computed(() => isRemote.value && form.remoteMode === 'number');
 const isUploadSingle = computed(() => !isRemote.value && form.uploadMode === 'single');
+const isUploadLocal = computed(() => !isRemote.value && form.uploadMode === 'local');
 const isUploadZip = computed(() => !isRemote.value && form.uploadMode === 'zip');
-const isSingle = computed(() => isDownloadSingle.value || isUploadSingle.value);
+
+/** Local-import preview: what the asset directory holds for the typed print. */
+const localPreviewLoading = ref(false);
+const localPreview = ref<{
+  layout: string | null;
+  faces:  Array<{ faceIndex: number, fileName: string | null, found: boolean, dataUrl: string | null }>;
+} | null>(null);
+let localPreviewTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleLocalPreview() {
+  if (!isUploadLocal.value) {
+    localPreview.value = null;
+    return;
+  }
+  const set = form.set.trim().toLowerCase();
+  const number = form.number.trim();
+  const lang = selectedLangs.value[0];
+  if (set === '' || number === '' || lang == null) {
+    localPreview.value = null;
+    return;
+  }
+  if (localPreviewTimer != null) clearTimeout(localPreviewTimer);
+  localPreviewTimer = setTimeout(async () => {
+    localPreviewLoading.value = true;
+    try {
+      localPreview.value = await orpc.magic.images.localPreview({ set, lang, number });
+    } catch {
+      localPreview.value = null;
+    } finally {
+      localPreviewLoading.value = false;
+    }
+  }, 400);
+}
+const isSingle = computed(() => isDownloadSingle.value || isUploadSingle.value || isUploadLocal.value);
 const treeMode = computed(() => isUploadZip.value && analysis.value?.convention === 'tree');
 
 /** Remote batch sources whose sweep may cover every set; gatherer-only remains set-scoped. */
@@ -586,6 +652,9 @@ const allLocales: string[] = [...mainLocales, ...secondaryLocales];
 /** Selected languages normalized to group order; drives the import scope and the comparison. */
 const selectedLangs = computed(() => allLocales.filter(code => form.langs.includes(code)));
 
+// Placed after selectedLangs on purpose: the preview sources read it.
+watch([isUploadLocal, () => form.set, () => form.number, selectedLangs], scheduleLocalPreview);
+
 const langAllSelected = computed(() => selectedLangs.value.length === allLocales.length);
 const langSomeSelected = computed(() => selectedLangs.value.length > 0 && !langAllSelected.value);
 
@@ -693,6 +762,10 @@ const operation = computed<TaskOperation>(() => {
     // One uploaded file belongs to exactly one print in one language, so a
     // number list or a second language blocks the run.
     ready = setChosen && selectedLangs.value.length === 1 && numbers.value.length === 1 && !!form.dataBase64;
+  } else if (isUploadLocal.value) {
+    // The local import reads the file from the asset directory itself: one
+    // print in one language, no image to pick.
+    ready = setChosen && selectedLangs.value.length === 1 && numbers.value.length === 1;
   } else {
     // A flat archive carries one language, so exactly one must be selected.
     ready = treeMode.value ? !!form.zipPath.trim() : setChosen && selectedLangs.value.length === 1 && !!form.zipPath.trim();
@@ -720,6 +793,16 @@ const operation = computed<TaskOperation>(() => {
           set:     treeMode.value ? undefined : form.set,
           lang:    treeMode.value ? undefined : form.langs[0],
           zipPath: form.zipPath.trim(),
+          ...common,
+        }) as Promise<TaskPageSnapshot>;
+      }
+      if (isUploadLocal.value) {
+        return orpc.magic.createTask.imageImportSingle({
+          source:         form.source as 'manual' | 'mtgch' | 'mtgflame' | 'hunterer',
+          set:            form.set,
+          langs:          selectedLangs.value,
+          numbers:        numbers.value,
+          fromLocalAsset: true,
           ...common,
         }) as Promise<TaskPageSnapshot>;
       }

@@ -1,40 +1,48 @@
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
+import { readFileSync, rmSync } from 'node:fs';
 
 import { runWithDb } from '@tcg-cards/db';
 import { Gatherer, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
 import { Print } from '@tcg-cards/db/schema/shared/magic/print';
+import { isTwoImageLayout } from '@tcg-cards/shared/magic/print-image';
 
 import { createDefinition, type BlockDone } from '#task/definition';
 import { getLocalDb } from '../../../hearthstone/hsdata-local-db';
-import { uploadImageSources } from '../../image-import/common';
+import { printImageDir, uploadImageSources } from '../../image-import/common';
+import { findLocalAssetFile } from '../../image-import/local';
 import { createImportBatchState, runImportBlock, type ImportBatchState } from '../../image-import/batch';
 import { applySkipRules, ingestRemoteRow, ingestUploadItem } from '../../image-import/ingest';
 import { addImageImportOutput, emptyImageImportOutput, imageImportOutput, pushCapped, type ImageImportOutput } from '../../image-import/result';
 import { probeImageImport } from '../../image-import/probe';
 import { emptyRemoteSkipped, gathererQueueRow, preferGathererQueueRow, scryfallQueueRow, type RemoteSkipped } from '../../image-import/source';
 
-/** Single-target import: one or more prints, uploaded as a file or downloaded by number. */
+/** Single-target import: one or more prints, uploaded as a file, read from the asset directory, or downloaded by number. */
 export const magicImageImportSingleTaskType = 'magic_image_import_single';
 
 const input = z.strictObject({
-  source:     z.enum([...uploadImageSources, 'scryfall', 'gatherer', 'prefer_gatherer']),
-  set:        z.string().min(1),
-  langs:      z.array(z.string()).min(1),
-  numbers:    z.array(z.string().min(1)).min(1),
-  force:      z.boolean().optional().default(false),
-  cleanupJpg: z.boolean().optional().default(false),
+  source:         z.enum([...uploadImageSources, 'scryfall', 'gatherer', 'prefer_gatherer']),
+  set:            z.string().min(1),
+  langs:          z.array(z.string()).min(1),
+  numbers:        z.array(z.string().min(1)).min(1),
+  force:          z.boolean().optional().default(false),
+  cleanupJpg:     z.boolean().optional().default(false),
   // Upload single image only.
-  faceIndex:  z.number().int().min(0).max(15).optional(),
-  fileName:   z.string().optional(),
-  dataBase64: z.string().optional(),
+  faceIndex:      z.number().int().min(0).max(15).optional(),
+  fileName:       z.string().optional(),
+  dataBase64:     z.string().optional(),
+  // Local asset import only: read the matching webp/jpg straight from the
+  // asset directory instead of receiving an upload. One number, one language.
+  fromLocalAsset: z.boolean().optional(),
 }).refine(v => {
   const isUpload = (uploadImageSources as readonly string[]).includes(v.source);
   // One uploaded file belongs to one print, so an upload carries exactly one number.
   if (v.dataBase64 != null) return isUpload && v.numbers.length === 1;
+  // Local import reads the file from the asset directory: one print, one language.
+  if (v.fromLocalAsset === true) return isUpload && v.numbers.length === 1 && v.langs.length === 1;
   // Download sources derive the face index from scryfall_face, never from the caller.
   return !isUpload && v.faceIndex == null;
-}, { message: '上传单张需要 dataBase64 与单个编号;下载来源不接受 faceIndex' });
+}, { message: '上传单张需要 dataBase64 与单个编号;本地导入需要单个编号与单个语言;下载来源不接受 faceIndex' });
 
 const rowColumns = {
   cardId:              Print.cardId,
@@ -67,9 +75,11 @@ interface SingleRowKey {
 
 /** Checkpointable state of one single-import stage: the row list plus the upload payload. */
 interface SingleImportState extends ImportBatchState<SingleRowKey> {
-  data:          string | null;
-  faceIndex:     number | null;
-  remoteSkipped: RemoteSkipped;
+  data:           string | null;
+  faceIndex:      number | null;
+  /** Local asset import: the image files are read from the asset directory. */
+  fromLocalAsset: boolean;
+  remoteSkipped:  RemoteSkipped;
 }
 
 /** One block processes exactly one print row, so the progress bar counts the same unit as the batch import: images. */
@@ -122,6 +132,7 @@ const definition = createDefinition(magicImageImportSingleTaskType, {
     }) as SingleImportState;
     state.data = ctx.dataBase64 ?? null;
     state.faceIndex = ctx.faceIndex ?? null;
+    state.fromLocalAsset = ctx.fromLocalAsset ?? false;
     state.remoteSkipped = emptyRemoteSkipped();
     return { total: state.items.length, blockInput: state };
   })
@@ -171,6 +182,51 @@ const definition = createDefinition(magicImageImportSingleTaskType, {
             db:                  probeDb[0],
           });
           if (!row) continue;
+
+          // Local asset import: the matching webp/jpg files are read straight
+          // from the asset directory, one per face (two-image layouts read the
+          // legacy `-0`/`-1` forms when the canonical ones are absent). All
+          // sources are read into memory BEFORE anything is written, and a
+          // source file is removed only after its own face was imported
+          // successfully — a sweep can no longer destroy a face that has not
+          // been read yet.
+          if (state.fromLocalAsset) {
+            const dir = printImageDir(ctx.set, ctx.langs[0]!);
+            const faces = isTwoImageLayout(row.layout) ? [0, 1] : [0];
+            const sources: Array<{ faceIndex: number, path: string, data: Buffer }> = [];
+            for (const faceIndex of faces) {
+              const file = findLocalAssetFile(dir, row.number, faceIndex);
+              if (file == null) {
+                counts = addImageImportOutput(counts, {
+                  skipped:  1,
+                  warnings: [`${row.number}: 面 ${faceIndex} 在资产目录未找到图片文件`],
+                });
+                continue;
+              }
+              sources.push({ faceIndex, path: file.path, data: readFileSync(file.path) });
+            }
+            for (const source of sources) {
+              const { kept, skipped, singleImageFaces } = applySkipRules([row], ctx.source, state.force, source.faceIndex);
+              counts = addImageImportOutput(counts, { skipped, warnings: singleImageFaces });
+              for (const target of kept) {
+                const delta = await ingestUploadItem(db, { number: key.number, faceIndex: source.faceIndex, rows: [target] }, source.data, {
+                  // The consumed source file is removed by this pass itself —
+                  // the stem-wide jpg sweep must not run here, or it would
+                  // delete the other faces' unread sources.
+                  imageSource: ctx.source,
+                  cleanupJpg:  false,
+                });
+                counts = addImageImportOutput(counts, delta);
+                // Protection: a source file may only be consumed (deleted)
+                // after its own face was imported without failure. Success
+                // carries no `failed` field, hence the `?? 0`.
+                if ((delta.failed ?? 0) === 0 && state.cleanupJpg) {
+                  try { rmSync(source.path); } catch { /* removal is best-effort */ }
+                }
+              }
+            }
+            continue;
+          }
 
           if (state.data != null) {
             const data = Buffer.from(state.data, 'base64');
