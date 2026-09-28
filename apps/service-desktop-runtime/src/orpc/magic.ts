@@ -424,7 +424,7 @@ const publishTask = os
 
 const imageImportRemote = os
   .input(z.strictObject({
-    source:     z.enum(['scryfall', 'gatherer', 'prefer_gatherer']),
+    source:     z.enum(['scryfall', 'gatherer', 'prefer_gatherer', 'mtgch']),
     scope:      z.enum(['full', 'set']),
     set:        z.string().optional(),
     langs:      z.array(z.string()).min(1).optional(),

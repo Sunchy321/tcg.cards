@@ -1,4 +1,5 @@
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { z } from 'zod';
 import { readFileSync, rmSync } from 'node:fs';
 
@@ -15,13 +16,13 @@ import { createImportBatchState, runImportBlock, type ImportBatchState } from '.
 import { applySkipRules, ingestRemoteRow, ingestUploadItem } from '../../image-import/ingest';
 import { addImageImportOutput, emptyImageImportOutput, imageImportOutput, pushCapped, type ImageImportOutput } from '../../image-import/result';
 import { probeImageImport } from '../../image-import/probe';
-import { emptyRemoteSkipped, gathererQueueRow, preferGathererQueueRow, scryfallQueueRow, type RemoteSkipped } from '../../image-import/source';
+import { emptyRemoteSkipped, gathererQueueRow, mtgchQueueRow, preferGathererQueueRow, scryfallQueueRow, type RemoteSkipped } from '../../image-import/source';
 
 /** Single-target import: one or more prints, uploaded as a file, read from the asset directory, or downloaded by number. */
 export const magicImageImportSingleTaskType = 'magic_image_import_single';
 
 const input = z.strictObject({
-  source:         z.enum([...uploadImageSources, 'scryfall', 'gatherer', 'prefer_gatherer']),
+  source:         z.enum([...uploadImageSources, 'scryfall', 'gatherer', 'prefer_gatherer', 'mtgch']),
   set:            z.string().min(1),
   langs:          z.array(z.string()).min(1),
   numbers:        z.array(z.string().min(1)).min(1),
@@ -44,7 +45,13 @@ const input = z.strictObject({
   if (v.fromLocalAsset === true) return isUpload;
   // Download sources derive the face index from scryfall_face, never from the caller.
   return !isUpload && v.faceIndex == null;
-}, { message: '上传单张需要 dataBase64 与单个编号;本地导入需要 upload 源;下载来源不接受 faceIndex' });
+}, { message: '上传单张需要 dataBase64 与单个编号;本地导入需要 upload 源;下载来源不接受 faceIndex' }).refine(
+  v => v.source !== 'mtgch' || (v.langs.length === 1 && v.langs[0] === 'zhs'),
+  { message: 'mtgch 源只提供简中(zhs)卡图' },
+);
+
+// The en print of the same set+number: mtgch keys its zhs scans by that id.
+const scryfallEn = alias(ScryfallCard, 'scryfall_en');
 
 const rowColumns = {
   cardId:              Print.cardId,
@@ -58,9 +65,11 @@ const rowColumns = {
   scryfallFace:        Print.scryfallFace,
   imageInfo:           Print.imageInfo,
   printStatus:         Print.imageStatus,
+  scryfallCardId:      ScryfallCard.cardId,
   scryfallImageStatus: ScryfallCard.imageStatus,
   scryfallImageUris:   ScryfallCard.imageUris,
   scryfallCardFaces:   ScryfallCard.cardFaces,
+  scryfallEnCardId:    scryfallEn.cardId,
   multiverseId:        Print.multiverseId,
   gathererData:        Gatherer.data,
 };
@@ -88,7 +97,7 @@ interface SingleImportState extends ImportBatchState<SingleRowKey> {
 const ROWS_PER_BLOCK = 1;
 
 const definition = createDefinition(magicImageImportSingleTaskType, {
-  version:     '2026-09-21:v2',
+  version:     '2026-09-28:v3',
   effectModel: 'reconcilable',
 })
   .scope(z.object({}), {
@@ -158,6 +167,11 @@ const definition = createDefinition(magicImageImportSingleTaskType, {
           const rowQuery = db.select(rowColumns).from(Print)
             .leftJoin(ScryfallCard, eq(Print.scryfallCardId, ScryfallCard.cardId))
             .leftJoin(Gatherer, sql`${Gatherer.multiverseId} = ${Print.multiverseId}[1]`)
+            .leftJoin(scryfallEn, and(
+              eq(scryfallEn.set, Print.set),
+              eq(scryfallEn.collectorNumber, Print.number),
+              eq(scryfallEn.lang, 'en'),
+            ))
             .where(and(
               eq(Print.cardId, key.cardId),
               eq(Print.version, key.version),
@@ -224,7 +238,9 @@ const definition = createDefinition(magicImageImportSingleTaskType, {
                 // after its own face was imported without failure. Success
                 // carries no `failed` field, hence the `?? 0`.
                 if ((delta.failed ?? 0) === 0 && state.cleanupJpg) {
-                  try { rmSync(source.path); } catch { /* removal is best-effort */ }
+                  try {
+                    rmSync(source.path);
+                  } catch { /* removal is best-effort */ }
                 }
               }
             }
@@ -257,7 +273,9 @@ const definition = createDefinition(magicImageImportSingleTaskType, {
             ? gathererQueueRow(row, state.remoteSkipped)
             : ctx.source === 'prefer_gatherer'
               ? preferGathererQueueRow(row, state.remoteSkipped)
-              : scryfallQueueRow(row, state.remoteSkipped);
+              : ctx.source === 'mtgch'
+                ? mtgchQueueRow(row, state.remoteSkipped)
+                : scryfallQueueRow(row, state.remoteSkipped);
           if (!queued) continue;
           counts = addImageImportOutput(counts, await ingestRemoteRow(db, queued, {
             imageSource: ctx.source,

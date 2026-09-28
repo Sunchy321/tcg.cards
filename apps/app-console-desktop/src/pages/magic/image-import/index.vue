@@ -8,7 +8,7 @@
             <h1 class="text-xl font-semibold">卡图导入</h1>
           </div>
           <p class="mt-1 text-sm text-muted">
-            从 Scryfall / Gatherer 批量下载或按编号补图,或上传本地图片与压缩包;上传导入的结果不会被批量导入覆盖。
+            从 Scryfall / Gatherer 批量下载或按编号补图,MTGCH 可自动下载简中卡图,或上传本地图片与压缩包;上传导入的结果不会被批量导入覆盖。
           </p>
         </div>
         <div class="ml-auto flex gap-2">
@@ -85,7 +85,7 @@
               <UFormField v-if="!isRemote" orientation="horizontal" :ui="{ root: '!justify-start' }" label="导入方式" required>
                 <USelect
                   v-model="form.uploadMode"
-                  :items="UPLOAD_MODE_OPTIONS"
+                  :items="uploadModeOptions"
                   value-key="value"
                   class="w-40"
                   :disabled="disabled"
@@ -112,14 +112,14 @@
               <UFormField orientation="horizontal" :ui="{ root: '!justify-start' }" label="编号" :required="isSingle" class="min-w-40">
                 <UInput
                   v-model="form.number"
-                  :placeholder="isDownloadSingle || isUploadLocal ? '如 123、1-19、1,3,5' : '如 123'"
+                  :placeholder="isDownloadSingle || isUploadLocal || isAutoNumber ? '如 123、1-19、1,3,5' : '如 123'"
                   autocomplete="off"
                   spellcheck="false"
                   :disabled="disabled || !isSingle"
                 />
               </UFormField>
               <UCheckbox
-                v-if="isRemote"
+                v-if="isRemote || isAutoImport"
                 v-model="allScope"
                 label="全部"
                 :disabled="disabled"
@@ -136,7 +136,7 @@
                     size="sm"
                     :color="form.langs.includes(code) ? 'primary' : 'neutral'"
                     :variant="form.langs.includes(code) ? 'solid' : 'soft'"
-                    :disabled="disabled || treeMode"
+                    :disabled="disabled || treeMode || (isAutoImport && code !== 'zhs')"
                     @click="toggleLang(code)"
                   />
                 </UFieldGroup>
@@ -149,7 +149,7 @@
                     size="sm"
                     :color="form.langs.includes(code) ? 'primary' : 'neutral'"
                     :variant="form.langs.includes(code) ? 'solid' : 'soft'"
-                    :disabled="disabled || treeMode"
+                    :disabled="disabled || treeMode || isAutoImport"
                     @click="toggleLang(code)"
                   />
                 </UFieldGroup>
@@ -157,7 +157,7 @@
                   class="ml-2"
                   :model-value="langAllSelected ? true : langSomeSelected ? 'indeterminate' : false"
                   label="全选"
-                  :disabled="disabled || treeMode"
+                  :disabled="disabled || treeMode || isAutoImport"
                   @update:model-value="toggleAllLangs"
                 />
               </div>
@@ -263,6 +263,11 @@
                 </div>
               </div>
             </template>
+            <template v-else-if="isAutoImport">
+              <p class="text-sm text-muted">
+                自动从 MTGCH 下载简中卡图:勾选「全部」导入所选系列(或不限系列)的全部简中印刷,取消勾选则按编号补图。语言固定为简中,源上没有简中扫描的印刷会计入「源上无图」,不算失败。
+              </p>
+            </template>
             <template v-else-if="isDownloadSingle">
               <p v-if="numbers.length > 1" class="text-xs text-muted">
                 本次将处理 <span class="font-mono">{{ numbers.length }}</span> 个编号。
@@ -341,7 +346,13 @@ const UPLOAD_MODE_OPTIONS = [
   { label: '单张图片', value: 'single' },
   { label: '本地导入', value: 'local' },
   { label: '压缩包', value: 'zip' },
+  { label: '自动导入', value: 'auto' },
 ] as const;
+
+/** The auto-download mode fetches mtgch scans from the network, so only that source offers it. */
+const uploadModeOptions = computed(() =>
+  form.source === 'mtgch' ? UPLOAD_MODE_OPTIONS : UPLOAD_MODE_OPTIONS.filter(option => option.value !== 'auto'),
+);
 
 /** Result-key → report label for the unified import output. */
 const RESULT_LABELS: Record<string, string> = {
@@ -357,6 +368,7 @@ const RESULT_LABELS: Record<string, string> = {
   placeholder:       '占位图',
   markedPlaceholder: '已标记无图',
   skippedUpload:     '跳过上传图',
+  notFound:          '源上无图',
   unmatched:         '未匹配编号',
   unrecognized:      '未识别文件',
   sizeDelta:         '磁盘占用变化',
@@ -367,6 +379,7 @@ const LIST_LABELS: Record<string, string> = {
   unrecognizedNames: '未识别文件',
   warnings:          '名称提示',
   markedNumbers:     '已标记无图',
+  notFoundNumbers:   '源上无图明细',
   failures:          '失败明细',
 };
 
@@ -403,6 +416,10 @@ const isDownloadSingle = computed(() => isRemote.value && form.remoteMode === 'n
 const isUploadSingle = computed(() => !isRemote.value && form.uploadMode === 'single');
 const isUploadLocal = computed(() => !isRemote.value && form.uploadMode === 'local');
 const isUploadZip = computed(() => !isRemote.value && form.uploadMode === 'zip');
+/** The mtgch auto mode downloads the simplified-Chinese scans straight from mtgch's hosting. */
+const isAutoImport = computed(() => form.source === 'mtgch' && form.uploadMode === 'auto');
+const isAutoBatch = computed(() => isAutoImport.value && form.remoteMode === 'batch');
+const isAutoNumber = computed(() => isAutoImport.value && form.remoteMode === 'number');
 
 /** Local-import preview: what the asset directory holds for the typed print. */
 const localPreviewLoading = ref(false);
@@ -441,11 +458,11 @@ function scheduleLocalPreview() {
     }
   }, 400);
 }
-const isSingle = computed(() => isDownloadSingle.value || isUploadSingle.value || isUploadLocal.value);
+const isSingle = computed(() => isDownloadSingle.value || isUploadSingle.value || isUploadLocal.value || isAutoNumber.value);
 const treeMode = computed(() => isUploadZip.value && analysis.value?.convention === 'tree');
 
 /** Remote batch sources whose sweep may cover every set; gatherer-only remains set-scoped. */
-const canSweepAllSets = computed(() => isRemoteBatch.value && ['scryfall', 'prefer_gatherer'].includes(form.source));
+const canSweepAllSets = computed(() => (isRemoteBatch.value && ['scryfall', 'prefer_gatherer'].includes(form.source)) || isAutoBatch.value);
 
 /** Every collector number the 编号 field stands for; a comma list or a range holds more than one. */
 const numbers = computed(() => parseNumberInput(form.number));
@@ -467,6 +484,13 @@ watch(() => form.source, () => {
   if (isRemote.value && !['batch', 'number'].includes(form.remoteMode)) form.remoteMode = 'batch';
   if (!isRemote.value && !['single', 'zip'].includes(form.uploadMode)) form.uploadMode = 'single';
 });
+
+// The mtgch auto download serves simplified-Chinese scans only; normalize the
+// language whenever that mode is active (immediate, so a persisted auto mode
+// also lands on zhs at load).
+watch(isAutoImport, active => {
+  if (active && !(form.langs.length === 1 && form.langs[0] === 'zhs')) form.langs = ['zhs'];
+}, { immediate: true });
 
 const setRequired = computed(() => !(canSweepAllSets.value && form.set === '__all__'));
 
@@ -754,9 +778,9 @@ const operation = computed<TaskOperation>(() => {
   const setChosen = form.set.trim() !== '' && form.set !== ALL_SETS;
   const hasLang = selectedLangs.value.length > 0;
   let ready: boolean;
-  if (isRemoteBatch.value) {
+  if (isRemoteBatch.value || isAutoBatch.value) {
     ready = hasLang && (canSweepAllSets.value ? (form.set === ALL_SETS || setChosen) : setChosen);
-  } else if (isDownloadSingle.value) {
+  } else if (isDownloadSingle.value || isAutoNumber.value) {
     ready = setChosen && hasLang && numbers.value.length > 0;
   } else if (isUploadSingle.value) {
     // One uploaded file belongs to exactly one print in one language, so a
@@ -782,6 +806,15 @@ const operation = computed<TaskOperation>(() => {
       if (isRemoteBatch.value) {
         return orpc.magic.createTask.imageImportRemote({
           source: form.source as 'scryfall' | 'gatherer' | 'prefer_gatherer',
+          scope:  form.set === ALL_SETS ? 'full' : 'set',
+          set:    form.set === ALL_SETS ? undefined : form.set,
+          langs:  selectedLangs.value,
+          ...common,
+        }) as Promise<TaskPageSnapshot>;
+      }
+      if (isAutoBatch.value) {
+        return orpc.magic.createTask.imageImportRemote({
+          source: 'mtgch',
           scope:  form.set === ALL_SETS ? 'full' : 'set',
           set:    form.set === ALL_SETS ? undefined : form.set,
           langs:  selectedLangs.value,

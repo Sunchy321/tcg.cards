@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 
-import { emptyRemoteSkipped, gathererQueueRow, gathererRowUrls, scryfallQueueRow, scryfallRowUrls } from './source';
-import type { GathererImageRow, ScryfallImageRow } from './source';
+import { emptyRemoteSkipped, gathererQueueRow, gathererRowUrls, mtgchFaceUrl, mtgchQueueRow, mtgchRowUrls, scryfallQueueRow, scryfallRowUrls } from './source';
+import type { GathererImageRow, MtgchImageRow, ScryfallImageRow } from './source';
 
 const topLevelPng = 'https://cards.scryfall.io/png/front/a/b/ab.png';
 const frontPng = 'https://cards.scryfall.io/png/front/c/d/cd.png';
@@ -165,5 +165,61 @@ describe('gathererQueueRow', () => {
     }), emptyRemoteSkipped());
     expect(queued?.faces.map(face => face.url)).toEqual([frontGathererUrl, backGathererUrl]);
     expect(queued?.faceCount).toBe(2);
+  });
+});
+
+const scryfallId = '8ad44884-ae0d-40ae-87a9-bad043d4e9ad';
+const frontZhs = mtgchFaceUrl(scryfallId, 'front');
+const backZhs = mtgchFaceUrl(scryfallId, 'back');
+
+function mtgchRow(overrides: Partial<MtgchImageRow>): MtgchImageRow {
+  return { ...baseRow, scryfallEnCardId: scryfallId, scryfallImageStatus: 'highres_scan', ...overrides };
+}
+
+describe('mtgchFaceUrl', () => {
+  test('hashes the scryfall card id into the hosted zhs path', () => {
+    expect(mtgchFaceUrl(scryfallId, 'front')).toBe(`https://images.mtgch.com/zhs/large/front/8/a/${scryfallId}.webp`);
+    expect(mtgchFaceUrl(scryfallId, 'back')).toBe(`https://images.mtgch.com/zhs/large/back/8/a/${scryfallId}.webp`);
+  });
+});
+
+describe('mtgchRowUrls', () => {
+  test('builds the front scan url of a one-image card', () => {
+    expect(mtgchRowUrls({ layout: 'adventure', scryfallFace: null, scryfallEnCardId: scryfallId })).toEqual([frontZhs]);
+  });
+
+  test('builds front and back urls for a front/back card', () => {
+    expect(mtgchRowUrls({ layout: 'transform', scryfallFace: null, scryfallEnCardId: scryfallId })).toEqual([frontZhs, backZhs]);
+  });
+
+  // A reversible print pinned to one face carries that side's scan alone.
+  test('resolves a back-pinned row to the back scan', () => {
+    expect(mtgchRowUrls({ layout: 'reversible_card', scryfallFace: 'back', scryfallEnCardId: scryfallId })).toEqual([backZhs]);
+  });
+
+  test('has no url without a scryfall card id', () => {
+    expect(mtgchRowUrls({ layout: 'normal', scryfallFace: null, scryfallEnCardId: null })).toEqual([null]);
+  });
+});
+
+describe('mtgchQueueRow', () => {
+  test('queues the front face of a one-image card', () => {
+    const queued = mtgchQueueRow(mtgchRow({ layout: 'adventure' }), emptyRemoteSkipped());
+    expect(queued?.faces).toEqual([{ faceIndex: 0, url: frontZhs, remoteSource: 'mtgch' }]);
+    expect(queued?.faceCount).toBe(1);
+  });
+
+  test('queues both faces of a front/back card', () => {
+    const queued = mtgchQueueRow(mtgchRow({ layout: 'modal_dfc' }), emptyRemoteSkipped());
+    expect(queued?.faces.map(face => face.url)).toEqual([frontZhs, backZhs]);
+    expect(queued?.faceCount).toBe(2);
+  });
+
+  // mtgch keys its scans by the scryfall card id, so the scryfall placeholder
+  // rule keeps unprinted cards out of its queue too.
+  test('skips a scryfall placeholder print', () => {
+    const skipped = emptyRemoteSkipped();
+    expect(mtgchQueueRow(mtgchRow({ scryfallImageStatus: 'placeholder' }), skipped)).toBeNull();
+    expect(skipped.placeholder).toBe(1);
   });
 });

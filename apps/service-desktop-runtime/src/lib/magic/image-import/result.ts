@@ -17,6 +17,11 @@ export const imageImportOutput = z.strictObject({
   missingUrl:        z.number(),
   missingId:         z.number(),
   placeholder:       z.number(),
+  // Faces the source answered 404 for — it hosts no image of this print at
+  // all (for mtgch: no simplified-Chinese scan). Expected, so counted apart
+  // from real download failures. Defaulted so older checkpoints still parse.
+  notFound:          z.number().default(0),
+  notFoundNumbers:   z.array(z.string()).default([]),
   // Rows skipped for the locally confirmed no-image mark. Defaulted so
   // counters checkpointed before this field existed still parse.
   markedPlaceholder: z.number().default(0),
@@ -46,10 +51,10 @@ export const maxListEntries = 50;
 
 const numericKeys = [
   'processed', 'written', 'unchanged', 'failed', 'skipped', 'lowQuality', 'cleanedJpg',
-  'missingUrl', 'missingId', 'placeholder', 'markedPlaceholder', 'skippedUpload', 'unmatched', 'unrecognized',
+  'missingUrl', 'missingId', 'placeholder', 'notFound', 'markedPlaceholder', 'skippedUpload', 'unmatched', 'unrecognized',
   'sizeDelta',
 ] as const;
-const listKeys = ['unmatchedNumbers', 'unrecognizedNames', 'warnings', 'markedNumbers', 'failures'] as const;
+const listKeys = ['unmatchedNumbers', 'unrecognizedNames', 'warnings', 'markedNumbers', 'notFoundNumbers', 'failures'] as const;
 
 export function emptyImageImportOutput(): ImageImportOutput {
   return {
@@ -63,6 +68,8 @@ export function emptyImageImportOutput(): ImageImportOutput {
     missingUrl:        0,
     missingId:         0,
     placeholder:       0,
+    notFound:          0,
+    notFoundNumbers:   [],
     markedPlaceholder: 0,
     skippedUpload:     0,
     unmatched:         0,

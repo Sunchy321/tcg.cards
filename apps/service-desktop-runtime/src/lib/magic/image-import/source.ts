@@ -9,7 +9,7 @@ import { faceIndexOf } from './common';
 import { probeImageImport } from './probe';
 
 /** Image sources fetched over HTTP rather than uploaded from local files. */
-export type RemoteImageSource = 'scryfall' | 'gatherer';
+export type RemoteImageSource = 'scryfall' | 'gatherer' | 'mtgch';
 
 /** A sweep source: either one remote source, or the gatherer-first hybrid. */
 export type SweepSource = RemoteImageSource | 'prefer_gatherer';
@@ -87,6 +87,9 @@ export function remoteExpectedFaces(source: SweepSource): SQL {
     else 1 end`;
   if (source === 'scryfall') return scryfallExpr;
   if (source === 'gatherer') return gathererExpr;
+  // mtgch hosts its zhs scans with a front/back split that mirrors scryfall's
+  // per-face structure, so its expected face count is scryfall's.
+  if (source === 'mtgch') return scryfallExpr;
   return sql`greatest(${scryfallExpr}, ${gathererExpr})`;
 }
 
@@ -152,6 +155,13 @@ export interface GathererImageRow extends QueueRowColumns {
   gathererData: GathererImageData | null;
 }
 
+/** Selected columns of one mtgch-side print row. */
+export interface MtgchImageRow extends QueueRowColumns {
+  /** Scryfall id of the English print of this set+number (the zhs scan key). */
+  scryfallEnCardId:    string | null;
+  scryfallImageStatus: string | null;
+}
+
 /**
  * Scryfall download urls of one row, one per printed image. Scryfall only gives
  * per-face uris when the faces have images of their own — adventure, split,
@@ -194,10 +204,31 @@ interface ScryfallUrlColumns {
 }
 
 /** Columns the gatherer url rule needs. */
-interface GathererUrlColumns {
+export interface GathererUrlColumns {
   layout:       string;
   scryfallFace: string | null;
   gathererData: GathererImageData | null;
+}
+
+/** Columns the mtgch url rule needs. */
+export interface MtgchUrlColumns {
+  layout:           string;
+  scryfallFace:     string | null;
+  /** Scryfall id of the English print of this set+number: mtgch keys its zhs scans by the English print, not the zhs one. */
+  scryfallEnCardId: string | null;
+}
+
+/** Size tier of the mtgch zhs scan urls the import downloads (the largest hosted one). */
+const mtgchZhsSize = 'large';
+
+/**
+ * Direct zhs scan url of one scryfall card side: mtgch hosts its
+ * simplified-Chinese scans keyed by the English print's scryfall card id,
+ * under a front/back split that mirrors scryfall's own hosting, so no API
+ * roundtrip is needed.
+ */
+export function mtgchFaceUrl(scryfallCardId: string, side: 'front' | 'back'): string {
+  return `https://images.mtgch.com/zhs/${mtgchZhsSize}/${side}/${scryfallCardId.slice(0, 1)}/${scryfallCardId.slice(1, 2)}/${scryfallCardId}.webp`;
 }
 
 /** Queues one scryfall print row; placeholder art is skipped and counted. */
@@ -210,6 +241,32 @@ export function scryfallQueueRow(row: ScryfallImageRow, skipped: RemoteSkipped):
     return null;
   }
   return queueRow(row, scryfallRowUrls(row), skipped, 'scryfall');
+}
+
+/**
+ * mtgch download urls of one row, one per printed image. Cards whose parts
+ * share one printed image have a front scan only, and a reversible print
+ * pinned to one face carries that side's scan alone.
+ */
+export function mtgchRowUrls(row: MtgchUrlColumns): Array<string | null> {
+  const id = row.scryfallEnCardId;
+  if (id == null || id.length < 2) return [null];
+  const front = mtgchFaceUrl(id, 'front');
+  const pinned = faceIndexOf(row.scryfallFace);
+  if (pinned != null) return [pinned === 0 ? front : mtgchFaceUrl(id, 'back')];
+  return twoImageRow(row) ? [front, mtgchFaceUrl(id, 'back')] : [front];
+}
+
+/** Queues one mtgch print row; scryfall placeholder art is skipped and counted. */
+export function mtgchQueueRow(row: MtgchImageRow, skipped: RemoteSkipped): RemoteQueueRow | null {
+  // Same placeholder rule as the scryfall queue: mtgch keys its scans by the
+  // scryfall card id, so an unprinted card has no real scan to reach either.
+  if (row.scryfallImageStatus === 'placeholder') {
+    probeImageImport({ kind: 'queue-skip-placeholder', number: row.number, scryfallImageStatus: JSON.stringify(row.scryfallImageStatus) });
+    skipped.placeholder += 1;
+    return null;
+  }
+  return queueRow(row, mtgchRowUrls(row), skipped, 'mtgch');
 }
 
 /** Queues one gatherer print row from its cache urls. */

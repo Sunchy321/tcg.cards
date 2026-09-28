@@ -235,6 +235,8 @@ export async function ingestRemoteRow(db: LocalDb, row: RemoteQueueRow, options:
   let face0Imported = false;
   let markedPlaceholder = 0;
   let skippedUpload = 0;
+  let notFound = 0;
+  const notFoundNumbers: string[] = [];
   const failures: string[] = [];
 
   const guard = await faceGuard(db, row.set, row.lang, row.number);
@@ -259,14 +261,23 @@ export async function ingestRemoteRow(db: LocalDb, row: RemoteQueueRow, options:
       skipped += 1;
       continue;
     }
-    if (slotSource != null && (uploadImageSources as readonly string[]).includes(slotSource)
-      && !(uploadImageSources as readonly string[]).includes(options.imageSource)) {
-      // Download sources never take a curated image, whatever the force mode.
+    if (slotSource != null && (uploadImageSources as readonly string[]).includes(slotSource)) {
+      // A download pass never takes an upload-group image, whatever the force
+      // mode — including the mtgch download, whose own source id lives in the
+      // upload group, so the membership of the incoming source must not matter.
       skippedUpload += 1;
       continue;
     }
     const fetched = await fetchImageBuffer(face.url);
     if (!fetched.ok) {
+      // A 404 means the source hosts no image of this print at all (for mtgch:
+      // no simplified-Chinese scan) — an expected state, counted apart from
+      // real download failures.
+      if (fetched.status === 404) {
+        notFound += 1;
+        pushCapped(notFoundNumbers, label);
+        continue;
+      }
       failed += 1;
       pushCapped(failures, `${label}: 下载失败(${fetched.error})`);
       continue;
@@ -303,7 +314,7 @@ export async function ingestRemoteRow(db: LocalDb, row: RemoteQueueRow, options:
     await updateRowFaces(db, row, infos, face0Imported ? face0Status : null);
   }
 
-  return { processed: 1, written, unchanged, failed, skipped, lowQuality, cleanedJpg, sizeDelta, markedPlaceholder, skippedUpload, failures };
+  return { processed: 1, written, unchanged, failed, skipped, lowQuality, cleanedJpg, sizeDelta, markedPlaceholder, skippedUpload, notFound, notFoundNumbers, failures };
 }
 
 /** One matched print row that an uploaded image writes into. */

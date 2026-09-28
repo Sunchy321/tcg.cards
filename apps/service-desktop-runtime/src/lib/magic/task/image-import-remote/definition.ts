@@ -1,4 +1,5 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { z } from 'zod';
 
 import { runWithDb } from '@tcg-cards/db';
@@ -11,13 +12,13 @@ import { createImportBatchState, emptyImageImportOutput, runImportBlock, type Im
 import { importablePrintCondition, mapWithConcurrency } from '../../image-import/common';
 import { ingestRemoteRow } from '../../image-import/ingest';
 import { addImageImportOutput, imageImportOutput } from '../../image-import/result';
-import { emptyRemoteSkipped, gathererQueueRow, preferGathererQueueRow, remoteExpectedFaces, scryfallQueueRow, type RemoteQueueRow } from '../../image-import/source';
+import { emptyRemoteSkipped, gathererQueueRow, mtgchQueueRow, preferGathererQueueRow, remoteExpectedFaces, scryfallQueueRow, type RemoteQueueRow } from '../../image-import/source';
 
-/** Remote batch sweep: downloads every importable print of one source (scryfall/gatherer/gatherer-first hybrid). */
+/** Remote batch sweep: downloads every importable print of one source (scryfall/gatherer/mtgch/gatherer-first hybrid). */
 export const magicImageImportRemoteTaskType = 'magic_image_import_remote';
 
 const input = z.strictObject({
-  source:     z.enum(['scryfall', 'gatherer', 'prefer_gatherer']),
+  source:     z.enum(['scryfall', 'gatherer', 'prefer_gatherer', 'mtgch']),
   scope:      z.enum(['full', 'set']),
   set:        z.string().optional(),
   langs:      z.array(z.string()).min(1).optional(),
@@ -28,13 +29,16 @@ const input = z.strictObject({
     ? v.scope === 'set' && !!v.set
     : v.scope === 'full' || !!v.set,
   { message: 'scope=set 需要 set;gatherer 只支持 scope=set' },
+).refine(
+  v => v.source !== 'mtgch' || (v.langs?.length === 1 && v.langs[0] === 'zhs'),
+  { message: 'mtgch 源只提供简中(zhs)卡图' },
 );
 
 const BATCH = 24;
 const CONCURRENCY = 4;
 
 const definition = createDefinition(magicImageImportRemoteTaskType, {
-  version:     '2026-09-21:v2',
+  version:     '2026-09-28:v3',
   effectModel: 'reconcilable',
 })
   .scope(z.object({}), {
@@ -51,9 +55,12 @@ const definition = createDefinition(magicImageImportRemoteTaskType, {
 
     const db = getLocalDb();
     const skipped = emptyRemoteSkipped();
+    // The mtgch scans are simplified-Chinese card faces; no other language has
+    // an image there, so the sweep always targets zhs prints.
+    const langs = ctx.source === 'mtgch' ? ['zhs'] : ctx.langs;
     const where = (extra: ReturnType<typeof eq> | undefined) => and(
       extra,
-      ctx.langs?.length ? inArray(Print.lang, ctx.langs as typeof Print.$inferSelect.lang[]) : undefined,
+      langs?.length ? inArray(Print.lang, langs as typeof Print.$inferSelect.lang[]) : undefined,
       importablePrintCondition(!!ctx.force, remoteExpectedFaces(ctx.source)),
     );
 
@@ -99,6 +106,35 @@ const definition = createDefinition(magicImageImportRemoteTaskType, {
         const queued = gathererQueueRow(row, skipped);
         if (queued) queue.push(queued);
       }
+    } else if (ctx.source === 'mtgch') {
+      // mtgch keys its zhs scans by the English print's scryfall id, so the
+      // en print of the same set+number is joined alongside the row's own
+      // (zhs) scryfall card.
+      const scryfallEn = alias(ScryfallCard, 'scryfall_en');
+      const rows = await runWithDb(db, () => db.select({
+        cardId:              Print.cardId,
+        version:             Print.version,
+        set:                 Print.set,
+        number:              Print.number,
+        lang:                Print.lang,
+        source:              Print.source,
+        layout:              Print.layout,
+        scryfallFace:        Print.scryfallFace,
+        imageInfo:           Print.imageInfo,
+        scryfallEnCardId:    scryfallEn.cardId,
+        scryfallImageStatus: ScryfallCard.imageStatus,
+      }).from(Print)
+        .leftJoin(ScryfallCard, eq(Print.scryfallCardId, ScryfallCard.cardId))
+        .leftJoin(scryfallEn, and(
+          eq(scryfallEn.set, Print.set),
+          eq(scryfallEn.collectorNumber, Print.number),
+          eq(scryfallEn.lang, 'en'),
+        ))
+        .where(where(ctx.scope === 'set' ? eq(Print.set, ctx.set!) : undefined)));
+      for (const row of rows) {
+        const queued = mtgchQueueRow(row, skipped);
+        if (queued) queue.push(queued);
+      }
     } else {
       const rows = await runWithDb(db, () => db.select({
         cardId:              Print.cardId,
@@ -130,7 +166,7 @@ const definition = createDefinition(magicImageImportRemoteTaskType, {
     const markedRows = await runWithDb(db, () => db.selectDistinct({ number: Print.number }).from(Print)
       .where(and(
         ctx.scope === 'set' ? eq(Print.set, ctx.set!) : undefined,
-        ctx.langs?.length ? inArray(Print.lang, ctx.langs as typeof Print.$inferSelect.lang[]) : undefined,
+        langs?.length ? inArray(Print.lang, langs as typeof Print.$inferSelect.lang[]) : undefined,
         eq(Print.imageStatus, 'placeholder'),
       )));
     const markedNumbers = markedRows.map(row => row.number);
