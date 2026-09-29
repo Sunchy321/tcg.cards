@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { existsSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
@@ -10,7 +10,6 @@ import { printImageKey } from '@tcg-cards/shared/magic/print-image';
 
 import type { LocalDb } from '../../hearthstone/hsdata-local-db';
 import { cardImageRoot, printKeyCondition, removePrintImageFiles } from './common';
-import { upsertBatch } from '../upsert';
 
 export const imageClearResult = z.strictObject({
   cleared: z.number(),
@@ -23,13 +22,20 @@ export type ImageClearResult = z.infer<typeof imageClearResult>;
 /**
  * Clears the imported images of one scope: every print inside set × languages ×
  * numbers loses its image_info and its library files are removed. Numbers left
- * out means the whole set. Idempotent — prints without image data stay untouched
+ * out means the whole set.
+ *
+ * The scope reaches every print the ledger still pins: one carrying image facts
+ * as well as one reduced to a ledger row — a stale real row the fact edit missed
+ * or a no-image tombstone — so an explicit reset lifts every kind of pin in its
+ * range. Idempotent — prints with neither facts nor a ledger row stay untouched,
  * and language folders left empty by an earlier pass are still swept.
  *
  * The column snapshot is rebuilt while clearing, so no stale status survives:
- * every print falls back to what scryfall currently reports. A print scryfall
- * itself holds in the placeholder state therefore lands back in that state,
- * which shows the placeholder badge on the site and blocks remote re-imports.
+ * every print falls back to what scryfall currently reports, with one override —
+ * a print never lands back in the placeholder state. Clearing is a reset, not a
+ * no-image mark, so a cleared print ends in the `missing` state and an ordinary
+ * import pass may fetch its images again; the source-side placeholder checks
+ * keep genuine stand-ins out of the sweeps either way.
  */
 export async function clearImages(
   db: LocalDb,
@@ -40,9 +46,16 @@ export async function clearImages(
     inArray(Print.lang, input.langs as typeof Print.$inferSelect.lang[]),
     input.numbers?.length ? inArray(Print.number, input.numbers) : undefined,
     isNull(Print.deletedAt),
-    // Rows without image data have nothing to clear; re-running a finished
-    // scope then reports zero instead of counting prints a second time.
-    isNotNull(Print.imageInfo),
+    // The reset covers prints that still carry image facts and prints the
+    // ledger still pins (a real row from an old import or a no-image
+    // tombstone) — both must go, or the pin keeps the import skipping.
+    or(
+      isNotNull(Print.imageInfo),
+      sql`exists (select 1 from ${AssetImage} a where a.key in (
+        'large/' || ${Print.set} || '/' || ${Print.lang} || '/' || replace(${Print.number}, '/', '_') || '.webp',
+        'large/' || ${Print.set} || '/' || ${Print.lang} || '/' || replace(${Print.number}, '/', '_') || chr(8251) || '.webp'
+      ))`,
+    ),
   )!;
 
   const rows = await runWithDb(db, () => db.select({
@@ -62,15 +75,14 @@ export async function clearImages(
 
   let files = 0;
   let marked = 0;
-  const tombstoneKeys = new Set<string>();
   if (prints.size > 0) {
     for (const row of rows) {
       // The scryfall column is plain text, so the fallback needs the enum cast.
-      const status = (row.scryfallStatus ?? row.printStatus) as typeof Print.$inferInsert['imageStatus'];
+      // The placeholder fallback becomes `missing`: clearing never pins the
+      // blocked state, whatever the source reports.
+      const fallback = row.scryfallStatus ?? row.printStatus;
+      const status = (fallback === 'placeholder' ? 'missing' : fallback) as typeof Print.$inferInsert['imageStatus'];
       if (row.scryfallStatus === 'placeholder') marked += 1;
-      // A print reset into the placeholder state is pinned as a ledger
-      // tombstone below, so no download task may fetch for it afterwards.
-      if (status === 'placeholder') tombstoneKeys.add(printImageKey(input.set, row.lang, row.number));
       await runWithDb(db, () => db.update(Print)
         .set({ imageInfo: null, imageStatus: status })
         .where(printKeyCondition({ cardId: row.cardId, version: row.version, set: input.set, number: row.number, lang: row.lang, source: row.source })));
@@ -81,7 +93,9 @@ export async function clearImages(
     }
 
     // The ledger mirrors the files: every key whose file the sweep removed
-    // loses its row. Faces 0 and 1 are the only faces a print stores.
+    // loses its row. Faces 0 and 1 are the only faces a print stores. No
+    // tombstone replaces them — the missing fact is the reset's only memory,
+    // and a later projection rebuild derives the same state from the source.
     const keys: string[] = [];
     for (const print of prints.values()) {
       keys.push(
@@ -92,27 +106,6 @@ export async function clearImages(
     for (let i = 0; i < keys.length; i += 10_000) {
       const chunk = keys.slice(i, i + 10_000);
       await runWithDb(db, () => db.delete(AssetImage).where(inArray(AssetImage.key, chunk)));
-    }
-
-    // Tombstones go in after the sweep, or the sweep would delete them: they
-    // pin the reset so the blocked state survives fact-table rebuilds too.
-    if (tombstoneKeys.size > 0) {
-      const tombstones = [...tombstoneKeys].map(key => ({
-        key,
-        format:       '',
-        source:       '',
-        sha256:       '',
-        width:        0,
-        height:       0,
-        byteSize:     0,
-        status:       'placeholder',
-        qualityScore: null,
-        verifiedAt:   new Date(),
-      }));
-      for (let i = 0; i < tombstones.length; i += 10_000) {
-        const chunk = tombstones.slice(i, i + 10_000);
-        await runWithDb(db, () => upsertBatch(db, AssetImage, chunk, [AssetImage.key], ['key']));
-      }
     }
   }
 

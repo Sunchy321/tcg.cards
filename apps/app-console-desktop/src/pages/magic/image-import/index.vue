@@ -608,7 +608,7 @@ async function runClear() {
       langs:   selectedLangs.value,
       numbers: isRemoteBatch.value ? undefined : numbers.value,
     });
-    const marked = result.marked > 0 ? `,其中 ${result.marked} 个为无图占位状态` : '';
+    const marked = result.marked > 0 ? `,其中 ${result.marked} 个来源本身无图,不会被重新下载` : '';
     useToast().add({ title: '已清空', description: `清空 ${result.cleared} 个印张,删除 ${result.files} 个文件${marked}`, color: 'info' });
     clearOpen.value = false;
   } catch (error) {

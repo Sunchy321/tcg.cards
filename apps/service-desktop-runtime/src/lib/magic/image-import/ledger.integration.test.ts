@@ -230,36 +230,75 @@ integrationTest('remote and upload ingest mirror files into the ledger and clear
   expect(rebuilt).toHaveLength(1);
   expect(rebuilt[0]!.source).toBe('manual');
 
-  // The operator resets with the print landing in the placeholder state
-  // (scryfall itself has no real image): clear sweeps the file and both
-  // copies, and pins a tombstone so no download task may fetch again.
+  // The operator resets the print: clear sweeps the file and both copies and
+  // lands the print in the missing state. The reset pins no tombstone, so the
+  // ledger stays empty and an ordinary pass may fetch the image again.
   await db.update(Print).set({ imageStatus: 'placeholder' }).where(eq(Print.cardId, cardId));
   const cleared = await clearImages(db, { set: 'mid', langs: ['en'] });
   expect(cleared.cleared).toBe(1);
   expect(existsSync(join(imageRoot, key))).toBe(false);
-  expect(await db.select().from(AssetImage).where(eq(AssetImage.key, key))).toHaveLength(1);
-  const tombstone = await db.select().from(AssetImage).where(eq(AssetImage.key, key));
-  expect(tombstone[0]!.status).toBe('placeholder');
-  expect(tombstone[0]!.byteSize).toBe(0);
-  expect(await db.select().from(Print).where(eq(Print.cardId, cardId))).toHaveLength(1);
+  expect(await db.select().from(AssetImage).where(eq(AssetImage.key, key))).toHaveLength(0);
+  const clearedPrint = await db.select().from(Print).where(eq(Print.cardId, cardId));
+  expect(clearedPrint[0]!.imageStatus).toBe('missing');
+  expect(clearedPrint[0]!.imageInfo).toBeNull();
 
-  // A backfill rerun recognizes the tombstone instead of writing a second one.
+  // A backfill rerun has neither fact metadata nor a placeholder fact to
+  // mirror, so the ledger stays empty.
   const postClearBackfill = await backfillAssetLedger(db);
-  expect(postClearBackfill.tombstoneUnchanged).toBe(1);
+  expect(postClearBackfill.tombstones).toBe(0);
+  expect(await db.select().from(AssetImage).where(eq(AssetImage.key, key))).toHaveLength(0);
 
-  // Without force the tombstone blocks the fetch; a forced pass is the
-  // explicit override that ignores it and lands a real row.
-  const blocked = await ingestRemoteRow(db, row(cardId, [], faceUrl), { imageSource: 'scryfall', cleanupJpg: true, force: false });
-  expect(blocked.markedPlaceholder).toBe(1);
-  expect(blocked.written).toBe(0);
-  const override = await ingestRemoteRow(db, row(cardId, [], faceUrl), { imageSource: 'scryfall', cleanupJpg: true, force: true });
-  expect(override.written).toBe(1);
-  const overridden = await db.select().from(AssetImage).where(eq(AssetImage.key, key));
-  expect(overridden[0]!.status).not.toBe('placeholder');
-  expect(overridden[0]!.byteSize).toBeGreaterThan(0);
+  // The reset also reaches prints that carry no image fact but are pinned in
+  // the ledger: a tombstone-pinned print is lifted into the same missing
+  // state, so a stale no-image pin does not survive an explicit clear.
+  const pinnedCard = randomUUID();
+  await db.insert(Print).values({
+    cardId:           pinnedCard,
+    version:          '',
+    set:              'mid',
+    number:           '299',
+    lang:             'en',
+    source:           '',
+    name:             'Pinned Card',
+    typeline:         'Test Creature',
+    layout:           'normal',
+    frame:            '2015',
+    frameEffects:     [],
+    borderColor:      'black',
+    rarity:           'common',
+    releaseDate:      '2021-11-19',
+    isDigital:        false,
+    isPromo:          false,
+    isReprint:        false,
+    finishes:         ['nonfoil'],
+    imageStatus:      'placeholder',
+    imageInfo:        null,
+    inBooster:        false,
+    games:            ['paper'],
+    printTags:        [],
+    multiverseId:     [],
+    scryfallOracleId: randomUUID(),
+  });
+  const pinnedKey = printImageKey('mid', 'en', '299');
+  await db.insert(AssetImage).values({
+    key:          pinnedKey, format:       '', source:       '', sha256:       '', width:        0, height:       0,
+    byteSize:     0, status:       'placeholder', qualityScore: null, verifiedAt:   new Date(),
+  });
+  const clearedAgain = await clearImages(db, { set: 'mid', langs: ['en'] });
+  expect(clearedAgain.cleared).toBe(1);
+  expect(await db.select().from(AssetImage).where(eq(AssetImage.key, pinnedKey))).toHaveLength(0);
+  const lifted = await db.select().from(Print).where(eq(Print.cardId, pinnedCard));
+  expect(lifted[0]!.imageStatus).toBe('missing');
 
-  // The operator's remedy is a manual upload: it replaces the tombstone with
-  // a real row and restores the fact metadata.
+  // With both layers empty the ordinary pass re-fetches: the download lands
+  // again without any force.
+  const refetched = await ingestRemoteRow(db, row(cardId, [], faceUrl), { imageSource: 'scryfall', cleanupJpg: true, force: false });
+  expect(refetched.written).toBe(1);
+  const refetchedLedger = await db.select().from(AssetImage).where(eq(AssetImage.key, key));
+  expect(refetchedLedger[0]!.byteSize).toBeGreaterThan(0);
+
+  // The operator's remedy is a manual upload: it takes the face over from the
+  // re-fetched download and restores the fact metadata.
   const remedy = await ingestUploadItem(
     db,
     { number: '297', name: 'Test Card', rows: [{ cardId, version: '', set: 'mid', number: '297', lang: 'en', source: '', layout: 'normal', printName: 'Test Card', imageInfo: null }] },
