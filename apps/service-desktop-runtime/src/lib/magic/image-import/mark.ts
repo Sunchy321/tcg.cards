@@ -11,9 +11,10 @@ import { printKeyCondition } from './common';
 import { upsertBatch } from '../upsert';
 
 export const imageMarkResult = z.strictObject({
-  marked:       z.number(),
-  skippedImage: z.number(),
-  ignored:      z.number(),
+  marked:        z.number(),
+  skippedImage:  z.number(),
+  ignored:       z.number(),
+  sourceMissing: z.number(),
 });
 
 export type ImageMarkResult = z.infer<typeof imageMarkResult>;
@@ -21,11 +22,14 @@ export type ImageMarkResult = z.infer<typeof imageMarkResult>;
 /**
  * Confirms the imageless prints of one scope (set × languages × numbers) carry
  * no real image at all: a print with no local image data whose scryfall card
- * is in the placeholder state gets the placeholder mark, which shows the
- * placeholder badge with the English fallback on the site and blocks remote
- * re-imports. Prints carrying a local image are never touched — removing an
- * image is the clear action's job, and the clear marks the prints it empties.
- * Prints scryfall has a real image for are ignored. Idempotent.
+ * is in the placeholder state — or that has no scryfall card at all, since
+ * manual data imports may add prints scryfall never listed — gets the
+ * placeholder mark, which shows the placeholder badge with the English
+ * fallback on the site and blocks remote re-imports. Prints carrying a local
+ * image are never touched — removing an image is the clear action's job, and
+ * the clear marks the prints it empties. Prints scryfall has a real image for
+ * are ignored; scryfall's own missing state is reported apart, because that
+ * no-image confirmation already exists at the source.
  */
 export async function markPlaceholderImages(
   db: LocalDb,
@@ -49,9 +53,13 @@ export async function markPlaceholderImages(
     )));
 
   const hasImage = (info: typeof Print.$inferSelect.imageInfo) => (info ?? []).some(face => face != null);
-  const eligible = rows.filter(row => row.scryfallStatus === 'placeholder' && !hasImage(row.imageInfo));
-  const skippedImage = rows.filter(row => row.scryfallStatus === 'placeholder' && hasImage(row.imageInfo)).length;
-  const ignored = rows.length - eligible.length - skippedImage;
+  // A missing scryfall row means the print came from a source scryfall does
+  // not cover — the operator's confirmation is the only no-image evidence.
+  const confirmable = (status: string | null) => status === 'placeholder' || status == null;
+  const eligible = rows.filter(row => confirmable(row.scryfallStatus) && !hasImage(row.imageInfo));
+  const skippedImage = rows.filter(row => confirmable(row.scryfallStatus) && hasImage(row.imageInfo)).length;
+  const sourceMissing = rows.filter(row => row.scryfallStatus === 'missing').length;
+  const ignored = rows.length - eligible.length - skippedImage - sourceMissing;
 
   for (const row of eligible) {
     await runWithDb(db, () => db.update(Print)
@@ -81,5 +89,5 @@ export async function markPlaceholderImages(
     }
   }
 
-  return { marked: eligible.length, skippedImage, ignored };
+  return { marked: eligible.length, skippedImage, ignored, sourceMissing };
 }

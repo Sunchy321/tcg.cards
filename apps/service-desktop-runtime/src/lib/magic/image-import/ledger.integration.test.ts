@@ -17,6 +17,7 @@ import { applyPathOverrides, setPathOverride } from '../../../runtime-config';
 import { backfillAssetLedger } from './backfill';
 import { clearImages } from './clear';
 import { ingestRemoteRow, ingestUploadItem } from './ingest';
+import { markPlaceholderImages } from './mark';
 import { carryOverPrintImages, fillPrintImagesFromLedger, loadExistingPrintImages, loadPrintLedgerEntries } from '../project/fill-print-images';
 
 /** Opt-in integration database, mirroring the yugioh image import test. */
@@ -310,6 +311,18 @@ integrationTest('remote and upload ingest mirror files into the ledger and clear
   expect(restored[0]!.byteSize).toBeGreaterThan(0);
   const remedied = await db.select().from(Print).where(eq(Print.cardId, cardId));
   expect(remedied[0]!.imageInfo?.[0]?.sha256).toBe(restored[0]!.sha256);
+
+  // The mark confirms imageless prints that scryfall holds no row for at all
+  // (a manual data import's prints) alongside the placeholder-state ones; a
+  // print scryfall has a real image for is ignored.
+  const markResult = await markPlaceholderImages(db, { set: 'mid', langs: ['en'] });
+  expect(markResult.marked).toBe(1);
+  expect(markResult.skippedImage).toBe(1);
+  expect(markResult.ignored).toBe(0);
+  expect(markResult.sourceMissing).toBe(0);
+  expect(await db.select().from(AssetImage).where(eq(AssetImage.key, printImageKey('mid', 'en', '299')))).toHaveLength(1);
+  const markedPrint = await db.select().from(Print).where(eq(Print.cardId, pinnedCard));
+  expect(markedPrint[0]!.imageStatus).toBe('placeholder');
 
   // Cutover regression: with the fact row wiped, the projection's image fill
   // rebuilds both fields from the ledger alone.

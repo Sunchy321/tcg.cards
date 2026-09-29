@@ -296,7 +296,7 @@
       <UModal v-model:open="markOpen" title="确认标记无图" :description="markScopeText">
         <template #body>
           <p class="text-sm text-muted">
-            范围内 Scryfall 只有占位图、且尚未导入卡图的印刷会被标记为无图(前台显示占位徽标并回退英文图,且不再被远程导入覆盖);已有卡图的印刷不受影响。
+            范围内 scryfall 只有占位图、或没有 scryfall 数据、且尚未导入卡图的印刷会被标记为无图(前台显示占位徽标并回退英文图,且不再被远程导入覆盖);已有卡图或 scryfall 有真图的印刷不受影响。
           </p>
         </template>
         <template #footer>
@@ -639,6 +639,7 @@ async function runMark() {
     const parts = [
       result.skippedImage > 0 ? `跳过 ${result.skippedImage} 个(已有卡图)` : '',
       result.ignored > 0 ? `忽略 ${result.ignored} 个(Scryfall 有真图)` : '',
+      result.sourceMissing > 0 ? `忽略 ${result.sourceMissing} 个(来源本身无图)` : '',
     ].filter(Boolean).join('，');
     useToast().add({
       title:       '已标记',
