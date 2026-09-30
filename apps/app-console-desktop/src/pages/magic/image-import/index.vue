@@ -282,6 +282,7 @@
         :report="qualityReport"
         :error="qualityError"
         @close="clearQualityCheck"
+        @select="onGridSelect"
       />
 
       <UModal v-model:open="clearOpen" title="确认清空" :description="clearScopeText">
@@ -311,7 +312,7 @@
 
       <ImportResultLists :groups="listGroups" />
 
-      <ImageCompareCard :set="form.set" :lang="compareLang" :number="compareNumber" />
+      <ImageCompareCard v-model:open="compareOpen" :set="form.set" :lang="compareLang" :number="compareNumber" />
     </div>
   </div>
 </template>
@@ -466,10 +467,17 @@ const canSweepAllSets = computed(() => (isRemoteBatch.value && ['scryfall', 'pre
 
 /** Every collector number the 编号 field stands for; a comma list or a range holds more than one. */
 const numbers = computed(() => parseNumberInput(form.number));
-/** The comparison works on the first number the 编号 field selects; with 全部 checked and an empty field it falls back to number 1. */
-const compareNumber = computed(() => numbers.value[0] ?? (isRemoteBatch.value ? '1' : ''));
-/** The comparison works on the first selected language, falling back to English. */
-const compareLang = computed(() => selectedLangs.value[0] ?? 'en');
+
+/** The print picked from the status grid; it overrides the form-driven comparison target. */
+const gridSelection = ref<{ lang: string, number: string } | null>(null);
+
+/** Expanded state of the comparison card, so a grid pick can reveal it. */
+const compareOpen = ref(false);
+
+/** The comparison follows a grid-cell pick first, then the first number the 编号 field selects; with 全部 checked and an empty field it falls back to number 1. */
+const compareNumber = computed(() => gridSelection.value?.number ?? numbers.value[0] ?? (isRemoteBatch.value ? '1' : ''));
+/** The comparison follows a grid-cell pick first, then the first selected language, falling back to English. */
+const compareLang = computed(() => gridSelection.value?.lang ?? selectedLangs.value[0] ?? 'en');
 
 /** 全部 checked = sweep the remote source as a batch, unchecked = import by number. */
 const allScope = computed({
@@ -710,6 +718,13 @@ const qualityError = ref('');
 function clearQualityCheck() {
   qualityReport.value = null;
   qualityError.value = '';
+  gridSelection.value = null;
+}
+
+/** A grid-cell click retargets the comparison and reveals the compare card. */
+function onGridSelect(cell: { lang: string, number: string }) {
+  gridSelection.value = cell;
+  compareOpen.value = true;
 }
 
 // A report belongs to the set it was produced from; switching sets would only mislead.

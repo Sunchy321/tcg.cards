@@ -65,17 +65,16 @@ function pureNumber(number: string): number | null {
 
 /**
  * 编号 field text one number list stands for — the inverse of parseNumberInput.
- * Numbers sort by leading value, and runs of consecutive pure-digit numbers
- * collapse into `a-b` spans; everything else stays literal, joined by commas.
+ * Numbers sort by leading integer first, then plain lexicographic order
+ * (`1, 1a, 100, 100a`), and runs of consecutive pure-digit numbers collapse
+ * into `a-b` spans; everything else stays literal, joined by commas.
  */
 export function formatNumberInput(numbers: string[]): string {
   const sorted = [...new Set(numbers)].sort((a, b) => {
-    const na = pureNumber(a);
-    const nb = pureNumber(b);
-    if (na != null && nb != null) return na - nb || a.localeCompare(b);
-    if (na != null) return -1;
-    if (nb != null) return 1;
-    return a.localeCompare(b);
+    const na = Number.parseFloat(a);
+    const nb = Number.parseFloat(b);
+    if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
+    return a < b ? -1 : a > b ? 1 : 0;
   });
 
   const items: string[] = [];

@@ -103,7 +103,8 @@ const props = defineProps<{
   number: string;
 }>();
 
-const open = ref(false);
+/** Collapsed by default; the page can expand it, e.g. when a status-grid cell picks a print. */
+const open = defineModel<boolean>('open', { default: false });
 const comparing = ref(false);
 const error = ref('');
 const result = ref<{ faces: CompareFace[] } | null>(null);

@@ -1,5 +1,5 @@
 <template>
-  <div v-if="report" class="rounded-xl border border-slate-200 bg-white">
+  <div v-if="report" class="min-w-0 rounded-xl border border-slate-200 bg-white">
     <div class="flex items-center gap-2 p-4">
       <UIcon name="i-lucide-search-check" class="size-4 text-info" />
       <span class="font-medium">图片质量报告</span>
@@ -21,27 +21,32 @@
     <div v-if="error" class="border-t border-slate-200 p-4">
       <UAlert color="error" variant="soft" icon="i-lucide-circle-alert" :description="error" />
     </div>
-    <div v-else-if="entries.length === 0" class="border-t border-slate-200 p-4">
-      <UAlert
-        color="success"
-        variant="soft"
-        icon="i-lucide-circle-check"
-        description="所有卡图尺寸正常,也没有缺失的编号。"
-      />
-    </div>
-    <div v-else class="border-t border-slate-200 p-4">
-      <div class="space-y-1">
-        <div v-for="entry in entries" :key="entry.label">
-          <span class="font-mono text-xs text-muted">{{ entry.label }}</span>
-          <span class="font-mono text-xs">{{ entry.numbers }}</span>
+    <template v-else>
+      <div class="border-t border-slate-200 p-4">
+        <ImageStatusGrid :report="report" @select="$emit('select', $event)" />
+      </div>
+      <div class="border-t border-slate-200 p-4">
+        <UAlert
+          v-if="entries.length === 0"
+          color="success"
+          variant="soft"
+          icon="i-lucide-circle-check"
+          description="所有卡图尺寸正常,也没有缺失的编号。"
+        />
+        <div v-else class="space-y-1">
+          <div v-for="entry in entries" :key="entry.label">
+            <span class="font-mono text-xs text-muted">{{ entry.label }}</span>
+            <span class="font-mono text-xs">{{ entry.numbers }}</span>
+          </div>
         </div>
       </div>
-    </div>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
 import { formatNumberInput } from '~/utils/import-numbers';
+import ImageStatusGrid from '~/components/magic/ImageStatusGrid.vue';
 
 /** One face image smaller than half of its language's baseline width. */
 interface QualityProblem {
@@ -49,6 +54,30 @@ interface QualityProblem {
   number: string;
   width:  number;
   height: number;
+}
+
+/** One imported face of a grid cell, as reported by the runtime. */
+interface GridFace {
+  source:   string;
+  status:   string;
+  width:    number;
+  height:   number;
+  byteSize: number;
+}
+
+/** One (lang, number) print of the checked set, merged across version rows. */
+interface GridCell {
+  lang:   string;
+  number: string;
+  state:  'imported' | 'missing' | 'placeholder';
+  faces:  Array<GridFace | null>;
+}
+
+/** Status-grid axes and cells of one quality report. */
+interface QualityGrid {
+  langs:   string[];
+  numbers: string[];
+  cells:   GridCell[];
 }
 
 /** Result of the set-wide image quality check, as returned by the runtime. */
@@ -59,6 +88,7 @@ interface QualityReport {
   baseline: number | null;
   problems: QualityProblem[];
   missing:  Array<{ lang: string, number: string }>;
+  grid:     QualityGrid;
 }
 
 const props = defineProps<{
@@ -66,7 +96,10 @@ const props = defineProps<{
   error?: string;
 }>();
 
-defineEmits<{ close: [] }>();
+defineEmits<{
+  close:  [];
+  select: [{ lang: string, number: string }];
+}>();
 
 /** One inline report segment: `lang/(size): numbers` for undersized images, `lang:` for missing ones. */
 interface ReportEntry {
