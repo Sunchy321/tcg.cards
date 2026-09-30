@@ -1,53 +1,29 @@
 <template>
-  <div class="rounded-xl border border-slate-200 bg-white">
-    <button
-      type="button"
-      class="flex w-full items-center gap-2 p-4 text-left"
-      @click="open = !open"
-    >
-      <UIcon
-        name="i-lucide-chevron-down"
-        class="size-4 text-muted transition-transform"
-        :class="{ 'rotate-90': open }"
-      />
-      <UIcon name="i-lucide-image-minus" class="size-4 text-primary" />
-      <span class="font-medium">来源质量比对</span>
-      <span class="text-xs text-muted">比较同一印张的 Scryfall 与 Gatherer 卡图质量,不写入图库</span>
-      <UIcon
-        v-if="comparing"
-        name="i-lucide-loader-circle"
-        class="ml-auto size-4 animate-spin text-muted"
-      />
-    </button>
-
-    <div v-show="open" class="space-y-3 border-t border-slate-200 p-4">
-      <UAlert
-        v-if="!ready"
-        color="neutral"
-        variant="soft"
-        icon="i-lucide-info"
-        description="请先填写系列与编号。"
-      />
-      <UAlert
-        v-else-if="error"
-        color="error"
-        variant="soft"
-        icon="i-lucide-circle-alert"
-        :description="error"
-      />
-      <template v-if="ready">
-        <div class="flex items-center gap-3">
-          <span class="text-sm text-muted">
-            印张:<span class="font-mono text-default">{{ set }} / {{ lang }} / {{ number }}</span>
-          </span>
-          <UButton
-            class="ml-auto"
-            label="开始比对"
-            icon="i-lucide-scale"
-            :loading="comparing"
-            :disabled="comparing"
-            @click="runCompare"
-          />
+  <UModal
+    v-model:open="open"
+    :title="title"
+    description="比较同一印张的 Scryfall 与 Gatherer 卡图质量,不写入图库"
+    :ui="{ content: 'sm:max-w-[1600px]', body: 'overflow-x-auto' }"
+  >
+    <template #body>
+      <div class="space-y-3">
+        <UAlert
+          v-if="!ready"
+          color="neutral"
+          variant="soft"
+          icon="i-lucide-info"
+          description="请先在质量报告里选择一个印张。"
+        />
+        <UAlert
+          v-else-if="error"
+          color="error"
+          variant="soft"
+          icon="i-lucide-circle-alert"
+          :description="error"
+        />
+        <div v-if="comparing" class="flex items-center gap-2 text-sm text-muted">
+          <UIcon name="i-lucide-loader-circle" class="size-4 animate-spin" />
+          正在比对…
         </div>
 
         <div
@@ -69,9 +45,9 @@
             <CompareSidePanel :side="face.gatherer" title="Gatherer" />
           </div>
         </div>
-      </template>
-    </div>
-  </div>
+      </div>
+    </template>
+  </UModal>
 </template>
 
 <script setup lang="ts">
@@ -103,13 +79,17 @@ const props = defineProps<{
   number: string;
 }>();
 
-/** Collapsed by default; the page can expand it, e.g. when a status-grid cell picks a print. */
+/** Open state of the compare modal; a status-grid cell pick opens it. */
 const open = defineModel<boolean>('open', { default: false });
+
 const comparing = ref(false);
 const error = ref('');
 const result = ref<{ faces: CompareFace[] } | null>(null);
 
 const ready = computed(() => !!props.set.trim() && !!props.lang.trim() && !!props.number.trim());
+
+/** Modal title carries the compared print, e.g. `来源质量比对 · dmu / 123a / zhs`. */
+const title = computed(() => (ready.value ? `来源质量比对 · ${props.set} / ${props.number} / ${props.lang}` : '来源质量比对'));
 
 watch(ready, value => {
   if (!value) {
@@ -118,9 +98,16 @@ watch(ready, value => {
   }
 });
 
+// The modal has no trigger button: opening it — or retargeting it while open —
+// runs the comparison for the current print right away.
+watch([open, () => [props.set, props.lang, props.number]], ([isOpen]) => {
+  if (isOpen && ready.value) void runCompare();
+});
+
 async function runCompare() {
   comparing.value = true;
   error.value = '';
+  result.value = null;
   try {
     result.value = await orpc.magic.images.compare({
       set:    props.set.trim(),

@@ -11,10 +11,13 @@
     </div>
 
     <template v-if="side.status === 'ok'">
+      <!-- Fixed 745×1040 display box so both sources compare at one size; card scans share the aspect ratio, so smaller ones upscale without distortion. -->
       <img
         :src="side.preview"
         :alt="title"
-        class="max-h-64 w-auto rounded border border-slate-200 bg-white"
+        width="745"
+        height="1040"
+        class="rounded border border-slate-200 bg-white"
       >
       <dl class="space-y-1 text-xs text-muted">
         <div class="flex justify-between gap-2">
