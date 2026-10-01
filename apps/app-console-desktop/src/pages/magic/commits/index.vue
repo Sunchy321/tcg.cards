@@ -19,7 +19,7 @@
         </div>
       </div>
       <p class="mt-1 text-sm text-muted">
-        补充各数据源都缺失、但实际存在的印刷（语言、印文等）。保存后投影才会生效：可对单条立即投影，或用上方按钮投影全部补全项；删除补全并重新投影后，对应印刷会从站点撤下。
+        补充各数据源都缺失、但实际存在的印刷（语言、印文等）。保存后投影才会生效：可对单条立即投影，也可在下方筛选出系列后按系列投影，或投影全部补全项；删除补全并重新投影后，对应印刷会从站点撤下。
       </p>
     </div>
 
@@ -58,7 +58,14 @@
       <!-- direct entry: compute one set or one card without the full scan -->
       <div class="flex flex-wrap items-end gap-3 border-t border-slate-200 p-4">
         <UFormField label="系列代码" class="w-36">
-          <UInput v-model="directSet" class="w-full font-mono" placeholder="如 msc" @keydown.enter="computeDirectSet" />
+          <UInput
+            v-model="directSet"
+            class="w-full font-mono"
+            placeholder="如 msc"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+            @keydown.enter="computeDirectSet" />
         </UFormField>
         <UButton label="计算该系列" color="neutral" variant="outline" :loading="directSetLoading" @click="computeDirectSet" />
         <UFormField label="卡牌（英文名检索）" class="min-w-56 flex-1">
@@ -278,6 +285,15 @@
           <UInput v-model="searchInput" placeholder="英文名检索" icon="i-lucide-search" @keydown.enter="applySearch" />
         </UFormField>
         <UButton label="查询" icon="i-lucide-search" @click="applySearch" />
+        <UButton
+          label="投影该系列"
+          icon="i-lucide-layers"
+          color="primary"
+          variant="soft"
+          :disabled="setFilter === 'all' || projectTaskActive || projectStarting"
+          :loading="projectStarting"
+          @click="startProjectSet"
+        />
       </div>
     </div>
 
@@ -372,7 +388,7 @@
           <div class="space-y-2">
             <div class="flex gap-3">
               <UFormField label="系列代码" class="flex-1">
-                <UInput v-model="form.set" class="w-full font-mono" placeholder="如 msc" :disabled="editing || form.card == null" />
+                <UInput v-model="form.set" class="w-full font-mono" placeholder="如 msc" autocomplete="off" :disabled="editing || form.card == null" />
               </UFormField>
               <UFormField label="收藏编号" class="flex-1">
                 <UInput v-model="form.number" class="w-full font-mono" placeholder="如 806" :disabled="editing || form.card == null" />
@@ -624,6 +640,17 @@ watch(setFilter, () => {
   void load();
 });
 
+/** Lands the commit list on the given set: switching the filter triggers the
+ * reload through its watch; when already selected, reload in place. */
+async function showSetCommits(code: string) {
+  if (setFilter.value === code) {
+    page.value = 1;
+    await load();
+  } else {
+    setFilter.value = code;
+  }
+}
+
 const projectingRow = ref<string | null>(null);
 const projectNote = ref('');
 
@@ -705,6 +732,25 @@ const PROJECT_TERMINAL_STATUSES: readonly string[] = ['completed', 'failed', 'ca
 
 function onProjectStatusChange(status: TaskRunStatus) {
   if (PROJECT_TERMINAL_STATUSES.includes(status)) projectTaskActive.value = false;
+}
+
+/** Starts a projection run scoped to the set chosen in the list filter. */
+async function startProjectSet() {
+  const code = setFilter.value;
+  if (code === 'all' || code === '') return;
+  if (projectTaskActive.value || projectStarting.value) return;
+  projectStarting.value = true;
+  try {
+    await projectController.value?.execute({
+      key:    'project-commits-set',
+      label:  `投影系列 ${code}`,
+      icon:   'i-lucide-layers',
+      create: async () => orpc.magic.commits.projectAll({ set: code }) as Promise<TaskPageSnapshot>,
+    });
+    projectTaskActive.value = projectController.value?.currentTaskRunId != null;
+  } finally {
+    projectStarting.value = false;
+  }
 }
 
 // --- entry / edit form ---
@@ -1009,7 +1055,10 @@ async function doAdopt() {
       } finally {
         previewLoading.value = false;
       }
-      await load();
+      // Adopted rows land the commit list on the set; conflicts alone write
+      // nothing, so a plain refresh suffices there.
+      if (result.adopted > 0) await showSetCommits(code);
+      else await load();
     }
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err);
@@ -1172,7 +1221,8 @@ async function doAdoptCard() {
     cardAdoptNote.value = result.adopted > 0 || result.conflicts > 0
       ? `已写入 ${result.adopted} 条${result.conflicts > 0 ? `，另有 ${result.conflicts} 条简中两源不一致，请逐条选择` : ''}。`
       : '没有可采纳的位置（可能均已存在或无法自动补全）。';
-    await load();
+    if (result.adopted > 0) await showSetCommits(code);
+    else await load();
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err);
   } finally {

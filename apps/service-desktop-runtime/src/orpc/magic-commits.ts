@@ -863,15 +863,20 @@ const projectOne = os
     return runCommitsProjection(getLocalDb(), [input.oracleId]);
   });
 
-/** Starts a scoped projection run covering every commit in the list. */
+/** Starts a scoped projection run covering every commit in the list — one
+ * set's commits when `set` is given. */
 const projectAll = os
-  .input(z.strictObject({}))
+  .input(z.strictObject({ set: z.string().optional() }))
   .output(taskPageSnapshot)
-  .handler(async () => {
+  .handler(async ({ input }) => {
     const db = getLocalDb();
-    const rows = await db.selectDistinct({ oracleId: PrintCommit.oracleId }).from(PrintCommit);
+    const setScope = input.set != null && input.set !== '' ? input.set : null;
+    const rows = await db.selectDistinct({ oracleId: PrintCommit.oracleId }).from(PrintCommit)
+      .where(setScope != null ? eq(PrintCommit.set, setScope) : undefined);
     const oracleIds = rows.map(r => String(r.oracleId));
-    if (oracleIds.length === 0) throw new Error('当前没有可投影的补全记录。');
+    if (oracleIds.length === 0) {
+      throw new Error(setScope != null ? `系列 ${setScope} 没有可投影的补全记录。` : '当前没有可投影的补全记录。');
+    }
     return createAndRunTask(magicProjectCommitsTaskDefinition.taskType, {
       taskType:          magicProjectCommitsTaskDefinition.taskType,
       definitionVersion: magicProjectCommitsTaskDefinition.definitionVersion,
