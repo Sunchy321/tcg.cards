@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, ne } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, ne, notInArray } from 'drizzle-orm';
 
 import { db } from '@tcg-cards/db/db';
 import { CardSlugResolution, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
@@ -318,38 +318,58 @@ export interface MatchResult {
   blocked:      Map<string, string[]>;
 }
 
+/** Slim row shape both anchor scans select; runtime shape matches MatchRow. */
+const matchColumns = {
+  oracleId:   ScryfallCard.oracleId,
+  layout:     ScryfallCard.layout,
+  name:       ScryfallCard.name,
+  typeLine:   ScryfallCard.typeLine,
+  oracleText: ScryfallCard.oracleText,
+  colors:     ScryfallCard.colors,
+  power:      ScryfallCard.power,
+  toughness:  ScryfallCard.toughness,
+  setName:    ScryfallCard.setName,
+  cardFaces:  ScryfallCard.cardFaces,
+};
+
+/** Layout exclusions every anchor scan shares.
+ * Reversible cards have a null top-level oracle_id; they are alt-art printings
+ * of an existing card, so they carry no match unit of their own (their identity
+ * resolves via the faces at projection time) — isNotNull(oracleId) drops them.
+ * art_series rows are standalone art cards (their own oracle ids); they
+ * never represent a playable card, so exclude them from matching.
+ * front_card rows are single-word "front" pages (not playable cards). */
+const anchorExclusions = [
+  isNotNull(ScryfallCard.oracleId),
+  ne(ScryfallCard.layout, 'art_series'),
+  ne(ScryfallCard.layout, 'front_card'),
+] as const;
+
 /**
  * Batch match: compute cardId for every oracle card. Reads the English oracle
  * cards from scryfall_cards, derives each cardId with slugifyCard (double-faced
  * tokens split per face), consults the slug annotation table, and groups by
  * slug. A slug with multiple distinct units becomes a conflict (held for review);
  * a slug with one unit resolves to that cardId.
+ *
+ * Oracles whose every row is non-English (foreign-only printings, e.g. the Sega
+ * Dreamcast promos) have no English anchor; each is anchored on one
+ * representative row instead — the same row `assembleUnits` falls back to (same
+ * exclusions, same ordering), so match and assembly always agree on the cardId.
  */
 export async function matchBatch(database: Db = db): Promise<MatchResult> {
-  const rows = await database.selectDistinctOn([ScryfallCard.oracleId], {
-    oracleId:   ScryfallCard.oracleId,
-    layout:     ScryfallCard.layout,
-    name:       ScryfallCard.name,
-    typeLine:   ScryfallCard.typeLine,
-    oracleText: ScryfallCard.oracleText,
-    colors:     ScryfallCard.colors,
-    power:      ScryfallCard.power,
-    toughness:  ScryfallCard.toughness,
-    setName:    ScryfallCard.setName,
-    cardFaces:  ScryfallCard.cardFaces,
-  }).from(ScryfallCard)
-    // Reversible cards have a null top-level oracle_id; they are alt-art printings
-    // of an existing card, so they carry no match unit of their own (their identity
-    // resolves via the faces at projection time).
-    // art_series rows are standalone art cards (their own oracle ids); they
-    // never represent a playable card, so exclude them from matching.
-    // front_card rows are single-word "front" pages (not playable cards).
+  const rows = await database.selectDistinctOn([ScryfallCard.oracleId], matchColumns).from(ScryfallCard)
+    .where(and(eq(ScryfallCard.lang, 'en'), ...anchorExclusions));
+
+  const fallbackRows = await database.selectDistinctOn([ScryfallCard.oracleId], matchColumns).from(ScryfallCard)
     .where(and(
-      eq(ScryfallCard.lang, 'en'),
-      isNotNull(ScryfallCard.oracleId),
-      ne(ScryfallCard.layout, 'art_series'),
-      ne(ScryfallCard.layout, 'front_card'),
-    ));
+      ...anchorExclusions,
+      notInArray(ScryfallCard.oracleId, database.select({ oracleId: ScryfallCard.oracleId }).from(ScryfallCard)
+        .where(and(eq(ScryfallCard.lang, 'en'), ...anchorExclusions))),
+    ))
+    // ORDER BY must start with the DISTINCT ON column; within one oracle the
+    // remaining keys are the assembler's fallback ordering.
+    .orderBy(asc(ScryfallCard.oracleId), asc(ScryfallCard.set), asc(ScryfallCard.collectorNumber), asc(ScryfallCard.lang));
 
   // Slug resolutions map member units (oracle id, or `oracleId:faceIndex` for a
   // double-faced-token face) to their resolved slug. A slug may be shared by
@@ -364,10 +384,12 @@ export async function matchBatch(database: Db = db): Promise<MatchResult> {
 
   const cardIdByUnit = new Map<string, string>();
   const slugToUnits = new Map<string, string[]>();
+  const conflicts = new Map<string, string[]>();
+  const blocked = new Map<string, string[]>();
 
   // isNotNull(oracleId) guarantees a non-null key; the remaining fields are the
   // canonical non-reversible representative, so their runtime shape matches MatchRow.
-  for (const row of rows as MatchRow[]) {
+  for (const row of [...rows, ...fallbackRows] as MatchRow[]) {
     for (const unit of toMatchUnits(row)) {
       // Resolutions are keyed by the exact unit key (incl. DFT `oracleId:face`).
       const annotated = annotationByUnit.get(unit.key);
@@ -382,14 +404,19 @@ export async function matchBatch(database: Db = db): Promise<MatchResult> {
         continue;
       }
       const slug = slugifyCard(unit.card);
+      // A non-English anchor row can carry a non-Latin name, which
+      // slugifyName reduces to nothing — grouping under the empty slug would
+      // project a garbage cardId, so the unit is held for review under its
+      // unit key instead (not a real slug; identifiable in the review queue).
+      if (slug === '') {
+        conflicts.set(unit.key, [unit.key]);
+        continue;
+      }
       const list = slugToUnits.get(slug) ?? [];
       list.push(unit.key);
       slugToUnits.set(slug, list);
     }
   }
-
-  const conflicts = new Map<string, string[]>();
-  const blocked = new Map<string, string[]>();
 
   for (const [slug, keys] of slugToUnits) {
     const resolution = resolutionBySlug.get(slug);

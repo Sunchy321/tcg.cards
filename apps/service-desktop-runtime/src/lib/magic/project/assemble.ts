@@ -534,8 +534,19 @@ export async function assembleUnits(
     .orderBy(asc(ScryfallCard.set), asc(ScryfallCard.collectorNumber))
     .limit(1);
 
-  const en = enRows[0];
-  if (en == null) throw new Error(`assemble: no English row for oracle ${oracleId}`);
+  // Foreign-only oracles (every row non-English, e.g. the Sega Dreamcast
+  // promos) have no English anchor: they anchor on one representative row
+  // instead — the same row matchBatch's fallback pass picks (same exclusions,
+  // same ordering), so the assembled cardId always agrees with the match slug.
+  const en = enRows[0] ?? (await database.select().from(ScryfallCard)
+    .where(and(
+      eq(ScryfallCard.oracleId, oracleId),
+      ne(ScryfallCard.layout, 'art_series'),
+      ne(ScryfallCard.layout, 'front_card'),
+    ))
+    .orderBy(asc(ScryfallCard.set), asc(ScryfallCard.collectorNumber), asc(ScryfallCard.lang))
+    .limit(1))[0];
+  if (en == null) throw new Error(`assemble: no scryfall row for oracle ${oracleId}`);
 
   if (en.layout === 'reversible_card') {
     throw new Error('assemble: reversible_card rows carry no unit; handle as prints to their faces');
