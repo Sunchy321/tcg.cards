@@ -338,6 +338,15 @@ interface ResolvedCandidate {
 }
 
 /**
+ * Orders two print positions by collector number and language: digit runs
+ * compare numerically (so "2" precedes "10"), numbers without a leading digit
+ * run ("H13") sort after every digit-led one, and lang breaks remaining ties.
+ */
+function comparePrintNumber(a: { number: string, lang: string }, b: { number: string, lang: string }) {
+  return a.number.localeCompare(b.number, undefined, { numeric: true }) || a.lang.localeCompare(b.lang);
+}
+
+/**
  * Merges both sources' candidates of one set (one oracle's only when
  * `oracleId` is given): MTGCH zhs positions as today, Gatherer locales whose
  * rows the anchor lacks, and the disagreeing zhs positions flagged for a
@@ -417,8 +426,7 @@ async function resolveCandidates(
       facesBySource: { gatherer: faces },
     });
   }
-  return items.sort((a, b) =>
-    a.number.localeCompare(b.number, undefined, { numeric: true }) || a.lang.localeCompare(b.lang));
+  return items.sort(comparePrintNumber);
 }
 
 /** One set's candidate positions (one oracle's only when `oracleId` is given),
@@ -660,16 +668,20 @@ const list = os
     }
     const where = filters.length > 0 ? and(...filters) : undefined;
 
-    const rows = await db.select().from(PrintCommit).where(where)
-      .orderBy(asc(PrintCommit.set), asc(PrintCommit.number), asc(PrintCommit.lang))
-      .limit(input.pageSize)
-      .offset((input.page - 1) * input.pageSize);
-    const [totalRow] = await db.select({ n: count() }).from(PrintCommit).where(where);
+    // Rows sort in memory: the list is local-desktop scale (a few thousand
+    // rows), and collector numbers order by their digit runs — lexicographic
+    // order would run "10" before "2", and numbers without a leading digit
+    // run ("H13") must come after every digit-led one. The page slices the
+    // sorted array.
+    const rows = await db.select().from(PrintCommit).where(where);
+    rows.sort((a, b) => a.set.localeCompare(b.set) || comparePrintNumber(a, b));
+    const total = rows.length;
+    const pageRows = rows.slice((input.page - 1) * input.pageSize, input.page * input.pageSize);
     const setRows = await db.select({ code: PrintCommit.set, commits: count() }).from(PrintCommit)
       .groupBy(PrintCommit.set).orderBy(asc(PrintCommit.set));
 
     // Card names for the page's rows, resolved from the English source rows.
-    const oracleIds = [...new Set(rows.map(r => r.oracleId))];
+    const oracleIds = [...new Set(pageRows.map(r => r.oracleId))];
     const names = new Map<string, string>();
     if (oracleIds.length > 0) {
       const cards = await db.select({ oracleId: ScryfallCard.oracleId, name: ScryfallCard.name })
@@ -682,7 +694,7 @@ const list = os
     }
 
     return {
-      items: rows.map(row => ({
+      items: pageRows.map(row => ({
         oracleId:  row.oracleId,
         set:       row.set,
         number:    row.number,
@@ -694,8 +706,8 @@ const list = os
         asserted:  (row.faces ?? []).filter(f => Object.keys(f).length > 0).length,
         updatedAt: row.updatedAt.toISOString(),
       })),
-      total: Number(totalRow?.n ?? 0),
-      sets:  setRows.map(r => ({ code: r.code, commits: Number(r.commits) })),
+      total,
+      sets: setRows.map(r => ({ code: r.code, commits: Number(r.commits) })),
     };
   });
 
