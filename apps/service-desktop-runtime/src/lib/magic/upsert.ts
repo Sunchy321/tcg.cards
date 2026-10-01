@@ -1,4 +1,4 @@
-import { isNull, sql, type Column, type SQL } from 'drizzle-orm';
+import { isNotNull, isNull, sql, type Column, type SQL } from 'drizzle-orm';
 
 /** Builds the on-conflict update set from a row, excluding the PK, via EXCLUDED. */
 export function buildExcludedSet(table: any, row: Record<string, unknown>, pkNames: string[]): Record<string, unknown> {
@@ -29,6 +29,10 @@ function buildChangeWhere(table: any, row: Record<string, unknown>, pkNames: str
       conditions.push(sql`${table[key]} IS DISTINCT FROM EXCLUDED.${sql.raw(col.name)}`);
     }
   }
+  // A soft-deleted row must always lose this WHERE: its data may match the
+  // incoming row exactly, and the update set's deletedAt-clear — the revival
+  // contract — would then never fire. Live data-identical rows still skip.
+  if ((table as any).deletedAt != null) conditions.push(isNotNull((table as any).deletedAt));
   return conditions.length > 0 ? sql.join(conditions, sql` OR `) : sql`true`;
 }
 

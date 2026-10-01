@@ -41,14 +41,12 @@ interface ChunkState {
 }
 
 interface CommitsProjectCtx extends OraclePrintsContext {
-  oracleIds:   string[];
+  oracleIds:  string[];
   /** Oracles to project — every oracle with a unit on a scoped card. */
-  oracleList:  string[];
-  /** CardIds the run re-projects; bounds the manual-print recycle. */
-  cardIdScope: Set<string>;
+  oracleList: string[];
   /** Requested oracles with no resolved unit — their commits stay unprojected. */
-  unresolved:  number;
-  counts:      { prints: number, printParts: number, manualRecycled: number };
+  unresolved: number;
+  counts:     { prints: number, printParts: number, manualRecycled: number };
 }
 
 const definition = createDefinition(magicProjectCommitsTaskType, {
@@ -74,7 +72,6 @@ const definition = createDefinition(magicProjectCommitsTaskType, {
       const matched = await matchBatch(database);
       magic.unitToCard = matched.cardIdByUnit;
       const scope = resolveCommitScope(magic.unitToCard, magic.oracleIds);
-      magic.cardIdScope = scope.cardIdScope;
       magic.oracleList = scope.oracleList;
       magic.unresolved = scope.unresolved;
 
@@ -126,14 +123,18 @@ const definition = createDefinition(magicProjectCommitsTaskType, {
   .exit(({ ctx, blockInput }) => {
     const magic = ctx as unknown as CommitsProjectCtx;
     return runWithDb(getLocalDb(), async () => {
-      // Recycle only within the scoped cards — other cards' prints are not
-      // this run's to judge.
+      // Recycle exactly what this run projected — the scoped oracles' rows.
+      // Rows of an oracle outside the scope are never this run's to judge.
       const manualRecycled = await softDeleteStaleManualPrints(
         getLocalDb(),
         new Set(blockInput.manualKeys ?? []),
-        magic.cardIdScope,
+        new Set(magic.oracleList),
       );
-      const sourceRecycled = await softDeleteStaleSourcePrints(getLocalDb(), blockInput.sourceKeys ?? []);
+      const sourceRecycled = await softDeleteStaleSourcePrints(
+        getLocalDb(),
+        blockInput.sourceKeys ?? [],
+        new Set(magic.oracleList),
+      );
       return {
         oracles:    magic.oracleList.length,
         unresolved: magic.unresolved,

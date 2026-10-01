@@ -20,13 +20,12 @@ export interface CommitsProjectionResult {
   sourceRecycled: number;
 }
 
-/** Card scope of a commits-only projection: the requested oracles' resolved
- * cards, every oracle with a unit on those cards, and how many requested
- * oracles resolved to nothing (their commits stay unprojected). */
+/** Oracle scope of a commits-only projection: every oracle with a unit on the
+ * requested oracles' resolved cards, and how many requested oracles resolved
+ * to nothing (their commits stay unprojected). */
 export interface CommitScope {
-  cardIdScope: Set<string>;
-  oracleList:  string[];
-  unresolved:  number;
+  oracleList: string[];
+  unresolved: number;
 }
 
 /** The oracle part of a unit key (`oracleId`, or `oracleId:faceIndex` for a DFT face). */
@@ -45,7 +44,7 @@ export function resolveCommitScope(unitToCard: Map<string, string>, oracleIds: s
     .filter(([, cardId]) => cardIdScope.has(cardId))
     .map(([unit]) => oracleOfUnit(unit)))].sort();
   const unresolved = [...requested].filter(o => !requestedUnits.some(u => oracleOfUnit(u) === o)).length;
-  return { cardIdScope, oracleList, unresolved };
+  return { oracleList, unresolved };
 }
 
 /**
@@ -79,8 +78,8 @@ export async function runCommitsProjection(database: ProjectDb, oracleIds: strin
       for (const key of wrote.manualKeys) manualKeys.add(key);
       for (const key of wrote.sourceKeys) sourceKeys.add(key);
     }
-    const manualRecycled = await softDeleteStaleManualPrints(database, manualKeys, scope.cardIdScope);
-    const sourceRecycled = await softDeleteStaleSourcePrints(database, [...sourceKeys]);
+    const manualRecycled = await softDeleteStaleManualPrints(database, manualKeys, new Set(scope.oracleList));
+    const sourceRecycled = await softDeleteStaleSourcePrints(database, [...sourceKeys], new Set(scope.oracleList));
     return {
       oracles:    scope.oracleList.length,
       unresolved: scope.unresolved,

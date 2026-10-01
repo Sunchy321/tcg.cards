@@ -167,21 +167,21 @@ export async function loadPrintCommits(database: ProjectDb): Promise<Map<string,
 }
 
 /**
- * Soft-delete manual print rows (and their parts) outside this run's emitted
- * manual keys — the per-print counterpart of the cardId-granular stale sweep,
- * which cannot see a withdrawn position inside a live card. A scoped run
- * passes `scopeCardIds` so recycling only judges the manual prints of the
- * cards it actually re-projected; a full run omits it and sweeps the table.
+ * Soft-deletes manual print rows (and their parts) this run owned but no
+ * longer emitted — the per-print counterpart of the cardId-granular stale
+ * sweep, which cannot see a withdrawn position inside a live card. Ownership
+ * follows the projected oracles: rows of an oracle this run did not project
+ * are never this run's to judge, so a scoped or transiently re-scoped run
+ * cannot recycle sibling oracles' positions.
  */
 export async function softDeleteStaleManualPrints(
   database: ProjectDb,
   emitted: Set<string>,
-  scopeCardIds?: Set<string>,
+  judgedOracles: Set<string>,
 ): Promise<number> {
-  // An empty scope covers no cards, so nothing in it can be stale — a filter
-  // omission here would wrongly sweep the whole table instead.
-  if (scopeCardIds != null && scopeCardIds.size === 0) return 0;
-  const scopeFilter = scopeCardIds != null ? inArray(Print.cardId, [...scopeCardIds]) : undefined;
+  // An empty ownership covers no rows, so nothing in it can be stale — a
+  // filter omission here would wrongly sweep the whole table instead.
+  if (judgedOracles.size === 0) return 0;
   const active = await database.select({
     cardId: Print.cardId,
     set:    Print.set,
@@ -193,7 +193,7 @@ export async function softDeleteStaleManualPrints(
       isNull(Print.deletedAt),
       eq(Print.version, ''),
       eq(Print.source, MANUAL_PRINT_SOURCE),
-      scopeFilter,
+      inArray(Print.scryfallOracleId, [...judgedOracles]),
     ));
   const stale = staleManualPrints(active, emitted);
   let deleted = 0;
@@ -216,15 +216,20 @@ export async function softDeleteStaleManualPrints(
 }
 
 /**
- * Soft-deletes source-derived prints (and their parts) of the cards this run
- * projected whose identity the sources no longer produce — a renamed
- * collector number, or a unit that shrank. Scoped to the run's emitted keys,
- * so untouched cards are never judged; manual prints have their own recycle.
+ * Soft-deletes source-derived prints (and their parts) this run owned but no
+ * longer emitted — a renamed collector number, or a unit that shrank, within
+ * the oracles this run projected. Ownership follows the projected oracles:
+ * rows of an oracle this run did not project are never this run's to judge,
+ * so a scoped or transiently re-scoped run cannot recycle sibling oracles'
+ * prints on a shared card.
  */
-export async function softDeleteStaleSourcePrints(database: ProjectDb, sourceKeys: string[]): Promise<number> {
-  if (sourceKeys.length === 0) return 0;
+export async function softDeleteStaleSourcePrints(
+  database: ProjectDb,
+  sourceKeys: string[],
+  judgedOracles: Set<string>,
+): Promise<number> {
+  if (sourceKeys.length === 0 || judgedOracles.size === 0) return 0;
   const emitted = new Set(sourceKeys);
-  const touchedCards = [...new Set(sourceKeys.map(key => key.split('|')[0]!))];
   const active = await database.select({
     cardId: Print.cardId,
     set:    Print.set,
@@ -236,7 +241,7 @@ export async function softDeleteStaleSourcePrints(database: ProjectDb, sourceKey
       isNull(Print.deletedAt),
       eq(Print.version, ''),
       eq(Print.source, ''),
-      inArray(Print.cardId, touchedCards),
+      inArray(Print.scryfallOracleId, [...judgedOracles]),
     ));
   const stale = active.filter(r => !emitted.has(`${r.cardId}|${r.set}|${r.number}|${r.lang}`));
   let deleted = 0;

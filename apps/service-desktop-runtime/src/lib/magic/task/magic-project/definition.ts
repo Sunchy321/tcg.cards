@@ -240,13 +240,15 @@ const definition = createDefinition(magicProjectTaskType, {
     addAll(magic.counts, blockInput.counts);
     return runWithDb(getLocalDb(), async () => {
       // Recycle against exactly what this run emitted — symmetric with
-      // synthesis even where the commit path skipped a branch.
+      // synthesis even where the commit path skipped a branch. Ownership
+      // follows the projected oracles: rows of an oracle outside oracleList
+      // are never this run's to judge.
       const emitted = new Set(blockInput.manualKeys ?? []);
-      magic.counts.manualRecycled = await softDeleteStaleManualPrints(getLocalDb(), emitted);
+      magic.counts.manualRecycled = await softDeleteStaleManualPrints(getLocalDb(), emitted, new Set(magic.oracleList));
       // Stale source prints ride the same rule: rows the sources no longer
-      // produce (renamed collector numbers, shrunken units) within the cards
-      // this run projected.
-      magic.counts.softDeleted = await softDeleteStaleSourcePrints(getLocalDb(), blockInput.sourceKeys ?? []);
+      // produce (renamed collector numbers, shrunken units) within the
+      // oracles this run projected.
+      magic.counts.softDeleted = await softDeleteStaleSourcePrints(getLocalDb(), blockInput.sourceKeys ?? [], new Set(magic.oracleList));
       return magic.counts;
     });
   })
