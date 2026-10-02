@@ -59,6 +59,16 @@ describe('normalizeExtractedTagValue enum_from_int', () => {
       .toThrow('[hearthstone][extracted-project] unknown multiclass class tag=476 (multi_class) class=15');
   });
 
+  test('resolves set values through the Set table for both slug styles', () => {
+    const context = {
+      cardIdByDbfId: new Map<number, string>(),
+      setIdByDbfId:  new Map<number, string>([[15, 'tgt']]),
+    };
+    expect(normalizeExtractedTagValue(15, enumTag(183, 'set', { enumMap: 'set' }), context)).toBe('tgt');
+    expect(normalizeExtractedTagValue(15, enumTag(183, 'card_set', { enumMap: 'set' }), context)).toBe('tgt');
+    expect(normalizeExtractedTagValue(999, enumTag(183, 'set', { enumMap: 'set' }), context)).toBeNull();
+  });
+
   test('passes explicit enumMap arrays through unchanged', () => {
     expect(normalizeExtractedTagValue(30, enumTag(476, 'multi_class', { enumMap: { 30: ['mage', 'hunter'] } }), context()))
       .toEqual(['mage', 'hunter']);

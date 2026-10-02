@@ -219,7 +219,9 @@ export function normalizeExtractedTagValue(
     const enumMap = resolveEnumMap(config.enumMap);
     const target = resolveKnownEnumTarget(tag);
 
-    if (tag.slug === 'card_set') {
+    // CARD_SET (tag 183) resolves through the DB Set table. The row's slug is
+    // "set" in the DB and older configs used "card_set", so accept both.
+    if (tag.slug === 'card_set' || tag.slug === 'set') {
       return context.setIdByDbfId.get(intValue) ?? null;
     }
 

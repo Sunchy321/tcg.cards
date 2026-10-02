@@ -849,7 +849,9 @@ function normalizeHsdataTagValue(
     const value = row.intValue;
     if (value == null) return null;
 
-    if (tag?.slug === 'card_set') {
+    // CARD_SET (tag 183) resolves through the DB Set table; accept both the
+    // DB row's current slug ("set") and the legacy one ("card_set").
+    if (tag?.slug === 'card_set' || tag?.slug === 'set') {
       return context.setIdByDbfId.get(value) ?? null;
     }
 
