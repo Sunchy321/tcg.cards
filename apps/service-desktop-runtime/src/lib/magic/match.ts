@@ -94,6 +94,11 @@ export function slugifyCard(card: NormalizedCard): string {
 
   if (faces[0]?.name === 'Incubator') return 'incubator!';
 
+  // The Undercity dungeon is a unique named dungeon, not a stat-variant
+  // template — it keeps the plain slug the other dungeons use instead of the
+  // name-equals-subtype attribute encoding.
+  if (faces[0]?.name === 'Undercity') return 'undercity';
+
   if (TOKEN_LAYOUTS.includes(card.layout)) {
     const face = faces[0]!;
     const { typeMain, typeSub } = parseTypeline(face.typeLine ?? '');

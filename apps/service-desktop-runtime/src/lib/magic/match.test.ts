@@ -144,6 +144,20 @@ describe('slugifyCard', () => {
     expect(slugifyCard(card)).toBe('incubator!');
   });
 
+  test('keeps the Undercity dungeon on the plain slug other dungeons use', () => {
+    const card = token({
+      face: {
+        name:       'Undercity',
+        typeLine:   'Dungeon — Undercity',
+        oracleText: 'Secret Entrance — Search your library for a basic land card.\nForge — Put two +1/+1 counters on target creature.',
+        colors:     [],
+        power:      null,
+        toughness:  null,
+      },
+    });
+    expect(slugifyCard(card)).toBe('undercity');
+  });
+
   test('joins double-face names with the double-dash boundary', () => {
     const card = token({
       layout: 'split',
