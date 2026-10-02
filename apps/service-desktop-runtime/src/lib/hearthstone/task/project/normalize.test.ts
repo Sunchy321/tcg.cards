@@ -24,6 +24,7 @@ function context() {
 describe('normalizeExtractedTagValue enum_from_int', () => {
   test('maps known enum values through the alias table', () => {
     expect(normalizeExtractedTagValue(92, enumTag(200, 'card_race', { enumMap: 'race' }), context())).toBe('naga');
+    expect(normalizeExtractedTagValue(126, enumTag(200, 'card_race', { enumMap: 'race' }), context())).toBe('aberration');
   });
 
   test('treats INVALID (0) as an unset field', () => {

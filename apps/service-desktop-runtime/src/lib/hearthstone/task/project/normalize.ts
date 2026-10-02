@@ -95,6 +95,7 @@ const raceByInt: Record<number, string> = {
   97:  'gnoll',
   98:  'golem',
   100: 'vulpera',
+  126: 'aberration',
 };
 
 /** TAG_CLASS enum int → slug, used when normalizeConfig.enumMap is the "multiclass" alias. */
