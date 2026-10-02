@@ -514,9 +514,10 @@ export function isBattleFront(typeLine: string | null | undefined): boolean {
  * snapshots. A normal (single/multi-face) oracle card is one unit; a
  * `double_faced_token` yields one unit per face. `reversible_card` produces no
  * units here (it only contributes prints to the units its faces reference).
- * `printCommits` are the oracle's print commits; only the normal
- * branch consumes them — merge groups, art-back tokens and split DFTs are out
- * of the commit path's scope.
+ * `printCommits` are the oracle's print commits; the normal branch consumes
+ * them, and so does the split-DFT branch (each face unit takes the commits
+ * whose suffixed print number matches its own); merge groups and art-back
+ * tokens remain out of the commit path's scope.
  */
 export async function assembleUnits(
   database: ProjectDb,
@@ -667,6 +668,10 @@ export async function assembleUnits(
       const localizations = officialSurfaces(allRows, i).map(s => s.provenance
         ? { ...s, provenance: { ...s.provenance, number: `${s.provenance.number}${suffix}` } }
         : s);
+      // Commits route to the face unit by suffixed number: a `20a` commit's
+      // baseline lives among this unit's prints, a sibling `20b` commit
+      // matches nothing here.
+      const committedPrints = synthesizePrintCommits(prints, printCommits ?? []);
       out.push({
         unit:           `${oracleId}:${i}`,
         cardId:         slugs[i] ?? `${oracleId}-${i}`,
@@ -682,7 +687,7 @@ export async function assembleUnits(
         legalities:     {},
         faces:          [face],
         localizations,
-        prints,
+        prints:         [...prints, ...committedPrints],
         mtgch:          null,
       });
     }

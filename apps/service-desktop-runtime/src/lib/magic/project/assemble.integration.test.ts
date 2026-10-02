@@ -23,6 +23,7 @@ import { ScryfallCard } from '@tcg-cards/db/schema/local/magic';
 import { applyPathOverrides } from '../../../runtime-config';
 import { emptyRemoteSkipped, scryfallQueueRow } from '../image-import/source';
 import { assembleUnits } from './assemble';
+import type { LoadedPrintCommit } from './print-commits';
 
 /** Opt-in integration database, mirroring the yugioh and magic image import tests. */
 const adminUrl = process.env.MAGIC_IMAGE_TEST_DATABASE_URL?.trim() ?? null;
@@ -198,4 +199,67 @@ integrationTest('pins each split token print to its own face, so both images are
     }, emptyRemoteSkipped())!;
   });
   expect(queued.map(row => row.faces.map(face => face.url))).toEqual([[frontPng], [backPng]]);
+}, 60_000);
+
+integrationTest('routes print commits to the split token face units by suffixed number', async () => {
+  if (adminUrl == null) {
+    throw new Error('MAGIC_IMAGE_TEST_DATABASE_URL is required.');
+  }
+
+  const databaseName = `tcg_magic_dft_cmt_${randomBytes(8).toString('hex')}`;
+  const databaseUrl = new URL(adminUrl);
+  databaseUrl.pathname = `/${databaseName}`;
+  const admin = createDb(adminUrl);
+  clients.push(admin);
+  await admin.$client.unsafe(`create database "${databaseName}"`);
+  const db = createDb(databaseUrl.toString());
+  clients.push(db);
+  try {
+    await applyLocalMigrations(db);
+    await seedSnakeZombie(db);
+
+    // A `9a` commit belongs to the front unit; a `9c` commit names a position
+    // no split-DFT face unit carries and must stay unprojected.
+    const commits: LoadedPrintCommit[] = [
+      {
+        set:    'cc2',
+        number: '9a',
+        lang:   'zhs',
+        faces:  [{ printedName: '蛇', printedTypeLine: '衍生物生物～蛇', printedText: '死触' }],
+        data:   { multiverseIds: [4242] },
+      },
+      {
+        set:    'cc2',
+        number: '9c',
+        lang:   'de',
+        faces:  [{ printedName: 'Schlange' }],
+        data:   null,
+      },
+    ];
+
+    const units = await assembleUnits(db, oracleId, undefined, commits);
+
+    const front = units[0]!;
+    expect(front.prints!.length).toBe(2);
+    const manual = front.prints![1]!;
+    expect(manual.lang).toBe('zhs');
+    expect(manual.set).toBe('cc2');
+    expect(manual.number).toBe('9a');
+    expect(manual.source).toBe('manual');
+    // Identity columns stay empty: the committed position has no scryfall
+    // object of its own to borrow a face pin from.
+    expect(manual.scryfallFace).toBe(null);
+    expect(manual.imageStatus).toBe('missing');
+    expect(manual.multiverseIds).toEqual([4242]);
+    expect(manual.faces[0]!.printedName).toBe('蛇');
+    expect(manual.faces[0]!.printedText).toBe('死触');
+
+    // The back unit's `9b` position takes no commit, and the unmatched `9c`
+    // surfaces on neither unit.
+    const back = units[1]!;
+    expect(back.prints!.map(p => [p.lang, p.number])).toEqual([['en', '9b']]);
+  } finally {
+    await db.$client.end({ timeout: 1 }).catch(() => {});
+    await admin.$client.unsafe(`drop database if exists "${databaseName}"`);
+  }
 }, 60_000);
