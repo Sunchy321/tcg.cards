@@ -580,7 +580,12 @@ export async function projectExtracted(
 
   for (const card of cards) {
     const tags = tagsByDbfId.get(card.dbfId) ?? [];
-    const result = projectExtractedCard(card as ExtractedCardRow, tags, tagMap, build, { cardIdByDbfId, setIdByDbfId, hsdataSetByDbfId: chunkHsdataSet, nameByDbfIdByLocale, richTextByDbfIdByLocale });
+    let result: ProjectCardResult;
+    try {
+      result = projectExtractedCard(card as ExtractedCardRow, tags, tagMap, build, { cardIdByDbfId, setIdByDbfId, hsdataSetByDbfId: chunkHsdataSet, nameByDbfIdByLocale, richTextByDbfIdByLocale });
+    } catch (error) {
+      throw new Error(`[hearthstone][extracted-project] card ${card.cardId} (build ${build}): ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+    }
     collectRows?.(result);
 
     projectedEntities.push({
@@ -851,7 +856,12 @@ function normalizeHsdataTagValue(
     const mapped = enumMap[String(value)];
     if (typeof mapped === 'string') return mapped;
     if (Array.isArray(mapped)) return mapped.filter(item => typeof item === 'string') as string[];
-    return config.allowUnknownEnumValue === true ? String(value) : null;
+
+    // Same policy as the extracted path: INVALID stays unset, opted-in tags
+    // keep the raw int, everything else fails the projection loudly.
+    if (value === 0) return null;
+    if (config.allowUnknownEnumValue === true) return String(value);
+    throw new Error(`[hearthstone][extracted-project] unknown enum value tag=${tag?.enumId} (${tag?.slug}) value=${value}`);
   }
 
   if (normalizeKind === 'card_ref_from_int') {
@@ -953,7 +963,12 @@ export async function projectHsdataFallback(build: number, cardIds: string[], dr
     for (const row of sortedTags) {
       if (row.intValue != null) displayTags.set(row.enumId, row.intValue);
       const tag = tagMap.get(row.enumId);
-      const normalized = normalizeHsdataTagValue(row, tag, { cardIdByDbfId, setIdByDbfId });
+      let normalized: unknown;
+      try {
+        normalized = normalizeHsdataTagValue(row, tag, { cardIdByDbfId, setIdByDbfId });
+      } catch (error) {
+        throw new Error(`[hearthstone][extracted-project] card ${snapshot.cardId} (build ${build}): ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+      }
       if (normalized == null) continue;
 
       const projectKind = tag?.projectKind;

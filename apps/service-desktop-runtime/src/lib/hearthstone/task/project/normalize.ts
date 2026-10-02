@@ -36,15 +36,15 @@ const rarityByInt: Record<number, string> = {
 
 /** SPELL_SCHOOL enum int → slug, used when normalizeConfig.enumMap is the "spell-school" alias. */
 const spellSchoolByInt: Record<number, string> = {
-  1: 'arcane',
-  2: 'fire',
-  3: 'frost',
-  4: 'nature',
-  5: 'holy',
-  6: 'shadow',
-  7: 'fel',
-  8: 'physical_combat',
-  9: 'tavern_spell',
+  1:  'arcane',
+  2:  'fire',
+  3:  'frost',
+  4:  'nature',
+  5:  'holy',
+  6:  'shadow',
+  7:  'fel',
+  8:  'physical_combat',
+  9:  'tavern_spell',
   10: 'spellcraft',
   11: 'lesser_trinket',
   12: 'greater_trinket',
@@ -53,47 +53,47 @@ const spellSchoolByInt: Record<number, string> = {
 
 /** CARDRACE enum int → slug, used when normalizeConfig.enumMap is the "race" alias. */
 const raceByInt: Record<number, string> = {
-  1: 'bloodelf',
-  2: 'draenei',
-  3: 'dwarf',
-  4: 'gnome',
-  5: 'goblin',
-  6: 'human',
-  7: 'nightelf',
-  8: 'orc',
-  9: 'tauren',
-  10: 'troll',
-  11: 'undead',
-  12: 'worgen',
-  13: 'goblin2',
-  14: 'murloc',
-  15: 'demon',
-  16: 'scourge',
-  17: 'mech',
-  18: 'elemental',
-  19: 'ogre',
-  20: 'beast',
-  21: 'totem',
-  22: 'nerubian',
-  23: 'pirate',
-  24: 'dragon',
-  25: 'blank',
-  26: 'all',
-  38: 'egg',
-  43: 'quilboar',
-  80: 'centaur',
-  81: 'furbolg',
-  83: 'highelf',
-  84: 'treant',
-  88: 'halforc',
-  89: 'lock',
-  92: 'naga',
-  93: 'old_god',
-  94: 'pandaren',
-  95: 'gronn',
-  96: 'celestial',
-  97: 'gnoll',
-  98: 'golem',
+  1:   'bloodelf',
+  2:   'draenei',
+  3:   'dwarf',
+  4:   'gnome',
+  5:   'goblin',
+  6:   'human',
+  7:   'nightelf',
+  8:   'orc',
+  9:   'tauren',
+  10:  'troll',
+  11:  'undead',
+  12:  'worgen',
+  13:  'goblin2',
+  14:  'murloc',
+  15:  'demon',
+  16:  'scourge',
+  17:  'mech',
+  18:  'elemental',
+  19:  'ogre',
+  20:  'beast',
+  21:  'totem',
+  22:  'nerubian',
+  23:  'pirate',
+  24:  'dragon',
+  25:  'blank',
+  26:  'all',
+  38:  'egg',
+  43:  'quilboar',
+  80:  'centaur',
+  81:  'furbolg',
+  83:  'highelf',
+  84:  'treant',
+  88:  'halforc',
+  89:  'lock',
+  92:  'naga',
+  93:  'old_god',
+  94:  'pandaren',
+  95:  'gronn',
+  96:  'celestial',
+  97:  'gnoll',
+  98:  'golem',
   100: 'vulpera',
 };
 
@@ -115,14 +115,21 @@ const classByInt: Record<number, string> = {
   14: 'demon_hunter',
 };
 
-/** Expands a MULTI_CLASSES (tag 476) bitmask into the list of class slugs. */
-function expandClassBitmask(mask: number): string[] {
+/** Expands a MULTI_CLASSES (tag 476) bitmask into the list of class slugs.
+ *
+ * An unmapped class bit fails the projection: silently skipping it would drop
+ * the card's class membership without a trace.
+ */
+function expandClassBitmask(tag: TagRow, mask: number): string[] {
   const classes: string[] = [];
   let bit = 1;
   while (mask !== 0) {
     if (mask & 1) {
       const slug = classByInt[bit];
-      if (slug != null) classes.push(slug);
+      if (slug == null) {
+        throw new Error(`[hearthstone][extracted-project] unknown multiclass class tag=${tag.enumId} (${tag.slug}) class=${bit}`);
+      }
+      classes.push(slug);
     }
     mask >>= 1;
     bit++;
@@ -132,7 +139,7 @@ function expandClassBitmask(mask: number): string[] {
 
 const enumMapAliasTables: Record<string, Record<number, string>> = {
   'spell-school': spellSchoolByInt,
-  'race': raceByInt,
+  'race':         raceByInt,
 };
 
 export function asNumberArray(value: unknown): number[] {
@@ -204,18 +211,20 @@ export function normalizeExtractedTagValue(
     return null;
   }
 
-  if (normalizeKind === 'enum_from_int') {
+  // enum_from_int implies the tag row exists: the kind falls back to
+  // identity_int when there is no row.
+  if (normalizeKind === 'enum_from_int' && tag) {
     const config = tag?.normalizeConfig ?? {};
     const enumMap = resolveEnumMap(config.enumMap);
     const target = resolveKnownEnumTarget(tag);
 
-    if (tag && tag.slug === 'card_set') {
+    if (tag.slug === 'card_set') {
       return context.setIdByDbfId.get(intValue) ?? null;
     }
 
     // MULTI_CLASSES (tag 476) value is a bitmask over TAG_CLASS enum values.
     if (config.enumMap === 'multiclass') {
-      return expandClassBitmask(intValue);
+      return expandClassBitmask(tag, intValue);
     }
 
     const mapped = enumMap[String(intValue)];
@@ -233,7 +242,13 @@ export function normalizeExtractedTagValue(
       if (fallback != null) return fallback;
     }
 
-    return config.allowUnknownEnumValue === true ? String(intValue) : null;
+    // Value 0 is the game's INVALID sentinel and stays an unset field. Anything
+    // else outside the enum table fails the projection rather than silently
+    // dropping the value; allowUnknownEnumValue opts a tag into keeping the raw
+    // int as a string instead.
+    if (intValue === 0) return null;
+    if (config.allowUnknownEnumValue === true) return String(intValue);
+    throw new Error(`[hearthstone][extracted-project] unknown enum value tag=${tag.enumId} (${tag.slug}) value=${intValue}`);
   }
 
   if (normalizeKind === 'card_ref_from_int') {
