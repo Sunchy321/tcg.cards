@@ -5,6 +5,8 @@ import { Card, CardLocalization, CardPart, CardPartLocalization } from '@tcg-car
 import { Print, PrintPart } from '@tcg-cards/db/schema/shared/magic/print';
 import { CardLocalizationAuthority, ProjectionReview } from '@tcg-cards/db/schema/local/magic';
 
+import { MANUAL_PRINT_SOURCE } from './print-commits';
+
 /**
  * Pure projection of one Magic "unit" into its fact-table base rows.
  *
@@ -559,6 +561,10 @@ function resolveFaces(assembled: AssembledCard, localized?: LocalizedFaceDraft[]
  *   'mtgch'  folk substitute row — present only when no official standard row
  *            can be formed, most often because the card has no official name in
  *            that language.
+ *   'manual' adopted print-commit row — replaces the official/mtgch authority
+ *            for its locale: the commit is the reviewed text of record, and its
+ *            manual print row already stands as the printed surface, so the
+ *            card-level text must not disagree with it.
  *
  * English is never stored (its text of record is the oracle text), and the print
  * that established the text is recorded only when the text really came from a
@@ -585,10 +591,41 @@ function buildAuthorities(assembled: AssembledCard): {
   }
 
   const folkFaces = adoptableMtgchFaces(assembled);
-  const locales = new Set(official.keys());
+
+  // Committed print surfaces (source='manual'): an adopted commit is the
+  // reviewed text of record for its locale and replaces the official/mtgch
+  // authority there. First print per locale wins; later positions of the same
+  // locale are repeat printings, not competing texts.
+  const committed = new Map<string, LocalizedFaceDraft[]>();
+  for (const p of assembled.prints ?? []) {
+    if (p.source !== MANUAL_PRINT_SOURCE || committed.has(p.lang)) continue;
+    committed.set(p.lang, p.faces.map(f => ({
+      name:     f.printedName ?? null,
+      typeline: f.printedTypeLine ?? null,
+      text:     f.printedText ?? null,
+    })));
+  }
+
+  const locales = new Set([...official.keys(), ...committed.keys()]);
   if (folkFaces != null) locales.add(MTGCH_LOCALE);
 
   for (const locale of locales) {
+    const committedFaces = committed.get(locale);
+    if (committedFaces != null) {
+      const chosen = resolveFaces(assembled, committedFaces);
+      authorities.push({
+        cardId,
+        version,
+        locale:    locale as (typeof CardLocalizationAuthority.$inferInsert)['locale'],
+        source:    MANUAL_PRINT_SOURCE,
+        name:      joinFaces(chosen.map(f => f.name), LINE_FACE_SEPARATOR),
+        typeline:  joinFaces(chosen.map(f => f.typeline), LINE_FACE_SEPARATOR),
+        text:      joinFaces(chosen.map(f => f.text), TEXT_FACE_SEPARATOR),
+        partCount: assembled.faces.length,
+      });
+      continue;
+    }
+
     const off = official.get(locale);
     const offResolved = off != null ? resolveFaces(assembled, off.faces) : null;
     const folkResolved = locale === MTGCH_LOCALE && folkFaces != null ? resolveFaces(assembled, folkFaces) : null;

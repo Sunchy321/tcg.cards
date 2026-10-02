@@ -24,6 +24,7 @@ import { applyPathOverrides } from '../../../runtime-config';
 import { emptyRemoteSkipped, scryfallQueueRow } from '../image-import/source';
 import { assembleUnits } from './assemble';
 import type { LoadedPrintCommit } from './print-commits';
+import { projectCard } from './project-card';
 
 /** Opt-in integration database, mirroring the yugioh and magic image import tests. */
 const adminUrl = process.env.MAGIC_IMAGE_TEST_DATABASE_URL?.trim() ?? null;
@@ -258,6 +259,22 @@ integrationTest('routes print commits to the split token face units by suffixed 
     // surfaces on neither unit.
     const back = units[1]!;
     expect(back.prints!.map(p => [p.lang, p.number])).toEqual([['en', '9b']]);
+
+    // The commit also becomes the card-level text of record for its locale:
+    // a source='manual' authority, and its materialised display rows.
+    const { authorities, cardLocalizations, cardPartLocalizations } = projectCard(front);
+    const zhsAuthority = authorities.find(a => a.locale === 'zhs');
+    expect(zhsAuthority?.source).toBe('manual');
+    expect(zhsAuthority?.name).toBe('蛇');
+    expect(zhsAuthority?.typeline).toBe('衍生物生物～蛇');
+    expect(zhsAuthority?.partCount).toBe(1);
+    const zhsLoc = cardLocalizations.find(l => l.locale === 'zhs');
+    expect(zhsLoc?.source).toBe('manual');
+    expect(zhsLoc?.name).toBe('蛇');
+    expect(cardPartLocalizations.filter(l => l.locale === 'zhs').map(l => [l.partIndex, l.name, l.text]))
+      .toEqual([[0, '蛇', '死触']]);
+    // The unmatched `9c` locale never becomes an authority.
+    expect(authorities.find(a => a.locale === 'de')).toBeUndefined();
   } finally {
     await db.$client.end({ timeout: 1 }).catch(() => {});
     await admin.$client.unsafe(`drop database if exists "${databaseName}"`);

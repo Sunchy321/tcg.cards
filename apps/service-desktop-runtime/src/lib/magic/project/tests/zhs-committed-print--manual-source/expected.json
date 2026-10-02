@@ -56,6 +56,14 @@
       "source": "",
       "name": "Lightning Bolt",
       "typeline": "Instant"
+    },
+    {
+      "cardId": "lightning-bolt",
+      "version": "",
+      "locale": "zhs",
+      "source": "manual",
+      "name": "闪电击",
+      "typeline": "瞬间"
     }
   ],
   "cardPartLocalizations": [
@@ -68,6 +76,16 @@
       "name": "Lightning Bolt",
       "typeline": "Instant",
       "text": "Lightning Bolt deals 3 damage to any target."
+    },
+    {
+      "cardId": "lightning-bolt",
+      "version": "",
+      "locale": "zhs",
+      "source": "manual",
+      "partIndex": 0,
+      "name": "闪电击",
+      "typeline": "瞬间",
+      "text": "闪电击向任意一个目标造成3点伤害。"
     }
   ],
   "prints": [
@@ -216,6 +234,17 @@
       ]
     }
   ],
-  "authorities": [],
+  "authorities": [
+    {
+      "cardId": "lightning-bolt",
+      "version": "",
+      "locale": "zhs",
+      "source": "manual",
+      "name": "闪电击",
+      "typeline": "瞬间",
+      "text": "闪电击向任意一个目标造成3点伤害。",
+      "partCount": 1
+    }
+  ],
   "reviews": []
 }

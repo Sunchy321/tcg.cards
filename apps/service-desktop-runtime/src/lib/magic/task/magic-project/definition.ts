@@ -261,6 +261,9 @@ const definition = createDefinition(magicProjectTaskType, {
       magic.unitToCard = matched.cardIdByUnit;
       magic.reversibleRows = await loadReversibleRows(database);
       magic.rubies = await loadNameRubyLookup(database);
+      // Adopted commits also drive the card-level localization authorities, so
+      // the card stage must assemble with them just like the prints stage.
+      magic.printCommits = await loadPrintCommits(database);
       const byCard = new Map<string, string[]>();
       for (const [unit, cardId] of matched.cardIdByUnit) {
         const list = byCard.get(cardId) ?? [];
@@ -299,7 +302,7 @@ const definition = createDefinition(magicProjectTaskType, {
       const assembledByUnit = new Map<string, AssembledCard>();
       const memberOracles = new Set(chunk.flatMap(cardId => (magic.cardsByCardId.get(cardId) ?? []).map(u => u.split(':')[0]!)));
       for (const oracle of memberOracles) {
-        for (const raw of await assembleUnits(database, oracle, magic.reversibleRows)) {
+        for (const raw of await assembleUnits(database, oracle, magic.reversibleRows, magic.printCommits.get(oracle))) {
           const assembled = withResolvedCardId(raw, magic.unitToCard);
           if (assembled != null) assembledByUnit.set(assembled.unit, assembled);
         }
