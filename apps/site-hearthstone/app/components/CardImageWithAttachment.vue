@@ -18,7 +18,6 @@
       @click="mainHover.onClick"
     >
       <CardImage
-        class="pointer-events-none"
         :card-id="cardId"
         :version="version"
         :type="type"
@@ -47,7 +46,6 @@
       @click="attachmentHover.onClick"
     >
       <CardImage
-        class="pointer-events-none"
         :card-id="attachment.cardId"
         :version="attachment.version"
         :type="attachment.type"
