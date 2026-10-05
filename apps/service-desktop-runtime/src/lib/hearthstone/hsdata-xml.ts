@@ -543,6 +543,29 @@ export const parseHsdataXml = (xml: string): ParsedHsdata => {
   };
 };
 
+/** Merges separately parsed CardDefs part documents (base / Bacon / Lettuce)
+ *  into one import payload. All parts must carry the same build number;
+ *  duplicate card ids are allowed only when byte-identical. */
+export const mergeParsedHsdataParts = (parts: ParsedHsdataStreamResult[]): ParsedHsdata => {
+  if (parts.length === 0) {
+    throw new Error('No CardDefs part documents to merge');
+  }
+
+  const build = parts[0]!.parsed.build;
+  for (const part of parts) {
+    if (part.parsed.build !== build) {
+      throw new Error(`CardDefs part build mismatch: ${part.parsed.build} != ${build}`);
+    }
+  }
+
+  const entities = validateAndDedupeEntities(parts.flatMap(part => part.parsed.entities));
+  if (entities.length === 0) {
+    throw new Error('CardDefs must contain at least one Entity');
+  }
+
+  return { build, entities };
+};
+
 /** Parses one UTF-8 XML stream into the canonical hsdata payload and source hash. */
 export const parseHsdataXmlStream = async (
   stream: ReadableStream<Uint8Array>,
