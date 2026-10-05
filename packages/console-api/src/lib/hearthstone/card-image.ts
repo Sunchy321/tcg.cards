@@ -41,7 +41,7 @@ export const hearthstoneImageRequirementSchema = 'tcg.cards.hearthstone.card-ima
 export const defaultCardImageExportLimit = 200;
 export const hardCardImageExportLimit = 500;
 
-const exportBatchSize = 1000;
+const exportBatchSize = 10000;
 const defaultR2AssetBucket = 'asset';
 
 export interface ImageCandidateRow {
@@ -452,12 +452,36 @@ export async function loadVariantMechanicIds(
   };
 }
 
-/** Loads candidate card rows that may need rendered image requirements. */
+/** Keyset continuation point for candidate-row scans. */
+export interface CandidateRowKeyset {
+  cardId:           string;
+  localizationHash: string;
+  revisionHash:     string;
+}
+
+/** Loads the small set→dbfId mapping used to fill request render models,
+ *  replacing a per-page join against the `sets` table. */
+async function loadSetDbfIds(database: CardImageDb) {
+  const rows = await database.select({
+    setId: HearthstoneSet.setId,
+    dbfId: HearthstoneSet.dbfId,
+  })
+    .from(HearthstoneSet);
+  return new Map(rows.map(row => [row.setId, row.dbfId]));
+}
+
+/** Loads candidate card rows that may need rendered image requirements.
+ *  When `renderHashes` is given, rows are matched by render hash directly and
+ *  pagination is skipped. Otherwise rows are paged: pass `keyset` (the last row
+ *  of the previous page) for keyset pagination, or `rowOffset` for offset
+ *  pagination; keyset pages stay cheap no matter how deep the scan goes. */
 async function loadCandidateRows(
   database: CardImageDb,
   input: CardImageRequirementExportInput,
   rowOffset: number,
   rowLimit: number,
+  renderHashes?: string[],
+  keyset?: CandidateRowKeyset | undefined,
 ) {
   const useLatest = !input.allVersions && input.version == null;
   const E = useLatest ? LatestEntity : Entity;
@@ -481,11 +505,24 @@ async function loadCandidateRows(
     }
   }
 
-  if (input.cardId) {
+  if (renderHashes != null) {
+    filters.push(inArray(EL.renderHash, renderHashes));
+  } else if (input.cardId) {
     filters.push(eq(E.cardId, input.cardId));
   }
 
-  return await database.select({
+  if (keyset != null) {
+    // (card_id, revision_hash, localization_hash) is unique once `lang` is pinned
+    // by the filter above: the localization table's primary key is
+    // (card_id, lang, revision_hash, localization_hash). This order also matches
+    // the localization table's primary-key index (constant `lang` prefix), so a
+    // keyset page can stream from the index instead of re-sorting the join.
+    filters.push(sql`(${E.cardId}, ${EL.revisionHash}, ${EL.localizationHash}) > (${keyset.cardId}, ${keyset.revisionHash}, ${keyset.localizationHash})`);
+  }
+
+  const setDbfIds = await loadSetDbfIds(database);
+
+  const query = database.select({
     cardId:           E.cardId,
     version:          sql<number[]>`${E.version} & ${EL.version}`.as('version'),
     lang:             EL.lang,
@@ -495,7 +532,6 @@ async function loadCandidateRows(
     renderModel:      EL.renderModel,
     type:             E.type,
     set:              E.set,
-    setDbfId:         HearthstoneSet.dbfId,
     techLevel:        E.techLevel,
     mechanics:        E.mechanics,
   })
@@ -505,15 +541,20 @@ async function loadCandidateRows(
       eq(E.revisionHash, EL.revisionHash),
       sql`${E.version} && ${EL.version}`,
     ))
-    .leftJoin(HearthstoneSet, eq(E.set, HearthstoneSet.setId))
     .where(and(...filters))
     .orderBy(
       asc(E.cardId),
+      asc(EL.revisionHash),
       asc(EL.localizationHash),
-    )
-    .limit(rowLimit)
-    .offset(rowOffset)
-    .then(rows => rows.flatMap(row => {
+    );
+
+  let pagedQuery = query.$dynamic();
+  if (renderHashes == null) {
+    // By-hash lookups need no pagination; keyset pages only cap rows.
+    pagedQuery = keyset != null ? pagedQuery.limit(rowLimit) : pagedQuery.limit(rowLimit).offset(rowOffset);
+  }
+
+  return await pagedQuery.then(rows => rows.flatMap(row => {
     if (row.renderHash == null || row.renderModel == null) {
       return [];
     }
@@ -522,7 +563,7 @@ async function loadCandidateRows(
       ...row,
       renderHash:  row.renderHash,
       renderModel: row.renderModel,
-      setDbfId:    row.setDbfId ?? 0,
+      setDbfId:    setDbfIds.get(row.set) ?? 0,
     };
     return [result];
   }));
@@ -563,6 +604,228 @@ async function loadReadyKeys(
   return new Set(rows.map(row => (
     `${row.renderHash}\u0000${row.category}\u0000${row.zone}\u0000${row.template}\u0000${row.premium}`
   )));
+}
+
+/** One pending render target in the missing plan: a render hash plus one allowed variant. */
+export interface CardImageMissingPlanKey {
+  renderHash: string;
+  variant:    ImageVariant;
+}
+
+export interface CardImageMissingPlan {
+  keys:              CardImageMissingPlanKey[];
+  candidateRowCount: number;
+  totalVariantCount: number;
+  readyVariantCount: number;
+}
+
+/** Scans all candidate rows once and returns every missing render target,
+ *  so a caller can batch through the plan from memory without re-scanning. */
+export async function buildCardImageMissingPlan(
+  rawInput: CardImageRequirementExportInput,
+  options?: {
+    db?: CardImageDb | undefined;
+  },
+): Promise<CardImageMissingPlan> {
+  const input = cardImageRequirementExportInput.parse(rawInput);
+  const variants = buildImageVariants(input);
+  const database = options?.db ?? db;
+  const mechanicIds = await loadVariantMechanicIds(database, variants);
+
+  const keysByRequestId = new Map<string, CardImageMissingPlanKey>();
+  let candidateRowCount = 0;
+  let totalVariantCount = 0;
+  let readyVariantCount = 0;
+  let keyset: CandidateRowKeyset | undefined;
+
+  while (true) {
+    const rows = await loadCandidateRows(database, input, 0, exportBatchSize, undefined, keyset);
+
+    if (rows.length === 0) {
+      break;
+    }
+
+    const lastRow = rows[rows.length - 1]!;
+    keyset = {
+      cardId:           lastRow.cardId,
+      localizationHash: lastRow.localizationHash,
+      revisionHash:     lastRow.revisionHash,
+    };
+    candidateRowCount += rows.length;
+
+    const readyKeys = await loadReadyKeys(
+      database,
+      uniqueValues(rows.map(row => row.renderHash)),
+      variants,
+    );
+
+    for (const row of rows) {
+      for (const variant of variants) {
+        if (!isCardImageVariantAllowed(row, variant, mechanicIds)) {
+          continue;
+        }
+
+        totalVariantCount += 1;
+
+        if (readyKeys.has(imageKey(row.renderHash, variant))) {
+          readyVariantCount += 1;
+          continue;
+        }
+
+        keysByRequestId.set(buildCardImageRequestId(row.renderHash, variant), {
+          renderHash: row.renderHash,
+          variant,
+        });
+      }
+    }
+  }
+
+  if (candidateRowCount === 0) {
+    const id = input.cardId ? `cardId ${input.cardId}` : 'the given filters';
+    throw new Error(`No card data matched the image filters for ${id}`);
+  }
+
+  return {
+    keys:              [...keysByRequestId.values()],
+    candidateRowCount,
+    totalVariantCount,
+    readyVariantCount,
+  };
+}
+
+/** Loads the candidate rows backing a slice of missing-plan keys, matched by render hash. */
+export async function loadCandidateRowsByRenderHashes(
+  database: CardImageDb,
+  input: CardImageRequirementExportInput,
+  renderHashes: string[],
+): Promise<ImageCandidateRow[]> {
+  if (renderHashes.length === 0) {
+    return [];
+  }
+
+  return await loadCandidateRows(database, input, 0, renderHashes.length, renderHashes);
+}
+
+/** Builds render requests for one batch of missing-plan keys by re-fetching only
+ *  those rows; keys whose row disappeared since planning are silently dropped. */
+export async function buildCardImageRequestsForPlanKeys(
+  rawInput: CardImageRequirementExportInput,
+  keys: CardImageMissingPlanKey[],
+  options?: {
+    db?: CardImageDb | undefined;
+  },
+): Promise<ImageRequirementRequest[]> {
+  const input = cardImageRequirementExportInput.parse(rawInput);
+  const database = options?.db ?? db;
+
+  const renderHashes = uniqueValues(keys.map(key => key.renderHash));
+  const rows = await loadCandidateRowsByRenderHashes(database, input, renderHashes);
+  const rowByRenderHash = new Map<string, ImageCandidateRow>();
+  for (const row of rows) {
+    if (!rowByRenderHash.has(row.renderHash)) {
+      rowByRenderHash.set(row.renderHash, row);
+    }
+  }
+
+  const requests: ImageRequirementRequest[] = [];
+  for (const key of keys) {
+    const row = rowByRenderHash.get(key.renderHash);
+    if (row == null) {
+      continue;
+    }
+    requests.push(buildRequest(row, key.variant, defaultR2AssetBucket));
+  }
+  return requests;
+}
+
+export interface BuiltCardImageRequirementExport {
+  exportId: string;
+  fileName: string;
+  content:  string;
+  file:     ImageRequirementFile;
+}
+
+/** Builds one requirements export file for the given requests, bypassing the
+ *  interactive export limits; used for batches sliced from a missing plan. */
+export function buildCardImageRequirementExportFile(
+  requests: ImageRequirementRequest[],
+  now = new Date(),
+): BuiltCardImageRequirementExport {
+  const exportId = buildExportId(now);
+  const fileName = buildFileName(exportId);
+  const file = imageRequirementFile.parse({
+    schema:           hearthstoneImageRequirementSchema,
+    exportId,
+    imageSpecVersion: hearthstoneImageSpecVersion,
+    generatedAt:      now.toISOString(),
+    toolContract:     {
+      inputFormat:         'json',
+      outputArchiveFormat: 'zip',
+      outputImageFormat:   'png',
+      fileNamePolicy:      'exact',
+    },
+    limits: {
+      defaultMaxRequests: defaultCardImageExportLimit,
+      hardMaxRequests:    hardCardImageExportLimit,
+      maxRequests:        Math.max(1, requests.length),
+      requestCount:       requests.length,
+      remainingEstimate:  0,
+    },
+    batch: {
+      index:  1,
+      cursor: null,
+      hasMore: false,
+    },
+    defaults: {
+      png: {
+        color:                 'rgba',
+        transparentBackground: true,
+      },
+      target: {
+        contentType: 'image/webp',
+        webpPreset:  'q86-m4-fast',
+      },
+    },
+    requests,
+  });
+
+  const content = JSON.stringify(file, null, 2);
+
+  return { exportId, fileName, content, file };
+}
+
+/** Records one requirements export in `card_image_exports` for auditing. */
+export async function recordCardImageExport(
+  database: CardImageDb,
+  input: {
+    filters:     CardImageRequirementExportInput;
+    exportId:    string;
+    fileName:    string;
+    content:     string;
+    requestCount: number;
+  },
+): Promise<void> {
+  const filters = cardImageRequirementExportInput.parse(input.filters);
+
+  await database.insert(CardImageExport).values({
+    exportId:         input.exportId,
+    imageSpecVersion: hearthstoneImageSpecVersion,
+    filters:          {
+      lang:      filters.lang,
+      cardId:    filters.cardId ?? null,
+      version:   filters.version ?? null,
+      zones:     filters.zones,
+      templates: filters.templates,
+      premiums:  filters.premiums,
+      limit:     filters.limit,
+      cursor:    filters.cursor ?? null,
+    },
+    requestCount:    input.requestCount,
+    maxRequestCount: filters.limit,
+    fileFormat:      'json',
+    fileName:        input.fileName,
+    fileSha256:      sha256(input.content),
+  });
 }
 
 export function buildCardImageImportPlan(input: {
