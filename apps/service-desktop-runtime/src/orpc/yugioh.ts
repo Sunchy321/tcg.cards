@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { taskPageSnapshot } from '@tcg-cards/model/task';
+
 import {
   getLatestYugiohImportBatch,
   importYugiohCards,
@@ -25,78 +27,81 @@ import {
   yugiohImageMetadataUrl,
   yugiohImageSource,
 } from '../lib/yugioh/image-source';
+import { CRAWL_LEVELS } from '../lib/yugioh/konami/ttl';
+import { yugiohCnocgImportTaskDefinition } from '../lib/yugioh/task/cnocg-import';
+import { createAndRunTask } from './task';
 import { os } from './index';
 
 const importReport = z.object({
-  batchId: z.string(),
-  source: z.string(),
-  sourceUrl: z.string(),
-  archiveHash: z.string().nullable(),
-  status: z.enum(['running', 'completed', 'completed_with_errors', 'failed', 'interrupted']),
+  batchId:           z.string(),
+  source:            z.string(),
+  sourceUrl:         z.string(),
+  archiveHash:       z.string().nullable(),
+  status:            z.enum(['running', 'completed', 'completed_with_errors', 'failed', 'interrupted']),
   sourceRecordCount: z.number(),
-  addedCount: z.number(),
-  updatedCount: z.number(),
-  skippedCount: z.number(),
-  failedCount: z.number(),
-  softDeletedCount: z.number(),
-  error: z.string().nullable(),
-  startedAt: z.string(),
-  completedAt: z.string().nullable(),
+  addedCount:        z.number(),
+  updatedCount:      z.number(),
+  skippedCount:      z.number(),
+  failedCount:       z.number(),
+  softDeletedCount:  z.number(),
+  error:             z.string().nullable(),
+  startedAt:         z.string(),
+  completedAt:       z.string().nullable(),
 });
 
 const publishReport = z.object({
-  batchId: z.string(),
-  publishTargetId: z.string(),
-  environment: z.string(),
-  targetFingerprint: z.string(),
-  manifestHash: z.string(),
+  batchId:              z.string(),
+  publishTargetId:      z.string(),
+  environment:          z.string(),
+  targetFingerprint:    z.string(),
+  manifestHash:         z.string(),
   previousManifestHash: z.string().nullable(),
-  status: z.enum(['planning', 'applying', 'completed', 'failed']),
-  error: z.string().nullable(),
-  totalRowCount: z.number(),
-  changedRowCount: z.number(),
-  insertedRowCount: z.number(),
-  updatedRowCount: z.number(),
-  unchangedRowCount: z.number(),
-  createdAt: z.string(),
-  completedAt: z.string().nullable(),
-  pendingRowCount: z.number().optional(),
+  status:               z.enum(['planning', 'applying', 'completed', 'failed']),
+  error:                z.string().nullable(),
+  totalRowCount:        z.number(),
+  changedRowCount:      z.number(),
+  insertedRowCount:     z.number(),
+  updatedRowCount:      z.number(),
+  unchangedRowCount:    z.number(),
+  createdAt:            z.string(),
+  completedAt:          z.string().nullable(),
+  pendingRowCount:      z.number().optional(),
 });
 
 const imageImportReport = z.object({
-  batchId: z.string(),
-  source: z.string(),
-  metadataUrl: z.string(),
-  metadataHash: z.string().nullable(),
-  status: z.enum(['running', 'completed', 'completed_with_errors', 'failed', 'interrupted']),
-  metadataRecordCount: z.number(),
-  eligibleCardCount: z.number(),
+  batchId:              z.string(),
+  source:               z.string(),
+  metadataUrl:          z.string(),
+  metadataHash:         z.string().nullable(),
+  status:               z.enum(['running', 'completed', 'completed_with_errors', 'failed', 'interrupted']),
+  metadataRecordCount:  z.number(),
+  eligibleCardCount:    z.number(),
   unavailableCardCount: z.number(),
   unmatchedSourceCount: z.number(),
-  addedCount: z.number(),
-  updatedCount: z.number(),
-  skippedCount: z.number(),
-  missingCount: z.number(),
-  failedCount: z.number(),
-  softDeletedCount: z.number(),
-  downloadedByteCount: z.number(),
-  error: z.string().nullable(),
-  startedAt: z.string(),
-  completedAt: z.string().nullable(),
+  addedCount:           z.number(),
+  updatedCount:         z.number(),
+  skippedCount:         z.number(),
+  missingCount:         z.number(),
+  failedCount:          z.number(),
+  softDeletedCount:     z.number(),
+  downloadedByteCount:  z.number(),
+  error:                z.string().nullable(),
+  startedAt:            z.string(),
+  completedAt:          z.string().nullable(),
 });
 
 const jobSnapshot = z.object({
-  jobId: z.string(),
-  kind: z.enum(['import', 'image_import', 'publish']),
-  status: z.enum(['running', 'completed', 'failed']),
-  phase: z.string(),
-  message: z.string(),
+  jobId:          z.string(),
+  kind:           z.enum(['import', 'image_import', 'publish']),
+  status:         z.enum(['running', 'completed', 'failed']),
+  phase:          z.string(),
+  message:        z.string(),
   completedCount: z.number().nullable(),
-  totalCount: z.number().nullable(),
-  error: z.string().nullable(),
-  startedAt: z.string(),
-  updatedAt: z.string(),
-  finishedAt: z.string().nullable(),
+  totalCount:     z.number().nullable(),
+  error:          z.string().nullable(),
+  startedAt:      z.string(),
+  updatedAt:      z.string(),
+  finishedAt:     z.string().nullable(),
 });
 
 const sourceInfo = os
@@ -118,7 +123,7 @@ const getImportState = os
   .route({ method: 'GET', description: 'Read recent Yu-Gi-Oh! import batches', tags: ['Yu-Gi-Oh!'] })
   .output(z.object({ latest: importReport.nullable(), batches: z.array(importReport) }))
   .handler(async () => ({
-    latest: await getLatestYugiohImportBatch(),
+    latest:  await getLatestYugiohImportBatch(),
     batches: await listYugiohImportBatches(),
   }));
 
@@ -133,7 +138,7 @@ const getImageImportState = os
   .route({ method: 'GET', description: 'Read recent Yu-Gi-Oh! primary-image import batches', tags: ['Yu-Gi-Oh!'] })
   .output(z.object({ latest: imageImportReport.nullable(), batches: z.array(imageImportReport) }))
   .handler(async () => ({
-    latest: await getLatestYugiohImageImportBatch(),
+    latest:  await getLatestYugiohImageImportBatch(),
     batches: await listYugiohImageImportBatches(),
   }));
 
@@ -149,7 +154,7 @@ const getPublishState = os
   .output(z.object({ incomplete: publishReport.nullable(), batches: z.array(publishReport) }))
   .handler(async () => ({
     incomplete: await getIncompleteYugiohPublishBatch(),
-    batches: await listYugiohPublishBatches(),
+    batches:    await listYugiohPublishBatches(),
   }));
 
 const publishCards = os
@@ -158,6 +163,23 @@ const publishCards = os
   .handler(async () => await runYugiohJob('publish', async () => await publishYugiohCards({
     onProgress: updateCurrentYugiohJob,
   })));
+
+const cnocgImport = os
+  .route({ method: 'POST', description: 'Crawl the official CNOCG database into the local konami cache', tags: ['Yu-Gi-Oh!'] })
+  .input(z.strictObject({
+    level:       z.enum(CRAWL_LEVELS).optional(),
+    concurrency: z.number().int().min(1).max(8).optional(),
+    delayMs:     z.number().int().min(50).max(5000).optional(),
+  }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    return createAndRunTask(yugiohCnocgImportTaskDefinition.taskType, {
+      taskType:          yugiohCnocgImportTaskDefinition.taskType,
+      definitionVersion: yugiohCnocgImportTaskDefinition.definitionVersion,
+      scope:             { type: yugiohCnocgImportTaskDefinition.scopeType, key: 'global', snapshot: {} },
+      params:            { level: input.level, concurrency: input.concurrency, delayMs: input.delayMs },
+    });
+  });
 
 /** Yu-Gi-Oh! import and test publication procedures exposed to desktop clients. */
 export const yugiohRouter = {
@@ -170,4 +192,5 @@ export const yugiohRouter = {
   importImages,
   getPublishState,
   publishCards,
+  createTask: { cnocgImport },
 };

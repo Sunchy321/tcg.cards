@@ -68,5 +68,8 @@ registerTaskDefinition(magicImageImportRemoteTaskDefinition);
 registerTaskDefinition(magicImageImportLocalTaskDefinition);
 registerTaskDefinition(magicImageImportSingleTaskDefinition);
 
+import { yugiohCnocgImportTaskDefinition } from '../yugioh/task/cnocg-import/definition';
+registerTaskDefinition(yugiohCnocgImportTaskDefinition);
+
 import { testWorkTaskDefinition } from './test-definition';
 registerTaskDefinition(testWorkTaskDefinition);

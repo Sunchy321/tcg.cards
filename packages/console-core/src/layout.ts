@@ -158,6 +158,26 @@ export function getGameNavItems(game: Game): ConsoleNavLink[] {
         ],
       },
     );
+  } else if (game === 'yugioh') {
+    items.push(
+      {
+        label: '数据管线',
+        icon: 'i-lucide-workflow',
+        children: [
+          { label: 'CNOCG 官方库', icon: 'i-lucide-globe', to: `/${game}/data-source/cnocg` },
+        ],
+      },
+      {
+        label: '数据浏览',
+        icon: 'i-lucide-database',
+        children: [
+          { label: '卡牌', icon: 'i-lucide-layers', to: `/${game}/card` },
+          { label: '系列', icon: 'i-lucide-folder-open', to: `/${game}/set` },
+          { label: '赛制', icon: 'i-lucide-shield-check', to: `/${game}/format` },
+          { label: '公告', icon: 'i-lucide-megaphone', to: `/${game}/announcement` },
+        ],
+      },
+    );
   } else {
     items.push(
       {
