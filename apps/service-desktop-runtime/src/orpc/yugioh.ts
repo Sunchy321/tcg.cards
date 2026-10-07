@@ -28,7 +28,9 @@ import {
   yugiohImageSource,
 } from '../lib/yugioh/image-source';
 import { CRAWL_LEVELS } from '../lib/yugioh/konami/ttl';
+import { NEURON_LOCALE_WAVE } from '../lib/yugioh/konami/neuron-queue';
 import { yugiohCnocgImportTaskDefinition } from '../lib/yugioh/task/cnocg-import';
+import { yugiohNeuronImportTaskDefinition } from '../lib/yugioh/task/neuron-import';
 import { createAndRunTask } from './task';
 import { os } from './index';
 
@@ -181,6 +183,29 @@ const cnocgImport = os
     });
   });
 
+const neuronImport = os
+  .route({ method: 'POST', description: 'Crawl the official Neuron database into the local konami cache', tags: ['Yu-Gi-Oh!'] })
+  .input(z.strictObject({
+    level:       z.enum(CRAWL_LEVELS).optional(),
+    locales:     z.enum(NEURON_LOCALE_WAVE).array().optional(),
+    concurrency: z.number().int().min(1).max(8).optional(),
+    delayMs:     z.number().int().min(50).max(5000).optional(),
+  }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    return createAndRunTask(yugiohNeuronImportTaskDefinition.taskType, {
+      taskType:          yugiohNeuronImportTaskDefinition.taskType,
+      definitionVersion: yugiohNeuronImportTaskDefinition.definitionVersion,
+      scope:             { type: yugiohNeuronImportTaskDefinition.scopeType, key: 'global', snapshot: {} },
+      params:            {
+        level:       input.level,
+        locales:     input.locales,
+        concurrency: input.concurrency,
+        delayMs:     input.delayMs,
+      },
+    });
+  });
+
 /** Yu-Gi-Oh! import and test publication procedures exposed to desktop clients. */
 export const yugiohRouter = {
   sourceInfo,
@@ -192,5 +217,5 @@ export const yugiohRouter = {
   importImages,
   getPublishState,
   publishCards,
-  createTask: { cnocgImport },
+  createTask: { cnocgImport, neuronImport },
 };

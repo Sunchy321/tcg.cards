@@ -71,5 +71,8 @@ registerTaskDefinition(magicImageImportSingleTaskDefinition);
 import { yugiohCnocgImportTaskDefinition } from '../yugioh/task/cnocg-import/definition';
 registerTaskDefinition(yugiohCnocgImportTaskDefinition);
 
+import { yugiohNeuronImportTaskDefinition } from '../yugioh/task/neuron-import/definition';
+registerTaskDefinition(yugiohNeuronImportTaskDefinition);
+
 import { testWorkTaskDefinition } from './test-definition';
 registerTaskDefinition(testWorkTaskDefinition);

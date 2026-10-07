@@ -1,7 +1,12 @@
 import { z } from 'zod';
 
 import { crawlCnocg } from '../../konami/cnocg-crawl';
-import { fetchNeuronIndexPage } from '../../konami/neuron-index';
+import {
+  konamiIndexBlock,
+  konamiIndexEntry,
+  konamiIndexExit,
+  type KonamiIndexOutput,
+} from '../../konami/index-stage';
 import {
   addCrawlReports,
   countCrawlReport,
@@ -11,7 +16,6 @@ import {
   type CrawlReport,
 } from '../../konami/ttl';
 import { getYugiohLocalDb } from '../../yugioh-local-db';
-import { sleep } from '../../konami/common';
 import { createDefinition } from '#task/definition';
 
 /** Stable task type for crawling the CNOCG official database into the local cache. */
@@ -31,21 +35,8 @@ const output = z.object({
   errors:       z.number(),
 });
 
-/** Pages fetched per durable indexing block. */
-const INDEX_PAGES_PER_BLOCK = 20;
-
-/** Safety cap on index pages so a site-side paging loop cannot spin forever. */
-const MAX_INDEX_PAGES = 400;
-
 /** Cids per durable crawling block. */
 const BATCH = 1000;
-
-/** Durable per-block state for the indexing stage: cids so far + next page to fetch. */
-interface IndexBlockState {
-  cids:          number[];
-  nextPage:      number;
-  expectedTotal: number;
-}
 
 /** Durable per-block state for the crawling stage: the frozen index plus crawl position and tallies. */
 interface ImportBlockState {
@@ -66,7 +57,7 @@ function buildSegments(counts: CrawlReport, total: number) {
 }
 
 const definition = createDefinition(yugiohCnocgImportTaskType, {
-  version:     '2026-10-05:v2',
+  version:     '2026-10-06:v1',
   effectModel: 'reconcilable',
 })
   .scope(z.object({}), {
@@ -77,69 +68,15 @@ const definition = createDefinition(yugiohCnocgImportTaskType, {
   .output(output)
   .context({ init: values => values })
   .stage('indexing', { label: '抓取卡片索引', progressMode: 'bounded', resumeMode: 'durable' })
-  .entry(async ({ checkpoint }) => {
-    const restored = checkpoint?.blockInput as IndexBlockState | undefined;
-    if (restored) return { total: restored.expectedTotal, blockInput: restored };
-
-    // Page 1 is fetched in the entry so the stage total (the site's own hit
-    // count) drives the progress bar from the very first block.
-    const page = await fetchNeuronIndexPage(1);
-    if (page.cids.length === 0) throw new Error('Neuron card index came back empty');
-    return {
-      total:      page.total ?? 0,
-      blockInput: {
-        cids:          page.cids,
-        nextPage:      2,
-        expectedTotal: page.total ?? 0,
-      } satisfies IndexBlockState,
-    };
-  })
-  .block(async ({ ctx, blockInput, progress, checkpoint, done, signal }) => {
-    const state = blockInput as IndexBlockState;
-    const known = new Set(state.cids);
-    const cids = [...state.cids];
-    const delayMs = ctx.delayMs ?? 500;
-
-    let finished = false;
-    for (let page = state.nextPage; page < state.nextPage + INDEX_PAGES_PER_BLOCK && page <= MAX_INDEX_PAGES; page++) {
-      if (signal?.aborted) break;
-      if (delayMs > 0) await sleep(delayMs);
-      const res = await fetchNeuronIndexPage(page);
-      if (res.total != null && res.total > state.expectedTotal) state.expectedTotal = res.total;
-      let newCount = 0;
-      for (const cid of res.cids) {
-        if (!known.has(cid)) {
-          known.add(cid);
-          cids.push(cid);
-          newCount++;
-        }
-      }
-      state.nextPage = page + 1;
-      // Report per page: a block covers ~20 slow page fetches, so waiting for
-      // the block boundary would leave the progress bar frozen for minutes.
-      progress({ done: cids.length, total: state.expectedTotal });
-      // Empty page = past the end of the list; full overlap = the site started
-      // repeating itself. Either way the index is complete.
-      if (res.cids.length === 0 || newCount === 0) {
-        finished = true;
-        break;
-      }
-    }
-
-    const next: IndexBlockState = { ...state, cids };
-    await checkpoint(next);
-    return finished || next.nextPage > MAX_INDEX_PAGES ? done(next) : next;
-  })
-  .exit(({ blockInput }) => {
-    const s = blockInput as IndexBlockState;
-    return { cids: s.cids, expectedTotal: s.expectedTotal };
-  })
+  .entry(konamiIndexEntry)
+  .block(konamiIndexBlock)
+  .exit(konamiIndexExit)
   .stage('crawling', { label: '爬取 CNOCG 官方库', progressMode: 'bounded', resumeMode: 'durable' })
   .entry(async ({ input, checkpoint }) => {
     const restored = checkpoint?.blockInput as ImportBlockState | undefined;
     if (restored) return { total: restored.cids.length, blockInput: restored };
 
-    const index = input as { cids: number[] };
+    const index = input as KonamiIndexOutput;
     if (!index.cids?.length) throw new Error('Neuron card index came back empty');
     return {
       total:      index.cids.length,

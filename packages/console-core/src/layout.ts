@@ -164,6 +164,7 @@ export function getGameNavItems(game: Game): ConsoleNavLink[] {
         label: '数据管线',
         icon: 'i-lucide-workflow',
         children: [
+          { label: 'Neuron 官方库', icon: 'i-lucide-globe', to: `/${game}/data-source/neuron` },
           { label: 'CNOCG 官方库', icon: 'i-lucide-globe', to: `/${game}/data-source/cnocg` },
         ],
       },
