@@ -16,6 +16,11 @@ import {
 const fixture = (name: string) => readFileSync(join(import.meta.dir, 'fixtures', name), 'utf8');
 
 const jaPage = fixture('neuron-detail-4007.html');
+const nameEqualsRubyPage = fixture('neuron-detail-4031.html');
+const annotatedEnglishPage = fixture('neuron-detail-4555.html');
+const spellPage = fixture('neuron-detail-spell.html');
+const notePage = fixture('neuron-detail-6199-en.html');
+const annotatedRenamePage = fixture('neuron-detail-6199-de.html');
 const enPage = fixture('neuron-detail-4007-en.html');
 const aePage = fixture('neuron-detail-4007-ae.html');
 const dePage = fixture('neuron-detail-4007-de.html');
@@ -43,6 +48,7 @@ describe('parseNeuronDetail (ja)', () => {
     expect(data.species).toBe('ドラゴン族');
     expect(data.typeText).toBe('通常');
     expect(data.text).toBe('高い攻撃力を誇る伝説のドラゴン。どんな相手でも粉砕する、その破壊力は計り知れない。');
+    expect(data.note).toBeNull();
   });
 
   test('parses the image version indices with gaps preserved', () => {
@@ -75,6 +81,28 @@ describe('parseNeuronDetail (ja)', () => {
     expect(data.text).not.toContain('ブルーアイズ」モンスター１体を墓地へ送り');
     // Related cards are not prints.
     expect(data.prints.some(print => print.packName === '青き眼の威光')).toBe(false);
+  });
+
+  test('reads a card whose name equals its reading', () => {
+    // All-katakana names (インプ) make the site emit only the ruby span; the
+    // reading doubles as the name and the parse must not fail.
+    const data = parseNeuronDetail(nameEqualsRubyPage, 4031, 'ja');
+    expect(data.name).toBe('インプ');
+    expect(data.ruby).toBe('インプ');
+    expect(data.enName).toBeNull();
+    expect(data.attribute).toBe('闇属性');
+    expect(data.text).toContain('闇に住む小さなオニ');
+  });
+
+  test('keeps the Japanese name when the reading duplicates it and an English span follows', () => {
+    // Same collision as above, but the page also carries an English span —
+    // matching by value would pick the English name; the structure must win.
+    // The English span's rename annotation is split off too.
+    const data = parseNeuronDetail(annotatedEnglishPage, 4555, 'ja');
+    expect(data.name).toBe('カエルスライム');
+    expect(data.ruby).toBe('カエルスライム');
+    expect(data.enName).toBe('Slime Toad');
+    expect(data.nameAnnotation).toBeNull();
   });
 
   test('throws when the page carries no main card', () => {
@@ -117,6 +145,8 @@ describe('parseNeuronDetail (other locales)', () => {
     const data = parseNeuronDetail(dePage, 4007, 'de');
     // The site serves German names with HTML entities; they must arrive decoded.
     expect(data.name).toBe('Blauäugiger w. Drache');
+    // TCG-locale pages carry the English name in a trailing span.
+    expect(data.enName).toBe('Blue-Eyes White Dragon');
     expect(data.attribute).toBe('LICHT');
     // The level label is "Stufe 8" — matched by icon, not by text.
     expect(data.level).toBe(8);
@@ -137,7 +167,12 @@ describe('parseNeuronDetail (card types)', () => {
 
   test('reads a Link card: link rating and placeholder DEF', () => {
     const data = parseNeuronDetail(linkPage, 13036, 'ja');
+    // All-katakana name with an English span: the Japanese name must survive.
+    expect(data.name).toBe('デコード・トーカー');
+    expect(data.enName).toBe('Decode Talker');
     expect(data.linkRating).toBe(3);
+    // The arrow set rides in the icon class; same encoding as the CNOCG API.
+    expect(data.linkMarker).toBe('813');
     expect(data.level).toBeNull();
     expect(data.rank).toBeNull();
     expect(data.def).toBe('-');
@@ -145,8 +180,40 @@ describe('parseNeuronDetail (card types)', () => {
 
   test('reads a Pendulum card: level and pendulum scale', () => {
     const data = parseNeuronDetail(pendulumPage, 13359, 'ja');
+    expect(data.name).toBe('オッドアイズ・アークペンデュラム・ドラゴン');
     expect(data.level).toBe(7);
     expect(data.pendulumScale).toBe(8);
+  });
+
+  test('reads a Spell card: the type row is kept instead of an attribute', () => {
+    // Spell/trap pages carry their type in an extra-classed spec row and have
+    // no attribute/level/atk rows; the row must still be captured.
+    const data = parseNeuronDetail(spellPage, 14413, 'ja');
+    expect(data.attribute).toBeNull();
+    expect(data.level).toBeNull();
+    expect(data.specItems).toEqual([{ title: '効果', value: '速攻魔法' }]);
+    expect(data.text).toContain('ウィッチクラフト');
+  });
+
+  test('keeps the Note box out of the card text', () => {
+    // The note box (rename/errata notice) follows the text box on the page;
+    // it must land in `note` and never overwrite the card text.
+    const data = parseNeuronDetail(notePage, 6199, 'en');
+    expect(data.text).toContain('Place 3 counters');
+    expect(data.note).toBe('Card Name updated from "Big Core" on April 07, 2017.');
+  });
+
+  test('splits rename annotations off both the name and the English span', () => {
+    // Renamed cards annotate the displayed name(s); `name`/`enName` must come
+    // out plain and the provenance land in `nameAnnotation`.
+    const en = parseNeuronDetail(notePage, 6199, 'en');
+    expect(en.name).toBe('B.E.S. Big Core');
+    expect(en.nameAnnotation).toBe('Updated from: Big Core');
+
+    const de = parseNeuronDetail(annotatedRenamePage, 6199, 'de');
+    expect(de.name).toBe('B.E.S. Großer Kern');
+    expect(de.nameAnnotation).toBe('Geändert von: Großer Kern');
+    expect(de.enName).toBe('B.E.S. Big Core');
   });
 });
 

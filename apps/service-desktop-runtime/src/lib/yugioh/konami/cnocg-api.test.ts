@@ -6,6 +6,7 @@ import { describe, expect, test } from 'bun:test';
 import { cnocgDetailUrl, fetchCnocgDetail } from './cnocg-api';
 
 const detailJson = readFileSync(join(import.meta.dir, 'fixtures', 'cnocg-detail-4007.json'), 'utf8');
+const linkDetailJson = readFileSync(join(import.meta.dir, 'fixtures', 'cnocg-detail-13036.json'), 'utf8');
 const notFoundJson = readFileSync(join(import.meta.dir, 'fixtures', 'cnocg-detail-notfound.json'), 'utf8');
 
 function fetchReturning(body: string): typeof fetch {
@@ -37,6 +38,13 @@ describe('fetchCnocgDetail', () => {
   test('returns null for a card missing from the CN database', async () => {
     const result = await fetchCnocgDetail(20000, { fetchImpl: fetchReturning(notFoundJson) });
     expect(result).toBeNull();
+  });
+
+  test('reads the link-marker encoding of a link monster', async () => {
+    const result = await fetchCnocgDetail(13036, { fetchImpl: fetchReturning(linkDetailJson) });
+    expect(result?.data.cardName).toBe('解码语者');
+    expect(result?.data.linkMarker).toBe('813');
+    expect(result?.data.linkMarkerCount).toBe(3);
   });
 
   test('throws on unexpected result codes so they are retried instead of cached as a miss', async () => {

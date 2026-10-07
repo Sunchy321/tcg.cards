@@ -1,6 +1,7 @@
 import type { NeuronCardData, NeuronPrintEntry } from '#model/yugioh/schema/data/neuron';
 
 import { KONAMI_TIMEOUT_MS, KONAMI_UA } from './common';
+import { splitNameAnnotation } from './name-annotations';
 
 /**
  * Parser for one Neuron card-detail page (`card_search.action?ope=2&cid=N`,
@@ -118,7 +119,12 @@ function printsSection(html: string): string {
   return end === -1 ? html.slice(start) : html.slice(start, start + end);
 }
 
-const SPEC_ITEM_RE = /class="item_box"[\s\S]*?item_box_title[^>]*>([\s\S]*?)<\/span>\s*<span class="item_box_value"[^>]*>([\s\S]*?)<\/span>/g;
+/**
+ * Spec rows carry extra classes beyond the icon-bearing `item_box` (spell and
+ * trap cards use `item_box t_center` for their type row), so the class must be
+ * matched loosely — but `item_box_value` must not be picked up as a row start.
+ */
+const SPEC_ITEM_RE = /class="item_box(?: [^"]*)?"[\s\S]*?item_box_title[^>]*>([\s\S]*?)<\/span>\s*<span class="item_box_value"[^>]*>([\s\S]*?)<\/span>/g;
 
 interface SpecItem {
   /** Raw title region (carries the icon markup that identifies the item). */
@@ -130,8 +136,12 @@ interface SpecItem {
 }
 
 function parseSpecItems(main: string): SpecItem[] {
+  // Spec rows all live before the language switcher, which repeats the same
+  // classes with list-shaped values; cutting there keeps the scan unambiguous.
+  const languageAt = main.indexOf('CardLanguage');
+  const region = languageAt === -1 ? main : main.slice(0, languageAt);
   const items: SpecItem[] = [];
-  for (const m of main.matchAll(SPEC_ITEM_RE)) {
+  for (const m of region.matchAll(SPEC_ITEM_RE)) {
     const rawTitle = m[1];
     const title = textOne(rawTitle);
     const value = textOne(m[2]);
@@ -161,21 +171,30 @@ function trailingInt(value: string | null): number | null {
 export function parseNeuronDetail(html: string, cid: number, locale: string): NeuronCardData {
   const main = mainSection(html);
 
-  // Card name: the desktop h1 carries ruby + name + (sometimes) English name.
+  // Card name: the desktop h1 has a fixed three-part structure — an optional
+  // ruby span (reading), the name as a bare text node, and an optional
+  // trailing English span. Each part is captured by position; matching the
+  // name by value is ambiguous for all-katakana names whose reading equals
+  // the name itself. Renamed cards append a "(Updated from: ...)" annotation
+  // to the displayed name (both here and in the English span); it is split
+  // off so `name` stays the plain card name.
   const h1 = /<h1>([\s\S]*?)<\/h1>/.exec(main)?.[1] ?? '';
-  const rubyMatch = /<span class="ruby">([\s\S]*?)<\/span>/.exec(h1);
-  const ruby = rubyMatch ? textOne(rubyMatch[1]) : '';
-  const nameParts = text(h1).split('\n');
-  const name = nameParts.filter(part => part !== ruby)[0];
+  const h1Parts = /^\s*(?:<span class="ruby">([\s\S]*?)<\/span>\s*)?([\s\S]*?)\s*(?:<span>([\s\S]*?)<\/span>)?\s*$/.exec(h1);
+  const ruby = textOne(h1Parts?.[1] ?? '') || null;
+  const { name, annotation: nameAnnotation } = splitNameAnnotation(textOne(h1Parts?.[2] ?? ''));
+  const enNameRaw = textOne(h1Parts?.[3] ?? '') || null;
+  const enName = enNameRaw === null ? null : splitNameAnnotation(enNameRaw).name;
   if (!name) throw new Error(`Neuron page for cid=${cid} has no card name`);
-  const enName = nameParts.length > 2 ? nameParts[nameParts.length - 1] : null;
 
   // Spec items, matched by icon: the label text is localized.
   const specItems = parseSpecItems(main);
   const attribute = iconItemValue(specItems, /attribute_icon/);
   const level = trailingInt(iconItemValue(specItems, /icon_level/));
   const rank = trailingInt(iconItemValue(specItems, /icon_rank/));
-  const linkRating = trailingInt(iconItemValue(specItems, /icon_img_set\s+link/i));
+  const linkItem = specItems.find(item => /icon_img_set\s+link/i.test(item.rawTitle));
+  const linkRating = trailingInt(linkItem?.value ?? null);
+  // The arrow set rides in the icon's class ("icon_img_set link813").
+  const linkMarker = linkItem ? /icon_img_set\s+link(\d+)/i.exec(linkItem.rawTitle)?.[1] ?? null : null;
   const pendulumScale = trailingInt(iconItemValue(specItems, /icon_pendulum/));
   const atk = specItems.find(item => item.title === 'ATK')?.value ?? null;
   const def = specItems.find(item => item.title === 'DEF')?.value ?? null;
@@ -184,14 +203,18 @@ export function parseNeuronDetail(html: string, cid: number, locale: string): Ne
   const speciesLine = /<p class="species">([\s\S]*?)<\/p>/.exec(main)?.[1];
   const speciesParts = speciesLine ? text(speciesLine).split('\n').filter(part => part !== '／' && part !== '/') : [];
 
-  // Texts: each item_box_text is titled (カードテキスト / ペンデュラム効果 / ...).
+  // Texts: each CardText box carries a variant class — plain (card text),
+  // `pen` (pendulum effect), or `note` (rename/errata notice). The note box
+  // follows the text box and must not be mistaken for the card text.
   let cardText: string | null = null;
   let pendulumText: string | null = null;
-  for (const m of main.matchAll(/item_box_text[^>]*>\s*(?:<div class="text_title"[^>]*>([\s\S]*?)<\/div>)?\s*<div class="text_linebreak"[^>]*>([\s\S]*?)<\/div>/g)) {
-    const title = m[1];
+  let note: string | null = null;
+  for (const m of main.matchAll(/class="CardText([^"]*)"[^>]*>\s*<div class="item_box_text"[^>]*>\s*(?:<div class="text_title"[^>]*>[\s\S]*?<\/div>\s*)?<div class="text_linebreak"[^>]*>([\s\S]*?)<\/div>/g)) {
+    const variant = m[1] ?? '';
     const body = m[2];
     if (!body) continue;
-    if (title && /ペンデュラム|Pendulum/i.test(textOne(title))) pendulumText = text(body);
+    if (/\bnote\b/.test(variant)) note = text(body);
+    else if (/\bpen\b/.test(variant)) pendulumText = text(body);
     else cardText = text(body);
   }
 
@@ -204,12 +227,14 @@ export function parseNeuronDetail(html: string, cid: number, locale: string): Ne
     cid,
     locale,
     name,
+    nameAnnotation: nameAnnotation ?? null,
     ruby:      ruby || null,
     enName,
     attribute,
     level,
     rank,
     linkRating,
+    linkMarker,
     pendulumScale,
     atk,
     def,
@@ -217,6 +242,7 @@ export function parseNeuronDetail(html: string, cid: number, locale: string): Ne
     typeText:  speciesParts.slice(1).join('/') || null,
     text:      cardText,
     pendulumText,
+    note,
     specItems: specItems.map(item => ({ title: item.title, value: item.value })),
     imageIds,
     prints:    parsePrints(printsSection(html)),

@@ -30,8 +30,9 @@ export const cnocgCardData = z.looseObject({
   otherItemNameList: z.string().array().nullable().optional(),
   starchip:          z.int().nullable().optional(),
   linkMarkerCount:   z.int().nullable().optional(),
+  /** Konami's link-marker encoding ("813"), same code as the Neuron arrow icon class. */
+  linkMarker:        z.string().nullable().optional(),
   penScale:          z.int().nullable().optional(),
-  linkMarker:        z.unknown().nullable().optional(),
   atk:               z.int().nullable().optional(),
   def:               z.int().nullable().optional(),
   cardText:          z.string().nullable().optional(),
