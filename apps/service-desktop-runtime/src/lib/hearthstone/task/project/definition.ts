@@ -6,6 +6,7 @@ import { ExtractedCard, PatchState, RawEntitySnapshot, RawEntitySnapshotTag } fr
 
 import { createDefinition } from '#task/definition';
 import { getLocalDb } from '../../hsdata-local-db';
+import { deriveEntityAmbits } from './derive-ambits';
 import { projectExtracted, projectHsdataFallback } from './project';
 import type { ProjectReport } from './types';
 
@@ -332,6 +333,11 @@ export const projectTaskDefinition = createDefinition(projectTaskType, {
       await getLocalDb().update(PatchState)
         .set({ projectionStatus: 'completed', projectionError: null, projectedAt: new Date() })
         .where(inArray(PatchState.buildNumber, ctx.sourceTags));
+
+      // Ambit needs the completed relation graph (incoming edges, hero-power
+      // owners), so it is derived once here over all projected rows.
+      const ambitReport = await deriveEntityAmbits();
+      console.log(`[projection] ambit derivation: ${ambitReport.cards} cards, ${ambitReport.staleRows} stale rows updated`);
     }
     return { reports: input.reports };
   })

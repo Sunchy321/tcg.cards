@@ -32,6 +32,7 @@ import {
 } from '@tcg-cards/db/schema/local/hearthstone';
 
 import { getLocalDb } from '../src/lib/hearthstone/hsdata-local-db';
+import { deriveEntityAmbits } from '../src/lib/hearthstone/task/project/derive-ambits';
 import { projectExtracted } from '../src/lib/hearthstone/task/project/project';
 
 process.env.DESKTOP_LOCAL_DATABASE_URL ??= 'postgresql://postgres:postgres@localhost:5432/local';
@@ -132,6 +133,13 @@ for (const target of targets) {
 
 console.log(`\n${dryRun ? '[dry-run] would re-project' : 're-projected'} ${totals.cards} card-builds across ${totals.builds} builds`);
 console.log(`  entities +${totals.entityUpserts}/-${totals.entityDeletes}, localizations +${totals.locUpserts}/-${totals.locDeletes}, relations +${totals.relationUpserts}/-${totals.relationDeletes}`);
+
+if (!dryRun) {
+  // Re-projection can flip per-card ambit inputs; re-derive the ambit column
+  // over the rebuilt relation graph before closing.
+  const ambitReport = await deriveEntityAmbits();
+  console.log(`ambit derivation: ${ambitReport.cards} cards, ${ambitReport.staleRows} stale rows updated`);
+}
 
 // Close the local DB connection so the process can exit.
 await (db as unknown as { $client: { end(): Promise<void> } }).$client.end();

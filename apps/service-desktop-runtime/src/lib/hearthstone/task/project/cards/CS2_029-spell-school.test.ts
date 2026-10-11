@@ -398,6 +398,7 @@ const input: CardProjectionInput = {
 const expected: CardProjectionExpected = {
   entity: {
     cardId:        'CS2_029',
+    ambit:         'primary',
     revisionHash:  '48244ca6ee4c3d2e0dd52f6fde27c3fdc93c707ee969b1bbc35a778a63607e6b',
     dbfId:         315,
     legacyPayload: {},
