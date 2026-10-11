@@ -91,7 +91,6 @@ export async function copyEntitiesIntoTable(tx: AnyTx, rows: EntityRow[]) {
       cardId:            r.cardId,
       version:           r.version,
       revisionHash:      r.revisionHash,
-      ambit:             r.ambit,
       dbfId:             r.dbfId,
       legacyPayload:     r.legacyPayload as any,
       set:               r.set,
@@ -138,7 +137,6 @@ export async function copyEntitiesIntoTable(tx: AnyTx, rows: EntityRow[]) {
         target: [BaseEntity.cardId, BaseEntity.revisionHash],
         set:    {
           version:           sql`excluded.version`,
-          ambit:             sql`excluded.ambit`,
           dbfId:             sql`excluded.dbf_id`,
           legacyPayload:     sql`excluded.legacy_payload`,
           set:               sql`excluded.set`,

@@ -12,6 +12,7 @@ import {
 } from '../../lib/hearthstone/task/image-render';
 import { hsdataImportTaskDefinition } from '../../lib/hearthstone/task/import';
 import { projectTaskDefinition } from '../../lib/hearthstone/task/project';
+import { cardsProjectTaskDefinition } from '../../lib/hearthstone/task/cards-project/definition';
 import { unpackImportTaskDefinition } from '../../lib/hearthstone/task/unpack-import';
 import { announcementPublishTaskDefinition } from '../../lib/hearthstone/task/announcement-publish/definition';
 import { referencePublishTaskDefinition } from '../../lib/hearthstone/task/reference-publish/definition';
@@ -236,4 +237,22 @@ const purge = os
     });
   });
 
-export const createTask = { publish, pin, imageRender, imageDownload, hsdataImport, hsdataProjection, unpackImport, announcementPublish, referencePublish, purge };
+/** Derives every live card's ambit onto the cards table as a standalone run. */
+const cardsProject = os
+  .input(z.strictObject({}))
+  .output(taskPageSnapshot)
+  .handler(async () => {
+    const resolved = cardsProjectTaskDefinition.resolveScope({});
+    await abandonStaleTask(cardsProjectTaskDefinition.taskType, cardsProjectTaskDefinition.scopeType, resolved.key);
+    const active = await getStore().getActiveTaskRun(cardsProjectTaskDefinition.taskType, cardsProjectTaskDefinition.scopeType, resolved.key);
+    if (active) throw new Error('Cards projection task is already running');
+
+    return createAndRunTask(cardsProjectTaskDefinition.taskType, {
+      taskType:          cardsProjectTaskDefinition.taskType,
+      definitionVersion: cardsProjectTaskDefinition.definitionVersion,
+      scope:             { type: cardsProjectTaskDefinition.scopeType, key: resolved.key, snapshot: resolved.snapshot as Record<string, unknown> },
+      params:            {},
+    });
+  });
+
+export const createTask = { publish, pin, imageRender, imageDownload, hsdataImport, hsdataProjection, cardsProject, unpackImport, announcementPublish, referencePublish, purge };

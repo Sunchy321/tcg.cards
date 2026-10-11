@@ -17,7 +17,6 @@ import { and, eq, getColumns, sql } from 'drizzle-orm';
 import * as basicModel from '#model/hearthstone/schema/basic';
 import * as entityModel from '#model/hearthstone/schema/entity';
 
-import { ambit } from '../ambit';
 import { BaseCard } from './card';
 import { Patch } from './patch';
 
@@ -35,8 +34,6 @@ export const BaseEntity = schema.table('entities', {
 
   dbfId:         integer('dbf_id').notNull(),
   legacyPayload: jsonb('legacy_payload').$type<IEntity['legacyPayload']>().notNull().default({}),
-
-  ambit: ambit('ambit').notNull().default('full'),
 
   set:           text('set').notNull(),
   classes:       text('class').array().$type<IEntity['classes'][number]>().notNull(),
@@ -200,6 +197,8 @@ export const CardEntityView = schema.view('card_entity_view').as(qb =>
     localizationHash: BaseEntityLocalization.localizationHash,
     renderHash:       BaseEntityLocalization.renderHash,
 
+    ambit: BaseCard.ambit,
+
     ...omit(getColumns(BaseEntity), [
       'cardId',
       'version',
@@ -244,6 +243,8 @@ export const LatestCardEntityView = schema.view('latest_card_entity_view').as(qb
     revisionHash:     BaseEntity.revisionHash,
     localizationHash: BaseEntityLocalization.localizationHash,
     renderHash:       BaseEntityLocalization.renderHash,
+
+    ambit: BaseCard.ambit,
 
     ...omit(getColumns(BaseEntity), [
       'cardId',

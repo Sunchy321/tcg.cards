@@ -86,6 +86,40 @@
           </template>
         </TaskController>
 
+        <TaskController
+          ref="cardsController"
+          title="卡牌收录范围"
+          :operations="[cardsOperation]"
+          @completed="onCardsCompleted"
+          @failed="onCardsFailed"
+          @create-error="onCreateError"
+        >
+          <template #params>
+            <div class="space-y-4 pt-4">
+              <div class="font-medium">卡牌收录范围</div>
+              <p class="text-xs text-muted">从已投影的实体内容与关系图派生每张卡的收录范围，写入卡牌表。独立于数据投影，可单独重跑。</p>
+            </div>
+          </template>
+        </TaskController>
+
+        <UCard v-if="cardsResult">
+          <template #header>
+            <div class="flex items-center gap-2">
+              <span class="font-medium">收录范围报告</span>
+            </div>
+          </template>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <div class="rounded-lg border border-default p-3">
+              <div class="text-xs text-muted">派生卡牌</div>
+              <div class="mt-1 font-mono text-sm">{{ cardsResult.cards }}</div>
+            </div>
+            <div class="rounded-lg border border-default p-3">
+              <div class="text-xs text-muted">更新行数</div>
+              <div class="mt-1 font-mono text-sm">{{ cardsResult.staleCards }}</div>
+            </div>
+          </div>
+        </UCard>
+
         <UCard v-if="taskResult">
           <template #header>
             <div class="flex items-center gap-2">
@@ -344,6 +378,22 @@ const projectionOperation = computed<TaskOperation>(() => ({
     sampleDiff: sampleDiff.value,
   }) as Promise<TaskPageSnapshot>,
 }));
+
+const cardsController = ref<{ attach(snapshot: TaskPageSnapshot): void, currentTaskRunId: string | null }>();
+const cardsResult = ref<{ cards: number, staleCards: number } | null>(null);
+
+const cardsOperation = computed<TaskOperation>(() => ({
+  key:    'derive',
+  label:  '执行派生',
+  icon:   'i-lucide-layers',
+  create: async () => orpc.hearthstone.createTask.cardsProject({}) as Promise<TaskPageSnapshot>,
+}));
+
+function onCardsCompleted(snap: TaskPageSnapshot) {
+  cardsResult.value = (snap.result as any) ?? null;
+}
+
+function onCardsFailed() {}
 
 function onCompleted(snap: TaskPageSnapshot) {
   const result = snap.result as any;

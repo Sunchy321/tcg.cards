@@ -34,7 +34,6 @@ import { copyCardsIntoTable, copyEntitiesIntoTable, copyLocalizationsIntoTable, 
 import { normalizeExtractedTagValue, isNormalizedMechanicValue, asNumberArray, resolveEnumMap } from './normalize';
 import { getDisplayText, textFromDisplayText } from './display';
 import type { DisplayContext } from './display';
-import { classifyCardAmbit } from './ambit';
 
 export const localeMap: Record<string, Locale> = {
   deDE: 'de',
@@ -107,7 +106,6 @@ function createEmptyEntityDraft(cardId: string, dbfId: number): EntityRow {
     cardId, dbfId,
     version:           [],
     revisionHash:      '',
-    ambit:             'full',
     legacyPayload:     {},
     set:               '',
     classes:           [],
@@ -164,7 +162,7 @@ function createEntityDraft(card: ExtractedCardRow): EntityRow {
   } as unknown as EntityRow;
 }
 
-function finalizeEntityDraft(draft: EntityRow, localizations: Map<Locale, LocalizationDraft>): LocalizationlessEntityRow {
+function finalizeEntityDraft(draft: EntityRow): LocalizationlessEntityRow {
   draft.classes = uniqueStrings(draft.classes);
   draft.rune = draft.rune != null && draft.rune.length > 0 ? uniqueStrings(draft.rune) : null;
   draft.race = draft.race != null && draft.race.length > 0 ? uniqueStrings(draft.race) : null;
@@ -178,21 +176,9 @@ function finalizeEntityDraft(draft: EntityRow, localizations: Map<Locale, Locali
     if (draft.attack == null && draft.durability != null) draft.attack = 0;
   }
 
-  const heroHasRuleText = [...localizations.values()].some(loc => loc.richText.length > 0);
-  const ambit = classifyCardAmbit({
-    type:          draft.type,
-    collectible:   draft.collectible,
-    inBobsTavern:  draft.inBobsTavern,
-    set:           draft.set,
-    mercenaryRole: draft.mercenaryRole,
-    armor:         draft.armor,
-    heroHasRuleText,
-  });
-
   const entity: LocalizationlessEntityRow = {
     cardId:            draft.cardId,
     revisionHash:      '',
-    ambit,
     dbfId:             draft.dbfId,
     legacyPayload:     draft.legacyPayload,
     set:               draft.set,
@@ -483,7 +469,7 @@ export function projectExtractedCard(
     }
   }
 
-  const entity = finalizeEntityDraft(entityDraft, localizations);
+  const entity = finalizeEntityDraft(entityDraft);
 
   // Relations must be derived before localizations: relation-derived render
   // mechanics (e.g. mercenary ability summoned minion) feed the render model.
@@ -1117,7 +1103,7 @@ export async function projectHsdataFallback(build: number, cardIds: string[], dr
       localizations.set('en', createLocalizationDraft());
     }
 
-    const entity = finalizeEntityDraft(entityDraft, localizations);
+    const entity = finalizeEntityDraft(entityDraft);
 
     // Relations must be derived before localizations: relation-derived render
     // mechanics (e.g. mercenary ability summoned minion) feed the render model.

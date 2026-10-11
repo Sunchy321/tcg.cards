@@ -135,10 +135,10 @@ console.log(`\n${dryRun ? '[dry-run] would re-project' : 're-projected'} ${total
 console.log(`  entities +${totals.entityUpserts}/-${totals.entityDeletes}, localizations +${totals.locUpserts}/-${totals.locDeletes}, relations +${totals.relationUpserts}/-${totals.relationDeletes}`);
 
 if (!dryRun) {
-  // Re-projection can flip per-card ambit inputs; re-derive the ambit column
+  // Re-projection can flip per-card ambit inputs; re-derive card ambit
   // over the rebuilt relation graph before closing.
   const ambitReport = await deriveEntityAmbits();
-  console.log(`ambit derivation: ${ambitReport.cards} cards, ${ambitReport.staleRows} stale rows updated`);
+  console.log(`ambit derivation: ${ambitReport.cards} cards, ${ambitReport.staleCards} stale rows updated`);
 }
 
 // Close the local DB connection so the process can exit.

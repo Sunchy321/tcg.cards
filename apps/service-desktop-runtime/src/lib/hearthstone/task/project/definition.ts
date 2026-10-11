@@ -6,7 +6,6 @@ import { ExtractedCard, PatchState, RawEntitySnapshot, RawEntitySnapshotTag } fr
 
 import { createDefinition } from '#task/definition';
 import { getLocalDb } from '../../hsdata-local-db';
-import { deriveEntityAmbits } from './derive-ambits';
 import { projectExtracted, projectHsdataFallback } from './project';
 import type { ProjectReport } from './types';
 
@@ -327,16 +326,6 @@ export const projectTaskDefinition = createDefinition(projectTaskType, {
     return next;
   })
   .exit(({ blockInput }) => blockInput)
-  .stage('derive-ambit', { label: '派生收录范围', progressMode: 'simple' })
-  .handler(async ({ ctx, input }) => {
-    // Ambit needs the completed relation graph (incoming edges, hero-power
-    // owners), so it is derived once here over all projected rows.
-    if (!ctx.dryRun) {
-      const ambitReport = await deriveEntityAmbits();
-      console.log(`[projection] ambit derivation: ${ambitReport.cards} cards, ${ambitReport.staleRows} stale rows updated`);
-    }
-    return input;
-  })
   .stage('finalize', { label: '完成', progressMode: 'simple' })
   .handler(async ({ ctx, input }) => {
     if (!ctx.dryRun) {

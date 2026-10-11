@@ -13,6 +13,9 @@ registerTaskDefinition(pinTaskDefinition);
 import { projectTaskDefinition } from '../hearthstone/task/project/definition';
 registerTaskDefinition(projectTaskDefinition);
 
+import { cardsProjectTaskDefinition } from '../hearthstone/task/cards-project/definition';
+registerTaskDefinition(cardsProjectTaskDefinition);
+
 import { publishTaskDefinition } from '../hearthstone/task/publish/definition';
 registerTaskDefinition(publishTaskDefinition);
 
