@@ -1,7 +1,8 @@
 import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
-import { Print, PrintCommit, PrintPart, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
+import { Print, CardAmbitOverride, PrintCommit, PrintPart, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
 
+import type { Ambit } from '@tcg-cards/model/ambit';
 import type { NameRubyLookup } from '../../name-ruby';
 import { alignedGathererMultiverseIds, gathererLocaleMatches } from '../../gatherer-candidates';
 import type { ProjectDb, ScryfallRow } from '../../project/assemble';
@@ -164,6 +165,17 @@ export async function loadPrintCommits(database: ProjectDb): Promise<Map<string,
     map.set(row.oracleId, list);
   }
   return map;
+}
+
+/**
+ * The reviewed ambit overrides (magic_data.card_ambit_overrides), keyed by
+ * cardId. Read, never written: the projection merges them over the
+ * classification seed, and deleting a row drops that card back to its seed.
+ */
+export async function loadAmbitOverrides(database: ProjectDb): Promise<Map<string, Ambit>> {
+  const rows = await database.select({ cardId: CardAmbitOverride.cardId, ambit: CardAmbitOverride.ambit })
+    .from(CardAmbitOverride);
+  return new Map(rows.map(row => [row.cardId, row.ambit]));
 }
 
 /**

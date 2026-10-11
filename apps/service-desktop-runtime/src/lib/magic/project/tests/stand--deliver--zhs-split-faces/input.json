@@ -4,6 +4,8 @@
   "oracleId": "6343aa78-2df6-41f3-9366-4933f9e6a93e",
   "layout": "split",
   "setName": "Dominaria Remastered",
+  "set": "dmr",
+  "setType": "masters",
   "cmc": 4,
   "colorIdentity": [
     "U",

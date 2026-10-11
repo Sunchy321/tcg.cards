@@ -4,6 +4,8 @@
   "oracleId": "9e9d538b-a9e5-4d59-b7c1-208fe18110e3",
   "layout": "normal",
   "setName": "Modern Horizons 3 Commander",
+  "set": "m3c",
+  "setType": "commander",
   "cmc": 4,
   "colorIdentity": [
     "R"

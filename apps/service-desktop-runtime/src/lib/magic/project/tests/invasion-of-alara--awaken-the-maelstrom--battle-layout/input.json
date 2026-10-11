@@ -4,6 +4,8 @@
   "oracleId": "8faa4330-07bb-4b65-810a-bbce29d3cd42",
   "layout": "transform",
   "setName": "March of the Machine",
+  "set": "mom",
+  "setType": "expansion",
   "cmc": 5,
   "colorIdentity": [
     "B",

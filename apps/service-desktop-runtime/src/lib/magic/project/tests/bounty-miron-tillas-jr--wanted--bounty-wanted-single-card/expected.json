@@ -4,6 +4,7 @@
       "cardId": "bounty-miron-tillas-jr--wanted",
       "version": "",
       "partCount": 2,
+      "ambit": "additional",
       "name": "Bounty: Miron Tillas Jr. // Wanted!",
       "typeline": "Card // Card",
       "manaValue": 0,
@@ -13,7 +14,7 @@
       ],
       "counters": [],
       "producibleMana": null,
-      "category": "default",
+      "category": "auxiliary",
       "tags": [
         "dev:token"
       ],

@@ -4,6 +4,8 @@
   "oracleId": "0007c283-5b7a-4c00-9ca1-b455c8dff8c3",
   "layout": "normal",
   "setName": "Commander 2019",
+  "set": "c19",
+  "setType": "commander",
   "cmc": 2,
   "colorIdentity": [
     "G"

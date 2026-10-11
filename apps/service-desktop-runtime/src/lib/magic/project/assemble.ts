@@ -58,7 +58,6 @@ export function faceValue(value: string | null | undefined, faceIndex: number): 
   return value.split(' // ')[faceIndex] ?? value;
 }
 
-
 /** Strips upstream-flattened furigana glosses (`漢字（かな）`) from Japanese print surfaces. */
 function cleanSurface(row: CardRow, value: string | null): string | null {
   if (row.lang !== 'ja' || value == null) return value;
@@ -586,6 +585,8 @@ export async function assembleUnits(
       oracleId:       mergeGroup.primaryOracleId,
       layout:         en.layout,
       setName:        en.setName,
+      set:            en.set,
+      setType:        en.setType,
       cmc:            secondaryEn.cmc ?? 0,
       colorIdentity:  en.colorIdentity,
       keywords:       en.keywords,
@@ -628,6 +629,8 @@ export async function assembleUnits(
       oracleId,
       layout:         'token',
       setName:        en.setName,
+      set:            en.set,
+      setType:        en.setType,
       cmc:            0,
       colorIdentity:  front.colors ?? [],
       keywords:       [],
@@ -678,6 +681,8 @@ export async function assembleUnits(
         oracleId,
         layout:         'token',
         setName:        en.setName,
+        set:            en.set,
+        setType:        en.setType,
         cmc:            0,
         colorIdentity:  face.colors ?? [],
         keywords:       [],
@@ -739,6 +744,8 @@ export async function assembleUnits(
     oracleId,
     layout:         en.layout,
     setName:        en.setName,
+    set:            en.set,
+    setType:        en.setType,
     cmc:            en.cmc ?? 0,
     colorIdentity:  en.colorIdentity,
     keywords:       en.keywords,

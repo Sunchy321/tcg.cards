@@ -4,6 +4,7 @@
       "cardId": "road-of-return",
       "version": "",
       "partCount": 1,
+      "ambit": "primary",
       "name": "Road of Return",
       "typeline": "Sorcery",
       "manaValue": 2,

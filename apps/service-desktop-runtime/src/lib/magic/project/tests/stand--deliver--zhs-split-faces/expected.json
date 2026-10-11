@@ -4,6 +4,7 @@
       "cardId": "stand--deliver",
       "version": "",
       "partCount": 2,
+      "ambit": "primary",
       "name": "Stand // Deliver",
       "typeline": "Instant // Instant",
       "manaValue": 4,

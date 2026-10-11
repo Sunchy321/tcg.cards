@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { legality } from './announcement';
+import { ambit } from '../../ambit';
 import { color, imageType, locale, layout, rarity } from './basic';
 
 export const category = z.enum([
@@ -21,6 +22,9 @@ export const card = z.strictObject({
   version: z.string().default(''),
 
   partCount: z.int().min(1).default(1),
+
+  /** Card ambit (ADR 0015) — the magic.cards.ambit column, NOT NULL on the table. */
+  ambit,
 
   name:     z.string(),
   typeline: z.string(),

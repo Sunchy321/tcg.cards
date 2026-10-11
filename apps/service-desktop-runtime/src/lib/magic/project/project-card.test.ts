@@ -5,9 +5,10 @@ import { nameRubyKey, type NameRubyLookup } from '@tcg-cards/model/magic/name-ru
 import { projectCard, type AssembledCard } from './project-card';
 
 /**
- * Build a minimal single-face card carrying only what the localization path
- * reads. The golden fixtures cover the assembled shape from real data; these
- * cases cover adoption branches that no real card currently reaches.
+ * Build a minimal single-face card carrying only what the localization and
+ * classification paths read. The golden fixtures cover the assembled shape
+ * from real data; these cases cover adoption branches no real card currently
+ * reaches.
  */
 function card(overrides: Partial<AssembledCard> = {}): AssembledCard {
   return {
@@ -16,6 +17,8 @@ function card(overrides: Partial<AssembledCard> = {}): AssembledCard {
     oracleId:       'oracle-1',
     layout:         'normal',
     setName:        'Test',
+    set:            'tst',
+    setType:        'expansion',
     cmc:            1,
     colorIdentity:  ['U'],
     keywords:       [],
@@ -255,5 +258,126 @@ describe('name ruby projection', () => {
     const result = projectCard(card({ prints: [printDraft()] }), corrupt);
     expect(result.printParts[0]!.rubyName).toBeNull();
     expect(result.prints[0]!.rubyName).toBeNull();
+  });
+});
+
+describe('classification seeds (ADR 0015 ticket 03)', () => {
+  test('a normal card seeds primary', () => {
+    const result = projectCard(card());
+    expect(result.cards[0]).toMatchObject({ category: 'default', ambit: 'primary' });
+  });
+
+  test('a token card seeds additional, by type line and by layout', () => {
+    const typed = projectCard(card({
+      set:   'tang',
+      faces: [{ ...card().faces[0]!, typeLine: 'Token Creature — Angel' }],
+    }));
+    expect(typed.cards[0]).toMatchObject({ category: 'token', ambit: 'additional' });
+
+    // Morph/Manifest-style token rows print plain type lines; the layout carries them.
+    const laid = projectCard(card({
+      layout: 'token',
+      set:    'tc18',
+      faces:  [{ ...card().faces[0]!, typeLine: 'Creature', name: 'Manifest' }],
+    }));
+    expect(laid.cards[0]).toMatchObject({ category: 'token', ambit: 'additional' });
+  });
+
+  test('special-rule cards seed auxiliary/additional, by layout and by type-line prefix', () => {
+    const emblemLayout = projectCard(card({ layout: 'scheme', set: 'tarc' }));
+    expect(emblemLayout.cards[0]).toMatchObject({ category: 'auxiliary', ambit: 'additional' });
+
+    // The Ring: a single-card double-faced token whose faces carry Emblem —
+    // an in-game rule component, not a token and not a deckable card.
+    const ring = projectCard(card({
+      layout: 'double_faced_token',
+      set:    'tltr',
+      faces:  [
+        { ...card().faces[0]!, name: 'The Ring', typeLine: 'Emblem' },
+        { ...card().faces[0]!, name: 'The Ring Tempts You', typeLine: 'Card' },
+      ],
+    }));
+    expect(ring.cards[0]).toMatchObject({ category: 'auxiliary', ambit: 'additional' });
+  });
+
+  test('helper cards seed auxiliary/additional', () => {
+    const monarch = projectCard(card({
+      layout: 'token',
+      set:    'tblc',
+      faces:  [{ ...card().faces[0]!, name: 'The Monarch', typeLine: 'Card' }],
+    }));
+    expect(monarch.cards[0]).toMatchObject({ category: 'auxiliary', ambit: 'additional' });
+
+    const dungeon = projectCard(card({
+      faces: [{ ...card().faces[0]!, name: 'Dungeon of the Mad Mage', typeLine: 'Dungeon' }],
+    }));
+    expect(dungeon.cards[0]).toMatchObject({ category: 'auxiliary', ambit: 'additional' });
+  });
+
+  test('funny sets seed additional without changing the category', () => {
+    const unset = projectCard(card({ set: 'und', setType: 'funny' }));
+    expect(unset.cards[0]).toMatchObject({ category: 'default', ambit: 'additional' });
+
+    // A token in an Un-set still reads as a token; both branches land additional.
+    const unToken = projectCard(card({ set: 'und', setType: 'funny', faces: [{ ...card().faces[0]!, typeLine: 'Token Creature — Squirrel' }] }));
+    expect(unToken.cards[0]).toMatchObject({ category: 'token', ambit: 'additional' });
+  });
+
+  test('world-championship display inserts seed their display category at full', () => {
+    const decklist = projectCard(card({
+      set:   'wc03',
+      faces: [{ ...card().faces[0]!, name: 'Aeo Paquette Decklist', typeLine: 'Card', oracleText: null }],
+    }));
+    expect(decklist.cards[0]).toMatchObject({ category: 'decklist', ambit: 'full' });
+
+    const player = projectCard(card({
+      set:   'wc02',
+      faces: [{ ...card().faces[0]!, name: 'Ben Rubin Bio', typeLine: 'Card', oracleText: null }],
+    }));
+    expect(player.cards[0]).toMatchObject({ category: 'player', ambit: 'full' });
+
+    const ad = projectCard(card({
+      set:   'wc01',
+      faces: [{ ...card().faces[0]!, name: '2001 World Championships Ad', typeLine: 'Card', oracleText: null }],
+    }));
+    expect(ad.cards[0]).toMatchObject({ category: 'advertisement', ambit: 'full' });
+
+    // The same suffix outside a wc set is not a display card.
+    const outside = projectCard(card({ faces: [{ ...card().faces[0]!, name: 'Fan Decklist', typeLine: 'Card' }] }));
+    expect(outside.cards[0]).toMatchObject({ category: 'auxiliary', ambit: 'additional' });
+  });
+
+  test('minigame props seed full', () => {
+    const result = projectCard(card({ setName: 'Kaldheim Minigames', set: 'mkhm', faces: [{ ...card().faces[0]!, name: 'Booster Blitz', typeLine: 'Card' }] }));
+    expect(result.cards[0]).toMatchObject({ category: 'minigame', ambit: 'full' });
+  });
+
+  test('art-series input seeds art/full (assembly does not anchor art oracles yet)', () => {
+    const result = projectCard(card({
+      layout: 'art_series',
+      set:    'astx',
+      faces:  [
+        { ...card().faces[0]!, name: 'Lightning Bolt', typeLine: 'Card', oracleText: null },
+        { ...card().faces[0]!, name: 'Lightning Bolt', typeLine: 'Card', oracleText: null },
+      ],
+    }));
+    expect(result.cards[0]).toMatchObject({ category: 'art', ambit: 'full' });
+  });
+});
+
+describe('ambit override merge (ticket 03)', () => {
+  test('an override replaces the seed', () => {
+    const result = projectCard(card(), undefined, 'additional');
+    expect(result.cards[0]).toMatchObject({ category: 'default', ambit: 'additional' });
+  });
+
+  test('an override wins over a token seed too', () => {
+    const result = projectCard(card({ faces: [{ ...card().faces[0]!, typeLine: 'Token Creature — Angel' }] }), undefined, 'full');
+    expect(result.cards[0]).toMatchObject({ category: 'token', ambit: 'full' });
+  });
+
+  test('no override row means the seed stands — deletion falls back', () => {
+    const result = projectCard(card(), undefined, undefined);
+    expect(result.cards[0]).toMatchObject({ category: 'default', ambit: 'primary' });
   });
 });

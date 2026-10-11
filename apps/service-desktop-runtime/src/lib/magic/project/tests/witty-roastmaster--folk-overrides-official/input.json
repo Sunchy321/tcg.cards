@@ -4,6 +4,8 @@
   "oracleId": "34edbf1b-0826-49f1-a04d-15cc8c543b22",
   "layout": "normal",
   "setName": "Streets of New Capenna",
+  "set": "snc",
+  "setType": "expansion",
   "cmc": 3,
   "colorIdentity": [
     "R"

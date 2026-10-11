@@ -4,6 +4,7 @@
       "cardId": "crusading-knight",
       "version": "",
       "partCount": 1,
+      "ambit": "primary",
       "name": "Crusading Knight",
       "typeline": "Creature — Human Knight",
       "manaValue": 4,

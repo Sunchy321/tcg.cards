@@ -1,5 +1,6 @@
 import { slugifyName } from '@tcg-cards/shared/magic/slug';
 import { resolveNameRuby, type NameRubyLookup } from '@tcg-cards/model/magic/name-ruby';
+import type { Ambit } from '@tcg-cards/model/ambit';
 
 import { Card, CardLocalization, CardPart, CardPartLocalization } from '@tcg-cards/db/schema/shared/magic/card';
 import { Print, PrintPart } from '@tcg-cards/db/schema/shared/magic/print';
@@ -174,6 +175,10 @@ export interface AssembledCard {
   layout:         string;
   /** Representative English print's set name (used for minigame detection). */
   setName:        string;
+  /** Representative English print's set code (gates the world-championship display cards). */
+  set:            string;
+  /** Representative English print's set type (gates the funny/test-card ambit). */
+  setType:        string;
   cmc:            number;
   colorIdentity:  string[];
   keywords:       string[];
@@ -313,10 +318,73 @@ const COUNTER_RE = /\bcounters?\b/;
 
 export type Category = 'advertisement' | 'art' | 'auxiliary' | 'decklist' | 'default' | 'minigame' | 'player' | 'token';
 
-function classify(assembled: AssembledCard): Category {
-  if (assembled.faces.some(f => TOKEN_RE.test(f.typeLine))) return 'token';
-  if (assembled.setName.endsWith('Minigames')) return 'minigame';
-  return 'default';
+/**
+ * Layouts whose cards are standing special-rule components of a game (spec
+ * story 3: emblems, schemes, planes/phenomenons, vanguards) — derivatives that
+ * appear in play but are never cards a player holds. Their type lines say the
+ * same thing, and some special-rule cards sit under other layouts (The Ring's
+ * `Emblem // Card` faces ride `double_faced_token`), so the type-line prefix
+ * catches those.
+ */
+const SPECIAL_RULE_LAYOUTS = new Set(['emblem', 'scheme', 'planar', 'vanguard']);
+const SPECIAL_RULE_TYPE_PREFIX = /^(emblem|scheme|plane|phenomenon|vanguard)\b/;
+/**
+ * Helper cards that never enter a deck: rule/counter stand-ins (The Monarch,
+ * City's Blessing, DFC substitutes), dungeons, and the one-off Event/Boss
+ * inserts. Exact type-line matches — a real card never has one of these as
+ * its whole type line.
+ */
+const HELPER_TYPELINES = new Set(['card', 'card // card', 'dungeon', 'event', 'boss']);
+/** Layouts scryfall uses for token rows (some token type lines lack the word). */
+const TOKEN_UNIT_LAYOUTS = new Set(['token', 'double_faced_token']);
+
+/**
+ * Classification seed (ADR 0015, ticket 03): one ordered pass over source
+ * signals, first hit wins, producing the card's category and its seeded
+ * `ambit`. The ambit is a rebuildable fact — a console override
+ * (`magic_data.card_ambit_overrides`) replaces it at merge time and the seed
+ * returns the moment the override row is deleted.
+ *
+ * The display categories (`art`/`decklist`/`player`/`advertisement`) must be
+ * genuinely produced so the `full` ambit has real members; the art-series
+ * branch only fires for art-series units once assembly anchors them (today it
+ * does not — the branch pins the seed for that future).
+ */
+function classify(assembled: AssembledCard): { category: Category, ambit: Ambit } {
+  const typeline = cardTypeline(assembled).toLowerCase();
+  const name = cardName(assembled);
+
+  // Art series: standalone illustration cards, never game pieces.
+  if (assembled.layout === 'art_series') return { category: 'art', ambit: 'full' };
+
+  // World Championship display inserts share their set's type line 'Card' and
+  // separate only by name suffix (verified collision-free outside wc/ptc).
+  if (assembled.set.startsWith('wc') && typeline === 'card') {
+    if (/Decklist$/i.test(name)) return { category: 'decklist', ambit: 'full' };
+    if (/ Bio$/i.test(name)) return { category: 'player', ambit: 'full' };
+    if (/ Ad$/i.test(name)) return { category: 'advertisement', ambit: 'full' };
+  }
+
+  // Minigame props: physical minigame pieces, never Magic game content.
+  if (assembled.setName.endsWith('Minigames')) return { category: 'minigame', ambit: 'full' };
+
+  // Special-rule components: emblem/scheme/plane/phenomenon/vanguard carriers.
+  if (SPECIAL_RULE_LAYOUTS.has(assembled.layout) || SPECIAL_RULE_TYPE_PREFIX.test(typeline)) {
+    return { category: 'auxiliary', ambit: 'additional' };
+  }
+
+  // Rule/counter stand-ins and other never-decked helpers.
+  if (HELPER_TYPELINES.has(typeline)) return { category: 'auxiliary', ambit: 'additional' };
+
+  // Tokens: any type line carrying the word, or any token layout (Morph,
+  // Manifest, the Theros reveler tokens and friends print plain type lines).
+  if (assembled.faces.some(f => TOKEN_RE.test(f.typeLine)) || TOKEN_UNIT_LAYOUTS.has(assembled.layout)) {
+    return { category: 'token', ambit: 'additional' };
+  }
+
+  // Everything else is a normally obtainable card; funny sets (Un-sets,
+  // playtest cards) enter at the additional ambit without changing category.
+  return { category: 'default', ambit: assembled.setType === 'funny' ? 'additional' : 'primary' };
 }
 
 function cardName(assembled: AssembledCard): string {
@@ -757,8 +825,13 @@ export function deriveLocalizations(
  * the projected rows carry their `ruby_*` columns (annotations resolved per
  * face, `set:number` exceptions honored), and columns resolve to null where
  * the authority has nothing. When omitted, the columns stay unset.
+ *
+ * `ambitOverride` is the reviewed `magic_data.card_ambit_overrides` value for
+ * this card, when one exists; it replaces the classification seed's ambit.
+ * Passing nothing seeds from source signals, so deleting the override row
+ * drops the card back to its seed on the next projection.
  */
-export function projectCard(assembled: AssembledCard, rubies?: NameRubyLookup): ProjectCardResult {
+export function projectCard(assembled: AssembledCard, rubies?: NameRubyLookup, ambitOverride?: Ambit): ProjectCardResult {
   const cardId = assembled.cardId;
   const version = '';
   const faces = assembled.faces;
@@ -770,10 +843,13 @@ export function projectCard(assembled: AssembledCard, rubies?: NameRubyLookup): 
   if (faces.some(f => CREATES_TOKEN_RE.test(f.oracleText ?? ''))) cardTags.push('dev:token');
   if (faces.some(f => COUNTER_RE.test(f.oracleText ?? ''))) cardTags.push('dev:counter');
 
+  const seeds = classify(assembled);
+
   const cardRow: (typeof Card)['$inferInsert'] = {
     cardId,
     version,
     partCount:        faces.length,
+    ambit:            ambitOverride ?? seeds.ambit,
     name:             cardName(assembled),
     typeline:         cardTypeline(assembled),
     manaValue:        assembled.cmc,
@@ -781,7 +857,7 @@ export function projectCard(assembled: AssembledCard, rubies?: NameRubyLookup): 
     keywords,
     counters:         [],
     producibleMana:   assembled.producedMana != null ? convertMana(assembled.producedMana) : null,
-    category:         classify(assembled),
+    category:         seeds.category,
     tags:             cardTags,
     legalities:       convertLegalities(assembled.legalities),
     scryfallOracleId: [assembled.oracleId],

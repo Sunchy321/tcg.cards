@@ -7,6 +7,7 @@ import { Card, CardLocalization, CardPart, CardPartLocalization } from '@tcg-car
 import { Print, PrintPart } from '@tcg-cards/db/schema/shared/magic/print';
 import { CardLocalizationAuthority, CardSlugResolution, ProjectionReview, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
 
+import type { Ambit } from '@tcg-cards/model/ambit';
 import { createDefinition } from '#task/definition';
 import { getLocalDb } from '../../../hearthstone/hsdata-local-db';
 import { matchBatch } from '../../match';
@@ -16,6 +17,7 @@ import { inconsistentMergedSlugs } from '../../project/consistency';
 import type { LoadedPrintCommit } from '../../project/print-commits';
 import { projectCard, type AssembledCard, type ProjectCardResult } from '../../project/project-card';
 import {
+  loadAmbitOverrides,
   loadPrintCommits,
   projectOraclePrints,
   softDeleteStaleManualPrints,
@@ -63,6 +65,8 @@ interface ProjectCtx {
   rubies:         NameRubyLookup;
   /** Print commits by oracle, static per run — synthesized as manual prints. */
   printCommits:   Map<string, LoadedPrintCommit[]>;
+  /** Reviewed ambit overrides by cardId, static per run — merged over the classification seed. */
+  ambitOverrides: Map<string, Ambit>;
   /** Sorted distinct cardIds with their member unit keys (stage 3). */
   cardsByCardId:  Map<string, string[]>;
   cardIdList:     string[];
@@ -264,6 +268,9 @@ const definition = createDefinition(magicProjectTaskType, {
       // Adopted commits also drive the card-level localization authorities, so
       // the card stage must assemble with them just like the prints stage.
       magic.printCommits = await loadPrintCommits(database);
+      // Ambit overrides are the reviewed word over the classification seed;
+      // loaded once per entry, never written by this task.
+      magic.ambitOverrides = await loadAmbitOverrides(database);
       const byCard = new Map<string, string[]>();
       for (const [unit, cardId] of matched.cardIdByUnit) {
         const list = byCard.get(cardId) ?? [];
@@ -352,7 +359,7 @@ const definition = createDefinition(magicProjectTaskType, {
           continue;
         }
 
-        const result: ProjectCardResult = projectCard(members[0]!, magic.rubies);
+        const result: ProjectCardResult = projectCard(members[0]!, magic.rubies, magic.ambitOverrides.get(cardId));
         // The card row records every contributing oracle id, not just the
         // canonical member whose faces supplied the content — merged cards
         // (slug resolutions, BFM) must stay discoverable from all members.

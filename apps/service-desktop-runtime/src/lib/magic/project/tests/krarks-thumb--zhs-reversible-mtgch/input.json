@@ -4,6 +4,8 @@
   "oracleId": "a97c8482-775c-4f11-9872-25b4f9bfcb1a",
   "layout": "normal",
   "setName": "Mirrodin",
+  "set": "mrd",
+  "setType": "expansion",
   "cmc": 2,
   "colorIdentity": [],
   "keywords": [],

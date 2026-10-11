@@ -4,6 +4,8 @@
   "oracleId": "dd3bf75e-9ef0-4ded-9b65-1a60a78a6253",
   "layout": "double_faced_token",
   "setName": "Edge of Eternities Commander Tokens",
+  "set": "teoc",
+  "setType": "token",
   "cmc": 0,
   "colorIdentity": [],
   "keywords": [

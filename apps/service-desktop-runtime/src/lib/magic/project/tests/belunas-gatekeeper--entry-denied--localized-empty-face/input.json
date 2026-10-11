@@ -4,6 +4,8 @@
   "oracleId": "52fd9309-b849-419a-8d19-5882c00a72b4",
   "layout": "adventure",
   "setName": "Wilds of Eldraine",
+  "set": "woe",
+  "setType": "expansion",
   "cmc": 6,
   "colorIdentity": [
     "U"

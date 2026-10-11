@@ -4,6 +4,7 @@
       "cardId": "siege-gang-lieutenant",
       "version": "",
       "partCount": 1,
+      "ambit": "primary",
       "name": "Siege-Gang Lieutenant",
       "typeline": "Creature — Goblin",
       "manaValue": 4,

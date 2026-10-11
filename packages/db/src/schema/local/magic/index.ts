@@ -7,6 +7,7 @@ export * from './data/name-rubies';
 export * from './data/scryfall';
 export * from './print-commits';
 export * from './slug-annotation';
+export * from './ambit-override';
 export * from './localization-authority';
 export * from './document';
 export * from './field-sync';

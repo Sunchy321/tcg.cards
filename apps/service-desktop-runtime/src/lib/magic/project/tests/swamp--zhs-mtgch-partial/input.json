@@ -4,6 +4,8 @@
   "oracleId": "56719f6a-1a6c-4c0a-8d21-18f7d7350b68",
   "layout": "normal",
   "setName": "Tenth Edition",
+  "set": "10e",
+  "setType": "core",
   "cmc": 0,
   "colorIdentity": [
     "B"

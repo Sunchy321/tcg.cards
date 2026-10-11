@@ -4,6 +4,7 @@
       "cardId": "witty-roastmaster",
       "version": "",
       "partCount": 1,
+      "ambit": "primary",
       "name": "Witty Roastmaster",
       "typeline": "Creature — Devil Citizen",
       "manaValue": 3,

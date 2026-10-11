@@ -4,6 +4,8 @@
   "oracleId": "bce7e45d-b2c5-43aa-91a6-3a3c24f30850",
   "layout": "meld",
   "setName": "Eldritch Moon",
+  "set": "emn",
+  "setType": "expansion",
   "cmc": 7,
   "colorIdentity": [
     "W"

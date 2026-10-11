@@ -4,6 +4,7 @@
       "cardId": "zombie!b-22",
       "version": "",
       "partCount": 1,
+      "ambit": "additional",
       "name": "Zombie",
       "typeline": "Token Creature — Zombie",
       "manaValue": 0,

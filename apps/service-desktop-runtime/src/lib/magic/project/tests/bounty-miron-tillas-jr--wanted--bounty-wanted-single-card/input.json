@@ -4,6 +4,8 @@
   "oracleId": "0f49692c-534f-443a-b0f8-59dfb44c3549",
   "layout": "double_faced_token",
   "setName": "Outlaws of Thunder Junction Commander Tokens",
+  "set": "totc",
+  "setType": "token",
   "cmc": 0,
   "colorIdentity": [],
   "keywords": [

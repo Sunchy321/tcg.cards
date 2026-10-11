@@ -4,6 +4,7 @@
       "cardId": "swamp",
       "version": "",
       "partCount": 1,
+      "ambit": "primary",
       "name": "Swamp",
       "typeline": "Basic Land — Swamp",
       "manaValue": 0,

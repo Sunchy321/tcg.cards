@@ -4,6 +4,7 @@
       "cardId": "urborg-skeleton",
       "version": "",
       "partCount": 1,
+      "ambit": "primary",
       "name": "Urborg Skeleton",
       "typeline": "Creature — Skeleton",
       "manaValue": 1,

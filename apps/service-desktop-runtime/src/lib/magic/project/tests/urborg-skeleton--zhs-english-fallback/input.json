@@ -4,6 +4,8 @@
   "oracleId": "712d7eb4-4044-4852-a5da-57635d3086b0",
   "layout": "normal",
   "setName": "Invasion",
+  "set": "inv",
+  "setType": "expansion",
   "cmc": 1,
   "colorIdentity": [
     "B"

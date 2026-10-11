@@ -4,6 +4,7 @@
       "cardId": "belunas-gatekeeper--entry-denied",
       "version": "",
       "partCount": 2,
+      "ambit": "primary",
       "name": "Beluna's Gatekeeper // Entry Denied",
       "typeline": "Creature — Giant Soldier // Sorcery — Adventure",
       "manaValue": 6,
