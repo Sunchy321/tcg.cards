@@ -255,6 +255,7 @@
       },
       "devDependencies": {
         "@nuxt/eslint": "^1.15.2",
+        "@types/bun": "^1.4.2",
         "@types/lodash-es": "^4.17.12",
         "eslint": "^10.2.1",
         "eslint-config-custom": "workspace:*",

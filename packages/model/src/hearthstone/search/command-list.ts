@@ -141,6 +141,8 @@ export const collectible = c
   .qual([])
   .done();
 
+export { ambit } from '#search/index';
+
 export const change = c
   .op([':'])
   .qual([])

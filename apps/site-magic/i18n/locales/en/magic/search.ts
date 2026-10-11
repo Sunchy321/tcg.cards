@@ -50,6 +50,7 @@ export default {
     'counter':         'counter',
     'keyword':         'keyword',
     'multiverse-id':   'Multiverse id',
+    'ambit':           'ambit',
     'order':           'order',
   },
 

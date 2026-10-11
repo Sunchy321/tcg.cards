@@ -50,6 +50,7 @@ export default {
     'counter':         '指示物',
     'keyword':         '关键字',
     'multiverse-id':   'Multiverse id',
+    'ambit':           '收录范围',
     'order':           '顺序',
   },
 

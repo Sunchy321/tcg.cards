@@ -3,7 +3,7 @@ import { as as create } from '#search/server/action';
 import type { Locale } from '#model/hearthstone/schema/basic';
 import type { NormalResult } from '#model/hearthstone/schema/search';
 
-import { and, eq, inArray, ne, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '#db/db';
 import { LatestCardEntityView } from '#schema/shared/hearthstone/entity';
@@ -11,6 +11,10 @@ import { LatestCardEntityView } from '#schema/shared/hearthstone/entity';
 import Parser from '#search/parser';
 import { simplify } from '#search/parser/simplify';
 import type { Expression } from '#search/parser';
+
+import { detectAmbit } from '#search/ambit';
+import type { Ambit } from '#search/ambit';
+import { ambitCeiling, searchWithAmbitCeiling } from '#search/server/ambit';
 
 import { order } from './command-list';
 
@@ -92,40 +96,6 @@ async function detectVariant(dsl: string): Promise<VariantValue> {
   }
 }
 
-/** Whether the query carries an explicit collectible command, which replaces
- * the default visibility filter and disables the non-strict fallback. */
-function hasCollectibleCommand(dsl: string): boolean {
-  try {
-    const simplified = simplify(new Parser(dsl).parse());
-
-    let found = false;
-
-    const walk = (node: Expression): void => {
-      if (found) return;
-
-      if (node.type === 'simple') {
-        if (node.cmd === 'collectible') found = true;
-        return;
-      }
-
-      if (node.type === 'not' || node.type === 'paren') {
-        walk(node.expr);
-        return;
-      }
-
-      if (node.type === 'logic') {
-        for (const child of node.exprs) walk(child);
-      }
-    };
-
-    walk(simplified);
-
-    return found;
-  } catch {
-    return false;
-  }
-}
-
 type SearchOption = {
   page:     number;
   pageSize: number;
@@ -133,22 +103,6 @@ type SearchOption = {
   orderBy:  string;
   dsl:      string;
 };
-
-const defaultVisibleCardQuery = and(
-  eq(LatestCardEntityView.collectible, true),
-  eq(LatestCardEntityView.inBobsTavern, false),
-  sql`${LatestCardEntityView.type} in ('minion', 'spell', 'weapon', 'location', 'hero')`,
-  sql`(
-    ${LatestCardEntityView.type} in ('minion', 'spell', 'weapon', 'location')
-    or (
-      ${LatestCardEntityView.type} = 'hero'
-      and (
-        nullif(btrim(${LatestCardEntityView.localization.displayText}), '') is not null
-        or ${LatestCardEntityView.armor} is not null
-      )
-    )
-  )`,
-);
 
 export const search = as
   .table(LatestCardEntityView)
@@ -172,16 +126,16 @@ export const search = as
         meta:  {},
         table: LatestCardEntityView as any,
       });
-    const hasLangCommand = /\blang[:=]/.test(dsl ?? '');
-    const collectibleOverride = hasCollectibleCommand(dsl);
+    const hasLangCommand = /\blang[:=]/.test(dsl);
+    const { explicit, pinned } = detectAmbit(dsl);
 
-    const executeSearch = async (strict: boolean) => {
+    const executeSearch = async (ceiling: Ambit | null) => {
       const baseQuery = hasLangCommand
-        ? and(query, ne(LatestCardEntityView.type, 'enchantment'))
-        : and(query, eq(LatestCardEntityView.lang, lang), ne(LatestCardEntityView.type, 'enchantment'));
-      const visibleQuery = strict
-        ? and(baseQuery, defaultVisibleCardQuery)
-        : baseQuery;
+        ? query
+        : and(query, eq(LatestCardEntityView.lang, lang));
+      const visibleQuery = ceiling == null
+        ? baseQuery
+        : and(baseQuery, ambitCeiling(LatestCardEntityView.ambit, ceiling));
 
       const resultQuery = db
         .select()
@@ -205,24 +159,22 @@ export const search = as
       return { displayedResult: result, total };
     };
 
-    let { displayedResult, total } = await executeSearch(!collectibleOverride);
-    let strict = !collectibleOverride;
+    const { landing, result } = await searchWithAmbitCeiling({
+      pinned,
+      explicit,
+      run: executeSearch,
+    });
 
-    if (!collectibleOverride && total === 0) {
-      ({ displayedResult, total } = await executeSearch(false));
-      strict = false;
-    }
-
-    const totalPage = Math.ceil(total / pageSize);
+    const totalPage = Math.ceil(result.total / pageSize);
     const elapsed = Date.now() - startTime;
 
     return {
-      result:  displayedResult,
-      total,
+      result:  result.displayedResult,
+      total:   result.total,
       page,
       totalPage,
       elapsed,
       variant: await detectVariant(dsl),
-      strict,
+      ambit:   landing,
     };
   });

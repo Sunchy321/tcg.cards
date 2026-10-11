@@ -330,6 +330,7 @@ export default {
         'rarity':            'rarity',
         'artist':            'artist',
         'collectible':       'collectible',
+        'ambit':             'ambit',
         'change':            'change type',
         'format':            'format',
         'order':             'order',

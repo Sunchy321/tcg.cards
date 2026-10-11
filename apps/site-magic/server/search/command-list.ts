@@ -4,6 +4,7 @@ import * as builtin from '#search/server/command/builtin';
 import * as magic from './command';
 
 import { QueryError } from '#search/command/error';
+import { parseAmbitValue } from '#search/server/ambit';
 
 import type { Column, SQL } from 'drizzle-orm';
 import { and, arrayContains, asc, desc, eq, gt, gte, inArray, lt, lte, ne, not, notInArray, or, sql } from 'drizzle-orm';
@@ -538,6 +539,12 @@ export const keyword = cs
 export const multiverseId = cs
   .commands.multiverseId
   .apply(table => table.print.multiverseId, {});
+
+export const ambit = cs
+  .commands.ambit
+  .handler(({ value }, { table }) => {
+    return sql`${table.card.ambit} <= ${parseAmbitValue(value)}`;
+  });
 
 export const order = cs
   .commands.order

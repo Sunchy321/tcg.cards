@@ -184,7 +184,7 @@ async function loadExtractedCardIds(build: number, lastCardId: string | null, fo
 }
 
 export const projectTaskDefinition = createDefinition(projectTaskType, {
-  version:     '2026-07-21:v2',
+  version:     '2026-10-11:v3',
   effectModel: 'reconcilable',
 })
   .scope(
@@ -327,17 +327,22 @@ export const projectTaskDefinition = createDefinition(projectTaskType, {
     return next;
   })
   .exit(({ blockInput }) => blockInput)
+  .stage('derive-ambit', { label: '派生收录范围', progressMode: 'simple' })
+  .handler(async ({ ctx, input }) => {
+    // Ambit needs the completed relation graph (incoming edges, hero-power
+    // owners), so it is derived once here over all projected rows.
+    if (!ctx.dryRun) {
+      const ambitReport = await deriveEntityAmbits();
+      console.log(`[projection] ambit derivation: ${ambitReport.cards} cards, ${ambitReport.staleRows} stale rows updated`);
+    }
+    return input;
+  })
   .stage('finalize', { label: '完成', progressMode: 'simple' })
   .handler(async ({ ctx, input }) => {
     if (!ctx.dryRun) {
       await getLocalDb().update(PatchState)
         .set({ projectionStatus: 'completed', projectionError: null, projectedAt: new Date() })
         .where(inArray(PatchState.buildNumber, ctx.sourceTags));
-
-      // Ambit needs the completed relation graph (incoming edges, hero-power
-      // owners), so it is derived once here over all projected rows.
-      const ambitReport = await deriveEntityAmbits();
-      console.log(`[projection] ambit derivation: ${ambitReport.cards} cards, ${ambitReport.staleRows} stale rows updated`);
     }
     return { reports: input.reports };
   })

@@ -332,6 +332,7 @@ export default {
         'rarity':            '稀有度',
         'artist':            '画师',
         'collectible':       '可收藏',
+        'ambit':             '收录范围',
         'change':            '变更类型',
         'format':            '赛制',
         'order':             '排序',

@@ -30,6 +30,7 @@ const basic = os
       lang,
       groupBy,
       orderBy,
+      dsl: q,
     });
 
     return result;

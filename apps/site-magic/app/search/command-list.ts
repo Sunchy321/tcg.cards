@@ -1,4 +1,5 @@
 import { cc as create } from '#search/client/command/builder';
+import { defaultTranslate } from '#search/client/translate';
 
 import * as builtin from '#search/client/command/builtin';
 import * as magic from './command';
@@ -220,6 +221,12 @@ export const keyword = cc
 export const multiverseId = cc
   .commands.multiverseId
   .apply({ id: 'multiverse-id' });
+
+export const ambit = cc
+  .commands.ambit
+  .explain((args, i18n) => {
+    return defaultTranslate(args, i18n, 'ambit', { ':': 'is' });
+  });
 
 export const order = cc
   .commands.order

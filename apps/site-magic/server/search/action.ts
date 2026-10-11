@@ -3,10 +3,14 @@ import { as as create } from '#search/server/action';
 import type { Locale } from '#model/magic/schema/basic';
 import type { DevResult, NormalResult } from '#model/magic/schema/search';
 
-import { sql } from 'drizzle-orm';
+import { and, sql } from 'drizzle-orm';
 
 import { db } from '#db/db';
 import { CardEditorView, CardPrintView } from '#schema/shared/magic/print';
+
+import { detectAmbit } from '#search/ambit';
+import type { Ambit } from '#search/ambit';
+import { ambitCeiling, searchWithAmbitCeiling } from '#search/server/ambit';
 
 import { order } from './command-list';
 
@@ -18,6 +22,7 @@ type SearchOption = {
   lang:     Locale;
   groupBy:  string;
   orderBy:  string;
+  dsl:      string;
 };
 
 export const search = as
@@ -25,7 +30,7 @@ export const search = as
   .handler(async (query, post, options: SearchOption): Promise<NormalResult> => {
     const startTime = Date.now();
 
-    const { page, pageSize, lang, groupBy, orderBy } = options;
+    const { page, pageSize, lang, groupBy, orderBy, dsl } = options;
 
     const groupByColumn = groupBy === 'card'
       ? [CardPrintView.cardId]
@@ -38,46 +43,63 @@ export const search = as
     const orderByAction = post.find(p => p.phase === 'order-by')?.action
       ?? order.call({ operator: ':', qualifier: [], value: orderBy }, { meta: {}, table: CardPrintView });
 
-    const subquery = db
-      .selectDistinctOn(groupByColumn)
-      .from(CardPrintView)
-      .where(query)
-      .orderBy(
-        ...groupByColumn,
-        CardPrintView.partIndex,
-        sql`CASE
+    const { explicit, pinned } = detectAmbit(dsl);
+
+    const executeSearch = async (ceiling: Ambit | null) => {
+      const visibleQuery = ceiling == null
+        ? query
+        : and(query, ambitCeiling(CardPrintView.card.ambit, ceiling));
+
+      const subquery = db
+        .selectDistinctOn(groupByColumn)
+        .from(CardPrintView)
+        .where(visibleQuery!)
+        .orderBy(
+          ...groupByColumn,
+          CardPrintView.partIndex,
+          sql`CASE
                     WHEN ${CardPrintView.lang} = ${lang} THEN 0
                     WHEN ${CardPrintView.lang} = 'en' THEN 1
                     ELSE 2
                 END`,
-      );
+        );
 
-    const result = await db
-      .select()
-      .from(subquery.as('card_print_view'))
-      .orderBy(...orderByAction)
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
+      const result = await db
+        .select()
+        .from(subquery.as('card_print_view'))
+        .orderBy(...orderByAction)
+        .limit(pageSize)
+        .offset((page - 1) * pageSize);
 
-    // Count the total records matching the same SQL query
-    const countResult = await db
-      .select({ count: groupByCount })
-      .from(CardPrintView)
-      .where(query);
+      // Count the total records matching the same SQL query
+      const countResult = await db
+        .select({ count: groupByCount })
+        .from(CardPrintView)
+        .where(visibleQuery!);
 
-    const total = Number(countResult[0]?.count || 0);
+      const total = Number(countResult[0]?.count || 0);
 
-    const totalPage = Math.ceil(total / pageSize);
+      return { result, total };
+    };
+
+    const { landing, result } = await searchWithAmbitCeiling({
+      pinned,
+      explicit,
+      run: executeSearch,
+    });
+
+    const totalPage = Math.ceil(result.total / pageSize);
 
     const endTime = Date.now();
     const elapsed = endTime - startTime;
 
     return {
-      result,
-      total,
+      result: result.result,
+      total:  result.total,
       page,
       totalPage,
       elapsed,
+      ambit:  landing,
     };
   });
 

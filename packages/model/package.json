@@ -25,6 +25,8 @@
     ".": "./src/index.ts",
     "./*": "./src/*.ts",
     "./magic/search": "./src/magic/search/index.ts",
-    "./magic/search/*": "./src/magic/search/*.ts"
+    "./magic/search/*": "./src/magic/search/*.ts",
+    "./hearthstone/search": "./src/hearthstone/search/index.ts",
+    "./hearthstone/search/*": "./src/hearthstone/search/*.ts"
   }
 }

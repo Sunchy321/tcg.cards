@@ -178,3 +178,5 @@ export const multiverseId = c
 export const order = c
   .simple
   .done();
+
+export { ambit } from '#search/index';

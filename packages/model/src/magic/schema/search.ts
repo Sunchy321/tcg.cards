@@ -3,8 +3,11 @@ import z from 'zod';
 import { createSearchNormalResult, createSearchResult } from '#search/schema';
 
 import { cardEditorView, cardPrintView } from './print';
+import { ambit } from '../../ambit';
 
-export const normalResult = createSearchNormalResult(cardPrintView);
+export const normalResult = createSearchNormalResult(cardPrintView).extend({
+  ambit,
+});
 export const searchResult = createSearchResult(normalResult);
 
 export const devResult = z.object({
