@@ -14,3 +14,10 @@ export const AMBITS = [
 
 /** One rung of the universal card ambit ladder. */
 export type Ambit = (typeof AMBITS)[number];
+
+/** Parses a value into its ambit level; null when the value is not a level. */
+export function toAmbit(value: string): Ambit | null {
+  const level = value.toLowerCase() as Ambit;
+
+  return AMBITS.includes(level) ? level : null;
+}

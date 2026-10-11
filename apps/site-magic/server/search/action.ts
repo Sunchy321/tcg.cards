@@ -23,6 +23,10 @@ type SearchOption = {
   groupBy:  string;
   orderBy:  string;
   dsl:      string;
+
+  // The ambit URL param; an ambit command in the DSL overrides it, so it is
+  // only the starting ceiling of the widening ladder.
+  ambit?: Ambit;
 };
 
 export const search = as
@@ -30,7 +34,7 @@ export const search = as
   .handler(async (query, post, options: SearchOption): Promise<NormalResult> => {
     const startTime = Date.now();
 
-    const { page, pageSize, lang, groupBy, orderBy, dsl } = options;
+    const { page, pageSize, lang, groupBy, orderBy, dsl, ambit } = options;
 
     const groupByColumn = groupBy === 'card'
       ? [CardPrintView.cardId]
@@ -85,7 +89,8 @@ export const search = as
     const { landing, result } = await searchWithAmbitCeiling({
       pinned,
       explicit,
-      run: executeSearch,
+      start: ambit,
+      run:   executeSearch,
     });
 
     const totalPage = Math.ceil(result.total / pageSize);

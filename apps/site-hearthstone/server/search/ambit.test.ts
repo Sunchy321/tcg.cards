@@ -9,7 +9,11 @@ import type { TranslatedQuery } from '#search/server/translate';
 import { QueryError } from '#search/command/error';
 
 import { detectAmbit } from '#search/ambit';
-import { ambitCeiling } from '#search/server/ambit';
+import type { Ambit } from '#search/ambit';
+import { ambitCeiling, searchWithAmbitCeiling } from '#search/server/ambit';
+import type { AmbitSearchRun } from '#search/server/ambit';
+
+import { searchInput } from '#search/schema';
 
 import { normalResult } from '#model/hearthstone/schema/search';
 
@@ -118,5 +122,73 @@ describe('ambit ceiling predicate', () => {
   test('the response schema carries the landing ambit and no strict flag', () => {
     expect('ambit' in normalResult.shape).toBe(true);
     expect('strict' in normalResult.shape).toBe(false);
+  });
+
+  test('the shared search input accepts an optional ambit level', () => {
+    expect(searchInput.safeParse({ q: 'fire' }).success).toBe(true);
+    expect(searchInput.safeParse({ q: 'fire', ambit: 'additional' }).success).toBe(true);
+    expect(searchInput.safeParse({ q: 'fire', ambit: 'visible' }).success).toBe(false);
+  });
+});
+
+describe('stepwise widening runner', () => {
+  /** Fakes a search run under a ceiling; each level reports its own total. */
+  const fakeRun = (totals: Partial<Record<Ambit, number>>) => {
+    const calls: Array<Ambit | null> = [];
+    const run: AmbitSearchRun<{ total: number }> = async ceiling => {
+      calls.push(ceiling);
+      return { total: ceiling == null ? 0 : totals[ceiling] ?? 0 };
+    };
+    return { run, calls };
+  };
+
+  test('a query without ambit input starts at primary and widens on empty results', async () => {
+    const { run, calls } = fakeRun({ full: 5 });
+    const { landing, result } = await searchWithAmbitCeiling({ pinned: null, explicit: false, run });
+
+    expect(landing).toBe('full');
+    expect(result.total).toBe(5);
+    expect(calls).toEqual(['primary', 'additional', 'full']);
+  });
+
+  test('the ambit param replaces the starting ceiling and widens from there', async () => {
+    const { run, calls } = fakeRun({ full: 5 });
+    const { landing } = await searchWithAmbitCeiling({ pinned: null, explicit: false, start: 'additional', run });
+
+    expect(landing).toBe('full');
+    expect(calls).toEqual(['additional', 'full']);
+  });
+
+  test('a start level with results never widens', async () => {
+    const { run, calls } = fakeRun({ additional: 3 });
+    const { landing, result } = await searchWithAmbitCeiling({ pinned: null, explicit: false, start: 'additional', run });
+
+    expect(landing).toBe('additional');
+    expect(result.total).toBe(3);
+    expect(calls).toEqual(['additional']);
+  });
+
+  test('a full start is terminal', async () => {
+    const { run, calls } = fakeRun({});
+    const { landing } = await searchWithAmbitCeiling({ pinned: null, explicit: false, start: 'full', run });
+
+    expect(landing).toBe('full');
+    expect(calls).toEqual(['full']);
+  });
+
+  test('a pinned DSL command outruns the start level and applies no ceiling', async () => {
+    const { run, calls } = fakeRun({});
+    const { landing } = await searchWithAmbitCeiling({ pinned: 'additional', explicit: true, start: 'full', run });
+
+    expect(landing).toBe('additional');
+    expect(calls).toEqual([null]);
+  });
+
+  test('an explicit DSL command without a pin ignores the start level and never widens', async () => {
+    const { run, calls } = fakeRun({});
+    const { landing } = await searchWithAmbitCeiling({ pinned: null, explicit: true, start: 'additional', run });
+
+    expect(landing).toBe('primary');
+    expect(calls).toEqual(['primary']);
   });
 });

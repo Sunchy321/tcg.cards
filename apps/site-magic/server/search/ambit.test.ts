@@ -12,6 +12,8 @@ import { AMBITS, detectAmbit } from '#search/ambit';
 import { ambitCeiling, searchWithAmbitCeiling } from '#search/server/ambit';
 import type { Ambit } from '#search/ambit';
 
+import { searchInput } from '#search/schema';
+
 import { normalResult } from '#model/magic/schema/search';
 
 import * as commandList from './command-list';
@@ -211,5 +213,55 @@ describe('stepwise widening', () => {
     expect(fake.ceilings).toEqual(['primary']);
     expect(landing).toBe('primary');
     expect(result.total).toBe(0);
+  });
+
+  test('the ambit param replaces the starting ceiling and widens from there', async () => {
+    const fake = makeRun([0, 4]);
+
+    const { landing, result } = await searchWithAmbitCeiling({
+      pinned:   null,
+      explicit: false,
+      start:    'additional',
+      run:      fake.run,
+    });
+
+    expect(fake.ceilings).toEqual(['additional', 'full']);
+    expect(landing).toBe('full');
+    expect(result.total).toBe(4);
+  });
+
+  test('a start level with results never widens', async () => {
+    const fake = makeRun([9]);
+
+    const { landing, result } = await searchWithAmbitCeiling({
+      pinned:   null,
+      explicit: false,
+      start:    'additional',
+      run:      fake.run,
+    });
+
+    expect(fake.ceilings).toEqual(['additional']);
+    expect(landing).toBe('additional');
+    expect(result.total).toBe(9);
+  });
+
+  test('a full start is terminal', async () => {
+    const fake = makeRun([0]);
+
+    const { landing } = await searchWithAmbitCeiling({
+      pinned:   null,
+      explicit: false,
+      start:    'full',
+      run:      fake.run,
+    });
+
+    expect(fake.ceilings).toEqual(['full']);
+    expect(landing).toBe('full');
+  });
+
+  test('the shared search input accepts an optional ambit level', () => {
+    expect(searchInput.safeParse({ q: 't:creature' }).success).toBe(true);
+    expect(searchInput.safeParse({ q: 't:creature', ambit: 'additional' }).success).toBe(true);
+    expect(searchInput.safeParse({ q: 't:creature', ambit: 'token' }).success).toBe(false);
   });
 });

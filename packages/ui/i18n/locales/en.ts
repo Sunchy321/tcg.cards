@@ -3,6 +3,13 @@ export default {
     dataSources: 'Data Sources',
   },
 
+  ambit: {
+    'primary':    'Primary',
+    'additional': 'Additional',
+    'full':       'Full',
+    'widened':    'Widened: {level}',
+  },
+
   locale: {
     '$self': 'English',
 

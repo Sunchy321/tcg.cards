@@ -4,19 +4,12 @@ import type { Expression } from '#search/parser';
 
 // The ladder itself is the single-source value array in @tcg-cards/base; this
 // module re-exports it and layers the search-DSL machinery on top.
-import { AMBITS, type Ambit } from '@tcg-cards/base';
+import { AMBITS, toAmbit, type Ambit } from '@tcg-cards/base';
 
-export { AMBITS, type Ambit };
+export { AMBITS, toAmbit, type Ambit };
 
 /** The DSL name of the universal ambit command (no sigil, no aliases, ADR 0015). */
 export const ambitCommandName = 'ambit';
-
-/** Parses a DSL value into its ambit level; null when the value is not a level. */
-export function toAmbit(value: string): Ambit | null {
-  const level = value.toLowerCase() as Ambit;
-
-  return AMBITS.includes(level) ? level : null;
-}
 
 /** How the query addresses the ambit: whether it mentions the command at all
  * (widening is suppressed) and which ceiling it positively pins, if any. */

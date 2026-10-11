@@ -22,7 +22,7 @@ const basic = os
   }))
   .output(searchResult)
   .handler(async ({ input }) => {
-    const { q, page, pageSize, lang, groupBy, orderBy } = input;
+    const { q, page, pageSize, lang, groupBy, orderBy, ambit } = input;
 
     const result = await search.search('search', q, {
       page,
@@ -31,6 +31,7 @@ const basic = os
       groupBy,
       orderBy,
       dsl: q,
+      ambit,
     });
 
     return result;

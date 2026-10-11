@@ -3,7 +3,7 @@ import { as as create } from '#search/server/action';
 import type { Locale } from '#model/hearthstone/schema/basic';
 import type { NormalResult } from '#model/hearthstone/schema/search';
 
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, ne, sql } from 'drizzle-orm';
 
 import { db } from '#db/db';
 import { LatestCardEntityView } from '#schema/shared/hearthstone/entity';
@@ -102,6 +102,10 @@ type SearchOption = {
   lang:     Locale;
   orderBy:  string;
   dsl:      string;
+
+  // The ambit scope selector's URL param; an ambit command in the DSL
+  // overrides it, so it is only the starting ceiling of the widening ladder.
+  ambit?: Ambit;
 };
 
 export const search = as
@@ -115,6 +119,7 @@ export const search = as
       lang,
       orderBy,
       dsl,
+      ambit,
     } = options;
 
     const orderByAction = post.find(p => p.phase === 'order-by')?.action
@@ -130,9 +135,14 @@ export const search = as
     const { explicit, pinned } = detectAmbit(dsl);
 
     const executeSearch = async (ceiling: Ambit | null) => {
+      // Hearthstone search never surfaces enchantments, whatever the ambit
+      // ceiling says: they exist as detail-page relation data only, so the
+      // exclusion sits on top of every ceiling, including an explicit full.
+      // (SQL <> also drops typeless helper entities, as the retired default
+      // filter always did.)
       const baseQuery = hasLangCommand
-        ? query
-        : and(query, eq(LatestCardEntityView.lang, lang));
+        ? and(query, ne(LatestCardEntityView.type, 'enchantment'))
+        : and(query, eq(LatestCardEntityView.lang, lang), ne(LatestCardEntityView.type, 'enchantment'));
       const visibleQuery = ceiling == null
         ? baseQuery
         : and(baseQuery, ambitCeiling(LatestCardEntityView.ambit, ceiling));
@@ -162,7 +172,8 @@ export const search = as
     const { landing, result } = await searchWithAmbitCeiling({
       pinned,
       explicit,
-      run: executeSearch,
+      start: ambit,
+      run:   executeSearch,
     });
 
     const totalPage = Math.ceil(result.total / pageSize);

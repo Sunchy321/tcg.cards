@@ -10,6 +10,15 @@
 
         <div class="flex-1" />
 
+        <UBadge
+          v-if="widened"
+          color="warning"
+          variant="subtle"
+          class="shrink-0 mr-3"
+        >
+          {{ $t('ambit.widened', { level: $t(`ambit.${landingAmbit}`) }) }}
+        </UBadge>
+
         <span v-if="data != null" class="font-mono mr-4 text-white/60 text-sm">{{ total }}</span>
 
         <UPagination
@@ -66,6 +75,8 @@ import type { CardPrintView } from '#model/magic/schema/print';
 import type { SearchResult } from '#model/magic/schema/search';
 
 import { explain as model } from '~/search';
+import { detectAmbit, AMBITS } from '#search/ambit';
+import type { Ambit } from '#search/ambit';
 
 definePageMeta({
   layout:    'main',
@@ -117,6 +128,25 @@ const cards = computed<CardPrintView[]>(() => (data.value?.result?.result ?? [])
 const total = computed(() => data.value?.result?.total ?? 0);
 const pageCount = computed(() => data.value?.result?.totalPage ?? Math.ceil(total.value / pageSize.value));
 
+/** The ambit URL param as its ladder level; null when absent. */
+const ambitLevel = useAmbitParam();
+
+/** The ceiling the query asked for: an ambit command in the DSL overrides the
+ * URL param, and an explicit command that pins nothing falls back to the
+ * default primary ambit (still without widening). */
+const requestedAmbit = computed<Ambit>(() => {
+  const dsl = detectAmbit(q.value ?? '');
+  return dsl.pinned ?? (dsl.explicit ? 'primary' : ambitLevel.value ?? 'primary');
+});
+
+/** The ambit the search actually landed on, as reported by the response. */
+const landingAmbit = computed<Ambit>(() => data.value?.result?.ambit ?? 'primary');
+
+/** True when stepwise widening moved the results past the requested ceiling —
+ * the only situation where the landing needs to be called out. */
+const widened = computed(() =>
+  AMBITS.indexOf(landingAmbit.value) > AMBITS.indexOf(requestedAmbit.value));
+
 // Server-side query errors (parse and validation); unknown types fall back to a generic message.
 const errorTexts = computed(() => (data.value?.errors ?? []).map((e: any) => {
   const key = `search.error.${e.type}`;
@@ -157,6 +187,7 @@ const doSearch = async () => {
       lang:     gameLocale.value,
       page:     page.value,
       pageSize: pageSize.value,
+      ambit:    ambitLevel.value ?? undefined,
     });
 
     // Only update if query is still the same (avoid stale responses)
@@ -170,7 +201,7 @@ const doSearch = async () => {
   }
 };
 
-watch([q, page, pageSize], doSearch, { immediate: true });
+watch([q, page, pageSize, ambitLevel], doSearch, { immediate: true });
 </script>
 
 <style lang="scss" scoped>

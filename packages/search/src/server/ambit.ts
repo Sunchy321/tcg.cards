@@ -32,30 +32,34 @@ export type AmbitSearchRun<T> = (ceiling: Ambit | null) => Promise<T>;
 
 /**
  * Runs a search under the ambit ceiling semantics shared by every game site
- * (ADR 0015): a query without an ambit command searches the primary ambit and
- * widens stepwise (primary → additional → full) while it returns nothing; a
- * query that mentions the command never widens — when it pins a level, the
- * query's own predicates govern and the runner applies none (null ceiling).
+ * (ADR 0015): a query without an ambit command searches from the starting
+ * ambit — the primary ambit by default, or the ambit scope selector's level
+ * (a URL param, never part of the DSL) — and widens stepwise while it returns
+ * nothing; a query that mentions the ambit command never widens and takes the
+ * ceiling entirely into its own hands, so the start level only applies to
+ * non-explicit queries — when the query pins a level, the query's own
+ * predicates govern and the runner applies none (null ceiling).
  *
  * The landing level in the result is the annotation the response reports.
  */
 export async function searchWithAmbitCeiling<T extends { total: number }>(options: {
   pinned:   Ambit | null;
   explicit: boolean;
+  start?:   Ambit;
   run:      AmbitSearchRun<T>;
 }): Promise<{ landing: Ambit; result: T }> {
   if (options.pinned != null) {
     return { landing: options.pinned, result: await options.run(null) };
   }
 
-  let landing: Ambit = 'primary';
+  let landing: Ambit = options.explicit ? 'primary' : options.start ?? 'primary';
   let result = await options.run(landing);
 
   if (options.explicit || result.total > 0) {
     return { landing, result };
   }
 
-  for (const level of AMBITS.slice(1)) {
+  for (const level of AMBITS.slice(AMBITS.indexOf(landing) + 1)) {
     landing = level;
     result = await options.run(level);
 
