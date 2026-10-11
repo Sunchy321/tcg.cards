@@ -13,6 +13,7 @@ import { bitset, color } from '../../../type/bitset';
 
 import { omit } from 'lodash-es';
 
+import { ambit } from '../ambit';
 import { schema } from './schema';
 
 import * as basicModel from '#model/magic/schema/basic';
@@ -25,6 +26,8 @@ export const Card = schema.table('cards', {
   cardId:    text('card_id').notNull(),
   version:   text('version').notNull().default(''),
   partCount: smallint('part_count').notNull(),
+
+  ambit: ambit('ambit').notNull().default('full'),
 
   name:     text('name').notNull(),
   typeline: text('typeline').notNull(),

@@ -8,29 +8,33 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
+import { ambit } from '../ambit';
+
 import { CardSet } from './card-set';
 import { schema } from './schema';
 
 /** Exportable Shadowverse: Worlds Beyond card facts produced by the desktop import workflow. */
 export const Card = schema.table('cards', {
-  cardId: bigint('card_id', { mode: 'number' }).primaryKey(),
-  baseCardId: bigint('base_card_id', { mode: 'number' }),
+  cardId:         bigint('card_id', { mode: 'number' }).primaryKey(),
+  baseCardId:     bigint('base_card_id', { mode: 'number' }),
   cardResourceId: bigint('card_resource_id', { mode: 'number' }),
   originalCardId: bigint('original_card_id', { mode: 'number' }),
 
+  ambit: ambit('ambit').notNull().default('full'),
+
   cardSetId: integer('card_set_id').references(() => CardSet.cardSetId),
 
-  type: integer('type'),
-  class: integer('class'),
+  type:   integer('type'),
+  class:  integer('class'),
   rarity: integer('rarity'),
-  cost: integer('cost'),
-  atk: integer('atk'),
-  life: integer('life'),
+  cost:   integer('cost'),
+  atk:    integer('atk'),
+  life:   integer('life'),
   tribes: integer('tribes').array(),
 
-  isToken: boolean('is_token').notNull().default(false),
-  isIncludeRotation: boolean('is_include_rotation'),
-  deckEnabledNum: integer('deck_enabled_num'),
+  isToken:                 boolean('is_token').notNull().default(false),
+  isIncludeRotation:       boolean('is_include_rotation'),
+  deckEnabledNum:          integer('deck_enabled_num'),
   isStarterAbilityChanged: boolean('is_starter_ability_changed'),
 
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

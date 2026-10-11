@@ -11,6 +11,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
+import { ambit } from '../ambit';
 import { schema } from './schema';
 
 /** Locales with normalized card names supplied by the current import source. */
@@ -33,6 +34,8 @@ export const Card = schema.table('cards', {
   cid:      bigint('cid', { mode: 'number' }),
   password: varchar('password', { length: 8 }),
 
+  ambit: ambit('ambit').notNull().default('full'),
+
   ot:        integer('ot'),
   setcode:   bigint('setcode', { mode: 'bigint' }),
   type:      bigint('type', { mode: 'number' }),
@@ -42,14 +45,14 @@ export const Card = schema.table('cards', {
   race:      bigint('race', { mode: 'number' }),
   attribute: bigint('attribute', { mode: 'number' }),
 
-  primaryImageR2Bucket:   text('primary_image_r2_bucket'),
-  primaryImageR2Key:      text('primary_image_r2_key'),
+  primaryImageR2Bucket:    text('primary_image_r2_bucket'),
+  primaryImageR2Key:       text('primary_image_r2_key'),
   primaryImageContentType: text('primary_image_content_type'),
-  primaryImageByteSize:   integer('primary_image_byte_size'),
-  primaryImageWidth:      integer('primary_image_width'),
-  primaryImageHeight:     integer('primary_image_height'),
-  primaryImageSha256:     varchar('primary_image_sha256', { length: 64 }),
-  primaryImageDeletedAt:  timestamp('primary_image_deleted_at', { withTimezone: true }),
+  primaryImageByteSize:    integer('primary_image_byte_size'),
+  primaryImageWidth:       integer('primary_image_width'),
+  primaryImageHeight:      integer('primary_image_height'),
+  primaryImageSha256:      varchar('primary_image_sha256', { length: 64 }),
+  primaryImageDeletedAt:   timestamp('primary_image_deleted_at', { withTimezone: true }),
 
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true })
@@ -95,11 +98,11 @@ export const CardLocalization = schema.table('card_localizations', {
     .references(() => Card.id, { onDelete: 'cascade' }),
   locale: locale('locale').notNull(),
 
-  name: text('name'),
-  nameRuby: text('name_ruby'),
-  typesText: text('types_text'),
+  name:                text('name'),
+  nameRuby:            text('name_ruby'),
+  typesText:           text('types_text'),
   pendulumDescription: text('pendulum_description'),
-  description: text('description'),
+  description:         text('description'),
 
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true })
@@ -119,8 +122,8 @@ export const CardNameVariant = schema.table('card_name_variants', {
     .notNull()
     .references(() => Card.id, { onDelete: 'cascade' }),
   locale: locale('locale').notNull(),
-  kind: cardNameVariantKind('kind').notNull(),
-  name: text('name').notNull(),
+  kind:   cardNameVariantKind('kind').notNull(),
+  name:   text('name').notNull(),
 
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true })

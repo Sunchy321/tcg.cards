@@ -8,13 +8,14 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
+import { ambit } from '../ambit';
 import { schema } from './schema';
 
 /** Shadowverse Evolve card pack facts from the official card list. */
 export const EvolveCardSet = schema.table('evolve_card_sets', {
   cardSetCode: text('card_set_code').primaryKey(),
 
-  name: text('name').notNull(),
+  name:        text('name').notNull(),
   releaseDate: text('release_date'),
 
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -32,15 +33,17 @@ export const EvolveCardSet = schema.table('evolve_card_sets', {
 export const EvolveCard = schema.table('evolve_cards', {
   cardNo: text('card_no').primaryKey(),
 
+  ambit: ambit('ambit').notNull().default('full'),
+
   cardSetCode: text('card_set_code').references(() => EvolveCardSet.cardSetCode),
 
-  craft: text('craft'),
+  craft:    text('craft'),
   cardType: text('card_type'),
-  tribes: text('tribes'),
-  rarity: text('rarity'),
-  cost: integer('cost'),
-  attack: integer('attack'),
-  life: integer('life'),
+  tribes:   text('tribes'),
+  rarity:   text('rarity'),
+  cost:     integer('cost'),
+  attack:   integer('attack'),
+  life:     integer('life'),
 
   relatedCardNos: text('related_card_nos').array(),
 
@@ -68,8 +71,8 @@ export const EvolveCardLocalization = schema.table('evolve_card_localizations', 
     .references(() => EvolveCard.cardNo, { onDelete: 'cascade' }),
   lang: text('lang').notNull(),
 
-  name: text('name').notNull(),
-  skillText: text('skill_text'),
+  name:        text('name').notNull(),
+  skillText:   text('skill_text'),
   flavourText: text('flavour_text'),
   illustrator: text('illustrator'),
 
@@ -94,8 +97,8 @@ export const EvolveCardQuestion = schema.table('evolve_card_questions', {
     .notNull()
     .references(() => EvolveCard.cardNo, { onDelete: 'cascade' }),
 
-  question: text('question').notNull(),
-  answer: text('answer').notNull(),
+  question:   text('question').notNull(),
+  answer:     text('answer').notNull(),
   answeredAt: text('answered_at'),
 
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
