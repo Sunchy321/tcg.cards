@@ -350,7 +350,7 @@ const TOKEN_UNIT_LAYOUTS = new Set(['token', 'double_faced_token']);
  * branch only fires for art-series units once assembly anchors them (today it
  * does not — the branch pins the seed for that future).
  */
-function classify(assembled: AssembledCard): { category: Category, ambit: Ambit } {
+export function classify(assembled: AssembledCard): { category: Category, ambit: Ambit } {
   const typeline = cardTypeline(assembled).toLowerCase();
   const name = cardName(assembled);
 

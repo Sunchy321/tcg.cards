@@ -146,6 +146,7 @@ export function getGameNavItems(game: Game): ConsoleNavLink[] {
           { label: '公告', icon: 'i-lucide-megaphone', to: `/${game}/announcement` },
           { label: '规则', icon: 'i-lucide-book-open', to: `/${game}/rule` },
           { label: '卡名注音', icon: 'i-lucide-languages', to: `/${game}/ruby` },
+          { label: '收录范围', icon: 'i-lucide-filter', to: `/${game}/ambit` },
           { label: '卡牌补全', icon: 'i-lucide-puzzle', to: `/${game}/commits` },
           { label: '卡图导入', icon: 'i-lucide-image', to: `/${game}/image-import` },
         ],
