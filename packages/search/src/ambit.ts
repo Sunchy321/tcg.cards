@@ -39,13 +39,15 @@ export function detectAmbit(dsl: string): AmbitDetection {
   const pins: Ambit[] = [];
 
   // simplify pushes negation onto simple expressions as the `!` qualifier, so
-  // a simple node is negated exactly when its qualifier carries `!`.
+  // a simple node is negated exactly when its qualifier carries `!`. Every
+  // positive operator pins its level for the landing annotation — the query
+  // enforces the strictest pin it carries.
   const walk = (node: Expression): void => {
     if (node.type === 'simple') {
       if (node.cmd === ambitCommandName) {
         explicit = true;
 
-        if (!node.qual?.includes('!') && node.op === ':') {
+        if (!node.qual?.includes('!') && node.op !== '') {
           const value = node.argType === 'string' ? node.args.slice(1, -1) : node.args;
           const level = toAmbit(value);
 

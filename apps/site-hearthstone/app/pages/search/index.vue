@@ -8,6 +8,12 @@
           class="animate-spin text-white/80 shrink-0"
         />
 
+        <SearchAmbitLanding
+          v-if="data != null"
+          :ambit="landingAmbit"
+          :widened="widened"
+        />
+
         <span class="text-sm text-white/90 truncate">
           {{ explainText }}
         </span>
@@ -35,15 +41,6 @@
         >
           {{ layoutLabel }}
         </UButton>
-
-        <UBadge
-          v-if="widened"
-          color="warning"
-          variant="subtle"
-          class="shrink-0"
-        >
-          {{ $t('ambit.widened', { level: $t(`ambit.${landingAmbit}`) }) }}
-        </UBadge>
 
         <span v-if="data != null" class="font-mono text-sm text-white/70 shrink-0">
           {{ total }}

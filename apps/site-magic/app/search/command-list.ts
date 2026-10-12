@@ -225,7 +225,14 @@ export const multiverseId = cc
 export const ambit = cc
   .commands.ambit
   .explain((args, i18n) => {
-    return defaultTranslate(args, i18n, 'ambit', { ':': 'is' });
+    return defaultTranslate(args, i18n, 'ambit', {
+      ':':  'is',
+      '=':  'equal',
+      '<':  'less-than',
+      '<=': 'less-equal',
+      '>':  'greater-than',
+      '>=': 'greater-equal',
+    });
   });
 
 export const order = cc

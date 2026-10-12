@@ -63,8 +63,34 @@ describe('ambit command grammar', () => {
     expect(() => compile('!ambit:additional')).not.toThrow();
   });
 
-  test('only the : operator is accepted', () => {
-    expect(errorType('ambit=primary')).toBe('invalid-operator');
+  test('comparison operators compile', () => {
+    for (const q of ['ambit=primary', 'ambit<additional', 'ambit<=additional', 'ambit>primary', 'ambit>=primary']) {
+      expect(() => compile(q)).not.toThrow();
+    }
+  });
+
+  test('the bracket form desugars to the ambit command', () => {
+    expect(() => compile('[[additional]]')).not.toThrow();
+    expect(() => compile('[[=additional]]')).not.toThrow();
+    expect(() => compile('-[[full]]')).not.toThrow();
+  });
+
+  test('bracket and plain forms build the same SQL', () => {
+    for (const [bracket, plain] of [['[[additional]]', 'ambit:additional'], ['[[=additional]]', 'ambit=additional']] as const) {
+      const bracketQuery = dialect.sqlToQuery(build(bracket).query!);
+      const plainQuery = dialect.sqlToQuery(build(plain).query!);
+
+      expect(bracketQuery.sql).toEqual(plainQuery.sql);
+      expect(bracketQuery.params).toEqual(plainQuery.params);
+    }
+  });
+
+  test('an unknown bracket level is a query error', () => {
+    expect(errorType('[[token]]')).toBe('invalid-query');
+  });
+
+  test('an unterminated bracket is rejected', () => {
+    expect(() => compile('[[additional')).toThrow();
   });
 
   test('unknown levels are a query error', () => {
@@ -94,6 +120,17 @@ describe('ambit and collectible orthogonality', () => {
   test('only the ambit command itself makes a query explicit', () => {
     expect(detectAmbit('collectible:true ambit:additional')).toEqual({ explicit: true, pinned: 'additional' });
     expect(detectAmbit('collectible:true -ambit:full')).toEqual({ explicit: true, pinned: null });
+  });
+
+  test('every positive operator pins its level', () => {
+    expect(detectAmbit('ambit=additional')).toEqual({ explicit: true, pinned: 'additional' });
+    expect(detectAmbit('ambit>=full')).toEqual({ explicit: true, pinned: 'full' });
+  });
+
+  test('bracket forms detect like their plain forms', () => {
+    expect(detectAmbit('[[additional]]')).toEqual({ explicit: true, pinned: 'additional' });
+    expect(detectAmbit('[[=full]]')).toEqual({ explicit: true, pinned: 'full' });
+    expect(detectAmbit('-[[additional]]')).toEqual({ explicit: true, pinned: null });
   });
 });
 

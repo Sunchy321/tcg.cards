@@ -542,8 +542,15 @@ export const multiverseId = cs
 
 export const ambit = cs
   .commands.ambit
-  .handler(({ value }, { table }) => {
-    return sql`${table.card.ambit} <= ${parseAmbitValue(value)}`;
+  .handler(({ value, operator }, { table }) => {
+    // `:` is the ceiling, a legacy alias of `<=` (ADR 0015).
+    const comparison = ({ ':': '<=', '<=': '<=', '<': '<', '=': '=', '>': '>', '>=': '>=' } as Record<string, string>)[operator];
+
+    if (comparison == null) {
+      throw new QueryError({ type: 'invalid-operator', payload: { operator } });
+    }
+
+    return sql`${table.card.ambit} ${sql.raw(comparison)} ${parseAmbitValue(value)}`;
   });
 
 export const order = cs

@@ -1,8 +1,14 @@
 <template>
   <div>
     <Teleport to="#subheader-portal" defer>
-      <div class="controller h-12 flex items-center px-4 shadow-md">
-        <UIcon v-show="searching" name="lucide:refresh-cw" class="animate-spin mr-2 text-white/80" />
+      <div class="controller h-12 flex items-center gap-3 px-4 shadow-md">
+        <UIcon v-show="searching" name="lucide:refresh-cw" class="animate-spin text-white/80 shrink-0" />
+
+        <SearchAmbitLanding
+          v-if="data != null"
+          :ambit="landingAmbit"
+          :widened="widened"
+        />
 
         <RichText class="text-white/90 text-sm">
           {{ explained.text }}
@@ -10,16 +16,7 @@
 
         <div class="flex-1" />
 
-        <UBadge
-          v-if="widened"
-          color="warning"
-          variant="subtle"
-          class="shrink-0 mr-3"
-        >
-          {{ $t('ambit.widened', { level: $t(`ambit.${landingAmbit}`) }) }}
-        </UBadge>
-
-        <span v-if="data != null" class="font-mono mr-4 text-white/60 text-sm">{{ total }}</span>
+        <span v-if="data != null" class="font-mono text-sm text-white/70">{{ total }}</span>
 
         <UPagination
           v-if="pageCount > 0"
