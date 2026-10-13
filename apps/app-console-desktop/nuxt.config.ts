@@ -90,6 +90,15 @@ export default defineNuxtConfig({
 
   compatibilityDate: '2026-05-01',
 
+  typescript: {
+    tsConfig: {
+      compilerOptions: {
+        // bun:test in console tests and the Bun APIs of bundled runtime sources.
+        types: ['bun'],
+      },
+    },
+  },
+
   alias: {
     '#model': fileURLToPath(new URL('./node_modules/@tcg-cards/model/src', import.meta.url)),
   },

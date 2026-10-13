@@ -5,23 +5,23 @@ export interface AnnouncementFormFields {
   /** Hearthstone build-number fields: announcement-level version/lastVersion and their item overrides. */
   versionFields: boolean;
   /** Magic date-based comparison version: announcement-level prevVersion and its item override. */
-  prevVersion: boolean;
+  prevVersion:   boolean;
   /** Magic per-platform effective dates (tabletop/online/arena) plus the next-check date. */
   platformDates: boolean;
   /** Hearthstone item delta/glow JSON editors. */
-  deltaGlow: boolean;
+  deltaGlow:     boolean;
 }
 
 /** The type/status declaration of a game's model, driving normalization and validation. */
 export interface AnnouncementFormConfig {
-  types: string[];
+  types:        string[];
   statusByType: Record<string, { statuses: string[], default: string | null }>;
-  fields: AnnouncementFormFields;
+  fields:       AnnouncementFormFields;
 }
 
 /** One link entry of the editor form. */
 export interface AnnouncementFormLink {
-  url: string;
+  url:   string;
   label: string;
 }
 

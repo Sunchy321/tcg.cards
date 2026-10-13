@@ -1,48 +1,14 @@
 <template>
   <div class="flex h-full gap-4 overflow-hidden p-4">
-    <div class="flex w-64 shrink-0 flex-col rounded-xl border border-slate-200 bg-white">
-      <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-        <span class="text-sm font-medium text-slate-700">公告列表</span>
-        <div class="flex items-center gap-1">
-          <USelect v-model="selectedSource" :items="sourceFilterOptions" size="xs" class="w-28" />
-          <UButton icon="i-lucide-plus" size="xs" variant="ghost" @click="createNew" />
-        </div>
-      </div>
-      <div class="flex-1 overflow-y-auto p-2">
-        <div
-          v-for="item in filteredAnnouncements"
-          :key="item.id"
-          class="group relative flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 transition-colors"
-          :class="selectedId === item.id ? 'bg-primary-50 text-primary-700' : 'hover:bg-slate-100'"
-          @click="selectAnnouncement(item)"
-        >
-          <div class="min-w-0 flex-1">
-            <div class="truncate text-sm font-medium">{{ item.name }}</div>
-            <div class="flex items-center gap-1 text-xs text-slate-400">
-              <span>{{ item.date }}</span>
-              <span>·</span>
-              <span>{{ item.source }}</span>
-              <span>·</span>
-              <span>{{ item.itemCount ?? 0 }} 条</span>
-            </div>
-          </div>
-          <UButton
-            icon="i-lucide-trash-2"
-            color="error"
-            variant="ghost"
-            size="xs"
-            class="opacity-0 group-hover:opacity-100 transition-opacity"
-            @click.stop="confirmDelete(item)"
-          />
-        </div>
-        <p v-if="filteredAnnouncements.length === 0 && !loading" class="py-8 text-center text-sm text-slate-400">
-          暂无公告
-        </p>
-        <div v-if="loading" class="flex justify-center py-8">
-          <UIcon name="i-lucide-loader-circle" class="size-5 animate-spin text-slate-400" />
-        </div>
-      </div>
-    </div>
+    <AnnouncementListPanel
+      :announcements="announcements"
+      :loading="loading"
+      :selected-id="selectedId"
+      :sources="sources"
+      @select="selectAnnouncement"
+      @create="createNew"
+      @delete="confirmDelete"
+    />
 
     <div class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
       <template v-if="selectedId || isCreating">
@@ -58,7 +24,7 @@
               @click="toggleYamlMode"
             />
             <UButton
-              v-if="form.id"
+              v-if="formId"
               icon="i-lucide-wand"
               label="投影"
               color="neutral"
@@ -88,17 +54,9 @@
           </ul>
         </div>
         <div v-else class="flex-1 overflow-y-auto p-5">
-          <div class="grid grid-cols-4 gap-4">
-            <UFormField label="来源" required>
-              <USelect v-model="form.source" :items="sourceOptions" placeholder="选择来源" class="w-full" />
-            </UFormField>
-            <UFormField label="日期" required>
-              <UInput v-model="form.date" type="date" />
-            </UFormField>
-            <UFormField label="生效日期">
-              <UInput v-model="form.effectiveDate" type="date" />
-            </UFormField>
-            <UFormField v-if="config.fields.prevVersion" label="对比版本">
+          <AnnouncementFields :sources="sourceOptions" />
+          <div v-if="config.fields.prevVersion" class="mt-4 grid grid-cols-4 gap-4">
+            <UFormField label="对比版本">
               <UInput v-model="form.prevVersion" type="date" />
             </UFormField>
           </div>
@@ -124,19 +82,6 @@
               <UInputNumber v-model="form.lastVersion" :min="1" />
             </UFormField>
           </div>
-          <UFormField label="名称" required class="mt-4">
-            <UInput v-model="form.name" placeholder="输入公告名称" />
-          </UFormField>
-          <UFormField label="链接" class="mt-4">
-            <div class="space-y-2">
-              <div v-for="(link, index) in form.link" :key="index" class="flex gap-2">
-                <UInput v-model="link.url" placeholder="URL" class="flex-1" />
-                <UInput v-model="link.label" placeholder="标签 (可选)" class="w-32" />
-                <UButton icon="i-lucide-x" color="error" variant="ghost" size="sm" @click="removeLink(index)" />
-              </div>
-              <UButton icon="i-lucide-plus" label="添加链接" variant="ghost" size="sm" @click="addLink" />
-            </div>
-          </UFormField>
 
           <div class="mt-4 border-t border-slate-200 pt-4">
             <div class="mb-3 flex items-center justify-between">
@@ -250,7 +195,8 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useToast } from '@nuxt/ui/composables';
 
-import { useDesktopRuntimeClient } from '~/composables/useDesktopRuntimeClient';
+import { useAnnouncementCrud } from '~/composables/useAnnouncementCrud';
+import { provideAnnouncementForm } from '~/composables/useAnnouncementForm';
 import YamlEditor from '../YamlEditor.vue';
 import {
   announcementToYaml,
@@ -265,19 +211,22 @@ import {
 } from '~/utils/announcement-form-yaml';
 
 type ItemRow = AnnouncementFormData['items'][number] & { _key: string };
+interface ManagerForm extends AnnouncementFormData {
+  items: ItemRow[];
+}
 
 const props = defineProps<{
   /** The desktop runtime orpc namespace of the game, e.g. 'magic'. */
-  game: string;
-  sources: { label: string, value: string }[];
-  typeLabels: Record<string, string>;
+  game:         string;
+  sources:      { label: string, value: string }[];
+  typeLabels:   Record<string, string>;
   statusLabels: Record<string, string>;
-  config: AnnouncementFormConfig;
+  config:       AnnouncementFormConfig;
   /** Whether the apply button (full replay) is offered. */
-  apply?: boolean;
+  apply?:       boolean;
 }>();
 
-const client = useDesktopRuntimeClient() as any;
+const crud = useAnnouncementCrud(props.game);
 const toast = useToast();
 
 const announcements = ref<any[]>([]);
@@ -290,7 +239,6 @@ const applying = ref(false);
 const deleting = ref(false);
 const deleteModalOpen = ref(false);
 const deleteTarget = ref<any>(null);
-const selectedSource = ref('all');
 const isYamlMode = ref(false);
 const yamlText = ref('');
 const yamlErrors = ref<string[]>([]);
@@ -314,21 +262,17 @@ const emptyForm = (): AnnouncementFormData => ({
   items:                 [],
 });
 
-const form = reactive<AnnouncementFormData>(emptyForm());
-let formId = '';
+const form = reactive<ManagerForm>({ ...emptyForm(), items: [] });
+const formId = ref('');
+
+provideAnnouncementForm(form);
 
 const sourceOptions = props.sources;
-const sourceFilterOptions = [{ label: '全部来源', value: 'all' }, ...props.sources];
-const filteredAnnouncements = computed(() =>
-  selectedSource.value === 'all' ? announcements.value : announcements.value.filter(a => a.source === selectedSource.value),
-);
 const typeOptions = computed(() => props.config.types.map(t => ({ label: props.typeLabels[t] ?? t, value: t })));
 const applyEnabled = computed(() => props.apply ?? false);
 
 const statusOptionsFor = (type: string) =>
   statusOptionsOfType(type, props.config).map(s => ({ label: props.statusLabels[s] ?? s, value: s }));
-
-const typeLabelOf = (type: string) => props.typeLabels[type] ?? type;
 
 function notify(title: string, description?: string, color: 'error' | 'success' | 'warning' = 'success') {
   toast.add({ title, description, color });
@@ -337,25 +281,22 @@ function notify(title: string, description?: string, color: 'error' | 'success' 
 async function loadAnnouncements() {
   loading.value = true;
   try {
-    announcements.value = await client[props.game].announcement.list();
-  } catch (error) {
-    notify('加载失败', errorMessage(error), 'error');
+    announcements.value = await crud.list();
   } finally {
     loading.value = false;
   }
 }
 
 async function loadDetail(id: string) {
-  try {
-    const detail = await client[props.game].announcement.get({ id });
-    fillForm(detail);
-  } catch (error) {
-    notify('加载详情失败', errorMessage(error), 'error');
+  const detail = await crud.get(id);
+  if (detail == null) {
+    return;
   }
+  fillForm(detail);
 }
 
 function fillForm(row: any) {
-  formId = row.id;
+  formId.value = row.id;
   form.source = row.source;
   form.date = row.date;
   form.effectiveDate = row.effectiveDate ?? '';
@@ -405,19 +346,11 @@ function resetForm() {
   Object.assign(form, emptyForm());
   form.link = [];
   form.items = [];
-  formId = '';
+  formId.value = '';
   selectedId.value = null;
   isCreating.value = false;
   isYamlMode.value = false;
   yamlErrors.value = [];
-}
-
-function addLink() {
-  form.link.push({ url: '', label: '' });
-}
-
-function removeLink(index: number) {
-  form.link.splice(index, 1);
 }
 
 function addItem() {
@@ -530,10 +463,10 @@ async function handleSubmit() {
   try {
     const payload = toPayload();
     if (isCreating.value) {
-      await client[props.game].announcement.create(payload);
+      await crud.create(payload);
       notify('创建成功');
-    } else if (formId) {
-      await client[props.game].announcement.update({ id: formId, ...payload });
+    } else if (formId.value) {
+      await crud.update(formId.value, payload);
       notify('保存成功');
     }
     await loadAnnouncements();
@@ -546,14 +479,14 @@ async function handleSubmit() {
 }
 
 async function handleProject() {
-  if (!formId) {
+  if (!formId.value) {
     return;
   }
   projecting.value = true;
   try {
-    await client[props.game].announcement.project({ announcementId: formId });
+    await crud.project(formId.value);
     notify('投影完成');
-    await loadDetail(formId);
+    await loadDetail(formId.value);
   } catch (error) {
     notify('投影失败', errorMessage(error), 'error');
   } finally {
@@ -564,7 +497,7 @@ async function handleProject() {
 async function handleApply() {
   applying.value = true;
   try {
-    const result = await client[props.game].announcement.apply({ dryRun: false });
+    const result = await crud.apply(false);
     if (result.warnings.length > 0) {
       notify('应用完成(有警告)', result.warnings.slice(0, 3).join(';'), 'warning');
     } else {
@@ -588,7 +521,7 @@ async function handleDelete() {
   }
   deleting.value = true;
   try {
-    await client[props.game].announcement.remove({ id: deleteTarget.value.id });
+    await crud.remove(deleteTarget.value.id);
     notify('删除成功');
     deleteModalOpen.value = false;
     if (selectedId.value === deleteTarget.value.id) {

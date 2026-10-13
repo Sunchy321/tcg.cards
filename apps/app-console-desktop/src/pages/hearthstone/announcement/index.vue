@@ -1,39 +1,19 @@
 <template>
   <div class="flex h-full gap-4">
     <!-- Sidebar list -->
-    <div class="sticky top-0 flex max-h-[calc(100vh-6rem)] w-64 shrink-0 flex-col rounded-xl border border-slate-200 bg-white">
-      <div class="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-3">
-        <span class="text-sm font-medium text-slate-700">公告列表</span>
-        <div class="flex items-center gap-1">
-          <UButton icon="i-lucide-globe" size="xs" variant="ghost" :loading="crawling" @click="handleCrawl" />
-          <UButton icon="i-lucide-plus" size="xs" variant="ghost" @click="createNew" />
-        </div>
-      </div>
-      <div class="flex-1 overflow-y-auto p-2">
-        <div
-          v-for="item in announcements"
-          :key="item.id"
-          class="group relative flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 transition-colors"
-          :class="selectedId === item.id ? 'bg-primary-50 text-primary-700' : 'hover:bg-slate-100'"
-          @click="selectAnnouncement(item)"
-        >
-          <div class="min-w-0 flex-1">
-            <div class="truncate text-sm font-medium">{{ item.name }}</div>
-            <div class="flex items-center gap-1 text-xs text-slate-400">
-              <span>{{ item.date }}</span>
-              <span>·</span>
-              <span>{{ sourceLabel(item.source) }}</span>
-            </div>
-          </div>
-          <UBadge :label="`${item.itemCount ?? 0} 条`" color="neutral" variant="soft" size="xs" class="shrink-0" />
-          <UButton icon="i-lucide-trash-2" color="error" variant="ghost" size="xs" class="opacity-0 group-hover:opacity-100" @click.stop="confirmDelete(item)" />
-        </div>
-        <p v-if="announcements.length === 0 && !loading" class="py-8 text-center text-sm text-slate-400">暂无公告</p>
-        <div v-if="loading" class="flex justify-center py-8">
-          <UIcon name="i-lucide-loader-circle" class="size-5 animate-spin text-slate-400" />
-        </div>
-      </div>
-    </div>
+    <AnnouncementListPanel
+      :announcements="announcements"
+      :loading="loading"
+      :selected-id="selectedId"
+      :source-label="sourceLabel"
+      @select="selectAnnouncement"
+      @create="createNew"
+      @delete="confirmDelete"
+    >
+      <template #header-extra>
+        <UButton icon="i-lucide-globe" size="xs" variant="ghost" :loading="crawling" @click="handleCrawl" />
+      </template>
+    </AnnouncementListPanel>
 
     <!-- Edit panel -->
     <div class="flex min-h-0 flex-1 flex-col rounded-xl border border-slate-200 bg-white">
@@ -58,50 +38,32 @@
           </div>
         </div>
           <div class="p-5 space-y-4">
-          <div class="grid grid-cols-4 gap-4">
-            <UFormField label="来源" required>
-              <USelect v-model="form.source" :items="sourceOptions" class="w-full" />
-            </UFormField>
-            <UFormField label="日期" required>
-              <UInput v-model="form.date" type="date" />
-            </UFormField>
-            <UFormField label="生效日期">
-              <UInput v-model="form.effectiveDate" type="date" />
-            </UFormField>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <UFormField label="版本" required>
-              <USelect v-model="form.version" :items="patchOptions" placeholder="选择版本" class="w-full" />
-            </UFormField>
-            <UFormField label="对比版本">
-              <USelect :model-value="form.lastVersion ?? 'same'" :items="patchOptionsWithEmpty" placeholder="留空则与版本相同" class="w-full" @update:model-value="form.lastVersion = $event === 'same' ? undefined : Number($event)" />
-            </UFormField>
-          </div>
-          <UFormField label="名称" required>
-            <UInput v-model="form.name" placeholder="输入公告名称" />
-          </UFormField>
-          <UFormField label="链接">
-            <div class="space-y-2">
-              <div v-for="(link, index) in form.link" :key="index" class="space-y-2">
-                <div class="flex gap-2">
-                  <UInput v-model="link.url" placeholder="URL" class="flex-1" @update:model-value="handleUrlChange(link, $event)" />
-                  <UInput v-model="link.label" placeholder="标签 (可选)" class="w-32" />
-                  <UButton icon="i-lucide-external-link" size="sm" color="neutral" variant="ghost" :disabled="!link.url" @click="openUrl(link.url)" />
-                  <UButton icon="i-lucide-sparkles" size="sm" color="primary" variant="ghost" :class="{ invisible: link.label !== 'blizzard' }" :disabled="!aiConfigured || !link.url" :loading="link._parsing" @click="handleAiParse(index)" />
-                  <UButton icon="i-lucide-x" color="error" variant="ghost" size="sm" @click="removeLink(index)" />
-                </div>
-                <AnnouncementAiParsePanel
-                  v-if="parseLinkIndex === index"
-                  :name="form.name"
-                  :link="link"
-                  @result="applyParseResult"
-                  @settled="onParseSettled"
-                  @close="closeParsePanel(index)"
-                />
+          <AnnouncementFields :form="form" :sources="sourceOptions" @url-change="handleUrlChange">
+            <template #fields-extra>
+              <div class="grid grid-cols-2 gap-4">
+                <UFormField label="版本" required>
+                  <USelect v-model="form.version" :items="patchOptions" placeholder="选择版本" class="w-full" />
+                </UFormField>
+                <UFormField label="对比版本">
+                  <USelect :model-value="form.lastVersion ?? 'same'" :items="patchOptionsWithEmpty" placeholder="留空则与版本相同" class="w-full" @update:model-value="form.lastVersion = $event === 'same' ? undefined : Number($event)" />
+                </UFormField>
               </div>
-              <UButton icon="i-lucide-plus" label="添加链接" variant="ghost" size="sm" @click="addLink" />
-            </div>
-          </UFormField>
+            </template>
+            <template #link-actions="{ link, index }">
+              <UButton icon="i-lucide-external-link" size="sm" color="neutral" variant="ghost" :disabled="!link.url" @click="openUrl(link.url)" />
+              <UButton icon="i-lucide-sparkles" size="sm" color="primary" variant="ghost" :class="{ invisible: link.label !== 'blizzard' }" :disabled="!aiConfigured || !link.url" :loading="link._parsing" @click="handleAiParse(index)" />
+            </template>
+            <template #link-below="{ link, index }">
+              <AnnouncementAiParsePanel
+                v-if="parseLinkIndex === index"
+                :name="form.name"
+                :link="link"
+                @result="applyParseResult"
+                @settled="onParseSettled"
+                @close="closeParsePanel(index)"
+              />
+            </template>
+          </AnnouncementFields>
 
           <!-- Items -->
           <div class="border-t border-slate-200 pt-4">
@@ -441,6 +403,8 @@
 <script setup lang="ts">
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useDesktopRuntimeClient } from '~/composables/useDesktopRuntimeClient';
+import { useAnnouncementCrud } from '~/composables/useAnnouncementCrud';
+import { provideAnnouncementForm } from '~/composables/useAnnouncementForm';
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { VueDraggable } from 'vue-draggable-plus';
 import { changeStatusByType, glowPart, group as groupEnum } from '#model/hearthstone/schema/announcement';
@@ -458,6 +422,7 @@ import type { Locale } from '@tcg-cards/model/hearthstone/schema/basic';
 definePageMeta({ layout: 'admin', title: '公告管理' });
 
 const client = useDesktopRuntimeClient();
+const crud = useAnnouncementCrud('hearthstone');
 
 interface LinkEntry { url: string, label?: string, _parsing?: boolean }
 /** Stores display-only render model corrections for both sides of an item. */
@@ -1117,6 +1082,8 @@ const form = reactive({
   link:          [] as LinkEntry[], items:         [] as ItemForm[],
 });
 
+provideAnnouncementForm(form);
+
 /** Card items shown in the image-only gallery (only types that render a card image). */
 const imageItems = computed(() => form.items.filter(item => expectedSides(item.type).length > 0));
 
@@ -1407,14 +1374,12 @@ function selectAnnouncement(item: any) {
 }
 
 async function loadDetail(id: string) {
-  try {
-    const detail: any = await client.hearthstone.announcement.get({ id });
-    if (selectedId.value !== id) return;
-    fillForm(detail);
-    await loadExistingImages();
-    // Initial hydration done; from here on, cardId edits refresh their own image.
-    hydrated.value = true;
-  } catch (e: any) { showToast('加载详情失败', e.message, 'error'); }
+  const detail: any = await crud.get(id);
+  if (detail == null || selectedId.value !== id) return;
+  fillForm(detail);
+  await loadExistingImages();
+  // Initial hydration done; from here on, cardId edits refresh their own image.
+  hydrated.value = true;
 }
 
 async function loadExistingImages() {
@@ -1503,10 +1468,6 @@ function createNew() {
   isCreating.value = true;
 }
 
-function addLink() {
-  form.link.push({ url: '', label: '' });
-}
-
 const AUTO_LABELS: Record<string, string> = {
   'playhearthstone.com':      'blizzard',
   'hearthstone.blizzard.com': 'blizzard',
@@ -1546,10 +1507,6 @@ async function handleCrawl() {
   } catch (e: any) {
     showToast('获取失败', e.message, 'error');
   } finally { crawling.value = false; }
-}
-
-function removeLink(i: number) {
-  form.link.splice(i, 1);
 }
 
 /** Appends a new item inheriting type/format/status from the previous one, if any. */
@@ -1904,9 +1861,7 @@ function closeParsePanel(index: number) {
 async function loadAnnouncements() {
   loading.value = true;
   try {
-    announcements.value = (await client.hearthstone.announcement.list({})) as any[];
-  } catch (e: any) {
-    showToast('加载失败', e.message, 'error');
+    announcements.value = await crud.list();
   } finally {
     loading.value = false;
   }
@@ -1958,13 +1913,13 @@ async function saveAnnouncement(): Promise<string | null> {
 
     const payload = buildPayload();
     if (isCreating.value) {
-      const created = await client.hearthstone.announcement.create(payload);
+      const created = await crud.create(payload);
       form.id = created.id;
       isCreating.value = false;
       return created.id;
     }
     if (form.id) {
-      await client.hearthstone.announcement.update({ id: form.id, ...payload });
+      await crud.update(form.id, payload);
       return form.id;
     }
     return null;
@@ -2063,7 +2018,7 @@ async function handleProject() {
   if (!form.id) return;
   projecting.value = true;
   try {
-    await client.hearthstone.announcement.project({ announcementId: form.id });
+    await crud.project(form.id);
     showToast('投影完成', '', 'success');
     await loadDetail(form.id);
   } catch (e: any) {
@@ -2078,7 +2033,7 @@ function confirmDelete(item: any) {
 }
 async function handleDelete(item: any) {
   try {
-    await client.hearthstone.announcement.remove({ id: item.id });
+    await crud.remove(item.id);
     showToast('删除成功', '', 'success');
     if (selectedId.value === item.id) resetForm();
     await loadAnnouncements();
