@@ -135,6 +135,7 @@ export function announcementToYaml(form: AnnouncementFormData, config: Announcem
     name:          form.name,
     link:          form.link.filter(l => l.url),
     items:         form.items.map(item => {
+      const related = parseRelatedCards(item.relatedCards);
       const row: Record<string, unknown> = {
         type:          item.type,
         effectiveDate: item.effectiveDate || null,
@@ -145,8 +146,11 @@ export function announcementToYaml(form: AnnouncementFormData, config: Announcem
         cardId:        item.cardId || null,
         setId:         item.setId || null,
         ruleId:        item.ruleId || null,
-        relatedCards:  parseRelatedCards(item.relatedCards),
       };
+      // An empty relatedCards list is noise in YAML; the parser treats absence as empty.
+      if (related.length > 0) {
+        row.relatedCards = related;
+      }
       if (fields.prevVersion) {
         row.prevVersion = item.prevVersion || null;
       }

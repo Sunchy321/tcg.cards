@@ -1,5 +1,6 @@
 <template>
-  <div class="flex h-full gap-4 overflow-hidden p-4">
+  <!-- 100vh minus the admin header (h-14) and main's p-6: the exact one-page height; this page's p-4 lives inside it. -->
+  <div class="flex max-h-[calc(100vh-6.5rem)] gap-4 overflow-hidden p-4">
     <AnnouncementListPanel
       :announcements="announcements"
       :loading="loading"
@@ -121,25 +122,23 @@
                     <UInput v-model="item.prevVersion" type="date" />
                   </UFormField>
                 </div>
-                <div class="mt-3 grid grid-cols-4 gap-3">
-                  <UFormField label="卡牌ID">
-                    <UInput v-model="item.cardId" placeholder="card id" />
+                <!-- Entity references are mutually exclusive by type: card types carry
+                     cardId (+ relatedCards), set_change carries setId, rule_change
+                     carries ruleId, and the format lifecycle types carry none. -->
+                <div v-if="entityKindOf(item.type) !== 'none'" class="mt-3 grid grid-cols-4 gap-3">
+                  <UFormField v-if="entityKindOf(item.type) === 'card'" label="卡牌ID">
+                    <UInput v-model="item.cardId" placeholder="card id 或 #分组哨兵" />
                   </UFormField>
-                  <UFormField label="系列ID">
-                    <UInput v-model="item.setId" placeholder="set id" />
-                  </UFormField>
-                  <UFormField label="规则ID">
-                    <UInput v-model="item.ruleId" placeholder="rule id" />
-                  </UFormField>
-                  <UFormField label="分组">
+                  <UFormField v-if="entityKindOf(item.type) === 'card'" label="分组">
                     <UInput v-model="item.group" placeholder="分组键" />
                   </UFormField>
-                </div>
-                <div class="mt-3 grid grid-cols-2 gap-3">
-                  <UFormField label="relatedCards (逗号分隔)">
-                    <UInput v-model="item.relatedCards" placeholder="card1, card2" />
+                  <UFormField v-if="entityKindOf(item.type) === 'set'" label="系列ID">
+                    <UInput v-model="item.setId" placeholder="set id" />
                   </UFormField>
-                  <UFormField label="分数">
+                  <UFormField v-if="entityKindOf(item.type) === 'rule'" label="规则ID">
+                    <UInput v-model="item.ruleId" placeholder="rule id" />
+                  </UFormField>
+                  <UFormField v-if="item.status === 'score'" label="分数">
                     <UInputNumber v-model="item.score" :min="1" placeholder="分数" />
                   </UFormField>
                 </div>
@@ -273,6 +272,20 @@ const applyEnabled = computed(() => props.apply ?? false);
 
 const statusOptionsFor = (type: string) =>
   statusOptionsOfType(type, props.config).map(s => ({ label: props.statusLabels[s] ?? s, value: s }));
+
+/** Which entity reference an item type carries: card types use cardId, set_change uses setId, rule_change uses ruleId, the format lifecycle types use none. */
+function entityKindOf(type: string): 'card' | 'set' | 'rule' | 'none' {
+  if (type === 'set_change') {
+    return 'set';
+  }
+  if (type === 'rule_change') {
+    return 'rule';
+  }
+  if (type === 'card_change' || type === 'card_update' || type === 'card_split' || type === 'card_merge') {
+    return 'card';
+  }
+  return 'none';
+}
 
 function notify(title: string, description?: string, color: 'error' | 'success' | 'warning' = 'success') {
   toast.add({ title, description, color });
@@ -425,23 +438,26 @@ function toPayload() {
     version:               fields.versionFields ? form.version : undefined,
     lastVersion:           fields.versionFields ? (form.lastVersion ?? null) : undefined,
     link:                  form.link.filter(l => l.url),
-    items:                 form.items.map(item => ({
-      type:          item.type,
-      effectiveDate: item.effectiveDate || null,
-      format:        item.format || null,
-      status:        normalizeItemStatus(item.type, item.status, props.config) || null,
-      score:         item.score ?? null,
-      group:         item.group || null,
-      prevVersion:   fields.prevVersion ? (item.prevVersion || null) : undefined,
-      version:       fields.versionFields ? item.version : undefined,
-      lastVersion:   fields.versionFields ? (item.lastVersion ?? null) : undefined,
-      cardId:        item.cardId || null,
-      setId:         item.setId || null,
-      ruleId:        item.ruleId || null,
-      relatedCards:  parseRelatedCards(item.relatedCards),
-      delta:         fields.deltaGlow ? jsonOrNull(item.delta) : undefined,
-      glow:          fields.deltaGlow ? jsonOrNull(item.glow) : undefined,
-    })),
+    items:                 form.items.map(item => {
+      const kind = entityKindOf(item.type);
+      return {
+        type:          item.type,
+        effectiveDate: item.effectiveDate || null,
+        format:        item.format || null,
+        status:        normalizeItemStatus(item.type, item.status, props.config) || null,
+        score:         item.status === 'score' ? (item.score ?? null) : null,
+        group:         kind === 'card' ? (item.group || null) : null,
+        prevVersion:   fields.prevVersion ? (item.prevVersion || null) : undefined,
+        version:       fields.versionFields ? item.version : undefined,
+        lastVersion:   fields.versionFields ? (item.lastVersion ?? null) : undefined,
+        cardId:        kind === 'card' ? (item.cardId || null) : null,
+        setId:         kind === 'set' ? (item.setId || null) : null,
+        ruleId:        kind === 'rule' ? (item.ruleId || null) : null,
+        relatedCards:  kind === 'card' ? parseRelatedCards(item.relatedCards) : [],
+        delta:         fields.deltaGlow ? jsonOrNull(item.delta) : undefined,
+        glow:          fields.deltaGlow ? jsonOrNull(item.glow) : undefined,
+      };
+    }),
   };
 }
 

@@ -1,5 +1,6 @@
 <template>
-  <div class="flex h-full gap-4">
+  <!-- 100vh minus the admin header (h-14) and main's p-6: the exact one-page height. -->
+  <div class="flex max-h-[calc(100vh-6.5rem)] gap-4 overflow-hidden">
     <!-- Sidebar list -->
     <AnnouncementListPanel
       :announcements="announcements"
@@ -16,9 +17,9 @@
     </AnnouncementListPanel>
 
     <!-- Edit panel -->
-    <div class="flex min-h-0 flex-1 flex-col rounded-xl border border-slate-200 bg-white">
+    <div class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
       <template v-if="selectedAnnouncement || isCreating">
-        <div class="sticky top-0 z-10 flex items-center justify-between rounded-t-xl border-b border-slate-200 bg-white px-5 py-3">
+        <div class="flex shrink-0 items-center justify-between rounded-t-xl border-b border-slate-200 bg-white px-5 py-3">
           <span class="text-sm text-slate-500">编辑公告</span>
           <div class="flex items-center gap-2">
             <UButton v-if="form.id" icon="i-lucide-wand" label="投影" color="neutral" variant="ghost" size="sm" :loading="projecting" @click="handleProject" />
@@ -37,7 +38,7 @@
             <UButton label="保存" size="sm" :loading="saving" @click="handleSubmit" />
           </div>
         </div>
-          <div class="p-5 space-y-4">
+          <div class="min-h-0 flex-1 overflow-y-auto p-5 space-y-4">
           <AnnouncementFields :form="form" :sources="sourceOptions" @url-change="handleUrlChange">
             <template #fields-extra>
               <div class="grid grid-cols-2 gap-4">

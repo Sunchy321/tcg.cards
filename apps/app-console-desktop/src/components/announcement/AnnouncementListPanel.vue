@@ -1,5 +1,5 @@
 <template>
-  <div class="flex w-64 shrink-0 flex-col self-start rounded-xl border border-slate-200 bg-white">
+  <div class="flex w-64 shrink-0 flex-col rounded-xl border border-slate-200 bg-white">
     <div class="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-3">
       <span class="text-sm font-medium text-slate-700">公告列表</span>
       <div class="flex items-center gap-1">
@@ -8,7 +8,7 @@
         <UButton icon="i-lucide-plus" size="xs" variant="ghost" @click="emit('create')" />
       </div>
     </div>
-    <div class="max-h-full flex-1 overflow-y-auto p-2">
+    <div class="min-h-0 flex-1 overflow-y-auto p-2">
       <div
         v-for="item in filteredAnnouncements"
         :key="item.id"
