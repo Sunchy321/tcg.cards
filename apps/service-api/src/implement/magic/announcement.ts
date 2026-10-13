@@ -16,6 +16,7 @@ type AnnouncementRow = {
   effectiveDateTabletop: string | null;
   effectiveDateOnline:   string | null;
   effectiveDateArena:    string | null;
+  prevVersion:           string | null;
   nextDate:              string | null;
   link:                  { url: string, label?: string }[];
   createdAt:             Date;
@@ -31,6 +32,7 @@ const toAnnouncement = (r: AnnouncementRow) => ({
   effectiveDateTabletop: r.effectiveDateTabletop ?? null,
   effectiveDateOnline:   r.effectiveDateOnline ?? null,
   effectiveDateArena:    r.effectiveDateArena ?? null,
+  prevVersion:           r.prevVersion ?? null,
   nextDate:              r.nextDate ?? null,
   link:                  r.link,
   createdAt:             r.createdAt.toISOString(),

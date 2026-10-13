@@ -84,24 +84,24 @@ const changes = os
 
     const rows = await db
       .select({
-        item: AnnouncementItem,
+        item:         AnnouncementItem,
         announcement: {
-          date:         Announcement.date,
+          date:          Announcement.date,
           effectiveDate: Announcement.effectiveDate,
-          source:       Announcement.source,
-          name:         Announcement.name,
-          link:         Announcement.link,
+          source:        Announcement.source,
+          name:          Announcement.name,
+          link:          Announcement.link,
         },
       })
       .from(AnnouncementItem)
       .innerJoin(Announcement, eq(Announcement.id, AnnouncementItem.announcementId))
       // Match the format either by the raw item.format value or by the projected
-      // resolved_formats array. Global (format IS NULL) items stay excluded.
+      // projection.formats array. Global (format IS NULL) items stay excluded.
       .where(and(
         isNotNull(AnnouncementItem.format),
         or(
           eq(AnnouncementItem.format, formatId),
-          sql`${AnnouncementItem.resolved_formats} @> ARRAY[${formatId}]::text[]`,
+          sql`(${AnnouncementItem.projection}->'formats') @> ${JSON.stringify([formatId])}::jsonb`,
         ),
       ))
       .orderBy(asc(Announcement.date), asc(AnnouncementItem.order));

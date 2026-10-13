@@ -101,6 +101,8 @@ export const announcementItem = z.strictObject({
   score:         z.int().min(1).nullish(),
   group:         z.string().nullable(),
 
+  prevVersion: z.string().nullable(),
+
   delta: z.any().nullable(),
   glow:  glowEntry.array().nullable(),
 
@@ -109,8 +111,10 @@ export const announcementItem = z.strictObject({
   ruleId:       z.string().nullable(),
   relatedCards: z.string().array(),
 
-  resolved_formats: z.string().array(),
-  resolved_cards:   z.string().array(),
+  projection: z.object({
+    formats: z.array(z.string()),
+    cards:   z.array(z.string()),
+  }).catchall(z.unknown()),
 
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -127,6 +131,8 @@ export const announcement = z.strictObject({
   effectiveDateTabletop: z.string().nullable(),
   effectiveDateOnline:   z.string().nullable(),
   effectiveDateArena:    z.string().nullable(),
+
+  prevVersion: z.string().nullable(),
 
   nextDate: z.string().nullable(),
 
