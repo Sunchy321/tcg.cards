@@ -1,5 +1,7 @@
 import z from 'zod';
 
+import { defineChangeStatusByType } from '../../game-change';
+
 export const gameChangeType = z.enum([
   'card_change',
   'card_update',
@@ -7,6 +9,8 @@ export const gameChangeType = z.enum([
   'rule_change',
   'format_birth',
   'format_death',
+  'card_split',
+  'card_merge',
 ]);
 
 export const legality = z.enum([
@@ -52,6 +56,27 @@ export type GameChangeType = z.infer<typeof gameChangeType>;
 export type Legality = z.infer<typeof legality>;
 export type ChangeStatus = z.infer<typeof changeStatus>;
 export type Legalities = Record<string, Legality>;
+
+/** Allowed statuses and the fallback status per change type (see game-change). */
+export const changeStatusByType = defineChangeStatusByType(gameChangeType.options, {
+  card_update: {
+    statuses: ['buff', 'nerf', 'tweak', 'revert', 'rework', 'text_fix', 'text_adjust', 'bugged', 'bugfix'],
+    default:  'buff',
+  },
+  card_change: {
+    statuses: [...legality.options],
+    default:  'banned',
+  },
+  set_change: {
+    statuses: [...legality.options, 'extend'],
+    default:  'legal',
+  },
+  rule_change:  { statuses: [], default: null },
+  format_birth: { statuses: [], default: null },
+  format_death: { statuses: [], default: null },
+  card_split:   { statuses: [], default: null },
+  card_merge:   { statuses: [], default: null },
+});
 
 export const linkEntry = z.strictObject({
   url:   z.string().url(),

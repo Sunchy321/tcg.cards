@@ -1,5 +1,7 @@
 import z from 'zod';
 
+import { defineChangeStatusByType } from '../../game-change';
+
 export const gameChangeType = z.enum([
   'card_change',
   'card_update',
@@ -49,12 +51,8 @@ export type Legality = z.infer<typeof legality>;
 export type ChangeStatus = z.infer<typeof changeStatus>;
 export type Legalities = Record<string, Legality>;
 
-/**
- * Allowed statuses and the fallback status per change type. The editor dropdown,
- * type-change normalization, and YAML validation all share this single source.
- * Types without an entry have no status (null means "empty").
- */
-export const changeStatusByType: Record<GameChangeType, { statuses: ChangeStatus[], default: ChangeStatus | null }> = {
+/** Allowed statuses and the fallback status per change type (see game-change). */
+export const changeStatusByType = defineChangeStatusByType(gameChangeType.options, {
   card_update: {
     statuses: ['unknown', 'buff', 'nerf', 'tweak', 'revert', 'rework', 'text_fix', 'text_adjust', 'bugged', 'bugfix'],
     default:  'buff',
@@ -70,7 +68,7 @@ export const changeStatusByType: Record<GameChangeType, { statuses: ChangeStatus
   rule_change:  { statuses: [], default: null },
   format_birth: { statuses: [], default: null },
   format_death: { statuses: [], default: null },
-};
+});
 
 export const linkEntry = z.strictObject({
   url:   z.url(),
