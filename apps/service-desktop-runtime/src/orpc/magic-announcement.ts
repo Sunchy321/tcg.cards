@@ -2,12 +2,14 @@ import { ORPCError } from '@orpc/server';
 import { z } from 'zod';
 import { and, asc, desc, eq, inArray, lte, sql } from 'drizzle-orm';
 
-import { changeStatus, gameChangeType } from '@tcg-cards/model/magic/schema/announcement';
-import { Announcement, AnnouncementItem, Card, CardPart, Print } from '@tcg-cards/db/schema/local/magic';
+import { changeStatus, gameChangeType, type Legality } from '@tcg-cards/model/magic/schema/announcement';
+import { Announcement, AnnouncementItem, Card, CardPart, Format, Print } from '@tcg-cards/db/schema/local/magic';
+import { Set as SetTable } from '@tcg-cards/db/schema/shared/magic/set';
 
 import { os } from './index';
 import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
 import { groupCardLists } from '../lib/magic/announcement/data/card-groups';
+import { runApply, type ApplyCardMeta } from '../lib/magic/announcement/apply';
 import {
   isSentinelCardId,
   projectItem,
@@ -277,6 +279,110 @@ const project = os
     }
   });
 
+const apply = os
+  .input(z.object({ dryRun: z.boolean().optional() }))
+  .output(z.object({ warnings: z.string().array(), formatCount: z.number().int(), dryRun: z.boolean() }))
+  .handler(async ({ input }) => {
+    const db = getLocalDb();
+    const [formats, sets, announcements] = await Promise.all([
+      db.select().from(Format),
+      db.select({ setId: SetTable.setId, type: SetTable.type, releaseDate: SetTable.releaseDate }).from(SetTable),
+      db.select().from(Announcement).orderBy(asc(Announcement.date)),
+    ]);
+    const items = announcements.length > 0
+      ? await db.select().from(AnnouncementItem)
+      : [];
+
+    const groupNames = [...new Set(items
+      .filter(i => i.cardId != null && isSentinelCardId(i.cardId))
+      .map(i => i.cardId!.slice(1)))];
+    const groupCards = await resolveGroupCards(db, groupNames);
+    const sentinelCardIds = [...new Set(Object.values(groupCards).flat())];
+
+    const cardMeta: Record<string, ApplyCardMeta> = {};
+    for (const cardId of sentinelCardIds) {
+      cardMeta[cardId] = { typeMain: [], rarities: [], sets: [], releaseDate: null };
+    }
+    if (sentinelCardIds.length > 0) {
+      const typeRows = await db.select({ cardId: Card.cardId, typeMain: CardPart.typeMain })
+        .from(Card)
+        .innerJoin(CardPart, and(eq(CardPart.cardId, Card.cardId), eq(CardPart.version, Card.version)))
+        .where(inArray(Card.cardId, sentinelCardIds));
+      const printRows = await db.select({
+        cardId:      Print.cardId,
+        set:         Print.set,
+        rarity:      Print.rarity,
+        releaseDate: Print.releaseDate,
+      })
+        .from(Print)
+        .where(inArray(Print.cardId, sentinelCardIds));
+
+      for (const row of typeRows) {
+        const meta = cardMeta[row.cardId];
+        if (meta == null) {
+          continue;
+        }
+        for (const type of row.typeMain) {
+          if (!meta.typeMain.includes(type)) {
+            meta.typeMain.push(type);
+          }
+        }
+      }
+      for (const row of printRows) {
+        const meta = cardMeta[row.cardId];
+        if (meta == null) {
+          continue;
+        }
+        if (!meta.rarities.includes(row.rarity)) {
+          meta.rarities.push(row.rarity);
+        }
+        if (!meta.sets.includes(row.set)) {
+          meta.sets.push(row.set);
+        }
+        if (meta.releaseDate == null || row.releaseDate < meta.releaseDate) {
+          meta.releaseDate = row.releaseDate;
+        }
+      }
+    }
+
+    const result = runApply({
+      formats:       formats.map(f => ({ formatId: f.formatId, birthday: f.birthday, deathdate: f.deathdate })),
+      sets,
+      announcements: announcements.map(a => ({
+        date:          a.date,
+        effectiveDate: a.effectiveDate,
+        items:         items
+          .filter(i => i.announcementId === a.id)
+          .map(i => ({
+            type:          i.type,
+            effectiveDate: i.effectiveDate,
+            format:        i.format,
+            status:        i.status,
+            score:         i.score,
+            group:         i.group,
+            cardId:        i.cardId,
+            setId:         i.setId,
+            relatedCards:  i.relatedCards,
+          })),
+      })),
+      cardMeta,
+      groupCards,
+      today: new Date().toISOString().split('T')[0]!,
+    });
+
+    if (!input.dryRun) {
+      for (const f of result.formats) {
+        await db.update(Format).set({
+          sets:    f.sets,
+          // Banlist statuses arrive as validated text and narrow to the model's legality enum here.
+          banlist: f.banlist.map(e => ({ ...e, status: e.status as Legality })),
+        }).where(eq(Format.formatId, f.formatId));
+      }
+    }
+
+    return { warnings: result.warnings, formatCount: result.formats.length, dryRun: input.dryRun ?? false };
+  });
+
 export const magicAnnouncementRouter = {
   list,
   get,
@@ -284,4 +390,5 @@ export const magicAnnouncementRouter = {
   update,
   remove,
   project,
+  apply,
 };
