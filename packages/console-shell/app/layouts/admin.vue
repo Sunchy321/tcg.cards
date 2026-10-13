@@ -230,7 +230,7 @@ const currentTitle = computed(() => {
 
   const match = items
     .filter(item => route.path === item.to || (item.to !== '/' && route.path.startsWith(`${item.to}/`)))
-    .sort((a, b) => b.to.length - a.to.length)[0];
+    .sort((a, b) => (b.to ?? '').length - (a.to ?? '').length)[0];
 
   return match?.label ?? '';
 });

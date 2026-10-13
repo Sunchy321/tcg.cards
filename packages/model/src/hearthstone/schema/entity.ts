@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { classes, locale, race, rarity, spellSchool, types } from './basic';
 
+import { ambit } from '../../ambit';
+
 import { RENDER_MECHANIC_IDS } from '../constant/tag';
 import { card } from './card';
 import { glowEntry } from './announcement';
@@ -147,6 +149,8 @@ export const entity = z.strictObject({
 
   dbfId:         z.int(),
   legacyPayload: z.record(z.string(), z.unknown()),
+
+  ambit,
 
   localization: entityLocalization.array(),
 

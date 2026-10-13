@@ -4,6 +4,7 @@
       "cardId": "incubator!",
       "version": "",
       "partCount": 2,
+      "ambit": "additional",
       "name": "Incubator // Phyrexian",
       "typeline": "Token Artifact — Incubator // Token Artifact Creature — Phyrexian",
       "manaValue": 0,
@@ -230,6 +231,6 @@
       ]
     }
   ],
-  "unified": [],
+  "authorities": [],
   "reviews": []
 }

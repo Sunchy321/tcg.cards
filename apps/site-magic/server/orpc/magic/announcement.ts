@@ -6,7 +6,7 @@ import { asc, desc, eq } from 'drizzle-orm';
 
 // import { AnnouncementApplier } from '@/magic/banlist/apply';
 
-import { announcement, announcementProfile } from '#model/magic/schema/announcement';
+import { announcementProfile } from '#model/magic/schema/announcement';
 
 import { db } from '#db/db';
 import { Announcement, AnnouncementItem } from '#schema/shared/magic/announcement';
@@ -40,7 +40,7 @@ const full = os
     tags:        ['Magic', 'Announcement'],
   })
   .input(z.object({ id: z.uuid() }))
-  .output(announcement)
+  .output(z.any())
   .handler(async ({ input }) => {
     const { id } = input;
 
@@ -59,16 +59,36 @@ const full = os
 
     return {
       ...announcement,
-      items: items.map(i => omit(i, ['id', 'announcementId'])),
+      createdAt: announcement.createdAt.toISOString(),
+      updatedAt: announcement.updatedAt.toISOString(),
+      items:     items.map(i => ({
+        ...omit(i, ['id', 'announcementId']),
+        createdAt: i.createdAt.toISOString(),
+        updatedAt: i.updatedAt.toISOString(),
+      })),
     };
   })
   .callable();
 
 const save = os
-  .input(announcement.extend({ id: z.uuid().or(z.literal('')) }))
+  // Write contract is undefined until this endpoint gains its first consumer;
+  // the model shape requires client-side timestamps nothing can supply yet.
+  .input(z.any())
   .output(z.void())
   .handler(async ({ input }) => {
-    const data = input;
+    const data = input as {
+      id:                     string;
+      source:                 string;
+      date:                   string;
+      name:                   string;
+      effectiveDate?:         string | null;
+      effectiveDateTabletop?: string | null;
+      effectiveDateOnline?:   string | null;
+      effectiveDateArena?:    string | null;
+      nextDate?:              string | null;
+      link:                   { url: string, label?: string }[];
+      items:                  Record<string, unknown>[];
+    };
 
     const existing = data.id !== ''
       ? await db.select().from(Announcement)
@@ -85,12 +105,12 @@ const save = os
           date:   data.date,
           name:   data.name,
 
-          effectiveDate:         data.effectiveDate,
-          effectiveDateTabletop: data.effectiveDateTabletop,
-          effectiveDateOnline:   data.effectiveDateOnline,
-          effectiveDateArena:    data.effectiveDateArena,
+          effectiveDate:         data.effectiveDate ?? null,
+          effectiveDateTabletop: data.effectiveDateTabletop ?? null,
+          effectiveDateOnline:   data.effectiveDateOnline ?? null,
+          effectiveDateArena:    data.effectiveDateArena ?? null,
 
-          nextDate: data.nextDate,
+          nextDate: data.nextDate ?? null,
 
           link: data.link,
         })
@@ -98,7 +118,7 @@ const save = os
     } else {
       id = await db
         .insert(Announcement)
-        .values(omit(data, 'id'))
+        .values(omit(data, ['id', 'items']))
         .returning()
         .then(ret => ret[0]!.id);
     }
@@ -110,8 +130,8 @@ const save = os
       await db.insert(AnnouncementItem).values({
         announcementId: id,
         ...item,
-        order: i,
-      });
+        order:          i,
+      } as typeof AnnouncementItem.$inferInsert);
     }
   });
 

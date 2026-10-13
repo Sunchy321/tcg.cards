@@ -4,6 +4,8 @@
   "oracleId": "98737456-ac2a-420d-aa0e-778ba3a22cec",
   "layout": "double_faced_token",
   "setName": "Tales of Middle-earth Tokens",
+  "set": "tltr",
+  "setType": "token",
   "cmc": 0,
   "colorIdentity": [],
   "keywords": [],

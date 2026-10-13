@@ -5,7 +5,7 @@ export type DocVersion = (typeof DOC_VERSIONS)[number];
 
 /** Extracts the version segment from a path, if present (e.g. /v1/magic/... -> v1). */
 export function versionFromPath(path: string): DocVersion | null {
-  const first = path.split('/').filter(Boolean)[0];
+  const first = path.split('/').filter(Boolean)[0] ?? '';
   return (DOC_VERSIONS as readonly string[]).includes(first) ? first as DocVersion : null;
 }
 

@@ -126,7 +126,7 @@ test('projection golden: ${slug}', () => {
   console.log(`  partLocs: ${result.cardPartLocalizations.length}`);
   console.log(`  prints: ${result.prints.length}`);
   console.log(`  printParts: ${result.printParts.length}`);
-  console.log(`  unified: ${result.unified.length}`);
+  console.log(`  authorities: ${result.authorities.length}`);
   console.log(`  reviews: ${result.reviews.length}`);
   console.log(`dir: ${dir}`);
   wrote++;

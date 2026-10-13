@@ -100,6 +100,15 @@ describe('slugifyCard', () => {
     expect(slugifyCard(card)).toBe('treasure!');
   });
 
+  test('slugs an art-back double-faced token by its front face attributes', () => {
+    const card: NormalizedCard = {
+      layout:  'token',
+      setName: 'Unstable Tokens',
+      faces:   [{ name: 'Zombie', typeLine: 'Token Creature — Zombie', oracleText: null, colors: ['B'], power: '2', toughness: '2' }],
+    };
+    expect(slugifyCard(card)).toBe('zombie!b-22');
+  });
+
   test('uses the name slug when it differs from the subtype', () => {
     const card = token({ face: { name: 'Peach Child', typeLine: 'Token Creature — Peach' } });
     expect(slugifyCard(card)).toBe('peach-child!');
@@ -133,6 +142,20 @@ describe('slugifyCard', () => {
   test('collapses to the Incubator marker', () => {
     const card = token({ face: { name: 'Incubator', typeLine: 'Token Artifact — Incubator', oracleText: '"{2}: Transform this artifact."' } });
     expect(slugifyCard(card)).toBe('incubator!');
+  });
+
+  test('keeps the Undercity dungeon on the plain slug other dungeons use', () => {
+    const card = token({
+      face: {
+        name:       'Undercity',
+        typeLine:   'Dungeon — Undercity',
+        oracleText: 'Secret Entrance — Search your library for a basic land card.\nForge — Put two +1/+1 counters on target creature.',
+        colors:     [],
+        power:      null,
+        toughness:  null,
+      },
+    });
+    expect(slugifyCard(card)).toBe('undercity');
   });
 
   test('joins double-face names with the double-dash boundary', () => {
@@ -191,14 +214,21 @@ describe('isSingleCardDoubleFacedToken', () => {
     expect(isSingleCardDoubleFacedToken(['Start Your Engines!', 'Max Speed'])).toBe(true);
   });
 
-  test('keeps continued playtest cards as one card', () => {
+  test('keeps minigame cards as one card', () => {
+    // the (cont'd) back marker alone decides, whatever the front is titled
     expect(isSingleCardDoubleFacedToken(['Base Race', 'Base Race (cont\'d)'])).toBe(true);
     expect(isSingleCardDoubleFacedToken(['Demon\'s Due (minigame)', 'Demon\'s Due (cont\'d)'])).toBe(true);
+    expect(isSingleCardDoubleFacedToken(['Day Vs. Night', 'Day vs. Night (cont\'d)'])).toBe(true);
+    expect(isSingleCardDoubleFacedToken(['Completely Unrelated', 'Something (cont\'d)'])).toBe(true);
+    // the one known minigame with an unrelated back title
+    expect(isSingleCardDoubleFacedToken(['Into the Story: Assassin Edition', 'Story Beats'])).toBe(true);
   });
 
   test('still splits regular two-token objects', () => {
     expect(isSingleCardDoubleFacedToken(['Goblin', 'Soldier'])).toBe(false);
     expect(isSingleCardDoubleFacedToken(['Goblin', 'Blood'])).toBe(false);
+    // an unrelated back title is not enough without the explicit entry
+    expect(isSingleCardDoubleFacedToken(['Into the Story: Horror Edition', 'Story Beats'])).toBe(false);
   });
 });
 
@@ -243,5 +273,19 @@ describe('toMatchUnits', () => {
     expect(units[1]!.key).toBe('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1');
     expect(units[1]!.card.layout).toBe('token');
     expect(units[1]!.card.faces[0]!.name).toBe('Treasure');
+  });
+
+  test('keeps an art-back double_faced_token as one plain-token unit (front face only)', () => {
+    const units = toMatchUnits(row({
+      layout:    'double_faced_token',
+      cardFaces: [
+        { name: 'Zombie', type_line: 'Token Creature — Zombie', oracle_text: null, colors: ['B'], power: '2', toughness: '2' },
+        { name: 'Zombie', type_line: 'Token', oracle_text: null, colors: null, power: null, toughness: null },
+      ],
+    }));
+    expect(units).toHaveLength(1);
+    expect(units[0]!.key).toBe('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
+    expect(units[0]!.card.layout).toBe('token');
+    expect(units[0]!.card.faces.map(f => f.name)).toEqual(['Zombie']);
   });
 });

@@ -10,28 +10,29 @@ import {
 /** Builds a minimal TaskRunRecord for use in snapshot tests. */
 function run(overrides: Partial<TaskRunRecord> & { status: TaskRunRecord['status'] }): TaskRunRecord {
   return {
-    id: 'test-run-uuid',
-    taskType: 'hearthstone_publish',
-    definitionVersion: 'v1',
-    scope: { type: 'publish_stream', key: 'hearthstone:production:card_data' },
-    params: {},
-    supportsResume: false,
-    currentStageKey: null,
-    currentStageIndex: null,
-    currentResumeMode: null,
-    pausedResumeMode: null,
-    runRevision: 1,
-    heartbeatAt: null,
-    startedAt: null,
-    finishedAt: null,
-    errorCode: null,
-    errorMessage: null,
-    terminalReason: null,
+    id:                 'test-run-uuid',
+    taskType:           'hearthstone_publish',
+    definitionVersion:  'v1',
+    scope:              { type: 'publish_stream', key: 'hearthstone:production:card_data' },
+    params:             {},
+    supportsResume:     false,
+    currentStageKey:    null,
+    currentStageIndex:  null,
+    currentResumeMode:  null,
+    pausedResumeMode:   null,
+    runRevision:        1,
+    heartbeatAt:        null,
+    startedAt:          null,
+    finishedAt:         null,
+    errorCode:          null,
+    errorMessage:       null,
+    terminalReason:     null,
     controlRequestKind: null,
-    runtimeBootId: null,
-    resumeContextKey: null,
-    retryOfTaskRunId: null,
+    runtimeBootId:      null,
+    resumeContextKey:   null,
+    retryOfTaskRunId:   null,
     ...overrides,
+    result:             overrides.result ?? null,
   };
 }
 
@@ -60,10 +61,10 @@ describe('snapshot', () => {
       for (const status of terminalStatuses) {
         const result = buildTaskPageSnapshot(snapshot({ status }));
         expect(result.pageTask).toMatchObject({
-          kind: 'attached',
+          kind:      'attached',
           status,
           canCancel: false,
-          canPause: false,
+          canPause:  false,
           canResume: false,
         });
       }
@@ -73,11 +74,11 @@ describe('snapshot', () => {
       const result = buildTaskPageSnapshot(snapshot({ status: 'pending' }));
 
       expect(result.pageTask).toMatchObject({
-        kind: 'attached',
-        status: 'pending',
-        canPause: false,
-        canResume: false,
-        canCancel: true,
+        kind:           'attached',
+        status:         'pending',
+        canPause:       false,
+        canResume:      false,
+        canCancel:      true,
         supportsResume: false,
       });
       expect(result.stages).toEqual([]);
@@ -87,9 +88,9 @@ describe('snapshot', () => {
       const result = buildTaskPageSnapshot(snapshot({ status: 'running' }));
 
       expect(result.pageTask).toMatchObject({
-        kind: 'attached',
-        status: 'running',
-        canPause: false,
+        kind:      'attached',
+        status:    'running',
+        canPause:  false,
         canResume: false,
         canCancel: true,
       });
@@ -101,9 +102,9 @@ describe('snapshot', () => {
       );
 
       expect(result.pageTask).toMatchObject({
-        kind: 'attached',
-        status: 'running',
-        canPause: true,
+        kind:      'attached',
+        status:    'running',
+        canPause:  true,
         canCancel: true,
       });
     });
@@ -114,9 +115,9 @@ describe('snapshot', () => {
       );
 
       expect(result.pageTask).toMatchObject({
-        kind: 'attached',
-        status: 'paused',
-        canPause: false,
+        kind:      'attached',
+        status:    'paused',
+        canPause:  false,
         canResume: true,
         canCancel: true,
       });
@@ -125,38 +126,38 @@ describe('snapshot', () => {
     test('passes through all page task fields for attached status', () => {
       const now = new Date().toISOString();
       const result = buildTaskPageSnapshot(snapshot({
-        status: 'running',
-        taskType: 'custom_type',
-        scope: { type: 'game_scope', key: 'game:mode:item', snapshot: { game: 'test' } },
-        runRevision: 5,
-        supportsResume: true,
-        currentStageKey: 'phase_two',
-        currentStageIndex: 1,
-        currentResumeMode: 'durable',
-        pausedResumeMode: null,
-        startedAt: now,
-        errorCode: 'ERR_001',
-        errorMessage: 'Something went wrong',
-        terminalReason: null,
+        status:             'running',
+        taskType:           'custom_type',
+        scope:              { type: 'game_scope', key: 'game:mode:item', snapshot: { game: 'test' } },
+        runRevision:        5,
+        supportsResume:     true,
+        currentStageKey:    'phase_two',
+        currentStageIndex:  1,
+        currentResumeMode:  'durable',
+        pausedResumeMode:   null,
+        startedAt:          now,
+        errorCode:          'ERR_001',
+        errorMessage:       'Something went wrong',
+        terminalReason:     null,
         controlRequestKind: null,
       }));
 
       expect(result.pageTask).toMatchObject({
-        kind: 'attached',
-        taskRunId: 'test-run-uuid',
-        runRevision: 5,
-        taskType: 'custom_type',
-        taskScopeType: 'game_scope',
-        taskScopeKey: 'game:mode:item',
+        kind:              'attached',
+        taskRunId:         'test-run-uuid',
+        runRevision:       5,
+        taskType:          'custom_type',
+        taskScopeType:     'game_scope',
+        taskScopeKey:      'game:mode:item',
         taskScopeSnapshot: { game: 'test' },
-        status: 'running',
-        supportsResume: true,
-        currentStageKey: 'phase_two',
+        status:            'running',
+        supportsResume:    true,
+        currentStageKey:   'phase_two',
         currentStageIndex: 1,
         currentResumeMode: 'durable',
-        startedAt: now,
-        errorCode: 'ERR_001',
-        errorMessage: 'Something went wrong',
+        startedAt:         now,
+        errorCode:         'ERR_001',
+        errorMessage:      'Something went wrong',
       });
     });
 

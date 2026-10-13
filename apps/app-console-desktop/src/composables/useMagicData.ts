@@ -12,6 +12,7 @@ export interface MagicDataState {
   scryfall: MagicDataFile[];
   mtgch:    { archives: MagicDataFile[] };
   mtgjson:  { dir: string | null, fileCount: number };
+  mtga:     { dir: string | null, cardDatabase: boolean };
 }
 
 /** Reads the Magic data directory state (discovered source files) from the desktop runtime. */

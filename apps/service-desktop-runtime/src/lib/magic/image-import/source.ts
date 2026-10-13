@@ -1,4 +1,4 @@
-import { and, isNull, notInArray, sql, type SQL } from 'drizzle-orm';
+import { and, inArray, isNull, sql, type SQL } from 'drizzle-orm';
 
 import { Gatherer, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
 import { Print } from '@tcg-cards/db/schema/shared/magic/print';
@@ -6,14 +6,20 @@ import { isTwoImageLayout, twoImageLayouts } from '@tcg-cards/shared/magic/print
 import type { ImageInfo } from '#model/magic/schema/print';
 
 import { faceIndexOf } from './common';
+import { probeImageImport } from './probe';
 
 /** Image sources fetched over HTTP rather than uploaded from local files. */
-export type RemoteImageSource = 'scryfall' | 'gatherer';
+export type RemoteImageSource = 'scryfall' | 'gatherer' | 'mtgch';
+
+/** A sweep source: either one remote source, or the gatherer-first hybrid. */
+export type SweepSource = RemoteImageSource | 'prefer_gatherer';
 
 /** One downloadable face of a queued print row. */
 export interface FaceTarget {
-  faceIndex: number;
-  url:       string;
+  faceIndex:    number;
+  url:          string;
+  /** Which remote source supplied this face; the ingest stamps it into the face meta. */
+  remoteSource: RemoteImageSource;
 }
 
 /** One print row queued for a remote download pass, with its resolvable faces. */
@@ -52,31 +58,39 @@ export function gathererFaceUrl(urls: Record<string, string> | null | undefined)
 }
 
 /**
- * Whether a row's images come one per face (front/back layouts, or a row pinned
- * to one face of such a card) instead of one shared image for the whole card.
+ * Whether a row stores one image per face (a front/back layout kept whole)
+ * instead of one shared image for the whole card. Rows pinned to one face of
+ * their scryfall card (reversible prints) store a single image — their own.
  */
-function perFaceImages(row: { layout: string, scryfallFace: string | null }): boolean {
-  return isTwoImageLayout(row.layout) || faceIndexOf(row.scryfallFace) != null;
+function twoImageRow(row: { layout: string, scryfallFace: string | null }): boolean {
+  return isTwoImageLayout(row.layout) && faceIndexOf(row.scryfallFace) == null;
 }
 
 /**
  * Expected number of printed images of one row as a SQL expression, for
- * `importablePrintCondition`. A card only carries a second image when its layout
- * prints one (see `isTwoImageLayout`) and its source actually has it: scryfall
- * puts per-face uris on front/back cards only, and gatherer serves the back
- * through `compositeCard`. Rows pinned to a single face always expect 1.
+ * `importablePrintCondition`. A card only carries a second image when its
+ * layout prints one (see `isTwoImageLayout`), the row is not pinned to a
+ * single face, and its source actually has it: scryfall puts per-face uris on
+ * front/back cards only, and gatherer serves the back through `compositeCard`.
+ * The hybrid expects whatever the better of the two sources can deliver,
+ * because its faces fall back per face.
  */
-export function remoteExpectedFaces(source: RemoteImageSource): SQL {
-  const singleImage = and(isNull(Print.scryfallFace), notInArray(Print.layout, [...twoImageLayouts]))!;
-  return source === 'scryfall'
-    ? sql`case when ${singleImage} then 1
-        when jsonb_array_length(coalesce(${ScryfallCard.cardFaces}, '[]'::jsonb)) > 1
-          and ${ScryfallCard.cardFaces}->0->'image_uris' is not null then 2
-        else 1 end`
-    : sql`case when ${singleImage} then 1
-        when ${Gatherer.data}->'compositeCard'->'imageUrls'->>'default' is not null
-          or ${Gatherer.data}->'compositeCard'->'imageUrls'->>'medium' is not null then 2
-        else 1 end`;
+export function remoteExpectedFaces(source: SweepSource): SQL {
+  const twoImages = and(inArray(Print.layout, [...twoImageLayouts]), isNull(Print.scryfallFace))!;
+  const scryfallExpr = sql`case when ${twoImages}
+      and jsonb_array_length(coalesce(${ScryfallCard.cardFaces}, '[]'::jsonb)) > 1
+      and ${ScryfallCard.cardFaces}->0->'image_uris' is not null then 2
+    else 1 end`;
+  const gathererExpr = sql`case when ${twoImages}
+      and (${Gatherer.data}->'compositeCard'->'imageUrls'->>'default' is not null
+        or ${Gatherer.data}->'compositeCard'->'imageUrls'->>'medium' is not null) then 2
+    else 1 end`;
+  if (source === 'scryfall') return scryfallExpr;
+  if (source === 'gatherer') return gathererExpr;
+  // mtgch hosts its zhs scans with a front/back split that mirrors scryfall's
+  // per-face structure, so its expected face count is scryfall's.
+  if (source === 'mtgch') return scryfallExpr;
+  return sql`greatest(${scryfallExpr}, ${gathererExpr})`;
 }
 
 interface QueueRowColumns {
@@ -92,22 +106,21 @@ interface QueueRowColumns {
 }
 
 /**
- * Turns the face urls of one row into a queue entry. Faces beyond the layout's
- * printed images and faces pinned out by the row's scryfall face are dropped;
- * faces without a url count as `missingUrl`.
+ * Turns the face urls of one row into a queue entry. The url arrays of the
+ * source rules are already aligned with the row's printed images (a pinned row
+ * resolves to its own single url), so slots are zipped positionally; slots
+ * without a url count as `missingUrl`.
  */
-function queueRow(row: QueueRowColumns, urls: Array<string | null>, skipped: RemoteSkipped): RemoteQueueRow | null {
-  const pinned = faceIndexOf(row.scryfallFace);
-  const faceCount: 1 | 2 = perFaceImages(row) ? 2 : 1;
+function queueRow(row: QueueRowColumns, urls: Array<string | null>, skipped: RemoteSkipped, remoteSource: RemoteImageSource): RemoteQueueRow | null {
+  const faceCount: 1 | 2 = twoImageRow(row) ? 2 : 1;
   const faces: FaceTarget[] = [];
   for (let i = 0; i < Math.min(urls.length, faceCount); i++) {
-    if (pinned != null && i !== pinned) continue;
     const url = urls[i];
     if (url == null) {
       skipped.missingUrl += 1;
       continue;
     }
-    faces.push({ faceIndex: i, url });
+    faces.push({ faceIndex: i, url, remoteSource });
   }
   if (faces.length === 0) return null;
   return {
@@ -142,16 +155,26 @@ export interface GathererImageRow extends QueueRowColumns {
   gathererData: GathererImageData | null;
 }
 
+/** Selected columns of one mtgch-side print row. */
+export interface MtgchImageRow extends QueueRowColumns {
+  /** Scryfall id of the English print of this set+number (the zhs scan key). */
+  scryfallEnCardId:    string | null;
+  scryfallImageStatus: string | null;
+}
+
 /**
  * Scryfall download urls of one row, one per printed image. Scryfall only gives
  * per-face uris when the faces have images of their own — adventure, split,
  * flip and prepare carry a single top-level uri map instead, so their card is
- * reached through it rather than through empty face entries.
+ * reached through it rather than through empty face entries. A row pinned to
+ * one face (a reversible print) resolves to that face's url alone.
  */
 export function scryfallRowUrls(row: ScryfallUrlColumns): Array<string | null> {
   const rawFaces = (row.scryfallCardFaces ?? []) as Array<{ image_uris?: Record<string, string> | null }>;
   const perFace = rawFaces.map(face => scryfallFaceUrl(face.image_uris));
-  return perFace.some(url => url != null) ? perFace : [scryfallFaceUrl(row.scryfallImageUris)];
+  const urls = perFace.some(url => url != null) ? perFace : [scryfallFaceUrl(row.scryfallImageUris)];
+  const pinned = faceIndexOf(row.scryfallFace);
+  return pinned != null ? [urls[pinned] ?? urls[0] ?? null] : urls;
 }
 
 /**
@@ -159,13 +182,17 @@ export function scryfallRowUrls(row: ScryfallUrlColumns): Array<string | null> {
  * the front multiverse id is the only way to reach a back image, but it repeats
  * the front image for cards whose parts share one printed image (adventure,
  * split, flip, meld and even some single-faced cards), so its `compositeCard` is
- * read for front/back layouts only.
+ * read for front/back layouts only — or for a row pinned to the back face,
+ * whose own image that composite is.
  */
 export function gathererRowUrls(row: GathererUrlColumns): Array<string | null> {
   const front = gathererFaceUrl(row.gathererData?.imageUrls);
-  return perFaceImages(row)
-    ? [front, gathererFaceUrl(row.gathererData?.compositeCard?.imageUrls)]
-    : [front];
+  const pinned = faceIndexOf(row.scryfallFace);
+  if (pinned != null) {
+    const back = gathererFaceUrl(row.gathererData?.compositeCard?.imageUrls);
+    return [pinned === 0 ? front : back];
+  }
+  return twoImageRow(row) ? [front, gathererFaceUrl(row.gathererData?.compositeCard?.imageUrls)] : [front];
 }
 
 /** Columns the scryfall url rule needs. */
@@ -177,10 +204,31 @@ interface ScryfallUrlColumns {
 }
 
 /** Columns the gatherer url rule needs. */
-interface GathererUrlColumns {
+export interface GathererUrlColumns {
   layout:       string;
   scryfallFace: string | null;
   gathererData: GathererImageData | null;
+}
+
+/** Columns the mtgch url rule needs. */
+export interface MtgchUrlColumns {
+  layout:           string;
+  scryfallFace:     string | null;
+  /** Scryfall id of the English print of this set+number: mtgch keys its zhs scans by the English print, not the zhs one. */
+  scryfallEnCardId: string | null;
+}
+
+/** Size tier of the mtgch zhs scan urls the import downloads (the largest hosted one). */
+const mtgchZhsSize = 'large';
+
+/**
+ * Direct zhs scan url of one scryfall card side: mtgch hosts its
+ * simplified-Chinese scans keyed by the English print's scryfall card id,
+ * under a front/back split that mirrors scryfall's own hosting, so no API
+ * roundtrip is needed.
+ */
+export function mtgchFaceUrl(scryfallCardId: string, side: 'front' | 'back'): string {
+  return `https://images.mtgch.com/zhs/${mtgchZhsSize}/${side}/${scryfallCardId.slice(0, 1)}/${scryfallCardId.slice(1, 2)}/${scryfallCardId}.webp`;
 }
 
 /** Queues one scryfall print row; placeholder art is skipped and counted. */
@@ -188,10 +236,37 @@ export function scryfallQueueRow(row: ScryfallImageRow, skipped: RemoteSkipped):
   // Placeholder art (unprinted/digital-only cards) would import as generic card
   // backs; keep it out of the queue regardless of the force mode.
   if (row.scryfallImageStatus === 'placeholder') {
+    probeImageImport({ kind: 'queue-skip-placeholder', number: row.number, scryfallImageStatus: JSON.stringify(row.scryfallImageStatus) });
     skipped.placeholder += 1;
     return null;
   }
-  return queueRow(row, scryfallRowUrls(row), skipped);
+  return queueRow(row, scryfallRowUrls(row), skipped, 'scryfall');
+}
+
+/**
+ * mtgch download urls of one row, one per printed image. Cards whose parts
+ * share one printed image have a front scan only, and a reversible print
+ * pinned to one face carries that side's scan alone.
+ */
+export function mtgchRowUrls(row: MtgchUrlColumns): Array<string | null> {
+  const id = row.scryfallEnCardId;
+  if (id == null || id.length < 2) return [null];
+  const front = mtgchFaceUrl(id, 'front');
+  const pinned = faceIndexOf(row.scryfallFace);
+  if (pinned != null) return [pinned === 0 ? front : mtgchFaceUrl(id, 'back')];
+  return twoImageRow(row) ? [front, mtgchFaceUrl(id, 'back')] : [front];
+}
+
+/** Queues one mtgch print row; scryfall placeholder art is skipped and counted. */
+export function mtgchQueueRow(row: MtgchImageRow, skipped: RemoteSkipped): RemoteQueueRow | null {
+  // Same placeholder rule as the scryfall queue: mtgch keys its scans by the
+  // scryfall card id, so an unprinted card has no real scan to reach either.
+  if (row.scryfallImageStatus === 'placeholder') {
+    probeImageImport({ kind: 'queue-skip-placeholder', number: row.number, scryfallImageStatus: JSON.stringify(row.scryfallImageStatus) });
+    skipped.placeholder += 1;
+    return null;
+  }
+  return queueRow(row, mtgchRowUrls(row), skipped, 'mtgch');
 }
 
 /** Queues one gatherer print row from its cache urls. */
@@ -200,5 +275,34 @@ export function gathererQueueRow(row: GathererImageRow, skipped: RemoteSkipped):
     skipped.missingId += 1;
     return null;
   }
-  return queueRow(row, gathererRowUrls(row), skipped);
+  return queueRow(row, gathererRowUrls(row), skipped, 'gatherer');
+}
+
+/** Selected columns of one print row for the gatherer-first hybrid: both sources' columns at once. */
+export interface PreferredImageRow extends QueueRowColumns, ScryfallImageRow, GathererImageRow {}
+
+/**
+ * Queues one print row preferring gatherer face by face: every face gatherer
+ * supplies keeps its gatherer url, and only the faces it cannot supply fall
+ * back to scryfall. The gatherer attempt stays silent toward the counters —
+ * the row still gets its images, so only the scryfall side's misses count.
+ */
+export function preferGathererQueueRow(row: PreferredImageRow, skipped: RemoteSkipped): RemoteQueueRow | null {
+  const silent: RemoteSkipped = { placeholder: 0, missingId: 0, missingUrl: 0 };
+  const gatherer = gathererQueueRow(row, silent);
+  if (!gatherer) return scryfallQueueRow(row, skipped);
+
+  const scryfall = scryfallQueueRow(row, silent);
+  if (!scryfall) return gatherer;
+
+  const faces = [...gatherer.faces];
+  for (const face of scryfall.faces) {
+    if (!faces.some(candidate => candidate.faceIndex === face.faceIndex)) faces.push(face);
+  }
+  faces.sort((a, b) => a.faceIndex - b.faceIndex);
+  return {
+    ...gatherer,
+    faces,
+    faceCount: Math.max(gatherer.faceCount, scryfall.faceCount) as 1 | 2,
+  };
 }

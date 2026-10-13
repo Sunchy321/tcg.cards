@@ -1,3 +1,5 @@
+import { parseJsonlLine } from './jsonl';
+
 function concatBytes(a: Uint8Array<ArrayBufferLike>, b: Uint8Array<ArrayBufferLike>): Uint8Array<ArrayBuffer> {
   const out = new Uint8Array(a.length + b.length);
   out.set(a);
@@ -66,20 +68,14 @@ export async function* readTarGzJsonl(
           const line = text.slice(0, idx);
           text = text.slice(idx + 1);
           if (line.length === 0) continue;
-          try {
-            yield JSON.parse(line);
-          } catch {
-            // Skip malformed lines.
-          }
+          const parsed = parseJsonlLine(line);
+          if (parsed != null) yield parsed;
         }
       }
 
       if (text.trim().length > 0) {
-        try {
-          yield JSON.parse(text);
-        } catch {
-          // Skip a trailing line without a newline.
-        }
+        const parsed = parseJsonlLine(text);
+        if (parsed != null) yield parsed;
       }
       return;
     }

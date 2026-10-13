@@ -326,6 +326,33 @@ export default class Parser {
       };
     }
 
+    if (first.type === 'bracket') {
+      this.next();
+
+      // The double-bracket form is the serialized scope selection (ADR 0015):
+      // an optional comparison operator followed by the level, targeting the
+      // universal ambit command. The command name is inlined because the
+      // parser must not import the ambit module, which depends on this parser.
+      const content = first.text.slice(2, -2).trim();
+
+      const match = /^(<=|>=|=|<|>)?\s*(\S+)$/.exec(content);
+
+      if (match == null) {
+        throw new SearchError('unknown-token', null, first.location);
+      }
+
+      return {
+        type:     'simple',
+        cmd:      'ambit',
+        op:       (match[1] ?? ':') as Operator,
+        qual:     [],
+        argType:  'id',
+        args:     match[2]!,
+        tokens:   this.returnTokens(),
+        location: first.location,
+      };
+    }
+
     if (first.type === 'id') {
       this.next();
 

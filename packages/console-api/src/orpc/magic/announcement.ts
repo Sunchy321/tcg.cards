@@ -198,17 +198,10 @@ const projectItems = os
       .where(eq(AnnouncementItem.announcementId, input.announcementId));
 
     for (const item of items) {
-      const result = project({
-        format:       item.format,
-        cardId:       item.cardId,
-        relatedCards: item.relatedCards,
-        game:         'magic',
-      });
-
       await db.update(AnnouncementItem)
         .set({
-          formats: result.formats,
-          cardIds: result.cardIds,
+          resolved_formats: projectFormats(item.format),
+          resolved_cards: projectCardIds(item.cardId, item.relatedCards),
         })
         .where(eq(AnnouncementItem.id, item.id));
     }

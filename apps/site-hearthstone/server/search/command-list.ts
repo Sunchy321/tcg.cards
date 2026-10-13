@@ -3,6 +3,7 @@ import { cs as create } from '#search/server/command';
 import * as builtin from '#search/server/command/builtin';
 
 import { QueryError } from '#search/command/error';
+import { parseAmbitValue } from '#search/server/ambit';
 
 import { and, asc, desc, eq, inArray, not, notInArray, or, sql } from 'drizzle-orm';
 
@@ -297,6 +298,19 @@ export const collectible = cs
     default:
       throw new QueryError({ type: 'invalid-query' });
     }
+  });
+
+export const ambit = cs
+  .commands.ambit
+  .handler(({ value, operator }, { table }) => {
+    // `:` is the ceiling, a legacy alias of `<=` (ADR 0015).
+    const comparison = ({ ':': '<=', '<=': '<=', '<': '<', '=': '=', '>': '>', '>=': '>=' } as Record<string, string>)[operator];
+
+    if (comparison == null) {
+      throw new QueryError({ type: 'invalid-operator', payload: { operator } });
+    }
+
+    return sql`${table.ambit} ${sql.raw(comparison)} ${parseAmbitValue(value)}`;
   });
 
 export const change = cs

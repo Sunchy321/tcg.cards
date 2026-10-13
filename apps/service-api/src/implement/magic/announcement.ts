@@ -8,25 +8,33 @@ import { db } from '@tcg-cards/db';
 import { Announcement } from '@tcg-cards/db/schema/shared/magic/announcement';
 
 type AnnouncementRow = {
-  id:            string;
-  source:        string;
-  date:          string;
-  name:          string;
-  effectiveDate: string | null;
-  link:          { url: string, label?: string }[];
-  createdAt:     Date;
-  updatedAt:     Date;
+  id:                    string;
+  source:                string;
+  date:                  string;
+  name:                  string;
+  effectiveDate:         string | null;
+  effectiveDateTabletop: string | null;
+  effectiveDateOnline:   string | null;
+  effectiveDateArena:    string | null;
+  nextDate:              string | null;
+  link:                  { url: string, label?: string }[];
+  createdAt:             Date;
+  updatedAt:             Date;
 };
 
 const toAnnouncement = (r: AnnouncementRow) => ({
-  id:            r.id,
-  source:        r.source,
-  date:          r.date,
-  name:          r.name,
-  effectiveDate: r.effectiveDate ?? null,
-  link:          r.link,
-  createdAt:     r.createdAt.toISOString(),
-  updatedAt:     r.updatedAt.toISOString(),
+  id:                    r.id,
+  source:                r.source,
+  date:                  r.date,
+  name:                  r.name,
+  effectiveDate:         r.effectiveDate ?? null,
+  effectiveDateTabletop: r.effectiveDateTabletop ?? null,
+  effectiveDateOnline:   r.effectiveDateOnline ?? null,
+  effectiveDateArena:    r.effectiveDateArena ?? null,
+  nextDate:              r.nextDate ?? null,
+  link:                  r.link,
+  createdAt:             r.createdAt.toISOString(),
+  updatedAt:             r.updatedAt.toISOString(),
 });
 
 const list = os.magic.announcement.list

@@ -6,6 +6,7 @@ import { os } from '../../orpc';
 
 import { db } from '@tcg-cards/db';
 import { Set } from '@tcg-cards/db/schema/shared/magic/set';
+import type { Rarity } from '@tcg-cards/model/magic/schema/basic';
 
 const detail = os.magic.set.detail
   .handler(async ({ input }) => {
@@ -19,26 +20,48 @@ const detail = os.magic.set.detail
     }
 
     return {
-      setId:           row.setId,
-      block:           row.block ?? null,
-      parent:          row.parent ?? null,
-      printedSize:     row.printedSize ?? null,
-      cardCount:       row.cardCount,
-      langs:           row.langs,
-      rarities:        row.rarities,
-      localization:    [],
-      type:            row.type,
-      isDigital:       row.isDigital,
-      isFoilOnly:      row.isFoilOnly,
-      isNonfoilOnly:   row.isNonfoilOnly,
-      symbolStyle:     row.symbolStyle ?? null,
-      doubleFacedIcon: row.doubleFacedIcon ?? null,
-      releaseDate:     row.releaseDate ?? null,
-      scryfallId:      row.scryfallId,
-      scryfallCode:    row.scryfallCode,
-      mtgoCode:        row.mtgoCode ?? null,
-      tcgPlayerId:     row.tcgPlayerId ?? null,
-      boosters:        null,
+      setId:  row.setId,
+      block:  row.block ?? null,
+      parent: row.parent ?? null,
+
+      baseSetSize:  row.baseSetSize ?? null,
+      totalSetSize: row.totalSetSize ?? null,
+      printedSize:  row.printedSize ?? null,
+      cardCount:    row.cardCount,
+      langs:        row.langs,
+      // The column is a plain text array; output validation rejects off-enum values.
+      rarities:     row.rarities as Rarity[],
+
+      localization: [],
+
+      type:             row.type,
+      isDigital:        row.isDigital,
+      isOnlineOnly:     row.isOnlineOnly ?? null,
+      isPaperOnly:      row.isPaperOnly ?? null,
+      isForeignOnly:    row.isForeignOnly ?? null,
+      isPartialPreview: row.isPartialPreview ?? null,
+      isFoilOnly:       row.isFoilOnly,
+      isNonfoilOnly:    row.isNonfoilOnly,
+      symbolStyle:      row.symbolStyle ?? null,
+      doubleFacedIcon:  row.doubleFacedIcon ?? null,
+      keyruneCode:      row.keyruneCode ?? null,
+
+      releaseDate: row.releaseDate ?? null,
+
+      scryfallId:   row.scryfallId,
+      scryfallCode: row.scryfallCode,
+
+      mtgoCode:         row.mtgoCode ?? null,
+      arenaCode:        row.arenaCode ?? null,
+      tcgPlayerId:      row.tcgPlayerId ?? null,
+      tcgplayerGroupId: row.tcgplayerGroupId ?? null,
+      mcmId:            row.mcmId ?? null,
+      mcmIdExtras:      row.mcmIdExtras ?? null,
+      mcmName:          row.mcmName ?? null,
+      cardsphereSetId:  row.cardsphereSetId ?? null,
+      tokenSetCode:     row.tokenSetCode ?? null,
+
+      boosters: null,
     };
   });
 

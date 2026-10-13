@@ -5,16 +5,26 @@ import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { runWithDb } from '@tcg-cards/db';
 import { Card, CardLocalization, CardPart, CardPartLocalization } from '@tcg-cards/db/schema/shared/magic/card';
 import { Print, PrintPart } from '@tcg-cards/db/schema/shared/magic/print';
-import { CardSlugResolution, CardUnifiedLocalization, ProjectionReview, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
+import { CardLocalizationAuthority, CardSlugResolution, ProjectionReview, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
 
+import type { Ambit } from '@tcg-cards/model/ambit';
 import { createDefinition } from '#task/definition';
 import { getLocalDb } from '../../../hearthstone/hsdata-local-db';
 import { matchBatch } from '../../match';
+import { loadNameRubyLookup, type NameRubyLookup } from '../../name-ruby';
 import { assembleUnits, loadReversibleRows, type ProjectDb, type ScryfallRow } from '../../project/assemble';
 import { inconsistentMergedSlugs } from '../../project/consistency';
+import type { LoadedPrintCommit } from '../../project/print-commits';
 import { projectCard, type AssembledCard, type ProjectCardResult } from '../../project/project-card';
-import { preserveExistingPrintImages } from '../../project/preserve-print-images';
-import { upsertBatch } from '../../upsert';
+import {
+  loadAmbitOverrides,
+  loadPrintCommits,
+  projectOraclePrints,
+  softDeleteStaleManualPrints,
+  softDeleteStaleSourcePrints,
+  withResolvedCardId,
+  writeSection,
+} from './oracle-prints';
 
 /** Stable task type for projecting magic raw caches into the fact tables. */
 export const magicProjectTaskType = 'magic_project';
@@ -23,23 +33,25 @@ const ORACLE_CHUNK_SIZE = 200;
 const CARD_CHUNK_SIZE = 200;
 
 const output = z.object({
-  openConflicts: z.number(),
-  cards:         z.number(),
-  cardParts:     z.number(),
-  cardLocs:      z.number(),
-  cardPartLocs:  z.number(),
-  prints:        z.number(),
-  printParts:    z.number(),
-  unified:       z.number(),
-  reviews:       z.number(),
-  softDeleted:   z.number(),
+  openConflicts:  z.number(),
+  cards:          z.number(),
+  cardParts:      z.number(),
+  cardLocs:       z.number(),
+  cardPartLocs:   z.number(),
+  prints:         z.number(),
+  printParts:     z.number(),
+  authorities:    z.number(),
+  reviews:        z.number(),
+  softDeleted:    z.number(),
+  manualRecycled: z.number(),
 });
 
 type Counts = z.infer<typeof output>;
 
 const emptyCounts: Counts = {
-  openConflicts: 0, cards:         0, cardParts:     0, cardLocs:      0, cardPartLocs:  0,
-  prints:        0, printParts:    0, unified:       0, reviews:       0, softDeleted:   0,
+  openConflicts:  0, cards:          0, cardParts:      0, cardLocs:       0, cardPartLocs:   0,
+  prints:         0, printParts:     0, authorities:    0, reviews:        0, softDeleted:    0,
+  manualRecycled: 0,
 };
 
 interface ProjectCtx {
@@ -49,6 +61,12 @@ interface ProjectCtx {
   oracleList:     string[];
   /** English reversible rows, static per run — the pool prints attribute from. */
   reversibleRows: ScryfallRow[];
+  /** Reviewed name-ruby lookup, static per run — fills the ruby_* columns. */
+  rubies:         NameRubyLookup;
+  /** Print commits by oracle, static per run — synthesized as manual prints. */
+  printCommits:   Map<string, LoadedPrintCommit[]>;
+  /** Reviewed ambit overrides by cardId, static per run — merged over the classification seed. */
+  ambitOverrides: Map<string, Ambit>;
   /** Sorted distinct cardIds with their member unit keys (stage 3). */
   cardsByCardId:  Map<string, string[]>;
   cardIdList:     string[];
@@ -58,11 +76,15 @@ interface ProjectCtx {
 
 /** One bounded chunked stage's durable checkpoint state. */
 interface ChunkState {
-  index:  number;
-  total:  number;
+  index:       number;
+  total:       number;
   /** Progress unit processed so far (source rows for the prints stage). */
-  done?:  number;
-  counts: Partial<Counts>;
+  done?:       number;
+  counts:      Partial<Counts>;
+  /** `cardId|set|number|lang` of the manual prints emitted so far (prints stage). */
+  manualKeys?: string[];
+  /** `cardId|set|number|lang` of the source prints emitted so far (prints stage). */
+  sourceKeys?: string[];
 }
 
 /** Source-row count per oracle (all languages; the rows assembleUnits consumes). */
@@ -84,27 +106,7 @@ function addAll(target: Counts, delta: Partial<Counts>) {
   });
 }
 
-/** Upsert one result section into its fact table; returns affected row count. */
-async function writeSection(database: ProjectDb, table: any, rows: unknown[] | undefined, pk: string[]): Promise<number> {
-  if (rows == null || rows.length === 0) return 0;
-  const target = pk.map(name => (table as any)[name]);
-  const r = await upsertBatch(database, table, rows as never, target, pk);
-  return r.inserted + r.updated + r.unchanged;
-}
-
-const PRINT_PK = ['cardId', 'version', 'set', 'number', 'lang', 'source'] as const;
 const CARD_PK = ['cardId', 'version'] as const;
-
-/**
- * Override a unit's natural slug with its match-resolved cardId (resolutions
- * and merge groups may diverge from the natural name slug). Returns null when
- * the unit has no resolved cardId and must not project.
- */
-function withResolvedCardId(assembled: AssembledCard, unitToCard: Map<string, string>): AssembledCard | null {
-  const cardId = unitToCard.get(assembled.unit);
-  if (cardId == null) return null;
-  return cardId === assembled.cardId ? assembled : { ...assembled, cardId };
-}
 
 /** Table writers used by the reconcile stage: soft-delete stale base rows. */
 const BASE_TABLES = [
@@ -114,7 +116,7 @@ const BASE_TABLES = [
   { table: CardPartLocalization, pk: ['cardId', 'version', 'locale', 'source', 'partIndex'] },
   { table: Print, pk: ['cardId', 'version', 'set', 'number', 'lang', 'source'] },
   { table: PrintPart, pk: ['cardId', 'version', 'set', 'number', 'lang', 'source', 'partIndex'] },
-  { table: CardUnifiedLocalization, pk: ['cardId', 'version', 'locale'] },
+  { table: CardLocalizationAuthority, pk: ['cardId', 'version', 'locale', 'source'] },
 ];
 
 /**
@@ -135,7 +137,7 @@ async function softDeleteStale(database: ProjectDb, table: any, cardIdCol: any, 
 }
 
 const definition = createDefinition(magicProjectTaskType, {
-  version:     '2026-09-04:v1',
+  version:     '2026-09-23:v2',
   effectModel: 'reconcilable',
 })
   .scope(z.object({}), {
@@ -154,7 +156,7 @@ const definition = createDefinition(magicProjectTaskType, {
       const database = getLocalDb();
       const matched = await matchBatch(database);
 
-      // Persist open slug conflicts into the unified review queue (kind
+      // Persist open slug conflicts into the shared review queue (kind
       // slug_conflict). Pending rows are recomputed each run; resolved rows
       // are left untouched.
       await database.delete(ProjectionReview)
@@ -186,6 +188,8 @@ const definition = createDefinition(magicProjectTaskType, {
       magic.unitToCard = matched.cardIdByUnit;
       magic.oracleList = [...new Set([...matched.cardIdByUnit.keys()].map(k => (k.includes(':') ? k.slice(0, k.indexOf(':')) : k)))].sort();
       magic.reversibleRows = await loadReversibleRows(database);
+      magic.rubies = await loadNameRubyLookup(database);
+      magic.printCommits = await loadPrintCommits(database);
     });
     magic.counts ??= { ...emptyCounts };
     const restored = checkpoint?.blockInput as ChunkState | undefined;
@@ -195,7 +199,7 @@ const definition = createDefinition(magicProjectTaskType, {
     // contribute prints to the card they reference).
     const rowCounts = await sourceRowCounts(getLocalDb(), magic.oracleList);
     const total = [...rowCounts.values()].reduce((a, b) => a + b, 0);
-    return { total, blockInput: { index: 0, done: 0, total, counts: {} } };
+    return { total, blockInput: { index: 0, done: 0, total, counts: {}, sourceKeys: [] } };
   })
   .block(async ({ ctx, blockInput, progress, checkpoint, done }) => {
     const magic = ctx as unknown as ProjectCtx;
@@ -203,26 +207,19 @@ const definition = createDefinition(magicProjectTaskType, {
     const rowCounts = await runWithDb(getLocalDb(), () => sourceRowCounts(getLocalDb(), chunk));
 
     const counts = { prints: 0, printParts: 0 };
+    const manualKeys: string[] = [];
+    const sourceKeys: string[] = [];
     let doneRows = blockInput.done ?? 0;
     await runWithDb(getLocalDb(), async () => {
       const database = getLocalDb();
       for (const oracle of chunk) {
-        const oraclePrints: (typeof Print)['$inferInsert'][] = [];
-        const oraclePrintParts: (typeof PrintPart)['$inferInsert'][] = [];
-        for (const raw of await assembleUnits(database, oracle, magic.reversibleRows)) {
-          const assembled = withResolvedCardId(raw, magic.unitToCard);
-          if (assembled == null) continue;
-          // Prints are written before the card-consistency stage by design:
-          // print rows per raw row are written regardless of card-level
-          // agreement (§7.4).
-          const result = projectCard(assembled);
-          oraclePrints.push(...result.prints);
-          oraclePrintParts.push(...result.printParts);
-        }
-        // 重复投影时保留已导入的本地图字段(含 manual),避免覆盖。
-        await preserveExistingPrintImages(database, oraclePrints);
-        counts.prints += await writeSection(database, Print, oraclePrints, [...PRINT_PK]);
-        counts.printParts += await writeSection(database, PrintPart, oraclePrintParts, [...PRINT_PK, 'partIndex']);
+        const wrote = await projectOraclePrints(database, oracle, magic);
+        counts.prints += wrote.prints;
+        counts.printParts += wrote.printParts;
+        // The recycles' kept sets travel through the checkpoint so a resumed
+        // run recycles exactly what it itself emitted.
+        manualKeys.push(...wrote.manualKeys);
+        sourceKeys.push(...wrote.sourceKeys);
         doneRows += rowCounts.get(oracle) ?? 0;
         // Submit progress after every oracle so the processed-row counter
         // scrolls continuously instead of jumping at block boundaries.
@@ -231,10 +228,12 @@ const definition = createDefinition(magicProjectTaskType, {
     });
 
     const next: ChunkState = {
-      index:  blockInput.index + chunk.length,
-      done:   doneRows,
-      total:  blockInput.total,
-      counts: { prints: (blockInput.counts.prints ?? 0) + counts.prints, printParts: (blockInput.counts.printParts ?? 0) + counts.printParts },
+      index:      blockInput.index + chunk.length,
+      done:       doneRows,
+      total:      blockInput.total,
+      counts:     { prints: (blockInput.counts.prints ?? 0) + counts.prints, printParts: (blockInput.counts.printParts ?? 0) + counts.printParts },
+      manualKeys: [...(blockInput.manualKeys ?? []), ...manualKeys],
+      sourceKeys: [...(blockInput.sourceKeys ?? []), ...sourceKeys],
     };
     await checkpoint(next);
     progress({ done: doneRows, total: blockInput.total });
@@ -243,7 +242,19 @@ const definition = createDefinition(magicProjectTaskType, {
   .exit(({ ctx, blockInput }) => {
     const magic = ctx as unknown as ProjectCtx;
     addAll(magic.counts, blockInput.counts);
-    return magic.counts;
+    return runWithDb(getLocalDb(), async () => {
+      // Recycle against exactly what this run emitted — symmetric with
+      // synthesis even where the commit path skipped a branch. Ownership
+      // follows the projected oracles: rows of an oracle outside oracleList
+      // are never this run's to judge.
+      const emitted = new Set(blockInput.manualKeys ?? []);
+      magic.counts.manualRecycled = await softDeleteStaleManualPrints(getLocalDb(), emitted, new Set(magic.oracleList));
+      // Stale source prints ride the same rule: rows the sources no longer
+      // produce (renamed collector numbers, shrunken units) within the
+      // oracles this run projected.
+      magic.counts.softDeleted = await softDeleteStaleSourcePrints(getLocalDb(), blockInput.sourceKeys ?? [], new Set(magic.oracleList));
+      return magic.counts;
+    });
   })
   .stage('cards', { label: '卡片投影', progressMode: 'bounded', resumeMode: 'durable' })
   .entry(async ({ ctx, checkpoint }) => {
@@ -253,6 +264,13 @@ const definition = createDefinition(magicProjectTaskType, {
       const matched = await matchBatch(database);
       magic.unitToCard = matched.cardIdByUnit;
       magic.reversibleRows = await loadReversibleRows(database);
+      magic.rubies = await loadNameRubyLookup(database);
+      // Adopted commits also drive the card-level localization authorities, so
+      // the card stage must assemble with them just like the prints stage.
+      magic.printCommits = await loadPrintCommits(database);
+      // Ambit overrides are the reviewed word over the classification seed;
+      // loaded once per entry, never written by this task.
+      magic.ambitOverrides = await loadAmbitOverrides(database);
       const byCard = new Map<string, string[]>();
       for (const [unit, cardId] of matched.cardIdByUnit) {
         const list = byCard.get(cardId) ?? [];
@@ -261,10 +279,16 @@ const definition = createDefinition(magicProjectTaskType, {
       }
       magic.cardsByCardId = byCard;
       magic.cardIdList = [...byCard.keys()].sort();
-      // Pending inconsistency reviews are recomputed each run; resolved rows
-      // are left untouched.
+      // Pending inconsistency and overwrite rows are recomputed each run;
+      // resolved rows are left untouched. The overwrite rows are an audit trail
+      // of where a community translation replaced the print surface, so they are
+      // rewritten rather than appended — appending would pile up a fresh copy of
+      // the same change on every run.
       await database.delete(ProjectionReview)
-        .where(and(eq(ProjectionReview.kind, 'card_inconsistency'), eq(ProjectionReview.status, 'pending')));
+        .where(and(
+          inArray(ProjectionReview.kind, ['card_inconsistency', 'card_field_overwrite']),
+          eq(ProjectionReview.status, 'pending'),
+        ));
     });
     magic.counts ??= { ...emptyCounts };
     const restored = checkpoint?.blockInput as ChunkState | undefined;
@@ -276,7 +300,7 @@ const definition = createDefinition(magicProjectTaskType, {
     const magic = ctx as unknown as ProjectCtx;
     const chunk = magic.cardIdList.slice(blockInput.index, blockInput.index + CARD_CHUNK_SIZE);
 
-    const counts = { cards: 0, cardParts: 0, cardLocs: 0, cardPartLocs: 0, unified: 0, reviews: 0 };
+    const counts = { cards: 0, cardParts: 0, cardLocs: 0, cardPartLocs: 0, authorities: 0, reviews: 0 };
     await runWithDb(getLocalDb(), async () => {
       const database = getLocalDb();
 
@@ -285,7 +309,7 @@ const definition = createDefinition(magicProjectTaskType, {
       const assembledByUnit = new Map<string, AssembledCard>();
       const memberOracles = new Set(chunk.flatMap(cardId => (magic.cardsByCardId.get(cardId) ?? []).map(u => u.split(':')[0]!)));
       for (const oracle of memberOracles) {
-        for (const raw of await assembleUnits(database, oracle, magic.reversibleRows)) {
+        for (const raw of await assembleUnits(database, oracle, magic.reversibleRows, magic.printCommits.get(oracle))) {
           const assembled = withResolvedCardId(raw, magic.unitToCard);
           if (assembled != null) assembledByUnit.set(assembled.unit, assembled);
         }
@@ -335,7 +359,7 @@ const definition = createDefinition(magicProjectTaskType, {
           continue;
         }
 
-        const result: ProjectCardResult = projectCard(members[0]!);
+        const result: ProjectCardResult = projectCard(members[0]!, magic.rubies, magic.ambitOverrides.get(cardId));
         // The card row records every contributing oracle id, not just the
         // canonical member whose faces supplied the content — merged cards
         // (slug resolutions, BFM) must stay discoverable from all members.
@@ -346,7 +370,9 @@ const definition = createDefinition(magicProjectTaskType, {
         counts.cardParts += await writeSection(database, CardPart, result.cardParts, [...CARD_PK, 'partIndex']);
         counts.cardLocs += await writeSection(database, CardLocalization, result.cardLocalizations, [...CARD_PK, 'locale', 'source']);
         counts.cardPartLocs += await writeSection(database, CardPartLocalization, result.cardPartLocalizations, [...CARD_PK, 'locale', 'source', 'partIndex']);
-        counts.unified += await writeSection(database, CardUnifiedLocalization, result.unified, [...CARD_PK, 'locale']);
+        // The authority rows are written before the display rows derived from
+        // them, so a resume never leaves a display row whose authority is absent.
+        counts.authorities += await writeSection(database, CardLocalizationAuthority, result.authorities, [...CARD_PK, 'locale', 'source']);
         // A-class review reminders are appended (no unique conflict target yet).
         if (result.reviews.length > 0) {
           await database.insert(ProjectionReview).values(result.reviews as never);
@@ -367,7 +393,7 @@ const definition = createDefinition(magicProjectTaskType, {
         cardParts:    (blockInput.counts.cardParts ?? 0) + counts.cardParts,
         cardLocs:     (blockInput.counts.cardLocs ?? 0) + counts.cardLocs,
         cardPartLocs: (blockInput.counts.cardPartLocs ?? 0) + counts.cardPartLocs,
-        unified:      (blockInput.counts.unified ?? 0) + counts.unified,
+        authorities:  (blockInput.counts.authorities ?? 0) + counts.authorities,
         reviews:      (blockInput.counts.reviews ?? 0) + counts.reviews,
       },
     };
@@ -378,7 +404,17 @@ const definition = createDefinition(magicProjectTaskType, {
   .exit(({ ctx, blockInput }) => {
     const magic = ctx as unknown as ProjectCtx;
     addAll(magic.counts, blockInput.counts);
-    return magic.counts;
+    return runWithDb(getLocalDb(), async () => {
+      // The full run is the only judge of global staleness: base rows whose
+      // cardId the match no longer projects — vanished units, withdrawn
+      // merges — are soft-deleted across every base table. Scoped runs never
+      // touch this: their slice cannot tell what is stale elsewhere.
+      const target = new Set(magic.cardIdList);
+      for (const { table } of BASE_TABLES) {
+        magic.counts.softDeleted += await softDeleteStale(getLocalDb(), table, table.cardId, target);
+      }
+      return magic.counts;
+    });
   })
   .build();
 

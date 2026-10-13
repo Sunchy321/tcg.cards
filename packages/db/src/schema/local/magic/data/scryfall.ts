@@ -122,6 +122,9 @@ export const ScryfallCard = dataSchema.table('scryfall_cards', {
   deletedAt: timestamp('deleted_at'),
 }, table => [
   index('scryfall_cards_oracle_id_idx').on(table.oracleId),
+  // Set-scoped lookups (completion candidates, per-set projections) hit this
+  // constantly; without it every one seq-scans the full card table.
+  index('scryfall_cards_set_number_idx').on(table.set, table.collectorNumber),
 ]);
 
 /**

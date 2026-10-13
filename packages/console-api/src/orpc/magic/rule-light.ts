@@ -44,6 +44,70 @@ function toVersionTag(versionId: string): string {
     : versionId;
 }
 
+/** R2 file presence for one rule version: data-bucket txt key plus archive file groups. */
+interface RuleBucketFiles {
+  dataKey: string | null;
+  files:   { txt: boolean, doc: boolean, pdf: boolean };
+}
+
+/** Normalizes a compact YYYYMMDD date from a bucket key to the archive's dashed form. */
+function toDashedVersionDate(value: string): string {
+  return /^\d{8}$/.test(value)
+    ? `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}`
+    : value;
+}
+
+/** Scans both rule buckets for archive-layout version files without touching the database. */
+async function scanRuleBucketFiles(env: RuleEnv): Promise<Map<string, RuleBucketFiles>> {
+  const versions = new Map<string, RuleBucketFiles>();
+  const entry = (versionId: string) => versions.get(versionId)
+    ?? { dataKey: null, files: { txt: false, doc: false, pdf: false } };
+
+  try {
+    const dataResult = await env.R2_DATA.list({ prefix: 'magic/rule/' });
+    for (const obj of dataResult.objects ?? []) {
+      const match = obj.key.match(/magic\/rule\/(\d{4}-\d{2}-\d{2}|\d{8})\.txt$/);
+      if (match) {
+        const versionId = toDashedVersionDate(match[1]!);
+        const files = entry(versionId);
+        files.dataKey = obj.key;
+        versions.set(versionId, files);
+      }
+    }
+  } catch (err) {
+    console.error('[Rule] Failed to list R2 data files:', err);
+  }
+
+  try {
+    const [txtList, docList, pdfList] = await Promise.all([
+      env.R2_ASSET.list({ prefix: 'magic/rule/txt/' }),
+      env.R2_ASSET.list({ prefix: 'magic/rule/doc/' }),
+      env.R2_ASSET.list({ prefix: 'magic/rule/pdf/' }),
+    ]);
+
+    const markAsset = (list: { objects?: Array<{ key: string }> }, flag: 'txt' | 'doc' | 'pdf', exts: string[]) => {
+      const pattern = new RegExp(`magic\\/rule\\/\\w+\\/(\\d{4}-\\d{2}-\\d{2}|\\d{8})\\.(${exts.join('|')})$`);
+      for (const obj of list.objects ?? []) {
+        const match = obj.key.match(pattern);
+        if (match) {
+          const versionId = toDashedVersionDate(match[1]!);
+          const files = entry(versionId);
+          files.files[flag] = true;
+          versions.set(versionId, files);
+        }
+      }
+    };
+
+    markAsset(txtList, 'txt', ['txt']);
+    markAsset(docList, 'doc', ['doc', 'docx']);
+    markAsset(pdfList, 'pdf', ['pdf']);
+  } catch (err) {
+    console.error('[Rule] Failed to list R2 asset files:', err);
+  }
+
+  return versions;
+}
+
 export const list = os
   .route({
     method:      'GET',
@@ -62,7 +126,7 @@ export const list = os
     r2Key:         z.string().nullable(),
     assetStatus:   z.strictObject({
       txt:  z.boolean(),
-      docx: z.boolean(),
+      doc:  z.boolean(),
       pdf:  z.boolean(),
     }),
   }).array())
@@ -78,55 +142,7 @@ export const list = os
       importedAt:      version.importedAt,
     }));
 
-    const r2Files: Array<{ key: string, versionId: string }> = [];
-    try {
-      const listResult = await env.R2_DATA.list({ prefix: 'magic/rule/' });
-      for (const obj of listResult.objects ?? []) {
-        const key = obj.key;
-        const match = key.match(/magic\/rule\/(\d{8})\.txt$/);
-        if (match) {
-          r2Files.push({ key, versionId: match[1]! });
-        }
-      }
-    } catch (err) {
-      console.error('[List] Failed to list R2 files:', err);
-    }
-
-    const assetFiles = new Map<string, { txt: boolean, docx: boolean, pdf: boolean }>();
-    try {
-      const [txtList, docxList, pdfList] = await Promise.all([
-        env.R2_ASSET.list({ prefix: 'magic/rule/txt/' }),
-        env.R2_ASSET.list({ prefix: 'magic/rule/docx/' }),
-        env.R2_ASSET.list({ prefix: 'magic/rule/pdf/' }),
-      ]);
-
-      for (const obj of txtList.objects ?? []) {
-        const match = obj.key.match(/(\d{8})\.txt$/);
-        if (match) {
-          const entry = assetFiles.get(match[1]!) ?? { txt: false, docx: false, pdf: false };
-          entry.txt = true;
-          assetFiles.set(match[1]!, entry);
-        }
-      }
-      for (const obj of docxList.objects ?? []) {
-        const match = obj.key.match(/(\d{8})\.docx$/);
-        if (match) {
-          const entry = assetFiles.get(match[1]!) ?? { txt: false, docx: false, pdf: false };
-          entry.docx = true;
-          assetFiles.set(match[1]!, entry);
-        }
-      }
-      for (const obj of pdfList.objects ?? []) {
-        const match = obj.key.match(/(\d{8})\.pdf$/);
-        if (match) {
-          const entry = assetFiles.get(match[1]!) ?? { txt: false, docx: false, pdf: false };
-          entry.pdf = true;
-          assetFiles.set(match[1]!, entry);
-        }
-      }
-    } catch (err) {
-      console.error('[List] Failed to list R2 asset files:', err);
-    }
+    const bucketFiles = await scanRuleBucketFiles(env);
 
     const dbVersionMap = new Map(dbVersions.map(v => [v.id, v]));
     const result: Array<{
@@ -138,15 +154,16 @@ export const list = os
       importedAt:    Date | null;
       dataStatus:    'imported' | 'pending' | 'missing';
       r2Key:         string | null;
-      assetStatus:   { txt: boolean, docx: boolean, pdf: boolean };
+      assetStatus:   { txt: boolean, doc: boolean, pdf: boolean };
     }> = [];
 
-    const allVersionIds = new Set([...dbVersions.map(v => v.id), ...r2Files.map(f => f.versionId)]);
+    const allVersionIds = new Set([...dbVersions.map(v => v.id), ...bucketFiles.keys()]);
 
     for (const versionId of allVersionIds) {
       const dbVersion = dbVersionMap.get(versionId);
-      const r2File = r2Files.find(f => f.versionId === versionId);
-      const assets = assetFiles.get(versionId) ?? { txt: false, docx: false, pdf: false };
+      const bucket = bucketFiles.get(versionId);
+      const dataFile = bucket?.dataKey ?? null;
+      const assets = bucket?.files ?? { txt: false, doc: false, pdf: false };
 
       if (dbVersion) {
         result.push({
@@ -156,11 +173,11 @@ export const list = os
           totalRules:    dbVersion.totalRules,
           status:        dbVersion.lifecycleStatus,
           importedAt:    dbVersion.importedAt,
-          dataStatus:    r2File ? 'imported' : 'missing',
-          r2Key:         r2File?.key ?? null,
+          dataStatus:    dataFile ? 'imported' : 'missing',
+          r2Key:         dataFile,
           assetStatus:   assets,
         });
-      } else if (r2File) {
+      } else if (dataFile) {
         result.push({
           id:            versionId,
           effectiveDate: null,
@@ -169,13 +186,41 @@ export const list = os
           status:        'pending',
           importedAt:    null,
           dataStatus:    'pending',
-          r2Key:         r2File.key,
+          r2Key:         dataFile,
           assetStatus:   assets,
         });
       }
     }
 
     return result.sort((a, b) => b.id.localeCompare(a.id));
+  });
+
+export const listFiles = os
+  .route({
+    method:      'GET',
+    description: 'List rule version files stored in R2 without reading the database',
+    tags:        ['Magic', 'Rule'],
+  })
+  .input(z.void())
+  .output(z.strictObject({
+    id:       z.string(),
+    dataFile: z.boolean(),
+    files:    z.strictObject({
+      txt:  z.boolean(),
+      doc:  z.boolean(),
+      pdf:  z.boolean(),
+    }),
+  }).array())
+  .handler(async ({ context }) => {
+    const bucketFiles = await scanRuleBucketFiles(context.env);
+
+    return [...bucketFiles.entries()]
+      .map(([id, bucket]) => ({
+        id,
+        dataFile: bucket.dataKey != null,
+        files:    bucket.files,
+      }))
+      .sort((a, b) => b.id.localeCompare(a.id));
   });
 
 export const get = os

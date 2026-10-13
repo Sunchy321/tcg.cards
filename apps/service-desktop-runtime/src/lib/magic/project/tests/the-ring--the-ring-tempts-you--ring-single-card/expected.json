@@ -4,6 +4,7 @@
       "cardId": "the-ring--the-ring-tempts-you",
       "version": "",
       "partCount": 2,
+      "ambit": "additional",
       "name": "The Ring // The Ring Tempts You",
       "typeline": "Emblem // Card",
       "manaValue": 0,
@@ -11,7 +12,7 @@
       "keywords": [],
       "counters": [],
       "producibleMana": null,
-      "category": "default",
+      "category": "auxiliary",
       "tags": [],
       "legalities": {
         "tlr": "unavailable",
@@ -219,6 +220,6 @@
       ]
     }
   ],
-  "unified": [],
+  "authorities": [],
   "reviews": []
 }

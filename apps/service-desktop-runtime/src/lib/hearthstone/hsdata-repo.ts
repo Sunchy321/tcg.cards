@@ -6,6 +6,7 @@ import { ORPCError } from '@orpc/server';
 
 import { resolvePath } from '../game-paths';
 import {
+  mergeParsedHsdataParts,
   parseHsdataXmlStream,
   readNormalizedHsdataXmlStream,
   type ParsedHsdataStreamResult,
@@ -81,6 +82,12 @@ interface HsdataBlobCheck {
 const hsdataRemoteName = 'origin';
 const gitOutputMaxBufferBytes = 64 * 1024 * 1024;
 
+/** CardDefs part files per ref. Since 2026-08-24 the upstream hsdata repo splits
+ *  CardDefs by game mode: Bacon = Battlegrounds, Lettuce = Mercenaries. Older
+ *  refs only carry the base file, so the extra parts stay optional everywhere. */
+const cardDefsBasePath = 'CardDefs.xml';
+const cardDefsPartPaths = [cardDefsBasePath, 'CardDefs.Bacon.xml', 'CardDefs.Lettuce.xml'];
+
 /** One minimal git subprocess result shape used for readable runtime errors. */
 interface GitCommandResult {
   status: number | null;
@@ -100,9 +107,9 @@ const shortCommit = (commit: string) => {
   return commit.slice(0, 7);
 };
 
-/** Builds one stable local git URI for CardDefs.xml at one repository ref. */
+/** Builds one stable local git URI for the CardDefs files at one repository ref. */
 const buildSourceUri = (reference: string) => {
-  return `git+local://hsdata?ref=${reference}&path=CardDefs.xml`;
+  return `git+local://hsdata?ref=${reference}&path=CardDefs*.xml`;
 };
 
 /** Parses one CardDefs build attribute from the XML root element. */
@@ -215,32 +222,56 @@ const runGitText = async (repoPath: string, args: string[], stdin?: string) => {
   return stdout;
 };
 
-/** Parses one large git XML payload through Bun.spawn without first buffering the full document. */
-const parseGitHsdataXml = async (repoPath: string, args: string[]) => {
-  const command = spawnGit(repoPath, args);
-  const [parsedResult, statusResult, stderrResult] = await Promise.allSettled([
-    parseHsdataXmlStream(command.stdout),
-    command.exited,
-    new Response(command.stderr).text(),
-  ]);
+/** Parses the current worktree XML source for import without materializing duplicate buffers. */
+const readWorktreeImportSource = async (repoPath: string) => {
+  const sourceCommit = trimToNull(runGit(repoPath, ['rev-parse', 'HEAD'])) ?? '';
+  const commitMessage = getCommitMessage(repoPath, sourceCommit);
+  const name = parsePatchName(commitMessage);
+  const result = await parseWorktreeHsdataParts(repoPath);
 
-  const status = statusResult.status === 'fulfilled' ? statusResult.value : null;
-  const stderr = stderrResult.status === 'fulfilled' ? stderrResult.value : '';
+  return {
+    sourceTag:  result.parsed.build,
+    sourceCommit,
+    sourceUri:  buildSourceUri('worktree'),
+    sourceHash: result.sourceHash,
+    name,
+    parsed:     result.parsed,
+  } satisfies HsdataImportSource;
+};
 
-  if (status !== 0) {
-    throw new Error(formatGitCommandFailure(args, {
-      status,
-      signal: command.signalCode,
-      error:  null,
-      stderr,
-    }));
-  }
+/** Parses one tagged XML source for import directly from git stdout. */
+const readTagImportSource = async (repoPath: string, tag: string) => {
+  const tagRef = `refs/tags/${tag}`;
+  const sourceCommit = trimToNull(runGit(repoPath, ['rev-list', '-n', '1', tagRef])) ?? '';
+  const result = await parseRefHsdataParts(repoPath, `${tagRef}:`);
+  // Derive the display name from the commit message (e.g. "Update to patch 30.0.0.198765"),
+  // matching the other source readers; the raw tag is only a fallback.
+  const name = sourceCommit ? parsePatchName(getCommitMessage(repoPath, sourceCommit)) : tag;
 
-  if (parsedResult.status === 'rejected') {
-    throw parsedResult.reason;
-  }
+  return {
+    sourceTag:  result.parsed.build,
+    sourceCommit,
+    sourceUri:  buildSourceUri(`tag:${tag}`),
+    sourceHash: result.sourceHash,
+    name,
+    parsed:     result.parsed,
+  } satisfies HsdataImportSource;
+};
 
-  return parsedResult.value;
+/** Parses CardDefs from a bare commit (no tag) for import. */
+const readCommitImportSource = async (repoPath: string, commit: string, buildNumber: number) => {
+  const result = await parseRefHsdataParts(repoPath, `${commit}:`);
+  const commitMessage = runGit(repoPath, ['log', '--format=%s', '-n', '1', commit]);
+  const name = parsePatchName(commitMessage);
+
+  return {
+    sourceTag:    result.parsed.build,
+    sourceCommit: commit,
+    sourceUri:    buildSourceUri(`tag:${buildNumber}`),
+    sourceHash:   result.sourceHash,
+    name,
+    parsed:       result.parsed,
+  } satisfies HsdataImportSource;
 };
 
 /** Test-only helpers exposed for focused hsdata repository unit tests. */
@@ -312,9 +343,16 @@ export const syncHsdataRemoteVersions = () => {
   } satisfies HsdataSyncResult;
 };
 
-/** Reads CardDefs.xml from the current worktree. */
+/** Reads the merged CardDefs preview document from the current worktree. */
 const readWorktreeXml = async (repoPath: string) => {
-  return await readNormalizedHsdataXmlStream(Bun.file(`${repoPath}/CardDefs.xml`).stream());
+  const parts: string[] = [];
+  for (const path of cardDefsPartPaths) {
+    const file = Bun.file(`${repoPath}/${path}`);
+    if (!await file.exists()) continue;
+    parts.push(await readNormalizedHsdataXmlStream(file.stream()));
+  }
+
+  return mergeCardDefsXmlText(parts[0]!, parts.slice(1));
 };
 
 /** Reads the current worktree source metadata and XML content. */
@@ -323,7 +361,13 @@ const readWorktreeSource = async (repoPath: string) => {
   const sourceTag = parseCardDefsBuild(xml);
   const sourceCommit = trimToNull(runGit(repoPath, ['rev-parse', 'HEAD'])) ?? '';
   const time = trimToNull(runGit(repoPath, ['log', '-1', '--format=%cI', 'HEAD'])) ?? undefined;
-  const size = statSync(`${repoPath}/CardDefs.xml`).size;
+
+  let size = 0;
+  for (const path of cardDefsPartPaths) {
+    const full = `${repoPath}/${path}`;
+    if (path !== cardDefsBasePath && !existsSync(full)) continue;
+    size += statSync(full).size;
+  }
 
   return {
     id:          'worktree',
@@ -339,15 +383,28 @@ const readWorktreeSource = async (repoPath: string) => {
   } satisfies HsdataResolvedSource;
 };
 
-/** Reads CardDefs.xml from one git tag. */
+/** Reads the merged CardDefs preview document from one git tag. */
 const readTagSource = async (repoPath: string, tag: string) => {
   const tagRef = `refs/tags/${tag}`;
-  const object = `${tagRef}:CardDefs.xml`;
-  const xml = await runGitText(repoPath, ['cat-file', 'blob', object]);
+  const objects = listRefCardDefsParts(repoPath, `${tagRef}:`);
+
+  const extras: string[] = [];
+  let baseXml: string | null = null;
+  let size = 0;
+  for (const object of objects) {
+    const text = await runGitText(repoPath, ['cat-file', 'blob', object]);
+    if (baseXml == null) {
+      baseXml = text;
+    } else {
+      extras.push(text);
+    }
+    const sizeText = trimToNull(runGit(repoPath, ['cat-file', '-s', object])) ?? '0';
+    size += Number(sizeText);
+  }
+
+  const xml = mergeCardDefsXmlText(baseXml!, extras);
   const sourceTag = parseCardDefsBuild(xml);
   const sourceCommit = trimToNull(runGit(repoPath, ['rev-list', '-n', '1', tagRef])) ?? '';
-  const sizeText = trimToNull(runGit(repoPath, ['cat-file', '-s', object])) ?? '0';
-  const size = Number(sizeText);
   const time = trimToNull(runGit(repoPath, ['log', '-1', '--format=%cI', tagRef])) ?? undefined;
 
   return {
@@ -398,59 +455,6 @@ const parsePatchName = (commitMessage: string) => {
 /** Gets the commit message for one commit hash inside the configured repository. */
 const getCommitMessage = (repoPath: string, commitHash: string) => {
   return trimToNull(runGit(repoPath, ['log', '--format=%s', '-n', '1', commitHash])) ?? '';
-};
-
-/** Parses the current worktree XML source for import without materializing duplicate buffers. */
-const readWorktreeImportSource = async (repoPath: string) => {
-  const sourceCommit = trimToNull(runGit(repoPath, ['rev-parse', 'HEAD'])) ?? '';
-  const commitMessage = getCommitMessage(repoPath, sourceCommit);
-  const name = parsePatchName(commitMessage);
-  const result = await parseHsdataXmlStream(Bun.file(`${repoPath}/CardDefs.xml`).stream());
-
-  return {
-    sourceTag:  result.parsed.build,
-    sourceCommit,
-    sourceUri:  buildSourceUri('worktree'),
-    sourceHash: result.sourceHash,
-    name,
-    parsed:     result.parsed,
-  } satisfies HsdataImportSource;
-};
-
-/** Parses one tagged XML source for import directly from git stdout. */
-const readTagImportSource = async (repoPath: string, tag: string) => {
-  const tagRef = `refs/tags/${tag}`;
-  const object = `${tagRef}:CardDefs.xml`;
-  const sourceCommit = trimToNull(runGit(repoPath, ['rev-list', '-n', '1', tagRef])) ?? '';
-  const result = await parseGitHsdataXml(repoPath, ['cat-file', 'blob', object]);
-  // Derive the display name from the commit message (e.g. "Update to patch 30.0.0.198765"),
-  // matching the other source readers; the raw tag is only a fallback.
-  const name = sourceCommit ? parsePatchName(getCommitMessage(repoPath, sourceCommit)) : tag;
-
-  return {
-    sourceTag:  result.parsed.build,
-    sourceCommit,
-    sourceUri:  buildSourceUri(`tag:${tag}`),
-    sourceHash: result.sourceHash,
-    name,
-    parsed:     result.parsed,
-  } satisfies HsdataImportSource;
-};
-
-/** Parses CardDefs.xml from a bare commit (no tag) for import. */
-const readCommitImportSource = async (repoPath: string, commit: string, buildNumber: number) => {
-  const result = await parseGitHsdataXml(repoPath, ['cat-file', 'blob', `${commit}:CardDefs.xml`]);
-  const commitMessage = runGit(repoPath, ['log', '--format=%s', '-n', '1', commit]);
-  const name = parsePatchName(commitMessage);
-
-  return {
-    sourceTag:    result.parsed.build,
-    sourceCommit: commit,
-    sourceUri:    buildSourceUri(`tag:${buildNumber}`),
-    sourceHash:   result.sourceHash,
-    name,
-    parsed:       result.parsed,
-  } satisfies HsdataImportSource;
 };
 
 /** Resolves one supported hsdata source id into parsed import data. */
@@ -535,6 +539,124 @@ const parseNumericTag = (tag: string) => {
   return Number.isInteger(value) ? value : undefined;
 };
 
+/** Lists the CardDefs part blobs that exist at one `<ref>:` object prefix, in
+ *  stable part order. The base file is required; the extra parts are optional. */
+const listRefCardDefsParts = (repoPath: string, objectPrefix: string) => {
+  const requested = cardDefsPartPaths.map(path => `${objectPrefix}${path}`);
+  const lines = runGit(repoPath, ['cat-file', '--batch-check'], requested.map(object => `${object}\n`).join(''))
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0);
+
+  if (lines.length !== requested.length) {
+    throw new Error('Unexpected git cat-file batch-check output');
+  }
+
+  const objects: string[] = [];
+  for (let index = 0; index < requested.length; index++) {
+    if (lines[index]!.endsWith(' missing')) continue;
+    parseBlobCheckLine(lines[index]!);
+    objects.push(requested[index]!);
+  }
+
+  if (!objects.includes(`${objectPrefix}${cardDefsBasePath}`)) {
+    throw new Error(`${cardDefsBasePath} was not found at ${objectPrefix}`);
+  }
+
+  return objects;
+};
+
+/** Drains one stream into one running hasher without buffering the whole payload. */
+const hashStreamInto = async (stream: ReadableStream<Uint8Array>, hasher: Bun.CryptoHasher) => {
+  const reader = stream.getReader();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    hasher.update(value);
+  }
+};
+
+/** Parses every existing CardDefs part blob at one `<ref>:` prefix into one merged
+ *  payload. Raw part bytes are hashed in stable part order, so the source hash
+ *  matches the patch metadata sync and stays identical for single-part refs. */
+const parseRefHsdataParts = async (repoPath: string, objectPrefix: string): Promise<ParsedHsdataStreamResult> => {
+  const objects = listRefCardDefsParts(repoPath, objectPrefix);
+  const rawHasher = new Bun.CryptoHasher('sha256');
+  const parts: ParsedHsdataStreamResult[] = [];
+
+  for (const object of objects) {
+    const args = ['cat-file', 'blob', object];
+    const proc = spawnGit(repoPath, args);
+    const [hashStream, parseStream] = proc.stdout.tee();
+    const hashDone = hashStreamInto(hashStream, rawHasher);
+
+    let parseError: unknown = null;
+    let parsed: ParsedHsdataStreamResult | null = null;
+    try {
+      parsed = await parseHsdataXmlStream(parseStream);
+    } catch (error) {
+      parseError = error;
+    }
+
+    await hashDone;
+    const status = await proc.exited;
+    if (status !== 0) {
+      throw new Error(formatGitCommandFailure(args, {
+        status,
+        signal: proc.signalCode,
+        error:  null,
+        stderr: await new Response(proc.stderr).text(),
+      }));
+    }
+    if (parseError != null) {
+      throw parseError;
+    }
+
+    parts.push(parsed!);
+  }
+
+  return { parsed: mergeParsedHsdataParts(parts), sourceHash: rawHasher.digest('hex') };
+};
+
+/** Parses every existing CardDefs part file in the worktree into one merged payload. */
+const parseWorktreeHsdataParts = async (repoPath: string): Promise<ParsedHsdataStreamResult> => {
+  const rawHasher = new Bun.CryptoHasher('sha256');
+  const parts: ParsedHsdataStreamResult[] = [];
+
+  for (const path of cardDefsPartPaths) {
+    const file = Bun.file(`${repoPath}/${path}`);
+    if (!await file.exists()) {
+      if (path === cardDefsBasePath) {
+        throw new Error(`${cardDefsBasePath} was not found in the hsdata repo worktree`);
+      }
+      continue;
+    }
+
+    const [hashStream, parseStream] = file.stream().tee();
+    const hashDone = hashStreamInto(hashStream, rawHasher);
+    parts.push(await parseHsdataXmlStream(parseStream));
+    await hashDone;
+  }
+
+  return { parsed: mergeParsedHsdataParts(parts), sourceHash: rawHasher.digest('hex') };
+};
+
+/** Splices extra CardDefs part documents' entity blocks into the base document,
+ *  so one preview payload can show every entity of the ref. */
+const mergeCardDefsXmlText = (base: string, extras: string[]) => {
+  let merged = base;
+  for (const extra of extras) {
+    const openEnd = extra.indexOf('>', Math.max(0, extra.indexOf('<CardDefs')));
+    const closeStart = extra.lastIndexOf('</CardDefs>');
+    const mergedClose = merged.lastIndexOf('</CardDefs>');
+    if (openEnd < 0 || closeStart < 0 || mergedClose < 0) {
+      throw new Error('Failed to locate CardDefs document boundaries');
+    }
+    merged = `${merged.slice(0, mergedClose)}${extra.slice(openEnd + 1, closeStart)}${merged.slice(mergedClose)}`;
+  }
+  return merged;
+};
+
 /** Collects patch metadata (name, commit, CardDefs.xml SHA256) for all git tags
  *  without parsing the XML entities. Uses streaming to avoid buffer limits. */
 export const collectAllPatchMeta = async (): Promise<HsdataPatchMeta[]> => {
@@ -567,18 +689,28 @@ export const collectAllPatchMeta = async (): Promise<HsdataPatchMeta[]> => {
     const commitMessage = runGit(repoPath, ['log', '--format=%s', '-n', '1', commit || tagRef]);
     const name = parsePatchName(commitMessage);
 
-    // Stream CardDefs.xml through SHA256 to avoid buffer limits.
-    const proc = spawnGit(repoPath, ['cat-file', 'blob', `${tagRef}:CardDefs.xml`]);
-    const buffer = await new Response(proc.stdout).arrayBuffer();
-    const hash = Bun.SHA256.hash(buffer, 'hex') as string;
-    const exitStatus = await proc.exited;
-    if (exitStatus !== 0) {
-      const stderr = await new Response(proc.stderr).text();
-      throw new Error(formatGitCommandFailure(
-        ['cat-file', 'blob', `${tagRef}:CardDefs.xml`],
-        { status: exitStatus, signal: proc.signalCode, error: null, stderr },
-      ));
+    // Hash the raw bytes of every existing part file in stable part order, matching
+    // the multi-part import source hash (identical for pre-split single-file refs).
+    const objects = listRefCardDefsParts(repoPath, `${tagRef}:`);
+    const hasher = new Bun.CryptoHasher('sha256');
+    for (const object of objects) {
+      const proc = spawnGit(repoPath, ['cat-file', 'blob', object]);
+      const reader = proc.stdout.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        hasher.update(value);
+      }
+      const exitStatus = await proc.exited;
+      if (exitStatus !== 0) {
+        const stderr = await new Response(proc.stderr).text();
+        throw new Error(formatGitCommandFailure(
+          ['cat-file', 'blob', object],
+          { status: exitStatus, signal: proc.signalCode, error: null, stderr },
+        ));
+      }
     }
+    const hash = hasher.digest('hex');
 
     result.push({ buildNumber, name, commit, hash, releaseDate });
   }
@@ -594,13 +726,26 @@ export const collectAllPatchMeta = async (): Promise<HsdataPatchMeta[]> => {
     const dateOutput = runGit(repoPath, ['log', '--format=%cI', '-n', '1', extraCommit]);
     const releaseDate = (dateOutput.trim()).slice(0, 10);
 
-    const proc = spawnGit(repoPath, ['cat-file', 'blob', `${extraCommit}:CardDefs.xml`]);
-    const buffer = await new Response(proc.stdout).arrayBuffer();
-    const hash = Bun.SHA256.hash(buffer, 'hex') as string;
-    const exitStatus = await proc.exited;
-    if (exitStatus !== 0) continue;
+    try {
+      const objects = listRefCardDefsParts(repoPath, `${extraCommit}:`);
+      const hasher = new Bun.CryptoHasher('sha256');
+      for (const object of objects) {
+        const proc = spawnGit(repoPath, ['cat-file', 'blob', object]);
+        const reader = proc.stdout.getReader();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          hasher.update(value);
+        }
+        const exitStatus = await proc.exited;
+        if (exitStatus !== 0) throw new Error(`git cat-file blob ${object} exited with status ${exitStatus}`);
+      }
 
-    result.push({ buildNumber, name, commit: extraCommit, hash, releaseDate });
+      result.push({ buildNumber, name, commit: extraCommit, hash: hasher.digest('hex'), releaseDate });
+    } catch {
+      // Untagged commits may predate the repository's available history; skip them.
+      continue;
+    }
   }
 
   result.sort((a, b) => a.buildNumber - b.buildNumber);
@@ -675,15 +820,32 @@ export const listHsdataSources = () => {
     return [] satisfies HsdataFile[];
   }
 
-  const batchInput = tagRefs.map(tagRef => `${tagRef.tagRef}:CardDefs.xml\n`).join('');
+  const batchInput = tagRefs
+    .flatMap(tagRef => cardDefsPartPaths.map(path => `${tagRef.tagRef}:${path}\n`))
+    .join('');
   const blobChecks = runGit(repoPath, ['cat-file', '--batch-check'], batchInput)
     .split('\n')
-    .filter(line => line.trim().length > 0)
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
     .map(parseBlobCheckLine);
 
-  return tagRefs.flatMap((tagRef, index) => {
-    const blob = blobChecks[index];
-    if (!blob?.size) {
+  if (blobChecks.length !== tagRefs.length * cardDefsPartPaths.length) {
+    throw new Error('Unexpected git cat-file batch-check output');
+  }
+
+  return tagRefs.flatMap((tagRef, tagIndex) => {
+    // One ref spans several part files since the upstream CardDefs split; the
+    // shown size covers every part, and refs without the base file are skipped.
+    let size = 0;
+    let hasBase = false;
+    for (let partIndex = 0; partIndex < cardDefsPartPaths.length; partIndex++) {
+      const blob = blobChecks[tagIndex * cardDefsPartPaths.length + partIndex];
+      if (!blob?.size) continue;
+      size += blob.size;
+      if (partIndex === 0) hasBase = true;
+    }
+
+    if (!hasBase) {
       return [];
     }
 
@@ -691,7 +853,7 @@ export const listHsdataSources = () => {
       id:           `tag:${tagRef.tag}`,
       name:         tagRef.tag,
       kind:         'tag' as const,
-      size:         blob.size,
+      size,
       time:         tagRef.time,
       sourceTag:    parseNumericTag(tagRef.tag),
       sourceCommit: tagRef.sourceCommit,

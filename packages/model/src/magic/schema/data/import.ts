@@ -451,7 +451,7 @@ function coverageFor(sourceId: ImportSourceId, importField: ImportField): Covera
 
   if (sourceId === 'magic/gatherer') {
     if (group === 'localization') {
-      return coverage('unsupported', 'Gatherer is not a localization source.');
+      return coverage('unsupported', 'Gatherer localization surfaces are not imported by default; they reach the site through the print-commit completion flow only.');
     }
 
     if (group === 'image') {

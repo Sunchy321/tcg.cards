@@ -6,7 +6,7 @@
       variant="ghost"
       icon="i-lucide-list-todo"
       :badge="count > 0 ? count : undefined"
-      :color="count > 0 ? 'primary' : 'gray'"
+      :color="count > 0 ? 'primary' : 'neutral'"
       @click="open = !open"
     />
 
@@ -45,10 +45,10 @@
               :title="statusLabel(task.pageTask.status)"
               :page-task="task.pageTask"
               :stages="task.stages"
-              @pause="handlePause"
-              @resume="handleResume"
-              @cancel="handleCancel"
-              @retry="handleRetry"
+              @pause="handlePause(task.pageTask.taskRunId)"
+              @resume="handleResume(task.pageTask.taskRunId)"
+              @cancel="handleCancel(task.pageTask.taskRunId)"
+              @retry="handleRetry(task.pageTask.taskRunId)"
             />
           </div>
         </div>
@@ -68,30 +68,39 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: 'pause', taskRunId: string): void;
-  (e: 'resume', taskRunId: string): void;
-  (e: 'cancel', taskRunId: string): void;
-  (e: 'retry', taskRunId: string): void;
+  (e: 'pause' | 'resume' | 'cancel' | 'retry', taskRunId: string): void;
 }>();
 
 function statusLabel(status: string): string {
   const labels: Record<string, string> = {
-    pending: '等待中',
-    running: '运行中',
-    pausing: '暂停中',
-    paused: '已暂停',
-    resuming: '恢复中',
+    pending:   '等待中',
+    running:   '运行中',
+    pausing:   '暂停中',
+    paused:    '已暂停',
+    resuming:  '恢复中',
     canceling: '取消中',
-    canceled: '已取消',
-    failed: '失败',
+    canceled:  '已取消',
+    failed:    '失败',
     completed: '已完成',
     abandoned: '已废弃',
   };
   return labels[status] ?? status;
 }
 
-function handlePause(taskRunId: string) { emit('pause', taskRunId); }
-function handleResume(taskRunId: string) { emit('resume', taskRunId); }
-function handleCancel(taskRunId: string) { emit('cancel', taskRunId); }
-function handleRetry(taskRunId: string) { emit('retry', taskRunId); }
+function handlePause(taskRunId: string) {
+  emit('pause', taskRunId);
+}
+
+function handleResume(taskRunId: string) {
+  emit('resume', taskRunId);
+}
+
+function handleCancel(taskRunId: string) {
+  emit('cancel', taskRunId);
+}
+
+function handleRetry(taskRunId: string) {
+  emit('retry', taskRunId);
+}
+
 </script>

@@ -117,6 +117,7 @@ export default {
     gnoll:     '豺狼人',
     golem:     '魔像',
     vulpera:   '狐人',
+    aberration: '畸变怪',
   },
   'spell-school': {
     _self:           '法术派系。',

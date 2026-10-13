@@ -13,6 +13,7 @@ import { bitset, color } from '../../../type/bitset';
 
 import { omit } from 'lodash-es';
 
+import { ambit } from '../ambit';
 import { schema } from './schema';
 
 import * as basicModel from '#model/magic/schema/basic';
@@ -25,6 +26,8 @@ export const Card = schema.table('cards', {
   cardId:    text('card_id').notNull(),
   version:   text('version').notNull().default(''),
   partCount: smallint('part_count').notNull(),
+
+  ambit: ambit('ambit').notNull().default('full'),
 
   name:     text('name').notNull(),
   typeline: text('typeline').notNull(),
@@ -61,6 +64,8 @@ export const CardLocalization = schema.table('card_localizations', {
   source:  text('source').notNull().default(''),
 
   name:     text('loc_name').notNull(),
+  /** Annotation string (`名（かな）`, ADR 0013) resolved from the name-ruby authority. */
+  rubyName: text('ruby_loc_name'),
   typeline: text('loc_typeline').notNull(),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -117,6 +122,8 @@ export const CardPartLocalization = schema.table('card_part_localizations', {
   partIndex: smallint('part_index').notNull(),
 
   name:     text('part_loc_name').notNull(),
+  /** Annotation string (`名（かな）`, ADR 0013) resolved from the name-ruby authority. */
+  rubyName: text('ruby_part_loc_name'),
   typeline: text('part_loc_typeline').notNull(),
   text:     text('part_loc_text').notNull(),
 

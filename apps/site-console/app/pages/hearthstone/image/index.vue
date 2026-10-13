@@ -394,6 +394,8 @@ definePageMeta({
 });
 
 const { $orpc } = useNuxtApp();
+// The image router rides the medium console tier, beyond the light web router.
+const imageApi = ($orpc.hearthstone as any).image;
 const toast = useToast();
 
 const langItems: Array<{ label: string, value: Locale }> = [
@@ -559,7 +561,7 @@ async function submitExport() {
   errorMessage.value = '';
 
   try {
-    const result = await $orpc.hearthstone.image.exportRequirements({
+    const result = await imageApi.exportRequirements({
       lang:      form.lang,
       cardId:    form.cardId.trim().length === 0 ? undefined : form.cardId.trim(),
       version:   version == null ? undefined : Number(version),
@@ -609,7 +611,7 @@ async function submitImport() {
       { type: 'application/json' },
     );
 
-    const result = await $orpc.hearthstone.image.importArchive({
+    const result = await imageApi.importArchive({
       requirements,
       manifest: JSON.stringify(prepared.manifest),
       files:    prepared.files.map(file => ({

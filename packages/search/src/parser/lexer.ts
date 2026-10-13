@@ -1,5 +1,5 @@
 export type Token = {
-  type:     'id' | 'punc' | 'regex' | 'string' | 'ws';
+  type:     'id' | 'punc' | 'regex' | 'string' | 'ws' | 'bracket';
   text:     string;
   location: [number, number];
 };
@@ -111,6 +111,10 @@ export default class Lexer {
 
     if (this.isRegex()) {
       return this.parseRegex();
+    }
+
+    if (this.curr === '[' && this.peekChar() === '[') {
+      return this.parseBracket();
     }
 
     if (this.isIdentifierStart()) {
@@ -284,6 +288,30 @@ export default class Lexer {
     }
 
     return this.returnToken('regex');
+  }
+
+  // Double-bracket scope token: `[[…]]` content is matched verbatim up to the
+  // closing `]]`; an unclosed run is a lex error.
+  private parseBracket(): Token {
+    this.startToken();
+
+    this.nextChar();
+    this.nextChar();
+
+    while (this.curr != null) {
+      if (this.curr === ']' && this.peekChar() === ']') {
+        this.nextChar();
+        this.nextChar();
+
+        return this.returnToken('bracket');
+      }
+
+      this.nextChar();
+    }
+
+    this.newError('unterminated-bracket', [this.savedIndex!, this.index]);
+
+    return this.returnToken('bracket');
   }
 
   private parseIdentifier(option = defaultOption): Token {

@@ -4,6 +4,8 @@
   "oracleId": "4457ed35-7c10-48c8-9776-456485fdf070",
   "layout": "normal",
   "setName": "Unlimited Edition",
+  "set": "2ed",
+  "setType": "core",
   "cmc": 1,
   "colorIdentity": [
     "R"

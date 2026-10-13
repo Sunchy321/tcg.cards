@@ -135,7 +135,10 @@
             <div v-for="(req, index) in debugRequestResult.requests" :key="req.requestId" class="space-y-1">
               <div class="flex items-center justify-between">
                 <div class="text-xs font-medium">{{ req.variant.zone }}.{{ req.variant.template }}.{{ req.variant.premium }}</div>
-                <UButton :label="copiedIndex === index ? '已复制' : '复制'" :icon="copiedIndex === index ? 'i-lucide-check' : 'i-lucide-copy'" :color="copiedIndex === index ? 'success' : 'neutral'" variant="ghost" size="xs" @click="copyDebugRequest(index)" />
+                <div class="flex items-center gap-1">
+                  <UButton label="下载" icon="i-lucide-image-down" color="neutral" variant="ghost" size="xs" :loading="downloadingIndex === index" :disabled="actionLoading !== null || (downloadingIndex !== null && downloadingIndex !== index)" @click="downloadDebugRequestImage(index)" />
+                  <UButton :label="copiedIndex === index ? '已复制' : '复制'" :icon="copiedIndex === index ? 'i-lucide-check' : 'i-lucide-copy'" :color="copiedIndex === index ? 'success' : 'neutral'" variant="ghost" size="xs" @click="copyDebugRequest(index)" />
+                </div>
               </div>
               <pre class="max-h-48 overflow-auto rounded-lg border border-default bg-muted p-2 text-xs"><code>{{ formatDebugRequestJson(req) }}</code></pre>
             </div>
@@ -833,6 +836,38 @@ async function copyDebugRequest(index: number) {
     }, 2000);
   } catch {
     // no-op
+  }
+}
+
+const downloadingIndex = ref<number | null>(null);
+
+function triggerPngDownload(base64Png: string, fileName: string) {
+  const bytes = Uint8Array.from(atob(base64Png), c => c.charCodeAt(0));
+  const blob = new Blob([bytes], { type: 'image/png' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+async function downloadDebugRequestImage(index: number) {
+  const request = debugRequestResult.value?.requests[index];
+  if (!request) return;
+  downloadingIndex.value = index;
+  try {
+    const result = await orpc.image.renderOne({ request });
+    const fileName = `${debugRequestResult.value?.cardId ?? request.card.cardId}.png`;
+    triggerPngDownload(result.base64Png, fileName);
+    toast.add({ title: '下载完成', description: fileName, color: 'success' });
+  } catch (error) {
+    console.error('Failed to download rendered image:', error);
+    toast.add({ title: '下载失败', description: getConsoleErrorMessage(error, '图片渲染失败'), color: 'error' });
+  } finally {
+    downloadingIndex.value = null;
   }
 }
 

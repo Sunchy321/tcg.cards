@@ -1,8 +1,14 @@
 <template>
   <div>
     <Teleport to="#subheader-portal" defer>
-      <div class="controller h-12 flex items-center px-4 shadow-md">
-        <UIcon v-show="searching" name="lucide:refresh-cw" class="animate-spin mr-2 text-white/80" />
+      <div class="controller h-12 flex items-center gap-3 px-4 shadow-md">
+        <UIcon v-show="searching" name="lucide:refresh-cw" class="animate-spin text-white/80 shrink-0" />
+
+        <SearchAmbitLanding
+          v-if="data != null"
+          :ambit="landingAmbit"
+          :widened="widened"
+        />
 
         <RichText class="text-white/90 text-sm">
           {{ explained.text }}
@@ -10,7 +16,7 @@
 
         <div class="flex-1" />
 
-        <span v-if="data != null" class="font-mono mr-4 text-white/60 text-sm">{{ total }}</span>
+        <span v-if="data != null" class="font-mono text-sm text-white/70">{{ total }}</span>
 
         <UPagination
           v-if="pageCount > 0"
@@ -22,6 +28,16 @@
         />
       </div>
     </Teleport>
+
+    <!-- Query errors -->
+    <div v-if="errorTexts.length > 0" class="mt-16 py-4 px-12 flex justify-center">
+      <div class="max-w-xl w-fit p-3 rounded-lg bg-yellow-100 dark:bg-yellow-500/20 border border-yellow-300 dark:border-yellow-400/40 text-yellow-700 dark:text-yellow-200 text-sm flex items-start gap-2">
+        <UIcon name="lucide:alert-triangle" class="shrink-0 mt-0.5" />
+        <div class="flex flex-col gap-1">
+          <span v-for="(text, i) in errorTexts" :key="i">{{ text }}</span>
+        </div>
+      </div>
+    </div>
 
     <!-- Card grid -->
     <div class="result mt-16 py-4 px-12 flex flex-wrap justify-center gap-2">
@@ -42,8 +58,8 @@
           :part="card.partIndex"
           class="w-50"
         />
-        <div class="mt-1 px-1 text-center text-sm text-white/80 truncate w-50">
-          {{ card.cardPartLocalization.name }}
+        <div class="mt-1 px-1 text-center text-sm text-white/80 truncate w-50" :lang="card.locale">
+          <NameRuby :name="card.cardPartLocalization.name" :ruby="card.cardPartLocalization.rubyName" />
         </div>
       </NuxtLink>
       <div v-for="i in 20" :key="`dummy-${i}`" class="w-50" aria-hidden="true" />
@@ -56,6 +72,8 @@ import type { CardPrintView } from '#model/magic/schema/print';
 import type { SearchResult } from '#model/magic/schema/search';
 
 import { explain as model } from '~/search';
+import { detectAmbit, AMBITS } from '#search/ambit';
+import type { Ambit } from '#search/ambit';
 
 definePageMeta({
   layout:    'main',
@@ -107,6 +125,31 @@ const cards = computed<CardPrintView[]>(() => (data.value?.result?.result ?? [])
 const total = computed(() => data.value?.result?.total ?? 0);
 const pageCount = computed(() => data.value?.result?.totalPage ?? Math.ceil(total.value / pageSize.value));
 
+/** The ambit URL param as its ladder level; null when absent. */
+const ambitLevel = useAmbitParam();
+
+/** The ceiling the query asked for: an ambit command in the DSL overrides the
+ * URL param, and an explicit command that pins nothing falls back to the
+ * default primary ambit (still without widening). */
+const requestedAmbit = computed<Ambit>(() => {
+  const dsl = detectAmbit(q.value ?? '');
+  return dsl.pinned ?? (dsl.explicit ? 'primary' : ambitLevel.value ?? 'primary');
+});
+
+/** The ambit the search actually landed on, as reported by the response. */
+const landingAmbit = computed<Ambit>(() => data.value?.result?.ambit ?? 'primary');
+
+/** True when stepwise widening moved the results past the requested ceiling —
+ * the only situation where the landing needs to be called out. */
+const widened = computed(() =>
+  AMBITS.indexOf(landingAmbit.value) > AMBITS.indexOf(requestedAmbit.value));
+
+// Server-side query errors (parse and validation); unknown types fall back to a generic message.
+const errorTexts = computed(() => (data.value?.errors ?? []).map((e: any) => {
+  const key = `search.error.${e.type}`;
+  return i18n.te(key) ? i18n.t(key, e.payload ?? {}) : i18n.t('search.error.fallback');
+}));
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const imageLang = (card: CardPrintView): string => {
@@ -117,7 +160,7 @@ const imageLang = (card: CardPrintView): string => {
 };
 
 const cardLink = (card: CardPrintView) =>
-  `/card/${card.cardId}?set=${card.set}&number=${card.number}&lang=${card.lang}&part=${card.partIndex}`;
+  `/card/${card.cardId}?set=${card.set}&number=${card.number}&locale=${card.locale}&part=${card.partIndex}`;
 
 const changePage = (newPage: number) => {
   if (page.value !== newPage) {
@@ -141,6 +184,7 @@ const doSearch = async () => {
       lang:     gameLocale.value,
       page:     page.value,
       pageSize: pageSize.value,
+      ambit:    ambitLevel.value ?? undefined,
     });
 
     // Only update if query is still the same (avoid stale responses)
@@ -154,7 +198,7 @@ const doSearch = async () => {
   }
 };
 
-watch([q, page, pageSize], doSearch, { immediate: true });
+watch([q, page, pageSize, ambitLevel], doSearch, { immediate: true });
 </script>
 
 <style lang="scss" scoped>

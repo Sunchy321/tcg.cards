@@ -3,12 +3,13 @@ import z from 'zod';
 import { createSearchNormalResult, createSearchResult } from '#search/schema';
 
 import { cardEntityView } from './entity';
+import { ambit } from '../../ambit';
 
 export const cardImageVariant = z.enum(['normal', 'golden', 'diamond', 'signature', 'battlegrounds']);
 
 export const normalResult = createSearchNormalResult(cardEntityView).extend({
   variant: cardImageVariant.default('normal'),
-  strict:  z.boolean().default(true),
+  ambit,
 });
 
 export type NormalResult = z.infer<typeof normalResult>;

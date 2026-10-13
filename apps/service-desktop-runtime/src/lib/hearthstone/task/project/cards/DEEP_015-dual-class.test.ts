@@ -1275,7 +1275,15 @@ const expected: CardProjectionExpected = {
       version:            [],
     },
   ],
-  relations: [],
+  relations: [
+    {
+      sourceId:           'DEEP_015',
+      sourceRevisionHash: 'a2436545692689141bbad15c9a22cb780a49af938819bcc3e5df8467ce24b5f6',
+      relation:           'magnetic_enchantment',
+      targetId:           'DEEP_015e',
+      version:            [],
+    },
+  ],
 };
 
 describe('DEEP_015-dual-class (DEEP_015 @ 248348)', () => {

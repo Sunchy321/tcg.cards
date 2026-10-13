@@ -1,5 +1,7 @@
 import { GAMES, type Game } from '@tcg-cards/base';
 
+export type { Game };
+
 /** One leaf navigation item. */
 export interface ConsoleNavItem {
   label: string;
@@ -131,9 +133,9 @@ export function getGameNavItems(game: Game): ConsoleNavLink[] {
           { label: 'Gatherer', icon: 'i-lucide-globe', to: `/${game}/data-source/gatherer` },
           { label: 'MTGJSON', icon: 'i-lucide-folder', to: `/${game}/data-source/mtgjson` },
           { label: 'MTGCH', icon: 'i-lucide-file-json', to: `/${game}/data-source/mtgch` },
+          { label: 'MTGA 注音', icon: 'i-lucide-languages', to: `/${game}/data-source/mtga` },
           { label: '投影', icon: 'i-lucide-box', to: `/${game}/project` },
           { label: '评审', icon: 'i-lucide-clipboard-list', to: `/${game}/review` },
-          { label: '卡图导入', icon: 'i-lucide-image', to: `/${game}/image-import` },
         ],
       },
       {
@@ -145,6 +147,10 @@ export function getGameNavItems(game: Game): ConsoleNavLink[] {
           { label: '赛制', icon: 'i-lucide-shield-check', to: `/${game}/format` },
           { label: '公告', icon: 'i-lucide-megaphone', to: `/${game}/announcement` },
           { label: '规则', icon: 'i-lucide-book-open', to: `/${game}/rule` },
+          { label: '卡名注音', icon: 'i-lucide-languages', to: `/${game}/ruby` },
+          { label: '收录范围', icon: 'i-lucide-filter', to: `/${game}/ambit` },
+          { label: '卡牌补全', icon: 'i-lucide-puzzle', to: `/${game}/commits` },
+          { label: '卡图导入', icon: 'i-lucide-image', to: `/${game}/image-import` },
         ],
       },
       {
@@ -152,6 +158,27 @@ export function getGameNavItems(game: Game): ConsoleNavLink[] {
         icon: 'i-lucide-upload',
         children: [
           { label: '发布', icon: 'i-lucide-upload', to: `/${game}/publish` },
+        ],
+      },
+    );
+  } else if (game === 'yugioh') {
+    items.push(
+      {
+        label: '数据管线',
+        icon: 'i-lucide-workflow',
+        children: [
+          { label: 'Neuron 官方库', icon: 'i-lucide-globe', to: `/${game}/data-source/neuron` },
+          { label: 'CNOCG 官方库', icon: 'i-lucide-globe', to: `/${game}/data-source/cnocg` },
+        ],
+      },
+      {
+        label: '数据浏览',
+        icon: 'i-lucide-database',
+        children: [
+          { label: '卡牌', icon: 'i-lucide-layers', to: `/${game}/card` },
+          { label: '系列', icon: 'i-lucide-folder-open', to: `/${game}/set` },
+          { label: '赛制', icon: 'i-lucide-shield-check', to: `/${game}/format` },
+          { label: '公告', icon: 'i-lucide-megaphone', to: `/${game}/announcement` },
         ],
       },
     );

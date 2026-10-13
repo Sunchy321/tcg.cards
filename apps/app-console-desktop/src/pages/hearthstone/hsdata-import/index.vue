@@ -218,35 +218,51 @@ const syncingPatchesLabel = computed(() => {
 const items = ref<ImportItem[]>([]);
 const selectedKey = ref<number | null>(null);
 const selectedItem = computed(() => items.value.find(i => i.buildNumber === selectedKey.value) ?? null);
-const hideImported = ref(loadState().hideImported);
-const importForm = reactive({ dryRun: true, force: false });
+const pageState = loadState();
+const hideImported = ref(pageState.hideImported);
+const importForm = reactive({ dryRun: pageState.dryRun, force: false });
 
 interface ImportReport {
-  dryRun:            boolean;
-  entityCount:       number;
-  insertedSnapshots: number;
-  reusedSnapshots:   number;
-  insertedTagRows:   number;
+  dryRun:             boolean;
+  entityCount:        number;
+  insertedSnapshots:  number;
+  reusedSnapshots:    number;
+  insertedTagRows:    number;
   discoveredTagCount: number;
 }
 interface ImportTaskResult { reports: ImportReport[] }
 const taskResult = ref<ImportTaskResult | null>(null);
 
 // ── Persistence ──
-function loadState() {
+/** Restored page state, defaulting to dry run so a missing value never writes to the database. */
+interface ImportPageState {
+  hideImported: boolean;
+  dryRun:       boolean;
+}
+/** Reads the persisted page state and falls back to the page defaults. */
+function loadState(): ImportPageState {
   try {
     const r = localStorage.getItem(STATE_KEY);
-    if (r)
-      return JSON.parse(r) as { hideImported: boolean };
+    if (r) {
+      const parsed = JSON.parse(r) as Partial<ImportPageState>;
+      return {
+        hideImported: typeof parsed.hideImported === 'boolean' ? parsed.hideImported : false,
+        dryRun:       typeof parsed.dryRun === 'boolean' ? parsed.dryRun : true,
+      };
+    }
   } catch { /* */ }
 
-  return { hideImported: false };
+  return { hideImported: false, dryRun: true };
 }
+/** Writes the current page state so the next visit reuses it. */
 function saveState() {
-  localStorage.setItem(STATE_KEY, JSON.stringify({ hideImported: hideImported.value }));
+  localStorage.setItem(STATE_KEY, JSON.stringify({
+    hideImported: hideImported.value,
+    dryRun:       importForm.dryRun,
+  }));
 }
 
-watch(hideImported, saveState);
+watch([hideImported, () => importForm.dryRun], saveState);
 
 // ── Status helpers ──
 function statusBadge(s: string) {

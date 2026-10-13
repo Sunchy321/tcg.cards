@@ -7,7 +7,7 @@ import { Print } from '@tcg-cards/db/schema/shared/magic/print';
 import { imageStatus } from '@tcg-cards/model/magic/schema/print';
 
 import type { LocalDb } from '../../hearthstone/hsdata-local-db';
-import { assessQuality, encodeWebp, faceIndexOf } from './common';
+import { assessQuality, encodeWebp } from './common';
 import { fetchImageBuffer } from './fetch';
 import { gathererRowUrls, scryfallRowUrls } from './source';
 
@@ -75,22 +75,22 @@ async function resolveSide(source: 'scryfall' | 'gatherer', url: string | null, 
   if (blocked != null) return { status: 'unavailable', source, reason: blocked };
   if (url == null) return { status: 'unavailable', source, reason: '该面没有可用的图源' };
 
-  const bytes = await fetchImageBuffer(url);
-  if (!bytes) return { status: 'unavailable', source, reason: '取图失败' };
+  const fetched = await fetchImageBuffer(url);
+  if (!fetched.ok) return { status: 'unavailable', source, reason: `取图失败(${fetched.error})` };
 
-  const encoded = await encodeWebp(bytes);
-  if (!encoded) return { status: 'unavailable', source, reason: '图片无法解码' };
+  const encoded = await encodeWebp(fetched.data);
+  if (!encoded.ok) return { status: 'unavailable', source, reason: `图片无法解码(${encoded.error})` };
 
-  const tier = await assessQuality(encoded, bytes);
+  const tier = await assessQuality(encoded.value, fetched.data);
   return {
     status:       'ok',
     source,
-    width:        encoded.width,
-    height:       encoded.height,
-    byteSize:     encoded.byteSize,
+    width:        encoded.value.width,
+    height:       encoded.value.height,
+    byteSize:     encoded.value.byteSize,
     qualityScore: tier.score,
     tier:         tier.status,
-    preview:      `data:image/webp;base64,${encoded.data.toString('base64')}`,
+    preview:      `data:image/webp;base64,${encoded.value.data.toString('base64')}`,
   };
 }
 
@@ -122,15 +122,13 @@ export async function compareImageSources(
   if (!row) return null;
 
   // Same url rule as the import, so the comparison shows what an import writes.
+  // Both rules return one url per printed image, so the slots compare pairwise;
+  // a row pinned to one face of its scryfall card (a reversible print) arrives
+  // as its single face already.
   const scryfallUrls = scryfallRowUrls(row);
   const gathererUrls = gathererRowUrls(row);
   const faceCount = Math.max(scryfallUrls.length, gathererUrls.length);
-
-  // Rows pinned to one face of their scryfall card only carry that face.
-  const pinned = faceIndexOf(row.scryfallFace);
-  const indices = pinned != null
-    ? [pinned]
-    : Array.from({ length: faceCount }, (_, i) => i);
+  const indices = Array.from({ length: faceCount }, (_, i) => i);
 
   const scryfallBlocked = row.scryfallCardId == null
     ? 'Scryfall 无该印张的图源信息'

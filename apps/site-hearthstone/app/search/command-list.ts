@@ -147,6 +147,19 @@ export const collectible = cc
     return i18n('$.full-command.collectible', { value: valueText });
   });
 
+export const ambit = cc
+  .commands.ambit
+  .explain((args, i18n) => {
+    return defaultTranslate(args, i18n, 'ambit', {
+      ':':  'is',
+      '=':  'equal',
+      '<':  'less-than',
+      '<=': 'less-equal',
+      '>':  'greater-than',
+      '>=': 'greater-equal',
+    });
+  });
+
 export const change = cc
   .commands.change
   .explain((args, i18n) => {

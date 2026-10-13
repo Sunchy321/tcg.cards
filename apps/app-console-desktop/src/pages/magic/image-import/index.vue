@@ -8,10 +8,19 @@
             <h1 class="text-xl font-semibold">卡图导入</h1>
           </div>
           <p class="mt-1 text-sm text-muted">
-            从 Scryfall / Gatherer 批量下载或按编号补图,或上传本地图片与压缩包;上传导入的结果不会被批量导入覆盖。
+            从 Scryfall / Gatherer 批量下载或按编号补图,MTGCH 可自动下载简中卡图,或上传本地图片与压缩包;上传导入的结果不会被批量导入覆盖。
           </p>
         </div>
         <div class="ml-auto flex gap-2">
+          <UButton
+            label="图片质量检查"
+            icon="i-lucide-search-check"
+            color="info"
+            variant="soft"
+            :disabled="!qualityReady"
+            :loading="checkingQuality"
+            @click="runQualityCheck"
+          />
           <UButton label="打开设置" icon="i-lucide-settings" color="neutral" variant="soft" to="/settings/games/magic" />
         </div>
       </div>
@@ -23,22 +32,60 @@
         :operations="[operation]"
         @completed="onCompleted"
       >
+        <template #actions-before="{ disabled }">
+          <UButton
+            label="标记无图"
+            icon="i-lucide-image-off"
+            color="warning"
+            variant="soft"
+            :disabled="!clearReady || disabled"
+            :loading="marking"
+            @click="markOpen = true"
+          />
+          <UButton
+            label="清空图片"
+            icon="i-lucide-eraser"
+            color="error"
+            variant="soft"
+            :disabled="!clearReady || disabled"
+            :loading="clearing"
+            @click="clearOpen = true"
+          />
+        </template>
         <template #params="{ disabled }">
           <div class="space-y-4 pt-4">
             <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
               <UFormField orientation="horizontal" :ui="{ root: '!justify-start' }" label="来源" required>
-                <USelect
-                  v-model="form.source"
-                  :items="SOURCE_OPTIONS"
-                  value-key="value"
-                  class="w-44"
-                  :disabled="disabled"
-                />
+                <div class="flex items-center gap-2">
+                  <UFieldGroup>
+                    <UButton
+                      v-for="s in uploadSources"
+                      :key="s"
+                      :label="SOURCE_LABELS[s]"
+                      :color="form.source === s ? 'primary' : 'neutral'"
+                      :variant="form.source === s ? 'solid' : 'soft'"
+                      :disabled="disabled"
+                      @click="{ form.source = s; }"
+                    />
+                  </UFieldGroup>
+                  <span class="h-5 w-px bg-slate-200" aria-hidden="true" />
+                  <UFieldGroup>
+                    <UButton
+                      v-for="s in remoteSources"
+                      :key="s"
+                      :label="SOURCE_LABELS[s]"
+                      :color="form.source === s ? 'primary' : 'neutral'"
+                      :variant="form.source === s ? 'solid' : 'soft'"
+                      :disabled="disabled"
+                      @click="{ form.source = s; }"
+                    />
+                  </UFieldGroup>
+                </div>
               </UFormField>
-              <UFormField orientation="horizontal" :ui="{ root: '!justify-start' }" :label="isRemote ? '导入范围' : '导入方式'" required>
+              <UFormField v-if="!isRemote" orientation="horizontal" :ui="{ root: '!justify-start' }" label="导入方式" required>
                 <USelect
-                  v-model="remoteOrUploadMode"
-                  :items="modeOptions"
+                  v-model="form.uploadMode"
+                  :items="uploadModeOptions"
                   value-key="value"
                   class="w-40"
                   :disabled="disabled"
@@ -62,33 +109,61 @@
                   :disabled="disabled || treeMode"
                 />
               </UFormField>
-              <UFormField orientation="horizontal" :ui="{ root: '!justify-start' }" label="语言" :required="langRequired">
-                <USelect
-                  v-model="form.lang"
-                  :items="langItems"
-                  value-key="value"
-                  placeholder="语言"
-                  class="w-36"
-                  :disabled="disabled || treeMode"
-                />
-              </UFormField>
               <UFormField orientation="horizontal" :ui="{ root: '!justify-start' }" label="编号" :required="isSingle" class="min-w-40">
                 <UInput
                   v-model="form.number"
-                  placeholder="如 123"
+                  :placeholder="isDownloadSingle || isUploadLocal || isAutoNumber ? '如 123、1-19、1,3,5' : '如 123'"
                   autocomplete="off"
                   spellcheck="false"
                   :disabled="disabled || !isSingle"
                 />
               </UFormField>
+              <UCheckbox
+                v-if="isRemote || isAutoImport"
+                v-model="allScope"
+                label="全部"
+                :disabled="disabled"
+              />
             </div>
 
-            <template v-if="isRemoteBatch">
-              <p class="text-xs text-muted">
-                {{ form.source === 'scryfall' ? '从 Scryfall 抓取官方 png 并转 q50 webp;质量按细节损失率分档;跳过手动替换过的印张。' : '从 Gatherer 按系列抓取卡图,质量不做保证,导入后按实测分档(可能大量低清,可手动替换)。' }}
-              </p>
-            </template>
-            <template v-else-if="isUploadSingle">
+            <UFormField orientation="horizontal" :ui="{ root: '!justify-start' }" label="语言" :required="!treeMode">
+              <div class="flex flex-wrap items-center gap-1">
+                <UFieldGroup>
+                  <UButton
+                    v-for="code in mainLocales"
+                    :key="code"
+                    :label="code.toUpperCase()"
+                    size="sm"
+                    :color="form.langs.includes(code) ? 'primary' : 'neutral'"
+                    :variant="form.langs.includes(code) ? 'solid' : 'soft'"
+                    :disabled="disabled || treeMode || (isAutoImport && code !== 'zhs')"
+                    @click="toggleLang(code)"
+                  />
+                </UFieldGroup>
+                <span class="h-5 w-px bg-slate-200" aria-hidden="true" />
+                <UFieldGroup>
+                  <UButton
+                    v-for="code in secondaryLocales"
+                    :key="code"
+                    :label="code.toUpperCase()"
+                    size="sm"
+                    :color="form.langs.includes(code) ? 'primary' : 'neutral'"
+                    :variant="form.langs.includes(code) ? 'solid' : 'soft'"
+                    :disabled="disabled || treeMode || isAutoImport"
+                    @click="toggleLang(code)"
+                  />
+                </UFieldGroup>
+                <UCheckbox
+                  class="ml-2"
+                  :model-value="langAllSelected ? true : langSomeSelected ? 'indeterminate' : false"
+                  label="全选"
+                  :disabled="disabled || treeMode || isAutoImport"
+                  @update:model-value="toggleAllLangs"
+                />
+              </div>
+            </UFormField>
+
+            <template v-if="isUploadSingle">
               <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
                 <UFormField orientation="horizontal" :ui="{ root: '!justify-start' }" label="面序号(可选)">
                   <UInput v-model="form.faceIndex" placeholder="留空=单面,多面填 0/1" class="w-44" :disabled="disabled" />
@@ -96,6 +171,38 @@
                 <UButton :icon="file ? 'i-lucide-check' : 'i-lucide-upload'" variant="soft" :disabled="disabled" @click="pick()">
                   {{ file?.name ?? '选择单张图片(png/jpg/webp)' }}
                 </UButton>
+              </div>
+              <p v-if="numbers.length > 1" class="text-sm text-error">
+                上传单张只能填一个编号。
+              </p>
+              <p v-else-if="form.langs.length > 1" class="text-sm text-error">
+                上传单张只能选一个语言。
+              </p>
+            </template>
+            <template v-else-if="isUploadLocal">
+              <div class="flex flex-wrap items-start gap-6">
+                <div class="max-w-md space-y-2">
+                  <p class="text-sm text-muted">
+                    无需选择图片：导入时按印刷逐张从卡图资产目录读取「编号-面.webp / 编号.jpg /
+                    .jpeg」等原始图片（<span class="font-mono">-0 / -1</span>
+                    旧版命名自动识别；编号.webp 这类最终格式不算原始图片）。没有原始图片的印刷会跳过。编号支持逗号分隔的多张，语言可多选。
+                  </p>
+                  <p v-if="numbers.length > 1" class="text-xs text-muted">多编号时不显示预览。</p>
+                </div>
+                <div class="flex gap-3">
+                  <div v-if="localPreviewLoading" class="flex h-40 items-center text-sm text-muted">读取预览…</div>
+                  <template v-else>
+                    <div v-for="f in localPreview?.faces ?? []" :key="f.faceIndex" class="text-center text-xs">
+                      <div class="mb-1 text-muted">面 {{ f.faceIndex }}</div>
+                      <img v-if="f.dataUrl" :src="f.dataUrl" class="h-40 w-auto rounded border border-slate-200">
+                      <div v-else class="flex h-40 w-28 items-center justify-center rounded border border-dashed border-slate-300 text-muted">未找到</div>
+                      <div class="mt-1 font-mono text-muted">{{ f.fileName ?? '—' }}</div>
+                    </div>
+                    <div v-if="localPreview != null && localPreview.faces.length === 0" class="flex h-40 items-center text-sm text-muted">
+                      无法读取（卡图路径未配置或未匹配到印刷）。
+                    </div>
+                  </template>
+                </div>
               </div>
             </template>
             <template v-else-if="isUploadZip">
@@ -114,6 +221,9 @@
                   </UButton>
                 </div>
               </UFormField>
+              <p v-if="!treeMode && form.langs.length > 1" class="text-sm text-error">
+                压缩包导入一次只能选一个语言。
+              </p>
               <div v-if="analyzing" class="flex items-center gap-2 text-sm text-muted">
                 <UIcon name="i-lucide-loader-circle" class="size-4 animate-spin" />
                 正在识别压缩包…
@@ -142,7 +252,7 @@
                     <UButton
                       v-for="candidate in analysis.candidates"
                       :key="`${candidate.set}/${candidate.lang}`"
-                      :variant="form.set === candidate.set && form.lang === candidate.lang ? 'solid' : 'soft'"
+                      :variant="form.set === candidate.set && form.langs.length === 1 && form.langs[0] === candidate.lang ? 'solid' : 'soft'"
                       size="xs"
                       :disabled="disabled"
                       @click="applyCandidate(candidate)"
@@ -152,13 +262,15 @@
                   </template>
                 </div>
               </div>
-              <p class="text-xs text-muted">
-                支持文件名「编号」「编号-面」「编号#名称」等常见格式,或与图库目录一致的「large/系列/语言/编号」结构(可含多个系列与语言),识别结果可修改。
+            </template>
+            <template v-else-if="isAutoImport">
+              <p class="text-sm text-muted">
+                自动从 MTGCH 下载简中卡图:勾选「全部」导入所选系列(或不限系列)的全部简中印刷,取消勾选则按编号补图。语言固定为简中,源上没有简中扫描的印刷会计入「源上无图」,不算失败。
               </p>
             </template>
             <template v-else-if="isDownloadSingle">
-              <p class="text-xs text-muted">
-                将按系列、语言和编号从所选来源下载卡图,面序号按卡牌正反面自动判断。
+              <p v-if="numbers.length > 1" class="text-xs text-muted">
+                本次将处理 <span class="font-mono">{{ numbers.length }}</span> 个编号。
               </p>
             </template>
             <input ref="fileInput" type="file" class="hidden" accept=".png,.jpg,.jpeg,.webp" @change="onFilePicked">
@@ -166,16 +278,46 @@
         </template>
       </TaskController>
 
+      <ImageQualityReport
+        :report="qualityReport"
+        :error="qualityError"
+        @close="clearQualityCheck"
+        @select="onGridSelect"
+      />
+
+      <UModal v-model:open="clearOpen" title="确认清空" :description="clearScopeText">
+        <template #footer>
+          <div class="flex justify-end gap-2">
+            <UButton label="取消" color="neutral" variant="ghost" @click="clearOpen = false" />
+            <UButton label="确认清空" color="error" :loading="clearing" @click="runClear" />
+          </div>
+        </template>
+      </UModal>
+
+      <UModal v-model:open="markOpen" title="确认标记无图" :description="markScopeText">
+        <template #body>
+          <p class="text-sm text-muted">
+            范围内 scryfall 只有占位图、或没有 scryfall 数据、且尚未导入卡图的印刷会被标记为无图(前台显示占位徽标并回退英文图,且不再被远程导入覆盖);已有卡图或 scryfall 有真图的印刷不受影响。
+          </p>
+        </template>
+        <template #footer>
+          <div class="flex justify-end gap-2">
+            <UButton label="取消" color="neutral" variant="ghost" @click="markOpen = false" />
+            <UButton label="确认标记" color="warning" :loading="marking" @click="runMark" />
+          </div>
+        </template>
+      </UModal>
+
       <TaskResultCard :result="countResult" :labels="RESULT_LABELS" />
 
-      <div v-if="listResults.length > 0" class="rounded-xl border border-slate-200 bg-white p-4">
-        <div v-for="group in listResults" :key="group.label" class="py-1 text-sm">
-          <span class="font-medium">{{ group.label }}({{ group.items.length }}):</span>
-          <span class="font-mono text-xs text-muted">{{ group.items.join('、') }}</span>
-        </div>
-      </div>
+      <ImportResultLists :groups="listGroups" />
 
-      <ImageCompareCard :set="form.set" :lang="form.lang" :number="form.number" />
+      <ImageCompareCard
+        v-model:open="compareOpen"
+        :set="form.set"
+        :lang="gridSelection?.lang ?? ''"
+        :number="gridSelection?.number ?? ''"
+      />
     </div>
   </div>
 </template>
@@ -183,22 +325,40 @@
 <script setup lang="ts">
 import type { TaskPageSnapshot } from '@tcg-cards/model/task';
 import { locale, mainLocale } from '@tcg-cards/model/magic/schema/basic';
+import { useToast } from '@nuxt/ui/composables';
 import { open } from '@tauri-apps/plugin-dialog';
 import type { TaskOperation } from '~/components/task/TaskController.vue';
 import ImageCompareCard from '~/components/magic/ImageCompareCard.vue';
+import ImageQualityReport from '~/components/magic/ImageQualityReport.vue';
+import ImportResultLists from '~/components/magic/ImportResultLists.vue';
 import { orpc } from '~/lib/orpc';
+import { parseNumberInput } from '~/utils/import-numbers';
 
 definePageMeta({ layout: 'admin', title: '卡图导入' });
 
-const SOURCE_OPTIONS = [
-  { label: '手动上传', value: 'manual' },
-  { label: 'MTGCH', value: 'mtgch' },
-  { label: 'MTGFlame', value: 'mtgflame' },
-  { label: 'Hunterer', value: 'hunterer' },
-  { type: 'separator' },
-  { label: 'Scryfall', value: 'scryfall' },
-  { label: 'Gatherer', value: 'gatherer' },
+const SOURCE_LABELS = {
+  manual:          '手动上传',
+  mtgch:           'MTGCH',
+  mtgflame:        'MTGFlame',
+  hunterer:        'Hunterer',
+  scryfall:        'Scryfall',
+  gatherer:        'Gatherer',
+  prefer_gatherer: 'Gatherer优先',
+} as const;
+
+type SourceKey = keyof typeof SOURCE_LABELS;
+
+const UPLOAD_MODE_OPTIONS = [
+  { label: '单张图片', value: 'single' },
+  { label: '本地导入', value: 'local' },
+  { label: '压缩包', value: 'zip' },
+  { label: '自动导入', value: 'auto' },
 ] as const;
+
+/** The auto-download mode fetches mtgch scans from the network, so only that source offers it. */
+const uploadModeOptions = computed(() =>
+  form.source === 'mtgch' ? UPLOAD_MODE_OPTIONS : UPLOAD_MODE_OPTIONS.filter(option => option.value !== 'auto'),
+);
 
 /** Result-key → report label for the unified import output. */
 const RESULT_LABELS: Record<string, string> = {
@@ -212,15 +372,21 @@ const RESULT_LABELS: Record<string, string> = {
   missingUrl:        '缺少图片地址',
   missingId:         '缺少 Gatherer 编号',
   placeholder:       '占位图',
+  markedPlaceholder: '已标记无图',
   skippedUpload:     '跳过上传图',
+  notFound:          '源上无图',
   unmatched:         '未匹配编号',
   unrecognized:      '未识别文件',
+  sizeDelta:         '磁盘占用变化',
 };
 
 const LIST_LABELS: Record<string, string> = {
   unmatchedNumbers:  '未匹配编号',
   unrecognizedNames: '未识别文件',
   warnings:          '名称提示',
+  markedNumbers:     '已标记无图',
+  notFoundNumbers:   '源上无图明细',
+  failures:          '失败明细',
 };
 
 const CONVENTION_LABELS: Record<string, string> = {
@@ -231,14 +397,16 @@ const CONVENTION_LABELS: Record<string, string> = {
 };
 
 /** Sources that accept local uploads; remote ones download instead. */
-const uploadSources = ['manual', 'mtgch', 'mtgflame', 'hunterer'];
+const uploadSources: SourceKey[] = ['manual', 'mtgch', 'mtgflame', 'hunterer'];
+/** Download-over-HTTP sources, rendered as the second button group. */
+const remoteSources: SourceKey[] = ['scryfall', 'gatherer', 'prefer_gatherer'];
 
 const form = useLocalPersist('magic-image-import', {
-  source:     'manual',
+  source:     'manual' as SourceKey,
   remoteMode: 'batch',
   uploadMode: 'single',
   set:        '',
-  lang:       '',
+  langs:      ['en'],
   force:      false,
   cleanupJpg: false,
   number:     '',
@@ -246,41 +414,93 @@ const form = useLocalPersist('magic-image-import', {
   zipPath:    '',
   fileName:   '',
   dataBase64: '',
-}, ['source', 'remoteMode', 'uploadMode', 'set', 'lang', 'force', 'cleanupJpg', 'number', 'faceIndex', 'zipPath']);
+}, ['source', 'remoteMode', 'uploadMode', 'set', 'langs', 'force', 'cleanupJpg', 'number', 'faceIndex', 'zipPath']);
 
 const isRemote = computed(() => !uploadSources.includes(form.source));
 const isRemoteBatch = computed(() => isRemote.value && form.remoteMode === 'batch');
 const isDownloadSingle = computed(() => isRemote.value && form.remoteMode === 'number');
 const isUploadSingle = computed(() => !isRemote.value && form.uploadMode === 'single');
+const isUploadLocal = computed(() => !isRemote.value && form.uploadMode === 'local');
 const isUploadZip = computed(() => !isRemote.value && form.uploadMode === 'zip');
-const isSingle = computed(() => isDownloadSingle.value || isUploadSingle.value);
+/** The mtgch auto mode downloads the simplified-Chinese scans straight from mtgch's hosting. */
+const isAutoImport = computed(() => form.source === 'mtgch' && form.uploadMode === 'auto');
+const isAutoBatch = computed(() => isAutoImport.value && form.remoteMode === 'batch');
+const isAutoNumber = computed(() => isAutoImport.value && form.remoteMode === 'number');
+
+/** Local-import preview: what the asset directory holds for the typed print. */
+const localPreviewLoading = ref(false);
+const localPreview = ref<{
+  layout: string | null;
+  faces:  Array<{ faceIndex: number, fileName: string | null, found: boolean, dataUrl: string | null }>;
+} | null>(null);
+let localPreviewTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleLocalPreview() {
+  if (!isUploadLocal.value) {
+    localPreview.value = null;
+    return;
+  }
+  // 预览只服务单编号；多编号（或区间展开后的多张）不显示预览。
+  if (numbers.value.length !== 1) {
+    localPreview.value = null;
+    return;
+  }
+  const set = form.set.trim().toLowerCase();
+  const number = form.number.trim();
+  const lang = selectedLangs.value[0];
+  if (set === '' || number === '' || lang == null) {
+    localPreview.value = null;
+    return;
+  }
+  if (localPreviewTimer != null) clearTimeout(localPreviewTimer);
+  localPreviewTimer = setTimeout(async () => {
+    localPreviewLoading.value = true;
+    try {
+      localPreview.value = await orpc.magic.images.localPreview({ set, lang, number });
+    } catch {
+      localPreview.value = null;
+    } finally {
+      localPreviewLoading.value = false;
+    }
+  }, 400);
+}
+const isSingle = computed(() => isDownloadSingle.value || isUploadSingle.value || isUploadLocal.value || isAutoNumber.value);
 const treeMode = computed(() => isUploadZip.value && analysis.value?.convention === 'tree');
 
-/** The mode select of the second form field, driven by the source group. */
-const remoteOrUploadMode = computed({
-  get: () => isRemote.value ? form.remoteMode : form.uploadMode,
-  set: (value: string) => {
-    if (isRemote.value) form.remoteMode = value;
-    else form.uploadMode = value;
+/** Remote batch sources whose sweep may cover every set; gatherer-only remains set-scoped. */
+const canSweepAllSets = computed(() => (isRemoteBatch.value && ['scryfall', 'prefer_gatherer'].includes(form.source)) || isAutoBatch.value);
+
+/** Every collector number the 编号 field stands for; a comma list or a range holds more than one. */
+const numbers = computed(() => parseNumberInput(form.number));
+
+/** The print picked from the status grid; it targets the compare modal. */
+const gridSelection = ref<{ lang: string, number: string } | null>(null);
+
+/** Open state of the compare modal; a grid pick opens it. */
+const compareOpen = ref(false);
+
+/** 全部 checked = sweep the remote source as a batch, unchecked = import by number. */
+const allScope = computed({
+  get: () => form.remoteMode === 'batch',
+  set: (value: boolean) => {
+    form.remoteMode = value ? 'batch' : 'number';
   },
 });
 
-const modeOptions = computed(() => {
-  if (isRemote.value) return [{ label: '批量导入', value: 'batch' }, { label: '按编号', value: 'number' }];
-  return [{ label: '单张图片', value: 'single' }, { label: '压缩包', value: 'zip' }];
-});
-
 watch(() => form.source, () => {
-  // Remote batch keeps a set; switching groups resets to the group's default mode.
+  // Switching source groups resets to the group's default mode.
   if (isRemote.value && !['batch', 'number'].includes(form.remoteMode)) form.remoteMode = 'batch';
   if (!isRemote.value && !['single', 'zip'].includes(form.uploadMode)) form.uploadMode = 'single';
-  // The no-language sentinel only exists in the remote batch form.
-  if (isRemote.value && form.lang === '') form.lang = ALL_LANGUAGES;
-  if (!isRemote.value && form.lang === ALL_LANGUAGES) form.lang = '';
 });
 
-const setRequired = computed(() => !(isRemoteBatch.value && form.source === 'scryfall' && form.set === '__all__'));
-const langRequired = computed(() => !isRemoteBatch.value);
+// The mtgch auto download serves simplified-Chinese scans only; normalize the
+// language whenever that mode is active (immediate, so a persisted auto mode
+// also lands on zhs at load).
+watch(isAutoImport, active => {
+  if (active && !(form.langs.length === 1 && form.langs[0] === 'zhs')) form.langs = ['zhs'];
+}, { immediate: true });
+
+const setRequired = computed(() => !(canSweepAllSets.value && form.set === '__all__'));
 
 interface ZipCandidate {
   set:  string;
@@ -322,7 +542,7 @@ async function runAnalyze() {
     const [top, second] = result.candidates;
     if (result.convention !== 'tree' && top && top.rate >= 0.9 && (!second || top.rate > second.rate)) {
       form.set = top.set;
-      form.lang = top.lang;
+      form.langs = [top.lang];
     }
   } catch (error) {
     analysisError.value = error instanceof Error ? error.message : String(error);
@@ -334,9 +554,9 @@ async function runAnalyze() {
 async function browse() {
   try {
     const picked = await open({
-      multiple: false,
+      multiple:  false,
       directory: false,
-      filters: [{ name: 'Zip', extensions: ['zip'] }],
+      filters:   [{ name: 'Zip', extensions: ['zip'] }],
     });
     if (typeof picked === 'string') form.zipPath = picked;
   } catch {
@@ -346,7 +566,7 @@ async function browse() {
 
 function applyCandidate(candidate: ZipCandidate) {
   form.set = candidate.set;
-  form.lang = candidate.lang;
+  form.langs = [candidate.lang];
 }
 
 const fileInput = ref<HTMLInputElement | null>(null);
@@ -370,8 +590,81 @@ function onFilePicked(event: Event) {
   reader.readAsDataURL(picked);
 }
 
+/** The clear action follows the import scope rules: a concrete set, at least one language, and numbers unless 全部. */
+const clearReady = computed(() => {
+  if (form.set.trim() === '' || form.set === ALL_SETS) return false;
+  if (selectedLangs.value.length === 0) return false;
+  return isRemoteBatch.value || numbers.value.length > 0;
+});
+
+const clearOpen = ref(false);
+const clearing = ref(false);
+
+/** What the confirm dialog spells out before anything is deleted. */
+const clearScopeText = computed(() => {
+  const langs = selectedLangs.value.map(code => code.toUpperCase()).join('、');
+  const scope = isRemoteBatch.value ? '全部编号' : `${numbers.value.length} 个编号`;
+  return `将清空系列 ${form.set} 的 ${langs}(${scope})的已导入卡图并删除对应文件,此操作不可撤销。`;
+});
+
+async function runClear() {
+  if (!clearReady.value) return;
+  clearing.value = true;
+  try {
+    const result = await orpc.magic.images.clear({
+      set:     form.set.trim(),
+      langs:   selectedLangs.value,
+      numbers: isRemoteBatch.value ? undefined : numbers.value,
+    });
+    const marked = result.marked > 0 ? `,其中 ${result.marked} 个来源本身无图,不会被重新下载` : '';
+    useToast().add({ title: '已清空', description: `清空 ${result.cleared} 个印张,删除 ${result.files} 个文件${marked}`, color: 'info' });
+    clearOpen.value = false;
+  } catch (error) {
+    useToast().add({ title: '清空失败', description: error instanceof Error ? error.message : String(error), color: 'error' });
+  } finally {
+    clearing.value = false;
+  }
+}
+
+const markOpen = ref(false);
+const marking = ref(false);
+
+const markScopeText = computed(() => {
+  const langs = selectedLangs.value.map(code => code.toUpperCase()).join('、');
+  const scope = isRemoteBatch.value ? '全部编号' : `${numbers.value.length} 个编号`;
+  return `将处理系列 ${form.set} 的 ${langs}(${scope})。`;
+});
+
+async function runMark() {
+  if (!clearReady.value) return;
+  marking.value = true;
+  try {
+    const result = await orpc.magic.images.mark({
+      set:     form.set.trim(),
+      langs:   selectedLangs.value,
+      numbers: isRemoteBatch.value ? undefined : numbers.value,
+    });
+    const parts = [
+      result.skippedImage > 0 ? `跳过 ${result.skippedImage} 个(已有卡图)` : '',
+      result.ignored > 0 ? `忽略 ${result.ignored} 个(Scryfall 有真图)` : '',
+      result.sourceMissing > 0 ? `忽略 ${result.sourceMissing} 个(来源本身无图)` : '',
+    ].filter(Boolean).join('，');
+    useToast().add({
+      title:       '已标记',
+      description: `标记 ${result.marked} 个印张为无图${parts ? `，${parts}` : ''}`,
+      color:       'info',
+    });
+    markOpen.value = false;
+  } catch (error) {
+    useToast().add({ title: '标记失败', description: error instanceof Error ? error.message : String(error), color: 'error' });
+  } finally {
+    marking.value = false;
+  }
+}
+
 const setOptions = ref<string[]>([]);
 const loadingSets = ref(false);
+
 onMounted(async () => {
   loadingSets.value = true;
   try {
@@ -382,28 +675,75 @@ onMounted(async () => {
   }
 });
 
-/** Main locales first, then a separator and the remaining (secondary) locales. */
-const mainCodeSet = new Set<string>(mainLocale.options);
-const ALL_LANGUAGES = '__all__';
 const ALL_SETS = '__all__';
 
-const langItems = computed(() => {
-  const locales = [
-    ...mainLocale.options.map(code => ({ label: code.toUpperCase(), value: code })),
-    { type: 'separator' },
-    ...locale.options.filter(code => !mainCodeSet.has(code)).map(code => ({ label: code.toUpperCase(), value: code })),
-  ];
-  return isRemoteBatch.value
-    ? [{ label: '不限', value: ALL_LANGUAGES }, ...locales]
-    : locales;
-});
+/** Locales in group order: main locales first, then the remaining secondary ones. */
+const mainLocales: string[] = [...mainLocale.options];
+const secondaryLocales: string[] = locale.options.filter(code => !(mainLocale.options as readonly string[]).includes(code));
+const allLocales: string[] = [...mainLocales, ...secondaryLocales];
+
+/** Selected languages normalized to group order; drives the import scope and the comparison. */
+const selectedLangs = computed(() => allLocales.filter(code => form.langs.includes(code)));
+
+// Placed after selectedLangs on purpose: the preview sources read it.
+watch([isUploadLocal, () => form.set, () => form.number, selectedLangs], scheduleLocalPreview);
+
+const langAllSelected = computed(() => selectedLangs.value.length === allLocales.length);
+const langSomeSelected = computed(() => selectedLangs.value.length > 0 && !langAllSelected.value);
+
+function toggleLang(code: string) {
+  form.langs = form.langs.includes(code)
+    ? form.langs.filter(candidate => candidate !== code)
+    : [...form.langs, code];
+}
+
+function toggleAllLangs() {
+  form.langs = langAllSelected.value ? [] : [...allLocales];
+}
 
 const setItems = computed(() => {
   const sets = setOptions.value.map(code => ({ label: code, value: code }));
-  return isRemoteBatch.value && form.source === 'scryfall'
+  return canSweepAllSets.value
     ? [{ label: '不限(全量)', value: ALL_SETS }, ...sets]
     : sets;
 });
+
+/** The quality check runs on one whole set across all languages, so it needs a concrete set. */
+const qualityReady = computed(() => form.set.trim() !== '' && form.set !== ALL_SETS);
+
+const checkingQuality = ref(false);
+const qualityReport = ref<Awaited<ReturnType<typeof orpc.magic.images.qualityCheck>> | null>(null);
+const qualityError = ref('');
+
+function clearQualityCheck() {
+  qualityReport.value = null;
+  qualityError.value = '';
+  gridSelection.value = null;
+}
+
+/** A grid-cell click targets the compare modal at that print and opens it. */
+function onGridSelect(cell: { lang: string, number: string }) {
+  gridSelection.value = cell;
+  compareOpen.value = true;
+}
+
+// A report belongs to the set it was produced from; switching sets would only mislead.
+watch(() => form.set, () => clearQualityCheck());
+
+async function runQualityCheck() {
+  const set = form.set.trim();
+  if (!set || set === ALL_SETS) return;
+  checkingQuality.value = true;
+  qualityError.value = '';
+  try {
+    qualityReport.value = await orpc.magic.images.qualityCheck({ set });
+  } catch (error) {
+    qualityReport.value = null;
+    qualityError.value = error instanceof Error ? error.message : String(error);
+  } finally {
+    checkingQuality.value = false;
+  }
+}
 
 function onCompleted(snap: TaskPageSnapshot) {
   taskResult.value = (snap.result as Record<string, unknown> | undefined) ?? null;
@@ -411,11 +751,29 @@ function onCompleted(snap: TaskPageSnapshot) {
 
 const taskResult = ref<Record<string, unknown> | null>(null);
 
+/** Byte count in compact binary units, matching the compare panel's format. */
+function formatBytes(size: number): string {
+  if (size >= 1024 ** 3) return `${(size / 1024 ** 3).toFixed(2)} GB`;
+  if (size >= 1024 ** 2) return `${(size / 1024 ** 2).toFixed(2)} MB`;
+  if (size >= 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${size} B`;
+}
+
+/** Signed byte change, e.g. `+12.3 MB` / `-45.6 MB`; zero shows without a sign. */
+function signedBytes(size: number): string {
+  return size === 0 ? formatBytes(0) : `${size > 0 ? '+' : '-'}${formatBytes(Math.abs(size))}`;
+}
+
 const countResult = computed(() => {
   if (!taskResult.value) return null;
-  return Object.fromEntries(
-    Object.entries(taskResult.value).filter(([, value]) => typeof value === 'number'),
+  // The size delta is a raw byte count that belongs in the report human-readable,
+  // so it is taken out of the number pass and reattached formatted, last.
+  const counts = Object.fromEntries(
+    Object.entries(taskResult.value).filter(([key, value]) => typeof value === 'number' && key !== 'sizeDelta'),
   );
+  const sizeDelta = taskResult.value.sizeDelta;
+  if (typeof sizeDelta === 'number') counts.sizeDelta = signedBytes(sizeDelta);
+  return counts;
 });
 
 const listResults = computed(() => {
@@ -425,18 +783,33 @@ const listResults = computed(() => {
     .map(([key, value]) => ({ label: LIST_LABELS[key]!, items: value as string[] }));
 });
 
+/** Failures first — the list the reader came for — then the remaining lists in report order. */
+const listGroups = computed(() => {
+  const failures = listResults.value.filter(group => group.label === LIST_LABELS.failures);
+  const rest = listResults.value.filter(group => group.label !== LIST_LABELS.failures);
+  return [...failures, ...rest];
+});
+
 const operation = computed<TaskOperation>(() => {
   const setChosen = form.set.trim() !== '' && form.set !== ALL_SETS;
-  const langChosen = form.lang.trim() !== '' && form.lang !== ALL_LANGUAGES;
+  const hasLang = selectedLangs.value.length > 0;
   let ready: boolean;
-  if (isRemoteBatch.value) {
-    ready = form.source === 'scryfall' ? (form.set === ALL_SETS || setChosen) : setChosen;
-  } else if (isDownloadSingle.value) {
-    ready = setChosen && langChosen && !!form.number.trim();
+  if (isRemoteBatch.value || isAutoBatch.value) {
+    ready = hasLang && (canSweepAllSets.value ? (form.set === ALL_SETS || setChosen) : setChosen);
+  } else if (isDownloadSingle.value || isAutoNumber.value) {
+    ready = setChosen && hasLang && numbers.value.length > 0;
   } else if (isUploadSingle.value) {
-    ready = setChosen && langChosen && !!form.number.trim() && !!form.dataBase64;
+    // One uploaded file belongs to exactly one print in one language, so a
+    // number list or a second language blocks the run.
+    ready = setChosen && selectedLangs.value.length === 1 && numbers.value.length === 1 && !!form.dataBase64;
+  } else if (isUploadLocal.value) {
+    // The local import reads files from the asset directory itself: any
+    // number list and any language selection — prints without a source image
+    // are skipped.
+    ready = setChosen && selectedLangs.value.length > 0 && numbers.value.length > 0;
   } else {
-    ready = treeMode.value ? !!form.zipPath.trim() : setChosen && langChosen && !!form.zipPath.trim();
+    // A flat archive carries one language, so exactly one must be selected.
+    ready = treeMode.value ? !!form.zipPath.trim() : setChosen && selectedLangs.value.length === 1 && !!form.zipPath.trim();
   }
 
   return {
@@ -448,29 +821,48 @@ const operation = computed<TaskOperation>(() => {
       const common = { force: !!form.force, cleanupJpg: !!form.cleanupJpg };
       if (isRemoteBatch.value) {
         return orpc.magic.createTask.imageImportRemote({
-          source: form.source as 'scryfall' | 'gatherer',
+          source: form.source as 'scryfall' | 'gatherer' | 'prefer_gatherer',
           scope:  form.set === ALL_SETS ? 'full' : 'set',
           set:    form.set === ALL_SETS ? undefined : form.set,
-          lang:   form.lang === ALL_LANGUAGES ? undefined : form.lang,
+          langs:  selectedLangs.value,
+          ...common,
+        }) as Promise<TaskPageSnapshot>;
+      }
+      if (isAutoBatch.value) {
+        return orpc.magic.createTask.imageImportRemote({
+          source: 'mtgch',
+          scope:  form.set === ALL_SETS ? 'full' : 'set',
+          set:    form.set === ALL_SETS ? undefined : form.set,
+          langs:  selectedLangs.value,
           ...common,
         }) as Promise<TaskPageSnapshot>;
       }
       if (isUploadZip.value) {
         return orpc.magic.createTask.imageImportLocal({
-          source: form.source as 'manual' | 'mtgch' | 'mtgflame' | 'hunterer',
-          set:    treeMode.value ? undefined : form.set,
-          lang:   treeMode.value ? undefined : form.lang,
+          source:  form.source as 'manual' | 'mtgch' | 'mtgflame' | 'hunterer',
+          set:     treeMode.value ? undefined : form.set,
+          lang:    treeMode.value ? undefined : form.langs[0],
           zipPath: form.zipPath.trim(),
           ...common,
         }) as Promise<TaskPageSnapshot>;
       }
+      if (isUploadLocal.value) {
+        return orpc.magic.createTask.imageImportSingle({
+          source:         form.source as 'manual' | 'mtgch' | 'mtgflame' | 'hunterer',
+          set:            form.set,
+          langs:          selectedLangs.value,
+          numbers:        numbers.value,
+          fromLocalAsset: true,
+          ...common,
+        }) as Promise<TaskPageSnapshot>;
+      }
       return orpc.magic.createTask.imageImportSingle({
-        source: form.source as 'manual' | 'mtgch' | 'mtgflame' | 'hunterer' | 'scryfall' | 'gatherer',
-        set:    form.set,
-        lang:   form.lang,
-        number: form.number.trim(),
-        faceIndex: isUploadSingle.value && form.faceIndex.trim() ? Number(form.faceIndex) : undefined,
-        fileName: isUploadSingle.value ? form.fileName || undefined : undefined,
+        source:     form.source as 'manual' | 'mtgch' | 'mtgflame' | 'hunterer' | 'scryfall' | 'gatherer' | 'prefer_gatherer',
+        set:        form.set,
+        langs:      selectedLangs.value,
+        numbers:    numbers.value,
+        faceIndex:  isUploadSingle.value && form.faceIndex.trim() ? Number(form.faceIndex) : undefined,
+        fileName:   isUploadSingle.value ? form.fileName || undefined : undefined,
         dataBase64: isUploadSingle.value ? form.dataBase64 : undefined,
         ...common,
       }) as Promise<TaskPageSnapshot>;

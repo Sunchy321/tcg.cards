@@ -1,6 +1,6 @@
 import Parser from '#search/parser';
 import { simplify } from '#search/parser/simplify';
-import type { Expression, SimpleExpr } from '#search/parser';
+import type { Expression } from '#search/parser';
 
 export type NumericOperator = '=' | '>' | '>=' | '<' | '<=';
 
@@ -143,7 +143,7 @@ export const buildAdvancedSearchDSL = (state: AdvancedSearchState) => {
 
 // ── Reverse parsing (DSL → State) ──────────────────────────────────────────
 
-function applySimpleExpr(expr: SimpleExpr, state: AdvancedSearchState): void {
+function applySimpleExpr(expr: Extract<Expression, { type: 'simple' }>, state: AdvancedSearchState): void {
   // Skip negated expressions — the visual panel has no way to represent exclusion
   if (expr.qual?.includes('!')) return;
 

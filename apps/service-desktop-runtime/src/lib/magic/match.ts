@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, ne } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, ne, notInArray } from 'drizzle-orm';
 
 import { db } from '@tcg-cards/db/db';
 import { CardSlugResolution, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
@@ -93,6 +93,11 @@ export function slugifyCard(card: NormalizedCard): string {
   const nameId = faces.map(f => slugifyName(f.name)).join('--');
 
   if (faces[0]?.name === 'Incubator') return 'incubator!';
+
+  // The Undercity dungeon is a unique named dungeon, not a stat-variant
+  // template — it keeps the plain slug the other dungeons use instead of the
+  // name-equals-subtype attribute encoding.
+  if (faces[0]?.name === 'Undercity') return 'undercity';
 
   if (TOKEN_LAYOUTS.includes(card.layout)) {
     const face = faces[0]!;
@@ -210,6 +215,10 @@ export interface MatchRow {
  *   - "Day // Night"
  *   - "The Ring // The Ring Tempts You"
  *   - "Punchcard // Punchcard" (both faces are real content, day//night-like)
+ *   - minigame cards: back titled "… (cont'd)" (the continuation marker
+ *     alone decides; front naming drifts and is irrelevant), or the one
+ *     known unrelated-back pair "Into the Story: Assassin Edition //
+ *     Story Beats"
  */
 export function isSingleCardDoubleFacedToken(names: string[]): boolean {
   if (names.length !== 2) return false;
@@ -220,17 +229,19 @@ export function isSingleCardDoubleFacedToken(names: string[]): boolean {
   if (a === 'The Ring' && b === 'The Ring Tempts You') return true;
   if (a === 'Punchcard' && b === 'Punchcard') return true;
   if (a === 'Start Your Engines!' && b === 'Max Speed') return true;
-  return isContinuedDoubleFacedToken(a ?? '', b ?? '');
+  return isMinigameDoubleFacedToken(a ?? '', b ?? '');
 }
 
 /**
- * Playtest-style helper cards whose back face continues the front's rules text
- * (`X // X (cont'd)`, optionally `(minigame)` on the front): one physical
- * card, not two faces.
+ * Minigame cards: one physical card whose back continues the front's rules
+ * text, not two faces. `(cont'd)` on the back is WotC's continuation marker
+ * and alone decides — front naming drifts (case, subtitles) and must not
+ * gate the match. Minigames with an unrelated back title are listed
+ * explicitly.
  */
-function isContinuedDoubleFacedToken(front: string, back: string): boolean {
-  if (!back.endsWith(' (cont\'d)')) return false;
-  return back.replace(/ \(cont'd\)$/, '') === front.replace(/ \(minigame\)$/, '');
+function isMinigameDoubleFacedToken(front: string, back: string): boolean {
+  if (back.trim().toLowerCase().endsWith(' (cont\'d)')) return true;
+  return front === 'Into the Story: Assassin Edition' && back === 'Story Beats';
 }
 
 /**
@@ -254,8 +265,10 @@ export function toMatchUnits(row: MatchRow): MatchUnit[] {
   const faces = (row.cardFaces ?? []) as ScryfallFace[];
 
   if (row.layout === 'double_faced_token' && faces.length > 0 && !isSingleCardDoubleFacedToken(faces.map(f => f.name ?? ''))) {
-    // Art-back tokens keep only their front face as a card (the back is just
-    // illustration); regular double-faced tokens split into two cards per face.
+    // Art-back tokens keep only their front face as a card identity (the back
+    // is an illustration flip side; its image rides the print's layout), so
+    // they merge with the plain tokens they are. Regular double-faced tokens
+    // split into two cards per face.
     if (isArtBackDoubleFacedToken(
       faces.map(f => f.name ?? ''),
       faces.map(f => ({ oracleText: f.oracle_text ?? null, power: f.power ?? null, toughness: f.toughness ?? null })),
@@ -310,38 +323,58 @@ export interface MatchResult {
   blocked:      Map<string, string[]>;
 }
 
+/** Slim row shape both anchor scans select; runtime shape matches MatchRow. */
+const matchColumns = {
+  oracleId:   ScryfallCard.oracleId,
+  layout:     ScryfallCard.layout,
+  name:       ScryfallCard.name,
+  typeLine:   ScryfallCard.typeLine,
+  oracleText: ScryfallCard.oracleText,
+  colors:     ScryfallCard.colors,
+  power:      ScryfallCard.power,
+  toughness:  ScryfallCard.toughness,
+  setName:    ScryfallCard.setName,
+  cardFaces:  ScryfallCard.cardFaces,
+};
+
+/** Layout exclusions every anchor scan shares.
+ * Reversible cards have a null top-level oracle_id; they are alt-art printings
+ * of an existing card, so they carry no match unit of their own (their identity
+ * resolves via the faces at projection time) — isNotNull(oracleId) drops them.
+ * art_series rows are standalone art cards (their own oracle ids); they
+ * never represent a playable card, so exclude them from matching.
+ * front_card rows are single-word "front" pages (not playable cards). */
+const anchorExclusions = [
+  isNotNull(ScryfallCard.oracleId),
+  ne(ScryfallCard.layout, 'art_series'),
+  ne(ScryfallCard.layout, 'front_card'),
+] as const;
+
 /**
  * Batch match: compute cardId for every oracle card. Reads the English oracle
  * cards from scryfall_cards, derives each cardId with slugifyCard (double-faced
  * tokens split per face), consults the slug annotation table, and groups by
  * slug. A slug with multiple distinct units becomes a conflict (held for review);
  * a slug with one unit resolves to that cardId.
+ *
+ * Oracles whose every row is non-English (foreign-only printings, e.g. the Sega
+ * Dreamcast promos) have no English anchor; each is anchored on one
+ * representative row instead — the same row `assembleUnits` falls back to (same
+ * exclusions, same ordering), so match and assembly always agree on the cardId.
  */
 export async function matchBatch(database: Db = db): Promise<MatchResult> {
-  const rows = await database.selectDistinctOn([ScryfallCard.oracleId], {
-    oracleId:   ScryfallCard.oracleId,
-    layout:     ScryfallCard.layout,
-    name:       ScryfallCard.name,
-    typeLine:   ScryfallCard.typeLine,
-    oracleText: ScryfallCard.oracleText,
-    colors:     ScryfallCard.colors,
-    power:      ScryfallCard.power,
-    toughness:  ScryfallCard.toughness,
-    setName:    ScryfallCard.setName,
-    cardFaces:  ScryfallCard.cardFaces,
-  }).from(ScryfallCard)
-    // Reversible cards have a null top-level oracle_id; they are alt-art printings
-    // of an existing card, so they carry no match unit of their own (their identity
-    // resolves via the faces at projection time).
-    // art_series rows are standalone art cards (their own oracle ids); they
-    // never represent a playable card, so exclude them from matching.
-    // front_card rows are single-word "front" pages (not playable cards).
+  const rows = await database.selectDistinctOn([ScryfallCard.oracleId], matchColumns).from(ScryfallCard)
+    .where(and(eq(ScryfallCard.lang, 'en'), ...anchorExclusions));
+
+  const fallbackRows = await database.selectDistinctOn([ScryfallCard.oracleId], matchColumns).from(ScryfallCard)
     .where(and(
-      eq(ScryfallCard.lang, 'en'),
-      isNotNull(ScryfallCard.oracleId),
-      ne(ScryfallCard.layout, 'art_series'),
-      ne(ScryfallCard.layout, 'front_card'),
-    ));
+      ...anchorExclusions,
+      notInArray(ScryfallCard.oracleId, database.select({ oracleId: ScryfallCard.oracleId }).from(ScryfallCard)
+        .where(and(eq(ScryfallCard.lang, 'en'), ...anchorExclusions))),
+    ))
+    // ORDER BY must start with the DISTINCT ON column; within one oracle the
+    // remaining keys are the assembler's fallback ordering.
+    .orderBy(asc(ScryfallCard.oracleId), asc(ScryfallCard.set), asc(ScryfallCard.collectorNumber), asc(ScryfallCard.lang));
 
   // Slug resolutions map member units (oracle id, or `oracleId:faceIndex` for a
   // double-faced-token face) to their resolved slug. A slug may be shared by
@@ -356,10 +389,12 @@ export async function matchBatch(database: Db = db): Promise<MatchResult> {
 
   const cardIdByUnit = new Map<string, string>();
   const slugToUnits = new Map<string, string[]>();
+  const conflicts = new Map<string, string[]>();
+  const blocked = new Map<string, string[]>();
 
   // isNotNull(oracleId) guarantees a non-null key; the remaining fields are the
   // canonical non-reversible representative, so their runtime shape matches MatchRow.
-  for (const row of rows as MatchRow[]) {
+  for (const row of [...rows, ...fallbackRows] as MatchRow[]) {
     for (const unit of toMatchUnits(row)) {
       // Resolutions are keyed by the exact unit key (incl. DFT `oracleId:face`).
       const annotated = annotationByUnit.get(unit.key);
@@ -374,14 +409,19 @@ export async function matchBatch(database: Db = db): Promise<MatchResult> {
         continue;
       }
       const slug = slugifyCard(unit.card);
+      // A non-English anchor row can carry a non-Latin name, which
+      // slugifyName reduces to nothing — grouping under the empty slug would
+      // project a garbage cardId, so the unit is held for review under its
+      // unit key instead (not a real slug; identifiable in the review queue).
+      if (slug === '') {
+        conflicts.set(unit.key, [unit.key]);
+        continue;
+      }
       const list = slugToUnits.get(slug) ?? [];
       list.push(unit.key);
       slugToUnits.set(slug, list);
     }
   }
-
-  const conflicts = new Map<string, string[]>();
-  const blocked = new Map<string, string[]>();
 
   for (const [slug, keys] of slugToUnits) {
     const resolution = resolutionBySlug.get(slug);

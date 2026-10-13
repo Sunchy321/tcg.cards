@@ -197,6 +197,8 @@ export const CardEntityView = schema.view('card_entity_view').as(qb =>
     localizationHash: BaseEntityLocalization.localizationHash,
     renderHash:       BaseEntityLocalization.renderHash,
 
+    ambit: BaseCard.ambit,
+
     ...omit(getColumns(BaseEntity), [
       'cardId',
       'version',
@@ -241,6 +243,8 @@ export const LatestCardEntityView = schema.view('latest_card_entity_view').as(qb
     revisionHash:     BaseEntity.revisionHash,
     localizationHash: BaseEntityLocalization.localizationHash,
     renderHash:       BaseEntityLocalization.renderHash,
+
+    ambit: BaseCard.ambit,
 
     ...omit(getColumns(BaseEntity), [
       'cardId',

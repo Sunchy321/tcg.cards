@@ -2,6 +2,12 @@
   "name": "site-hearthstone",
   "private": true,
   "type": "module",
+  "imports": {
+    "#search/*": "@tcg-cards/search/src/*",
+    "#model/*": "@tcg-cards/model/*",
+    "#schema/*": "@tcg-cards/db/schema/*",
+    "#db/db": "@tcg-cards/db/db"
+  },
   "scripts": {
     "build": "nuxt build --dotenv .env.production",
     "dev": "nuxt dev",
@@ -43,6 +49,7 @@
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.15.2",
+    "@types/bun": "^1.4.2",
     "@types/lodash-es": "^4.17.12",
     "eslint": "^10.2.1",
     "eslint-config-custom": "workspace:*",

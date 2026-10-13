@@ -20,8 +20,7 @@ export default defineEventHandler(async event => {
   const { response } = await handler.handle(request, {
     prefix:  '/rpc',
     context: {
-      user:    session?.user ?? null,
-      session: session?.session ?? null,
+      user: session?.user ?? null,
     },
   });
 

@@ -4,6 +4,8 @@
   "oracleId": "0823fbf2-7b39-4869-b3f0-091b7d7d0a5d",
   "layout": "token",
   "setName": "GRN Guild Kit Tokens",
+  "set": "tgk1",
+  "setType": "token",
   "cmc": 0,
   "colorIdentity": [
     "R"

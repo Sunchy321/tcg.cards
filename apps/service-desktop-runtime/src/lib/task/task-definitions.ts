@@ -13,6 +13,9 @@ registerTaskDefinition(pinTaskDefinition);
 import { projectTaskDefinition } from '../hearthstone/task/project/definition';
 registerTaskDefinition(projectTaskDefinition);
 
+import { cardsProjectTaskDefinition } from '../hearthstone/task/cards-project/definition';
+registerTaskDefinition(cardsProjectTaskDefinition);
+
 import { publishTaskDefinition } from '../hearthstone/task/publish/definition';
 registerTaskDefinition(publishTaskDefinition);
 
@@ -52,16 +55,27 @@ registerTaskDefinition(magicMtgjsonImportTaskDefinition);
 import { magicGathererImportTaskDefinition } from '../magic/task/gatherer-import/definition';
 registerTaskDefinition(magicGathererImportTaskDefinition);
 
+import { magicRubyImportTaskDefinition } from '../magic/task/magic-ruby-import/definition';
+registerTaskDefinition(magicRubyImportTaskDefinition);
+
 import { magicProjectTaskDefinition } from '../magic/task/magic-project/definition';
 import { magicPublishTaskDefinition } from '../magic/task/publish/definition';
 registerTaskDefinition(magicProjectTaskDefinition);
 registerTaskDefinition(magicPublishTaskDefinition);
+import { magicProjectCommitsTaskDefinition } from '../magic/task/magic-project-commits/definition';
+registerTaskDefinition(magicProjectCommitsTaskDefinition);
 import { magicImageImportRemoteTaskDefinition } from '../magic/task/image-import-remote/definition';
 import { magicImageImportLocalTaskDefinition } from '../magic/task/image-import-local/definition';
 import { magicImageImportSingleTaskDefinition } from '../magic/task/image-import-single/definition';
 registerTaskDefinition(magicImageImportRemoteTaskDefinition);
 registerTaskDefinition(magicImageImportLocalTaskDefinition);
 registerTaskDefinition(magicImageImportSingleTaskDefinition);
+
+import { yugiohCnocgImportTaskDefinition } from '../yugioh/task/cnocg-import/definition';
+registerTaskDefinition(yugiohCnocgImportTaskDefinition);
+
+import { yugiohNeuronImportTaskDefinition } from '../yugioh/task/neuron-import/definition';
+registerTaskDefinition(yugiohNeuronImportTaskDefinition);
 
 import { testWorkTaskDefinition } from './test-definition';
 registerTaskDefinition(testWorkTaskDefinition);

@@ -77,7 +77,7 @@ export async function resolveAnnouncementItemImages(
       const currBuild = item.version ?? item.announcementVersion;
       const prevBuild = item.lastVersion ?? item.announcementLastVersion ?? item.announcementVersion;
       // A delta.prev.cardId overrides the "before" card for a different-card comparison.
-      const prevModel = modelAt(item.delta?.prev?.cardId ?? item.cardId, prevBuild);
+      const prevModel = modelAt((item.delta?.prev?.cardId as string | undefined) ?? item.cardId, prevBuild);
       if (prevModel) {
         sides.push({ side: 'prev', hash: computeRenderHash(mergedOf(prevModel, item.delta?.prev)), category: 'base', template });
       }

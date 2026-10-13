@@ -27,6 +27,7 @@ const basic = os
       pageSize,
       lang,
       orderBy,
+      ambit,
     } = input;
 
     return search.search('search', q, {
@@ -35,6 +36,7 @@ const basic = os
       lang,
       orderBy,
       dsl: q,
+      ambit,
     });
   });
 

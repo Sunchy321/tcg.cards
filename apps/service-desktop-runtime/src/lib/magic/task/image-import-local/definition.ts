@@ -208,13 +208,14 @@ const definition = createDefinition(magicImageImportLocalTaskType, {
     return runImportBlock({
       state:     blockInput as ImportBatchState<ZipUploadItem>,
       batchSize: BATCH,
-      run:       async (batch, sig) => {
+      run:       async (batch, sig, reportItem) => {
         const db = getLocalDb();
         const zipData = await readZipImages(ctx.zipPath, batch.map(item => item.filename));
         let acc = emptyImageImportOutput();
         for (const item of batch) {
           if (sig?.aborted) break;
           acc = addImageImportOutput(acc, await ingestUploadItem(db, item, zipData.get(item.filename), { imageSource: ctx.source, cleanupJpg: !!ctx.cleanupJpg }));
+          reportItem();
         }
         return acc;
       },

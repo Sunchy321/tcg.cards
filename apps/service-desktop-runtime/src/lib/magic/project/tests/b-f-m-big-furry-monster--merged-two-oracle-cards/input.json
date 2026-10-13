@@ -4,6 +4,8 @@
   "oracleId": "8fd7503b-e722-49a7-a8ac-786e7354bc95",
   "layout": "normal",
   "setName": "Unglued",
+  "set": "ugl",
+  "setType": "funny",
   "cmc": 15,
   "colorIdentity": [
     "B"

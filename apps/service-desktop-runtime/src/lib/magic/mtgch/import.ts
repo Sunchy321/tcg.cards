@@ -1,5 +1,6 @@
 import { db } from '@tcg-cards/db/db';
 import {
+  MtgchScryfallCard,
   MtgchZhsCard,
   MtgchZhsFlavor,
   MtgchZhsOracle,
@@ -13,6 +14,26 @@ import { readTarGzJsonl } from '../tar-gz';
 import { softDeleteMissing, upsertBatch, type ImportCounts } from '../upsert';
 
 const BATCH = 1000;
+
+const scryfallMap = {
+  cardId:          'uuid',
+  scryfallId:      'scryfall_id',
+  faceIndex:       'face_index',
+  lang:            'lang',
+  oracleId:        'oracle_id',
+  faceOracleId:    'face_oracle_id',
+  setCode:         'set_code',
+  setId:           'set_id',
+  collectorNumber: 'collector_number',
+  multiverseId:    'multiverse_id',
+  name:            'name',
+  faceName:        'face_name',
+  printedName:     'printed_name',
+  printedTypeLine: 'printed_type_line',
+  printedText:     'printed_text',
+  layout:          'layout',
+  releasedAt:      'released_at',
+} as const;
 
 const cardMap = {
   cardId:       'card_id',
@@ -129,6 +150,11 @@ async function importObjects<T>(
   }
   counts.deleted = await softDeleteMissing(db, table, pkColumns, pkNames, importedKeys);
   return counts;
+}
+
+/** Imports the scryfall_card.json skeleton of an MTGCH archive. Returns the import report. */
+export function importMtgchScryfallCard(archive: string, onProgress?: (done: number) => void): Promise<ImportCounts> {
+  return importObjects(readTarGzJsonl(archive, 'scryfall_card.json'), scryfallMap, MtgchScryfallCard, MtgchScryfallCard.cardId, ['cardId'], [MtgchScryfallCard.cardId], onProgress);
 }
 
 /** Imports the zhs_card.json entry from an MTGCH archive. Returns the import report. */

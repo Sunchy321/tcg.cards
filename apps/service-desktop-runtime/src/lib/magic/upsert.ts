@@ -1,4 +1,4 @@
-import { isNull, sql, type Column, type SQL } from 'drizzle-orm';
+import { isNotNull, isNull, sql, type Column, type SQL } from 'drizzle-orm';
 
 /** Builds the on-conflict update set from a row, excluding the PK, via EXCLUDED. */
 export function buildExcludedSet(table: any, row: Record<string, unknown>, pkNames: string[]): Record<string, unknown> {
@@ -11,7 +11,11 @@ export function buildExcludedSet(table: any, row: Record<string, unknown>, pkNam
     }
   }
   set.updatedAt = new Date();
-  set.deletedAt = null;
+  // Only soft-delete tables carry a deleted_at column to clear; hard-delete
+  // ledgers (e.g. the image asset ledger) have none and must not reference it.
+  if ((table as any).deletedAt != null) {
+    set.deletedAt = null;
+  }
   return set;
 }
 
@@ -25,6 +29,10 @@ function buildChangeWhere(table: any, row: Record<string, unknown>, pkNames: str
       conditions.push(sql`${table[key]} IS DISTINCT FROM EXCLUDED.${sql.raw(col.name)}`);
     }
   }
+  // A soft-deleted row must always lose this WHERE: its data may match the
+  // incoming row exactly, and the update set's deletedAt-clear — the revival
+  // contract — would then never fire. Live data-identical rows still skip.
+  if ((table as any).deletedAt != null) conditions.push(isNotNull((table as any).deletedAt));
   return conditions.length > 0 ? sql.join(conditions, sql` OR `) : sql`true`;
 }
 
@@ -67,7 +75,9 @@ export async function upsertBatch<T>(
     const rows = await database.insert(table).values(chunk)
       .onConflictDoUpdate({ target, set, where })
       .returning({ __xmax: sql`xmax` });
-    const inserted = rows.filter((row: { __xmax: number }) => row.__xmax === 0).length;
+    // postgres.js returns int8 as a string, so a literal `=== 0` would count
+    // every insert as an update.
+    const inserted = rows.filter((row: { __xmax: number | string }) => Number(row.__xmax) === 0).length;
     counts.inserted += inserted;
     counts.updated += rows.length - inserted;
     counts.unchanged += chunk.length - rows.length;

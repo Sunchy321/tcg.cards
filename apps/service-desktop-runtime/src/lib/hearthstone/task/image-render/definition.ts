@@ -8,11 +8,10 @@ import type {
   TaskStageState,
 } from '#task/definition';
 import type { CardImageRequirementExportInput } from '@tcg-cards/model/hearthstone/schema/data/image';
-import { imageRequirementFile } from '@tcg-cards/model/hearthstone/schema/data/image';
 import { CardImageAsset } from '@tcg-cards/db/schema/shared/hearthstone/card-image';
 import { TaskRun } from '@tcg-cards/db/schema/local/task';
 import { eq } from 'drizzle-orm';
-import { exportCardImageRequirements } from '@tcg-cards/console-api/lib/hearthstone/card-image';
+import { buildCardImageMissingPlan, buildCardImageRequirementExportFile, buildCardImageRequestsForPlanKeys, recordCardImageExport, type CardImageMissingPlanKey } from '@tcg-cards/console-api/lib/hearthstone/card-image';
 import { importCardImageFilesToLocalBucket } from '@tcg-cards/console-api/lib/hearthstone/card-image-local-import';
 import { buildDebugRenderRequests, buildCardIdRenderRequests } from '../../image-debug';
 import { getLocalDb } from '../../hsdata-local-db';
@@ -52,6 +51,8 @@ interface RenderCtx {
   totalMissing: number;
   cursor: string | null;
   batchIndex: number;
+  /** Missing render plan built once during counting; each batch slices it in memory. */
+  planKeys: CardImageMissingPlanKey[];
   overallWritten: number;
   overallSkipped: number;
   overallRejected: number;
@@ -109,13 +110,12 @@ export async function executeImageRenderBlock(input: {
       });
       ctx.totalMissing = new Map(result.requests.map(r => [r.output.fileName, r])).size;
     } else {
-      const countResult = await exportCardImageRequirements(
-        { ...omit(ctx.filters, 'renderHash'), scanAll: ctx.filters.scanAll ?? false, cursor: null, limit: ctx.filters.limit ?? 50 },
+      const plan = await buildCardImageMissingPlan(
+        { ...omit(ctx.filters, 'renderHash') },
         { db: getLocalDb() },
       );
-      ctx.totalMissing = ctx.filters.scanAll
-        ? countResult.requestCount + countResult.remainingEstimate
-        : countResult.requestCount;
+      ctx.planKeys = plan.keys;
+      ctx.totalMissing = plan.keys.length;
     }
     store.updateStage(taskRunId, 'counting', { done: 1, total: 1 }).catch(() => {});
     return;
@@ -132,7 +132,7 @@ export async function executeImageRenderBlock(input: {
     return;
   }
 
-  const { filters, rendererBaseUrl, bucketDir, cursor } = ctx;
+  const { filters, rendererBaseUrl, bucketDir } = ctx;
 
   let requirementsFile: any;
   let exportResult: any;
@@ -158,11 +158,29 @@ export async function executeImageRenderBlock(input: {
     requirementsFile = fileObj;
     exportResult = { exportId, fileName: `${exportId}.json`, content: JSON.stringify(fileObj), hasMore: false, nextCursor: null };
   } else {
-    exportResult = await exportCardImageRequirements(
-      { ...omit(filters, 'renderHash'), scanAll: filters.scanAll ?? false, cursor, limit: filters.limit ?? CHUNK_SIZE },
+    const chunkSize = filters.limit ?? CHUNK_SIZE;
+    const chunkIndex = typeof input.block.payload?.chunkIndex === 'number' ? input.block.payload.chunkIndex : 0;
+    const planSlice = ctx.planKeys.slice(chunkIndex * chunkSize, (chunkIndex + 1) * chunkSize);
+
+    if (planSlice.length === 0) return;
+
+    const requests = await buildCardImageRequestsForPlanKeys(
+      { ...omit(filters, 'renderHash') },
+      planSlice,
       { db: getLocalDb() },
     );
-    requirementsFile = imageRequirementFile.parse(JSON.parse(exportResult.content));
+    if (requests.length === 0) return;
+
+    const built = buildCardImageRequirementExportFile(requests);
+    await recordCardImageExport(getLocalDb(), {
+      filters,
+      exportId: built.exportId,
+      fileName: built.fileName,
+      content: built.content,
+      requestCount: requests.length,
+    });
+    requirementsFile = built.file;
+    exportResult = { exportId: built.exportId, fileName: built.fileName, content: built.content, hasMore: false, nextCursor: null };
   }
 
   const batchCount = requirementsFile.requests.length;
@@ -279,6 +297,7 @@ export const imageRenderTaskDefinition: TaskDefinition = {
         totalMissing: 0,
         cursor: null,
         batchIndex: 0,
+        planKeys: [],
         overallWritten: 0,
         overallSkipped: 0,
         overallRejected: 0,

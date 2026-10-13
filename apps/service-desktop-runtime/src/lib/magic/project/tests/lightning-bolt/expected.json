@@ -4,6 +4,7 @@
       "cardId": "lightning-bolt",
       "version": "",
       "partCount": 1,
+      "ambit": "primary",
       "name": "Lightning Bolt",
       "typeline": "Instant",
       "manaValue": 1,
@@ -171,6 +172,6 @@
       ]
     }
   ],
-  "unified": [],
+  "authorities": [],
   "reviews": []
 }

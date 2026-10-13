@@ -28,9 +28,10 @@ const APPLY_CHUNK_SIZE = 1000;
 
 // ── Table registry ──
 
-/** The six magic fact tables published as one card_data surface. Unified
- * localization is NOT published: it is projection-side annotation recording
- * how the unified facts were established, not a fact table itself. */
+/** The six magic fact tables published as one card_data surface. The
+ * localization authority is NOT published: it is projection-side annotation
+ * recording where the published localization text came from, not a fact table
+ * itself. */
 export const PUBLISH_TABLES = [
   'cards',
   'card_parts',
@@ -115,8 +116,13 @@ export async function scanLocalRows(
   const cols = config.pk.map(name => (config.table as any)[name]);
   const order = cols.map(col => asc(col));
 
+  // Only locally-active rows are publishable: a soft-deleted row must vanish
+  // from the scan so the baseline sweep schedules its remote deletion (same
+  // semantics as the hearthstone publisher's full scan).
+  const activeFilter = isNull(config.table.deletedAt);
+
   // Row-value comparison: (pk1, pk2, …) > (last1, last2, …) for keyset paging.
-  const where = lastKey != null
+  const keyset = lastKey != null
     ? sql`(${sql.join(cols.map(col => sql`${col}`), sql`, `)}) > (${sql.join(
       config.pk.map(name => sql`${parseRowKey(config, lastKey)[name]}`),
       sql`, `,
@@ -125,7 +131,7 @@ export async function scanLocalRows(
 
   const rows = await database.select()
     .from(config.table)
-    .where(where)
+    .where(keyset != null ? and(activeFilter, keyset) : activeFilter)
     .orderBy(...order)
     .limit(limit) as Record<string, unknown>[];
 
@@ -137,7 +143,9 @@ export async function scanLocalRows(
 export async function countLocalRows(database: PublishDb): Promise<Record<PublishTableName, number>> {
   const out = {} as Record<PublishTableName, number>;
   for (const config of Object.values(PUBLISH_TABLE_CONFIG)) {
-    const rows = await database.select({ n: sql<number>`count(*)::int` }).from(config.table);
+    const rows = await database.select({ n: sql<number>`count(*)::int` })
+      .from(config.table)
+      .where(isNull(config.table.deletedAt));
     out[config.name] = Number(rows[0]?.n ?? 0);
   }
   return out;
@@ -199,7 +207,7 @@ export async function createPublishBatch(
   input: {
     stream:               { publishTarget: string, environment: string, publishType: string };
     targetFingerprint:    string;
-    operationKind:        'publish' | 'dry_run';
+    operationKind:        typeof PublishBatch.$inferInsert['operationKind'];
     manifestHash:         string;
     previousManifestHash: string | null;
     generationOrder:      number;

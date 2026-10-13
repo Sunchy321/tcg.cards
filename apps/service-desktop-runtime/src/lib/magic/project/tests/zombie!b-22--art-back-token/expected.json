@@ -4,6 +4,7 @@
       "cardId": "zombie!b-22",
       "version": "",
       "partCount": 1,
+      "ambit": "additional",
       "name": "Zombie",
       "typeline": "Token Creature — Zombie",
       "manaValue": 0,
@@ -80,7 +81,7 @@
       "source": "",
       "name": "Zombie",
       "typeline": "Token Creature — Zombie",
-      "layout": "transform_token",
+      "layout": "art_back_token",
       "frame": "2015",
       "frameEffects": [],
       "borderColor": "black",
@@ -144,6 +145,6 @@
       ]
     }
   ],
-  "unified": [],
+  "authorities": [],
   "reviews": []
 }

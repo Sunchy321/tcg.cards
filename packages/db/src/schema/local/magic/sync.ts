@@ -45,14 +45,14 @@ export const RawEntitySnapshot = dataSchema.table('raw_entity_snapshots', {
 ]);
 
 /**
- * Unified projection review queue. Three kinds share one model:
+ * Projection review queue. Three kinds share one model:
  *   - `slug_conflict`: multiple oracle ids normalize to one slug with no
  *     resolution yet; resolving writes `card_slug_resolutions`.
  *   - `card_inconsistency`: a card's non-localized fields disagree across its
  *     attributed rows; the card is held out of projection until resolved.
- *   - `card_field_overwrite`: writing a card field would overwrite a current
- *     value and needs confirmation (base change / unified folk overriding
- *     official).
+ *   - `card_field_overwrite`: the community translation replaced the print
+ *     surface of a locale; kept as an audit trail of where the authority text
+ *     came from.
  */
 export const ProjectionReview = dataSchema.table('projection_review', {
   id:         uuid('id').primaryKey().defaultRandom(),

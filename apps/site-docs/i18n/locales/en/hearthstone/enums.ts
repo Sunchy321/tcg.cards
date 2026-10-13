@@ -117,6 +117,7 @@ export default {
     gnoll:     'Gnoll',
     golem:     'Golem',
     vulpera:   'Vulpera',
+    aberration: 'Aberration',
   },
   'spell-school': {
     _self:           'The school of a spell.',

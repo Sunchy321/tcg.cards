@@ -1,3 +1,6 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { z } from 'zod';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { ORPCError } from '@orpc/server';
@@ -12,17 +15,27 @@ import { createAndRunTask } from './task';
 import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
 import { inconsistentMergedSlugs, unitViewFace, type FaceLike } from '../lib/magic/project/consistency';
 import { listMtgchArchives, listMtgjsonFiles, listScryfallFiles } from '../lib/magic/data-dir';
+import { magicRuleRouter } from './magic-rule';
+import { magicRubyRouter } from './magic-ruby';
+import { magicAmbitRouter } from './magic-ambit';
+import { magicCommitsRouter } from './magic-commits';
 import { resolvePath } from '../lib/game-paths';
 import { magicScryfallImportTaskDefinition } from '../lib/magic/task/scryfall-import';
 import { magicMtgchImportTaskDefinition } from '../lib/magic/task/mtgch-import';
 import { magicMtgjsonImportTaskDefinition } from '../lib/magic/task/mtgjson-import';
 import { magicGathererImportTaskDefinition } from '../lib/magic/task/gatherer-import';
+import { magicRubyImportTaskDefinition } from '../lib/magic/task/magic-ruby-import';
 import { magicProjectTaskDefinition } from '../lib/magic/task/magic-project';
 import { magicImageImportRemoteTaskDefinition } from '../lib/magic/task/image-import-remote/definition';
 import { magicImageImportLocalTaskDefinition } from '../lib/magic/task/image-import-local/definition';
 import { magicImageImportSingleTaskDefinition } from '../lib/magic/task/image-import-single/definition';
+import { loadLocalAssetPreview } from '../lib/magic/image-import/local';
+import { printImageDir } from '../lib/magic/image-import/common';
 import { analyzeImportZip } from '../lib/magic/image-import/analyze';
+import { clearImages, imageClearResult } from '../lib/magic/image-import/clear';
+import { imageMarkResult, markPlaceholderImages } from '../lib/magic/image-import/mark';
 import { compareImageSources, imageCompareResult } from '../lib/magic/image-import/compare';
+import { checkImageQuality, imageQualityReport } from '../lib/magic/image-import/quality';
 import { magicPublishTaskDefinition } from '../lib/magic/task/publish';
 
 const magicDataFile = z.strictObject({
@@ -40,6 +53,10 @@ const magicDataState = z.strictObject({
     dir:       z.string().nullable(),
     fileCount: z.number(),
   }),
+  mtga: z.strictObject({
+    dir:          z.string().nullable(),
+    cardDatabase: z.boolean(),
+  }),
 });
 
 const getDataState = os
@@ -55,11 +72,13 @@ const getDataState = os
     const mtgchDir = resolvePath('magic.data.mtgch');
     const mtgjsonDir = resolvePath('magic.data.mtgjson');
     const mtgjson = mtgjsonDir != null ? listMtgjsonFiles(mtgjsonDir) : { dir: null, fileCount: 0 };
+    const mtgaDir = resolvePath('magic.data.mtga');
     return {
       dataDir,
       scryfall: scryfallDir != null ? listScryfallFiles(scryfallDir) : [],
       mtgch:    { archives: mtgchDir != null ? listMtgchArchives(mtgchDir) : [] },
       mtgjson:  { dir: mtgjson.dir, fileCount: mtgjson.fileCount },
+      mtga:     { dir: mtgaDir, cardDatabase: mtgaDir != null && existsSync(join(mtgaDir, 'Raw_CardDatabase.mtga')) },
     };
   });
 
@@ -120,6 +139,20 @@ const gathererImport = os
       definitionVersion: magicGathererImportTaskDefinition.definitionVersion,
       scope:             { type: magicGathererImportTaskDefinition.scopeType, key: 'global', snapshot: {} },
       params:            { level: input.level, from: input.from, to: input.to, concurrency: input.concurrency },
+    });
+  });
+
+const rubyImport = os
+  .input(z.strictObject({
+    dir: z.string().min(1),
+  }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    return createAndRunTask(magicRubyImportTaskDefinition.taskType, {
+      taskType:          magicRubyImportTaskDefinition.taskType,
+      definitionVersion: magicRubyImportTaskDefinition.definitionVersion,
+      scope:             { type: magicRubyImportTaskDefinition.scopeType, key: 'global', snapshot: {} },
+      params:            { dir: input.dir },
     });
   });
 
@@ -340,7 +373,7 @@ const reviewItem = z.strictObject({
   members: z.array(slugConflictMember).optional(),
 });
 
-/** List all pending projection reviews (any kind) for the unified review UI. */
+/** List all pending projection reviews (any kind) for the shared review UI. */
 const reviewList = os
   .output(z.strictObject({ items: z.array(reviewItem) }))
   .handler(async () => {
@@ -392,10 +425,10 @@ const publishTask = os
 
 const imageImportRemote = os
   .input(z.strictObject({
-    source:     z.enum(['scryfall', 'gatherer']),
+    source:     z.enum(['scryfall', 'gatherer', 'prefer_gatherer', 'mtgch']),
     scope:      z.enum(['full', 'set']),
     set:        z.string().optional(),
-    lang:       z.string().optional(),
+    langs:      z.array(z.string()).min(1).optional(),
     force:      z.boolean().optional(),
     cleanupJpg: z.boolean().optional(),
   }).refine(
@@ -434,15 +467,16 @@ const imageImportLocal = os
 
 const imageImportSingle = os
   .input(z.strictObject({
-    source:     z.enum(['manual', 'mtgch', 'mtgflame', 'hunterer', 'scryfall', 'gatherer']),
-    set:        z.string().min(1),
-    lang:       z.string().min(1),
-    number:     z.string().min(1),
-    force:      z.boolean().optional(),
-    cleanupJpg: z.boolean().optional(),
-    faceIndex:  z.number().int().min(0).max(15).optional(),
-    fileName:   z.string().optional(),
-    dataBase64: z.string().optional(),
+    source:         z.enum(['manual', 'mtgch', 'mtgflame', 'hunterer', 'scryfall', 'gatherer', 'prefer_gatherer']),
+    set:            z.string().min(1),
+    langs:          z.array(z.string()).min(1),
+    numbers:        z.array(z.string().min(1)).min(1),
+    force:          z.boolean().optional(),
+    cleanupJpg:     z.boolean().optional(),
+    faceIndex:      z.number().int().min(0).max(15).optional(),
+    fileName:       z.string().optional(),
+    dataBase64:     z.string().optional(),
+    fromLocalAsset: z.boolean().optional(),
   }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
@@ -489,11 +523,76 @@ const listImageSets = os
     return rows.map(r => ({ code: r.code, prints: Number(r.prints) }));
   });
 
+/** Local-import preview: the asset files the import would pick for one print,
+ * read as data URLs so the console can show them before importing. Only for
+ * single-number imports — multi-number runs show no preview. */
+const localImagePreview = os
+  .input(z.strictObject({ set: z.string().min(1), lang: z.string().min(1), number: z.string().min(1) }))
+  .output(z.strictObject({
+    layout: z.string().nullable(),
+    faces:  z.array(z.strictObject({
+      faceIndex: z.number(),
+      fileName:  z.string().nullable(),
+      found:     z.boolean(),
+      dataUrl:   z.string().nullable(),
+    })),
+  }))
+  .handler(async ({ input }) => {
+    const db = getLocalDb();
+    const row = await db.select({ layout: Print.layout })
+      .from(Print)
+      .where(and(
+        eq(Print.set, input.set),
+        eq(Print.lang, input.lang as typeof Print.$inferSelect.lang),
+        eq(Print.number, input.number),
+        isNull(Print.deletedAt),
+      ))
+      .limit(1)
+      .then(rows => rows[0] ?? null);
+    return loadLocalAssetPreview(printImageDir(input.set, input.lang), row?.layout ?? null, input.number);
+  });
+
+const checkImagesQuality = os
+  .input(z.strictObject({ set: z.string().min(1) }))
+  .output(imageQualityReport)
+  .handler(async ({ input }) => {
+    const db = getLocalDb();
+    return checkImageQuality(db, input.set);
+  });
+
+const clearPrintImages = os
+  .input(z.strictObject({
+    set:     z.string().min(1),
+    langs:   z.array(z.string()).min(1),
+    numbers: z.array(z.string()).min(1).optional(),
+  }))
+  .output(imageClearResult)
+  .handler(async ({ input }) => {
+    const db = getLocalDb();
+    return clearImages(db, input);
+  });
+
+const markPrintImages = os
+  .input(z.strictObject({
+    set:     z.string().min(1),
+    langs:   z.array(z.string()).min(1),
+    numbers: z.array(z.string()).min(1).optional(),
+  }))
+  .output(imageMarkResult)
+  .handler(async ({ input }) => {
+    const db = getLocalDb();
+    return markPlaceholderImages(db, input);
+  });
+
 export const magicRouter = {
   getDataState,
-  images:     { sets: listImageSets, compare: compareImages },
+  images:     { sets: listImageSets, compare: compareImages, qualityCheck: checkImagesQuality, clear: clearPrintImages, mark: markPrintImages, localPreview: localImagePreview },
   analyze:    { imageArchive: analyzeImageArchive },
-  createTask: { scryfallImport, mtgchImport, mtgjsonImport, gathererImport, magicProject, imageImportRemote, imageImportLocal, imageImportSingle },
+  createTask: { scryfallImport, mtgchImport, mtgjsonImport, gathererImport, rubyImport, magicProject, imageImportRemote, imageImportLocal, imageImportSingle },
+  rule:       magicRuleRouter,
+  ruby:       magicRubyRouter,
+  ambit:      magicAmbitRouter,
+  commits:    magicCommitsRouter,
   publish:    { publishTask },
   slug:       { listConflicts: listSlugConflicts, resolveConflict: resolveSlugConflict, member: slugMember },
   review:     { list: reviewList },

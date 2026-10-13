@@ -1,10 +1,13 @@
-import { and, asc, eq, inArray, ne } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, ne } from 'drizzle-orm';
 
 import type { createDb } from '@tcg-cards/db';
-import { MtgchZhsOracle, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
+import { MtgchScryfallCard, MtgchZhsCard, MtgchZhsOracle, ScryfallCard } from '@tcg-cards/db/schema/local/magic';
 
 import { isArtBackDoubleFacedToken, isSingleCardDoubleFacedToken, slugifyCard, toMatchUnits } from '../match';
 import { findCardMergeGroup } from '../merge-cards';
+import { synthesizePrintCommits, type LoadedPrintCommit } from './print-commits';
+
+import { stripNameRuby } from '@tcg-cards/model/magic/name-ruby';
 
 import type { AssembledCard, CardLocalizationSurface, LocalizedFaceDraft, OracleFaceDraft, PrintDraft, PrintFaceDraft } from './project-card';
 
@@ -43,16 +46,34 @@ interface RawFace {
   oracle_id?:         string | null;
 }
 
+/**
+ * Scryfall sometimes stores the joined whole-card value (`A // B`) on each
+ * card_faces[i].printed_* slot; split it back and take this face's segment.
+ * Values without the separator pass through unchanged. Applied to names and
+ * type lines only — face rules text carries no joined-form convention.
+ */
+export function faceValue(value: string | null | undefined, faceIndex: number): string | null {
+  if (value == null) return null;
+  if (!value.includes(' // ')) return value;
+  return value.split(' // ')[faceIndex] ?? value;
+}
+
+/** Strips upstream-flattened furigana glosses (`漢字（かな）`) from Japanese print surfaces. */
+function cleanSurface(row: CardRow, value: string | null): string | null {
+  if (row.lang !== 'ja' || value == null) return value;
+  return stripNameRuby(value);
+}
+
 /** Faces of a print, aligned to the card's oracle faces. */
 function printFaces(row: CardRow): PrintFaceDraft[] {
   const faces = (row.cardFaces as RawFace[] | null) ?? [];
   if (faces.length === 0) {
     return [{
       typeLine:         row.typeLine ?? null,
-      printedName:      row.printedName ?? null,
-      printedTypeLine:  row.printedTypeLine ?? null,
+      printedName:      cleanSurface(row, row.printedName ?? null),
+      printedTypeLine:  cleanSurface(row, row.printedTypeLine ?? null),
       printedText:      row.printedText ?? null,
-      flavorName:       row.flavorName ?? null,
+      flavorName:       cleanSurface(row, row.flavorName ?? null),
       flavorText:       row.flavorText ?? null,
       artist:           row.artist ?? null,
       watermark:        row.watermark ?? null,
@@ -60,12 +81,12 @@ function printFaces(row: CardRow): PrintFaceDraft[] {
       attractionLights: row.attractionLights ?? null,
     }];
   }
-  return faces.map(f => ({
+  return faces.map((f, i) => ({
     typeLine:         f.type_line ?? null,
-    printedName:      f.printed_name ?? null,
-    printedTypeLine:  f.printed_type_line ?? null,
+    printedName:      cleanSurface(row, faceValue(f.printed_name, i)),
+    printedTypeLine:  cleanSurface(row, faceValue(f.printed_type_line, i)),
     printedText:      f.printed_text ?? null,
-    flavorName:       f.flavor_name ?? null,
+    flavorName:       cleanSurface(row, f.flavor_name ?? null),
     flavorText:       f.flavor_text ?? null,
     artist:           f.artist ?? null,
     watermark:        f.watermark ?? null,
@@ -159,14 +180,14 @@ function localizedFaces(row: CardRow): LocalizedFaceDraft[] {
   const faces = (row.cardFaces as RawFace[] | null) ?? [];
   if (faces.length === 0) {
     return [{
-      name:     row.printedName ?? null,
-      typeline: row.printedTypeLine ?? null,
+      name:     cleanSurface(row, row.printedName ?? null),
+      typeline: cleanSurface(row, row.printedTypeLine ?? null),
       text:     row.printedText ?? null,
     }];
   }
-  return faces.map(f => ({
-    name:     f.printed_name ?? null,
-    typeline: f.printed_type_line ?? null,
+  return faces.map((f, i) => ({
+    name:     cleanSurface(row, faceValue(f.printed_name, i)),
+    typeline: cleanSurface(row, faceValue(f.printed_type_line, i)),
     text:     f.printed_text ?? null,
   }));
 }
@@ -178,10 +199,10 @@ function printFaceAt(row: CardRow, faceIndex: number): PrintFaceDraft {
   if (f == null) {
     return {
       typeLine:         row.typeLine ?? null,
-      printedName:      row.printedName ?? null,
-      printedTypeLine:  row.printedTypeLine ?? null,
+      printedName:      cleanSurface(row, row.printedName ?? null),
+      printedTypeLine:  cleanSurface(row, row.printedTypeLine ?? null),
       printedText:      row.printedText ?? null,
-      flavorName:       row.flavorName ?? null,
+      flavorName:       cleanSurface(row, row.flavorName ?? null),
       flavorText:       row.flavorText ?? null,
       artist:           row.artist ?? null,
       watermark:        row.watermark ?? null,
@@ -191,8 +212,8 @@ function printFaceAt(row: CardRow, faceIndex: number): PrintFaceDraft {
   }
   return {
     typeLine:         f.type_line ?? null,
-    printedName:      f.printed_name ?? null,
-    printedTypeLine:  f.printed_type_line ?? null,
+    printedName:      faceValue(f.printed_name, faceIndex),
+    printedTypeLine:  faceValue(f.printed_type_line, faceIndex),
     printedText:      f.printed_text ?? null,
     flavorName:       f.flavor_name ?? null,
     flavorText:       f.flavor_text ?? null,
@@ -209,16 +230,175 @@ function localizedFaceAt(row: CardRow, faceIndex: number): LocalizedFaceDraft {
   const f = faces[faceIndex];
   if (f == null) {
     return {
-      name:     row.printedName ?? null,
-      typeline: row.printedTypeLine ?? null,
+      name:     cleanSurface(row, row.printedName ?? null),
+      typeline: cleanSurface(row, row.printedTypeLine ?? null),
       text:     row.printedText ?? null,
     };
   }
   return {
-    name:     f.printed_name ?? null,
-    typeline: f.printed_type_line ?? null,
+    name:     cleanSurface(row, faceValue(f.printed_name, faceIndex)),
+    typeline: cleanSurface(row, faceValue(f.printed_type_line, faceIndex)),
     text:     f.printed_text ?? null,
   };
+}
+
+/**
+ * Normalize one MTGCH translation value for projection.
+ *
+ * The dataset escapes newlines as literal backslash sequences and never stores
+ * a real newline; a missing translation is an empty string as well as NULL.
+ * Two conventions are in use and both must reduce to a real newline: a doubled
+ * backslash (zhs_card text on 30,988 rows, and every zhs_oracle text) and a
+ * single one (zhs_card text on 127 rows plus one type line — the only place the
+ * doublings are missing). The doubled form is reduced first so its backslashes
+ * are consumed before the single form runs; otherwise the single form would eat
+ * the inner backslash of a doubled escape and leave a stray one behind.
+ */
+export function normalizeMtgchText(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const text = value
+    .replace(/\\\\r\\\\n/g, '\n')
+    .replace(/\\\\r/g, '\n')
+    .replace(/\\\\n/g, '\n')
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\r/g, '\n')
+    .replace(/\\n/g, '\n');
+  return text === '' ? null : text;
+}
+
+/** One MTGCH skeleton row (print position + face slot) joined with its zhs_card translation. */
+interface MtgchPositionRow {
+  faceIndex: number | null;
+  faceName:  string | null;
+  name:      string | null;
+  typeLine:  string | null;
+  text:      string | null;
+}
+
+/** MTGCH printed surfaces grouped by print position, keyed `set|number` (set lowercased). */
+type MtgchPrintMap = Map<string, MtgchPositionRow[]>;
+
+/**
+ * Loads the MTGCH skeleton+zhs rows of the given oracles in one query.
+ *
+ * Keyed by oracle rather than by print position: the skeleton carries the
+ * oracle id in scryfall's own id space, so one indexed lookup covers every
+ * position a card can print at (including the reversible rows that contribute
+ * prints to the card they reference) without the set/number cross product.
+ */
+export async function loadMtgchPrintMap(database: ProjectDb, oracleIds: string[]): Promise<MtgchPrintMap> {
+  const ids = [...new Set(oracleIds.filter(id => id !== ''))];
+  if (ids.length === 0) return new Map();
+  const rows = await database
+    .select({
+      setCode:         MtgchScryfallCard.setCode,
+      collectorNumber: MtgchScryfallCard.collectorNumber,
+      faceIndex:       MtgchScryfallCard.faceIndex,
+      faceName:        MtgchZhsCard.faceName,
+      name:            MtgchZhsCard.name,
+      typeLine:        MtgchZhsCard.typeLine,
+      text:            MtgchZhsCard.text,
+    })
+    .from(MtgchScryfallCard)
+    .innerJoin(MtgchZhsCard, eq(MtgchZhsCard.cardId, MtgchScryfallCard.cardId))
+    .where(and(
+      isNull(MtgchScryfallCard.deletedAt),
+      isNull(MtgchZhsCard.deletedAt),
+      inArray(MtgchScryfallCard.oracleId, ids),
+    ));
+  const map: MtgchPrintMap = new Map();
+  for (const row of rows) {
+    if (row.setCode == null || row.collectorNumber == null) continue;
+    const key = `${row.setCode.toLowerCase()}|${row.collectorNumber}`;
+    const list = map.get(key);
+    const entry: MtgchPositionRow = { faceIndex: row.faceIndex, faceName: row.faceName, name: row.name, typeLine: row.typeLine, text: row.text };
+    if (list == null) map.set(key, [entry]);
+    else list.push(entry);
+  }
+  return map;
+}
+
+/** Whether the value carries content (non-empty after trim). */
+function present(value: string | null | undefined): value is string {
+  return value != null && value.trim() !== '';
+}
+
+/** The localized face of one MTGCH row: the per-face name is authoritative, the whole-card name stands in. */
+function mtgchFaceDraft(row: MtgchPositionRow): LocalizedFaceDraft {
+  return {
+    name:     normalizeMtgchText(present(row.faceName) ? row.faceName : row.name),
+    typeline: normalizeMtgchText(row.typeLine),
+    text:     normalizeMtgchText(row.text),
+  };
+}
+
+/**
+ * Resolves one print position's MTGCH faces for a draft with `faceCount` face
+ * slots. Per-face skeleton rows feed normal multi-face cards (count must match
+ * the slots) and split units (a specific `unitFaceIndex` picks its row); a
+ * whole-card row serves single-face prints — meld rows carry the per-face name
+ * in `face_name`, so the joined whole-card name never surfaces. Any other
+ * combination means no community data: every slot stays null and the
+ * projection keeps its English fallback.
+ */
+function resolveMtgchFaces(entries: MtgchPositionRow[] | undefined, faceCount: number, unitFaceIndex?: number): (LocalizedFaceDraft | null)[] | null {
+  if (entries == null || entries.length === 0) return null;
+  const faceRows = entries.filter(e => e.faceIndex != null && e.faceIndex >= 0);
+  const wholeRow = entries.find(e => e.faceIndex == null || e.faceIndex < 0);
+  let picked: (MtgchPositionRow | null)[] | null = null;
+  if (unitFaceIndex != null) {
+    const row = faceRows.find(e => e.faceIndex === unitFaceIndex);
+    picked = row != null ? [row] : null;
+  } else if (faceRows.length === faceCount) {
+    picked = Array.from({ length: faceCount }, (_, i) => faceRows.find(e => e.faceIndex === i) ?? null);
+  } else if (faceCount === 1 && wholeRow != null) {
+    picked = [wholeRow];
+  }
+  if (picked == null) return null;
+  const faces = picked.map(row => {
+    if (row == null) return null;
+    const face = mtgchFaceDraft(row);
+    // A row whose every field is empty is an untranslated position, not data.
+    return face.name == null && face.typeline == null && face.text == null ? null : face;
+  });
+  return faces.every(f => f == null) ? null : faces;
+}
+
+/** Attaches MTGCH printed faces to every zhs draft in place; other languages pass through untouched. */
+function withMtgchFaces(map: MtgchPrintMap, drafts: PrintDraft[], unitFaceIndex?: number): void {
+  for (const draft of drafts) {
+    if (draft.lang !== 'zhs') continue;
+    const faces = resolveMtgchFaces(map.get(`${draft.set.toLowerCase()}|${draft.number}`), draft.faces.length, unitFaceIndex);
+    if (faces != null) draft.mtgchFaces = faces;
+  }
+}
+
+/** One raw MTGCH oracle row, as stored in the cache. */
+type MtgchRow = (typeof MtgchZhsOracle)['$inferSelect'];
+
+/**
+ * Order MTGCH rows so that row i belongs to oracle face i.
+ *
+ * The cache has no face-order column and holds one row per face in whatever
+ * order the import wrote them, so position is not a reliable key: for
+ * `Beluna's Gatekeeper // Entry Denied` the community rows arrive
+ * adventure-first while the Scryfall faces are creature-first, and both rows
+ * carry the same timestamp, so nothing distinguishes them. Each row does carry
+ * the English face name, so faces are matched by name instead. If any row fails
+ * to match a face, or two rows claim the same one, the rows keep their stored
+ * order — the behaviour before name matching, and the only option left for the
+ * few rows whose names do not line up.
+ */
+function alignMtgchFaces(rows: MtgchRow[], faces: OracleFaceDraft[]): MtgchRow[] {
+  if (rows.length < 2) return rows;
+  const indexByName = new Map(faces.map((face, i) => [face.name, i]));
+  const ordered: (MtgchRow | undefined)[] = new Array(rows.length);
+  for (const row of rows) {
+    const index = row.name != null ? indexByName.get(row.name) : undefined;
+    if (index == null || ordered[index] != null) return rows;
+    ordered[index] = row;
+  }
+  return ordered as MtgchRow[];
 }
 
 /**
@@ -235,13 +415,18 @@ export async function loadReversibleRows(database: ProjectDb): Promise<CardRow[]
 }
 
 /** Prints a card gains from reversible rows whose faces reference it. */
-function reversiblePrintsFrom(rows: CardRow[], oracleId: string): PrintDraft[] {
+function reversiblePrintsFrom(rows: CardRow[], oracleId: string, mtgchMap?: MtgchPrintMap): PrintDraft[] {
   const out: PrintDraft[] = [];
   for (const row of rows) {
     const faces = (row.cardFaces as RawFace[] | null) ?? [];
     faces.forEach((f, i) => {
       if (f.oracle_id !== oracleId) return;
       const draft = toPrintDraft(row);
+      // MTGCH positions use the raw collector number; attach before the face side suffix.
+      if (mtgchMap != null && draft.lang === 'zhs') {
+        const mtgchFaces = resolveMtgchFaces(mtgchMap.get(`${draft.set.toLowerCase()}|${draft.number}`), 1, i);
+        if (mtgchFaces != null) draft.mtgchFaces = mtgchFaces;
+      }
       draft.number = `${draft.number}${i === 0 ? 'a' : 'b'}`;
       draft.faces = [printFaceAt(row, i)];
       draft.scryfallFace = i === 0 ? 'front' : 'back';
@@ -328,8 +513,17 @@ export function isBattleFront(typeLine: string | null | undefined): boolean {
  * snapshots. A normal (single/multi-face) oracle card is one unit; a
  * `double_faced_token` yields one unit per face. `reversible_card` produces no
  * units here (it only contributes prints to the units its faces reference).
+ * `printCommits` are the oracle's print commits; the normal branch consumes
+ * them, and so does the split-DFT branch (each face unit takes the commits
+ * whose suffixed print number matches its own); merge groups and art-back
+ * tokens remain out of the commit path's scope.
  */
-export async function assembleUnits(database: ProjectDb, oracleId: string, reversibleRows?: CardRow[]): Promise<AssembledCard[]> {
+export async function assembleUnits(
+  database: ProjectDb,
+  oracleId: string,
+  reversibleRows?: CardRow[],
+  printCommits?: LoadedPrintCommit[],
+): Promise<AssembledCard[]> {
   const enRows = await database.select().from(ScryfallCard)
     .where(and(
       eq(ScryfallCard.lang, 'en'),
@@ -340,8 +534,19 @@ export async function assembleUnits(database: ProjectDb, oracleId: string, rever
     .orderBy(asc(ScryfallCard.set), asc(ScryfallCard.collectorNumber))
     .limit(1);
 
-  const en = enRows[0];
-  if (en == null) throw new Error(`assemble: no English row for oracle ${oracleId}`);
+  // Foreign-only oracles (every row non-English, e.g. the Sega Dreamcast
+  // promos) have no English anchor: they anchor on one representative row
+  // instead — the same row matchBatch's fallback pass picks (same exclusions,
+  // same ordering), so the assembled cardId always agrees with the match slug.
+  const en = enRows[0] ?? (await database.select().from(ScryfallCard)
+    .where(and(
+      eq(ScryfallCard.oracleId, oracleId),
+      ne(ScryfallCard.layout, 'art_series'),
+      ne(ScryfallCard.layout, 'front_card'),
+    ))
+    .orderBy(asc(ScryfallCard.set), asc(ScryfallCard.collectorNumber), asc(ScryfallCard.lang))
+    .limit(1))[0];
+  if (en == null) throw new Error(`assemble: no scryfall row for oracle ${oracleId}`);
 
   if (en.layout === 'reversible_card') {
     throw new Error('assemble: reversible_card rows carry no unit; handle as prints to their faces');
@@ -362,6 +567,7 @@ export async function assembleUnits(database: ProjectDb, oracleId: string, rever
     // The right half carries the merged card's mana cost and P/T; the type
     // line and rules text come from the group (the halves' lines misalign).
     const face = { ...oracleFaces(secondaryEn)[0]!, typeLine: mergeGroup.face.typeLine, oracleText: mergeGroup.face.oracleText };
+    const mtgchMap = await loadMtgchPrintMap(database, mergeGroup.memberOracleIds);
     // Prints stay the raw halves: each keeps its own number, half rules text,
     // and half flavor text. The `combined` layout marks them as the two panels
     // of one spread; scryfallFace (the same field reversible prints use for
@@ -372,12 +578,15 @@ export async function assembleUnits(database: ProjectDb, oracleId: string, rever
       draft.scryfallFace = r.oracleId === mergeGroup.primaryOracleId ? 'left' : 'right';
       return draft;
     });
+    withMtgchFaces(mtgchMap, prints);
     return [{
       unit:           mergeGroup.primaryOracleId,
       cardId:         mergeGroup.slug,
       oracleId:       mergeGroup.primaryOracleId,
       layout:         en.layout,
       setName:        en.setName,
+      set:            en.set,
+      setType:        en.setType,
       cmc:            secondaryEn.cmc ?? 0,
       colorIdentity:  en.colorIdentity,
       keywords:       en.keywords,
@@ -398,15 +607,21 @@ export async function assembleUnits(database: ProjectDb, oracleId: string, rever
 
   const enFaces = oracleFaces(en);
   if (en.layout === 'double_faced_token' && isArtBackDoubleFacedToken(enFaces.map(f => f.name), enFaces)) {
-    // Art-back token: the back is pure illustration, not a card part. Project as
-    // a single-face card but keep the prints flippable (transform_token layout).
+    // Art-back token: the back is a pure-illustration flip side of the same
+    // token. One plain-token card; the print carries both faces under the
+    // dedicated art_back_token layout so the site can flip to the
+    // illustration.
     const front = enFaces[0]!;
+    const mtgchMap = await loadMtgchPrintMap(database, [oracleId]);
     const prints = allRows.map(r => {
       const draft = toPrintDraft(r);
-      draft.layout = 'transform_token';
+      draft.layout = 'art_back_token';
+      // The illustration back has no text surfaces to store — its image rides
+      // the print's image_info second entry (twoImageLayouts).
       draft.faces = [printFaceAt(r, 0)];
       return draft;
     });
+    withMtgchFaces(mtgchMap, prints, 0);
     const localizations = officialSurfaces(allRows, 0);
     return [{
       unit:           oracleId,
@@ -414,6 +629,8 @@ export async function assembleUnits(database: ProjectDb, oracleId: string, rever
       oracleId,
       layout:         'token',
       setName:        en.setName,
+      set:            en.set,
+      setType:        en.setType,
       cmc:            0,
       colorIdentity:  front.colors ?? [],
       keywords:       [],
@@ -430,6 +647,7 @@ export async function assembleUnits(database: ProjectDb, oracleId: string, rever
   if (en.layout === 'double_faced_token' && !isSingleCardDoubleFacedToken(enFaces.map(f => f.name))) {
     const faces = enFaces;
     const slugs = unitSlugs(en);
+    const mtgchMap = await loadMtgchPrintMap(database, [oracleId]);
     const out: AssembledCard[] = [];
     for (let i = 0; i < faces.length; i++) {
       const face = faces[i]!;
@@ -437,20 +655,34 @@ export async function assembleUnits(database: ProjectDb, oracleId: string, rever
       const prints = allRows.map(r => {
         const draft = toPrintDraft(r);
         draft.layout = 'token';
+        // MTGCH face rows use the raw collector number; attach before the unit suffix.
+        if (draft.lang === 'zhs') {
+          const mtgchFaces = resolveMtgchFaces(mtgchMap.get(`${draft.set.toLowerCase()}|${draft.number}`), 1, i);
+          if (mtgchFaces != null) draft.mtgchFaces = mtgchFaces;
+        }
         draft.number = `${draft.number}${suffix}`;
         draft.faces = [printFaceAt(r, i)];
+        // The image import resolves a row's download url by this pin, so
+        // without it both halves of the token fetch the front image.
+        draft.scryfallFace = i === 0 ? 'front' : 'back';
         return draft;
       });
       // Official localization provenance must point at the suffixed print rows.
       const localizations = officialSurfaces(allRows, i).map(s => s.provenance
         ? { ...s, provenance: { ...s.provenance, number: `${s.provenance.number}${suffix}` } }
         : s);
+      // Commits route to the face unit by suffixed number: a `20a` commit's
+      // baseline lives among this unit's prints, a sibling `20b` commit
+      // matches nothing here.
+      const committedPrints = synthesizePrintCommits(prints, printCommits ?? []);
       out.push({
         unit:           `${oracleId}:${i}`,
         cardId:         slugs[i] ?? `${oracleId}-${i}`,
         oracleId,
         layout:         'token',
         setName:        en.setName,
+        set:            en.set,
+        setType:        en.setType,
         cmc:            0,
         colorIdentity:  face.colors ?? [],
         keywords:       [],
@@ -460,7 +692,7 @@ export async function assembleUnits(database: ProjectDb, oracleId: string, rever
         legalities:     {},
         faces:          [face],
         localizations,
-        prints,
+        prints:         [...prints, ...committedPrints],
         mtgch:          null,
       });
     }
@@ -471,18 +703,27 @@ export async function assembleUnits(database: ProjectDb, oracleId: string, rever
   const mtgchRows = await database.select().from(MtgchZhsOracle)
     .where(eq(MtgchZhsOracle.oracleId, oracleId));
   const faces = oracleFaces(en);
-  const mtgchFaces = mtgchRows.length === faces.length && mtgchRows.length > 0
-    ? mtgchRows.map(r => ({
-      name:     r.translatedName ?? null,
-      typeline: r.translatedType ?? null,
-      text:     r.translatedText ?? null,
+  // Both MTGCH values are normalized here (see normalizeMtgchText).
+  const aligned = mtgchRows.length === faces.length && mtgchRows.length > 0
+    ? alignMtgchFaces(mtgchRows, faces)
+    : [];
+  const mtgchFaces = aligned.length > 0
+    ? aligned.map(r => ({
+      name:     normalizeMtgchText(r.translatedName),
+      typeline: normalizeMtgchText(r.translatedType),
+      text:     normalizeMtgchText(r.translatedText),
     }))
     : null;
 
-  const prints = [
-    ...allRows.map(toPrintDraft),
-    ...reversiblePrintsFrom(reversibleRows ?? await loadReversibleRows(database), oracleId),
-  ];
+  const mtgchPrintMap = await loadMtgchPrintMap(database, [oracleId]);
+  const baseDrafts = allRows.map(toPrintDraft);
+  withMtgchFaces(mtgchPrintMap, baseDrafts);
+  const reversiblePrints = reversiblePrintsFrom(reversibleRows ?? await loadReversibleRows(database), oracleId, mtgchPrintMap);
+  // Print commits ride after the source chain: a committed surface is
+  // self-contained, so MTGCH never attaches to it, while the layout
+  // normalization below still treats it like any other print of the unit.
+  const committedPrints = synthesizePrintCommits(baseDrafts, printCommits ?? []);
+  const prints = [...baseDrafts, ...reversiblePrints, ...committedPrints];
 
   // Single double-sided tokens (Incubator//Phyrexian, Bounty//Wanted,
   // Day//Night, The Ring) stay one card; their prints flip like transform.
@@ -503,6 +744,8 @@ export async function assembleUnits(database: ProjectDb, oracleId: string, rever
     oracleId,
     layout:         en.layout,
     setName:        en.setName,
+    set:            en.set,
+    setType:        en.setType,
     cmc:            en.cmc ?? 0,
     colorIdentity:  en.colorIdentity,
     keywords:       en.keywords,

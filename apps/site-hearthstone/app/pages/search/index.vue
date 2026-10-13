@@ -8,6 +8,12 @@
           class="animate-spin text-white/80 shrink-0"
         />
 
+        <SearchAmbitLanding
+          v-if="data != null"
+          :ambit="landingAmbit"
+          :widened="widened"
+        />
+
         <span class="text-sm text-white/90 truncate">
           {{ explainText }}
         </span>
@@ -184,7 +190,7 @@
               <div class="rounded-2xl overflow-hidden backdrop-blur-sm shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)] border border-[rgba(180,120,50,0.25)] bg-[rgba(50,28,8,0.75)] break-inside-avoid mb-4">
                 <div class="px-5 pt-4">
                   <div class="flex items-center gap-2 text-sm font-medium text-amber-300/80 mb-2">
-                    <img :src="classIconUrl('neutral')" alt="" class="w-5 h-5" />
+                    <img :src="classIconUrl('neutral')" alt="" class="w-5 h-5" >
                     <span>{{ $t('hearthstone.search.command.class') }}</span>
                   </div>
                   <div class="panel-divider"/>
@@ -198,7 +204,7 @@
                       :class="{ active: state.classes.includes(item.value) }"
                       @click="toggleMulti(state.classes, item.value)"
                     >
-                      <img :src="classIconUrl(item.value)" alt="" class="chip-icon" />
+                      <img :src="classIconUrl(item.value)" alt="" class="chip-icon" >
                       <span class="whitespace-nowrap">{{ item.label }}</span>
                     </button>
                   </div>
@@ -724,6 +730,8 @@ import type { NormalResult } from '#model/hearthstone/schema/search';
 import { locale as localeSchema } from '#model/hearthstone/schema/basic';
 
 import { explain as model } from '~/search';
+import { detectAmbit, AMBITS } from '#search/ambit';
+import type { Ambit } from '#search/ambit';
 import type { NumericOperator } from '~/composables/advanced-search';
 import { useAdvancedSearch, parseIntoState } from '~/composables/advanced-search';
 
@@ -852,6 +860,25 @@ const total = computed(() => data.value?.result?.total ?? 0);
 const elapsed = computed(() => data.value?.result?.elapsed ?? 0);
 const pageCount = computed(() => data.value?.result?.totalPage ?? Math.ceil(total.value / pageSize.value));
 const resultVariant = computed(() => data.value?.result?.variant ?? 'normal');
+
+/** The ambit scope selector's URL param as its ladder level; null when absent. */
+const ambitLevel = useAmbitParam();
+
+/** The ceiling the query asked for: an ambit command in the DSL overrides the
+ * URL param, and an explicit command that pins nothing falls back to the
+ * default primary ambit (still without widening). */
+const requestedAmbit = computed<Ambit>(() => {
+  const dsl = detectAmbit(q.value ?? '');
+  return dsl.pinned ?? (dsl.explicit ? 'primary' : ambitLevel.value ?? 'primary');
+});
+
+/** The ambit the search actually landed on, as reported by the response. */
+const landingAmbit = computed<Ambit>(() => data.value?.result?.ambit ?? 'primary');
+
+/** True when stepwise widening moved the results past the requested ceiling —
+ * the only situation where the landing needs to be called out. */
+const widened = computed(() =>
+  AMBITS.indexOf(landingAmbit.value) > AMBITS.indexOf(requestedAmbit.value));
 
 /** A battlegrounds-only card has no normal-template art, so fall back to the
  * battlegrounds template; the premium mechanic decides normal vs golden. */
@@ -1005,6 +1032,7 @@ const doSearch = async () => {
       lang:     searchLang.value,
       page:     page.value,
       pageSize: pageSize.value,
+      ambit:    ambitLevel.value ?? undefined,
     });
 
     if (q.value === route.query.q) {
@@ -1142,7 +1170,7 @@ function exportTableData() {
   URL.revokeObjectURL(url);
 }
 
-watch([q, page, pageSize, searchLang], doSearch, { immediate: true });
+watch([q, page, pageSize, searchLang, ambitLevel], doSearch, { immediate: true });
 
 const isAdvancedOpen = computed(() => route.query.advanced !== undefined);
 

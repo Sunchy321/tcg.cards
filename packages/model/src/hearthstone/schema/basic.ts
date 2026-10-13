@@ -43,7 +43,7 @@ export const types = z.enum([
 ]).describe('type');
 
 export const race = z.enum([
-  'bloodelf', 'draenei', 'dwarf', 'gnome', 'goblin', 'human', 'nightelf', 'orc', 'tauren', 'troll', 'undead', 'worgen', 'goblin2', 'murloc', 'demon', 'scourge', 'mech', 'elemental', 'ogre', 'beast', 'totem', 'nerubian', 'pirate', 'dragon', 'blank', 'all', 'egg', 'quilboar', 'centaur', 'furbolg', 'highelf', 'treant', 'halforc', 'lock', 'naga', 'old_god', 'pandaren', 'gronn', 'celestial', 'gnoll', 'golem', 'vulpera',
+  'bloodelf', 'draenei', 'dwarf', 'gnome', 'goblin', 'human', 'nightelf', 'orc', 'tauren', 'troll', 'undead', 'worgen', 'goblin2', 'murloc', 'demon', 'scourge', 'mech', 'elemental', 'ogre', 'beast', 'totem', 'nerubian', 'pirate', 'dragon', 'blank', 'all', 'egg', 'quilboar', 'centaur', 'furbolg', 'highelf', 'treant', 'halforc', 'lock', 'naga', 'old_god', 'pandaren', 'gronn', 'celestial', 'gnoll', 'golem', 'vulpera', 'aberration',
 ]).describe('race');
 
 export const spellSchool = z.enum([

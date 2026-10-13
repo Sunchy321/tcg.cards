@@ -4,6 +4,8 @@
   "oracleId": "f25149b9-f19d-41ac-8228-ec7a7b95fcae",
   "layout": "token",
   "setName": "Unstable Tokens",
+  "set": "tust",
+  "setType": "token",
   "cmc": 0,
   "colorIdentity": [
     "B"
@@ -39,7 +41,7 @@
       "set": "tust",
       "number": "9",
       "releasedAt": "2017-12-08",
-      "layout": "transform_token",
+      "layout": "art_back_token",
       "frame": "2015",
       "frameEffects": null,
       "borderColor": "black",
