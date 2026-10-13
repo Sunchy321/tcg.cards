@@ -1,0 +1,18 @@
+# 0017: Magic format state is replayed from announcements
+
+Magic's announcements are the only authority for format state changes — set rotation and banlists — so the derivation that maintains that state (the **apply**) is a full replay: wipe every format's `sets` and `banlist`, seed the initial rotation directly from set release data, replay all announcements chronologically with format-keyword expansion, and write the resulting state back to the format rows. Expansion uses the hearthstone pattern (a static `#`-keyword map: `#eternal`, `#standard`, `#alchemy`); whether an expanded change takes hold in a target format is still decided at replay time by that format's birthday/deathdate window and the item's effective date. A `#`-prefixed sentinel cardId (the group sentinel, e.g. `#conspiracy`) expands through the group's card rules — fixed lists for ante/offensive/unfinity, queries for conspiracy cards and for pre-1995-11-01 legendary cards, pauper eligibility by print rarity — and the expansion lands as per-card entries in the item's projection, each entry carrying its own effective date: a card already in the format is banned at the announcement's effective date, a card entering the format later is banned at its entry date. The apply runs where announcements are authored (the desktop runtime, local database) and its results reach sites only through the announcement publish task.
+
+## Considered Options
+
+- **Incremental apply** (apply each announcement into format state as it is saved) was rejected: re-edits, reordering, and date corrections force recompute anyway, so ordering bugs accumulate silently. Full replay is both the simpler model and the always-available recovery path.
+- **Pseudo announcements for seeding** (the old system synthesized "release" and "initial" announcement rows so the replay saw uniform input) was rejected: they existed to feed the old system's change fact tables. With no fact tables, seeding is plain state initialization from set release data, not a replay input.
+- **Change fact tables** (the old system rebuilt `card_changes` / `set_changes` / `format_changes` that its site served) were rejected: the site reads announcement items and their projections directly, so a third copy of change data would need its own rebuild discipline for no remaining consumer.
+- **Expanding sentinel groups at save time** (materialize one row per card when the item is saved) was rejected: the expansion depends on set and format state that changes over time — an armed group ban must keep catching cards that enter the format later, with their own effective dates. Expansion therefore belongs to the derivation, never the authored record.
+
+## Consequences
+
+- `Format.sets` and `Format.banlist` are fully derived: any manual edit to them is overwritten by the next apply, and apply-from-scratch always reproduces them from announcements plus set release data.
+- Magic's item projection carries the uniform minimum shape (`{ formats, cards }`) plus, for sentinel items only, the per-card expansion entries with their effective dates — the one sanctioned divergence from the shared projection shape.
+- The keyword map is static: introducing a new umbrella keyword or a new rotating format is a code change, while the per-format windows stay data-driven from `Format.birthday` / `deathdate`.
+- No clone syntax ships: cross-format banlist cloning (the old `#{clone:...}` cardId form) must be authored as explicit items until a need returns.
+- The applier's card-group lists (ante / offensive / unfinity) are ported data; conspiracy and legendary remain queries against the card tables, so they track imports automatically.
