@@ -127,7 +127,14 @@
                      carries ruleId, and the format lifecycle types carry none. -->
                 <div v-if="entityKindOf(item.type) !== 'none'" class="mt-3 grid grid-cols-4 gap-3">
                   <UFormField v-if="entityKindOf(item.type) === 'card'" label="卡牌ID">
-                    <UInput v-model="item.cardId" placeholder="card id 或 #分组哨兵" />
+                    <CardSearchSelect
+                      v-if="cardSearch"
+                      v-model="item.cardId"
+                      :search="cardSearch"
+                      :resolve="cardResolve"
+                      placeholder="搜索卡牌名称或直接输入 cardId"
+                    />
+                    <UInput v-else v-model="item.cardId" placeholder="card id 或 #分组哨兵" />
                   </UFormField>
                   <UFormField v-if="entityKindOf(item.type) === 'card'" label="分组">
                     <UInput v-model="item.group" placeholder="分组键" />
@@ -214,6 +221,22 @@ interface ManagerForm extends AnnouncementFormData {
   items: ItemRow[];
 }
 
+/** One card matched by the game's card search RPC. */
+interface ManagerCardSearchResult {
+  cardId: string;
+  nameEn: string | null;
+  nameZh: string | null;
+  set:    string | null;
+  type:   string | null;
+}
+
+/** One card resolved by exact cardId by the game's card search RPC. */
+interface ManagerResolvedCardName {
+  cardId: string;
+  nameEn: string | null;
+  nameZh: string | null;
+}
+
 const props = defineProps<{
   /** The desktop runtime orpc namespace of the game, e.g. 'magic'. */
   game:         string;
@@ -223,6 +246,10 @@ const props = defineProps<{
   config:       AnnouncementFormConfig;
   /** Whether the apply button (full replay) is offered. */
   apply?:       boolean;
+  /** Searches cards by localized name or cardId; when absent the card id renders as a plain input. */
+  cardSearch?:  (query: string, format: string) => Promise<ManagerCardSearchResult[]>;
+  /** Resolves existing cardIds to localized names for display. */
+  cardResolve?: (cardIds: string[]) => Promise<ManagerResolvedCardName[]>;
 }>();
 
 const crud = useAnnouncementCrud(props.game);

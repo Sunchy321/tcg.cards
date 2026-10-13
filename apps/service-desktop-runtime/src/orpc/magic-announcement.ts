@@ -1,9 +1,9 @@
 import { ORPCError } from '@orpc/server';
 import { z } from 'zod';
-import { and, asc, desc, eq, inArray, lte, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, ilike, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 
 import { changeStatus, gameChangeType, type Legality } from '@tcg-cards/model/magic/schema/announcement';
-import { Announcement, AnnouncementItem, Card, CardPart, Format, Print } from '@tcg-cards/db/schema/local/magic';
+import { Announcement, AnnouncementItem, Card, CardLocalization, CardPart, Format, Print } from '@tcg-cards/db/schema/local/magic';
 import { Set as SetTable } from '@tcg-cards/db/schema/shared/magic/set';
 
 import { os } from './index';
@@ -383,6 +383,70 @@ const apply = os
     return { warnings: result.warnings, formatCount: result.formats.length, dryRun: input.dryRun ?? false };
   });
 
+const cardSearchResult = z.object({
+  cardId: z.string(),
+  nameEn: z.string().nullable(),
+  nameZh: z.string().nullable(),
+  set:    z.string().nullable(),
+  type:   z.string().nullable(),
+});
+
+const resolvedCardName = z.object({
+  cardId: z.string(),
+  nameEn: z.string().nullable(),
+  nameZh: z.string().nullable(),
+});
+
+/** Joins the zhs localization (official standard row first) onto the latest non-deleted card version. */
+function latestCardWithZhsName(db: ReturnType<typeof getLocalDb>) {
+  return db
+    .selectDistinctOn([Card.cardId], {
+      cardId: Card.cardId,
+      nameEn: Card.name,
+      nameZh: CardLocalization.name,
+    })
+    .from(Card)
+    .leftJoin(CardLocalization, and(
+      eq(CardLocalization.cardId, Card.cardId),
+      eq(CardLocalization.version, Card.version),
+      eq(CardLocalization.locale, 'zhs'),
+      isNull(CardLocalization.deletedAt),
+    ));
+}
+
+const searchCards = os
+  .input(z.object({
+    q:      z.string().trim().min(1).max(100),
+    limit:  z.number().int().min(1).max(50).default(20),
+    format: z.string().trim().optional(),
+  }))
+  .output(z.array(cardSearchResult))
+  .handler(async ({ input }) => {
+    const db = getLocalDb();
+    const term = `%${input.q}%`;
+    // `format` is accepted for the shared editor contract and currently ignored:
+    // magic format filtering by set pool is a future refinement.
+    const rows = await latestCardWithZhsName(db)
+      .where(and(
+        isNull(Card.deletedAt),
+        or(ilike(Card.name, term), ilike(Card.cardId, term), ilike(CardLocalization.name, term)),
+      ))
+      .orderBy(Card.cardId, desc(Card.version), CardLocalization.source)
+      .limit(input.limit);
+
+    return rows.map(row => ({ cardId: row.cardId, nameEn: row.nameEn, nameZh: row.nameZh, set: null, type: null }));
+  });
+
+const resolveCardNames = os
+  .input(z.object({ cardIds: z.array(z.string()).min(1).max(50) }))
+  .output(z.array(resolvedCardName))
+  .handler(async ({ input }) => {
+    const db = getLocalDb();
+    return latestCardWithZhsName(db)
+      .where(and(isNull(Card.deletedAt), inArray(Card.cardId, input.cardIds)))
+      .orderBy(Card.cardId, desc(Card.version), CardLocalization.source);
+  });
+
 export const magicAnnouncementRouter = {
   list,
   get,
@@ -391,4 +455,6 @@ export const magicAnnouncementRouter = {
   remove,
   project,
   apply,
+  searchCards,
+  resolveCardNames,
 };

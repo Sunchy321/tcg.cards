@@ -5,6 +5,8 @@
     :type-labels="typeLabels"
     :status-labels="statusLabels"
     :config="config"
+    :card-search="cardSearch"
+    :card-resolve="cardResolve"
     apply
   />
 </template>
@@ -12,9 +14,22 @@
 <script setup lang="ts">
 import { changeStatusByType, gameChangeType } from '#model/magic/schema/announcement';
 
+import { useDesktopRuntimeClient } from '~/composables/useDesktopRuntimeClient';
 import type { AnnouncementFormConfig } from '~/utils/announcement-form-yaml';
 
 definePageMeta({ layout: 'admin', title: '公告管理' });
+
+const client = useDesktopRuntimeClient() as any;
+
+const cardSearch = (query: string, format: string) =>
+  client.magic.announcement.searchCards({ q: query, format: format || undefined }) as Promise<{
+    cardId: string; nameEn: string | null; nameZh: string | null; set: string | null; type: string | null;
+  }[]>;
+
+const cardResolve = (cardIds: string[]) =>
+  client.magic.announcement.resolveCardNames({ cardIds }) as Promise<{
+    cardId: string; nameEn: string | null; nameZh: string | null;
+  }[]>;
 
 const sources = [
   { label: 'Wizards', value: 'wizards' },
@@ -37,7 +52,7 @@ const statusLabels: Record<string, string> = {
   banned_as_companion: '行侣禁用',
   banned_in_bo1:       'BO1 禁用',
   banned:              '完全禁用',
-  game_changer:        '游戏变革者',
+  game_changer:        '主宰牌',
   legal:               '合法',
   restricted:          '限制',
   suspended:           '暂停',

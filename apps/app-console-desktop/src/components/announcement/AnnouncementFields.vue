@@ -38,14 +38,14 @@
 </template>
 
 <script setup lang="ts">
-import { injectAnnouncementForm } from '~/composables/useAnnouncementForm';
+import { injectAnnouncementForm, type AnnouncementFormLinkEntry } from '~/composables/useAnnouncementForm';
 
 defineProps<{
   sources: { label: string, value: string }[];
 }>();
 
 const emit = defineEmits<{
-  urlChange: [link: { url: string, label?: string }, value: string];
+  urlChange: [link: AnnouncementFormLinkEntry, value: string];
 }>();
 
 const form = injectAnnouncementForm();
