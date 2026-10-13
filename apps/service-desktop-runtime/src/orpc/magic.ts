@@ -19,6 +19,7 @@ import { magicRuleRouter } from './magic-rule';
 import { magicRubyRouter } from './magic-ruby';
 import { magicAmbitRouter } from './magic-ambit';
 import { magicCommitsRouter } from './magic-commits';
+import { magicAnnouncementRouter } from './magic-announcement';
 import { resolvePath } from '../lib/game-paths';
 import { magicScryfallImportTaskDefinition } from '../lib/magic/task/scryfall-import';
 import { magicMtgchImportTaskDefinition } from '../lib/magic/task/mtgch-import';
@@ -593,6 +594,7 @@ export const magicRouter = {
   ruby:       magicRubyRouter,
   ambit:      magicAmbitRouter,
   commits:    magicCommitsRouter,
+  announcement: magicAnnouncementRouter,
   publish:    { publishTask },
   slug:       { listConflicts: listSlugConflicts, resolveConflict: resolveSlugConflict, member: slugMember },
   review:     { list: reviewList },
