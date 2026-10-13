@@ -17,7 +17,7 @@ The CLI at `apps/service-desktop-runtime/scripts/generate-card-test.ts`. It read
 A single change entry inside an announcement. Entity references are mutually exclusive by type: `card_change`/`card_update` use `cardId` (+ `relatedCards`), `set_change` uses `setId`, `rule_change` uses `ruleId`, `format_birth`/`format_death` use none.
 
 ### projection (投影结果)
-A jsonb column on an announcement item holding the derived display projection so the site can find which items affect a card or format. Current minimum shape: `{ formats: string[], cards: string[] }` — `formats` = the keyword-expanded single-format list; `cards` = the flat set of affected card IDs (direct `cardId` + `relatedCards`, plus set→cards fan-out for `set_change`). The shape is open so future richer projections (e.g. per-card status) can add keys without a migration. The item's own `status` applies uniformly to every fan-out card; status is never stored per card. Divergent per-card outcomes are never expressed inside one item — they are authored as separate items. The site queries it via jsonb containment (`projection->'formats' @> ...`, `projection->'cards' @> ...`) on expression GIN indexes.
+A jsonb column on an announcement item holding the derived display projection so the site can find which items affect a card or format. Current minimum shape: `{ formats: string[], cards: string[] }` — `formats` = the keyword-expanded single-format list; `cards` = the flat set of affected card IDs (direct `cardId` + `relatedCards`, plus set→cards fan-out for `set_change`). The shape is open so future richer projections (e.g. per-card status) can add keys without a migration. The item's own `status` applies uniformly to every fan-out card; status is never stored per card. Divergent per-card outcomes are never expressed inside one item — they are authored as separate items. The site queries it via jsonb containment (`projection->'formats' @> ...`, `projection->'cards' @> ...`); the table carries no index for that containment, because the announcement data volume does not warrant one. This is the announcement item's own projection column; it is not `hsdata projection`, which derives Hearthstone domain rows from imported snapshots.
 
 ### projection step (投影)
 The derivation that fills an item's `projection` column from its authored fields (format keyword expansion + cardId/relatedCards + set→cards). Runs from the announcement editor page. `format_birth`/`format_death` produce no card fan-out; `rule_change` fan-out depends on whether the rule points at a card attribute.
@@ -127,7 +127,7 @@ The conflict resolution strategy for syncing: per-key merge with remote winning 
 ## API Service & Docs Site (API 服务与文档站)
 
 ### API Service (API 服务)
-The public data API (`apps/service-api`), reachable at `api.tcg.cards`. A pure machine-facing, read-only REST API for external third-party consumers. Every business request requires an API Key (`Authorization: Bearer <key>`); there is no anonymous access and no session channel in the service. Routes are versioned under `/api/v1/...` with no unversioned alias and no redirects. The OpenAPI spec at `/openapi.json` is derived from the game-module registry.
+The public data API (`apps/service-api`), reachable at `api.tcg.cards`. A pure machine-facing, read-only REST API for external third-party consumers. Every business request requires an API Key (`Authorization: Bearer <key>`); there is no anonymous access and no session channel in the service. Routes are versioned under `/api/v1/...`, and an unversioned path is also served as a convenience entry pointing at the current latest version, so external consumers do not have to change their address as the version advances. The OpenAPI spec at `/openapi.json` is derived from the game-module registry.
 
 ### game module (游戏模块)
 A per-game oRPC router (a set of procedures carrying `.route()`/`.input()`/`.output()` metadata and API-side handler queries), living in a per-game folder of the shared `packages/api` package. It is the single source of truth shared by `service-api` (aggregate + mount → serve) and `site-docs` (introspect → document). Query handlers are written per game inside the module and are not shared with the game sites. Adding a game = adding one module folder + registering it, with zero infrastructure changes.
@@ -140,3 +140,177 @@ The vue-i18n message key for field/enum explanations: `{game}.model.{schema}.{fi
 
 ### docs test key (测试 key)
 An API key auto-generated for a logged-in docs user on first test click, named by convention (`docs-test`), surfaced and manageable/deletable in `/settings`. It covers all current games and lets the "Try it" panel work without manual key entry while keeping the mandatory-key model intact.
+
+## Data Tracks & Publishing (数据轨道与发布)
+
+### schema track (schema 轨道)
+One of the two orthogonal axes of the database layout: `local` (the desktop local build database) and `remote` (the remote serving and control-plane database). `shared` is where table definitions used by both tracks live; it is not a third deployment track. The track and the instance environment are independent, so `remote` on a `dev` instance is a legitimate target.
+
+### instance environment (实例环境)
+The second, orthogonal axis of the database layout: `dev` or `prod`. Because it is orthogonal to the schema track, a target like `remote-dev` is expressible; a single conjoined `local/remote ↔ dev/prod` mapping is not.
+
+### publish target (发布目标)
+A configured remote database identity that a publish is bound to: label, environment, connection, and capability fingerprint. A batch records the target identity when it is created and re-checks the fingerprint before applying, so a later settings change cannot silently publish to a different environment.
+
+### publish baseline (发布基线)
+The last successfully published state per publish target, kept on the build-authoritative side. It is what the next publish's manifest is diffed against, which is what makes publishing resumable and auditable.
+
+### publish-owned table (发布归属表)
+A domain table whose only legitimate writer is the publisher; an out-of-band edit on it is reported as drift rather than merged. Only fields deliberately marked collaborative may be edited on the remote side.
+
+## Import Pipeline (导入管线)
+
+### hsdata
+The Hearthstone data pipeline that replaced the legacy CardDefs.xml import script: XML plus tag input is projected into the desktop local build database and published to the remote as a whole-snapshot, publish-owned fact set, rather than being edited or merged row by row.
+
+### hsdata projection (hsdata 投影)
+The deterministic derivation that turns imported raw entity snapshots into local domain rows, driven entirely by tag configuration rows rather than hardcoded rules. It is not the announcement item's `projection` column, and it is not the act of publishing to the remote.
+
+### field state (字段状态)
+How one normalized import record reports one candidate field: `provided`, `explicit_null`, `not_provided`, `not_applicable`, or `parse_failed`. Absence has no single representation in this system, and only `provided` plus an allowed `explicit_null` can become a change candidate.
+
+### import decision mode (导入执行模式)
+The per-(source, field) risk classification that decides how a candidate is applied: `auto_apply` for low-risk whitelisted external ids and image or preview metadata, `batch_review` for localization text and printable metadata grouped by source, entity, field, and locale, and `manual_review` for core semantic and structural fields. No candidate reaches the database without passing exactly one of these modes.
+
+### trusted desktop importer (受信任 desktop 导入器)
+The import trust boundary: the server assumes the desktop's declared source hash is honest and does not prove that the staged snapshots derive from that source. A parser or normalization change is therefore corrected by a full re-import rather than by server-side validation.
+
+### staging snapshot (暂存快照)
+An uploaded, not-yet-applied copy of a source snapshot. It is visible only to the import job and is discarded once the formal tables have been switched, so a failed or interrupted import never leaves partial formal rows.
+
+### source mapping (来源映射)
+The link from one source feed's record to a card. It is the anchor that makes re-import idempotent, and the only way a record without a usable external code is matched to its existing card. Names never take part in matching.
+
+## Fact Table Rebuildability (事实表可重建性)
+
+### rebuildable fact table (可重建事实表)
+A fact table served by a projection pipeline or an edit-review pipeline holds only rows the pipeline regenerates: every value in it is produced by projection from `{game}_data` inputs or by an accepted review action, so wiping the table and re-running the pipeline loses no data. A fact table must not store any datum a wipe-and-reproject would destroy — data that originates outside the sources (manual completions, corrections) lands in `{game}_data` first and reaches fact tables only through the pipeline. `created_at` / `updated_at` / `deleted_at` timestamps are the only exception.
+
+## Field Sync (字段同步)
+
+### field commit (字段提交)
+The unit in which a manual edit is expressed and propagated: a container of field-level changes that can be partially accepted, pushed to or pulled from the other side, and is never rewritten once it has taken effect.
+
+### field conflict (字段冲突)
+A detected disagreement where a value arriving from the other side cannot be applied deterministically. It carries which side and stage produced it, and must be resolved explicitly, one conflict at a time.
+
+## Local Asset Storage (本地资产存储)
+
+### local asset bucket (本地资产 bucket)
+The desktop-configured directory that stores generated image files under exactly the remote object-key layout, so one file and its remote object share a single key and the sync step performs no key rewriting. Producing a file locally and uploading it to the remote are separate, independently retryable actions.
+
+## Search (搜索)
+
+### search DSL (搜索 DSL)
+The shared text query language for card search (`cost>=3 class:mage`, `text:战吼`), with a per-game command vocabulary. The URL query string is its only source of truth: the advanced-search panel is a bidirectional view over the same expression tree rather than a separate page, and filters sync into the DSL text without triggering a search.
+
+## Card Ambit (收录范围)
+
+### card ambit (收录范围)
+A universal per-card classification — `primary`, `additional`, or `full` — expressing the minimum ambit at which the card enters the card pool and search. It is a property of the card, not a search setting: a query selects an ambit as the ceiling and sees every card at or below it, so the ladder is cumulative (primary ⊂ additional ⊂ full), and a query without an ambit command defaults to primary. Unrelated to the task system's task scope, which constrains task execution slots; the two share no name and no meaning.
+_Avoid_: tier, scope (as this concept's name)
+
+### primary (常规)
+The ambit of cards players normally encounter and directly obtain or play: collectible cards and a game mode's standing, discussable components. The default search ambit.
+
+### additional (附加)
+The ambit of cards that appear in games only as derivatives of, or attachments to, other cards — tokens, enchantments, hero powers, ability cards, fun and test cards, special-rule cards — never normally obtainable on their own.
+
+### full (全部)
+The ambit of cards that never appear in a game at all: display-only cards, art series, ads, decklists, UI helper entities, development leftovers. As a query value it also means "no ambit restriction".
+
+## Console & Interface (控制台与接口)
+
+### console host capability (宿主能力)
+What a console shell can physically do — file system, Git, tool execution, artifact upload — expressed as platform adapters plus a `light | medium | full` capability level. It describes execution ability only, never user roles or page visibility; a shared page must go through the adapter, and an unsupported capability must fail loudly instead of degrading silently.
+
+### interface tier (接口分级)
+The capability class an endpoint belongs to, which decides which terminal may call it: `light` for all terminals, `medium` for mobile and desktop, `heavy` for desktop only. Heavy means the operation depends on local repositories, local build state, or bulk processing, and is never exposed to the web terminal.
+
+### internal service (第一方内部服务)
+The first-party service (`apps/service-internal`) that serves the standalone apps: first-party auth and session, the app-facing management API, and long-running task chains. It is not the backend of the public game sites, which each execute their own backend locally, and ordinary third-party API keys must not reach it. Distinct from the public `service-api`, which is third-party facing, key-authenticated, and has no session channel.
+
+## Hearthstone Cards (炉石卡牌)
+
+### card relation (卡牌关联关系)
+A static, exportable card-domain fact that groups an entity with the entities it belongs with — hero power, triple, buddy, and token or entourage relations. Relations live in the game schema and not the app schema, because they are not user state, and they are regenerated by import and projection. The relation kinds the projection currently generates are a subset of the kinds the site's grouping understands.
+
+### dbfId (炉石内部数字 ID)
+A Blizzard-internal numeric id carried by Hearthstone sources and imports. The import's dbf→set mapping depends on it, so it is an identity-bearing number for a set even though it is not the set's canonical id.
+
+## Magic (万智牌)
+
+### cardId (卡牌身份)
+A card's stable identity across versions. The default derivation is the slug of the normalized English name, applied for most games as closely as possible. Even when the slug cannot be derived (name collisions, renamed cards), the invariant holds: the same cardId must always be treated as the same card logically. A card's base version and its rebalanced versions share one cardId.
+
+### slug resolution (slug 人工裁决)
+The manual resolution recorded in `magic_data.card_slug_resolutions`, mapping a disambiguated cardId slug to a Scryfall oracle_id. When the match step finds multiple distinct oracle cards normalizing to the same slug (same English name — a paper card and its online rebalance, or genuine duplicate names), the whole group is held for review instead of auto-inserting, so a primary-key collision never occurs. A human confirms whether they are the same card (merged under one cardId) or different cards; for different cards a human assigns a semantically meaningful disambiguated slug (e.g., an `-alchemy` / `-token` suffix), recorded in that table. Disambiguation is always human-specified, never auto-generated. ADR-0001 records the same mechanism under the name "slug annotation table".
+
+### anchor row (锚行)
+The single scryfall row a card's identity and content derive from. Normally the oracle's first English row (ordered by set, then collector number); match and assembly anchor on the same row, so the match slug and the assembled cardId always agree. An oracle whose every row is non-English (a foreign-only printing, e.g. the Sega Dreamcast promos in `psdg`) has no English anchor and falls back to one representative non-English row — the same row on both sides. An anchor whose name reduces to an empty slug (a non-Latin name) is held for review instead of projecting a garbage cardId.
+
+### localization authority (本地化权威)
+The card's localized text of record, one row per (card, version, locale, source), in `magic_data.card_localization_authorities`. At most one row exists per (card, locale): the `source` names the role that row plays, and a locale never carries two rows. The display rows (`card_localizations` / `card_part_localizations`) are derived from it, so the authority is the text a reader actually sees. The provenance triple `sourceSet`/`sourceNumber`/`sourceReleaseDate` records which print established the text, and is written only for rows whose text really is print-established — a row that uses MTGCH is overwritten by MTGCH whatever print it anchors to, so it records no print. It lives in `magic_data`, outside the published fact-table set.
+_Avoid_: unified localization, unified
+
+### official standard row (官方标准文本行)
+A localization row whose text is the oracle-aligned text in the **official style** for that language. MTGCH supplies it for Simplified Chinese — the community translation translates the oracle text in the official style, so it is what an official row would hold. In every other language no oracle-aligned source exists yet, and the newest print's text stands in for it until one does. Its `source` is the empty string.
+
+### folk substitute row (民间替代行)
+A localization row that exists because no official standard row could be formed — most often because the card's name has no official translation in that language. It carries community translation text, and is the only case in which a community source appears in the localization layer. Its `source` is the community source id (for Magic, `mtgch`).
+
+### localized (译本)
+The card page's default text mode, showing the localization authority's text for the selected language. It stands beside `oracle` (原文), the English oracle text, and `printed` (印文), the text as printed on one specific card.
+_Avoid_: unified
+
+### card version (卡牌版本)
+A temporal state of a card whose effect was modified over time (a Hearthstone-style buff/nerf). A card has a base version plus zero or more later versions. The base version carries no date; each later version carries its effective date. A card can be modified multiple times, including back to its original content. A version reference with no date resolves to the latest version (the most recent later version, or the base if there is none). Each version is stored as a complete record carrying the full card content (name, typeline, text, stats), never as a delta from another version. A paper card and its online rebalance that are used in different contexts (online version vs paper version) are a split of nature — they are TWO separate cards, not versions of one card. Scryfall does not record balance-change history, so the import produces only the current (base) state; version records are authored manually in the future and are not part of the current import task. The version dimension is reserved as a column in the fact-table primary key (base = empty string, later version = date); the design also leaves room for Oracle errata states.
+
+### data source ownership (数据来源分工)
+Scryfall supplies the majority of card data, the data skeleton, and the localization text of every language that has no oracle-aligned source — for those languages the newest print's text stands in as the official standard row. MTGCH supplies community Simplified Chinese from its exported JSONL dataset (no web API); for zhs it is what the official standard row holds, because it translates the oracle text in the official style. MTGJSON supplies set-related data (still on the Scryfall skeleton) and is NOT a Simplified-Chinese source: its zhs coverage is only ~34% overall and confined to a 2018-2023 window — official zhs ceased after 2024 (normal), but MTGJSON also lacks the historical zhs that has existed since the 1990s, so the printed Chinese comes from Scryfall's zhs print rows while the standard Chinese comes from MTGCH. Gatherer still has an import task and a crawler, but the projection no longer consumes any of its data.
+
+### localization source (本地化来源)
+The named **role** of a localization row — never the name of the translator. It is a small, fixed-per-game list stored as plain text (no enum, no migration); for Magic it is exactly two values: `''` for an official standard row and `mtgch` for a folk substitute row. The column is non-null with `''` as the default. The role set is NOT the import-source list — most import sources contribute no localization. Structured card fields (cost, stats, colors, keywords) come from a single authoritative oracle and carry no source. Print localization follows the same split-by-lang/source row model so it can participate in queries; it is never embedded in JSON.
+
+### name ruby (卡名注音)
+The phonetic annotation (振り仮名) of a localized card name, stored as an **annotation string** — base runs each followed by its kana reading in full-width parentheses (`包囲（ほうい）の搭（とう）`) — in its own `ruby_*` column beside the name, never inside the name. Storage canonical form is full-width; half-width input is normalized. Rendered as native `<ruby>` markup by the shared `NameRuby` component; an annotation whose base runs do not rebuild the displayed name is dropped (a wrong reading is worse than none, and absence degrades to the plain name). The reading is drawn by CSS from a data attribute, so copying a name never picks up the reading. ADR-0013 records the format.
+
+### name ruby authority (注音权威)
+`magic_data.name_rubies` — the mapping of record from the currently used name to its reading: one row per (lang, kind, name), `set:number` exceptions for names whose printed reading differs between printings (print rows keep printing errors, so the variants stay representable), `source` naming the role that supplied it (`mtga_loc`, `scryfall_salvage`, `manual`), and a `draft`/`reviewed` status — only reviewed rows take effect. It is deliberately NOT a column of the localization authority: readings arrive from other sources than the scryfall/MTGCH text chain. It reaches the result tables only through one resolver — the magic-project projection, or the write-through that a console promotion/edit triggers immediately. Managed on the console's 卡名注音 page.
+
+### image source (卡图来源)
+The provenance stored on a print's image: `manual`, `mtgch`, `mtgflame`, `hunterer`, `scryfall`, or `gatherer`. The first four form the upload group — hand-made, community, watermark, and legacy-sourced images that batch download tasks must never overwrite under any `force` setting. `scryfall` and `gatherer` are pure download sources; `mtgch` is both — an upload source for hand-imported archives and a download source that fetches the simplified-Chinese scans mtgch hosts under the English print's scryfall card id, whose images keep the `mtgch` provenance and its upload-group protection. A locally imported image is never overwritten by re-projection.
+
+### asset images (资产图片)
+The per-game ledger of the image files the deployment locally holds: one row per file in the asset store, carrying its content hash, dimensions, byte size, quality, and `image source` provenance. Every game keeps its own table under the same name and structure in `{game}_data` (`asset_images`), named after the `asset_<type>` family whose generic fallback is `asset_files` — a file lives in exactly one table of the family, and a type earns its own table once it needs columns of its own. The ledger lives outside the fact tables and survives fact-table rebuilds: the magic projection fills a print's image fields from this ledger, so `image_info` on a print is derived truth rather than self-preserved state. One deliberate exception to the row-per-file rule: a `placeholder` row asserts that a key deliberately has no image and that download tasks must not fetch one — written by the no-image mark and the backfill pass that mirrors a placeholder fact, it lives in the ledger where a fact-table rebuild cannot wash it away. A forced import pass is the explicit override that ignores the tombstone and fetches anyway. Clearing images is a reset, not a mark: it deletes the ledger rows of its scope — real ones and stale no-image pins alike — and lands the prints in the `missing` state, so ordinary import passes may fetch their images again.
+
+### print commit (印刷提交)
+`magic_data.print_commits` — the manual submission that completes a whole print position no source records, one row per (scryfall oracle id, set, number, lang). It is the whole-print sibling of a field commit: the submission vocabulary has exactly two granularities, the whole print and the field. A commit carries optional per-face printed surfaces, whitelisted print metadata overrides (absent fields clone the position's English print — same position only; without one the commit stays unprojected), an `origin` (auto candidate / manual form / batch import), and a free-text provenance note. Desktop-local single-user truth with no review gate: what the table holds is what the projection folds in, and removing a row withdraws the print (the projection's per-print recycle soft-deletes its fact rows). The projection synthesizes a commit as a print row whose PK `source` is `manual` — a provenance tag on derived data, not authority data. A committed surface is self-contained (MTGCH never attaches to it), it never feeds the official standard row chain, and the table has no cloud or sync plans. A position whose card has no scryfall oracle to anchor to is out of the commit path's scope (that is whole-card completion, a separate effort).
+
+## Yu-Gi-Oh! (游戏王)
+
+### card name variant (卡名变体)
+同一张游戏王卡在同一语言下可用于展示或检索的一种名称。它不是另一张卡，也不等同于导入来源。当前百鸽数据中的 `md_name`、`nwbbs_n`、`cnocg_n` 等中文名称均属于卡名变体，必须随卡导入并可参与中文检索。
+
+### primary Chinese name (中文主名称)
+游戏王站点默认展示的简中名称。当前采用百鸽 `cn_name` 所表示的 YGOPro 译名；官方简中、MD、CNOCG、NWBBS 等其他中文名称仍作为卡名变体保留并参与检索。
+
+### card password (八位卡密)
+The 8-digit decimal code associated with a Yu-Gi-Oh! card, stored as a fixed-width string. It is an external fact, unique when present and absent when the source value is 0 or out of range. It is not the card's identity.
+
+### primary image (主卡图)
+The single YGOPRO main artwork of a card, addressed by content hash rather than by card id, so identical content dedupes and a changed source never overwrites an existing object. A card without a card password legitimately has none, and image bytes are never stored in the database.
+
+### card soft delete and restoration (卡牌软删除与恢复)
+A card that disappears from the source is retired rather than deleted; if it reappears later it is restored to the same internal id and facts. Deletion is therefore a fact on the row, and product queries hide deleted cards.
+
+### pack (卡包) / packId
+A Yu-Gi-Oh! release grouping shown in the pack list. Its identity and route key is the upstream packId; the printed pack code (for example `BETB`) is not unique within a region and can never serve as an identifier. Pack data is repo-fixed and independent of the card import pipeline.
+
+### pack region (卡包分区)
+The two partitions of the pack list, OCG and TCG. The displayed pack name follows the region: OCG uses the Japanese name, TCG the English name. This is a display and source partition, not a gameplay legality format.
+
+## Shadowverse (影之诗)
+
+### Evolve (进化对决)
+The physical TCG product line of Shadowverse, distinct from Beyond, the digital card game. The two are separate datasets that share the `shadowverse` schema namespace: Evolve identity is the printed card number, English prints carry an `EN` suffix, and its tables are `evolve_`-prefixed.

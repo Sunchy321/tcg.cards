@@ -252,7 +252,7 @@
               TXT
             </UBadge>
             <UBadge
-              :color="row.original.assetStatus.docx ? 'success' : 'neutral'"
+              :color="row.original.assetStatus.doc ? 'success' : 'neutral'"
               variant="subtle"
               size="sm"
             >
@@ -372,6 +372,9 @@ definePageMeta({
 });
 
 const { $orpc } = useNuxtApp();
+// R2 upload/sync/delete procedures ride the heavy console tier, beyond the
+// light web router.
+const ruleApi = $orpc.magic.rule as any;
 
 // Rule version type inferred from API response
 type RuleVersion = {
@@ -383,7 +386,7 @@ type RuleVersion = {
   importedAt:    Date | null;
   dataStatus:    'imported' | 'pending' | 'missing';
   r2Key:         string | null;
-  assetStatus:   { txt: boolean, docx: boolean, pdf: boolean };
+  assetStatus:   { txt: boolean, doc: boolean, pdf: boolean };
 };
 
 const statusMap: Record<string, { label: string, color: 'primary' | 'warning' | 'neutral' }> = {
@@ -469,7 +472,7 @@ async function startUpload() {
   if (!versionDate) return;
   uploading.value = true;
   try {
-    await $orpc.magic.rule.uploadToR2({ content: uploadFileContent.value, fileType: 'txt', versionDate });
+    await ruleApi.uploadToR2({ content: uploadFileContent.value, fileType: 'txt', versionDate });
     uploadFileContent.value = '';
     uploadFileName.value = '';
     await refresh();
@@ -574,7 +577,7 @@ async function startBatchUpload() {
         content = base64Data;
       }
 
-      await $orpc.magic.rule.uploadToR2({
+      await ruleApi.uploadToR2({
         content,
         fileType: file.type,
         versionDate,
@@ -595,7 +598,7 @@ async function syncLatest() {
   syncResult.value = null;
 
   try {
-    const result = await $orpc.magic.rule.syncLatest();
+    const result = await ruleApi.syncLatest();
     syncResult.value = result;
 
     if (result.success) {
@@ -617,7 +620,7 @@ function viewVersion(version: { id: string }) {
 async function deleteVersion(version: { id: string }) {
   deleting.value = true;
   try {
-    await $orpc.magic.rule.delete({ id: version.id });
+    await ruleApi.delete({ id: version.id });
     await refresh();
   } catch (error) {
     console.error('Failed to delete version:', error);
@@ -629,7 +632,7 @@ async function deleteVersion(version: { id: string }) {
 async function loadRule(version: { id: string }) {
   loadingId.value = version.id;
   try {
-    const result = await $orpc.magic.rule.loadFromData({ versionId: version.id });
+    const result = await ruleApi.loadFromData({ versionId: version.id });
     console.log('[LoadFromData] Import completed:', result);
     await refresh();
     return true;

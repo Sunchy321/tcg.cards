@@ -4,7 +4,7 @@ import { and, or, not } from 'drizzle-orm';
 import type { Expression } from '#search/parser';
 import { CasingCache } from 'drizzle-orm/casing';
 
-import type { CommonCommandInput } from '#search/command/types';
+import type { CommandArgType, CommonCommandInput } from '#search/command/types';
 import { QueryError } from '#search/command/error';
 
 import { matchPattern } from '#search/command/match-pattern';
@@ -177,6 +177,7 @@ export function translate<Table>(expr: Expression, commands: CommonServerCommand
 
     return simpleTranslate(command, expr, {
       modifier, value, operator, qualifier,
+      argType: expr.argType as CommandArgType,
     }, table);
   }
 
@@ -207,6 +208,7 @@ export function translate<Table>(expr: Expression, commands: CommonServerCommand
         pattern,
         operator:  '',
         qualifier: expr.qual ?? [],
+        argType:   'argType' in expr ? expr.argType as CommandArgType : undefined,
       }, table);
     }
   }
@@ -221,5 +223,6 @@ export function translate<Table>(expr: Expression, commands: CommonServerCommand
     value,
     operator:  '',
     qualifier: expr.qual ?? [],
+    argType:   'argType' in expr ? expr.argType as CommandArgType : undefined,
   }, table);
 }

@@ -4,23 +4,28 @@ import z from 'zod';
 
 import { defineCatalogContract } from '../factory';
 
+import { layout, locale, rarity } from '@tcg-cards/model/magic/schema/basic';
+import { category } from '@tcg-cards/model/magic/schema/card';
+import { legality } from '@tcg-cards/model/magic/schema/announcement';
+
+const catalogContract = (schema: z.ZodTypeAny) => defineCatalogContract({ tags: ['Magic', 'Catalog'], output: schema.array() });
+
 export const catalogProcedures = {
-  'category':    defineCatalogContract({ description: 'Card categories', tags: ['Magic', 'Catalog'] }),
-  'rarity':      defineCatalogContract({ description: 'Rarities', tags: ['Magic', 'Catalog'] }),
-  'layout':      defineCatalogContract({ description: 'Card layouts', tags: ['Magic', 'Catalog'] }),
-  'locale':      defineCatalogContract({ description: 'Supported locales', tags: ['Magic', 'Catalog'] }),
-  'legality':    defineCatalogContract({ description: 'Legalities', tags: ['Magic', 'Catalog'] }),
-  'format':      defineCatalogContract({ description: 'Formats', tags: ['Magic', 'Catalog'] }),
-  'color':       defineCatalogContract({ description: 'Colors', tags: ['Magic', 'Catalog'] }),
-  'mana-symbol': defineCatalogContract({ description: 'Mana symbols', tags: ['Magic', 'Catalog'] }),
-  'symbol':      defineCatalogContract({ description: 'All symbols', tags: ['Magic', 'Catalog'] }),
+  'category':    catalogContract(category),
+  'rarity':      catalogContract(rarity),
+  'layout':      catalogContract(layout),
+  'locale':      catalogContract(locale),
+  'legality':    catalogContract(legality),
+  'format':      catalogContract(z.string()),
+  'color':       catalogContract(z.string()),
+  'mana-symbol': catalogContract(z.string()),
+  'symbol':      catalogContract(z.string()),
 };
 
 export const catalogIndex = oc
   .route({
-    method:      'GET',
-    description: 'List supported magic catalogs',
-    tags:        ['Magic', 'Catalog'],
+    method: 'GET',
+    tags:   ['Magic', 'Catalog'],
   })
   .output(z.string().array());
 

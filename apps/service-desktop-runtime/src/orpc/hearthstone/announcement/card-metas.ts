@@ -4,6 +4,7 @@ import { and, desc, eq, inArray } from 'drizzle-orm';
 
 import { Entity, EntityLocalization } from '@tcg-cards/db/schema/local/hearthstone';
 import { locale } from '@tcg-cards/model/hearthstone/schema/basic';
+import { TAG_ID } from '@tcg-cards/model/hearthstone/constant/tag';
 
 import { getLocalDb } from '../../../lib/hearthstone/hsdata-local-db';
 
@@ -19,9 +20,10 @@ export const cardMetas = os
     lang:    locale.optional().default('zhs'),
   }))
   .output(z.record(z.string(), z.object({
-    type:      z.string(),
-    mechanics: z.record(z.string(), z.union([z.boolean(), z.number()])),
-    name:      z.string().nullable(),
+    type:         z.string(),
+    mechanics:    z.record(z.string(), z.union([z.boolean(), z.number()])),
+    name:         z.string().nullable(),
+    isTimewarped: z.boolean(),
   })))
   .handler(async ({ input }) => {
     const db = getLocalDb();
@@ -29,14 +31,21 @@ export const cardMetas = os
     if (ids.length === 0) return {};
 
     const rows = await db.select({
-      cardId:   Entity.cardId,
-      type:     Entity.type,
+      cardId:    Entity.cardId,
+      type:      Entity.type,
       mechanics: Entity.mechanics,
     })
       .from(Entity)
       .where(inArray(Entity.cardId, ids));
 
     const byId = new Map(rows.map(row => [row.cardId, row]));
+
+    // A card is timewarped when any of its version rows carries the mechanic.
+    const timewarpedIds = new Set(
+      rows
+        .filter(row => (row.mechanics as Record<string, boolean | number> | null)?.[String(TAG_ID.TIMEWARPED)])
+        .map(row => row.cardId),
+    );
 
     const nameRows = await db.select({
       cardId: EntityLocalization.cardId,
@@ -54,14 +63,15 @@ export const cardMetas = os
       if (!nameById.has(row.cardId)) nameById.set(row.cardId, row.name);
     }
 
-    const result: Record<string, { type: string, mechanics: Record<string, boolean | number>, name: string | null }> = {};
+    const result: Record<string, { type: string, mechanics: Record<string, boolean | number>, name: string | null, isTimewarped: boolean }> = {};
     for (const id of ids) {
       const row = byId.get(id);
       if (row) {
         result[id] = {
-          type:      row.type,
-          mechanics: row.mechanics as Record<string, boolean | number>,
-          name:      nameById.get(id) ?? null,
+          type:         row.type,
+          mechanics:    row.mechanics as Record<string, boolean | number>,
+          name:         nameById.get(id) ?? null,
+          isTimewarped: timewarpedIds.has(id),
         };
       }
     }

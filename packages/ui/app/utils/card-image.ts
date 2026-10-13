@@ -1,4 +1,5 @@
 import type { ImageCategory, ImagePremium, ImageVariant } from '#model/hearthstone/schema/data/image';
+import { TAG_ID } from '#model/hearthstone/constant/tag';
 
 export type CardImageOption = ImagePremium | 'battlegrounds';
 
@@ -9,8 +10,6 @@ const LETTUCE_MERCENARY = '1665';
 const LETTUCE_EQUIPMENT = '1855';
 const LETTUCE_ABILITY_SUMMONED_MINION = '1676';
 
-const TIMEWARPED = '4503';
-
 function resolvePlaceholderType(type: string, mechanics?: Record<string, boolean | number>): string {
   if (type === 'mercenary_ability') {
     if (mechanics?.[LETTUCE_MERCENARY]) return 'mercenary-minion';
@@ -19,7 +18,7 @@ function resolvePlaceholderType(type: string, mechanics?: Record<string, boolean
     return 'mercenary-ability';
   }
 
-  if (type === 'minion' && mechanics?.[TIMEWARPED]) return 'minion-timewarped';
+  if (type === 'minion' && mechanics?.[String(TAG_ID.TIMEWARPED)]) return 'minion-timewarped';
 
   return type;
 }

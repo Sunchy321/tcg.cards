@@ -4,6 +4,7 @@ const gameLabels: Record<Game, string> = {
   magic:      'Magic',
   hearthstone: 'Hearthstone',
   yugioh:     'Yu-Gi-Oh!',
+  shadowverse: 'Shadowverse',
 };
 
 export const settingsGameItems = GAMES.map(game => ({

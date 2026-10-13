@@ -1,4 +1,5 @@
 import { cc as create } from '#search/client/command/builder';
+import { defaultTranslate } from '#search/client/translate';
 
 import * as builtin from '#search/client/command/builtin';
 import * as magic from './command';
@@ -40,6 +41,28 @@ export const hash = cc
     const { tag } = pattern;
 
     return i18n('$.full-command.hash', { tag });
+  });
+
+export const print = cc
+  .commands.print
+  .explain((args, i18n) => {
+    const text = String(args.value ?? '');
+    const parts = text.toLowerCase().split('#');
+    const [set, number, lang] = parts as [string?, string?, string?];
+    const wellFormed = (parts.length === 2 || parts.length === 3)
+      && set != null && /^[a-z0-9]+$/.test(set)
+      && number != null && number !== ''
+      && (parts.length === 2 || (lang != null && /^[a-z]+$/.test(lang)));
+
+    // Same shape rule as the server handler: anything else is a plain text search.
+    if (!wellFormed) {
+      return i18n('$.full-command.raw', { value: text });
+    }
+
+    if (lang != null) {
+      return i18n('$.full-command.print-lang', { set: set!, number: number!, lang });
+    }
+    return i18n('$.full-command.print', { set: set!, number: number! });
   });
 
 export const set = cc
@@ -136,10 +159,6 @@ export const imageStatus = cc
   .commands.imageStatus
   .apply({ id: 'image-status', mapValue: true });
 
-export const imageType = cc
-  .commands.imageType
-  .apply({ id: 'image-type', mapValue: true });
-
 export const rarity = cc
   .commands.rarity
   .apply({ id: 'rarity', mapValue: true });
@@ -202,6 +221,19 @@ export const keyword = cc
 export const multiverseId = cc
   .commands.multiverseId
   .apply({ id: 'multiverse-id' });
+
+export const ambit = cc
+  .commands.ambit
+  .explain((args, i18n) => {
+    return defaultTranslate(args, i18n, 'ambit', {
+      ':':  'is',
+      '=':  'equal',
+      '<':  'less-than',
+      '<=': 'less-equal',
+      '>':  'greater-than',
+      '>=': 'greater-equal',
+    });
+  });
 
 export const order = cc
   .commands.order

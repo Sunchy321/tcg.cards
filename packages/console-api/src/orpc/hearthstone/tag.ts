@@ -41,7 +41,7 @@ const os = create.$context<{ meta?: ConsoleApiRequestMeta }>();
 type FieldCommitRow = typeof FieldCommit.$inferSelect;
 
 /** Converts one write-mode hint into the persisted sync state. */
-function toSyncStatus(mode: ConsoleApiRequestMeta['syncMode']) {
+function toSyncStatus(mode: ConsoleApiRequestMeta['syncMode']): 'pending_push' | 'synced' | 'pulled' {
   switch (mode) {
     case 'remote_edit':
       return 'synced';
@@ -273,6 +273,7 @@ const manualUpdate = os
       syncStatus:     meta.syncStatus,
       editorRuntime:  meta.editorRuntime,
       editorIdentity: meta.editorIdentity,
+      editorSource:   meta.editorSource,
       conflictTarget: meta.conflictTarget,
     }));
   });

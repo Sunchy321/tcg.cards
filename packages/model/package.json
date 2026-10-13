@@ -8,7 +8,7 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@types/bun": "^1.3.13",
+    "@types/bun": "^1.4.1",
     "@types/lodash-es": "^4.17.12",
     "eslint": "^10.2.1",
     "eslint-config-custom": "workspace:*"
@@ -23,6 +23,10 @@
   },
   "exports": {
     ".": "./src/index.ts",
-    "./*": "./src/*.ts"
+    "./*": "./src/*.ts",
+    "./magic/search": "./src/magic/search/index.ts",
+    "./magic/search/*": "./src/magic/search/*.ts",
+    "./hearthstone/search": "./src/hearthstone/search/index.ts",
+    "./hearthstone/search/*": "./src/hearthstone/search/*.ts"
   }
 }

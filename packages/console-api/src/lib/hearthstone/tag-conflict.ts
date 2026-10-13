@@ -47,7 +47,6 @@ const autoBaseFields = new Set<keyof TagWrite>([
   'rawName',
   'rawType',
   'rawNames',
-  'valueKind',
 ]);
 
 /** Reads the tag enum id from one structured entity key payload. */
@@ -79,7 +78,6 @@ function fieldFromPath(fieldPath: string): keyof TagWrite {
     'rawName',
     'rawType',
     'rawNames',
-    'valueKind',
     'normalizeKind',
     'normalizeConfig',
     'projectTargetType',

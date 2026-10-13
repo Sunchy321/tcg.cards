@@ -1,0 +1,5 @@
+# Hsdata import is a chunked, staged upload that trusts the desktop parser
+
+The desktop reads, normalizes, and chunk-slices the ~100 MB source locally, then uploads gzip-compressed canonical NDJSON chunks. The server only decompresses, validates, and stages them; the formal raw-archive tables change only inside a single finalize transaction. The contract is explicitly trusted: the server checks task-manifest and payload self-consistency but never proves that the staged snapshots are reversibly derived from the declared source hash. The desktop parser version is therefore recorded per import, and a parser change is corrected by a full re-import.
+
+**Why:** Keeping the whole-XML import call was impossible, because a ~100 MB request body plus parsing CPU and memory do not fit a Worker. Having the server re-parse or re-verify the source XML was rejected as duplicating work on the wrong side of the boundary, and chunking the XML itself would only move parsing rather than remove it. The cost of the trusted contract is accepted deliberately and bounded by recording the parser version.

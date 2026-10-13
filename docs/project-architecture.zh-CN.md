@@ -214,4 +214,4 @@ local 和 remote 是两个独立数据库，因此多端修改的核心矛盾是
 
 `docs/` 下的架构文档用于描述稳定边界和 authority 规则。
 
-`proposals/`、`specs/` 和 `archive/` 下的文档用于描述具体需求的设计过程。
+具体需求的设计工作放在 `.scratch/` 下的 issue tracker 中（该目录已被 git 忽略）；长期留存的决策放在 `CONTEXT.md` 与 `docs/adr/` 中。

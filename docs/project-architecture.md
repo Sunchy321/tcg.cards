@@ -214,4 +214,4 @@ When a table mixes manually maintained fields with build-generated or import-gen
 
 Architecture documents under `docs/` describe stable boundaries and authority rules.
 
-Proposal documents under `proposals/`, `specs/`, and `archive/` describe requirement-specific design work.
+Requirement-specific design work lives in the issue tracker under `.scratch/`, which is git-ignored. The decisions that outlive it live in `CONTEXT.md` and `docs/adr/`.

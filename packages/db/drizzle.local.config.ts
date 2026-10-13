@@ -13,6 +13,8 @@ export default defineConfig({
     './src/schema/local/hearthstone/index.ts',
     './src/schema/local/magic/index.ts',
     './src/schema/local/yugioh/index.ts',
+    './src/schema/local/shadowverse/index.ts',
+    './src/schema/shared/ambit.ts',
   ],
   casing: 'snake_case',
 

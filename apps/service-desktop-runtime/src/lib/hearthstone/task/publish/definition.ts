@@ -11,10 +11,9 @@ import {
   BaseEntityRelation as LocalBaseEntityRelation, BaseCard as LocalBaseCard,
   Entity as LocalEntity, EntityLocalization as LocalEntityLocalization,
   EntityRelation as LocalEntityRelation, Card as LocalCard,
-  Patch as LocalPatch,
 } from '@tcg-cards/db/schema/local/hearthstone';
 import { Entity as RemoteEntity, EntityLocalization as RemoteEntityLocalization,
-  EntityRelation as RemoteEntityRelation, Card as RemoteCard, Patch as RemotePatch } from '@tcg-cards/db/schema/remote/hearthstone';
+  EntityRelation as RemoteEntityRelation, Card as RemoteCard } from '@tcg-cards/db/schema/remote/hearthstone';
 import { PublishStreamRegistration } from '@tcg-cards/db/schema/remote/publish';
 import {
   loadRowDataChunk, insertRemoteRow, deleteRemoteRow, parseRowKey,
@@ -33,7 +32,7 @@ import type { ProgressFn, BlockDone } from '#task/definition';
 
 const LOAD_CHUNK_SIZE = 2000;
 const REMOTE_CHUNK_SIZE = 1000;
-const FULL_SCAN_TABLES: TableName[] = ['entities', 'entity_localizations', 'entity_relations', 'cards', 'patches'];
+const FULL_SCAN_TABLES: TableName[] = ['entities', 'entity_localizations', 'entity_relations', 'cards'];
 
 // ── Types ──
 
@@ -115,7 +114,7 @@ interface LoaderState {
   totalRows:            number;
   scanCursors:          Map<TableName, any>;
   tableTotals:          Record<TableName, number>;
-  tableProcessed:       Record<TableName, number>;
+  tableProcessed:       Partial<Record<TableName, number>>;
 }
 
 // ── Utility ──
@@ -222,11 +221,6 @@ async function processFullScanChunk(loader: LoaderState, plans: PlanEntry[]): Pr
       since ? or(and(isNull(tbl.deletedAt), or(gt(tbl.createdAt, since), gt(tbl.updatedAt, since))), gt(tbl.deletedAt, since)) : isNull(tbl.deletedAt),
       cursor == null ? undefined : sql`(${tbl.cardId}) > (${cursor.cardId ?? cursor})`,
     )).orderBy(asc(tbl.cardId)).limit(LOAD_CHUNK_SIZE) as any[];
-  } else if (tableName === 'patches') {
-    const tbl = LocalPatch;
-    rawRows = await db.select().from(tbl).where(
-      cursor == null ? undefined : sql`(${tbl.buildNumber}) > (${cursor.buildNumber ?? cursor})`,
-    ).orderBy(asc(tbl.buildNumber)).limit(LOAD_CHUNK_SIZE) as any[];
   }
 
   if (rawRows.length === 0) {
@@ -640,9 +634,9 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
             builds:               [],
             processed:            0,
             totalRows:            pendingCount,
-            scanCursors:          new Map([['entities', undefined], ['entity_localizations', undefined], ['entity_relations', undefined], ['cards', undefined], ['patches', undefined]]),
+            scanCursors:          new Map([['entities', undefined], ['entity_localizations', undefined], ['entity_relations', undefined], ['cards', undefined]]),
             tableTotals:          {} as Record<TableName, number>,
-            tableProcessed:       {} as Record<TableName, number>,
+            tableProcessed:       {},
           };
           return {
             total:      pendingCount,
@@ -679,12 +673,11 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
       isIncremental ? db.select({ count: count() }).from(LocalBaseEntityLocalization).where(incFilter(LocalBaseEntityLocalization)) : db.select({ count: count() }).from(LocalBaseEntityLocalization).where(fullFilter(LocalBaseEntityLocalization)),
       isIncremental ? db.select({ count: count() }).from(LocalBaseEntityRelation).where(incFilter(LocalBaseEntityRelation)) : db.select({ count: count() }).from(LocalBaseEntityRelation).where(fullFilter(LocalBaseEntityRelation)),
       isIncremental ? db.select({ count: count() }).from(LocalBaseCard).where(incFilter(LocalBaseCard)) : db.select({ count: count() }).from(LocalBaseCard).where(fullFilter(LocalBaseCard)),
-      db.select({ count: count() }).from(LocalPatch),
     ]);
     const totalRows = cnt.reduce((s, r) => s + Number(r[0]!.count), 0);
     const tableTotals: Record<string, number> = {
       entities:             Number(cnt[0]![0]!.count), entity_localizations: Number(cnt[1]![0]!.count),
-      entity_relations:     Number(cnt[2]![0]!.count), cards:                Number(cnt[3]![0]!.count), patches:              Number(cnt[4]![0]!.count),
+      entity_relations:     Number(cnt[2]![0]!.count), cards:                Number(cnt[3]![0]!.count),
     };
 
     if (!ctx.dryRun) {
@@ -710,9 +703,9 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
       builds:               [],
       processed:            0,
       totalRows,
-      scanCursors:          new Map([['entities', null], ['entity_localizations', null], ['entity_relations', null], ['cards', null], ['patches', null]]),
+      scanCursors:          new Map([['entities', null], ['entity_localizations', null], ['entity_relations', null], ['cards', null]]),
       tableTotals,
-      tableProcessed:       tableTotals ? { entities: 0, entity_localizations: 0, entity_relations: 0, cards: 0, patches: 0 } : undefined as any,
+      tableProcessed:       tableTotals ? { entities: 0, entity_localizations: 0, entity_relations: 0, cards: 0 } : undefined as any,
     };
 
     return {
@@ -826,7 +819,6 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
           ['entity_localizations', LocalEntityLocalization, RemoteEntityLocalization],
           ['entity_relations', LocalEntityRelation, RemoteEntityRelation],
           ['cards', LocalCard, RemoteCard],
-          ['patches', LocalPatch, RemotePatch],
         ] as const) {
           const [localRow] = await localDb.select({ count: count() }).from(localTbl);
           const [remoteRow] = await remoteDb.select({ count: count() }).from(remoteTbl);

@@ -54,7 +54,7 @@ export const BaseEntity = schema.table('entities', {
   techLevel:    integer('tech_level'),
   inBobsTavern: boolean('in_bobs_tavern').notNull().default(false),
   tripleCard:   text('triple_card'),
-  raceBucket:   text('race_bucket').$type<NonNullable<IEntity['raceBucket']>>(),
+  raceBucket:   text('race_bucket').array().$type<NonNullable<IEntity['raceBucket']>[number]>(),
   armorBucket:  integer('armor_bucket'),
   buddy:        text('buddy'),
   bannedRace:   text('banned_race'),
@@ -197,6 +197,8 @@ export const CardEntityView = schema.view('card_entity_view').as(qb =>
     localizationHash: BaseEntityLocalization.localizationHash,
     renderHash:       BaseEntityLocalization.renderHash,
 
+    ambit: BaseCard.ambit,
+
     ...omit(getColumns(BaseEntity), [
       'cardId',
       'version',
@@ -241,6 +243,8 @@ export const LatestCardEntityView = schema.view('latest_card_entity_view').as(qb
     revisionHash:     BaseEntity.revisionHash,
     localizationHash: BaseEntityLocalization.localizationHash,
     renderHash:       BaseEntityLocalization.renderHash,
+
+    ambit: BaseCard.ambit,
 
     ...omit(getColumns(BaseEntity), [
       'cardId',

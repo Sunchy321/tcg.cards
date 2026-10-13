@@ -1,0 +1,1 @@
+ALTER TYPE "magic"."locale" ADD VALUE 'dw';

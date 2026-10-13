@@ -183,7 +183,7 @@ async function loadExtractedCardIds(build: number, lastCardId: string | null, fo
 }
 
 export const projectTaskDefinition = createDefinition(projectTaskType, {
-  version:     '2026-07-21:v2',
+  version:     '2026-10-11:v3',
   effectModel: 'reconcilable',
 })
   .scope(

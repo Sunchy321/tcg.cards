@@ -13,6 +13,7 @@
     "@orpc/openapi": "^1.14.0",
     "@orpc/server": "^1.14.0",
     "@tcg-cards/api": "workspace:*",
+    "@tcg-cards/auth": "workspace:*",
     "@tcg-cards/db": "workspace:*",
     "@tcg-cards/model": "workspace:*",
     "hono": "^4.10.5",

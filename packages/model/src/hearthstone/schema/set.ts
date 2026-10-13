@@ -4,19 +4,22 @@ const nullableInt = z.int().nullable();
 const nullableText = z.string().nullable();
 const setIdText = z.string().trim().min(1).max(160);
 
-export const setLocalization = z.strictObject({
-  lang: z.string(),
-  name: z.string(),
+export const setLocalizationNames = z.strictObject({
+  full:     z.string(),
+  short:    z.string().optional(),
+  initials: z.string().optional(),
+  mini:     z.string().optional(),
 });
+
+export const setLocalization = z.record(z.string(), setLocalizationNames);
 
 export const set = z.strictObject({
   setId: z.string(),
 
   dbfId:   nullableInt,
-  slug:    nullableText,
   rawName: nullableText,
 
-  localization: setLocalization.array(),
+  localization: setLocalization,
 
   type:          z.string(),
   releaseDate:   z.string(),
@@ -51,9 +54,8 @@ export const setUpdateInput = z.strictObject({
   originalSetId: setIdText,
   setId:         setIdText,
   dbfId:         nullableInt,
-  slug:          nullableText,
   rawName:       nullableText,
-  localization:  setLocalization.array(),
+  localization:  setLocalization,
   type:          z.string().trim().min(1).max(100),
   releaseDate:   z.string().max(100),
   cardCountFull: nullableInt,
@@ -62,6 +64,7 @@ export const setUpdateInput = z.strictObject({
 });
 
 export type Set = z.infer<typeof set>;
+export type SetLocalizationNames = z.infer<typeof setLocalizationNames>;
 export type SetLocalization = z.infer<typeof setLocalization>;
 export type SetProfile = z.infer<typeof setProfile>;
 export type SetListInput = z.infer<typeof setListInput>;

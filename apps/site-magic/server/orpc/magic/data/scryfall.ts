@@ -143,7 +143,7 @@
 //     await db
 //       .update(Print)
 //       .set({
-//         fullImageType: 'jpg',
+//         imageType: 'jpg',
 //       })
 //       .where(and(
 //         eq(Print.set, set),

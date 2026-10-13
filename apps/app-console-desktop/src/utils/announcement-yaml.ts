@@ -1,5 +1,7 @@
 import {
+  type ChangeStatus,
   changeStatus,
+  changeStatusByType,
   gameChangeType,
   glowPart,
   glowType,
@@ -35,7 +37,7 @@ export interface TextItem {
   type:          string;
   effectiveDate: string;
   format:        string;
-  status:        string;
+  status:        ChangeStatus | 'unknown';
   group:         string;
   version?:      number;
   lastVersion?:  number;
@@ -88,9 +90,14 @@ const BG_CARD_TYPE_GROUPS: Record<string, string> = {
   anomaly:      'bg_anomaly',
 };
 
-/** Derives the announcement group from the item format and card type. */
-export function deriveGroup(format: string | null, cardType: string | null): string {
+/** Derives the announcement group from the item format, card type, and timewarped flag. */
+export function deriveGroup(
+  format: string | null,
+  cardType: string | null,
+  isTimewarped = false,
+): string {
   if (format === 'battlegrounds' && cardType != null) {
+    if (isTimewarped) return 'bg_timewarped';
     return BG_CARD_TYPE_GROUPS[cardType] ?? '';
   }
   return '';
@@ -106,7 +113,7 @@ function emptyItem(type: string): TextItem {
     type,
     effectiveDate: '',
     format:        '',
-    status:        '',
+    status:        'buff',
     group:         '',
     cardId:        '',
     setId:         '',
@@ -238,8 +245,17 @@ export function parseItemsYaml(text: string): ParsedResult {
     if (!type) itemErrors.push({ line: itemLine, message: '缺少必填字段 type' });
     else if (!gameChangeType.options.includes(type as never)) itemErrors.push({ line: itemLine, message: `type 非法: ${type}` });
 
-    const status = raw.status == null ? '' : String(raw.status);
-    if (status && !changeStatus.options.includes(status as never)) itemErrors.push({ line: itemLine, message: `status 非法: ${status}` });
+    const typeConfig = changeStatusByType[type as keyof typeof changeStatusByType];
+    const allowed = typeConfig?.statuses ?? [];
+    let status = raw.status == null ? (typeConfig?.default ?? 'unknown') : String(raw.status) as ChangeStatus | 'unknown';
+    if (status && allowed.length === 0) {
+      // Type carries no status (rule_change / format_*); strip silently instead of dropping.
+      status = 'unknown';
+    } else if (status && !changeStatus.options.includes(status as never)) {
+      itemErrors.push({ line: itemLine, message: `status 非法: ${status}` });
+    } else if (status && !allowed.includes(status as never)) {
+      itemErrors.push({ line: itemLine, message: `status 与 type(${type}) 不匹配: ${status}` });
+    }
 
     const group = raw.group == null ? '' : String(raw.group);
     if (group && !groupEnum.options.includes(group as never)) itemErrors.push({ line: itemLine, message: `group 非法: ${group}` });

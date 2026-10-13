@@ -5,7 +5,7 @@ import type { Operator } from '#search/command/types';
 
 // ── State types ──────────────────────────────────────────────────────────────
 
-export type TextModifier = 'default' | 'oracle' | 'unified' | 'printed';
+export type TextModifier = 'default' | 'oracle' | 'localized' | 'printed';
 
 export interface TextFieldState {
   value:    string;
@@ -153,10 +153,10 @@ function quoteValue(v: string): string {
 }
 
 const TEXT_MOD_CMD: Record<TextModifier, Record<'name' | 'type' | 'text', string>> = {
-  default: { name: 'name', type: 'type', text: 'text' },
-  oracle:  { name: 'on', type: 'ot', text: 'ox' },
-  unified: { name: 'un', type: 'ut', text: 'ux' },
-  printed: { name: 'pn', type: 'pt', text: 'px' },
+  default:   { name: 'name', type: 'type', text: 'text' },
+  oracle:    { name: 'on', type: 'ot', text: 'ox' },
+  localized: { name: 'ln', type: 'lt', text: 'lx' },
+  printed:   { name: 'pn', type: 'pt', text: 'px' },
 };
 
 function buildTextField(field: TextFieldState, base: 'name' | 'type' | 'text'): string | null {
@@ -244,21 +244,21 @@ const CMD_MAP: Record<string, { field: string, mod?: TextModifier }> = {
   'name': { field: 'name', mod: 'default' },
   'n':    { field: 'name', mod: 'default' },
   'on':   { field: 'name', mod: 'oracle' },
-  'un':   { field: 'name', mod: 'unified' },
+  'ln':   { field: 'name', mod: 'localized' },
   'pn':   { field: 'name', mod: 'printed' },
 
   // type (longest key 6 chars -> value at col 8)
   'type': { field: 'type', mod: 'default' },
   't':    { field: 'type', mod: 'default' },
   'ot':   { field: 'type', mod: 'oracle' },
-  'ut':   { field: 'type', mod: 'unified' },
+  'lt':   { field: 'type', mod: 'localized' },
   'pt':   { field: 'type', mod: 'printed' },
 
   // text (longest key 6 chars -> value at col 8)
   'text': { field: 'text', mod: 'default' },
   'x':    { field: 'text', mod: 'default' },
   'ox':   { field: 'text', mod: 'oracle' },
-  'ux':   { field: 'text', mod: 'unified' },
+  'lx':   { field: 'text', mod: 'localized' },
   'px':   { field: 'text', mod: 'printed' },
 
   // other text fields (longest key 'flavor-text' 13 chars -> value at col 15)

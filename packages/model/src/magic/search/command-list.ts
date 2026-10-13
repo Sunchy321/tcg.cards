@@ -24,6 +24,13 @@ export const hash = c
   .pattern('#{{tag}}')
   .done();
 
+/** Print reference `set#number` or `set#number#lang`, matched on the whole raw text. */
+export const print = c
+  .simple
+  .pattern('{{set}}#{{number}}', true)
+  .id('print')
+  .done();
+
 export const set = c
   .simple
   .alt(['expansion', 's', 'e'])
@@ -97,19 +104,19 @@ export const defense = c
 export const name = c
   .text
   .alt('n')
-  .mod({ oracle: 'on', unified: 'un', printed: 'pn' })
+  .mod({ oracle: 'on', localized: 'ln', printed: 'pn' })
   .done();
 
 export const type = c
   .text
   .alt('t')
-  .mod({ oracle: 'ot', unified: 'ut', printed: 'pt' })
+  .mod({ oracle: 'ot', localized: 'lt', printed: 'pt' })
   .done();
 
 export const text = c
   .text
   .alt('x')
-  .mod({ oracle: 'ox', unified: 'ux', printed: 'px' })
+  .mod({ oracle: 'ox', localized: 'lx', printed: 'px' })
   .done();
 
 export const oracle = c
@@ -136,11 +143,6 @@ export const layout = c
 export const imageStatus = c
   .simple
   .id('image-status')
-  .done();
-
-export const imageType = c
-  .simple
-  .id('image-type')
   .done();
 
 export const rarity = c
@@ -176,3 +178,5 @@ export const multiverseId = c
 export const order = c
   .simple
   .done();
+
+export { ambit } from '#search/index';

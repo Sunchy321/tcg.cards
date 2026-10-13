@@ -51,7 +51,6 @@ packages/
   eslint-config-custom/
                    Shared ESLint configuration
 
-specs/              Approved design specs, reviews, and implementation plans
 references/         Local/reference source material used for modeling
 scripts/            Utility scripts
 turbo/              Turborepo generators and templates
@@ -176,11 +175,9 @@ Cloudflare bindings used across the apps include:
 
 ## Design Specs
 
-Approved design artifacts live under `specs/<topic>/` and use standard filenames:
+Requirement-specific design work lives in the issue tracker: a spec at `.scratch/<feature>/spec.md`, and one file per ticket under `.scratch/<feature>/issues/`. `.scratch/` is git-ignored, so these are working artifacts rather than committed documents.
 
-- `design.md`
-- `review.md`
-- `plan.md`
+What outlives a feature is committed instead: `CONTEXT.md` holds the domain glossary, and `docs/adr/` holds the decisions that were hard to reverse.
 
 ## References
 

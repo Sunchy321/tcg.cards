@@ -51,7 +51,6 @@ packages/
   eslint-config-custom/
                    共享 ESLint 配置
 
-specs/              已通过评审的设计、评审和实施计划
 references/         建模使用的本地参考资料和上游材料
 scripts/            工具脚本
 turbo/              Turborepo generator 和模板
@@ -176,11 +175,9 @@ bun run deploy
 
 ## 设计规格
 
-已通过评审的设计资料放在 `specs/<topic>/` 下，并使用固定文件名：
+具体需求的设计工作放在 issue tracker 中：规格为 `.scratch/<feature>/spec.md`，每个 ticket 一个文件放在 `.scratch/<feature>/issues/` 下。`.scratch/` 已被 git 忽略，属于工作过程产物，而非提交进仓库的文档。
 
-- `design.md`
-- `review.md`
-- `plan.md`
+需求之外长期留存的内容单独提交：`CONTEXT.md` 保存领域术语表，`docs/adr/` 保存难以逆转的决策。
 
 ## 参考资料
 

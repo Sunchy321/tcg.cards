@@ -11,11 +11,14 @@
 </template>
 
 <script setup lang="ts">
-const markdownFiles = import.meta.glob<string>('/content/guide/**/*.md', {
+const { t, locale } = useI18n();
+useTitle(() => t('nav.guide'));
+
+const markdownFiles = import.meta.glob<string>('/content/guide/*.md', {
   eager:  true,
   query:  '?raw',
   import: 'default',
 });
 
-const source = markdownFiles['/content/guide/index.md'] ?? '';
+const source = computed(() => markdownFiles[`/content/guide/${locale.value}.md`] ?? markdownFiles['/content/guide/en.md'] ?? '');
 </script>

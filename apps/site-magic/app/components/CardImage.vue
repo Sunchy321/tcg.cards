@@ -1,13 +1,24 @@
 <template>
-  <div class="card-image">
-    <div
-      class="image"
-      :class="[
-        `layout-${layout}`,
-        `part-${realPart}`,
-        { rotated: realRotate, turnable }
-      ]"
-    >
+  <div class="card-image" :class="{ combined: isCombined }">
+    <!--
+      SPECIAL CASE (the only `combined` card): B.F.M. (Big Furry Monster, ugl).
+      Its two prints are the left/right halves of one spread on adjacent
+      collector numbers (left = even, right = odd), so both are rendered side
+      by side instead of one print at a time. Everything below is dead code
+      for any other card.
+    -->
+    <div v-if="isCombined" class="panels">
+      <img
+        v-for="url in combinedUrls"
+        :key="url"
+        class="panel"
+        :src="url"
+        loading="lazy"
+        @error="(e) => ((e.target as HTMLImageElement).src = '/card-not-found.svg')"
+      >
+    </div>
+
+    <div v-else class="image" :class="[`layout-${layout}`, `part-${realPart}`, { rotated: realRotate, turnable }]">
       <img
         class="front w-full"
         :src="imageUrls[0]"
@@ -37,7 +48,7 @@
         icon="mdi:rotate-right"
         size="sm"
         square
-        @click.prevent.stop="realRotate = !realRotate"
+        @click.prevent.stop="void (realRotate = !realRotate)"
       />
     </div>
 
@@ -49,7 +60,7 @@
         icon="mdi:rotate-3d-variant"
         size="xl"
         square
-        @click.prevent.stop="realPart = realPart === 1 ? 0 : 1"
+        @click.prevent.stop="void (realPart = realPart === 1 ? 0 : 1)"
       />
     </div>
 
@@ -61,7 +72,7 @@
         icon="mdi:autorenew"
         size="xl"
         square
-        @click.prevent.stop="realPart = realPart === 1 ? 0 : 1"
+        @click.prevent.stop="void (realPart = realPart === 1 ? 0 : 1)"
       />
     </div>
 
@@ -73,14 +84,14 @@
         icon="mdi:rotate-right"
         size="xl"
         square
-        @click.prevent.stop="realPart = realPart === 1 ? 0 : 1"
+        @click.prevent.stop="void (realPart = realPart === 1 ? 0 : 1)"
       />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { Layout, FullImageType } from '#model/magic/schema/basic';
+import type { Layout, ImageType } from '#model/magic/schema/basic';
 import type { ImageStatus } from '#model/magic/schema/print';
 
 const { public: { assetBaseUrl } } = useRuntimeConfig();
@@ -92,7 +103,7 @@ const props = withDefaults(
     number:        string;
     part?:         number;
     layout:        Layout;
-    fullImageType: FullImageType;
+    imageType:     ImageType;
     imageStatus?:  ImageStatus;
     rotate?:       boolean | null;
     refreshToken?: string;
@@ -118,7 +129,11 @@ const realPart = computed({
   set(newValue: number) {
     innerPart.value = newValue;
 
-    if (props.layout !== 'reversible_card') {
+    // Two flips stay within this print's text: a reversible flip crosses
+    // prints (sibling a/b numbers), and an art-back flip shows only the
+    // illustration back (there is no second part to show) — neither moves
+    // the card page's part state.
+    if (props.layout !== 'reversible_card' && props.layout !== 'art_back_token') {
       emit('update:part', newValue);
     }
   },
@@ -147,6 +162,7 @@ const realRotate = computed({
 });
 
 const turnable = computed(() => [
+  'art_back_token',
   'transform',
   'modal_dfc',
   'transform_token',
@@ -157,22 +173,26 @@ const turnable = computed(() => [
   'art_series',
 ].includes(props.layout));
 
-const imageUrlValues = computed(() => {
-  if (turnable.value) {
-    return [
-      `${assetBaseUrl}/magic/card/large/${props.set}/${props.lang}/${props.number}-0.${props.fullImageType}`,
-      `${assetBaseUrl}/magic/card/large/${props.set}/${props.lang}/${props.number}-1.${props.fullImageType}`,
-    ];
-  } else if (['flip_token_top', 'flip_token_bottom'].includes(props.layout)) {
-    return [
-      `${assetBaseUrl}/magic/card/large/${props.set}/${props.lang}/${props.number.split('-')[0]}.${props.fullImageType}`,
-    ];
-  } else {
-    return [
-      `${assetBaseUrl}/magic/card/large/${props.set}/${props.lang}/${props.number}.${props.fullImageType}`,
-    ];
-  }
+// A reversible print is one side of a split reversible object: its collector
+// number carries the side suffix (a/b), and the flip shows the sibling print,
+// which stores the other side's image under its own number.
+const reversibleSiblingNumber = computed(() => {
+  const side = props.number.slice(-1);
+  if (side !== 'a' && side !== 'b') return props.number;
+  return `${props.number.slice(0, -1)}${side === 'a' ? 'b' : 'a'}`;
 });
+
+/** File stems of the printed images this layout renders, front first. */
+const imageStems = computed(() => {
+  if (props.layout === 'reversible_card') return [props.number, reversibleSiblingNumber.value];
+  if (turnable.value) return [props.number, `${props.number}⁑`];
+  if (['flip_token_top', 'flip_token_bottom'].includes(props.layout)) return [props.number.split('-')[0]];
+  return [props.number];
+});
+
+const imageUrlValues = computed(() => imageStems.value.map(stem =>
+  `${assetBaseUrl}/magic/card/large/${props.set}/${props.lang}/${stem}.${props.imageType}`,
+));
 
 const imageUrls = computed(() => {
   if (props.refreshToken != null) {
@@ -180,6 +200,18 @@ const imageUrls = computed(() => {
   } else {
     return imageUrlValues.value;
   }
+});
+
+// SPECIAL CASE: see the template comment — B.F.M. is the only `combined`
+// card; its halves sit on adjacent collector numbers (left = even) and are
+// standalone single-face prints, so their files use the plain number.
+const isCombined = computed(() => props.layout === 'combined');
+
+const combinedUrls = computed(() => {
+  const n = Number.parseInt(props.number, 10);
+  if (!Number.isFinite(n)) return [];
+  const panels = n % 2 === 0 ? [n, n + 1] : [n - 1, n];
+  return panels.map(panel => `${assetBaseUrl}/magic/card/large/${props.set}/${props.lang}/${panel}.${props.imageType}`);
 });
 
 watch(() => props.layout, () => {
@@ -213,6 +245,22 @@ watch(() => props.rotate, () => {
     img {
       filter: brightness(0.85);
     }
+  }
+}
+
+.panels {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+
+  .panel {
+    width: 50%;
+    height: auto;
+    min-width: 0;
   }
 }
 

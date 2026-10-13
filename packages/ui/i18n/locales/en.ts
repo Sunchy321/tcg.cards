@@ -1,4 +1,15 @@
 export default {
+  footer: {
+    dataSources: 'Data Sources',
+  },
+
+  ambit: {
+    'primary':    'Primary',
+    'additional': 'Additional',
+    'full':       'Full',
+    'widened':    'Widened: {level}',
+  },
+
   locale: {
     '$self': 'English',
 
@@ -22,6 +33,7 @@ export default {
     'ar':  'Arabic',
     'sa':  'Sanskrit',
     'ph':  'Phyrexian',
+    'dw':  'Dwarvish',
 
     'en:asia': 'English (Asia)',
     'zhs:pro': 'Simplified Chinese (YGOPro)',

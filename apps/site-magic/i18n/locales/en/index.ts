@@ -32,6 +32,7 @@ export default {
     'ar':  'Arabic',
     'sa':  'Sanskrit',
     'ph':  'Phyrexian',
+    'dw':  'Dwarvish',
 
     'en:asia': 'English (Asia)',
     'zhs:pro': 'Simplified Chinese (YGOPro)',
@@ -44,6 +45,9 @@ export default {
     error: {
       'unknown-token':   'unknown token',
       'unknown-command': 'unknown command {name}',
+      'mixed-separator': '"{value}" mixes separators — use only one kind of separator per value',
+      'empty-term':      '"{value}" contains an empty item — check for a stray separator (no space is allowed after a separator)',
+      'fallback':        'The query could not be parsed — please review the syntax',
     },
 
     separator: {
@@ -141,8 +145,8 @@ export default {
     },
 
     game: {
-      $self:    'Game',
-      language: 'Game Language',
+      $self:            'Game',
+      language:         'Game Language',
       searchLayout:     'Search Layout',
       searchLayoutGrid: 'Grid',
       searchLayoutList: 'List',

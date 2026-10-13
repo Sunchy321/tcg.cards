@@ -12,6 +12,10 @@ import Parser from '#search/parser';
 import { simplify } from '#search/parser/simplify';
 import type { Expression } from '#search/parser';
 
+import { detectAmbit } from '#search/ambit';
+import type { Ambit } from '#search/ambit';
+import { ambitCeiling, searchWithAmbitCeiling } from '#search/server/ambit';
+
 import { order } from './command-list';
 
 const as = create;
@@ -98,23 +102,11 @@ type SearchOption = {
   lang:     Locale;
   orderBy:  string;
   dsl:      string;
-};
 
-const defaultVisibleCardQuery = and(
-  eq(LatestCardEntityView.collectible, true),
-  eq(LatestCardEntityView.inBobsTavern, false),
-  sql`${LatestCardEntityView.type} in ('minion', 'spell', 'weapon', 'location', 'hero')`,
-  sql`(
-    ${LatestCardEntityView.type} in ('minion', 'spell', 'weapon', 'location')
-    or (
-      ${LatestCardEntityView.type} = 'hero'
-      and (
-        nullif(btrim(${LatestCardEntityView.localization.displayText}), '') is not null
-        or ${LatestCardEntityView.armor} is not null
-      )
-    )
-  )`,
-);
+  // The ambit scope selector's URL param; an ambit command in the DSL
+  // overrides it, so it is only the starting ceiling of the widening ladder.
+  ambit?: Ambit;
+};
 
 export const search = as
   .table(LatestCardEntityView)
@@ -127,6 +119,7 @@ export const search = as
       lang,
       orderBy,
       dsl,
+      ambit,
     } = options;
 
     const orderByAction = post.find(p => p.phase === 'order-by')?.action
@@ -138,15 +131,21 @@ export const search = as
         meta:  {},
         table: LatestCardEntityView as any,
       });
-    const hasLangCommand = /\blang[:=]/.test(dsl ?? '');
+    const hasLangCommand = /\blang[:=]/.test(dsl);
+    const { explicit, pinned } = detectAmbit(dsl);
 
-    const executeSearch = async (strict: boolean) => {
+    const executeSearch = async (ceiling: Ambit | null) => {
+      // Hearthstone search never surfaces enchantments, whatever the ambit
+      // ceiling says: they exist as detail-page relation data only, so the
+      // exclusion sits on top of every ceiling, including an explicit full.
+      // (SQL <> also drops typeless helper entities, as the retired default
+      // filter always did.)
       const baseQuery = hasLangCommand
         ? and(query, ne(LatestCardEntityView.type, 'enchantment'))
         : and(query, eq(LatestCardEntityView.lang, lang), ne(LatestCardEntityView.type, 'enchantment'));
-      const visibleQuery = strict
-        ? and(baseQuery, defaultVisibleCardQuery)
-        : baseQuery;
+      const visibleQuery = ceiling == null
+        ? baseQuery
+        : and(baseQuery, ambitCeiling(LatestCardEntityView.ambit, ceiling));
 
       const resultQuery = db
         .select()
@@ -170,24 +169,23 @@ export const search = as
       return { displayedResult: result, total };
     };
 
-    let { displayedResult, total } = await executeSearch(true);
-    let strict = true;
+    const { landing, result } = await searchWithAmbitCeiling({
+      pinned,
+      explicit,
+      start: ambit,
+      run:   executeSearch,
+    });
 
-    if (total === 0) {
-      ({ displayedResult, total } = await executeSearch(false));
-      strict = false;
-    }
-
-    const totalPage = Math.ceil(total / pageSize);
+    const totalPage = Math.ceil(result.total / pageSize);
     const elapsed = Date.now() - startTime;
 
     return {
-      result:  displayedResult,
-      total,
+      result:  result.displayedResult,
+      total:   result.total,
       page,
       totalPage,
       elapsed,
       variant: await detectVariant(dsl),
-      strict,
+      ambit:   landing,
     };
   });

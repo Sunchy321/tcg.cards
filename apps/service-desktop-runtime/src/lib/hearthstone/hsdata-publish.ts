@@ -540,6 +540,7 @@ function relationManifestValue(row: typeof LocalEntityRelation.$inferSelect) {
 function cardManifestValue(row: typeof LocalCard.$inferSelect) {
   return {
     cardId:     row.cardId,
+    ambit:      row.ambit,
     legalities: row.legalities,
   };
 }
@@ -948,20 +949,28 @@ export async function insertRemoteRow(
     if (action === 'update') {
       await tx.insert(RemoteBaseCard).values({
         cardId:     cardRow.cardId,
+        ambit:      cardRow.ambit,
         legalities: cardRow.legalities,
       })
         .onConflictDoUpdate({
           target: RemoteBaseCard.cardId,
-          set:    { legalities: cardRow.legalities },
+          set:    {
+            ambit:      cardRow.ambit,
+            legalities: cardRow.legalities,
+          },
         });
     } else {
       await tx.insert(RemoteBaseCard).values({
         cardId:     cardRow.cardId,
+        ambit:      cardRow.ambit,
         legalities: cardRow.legalities,
       })
         .onConflictDoUpdate({
           target: RemoteBaseCard.cardId,
-          set:    { legalities: cardRow.legalities },
+          set:    {
+            ambit:      cardRow.ambit,
+            legalities: cardRow.legalities,
+          },
         });
     }
 
@@ -1335,7 +1344,10 @@ export async function publishSingleCard(
         await tx.insert(RemoteBaseCard).values(card)
           .onConflictDoUpdate({
             target: RemoteBaseCard.cardId,
-            set:    { legalities: card.legalities },
+            set:    {
+              ambit:      card.ambit,
+              legalities: card.legalities,
+            },
           });
       }
     });

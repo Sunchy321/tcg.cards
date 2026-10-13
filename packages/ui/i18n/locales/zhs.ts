@@ -1,4 +1,15 @@
 export default {
+  footer: {
+    dataSources: '数据来源',
+  },
+
+  ambit: {
+    'primary':    '常规',
+    'additional': '附加',
+    'full':       '全部',
+    'widened':    '已放宽：{level}',
+  },
+
   locale: {
     '$self': '简体中文',
 
@@ -22,6 +33,7 @@ export default {
     'ar':  '阿拉伯语',
     'sa':  '梵文',
     'ph':  '非瑞克西亚文',
+    'dw':  '矮人语',
 
     'en:asia': '英文（亚洲）',
     'zhs:pro': '简体中文（YGOPro)',

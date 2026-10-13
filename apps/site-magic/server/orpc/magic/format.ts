@@ -1,14 +1,29 @@
 import { ORPCError, os } from '@orpc/server';
 
 import { z } from 'zod';
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, or, sql } from 'drizzle-orm';
 
 import { format as formatSchema } from '#model/magic/schema/format';
-import { formatChange as formatChangeSchema } from '#model/magic/schema/game-change';
+import { announcementItem, linkEntry } from '#model/magic/schema/announcement';
 
 import { db } from '#db/db';
+import { Announcement, AnnouncementItem } from '#schema/shared/magic/announcement';
 import { Format } from '#schema/shared/magic/format';
-import { FormatChange } from '#schema/shared/magic/game-change';
+
+/**
+ * One format change event projected from announcements:
+ * an announcement item that applies to a format, carrying the announcement header.
+ * Mirrors the hearthstone timeline view (announcement item + header fields).
+ */
+const formatChange = announcementItem.extend({
+  /** Derived event date: item effectiveDate ?? announcement effectiveDate ?? announcement date. */
+  date:   z.string(),
+  source: z.string(),
+  name:   z.string(),
+  link:   linkEntry.array(),
+});
+
+type FormatChange = z.infer<typeof formatChange>;
 
 const list = os
   .route({
@@ -59,35 +74,52 @@ const full = os
 const changes = os
   .route({
     method:      'GET',
-    description: 'Get format changes ordered by date',
+    description: 'Get format changes (announcement items) ordered by date',
     tags:        ['Magic', 'Format'],
   })
   .input(z.object({ formatId: z.string() }))
-  .output(formatChangeSchema.array())
+  .output(formatChange.array())
   .handler(async ({ input }) => {
     const { formatId } = input;
 
-    const records = await db.select()
-      .from(FormatChange)
-      .where(eq(FormatChange.format, formatId))
-      .orderBy(asc(FormatChange.date));
+    const rows = await db
+      .select({
+        item: AnnouncementItem,
+        announcement: {
+          date:         Announcement.date,
+          effectiveDate: Announcement.effectiveDate,
+          source:       Announcement.source,
+          name:         Announcement.name,
+          link:         Announcement.link,
+        },
+      })
+      .from(AnnouncementItem)
+      .innerJoin(Announcement, eq(Announcement.id, AnnouncementItem.announcementId))
+      // Match the format either by the raw item.format value or by the projected
+      // resolved_formats array. Global (format IS NULL) items stay excluded.
+      .where(and(
+        isNotNull(AnnouncementItem.format),
+        or(
+          eq(AnnouncementItem.format, formatId),
+          sql`${AnnouncementItem.resolved_formats} @> ARRAY[${formatId}]::text[]`,
+        ),
+      ))
+      .orderBy(asc(Announcement.date), asc(AnnouncementItem.order));
 
-    return records.map(r => ({
-      source:        r.source,
-      date:          r.date,
-      effectiveDate: r.effectiveDate ?? null,
-      name:          r.name,
-      link:          r.link,
-      type:          r.type,
-      format:        r.format ?? null,
-      cardId:        r.cardId ?? null,
-      setId:         r.setId ?? null,
-      ruleId:        r.ruleId ?? null,
-      group:         r.group ?? null,
-      status:        r.status ?? null,
-      score:         r.score ?? null,
-      adjustment:    r.adjustment ?? null,
-    }));
+    return rows
+      .map(({ item, announcement }) => ({
+        ...item,
+        type:      item.type as FormatChange['type'],
+        status:    item.status as FormatChange['status'],
+        createdAt: item.createdAt.toISOString(),
+        updatedAt: item.updatedAt.toISOString(),
+
+        date:   item.effectiveDate ?? announcement.effectiveDate ?? announcement.date,
+        source: announcement.source,
+        name:   announcement.name,
+        link:   announcement.link,
+      }))
+      .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.order - b.order);
   });
 
 export const formatTrpc = {

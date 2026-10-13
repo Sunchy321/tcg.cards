@@ -8,7 +8,7 @@
         "@turbo/gen": "^2.8.12",
       },
       "devDependencies": {
-        "@types/bun": "latest",
+        "@types/bun": "^1.4.1",
         "@types/node": "^25.3.3",
       },
       "peerDependencies": {

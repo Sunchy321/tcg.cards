@@ -154,7 +154,6 @@ export const tagUpdateInput = tagGetInput.extend({
   rawName:           nullableText,
   rawType:           nullableText,
   rawNames:          z.array(z.string().trim().min(1).max(200)).default([]),
-  valueKind:         z.string().trim().min(1).max(64),
   normalizeKind:     z.string().trim().min(1).max(64),
   normalizeConfig:   jsonConfig.default({}),
   projectTargetType: nullableText,

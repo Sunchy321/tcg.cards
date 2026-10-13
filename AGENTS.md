@@ -4,6 +4,24 @@
 
 **NEVER revert design decisions previously made without the user's explicit request.**
 
+**NEVER commit on your own unless the user explicitly instructs you to commit.**
+
+**NEVER surface development-time concepts in the user-facing frontend UI** — design decisions, design process, internal naming, or pipeline/table/step jargon (e.g. schema names, table names, stage names, review kinds, field paths) must not appear in interface text or be dumped as raw JSON to the screen. UI copy must use product/user language.
+
+## Agent skills
+
+### Issue tracker
+
+Specs and tickets live as local markdown under `.scratch/<feature>/`, which is git-ignored. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical triage roles use their default strings. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: root `CONTEXT.md` plus `docs/adr/`. See `docs/agents/domain.md`.
+
 ## Code Style
 
 For code style (comments, frontend code, naming), see [docs/code-style.md](./docs/code-style.md).
@@ -14,7 +32,7 @@ Use `docs/project-architecture.md` and `docs/project-architecture.zh-CN.md` as t
 
 When a new requirement changes those stable boundaries, update the architecture docs in both languages together.
 
-Keep project-level architecture in `docs/`. Keep requirement-specific design work in `proposals/`, `specs/`, and `archive/`.
+Keep project-level architecture in `docs/`. Requirement-specific design work lives in the issue tracker; the decisions that outlive it belong in `CONTEXT.md` or `docs/adr/`.
 
 ## Workspace Boundaries
 
@@ -29,51 +47,27 @@ Relative cross-package paths hide the dependency from the build graph, so turbo 
 
 ## Delivery Workflow
 
-When a non-simple requirement is given, first create a design proposal under the `proposals/` folder.
+Route work through the engineering skills instead of inventing a process:
 
-Simple requirements do not need a proposal, review, or implementation plan. Complete them directly.
+- **A small, self-contained change** — one focused change, with no new architecture, no cross-module refactoring, no data migration, and no ambiguous technical decision. Just implement it. No spec, no tickets.
+- **Anything bigger** — `/grill-with-docs` to sharpen the idea, `/to-spec` to record it, `/to-tickets` to split it into tracer-bullet tickets, then `/implement` one ticket at a time.
+- **A hard bug** — `/diagnosing-bugs`. **Incoming bug reports and feature requests** — `/triage`. **An effort too big or too foggy to hold in one session** — `/wayfinder`.
 
-A requirement is simple when it only involves one focused change and does not introduce new architecture, cross-module refactoring, data migration, or ambiguous technical decisions.
+Design decisions belong to the user. Never settle one yourself; ask.
 
-Examples of simple requirements include small documentation updates, minor text changes, localized refactors, and small configuration adjustments.
+Specs and tickets are working artifacts of the issue tracker (see `docs/agents/issue-tracker.md`) and are written in Simplified Chinese. Neither outlives the work it describes.
 
-For non-simple requirements, keep the active design work in `proposals/` until the design is reviewed and approved.
+Long-term memory is `CONTEXT.md` — a glossary, never implementation details and never a spec — and `docs/adr/`, which only takes decisions that are hard to reverse, lose their meaning without context, and involved a real trade-off. Both are written in English and both are committed.
 
-After a proposal is reviewed and the design direction is accepted, move the finalized design package to `specs/`.
-
-The `specs/` folder contains approved designs that are ready to guide implementation. A spec package may include the finalized design, review, implementation plan, and any supporting notes.
-
-Within a proposal or spec package, use these standard filenames:
-
-- `design.md` for the design document
-- `review.md` for the design review
-- `plan.md` for the implementation plan
-
-When moving a completed spec package into `archive/`, keep the original `design.md`, `review.md`, and `plan.md` files and also add a `summary.md`.
-
-The `summary.md` file must be the primary entry point for future lookup. It should tell readers to check `summary.md` first and only open `design.md`, `review.md`, or `plan.md` when they need detailed design reasoning, review history, or implementation history.
-
-After the related implementation is completed and the spec is no longer active, move the finalized spec package to `archive/`.
-
-Temporary proposals that are only used to reason through a small or discarded idea should be deleted when finished. Do not move temporary proposals to `archive/`.
-
-Do not leave finalized design artifacts split across `proposals/`, `reviews/`, `plans/`, and `docs/`. Consolidate finalized design, review, and plan artifacts under the relevant `specs/<requirement>/` folder.
-
-Each plan must include a todo list at the beginning of the same file. The todo list must be derived from the plan.
-
-During implementation, follow the todo list and the plan strictly.
-
-Mark each todo item as completed immediately after finishing it.
+Work tickets from the tracker, and mark a ticket done as soon as it is done.
 
 After a feature is completed, do not run linting unless the user explicitly asks for it.
 
 If the user explicitly asks for step-by-step execution, implement only one planned step per turn, then pause and wait for the user's next instruction before continuing.
 
-All content created in the `proposals/`, `specs/`, and `archive/` folders must be written in Simplified Chinese.
+Never delete a document the user created. This covers `CONTEXT.md`, `docs/adr/`, and everything else under `docs/`.
 
-If a temporary proposal file is created by the agent as part of reasoning through a task and is not promoted to `specs/`, delete it after the task is completed.
-
-If a design document, review file, plan file, proposal, spec, or archive file was created by the user, the agent must not delete it.
+## Database Schema Classification
 
 When adding a new database table, first classify it as `{game}`, `{game}_data`, or `{game}_app` before implementation.
 
@@ -125,7 +119,7 @@ Use Conventional Commits for all commit messages.
 
 Keep commit messages to a single line. Only include body text when explicitly requested.
 
-Do not create commits directly. Always show the proposed commit message to the user first, wait for explicit confirmation, and only then create the commit.
+When the user asks to commit, create the commit directly without waiting for confirmation of the commit message, then show the commit message after the commit is created.
 
 Use the most specific reasonable scope when writing commit messages. Follow the repository's existing style and prefer fine-grained scopes such as `console/magic`, `db/magic`, `watcher/magic`, `hearthstone`, `ui`, or `sync` instead of broad generic scopes when applicable.
 

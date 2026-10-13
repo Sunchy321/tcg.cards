@@ -50,7 +50,7 @@ export interface RawCard {
   object:               'card';
   oracle_id:            UUID;
   prints_search_uri:    URI;
-  ruling_uri:           URI;
+  rulings_uri:          URI;
   scryfall_uri:         URI;
   uri:                  URI;
 
@@ -77,11 +77,14 @@ export interface RawCard {
   power?:           string;
   produced_mana?:   Manas;
   reserved:         boolean;
+  game_changer:     boolean;
+  resource_id?:     string;
   toughness?:       string;
   type_line:        string;
 
   // Print Fields
   artist?:            string;
+  artist_ids?:        UUID[];
   attraction_lights?: number[];
   booster:            boolean;
   border_color:       string;

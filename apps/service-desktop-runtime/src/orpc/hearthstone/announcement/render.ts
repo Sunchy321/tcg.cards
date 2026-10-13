@@ -238,8 +238,6 @@ export const renderItems = os
       RENDERABLE_TYPES.includes(i.type as typeof RENDERABLE_TYPES[number]) && i.cardId,
     );
 
-    console.log('[renderItems] received', { count: cardItems.length, version: input.version, langs: input.langs });
-
     const langs = input.langs.length > 0
       ? input.langs
       : [...locale.options];
@@ -248,8 +246,6 @@ export const renderItems = os
       version:     input.version,
       lastVersion: input.lastVersion,
     }, langs);
-
-    console.log('[renderItems] done', results.map(r => ({ side: r.side, hash: r.renderHash?.slice(0, 8), error: r.error, skipped: r.skipped })));
 
     return {
       results: results.map(r => ({

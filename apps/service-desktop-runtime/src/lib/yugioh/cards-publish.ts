@@ -12,12 +12,16 @@ import {
 import { createDb } from '@tcg-cards/db';
 import {
   Card as LocalCard,
+  CardLocalization as LocalCardLocalization,
+  CardNameVariant as LocalCardNameVariant,
   PublishBaseline,
   PublishBatch,
   PublishBatchRow,
 } from '@tcg-cards/db/schema/local/yugioh';
 import {
   Card as RemoteCard,
+  CardLocalization as RemoteCardLocalization,
+  CardNameVariant as RemoteCardNameVariant,
   PublishLedger,
 } from '@tcg-cards/db/schema/remote/yugioh';
 
@@ -25,8 +29,12 @@ import { resolveYugiohPublishTarget } from '../runtime/desktop-database';
 import { getYugiohLocalDb } from './yugioh-local-db';
 import { requireYugiohPublishTarget } from './publish-target';
 
-/** Complete shared-domain card row included in local and remote manifests. */
-export type PublishCardRow = typeof LocalCard.$inferSelect;
+/** Complete shared-domain card bundle included in local and remote manifests. */
+export interface PublishCardRow {
+  card: typeof LocalCard.$inferSelect;
+  localizations: Array<typeof LocalCardLocalization.$inferSelect>;
+  nameVariants: Array<typeof LocalCardNameVariant.$inferSelect>;
+}
 
 /** Aggregate row counts retained for one publish plan. */
 export interface CardPublishCounts {
@@ -92,42 +100,30 @@ function hashJson(value: unknown) {
 /** Stable JSON-safe domain fields retained in each card row hash. */
 function serializableCard(card: PublishCardRow) {
   return {
-    id: card.id,
-    cid: card.cid,
-    password: card.password,
-    cnName: card.cnName,
-    scName: card.scName,
-    mdName: card.mdName,
-    nwbbsName: card.nwbbsName,
-    cnocgName: card.cnocgName,
-    jpRuby: card.jpRuby,
-    jpName: card.jpName,
-    enName: card.enName,
-    mdEnName: card.mdEnName,
-    wikiEnName: card.wikiEnName,
-    setExt: card.setExt,
-    typesText: card.typesText,
-    pendulumDescription: card.pendulumDescription,
-    description: card.description,
-    ot: card.ot,
-    setcode: card.setcode?.toString() ?? null,
-    type: card.type,
-    attack: card.attack,
-    defense: card.defense,
-    level: card.level,
-    race: card.race,
-    attribute: card.attribute,
-    primaryImageR2Bucket: card.primaryImageR2Bucket,
-    primaryImageR2Key: card.primaryImageR2Key,
-    primaryImageContentType: card.primaryImageContentType,
-    primaryImageByteSize: card.primaryImageByteSize,
-    primaryImageWidth: card.primaryImageWidth,
-    primaryImageHeight: card.primaryImageHeight,
-    primaryImageSha256: card.primaryImageSha256,
-    primaryImageDeletedAt: card.primaryImageDeletedAt?.toISOString() ?? null,
-    createdAt: card.createdAt.toISOString(),
-    updatedAt: card.updatedAt.toISOString(),
-    deletedAt: card.deletedAt?.toISOString() ?? null,
+    card: {
+      ...card.card,
+      setcode: card.card.setcode?.toString() ?? null,
+      primaryImageDeletedAt: card.card.primaryImageDeletedAt?.toISOString() ?? null,
+      createdAt: card.card.createdAt.toISOString(),
+      updatedAt: card.card.updatedAt.toISOString(),
+      deletedAt: card.card.deletedAt?.toISOString() ?? null,
+    },
+    localizations: [...card.localizations]
+      .sort((left, right) => left.locale.localeCompare(right.locale, 'en'))
+      .map(localization => ({
+        ...localization,
+        createdAt: localization.createdAt.toISOString(),
+        updatedAt: localization.updatedAt.toISOString(),
+        deletedAt: localization.deletedAt?.toISOString() ?? null,
+      })),
+    nameVariants: [...card.nameVariants]
+      .sort((left, right) => left.kind.localeCompare(right.kind, 'en'))
+      .map(variant => ({
+        ...variant,
+        createdAt: variant.createdAt.toISOString(),
+        updatedAt: variant.updatedAt.toISOString(),
+        deletedAt: variant.deletedAt?.toISOString() ?? null,
+      })),
   };
 }
 
@@ -141,8 +137,8 @@ export function buildCardPublishPlan(
   cards: PublishCardRow[],
   previous: Map<number, string>,
 ): CardPublishPlan {
-  const sorted = [...cards].sort((left, right) => left.id - right.id);
-  const currentIds = new Set(sorted.map(card => card.id));
+  const sorted = [...cards].sort((left, right) => left.card.id - right.card.id);
+  const currentIds = new Set(sorted.map(card => card.card.id));
 
   for (const cardId of previous.keys()) {
     if (!currentIds.has(cardId)) {
@@ -152,7 +148,7 @@ export function buildCardPublishPlan(
 
   const rows = sorted.map(card => {
     const rowHash = hashCardRow(card);
-    const previousRowHash = previous.get(card.id) ?? null;
+    const previousRowHash = previous.get(card.card.id) ?? null;
     const action = previousRowHash == null
       ? 'insert' as const
       : previousRowHash === rowHash
@@ -160,7 +156,7 @@ export function buildCardPublishPlan(
         : 'update' as const;
 
     return {
-      cardId: card.id,
+      cardId: card.card.id,
       rowHash,
       previousRowHash,
       action,
@@ -188,33 +184,37 @@ export function assertRemoteIdentityCompatible(
   localCards: PublishCardRow[],
   remoteCards: PublishCardRow[],
 ) {
-  const localById = new Map(localCards.map(card => [card.id, card]));
-  const localByCid = new Map(localCards.filter(card => card.cid != null).map(card => [card.cid!, card.id]));
-  const localByPassword = new Map(localCards.filter(card => card.password != null).map(card => [card.password!, card.id]));
+  const localById = new Map(localCards.map(card => [card.card.id, card]));
+  const localByCid = new Map(localCards
+    .filter(card => card.card.cid != null)
+    .map(card => [card.card.cid!, card.card.id]));
+  const localByPassword = new Map(localCards
+    .filter(card => card.card.password != null)
+    .map(card => [card.card.password!, card.card.id]));
 
   for (const remote of remoteCards) {
-    if (!localById.has(remote.id)) {
+    if (!localById.has(remote.card.id)) {
       throw new RemoteIdentityDriftError(
-        `Remote card ${remote.id} does not exist in the local authoritative dataset.`,
+        `Remote card ${remote.card.id} does not exist in the local authoritative dataset.`,
       );
     }
 
-    if (remote.cid != null) {
-      const localCardId = localByCid.get(remote.cid);
+    if (remote.card.cid != null) {
+      const localCardId = localByCid.get(remote.card.cid);
 
-      if (localCardId != null && localCardId !== remote.id) {
+      if (localCardId != null && localCardId !== remote.card.id) {
         throw new RemoteIdentityDriftError(
-          `Remote cid ${remote.cid} belongs to card ${remote.id}, but local assigns it to ${localCardId}.`,
+          `Remote cid ${remote.card.cid} belongs to card ${remote.card.id}, but local assigns it to ${localCardId}.`,
         );
       }
     }
 
-    if (remote.password != null) {
-      const localCardId = localByPassword.get(remote.password);
+    if (remote.card.password != null) {
+      const localCardId = localByPassword.get(remote.card.password);
 
-      if (localCardId != null && localCardId !== remote.id) {
+      if (localCardId != null && localCardId !== remote.card.id) {
         throw new RemoteIdentityDriftError(
-          `Remote password ${remote.password} belongs to card ${remote.id}, but local assigns it to ${localCardId}.`,
+          `Remote password ${remote.card.password} belongs to card ${remote.card.id}, but local assigns it to ${localCardId}.`,
         );
       }
     }
@@ -271,7 +271,7 @@ export function assertRemoteRowsRecoverable(
     status: string;
   }>,
 ) {
-  const remoteById = new Map(remoteCards.map(card => [card.id, card]));
+  const remoteById = new Map(remoteCards.map(card => [card.card.id, card]));
 
   for (const row of rows) {
     const remote = remoteById.get(row.cardId);
@@ -366,65 +366,16 @@ function buildPublishReport(batch: typeof PublishBatch.$inferSelect): YugiohPubl
   };
 }
 
-/** Values copied from one local card while preserving its authoritative ID. */
+/** Card facts copied from one local bundle while preserving its authoritative ID. */
 export function buildRemoteCardValues(card: PublishCardRow) {
   return {
-    id: card.id,
-    cid: card.cid,
-    password: card.password,
-    cnName: card.cnName,
-    scName: card.scName,
-    mdName: card.mdName,
-    nwbbsName: card.nwbbsName,
-    cnocgName: card.cnocgName,
-    jpRuby: card.jpRuby,
-    jpName: card.jpName,
-    enName: card.enName,
-    mdEnName: card.mdEnName,
-    wikiEnName: card.wikiEnName,
-    setExt: card.setExt,
-    typesText: card.typesText,
-    pendulumDescription: card.pendulumDescription,
-    description: card.description,
-    ot: card.ot,
-    setcode: card.setcode,
-    type: card.type,
-    attack: card.attack,
-    defense: card.defense,
-    level: card.level,
-    race: card.race,
-    attribute: card.attribute,
-    primaryImageR2Bucket: card.primaryImageR2Bucket,
-    primaryImageR2Key: card.primaryImageR2Key,
-    primaryImageContentType: card.primaryImageContentType,
-    primaryImageByteSize: card.primaryImageByteSize,
-    primaryImageWidth: card.primaryImageWidth,
-    primaryImageHeight: card.primaryImageHeight,
-    primaryImageSha256: card.primaryImageSha256,
-    primaryImageDeletedAt: card.primaryImageDeletedAt,
-    createdAt: card.createdAt,
-    updatedAt: card.updatedAt,
-    deletedAt: card.deletedAt,
+    ...card.card,
   };
 }
 
 const remoteConflictValues = {
   cid: sql`excluded.cid`,
   password: sql`excluded.password`,
-  cnName: sql`excluded.cn_name`,
-  scName: sql`excluded.sc_name`,
-  mdName: sql`excluded.md_name`,
-  nwbbsName: sql`excluded.nwbbs_name`,
-  cnocgName: sql`excluded.cnocg_name`,
-  jpRuby: sql`excluded.jp_ruby`,
-  jpName: sql`excluded.jp_name`,
-  enName: sql`excluded.en_name`,
-  mdEnName: sql`excluded.md_en_name`,
-  wikiEnName: sql`excluded.wiki_en_name`,
-  setExt: sql`excluded.set_ext`,
-  typesText: sql`excluded.types_text`,
-  pendulumDescription: sql`excluded.pendulum_description`,
-  description: sql`excluded.description`,
   ot: sql`excluded.ot`,
   setcode: sql`excluded.setcode`,
   type: sql`excluded.type`,
@@ -446,6 +397,53 @@ const remoteConflictValues = {
   deletedAt: sql`excluded.deleted_at`,
 };
 
+/** Localized rows copied to remote while preserving their composite identity. */
+function buildRemoteLocalizationValues(card: PublishCardRow) {
+  return card.localizations.map(localization => ({
+    cardId: localization.cardId,
+    locale: localization.locale,
+    name: localization.name,
+    nameRuby: localization.nameRuby,
+    typesText: localization.typesText,
+    pendulumDescription: localization.pendulumDescription,
+    description: localization.description,
+    createdAt: localization.createdAt,
+    updatedAt: localization.updatedAt,
+    deletedAt: localization.deletedAt,
+  }));
+}
+
+/** Searchable name-variant rows copied to remote with their named identity intact. */
+function buildRemoteNameVariantValues(card: PublishCardRow) {
+  return card.nameVariants.map(variant => ({
+    cardId: variant.cardId,
+    locale: variant.locale,
+    kind: variant.kind,
+    name: variant.name,
+    createdAt: variant.createdAt,
+    updatedAt: variant.updatedAt,
+    deletedAt: variant.deletedAt,
+  }));
+}
+
+const remoteLocalizationConflictValues = {
+  name: sql`excluded.name`,
+  nameRuby: sql`excluded.name_ruby`,
+  typesText: sql`excluded.types_text`,
+  pendulumDescription: sql`excluded.pendulum_description`,
+  description: sql`excluded.description`,
+  createdAt: sql`excluded.created_at`,
+  updatedAt: sql`excluded.updated_at`,
+  deletedAt: sql`excluded.deleted_at`,
+};
+
+const remoteNameVariantConflictValues = {
+  name: sql`excluded.name`,
+  createdAt: sql`excluded.created_at`,
+  updatedAt: sql`excluded.updated_at`,
+  deletedAt: sql`excluded.deleted_at`,
+};
+
 /** Array split into bounded chunks for database writes. */
 function chunkValues<T>(values: T[], size: number) {
   const chunks: T[][] = [];
@@ -455,6 +453,56 @@ function chunkValues<T>(values: T[], size: number) {
   }
 
   return chunks;
+}
+
+/** Groups shared card rows and their dependent rows into deterministic publication bundles. */
+function buildPublishCards(
+  cards: Array<typeof LocalCard.$inferSelect>,
+  localizations: Array<typeof LocalCardLocalization.$inferSelect>,
+  nameVariants: Array<typeof LocalCardNameVariant.$inferSelect>,
+): PublishCardRow[] {
+  const localizationsByCardId = new Map<number, Array<typeof LocalCardLocalization.$inferSelect>>();
+  const nameVariantsByCardId = new Map<number, Array<typeof LocalCardNameVariant.$inferSelect>>();
+
+  for (const localization of localizations) {
+    const values = localizationsByCardId.get(localization.cardId) ?? [];
+    values.push(localization);
+    localizationsByCardId.set(localization.cardId, values);
+  }
+
+  for (const variant of nameVariants) {
+    const values = nameVariantsByCardId.get(variant.cardId) ?? [];
+    values.push(variant);
+    nameVariantsByCardId.set(variant.cardId, values);
+  }
+
+  return cards.map(card => ({
+    card,
+    localizations: localizationsByCardId.get(card.id) ?? [],
+    nameVariants: nameVariantsByCardId.get(card.id) ?? [],
+  }));
+}
+
+/** Complete local card bundles loaded for one deterministic publication snapshot. */
+async function loadLocalPublishCards(db: ReturnType<typeof getYugiohLocalDb>) {
+  const [cards, localizations, nameVariants] = await Promise.all([
+    db.select().from(LocalCard).orderBy(asc(LocalCard.id)),
+    db.select().from(LocalCardLocalization).orderBy(asc(LocalCardLocalization.cardId)),
+    db.select().from(LocalCardNameVariant).orderBy(asc(LocalCardNameVariant.cardId)),
+  ]);
+
+  return buildPublishCards(cards, localizations, nameVariants);
+}
+
+/** Complete remote card bundles loaded for publication verification and recovery. */
+async function loadRemotePublishCards(db: ReturnType<typeof createDb>) {
+  const [cards, localizations, nameVariants] = await Promise.all([
+    db.select().from(RemoteCard).orderBy(asc(RemoteCard.id)),
+    db.select().from(RemoteCardLocalization).orderBy(asc(RemoteCardLocalization.cardId)),
+    db.select().from(RemoteCardNameVariant).orderBy(asc(RemoteCardNameVariant.cardId)),
+  ]);
+
+  return buildPublishCards(cards, localizations, nameVariants);
 }
 
 /** Previous completed per-card hashes loaded for one publish target. */
@@ -489,7 +537,7 @@ async function loadPreviousHashes(
 export async function createYugiohPublishPlan() {
   const target = requireYugiohPublishTarget();
   const db = getYugiohLocalDb();
-  const cards = await db.select().from(LocalCard).orderBy(asc(LocalCard.id));
+  const cards = await loadLocalPublishCards(db);
   const { baseline, hashes } = await loadPreviousHashes(db, target.publishTargetId);
   const plan = buildCardPublishPlan(cards, hashes);
   const batch = await db.insert(PublishBatch).values({
@@ -593,7 +641,7 @@ export async function executeYugiohPublishBatch(
   const remoteDb = createDb(target.connectionString);
 
   try {
-    const localCards = await localDb.select().from(LocalCard).orderBy(asc(LocalCard.id));
+    const localCards = await loadLocalPublishCards(localDb);
     const currentManifest = buildCardPublishPlan(localCards, new Map()).manifestHash;
 
     if (currentManifest !== batch.manifestHash) {
@@ -607,7 +655,7 @@ export async function executeYugiohPublishBatch(
       .where(eq(PublishBatchRow.batchId, batch.id))
       .orderBy(asc(PublishBatchRow.cardId));
 
-    const remoteCards = await remoteDb.select().from(RemoteCard).orderBy(asc(RemoteCard.id));
+    const remoteCards = await loadRemotePublishCards(remoteDb);
     const remoteLedger = await remoteDb.select()
       .from(PublishLedger)
       .where(eq(PublishLedger.publishTargetId, target.publishTargetId))
@@ -640,7 +688,7 @@ export async function executeYugiohPublishBatch(
       .where(eq(PublishBatch.id, batch.id));
 
     const pending = selectResumablePublishRows(batchRows);
-    const cardsById = new Map(localCards.map(card => [card.id, card]));
+    const cardsById = new Map(localCards.map(card => [card.card.id, card]));
     const chunks = chunkValues(pending, 500);
     let completedCount = 0;
 
@@ -664,12 +712,41 @@ export async function executeYugiohPublishBatch(
 
       try {
         await remoteDb.transaction(async tx => {
+          const cardIds = cards.map(card => card.card.id);
+          const localizations = cards.flatMap(buildRemoteLocalizationValues);
+          const nameVariants = cards.flatMap(buildRemoteNameVariantValues);
+
           await tx.insert(RemoteCard)
             .values(cards.map(buildRemoteCardValues))
             .onConflictDoUpdate({
               target: RemoteCard.id,
               set: remoteConflictValues,
             });
+
+          await tx.update(RemoteCardLocalization)
+            .set({ deletedAt: new Date(), updatedAt: new Date() })
+            .where(inArray(RemoteCardLocalization.cardId, cardIds));
+          await tx.update(RemoteCardNameVariant)
+            .set({ deletedAt: new Date(), updatedAt: new Date() })
+            .where(inArray(RemoteCardNameVariant.cardId, cardIds));
+
+          if (localizations.length > 0) {
+            await tx.insert(RemoteCardLocalization)
+              .values(localizations)
+              .onConflictDoUpdate({
+                target: [RemoteCardLocalization.cardId, RemoteCardLocalization.locale],
+                set: remoteLocalizationConflictValues,
+              });
+          }
+
+          if (nameVariants.length > 0) {
+            await tx.insert(RemoteCardNameVariant)
+              .values(nameVariants)
+              .onConflictDoUpdate({
+                target: [RemoteCardNameVariant.cardId, RemoteCardNameVariant.locale, RemoteCardNameVariant.kind],
+                set: remoteNameVariantConflictValues,
+              });
+          }
         });
 
         const appliedAt = new Date();
@@ -706,7 +783,7 @@ export async function executeYugiohPublishBatch(
       });
     }
 
-    const finalRemoteCards = await remoteDb.select().from(RemoteCard).orderBy(asc(RemoteCard.id));
+    const finalRemoteCards = await loadRemotePublishCards(remoteDb);
     const remoteManifest = buildCardPublishPlan(finalRemoteCards, new Map()).manifestHash;
 
     assertPublishedManifest(
@@ -719,7 +796,7 @@ export async function executeYugiohPublishBatch(
     const publishedAt = new Date();
 
     await remoteDb.transaction(async tx => {
-      await calibrateRemoteIdentity(tx, finalRemoteCards.map(card => card.id));
+      await calibrateRemoteIdentity(tx, finalRemoteCards.map(card => card.card.id));
       await tx.insert(PublishLedger).values({
         publishTargetId: target.publishTargetId,
         environment: target.environment,

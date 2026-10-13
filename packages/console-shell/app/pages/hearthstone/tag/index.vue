@@ -63,7 +63,6 @@
                 <UBadge :label="tag.status" :color="statusColor(tag.status)" variant="soft" size="xs" />
               </div>
               <div class="mt-2 flex flex-wrap gap-1">
-                <UBadge :label="tag.valueKind" color="neutral" variant="soft" size="xs" />
                 <UBadge :label="tag.normalizeKind" color="neutral" variant="soft" size="xs" />
                 <UBadge v-if="tag.projectKind" :label="tag.projectKind" color="primary" variant="soft" size="xs" />
               </div>
@@ -95,7 +94,7 @@
               variant="ghost"
               :disabled="selectedEnumId == null || detailLoading"
               :loading="detailLoading"
-              @click="selectedEnumId != null && selectTag(selectedEnumId)"
+              @click="{ selectedEnumId != null && selectTag(selectedEnumId); }"
             />
             <UButton label="保存" icon="i-lucide-save" :loading="saving" :disabled="!canSave" @click="saveTag" />
           </div>
@@ -112,7 +111,7 @@
             </div>
             <div class="space-y-1">
               <div class="text-xs text-slate-400">slug</div>
-              <UInput v-model="form.slug" placeholder="唯一 slug" class="w-full" />
+              <UInput v-model="form.slug" placeholder="唯一 slug" autocomplete="off" autocapitalize="none" spellcheck="false" class="w-full" />
             </div>
           </div>
           <div class="grid gap-3 md:grid-cols-2">
@@ -145,11 +144,7 @@
               <UTextarea v-model="form.rawNamesText" :rows="4" placeholder="历史 raw name" class="w-full" />
             </div>
           </div>
-          <div class="grid gap-3 md:grid-cols-3">
-            <div class="space-y-1">
-              <div class="text-xs text-slate-400">valueKind</div>
-              <USelect v-model="form.valueKind" :items="valueKindItems" class="w-full" />
-            </div>
+          <div class="grid gap-3 md:grid-cols-2">
             <div class="space-y-1">
               <div class="text-xs text-slate-400">normalizeKind</div>
               <USelect v-model="form.normalizeKind" :items="normalizeKindItems" class="w-full" />
@@ -244,7 +239,6 @@ const form = reactive({
   rawName:             '',
   rawType:             '',
   rawNamesText:        '',
-  valueKind:           'json',
   normalizeKind:       'identity',
   normalizeConfigText: '{}',
   projectTargetType:   noneValue,
@@ -263,21 +257,11 @@ const statusItems = [
 ];
 const statusFilterItems = [{ label: '全部状态', value: allValue }, ...statusItems];
 
-const valueKindItems = [
-  { label: 'bool', value: 'bool' },
-  { label: 'card_ref', value: 'card_ref' },
-  { label: 'int', value: 'int' },
-  { label: 'json', value: 'json' },
-  { label: 'loc_string', value: 'loc_string' },
-  { label: 'string', value: 'string' },
-];
-
 const normalizeKindItems = [
   { label: 'identity', value: 'identity' },
   { label: 'identity_int', value: 'identity_int' },
   { label: 'identity_string', value: 'identity_string' },
   { label: 'identity_loc_string', value: 'identity_loc_string' },
-  { label: 'identity_card_ref', value: 'identity_card_ref' },
   { label: 'bool_from_int', value: 'bool_from_int' },
   { label: 'enum_from_int', value: 'enum_from_int' },
   { label: 'card_ref_from_int', value: 'card_ref_from_int' },
@@ -336,26 +320,6 @@ function statusColor(status: string) {
   }
 }
 
-function resetForm() {
-  form.enumId = 0;
-  form.slug = '';
-  form.slugAliasesText = '';
-  form.name = '';
-  form.rawName = '';
-  form.rawType = '';
-  form.rawNamesText = '';
-  form.valueKind = 'json';
-  form.normalizeKind = 'identity';
-  form.normalizeConfigText = '{}';
-  form.projectTargetType = noneValue;
-  form.projectTargetPath = '';
-  form.projectKind = noneValue;
-  form.projectConfigText = '{}';
-  form.status = 'discovered';
-  form.description = '';
-  formError.value = '';
-}
-
 function applyTag(tag: TagProfile) {
   selectedTag.value = tag;
   form.enumId = tag.enumId;
@@ -365,7 +329,6 @@ function applyTag(tag: TagProfile) {
   form.rawName = tag.rawName ?? '';
   form.rawType = tag.rawType ?? '';
   form.rawNamesText = tag.rawNames.join('\n');
-  form.valueKind = tag.valueKind;
   form.normalizeKind = tag.normalizeKind;
   form.normalizeConfigText = JSON.stringify(tag.normalizeConfig ?? {}, null, 2);
   form.projectTargetType = tag.projectTargetType ?? noneValue;
@@ -468,7 +431,6 @@ async function saveTag() {
       rawName:           form.rawName.trim() || null,
       rawType:           form.rawType.trim() || null,
       rawNames:          parseLines(form.rawNamesText),
-      valueKind:         form.valueKind,
       normalizeKind:     form.normalizeKind,
       normalizeConfig:   parseNullableJson(form.normalizeConfigText),
       projectTargetType: form.projectTargetType === noneValue ? null : form.projectTargetType,

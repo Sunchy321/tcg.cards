@@ -126,7 +126,7 @@ export const TAG_ID = {
  * Render mechanic numeric IDs, sorted ascending.
  * These are the GAME_TAG enum IDs used as keys in renderModel.renderMechanics.
  *
- * Spec: [hearthstone-image-renderer-protocol](../../../../../docs/hearthstone-image-renderer-protocol.md)
+ * Spec: [hearthstone-image-renderer-protocol](../../../../../docs/hearthstone/image-renderer-protocol.md)
  */
 export const RENDER_MECHANIC_IDS = [
   String(TAG_ID.DATA_NUM_1),

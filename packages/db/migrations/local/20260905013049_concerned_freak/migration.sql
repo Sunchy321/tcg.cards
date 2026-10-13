@@ -1,0 +1,1 @@
+CREATE INDEX "scryfall_cards_oracle_id_idx" ON "magic_data"."scryfall_cards" ("oracle_id");

@@ -57,6 +57,7 @@ const searchCards = os
       lang:    locale,
       groupBy: 'card',
       orderBy: 'id+',
+      dsl:     q,
     });
 
     const cards = result.result?.result ?? [];

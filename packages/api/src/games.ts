@@ -18,8 +18,7 @@ export type GameInfo = z.infer<typeof gameInfo>;
 
 export const games = oc
   .route({
-    method:      'GET',
-    description: 'List supported games',
-    tags:        ['Meta'],
+    method: 'GET',
+    tags:   ['Meta'],
   })
   .output(z.string().array());

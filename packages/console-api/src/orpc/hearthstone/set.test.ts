@@ -3,11 +3,7 @@ import { beforeEach, describe, expect, mock, test } from 'bun:test';
 /** Supported table names used by the set rename tests. */
 type TableName
   = | 'announcement_items'
-    | 'card_changes'
     | 'entities'
-    | 'format_changes'
-    | 'set_changes'
-    | 'set_localizations'
     | 'sets';
 
 /** Simplified drizzle column descriptor for the memory db. */
@@ -24,20 +20,13 @@ interface Table {
 interface SetRow {
   setId:         string;
   dbfId:         number | null;
-  slug:          string | null;
   rawName:       string | null;
+  localization:  Record<string, unknown>;
   type:          string;
   releaseDate:   string;
   cardCountFull: number | null;
   cardCount:     number | null;
   group:         string | null;
-}
-
-/** Stored Hearthstone set localization row used by the memory db. */
-interface SetLocalizationRow {
-  setId: string;
-  lang:  string;
-  name:  string;
 }
 
 /** Stored Hearthstone entity row used by the memory db. */
@@ -52,41 +41,16 @@ interface AnnouncementItemRow {
   setId: string | null;
 }
 
-/** Stored Hearthstone card change row used by the memory db. */
-interface CardChangeRow {
-  cardId: string;
-  setId:  string | null;
-}
-
-/** Stored Hearthstone set change row used by the memory db. */
-interface SetChangeRow {
-  setId: string;
-}
-
-/** Stored Hearthstone format change row used by the memory db. */
-interface FormatChangeRow {
-  format: string;
-  setId:  string | null;
-}
-
 /** Memory db row union used by the query builders. */
 type Row
   = | AnnouncementItemRow
-    | CardChangeRow
     | EntityRow
-    | FormatChangeRow
-    | SetChangeRow
-    | SetLocalizationRow
     | SetRow;
 
 /** Memory db state used by the rename tests. */
 interface MemoryState {
   announcementItems: AnnouncementItemRow[];
-  cardChanges:       CardChangeRow[];
   entities:          EntityRow[];
-  formatChanges:     FormatChangeRow[];
-  setChanges:        SetChangeRow[];
-  setLocalizations:  SetLocalizationRow[];
   sets:              SetRow[];
 }
 
@@ -106,19 +70,13 @@ function table(tableName: TableName, columns: string[]): Table & Record<string, 
 const Set = table('sets', [
   'setId',
   'dbfId',
-  'slug',
   'rawName',
+  'localization',
   'type',
   'releaseDate',
   'cardCountFull',
   'cardCount',
   'group',
-]);
-
-const SetLocalization = table('set_localizations', [
-  'setId',
-  'lang',
-  'name',
 ]);
 
 const Entity = table('entities', [
@@ -128,20 +86,6 @@ const Entity = table('entities', [
 
 const AnnouncementItem = table('announcement_items', [
   'id',
-  'setId',
-]);
-
-const CardChange = table('card_changes', [
-  'cardId',
-  'setId',
-]);
-
-const SetChange = table('set_changes', [
-  'setId',
-]);
-
-const FormatChange = table('format_changes', [
-  'format',
   'setId',
 ]);
 
@@ -397,23 +341,15 @@ class MemorySetDb {
   /** Stored rows read for one mocked table. */
   readRows(tableName: TableName): Row[] {
     if (tableName === 'sets') return this.state.sets;
-    if (tableName === 'set_localizations') return this.state.setLocalizations;
     if (tableName === 'entities') return this.state.entities;
-    if (tableName === 'announcement_items') return this.state.announcementItems;
-    if (tableName === 'card_changes') return this.state.cardChanges;
-    if (tableName === 'set_changes') return this.state.setChanges;
-    return this.state.formatChanges;
+    return this.state.announcementItems;
   }
 
   /** Stored rows inserted into one mocked table. */
   insertRows(tableName: TableName, rows: Row[]) {
     if (tableName === 'sets') this.state.sets.push(...rows as SetRow[]);
-    else if (tableName === 'set_localizations') this.state.setLocalizations.push(...rows as SetLocalizationRow[]);
     else if (tableName === 'entities') this.state.entities.push(...rows as EntityRow[]);
-    else if (tableName === 'announcement_items') this.state.announcementItems.push(...rows as AnnouncementItemRow[]);
-    else if (tableName === 'card_changes') this.state.cardChanges.push(...rows as CardChangeRow[]);
-    else if (tableName === 'set_changes') this.state.setChanges.push(...rows as SetChangeRow[]);
-    else this.state.formatChanges.push(...rows as FormatChangeRow[]);
+    else this.state.announcementItems.push(...rows as AnnouncementItemRow[]);
   }
 
   /** Stored rows updated for one mocked table. */
@@ -432,12 +368,8 @@ class MemorySetDb {
     const deleted = rows.filter(row => matchesCondition(row, condition)).map(row => structuredClone(row));
 
     if (tableName === 'sets') this.state.sets = kept as SetRow[];
-    else if (tableName === 'set_localizations') this.state.setLocalizations = kept as SetLocalizationRow[];
     else if (tableName === 'entities') this.state.entities = kept as EntityRow[];
-    else if (tableName === 'announcement_items') this.state.announcementItems = kept as AnnouncementItemRow[];
-    else if (tableName === 'card_changes') this.state.cardChanges = kept as CardChangeRow[];
-    else if (tableName === 'set_changes') this.state.setChanges = kept as SetChangeRow[];
-    else this.state.formatChanges = kept as FormatChangeRow[];
+    else this.state.announcementItems = kept as AnnouncementItemRow[];
 
     return deleted;
   }
@@ -446,11 +378,7 @@ class MemorySetDb {
   private createState(): MemoryState {
     return {
       announcementItems: [],
-      cardChanges:       [],
       entities:          [],
-      formatChanges:     [],
-      setChanges:        [],
-      setLocalizations:  [],
       sets:              [],
     };
   }
@@ -461,12 +389,9 @@ const memoryDb = new MemorySetDb();
 mock.module('@tcg-cards/db/db', () => ({ db: memoryDb }));
 mock.module('@tcg-cards/db/schema/shared/hearthstone', () => ({
   AnnouncementItem,
-  CardChange,
+  BaseEntity: Entity,
   Entity,
-  FormatChange,
   Set,
-  SetChange,
-  SetLocalization,
 }));
 
 const { updateSetProfile } = await import('./set');
@@ -476,8 +401,8 @@ function makeSet(setId: string): SetRow {
   return {
     setId,
     dbfId:         10,
-    slug:          null,
     rawName:       null,
+    localization:  {},
     type:          'unknown',
     releaseDate:   '',
     cardCountFull: null,
@@ -493,56 +418,46 @@ beforeEach(() => {
 describe('updateSetProfile', () => {
   test('renames setId and syncs dependent tables', async () => {
     memoryDb.state.sets.push(makeSet('__hsdata_missing_set_dbf_10'));
-    memoryDb.state.setLocalizations.push({ setId: '__hsdata_missing_set_dbf_10', lang: 'en', name: 'Placeholder' });
     memoryDb.state.entities.push({ cardId: 'CARD_001', set: '__hsdata_missing_set_dbf_10' });
     memoryDb.state.announcementItems.push({ id: 'announcement-1', setId: '__hsdata_missing_set_dbf_10' });
-    memoryDb.state.cardChanges.push({ cardId: 'CARD_001', setId: '__hsdata_missing_set_dbf_10' });
-    memoryDb.state.setChanges.push({ setId: '__hsdata_missing_set_dbf_10' });
-    memoryDb.state.formatChanges.push({ format: 'standard', setId: '__hsdata_missing_set_dbf_10' });
 
     const result = await updateSetProfile({
       originalSetId: '__hsdata_missing_set_dbf_10',
       setId:         'CORE',
       dbfId:         10,
-      slug:          'core',
       rawName:       'CORE',
       type:          'core',
       releaseDate:   '2024-01-01',
       cardCountFull: 145,
       cardCount:     145,
       group:         null,
-      localization:  [
-        { lang: 'en', name: 'Core' },
-        { lang: 'zhs', name: '核心' },
-      ],
+      localization:  {
+        en:  { full: 'Core' },
+        zhs: { full: '核心' },
+      },
     });
 
     expect(result).toMatchObject({
       setId:       'CORE',
       dbfId:       10,
-      slug:        'core',
       rawName:     'CORE',
       type:        'core',
       releaseDate: '2024-01-01',
     });
+    expect(result.localization).toEqual({
+      en:  { full: 'Core' },
+      zhs: { full: '核心' },
+    });
     expect(memoryDb.state.sets).toEqual([
       expect.objectContaining({
         setId:       'CORE',
-        slug:        'core',
         rawName:     'CORE',
         type:        'core',
         releaseDate: '2024-01-01',
       }),
     ]);
-    expect(memoryDb.state.setLocalizations).toEqual([
-      { setId: 'CORE', lang: 'en', name: 'Core' },
-      { setId: 'CORE', lang: 'zhs', name: '核心' },
-    ]);
     expect(memoryDb.state.entities[0]?.set).toBe('CORE');
     expect(memoryDb.state.announcementItems[0]?.setId).toBe('CORE');
-    expect(memoryDb.state.cardChanges[0]?.setId).toBe('CORE');
-    expect(memoryDb.state.setChanges[0]?.setId).toBe('CORE');
-    expect(memoryDb.state.formatChanges[0]?.setId).toBe('CORE');
   });
 
   test('rejects conflicting target setId', async () => {
@@ -554,14 +469,13 @@ describe('updateSetProfile', () => {
       originalSetId: 'CORE',
       setId:         'EXPERT1',
       dbfId:         10,
-      slug:          null,
       rawName:       null,
       type:          'core',
       releaseDate:   '',
       cardCountFull: null,
       cardCount:     null,
       group:         null,
-      localization:  [],
+      localization:  {},
     })).rejects.toThrow('Set EXPERT1 already exists');
 
     expect(memoryDb.state).toEqual(snapshot);

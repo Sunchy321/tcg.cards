@@ -6,9 +6,10 @@ import { locale as hearthstoneLocale } from './hearthstone/schema/basic';
 export const locale = z.enum(['en', 'zhs']);
 
 export const globalConfig = z.strictObject({
-  lang:        locale.default('zhs'),
-  gameLocales: z.record(z.string(), z.string()).default({}),
-  theme:       z.enum(['light', 'dark', 'auto']).default('auto'),
+  lang:         locale.default('zhs'),
+  gameLocales:  z.record(z.string(), z.string()).default({}),
+  theme:        z.enum(['light', 'dark', 'auto']).default('auto'),
+  searchLayout: z.enum(['grid', 'list', 'table']).default('grid'),
 }).strip();
 
 export type GlobalConfig = z.infer<typeof globalConfig>;

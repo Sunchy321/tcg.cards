@@ -6,9 +6,8 @@ import { locale } from '@tcg-cards/model/magic/schema/basic';
 import { printView } from '@tcg-cards/model/magic/schema/print';
 
 const basic = defineFactTableContract({
-  description: 'Get a print by card, set, number, language and part index',
-  tags:        ['Magic', 'Print'],
-  pk:          {
+  tags: ['Magic', 'Print'],
+  pk:   {
     cardId:    { schema: z.string() },
     set:       { schema: z.string() },
     number:    { schema: z.string() },

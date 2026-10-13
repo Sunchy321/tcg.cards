@@ -2,9 +2,8 @@ const localDatabaseUrlOverride = {
   current: null as string | null,
 };
 
-const hsdataRepoPathOverride = {
-  current: null as string | null,
-};
+/** Generic data/image directory paths keyed by dotted `{game}.{ns}.{leaf}`. */
+const pathOverrides = new Map<string, string>();
 
 /** Image-settings override payload injected by the desktop shell. */
 export interface HearthstoneImageOverride {
@@ -30,10 +29,42 @@ const hearthstonePublishTargetOverrides = {
 
 /** Publish-target override payload injected for the Yu-Gi-Oh! desktop workflow. */
 export interface YugiohPublishTargetOverride {
-  publishTargetId: string | null;
-  environment: string | null;
+  publishTargetId:   string | null;
+  environment:       string | null;
   targetFingerprint: string | null;
-  connectionString: string | null;
+  connectionString:  string | null;
+}
+
+/** Publish-target override payload injected for the magic desktop workflow. */
+export interface MagicPublishTargetOverride {
+  publishTarget:     string | null;
+  environment:       string | null;
+  targetFingerprint: string | null;
+  connectionString:  string | null;
+}
+
+const magicPublishTargetOverrides = {
+  current: [] as MagicPublishTargetOverride[],
+};
+
+/** Stores runtime-local magic publish target overrides provided by the desktop shell. */
+export function setMagicPublishTargetOverrides(value: MagicPublishTargetOverride[]) {
+  magicPublishTargetOverrides.current = value;
+}
+
+/** Lists runtime-local magic publish target overrides. */
+export function readMagicPublishTargetOverrides() {
+  return magicPublishTargetOverrides.current;
+}
+
+/** Reports whether the runtime has any complete magic publish target override. */
+export function hasMagicPublishTargetOverride() {
+  return readMagicPublishTargetOverrides().some(target => {
+    return target.publishTarget != null
+      && target.environment != null
+      && target.targetFingerprint != null
+      && target.connectionString != null;
+  });
 }
 
 const yugiohPublishTargetOverride = {
@@ -64,19 +95,67 @@ export function hasLocalDatabaseUrl() {
   return readLocalDatabaseUrl() != null;
 }
 
-/** Stores one runtime-local hsdata repository path override provided by the desktop shell. */
-export function setHsdataRepoPathOverride(value: string | null) {
-  hsdataRepoPathOverride.current = value?.trim() || null;
+/** Stores one runtime-local path override for a dotted `{game}.{ns}.{leaf}` key. */
+export function setPathOverride(key: string, value: string | null) {
+  const trimmed = value?.trim();
+  if (trimmed) {
+    pathOverrides.set(key, trimmed);
+  } else {
+    pathOverrides.delete(key);
+  }
 }
 
-/** Resolves the active hsdata repository path from the runtime override. */
-export function readHsdataRepoPath() {
-  return hsdataRepoPathOverride.current;
+/** Reads one stored path override without resolving it from its parent. */
+export function readPathOverride(key: string) {
+  return pathOverrides.get(key) ?? null;
 }
 
-/** Reports whether the runtime currently has any usable hsdata repository path configured. */
-export function hasHsdataRepoPath() {
-  return readHsdataRepoPath() != null;
+/** Reports whether a path override is stored for the given key. */
+export function hasPathOverride(key: string) {
+  return pathOverrides.has(key);
+}
+
+/** Nested `{game}.{ns}.{leaf}` path tree as carried by the desktop config sync. */
+export interface PathOverrides {
+  [key: string]: string | PathOverrides;
+}
+
+function flattenPaths(node: PathOverrides, prefix: string, out: Map<string, string>) {
+  for (const [key, value] of Object.entries(node)) {
+    const full = prefix ? `${prefix}.${key}` : key;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed) out.set(full, trimmed);
+    } else {
+      flattenPaths(value, full, out);
+    }
+  }
+}
+
+function nestPaths(flat: Record<string, string>): PathOverrides {
+  const root: PathOverrides = {};
+  for (const [key, value] of Object.entries(flat)) {
+    const parts = key.split('.');
+    let node = root;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const part = parts[i]!;
+      node[part] = (node[part] as PathOverrides | undefined) ?? {};
+      node = node[part] as PathOverrides;
+    }
+    node[parts[parts.length - 1]!] = value;
+  }
+  return root;
+}
+
+/** Replaces all path overrides with one nested snapshot (from the desktop config sync). */
+export function applyPathOverrides(paths: PathOverrides) {
+  pathOverrides.clear();
+  flattenPaths(paths, '', pathOverrides);
+}
+
+/** Snapshot of all stored path overrides as a nested tree for worker transfer. */
+export function readAllPathOverrides(): PathOverrides {
+  return nestPaths(Object.fromEntries(pathOverrides));
 }
 
 /** Stores one runtime-local Hearthstone image override provided by the desktop shell. */
@@ -180,9 +259,10 @@ export function readEditorIdentity() {
 
 export interface RuntimeOverrides {
   localDatabaseUrl:          string | null;
-  hsdataRepoPath:            string | null;
+  paths:                     PathOverrides;
   hearthstoneImage:          HearthstoneImageOverride | null;
   hearthstonePublishTargets: HearthstonePublishTargetOverride[];
+  magicPublishTargets:       MagicPublishTargetOverride[];
   aiConfig:                  AiConfig | null;
   editorIdentity:            string | null;
 }
@@ -191,9 +271,10 @@ export interface RuntimeOverrides {
 export function collectRuntimeOverrides(): RuntimeOverrides {
   return {
     localDatabaseUrl:          readLocalDatabaseUrl(),
-    hsdataRepoPath:            readHsdataRepoPath(),
+    paths:                     readAllPathOverrides(),
     hearthstoneImage:          readHearthstoneImageOverride(),
     hearthstonePublishTargets: readHearthstonePublishTargetOverrides(),
+    magicPublishTargets:       readMagicPublishTargetOverrides(),
     aiConfig:                  readAiConfig(),
     editorIdentity:            readEditorIdentity(),
   };
@@ -202,9 +283,10 @@ export function collectRuntimeOverrides(): RuntimeOverrides {
 /** Restores runtime overrides from a serialized object in the Worker context. */
 export function applyRuntimeOverrides(data: RuntimeOverrides): void {
   setLocalDatabaseUrlOverride(data.localDatabaseUrl);
-  setHsdataRepoPathOverride(data.hsdataRepoPath);
+  applyPathOverrides(data.paths);
   setHearthstoneImageOverride(data.hearthstoneImage);
   setHearthstonePublishTargetOverrides(data.hearthstonePublishTargets);
+  setMagicPublishTargetOverrides(data.magicPublishTargets);
   setAiConfig(data.aiConfig);
   setEditorIdentity(data.editorIdentity);
 }
@@ -217,10 +299,10 @@ export function setYugiohPublishTargetOverride(value: YugiohPublishTargetOverrid
   }
 
   yugiohPublishTargetOverride.current = {
-    publishTargetId: value.publishTargetId?.trim() ?? null,
-    environment: value.environment?.trim() ?? null,
+    publishTargetId:   value.publishTargetId?.trim() ?? null,
+    environment:       value.environment?.trim() ?? null,
     targetFingerprint: value.targetFingerprint?.trim() ?? null,
-    connectionString: value.connectionString?.trim() ?? null,
+    connectionString:  value.connectionString?.trim() ?? null,
   };
 }
 

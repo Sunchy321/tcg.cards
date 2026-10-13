@@ -310,7 +310,9 @@ const indent = (value: unknown): string => {
 
 const expectedAssertions: string[] = [];
 for (const key of Object.keys(expected)) {
-  expectedAssertions.push(`  expect(result.${key}).toEqual(expected.${key});`);
+  // `expected` is partial (only the selected tables are asserted), so the
+  // non-null assertion matches the key actually present in the fixture.
+  expectedAssertions.push(`  expect(result.${key}).toEqual(expected.${key}!);`);
 }
 
 const source = `import { describe, expect, test } from 'bun:test';

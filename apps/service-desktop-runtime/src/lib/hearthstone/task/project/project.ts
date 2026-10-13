@@ -28,10 +28,10 @@ import type {
   ExtractedCardTagRow,
   ProjectReport,
 } from './types';
-import { hashCanonicalJson, buildRevisionHashPayload, buildLocalizationHashPayload, buildRenderModel } from './hash';
+import { hashCanonicalJson, buildRevisionHashPayload, buildLocalizationHashPayload, buildRenderModel, renderMechanicKeys } from './hash';
 import { entityKey, localizationKey, relationKey, reconcileEntities, reconcileLocalizations, reconcileRelations } from './reconcile';
 import { copyCardsIntoTable, copyEntitiesIntoTable, copyLocalizationsIntoTable, copyRelationsIntoTable, softDeleteEntities, softDeleteLocalizations, softDeleteRelations } from './write';
-import { normalizeExtractedTagValue, isNormalizedMechanicValue, asNumberArray, resolveEnumMap, type NormalizedValue } from './normalize';
+import { normalizeExtractedTagValue, isNormalizedMechanicValue, asNumberArray, resolveEnumMap } from './normalize';
 import { getDisplayText, textFromDisplayText } from './display';
 import type { DisplayContext } from './display';
 
@@ -166,6 +166,7 @@ function finalizeEntityDraft(draft: EntityRow): LocalizationlessEntityRow {
   draft.classes = uniqueStrings(draft.classes);
   draft.rune = draft.rune != null && draft.rune.length > 0 ? uniqueStrings(draft.rune) : null;
   draft.race = draft.race != null && draft.race.length > 0 ? uniqueStrings(draft.race) : null;
+  draft.raceBucket = draft.raceBucket != null && draft.raceBucket.length > 0 ? uniqueStrings(draft.raceBucket) : null;
 
   if (draft.type === 'minion') {
     if (draft.attack != null && draft.health == null) draft.health = 0;
@@ -227,11 +228,41 @@ function finalizeEntityDraft(draft: EntityRow): LocalizationlessEntityRow {
   };
 }
 
+/** One relation derived from an emit_relation tag, pending inclusion in the relation rows. */
+interface RelationCandidate {
+  relation:      string;
+  targetId:      string;
+  /** Tag enum id when the emitting tag doubles as a render mechanic, else null. */
+  mechanicKey:   string | null;
+  /** Render mechanic value: the referenced dbfId, or a presence flag when no dbfId is available. */
+  mechanicValue: boolean | number;
+}
+
+/** Merges relation candidates into the render mechanics handed to buildRenderModel. */
+function buildRelationMechanics(candidates: RelationCandidate[]): Record<string, boolean | number> {
+  const flags: Record<string, boolean | number> = {};
+
+  for (const candidate of candidates) {
+    if (candidate.mechanicKey != null) {
+      flags[candidate.mechanicKey] = candidate.mechanicValue;
+    }
+  }
+
+  return flags;
+}
+
+/** Resolves the relation name of an emit_relation tag: projectConfig.relation first, target path as fallback. */
+function relationNameOf(tagRow: TagRow | undefined, targetPath: string): string {
+  const configured = tagRow?.projectConfig?.relation;
+  return typeof configured === 'string' && configured.length > 0 ? configured : targetPath;
+}
+
 function finalizeLocalizationRows(
   entity: LocalizationlessEntityRow,
   localizationMap: Map<Locale, LocalizationDraft>,
   tags: Map<number, number>,
   build: number,
+  relationMechanics: Record<string, boolean | number>,
   context: Omit<DisplayContext, 'locale' | 'classes' | 'tags' | 'nameByDbfId' | 'richTextByDbfId'> & {
     nameByDbfIdByLocale:     ReadonlyMap<Locale, ReadonlyMap<number, string>>;
     richTextByDbfIdByLocale: ReadonlyMap<Locale, ReadonlyMap<number, string>>;
@@ -274,7 +305,7 @@ function finalizeLocalizationRows(
     };
 
     const localizationHash = hashCanonicalJson(buildLocalizationHashPayload(row));
-    const renderModel = buildRenderModel(entity, row, build);
+    const renderModel = buildRenderModel(entity, row, build, relationMechanics);
     const renderHash = hashCanonicalJson(renderModel);
 
     rows.push({
@@ -320,6 +351,7 @@ export function projectExtractedCard(
   const entityDraft = createEntityDraft(card);
   const localizations = new Map<Locale, LocalizationDraft>();
   const weakRelationTargets = new Map<string, string>();
+  const relationCandidates: RelationCandidate[] = [];
 
   // Extract localization from JSONB loc fields
   for (let i = 0; i < supportedLocaleKeys.length; i++) {
@@ -411,6 +443,21 @@ export function projectExtractedCard(
       }
       continue;
     }
+
+    if (projectKind === 'emit_relation') {
+      if (typeof normalized === 'object' && normalized != null && 'cardId' in normalized) {
+        const ref = normalized as { cardId: string | null, dbfId: number | null };
+        if (ref.cardId) {
+          relationCandidates.push({
+            relation:      relationNameOf(tagRow, targetPath),
+            targetId:      ref.cardId,
+            mechanicKey:   renderMechanicKeys.has(String(tag.tagId)) ? String(tag.tagId) : null,
+            mechanicValue: ref.dbfId ?? true,
+          });
+        }
+      }
+      continue;
+    }
   }
 
   // Backfill set from hsdata if unpack data didn't have TAG 183
@@ -423,43 +470,39 @@ export function projectExtractedCard(
   }
 
   const entity = finalizeEntityDraft(entityDraft);
-  const localizationRows = finalizeLocalizationRows(entity, localizations, displayTags, build, {
+
+  // Relations must be derived before localizations: relation-derived render
+  // mechanics (e.g. mercenary ability summoned minion) feed the render model.
+  const relationRows: RelationRow[] = [];
+  for (const [field, relation] of [['heroPower', 'hero_power'], ['tripleCard', 'triple_card'], ['buddy', 'buddy']] as const) {
+    const target = (entity as unknown as Record<string, unknown>)[field];
+    if (typeof target === 'string' && target) {
+      relationRows.push({
+        sourceId:           entity.cardId,
+        sourceRevisionHash: entity.revisionHash,
+        relation,
+        targetId:           target,
+        version:            [],
+      });
+    }
+  }
+  for (const candidate of relationCandidates) {
+    relationRows.push({
+      sourceId:           entity.cardId,
+      sourceRevisionHash: entity.revisionHash,
+      relation:           candidate.relation,
+      targetId:           candidate.targetId,
+      version:            [],
+    });
+  }
+
+  const localizationRows = finalizeLocalizationRows(entity, localizations, displayTags, build, buildRelationMechanics(relationCandidates), {
     cardId:                  entity.cardId,
     dbfId:                   entity.dbfId,
     cardIdByDbfId:           context.cardIdByDbfId,
     nameByDbfIdByLocale:     context.nameByDbfIdByLocale,
     richTextByDbfIdByLocale: context.richTextByDbfIdByLocale,
   });
-
-  // Build relation rows
-  const relationRows: RelationRow[] = [];
-  if (entity.heroPower) {
-    relationRows.push({
-      sourceId:           entity.cardId,
-      sourceRevisionHash: entity.revisionHash,
-      relation:           'hero_power',
-      targetId:           entity.heroPower,
-      version:            [],
-    });
-  }
-  if (entity.tripleCard) {
-    relationRows.push({
-      sourceId:           entity.cardId,
-      sourceRevisionHash: entity.revisionHash,
-      relation:           'triple_card',
-      targetId:           entity.tripleCard,
-      version:            [],
-    });
-  }
-  if (entity.buddy) {
-    relationRows.push({
-      sourceId:           entity.cardId,
-      sourceRevisionHash: entity.revisionHash,
-      relation:           'buddy',
-      targetId:           entity.buddy,
-      version:            [],
-    });
-  }
 
   return { entity, localizations: localizationRows, relations: relationRows };
 }
@@ -579,7 +622,12 @@ export async function projectExtracted(
 
   for (const card of cards) {
     const tags = tagsByDbfId.get(card.dbfId) ?? [];
-    const result = projectExtractedCard(card as ExtractedCardRow, tags, tagMap, build, { cardIdByDbfId, setIdByDbfId, hsdataSetByDbfId: chunkHsdataSet, nameByDbfIdByLocale, richTextByDbfIdByLocale });
+    let result: ProjectCardResult;
+    try {
+      result = projectExtractedCard(card as ExtractedCardRow, tags, tagMap, build, { cardIdByDbfId, setIdByDbfId, hsdataSetByDbfId: chunkHsdataSet, nameByDbfIdByLocale, richTextByDbfIdByLocale });
+    } catch (error) {
+      throw new Error(`[hearthstone][extracted-project] card ${card.cardId} (build ${build}): ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+    }
     collectRows?.(result);
 
     projectedEntities.push({
@@ -843,14 +891,21 @@ function normalizeHsdataTagValue(
     const value = row.intValue;
     if (value == null) return null;
 
-    if (tag?.slug === 'card_set') {
+    // CARD_SET (tag 183) resolves through the DB Set table; accept both the
+    // DB row's current slug ("set") and the legacy one ("card_set").
+    if (tag?.slug === 'card_set' || tag?.slug === 'set') {
       return context.setIdByDbfId.get(value) ?? null;
     }
 
     const mapped = enumMap[String(value)];
     if (typeof mapped === 'string') return mapped;
     if (Array.isArray(mapped)) return mapped.filter(item => typeof item === 'string') as string[];
-    return config.allowUnknownEnumValue === true ? String(value) : null;
+
+    // Same policy as the extracted path: INVALID stays unset, opted-in tags
+    // keep the raw int, everything else fails the projection loudly.
+    if (value === 0) return null;
+    if (config.allowUnknownEnumValue === true) return String(value);
+    throw new Error(`[hearthstone][extracted-project] unknown enum value tag=${tag?.enumId} (${tag?.slug}) value=${value}`);
   }
 
   if (normalizeKind === 'card_ref_from_int') {
@@ -946,13 +1001,19 @@ export async function projectHsdataFallback(build: number, cardIds: string[], dr
 
     const localizations = new Map<Locale, LocalizationDraft>();
     const weakRelationTargets = new Map<string, string>();
+    const relationCandidates: RelationCandidate[] = [];
     const sortedTags = [...snapshotTags].sort((a, b) => a.tagOrder - b.tagOrder);
     const displayTags = new Map<number, number>();
 
     for (const row of sortedTags) {
       if (row.intValue != null) displayTags.set(row.enumId, row.intValue);
       const tag = tagMap.get(row.enumId);
-      const normalized = normalizeHsdataTagValue(row, tag, { cardIdByDbfId, setIdByDbfId });
+      let normalized: unknown;
+      try {
+        normalized = normalizeHsdataTagValue(row, tag, { cardIdByDbfId, setIdByDbfId });
+      } catch (error) {
+        throw new Error(`[hearthstone][extracted-project] card ${snapshot.cardId} (build ${build}): ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+      }
       if (normalized == null) continue;
 
       const projectKind = tag?.projectKind;
@@ -1020,6 +1081,21 @@ export async function projectHsdataFallback(build: number, cardIds: string[], dr
         }
         continue;
       }
+
+      if (projectKind === 'emit_relation') {
+        if (typeof normalized === 'object' && normalized != null && 'cardId' in normalized) {
+          const ref = normalized as { cardId: string | null, dbfId: number | null };
+          if (ref.cardId) {
+            relationCandidates.push({
+              relation:      relationNameOf(tag, targetPath),
+              targetId:      ref.cardId,
+              mechanicKey:   renderMechanicKeys.has(String(row.enumId)) ? String(row.enumId) : null,
+              mechanicValue: ref.dbfId ?? true,
+            });
+          }
+        }
+        continue;
+      }
     }
 
     // Ensure main locale has a localization draft
@@ -1028,15 +1104,9 @@ export async function projectHsdataFallback(build: number, cardIds: string[], dr
     }
 
     const entity = finalizeEntityDraft(entityDraft);
-    const localizationRows = finalizeLocalizationRows(entity, localizations, displayTags, build, {
-      cardId: entity.cardId,
-      dbfId:  entity.dbfId,
-      cardIdByDbfId,
-      nameByDbfIdByLocale,
-      richTextByDbfIdByLocale,
-    });
 
-    // Build relation rows
+    // Relations must be derived before localizations: relation-derived render
+    // mechanics (e.g. mercenary ability summoned minion) feed the render model.
     const relationRows: RelationRow[] = [];
     for (const [field, relation] of [['heroPower', 'hero_power'], ['tripleCard', 'triple_card'], ['buddy', 'buddy']] as const) {
       const target = (entity as unknown as Record<string, unknown>)[field];
@@ -1050,6 +1120,23 @@ export async function projectHsdataFallback(build: number, cardIds: string[], dr
         } as RelationRow);
       }
     }
+    for (const candidate of relationCandidates) {
+      relationRows.push({
+        sourceId:           entity.cardId,
+        sourceRevisionHash: entity.revisionHash,
+        relation:           candidate.relation,
+        targetId:           candidate.targetId,
+        version:            [],
+      } as RelationRow);
+    }
+
+    const localizationRows = finalizeLocalizationRows(entity, localizations, displayTags, build, buildRelationMechanics(relationCandidates), {
+      cardId: entity.cardId,
+      dbfId:  entity.dbfId,
+      cardIdByDbfId,
+      nameByDbfIdByLocale,
+      richTextByDbfIdByLocale,
+    });
 
     projectedEntities.push({ ...entity, version: [build] } as unknown as EntityRow);
     projectedLocalizations.push(...localizationRows.map(loc => ({ ...loc, version: [build] } as unknown as LocalizationRow)));

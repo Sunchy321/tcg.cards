@@ -1,0 +1,5 @@
+# Shadowverse Evolve is a separate dataset, not a variant of the Beyond card model
+
+Beyond (digital) and Evolve (physical TCG) share the `shadowverse` and `shadowverse_data` schema namespaces but never share tables. Evolve owns an `evolve_`-prefixed family (sets, cards, localizations, official Q&A, import bookkeeping, image assets) with its own identity — the printed card number, carrying an `EN` suffix for English prints — and its own import tasks. Evolve importers reuse the Beyond pattern (idempotent upsert, per-source merge by card number, batch and failure bookkeeping in `shadowverse_data`, soft deletes, images in a local bucket) but none of its schema.
+
+**Why:** Extending the Beyond tables with nullable Evolve-only columns was rejected because Evolve's fields are physical-TCG semantics (printed card number, evolution metadata, illustrator, numbered official Q&A) that do not map onto the digital model, and a shared table would force each model to carry the other's permanently empty columns.

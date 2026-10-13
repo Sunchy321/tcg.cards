@@ -130,11 +130,12 @@ export const patchApi = {
 function fallbackPatch(buildNumber: number) {
   return {
     buildNumber,
-    name:      `${buildNumber}`,
-    shortName: `${buildNumber}`,
-    hash:      '',
-    isLatest:  false,
-    isUpdated: false,
+    name:        `${buildNumber}`,
+    shortName:   `${buildNumber}`,
+    hash:        '',
+    isLatest:    false,
+    releaseDate: null,
+    expansion:   null,
   };
 }
 

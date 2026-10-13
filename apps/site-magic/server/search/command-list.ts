@@ -4,14 +4,16 @@ import * as builtin from '#search/server/command/builtin';
 import * as magic from './command';
 
 import { QueryError } from '#search/command/error';
+import { parseAmbitValue } from '#search/server/ambit';
 
-import type { SQL } from 'drizzle-orm';
+import type { Column, SQL } from 'drizzle-orm';
 import { and, arrayContains, asc, desc, eq, gt, gte, inArray, lt, lte, ne, not, notInArray, or, sql } from 'drizzle-orm';
 
 import { model } from '#model/magic/search';
+import type { Locale } from '#model/magic/schema/basic';
 import { CardEditorView, CardPrintView } from '#schema/shared/magic/print';
 
-import { toIdentifier } from '@tcg-cards/shared/magic/string';
+import { slugifyName } from '@tcg-cards/shared/magic/slug';
 
 // import internalData from '@/internal-data';
 
@@ -156,6 +158,30 @@ export const set = cs
   .commands.set
   .apply(table => table.set, {});
 
+export const print = cs
+  .commands.print
+  .handler(({ value, qualifier }, { table }) => {
+    const parts = String(value).split('#');
+    const wellFormed = (parts.length === 2 || parts.length === 3)
+      && /^[a-z0-9]+$/.test(parts[0]!.toLowerCase())
+      && parts[1] !== ''
+      && (parts.length === 2 || /^[a-z]+$/.test(parts[2]!.toLowerCase()));
+
+    // Anything that does not read as a print reference stays a plain text search.
+    // raw accepts no qualifiers, so negation is applied around the call.
+    if (!wellFormed) {
+      const query = raw.call({ value: String(value), operator: '', qualifier: [] }, { meta: {}, table });
+      return qualifier.includes('!') ? not(query!) : query!;
+    }
+
+    const [set, number, lang] = parts as [string, string, string?];
+    return and(
+      eq(table.set, set.toLowerCase()),
+      eq(table.number, number),
+      lang != null ? eq(table.lang, lang.toLowerCase() as Locale) : undefined,
+    )!;
+  });
+
 export const number = cs
   .commands.number
   .apply(table => table.number, {});
@@ -260,7 +286,7 @@ export const name = cs
         args:   { value, operator, qualifier },
         ctx:    { meta: { multiline: false }, table },
       });
-    case 'unified':
+    case 'localized':
       return builtin.text.call({
         column: table => table.cardPartLocalization.name,
         args:   { value, operator, qualifier },
@@ -290,40 +316,68 @@ export const name = cs
 
 export const type = cs
   .commands.type
-  .handler(({ value, modifier, operator, qualifier }, { table }) => {
-    switch (modifier) {
-    case 'oracle':
-      return builtin.text.call({
-        column: table => table.cardPart.typeline,
-        args:   { value, operator, qualifier },
-        ctx:    { meta: { multiline: false }, table },
-      });
-    case 'unified':
-      return builtin.text.call({
-        column: table => table.cardPartLocalization.typeline,
-        args:   { value, operator, qualifier },
-        ctx:    { meta: { multiline: false }, table },
-      });
-    case 'printed':
-      return builtin.text.call({
-        column: table => table.printPart.typeline,
-        args:   { value, operator, qualifier },
-        ctx:    { meta: { multiline: false }, table },
-      });
-    default:
-      return (!qualifier.includes('!') ? or : and)(
+  .handler(({ value, modifier, operator, qualifier, argType }, { table }) => {
+    const columns: Column[] = (() => {
+      switch (modifier) {
+      case 'oracle': return [table.cardPart.typeline];
+      case 'localized': return [table.cardPartLocalization.typeline];
+      case 'printed': return [table.printPart.typeline];
+      default: return [table.cardPart.typeline, table.cardPartLocalization.typeline];
+      }
+    })();
+
+    // Negation wraps the combined group (De Morgan), so terms always match positively.
+    const negated = qualifier.includes('!');
+    const termQualifier = qualifier.filter(q => q !== '!');
+
+    /** One search term against every searched column: the term hits when any column hits. */
+    const matchTerm = (term: string | RegExp) => {
+      const parts = columns.map(column =>
         builtin.text.call({
-          column: table => table.cardPart.typeline,
-          args:   { value, operator, qualifier },
+          column: () => column,
+          args:   { value: term, operator, qualifier: termQualifier },
           ctx:    { meta: { multiline: false }, table },
         }),
-        builtin.text.call({
-          column: table => table.cardPartLocalization.typeline,
-          args:   { value, operator, qualifier },
-          ctx:    { meta: { multiline: false }, table },
-        }),
-      )!;
+      );
+
+      return parts.length === 1 ? parts[0]! : or(...parts)!;
+    };
+
+    const finish = (query: SQL) => negated ? not(query) : query;
+
+    // Quoted strings and regular expressions keep the literal single-value behavior.
+    if (typeof value !== 'string' || argType !== 'id') {
+      return finish(matchTerm(value));
     }
+
+    const hasPipe = value.includes('|');
+    const hasComma = value.includes(',');
+    const hasAmpersand = value.includes('&');
+
+    if (!hasPipe && !hasComma && !hasAmpersand) {
+      return finish(matchTerm(value));
+    }
+
+    if (hasPipe && (hasComma || hasAmpersand)) {
+      throw new QueryError({ type: 'mixed-separator', payload: { value } });
+    }
+
+    const terms = hasPipe ? value.split('|') : value.split(/[,&]/);
+
+    if (terms.some(term => term === '')) {
+      throw new QueryError({ type: 'empty-term', payload: { value } });
+    }
+
+    // Exact match accepts alternatives only: one type line cannot equal two different values.
+    // A comma reads as & in a positive match, but as | under negation, so a negated
+    // comma list excludes cards matching any of the items.
+    const union = hasPipe || (negated && hasComma);
+
+    if (operator === '=' || union) {
+      return finish(or(...terms.map(matchTerm))!);
+    }
+
+    return finish(terms.length === 1 ? matchTerm(terms[0]!) : and(...terms.map(matchTerm))!);
   });
 
 export const text = cs
@@ -336,7 +390,7 @@ export const text = cs
         args:   { value, operator, qualifier },
         ctx:    { meta: { multiline: true }, table },
       });
-    case 'unified':
+    case 'localized':
       return builtin.text.call({
         column: table => table.cardPartLocalization.text,
         args:   { value, operator, qualifier },
@@ -396,10 +450,6 @@ export const layout = cs
 export const imageStatus = cs
   .commands.imageStatus
   .apply(table => table.print.imageStatus, {});
-
-export const imageType = cs
-  .commands.imageType
-  .apply(table => table.print.fullImageType, {});
 
 export const rarity = cs
   .commands.rarity
@@ -468,7 +518,7 @@ export const format = cs
 export const counter = cs
   .commands.counter
   .handler(({ value, qualifier }, { table }) => {
-    value = toIdentifier(value);
+    value = slugifyName(value);
 
     if (!qualifier.includes('!')) {
       return arrayContains(table.card.counters, [value]);
@@ -480,7 +530,7 @@ export const counter = cs
 export const keyword = cs
   .commands.keyword
   .handler(({ value, qualifier }, { table }) => {
-    value = toIdentifier(value);
+    value = slugifyName(value);
 
     if (!qualifier.includes('!')) {
       return arrayContains(table.card.keywords, [value]);
@@ -492,6 +542,19 @@ export const keyword = cs
 export const multiverseId = cs
   .commands.multiverseId
   .apply(table => table.print.multiverseId, {});
+
+export const ambit = cs
+  .commands.ambit
+  .handler(({ value, operator }, { table }) => {
+    // `:` is the ceiling, a legacy alias of `<=` (ADR 0015).
+    const comparison = ({ ':': '<=', '<=': '<=', '<': '<', '=': '=', '>': '>', '>=': '>=' } as Record<string, string>)[operator];
+
+    if (comparison == null) {
+      throw new QueryError({ type: 'invalid-operator', payload: { operator } });
+    }
+
+    return sql`${table.card.ambit} ${sql.raw(comparison)} ${parseAmbitValue(value)}`;
+  });
 
 export const order = cs
   .commands.order

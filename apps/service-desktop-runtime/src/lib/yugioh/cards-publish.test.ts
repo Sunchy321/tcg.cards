@@ -17,45 +17,53 @@ import {
 import type { PublishCardRow } from './cards-publish';
 
 /** Complete card row used by deterministic publish-plan tests. */
-function makeCard(overrides: Partial<PublishCardRow> = {}): PublishCardRow {
-  return {
-    id: 1,
-    cid: 4007,
-    password: '89631139',
-    cnName: '青眼白龙',
-    scName: '青眼白龙',
-    mdName: null,
-    nwbbsName: null,
-    cnocgName: null,
-    jpRuby: null,
-    jpName: null,
-    enName: 'Blue-Eyes White Dragon',
-    mdEnName: null,
-    wikiEnName: null,
-    setExt: null,
-    typesText: '[怪兽|通常]',
-    pendulumDescription: null,
-    description: '传说之龙。',
-    ot: 11,
-    setcode: 221n,
-    type: 17,
-    attack: 3000,
-    defense: 2500,
-    level: 8,
-    race: 8192,
-    attribute: 16,
-    primaryImageR2Bucket: null,
-    primaryImageR2Key: null,
+function makeCard(
+  overrides: Partial<PublishCardRow['card']> = {},
+  localizationOverrides: Partial<PublishCardRow['localizations'][number]> = {},
+): PublishCardRow {
+  const card = {
+    id:                      1,
+    cid:                     4007,
+    password:                '89631139',
+    ot:                      11,
+    setcode:                 221n,
+    type:                    17,
+    attack:                  3000,
+    defense:                 2500,
+    level:                   8,
+    race:                    8192,
+    attribute:               16,
+    primaryImageR2Bucket:    null,
+    primaryImageR2Key:       null,
     primaryImageContentType: null,
-    primaryImageByteSize: null,
-    primaryImageWidth: null,
-    primaryImageHeight: null,
-    primaryImageSha256: null,
-    primaryImageDeletedAt: null,
-    createdAt: new Date('2026-08-05T00:00:00.000Z'),
-    updatedAt: new Date('2026-08-05T00:00:00.000Z'),
-    deletedAt: null,
+    primaryImageByteSize:    null,
+    primaryImageWidth:       null,
+    primaryImageHeight:      null,
+    primaryImageSha256:      null,
+    primaryImageDeletedAt:   null,
+    ambit:                   'full' as const,
+    createdAt:               new Date('2026-08-05T00:00:00.000Z'),
+    updatedAt:               new Date('2026-08-05T00:00:00.000Z'),
+    deletedAt:               null,
     ...overrides,
+  };
+
+  return {
+    card,
+    localizations: [{
+      cardId:              card.id,
+      locale:              'zhs',
+      name:                '青眼白龙',
+      nameRuby:            null,
+      typesText:           '[怪兽|通常]',
+      pendulumDescription: null,
+      description:         '传说之龙。',
+      createdAt:           new Date('2026-08-05T00:00:00.000Z'),
+      updatedAt:           new Date('2026-08-05T00:00:00.000Z'),
+      deletedAt:           null,
+      ...localizationOverrides,
+    }],
+    nameVariants: [],
   };
 }
 
@@ -67,10 +75,10 @@ describe('buildCardPublishPlan', () => {
       expect.objectContaining({ cardId: 1, action: 'insert' }),
     ]);
     expect(plan.counts).toEqual({
-      totalRowCount: 1,
-      changedRowCount: 1,
-      insertedRowCount: 1,
-      updatedRowCount: 0,
+      totalRowCount:     1,
+      changedRowCount:   1,
+      insertedRowCount:  1,
+      updatedRowCount:   0,
       unchangedRowCount: 0,
     });
     expect(plan.manifestHash).toMatch(/^[a-f0-9]{64}$/);
@@ -78,11 +86,11 @@ describe('buildCardPublishPlan', () => {
 
   test('plans unchanged and updated rows from stable hashes', () => {
     const original = makeCard();
-    const previous = new Map([[original.id, hashCardRow(original)]]);
+    const previous = new Map([[original.card.id, hashCardRow(original)]]);
 
     expect(buildCardPublishPlan([original], previous).rows[0]?.action).toBe('unchanged');
     expect(buildCardPublishPlan([
-      makeCard({ description: 'updated' }),
+      makeCard({}, { description: 'updated' }),
     ], previous).rows[0]?.action).toBe('update');
   });
 
@@ -109,19 +117,37 @@ describe('buildRemoteCardValues', () => {
 
   test('copies primary-image facts and includes them in the card manifest', () => {
     const image = {
-      primaryImageR2Bucket: 'asset',
-      primaryImageR2Key: 'yugioh/card/v1/primary/ab/abcdef.webp',
+      primaryImageR2Bucket:    'asset',
+      primaryImageR2Key:       'yugioh/card/v1/primary/ab/abcdef.webp',
       primaryImageContentType: 'image/webp',
-      primaryImageByteSize: 123456,
-      primaryImageWidth: 421,
-      primaryImageHeight: 614,
-      primaryImageSha256: 'a'.repeat(64),
-      primaryImageDeletedAt: null,
+      primaryImageByteSize:    123456,
+      primaryImageWidth:       421,
+      primaryImageHeight:      614,
+      primaryImageSha256:      'a'.repeat(64),
+      primaryImageDeletedAt:   null,
     };
     const card = makeCard(image);
 
     expect(buildRemoteCardValues(card)).toMatchObject(image);
     expect(hashCardRow(card)).not.toBe(hashCardRow(makeCard()));
+  });
+
+  test('includes searchable Chinese name variants in the card manifest', () => {
+    const card = makeCard();
+    const withMasterDuelName: PublishCardRow = {
+      ...card,
+      nameVariants: [{
+        cardId:    card.card.id,
+        locale:    'zhs',
+        kind:      'master_duel',
+        name:      '青眼白龙',
+        createdAt: new Date('2026-08-05T00:00:00.000Z'),
+        updatedAt: new Date('2026-08-05T00:00:00.000Z'),
+        deletedAt: null,
+      }],
+    };
+
+    expect(hashCardRow(withMasterDuelName)).not.toBe(hashCardRow(card));
   });
 });
 
@@ -151,39 +177,39 @@ describe('assertRemoteIdentityCompatible', () => {
 describe('remote publish safeguards', () => {
   test('accepts an empty first target and rejects remote rows without a ledger', () => {
     expect(() => assertRemoteLedgerCompatible({
-      expectedManifestHash: null,
-      targetEnvironment: 'test',
-      targetFingerprint: 'fingerprint',
-      remoteManifestHash: 'empty-hash',
-      remoteRowCount: 0,
+      expectedManifestHash:      null,
+      targetEnvironment:         'test',
+      targetFingerprint:         'fingerprint',
+      remoteManifestHash:        'empty-hash',
+      remoteRowCount:            0,
       allowIntermediateManifest: false,
-      ledger: null,
+      ledger:                    null,
     })).not.toThrow();
 
     expect(() => assertRemoteLedgerCompatible({
-      expectedManifestHash: null,
-      targetEnvironment: 'test',
-      targetFingerprint: 'fingerprint',
-      remoteManifestHash: 'unexpected-hash',
-      remoteRowCount: 1,
+      expectedManifestHash:      null,
+      targetEnvironment:         'test',
+      targetFingerprint:         'fingerprint',
+      remoteManifestHash:        'unexpected-hash',
+      remoteRowCount:            1,
       allowIntermediateManifest: false,
-      ledger: null,
+      ledger:                    null,
     })).toThrow(RemoteIdentityDriftError);
   });
 
   test('requires the ledger and live remote manifest to match the local baseline', () => {
     const input = {
-      expectedManifestHash: 'baseline-hash',
-      targetEnvironment: 'test',
-      targetFingerprint: 'fingerprint',
-      remoteManifestHash: 'baseline-hash',
-      remoteRowCount: 1,
+      expectedManifestHash:      'baseline-hash',
+      targetEnvironment:         'test',
+      targetFingerprint:         'fingerprint',
+      remoteManifestHash:        'baseline-hash',
+      remoteRowCount:            1,
       allowIntermediateManifest: false,
-      ledger: {
-        environment: 'test',
+      ledger:                    {
+        environment:       'test',
         targetFingerprint: 'fingerprint',
-        manifestHash: 'baseline-hash',
-        totalRowCount: 1,
+        manifestHash:      'baseline-hash',
+        totalRowCount:     1,
       },
     };
 
@@ -196,29 +222,29 @@ describe('remote publish safeguards', () => {
 
   test('accepts only baseline or planned row values while recovering an interrupted batch', () => {
     const previous = makeCard();
-    const current = makeCard({ description: 'updated' });
+    const current = makeCard({}, { description: 'updated' });
     const rows = [{
-      cardId: 1,
+      cardId:          1,
       previousRowHash: hashCardRow(previous),
-      rowHash: hashCardRow(current),
-      status: 'pending',
+      rowHash:         hashCardRow(current),
+      status:          'pending',
     }];
 
     expect(() => assertRemoteRowsRecoverable([previous], rows)).not.toThrow();
     expect(() => assertRemoteRowsRecoverable([current], rows)).not.toThrow();
     expect(() => assertRemoteRowsRecoverable([
-      makeCard({ description: 'uncontrolled drift' }),
+      makeCard({}, { description: 'uncontrolled drift' }),
     ], rows)).toThrow('Remote card 1 differs from both the baseline and the planned row.');
   });
 
   test('requires applied and skipped rows to retain their planned values', () => {
     const previous = makeCard();
-    const current = makeCard({ description: 'updated' });
+    const current = makeCard({}, { description: 'updated' });
     const row = {
-      cardId: 1,
+      cardId:          1,
       previousRowHash: hashCardRow(previous),
-      rowHash: hashCardRow(current),
-      status: 'applied',
+      rowHash:         hashCardRow(current),
+      status:          'applied',
     };
 
     expect(() => assertRemoteRowsRecoverable([current], [row])).not.toThrow();
@@ -241,7 +267,7 @@ describe('remote publish safeguards', () => {
   test('records failed chunk card IDs without changing their pending state', () => {
     expect(describePublishChunkFailure([9, 4], new Error('write failed'))).toEqual({
       batchError: 'Cards 4, 9 failed: write failed',
-      rowError: 'write failed',
+      rowError:   'write failed',
     });
   });
 

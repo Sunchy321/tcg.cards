@@ -35,10 +35,14 @@ export type PatternInput<Pat extends string | undefined, Op extends Operator, Al
       ? { pattern: PatternContextLoose<Pat> }
       : { pattern?: PatternContextLoose<Pat> };
 
+/** How a query value was written in the search text: bare identifier, quoted string, or regular expression. */
+export type CommandArgType = 'id' | 'string' | 'regex';
+
 export type CommandInput<Input extends CommandInputOption> = {
   value:     Input['regex'] extends true ? (string | RegExp) : string;
   operator:  Input['operators'][0];
   qualifier: Input['qualifiers'];
+  argType?:  CommandArgType;
 } & ModifierInput<Input['modifiers']> & PatternInput<Input['pattern'], Input['operators'][0], Input['alwaysMatch']>;
 
 export type MetaDataType<MetaInput extends MetaBase, MetaValue extends MetaBase> = {

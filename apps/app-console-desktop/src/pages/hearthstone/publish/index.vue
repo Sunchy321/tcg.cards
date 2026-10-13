@@ -167,7 +167,7 @@
         </div>
       </div>
 
-      <div v-else-if="!isAnnouncementPublishResult" class="grid gap-3 sm:grid-cols-2">
+      <div v-else-if="!isAnnouncementPublishResult && !isReferencePublishResult" class="grid gap-3 sm:grid-cols-2">
         <div class="rounded-lg border border-default p-3">
           <div class="text-xs text-muted">批次</div>
           <div class="mt-1 break-all font-mono text-sm">
@@ -241,6 +241,40 @@
               <span class="ml-1 font-mono">{{ taskResult.relationRowCount }}</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div v-else-if="isReferencePublishResult" class="grid gap-3 sm:grid-cols-2">
+        <div class="rounded-lg border border-default p-3">
+          <div class="text-xs text-muted">发布类型</div>
+          <div class="mt-1 font-mono text-sm">信息表数据</div>
+        </div>
+        <div class="rounded-lg border border-default p-3">
+          <div class="text-xs text-muted">状态</div>
+          <div class="mt-1 flex items-center">
+            <UBadge
+              :label="taskResult.dryRun ? 'Dry Run' : 'Success'"
+              :color="taskResult.dryRun ? 'warning' : 'success'"
+              variant="soft"
+              size="xs"
+            />
+          </div>
+        </div>
+        <div class="rounded-lg border border-default p-3">
+          <div class="text-xs text-muted">Sets</div>
+          <div class="mt-1 font-mono text-sm">{{ taskResult.setsCount }}</div>
+        </div>
+        <div class="rounded-lg border border-default p-3">
+          <div class="text-xs text-muted">Formats</div>
+          <div class="mt-1 font-mono text-sm">{{ taskResult.formatsCount }}</div>
+        </div>
+        <div class="rounded-lg border border-default p-3">
+          <div class="text-xs text-muted">Patches</div>
+          <div class="mt-1 font-mono text-sm">{{ taskResult.patchesCount }}</div>
+        </div>
+        <div class="rounded-lg border border-default p-3">
+          <div class="text-xs text-muted">Tags</div>
+          <div class="mt-1 font-mono text-sm">{{ taskResult.tagsCount }}</div>
         </div>
       </div>
 
@@ -488,6 +522,7 @@ definePageMeta({
 });
 
 const publishTypes = [
+  { label: 'reference_data', value: 'reference_data' },
   { label: 'card_data', value: 'card_data' },
   { label: 'announcement_data', value: 'announcement_data' },
 ];
@@ -500,6 +535,8 @@ const publishTargetError = ref('');
 const taskResult = ref<Record<string, unknown> | null>(null);
 /** Whether the last result came from the announcement publish task (different output shape). */
 const isAnnouncementPublishResult = computed(() => taskResult.value != null && taskResult.value.announcementCount != null);
+/** Whether the last result came from the reference publish task (different output shape). */
+const isReferencePublishResult = computed(() => taskResult.value != null && taskResult.value.setsCount != null);
 
 interface PurgeReport {
   dryRun:             boolean;
@@ -522,7 +559,7 @@ const batchListLoading = ref(false);
 const batchList = ref<HsdataPublishReport[]>([]);
 const cancelingBatchId = ref('');
 const deletingBatchId = ref('');
-const publishType = ref('card_data');
+const publishType = ref('reference_data');
 const dryRun = ref(false);
 const force = ref(false);
 
@@ -621,6 +658,7 @@ function formatPublishType(type: string) {
   switch (type) {
   case 'card_data': return '卡牌数据';
   case 'announcement_data': return '公告数据';
+  case 'reference_data': return '信息表数据';
   default: return type;
   }
 }
@@ -688,6 +726,13 @@ const operations: TaskOperation[] = [
     create: async () => {
       if (publishType.value === 'announcement_data') {
         return orpc.hearthstone.createTask.announcementPublish({
+          publishTarget: 'hearthstone',
+          environment:   selectedEnvironment.value,
+          dryRun:        dryRun.value,
+        }) as Promise<TaskPageSnapshot>;
+      }
+      if (publishType.value === 'reference_data') {
+        return orpc.hearthstone.createTask.referencePublish({
           publishTarget: 'hearthstone',
           environment:   selectedEnvironment.value,
           dryRun:        dryRun.value,
@@ -883,7 +928,7 @@ interface PublishPageState {
   taskRunId?:  string | null;
 }
 
-const PUBLISH_TYPES = ['card_data', 'announcement_data'];
+const PUBLISH_TYPES = ['card_data', 'announcement_data', 'reference_data'];
 
 let persistedTaskRunId: string | null = null;
 
@@ -903,7 +948,7 @@ function normalizePublishPageState(raw: Partial<PublishPageState>): PublishPageS
     dryRun:      typeof raw.dryRun === 'boolean' ? raw.dryRun : false,
     force:       typeof raw.force === 'boolean' ? raw.force : false,
     environment: typeof raw.environment === 'string' ? raw.environment : '',
-    publishType: typeof raw.publishType === 'string' && PUBLISH_TYPES.includes(raw.publishType) ? raw.publishType : 'card_data',
+    publishType: typeof raw.publishType === 'string' && PUBLISH_TYPES.includes(raw.publishType) ? raw.publishType : 'reference_data',
     taskRunId:   typeof raw.taskRunId === 'string' ? raw.taskRunId : null,
   };
 }

@@ -1,0 +1,5 @@
+# cardId is the slug of the normalized English name
+
+A card's stable identity is the slug of its normalized English name, applied as closely as possible for most games. The invariant that matters is: the same cardId must always be treated as the same card logically. When two distinct oracle objects normalize to the same slug (genuine duplicate names, or a paper card and its online rebalance that must stay separate), the whole group is held for import review rather than auto-inserted, and a human assigns a semantically meaningful disambiguated slug (e.g. an `-alchemy` / `-token` suffix) recorded in a `magic_data` annotation table mapping slug to oracle_id.
+
+**Why:** Slug-from-name keeps ids readable and lets rebalanced cards (same English name) naturally share an identity, while the manual-disambiguation rule prevents primary-key collisions and silent merges. Rejected alternatives: auto-hash suffixes (stable but meaningless) and opaque numeric/oracle-based ids (unreadable, and would split the same card across ids).

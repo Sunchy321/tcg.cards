@@ -421,6 +421,52 @@ const previewRender = os
     };
   });
 
+const renderOneInput = z.strictObject({
+  request: imageRequirementRequest,
+});
+
+const renderOneOutput = z.strictObject({
+  base64Png: z.string(),
+});
+
+/** Renders one exact render request through the local renderer and returns the PNG bytes as base64. */
+const renderOne = os
+  .route({
+    method:      'POST',
+    description: 'Render one render request through the local renderer and return the PNG image',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Image'],
+  })
+  .input(renderOneInput)
+  .output(renderOneOutput)
+  .handler(async ({ input }) => {
+    const request = input.request;
+    const rendererBaseUrl = requireHearthstoneImageRendererBaseUrl();
+
+    const response = await fetch(buildRendererSubmitUrl(rendererBaseUrl), {
+      method:  'POST',
+      headers: { 'content-type': 'application/json' },
+      body:    JSON.stringify(request),
+    }).catch((error: unknown) => {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: `Failed to reach the local renderer: ${error instanceof Error ? error.message : String(error)}`,
+      });
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: body.trim().length > 0
+          ? `The local renderer returned an error status: ${body.trim()}`
+          : `The local renderer returned HTTP status ${response.status}`,
+      });
+    }
+
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    return {
+      base64Png: Buffer.from(bytes).toString('base64'),
+    };
+  });
+
 const downloadArchiveInput = z.strictObject({
   cardId:      z.string().trim().min(1).optional(),
   renderHash:  z.string().trim().min(1).optional(),
@@ -562,6 +608,7 @@ export const imageRouter = {
   debugRenderRequest,
   detectRenderer,
   previewRender,
+  renderOne,
   downloadArchive,
   getArchive,
   getTaskArchive,

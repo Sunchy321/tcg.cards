@@ -527,12 +527,6 @@
                               variant="soft"
                               size="xs"
                             />
-                            <UBadge
-                              :label="policy.lockedPathAware ? '受锁定约束' : '无锁定约束'"
-                              :color="policy.lockedPathAware ? 'primary' : 'neutral'"
-                              variant="soft"
-                              size="xs"
-                            />
                           </div>
                         </td>
                       </tr>
@@ -625,14 +619,7 @@
                     <span class="font-medium">兼容规则</span>
                   </template>
                   <div class="space-y-3 text-sm">
-                    <div class="rounded-lg border border-default p-3">
-                      <div class="font-mono text-xs text-muted">__lockedPaths</div>
-                      <p class="mt-1">{{ snapshot.boundary.lockedPathPolicy }}</p>
-                    </div>
-                    <div class="rounded-lg border border-default p-3">
-                      <div class="font-mono text-xs text-muted">__updations</div>
-                      <p class="mt-1">{{ snapshot.boundary.updationPolicy }}</p>
-                    </div>
+                    <p class="text-muted">手动编辑采用「自动源竞争 + 手动覆盖」机制。</p>
                   </div>
                 </UCard>
 

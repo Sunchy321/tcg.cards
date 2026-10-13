@@ -4,6 +4,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { join } from 'node:path';
 import { z } from 'zod';
+import { locale } from '@tcg-cards/model/hearthstone/schema/basic';
 
 import { router } from './orpc/service';
 import {
@@ -12,6 +13,9 @@ import {
   testDesktopDatabaseConnection,
 } from './lib/runtime/desktop-database';
 import { requireHearthstoneImageBucketDir } from './lib/hearthstone/image-config';
+import { buildAiParseStreamResponse } from './lib/hearthstone/announcement/ai-parse-stream';
+import { buildRenderAllStreamResponse } from './lib/hearthstone/announcement/render-all-stream';
+import { hasAiConfig } from './runtime-config';
 import { createTaskStore, createTaskScheduler, createTaskCleanup } from './lib/task';
 import './lib/task/task-definitions';
 
@@ -47,9 +51,31 @@ const testHearthstonePublishTargetInput = z.strictObject({
 });
 
 const testYugiohPublishTargetInput = z.strictObject({
-  publishTargetId: z.string().trim().min(1),
-  environment: z.literal('test'),
+  publishTargetId:  z.string().trim().min(1),
+  environment:      z.literal('test'),
   connectionString: z.string().trim().min(1),
+});
+
+const aiParseStreamInput = z.object({
+  name:  z.string().optional(),
+  links: z.array(z.object({ url: z.string().trim().min(1), label: z.string().optional() })).min(1),
+});
+
+const renderAllStreamInput = z.object({
+  items: z.array(z.object({
+    itemKey:     z.string(),
+    type:        z.string(),
+    cardId:      z.string().nullable(),
+    format:      z.string().nullable(),
+    version:     z.number().int().nullable().optional(),
+    lastVersion: z.number().int().nullable().optional(),
+    delta:       z.any().nullable().optional(),
+    glow:        z.any().nullable().optional(),
+  })),
+  version:     z.number().int(),
+  lastVersion: z.number().int().nullable().optional(),
+  langs:       z.array(locale).default([]),
+  mode:        z.enum(['missing', 'all']),
 });
 
 /** Human-readable message normalized from one unknown thrown value. */
@@ -200,6 +226,28 @@ hono.post('/desktop/test-yugioh-publish-target', async c => {
       message: getErrorMessage(error),
     }, 500);
   }
+});
+
+hono.post('/ai/parse/stream', async c => {
+  if (!hasAiConfig()) {
+    return c.json({ error: 'AI config not set. Please configure API key in settings.' }, 400);
+  }
+
+  const parsed = aiParseStreamInput.safeParse(await c.req.json());
+  if (!parsed.success) {
+    return c.json({ error: 'Invalid request body: links are required.' }, 400);
+  }
+
+  return buildAiParseStreamResponse(parsed.data, c.req.raw.signal);
+});
+
+hono.post('/render/stream', async c => {
+  const parsed = renderAllStreamInput.safeParse(await c.req.json());
+  if (!parsed.success) {
+    return c.json({ error: 'Invalid request body.' }, 400);
+  }
+
+  return buildRenderAllStreamResponse(parsed.data);
 });
 
 hono.all('/rpc/*', async c => {

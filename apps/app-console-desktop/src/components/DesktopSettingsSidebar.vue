@@ -58,6 +58,11 @@ const generalItems = [
     to:    '/settings/database',
   },
   {
+    label: '数据目录',
+    icon:  'i-lucide-folder-tree',
+    to:    '/settings/data-source',
+  },
+  {
     label: '模型配置',
     icon:  'i-lucide-sparkles',
     to:    '/settings/model',
