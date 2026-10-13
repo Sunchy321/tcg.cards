@@ -1,5 +1,7 @@
 # No cross-game query app, no mobile console, no desktop task gateway
 
+**Status:** Superseded in part by ADR-0016 (2026-10-13): the no-query-app clause no longer holds; the no-mobile-console and no-task-gateway clauses remain in force.
+
 The product shape is one web console family (`site-console` plus `app-console-desktop`, over shared `console-*` packages), `service-api` for third parties, and `service-internal` for first-party app clients. There is deliberately no installable cross-game query app, no mobile console, and no server-side desktop task gateway with device leases or protocol negotiation. The desktop app may assume local file system, Git, and third-party tool access; the web shell exposes only light capabilities.
 
 **Why:** A dual-app architecture was designed in full — a cross-game query app embedding per-game pages, a Tauri mobile console at `medium` capability, and a versioned desktop execution gateway splitting business state, execution attempts, and execution rights into three tables. It was rejected as premature: the actual pain was shared-boundary debt in the console, not a missing service count or missing clients, and the query/mobile/desktop split would have added release, auth-sync, and data-consistency cost before the models were stable.

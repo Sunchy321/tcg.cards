@@ -29,6 +29,12 @@ The `apps/` workspace currently contains these project-level applications:
   Desktop admin console and the primary local runtime for heavy domain-data workflows. This app owns the most complete local operational capability, including access to local repositories, local PostgreSQL, and desktop-only workflows.
 - `app-console-mobile` (planned)
   Lightweight mobile management client. It is intended to cover a management tier similar to `site-console`, but run on mobile devices instead of the web. It may also support selected lightweight management capabilities that are not practical in a browser.
+- `app-desktop` (planned)
+  User-facing installable desktop app (Windows/macOS), built on Electron. It shares its business code with `app-mobile` and is a query client for end users, not a management runtime.
+- `app-mobile` (planned)
+  User-facing installable mobile app (iOS/Android), built on Capacitor. It shares its business code with `app-desktop` and is a query client for end users, not a management runtime.
+- `service-app` (planned)
+  Backend query service for the user-facing apps: anonymous public card queries over the same remote game data the game sites serve, plus first-party authenticated user state such as user config sync. It is distinct from `service-api` (third-party, key-authenticated) and `service-internal` (management clients).
 - `service-internal`
   Backend API surface for app-shaped management clients. It provides the remote backend interface used by installable management applications.
 - `site-console`

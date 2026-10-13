@@ -1,0 +1,13 @@
+# 0016: A user-facing query app family exists — Capacitor mobile, Electron desktop, over service-app
+
+**Status:** Supersedes the query-app clause of ADR-0007. That ADR's other two clauses (no mobile console, no desktop task gateway) remain in force.
+
+The project ships an installable **user** app family: `app-mobile` (Capacitor, iOS/Android) and `app-desktop` (Electron, Windows/macOS) — two thin shells sharing one Vue 3 business codebase — backed by `service-app`, a new first-party service that serves anonymous public card queries plus authenticated user state (user config sync) from the same remote game data the game sites read. Hearthstone ships first; the app architecture stays multi-game by construction.
+
+**Why:** ADR-0007 rejected a cross-game query app as premature: the models were unstable, and a cross-game app would have paid release, auth-sync, and data-consistency cost across every game at once. The premise has since changed — game data and projections have stabilized, the console boundary debt that motivated that rejection has been worked down, and going single-game-first confines those original costs to one slice, which is the conditions-under-which difference, not a reversal of the reasoning.
+
+## Considered Options
+
+- **Shell.** Tauri was rejected for this family: its sidecar pattern cannot cross to mobile (iOS categorically forbids spawning bundled binaries; Android increasingly restricts it), and what remains is exactly the thin webview shell this family does not need. Flutter was rejected: a Dart rewrite would abandon the repo's reusable TypeScript/Vue assets (search DSL, models, zod contracts, i18n messages). React Native was rejected: the Vue component stack does not carry over and its desktop story is weak. Capacitor (mobile) + Electron (desktop) keep one Vue codebase with mature native bridges (camera, push, SQLite), at the cost of two packaging pipelines.
+- **In-process vs sidecar.** The desktop console's Bun-sidecar pattern stays console-only. A query client holds no local build authority — its local logic is API access and (blueprint) in-process search over an offline text pack — so local logic runs inside the shell's own JS runtime, with native features reached through each shell's plugin bridge.
+- **Backend placement.** A dedicated `service-app` was chosen over extending `service-internal` (an anonymous-public surface would change the internal service's management-only exposure posture) and over reusing `service-api` (third-party, key-authenticated, no session channel). Accounts are shared through the existing first-party auth tables, not duplicated.

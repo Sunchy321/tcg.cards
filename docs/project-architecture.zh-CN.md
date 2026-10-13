@@ -29,6 +29,12 @@
   desktop 管理端，也是领域数据重型工作流的主要本地运行时。这个应用拥有最完整的本地操作能力，包括访问本地仓库、本地 PostgreSQL 和 desktop 专属工作流。
 - `app-console-mobile`（规划中）
   轻量移动管理终端。它的管理层级整体上接近 `site-console`，但运行在移动设备上，而不是运行在 Web 上。它后续也可以承载一部分不适合在浏览器中实现的轻量管理能力。
+- `app-desktop`（规划中）
+  面向终端用户的可安装桌面应用（Windows/macOS），基于 Electron 构建。它与 `app-mobile` 共享同一套业务代码，是面向最终用户的查询客户端，而不是管理运行时。
+- `app-mobile`（规划中）
+  面向终端用户的可安装移动应用（iOS/Android），基于 Capacitor 构建。它与 `app-desktop` 共享同一套业务代码，是面向最终用户的查询客户端，而不是管理运行时。
+- `service-app`（规划中）
+  面向用户态 App 的后端查询服务：在与游戏站同源的远端游戏数据上提供匿名的公开卡牌查询，并承载要求登录的用户态状态（如用户配置同步）。它与 `service-api`（面向第三方、Key 鉴权）和 `service-internal`（管理客户端）彼此区分。
 - `service-internal`
   面向 app 形态管理端的后端接口。它提供可安装管理应用所使用的远端后端 API。
 - `site-console`

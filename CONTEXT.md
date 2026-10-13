@@ -230,6 +230,9 @@ The capability class an endpoint belongs to, which decides which terminal may ca
 ### internal service (第一方内部服务)
 The first-party service (`apps/service-internal`) that serves the standalone apps: first-party auth and session, the app-facing management API, and long-running task chains. It is not the backend of the public game sites, which each execute their own backend locally, and ordinary third-party API keys must not reach it. Distinct from the public `service-api`, which is third-party facing, key-authenticated, and has no session channel.
 
+### app service (用户态应用服务)
+The first-party service (`apps/service-app`) serving the user-facing installable apps (`app-mobile`, `app-desktop`): anonymous public card queries over the same remote game data the game sites serve, plus first-party authenticated user state such as user config sync. It is not a management surface — that remains the internal service — and not the third-party API — that remains the API service.
+
 ## Hearthstone Cards (炉石卡牌)
 
 ### card relation (卡牌关联关系)
