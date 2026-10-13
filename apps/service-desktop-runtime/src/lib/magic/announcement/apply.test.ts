@@ -40,6 +40,19 @@ describe('runApply', () => {
     expect(result.warnings).toEqual([]);
   });
 
+  test('seeding stops at a dead format deathdate', () => {
+    const result = runApply({
+      ...baseInput,
+      formats: [{ formatId: 'extended', birthday: '1997-07-01', deathdate: '2013-10-08' }],
+      sets:    [
+        { setId: 's-2005', type: 'expansion', releaseDate: '2005-01-01' },
+        { setId: 's-2020', type: 'expansion', releaseDate: '2020-01-01' },
+      ],
+    });
+
+    expect(setsOf(result, 'extended')).toEqual(['s-2005']);
+  });
+
   test('a sentinel ban writes per-card entries: released cards at the ban date, later releases at their release', () => {
     const result = runApply({
       ...baseInput,

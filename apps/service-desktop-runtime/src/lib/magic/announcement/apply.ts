@@ -127,8 +127,10 @@ export function runApply(input: ApplyInput): ApplyResult {
   const state = new Map<string, FormatState>();
   for (const format of input.formats) {
     if (rotatingFormats.has(format.formatId)) {
+      // A dead format stops taking sets at its deathdate; pre-birthday sets all entered at birth.
       const seeded = input.sets
         .filter(s => seedingSetTypes.has(s.type) && s.releaseDate != null && s.releaseDate <= input.today)
+        .filter(s => format.deathdate == null || (s.releaseDate != null && s.releaseDate <= format.deathdate))
         .sort((a, b) => a.releaseDate! < b.releaseDate! ? -1 : a.releaseDate! > b.releaseDate! ? 1 : a.setId < b.setId ? -1 : 1)
         .map(s => s.setId);
       state.set(format.formatId, { sets: seeded, banlist: new Map(), watchers: new Map() });
