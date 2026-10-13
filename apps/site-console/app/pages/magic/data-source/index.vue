@@ -527,12 +527,6 @@
                               variant="soft"
                               size="xs"
                             />
-                            <UBadge
-                              :label="policy.lockedPathAware ? '受锁定约束' : '无锁定约束'"
-                              :color="policy.lockedPathAware ? 'primary' : 'neutral'"
-                              variant="soft"
-                              size="xs"
-                            />
                           </div>
                         </td>
                       </tr>

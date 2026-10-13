@@ -18,8 +18,8 @@
     "deploy": "wrangler deploy --env production"
   },
   "dependencies": {
-    "@ai-sdk/openai-compatible": "^2.0.41",
-    "@ai-sdk/vue": "^3.0.168",
+    "@ai-sdk/openai-compatible": "^3.0.12",
+    "@ai-sdk/vue": "^4.0.31",
     "@better-auth/api-key": "^1.5.5",
     "@better-auth/drizzle-adapter": "^1.5.5",
     "@iconify-json/lucide": "^1.2.104",
@@ -36,7 +36,7 @@
     "@tcg-cards/search": "workspace:*",
     "@tcg-cards/shared": "workspace:*",
     "@tcg-cards/ui": "workspace:*",
-    "ai": "^6.0.168",
+    "ai": "^7.0.31",
     "axios": "^1.13.6",
     "better-auth": "^1.5.5",
     "cheerio": "^1.2.0",

@@ -1,5 +1,7 @@
 import { GAMES, type Game } from '@tcg-cards/base';
 
+export type { Game };
+
 /** One leaf navigation item. */
 export interface ConsoleNavItem {
   label: string;

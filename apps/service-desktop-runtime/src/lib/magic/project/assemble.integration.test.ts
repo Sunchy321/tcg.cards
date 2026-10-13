@@ -185,8 +185,8 @@ integrationTest('pins each split token print to its own face, so both images are
   const queued = units.map(unit => {
     const draft = unit.prints![0]!;
     return scryfallQueueRow({
-      cardId:              draft.cardId,
-      version:             draft.version,
+      cardId:              unit.cardId,
+      version:             '0',
       set:                 draft.set,
       number:              draft.number,
       lang:                draft.lang,

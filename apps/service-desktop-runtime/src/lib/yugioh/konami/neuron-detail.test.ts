@@ -249,7 +249,7 @@ describe('fetchNeuronDetail', () => {
     const fetchImpl = ((input: URL | RequestInfo) => {
       requestedUrl = String(input);
       return Promise.resolve(new Response(jaPage, { status: 200 }));
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     const result = await fetchNeuronDetail(4007, 'ja', { fetchImpl });
 
@@ -260,19 +260,19 @@ describe('fetchNeuronDetail', () => {
 
   test('reports a no-data page as a miss, not an error', async () => {
     const page = '<html><body>Card information not found.</body></html>';
-    const fetchImpl = (() => Promise.resolve(new Response(page, { status: 200 }))) as typeof fetch;
+    const fetchImpl = (() => Promise.resolve(new Response(page, { status: 200 }))) as unknown as typeof fetch;
     expect(fetchNeuronDetail(4007, 'en', { fetchImpl })).resolves.toBeNull();
   });
 
   test('treats an unrecognized cardless page as an error, not a silent miss', async () => {
     const page = '<html><body><div id="redesigned">surprise</div></body></html>';
-    const fetchImpl = (() => Promise.resolve(new Response(page, { status: 200 }))) as typeof fetch;
+    const fetchImpl = (() => Promise.resolve(new Response(page, { status: 200 }))) as unknown as typeof fetch;
     expect(fetchNeuronDetail(4007, 'en', { fetchImpl }))
       .rejects.toThrow('has no card data and no known no-data notice');
   });
 
   test('throws on HTTP failures so the crawl counts an error', async () => {
-    const fetchImpl = (() => Promise.resolve(new Response('boom', { status: 503 }))) as typeof fetch;
+    const fetchImpl = (() => Promise.resolve(new Response('boom', { status: 503 }))) as unknown as typeof fetch;
     expect(fetchNeuronDetail(4007, 'ja', { fetchImpl })).rejects.toThrow('Neuron HTTP 503');
   });
 });

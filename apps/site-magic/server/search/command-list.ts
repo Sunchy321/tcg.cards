@@ -10,6 +10,7 @@ import type { Column, SQL } from 'drizzle-orm';
 import { and, arrayContains, asc, desc, eq, gt, gte, inArray, lt, lte, ne, not, notInArray, or, sql } from 'drizzle-orm';
 
 import { model } from '#model/magic/search';
+import type { Locale } from '#model/magic/schema/basic';
 import { CardEditorView, CardPrintView } from '#schema/shared/magic/print';
 
 import { slugifyName } from '@tcg-cards/shared/magic/slug';
@@ -167,15 +168,17 @@ export const print = cs
       && (parts.length === 2 || /^[a-z]+$/.test(parts[2]!.toLowerCase()));
 
     // Anything that does not read as a print reference stays a plain text search.
+    // raw accepts no qualifiers, so negation is applied around the call.
     if (!wellFormed) {
-      return raw.call({ value: String(value), operator: '', qualifier }, { meta: {}, table });
+      const query = raw.call({ value: String(value), operator: '', qualifier: [] }, { meta: {}, table });
+      return qualifier.includes('!') ? not(query!) : query!;
     }
 
     const [set, number, lang] = parts as [string, string, string?];
     return and(
       eq(table.set, set.toLowerCase()),
       eq(table.number, number),
-      lang != null ? eq(table.lang, lang.toLowerCase()) : undefined,
+      lang != null ? eq(table.lang, lang.toLowerCase() as Locale) : undefined,
     )!;
   });
 

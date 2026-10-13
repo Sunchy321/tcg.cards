@@ -174,34 +174,34 @@
 </template>
 
 <script setup lang="ts">
-
-definePageMeta({
-  layout: 'admin',
-  title:  '公告管理',
-});
 import { useConsolePlatform } from '@tcg-cards/console-platform';
 import { computed, onMounted, reactive, ref } from 'vue';
 import YAML from 'yaml';
 
 import YamlEditor from '../../../components/YamlEditor.vue';
 import type { AnnouncementProfile } from '@tcg-cards/model/magic/schema/announcement';
+definePageMeta({
+  layout: 'admin',
+  title:  '公告管理',
+});
 
-interface LinkEntry { url: string; label?: string }
+interface LinkEntry { url: string, label?: string }
 interface ItemForm {
-  id?: string;
-  type: string;
-  name: string;
-  effectiveDate: string;
-  format: string;
-  status: string;
-  score?: number;
-  group: string;
-  cardId: string;
-  setId: string;
-  ruleId: string;
+  id?:             string;
+  type:            string;
+  name:            string;
+  effectiveDate:   string;
+  format:          string;
+  status:          string;
+  score?:          number;
+  group:           string;
+  prevVersion?:    number;
+  cardId:          string;
+  setId:           string;
+  ruleId:          string;
   relatedCardsStr: string;
-  formats: string[];
-  cardIds: string[];
+  formats:         string[];
+  cardIds:         string[];
 }
 
 const platform = useConsolePlatform();
@@ -221,31 +221,31 @@ const yamlContent = ref('');
 const yamlError = ref('');
 
 const emptyItem = (): ItemForm => ({
-  type: 'card_update',
-  name: '',
-  effectiveDate: '',
-  format: '',
-  status: '',
-  score: undefined,
-  group: '',
-  prevVersion: undefined,
-  cardId: '',
-  setId: '',
-  ruleId: '',
+  type:            'card_update',
+  name:            '',
+  effectiveDate:   '',
+  format:          '',
+  status:          '',
+  score:           undefined,
+  group:           '',
+  prevVersion:     undefined,
+  cardId:          '',
+  setId:           '',
+  ruleId:          '',
   relatedCardsStr: '',
-  formats: [],
-  cardIds: [],
+  formats:         [],
+  cardIds:         [],
 });
 
 const form = reactive({
-  id: '',
-  source: 'wizards',
-  date: new Date().toISOString().split('T')[0]!,
+  id:            '',
+  source:        'wizards',
+  date:          new Date().toISOString().split('T')[0]!,
   effectiveDate: '',
-  prevVersion: 1,
-  name: '',
-  link: [] as LinkEntry[],
-  items: [] as ItemForm[],
+  prevVersion:   1,
+  name:          '',
+  link:          [] as LinkEntry[],
+  items:         [] as ItemForm[],
 });
 
 const selectedAnnouncement = computed(() => announcements.value.find(a => a.id === selectedId.value) ?? null);
@@ -284,7 +284,7 @@ const filteredAnnouncements = computed(() =>
   selectedSource.value === 'all' ? announcements.value : announcements.value.filter(a => a.source === selectedSource.value),
 );
 
-function showToast(input: { title: string; description?: string; color?: 'error' | 'success' }) {
+function showToast(input: { title: string, description?: string, color?: 'error' | 'success' }) {
   platform.toast.show(input);
 }
 
@@ -292,34 +292,29 @@ function parseRelatedCards(s: string): string[] {
   return s.split(',').map(v => v.trim()).filter(Boolean);
 }
 
-function parseJsonSafe(s: string): unknown | null {
-  if (!s.trim()) return null;
-  try { return JSON.parse(s); } catch { return null; }
-}
-
 function toYaml() {
   return YAML.stringify({
-    source: form.source,
-    date: form.date,
+    source:        form.source,
+    date:          form.date,
     effectiveDate: form.effectiveDate || null,
-    prevVersion: form.prevVersion,
-    name: form.name,
-    link: form.link,
-    items: form.items.map(item => ({
-      type: item.type,
-      name: item.name || null,
+    prevVersion:   form.prevVersion,
+    name:          form.name,
+    link:          form.link,
+    items:         form.items.map(item => ({
+      type:          item.type,
+      name:          item.name || null,
       effectiveDate: item.effectiveDate || null,
-      format: item.format || null,
-      status: item.status || null,
-      score: item.score ?? null,
-      group: item.group || null,
-      prevVersion: item.prevVersion ?? null,
-      cardId: item.cardId || null,
-      setId: item.setId || null,
-      ruleId: item.ruleId || null,
-      relatedCards: parseRelatedCards(item.relatedCardsStr) || null,
-      formats: item.formats,
-      cardIds: item.cardIds,
+      format:        item.format || null,
+      status:        item.status || null,
+      score:         item.score ?? null,
+      group:         item.group || null,
+      prevVersion:   item.prevVersion ?? null,
+      cardId:        item.cardId || null,
+      setId:         item.setId || null,
+      ruleId:        item.ruleId || null,
+      relatedCards:  parseRelatedCards(item.relatedCardsStr) || null,
+      formats:       item.formats,
+      cardIds:       item.cardIds,
     })),
   }, { indent: 2 });
 }
@@ -334,23 +329,25 @@ function fromYaml(content: string): boolean {
     if (data.name !== undefined) form.name = data.name;
     if (data.link !== undefined) form.link = Array.isArray(data.link) ? data.link : [];
     if (data.items !== undefined) {
-      form.items = Array.isArray(data.items) ? data.items.map((i: any) => ({
-        id: i.id,
-        type: i.type ?? 'card_update',
-        name: i.name ?? '',
-        effectiveDate: i.effectiveDate ?? '',
-        format: i.format ?? '',
-        status: i.status ?? '',
-        score: i.score ?? undefined,
-        group: i.group ?? '',
-        prevVersion: i.prevVersion,
-        cardId: i.cardId ?? '',
-        setId: i.setId ?? '',
-        ruleId: i.ruleId ?? '',
-        relatedCardsStr: Array.isArray(i.relatedCards) ? i.relatedCards.join(', ') : '',
-        formats: i.formats ?? [],
-        cardIds: i.cardIds ?? [],
-      })) : [];
+      form.items = Array.isArray(data.items)
+        ? data.items.map((i: any) => ({
+          id:              i.id,
+          type:            i.type ?? 'card_update',
+          name:            i.name ?? '',
+          effectiveDate:   i.effectiveDate ?? '',
+          format:          i.format ?? '',
+          status:          i.status ?? '',
+          score:           i.score ?? undefined,
+          group:           i.group ?? '',
+          prevVersion:     i.prevVersion,
+          cardId:          i.cardId ?? '',
+          setId:           i.setId ?? '',
+          ruleId:          i.ruleId ?? '',
+          relatedCardsStr: Array.isArray(i.relatedCards) ? i.relatedCards.join(', ') : '',
+          formats:         i.formats ?? [],
+          cardIds:         i.cardIds ?? [],
+        }))
+        : [];
     }
     yamlError.value = '';
     return true;
@@ -400,21 +397,21 @@ function fillForm(row: any) {
   form.name = row.name;
   form.link = Array.isArray(row.link) ? row.link : [];
   form.items = (row.items ?? []).map((i: any) => ({
-    id: i.id,
-    type: i.type ?? 'card_update',
-    name: i.name ?? '',
-    effectiveDate: i.effectiveDate ?? '',
-    format: i.format ?? '',
-    status: i.status ?? '',
-    score: i.score ?? undefined,
-    group: i.group ?? '',
-    prevVersion: i.prevVersion,
-    cardId: i.cardId ?? '',
-    setId: i.setId ?? '',
-    ruleId: i.ruleId ?? '',
+    id:              i.id,
+    type:            i.type ?? 'card_update',
+    name:            i.name ?? '',
+    effectiveDate:   i.effectiveDate ?? '',
+    format:          i.format ?? '',
+    status:          i.status ?? '',
+    score:           i.score ?? undefined,
+    group:           i.group ?? '',
+    prevVersion:     i.prevVersion,
+    cardId:          i.cardId ?? '',
+    setId:           i.setId ?? '',
+    ruleId:          i.ruleId ?? '',
     relatedCardsStr: Array.isArray(i.relatedCards) ? i.relatedCards.join(', ') : '',
-    formats: i.formats ?? [],
-    cardIds: i.cardIds ?? [],
+    formats:         i.formats ?? [],
+    cardIds:         i.cardIds ?? [],
   }));
   isCreating.value = false;
   isYamlMode.value = false;
@@ -465,27 +462,27 @@ function moveItem(from: number, direction: -1 | 1) {
 
 function normalizePayload() {
   return {
-    source: form.source,
-    date: form.date,
+    source:        form.source,
+    date:          form.date,
     effectiveDate: form.effectiveDate || null,
-    prevVersion: form.prevVersion,
-    name: form.name.trim(),
-    link: form.link.filter(l => l.url),
-    items: form.items.map(item => ({
-      type: item.type,
-      name: item.name || null,
+    prevVersion:   form.prevVersion,
+    name:          form.name.trim(),
+    link:          form.link.filter(l => l.url),
+    items:         form.items.map(item => ({
+      type:          item.type,
+      name:          item.name || null,
       effectiveDate: item.effectiveDate || null,
-      format: item.format || null,
-      status: item.status || null,
-      score: item.score ?? null,
-      group: item.group || null,
-      prevVersion: item.prevVersion ?? null,
-      cardId: item.cardId || null,
-      setId: item.setId || null,
-      ruleId: item.ruleId || null,
-      relatedCards: parseRelatedCards(item.relatedCardsStr),
-      formats: item.formats,
-      cardIds: item.cardIds,
+      format:        item.format || null,
+      status:        item.status || null,
+      score:         item.score ?? null,
+      group:         item.group || null,
+      prevVersion:   item.prevVersion ?? null,
+      cardId:        item.cardId || null,
+      setId:         item.setId || null,
+      ruleId:        item.ruleId || null,
+      relatedCards:  parseRelatedCards(item.relatedCardsStr),
+      formats:       item.formats,
+      cardIds:       item.cardIds,
     })),
   };
 }
@@ -507,7 +504,10 @@ async function loadAnnouncements() {
 
 async function handleSubmit() {
   if (isYamlMode.value && !fromYaml(yamlContent.value)) return;
-  if (!form.name.trim()) { showToast({ title: '名称不能为空', color: 'error' }); return; }
+  if (!form.name.trim()) {
+    showToast({ title: '名称不能为空', color: 'error' });
+    return;
+  }
 
   saving.value = true;
   try {

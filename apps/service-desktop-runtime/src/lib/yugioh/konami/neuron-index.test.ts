@@ -73,7 +73,7 @@ describe('fetchNeuronIndexPage', () => {
     const fetchImpl = ((input: URL | RequestInfo) => {
       requestedUrl = String(input);
       return Promise.resolve(new Response(okBody, { status: 200 }));
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     const page = await fetchNeuronIndexPage(1, { fetchImpl, retryBackoffMs: 0 });
 
@@ -88,7 +88,7 @@ describe('fetchNeuronIndexPage', () => {
       calls++;
       if (calls < 3) return Promise.reject(new Error('The operation timed out.'));
       return Promise.resolve(new Response(okBody, { status: 200 }));
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     const page = await fetchNeuronIndexPage(1, { fetchImpl, retryBackoffMs: 0 });
 
@@ -102,7 +102,7 @@ describe('fetchNeuronIndexPage', () => {
       calls++;
       if (calls === 1) return Promise.resolve(new Response('boom', { status: 500 }));
       return Promise.resolve(new Response(okBody, { status: 200 }));
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     const page = await fetchNeuronIndexPage(7, { fetchImpl, retryBackoffMs: 0 });
     expect(page.total).toBe(2);
@@ -114,7 +114,7 @@ describe('fetchNeuronIndexPage', () => {
     const fetchImpl = (() => {
       calls++;
       return Promise.reject(new Error('The operation timed out.'));
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     expect(fetchNeuronIndexPage(42, { fetchImpl, retryBackoffMs: 0 }))
       .rejects.toThrow('Neuron index page 42 failed after 3 attempts: The operation timed out.');

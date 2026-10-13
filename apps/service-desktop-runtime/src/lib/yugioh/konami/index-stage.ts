@@ -1,3 +1,5 @@
+import type { BlockDone } from '#task/definition';
+
 import { fetchNeuronIndexPage } from './neuron-index';
 import { sleep } from './common';
 
@@ -40,10 +42,10 @@ interface IndexStageCheckpoint {
 
 interface IndexStageBlockArgs {
   ctx:        IndexStageCtx;
-  blockInput: unknown;
+  blockInput: KonamiIndexBlockState;
   progress:   (update: { done: number, total: number }) => void;
-  checkpoint: (blockInput: unknown) => Promise<void>;
-  done:       (finalBlockInput: unknown) => unknown;
+  checkpoint: (blockInput: KonamiIndexBlockState) => Promise<void>;
+  done:       (finalBlockInput: KonamiIndexBlockState) => BlockDone;
   signal?:    AbortSignal;
 }
 
@@ -72,9 +74,9 @@ export async function konamiIndexEntry({ ctx: _ctx, checkpoint }: {
 }
 
 /** Stage block: fetches the next batch of index pages, checkpointing per batch. */
-export async function konamiIndexBlock(args: IndexStageBlockArgs): Promise<unknown> {
+export async function konamiIndexBlock(args: IndexStageBlockArgs): Promise<KonamiIndexBlockState | BlockDone> {
   const { ctx, blockInput, progress, checkpoint, done, signal } = args;
-  const state = blockInput as KonamiIndexBlockState;
+  const state = blockInput;
   const known = new Set(state.cids);
   const cids = [...state.cids];
   const delayMs = ctx.delayMs ?? 500;

@@ -207,7 +207,7 @@ export async function createPublishBatch(
   input: {
     stream:               { publishTarget: string, environment: string, publishType: string };
     targetFingerprint:    string;
-    operationKind:        'publish' | 'dry_run';
+    operationKind:        typeof PublishBatch.$inferInsert['operationKind'];
     manifestHash:         string;
     previousManifestHash: string | null;
     generationOrder:      number;

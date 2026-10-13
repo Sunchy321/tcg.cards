@@ -14,6 +14,9 @@ import {
 /** Transaction type used by shared tag commit application helpers. */
 export type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+/** Read contexts accepted by top-level tag reads: plain db or transaction. */
+export type TagQueryDb = typeof db | DbTx;
+
 /** Tag rows loaded from the shared main table. */
 export type TagRow = typeof Tag.$inferSelect;
 
@@ -773,7 +776,7 @@ export function matchesTagSearch(tag: TagProfile, input: TagListInput) {
 
 /** Lists tag configurations with pagination and filtering. */
 export async function listTags(
-  db: DbTx,
+  db: TagQueryDb,
   input: TagListInput,
 ): Promise<TagListResult> {
   const rows = await db.select()
@@ -793,7 +796,7 @@ export async function listTags(
 
 /** Reads one tag by enum id. */
 export async function getTag(
-  db: DbTx,
+  db: TagQueryDb,
   enumId: number,
 ): Promise<TagProfile> {
   const row = await db.select()

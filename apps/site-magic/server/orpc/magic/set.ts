@@ -8,6 +8,7 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 
 import { set, setProfile } from '#model/magic/schema/set';
+import type { Rarity } from '#model/magic/schema/basic';
 
 import { db } from '#db/db';
 import { Booster, Pack, PackContent, Set, SetLocalization, Sheet, SheetCard } from '#schema/shared/magic/set';
@@ -55,6 +56,8 @@ const full = os
 
     return {
       ...set,
+      // The column is a plain text array; output validation rejects off-enum values.
+      rarities:     set.rarities as Rarity[],
       localization: setLocalizations,
     };
   })
@@ -126,6 +129,8 @@ const complete = os
 
     return {
       ...set,
+      // The column is a plain text array; output validation rejects off-enum values.
+      rarities:     set.rarities as Rarity[],
       localization: setLocalizations,
       boosters,
     };

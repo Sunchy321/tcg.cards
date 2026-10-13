@@ -10,7 +10,7 @@ const linkDetailJson = readFileSync(join(import.meta.dir, 'fixtures', 'cnocg-det
 const notFoundJson = readFileSync(join(import.meta.dir, 'fixtures', 'cnocg-detail-notfound.json'), 'utf8');
 
 function fetchReturning(body: string): typeof fetch {
-  return (async () => Promise.resolve(new Response(body, { status: 200 }))) as typeof fetch;
+  return (async () => Promise.resolve(new Response(body, { status: 200 }))) as unknown as typeof fetch;
 }
 
 describe('fetchCnocgDetail', () => {
@@ -19,7 +19,7 @@ describe('fetchCnocgDetail', () => {
     const fetchImpl = ((input: URL | RequestInfo) => {
       requestedUrl = String(input);
       return Promise.resolve(new Response(detailJson, { status: 200 }));
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     const result = await fetchCnocgDetail(4007, { fetchImpl });
 

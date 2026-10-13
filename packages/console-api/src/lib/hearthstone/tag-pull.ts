@@ -95,6 +95,7 @@ function toLocalReplayCommit(commit: FieldCommitRow): FieldCommitInsert {
     clientMutationId:       commit.clientMutationId,
     editorRuntime:          commit.editorRuntime,
     editorIdentity:         commit.editorIdentity,
+    editorSource:           commit.editorSource,
     expectedRowRevision:    commit.expectedRowRevision,
     expectedWinnerRevision: commit.expectedWinnerRevision,
     baseRevision:           commit.baseRevision,

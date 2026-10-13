@@ -5,35 +5,36 @@ import type { TaskRunRecord, TaskRunSnapshot } from './store';
 import type { TaskStageState } from './definition';
 
 /** Builds a minimal TaskRunRecord for control-result tests. */
-function run(overrides: Partial<TaskRunRecord> & { id: string; status: TaskRunRecord['status'] }): TaskRunRecord {
+function run(overrides: Partial<TaskRunRecord> & { id: string, status: TaskRunRecord['status'] }): TaskRunRecord {
   return {
-    taskType: 'test_task',
-    definitionVersion: 'v1',
-    scope: { type: 'test', key: 'test:item' },
-    params: {},
-    supportsResume: false,
-    currentStageKey: null,
-    currentStageIndex: null,
-    currentResumeMode: null,
-    pausedResumeMode: null,
-    runRevision: 1,
-    heartbeatAt: null,
-    startedAt: null,
-    finishedAt: null,
-    errorCode: null,
-    errorMessage: null,
-    terminalReason: null,
+    taskType:           'test_task',
+    definitionVersion:  'v1',
+    scope:              { type: 'test', key: 'test:item' },
+    params:             {},
+    supportsResume:     false,
+    currentStageKey:    null,
+    currentStageIndex:  null,
+    currentResumeMode:  null,
+    pausedResumeMode:   null,
+    runRevision:        1,
+    heartbeatAt:        null,
+    startedAt:          null,
+    finishedAt:         null,
+    errorCode:          null,
+    errorMessage:       null,
+    terminalReason:     null,
     controlRequestKind: null,
-    runtimeBootId: null,
-    resumeContextKey: null,
-    retryOfTaskRunId: null,
+    runtimeBootId:      null,
+    resumeContextKey:   null,
+    retryOfTaskRunId:   null,
     ...overrides,
+    result:             overrides.result ?? null,
   };
 }
 
 /** Builds one convenience TaskRunSnapshot with empty stages. */
 function snapshot(
-  runOverrides: Partial<TaskRunRecord> & { id: string; status: TaskRunRecord['status'] },
+  runOverrides: Partial<TaskRunRecord> & { id: string, status: TaskRunRecord['status'] },
 ): TaskRunSnapshot {
   return { run: run(runOverrides), stages: [] as TaskStageState[] };
 }
@@ -41,15 +42,15 @@ function snapshot(
 describe('toTaskControlResult', () => {
   test('maps taskRunId, runRevision and status from the snapshot', () => {
     const result = toTaskControlResult(snapshot({
-      id: 'uuid-123',
-      status: 'running',
+      id:          'uuid-123',
+      status:      'running',
       runRevision: 7,
     }));
 
     expect(result).toEqual({
-      taskRunId: 'uuid-123',
+      taskRunId:   'uuid-123',
       runRevision: 7,
-      status: 'running',
+      status:      'running',
     });
   });
 

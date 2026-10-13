@@ -98,7 +98,12 @@ export const announcement = z.strictObject({
   date:   z.string(),
   name:   z.string(),
 
-  effectiveDate: z.string().nullable(),
+  effectiveDate:         z.string().nullable(),
+  effectiveDateTabletop: z.string().nullable(),
+  effectiveDateOnline:   z.string().nullable(),
+  effectiveDateArena:    z.string().nullable(),
+
+  nextDate: z.string().nullable(),
 
   link: linkEntry.array(),
 
