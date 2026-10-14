@@ -233,7 +233,12 @@ const apply = os
       .filter(i => i.cardId != null && isSentinelCardId(i.cardId))
       .map(i => i.cardId!.slice(1)))];
     const groupCards = await resolveGroupCards(db, groupNames);
-    const sentinelCardIds = [...new Set(Object.values(groupCards).flat())];
+    // Rotation also needs print membership for individually authored restrictions.
+    const cardIds = [...new Set([
+      ...Object.values(groupCards).flat(),
+      ...items.flatMap(i => [i.cardId, ...i.relatedCards])
+        .filter((id): id is string => id != null && !isSentinelCardId(id)),
+    ])];
 
     // set -> cardIds, feeding the set_change projection fan-out.
     const setIds = [...new Set(items.filter(i => i.type === 'set_change' && i.setId != null).map(i => i.setId!))];
@@ -249,14 +254,14 @@ const apply = os
     }
 
     const cardMeta: Record<string, ApplyCardMeta> = {};
-    for (const cardId of sentinelCardIds) {
+    for (const cardId of cardIds) {
       cardMeta[cardId] = { typeMain: [], rarities: [], sets: [], releaseDate: null };
     }
-    if (sentinelCardIds.length > 0) {
+    if (cardIds.length > 0) {
       const typeRows = await db.select({ cardId: Card.cardId, typeMain: CardPart.typeMain })
         .from(Card)
         .innerJoin(CardPart, and(eq(CardPart.cardId, Card.cardId), eq(CardPart.version, Card.version)))
-        .where(inArray(Card.cardId, sentinelCardIds));
+        .where(inArray(Card.cardId, cardIds));
       const printRows = await db.select({
         cardId:      Print.cardId,
         set:         Print.set,
@@ -264,7 +269,7 @@ const apply = os
         releaseDate: Print.releaseDate,
       })
         .from(Print)
-        .where(inArray(Print.cardId, sentinelCardIds));
+        .where(inArray(Print.cardId, cardIds));
 
       for (const row of typeRows) {
         const meta = cardMeta[row.cardId];

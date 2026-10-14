@@ -193,7 +193,7 @@ describe('runApply', () => {
     expect(banlistOf(result, 'vintage').map(e => e.cardId)).toEqual(['x-card']);
   });
 
-  test('a set leaving removes every ban whose card loses its last set, group entries included', () => {
+  test('a set leaving marks bans unavailable when cards lose their last set, group entries included', () => {
     const result = runApply({
       ...baseInput,
       cardMeta: {
@@ -221,8 +221,65 @@ describe('runApply', () => {
 
     expect(setsOf(result, 'modern')).toEqual(['s-2016']);
     // x-card and old-card lose their last set and leave with it; new-card stays via s-2016.
-    expect(banlistOf(result, 'modern').map(e => [e.cardId, e.date])).toEqual([['new-card', '2016-03-01']]);
+    expect(banlistOf(result, 'modern').map(e => [e.cardId, e.status, e.date])).toEqual([
+      ['new-card', 'banned', '2016-03-01'],
+      ['old-card', 'unavailable', '2018-01-01'],
+      ['x-card', 'unavailable', '2018-01-01'],
+    ]);
     expect(result.warnings).toEqual([]);
+  });
+
+  test('rotation preserves restrictions on reprints, clears scores on exit, and clears exclusions on re-entry', () => {
+    const input: ApplyInput = {
+      ...baseInput,
+      formats: [{ formatId: 'modern', birthday: null, deathdate: null }],
+      cardMeta: {
+        'rotated-card': { typeMain: [], rarities: [], sets: ['s-2010'], releaseDate: '2010-01-01' },
+        'reprinted-card': { typeMain: [], rarities: [], sets: ['s-2010', 's-2016'], releaseDate: '2010-01-01' },
+      },
+      announcements: [
+        {
+          date: '2015-01-01', effectiveDate: null,
+          items: [
+            { id: 'rotate-score', ruleId: null, type: 'card_change', effectiveDate: null, format: 'modern', status: 'score', score: 3, group: null, cardId: 'rotated-card', setId: null, relatedCards: [] },
+            { id: 'reprint-ban', ruleId: null, type: 'card_change', effectiveDate: null, format: 'modern', status: 'banned', score: null, group: null, cardId: 'reprinted-card', setId: null, relatedCards: [] },
+          ],
+        },
+        {
+          date: '2018-01-01', effectiveDate: '2018-02-01',
+          items: [
+            { id: 'rotate-out', ruleId: null, type: 'set_change', effectiveDate: null, format: 'modern', status: 'unavailable', score: null, group: null, cardId: null, setId: 's-2010', relatedCards: [] },
+          ],
+        },
+      ],
+    };
+    const result = runApply(input);
+    expect(banlistOf(result, 'modern')).toEqual([
+      { cardId: 'reprinted-card', status: 'banned', score: null, date: '2015-01-01', group: null },
+      { cardId: 'rotated-card', status: 'unavailable', score: null, date: '2018-02-01', group: null },
+    ]);
+    expect(runApply(input)).toEqual(result);
+
+    const laterExit = runApply({
+      ...input,
+      announcements: [...input.announcements, {
+        date: '2019-01-01', effectiveDate: null,
+        items: [{ id: 'later-exit', ruleId: null, type: 'set_change', effectiveDate: null, format: 'modern', status: 'unavailable', score: null, group: null, cardId: null, setId: 's-2016', relatedCards: [] }],
+      }],
+    });
+    expect(banlistOf(laterExit, 'modern').find(e => e.cardId === 'rotated-card')!.date).toBe('2018-02-01');
+    expect(banlistOf(laterExit, 'modern').find(e => e.cardId === 'reprinted-card')!.status).toBe('unavailable');
+
+    const reentry = runApply({
+      ...input,
+      announcements: [...input.announcements, {
+        date: '2019-01-01', effectiveDate: null,
+        items: [{ id: 'rotate-back', ruleId: null, type: 'set_change', effectiveDate: null, format: 'modern', status: 'legal', score: null, group: null, cardId: null, setId: 's-2010', relatedCards: [] }],
+      }],
+    });
+    expect(banlistOf(reentry, 'modern')).toEqual([
+      { cardId: 'reprinted-card', status: 'banned', score: null, date: '2015-01-01', group: null },
+    ]);
   });
 
   test('an armed group ban re-fires on set re-entry and dates the re-ban at the new entry', () => {

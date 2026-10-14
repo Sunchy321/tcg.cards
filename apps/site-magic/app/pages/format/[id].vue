@@ -103,29 +103,27 @@
         </div>
 
         <div v-if="n.sets.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-3">
-          <div
+          <EntryWithStatus
             v-for="{ setId: id, status } in n.sets"
             :key="id"
-            class="flex items-center gap-2"
+            :status="status"
+            :date="n.date"
           >
-            <UIcon
-              :name="status === 'legal' ? 'lucide:plus' : 'lucide:minus'"
-              :class="status === 'legal' ? 'text-green-500' : 'text-red-500'"
-            />
             <SetAvatar :set-id="id" />
-          </div>
+          </EntryWithStatus>
         </div>
 
         <div v-if="n.banlist.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-          <div
+          <EntryWithStatus
             v-for="{ cardId: id, status, score, group } in n.banlist"
             :key="`${id}-${status}`"
-            class="flex items-center gap-2"
+            :status="status"
+            :score="score"
+            :date="n.date"
           >
-            <BanlistStatus :status="statusKey(status, score)" />
             <CardAvatar :id="id" />
-            <span v-if="group != null" class="text-xs text-gray-400 font-variant-small-caps">{{ groupShort(group) }}</span>
-          </div>
+            <span v-if="group != null" class="text-xs text-gray-500 dark:text-gray-400 font-variant-small-caps">{{ groupShort(group) }}</span>
+          </EntryWithStatus>
         </div>
       </UCard>
     </div>
@@ -168,34 +166,31 @@
             :key="item._type === 'item' ? `${item.cardId}-${item.status}` : `group-${item.group}`"
           >
             <!-- Individual card entry -->
-            <div v-if="item._type === 'item'" class="flex items-center gap-2">
-              <BanlistStatus :status="statusKey(item.status, item.score)" />
-              <a
-                v-if="item.link.length > 0"
-                class="text-xs text-gray-400 shrink-0 font-mono"
-                :href="item.link[0]?.url"
-                target="_blank"
-              >{{ item.date }}</a>
-              <span v-else class="text-xs text-gray-400 shrink-0 font-mono">{{ item.date }}</span>
+            <EntryWithStatus
+              v-if="item._type === 'item'"
+              :status="item.status"
+              :score="item.score"
+              :date="item.date"
+              :date-link="item.link[0]?.url"
+            >
               <CardAvatar :id="item.cardId" />
-              <span v-if="item.group != null" class="text-xs text-gray-400 font-variant-small-caps">{{ groupShort(item.group) }}</span>
-            </div>
+              <span v-if="item.group != null" class="text-xs text-gray-500 dark:text-gray-400 font-variant-small-caps">{{ groupShort(item.group) }}</span>
+            </EntryWithStatus>
 
             <!-- Collapsed group entry -->
-            <div v-else class="flex items-center gap-2">
-              <BanlistStatus :status="item.status" />
-              <span class="text-xs text-gray-400 shrink-0 font-mono">{{ item.date }}</span>
+            <EntryWithStatus v-else :status="item.status" :date="item.date">
+              <span class="text-sm font-semibold font-variant-small-caps">{{ groupName(item.group) }}</span>
               <UBadge :label="String(item.count)" size="sm" variant="subtle" />
-              <span class="text-sm font-semibold font-variant-small-caps text-gray-300">{{ groupName(item.group) }}</span>
-              <UButton
-                icon="lucide:list"
-                size="xs"
-                variant="ghost"
-                color="neutral"
-                class="ml-auto"
-                @click="selectedGroup = item.group"
-              />
-            </div>
+              <template #actions>
+                <UButton
+                  icon="lucide:list"
+                  size="xs"
+                  variant="ghost"
+                  color="neutral"
+                  @click="selectedGroup = item.group"
+                />
+              </template>
+            </EntryWithStatus>
           </template>
         </div>
       </UCard>
@@ -218,21 +213,16 @@
     >
       <template #body>
         <div class="flex flex-col gap-2">
-          <div
+          <EntryWithStatus
             v-for="card in selectedGroupItems"
             :key="card.cardId"
-            class="flex items-center gap-2"
+            :status="card.status"
+            :score="card.score"
+            :date="card.date"
+            :date-link="card.link[0]?.url"
           >
-            <BanlistStatus :status="statusKey(card.status, card.score)" />
-            <a
-              v-if="card.link.length > 0"
-              class="text-xs text-gray-400 shrink-0 font-mono"
-              :href="card.link[0]?.url"
-              target="_blank"
-            >{{ card.date }}</a>
-            <span v-else class="text-xs text-gray-400 shrink-0 font-mono">{{ card.date }}</span>
             <CardAvatar :id="card.cardId" />
-          </div>
+          </EntryWithStatus>
         </div>
       </template>
     </UModal>
@@ -412,12 +402,6 @@ const groupName = (group: string) => {
   const key = `magic.ui.format.group.${group}`;
   const result = i18n.t(key);
   return result !== key ? result : group;
-};
-
-/** Produce the status key expected by BanlistStatus (e.g. 'score-3' for scored entries) */
-const statusKey = (status: Legality, score?: number | null) => {
-  if (score != null) return `score-${score}`;
-  return status;
 };
 
 // ── Data loading ──────────────────────────────────────────────────────────────

@@ -30,18 +30,15 @@
           <div v-for="typeGroup in section.types" :key="section.key + typeGroup.type" class="mb-4">
             <h3 class="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">{{ typeGroup.typeLabel }}</h3>
             <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              <div
+              <EntryWithStatus
                 v-for="row in typeGroup.rows"
                 :key="row.key"
-                class="flex items-center gap-2 rounded-lg px-2 py-1"
-                :class="statusTintOf(row.status)"
+                :status="row.status"
               >
-                <StatusIcon v-if="row.status" :status="row.status" />
                 <CardAvatar v-if="row.cardId" :id="row.cardId" />
                 <SetAvatar v-else-if="row.setId" :set-id="row.setId" />
                 <span v-else-if="row.ruleId" class="font-mono text-sm text-gray-600 dark:text-gray-400">{{ row.ruleId }}</span>
-                <span v-if="row.effectiveDate" class="text-xs text-gray-500 dark:text-gray-400">{{ row.effectiveDate }}</span>
-              </div>
+              </EntryWithStatus>
             </div>
           </div>
         </section>
@@ -124,33 +121,6 @@ const typeLabels: Record<string, string> = {
 };
 
 const typeLabel = (type: string) => typeLabels[type] ?? type;
-
-const STATUS_TINT: Record<string, string> = {
-  banned:              'bg-red-50 text-red-700 dark:bg-red-900/40 dark:text-red-200',
-  banned_as_commander: 'bg-red-50 text-red-700 dark:bg-red-900/40 dark:text-red-200',
-  banned_as_companion: 'bg-red-50 text-red-700 dark:bg-red-900/40 dark:text-red-200',
-  banned_in_bo1:       'bg-orange-50 text-orange-700 dark:bg-orange-900/40 dark:text-orange-200',
-  restricted:          'bg-orange-50 text-orange-700 dark:bg-orange-900/40 dark:text-orange-200',
-  suspended:           'bg-orange-50 text-orange-700 dark:bg-orange-900/40 dark:text-orange-200',
-  game_changer:        'bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200',
-  score:               'bg-sky-50 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200',
-  legal:               'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200',
-  unavailable:         'bg-gray-100 text-gray-600 dark:bg-gray-800/60 dark:text-gray-300',
-  extend:              'bg-violet-50 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200',
-  buff:                'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200',
-  nerf:                'bg-red-50 text-red-700 dark:bg-red-900/40 dark:text-red-200',
-  tweak:               'bg-sky-50 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200',
-  revert:              'bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300',
-  rework:              'bg-sky-50 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200',
-  text_fix:            'bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300',
-  text_adjust:         'bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300',
-  bugged:              'bg-red-50 text-red-700 dark:bg-red-900/40 dark:text-red-200',
-  bugfix:              'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200',
-};
-
-/** Chip background tint by status; items without a status stay untinted. */
-const statusTintOf = (status: string | null): string =>
-  (status != null && STATUS_TINT[status]) || '';
 
 /** Which entity reference an item type carries, mirroring the editor's field gating. */
 function entityKind(type: string): 'card' | 'set' | 'rule' | 'none' {

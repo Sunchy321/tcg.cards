@@ -41,7 +41,7 @@ export interface ApplyAnnouncementInput {
   items:         ApplyItemInput[];
 }
 
-/** Per-card data the sentinel expansion needs: type, print rarities, sets, and earliest release. */
+/** Card metadata for sentinel eligibility, entry dates, and rotation of individual restrictions. */
 export interface ApplyCardMeta {
   typeMain:    string[];
   rarities:    string[];
@@ -318,6 +318,7 @@ export function runApply(input: ApplyInput): ApplyResult {
   return { formats, projections, warnings };
 }
 
+/** Updates set membership and card restrictions when cards leave or re-enter a format. */
 function applySetChange(
   input: ApplyInput,
   entryIntoFormat: (cardId: string, formatSets: string[] | null, fallback: string) => string,
@@ -342,6 +343,12 @@ function applySetChange(
       warnings.push(`set ${item.setId} already in ${formatId}`);
     } else {
       fs.sets.push(item.setId);
+      // Rotation exclusions expire on re-entry; armed group bans are reapplied below.
+      for (const [cardId, entry] of fs.banlist) {
+        if (entry.status === 'unavailable' && input.cardMeta[cardId]?.sets.includes(item.setId)) {
+          fs.banlist.delete(cardId);
+        }
+      }
       // Armed group bans re-fire: cards the entering set brings in are banned at their entry date.
       for (const [group, watcher] of fs.watchers) {
         const entering = (input.groupCards[group] ?? []).filter(cardId => {
@@ -370,13 +377,13 @@ function applySetChange(
       return;
     }
     fs.sets = fs.sets.filter(s => s !== item.setId);
-    // Any ban whose card loses its last set in the format is moot: the card leaves with the set.
-    // A still-armed group ban re-bans the cards if their set ever returns.
-    for (const [cardId, _entry] of [...fs.banlist]) {
+    // Keep the rotation outcome instead of silently dropping the restriction record.
+    // Reprints in a remaining set retain their restrictions; later exits must not change an exclusion date.
+    for (const [cardId, entry] of fs.banlist) {
       const meta = input.cardMeta[cardId];
       const staysRelevant = meta == null || meta.sets.some(s => fs.sets!.includes(s));
-      if (!staysRelevant) {
-        fs.banlist.delete(cardId);
+      if (!staysRelevant && entry.status !== 'unavailable') {
+        fs.banlist.set(cardId, { ...entry, status: 'unavailable', score: null, date: effective });
       }
     }
     return;
