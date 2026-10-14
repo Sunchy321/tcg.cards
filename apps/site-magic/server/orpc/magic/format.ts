@@ -109,6 +109,7 @@ const changes = os
     return rows
       .map(({ item, announcement }) => ({
         ...item,
+        score:     item.score ?? (typeof item.projection?.score === 'number' ? item.projection.score : null),
         type:      item.type as FormatChange['type'],
         status:    item.status as FormatChange['status'],
         createdAt: item.createdAt.toISOString(),

@@ -1,7 +1,8 @@
 <template>
   <div
     class="flex min-w-0 items-center gap-2 rounded-lg px-2 py-1 text-gray-900 dark:text-gray-100"
-    :class="status == null ? '' : STATUS_TINT[status] ?? ''"
+    :class="status == null || (status === 'score' && score != null) ? '' : STATUS_TINT[status] ?? ''"
+    :style="status === 'score' && score != null ? scoreTint : undefined"
   >
     <StatusIcon v-if="status" :status="status" :score="score" />
     <div class="flex min-w-0 flex-1 items-center gap-2">
@@ -19,12 +20,13 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
+const props = defineProps<{
   status?:   string | null;
   score?:    number | null;
   date?:     string | null;
   dateLink?: string;
 }>();
+const colorMode = useColorMode();
 
 const STATUS_TINT: Record<string, string> = {
   banned:              'bg-red-50 dark:bg-red-900/40',
@@ -48,4 +50,13 @@ const STATUS_TINT: Record<string, string> = {
   bugged:              'bg-red-50 dark:bg-red-900/40',
   bugfix:              'bg-emerald-50 dark:bg-emerald-900/40',
 };
+
+const scoreTint = computed(() => {
+  const hue = 120 - Math.min(Math.max((props.score ?? 1) - 1, 0), 9) * 12;
+  return {
+    backgroundColor: colorMode.value === 'dark'
+      ? `hsl(${hue} 45% 22% / 40%)`
+      : `hsl(${hue} 75% 96%)`,
+  };
+});
 </script>

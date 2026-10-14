@@ -60,6 +60,7 @@
                 v-for="row in typeGroup.rows"
                 :key="row.key"
                 :status="row.status"
+                :score="row.score"
                 class="rounded-xl px-3 py-3 text-sm ring-1 ring-gray-200/50 ring-inset dark:ring-gray-800/60"
               >
                 <CardAvatar v-if="row.cardId" :id="row.cardId" class="min-w-0 leading-6 font-medium wrap-anywhere" />
@@ -82,12 +83,14 @@ interface ProjectionCard {
   cardId:        string;
   status:        string | null;
   effectiveDate: string | null;
+  score?:        number | null;
 }
 
 /** One authored announcement change and its display projection. */
 interface AnnouncementItemView {
   type:          string;
   status:        string | null;
+  score?:        number | null;
   effectiveDate: string | null;
   format:        string | null;
   order:         number;
@@ -95,13 +98,14 @@ interface AnnouncementItemView {
   setId:         string | null;
   ruleId:        string | null;
   relatedCards:  string[];
-  projection:    { formats: string[], cards: ProjectionCard[] } | null;
+  projection:    { formats: string[], cards: ProjectionCard[], score?: number | null } | null;
 }
 
 /** One rendered row: a card (or entity reference) with its status and effective date. */
 interface DisplayRow {
   key:           string;
   status:        string | null;
+  score:         number | null;
   effectiveDate: string | null;
   cardId:        string | null;
   setId:         string | null;
@@ -177,6 +181,7 @@ function rowsForItem(item: AnnouncementItemView): DisplayRow[] {
     return projected.map(card => ({
       key:           `${item.order}-${card.cardId}`,
       status:        card.status ?? item.status,
+      score:         card.score ?? item.score ?? item.projection?.score ?? null,
       effectiveDate: card.effectiveDate,
       cardId:        card.cardId,
       setId:         null,
@@ -188,6 +193,7 @@ function rowsForItem(item: AnnouncementItemView): DisplayRow[] {
   return [{
     key:           `${item.order}`,
     status:        item.status,
+    score:         item.score ?? item.projection?.score ?? null,
     effectiveDate: item.effectiveDate,
     cardId:        kind === 'card' ? item.cardId : null,
     setId:         kind === 'set' ? item.setId : null,

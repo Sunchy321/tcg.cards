@@ -3,9 +3,11 @@
     <span
       class="inline-flex size-4 shrink-0 items-center justify-center rounded-full border-[1.5px] border-current text-[10px]"
       :class="style.cls"
+      :style="scoreStyle"
     >
+      <span v-if="status === 'score' && score != null" class="font-semibold leading-none">{{ score }}</span>
       <span v-if="status === 'restricted'" class="font-bold leading-none">!</span>
-      <UIcon v-else :name="style.icon" mode="svg" class="**:stroke-4" />
+      <UIcon v-else-if="status !== 'score' || score == null" :name="style.icon" mode="svg" class="**:stroke-4" />
     </span>
   </UTooltip>
 </template>
@@ -43,6 +45,16 @@ const STATUS_ICONS: Record<string, { icon: string, cls: string }> = {
 
 const style = computed(() =>
   STATUS_ICONS[props.status] ?? { icon: 'lucide:dot', cls: 'text-gray-400 border-gray-300' });
+
+const scoreStyle = computed(() => {
+  if (props.status !== 'score' || props.score == null) return undefined;
+
+  const hue = 120 - Math.min(Math.max(props.score - 1, 0), 9) * 12;
+  return {
+    color:       `hsl(${hue} 65% 38%)`,
+    borderColor: `hsl(${hue} 55% 48%)`,
+  };
+});
 
 const label = computed(() => {
   if (props.score != null) {
