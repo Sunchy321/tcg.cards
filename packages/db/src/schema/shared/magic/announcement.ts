@@ -49,7 +49,7 @@ export const AnnouncementItem = schema.table('announcement_items', {
   ruleId:       text('rule_id'),
   relatedCards: text('related_cards').array().notNull().default([]),
 
-  projection: jsonb('projection').$type<{ formats: string[], cards: string[] }>().notNull().default({ formats: [], cards: [] }),
+  projection: jsonb('projection').$type<{ formats: string[], cards: { cardId: string, status: string | null, effectiveDate: string | null }[] }>().notNull().default({ formats: [], cards: [] }),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at')

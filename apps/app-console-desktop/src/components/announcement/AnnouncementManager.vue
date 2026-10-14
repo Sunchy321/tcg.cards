@@ -25,16 +25,6 @@
               @click="toggleYamlMode"
             />
             <UButton
-              v-if="formId"
-              icon="i-lucide-wand"
-              label="投影"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              :loading="projecting"
-              @click="handleProject"
-            />
-            <UButton
               v-if="applyEnabled"
               icon="i-lucide-play"
               label="应用"
@@ -258,7 +248,6 @@ const loading = ref(false);
 const selectedId = ref<string | null>(null);
 const isCreating = ref(false);
 const saving = ref(false);
-const projecting = ref(false);
 const applying = ref(false);
 const deleting = ref(false);
 const deleteModalOpen = ref(false);
@@ -516,22 +505,6 @@ async function handleSubmit() {
     notify('保存失败', errorMessage(error), 'error');
   } finally {
     saving.value = false;
-  }
-}
-
-async function handleProject() {
-  if (!formId.value) {
-    return;
-  }
-  projecting.value = true;
-  try {
-    await crud.project(formId.value);
-    notify('投影完成');
-    await loadDetail(formId.value);
-  } catch (error) {
-    notify('投影失败', errorMessage(error), 'error');
-  } finally {
-    projecting.value = false;
   }
 }
 

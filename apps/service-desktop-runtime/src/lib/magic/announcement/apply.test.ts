@@ -19,6 +19,7 @@ const baseInput: ApplyInput = {
     'new-card': { typeMain: ['creature'], rarities: ['rare'], sets: ['s-2016'], releaseDate: '2016-03-01' },
   },
   groupCards: { conspiracy: ['old-card', 'new-card'] },
+  setCards:   {},
   today:      '2020-01-01',
 };
 
@@ -38,6 +39,73 @@ describe('runApply', () => {
     expect(setsOf(result, 'vintage')).toEqual(null);
     expect(banlistOf(result, 'vintage')).toEqual([]);
     expect(result.warnings).toEqual([]);
+  });
+
+  test('produces a projection for every item: formats, and cards carrying the item status and effective date', () => {
+    const result = runApply({
+      ...baseInput,
+      setCards:      { 's-2016': ['set-card-1'] },
+      announcements: [
+        {
+          date:          '2015-01-01',
+          effectiveDate: null,
+          items:         [
+            { id: 'i1', ruleId: null, type: 'set_change', effectiveDate: null, format: 'modern', status: 'legal', score: null, group: null, cardId: null, setId: 's-2016', relatedCards: [] },
+            { id: 'i2', ruleId: null, type: 'card_change', effectiveDate: null, format: 'vintage', status: 'banned', score: null, group: null, cardId: 'x-card', setId: null, relatedCards: ['y-card'] },
+          ],
+        },
+      ],
+    });
+
+    const projections = new Map(result.projections.map(p => [p.id, p.projection]));
+    expect(projections.get('i1')!.formats).toEqual(['modern']);
+    expect(projections.get('i1')!.cards).toEqual([
+      { cardId: 'set-card-1', status: 'legal', effectiveDate: '2015-01-01' },
+    ]);
+    expect(projections.get('i2')!.cards).toEqual([
+      { cardId: 'x-card', status: 'banned', effectiveDate: '2015-01-01' },
+      { cardId: 'y-card', status: 'banned', effectiveDate: '2015-01-01' },
+    ]);
+  });
+
+  test('a sentinel item accumulates projection entries across re-fires with the latest dates', () => {
+    const result = runApply({
+      ...baseInput,
+      cardMeta: {
+        ...baseInput.cardMeta,
+        'x-card': { typeMain: ['creature'], rarities: ['rare'], sets: ['s-2010'], releaseDate: '2010-01-01' },
+      },
+      announcements: [
+        {
+          date:          '2014-06-01',
+          effectiveDate: null,
+          items:         [
+            { id: 's1', ruleId: null, type: 'card_change', effectiveDate: null, format: 'modern', status: 'banned', score: null, group: null, cardId: '#conspiracy', setId: null, relatedCards: [] },
+          ],
+        },
+        {
+          date:          '2018-01-01',
+          effectiveDate: null,
+          items:         [
+            { id: 'it-1', ruleId: null, type: 'set_change', effectiveDate: null, format: 'modern', status: 'unavailable', score: null, group: null, cardId: null, setId: 's-2010', relatedCards: [] },
+          ],
+        },
+        {
+          date:          '2019-01-01',
+          effectiveDate: null,
+          items:         [
+            { id: 'it-2', ruleId: null, type: 'set_change', effectiveDate: null, format: 'modern', status: 'legal', score: null, group: null, cardId: null, setId: 's-2010', relatedCards: [] },
+          ],
+        },
+      ],
+    });
+
+    const projection = result.projections.find(p => p.id === 's1')!.projection;
+    // old-card left and re-entered: its entry date moved to the re-entry; new-card stayed.
+    expect(projection.cards.map(c => c.cardId).sort()).toEqual(['new-card', 'old-card']);
+    const dates = new Map(projection.cards.map(c => [c.cardId, c.effectiveDate]));
+    expect(dates.get('old-card')).toBe('2019-01-01');
+    expect(dates.get('new-card')).toBe('2016-03-01');
   });
 
   test('seeding stops at a dead format deathdate', () => {
@@ -61,7 +129,7 @@ describe('runApply', () => {
           date:          '2014-06-01',
           effectiveDate: null,
           items:         [
-            { type: 'card_change', effectiveDate: null, format: '#eternal', status: 'banned', score: null, group: null, cardId: '#conspiracy', setId: null, relatedCards: [] },
+            { id: 'it-3', ruleId: null, type: 'card_change', effectiveDate: null, format: '#eternal', status: 'banned', score: null, group: null, cardId: '#conspiracy', setId: null, relatedCards: [] },
           ],
         },
       ],
@@ -83,7 +151,7 @@ describe('runApply', () => {
           date:          '2014-06-01',
           effectiveDate: null,
           items:         [
-            { type: 'card_change', effectiveDate: null, format: 'pauper', status: 'banned', score: null, group: null, cardId: '#conspiracy', setId: null, relatedCards: [] },
+            { id: 'it-4', ruleId: null, type: 'card_change', effectiveDate: null, format: 'pauper', status: 'banned', score: null, group: null, cardId: '#conspiracy', setId: null, relatedCards: [] },
           ],
         },
       ],
@@ -106,15 +174,15 @@ describe('runApply', () => {
           date:          '2010-06-01',
           effectiveDate: null,
           items:         [
-            { type: 'card_change', effectiveDate: null, format: 'modern', status: 'banned', score: null, group: null, cardId: 'x-card', setId: null, relatedCards: [] },
-            { type: 'card_change', effectiveDate: null, format: 'vintage', status: 'banned', score: null, group: null, cardId: 'x-card', setId: null, relatedCards: [] },
+            { id: 'it-5', ruleId: null, type: 'card_change', effectiveDate: null, format: 'modern', status: 'banned', score: null, group: null, cardId: 'x-card', setId: null, relatedCards: [] },
+            { id: 'it-6', ruleId: null, type: 'card_change', effectiveDate: null, format: 'vintage', status: 'banned', score: null, group: null, cardId: 'x-card', setId: null, relatedCards: [] },
           ],
         },
         {
           date:          '2010-06-01',
           effectiveDate: '2999-01-01',
           items:         [
-            { type: 'card_change', effectiveDate: null, format: 'vintage', status: 'banned', score: null, group: null, cardId: 'y-card', setId: null, relatedCards: [] },
+            { id: 'it-7', ruleId: null, type: 'card_change', effectiveDate: null, format: 'vintage', status: 'banned', score: null, group: null, cardId: 'y-card', setId: null, relatedCards: [] },
           ],
         },
       ],
@@ -137,15 +205,15 @@ describe('runApply', () => {
           date:          '2015-01-01',
           effectiveDate: null,
           items:         [
-            { type: 'card_change', effectiveDate: null, format: 'modern', status: 'banned', score: null, group: null, cardId: 'x-card', setId: null, relatedCards: [] },
-            { type: 'card_change', effectiveDate: null, format: 'modern', status: 'banned', score: null, group: null, cardId: '#conspiracy', setId: null, relatedCards: [] },
+            { id: 'it-8', ruleId: null, type: 'card_change', effectiveDate: null, format: 'modern', status: 'banned', score: null, group: null, cardId: 'x-card', setId: null, relatedCards: [] },
+            { id: 'it-9', ruleId: null, type: 'card_change', effectiveDate: null, format: 'modern', status: 'banned', score: null, group: null, cardId: '#conspiracy', setId: null, relatedCards: [] },
           ],
         },
         {
           date:          '2018-01-01',
           effectiveDate: null,
           items:         [
-            { type: 'set_change', effectiveDate: null, format: 'modern', status: 'unavailable', score: null, group: null, cardId: null, setId: 's-2010', relatedCards: [] },
+            { id: 'it-10', ruleId: null, type: 'set_change', effectiveDate: null, format: 'modern', status: 'unavailable', score: null, group: null, cardId: null, setId: 's-2010', relatedCards: [] },
           ],
         },
       ],
@@ -165,21 +233,21 @@ describe('runApply', () => {
           date:          '2014-06-01',
           effectiveDate: null,
           items:         [
-            { type: 'card_change', effectiveDate: null, format: 'modern', status: 'banned', score: null, group: null, cardId: '#conspiracy', setId: null, relatedCards: [] },
+            { id: 'it-11', ruleId: null, type: 'card_change', effectiveDate: null, format: 'modern', status: 'banned', score: null, group: null, cardId: '#conspiracy', setId: null, relatedCards: [] },
           ],
         },
         {
           date:          '2018-01-01',
           effectiveDate: null,
           items:         [
-            { type: 'set_change', effectiveDate: null, format: 'modern', status: 'unavailable', score: null, group: null, cardId: null, setId: 's-2010', relatedCards: [] },
+            { id: 'it-12', ruleId: null, type: 'set_change', effectiveDate: null, format: 'modern', status: 'unavailable', score: null, group: null, cardId: null, setId: 's-2010', relatedCards: [] },
           ],
         },
         {
           date:          '2019-01-01',
           effectiveDate: null,
           items:         [
-            { type: 'set_change', effectiveDate: null, format: 'modern', status: 'legal', score: null, group: null, cardId: null, setId: 's-2010', relatedCards: [] },
+            { id: 'it-13', ruleId: null, type: 'set_change', effectiveDate: null, format: 'modern', status: 'legal', score: null, group: null, cardId: null, setId: 's-2010', relatedCards: [] },
           ],
         },
       ],
@@ -204,15 +272,15 @@ describe('runApply', () => {
           date:          '2015-01-01',
           effectiveDate: null,
           items:         [
-            { type: 'card_change', effectiveDate: null, format: 'modern', status: 'banned', score: null, group: null, cardId: 'x-card', setId: null, relatedCards: [] },
+            { id: 'it-14', ruleId: null, type: 'card_change', effectiveDate: null, format: 'modern', status: 'banned', score: null, group: null, cardId: 'x-card', setId: null, relatedCards: [] },
           ],
         },
         {
           date:          '2016-01-01',
           effectiveDate: null,
           items:         [
-            { type: 'card_change', effectiveDate: null, format: 'modern', status: 'legal', score: null, group: null, cardId: 'x-card', setId: null, relatedCards: [] },
-            { type: 'card_change', effectiveDate: null, format: 'modern', status: 'buff', score: null, group: null, cardId: 'x-card', setId: null, relatedCards: [] },
+            { id: 'it-15', ruleId: null, type: 'card_change', effectiveDate: null, format: 'modern', status: 'legal', score: null, group: null, cardId: 'x-card', setId: null, relatedCards: [] },
+            { id: 'it-16', ruleId: null, type: 'card_change', effectiveDate: null, format: 'modern', status: 'buff', score: null, group: null, cardId: 'x-card', setId: null, relatedCards: [] },
           ],
         },
       ],

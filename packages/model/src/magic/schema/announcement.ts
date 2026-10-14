@@ -88,6 +88,13 @@ export const glowEntry = z.strictObject({
   type: z.enum(['buff', 'nerf']),
 });
 
+/** One projected card of an announcement item: its identity, the status applied to it, and when that takes hold. */
+export const projectionCard = z.strictObject({
+  cardId:        z.string(),
+  status:        z.string().nullable(),
+  effectiveDate: z.string().nullable(),
+});
+
 export const announcementItem = z.strictObject({
   id: z.uuid(),
 
@@ -113,7 +120,7 @@ export const announcementItem = z.strictObject({
 
   projection: z.object({
     formats: z.array(z.string()),
-    cards:   z.array(z.string()),
+    cards:   z.array(projectionCard),
   }).catchall(z.unknown()),
 
   createdAt: z.iso.datetime(),

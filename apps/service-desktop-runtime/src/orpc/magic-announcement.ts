@@ -10,11 +10,7 @@ import { os } from './index';
 import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
 import { groupCardLists } from '../lib/magic/announcement/data/card-groups';
 import { runApply, type ApplyCardMeta } from '../lib/magic/announcement/apply';
-import {
-  isSentinelCardId,
-  projectItem,
-  type ProjectionContext,
-} from '../lib/magic/announcement/projection';
+import { isSentinelCardId } from '../lib/magic/announcement/projection';
 
 const itemInput = z.object({
   type:          gameChangeType,
@@ -219,66 +215,6 @@ async function resolveGroupCards(db: NonNullable<ReturnType<typeof getLocalDb>>,
   return Object.fromEntries(groupNames.map(name => [name, groupCardLists[name] ?? resolved[name] ?? []]));
 }
 
-const project = os
-  .input(z.object({ announcementId: z.uuid() }))
-  .output(z.void())
-  .handler(async ({ input }) => {
-    const db = getLocalDb();
-    const announcement = await db.select()
-      .from(Announcement)
-      .where(eq(Announcement.id, input.announcementId))
-      .then(rows => rows[0]);
-
-    if (!announcement) {
-      throw new ORPCError('NOT_FOUND');
-    }
-
-    const items = await db.select()
-      .from(AnnouncementItem)
-      .where(eq(AnnouncementItem.announcementId, input.announcementId));
-
-    const setIds = [...new Set(items.filter(i => i.type === 'set_change' && i.setId != null).map(i => i.setId!))];
-    const setCards: Record<string, string[]> = {};
-    if (setIds.length > 0) {
-      const rows = await db.select({ setId: Print.set, cardId: Print.cardId })
-        .from(Print)
-        .where(inArray(Print.set, setIds))
-        .groupBy(Print.set, Print.cardId);
-      for (const row of rows) {
-        (setCards[row.setId] ??= []).push(row.cardId);
-      }
-    }
-
-    const groupNames = [...new Set(items
-      .filter(i => i.cardId != null && isSentinelCardId(i.cardId))
-      .map(i => i.cardId!.slice(1)))];
-    const groupCards = await resolveGroupCards(db, groupNames);
-
-    const sentinelCardIds = [...new Set(Object.values(groupCards).flat())];
-    const cardReleaseDates: Record<string, string> = {};
-    if (sentinelCardIds.length > 0) {
-      const rows = await db.select({ cardId: Print.cardId, releaseDate: sql<string>`min(${Print.releaseDate})` })
-        .from(Print)
-        .where(inArray(Print.cardId, sentinelCardIds))
-        .groupBy(Print.cardId);
-      for (const row of rows) {
-        cardReleaseDates[row.cardId] = row.releaseDate;
-      }
-    }
-
-    const context: ProjectionContext = {
-      setCards,
-      groupCards,
-      cardReleaseDates,
-      announcementEffectiveDate: announcement.effectiveDate ?? announcement.date,
-    };
-
-    for (const item of items) {
-      const projection = projectItem(item, context);
-      await db.update(AnnouncementItem).set({ projection }).where(eq(AnnouncementItem.id, item.id));
-    }
-  });
-
 const apply = os
   .input(z.object({ dryRun: z.boolean().optional() }))
   .output(z.object({ warnings: z.string().array(), formatCount: z.number().int(), dryRun: z.boolean() }))
@@ -298,6 +234,19 @@ const apply = os
       .map(i => i.cardId!.slice(1)))];
     const groupCards = await resolveGroupCards(db, groupNames);
     const sentinelCardIds = [...new Set(Object.values(groupCards).flat())];
+
+    // set -> cardIds, feeding the set_change projection fan-out.
+    const setIds = [...new Set(items.filter(i => i.type === 'set_change' && i.setId != null).map(i => i.setId!))];
+    const setCards: Record<string, string[]> = {};
+    if (setIds.length > 0) {
+      const rows = await db.select({ setId: Print.set, cardId: Print.cardId })
+        .from(Print)
+        .where(inArray(Print.set, setIds))
+        .groupBy(Print.set, Print.cardId);
+      for (const row of rows) {
+        (setCards[row.setId] ??= []).push(row.cardId);
+      }
+    }
 
     const cardMeta: Record<string, ApplyCardMeta> = {};
     for (const cardId of sentinelCardIds) {
@@ -354,12 +303,14 @@ const apply = os
         items:         items
           .filter(i => i.announcementId === a.id)
           .map(i => ({
+            id:            i.id,
             type:          i.type,
             effectiveDate: i.effectiveDate,
             format:        i.format,
             status:        i.status,
             score:         i.score,
             group:         i.group,
+            ruleId:        i.ruleId,
             cardId:        i.cardId,
             setId:         i.setId,
             relatedCards:  i.relatedCards,
@@ -367,6 +318,7 @@ const apply = os
       })),
       cardMeta,
       groupCards,
+      setCards,
       today: new Date().toISOString().split('T')[0]!,
     });
 
@@ -377,6 +329,9 @@ const apply = os
           // Banlist statuses arrive as validated text and narrow to the model's legality enum here.
           banlist: f.banlist.map(e => ({ ...e, status: e.status as Legality })),
         }).where(eq(Format.formatId, f.formatId));
+      }
+      for (const p of result.projections) {
+        await db.update(AnnouncementItem).set({ projection: p.projection }).where(eq(AnnouncementItem.id, p.id));
       }
     }
 
@@ -453,7 +408,6 @@ export const magicAnnouncementRouter = {
   create,
   update,
   remove,
-  project,
   apply,
   searchCards,
   resolveCardNames,
