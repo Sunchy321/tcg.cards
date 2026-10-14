@@ -134,6 +134,11 @@ export const announcementItem = z.strictObject({
   projection: z.object({
     formats: z.array(z.string()),
     cards:   z.array(projectionCard),
+    // Rotation removals are scoped because reprint availability differs by format.
+    derivedCards: z.array(projectionCard.extend({
+      formatId: z.string(),
+      group:    z.string().nullable(),
+    })).optional(),
   }).catchall(z.unknown()),
 
   createdAt: z.iso.datetime(),

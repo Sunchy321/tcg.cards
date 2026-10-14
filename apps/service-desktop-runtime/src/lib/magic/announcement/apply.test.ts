@@ -193,7 +193,70 @@ describe('runApply', () => {
     expect(banlistOf(result, 'vintage').map(e => e.cardId)).toEqual(['x-card']);
   });
 
-  test('a set leaving marks bans unavailable when cards lose their last set, group entries included', () => {
+  test('projection expands keywords only to formats alive at each item effective date', () => {
+    const result = runApply({
+      ...baseInput,
+      formats: [
+        { formatId: 'standard', birthday: '1995-01-10', deathdate: null },
+        { formatId: 'vintage', birthday: null, deathdate: null },
+        { formatId: 'modern', birthday: '2011-01-01', deathdate: null },
+        { formatId: 'extended', birthday: null, deathdate: '1995-01-10' },
+      ],
+      announcements: [{
+        date: '1995-01-10', effectiveDate: '1995-01-11',
+        items: [
+          { id: 'at-boundary', ruleId: null, type: 'set_change', effectiveDate: '1995-01-10', format: '#standard', status: 'legal', score: null, group: null, cardId: null, setId: 's-2010', relatedCards: [] },
+          { id: 'after-death', ruleId: null, type: 'card_change', effectiveDate: null, format: '#standard', status: 'banned', score: null, group: null, cardId: '#conspiracy', setId: null, relatedCards: [] },
+          { id: 'before-birth', ruleId: null, type: 'card_change', effectiveDate: null, format: 'modern', status: 'banned', score: null, group: null, cardId: 'old-card', setId: null, relatedCards: [] },
+          { id: 'at-birth', ruleId: null, type: 'card_change', effectiveDate: '2011-01-01', format: '#standard', status: 'banned', score: null, group: null, cardId: 'old-card', setId: null, relatedCards: [] },
+        ],
+      }],
+    });
+    const projections = new Map(result.projections.map(item => [item.id, item.projection.formats]));
+    expect(projections.get('at-boundary')).toEqual(['standard', 'extended']);
+    expect(projections.get('after-death')).toEqual(['vintage', 'standard']);
+    expect(projections.get('before-birth')).toEqual([]);
+    expect(projections.get('at-birth')).toEqual(['vintage', 'standard', 'modern']);
+  });
+
+  test('keyword set changes exclude eternal formats while explicitly targeted special set changes remain projected', () => {
+    const item = {
+      id: 'ordinary-set', ruleId: null, type: 'set_change', effectiveDate: null,
+      format: '#standard', status: 'legal', score: null, group: null,
+      cardId: null, setId: 's-2010', relatedCards: [],
+    };
+    const result = runApply({
+      ...baseInput,
+      formats: [
+        { formatId: 'standard', birthday: '1995-01-10', deathdate: null },
+        { formatId: 'modern', birthday: '2011-01-01', deathdate: null },
+        { formatId: 'vintage', birthday: null, deathdate: null },
+        { formatId: 'commander', birthday: '2010-01-01', deathdate: null },
+      ],
+      sets: [...baseInput.sets, { setId: 'un-set', type: 'funny', releaseDate: '2010-01-01' }],
+      announcements: [{
+        date: '2010-06-01', effectiveDate: null,
+        items: [
+          item,
+          { ...item, id: 'eternal-set', format: '#eternal' },
+          { ...item, id: 'special-set-in', format: 'commander', setId: 'un-set' },
+          { ...item, id: 'special-set-out', format: 'commander', setId: 'un-set', status: 'unavailable' },
+          { ...item, id: 'special-before-birth', format: 'commander', effectiveDate: '2009-01-01', setId: 'un-set' },
+          { ...item, id: 'sentinel-ban', type: 'card_change', cardId: '#conspiracy', setId: null, status: 'banned' },
+        ],
+      }],
+    });
+    const projections = new Map(result.projections.map(row => [row.id, row.projection.formats]));
+    expect(projections.get('ordinary-set')).toEqual(['standard']);
+    expect(projections.get('eternal-set')).toEqual([]);
+    expect(projections.get('special-set-in')).toEqual(['commander']);
+    expect(projections.get('special-set-out')).toEqual(['commander']);
+    expect(projections.get('special-before-birth')).toEqual([]);
+    expect(projections.get('sentinel-ban')).toEqual(['vintage', 'commander', 'standard']);
+    expect(result.warnings.filter(warning => warning.includes('not in vintage') || warning.includes('not in commander'))).toEqual([]);
+  });
+
+  test('a set leaving removes bans when cards lose their last set, group entries included', () => {
     const result = runApply({
       ...baseInput,
       cardMeta: {
@@ -223,13 +286,15 @@ describe('runApply', () => {
     // x-card and old-card lose their last set and leave with it; new-card stays via s-2016.
     expect(banlistOf(result, 'modern').map(e => [e.cardId, e.status, e.date])).toEqual([
       ['new-card', 'banned', '2016-03-01'],
-      ['old-card', 'unavailable', '2018-01-01'],
-      ['x-card', 'unavailable', '2018-01-01'],
+    ]);
+    expect(result.projections.find(p => p.id === 'it-10')!.projection.derivedCards).toEqual([
+      { formatId: 'modern', cardId: 'x-card', status: 'unavailable', effectiveDate: '2018-01-01', group: null },
+      { formatId: 'modern', cardId: 'old-card', status: 'unavailable', effectiveDate: '2018-01-01', group: 'conspiracy' },
     ]);
     expect(result.warnings).toEqual([]);
   });
 
-  test('rotation preserves restrictions on reprints, clears scores on exit, and clears exclusions on re-entry', () => {
+  test('rotation preserves restrictions on reprints and removes restrictions on exit and re-entry', () => {
     const input: ApplyInput = {
       ...baseInput,
       formats: [{ formatId: 'modern', birthday: null, deathdate: null }],
@@ -256,9 +321,30 @@ describe('runApply', () => {
     const result = runApply(input);
     expect(banlistOf(result, 'modern')).toEqual([
       { cardId: 'reprinted-card', status: 'banned', score: null, date: '2015-01-01', group: null },
-      { cardId: 'rotated-card', status: 'unavailable', score: null, date: '2018-02-01', group: null },
     ]);
     expect(runApply(input)).toEqual(result);
+
+    const scoped = runApply({
+      ...input,
+      formats: [
+        { formatId: 'modern', birthday: null, deathdate: null },
+        { formatId: 'standard', birthday: null, deathdate: null },
+      ],
+      announcements: [
+        { ...input.announcements[0]!, items: input.announcements[0]!.items.map(item => ({ ...item, format: '#standard' })) },
+        {
+          date: '2017-01-01', effectiveDate: null,
+          items: [{ id: 'standard-exit', ruleId: null, type: 'set_change', effectiveDate: null, format: 'standard', status: 'unavailable', score: null, group: null, cardId: null, setId: 's-2016', relatedCards: [] }],
+        },
+        { ...input.announcements[1]!, items: input.announcements[1]!.items.map(item => ({ ...item, format: '#standard' })) },
+      ],
+    });
+    const removals = scoped.projections.find(p => p.id === 'rotate-out')!.projection.derivedCards!;
+    expect(removals.filter(card => card.cardId === 'reprinted-card')).toEqual([
+      { formatId: 'standard', cardId: 'reprinted-card', status: 'unavailable', effectiveDate: '2018-02-01', group: null },
+    ]);
+    expect(banlistOf(scoped, 'modern').map(card => card.cardId)).toEqual(['reprinted-card']);
+    expect(banlistOf(scoped, 'standard')).toEqual([]);
 
     const laterExit = runApply({
       ...input,
@@ -267,8 +353,7 @@ describe('runApply', () => {
         items: [{ id: 'later-exit', ruleId: null, type: 'set_change', effectiveDate: null, format: 'modern', status: 'unavailable', score: null, group: null, cardId: null, setId: 's-2016', relatedCards: [] }],
       }],
     });
-    expect(banlistOf(laterExit, 'modern').find(e => e.cardId === 'rotated-card')!.date).toBe('2018-02-01');
-    expect(banlistOf(laterExit, 'modern').find(e => e.cardId === 'reprinted-card')!.status).toBe('unavailable');
+    expect(banlistOf(laterExit, 'modern')).toEqual([]);
 
     const reentry = runApply({
       ...input,
@@ -315,6 +400,104 @@ describe('runApply', () => {
       ['old-card', '2019-01-01'],
     ]);
     expect(result.warnings).toEqual([]);
+  });
+
+  test('a group restriction stops before cards entering on or after its lifting date', () => {
+    const result = runApply({
+      ...baseInput,
+      formats: [{ formatId: 'vintage', birthday: null, deathdate: null }],
+      cardMeta: {
+        existing: { typeMain: [], rarities: [], sets: [], releaseDate: '1994-01-01' },
+        before: { typeMain: [], rarities: [], sets: [], releaseDate: '1995-09-30' },
+        same: { typeMain: [], rarities: [], sets: [], releaseDate: '1995-10-01' },
+        after: { typeMain: [], rarities: [], sets: [], releaseDate: '1995-10-02' },
+      },
+      groupCards: { legendary: ['existing', 'before', 'same', 'after'] },
+      announcements: [
+        {
+          date: '1995-01-10', effectiveDate: null,
+          items: [{ id: 'legendary-restrict', ruleId: null, type: 'card_change', effectiveDate: null, format: 'vintage', status: 'restricted', score: null, group: null, cardId: '#legendary', setId: null, relatedCards: [] }],
+        },
+        {
+          date: '1995-10-01', effectiveDate: null,
+          items: [{ id: 'legendary-lift', ruleId: null, type: 'card_change', effectiveDate: null, format: 'vintage', status: 'legal', score: null, group: null, cardId: '#legendary', setId: null, relatedCards: [] }],
+        },
+      ],
+    });
+    expect(result.projections.find(row => row.id === 'legendary-restrict')!.projection.cards).toEqual([
+      { cardId: 'existing', status: 'restricted', effectiveDate: '1995-01-10' },
+      { cardId: 'before', status: 'restricted', effectiveDate: '1995-09-30' },
+    ]);
+    expect(result.projections.find(row => row.id === 'legendary-lift')!.projection.cards.map(card => card.cardId)).toEqual(['existing', 'before']);
+    expect(banlistOf(result, 'vintage')).toEqual([]);
+  });
+
+  test('a same-day set entry cannot re-fire a group restriction being lifted that day', () => {
+    const item = { id: 'restrict', ruleId: null, type: 'card_change', effectiveDate: null, format: 'standard', status: 'restricted', score: null, group: null, cardId: '#legendary', setId: null, relatedCards: [] };
+    const result = runApply({
+      ...baseInput,
+      formats: [{ formatId: 'standard', birthday: null, deathdate: null }],
+      sets: [
+        { setId: 'old-set', type: 'expansion', releaseDate: '1994-01-01' },
+        { setId: 'new-set', type: 'masters', releaseDate: '1995-10-01' },
+      ],
+      cardMeta: {
+        existing: { typeMain: [], rarities: [], sets: ['old-set'], releaseDate: '1994-01-01' },
+        entering: { typeMain: [], rarities: [], sets: ['new-set'], releaseDate: '1995-10-01' },
+      },
+      groupCards: { legendary: ['existing', 'entering'] },
+      announcements: [
+        { date: '1995-01-10', effectiveDate: null, items: [item] },
+        { date: '1995-10-01', effectiveDate: null, items: [
+          { ...item, id: 'set-in', type: 'set_change', status: 'legal', cardId: null, setId: 'new-set' },
+          { ...item, id: 'lift', status: 'legal' },
+        ] },
+      ],
+    });
+    expect(result.projections.find(row => row.id === 'restrict')!.projection.cards.map(card => card.cardId)).toEqual(['existing']);
+    expect(banlistOf(result, 'standard')).toEqual([]);
+  });
+
+  test('a deferred group restriction cannot supersede an explicit card change on the release date', () => {
+    const item = { id: 'restrict', ruleId: null, type: 'card_change', effectiveDate: null, format: 'vintage', status: 'restricted', score: null, group: null, cardId: '#legendary', setId: null, relatedCards: [] };
+    const result = runApply({
+      ...baseInput,
+      formats: [{ formatId: 'vintage', birthday: null, deathdate: null }],
+      cardMeta: {
+        entering: { typeMain: [], rarities: [], sets: [], releaseDate: '1995-10-01' },
+      },
+      groupCards: { legendary: ['entering'] },
+      announcements: [
+        { date: '1995-01-10', effectiveDate: null, items: [item] },
+        { date: '1995-10-01', effectiveDate: null, items: [{ ...item, id: 'explicit', cardId: 'entering', status: 'legal' }] },
+      ],
+    });
+    expect(result.projections.find(row => row.id === 'restrict')!.projection.cards).toEqual([]);
+    expect(result.projections.find(row => row.id === 'explicit')!.projection.cards).toEqual([
+      { cardId: 'entering', status: 'legal', effectiveDate: '1995-10-01' },
+    ]);
+    expect(banlistOf(result, 'vintage')).toEqual([]);
+  });
+
+  test('lifting a sentinel ban projects the real cards whose group restrictions were removed', () => {
+    const result = runApply({
+      ...baseInput,
+      announcements: [
+        {
+          date: '2017-01-01', effectiveDate: null,
+          items: [{ id: 'group-ban', ruleId: null, type: 'card_change', effectiveDate: null, format: 'vintage', status: 'banned', score: null, group: null, cardId: '#conspiracy', setId: null, relatedCards: [] }],
+        },
+        {
+          date: '2018-01-01', effectiveDate: null,
+          items: [{ id: 'group-unban', ruleId: null, type: 'card_change', effectiveDate: null, format: 'vintage', status: 'legal', score: null, group: null, cardId: '#conspiracy', setId: null, relatedCards: [] }],
+        },
+      ],
+    });
+    expect(banlistOf(result, 'vintage')).toEqual([]);
+    expect(result.projections.find(item => item.id === 'group-unban')!.projection.cards).toEqual([
+      { cardId: 'old-card', status: 'legal', effectiveDate: '2018-01-01' },
+      { cardId: 'new-card', status: 'legal', effectiveDate: '2018-01-01' },
+    ]);
   });
 
   test('a legal card_change lifts a ban and invalid statuses collect into warnings', () => {

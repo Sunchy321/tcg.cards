@@ -57,21 +57,55 @@
             <h3 class="mb-3 text-xs font-semibold tracking-wide text-gray-500 dark:text-gray-400">{{ typeGroup.typeLabel }}</h3>
             <div class="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
               <EntryWithStatus
-                v-for="row in typeGroup.rows"
+                v-for="row in collapseGroups(typeGroup.rows)"
                 :key="row.key"
                 :status="row.status"
                 :score="row.score"
                 class="rounded-xl px-3 py-3 text-sm ring-1 ring-gray-200/50 ring-inset dark:ring-gray-800/60"
               >
-                <CardAvatar v-if="row.cardId" :id="row.cardId" class="min-w-0 leading-6 font-medium wrap-anywhere" />
+                <template v-if="row.cards">
+                  <span class="text-sm font-semibold font-variant-small-caps">{{ groupName(row.group!) }}</span>
+                  <UBadge :label="String(row.cards.length)" size="sm" variant="subtle" />
+                </template>
+                <CardAvatar v-else-if="row.cardId" :id="row.cardId" class="min-w-0 leading-6 font-medium wrap-anywhere" />
                 <SetAvatar v-else-if="row.setId" :set-id="row.setId" class="min-w-0 flex-wrap leading-6 font-medium wrap-anywhere" />
                 <span v-else-if="row.ruleId" class="text-sm leading-6 wrap-anywhere text-gray-600 dark:text-gray-400">{{ row.ruleId }}</span>
+                <span v-if="row.group != null && !row.cards" class="text-xs text-gray-500 dark:text-gray-400">{{ groupName(row.group) }}</span>
+                <template v-if="row.cards" #actions>
+                  <UButton
+                    icon="lucide:list"
+                    size="xs"
+                    variant="ghost"
+                    color="neutral"
+                    @click="selectedGroup = row"
+                  />
+                </template>
               </EntryWithStatus>
             </div>
           </div>
         </section>
       </div>
     </UCard>
+
+    <UModal
+      v-model:open="groupModalOpen"
+      :title="selectedGroup?.group ? groupName(selectedGroup.group) : ''"
+      scrollable
+    >
+      <template #body>
+        <div class="flex flex-col gap-2">
+          <EntryWithStatus
+            v-for="card in selectedGroup?.cards ?? []"
+            :key="card.key"
+            :status="card.status"
+            :score="card.score"
+            :date="card.effectiveDate"
+          >
+            <CardAvatar v-if="card.cardId" :id="card.cardId" />
+          </EntryWithStatus>
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>
 
@@ -97,12 +131,15 @@ interface AnnouncementItemView {
   cardId:        string | null;
   setId:         string | null;
   ruleId:        string | null;
+  group:         string | null;
   relatedCards:  string[];
   projection:    { formats: string[], cards: ProjectionCard[], score?: number | null } | null;
 }
 
 /** One rendered row: a card (or entity reference) with its status and effective date. */
 interface DisplayRow {
+  cards?:        DisplayRow[];
+  group:         string | null;
   key:           string;
   status:        string | null;
   score:         number | null;
@@ -146,11 +183,23 @@ const { data, pending } = useAsyncData(`magic-announcement-${announcementId.valu
 });
 
 const items = computed(() => data.value?.items ?? []);
+const selectedGroup = ref<DisplayRow | null>(null);
+const groupModalOpen = computed({
+  get: () => selectedGroup.value != null,
+  set: (open: boolean) => { if (!open) selectedGroup.value = null; },
+});
+watch(announcementId, () => { selectedGroup.value = null; });
 
 /** Labels change groups in the interface language without exposing internal type keys. */
 function typeLabel(type: string): string {
   const key = `magic.announcement.types.${type}`;
   return te(key) || te(key, 'en') ? t(key) : t('magic.announcement.changes');
+}
+
+/** Labels card groups with the existing format-page translations. */
+function groupName(group: string): string {
+  const key = `magic.ui.format.group.${group}`;
+  return te(key) ? t(key) : group;
 }
 
 /** Gives original article links readable labels while retaining custom user labels. */
@@ -174,11 +223,20 @@ function entityKind(type: string): 'card' | 'set' | 'rule' | 'none' {
   return 'none';
 }
 
-/** The rows an item renders: its projected cards when present, else its own entity reference. */
+/** Keeps set changes as series entries and expands card changes from their projection. */
 function rowsForItem(item: AnnouncementItemView): DisplayRow[] {
+  // Sentinel expansions inherit their group from the authored card reference.
+  const group = item.type === 'card_change' && item.cardId?.startsWith('#')
+    ? item.cardId.slice(1)
+    : item.group ?? null;
   const projected = item.projection?.cards ?? [];
-  if (projected.length > 0) {
+  // A group with no applicable members must not fall back to a fake sentinel card.
+  if (item.type === 'card_change' && item.cardId?.startsWith('#') && projected.length === 0) {
+    return [];
+  }
+  if (item.type !== 'set_change' && projected.length > 0) {
     return projected.map(card => ({
+      group,
       key:           `${item.order}-${card.cardId}`,
       status:        card.status ?? item.status,
       score:         card.score ?? item.score ?? item.projection?.score ?? null,
@@ -191,6 +249,7 @@ function rowsForItem(item: AnnouncementItemView): DisplayRow[] {
 
   const kind = entityKind(item.type);
   return [{
+    group,
     key:           `${item.order}`,
     status:        item.status,
     score:         item.score ?? item.projection?.score ?? null,
@@ -199,6 +258,35 @@ function rowsForItem(item: AnnouncementItemView): DisplayRow[] {
     setId:         kind === 'set' ? item.setId : null,
     ruleId:        kind === 'rule' ? item.ruleId : null,
   }];
+}
+
+/** Collapses card groups using the format banlist's status priority and list-modal interaction. */
+function collapseGroups(rows: DisplayRow[]): DisplayRow[] {
+  const statusOrder = [
+    'banned', 'banned_in_bo1', 'banned_as_commander', 'banned_as_companion',
+    'restricted', 'suspended', 'score',
+  ];
+  const groups = new Map<string, DisplayRow>();
+  const result: DisplayRow[] = [];
+  for (const row of rows) {
+    if (row.group == null || row.cardId == null) {
+      result.push(row);
+      continue;
+    }
+    let summary = groups.get(row.group);
+    if (summary == null) {
+      summary = { ...row, key: `group-${row.group}`, cardId: null, score: null, cards: [] };
+      groups.set(row.group, summary);
+      result.push(summary);
+    }
+    summary.cards!.push(row);
+    const current = statusOrder.indexOf(summary.status ?? '');
+    const next = statusOrder.indexOf(row.status ?? '');
+    if (next !== -1 && (current === -1 || next < current)) {
+      summary.status = row.status;
+    }
+  }
+  return result;
 }
 
 const formatSections = computed(() => {
@@ -224,7 +312,7 @@ const formatSections = computed(() => {
     return section;
   };
 
-  /** Gets or creates a change group within its original format section. */
+  /** Gets or creates a change group within a resolved format section. */
   const typeGroupOf = (section: FormatSection, type: string): TypeGroup => {
     let group = section.types.find(g => g.type === type);
     if (!group) {
@@ -235,9 +323,17 @@ const formatSections = computed(() => {
   };
 
   for (const item of items.value) {
-    const section = sectionOf(item.format ?? null);
-    const group = typeGroupOf(section, item.type);
-    group.rows.push(...rowsForItem(item));
+    // Keywords belong to authored data; sections display their resolved formats.
+    // An empty projection can mean the format did not exist yet; do not restore its raw id.
+    const formats = item.format == null
+      ? [null]
+      : item.projection?.formats ?? (item.format.startsWith('#') ? [] : [item.format]);
+    const rows = rowsForItem(item);
+    for (const format of formats) {
+      const section = sectionOf(format);
+      const group = typeGroupOf(section, item.type);
+      group.rows.push(...rows);
+    }
   }
 
   return sections;

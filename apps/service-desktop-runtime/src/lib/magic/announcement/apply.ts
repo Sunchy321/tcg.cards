@@ -84,12 +84,19 @@ export interface ApplyProjectionCard {
   effectiveDate: string | null;
 }
 
+/** A restriction removed by rotation in one specific format. */
+export interface ApplyDerivedCard extends ApplyProjectionCard {
+  formatId: string;
+  group:    string | null;
+}
+
 /** The derived projection of one announcement item. */
 export interface ApplyItemProjection {
   id:         string;
   projection: {
     formats: string[];
     cards:   ApplyProjectionCard[];
+    derivedCards?: ApplyDerivedCard[];
   };
 }
 
@@ -109,6 +116,12 @@ interface FormatState {
   banlist:  Map<string, ApplyBanlistEntry>;
   /** Armed sentinel group bans: every future set-in re-bans the group's newly entering cards. */
   watchers: Map<string, { status: string, score: number | null, itemId: string }>;
+}
+
+/** Dates during which an authored group rule remains active in one format. */
+interface GroupWindow {
+  start: string;
+  end:   string | null;
 }
 
 /** Whether a sentinel group card counts in a format; pauper families filter by print rarity (cards without meta are skipped). */
@@ -163,8 +176,66 @@ export function runApply(input: ApplyInput): ApplyResult {
     }
   }
   const formatWindow = new Map(input.formats.map(f => [f.formatId, f]));
+  /** Checks format lifetime and excludes implicit set rotation from eternal formats. */
+  const itemApplies = (item: ApplyItemInput, formatId: string, effective: string): boolean => {
+    const window = formatWindow.get(formatId);
+    return window != null
+      && (window.birthday == null || effective >= window.birthday)
+      && (window.deathdate == null || effective <= window.deathdate)
+      && !(item.type === 'set_change' && item.format?.startsWith('#') && eternalFormats.has(formatId));
+  };
+  // Bound each group rule by its next authored change, before expanding future releases.
+  // A direct card change also supersedes an older deferred group result for that card.
+  const groupWindows = new Map<string, Map<string, GroupWindow>>();
+  const cardChanges = new Map<string, Map<string, string[]>>();
+  const activeGroups = new Map<string, Map<string, string>>();
+  const events = input.announcements.flatMap(announcement => announcement.items.map(item => ({
+    item,
+    effective: item.effectiveDate ?? announcement.effectiveDate ?? announcement.date,
+  }))).sort((a, b) => a.effective.localeCompare(b.effective));
+  for (const { item, effective } of events) {
+    if (item.type !== 'card_change' || item.cardId == null || item.status == null
+      || !changeStatusByType.card_change.statuses.includes(item.status as never)) {
+      continue;
+    }
+    for (const formatId of resolveFormats(item.format).filter(id => itemApplies(item, id, effective))) {
+      if (isSentinelCardId(item.cardId)) {
+        const group = item.cardId.slice(1);
+        const windows = groupWindows.get(formatId) ?? new Map<string, GroupWindow>();
+        const active = activeGroups.get(formatId) ?? new Map<string, string>();
+        const previous = active.get(group);
+        if (previous != null) {
+          windows.get(previous)!.end = effective;
+        }
+        windows.set(item.id, { start: effective, end: null });
+        active.set(group, item.id);
+        groupWindows.set(formatId, windows);
+        activeGroups.set(formatId, active);
+      } else {
+        const changes = cardChanges.get(formatId) ?? new Map<string, string[]>();
+        const dates = changes.get(item.cardId) ?? [];
+        dates.push(effective);
+        changes.set(item.cardId, dates);
+        cardChanges.set(formatId, changes);
+      }
+    }
+  }
+
+  /** Whether an older group rule still controls a card on its actual entry date. */
+  const groupApplies = (formatId: string, itemId: string, cardId: string, date: string): boolean => {
+    const window = groupWindows.get(formatId)?.get(itemId);
+    if (window == null || date < window.start || (window.end != null && date >= window.end)) {
+      return false;
+    }
+    const format = formatWindow.get(formatId)!;
+    if (format.deathdate != null && date > format.deathdate) {
+      return false;
+    }
+    return !(cardChanges.get(formatId)?.get(cardId) ?? []).some(effective => effective >= window.start && effective <= date);
+  };
   // Per-item sentinel accumulation: itemId -> group -> the cards the replay applied, keyed for date upserts.
   const sentinelAccumulator = new Map<string, Map<string, ApplyProjectionCard[]>>();
+  const derivedCards = new Map<string, ApplyDerivedCard[]>();
 
   // A card enters a format with its earliest released set that is in the format at that moment; eternal formats and setless cards fall back to its first release.
   const entryIntoFormat = (cardId: string, formatSets: string[] | null, fallback: string): string => {
@@ -202,9 +273,12 @@ export function runApply(input: ApplyInput): ApplyResult {
     });
   };
 
-  const banGroupCard = (fs: FormatState, cardId: string, status: string, score: number | null, group: string, effective: string): string => {
+  const banGroupCard = (fs: FormatState, cardId: string, status: string, score: number | null, group: string, effective: string, itemId: string, formatId: string): string | null => {
     const entryDate = entryIntoFormat(cardId, fs.sets, effective);
     const date = effective > entryDate ? effective : entryDate;
+    if (!groupApplies(formatId, itemId, cardId, date)) {
+      return null;
+    }
     fs.banlist.set(cardId, { cardId, status, score, date, group });
     return date;
   };
@@ -223,16 +297,13 @@ export function runApply(input: ApplyInput): ApplyResult {
           warnings.push(`unknown format ${formatId} for item of ${announcement.date}`);
           continue;
         }
-        const window = formatWindow.get(formatId)!;
-        if (window.birthday != null && effective < window.birthday) {
-          continue;
-        }
-        if (window.deathdate != null && effective > window.deathdate) {
+        if (!itemApplies(item, formatId, effective)) {
           continue;
         }
 
-        if (item.type === 'set_change') {
-          applySetChange(input, entryIntoFormat, sentinelAccumulator, fs, formatId, item, effective, announcement.date, warnings);
+        // Explicit set events in eternal formats belong to history, not tracked rotation state.
+        if (item.type === 'set_change' && fs.sets != null) {
+          applySetChange(input, entryIntoFormat, groupApplies, sentinelAccumulator, derivedCards, fs, formatId, item, effective, announcement.date, warnings);
         } else if (item.type === 'card_change') {
           applyCardChange(groupMembersInFormat, banGroupCard, sentinelAccumulator, fs, formatId, item, effective, warnings);
         }
@@ -291,8 +362,9 @@ export function runApply(input: ApplyInput): ApplyResult {
       projections.push({
         id:         item.id,
         projection: {
-          formats: resolveFormats(item.format),
+          formats: resolveFormats(item.format).filter(formatId => itemApplies(item, formatId, effective)),
           cards:   [...cards.values()],
+          ...(derivedCards.has(item.id) ? { derivedCards: derivedCards.get(item.id)! } : {}),
         },
       });
     }
@@ -322,7 +394,9 @@ export function runApply(input: ApplyInput): ApplyResult {
 function applySetChange(
   input: ApplyInput,
   entryIntoFormat: (cardId: string, formatSets: string[] | null, fallback: string) => string,
+  groupApplies: (formatId: string, itemId: string, cardId: string, date: string) => boolean,
   sentinelAccumulator: Map<string, Map<string, ApplyProjectionCard[]>>,
+  derivedCards: Map<string, ApplyDerivedCard[]>,
   fs: FormatState,
   formatId: string,
   item: ApplyItemInput,
@@ -364,6 +438,9 @@ function applySetChange(
           }
           const entryDate = entryIntoFormat(cardId, fs.sets, effective);
           const date = effective > entryDate ? effective : entryDate;
+          if (!groupApplies(formatId, watcher.itemId, cardId, date)) {
+            continue;
+          }
           fs.banlist.set(cardId, { cardId, status: watcher.status, score: watcher.score, date, group });
           recordSentinelEntry(sentinelAccumulator, watcher.itemId, group, cardId, watcher.status, date);
         }
@@ -377,13 +454,17 @@ function applySetChange(
       return;
     }
     fs.sets = fs.sets.filter(s => s !== item.setId);
-    // Keep the rotation outcome instead of silently dropping the restriction record.
-    // Reprints in a remaining set retain their restrictions; later exits must not change an exclusion date.
+    // Cards leaving their last legal set no longer belong in the banlist.
+    // Reprints in a remaining set retain their restrictions.
     for (const [cardId, entry] of fs.banlist) {
       const meta = input.cardMeta[cardId];
       const staysRelevant = meta == null || meta.sets.some(s => fs.sets!.includes(s));
-      if (!staysRelevant && entry.status !== 'unavailable') {
-        fs.banlist.set(cardId, { ...entry, status: 'unavailable', score: null, date: effective });
+      if (!staysRelevant) {
+        // Preserve the removal as a dated event without retaining it in current state.
+        const cards = derivedCards.get(item.id) ?? [];
+        cards.push({ formatId, cardId, status: 'unavailable', effectiveDate: effective, group: entry.group });
+        derivedCards.set(item.id, cards);
+        fs.banlist.delete(cardId);
       }
     }
     return;
@@ -393,7 +474,7 @@ function applySetChange(
 
 function applyCardChange(
   groupMembersInFormat: (group: string, formatId: string, fs: FormatState) => string[],
-  banGroupCard: (fs: FormatState, cardId: string, status: string, score: number | null, group: string, effective: string) => string,
+  banGroupCard: (fs: FormatState, cardId: string, status: string, score: number | null, group: string, effective: string, itemId: string, formatId: string) => string | null,
   sentinelAccumulator: Map<string, Map<string, ApplyProjectionCard[]>>,
   fs: FormatState,
   formatId: string,
@@ -425,6 +506,8 @@ function applyCardChange(
       fs.watchers.delete(group);
       for (const [cardId, entry] of [...fs.banlist]) {
         if (entry.group === group) {
+          // History needs the same per-card expansion for lifting a group ban.
+          recordSentinelEntry(sentinelAccumulator, item.id, group, cardId, status, effective);
           fs.banlist.delete(cardId);
         }
       }
@@ -432,7 +515,10 @@ function applyCardChange(
     }
     fs.watchers.set(group, { status, score: item.score ?? null, itemId: item.id });
     for (const cardId of groupMembersInFormat(group, formatId, fs)) {
-      const appliedDate = banGroupCard(fs, cardId, status, item.score ?? null, group, effective);
+      const appliedDate = banGroupCard(fs, cardId, status, item.score ?? null, group, effective, item.id, formatId);
+      if (appliedDate == null) {
+        continue;
+      }
       recordSentinelEntry(sentinelAccumulator, item.id, group, cardId, status, appliedDate);
     }
     return;

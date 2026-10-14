@@ -10,6 +10,8 @@ import { db } from '#db/db';
 import { Announcement, AnnouncementItem } from '#schema/shared/magic/announcement';
 import { Format } from '#schema/shared/magic/format';
 
+import { expandFormatChanges } from '../../utils/format-changes';
+
 /**
  * One format change event projected from announcements:
  * an announcement item that applies to a format, carrying the announcement header.
@@ -106,10 +108,10 @@ const changes = os
       ))
       .orderBy(asc(Announcement.date), asc(AnnouncementItem.order));
 
-    return rows
+    const changes = rows
       .map(({ item, announcement }) => ({
         ...item,
-        score:     item.score ?? (typeof item.projection?.score === 'number' ? item.projection.score : null),
+        score:     item.score ?? ('score' in item.projection && typeof item.projection.score === 'number' ? item.projection.score : null),
         type:      item.type as FormatChange['type'],
         status:    item.status as FormatChange['status'],
         createdAt: item.createdAt.toISOString(),
@@ -119,7 +121,9 @@ const changes = os
         source: announcement.source,
         name:   announcement.name,
         link:   announcement.link,
-      }))
+      }));
+
+    return expandFormatChanges(changes, formatId)
       .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.order - b.order);
   });
 
