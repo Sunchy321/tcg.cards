@@ -30,7 +30,7 @@ const STATUS_ICONS: Record<string, { icon: string, cls: string }> = {
   game_changer:        { icon: 'lucide:star', cls: 'text-amber-500 border-amber-400' },
   score:               { icon: 'lucide:hash', cls: 'text-sky-500 border-sky-400' },
   legal:               { icon: 'lucide:check', cls: 'text-emerald-500 border-emerald-400' },
-  unavailable:         { icon: 'lucide:x', cls: 'text-gray-400 border-gray-300' },
+  unavailable:         { icon: 'lucide:slash', cls: 'text-gray-400 border-gray-300' },
   extend:              { icon: 'lucide:plus', cls: 'text-violet-500 border-violet-400' },
   buff:                { icon: 'lucide:trending-up', cls: 'text-emerald-500 border-emerald-400' },
   nerf:                { icon: 'lucide:trending-down', cls: 'text-red-500 border-red-400' },
