@@ -5,10 +5,10 @@
         <USelect v-model="form.source" :items="sources" placeholder="选择来源" class="w-full" />
       </UFormField>
       <UFormField label="日期" required>
-        <UInput v-model="form.date" type="date" />
+        <UInput v-model="form.date" type="date" class="w-full" />
       </UFormField>
       <UFormField label="生效日期">
-        <UInput v-model="form.effectiveDate" type="date" />
+        <UInput v-model="form.effectiveDate" type="date" class="w-full" />
       </UFormField>
     </div>
     <slot name="fields-extra" />

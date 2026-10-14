@@ -56,23 +56,21 @@
         </div>
         <div v-else class="flex-1 overflow-y-auto p-5">
           <AnnouncementFields :sources="sourceOptions" />
-          <div v-if="config.fields.prevVersion" class="mt-4 grid grid-cols-4 gap-4">
-            <UFormField label="对比版本">
-              <UInput v-model="form.prevVersion" type="date" />
+          <div v-if="config.fields.platformDates || config.fields.prevVersion" class="mt-4 grid grid-cols-5 gap-4">
+            <UFormField v-if="config.fields.platformDates" label="实体生效日期">
+              <UInput v-model="form.effectiveDateTabletop" type="date" class="w-full" />
             </UFormField>
-          </div>
-          <div v-if="config.fields.platformDates" class="mt-4 grid grid-cols-4 gap-4">
-            <UFormField label="实体生效日期">
-              <UInput v-model="form.effectiveDateTabletop" type="date" />
+            <UFormField v-if="config.fields.platformDates" label="线上生效日期">
+              <UInput v-model="form.effectiveDateOnline" type="date" class="w-full" />
             </UFormField>
-            <UFormField label="线上生效日期">
-              <UInput v-model="form.effectiveDateOnline" type="date" />
+            <UFormField v-if="config.fields.platformDates" label="Arena 生效日期">
+              <UInput v-model="form.effectiveDateArena" type="date" class="w-full" />
             </UFormField>
-            <UFormField label="Arena 生效日期">
-              <UInput v-model="form.effectiveDateArena" type="date" />
+            <UFormField v-if="config.fields.platformDates" label="下次检查日期">
+              <UInput v-model="form.nextDate" type="date" class="w-full" />
             </UFormField>
-            <UFormField label="下次检查日期">
-              <UInput v-model="form.nextDate" type="date" />
+            <UFormField v-if="config.fields.prevVersion" label="对比版本">
+              <UInput v-model="form.prevVersion" type="date" class="w-full" />
             </UFormField>
           </div>
           <div v-if="config.fields.versionFields" class="mt-4 grid grid-cols-4 gap-4">
@@ -118,8 +116,8 @@
                   <UFormField label="赛制 (keyword)">
                     <UInput v-model="item.format" placeholder="format keyword" />
                   </UFormField>
-                  <UFormField v-if="config.fields.prevVersion" label="对比版本 (覆盖)">
-                    <UInput v-model="item.prevVersion" type="date" />
+                  <UFormField v-if="config.fields.prevVersion && item.type === 'card_update'" label="对比版本 (覆盖)">
+                    <UInput v-model="item.prevVersion" type="date" class="w-full" />
                   </UFormField>
                 </div>
                 <!-- Entity references are mutually exclusive by type: card types carry
@@ -474,7 +472,7 @@ function toPayload() {
         status:        normalizeItemStatus(item.type, item.status, props.config) || null,
         score:         item.status === 'score' ? (item.score ?? null) : null,
         group:         kind === 'card' ? (item.group || null) : null,
-        prevVersion:   fields.prevVersion ? (item.prevVersion || null) : undefined,
+        prevVersion:   fields.prevVersion && item.type === 'card_update' ? (item.prevVersion || null) : undefined,
         version:       fields.versionFields ? item.version : undefined,
         lastVersion:   fields.versionFields ? (item.lastVersion ?? null) : undefined,
         cardId:        kind === 'card' ? (item.cardId || null) : null,
