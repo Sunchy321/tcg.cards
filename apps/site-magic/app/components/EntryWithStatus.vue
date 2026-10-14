@@ -8,12 +8,11 @@
     <div class="flex min-w-0 flex-1 items-center gap-2">
       <slot />
     </div>
-    <a
+    <NuxtLink
       v-if="date && dateLink"
-      :href="dateLink"
-      target="_blank"
+      :to="dateLink"
       class="shrink-0 font-mono text-xs text-gray-500 dark:text-gray-400"
-    >{{ date }}</a>
+    >{{ date }}</NuxtLink>
     <span v-else-if="date" class="shrink-0 font-mono text-xs text-gray-500 dark:text-gray-400">{{ date }}</span>
     <slot name="actions" />
   </div>

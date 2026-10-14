@@ -90,16 +90,15 @@
       <UCard v-for="n in nodes" :key="n.date" class="mb-4">
         <div class="flex items-center gap-2 mb-3">
           <span class="text-lg font-semibold font-mono">{{ n.date }}</span>
-          <a
-            v-for="l in n.link"
-            :key="l.url"
-            :href="l.url"
-            :title="l.label"
-            target="_blank"
-            class="text-gray-400 hover:text-gray-600"
+          <NuxtLink
+            v-for="announcement in n.announcements"
+            :key="announcement.id"
+            :to="`/announcement/${announcement.id}`"
+            :title="announcement.name"
+            class="inline-flex items-center text-gray-400 hover:text-gray-600"
           >
-            <UIcon name="lucide:link" class="w-4 h-4" />
-          </a>
+            <UIcon name="lucide:link" class="block size-4" />
+          </NuxtLink>
         </div>
 
         <div v-if="n.sets.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-3">
@@ -171,7 +170,7 @@
               :status="item.status"
               :score="item.score"
               :date="item.date"
-              :date-link="item.link[0]?.url"
+              :date-link="`/announcement/${item.announcementId}`"
             >
               <CardAvatar :id="item.cardId" />
               <span v-if="item.group != null" class="text-xs text-gray-500 dark:text-gray-400 font-variant-small-caps">{{ groupShort(item.group) }}</span>
@@ -219,7 +218,7 @@
             :status="card.status"
             :score="card.score"
             :date="card.date"
-            :date-link="card.link[0]?.url"
+            :date-link="`/announcement/${card.announcementId}`"
           >
             <CardAvatar :id="card.cardId" />
           </EntryWithStatus>
@@ -233,19 +232,19 @@
 import { last } from 'lodash-es';
 
 import type { Format } from '#model/magic/schema/format';
-import type { Legality, LinkEntry } from '#model/magic/schema/announcement';
+import type { Legality } from '#model/magic/schema/announcement';
 
 import { birthday as magicBirthday, formats as magicFormats } from '#model/magic/schema/basic';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 interface BanlistItem {
-  date:   string;
-  link:   LinkEntry[];
-  cardId: string;
-  status: Legality;
-  score?: number;
-  group?: string;
+  date:           string;
+  announcementId: string;
+  cardId:         string;
+  status:         Legality;
+  score?:         number;
+  group?:         string;
 }
 
 interface DisplayBanlistItem extends BanlistItem {
@@ -263,10 +262,10 @@ interface DisplayBanlistGroup {
 type DisplayBanlistEntry = DisplayBanlistItem | DisplayBanlistGroup;
 
 interface TimelineNode {
-  date:    string;
-  link:    LinkEntry[];
-  sets:    { setId: string, status: 'legal' | 'unavailable' }[];
-  banlist: { cardId: string, status: Legality, score?: number, group?: string }[];
+  date:          string;
+  announcements: { id: string, name: string }[];
+  sets:          { setId: string, status: 'legal' | 'unavailable' }[];
+  banlist:       { cardId: string, status: Legality, score?: number, group?: string }[];
 }
 
 // ── Static constants ──────────────────────────────────────────────────────────
@@ -447,10 +446,14 @@ const nodes = computed<TimelineNode[]>(() => {
     const node = (() => {
       const existing = result.find(r => r.date === c.date);
       if (existing) return existing;
-      const n: TimelineNode = { date: c.date, link: c.link ?? [], sets: [], banlist: [] };
+      const n: TimelineNode = { date: c.date, announcements: [], sets: [], banlist: [] };
       result.push(n);
       return last(result)!;
     })();
+
+    if (!node.announcements.some(announcement => announcement.id === c.announcementId)) {
+      node.announcements.push({ id: c.announcementId, name: c.name });
+    }
 
     if (c.type === 'set_change') {
       node.sets.push({ setId: c.setId!, status: c.status as 'legal' | 'unavailable' });
@@ -465,8 +468,6 @@ const nodes = computed<TimelineNode[]>(() => {
   }
 
   for (const v of result) {
-    v.link = [...new Map(v.link.map(l => [l.url, l])).values()];
-
     v.sets.sort((a, b) => {
       if (a.status !== b.status) return a.status === 'legal' ? -1 : 1;
       return a.setId < b.setId ? -1 : 1;
@@ -519,12 +520,12 @@ const banlist = computed<BanlistItem[]>(() => {
       } else {
         const idx = result.findIndex(b => b.cardId === c.cardId);
         const value: BanlistItem = {
-          date:   c.date,
-          link:   c.link ?? [],
-          cardId: c.cardId!,
-          status: c.status as Legality,
-          score:  c.score ?? undefined,
-          group:  c.group ?? undefined,
+          date:           c.date,
+          announcementId: c.announcementId,
+          cardId:         c.cardId!,
+          status:         c.status as Legality,
+          score:          c.score ?? undefined,
+          group:          c.group ?? undefined,
         };
         if (idx === -1) result.push(value);
         else result.splice(idx, 1, value);
