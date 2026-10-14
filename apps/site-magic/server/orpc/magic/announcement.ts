@@ -2,9 +2,7 @@ import { ORPCError, os } from '@orpc/server';
 
 import z from 'zod';
 import { omit } from 'lodash-es';
-import { asc, desc, eq } from 'drizzle-orm';
-
-// import { AnnouncementApplier } from '@/magic/banlist/apply';
+import { asc, desc, eq, sql } from 'drizzle-orm';
 
 import { announcementProfile } from '#model/magic/schema/announcement';
 
@@ -18,13 +16,14 @@ const list = os
     tags:        ['Magic', 'Announcement'],
   })
   .input(z.any())
-  .output(announcementProfile.array())
+  .output(announcementProfile.extend({ itemCount: z.number().int() }).array())
   .handler(async () => {
     const announcements = await db.select({
-      id:     Announcement.id,
-      source: Announcement.source,
-      date:   Announcement.date,
-      name:   Announcement.name,
+      id:        Announcement.id,
+      source:    Announcement.source,
+      date:      Announcement.date,
+      name:      Announcement.name,
+      itemCount: sql<number>`(SELECT count(*)::int FROM magic.announcement_items i WHERE i.announcement_id = ${Announcement.id})`,
     })
       .from(Announcement)
       .orderBy(desc(Announcement.date));
@@ -70,85 +69,9 @@ const full = os
   })
   .callable();
 
-const save = os
-  // Write contract is undefined until this endpoint gains its first consumer;
-  // the model shape requires client-side timestamps nothing can supply yet.
-  .input(z.any())
-  .output(z.void())
-  .handler(async ({ input }) => {
-    const data = input as {
-      id:                     string;
-      source:                 string;
-      date:                   string;
-      name:                   string;
-      effectiveDate?:         string | null;
-      effectiveDateTabletop?: string | null;
-      effectiveDateOnline?:   string | null;
-      effectiveDateArena?:    string | null;
-      nextDate?:              string | null;
-      link:                   { url: string, label?: string }[];
-      items:                  Record<string, unknown>[];
-    };
-
-    const existing = data.id !== ''
-      ? await db.select().from(Announcement)
-        .where(eq(Announcement.id, data.id))
-        .then(rows => rows[0])
-      : null;
-
-    let id = data.id;
-
-    if (existing != null) {
-      await db.update(Announcement)
-        .set({
-          source: data.source,
-          date:   data.date,
-          name:   data.name,
-
-          effectiveDate:         data.effectiveDate ?? null,
-          effectiveDateTabletop: data.effectiveDateTabletop ?? null,
-          effectiveDateOnline:   data.effectiveDateOnline ?? null,
-          effectiveDateArena:    data.effectiveDateArena ?? null,
-
-          nextDate: data.nextDate ?? null,
-
-          link: data.link,
-        })
-        .where(eq(Announcement.id, data.id));
-    } else {
-      id = await db
-        .insert(Announcement)
-        .values(omit(data, ['id', 'items']))
-        .returning()
-        .then(ret => ret[0]!.id);
-    }
-
-    await db.delete(AnnouncementItem)
-      .where(eq(AnnouncementItem.announcementId, id));
-
-    for (const [i, item] of data.items.entries()) {
-      await db.insert(AnnouncementItem).values({
-        announcementId: id,
-        ...item,
-        order:          i,
-      } as typeof AnnouncementItem.$inferInsert);
-    }
-  });
-
-// const apply = os
-//   .input(z.void())
-//   .output(z.void())
-//   .handler(async () => {
-//     const applier = new AnnouncementApplier();
-
-//     await applier.apply();
-//   });
-
 export const announcementTrpc = {
   list,
   full,
-  save,
-  // apply,
 };
 
 export const announcementApi = {

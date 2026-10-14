@@ -3,6 +3,11 @@ export default {
     dataSources: '数据来源',
   },
 
+  announcement: {
+    'empty':         '暂无公告',
+    'itemCountUnit': '条',
+  },
+
   ambit: {
     'primary':    '常规',
     'additional': '附加',

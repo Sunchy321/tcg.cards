@@ -3,6 +3,11 @@ export default {
     dataSources: 'Data Sources',
   },
 
+  announcement: {
+    'empty':         'No announcements yet',
+    'itemCountUnit': 'entries',
+  },
+
   ambit: {
     'primary':    'Primary',
     'additional': 'Additional',

@@ -4,6 +4,18 @@ export default {
   $self: '万智牌',
   $full: '万智牌',
 
+  announcement: {
+    '$self':       '公告',
+    'notFound':    '公告不存在',
+    'noItems':     '该公告暂无条目',
+    'sourceAll':   '全部来源',
+    'effectiveDate': '生效日期',
+    'sentinel':    '关联卡牌明细',
+    'type':        '类型',
+    'status':      '状态',
+    'format':      '赛制',
+  },
+
   cardImageSource: {
     label:   '图片来源',
     sources: {

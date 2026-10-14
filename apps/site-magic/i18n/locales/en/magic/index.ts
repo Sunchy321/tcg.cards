@@ -4,6 +4,18 @@ export default {
   $self: 'Magic',
   $full: 'Magic: The Gathering',
 
+  announcement: {
+    '$self':       'Announcements',
+    'notFound':    'Announcement not found',
+    'noItems':     'This announcement has no entries',
+    'sourceAll':   'All sources',
+    'effectiveDate': 'Effective date',
+    'sentinel':    'Affected cards',
+    'type':        'Type',
+    'status':      'Status',
+    'format':      'Format',
+  },
+
   cardImageSource: {
     label:   'Image source',
     sources: {
