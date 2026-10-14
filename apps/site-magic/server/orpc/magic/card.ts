@@ -230,7 +230,15 @@ const profile = os
     return {
       cardId,
       localization: cardLocalizations,
-      versions:     versions.map(v => ({ ...v, imageType: v.imageInfo?.[0]?.type ?? 'webp' })),
+      versions:     versions.map(v => ({
+        lang:        v.lang,
+        set:         v.set,
+        number:      v.number,
+        rarity:      v.rarity,
+        layout:      v.layout,
+        imageType:   v.imageInfo?.[0]?.type ?? 'webp',
+        releaseDate: v.releaseDate,
+      })),
     };
   });
 

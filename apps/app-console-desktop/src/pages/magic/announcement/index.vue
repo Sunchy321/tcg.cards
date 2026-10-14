@@ -51,7 +51,7 @@ const statusLabels: Record<string, string> = {
   banned_as_commander: '指挥官禁用',
   banned_as_companion: '行侣禁用',
   banned_in_bo1:       'BO1 禁用',
-  banned:              '完全禁用',
+  banned:              '禁用',
   game_changer:        '主宰牌',
   legal:               '合法',
   restricted:          '限制',

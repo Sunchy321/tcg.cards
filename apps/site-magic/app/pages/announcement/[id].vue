@@ -17,32 +17,34 @@
         :link="data.link"
       />
 
-      <div v-if="items.length === 0" class="py-8 text-center text-gray-500">
+      <div v-if="formatSections.length === 0" class="py-8 text-center text-gray-500">
         {{ $t('magic.announcement.noItems') }}
       </div>
 
-      <div v-else class="mt-6 space-y-3">
-        <div v-for="item in items" :key="item.order" class="rounded-lg border border-gray-200 p-3 dark:border-gray-800">
-          <div class="flex flex-wrap items-center gap-2">
-            <span class="rounded px-2 py-0.5 text-xs font-medium text-slate-700 dark:text-slate-200" :class="typePillClass(item.type)">{{ typeLabel(item.type) }}</span>
-            <span v-if="item.status" class="rounded px-2 py-0.5 text-xs text-slate-700 dark:text-slate-200" :class="statusPillClass(item.status)">{{ statusLabel(item.status) }}</span>
-            <span v-if="item.format" class="font-mono text-xs text-gray-500 dark:text-gray-400">{{ item.format }}</span>
-            <span v-if="item.effectiveDate" class="ml-auto text-xs text-gray-500 dark:text-gray-400">
-              {{ $t('magic.announcement.effectiveDate') }} · {{ item.effectiveDate }}
-            </span>
-          </div>
+      <div v-else class="mt-6 space-y-8">
+        <section v-for="section in formatSections" :key="section.key">
+          <h2 class="mb-3 border-b border-gray-200 pb-1 text-lg font-bold dark:border-gray-800">
+            {{ section.label }}
+          </h2>
 
-          <div v-if="sentinelCards(item).length > 0" class="mt-2 border-t border-gray-100 pt-2 dark:border-gray-800">
-            <p class="mb-1 text-xs text-gray-500 dark:text-gray-400">{{ $t('magic.announcement.sentinel') }}</p>
-            <div class="space-y-1">
-              <div v-for="card in sentinelCards(item)" :key="card.cardId" class="flex flex-wrap items-center gap-3 text-xs">
-                <span class="font-mono text-gray-700 dark:text-gray-300">{{ card.cardId }}</span>
-                <span v-if="card.status" class="text-gray-600 dark:text-gray-400">{{ statusLabel(card.status) }}</span>
-                <span v-if="card.effectiveDate" class="text-gray-500 dark:text-gray-500">{{ card.effectiveDate }}</span>
+          <div v-for="typeGroup in section.types" :key="section.key + typeGroup.type" class="mb-4">
+            <h3 class="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">{{ typeGroup.typeLabel }}</h3>
+            <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div
+                v-for="row in typeGroup.rows"
+                :key="row.key"
+                class="flex items-center gap-2 rounded-lg px-2 py-1"
+                :class="statusTintOf(row.status)"
+              >
+                <StatusIcon v-if="row.status" :status="row.status" />
+                <CardAvatar v-if="row.cardId" :id="row.cardId" />
+                <SetAvatar v-else-if="row.setId" :set-id="row.setId" />
+                <span v-else-if="row.ruleId" class="font-mono text-sm text-gray-600 dark:text-gray-400">{{ row.ruleId }}</span>
+                <span v-if="row.effectiveDate" class="text-xs text-gray-500 dark:text-gray-400">{{ row.effectiveDate }}</span>
               </div>
             </div>
           </div>
-        </div>
+        </section>
       </div>
     </UCard>
   </div>
@@ -62,7 +64,33 @@ interface AnnouncementItemView {
   format:        string | null;
   order:         number;
   cardId:        string | null;
+  setId:         string | null;
+  ruleId:        string | null;
+  relatedCards:  string[];
   projection:    { formats: string[], cards: ProjectionCard[] } | null;
+}
+
+/** One rendered row: a card (or entity reference) with its status and effective date. */
+interface DisplayRow {
+  key:           string;
+  status:        string | null;
+  effectiveDate: string | null;
+  cardId:        string | null;
+  setId:         string | null;
+  ruleId:        string | null;
+}
+
+interface TypeGroup {
+  type:      string;
+  typeLabel: string;
+  rows:      DisplayRow[];
+}
+
+interface FormatSection {
+  format: string | null;
+  key:    string;
+  label:  string;
+  types:  TypeGroup[];
 }
 
 definePageMeta({
@@ -72,6 +100,7 @@ definePageMeta({
 
 const { $orpc } = useNuxtApp();
 const route = useRoute();
+const { t, te } = useI18n();
 const announcementId = computed(() => (route.params as { id: string }).id);
 
 const { data, pending } = useAsyncData(`magic-announcement-${announcementId.value}`, () => {
@@ -94,66 +123,111 @@ const typeLabels: Record<string, string> = {
   card_merge:   '卡牌合并',
 };
 
-const statusLabels: Record<string, string> = {
-  banned_as_commander: '指挥官禁用',
-  banned_as_companion: '行侣禁用',
-  banned_in_bo1:       'BO1 禁用',
-  banned:              '完全禁用',
-  game_changer:        '游戏变革者',
-  legal:               '合法',
-  restricted:          '限制',
-  suspended:           '暂停',
-  unavailable:         '不可用',
-  score:               '计分',
-  extend:              '系列扩展',
-  buff:                '增强',
-  nerf:                '削弱',
-  tweak:               '小更新',
-  revert:              '退环境回调',
-  rework:              '重做',
-  text_fix:            '文本修复',
-  text_adjust:         '文本调整',
-  bugged:              '数据异常',
-  bugfix:              'Bug 修复',
-};
-
 const typeLabel = (type: string) => typeLabels[type] ?? type;
-const statusLabel = (status: string) => statusLabels[status] ?? status;
 
-const LEGALITY_PILL: Record<string, string> = {
-  banned:              'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  banned_as_commander: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  banned_as_companion: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  banned_in_bo1:       'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-  restricted:          'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-  suspended:           'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-  game_changer:        'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
-  score:               'bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-200',
-  legal:               'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
-  unavailable:         'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
-  extend:              'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200',
+const STATUS_TINT: Record<string, string> = {
+  banned:              'bg-red-50 text-red-700 dark:bg-red-900/40 dark:text-red-200',
+  banned_as_commander: 'bg-red-50 text-red-700 dark:bg-red-900/40 dark:text-red-200',
+  banned_as_companion: 'bg-red-50 text-red-700 dark:bg-red-900/40 dark:text-red-200',
+  banned_in_bo1:       'bg-orange-50 text-orange-700 dark:bg-orange-900/40 dark:text-orange-200',
+  restricted:          'bg-orange-50 text-orange-700 dark:bg-orange-900/40 dark:text-orange-200',
+  suspended:           'bg-orange-50 text-orange-700 dark:bg-orange-900/40 dark:text-orange-200',
+  game_changer:        'bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200',
+  score:               'bg-sky-50 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200',
+  legal:               'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200',
+  unavailable:         'bg-gray-100 text-gray-600 dark:bg-gray-800/60 dark:text-gray-300',
+  extend:              'bg-violet-50 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200',
+  buff:                'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200',
+  nerf:                'bg-red-50 text-red-700 dark:bg-red-900/40 dark:text-red-200',
+  tweak:               'bg-sky-50 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200',
+  revert:              'bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300',
+  rework:              'bg-sky-50 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200',
+  text_fix:            'bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300',
+  text_adjust:         'bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300',
+  bugged:              'bg-red-50 text-red-700 dark:bg-red-900/40 dark:text-red-200',
+  bugfix:              'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200',
 };
 
-const statusPillClass = (status: string) => LEGALITY_PILL[status] ?? 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+/** Chip background tint by status; items without a status stay untinted. */
+const statusTintOf = (status: string | null): string =>
+  (status != null && STATUS_TINT[status]) || '';
 
-const TYPE_PILL: Record<string, string> = {
-  card_change:  'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  card_update:  'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
-  card_split:   'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
-  card_merge:   'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
-  set_change:   'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200',
-  rule_change:  'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200',
-  format_birth: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
-  format_death: 'bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200',
-};
-
-const typePillClass = (type: string) => TYPE_PILL[type] ?? 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
-
-/** The per-card expansion of a sentinel item; plain items keep their cards inline in the header row. */
-function sentinelCards(item: AnnouncementItemView): ProjectionCard[] {
-  if (item.cardId == null || !item.cardId.startsWith('#')) {
-    return [];
+/** Which entity reference an item type carries, mirroring the editor's field gating. */
+function entityKind(type: string): 'card' | 'set' | 'rule' | 'none' {
+  if (type === 'set_change') {
+    return 'set';
   }
-  return item.projection?.cards ?? [];
+  if (type === 'rule_change') {
+    return 'rule';
+  }
+  if (type === 'card_change' || type === 'card_update' || type === 'card_split' || type === 'card_merge') {
+    return 'card';
+  }
+  return 'none';
 }
+
+/** The rows an item renders: its projected cards when present, else its own entity reference. */
+function rowsForItem(item: AnnouncementItemView): DisplayRow[] {
+  const projected = item.projection?.cards ?? [];
+  if (projected.length > 0) {
+    return projected.map(card => ({
+      key:           `${item.order}-${card.cardId}`,
+      status:        card.status ?? item.status,
+      effectiveDate: card.effectiveDate,
+      cardId:        card.cardId,
+      setId:         null,
+      ruleId:        null,
+    }));
+  }
+
+  const kind = entityKind(item.type);
+  return [{
+    key:           `${item.order}`,
+    status:        item.status,
+    effectiveDate: item.effectiveDate,
+    cardId:        kind === 'card' ? item.cardId : null,
+    setId:         kind === 'set' ? item.setId : null,
+    ruleId:        kind === 'rule' ? item.ruleId : null,
+  }];
+}
+
+const formatSections = computed(() => {
+  const sections: FormatSection[] = [];
+  const sectionByFormat = new Map<string, FormatSection>();
+
+  const sectionOf = (format: string | null): FormatSection => {
+    const key = format ?? '';
+    let section = sectionByFormat.get(key);
+    if (!section) {
+      section = {
+        format,
+        key,
+        label: format == null
+          ? (te('magic.announcement.global') ? t('magic.announcement.global') : t('magic.announcement.$self'))
+          : (te(`magic.format.${format}`) ? t(`magic.format.${format}`) : format),
+        types: [],
+      };
+      sectionByFormat.set(key, section);
+      sections.push(section);
+    }
+    return section;
+  };
+
+  const typeGroupOf = (section: FormatSection, type: string): TypeGroup => {
+    let group = section.types.find(g => g.type === type);
+    if (!group) {
+      group = { type, typeLabel: typeLabel(type), rows: [] };
+      section.types.push(group);
+    }
+    return group;
+  };
+
+  for (const item of items.value) {
+    const section = sectionOf(item.format ?? null);
+    const group = typeGroupOf(section, item.type);
+    group.rows.push(...rowsForItem(item));
+  }
+
+  return sections;
+});
 </script>
