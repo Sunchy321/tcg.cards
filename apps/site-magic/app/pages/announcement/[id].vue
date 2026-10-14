@@ -1,43 +1,70 @@
 <template>
-  <div class="container mx-auto px-4 pt-2 pb-6">
-    <div v-if="pending" class="flex justify-center py-12">
-      <UIcon name="lucide:loader" class="text-2xl animate-spin" />
+  <div class="mx-auto max-w-275 px-4 pt-6 pb-10 sm:pt-8">
+    <NuxtLink to="/announcement" class="mb-4 inline-flex items-center gap-2 rounded-md text-sm font-medium text-white/80 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">
+      <UIcon name="lucide:arrow-left" class="size-4" aria-hidden="true" />
+      {{ $t('magic.announcement.backToList') }}
+    </NuxtLink>
+
+    <div v-if="pending" class="flex justify-center rounded-2xl bg-white py-16 dark:bg-gray-900" role="status">
+      <UIcon name="lucide:loader-circle" class="size-6 animate-spin text-primary-500" :aria-label="$t('magic.announcement.loading')" />
     </div>
 
-    <div v-else-if="!data" class="py-12 text-center text-gray-500">
+    <div v-else-if="!data" class="rounded-2xl bg-white px-5 py-16 text-center text-gray-500 dark:bg-gray-900 dark:text-gray-400">
       {{ $t('magic.announcement.notFound') }}
     </div>
 
-    <UCard v-else>
-      <AnnouncementHeader
-        :name="data.name"
-        :source="data.source"
-        :source-label="data.source"
-        :date="data.date"
-        :link="data.link"
-      />
+    <UCard v-else :ui="{ root: 'overflow-hidden rounded-2xl', body: 'p-0 sm:p-0' }">
+      <header class="border-b border-gray-200 px-5 py-6 sm:px-8 sm:py-7 dark:border-gray-800">
+        <div class="grid grid-cols-[3.5rem_minmax(0,1fr)] items-start gap-4 sm:grid-cols-[5rem_minmax(0,1fr)] sm:gap-6">
+          <time :datetime="data.date" :aria-label="data.date" class="mt-1 flex flex-col items-center border-r border-gray-200 pr-3 tabular-nums sm:pr-5 dark:border-gray-800">
+            <span class="text-3xl font-medium leading-none tracking-tight text-gray-700 sm:text-4xl dark:text-gray-200">{{ data.date.slice(8, 10) }}</span>
+            <span class="mt-2 text-[10px] font-medium text-gray-400 sm:text-xs dark:text-gray-500">{{ data.date.slice(0, 7).replace('-', '.') }}</span>
+          </time>
+          <div class="min-w-0">
+            <h1 class="text-xl leading-snug font-semibold tracking-tight wrap-anywhere text-gray-800 sm:text-2xl dark:text-gray-100">{{ announcementTitle(data) }}</h1>
+            <div class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+              <span class="inline-flex rounded-md bg-purple-100 px-2 py-0.5 text-[11px] leading-4 font-medium text-purple-800 dark:bg-purple-900 dark:text-purple-200">{{ sourceLabel(data.source) }}</span>
+              <UButton
+                v-for="(link, index) in data.link"
+                :key="`${link.url}-${index}`"
+                :to="link.url"
+                target="_blank"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                trailing-icon="lucide:arrow-up-right"
+              >{{ originalLinkLabel(link.label) }}</UButton>
+            </div>
+          </div>
+        </div>
+      </header>
 
-      <div v-if="formatSections.length === 0" class="py-8 text-center text-gray-500">
-        {{ $t('magic.announcement.noItems') }}
+      <div v-if="formatSections.length === 0" class="flex flex-col items-center gap-4 px-5 py-16 text-center text-sm text-gray-500 dark:text-gray-400">
+        <span class="flex size-12 items-center justify-center rounded-2xl bg-primary-50 text-primary-400 dark:bg-primary-500/10" aria-hidden="true">
+          <UIcon name="lucide:file-text" class="size-6" />
+        </span>
+        <p>{{ $t('magic.announcement.noItems') }}</p>
       </div>
 
-      <div v-else class="mt-6 space-y-8">
+      <div v-else class="space-y-8 px-5 py-6 sm:px-8 sm:py-8">
         <section v-for="section in formatSections" :key="section.key">
-          <h2 class="mb-3 border-b border-gray-200 pb-1 text-lg font-bold dark:border-gray-800">
-            {{ section.label }}
+          <h2 class="mb-5 flex items-center gap-4 text-lg font-semibold tracking-tight text-gray-800 dark:text-gray-100">
+            <span class="shrink-0">{{ section.label }}</span>
+            <span class="h-px flex-1 bg-gray-100 dark:bg-gray-800" aria-hidden="true" />
           </h2>
 
-          <div v-for="typeGroup in section.types" :key="section.key + typeGroup.type" class="mb-4">
-            <h3 class="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">{{ typeGroup.typeLabel }}</h3>
-            <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div v-for="typeGroup in section.types" :key="section.key + typeGroup.type" class="mt-5 first:mt-0">
+            <h3 class="mb-3 text-xs font-semibold tracking-wide text-gray-500 dark:text-gray-400">{{ typeGroup.typeLabel }}</h3>
+            <div class="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
               <EntryWithStatus
                 v-for="row in typeGroup.rows"
                 :key="row.key"
                 :status="row.status"
+                class="rounded-xl px-3 py-3 text-sm ring-1 ring-gray-200/50 ring-inset dark:ring-gray-800/60"
               >
-                <CardAvatar v-if="row.cardId" :id="row.cardId" />
-                <SetAvatar v-else-if="row.setId" :set-id="row.setId" />
-                <span v-else-if="row.ruleId" class="font-mono text-sm text-gray-600 dark:text-gray-400">{{ row.ruleId }}</span>
+                <CardAvatar v-if="row.cardId" :id="row.cardId" class="min-w-0 leading-6 font-medium wrap-anywhere" />
+                <SetAvatar v-else-if="row.setId" :set-id="row.setId" class="min-w-0 flex-wrap leading-6 font-medium wrap-anywhere" />
+                <span v-else-if="row.ruleId" class="text-sm leading-6 wrap-anywhere text-gray-600 dark:text-gray-400">{{ row.ruleId }}</span>
               </EntryWithStatus>
             </div>
           </div>
@@ -48,12 +75,16 @@
 </template>
 
 <script setup lang="ts">
+import { useAnnouncementLabels } from '~/composables/useAnnouncementLabels';
+
+/** One projected card and its effective legality change. */
 interface ProjectionCard {
   cardId:        string;
   status:        string | null;
   effectiveDate: string | null;
 }
 
+/** One authored announcement change and its display projection. */
 interface AnnouncementItemView {
   type:          string;
   status:        string | null;
@@ -77,12 +108,14 @@ interface DisplayRow {
   ruleId:        string | null;
 }
 
+/** Changes of one kind within a format section. */
 interface TypeGroup {
   type:      string;
   typeLabel: string;
   rows:      DisplayRow[];
 }
 
+/** A format's ordered groups of announcement changes. */
 interface FormatSection {
   format: string | null;
   key:    string;
@@ -98,6 +131,7 @@ definePageMeta({
 const { $orpc } = useNuxtApp();
 const route = useRoute();
 const { t, te } = useI18n();
+const { sourceLabel, announcementTitle } = useAnnouncementLabels();
 const announcementId = computed(() => (route.params as { id: string }).id);
 
 const { data, pending } = useAsyncData(`magic-announcement-${announcementId.value}`, () => {
@@ -109,18 +143,18 @@ const { data, pending } = useAsyncData(`magic-announcement-${announcementId.valu
 
 const items = computed(() => data.value?.items ?? []);
 
-const typeLabels: Record<string, string> = {
-  card_change:  '合法性变更',
-  card_update:  '数值/属性变更',
-  set_change:   '系列事件',
-  rule_change:  '规则变更',
-  format_birth: '赛制上线',
-  format_death: '赛制下架',
-  card_split:   '卡牌分裂',
-  card_merge:   '卡牌合并',
-};
+/** Labels change groups in the interface language without exposing internal type keys. */
+function typeLabel(type: string): string {
+  const key = `magic.announcement.types.${type}`;
+  return te(key) || te(key, 'en') ? t(key) : t('magic.announcement.changes');
+}
 
-const typeLabel = (type: string) => typeLabels[type] ?? type;
+/** Gives original article links readable labels while retaining custom user labels. */
+function originalLinkLabel(label?: string): string {
+  if (!label?.trim()) return t('magic.announcement.readOriginal');
+  const key = `magic.announcement.sources.${label}`;
+  return te(key) || te(key, 'en') ? sourceLabel(label) : label;
+}
 
 /** Which entity reference an item type carries, mirroring the editor's field gating. */
 function entityKind(type: string): 'card' | 'set' | 'rule' | 'none' {
@@ -165,6 +199,7 @@ const formatSections = computed(() => {
   const sections: FormatSection[] = [];
   const sectionByFormat = new Map<string, FormatSection>();
 
+  /** Gets or creates a format section while preserving source order. */
   const sectionOf = (format: string | null): FormatSection => {
     const key = format ?? '';
     let section = sectionByFormat.get(key);
@@ -183,6 +218,7 @@ const formatSections = computed(() => {
     return section;
   };
 
+  /** Gets or creates a change group within its original format section. */
   const typeGroupOf = (section: FormatSection, type: string): TypeGroup => {
     let group = section.types.find(g => g.type === type);
     if (!group) {

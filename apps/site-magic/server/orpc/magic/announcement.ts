@@ -2,12 +2,13 @@ import { ORPCError, os } from '@orpc/server';
 
 import z from 'zod';
 import { omit } from 'lodash-es';
-import { asc, desc, eq, sql } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 
 import { announcementProfile } from '#model/magic/schema/announcement';
 
 import { db } from '#db/db';
 import { Announcement, AnnouncementItem } from '#schema/shared/magic/announcement';
+import { announcementListQuery } from '../../utils/announcement-list';
 
 const list = os
   .route({
@@ -18,15 +19,7 @@ const list = os
   .input(z.any())
   .output(announcementProfile.extend({ itemCount: z.number().int() }).array())
   .handler(async () => {
-    const announcements = await db.select({
-      id:        Announcement.id,
-      source:    Announcement.source,
-      date:      Announcement.date,
-      name:      Announcement.name,
-      itemCount: sql<number>`(SELECT count(*)::int FROM magic.announcement_items i WHERE i.announcement_id = ${Announcement.id})`,
-    })
-      .from(Announcement)
-      .orderBy(desc(Announcement.date));
+    const announcements = await announcementListQuery(db);
 
     return announcements;
   })
