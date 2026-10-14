@@ -11,7 +11,7 @@ import { CardSlugResolution, ProjectionReview, ScryfallCard } from '@tcg-cards/d
 import { Print } from '@tcg-cards/db/schema/shared/magic/print';
 
 import { os } from './index';
-import { createAndRunTask } from './task';
+import { createAndRunTask, getStore } from './task';
 import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
 import { inconsistentMergedSlugs, unitViewFace, type FaceLike } from '../lib/magic/project/consistency';
 import { listMtgchArchives, listMtgjsonFiles, listScryfallFiles } from '../lib/magic/data-dir';
@@ -38,6 +38,7 @@ import { imageMarkResult, markPlaceholderImages } from '../lib/magic/image-impor
 import { compareImageSources, imageCompareResult } from '../lib/magic/image-import/compare';
 import { checkImageQuality, imageQualityReport } from '../lib/magic/image-import/quality';
 import { magicPublishTaskDefinition } from '../lib/magic/task/publish';
+import { announcementPublishTaskDefinition } from '../lib/magic/task/announcement-publish';
 
 const magicDataFile = z.strictObject({
   name: z.string(),
@@ -424,6 +425,41 @@ const publishTask = os
     });
   });
 
+const announcementPublishTask = os
+  .input(z.strictObject({
+    publishTarget: z.string().trim().min(1),
+    environment:   z.string().trim().min(1),
+    dryRun:        z.boolean().optional().default(false),
+  }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    const scope = { publishTarget: input.publishTarget, environment: input.environment };
+    const resolved = announcementPublishTaskDefinition.resolveScope(scope);
+    // If there's an active task on this scope from a previous boot, abandon it.
+    const stale = await getStore().getActiveTaskRun(announcementPublishTaskDefinition.taskType, announcementPublishTaskDefinition.scopeType, resolved.key);
+    if (stale) {
+      await getStore().updateTaskRun(stale.id, {
+        status:             'abandoned',
+        terminalReason:     'abandoned_stale_run',
+        finishedAt:         new Date(),
+        controlRequestKind: null,
+        currentStageKey:    null,
+        currentStageIndex:  null,
+        currentResumeMode:  null,
+        pausedResumeMode:   null,
+      });
+    }
+    const active = await getStore().getActiveTaskRun(announcementPublishTaskDefinition.taskType, announcementPublishTaskDefinition.scopeType, resolved.key);
+    if (active) throw new Error(`Announcement publish task already exists for stream ${resolved.key}`);
+
+    return createAndRunTask(announcementPublishTaskDefinition.taskType, {
+      taskType:          announcementPublishTaskDefinition.taskType,
+      definitionVersion: announcementPublishTaskDefinition.definitionVersion,
+      scope:             { type: announcementPublishTaskDefinition.scopeType, key: resolved.key, snapshot: resolved.snapshot as Record<string, unknown> },
+      params:            { dryRun: input.dryRun },
+    });
+  });
+
 const imageImportRemote = os
   .input(z.strictObject({
     source:     z.enum(['scryfall', 'gatherer', 'prefer_gatherer', 'mtgch']),
@@ -587,15 +623,15 @@ const markPrintImages = os
 
 export const magicRouter = {
   getDataState,
-  images:     { sets: listImageSets, compare: compareImages, qualityCheck: checkImagesQuality, clear: clearPrintImages, mark: markPrintImages, localPreview: localImagePreview },
-  analyze:    { imageArchive: analyzeImageArchive },
-  createTask: { scryfallImport, mtgchImport, mtgjsonImport, gathererImport, rubyImport, magicProject, imageImportRemote, imageImportLocal, imageImportSingle },
-  rule:       magicRuleRouter,
-  ruby:       magicRubyRouter,
-  ambit:      magicAmbitRouter,
-  commits:    magicCommitsRouter,
+  images:       { sets: listImageSets, compare: compareImages, qualityCheck: checkImagesQuality, clear: clearPrintImages, mark: markPrintImages, localPreview: localImagePreview },
+  analyze:      { imageArchive: analyzeImageArchive },
+  createTask:   { scryfallImport, mtgchImport, mtgjsonImport, gathererImport, rubyImport, magicProject, imageImportRemote, imageImportLocal, imageImportSingle },
+  rule:         magicRuleRouter,
+  ruby:         magicRubyRouter,
+  ambit:        magicAmbitRouter,
+  commits:      magicCommitsRouter,
   announcement: magicAnnouncementRouter,
-  publish:    { publishTask },
-  slug:       { listConflicts: listSlugConflicts, resolveConflict: resolveSlugConflict, member: slugMember },
-  review:     { list: reviewList },
+  publish:      { publishTask, announcementPublishTask },
+  slug:         { listConflicts: listSlugConflicts, resolveConflict: resolveSlugConflict, member: slugMember },
+  review:       { list: reviewList },
 };

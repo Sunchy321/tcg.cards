@@ -58,6 +58,15 @@
     >
       <template #params="{ disabled }">
         <div class="flex items-center gap-6">
+          <UFormField label="发布类型" orientation="horizontal">
+            <USelect
+              v-model="publishType"
+              :items="publishTypes"
+              :disabled="disabled"
+              option-attribute="label"
+              class="w-64"
+            />
+          </UFormField>
           <UCheckbox v-model="dryRun" label="Dry Run（只出计划，不写远端）" :disabled="disabled" />
           <UCheckbox v-model="force" label="Force（跳过远端门禁）" :disabled="disabled" />
         </div>
@@ -119,6 +128,12 @@ async function loadPublishTargets() {
   }
 }
 
+const publishTypes = [
+  { label: '数据发布', value: 'data' },
+  { label: '公告发布', value: 'announcement' },
+];
+const publishType = ref('data');
+
 const operations: TaskOperation[] = [
   {
     key:    'publish',
@@ -127,6 +142,13 @@ const operations: TaskOperation[] = [
     create: async () => {
       const target = selectedPublishTarget.value;
       if (!target) throw new Error('未配置发布目标');
+      if (publishType.value === 'announcement') {
+        return orpc.magic.publish.announcementPublishTask({
+          publishTarget: 'magic',
+          environment:   target.environment,
+          dryRun:        dryRun.value,
+        }) as Promise<TaskPageSnapshot>;
+      }
       return orpc.magic.publish.publishTask({
         publishTarget: 'magic',
         environment:   target.environment,
