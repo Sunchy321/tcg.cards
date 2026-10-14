@@ -8,6 +8,7 @@
     :card-search="cardSearch"
     :card-resolve="cardResolve"
     apply
+    ai-parse
   />
 </template>
 
@@ -32,8 +33,16 @@ const cardResolve = (cardIds: string[]) =>
   }[]>;
 
 const sources = [
-  { label: 'Wizards', value: 'wizards' },
-  { label: 'Commander RC', value: 'commander-rc' },
+  { label: 'Wizards', value: 'wotc' },
+  { label: 'Commander RC', value: 'mtgcommander' },
+  { label: 'Canadian Highlander', value: 'canadian_highlander' },
+  { label: 'Duel Commander', value: 'duelcommander' },
+  { label: 'Leviathan Commander', value: 'leviathan_commander' },
+  { label: 'Oathbreaker', value: 'oathbreaker' },
+  { label: 'Pauper Commander', value: 'pauper_commander' },
+  { label: '初始数据', value: 'initial' },
+  { label: '系列发行', value: 'release' },
+  { label: '环境轮替', value: 'rotation' },
 ];
 
 const typeLabels: Record<string, string> = {

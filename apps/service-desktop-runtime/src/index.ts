@@ -14,6 +14,7 @@ import {
 } from './lib/runtime/desktop-database';
 import { requireHearthstoneImageBucketDir } from './lib/hearthstone/image-config';
 import { buildAiParseStreamResponse } from './lib/hearthstone/announcement/ai-parse-stream';
+import { buildMagicAiParseStreamResponse } from './lib/magic/announcement/ai-parse-stream';
 import { buildRenderAllStreamResponse } from './lib/hearthstone/announcement/render-all-stream';
 import { hasAiConfig } from './runtime-config';
 import { createTaskStore, createTaskScheduler, createTaskCleanup } from './lib/task';
@@ -239,6 +240,17 @@ hono.post('/ai/parse/stream', async c => {
   }
 
   return buildAiParseStreamResponse(parsed.data, c.req.raw.signal);
+});
+
+hono.post('/ai/magic/parse/stream', async c => {
+  if (!hasAiConfig()) {
+    return c.json({ error: '请先在设置中配置 AI。' }, 400);
+  }
+  const parsed = aiParseStreamInput.safeParse(await c.req.json());
+  if (!parsed.success || parsed.data.links.some(link => !/^https?:\/\//i.test(link.url))) {
+    return c.json({ error: '请输入有效的公告链接。' }, 400);
+  }
+  return buildMagicAiParseStreamResponse(parsed.data, c.req.raw.signal);
 });
 
 hono.post('/render/stream', async c => {

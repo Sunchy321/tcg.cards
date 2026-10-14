@@ -45,7 +45,22 @@
           </ul>
         </div>
         <div v-else class="flex-1 overflow-y-auto p-5">
-          <AnnouncementFields :sources="sourceOptions" />
+          <AnnouncementFields :sources="sourceOptions" @url-change="(link, value) => { link.url = value }">
+            <template v-if="aiParse" #link-actions="{ link }">
+              <UButton icon="i-lucide-sparkles" aria-label="解析公告" size="sm" color="primary" variant="ghost" :disabled="!aiConfigured || !link.url" @click="startParse(link)" />
+            </template>
+            <template v-if="aiParse" #link-below="{ link }">
+              <MagicAnnouncementAiParsePanel
+                v-if="activeLink === link"
+                :key="parseKey"
+                :request-key="parseKey"
+                :name="form.name"
+                :url="link.url"
+                @result="(result, key) => applyParseResult(link, result, key)"
+                @close="activeLink = null"
+              />
+            </template>
+          </AnnouncementFields>
           <div v-if="config.fields.platformDates || config.fields.prevVersion" class="mt-4 grid grid-cols-5 gap-4">
             <UFormField v-if="config.fields.platformDates" label="实体生效日期">
               <UInput v-model="form.effectiveDateTabletop" type="date" class="w-full" />
@@ -186,11 +201,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useToast } from '@nuxt/ui/composables';
+import type { AiAnnouncementResult } from '@tcg-cards/model/magic/schema/announcement-ai';
 
 import { useAnnouncementCrud } from '~/composables/useAnnouncementCrud';
-import { provideAnnouncementForm } from '~/composables/useAnnouncementForm';
+import { provideAnnouncementForm, type AnnouncementFormLinkEntry } from '~/composables/useAnnouncementForm';
+import { useDesktopRuntimeClient } from '~/composables/useDesktopRuntimeClient';
+import { applyMagicAiResult } from '~/utils/magic-announcement-ai';
+import MagicAnnouncementAiParsePanel from '../magic/AnnouncementAiParsePanel.vue';
 import YamlEditor from '../YamlEditor.vue';
 import {
   announcementToYaml,
@@ -234,6 +253,8 @@ const props = defineProps<{
   config:       AnnouncementFormConfig;
   /** Whether the apply button (full replay) is offered. */
   apply?:       boolean;
+  /** Offers Magic's link parser using the configured AI model. */
+  aiParse?:     boolean;
   /** Searches cards by localized name or cardId; when absent the card id renders as a plain input. */
   cardSearch?:  (query: string, format: string) => Promise<ManagerCardSearchResult[]>;
   /** Resolves existing cardIds to localized names for display. */
@@ -255,13 +276,18 @@ const deleteTarget = ref<any>(null);
 const isYamlMode = ref(false);
 const yamlText = ref('');
 const yamlErrors = ref<string[]>([]);
+const aiConfigured = ref(false);
+const activeLink = ref<AnnouncementFormLinkEntry | null>(null);
+const parseKey = ref(0);
+let parseUrl = '';
 
 let itemKeySeq = 0;
 const nextItemKey = () => `item-${++itemKeySeq}`;
 
 const emptyForm = (): AnnouncementFormData => ({
   source:                props.sources[0]?.value ?? '',
-  date:                  new Date().toISOString().split('T')[0]!,
+  // Leave AI-assisted announcements undated until the source or the user supplies a date.
+  date:                  props.aiParse ? '' : new Date().toISOString().split('T')[0]!,
   effectiveDate:         '',
   effectiveDateTabletop: '',
   effectiveDateOnline:   '',
@@ -323,6 +349,7 @@ async function loadDetail(id: string) {
 }
 
 function fillForm(row: any) {
+  activeLink.value = null;
   formId.value = row.id;
   form.source = row.source;
   form.date = row.date;
@@ -360,6 +387,7 @@ function fillForm(row: any) {
 }
 
 function selectAnnouncement(item: any) {
+  activeLink.value = null;
   selectedId.value = item.id;
   void loadDetail(item.id);
 }
@@ -370,6 +398,7 @@ function createNew() {
 }
 
 function resetForm() {
+  activeLink.value = null;
   Object.assign(form, emptyForm());
   form.link = [];
   form.items = [];
@@ -405,6 +434,7 @@ function onItemTypeChange(item: ItemRow, type: string) {
 }
 
 function toggleYamlMode() {
+  activeLink.value = null;
   if (!isYamlMode.value) {
     yamlText.value = announcementToYaml(form, props.config);
     yamlErrors.value = [];
@@ -549,7 +579,38 @@ async function handleDelete() {
   }
 }
 
-onMounted(() => {
+/** Starts a fresh parser instance for the selected link. */
+function startParse(link: AnnouncementFormLinkEntry): void {
+  if (!aiConfigured.value || !link.url) return;
+  activeLink.value = link;
+  parseUrl = link.url;
+  parseKey.value++;
+}
+
+/** Fills the active form only while the request still belongs to its original link. */
+function applyParseResult(link: AnnouncementFormLinkEntry, result: AiAnnouncementResult, requestKey: number): void {
+  if (requestKey !== parseKey.value || activeLink.value !== link || !form.link.some(entry => entry === link) || link.url !== parseUrl) return;
+  applyMagicAiResult(form, result, props.config);
+  for (const item of form.items) {
+    if (!item._key) item._key = nextItemKey();
+  }
+  notify('解析完成', `新增 ${result.items.length} 条条目`);
+}
+
+// Removing or editing the source link invalidates the mounted parser immediately.
+watch(() => form.link.map(link => link.url), () => {
+  if (activeLink.value && (!form.link.some(link => link === activeLink.value) || activeLink.value.url !== parseUrl)) activeLink.value = null;
+}, { flush: 'sync' });
+
+onMounted(async () => {
   void loadAnnouncements();
+  if (props.aiParse) {
+    try {
+      const health = await useDesktopRuntimeClient().runtime.health();
+      aiConfigured.value = Boolean(health.aiConfigured);
+    } catch {
+      aiConfigured.value = false;
+    }
+  }
 });
 </script>
