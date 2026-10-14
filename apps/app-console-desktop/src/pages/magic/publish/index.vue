@@ -129,10 +129,30 @@ async function loadPublishTargets() {
 }
 
 const publishTypes = [
+  { label: '信息表数据', value: 'reference' },
   { label: '数据发布', value: 'data' },
   { label: '公告发布', value: 'announcement' },
 ];
+const PUBLISH_PAGE_STATE_KEY = 'console-desktop-magic-publish-page';
+const PUBLISH_TYPE_VALUES = ['data', 'announcement', 'reference'];
 const publishType = ref('data');
+
+function restorePublishType() {
+  try {
+    const saved = window.localStorage.getItem(PUBLISH_PAGE_STATE_KEY);
+    if (saved && PUBLISH_TYPE_VALUES.includes(saved)) publishType.value = saved;
+  } catch {
+    // Storage can be unavailable in restricted browser contexts.
+  }
+}
+
+watch(publishType, value => {
+  try {
+    window.localStorage.setItem(PUBLISH_PAGE_STATE_KEY, value);
+  } catch {
+    // Storage can be unavailable in restricted browser contexts.
+  }
+});
 
 const operations: TaskOperation[] = [
   {
@@ -144,6 +164,13 @@ const operations: TaskOperation[] = [
       if (!target) throw new Error('未配置发布目标');
       if (publishType.value === 'announcement') {
         return orpc.magic.publish.announcementPublishTask({
+          publishTarget: 'magic',
+          environment:   target.environment,
+          dryRun:        dryRun.value,
+        }) as Promise<TaskPageSnapshot>;
+      }
+      if (publishType.value === 'reference') {
+        return orpc.magic.publish.referencePublishTask({
           publishTarget: 'magic',
           environment:   target.environment,
           dryRun:        dryRun.value,
@@ -166,6 +193,7 @@ function onFailed() {}
 function onCreateError() {}
 
 onMounted(() => {
+  restorePublishType();
   void loadPublishTargets();
 });
 </script>

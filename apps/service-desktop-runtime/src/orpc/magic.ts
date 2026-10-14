@@ -39,6 +39,7 @@ import { compareImageSources, imageCompareResult } from '../lib/magic/image-impo
 import { checkImageQuality, imageQualityReport } from '../lib/magic/image-import/quality';
 import { magicPublishTaskDefinition } from '../lib/magic/task/publish';
 import { announcementPublishTaskDefinition } from '../lib/magic/task/announcement-publish';
+import { referencePublishTaskDefinition } from '../lib/magic/task/reference-publish';
 
 const magicDataFile = z.strictObject({
   name: z.string(),
@@ -460,6 +461,40 @@ const announcementPublishTask = os
     });
   });
 
+const referencePublishTask = os
+  .input(z.strictObject({
+    publishTarget: z.string().trim().min(1),
+    environment:   z.string().trim().min(1),
+    dryRun:        z.boolean().optional().default(false),
+  }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    const scope = { publishTarget: input.publishTarget, environment: input.environment };
+    const resolved = referencePublishTaskDefinition.resolveScope(scope);
+    const stale = await getStore().getActiveTaskRun(referencePublishTaskDefinition.taskType, referencePublishTaskDefinition.scopeType, resolved.key);
+    if (stale) {
+      await getStore().updateTaskRun(stale.id, {
+        status:             'abandoned',
+        terminalReason:     'abandoned_stale_run',
+        finishedAt:         new Date(),
+        controlRequestKind: null,
+        currentStageKey:    null,
+        currentStageIndex:  null,
+        currentResumeMode:  null,
+        pausedResumeMode:   null,
+      });
+    }
+    const active = await getStore().getActiveTaskRun(referencePublishTaskDefinition.taskType, referencePublishTaskDefinition.scopeType, resolved.key);
+    if (active) throw new Error(`Reference publish task already exists for stream ${resolved.key}`);
+
+    return createAndRunTask(referencePublishTaskDefinition.taskType, {
+      taskType:          referencePublishTaskDefinition.taskType,
+      definitionVersion: referencePublishTaskDefinition.definitionVersion,
+      scope:             { type: referencePublishTaskDefinition.scopeType, key: resolved.key, snapshot: resolved.snapshot as Record<string, unknown> },
+      params:            { dryRun: input.dryRun },
+    });
+  });
+
 const imageImportRemote = os
   .input(z.strictObject({
     source:     z.enum(['scryfall', 'gatherer', 'prefer_gatherer', 'mtgch']),
@@ -631,7 +666,7 @@ export const magicRouter = {
   ambit:        magicAmbitRouter,
   commits:      magicCommitsRouter,
   announcement: magicAnnouncementRouter,
-  publish:      { publishTask, announcementPublishTask },
+  publish:      { publishTask, announcementPublishTask, referencePublishTask },
   slug:         { listConflicts: listSlugConflicts, resolveConflict: resolveSlugConflict, member: slugMember },
   review:       { list: reviewList },
 };

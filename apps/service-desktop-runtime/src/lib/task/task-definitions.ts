@@ -28,6 +28,9 @@ registerTaskDefinition(announcementPublishTaskDefinition);
 import { announcementPublishTaskDefinition as magicAnnouncementPublishTaskDefinition } from '../magic/task/announcement-publish/definition';
 registerTaskDefinition(magicAnnouncementPublishTaskDefinition);
 
+import { referencePublishTaskDefinition as magicReferencePublishTaskDefinition } from '../magic/task/reference-publish/definition';
+registerTaskDefinition(magicReferencePublishTaskDefinition);
+
 import { referencePublishTaskDefinition } from '../hearthstone/task/reference-publish/definition';
 registerTaskDefinition(referencePublishTaskDefinition);
 
