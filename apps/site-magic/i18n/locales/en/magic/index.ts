@@ -1,4 +1,5 @@
 import search from './search';
+import { announcementSourceLabels } from '@tcg-cards/ui/i18n/announcement-sources';
 
 export default {
   $self: 'Magic',
@@ -48,18 +49,7 @@ export default {
       card_merge:   'Card merges',
     },
     sourceAnnouncement: '{source} announcement',
-    sources: {
-      wotc:                 'Wizards',
-      mtgcommander:         'Commander RC',
-      canadian_highlander:  'Canadian Highlander',
-      duelcommander:        'Duel Commander',
-      leviathan_commander:  'Leviathan Commander',
-      oathbreaker:          'Oathbreaker',
-      pauper_commander:     'Pauper Commander',
-      initial:              'Initial announcement',
-      release:              'Set release',
-      rotation:             'Rotation',
-    },
+    sources: announcementSourceLabels.en,
     global:        'Global',
     effectiveDate: 'Effective date',
     sentinel:      'Affected cards',

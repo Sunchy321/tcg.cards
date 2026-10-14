@@ -2,6 +2,19 @@ import z from 'zod';
 
 import { defineChangeStatusByType } from '../../game-change';
 
+export const announcementSource = z.enum([
+  'wotc',
+  'mtgcommander',
+  'canadian_highlander',
+  'duelcommander',
+  'leviathan_commander',
+  'oathbreaker',
+  'pauper_commander',
+  'initial',
+  'release',
+  'rotation',
+]);
+
 export const gameChangeType = z.enum([
   'card_change',
   'card_update',
@@ -163,6 +176,7 @@ export const announcementWithItems = announcement.extend({
 
 export type LinkEntry = z.infer<typeof linkEntry>;
 export type GlowEntry = z.infer<typeof glowEntry>;
+export type AnnouncementSource = z.infer<typeof announcementSource>;
 export type AnnouncementItem = z.infer<typeof announcementItem>;
 export type Announcement = z.infer<typeof announcement>;
 export type AnnouncementProfile = z.infer<typeof announcementProfile>;

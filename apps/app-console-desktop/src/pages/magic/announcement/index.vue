@@ -13,7 +13,8 @@
 </template>
 
 <script setup lang="ts">
-import { changeStatusByType, gameChangeType } from '#model/magic/schema/announcement';
+import { announcementSource, changeStatusByType, gameChangeType } from '#model/magic/schema/announcement';
+import { announcementSourceLabels } from '@tcg-cards/ui/i18n/announcement-sources';
 
 import { useDesktopRuntimeClient } from '~/composables/useDesktopRuntimeClient';
 import type { AnnouncementFormConfig } from '~/utils/announcement-form-yaml';
@@ -32,18 +33,10 @@ const cardResolve = (cardIds: string[]) =>
     cardId: string; nameEn: string | null; nameZh: string | null;
   }[]>;
 
-const sources = [
-  { label: 'Wizards', value: 'wotc' },
-  { label: 'Commander RC', value: 'mtgcommander' },
-  { label: 'Canadian Highlander', value: 'canadian_highlander' },
-  { label: 'Duel Commander', value: 'duelcommander' },
-  { label: 'Leviathan Commander', value: 'leviathan_commander' },
-  { label: 'Oathbreaker', value: 'oathbreaker' },
-  { label: 'Pauper Commander', value: 'pauper_commander' },
-  { label: '初始数据', value: 'initial' },
-  { label: '系列发行', value: 'release' },
-  { label: '环境轮替', value: 'rotation' },
-];
+const sources = announcementSource.options.map(value => ({
+  label: announcementSourceLabels.zhs[value],
+  value,
+}));
 
 const typeLabels: Record<string, string> = {
   card_change:  '合法性变更',

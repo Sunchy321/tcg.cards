@@ -1,4 +1,5 @@
 import search from './search';
+import { announcementSourceLabels } from '@tcg-cards/ui/i18n/announcement-sources';
 
 export default {
   $self: '万智牌',
@@ -48,18 +49,7 @@ export default {
       card_merge:   '卡牌合并',
     },
     sourceAnnouncement: '{source}公告',
-    sources: {
-      wotc:                 'Wizards',
-      mtgcommander:         'Commander RC',
-      canadian_highlander:  'Canadian Highlander',
-      duelcommander:        'Duel Commander',
-      leviathan_commander:  'Leviathan Commander',
-      oathbreaker:          'Oathbreaker',
-      pauper_commander:     '纯普指挥官',
-      initial:              '初始公告',
-      release:              '系列发行',
-      rotation:             '环境轮替',
-    },
+    sources: announcementSourceLabels.zhs,
     global:        '全局（所有赛制）',
     effectiveDate: '生效日期',
     sentinel:      '关联卡牌明细',

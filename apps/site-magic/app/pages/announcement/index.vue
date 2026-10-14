@@ -12,6 +12,7 @@
 
 <script setup lang="ts">
 import { useAnnouncementLabels } from '~/composables/useAnnouncementLabels';
+import { announcementSource } from '#model/magic/schema/announcement';
 
 /** One published announcement and its change count. */
 interface AnnouncementListRow {
@@ -42,7 +43,12 @@ const rows = computed(() => announcements.value.map(row => ({
 })));
 
 const sourceOptions = computed(() => {
-  const sources = [...new Set(rows.value.map(row => row.source))].sort();
+  const availableSources = new Set(rows.value.map(row => row.source));
+  const knownSources = new Set<string>(announcementSource.options);
+  const sources = [
+    ...announcementSource.options.filter(source => availableSources.has(source)),
+    ...[...availableSources].filter(source => !knownSources.has(source)).sort(),
+  ];
   return [
     { label: t('magic.announcement.sourceAll'), value: 'all' },
     ...sources.map(source => ({ label: sourceLabel(source), value: source })),
