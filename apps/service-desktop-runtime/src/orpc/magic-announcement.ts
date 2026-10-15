@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { and, asc, desc, eq, ilike, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 
 import { changeStatus, gameChangeType, type Legality } from '@tcg-cards/model/magic/schema/announcement';
+import { formats as magicFormats } from '@tcg-cards/model/magic/schema/basic';
 import { Announcement, AnnouncementItem, Card, CardLocalization, CardPart, Format, Print } from '@tcg-cards/db/schema/local/magic';
 import { Set as SetTable } from '@tcg-cards/db/schema/shared/magic/set';
 
@@ -11,6 +12,7 @@ import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
 import { groupCardLists } from '../lib/magic/announcement/data/card-groups';
 import { runApply, type ApplyCardMeta } from '../lib/magic/announcement/apply';
 import { cloneSourceFormats, isSentinelCardId } from '../lib/magic/announcement/projection';
+import { compareOfficialBanlist } from '../lib/magic/banlist-check/compare';
 
 const itemInput = z.object({
   type:          gameChangeType,
@@ -407,6 +409,44 @@ const resolveCardNames = os
       .orderBy(Card.cardId, desc(Card.version), CardLocalization.source);
   });
 
+const comparisonDifference = z.object({
+  cardId:         z.string(),
+  name:           z.string(),
+  officialKind:   z.enum(['banned', 'restricted', 'suspended', 'banned_as_commander', 'banned_as_companion', 'banned_in_deck', 'banned_as_leader', 'points']).nullable(),
+  localStatus:    z.enum(['banned_as_commander', 'banned_as_companion', 'banned_in_bo1', 'banned', 'game_changer', 'legal', 'restricted', 'suspended', 'unavailable', 'score']).nullable(),
+  officialPoints: z.number().nullable(),
+  localPoints:    z.number().nullable(),
+});
+
+const compareOfficial = os
+  .input(z.object({ formatId: z.enum(magicFormats) }))
+  .output(z.object({
+    formatId: z.string(),
+    status:   z.enum(['consistent', 'differences', 'incomplete', 'unavailable']),
+    source:   z.object({
+      sourceId:   z.string(),
+      sourceName: z.string(),
+      url:        z.string(),
+      updatedAt:  z.string().nullable(),
+      fetchedAt:  z.string(),
+      notices:    z.string().array(),
+    }),
+    reason:            z.string().nullable(),
+    officialOnly:      comparisonDifference.array(),
+    localOnly:         comparisonDifference.array(),
+    statusDifferences: comparisonDifference.array(),
+    pointsDifferences: comparisonDifference.array(),
+    unmatched:         z.object({
+      name:       z.string(),
+      kind:       z.enum(['banned', 'restricted', 'suspended', 'banned_as_commander', 'banned_as_companion', 'banned_in_deck', 'banned_as_leader', 'points']),
+      points:     z.number().nullable(),
+      candidates: z.string().array(),
+      reason:     z.enum(['not_found', 'ambiguous']),
+    }).array(),
+    manualReview: z.object({ description: z.string(), expanded: z.boolean() }).array(),
+  }))
+  .handler(async ({ input }) => compareOfficialBanlist(input.formatId));
+
 export const magicAnnouncementRouter = {
   list,
   get,
@@ -416,4 +456,5 @@ export const magicAnnouncementRouter = {
   apply,
   searchCards,
   resolveCardNames,
+  compareOfficial,
 };
