@@ -658,7 +658,7 @@ const statusColor = (s: Legality | string) => {
   case 'banned_as_commander': return '#ef5350';
   case 'banned_as_companion': return '#d81b60';
   case 'restricted': return '#fbc02d';
-  case 'suspended': return '#7e57c2';
+  case 'suspended': return '#e64a19';
   case 'unavailable': return '#9e9e9e';
   case 'legal': return '#66bb6a';
   default: return '#bdbdbd';

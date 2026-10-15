@@ -33,7 +33,7 @@ const STATUS_TINT: Record<string, string> = {
   banned_as_companion: 'bg-red-50 dark:bg-red-900/40',
   banned_in_bo1:       'bg-orange-50 dark:bg-orange-900/40',
   restricted:          'bg-orange-50 dark:bg-orange-900/40',
-  suspended:           'bg-orange-50 dark:bg-orange-900/40',
+  suspended:           'bg-red-50 dark:bg-red-900/40',
   game_changer:        'bg-amber-50 dark:bg-amber-900/40',
   score:               'bg-sky-50 dark:bg-sky-900/40',
   legal:               'bg-emerald-50 dark:bg-emerald-900/40',

@@ -19,7 +19,7 @@ const { t, te } = useI18n();
 const ICON: Record<string, string> = {
   legal:               'mdi:check-circle-outline',
   restricted:          'mdi:alert-circle-outline',
-  suspended:           'mdi:minus-circle-outline',
+  suspended:           'lucide:pause',
   banned:              'mdi:close-circle-outline',
   banned_in_bo1:       'mdi:progress-close',
   banned_as_commander: 'mdi:crown-circle-outline',
@@ -31,7 +31,7 @@ const ICON: Record<string, string> = {
 const COLOR: Record<string, string> = {
   legal:               'text-green-600',
   restricted:          'text-amber-500',
-  suspended:           'text-red-400',
+  suspended:           'text-red-600',
   banned:              'text-red-600',
   banned_in_bo1:       'text-red-600',
   banned_as_commander: 'text-red-600',

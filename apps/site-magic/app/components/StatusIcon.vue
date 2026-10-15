@@ -26,7 +26,7 @@ const STATUS_ICONS: Record<string, { icon: string, cls: string }> = {
   banned_as_companion: { icon: 'lucide:heart', cls: 'text-red-500 border-red-400' },
   banned_in_bo1:       { icon: 'lucide:minus', cls: 'text-red-500 border-red-400' },
   restricted:          { icon: '', cls: 'text-orange-500 border-orange-400' },
-  suspended:           { icon: 'lucide:pause-circle', cls: 'text-orange-500 border-orange-400' },
+  suspended:           { icon: 'lucide:pause', cls: 'text-red-500 border-red-400' },
   game_changer:        { icon: 'lucide:star', cls: 'text-amber-500 border-amber-400' },
   score:               { icon: 'lucide:hash', cls: 'text-sky-500 border-sky-400' },
   legal:               { icon: 'lucide:check', cls: 'text-emerald-500 border-emerald-400' },
