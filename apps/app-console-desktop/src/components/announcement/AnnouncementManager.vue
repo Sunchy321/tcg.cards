@@ -112,7 +112,7 @@
                   <UFormField label="状态">
                     <USelect
                       :model-value="item.status"
-                      :items="statusOptionsFor(item.type)"
+                      :items="statusOptionsFor(item.type, item.cardId)"
                       placeholder="选择状态"
                       class="w-full"
                       @update:model-value="(value: string) => { item.status = value }"
@@ -132,12 +132,13 @@
                   <UFormField v-if="entityKindOf(item.type) === 'card'" label="卡牌ID">
                     <CardSearchSelect
                       v-if="cardSearch"
-                      v-model="item.cardId"
+                      :model-value="item.cardId"
                       :search="cardSearch"
                       :resolve="cardResolve"
                       placeholder="搜索卡牌名称或直接输入 cardId"
+                      @update:model-value="(value: string) => onCardIdChange(item, value)"
                     />
-                    <UInput v-else v-model="item.cardId" placeholder="card id 或 #分组哨兵" />
+                    <UInput v-else :model-value="item.cardId" placeholder="card id 或 #分组哨兵" @update:model-value="(value: string) => onCardIdChange(item, value)" />
                   </UFormField>
                   <UFormField v-if="entityKindOf(item.type) === 'card'" label="分组">
                     <UInput v-model="item.group" placeholder="分组键" />
@@ -148,7 +149,7 @@
                   <UFormField v-if="entityKindOf(item.type) === 'rule'" label="规则ID">
                     <UInput v-model="item.ruleId" placeholder="rule id" />
                   </UFormField>
-                  <UFormField v-if="item.status === 'score'" label="分数">
+                  <UFormField v-if="item.status === 'score' || (game === 'magic' && item.cardId.startsWith('#{clone:'))" label="分数">
                     <UInputNumber v-model="item.score" :min="1" placeholder="分数" />
                   </UFormField>
                 </div>
@@ -310,8 +311,10 @@ const sourceOptions = props.sources;
 const typeOptions = computed(() => props.config.types.map(t => ({ label: props.typeLabels[t] ?? t, value: t })));
 const applyEnabled = computed(() => props.apply ?? false);
 
-const statusOptionsFor = (type: string) =>
-  statusOptionsOfType(type, props.config).map(s => ({ label: props.statusLabels[s] ?? s, value: s }));
+const statusOptionsFor = (type: string, cardId: string) => [
+  ...(props.game === 'magic' && cardId.startsWith('#{clone:') ? [{ label: '沿用来源状态', value: '' }] : []),
+  ...statusOptionsOfType(type, props.config).map(s => ({ label: props.statusLabels[s] ?? s, value: s })),
+];
 
 /** Which entity reference an item type carries: card types use cardId, set_change uses setId, rule_change uses ruleId, the format lifecycle types use none. */
 function entityKindOf(type: string): 'card' | 'set' | 'rule' | 'none' {
@@ -366,7 +369,7 @@ function fillForm(row: any) {
   form.items = (row.items ?? []).map((i: any): ItemRow => ({
     _key:          nextItemKey(),
     type:          String(i.type ?? ''),
-    status:        normalizeItemStatus(String(i.type ?? ''), i.status == null ? '' : String(i.status), props.config),
+    status:        normalizeItemStatus(String(i.type ?? ''), i.status == null ? '' : String(i.status), props.config, i.cardId ?? ''),
     effectiveDate: i.effectiveDate ?? '',
     format:        i.format ?? '',
     group:         i.group ?? '',
@@ -433,6 +436,14 @@ function onItemTypeChange(item: ItemRow, type: string) {
   item.status = normalizeItemStatus(type, '', props.config);
 }
 
+/** Clears the default status when a card reference becomes a banlist copy. */
+function onCardIdChange(item: ItemRow, cardId: string) {
+  if (props.game === 'magic' && cardId.startsWith('#{clone:') && !item.cardId.startsWith('#{clone:')) {
+    item.status = '';
+  }
+  item.cardId = cardId;
+}
+
 function toggleYamlMode() {
   activeLink.value = null;
   if (!isYamlMode.value) {
@@ -488,8 +499,8 @@ function toPayload() {
         type:          item.type,
         effectiveDate: item.effectiveDate || null,
         format:        item.format || null,
-        status:        normalizeItemStatus(item.type, item.status, props.config) || null,
-        score:         item.status === 'score' ? (item.score ?? null) : null,
+        status:        normalizeItemStatus(item.type, item.status, props.config, item.cardId) || null,
+        score:         item.cardId.startsWith('#{clone:') || item.status === 'score' ? (item.score ?? null) : null,
         group:         kind === 'card' ? (item.group || null) : null,
         prevVersion:   fields.prevVersion && item.type === 'card_update' ? (item.prevVersion || null) : undefined,
         version:       fields.versionFields ? item.version : undefined,

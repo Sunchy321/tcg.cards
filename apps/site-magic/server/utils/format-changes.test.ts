@@ -5,15 +5,15 @@ import { expandFormatChanges } from './format-changes';
 
 const change = {
   ...announcementItem.parse({
-    id: '00000000-0000-4000-8000-000000000001',
+    id:             '00000000-0000-4000-8000-000000000001',
     announcementId: '00000000-0000-4000-8000-000000000002',
-    type: 'set_change', order: 0, effectiveDate: null, format: '#standard',
-    status: 'unavailable', score: null, group: null, prevVersion: null,
-    delta: null, glow: null, cardId: null, setId: 'old-set', ruleId: null,
-    relatedCards: [], createdAt: '2020-01-01T00:00:00Z', updatedAt: '2020-01-01T00:00:00Z',
-    projection: {
-      formats: ['modern', 'standard'],
-      cards: [{ cardId: 'reprinted-card', status: 'unavailable', effectiveDate: '2018-02-01' }],
+    type:           'set_change', order:          0, effectiveDate:  null, format:         '#standard',
+    status:         'unavailable', score:          null, group:          null, prevVersion:    null,
+    delta:          null, glow:           null, cardId:         null, setId:          'old-set', ruleId:         null,
+    relatedCards:   [], createdAt:      '2020-01-01T00:00:00Z', updatedAt:      '2020-01-01T00:00:00Z',
+    projection:     {
+      formats:      ['modern', 'standard'],
+      cards:        [{ cardId: 'reprinted-card', status: 'unavailable', effectiveDate: '2018-02-01' }],
       derivedCards: [
         { formatId: 'modern', cardId: 'rotated-card', status: 'unavailable', effectiveDate: '2018-02-01', group: 'conspiracy' },
         { formatId: 'standard', cardId: 'reprinted-card', status: 'unavailable', effectiveDate: '2018-02-01', group: null },
@@ -29,9 +29,9 @@ test('format history includes only actual rotation removals for the requested fo
   expect(events).toHaveLength(2);
   expect(events[0]).toEqual(change);
   expect(events[1]).toMatchObject({
-    type: 'card_change', cardId: 'rotated-card', status: 'unavailable',
-    format: 'modern', date: '2018-02-01', score: null, group: 'conspiracy',
-    setId: null, relatedCards: [], announcementId: change.announcementId, link: change.link,
+    type:           'card_change', cardId:         'rotated-card', status:         'unavailable',
+    format:         'modern', date:           '2018-02-01', score:          null, group:          'conspiracy',
+    setId:          null, relatedCards:   [], announcementId: change.announcementId, link:           change.link,
   });
   expect(events.some(event => event.cardId === 'reprinted-card')).toBe(false);
   expect(expandFormatChanges([change], 'standard')[1]!.cardId).toBe('reprinted-card');
@@ -45,11 +45,11 @@ test('older projections remain readable without manufacturing rotation removals'
 test('sentinel bans expand to real cards with their group and individual effective dates', () => {
   const sentinel = {
     ...change,
-    type: 'card_change' as const,
-    cardId: '#ante', setId: null, status: 'banned' as const,
+    type:       'card_change' as const,
+    cardId:     '#ante', setId:      null, status:     'banned' as const,
     projection: {
       formats: ['standard'],
-      cards: [
+      cards:   [
         { cardId: 'contract-from-below', status: 'banned', effectiveDate: '2018-01-01' },
         { cardId: 'jeweled-bird', status: 'banned', effectiveDate: '2018-02-01' },
       ],
@@ -65,10 +65,39 @@ test('sentinel bans expand to real cards with their group and individual effecti
 
 test('an empty sentinel expansion does not expose the sentinel as a card', () => {
   const sentinel = {
-    ...change, type: 'card_change' as const, cardId: '#conspiracy', setId: null,
-    status: 'banned' as const, projection: { formats: ['standard'], cards: [] },
+    ...change, type:       'card_change' as const, cardId:     '#conspiracy', setId:      null,
+    status:     'banned' as const, projection: { formats: ['standard'], cards: [] },
   };
   expect(expandFormatChanges([sentinel], 'standard')).toEqual([]);
+});
+
+test('a copied card carries its projected score without a clone group label', () => {
+  const clone = {
+    ...change, type:       'card_change' as const, cardId:     '#{clone:vintage,pauper}', setId:      null,
+    status:     null, projection: {
+      formats: ['modern'],
+      cards:   [
+        { cardId: 'copied', status: 'score', score: 4, effectiveDate: '2018-01-01', sourceFormats: ['pauper', 'vintage'] },
+        { cardId: 'other', status: 'banned', effectiveDate: '2018-01-01', sourceFormats: ['vintage'] },
+      ],
+    },
+  };
+  const events = expandFormatChanges([clone], 'modern');
+  expect(events[0]).toMatchObject({
+    cardId: 'copied', status: 'score', score: 4, group: null, copiedFrom: ['pauper', 'vintage'],
+  });
+  expect(events[1]).toMatchObject({ cardId: 'other', group: null, copiedFrom: ['vintage'] });
+});
+
+test('a previously projected single source remains readable', () => {
+  const clone = {
+    ...change, type:       'card_change' as const, cardId:     '#{clone:vintage}', setId:      null,
+    projection: {
+      formats: ['modern'],
+      cards:   [{ cardId: 'copied', status: 'banned', effectiveDate: '2018-01-01', sourceFormat: 'vintage' }],
+    },
+  };
+  expect(expandFormatChanges([clone], 'modern')[0]).toMatchObject({ copiedFrom: ['vintage'] });
 });
 
 test('a raw format reference cannot restore an item excluded by the lifetime-filtered projection', () => {

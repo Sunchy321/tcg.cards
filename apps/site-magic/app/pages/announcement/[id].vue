@@ -71,6 +71,7 @@
                 <SetAvatar v-else-if="row.setId" :set-id="row.setId" class="min-w-0 flex-wrap leading-6 font-medium wrap-anywhere" />
                 <span v-else-if="row.ruleId" class="text-sm leading-6 wrap-anywhere text-gray-600 dark:text-gray-400">{{ row.ruleId }}</span>
                 <span v-if="row.group != null && !row.cards" class="text-xs text-gray-500 dark:text-gray-400">{{ groupName(row.group) }}</span>
+                <span v-if="row.copiedFrom" class="text-xs text-gray-500 dark:text-gray-400">{{ $t('magic.announcement.copiedFrom', { format: formatNames(row.copiedFrom) }) }}</span>
                 <template v-if="row.cards" #actions>
                   <UButton
                     icon="lucide:list"
@@ -114,10 +115,12 @@ import { useAnnouncementLabels } from '~/composables/useAnnouncementLabels';
 
 /** One projected card and its effective legality change. */
 interface ProjectionCard {
-  cardId:        string;
-  status:        string | null;
-  effectiveDate: string | null;
-  score?:        number | null;
+  cardId:         string;
+  status:         string | null;
+  effectiveDate:  string | null;
+  score?:         number | null;
+  sourceFormat?:  string;
+  sourceFormats?: string[];
 }
 
 /** One authored announcement change and its display projection. */
@@ -139,6 +142,7 @@ interface AnnouncementItemView {
 /** One rendered row: a card (or entity reference) with its status and effective date. */
 interface DisplayRow {
   cards?:        DisplayRow[];
+  copiedFrom?:   string[];
   group:         string | null;
   key:           string;
   status:        string | null;
@@ -171,7 +175,7 @@ definePageMeta({
 
 const { $orpc } = useNuxtApp();
 const route = useRoute();
-const { t, te } = useI18n();
+const { t, te, locale } = useI18n();
 const { sourceLabel, announcementTitle } = useAnnouncementLabels();
 const announcementId = computed(() => (route.params as { id: string }).id);
 
@@ -202,6 +206,16 @@ function groupName(group: string): string {
   return te(key) ? t(key) : group;
 }
 
+/** Shows a copied card's actual source by its localized format name. */
+function formatName(id: string): string {
+  const key = `magic.format.${id}`;
+  return te(key) ? t(key) : id;
+}
+
+function formatNames(ids: string[]): string {
+  return ids.map(formatName).join(locale.value === 'zhs' ? '、' : ', ');
+}
+
 /** Gives original article links readable labels while retaining custom user labels. */
 function originalLinkLabel(label?: string): string {
   if (!label?.trim()) return t('magic.announcement.readOriginal');
@@ -225,10 +239,13 @@ function entityKind(type: string): 'card' | 'set' | 'rule' | 'none' {
 
 /** Keeps set changes as series entries and expands card changes from their projection. */
 function rowsForItem(item: AnnouncementItemView): DisplayRow[] {
+  const copy = item.type === 'card_change' ? /^#\{clone:([^{}]+)\}$/.exec(item.cardId ?? '') : null;
   // Sentinel expansions inherit their group from the authored card reference.
-  const group = item.type === 'card_change' && item.cardId?.startsWith('#')
-    ? item.cardId.slice(1)
-    : item.group ?? null;
+  const group = copy != null
+    ? null
+    : item.type === 'card_change' && item.cardId?.startsWith('#')
+      ? item.cardId.slice(1)
+      : item.group ?? null;
   const projected = item.projection?.cards ?? [];
   // A group with no applicable members must not fall back to a fake sentinel card.
   if (item.type === 'card_change' && item.cardId?.startsWith('#') && projected.length === 0) {
@@ -237,6 +254,7 @@ function rowsForItem(item: AnnouncementItemView): DisplayRow[] {
   if (item.type !== 'set_change' && projected.length > 0) {
     return projected.map(card => ({
       group,
+      copiedFrom:    copy != null ? card.sourceFormats ?? (card.sourceFormat ? [card.sourceFormat] : undefined) : undefined,
       key:           `${item.order}-${card.cardId}`,
       status:        card.status ?? item.status,
       score:         card.score ?? item.score ?? item.projection?.score ?? null,

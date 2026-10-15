@@ -67,9 +67,12 @@ export function statusOptionsOfType(type: string, config: AnnouncementFormConfig
 }
 
 /** The status a type normalizes to: the type default when empty, empty string for statusless types. */
-export function normalizeItemStatus(type: string, status: string, config: AnnouncementFormConfig): string {
+export function normalizeItemStatus(type: string, status: string, config: AnnouncementFormConfig, cardId = ''): string {
   const declared = config.statusByType[type];
   if (declared == null || declared.statuses.length === 0) {
+    return '';
+  }
+  if (type === 'card_change' && cardId.startsWith('#{clone:') && status === '') {
     return '';
   }
   if (status === '') {
@@ -140,7 +143,7 @@ export function announcementToYaml(form: AnnouncementFormData, config: Announcem
         type:          item.type,
         effectiveDate: item.effectiveDate || null,
         format:        item.format || null,
-        status:        normalizeItemStatus(item.type, item.status, config) || null,
+        status:        normalizeItemStatus(item.type, item.status, config, item.cardId) || null,
         score:         item.score ?? null,
         group:         item.group || null,
         cardId:        item.cardId || null,
@@ -215,7 +218,7 @@ export function yamlToAnnouncement(text: string, config: AnnouncementFormConfig)
       }
       items.push({
         type,
-        status:        normalizeItemStatus(type, status, config),
+        status:        normalizeItemStatus(type, status, config, raw?.cardId == null ? '' : String(raw.cardId)),
         effectiveDate: raw?.effectiveDate == null ? '' : String(raw.effectiveDate),
         format:        raw?.format == null ? '' : String(raw.format),
         group:         raw?.group == null ? '' : String(raw.group),

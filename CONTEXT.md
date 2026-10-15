@@ -293,6 +293,9 @@ The per-game ledger of the image files the deployment locally holds: one row per
 ### format keyword (赛制关键词)
 The magic announcement item's `format` accepts a literal formatId or a `#`-prefixed umbrella keyword: `#eternal` expands to every format tagged `eternal`, `#standard` to the eternal plus the rotating formats, `#alchemy` to alchemy, historic, and timeless. Expansion itself is a static map (the hearthstone pattern); at apply time each target format's birthday/deathdate window and the item's effective date still decide whether the change takes hold in that format.
 
+### banlist clone (禁排表复制)
+An authored Magic `card_change` whose `cardId` is `#{clone:a,b}` copies the current banlist entries of source formats `a` and `b` into its target format during apply replay. The source list is a snapshot at that announcement item; an existing target entry is retained. A card present in multiple sources is copied once when its source status and score agree; conflicting cards are skipped. When the same announcement explicitly gives a card a status in the target format, that explicit change wins regardless of item order. Optional item status and score override copied values after source comparison. The item projection contains each copied card's resulting status, effective date, optional score, and all actual source formats.
+
 ### prevVersion (对比版本)
 The magic announcement's date-based comparison version — the card version an item's change is measured against. A date string, because magic card versions are dates rather than build numbers. Empty resolves to the latest card version before the effective date. The announcement-level value is the default; an item-level value overrides it.
 

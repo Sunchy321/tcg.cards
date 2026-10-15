@@ -32,6 +32,127 @@ function setsOf(result: ReturnType<typeof runApply>, formatId: string) {
 }
 
 describe('runApply', () => {
+  test('copies source banlists as they stand at the item, preserving status and score', () => {
+    const item = (id: string, format: string, cardId: string, status: string | null, score: number | null = null) => ({
+      id, ruleId:        null, type:          'card_change', effectiveDate: null, format, status, score,
+      group:         null, cardId, setId:         null, relatedCards:  [],
+    });
+    const result = runApply({
+      ...baseInput,
+      announcements: [{
+        date:          '2015-01-01', effectiveDate: null,
+        items:         [
+          item('source-a', 'vintage', 'card-a', 'banned'),
+          item('source-b', 'pauper', 'card-b', 'score', 3),
+          item('clone', 'modern', '#{clone:vintage,pauper}', null),
+        ],
+      }],
+    });
+    expect(banlistOf(result, 'modern').map(e => [e.cardId, e.status, e.score, e.date])).toEqual([
+      ['card-a', 'banned', null, '2015-01-01'],
+      ['card-b', 'score', 3, '2015-01-01'],
+    ]);
+    expect(result.projections.find(p => p.id === 'clone')!.projection.cards).toEqual([
+      { cardId: 'card-a', status: 'banned', score: null, effectiveDate: '2015-01-01', sourceFormats: ['vintage'] },
+      { cardId: 'card-b', status: 'score', score: 3, effectiveDate: '2015-01-01', sourceFormats: ['pauper'] },
+    ]);
+  });
+
+  test('copies a card shared by sources with matching status and score', () => {
+    const item = (id: string, format: string, cardId: string) => ({
+      id, ruleId:        null, type:          'card_change', effectiveDate: null, format,
+      status:        'banned', score:         null, group:         null, cardId, setId:         null, relatedCards:  [],
+    });
+    const announcements = [{
+      date:          '2015-01-01', effectiveDate: null,
+      items:         [item('a', 'vintage', 'shared'), item('b', 'pauper', 'shared'), item('clone', 'modern', '#{clone:vintage,pauper}')],
+    }];
+    const result = runApply({
+      ...baseInput,
+      announcements,
+    });
+    expect(banlistOf(result, 'modern').map(e => [e.cardId, e.status, e.score])).toEqual([['shared', 'banned', null]]);
+    expect(result.projections.find(p => p.id === 'clone')!.projection.cards).toEqual([
+      { cardId: 'shared', status: 'banned', score: null, effectiveDate: '2015-01-01', sourceFormats: ['vintage', 'pauper'] },
+    ]);
+    const existing = runApply({
+      ...baseInput,
+      announcements: [
+        { date: '2014-01-01', effectiveDate: null, items: [item('target', 'modern', 'shared')] },
+        announcements[0]!,
+      ],
+    });
+    expect(banlistOf(existing, 'modern').map(e => e.cardId)).toEqual(['shared']);
+    expect(existing.projections.find(p => p.id === 'clone')!.projection.cards).toEqual([]);
+  });
+
+  test.each([
+    ['status', 'banned', null, 'restricted', null],
+    ['score', 'score', 2, 'score', 3],
+  ])('skips a card shared by sources with conflicting %s', (_kind, firstStatus, firstScore, secondStatus, secondScore) => {
+    const item = (id: string, format: string, cardId: string, status: string, score: number | null) => ({
+      id, ruleId:        null, type:          'card_change', effectiveDate: null, format,
+      status, score, group:         null, cardId, setId:         null, relatedCards:  [],
+    });
+    const result = runApply({
+      ...baseInput,
+      announcements: [{
+        date:          '2015-01-01', effectiveDate: null,
+        items:         [
+          item('a', 'vintage', 'shared', firstStatus!, firstScore),
+          item('b', 'pauper', 'shared', secondStatus!, secondScore),
+          item('clone', 'modern', '#{clone:vintage,pauper}', 'banned', null),
+        ],
+      }],
+    });
+    expect(banlistOf(result, 'modern')).toEqual([]);
+    expect(result.projections.find(p => p.id === 'clone')!.projection.cards).toEqual([]);
+  });
+
+  test('copy overrides source status and score but keeps an existing target entry', () => {
+    const item = (id: string, format: string, cardId: string, status: string | null, score: number | null = null) => ({
+      id, ruleId:        null, type:          'card_change', effectiveDate: null, format, status, score,
+      group:         null, cardId, setId:         null, relatedCards:  [],
+    });
+    const result = runApply({
+      ...baseInput,
+      announcements: [{
+        date:          '2015-01-01', effectiveDate: null,
+        items:         [
+          item('source-a', 'vintage', 'existing', 'score', 2),
+          item('source-b', 'vintage', 'copied', 'score', 3),
+          item('target', 'modern', 'existing', 'restricted'),
+          item('clone', 'modern', '#{clone:vintage}', 'banned', 5),
+        ],
+      }],
+    });
+    expect(banlistOf(result, 'modern').map(e => [e.cardId, e.status, e.score])).toEqual([
+      ['copied', 'banned', 5],
+      ['existing', 'restricted', null],
+    ]);
+    expect(result.projections.find(p => p.id === 'clone')!.projection.cards).toEqual([
+      { cardId: 'copied', status: 'banned', score: 5, effectiveDate: '2015-01-01', sourceFormats: ['vintage'] },
+    ]);
+  });
+
+  test.each(['before', 'after'])('ignores a clone card explicitly changed %s the clone in the same announcement', position => {
+    const item = (id: string, format: string, cardId: string, status: string | null) => ({
+      id, ruleId:        null, type:          'card_change', effectiveDate: null, format, status,
+      score:         null, group:         null, cardId, setId:         null, relatedCards:  [],
+    });
+    const explicit = item('explicit', 'modern', 'shared', 'restricted');
+    const clone = item('clone', 'modern', '#{clone:vintage,pauper}', null);
+    const result = runApply({
+      ...baseInput,
+      announcements: [{
+        date:          '2015-01-01', effectiveDate: null,
+        items:         [item('a', 'vintage', 'shared', 'banned'), item('b', 'pauper', 'shared', 'restricted'),
+          ...(position === 'before' ? [explicit, clone] : [clone, explicit])],
+      }],
+    });
+    expect(banlistOf(result, 'modern').map(e => [e.cardId, e.status])).toEqual([['shared', 'restricted']]);
+    expect(result.projections.find(p => p.id === 'clone')!.projection.cards).toEqual([]);
+  });
   test('seeds rotating formats from set releases and nulls eternal set lists', () => {
     const result = runApply(baseInput);
 
@@ -203,8 +324,8 @@ describe('runApply', () => {
         { formatId: 'extended', birthday: null, deathdate: '1995-01-10' },
       ],
       announcements: [{
-        date: '1995-01-10', effectiveDate: '1995-01-11',
-        items: [
+        date:          '1995-01-10', effectiveDate: '1995-01-11',
+        items:         [
           { id: 'at-boundary', ruleId: null, type: 'set_change', effectiveDate: '1995-01-10', format: '#standard', status: 'legal', score: null, group: null, cardId: null, setId: 's-2010', relatedCards: [] },
           { id: 'after-death', ruleId: null, type: 'card_change', effectiveDate: null, format: '#standard', status: 'banned', score: null, group: null, cardId: '#conspiracy', setId: null, relatedCards: [] },
           { id: 'before-birth', ruleId: null, type: 'card_change', effectiveDate: null, format: 'modern', status: 'banned', score: null, group: null, cardId: 'old-card', setId: null, relatedCards: [] },
@@ -221,9 +342,9 @@ describe('runApply', () => {
 
   test('keyword set changes exclude eternal formats while explicitly targeted special set changes remain projected', () => {
     const item = {
-      id: 'ordinary-set', ruleId: null, type: 'set_change', effectiveDate: null,
-      format: '#standard', status: 'legal', score: null, group: null,
-      cardId: null, setId: 's-2010', relatedCards: [],
+      id:            'ordinary-set', ruleId:        null, type:          'set_change', effectiveDate: null,
+      format:        '#standard', status:        'legal', score:         null, group:         null,
+      cardId:        null, setId:         's-2010', relatedCards:  [],
     };
     const result = runApply({
       ...baseInput,
@@ -233,10 +354,10 @@ describe('runApply', () => {
         { formatId: 'vintage', birthday: null, deathdate: null },
         { formatId: 'commander', birthday: '2010-01-01', deathdate: null },
       ],
-      sets: [...baseInput.sets, { setId: 'un-set', type: 'funny', releaseDate: '2010-01-01' }],
+      sets:          [...baseInput.sets, { setId: 'un-set', type: 'funny', releaseDate: '2010-01-01' }],
       announcements: [{
-        date: '2010-06-01', effectiveDate: null,
-        items: [
+        date:          '2010-06-01', effectiveDate: null,
+        items:         [
           item,
           { ...item, id: 'eternal-set', format: '#eternal' },
           { ...item, id: 'special-set-in', format: 'commander', setId: 'un-set' },
@@ -297,22 +418,22 @@ describe('runApply', () => {
   test('rotation preserves restrictions on reprints and removes restrictions on exit and re-entry', () => {
     const input: ApplyInput = {
       ...baseInput,
-      formats: [{ formatId: 'modern', birthday: null, deathdate: null }],
+      formats:  [{ formatId: 'modern', birthday: null, deathdate: null }],
       cardMeta: {
-        'rotated-card': { typeMain: [], rarities: [], sets: ['s-2010'], releaseDate: '2010-01-01' },
+        'rotated-card':   { typeMain: [], rarities: [], sets: ['s-2010'], releaseDate: '2010-01-01' },
         'reprinted-card': { typeMain: [], rarities: [], sets: ['s-2010', 's-2016'], releaseDate: '2010-01-01' },
       },
       announcements: [
         {
-          date: '2015-01-01', effectiveDate: null,
-          items: [
+          date:          '2015-01-01', effectiveDate: null,
+          items:         [
             { id: 'rotate-score', ruleId: null, type: 'card_change', effectiveDate: null, format: 'modern', status: 'score', score: 3, group: null, cardId: 'rotated-card', setId: null, relatedCards: [] },
             { id: 'reprint-ban', ruleId: null, type: 'card_change', effectiveDate: null, format: 'modern', status: 'banned', score: null, group: null, cardId: 'reprinted-card', setId: null, relatedCards: [] },
           ],
         },
         {
-          date: '2018-01-01', effectiveDate: '2018-02-01',
-          items: [
+          date:          '2018-01-01', effectiveDate: '2018-02-01',
+          items:         [
             { id: 'rotate-out', ruleId: null, type: 'set_change', effectiveDate: null, format: 'modern', status: 'unavailable', score: null, group: null, cardId: null, setId: 's-2010', relatedCards: [] },
           ],
         },
@@ -333,8 +454,8 @@ describe('runApply', () => {
       announcements: [
         { ...input.announcements[0]!, items: input.announcements[0]!.items.map(item => ({ ...item, format: '#standard' })) },
         {
-          date: '2017-01-01', effectiveDate: null,
-          items: [{ id: 'standard-exit', ruleId: null, type: 'set_change', effectiveDate: null, format: 'standard', status: 'unavailable', score: null, group: null, cardId: null, setId: 's-2016', relatedCards: [] }],
+          date:          '2017-01-01', effectiveDate: null,
+          items:         [{ id: 'standard-exit', ruleId: null, type: 'set_change', effectiveDate: null, format: 'standard', status: 'unavailable', score: null, group: null, cardId: null, setId: 's-2016', relatedCards: [] }],
         },
         { ...input.announcements[1]!, items: input.announcements[1]!.items.map(item => ({ ...item, format: '#standard' })) },
       ],
@@ -349,8 +470,8 @@ describe('runApply', () => {
     const laterExit = runApply({
       ...input,
       announcements: [...input.announcements, {
-        date: '2019-01-01', effectiveDate: null,
-        items: [{ id: 'later-exit', ruleId: null, type: 'set_change', effectiveDate: null, format: 'modern', status: 'unavailable', score: null, group: null, cardId: null, setId: 's-2016', relatedCards: [] }],
+        date:          '2019-01-01', effectiveDate: null,
+        items:         [{ id: 'later-exit', ruleId: null, type: 'set_change', effectiveDate: null, format: 'modern', status: 'unavailable', score: null, group: null, cardId: null, setId: 's-2016', relatedCards: [] }],
       }],
     });
     expect(banlistOf(laterExit, 'modern')).toEqual([]);
@@ -358,8 +479,8 @@ describe('runApply', () => {
     const reentry = runApply({
       ...input,
       announcements: [...input.announcements, {
-        date: '2019-01-01', effectiveDate: null,
-        items: [{ id: 'rotate-back', ruleId: null, type: 'set_change', effectiveDate: null, format: 'modern', status: 'legal', score: null, group: null, cardId: null, setId: 's-2010', relatedCards: [] }],
+        date:          '2019-01-01', effectiveDate: null,
+        items:         [{ id: 'rotate-back', ruleId: null, type: 'set_change', effectiveDate: null, format: 'modern', status: 'legal', score: null, group: null, cardId: null, setId: 's-2010', relatedCards: [] }],
       }],
     });
     expect(banlistOf(reentry, 'modern')).toEqual([
@@ -405,22 +526,22 @@ describe('runApply', () => {
   test('a group restriction stops before cards entering on or after its lifting date', () => {
     const result = runApply({
       ...baseInput,
-      formats: [{ formatId: 'vintage', birthday: null, deathdate: null }],
+      formats:  [{ formatId: 'vintage', birthday: null, deathdate: null }],
       cardMeta: {
         existing: { typeMain: [], rarities: [], sets: [], releaseDate: '1994-01-01' },
-        before: { typeMain: [], rarities: [], sets: [], releaseDate: '1995-09-30' },
-        same: { typeMain: [], rarities: [], sets: [], releaseDate: '1995-10-01' },
-        after: { typeMain: [], rarities: [], sets: [], releaseDate: '1995-10-02' },
+        before:   { typeMain: [], rarities: [], sets: [], releaseDate: '1995-09-30' },
+        same:     { typeMain: [], rarities: [], sets: [], releaseDate: '1995-10-01' },
+        after:    { typeMain: [], rarities: [], sets: [], releaseDate: '1995-10-02' },
       },
-      groupCards: { legendary: ['existing', 'before', 'same', 'after'] },
+      groupCards:    { legendary: ['existing', 'before', 'same', 'after'] },
       announcements: [
         {
-          date: '1995-01-10', effectiveDate: null,
-          items: [{ id: 'legendary-restrict', ruleId: null, type: 'card_change', effectiveDate: null, format: 'vintage', status: 'restricted', score: null, group: null, cardId: '#legendary', setId: null, relatedCards: [] }],
+          date:          '1995-01-10', effectiveDate: null,
+          items:         [{ id: 'legendary-restrict', ruleId: null, type: 'card_change', effectiveDate: null, format: 'vintage', status: 'restricted', score: null, group: null, cardId: '#legendary', setId: null, relatedCards: [] }],
         },
         {
-          date: '1995-10-01', effectiveDate: null,
-          items: [{ id: 'legendary-lift', ruleId: null, type: 'card_change', effectiveDate: null, format: 'vintage', status: 'legal', score: null, group: null, cardId: '#legendary', setId: null, relatedCards: [] }],
+          date:          '1995-10-01', effectiveDate: null,
+          items:         [{ id: 'legendary-lift', ruleId: null, type: 'card_change', effectiveDate: null, format: 'vintage', status: 'legal', score: null, group: null, cardId: '#legendary', setId: null, relatedCards: [] }],
         },
       ],
     });
@@ -437,7 +558,7 @@ describe('runApply', () => {
     const result = runApply({
       ...baseInput,
       formats: [{ formatId: 'standard', birthday: null, deathdate: null }],
-      sets: [
+      sets:    [
         { setId: 'old-set', type: 'expansion', releaseDate: '1994-01-01' },
         { setId: 'new-set', type: 'masters', releaseDate: '1995-10-01' },
       ],
@@ -445,10 +566,10 @@ describe('runApply', () => {
         existing: { typeMain: [], rarities: [], sets: ['old-set'], releaseDate: '1994-01-01' },
         entering: { typeMain: [], rarities: [], sets: ['new-set'], releaseDate: '1995-10-01' },
       },
-      groupCards: { legendary: ['existing', 'entering'] },
+      groupCards:    { legendary: ['existing', 'entering'] },
       announcements: [
         { date: '1995-01-10', effectiveDate: null, items: [item] },
-        { date: '1995-10-01', effectiveDate: null, items: [
+        { date:          '1995-10-01', effectiveDate: null, items:         [
           { ...item, id: 'set-in', type: 'set_change', status: 'legal', cardId: null, setId: 'new-set' },
           { ...item, id: 'lift', status: 'legal' },
         ] },
@@ -462,11 +583,11 @@ describe('runApply', () => {
     const item = { id: 'restrict', ruleId: null, type: 'card_change', effectiveDate: null, format: 'vintage', status: 'restricted', score: null, group: null, cardId: '#legendary', setId: null, relatedCards: [] };
     const result = runApply({
       ...baseInput,
-      formats: [{ formatId: 'vintage', birthday: null, deathdate: null }],
+      formats:  [{ formatId: 'vintage', birthday: null, deathdate: null }],
       cardMeta: {
         entering: { typeMain: [], rarities: [], sets: [], releaseDate: '1995-10-01' },
       },
-      groupCards: { legendary: ['entering'] },
+      groupCards:    { legendary: ['entering'] },
       announcements: [
         { date: '1995-01-10', effectiveDate: null, items: [item] },
         { date: '1995-10-01', effectiveDate: null, items: [{ ...item, id: 'explicit', cardId: 'entering', status: 'legal' }] },
@@ -484,12 +605,12 @@ describe('runApply', () => {
       ...baseInput,
       announcements: [
         {
-          date: '2017-01-01', effectiveDate: null,
-          items: [{ id: 'group-ban', ruleId: null, type: 'card_change', effectiveDate: null, format: 'vintage', status: 'banned', score: null, group: null, cardId: '#conspiracy', setId: null, relatedCards: [] }],
+          date:          '2017-01-01', effectiveDate: null,
+          items:         [{ id: 'group-ban', ruleId: null, type: 'card_change', effectiveDate: null, format: 'vintage', status: 'banned', score: null, group: null, cardId: '#conspiracy', setId: null, relatedCards: [] }],
         },
         {
-          date: '2018-01-01', effectiveDate: null,
-          items: [{ id: 'group-unban', ruleId: null, type: 'card_change', effectiveDate: null, format: 'vintage', status: 'legal', score: null, group: null, cardId: '#conspiracy', setId: null, relatedCards: [] }],
+          date:          '2018-01-01', effectiveDate: null,
+          items:         [{ id: 'group-unban', ruleId: null, type: 'card_change', effectiveDate: null, format: 'vintage', status: 'legal', score: null, group: null, cardId: '#conspiracy', setId: null, relatedCards: [] }],
         },
       ],
     });

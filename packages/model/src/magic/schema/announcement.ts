@@ -101,11 +101,14 @@ export const glowEntry = z.strictObject({
   type: z.enum(['buff', 'nerf']),
 });
 
-/** One projected card of an announcement item: its identity, the status applied to it, and when that takes hold. */
+/** One projected card with its applied status, date, and optional copy metadata. */
 export const projectionCard = z.strictObject({
   cardId:        z.string(),
   status:        z.string().nullable(),
   effectiveDate: z.string().nullable(),
+  score:         z.int().min(1).nullable().optional(),
+  sourceFormat:  z.string().optional(),
+  sourceFormats: z.string().array().optional(),
 });
 
 export const announcementItem = z.strictObject({
@@ -132,8 +135,8 @@ export const announcementItem = z.strictObject({
   relatedCards: z.string().array(),
 
   projection: z.object({
-    formats: z.array(z.string()),
-    cards:   z.array(projectionCard),
+    formats:      z.array(z.string()),
+    cards:        z.array(projectionCard),
     // Rotation removals are scoped because reprint availability differs by format.
     derivedCards: z.array(projectionCard.extend({
       formatId: z.string(),

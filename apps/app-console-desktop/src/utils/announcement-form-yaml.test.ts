@@ -11,7 +11,7 @@ import {
 } from './announcement-form-yaml';
 
 const magicConfig: AnnouncementFormConfig = {
-  types: ['card_change', 'card_update', 'set_change', 'rule_change', 'format_birth', 'format_death', 'card_split', 'card_merge'],
+  types:        ['card_change', 'card_update', 'set_change', 'rule_change', 'format_birth', 'format_death', 'card_split', 'card_merge'],
   statusByType: {
     card_change:  { statuses: ['banned', 'legal', 'restricted'], default: 'banned' },
     card_update:  { statuses: ['buff', 'nerf'], default: 'buff' },
@@ -35,6 +35,10 @@ describe('normalizeItemStatus', () => {
     expect(normalizeItemStatus('card_change', 'buff', magicConfig)).toBe('banned');
     expect(normalizeItemStatus('card_change', 'restricted', magicConfig)).toBe('restricted');
   });
+
+  test('a clone reference keeps an empty status to inherit source values', () => {
+    expect(normalizeItemStatus('card_change', '', magicConfig, '#{clone:vintage,pauper}')).toBe('');
+  });
 });
 
 describe('newFormItem', () => {
@@ -53,6 +57,24 @@ describe('parseRelatedCards', () => {
 });
 
 describe('announcement yaml round trip', () => {
+  test('keeps a clone item status empty through YAML parsing', () => {
+    const parsed = yamlToAnnouncement([
+      'source: wotc',
+      'date: "2020-01-01"',
+      'name: Copy',
+      'items:',
+      '  - type: card_change',
+      '    format: modern',
+      '    cardId: "#{clone:vintage,pauper}"',
+      '    status: null',
+    ].join('\n'), magicConfig);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.form.items[0]!.status).toBe('');
+      expect(announcementToYaml(parsed.form, magicConfig)).toContain('status: null');
+    }
+  });
+
   test('serializes with magic fields and parses back losslessly', () => {
     const form = {
       source:                'wizards',
@@ -69,14 +91,14 @@ describe('announcement yaml round trip', () => {
       link:                  [{ url: 'https://example.com/a', label: '' }],
       items:                 [
         {
-          type: 'card_change', status: 'banned', effectiveDate: '', format: '#eternal', group: '',
-          prevVersion: '', version: null, lastVersion: null,
-          cardId: '', setId: '', ruleId: '', relatedCards: 'a, b', score: null, delta: '', glow: '',
+          type:          'card_change', status:        'banned', effectiveDate: '', format:        '#eternal', group:         '',
+          prevVersion:   '', version:       null, lastVersion:   null,
+          cardId:        '', setId:         '', ruleId:        '', relatedCards:  'a, b', score:         null, delta:         '', glow:          '',
         },
         {
-          type: 'card_split', status: '', effectiveDate: '', format: 'alchemy', group: '',
-          prevVersion: '', version: null, lastVersion: null,
-          cardId: 'a-a', setId: '', ruleId: '', relatedCards: '', score: null, delta: '', glow: '',
+          type:          'card_split', status:        '', effectiveDate: '', format:        'alchemy', group:         '',
+          prevVersion:   '', version:       null, lastVersion:   null,
+          cardId:        'a-a', setId:         '', ruleId:        '', relatedCards:  '', score:         null, delta:         '', glow:          '',
         },
       ],
     };

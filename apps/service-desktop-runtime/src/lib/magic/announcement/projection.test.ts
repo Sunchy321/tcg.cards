@@ -5,7 +5,7 @@ import {
   magicFormatKeywordMap,
   magicRotatingFormats,
 } from './data/format-keywords';
-import { isSentinelCardId, resolveFormats } from './projection';
+import { cloneSourceFormats, isSentinelCardId, resolveFormats } from './projection';
 
 describe('resolveFormats', () => {
   test('expands umbrella keywords to their target formats', () => {
@@ -23,6 +23,16 @@ describe('resolveFormats', () => {
 describe('isSentinelCardId', () => {
   test('recognizes # prefixed group ids only', () => {
     expect(isSentinelCardId('#conspiracy')).toBe(true);
+    expect(isSentinelCardId('#{clone:vintage,pauper}')).toBe(false);
     expect(isSentinelCardId('black-lotus')).toBe(false);
+  });
+});
+
+describe('cloneSourceFormats', () => {
+  test('parses a source list and rejects malformed or repeated sources', () => {
+    expect(cloneSourceFormats('#{clone:vintage,pauper}')).toEqual(['vintage', 'pauper']);
+    expect(cloneSourceFormats('black-lotus')).toBeNull();
+    expect(() => cloneSourceFormats('#{clone:vintage,vintage}')).toThrow();
+    expect(() => cloneSourceFormats('#{clone:vintage')).toThrow();
   });
 });

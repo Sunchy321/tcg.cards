@@ -10,7 +10,7 @@ import { os } from './index';
 import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
 import { groupCardLists } from '../lib/magic/announcement/data/card-groups';
 import { runApply, type ApplyCardMeta } from '../lib/magic/announcement/apply';
-import { isSentinelCardId } from '../lib/magic/announcement/projection';
+import { cloneSourceFormats, isSentinelCardId } from '../lib/magic/announcement/projection';
 
 const itemInput = z.object({
   type:          gameChangeType,
@@ -237,7 +237,7 @@ const apply = os
     const cardIds = [...new Set([
       ...Object.values(groupCards).flat(),
       ...items.flatMap(i => [i.cardId, ...i.relatedCards])
-        .filter((id): id is string => id != null && !isSentinelCardId(id)),
+        .filter((id): id is string => id != null && !isSentinelCardId(id) && cloneSourceFormats(id) == null),
     ])];
 
     // set -> cardIds, feeding the set_change projection fan-out.

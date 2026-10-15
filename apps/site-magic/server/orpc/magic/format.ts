@@ -19,10 +19,12 @@ import { expandFormatChanges } from '../../utils/format-changes';
  */
 const formatChange = announcementItem.extend({
   /** Derived event date: item effectiveDate ?? announcement effectiveDate ?? announcement date. */
-  date:   z.string(),
-  source: z.string(),
-  name:   z.string(),
-  link:   linkEntry.array(),
+  date:       z.string(),
+  source:     z.string(),
+  name:       z.string(),
+  link:       linkEntry.array(),
+  /** Actual source formats of an expanded copied card; absent for ordinary changes. */
+  copiedFrom: z.string().array().optional(),
 });
 
 type FormatChange = z.infer<typeof formatChange>;

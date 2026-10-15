@@ -3,7 +3,7 @@ import { changeStatusByType } from '@tcg-cards/model/magic/schema/announcement';
 import { banlistSourceOrder, banlistStatusOrder } from './data/banlist-order';
 import { magicEternalFormats, magicRotatingFormats } from './data/format-keywords';
 import { magicSeedingSetTypes } from './data/set-seeding';
-import { isSentinelCardId, resolveFormats } from './projection';
+import { cloneSourceFormats, isSentinelCardId, resolveFormats } from './projection';
 
 /** A format row the replay needs: identity plus its validity window. */
 export interface ApplyFormatInput {
@@ -77,11 +77,13 @@ export interface ApplyFormatState {
   banlist:  ApplyBanlistEntry[];
 }
 
-/** One projected card of an item: its identity, the status applied to it, and when that takes hold. */
+/** One projected card with its applied status, date, and optional copy metadata. */
 export interface ApplyProjectionCard {
-  cardId:        string;
-  status:        string | null;
-  effectiveDate: string | null;
+  cardId:         string;
+  status:         string | null;
+  effectiveDate:  string | null;
+  score?:         number | null;
+  sourceFormats?: string[];
 }
 
 /** A restriction removed by rotation in one specific format. */
@@ -94,8 +96,8 @@ export interface ApplyDerivedCard extends ApplyProjectionCard {
 export interface ApplyItemProjection {
   id:         string;
   projection: {
-    formats: string[];
-    cards:   ApplyProjectionCard[];
+    formats:       string[];
+    cards:         ApplyProjectionCard[];
     derivedCards?: ApplyDerivedCard[];
   };
 }
@@ -189,13 +191,30 @@ export function runApply(input: ApplyInput): ApplyResult {
   const groupWindows = new Map<string, Map<string, GroupWindow>>();
   const cardChanges = new Map<string, Map<string, string[]>>();
   const activeGroups = new Map<string, Map<string, string>>();
+  // Explicit changes in the same announcement take priority over copies regardless of item order.
+  const explicitByAnnouncement = new Map<ApplyAnnouncementInput, Map<string, Set<string>>>();
+  for (const announcement of input.announcements) {
+    const explicit = new Map<string, Set<string>>();
+    for (const item of announcement.items) {
+      if (item.type !== 'card_change' || item.cardId == null || item.cardId.startsWith('#') || item.status == null) {
+        continue;
+      }
+      const effective = item.effectiveDate ?? announcement.effectiveDate ?? announcement.date;
+      for (const formatId of resolveFormats(item.format).filter(id => effective <= input.today && itemApplies(item, id, effective))) {
+        const cards = explicit.get(formatId) ?? new Set<string>();
+        cards.add(item.cardId);
+        explicit.set(formatId, cards);
+      }
+    }
+    explicitByAnnouncement.set(announcement, explicit);
+  }
   const events = input.announcements.flatMap(announcement => announcement.items.map(item => ({
     item,
     effective: item.effectiveDate ?? announcement.effectiveDate ?? announcement.date,
   }))).sort((a, b) => a.effective.localeCompare(b.effective));
   for (const { item, effective } of events) {
-    if (item.type !== 'card_change' || item.cardId == null || item.status == null
-      || !changeStatusByType.card_change.statuses.includes(item.status as never)) {
+    if (item.type !== 'card_change' || item.cardId == null || cloneSourceFormats(item.cardId) != null
+      || item.status == null || !changeStatusByType.card_change.statuses.includes(item.status as never)) {
       continue;
     }
     for (const formatId of resolveFormats(item.format).filter(id => itemApplies(item, id, effective))) {
@@ -235,6 +254,7 @@ export function runApply(input: ApplyInput): ApplyResult {
   };
   // Per-item sentinel accumulation: itemId -> group -> the cards the replay applied, keyed for date upserts.
   const sentinelAccumulator = new Map<string, Map<string, ApplyProjectionCard[]>>();
+  const cloneCards = new Map<string, Map<string, ApplyProjectionCard>>();
   const derivedCards = new Map<string, ApplyDerivedCard[]>();
 
   // A card enters a format with its earliest released set that is in the format at that moment; eternal formats and setless cards fall back to its first release.
@@ -305,7 +325,50 @@ export function runApply(input: ApplyInput): ApplyResult {
         if (item.type === 'set_change' && fs.sets != null) {
           applySetChange(input, entryIntoFormat, groupApplies, sentinelAccumulator, derivedCards, fs, formatId, item, effective, announcement.date, warnings);
         } else if (item.type === 'card_change') {
-          applyCardChange(groupMembersInFormat, banGroupCard, sentinelAccumulator, fs, formatId, item, effective, warnings);
+          const sources = item.cardId == null ? null : cloneSourceFormats(item.cardId);
+          if (sources != null) {
+            if (item.status != null && !changeStatusByType.card_change.statuses.includes(item.status as never)) {
+              warnings.push(`invalid card_change status ${item.status} for ${item.cardId} in ${formatId}`);
+              continue;
+            }
+            const explicit = explicitByAnnouncement.get(announcement)?.get(formatId) ?? new Set<string>();
+            const candidates = new Map<string, { entry: ApplyBanlistEntry, sourceFormats: string[], conflict: boolean }>();
+            for (const sourceId of sources) {
+              const source = state.get(sourceId);
+              if (source == null) {
+                throw new Error(`禁排表来源赛制不存在：${sourceId}`);
+              }
+              for (const entry of source.banlist.values()) {
+                if (explicit.has(entry.cardId)) {
+                  continue;
+                }
+                const candidate = candidates.get(entry.cardId);
+                if (candidate != null) {
+                  candidate.sourceFormats.push(sourceId);
+                  if (candidate.entry.status !== entry.status || candidate.entry.score !== entry.score) {
+                    candidate.conflict = true;
+                  }
+                  continue;
+                }
+                candidates.set(entry.cardId, { entry, sourceFormats: [sourceId], conflict: false });
+              }
+            }
+            const projected = cloneCards.get(item.id) ?? new Map<string, ApplyProjectionCard>();
+            for (const { entry, sourceFormats, conflict } of candidates.values()) {
+              if (conflict || fs.banlist.has(entry.cardId)) {
+                continue;
+              }
+              const status = item.status ?? entry.status;
+              const score = item.score ?? entry.score;
+              if (status !== 'legal' && status !== 'unavailable') {
+                fs.banlist.set(entry.cardId, { cardId: entry.cardId, status, score, date: effective, group: entry.group });
+              }
+              projected.set(entry.cardId, { cardId: entry.cardId, status, score, effectiveDate: effective, sourceFormats });
+            }
+            cloneCards.set(item.id, projected);
+          } else {
+            applyCardChange(groupMembersInFormat, banGroupCard, sentinelAccumulator, fs, formatId, item, effective, warnings);
+          }
         }
         // card_update / rule_change / format_birth / format_death / card_split / card_merge do not touch format state.
       }
@@ -348,7 +411,7 @@ export function runApply(input: ApplyInput): ApplyResult {
           cards.set(cardId, { cardId, status: item.status, effectiveDate: effective });
         }
       };
-      if (item.cardId != null && !isSentinelCardId(item.cardId)) {
+      if (item.cardId != null && !isSentinelCardId(item.cardId) && cloneSourceFormats(item.cardId) == null) {
         addCard(item.cardId);
       }
       for (const id of item.relatedCards) {
@@ -384,6 +447,12 @@ export function runApply(input: ApplyInput): ApplyResult {
           target.projection.cards[index] = card;
         }
       }
+    }
+  }
+  for (const [itemId, cards] of cloneCards) {
+    const target = projections.find(p => p.id === itemId);
+    if (target != null) {
+      target.projection.cards.push(...cards.values());
     }
   }
 

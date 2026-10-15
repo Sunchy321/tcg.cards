@@ -114,7 +114,7 @@
 
         <div v-if="n.banlist.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
           <EntryWithStatus
-            v-for="{ cardId: id, status, score, group } in n.banlist"
+            v-for="{ cardId: id, status, score, group, copiedFrom } in n.banlist"
             :key="`${id}-${status}`"
             :status="status"
             :score="score"
@@ -122,6 +122,7 @@
           >
             <CardAvatar :id="id" />
             <span v-if="group != null" class="text-xs text-gray-500 dark:text-gray-400 font-variant-small-caps">{{ groupShort(group) }}</span>
+            <span v-if="copiedFrom" class="text-xs text-gray-500 dark:text-gray-400">{{ $t('magic.announcement.copiedFrom', { format: formatNames(copiedFrom) }) }}</span>
           </EntryWithStatus>
         </div>
       </UCard>
@@ -245,6 +246,7 @@ interface BanlistItem {
   status:         Legality;
   score?:         number;
   group?:         string;
+  copiedFrom?:    string[];
 }
 
 interface DisplayBanlistItem extends BanlistItem {
@@ -265,7 +267,7 @@ interface TimelineNode {
   date:          string;
   announcements: { id: string, name: string }[];
   sets:          { setId: string, status: 'legal' | 'unavailable' }[];
-  banlist:       { cardId: string, status: Legality, score?: number, group?: string }[];
+  banlist:       { cardId: string, status: Legality, score?: number, group?: string, copiedFrom?: string[] }[];
 }
 
 // ── Static constants ──────────────────────────────────────────────────────────
@@ -394,7 +396,7 @@ const groupModalOpen = computed({
 const selectedGroupItems = computed<BanlistItem[]>(() =>
   selectedGroup.value == null
     ? []
-    : banlist.value.filter(b => b.group === selectedGroup.value),
+    : banlist.value.filter(b => b.group === selectedGroup.value && b.copiedFrom == null),
 );
 
 const groupName = (group: string) => {
@@ -402,6 +404,14 @@ const groupName = (group: string) => {
   const result = i18n.t(key);
   return result !== key ? result : group;
 };
+
+/** Shows a copied card's actual source by its localized format name. */
+const formatName = (id: string) => {
+  const key = `magic.format.${id}`;
+  return i18n.te(key) ? i18n.t(key) : id;
+};
+
+const formatNames = (ids: string[]) => ids.map(formatName).join(i18n.locale.value === 'zhs' ? '、' : ', ');
 
 // ── Data loading ──────────────────────────────────────────────────────────────
 
@@ -459,10 +469,11 @@ const nodes = computed<TimelineNode[]>(() => {
       node.sets.push({ setId: c.setId!, status: c.status as 'legal' | 'unavailable' });
     } else if (c.type === 'card_change') {
       node.banlist.push({
-        cardId: c.cardId!,
-        status: c.status as Legality,
-        score:  c.score ?? undefined,
-        group:  c.group ?? undefined,
+        cardId:     c.cardId!,
+        status:     c.status as Legality,
+        score:      c.score ?? undefined,
+        group:      c.group ?? undefined,
+        copiedFrom: c.copiedFrom,
       });
     }
   }
@@ -526,6 +537,7 @@ const banlist = computed<BanlistItem[]>(() => {
           status:         c.status as Legality,
           score:          c.score ?? undefined,
           group:          c.group ?? undefined,
+          copiedFrom:     c.copiedFrom,
         };
         if (idx === -1) result.push(value);
         else result.splice(idx, 1, value);
@@ -536,7 +548,7 @@ const banlist = computed<BanlistItem[]>(() => {
   return result;
 });
 
-const hasGroups = computed(() => banlist.value.some(b => b.group != null));
+const hasGroups = computed(() => banlist.value.some(b => b.group != null && b.copiedFrom == null));
 
 const displayBanlist = computed<DisplayBanlistEntry[]>(() => {
   if (expandGroups.value) {
@@ -563,8 +575,8 @@ const displayBanlist = computed<DisplayBanlistEntry[]>(() => {
   // Build group summaries
   const groupMap = new Map<string, DisplayBanlistGroup>();
   for (const item of banlist.value) {
-    if (item.group == null || groupMap.has(item.group)) continue;
-    const groupItems = banlist.value.filter(b => b.group === item.group);
+    if (item.group == null || item.copiedFrom != null || groupMap.has(item.group)) continue;
+    const groupItems = banlist.value.filter(b => b.group === item.group && b.copiedFrom == null);
     const count = groupItems.length;
     const status = groupItems.reduce<Legality>((best, cur) => {
       const bi = banlistStatusOrder.indexOf(best);
@@ -576,7 +588,7 @@ const displayBanlist = computed<DisplayBanlistEntry[]>(() => {
   }
 
   const noGroupItems: DisplayBanlistItem[] = banlist.value
-    .filter(b => b.group == null)
+    .filter(b => b.group == null || b.copiedFrom != null)
     .map(item => ({ _type: 'item' as const, ...item }));
   const groupEntries = [...groupMap.values()];
 
