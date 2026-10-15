@@ -1,4 +1,5 @@
 import { load } from 'cheerio';
+import { captureDocument } from './capture';
 
 import type { OfficialBanlist, OfficialCardEntry, OfficialSource, RestrictionKind } from './types';
 
@@ -6,27 +7,192 @@ import type { OfficialBanlist, OfficialCardEntry, OfficialSource, RestrictionKin
 export function parseListSections(html: string, source: OfficialSource, formatId: string, fetchedAt: string): OfficialBanlist {
   const $ = load(html);
   const entries: OfficialCardEntry[] = [];
+  const { byNode } = captureDocument($);
+  /** Preserves the exact source node even when other formats repeat the same name. */
+  const addEntry = (entry: OfficialCardEntry, node: unknown) => entries.push({ ...entry, evidence: byNode.get(node) });
   const scopes: OfficialBanlist['scopes'] = [];
   const notices = [...(source.notices ?? [])];
   let updatedAt: string | null = null;
   let foundSection = false;
+  let sectionContentFound = false;
+  const inheritedFormats: string[] = [];
   const bodyText = $('body').text().replace(/\s+/g, ' ').trim();
   const dateMatch = bodyText.match(/(?:last\s+updated|updated\s+on|latest\s+update|mise\s+à\s+jour\s+le)\s*[:·]?\s*((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}|\d{1,2}[/.]\d{1,2}[/.]\d{4}|\d{4}[·/-]\d{1,2}[·/-]\d{1,2}|\d{1,2}\s+\w+\s+\d{4})/i);
   if (dateMatch) updatedAt = dateMatch[1] ?? null;
 
-  if (source.parser === 'canadian_highlander') {
+  if (source.parser === 'wizards') {
+    let active = false;
+    let kind: RestrictionKind = 'banned';
+    // A format section ends at the next format heading, not at explanatory subheadings.
+    $('h1,h2,h3,h4,p,li').each((_, node) => {
+      const text = $(node).clone().children('ul,ol').remove().end().text().replace(/\s+/g, ' ').trim();
+      if (!text) return;
+      if (node.tagName === 'p' && /banned in all formats/i.test(text) && ruleGroup(text) === 'offensive') {
+        scopes.push({ description: text, expanded: false, group: 'offensive', originUrl: source.url });
+      }
+      if (/^h[1-4]$/.test(node.tagName)) {
+        if (/\bbanned(?: and restricted)? cards$/i.test(text)) {
+          active = sectionMatchesFormat(text.toLowerCase(), formatId);
+          if (active) {
+            foundSection = true;
+            kind = formatId === 'timeless' ? 'restricted' : 'banned';
+          }
+        }
+        return;
+      }
+      if (!active) return;
+      if (node.tagName === 'p') {
+        if (/the following cards are|no cards are currently banned|there are no banned cards/i.test(text)) kind = categoryFromHeading(text, kind);
+        if (/no cards are currently banned|there are no banned cards/i.test(text)) sectionContentFound = true;
+        return;
+      }
+      if (node.tagName !== 'li' || isPrintingRule(text)) return;
+      if (/^no current suspensions$/i.test(text)) return;
+      if (/^(?:none|no cards are currently banned|there are no banned cards)$/i.test(text)) {
+        sectionContentFound = true;
+        return;
+      }
+      sectionContentFound = true;
+      const group = ruleGroup(text);
+      if (group || isRuleScope(text)) scopes.push({ description: text, expanded: false, group, originUrl: source.url });
+      else addEntry({ name: text, kind: kindFromEntry(text, kind), points: null, note: null }, node);
+    });
+  } else if (source.parser === 'pdh') {
+    let active = false;
+    $('h1,h2,h3,h4,p').each((_, node) => {
+      if ($(node).closest('nav,footer').length) return;
+      const text = $(node).text().replace(/\s+/g, ' ').trim();
+      if (/^banlist$/i.test(text.replace(/\s/g, ''))) {
+        active = true;
+        foundSection = true;
+        return;
+      }
+      if (!active) return;
+      if (/^h[1-4]$/.test(node.tagName) || /comprehensive rules/i.test(text)) {
+        active = false;
+        return;
+      }
+      $(node).find('a[href*="scryfall.com/card/"]').each((_, card) => {
+        const name = $(card).text().trim();
+        if (name) addEntry({ name, kind: 'banned', points: null, note: null }, card);
+      });
+      const lines = $(node).clone();
+      lines.find('br').replaceWith('\n');
+      for (const line of lines.text().split('\n')) {
+        const description = line.replace(/\s+/g, ' ').trim();
+        const group = ruleGroup(description);
+        if (group) scopes.push({ description, expanded: false, group });
+      }
+    });
+  } else if (source.parser === 'pdc') {
+    $('h2').each((_, heading) => {
+      const title = $(heading).text().trim();
+      if (!/^interdit (?:en tant que commandant|dans le deck)$/i.test(title)) return;
+      let container = $(heading).parent();
+      // The card grid is outside the title wrapper on the committee's current page.
+      while (container.length && !container.is('body') && !container.find('[data-banlist-grid]').length) container = container.parent();
+      if (!container.length || container.is('body')) return;
+      foundSection = true;
+      const kind = categoryFromHeading(title, 'banned_in_deck');
+      container.find('[data-banlist-grid] [data-card-name]').each((_, card) => {
+        const name = ($(card).text().trim() || $(card).attr('data-card-name') || '').replace(/\s+Nouveau$/i, '').trim();
+        if (name) addEntry({ name, kind, points: null, note: null }, card);
+      });
+    });
+  } else if (source.parser === 'conquest') {
+    foundSection = $('h1,h2').toArray().some(node => /^banlist$/i.test($(node).text().trim()));
+    const content = $('.wp-block-post-content,.entry-content').first();
+    let reserved = false;
+    content.find('h2,li').each((_, node) => {
+      const text = $(node).clone().children('ul,ol').remove().end().text().replace(/\s+/g, ' ').trim();
+      if (node.tagName === 'h2') {
+        if (/reserved list/i.test(text)) reserved = true;
+        return;
+      }
+      if (!foundSection || reserved || !text || $(node).children('ul,ol').length) return;
+      const parent = $(node).parents('li').first().clone().children('ul,ol').remove().end().text();
+      addEntry({ name: text, kind: categoryFromHeading(parent, 'banned'), points: null, note: null }, node);
+    });
+    $('p').each((_, node) => {
+      const text = $(node).text().replace(/\s+/g, ' ').trim();
+      if (!/conquest cardpool/i.test(text)) return;
+      for (const group of ruleGroups(text)) scopes.push({ description: text, expanded: false, group });
+    });
+  } else if (source.parser === 'canadian_highlander') {
     $('table tr').each((_, row) => {
       const cells = $(row).find('th,td').toArray().map(cell => $(cell).text().trim());
       if (cells.length >= 2 && /^\d+$/.test(cells[1] ?? '')) {
-        entries.push({ name: cells[0] ?? '', kind: 'points', points: Number(cells[1]), note: null });
+        addEntry({ name: cells[0] ?? '', kind: 'points', points: Number(cells[1]), note: null }, row);
       }
     });
     const heading = $('body').text();
     foundSection = /points list/i.test(heading) && entries.length > 0;
     if (/shares?\s+(?:a\s+)?banned\s+list\s+with\s+Vintage/i.test(heading)) {
+      inheritedFormats.push('vintage');
       scopes.push({ description: 'The format also uses the Vintage banned list.', expanded: false });
-      notices.push('The Vintage banned list must be checked separately.');
     }
+  } else if (source.parser === 'leviathan') {
+    let kind: RestrictionKind = 'banned';
+    let stickerContinuation = false;
+    // Wix separates the heading and each list into sibling text components.
+    $('.wixui-rich-text').each((_, block) => {
+      if ($(block).find('h1,h2,h3,h4').toArray().some(heading => /^ban list$/i.test($(heading).text().trim()))) {
+        foundSection = true;
+      }
+      if (!foundSection) return;
+      $(block).find('p,li').each((_, node) => {
+        const text = $(node).text().replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ').trim();
+        if (!text) return;
+        if (node.tagName === 'p') {
+          if ($(node).closest('li').length) return;
+          if (/banned as (?:a )?companion/i.test(text)) kind = 'banned_as_companion';
+          else if (/banned from being played as (?:a )?commander/i.test(text)) kind = 'banned_as_commander';
+          return;
+        }
+        // The sticker/Attraction rule is split across two list items on this page.
+        if (/^all cards that bring a sticker or an$/i.test(text)) {
+          stickerContinuation = true;
+          scopes.push({ description: 'All cards that bring a sticker or an Attraction into the game', expanded: false, group: 'unfinity' });
+          return;
+        }
+        if (stickerContinuation && /^attraction into the game$/i.test(text)) {
+          stickerContinuation = false;
+          return;
+        }
+        const group = ruleGroup(text);
+        if (group) scopes.push({ description: text, expanded: false, group });
+        else if (/^(?:silver border cards|vanguards? cards|unfinity cards with acorn holo-foil)$/i.test(text)) return;
+        else if (isRuleScope(text)) scopes.push({ description: text, expanded: false });
+        else addEntry({ name: text, kind, points: null, note: null }, node);
+      });
+    });
+  } else if (source.parser === 'duelcommander') {
+    // Duel Commander stores actual card identities on cards, while nearby lists contain rules and advice.
+    $('section.ban-category').each((_, section) => {
+      const title = $(section).children('h2').first().text().replace(/\s+/g, ' ').trim();
+      if (!/banned as|banned in|banned for offensive|structurally banned/i.test(title)) return;
+      foundSection = true;
+      const kind = categoryFromHeading(title, 'banned');
+      $(section).find('[data-card-name]').each((_, card) => {
+        // Some card attributes are HTML-escaped twice by the source page.
+        const rawName = $(card).attr('data-card-name')?.trim();
+        const name = rawName ? load(rawName, null, false).text().trim() : '';
+        if (name) addEntry({ name, kind, points: null, note: null }, card);
+      });
+      if (!/structurally banned/i.test(title)) return;
+      $(section).find('li').each((_, item) => {
+        const text = $(item).clone().children('ul,ol').remove().end().text().replace(/\s+/g, ' ').trim();
+        if (!text || /^see\b/i.test(text)) return;
+        // Printing and platform eligibility are outside this banlist comparison.
+        if (/^(?:(?:gold|silver)-bordered|acorn stamp|square-cornered|digital-only) cards$/i.test(text)) return;
+        const group = ruleGroup(text);
+        if (group) {
+          scopes.push({ description: text, expanded: false, group });
+        } else {
+          addEntry({ name: text, kind: 'banned', points: null, note: null }, item);
+        }
+      });
+    });
   } else {
     const kindByFormat: Record<string, RestrictionKind> = {
       historic:             'suspended', timeless:             'restricted',
@@ -40,19 +206,32 @@ export function parseListSections(html: string, source: OfficialSource, formatId
       const normalized = title.toLowerCase();
       if (source.parser === 'commander' && /^banned list$/i.test(title)) {
         foundSection = true;
+        const article = $(heading).closest('article');
+        const content = article.length ? article : $(heading).nextUntil('h1,h2,h3,h4');
+        content.find('li').each((_, item) => {
+          const text = $(item).clone().children('ul,ol').remove().end().text().replace(/\s+/g, ' ').trim();
+          if (text && isRuleScope(text)) scopes.push({ description: text, expanded: false, group: ruleGroup(text) });
+        });
+        const details = content.find('details');
+        if (details.length) {
+          details.each((_, detail) => {
+            const name = $(detail).children('summary').first().text().replace(/\s+/g, ' ').trim();
+            if (name) addEntry({ name, kind: 'banned', points: null, note: null }, $(detail).children('summary').first()[0]);
+          });
+          continue;
+        }
         for (const candidate of headings) {
           const name = $(candidate).text().replace(/\s+/g, ' ').trim();
           if (!name || /^(banned list|official commander website)$/i.test(name)) continue;
           const following = $(candidate).nextUntil('h1,h2,h3,h4').text().replace(/\s+/g, ' ');
           const bannedDate = following.match(/banned\s*:\s*([^\n]+)/i)?.[1]?.trim();
           if (bannedDate && bannedDate !== '—' && bannedDate !== '-') {
-            entries.push({ name, kind: 'banned', points: null, note: null });
+            addEntry({ name, kind: 'banned', points: null, note: null }, candidate);
           }
         }
         continue;
       }
-      if (source.parser === 'wizards' && !sectionMatchesFormat(normalized, formatId)) continue;
-      if (source.parser !== 'wizards' && !isListHeading(normalized, source.parser)) continue;
+      if (!isListHeading(normalized, source.parser)) continue;
       foundSection = true;
       activeKind = categoryFromHeading(title, activeKind);
       let node = $(heading).next();
@@ -60,14 +239,13 @@ export function parseListSections(html: string, source: OfficialSource, formatId
       while (node.length && !/^h[1-4]$/i.test(node[0]?.tagName ?? '') && guard++ < 30) {
         node.find('li').each((_, item) => {
           const text = $(item).clone().children('ul,ol').remove().end().text().replace(/\s+/g, ' ').trim();
-          if (!text) return;
+          if (!text || isPrintingRule(text)) return;
           if (isRuleScope(text)) {
-            scopes.push({ description: text, expanded: false });
+            scopes.push({ description: text, expanded: false, group: ruleGroup(text) });
           } else if (/^banned as (?:commander|companion)$/i.test(text)) {
             return;
           } else {
             const cardText = text
-              .replace(/\s+\([^)]*only[^)]*\)$/i, '')
               .replace(/\s*\[\]$/, '')
               .replace(/\s+Nouveau$/, '')
               .trim();
@@ -77,8 +255,8 @@ export function parseListSections(html: string, source: OfficialSource, formatId
               const listLead = list.prevAll('p,h2,h3,h4').first().text() || parentLabel;
               const kind = /restricted/i.test(listLead)
                 ? 'restricted'
-                : categoryFromHeading(listLead, kindFromEntry(text, activeKind));
-              entries.push({ name: cardText, kind, points: null, note: text === cardText ? null : text.slice(cardText.length).trim() });
+                : kindFromEntry(text, categoryFromHeading(listLead, activeKind));
+              addEntry({ name: cardText, kind, points: null, note: text === cardText ? null : text.slice(cardText.length).trim() }, item);
             }
           }
         });
@@ -92,42 +270,32 @@ export function parseListSections(html: string, source: OfficialSource, formatId
     updatedAt = listDate?.[1] ?? updatedAt;
     scopes.push({ description: 'The Conquest card pool excludes reserved-list and other rules-defined cards.', expanded: false });
   }
-  if (source.parser === 'pdh' && foundSection) {
-    scopes.push({ description: 'Cards removed from constructed formats, Conspiracy cards, and ante cards are also excluded.', expanded: false });
-  }
-  if (source.parser === 'commander' && foundSection) {
-    scopes.push({ description: 'Ante, Conspiracy, and cards removed from constructed formats are also banned.', expanded: false });
-  }
-  if (source.parser === 'leviathan' && foundSection) {
-    notices.push('This is the final retained list for a discontinued format.');
-    scopes.push({ description: 'Ante, Conspiracy, silver-bordered, Vanguard, acorn, sticker, and Attraction cards are excluded.', expanded: false });
-  }
 
-  const unique = new Map<string, OfficialCardEntry>();
-  for (const entry of entries) {
-    const key = `${entry.kind}:${entry.name.toLocaleLowerCase()}`;
-    const previous = unique.get(key);
-    if (!previous || entry.points != null) unique.set(key, entry);
-  }
-  const filtered = [...unique.values()].filter(entry => entry.name.length > 0);
+  const filtered = entries.filter(entry => entry.name.trim().length > 0);
   const noCurrentEntries = /no current suspensions|no cards are currently banned|there are no banned cards/i.test(bodyText);
-  const complete = foundSection && (filtered.length > 0 || noCurrentEntries);
+  const complete = foundSection && (source.parser === 'wizards' ? sectionContentFound : filtered.length > 0 || scopes.length > 0 || noCurrentEntries);
   return {
     formatId, sourceId:   source.id, sourceName: source.name, url:        source.url, fetchedAt, updatedAt,
     entries:    filtered, scopes:     deduplicateScopes(scopes), notices:    [...new Set(notices)], complete,
-    reason:     complete ? null : 'The page did not contain the expected list content.',
+    ...(inheritedFormats.length ? { inheritedFormats } : {}),
+    reason:     complete
+      ? null
+      : source.parser === 'wizards' && formatId === 'standard_brawl' && !foundSection
+        ? 'The official page has no separate Standard Brawl list.'
+        : 'The page did not contain the expected list content.',
   };
 }
 
 /** Selects a list section whose heading names the requested Wizards format. */
 function sectionMatchesFormat(title: string, formatId: string): boolean {
   const names: Record<string, string[]> = {
+    commander:      ['commander banned cards'],
     standard:       ['standard banned cards'], pioneer:        ['pioneer banned cards'], modern:         ['modern banned cards'],
     legacy:         ['legacy banned cards'], vintage:        ['vintage banned and restricted cards'], alchemy:        ['alchemy banned cards'],
     historic:       ['historic banned cards'], timeless:       ['timeless banned and restricted cards'],
-    pauper:         ['pauper banned cards'], brawl:          ['brawl banned cards'], standard_brawl: ['brawl banned cards'],
+    pauper:         ['pauper banned cards'], brawl:          ['brawl banned cards'], standard_brawl: ['standard brawl banned cards'],
   };
-  return (names[formatId] ?? []).some(name => title.includes(name));
+  return (names[formatId] ?? []).some(name => title === name);
 }
 
 /** Identifies page headings that introduce supported official list sections. */
@@ -147,7 +315,9 @@ function categoryFromHeading(title: string, fallback: RestrictionKind): Restrict
   const value = title.toLowerCase();
   if (/companion/.test(value)) return 'banned_as_companion';
   if (/commander only|as commander|en tant que commandant/.test(value)) return 'banned_as_commander';
-  if (/in the deck|in deck|dans le deck/.test(value)) return 'banned_in_deck';
+  if (/\bin (?:the )?deck\b|dans le deck/.test(value)) return 'banned_in_deck';
+  // A combined page title is not the category of every list below it.
+  if (/\bbanned\b/.test(value) && !/\brestricted\b/.test(value)) return 'banned';
   if (/restricted|limité/.test(value)) return 'restricted';
   if (/suspend/.test(value)) return 'suspended';
   return fallback;
@@ -155,6 +325,7 @@ function categoryFromHeading(title: string, fallback: RestrictionKind): Restrict
 
 /** Preserves card-specific status notes found alongside an entry. */
 function kindFromEntry(text: string, fallback: RestrictionKind): RestrictionKind {
+  if (/\bbo[ -]?1\b|best[\s‐‑–-]*of[\s‐‑–-]*one/i.test(text)) return 'banned_in_bo1';
   if (/only banned as a companion/i.test(text)) return 'banned_as_companion';
   if (/only banned as (?:a )?commander/i.test(text)) return 'banned_as_commander';
   if (/restricted/i.test(text)) return 'restricted';
@@ -164,10 +335,31 @@ function kindFromEntry(text: string, fallback: RestrictionKind): RestrictionKind
 
 /** Keeps rule-defined groups out of explicit card entries. */
 function isRuleScope(text: string): boolean {
-  return /^(all cards|cards with|cards that|cards whose|the \d+ cards|silver-bordered cards|ante cards|conspiracy cards|the ten fetchlands|all cards that)/i.test(text);
+  return /^(all cards|cards with|cards that|cards whose|(?:the )?\d+ cards|silver-bordered cards|ante cards|conspiracy cards|the ten fetchlands|all cards that)/i.test(text);
+}
+
+/** Excludes printing-specific eligibility rules from card identity comparison. */
+function isPrintingRule(text: string): boolean {
+  return /^(?:(?:gold|silver)[ -]border(?:ed)?|acorn(?: stamp)?|square[ -]cornered|digital[ -]only) cards(?:[.,]|$)/i.test(text);
+}
+
+/** Recognizes collective card types and mechanics despite punctuation and explanatory links. */
+function ruleGroups(text: string): NonNullable<OfficialBanlist['scopes'][number]['group']>[] {
+  const plain = text.replace(/[“”"‘’]/g, '').replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').toLowerCase();
+  const groups: NonNullable<OfficialBanlist['scopes'][number]['group']>[] = [];
+  if (/conspiracy.*card type|card type.*conspiracy|^(?:all )?conspiracy cards/.test(plain)) groups.push('conspiracy');
+  if (/playing (?:for|with) ante|refer(?:ring|s)? to (?:the )?ante|ante mechanic|^(?:all )?ante cards/.test(plain)) groups.push('ante');
+  if (/racial|cultural insensitivity|removed.*(?:offensive|constructed formats)/.test(plain)) groups.push('offensive');
+  if (/stickers?.*(?:attractions?|into (?:the game|play))/.test(plain)) groups.push('unfinity');
+  return groups;
+}
+
+/** Resolves a single-category official row to the existing local group. */
+function ruleGroup(text: string): OfficialBanlist['scopes'][number]['group'] {
+  return ruleGroups(text)[0];
 }
 
 /** Removes duplicate rule-defined descriptions without changing their wording. */
 function deduplicateScopes(scopes: OfficialBanlist['scopes']): OfficialBanlist['scopes'] {
-  return [...new Map(scopes.map(scope => [scope.description.toLowerCase(), scope])).values()];
+  return [...new Map(scopes.map(scope => [scope.group ?? scope.description.toLowerCase(), scope])).values()];
 }

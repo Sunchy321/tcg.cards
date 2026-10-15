@@ -17,6 +17,7 @@ import { buildAiParseStreamResponse } from './lib/hearthstone/announcement/ai-pa
 import { buildMagicAiParseStreamResponse } from './lib/magic/announcement/ai-parse-stream';
 import { buildRenderAllStreamResponse } from './lib/hearthstone/announcement/render-all-stream';
 import { hasAiConfig } from './runtime-config';
+import { buildBanlistReportResponse } from './lib/magic/banlist-check/report-http';
 import { createTaskStore, createTaskScheduler, createTaskCleanup } from './lib/task';
 import './lib/task/task-definitions';
 
@@ -143,6 +144,9 @@ hono.get('/', c => c.json({
 }));
 
 hono.get('/health', c => c.json(buildStatus()));
+
+// Fresh read-only evidence export; the runtime owns database and source access.
+hono.get('/magic/banlist-report', c => buildBanlistReportResponse(c.req.query('download') === '1'));
 
 // Serves stored card images by render hash so the frontend can load them in
 // <img> tags (browser-cached, lazy) instead of fetching base64 blobs over RPC.

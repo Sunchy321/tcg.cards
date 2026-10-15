@@ -19,7 +19,7 @@ export const announcementSourceLabels = {
     mtgcommander:        '指挥官委员会',
     canadian_highlander: '加拿大高地人',
     duelcommander:       '法禁指挥官',
-    leviathan_commander: '利维坦指挥官',
+    leviathan_commander: '海怪禁指挥官',
     oathbreaker:         '破誓人',
     pauper_commander:    '纯普指挥官',
     conquest:            'Conquest',

@@ -8,15 +8,8 @@ export const officialSources: OfficialSource[] = [
     id:      'wizards',
     name:    'Wizards of the Coast',
     url:     'https://magic.wizards.com/en/banned-restricted-list',
-    formats: ['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'alchemy', 'historic', 'timeless', 'pauper', 'brawl', 'standard_brawl'],
+    formats: ['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'alchemy', 'historic', 'timeless', 'pauper', 'brawl', 'standard_brawl', 'commander'],
     parser:  'wizards',
-  },
-  {
-    id:      'commander',
-    name:    'Commander Format Panel',
-    url:     'https://mtgcommander.net/index.php/banned-list/',
-    formats: ['commander'],
-    parser:  'commander',
   },
   {
     id:      'oathbreaker',

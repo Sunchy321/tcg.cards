@@ -127,7 +127,7 @@ interface GroupWindow {
 }
 
 /** Whether a sentinel group card counts in a format; pauper families filter by print rarity (cards without meta are skipped). */
-function pauperEligible(meta: ApplyCardMeta | undefined, formatId: string): boolean {
+export function pauperEligible(meta: ApplyCardMeta | undefined, formatId: string): boolean {
   if (meta == null) {
     return false;
   }

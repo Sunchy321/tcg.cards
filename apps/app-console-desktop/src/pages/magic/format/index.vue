@@ -7,15 +7,29 @@
           逐个核对赛制官网公布的禁限表与本地清单。核对只读取信息，不会修改公告或赛制数据。
         </p>
       </div>
-      <UButton
-        label="刷新赛制列表"
-        icon="i-lucide-refresh-cw"
-        color="neutral"
-        variant="soft"
-        :loading="loadingFormats"
-        @click="loadFormats"
-      />
+      <div class="flex flex-wrap gap-2">
+        <UButton
+          label="导出核对报告"
+          icon="i-lucide-download"
+          color="neutral"
+          variant="soft"
+          :loading="exportingReport"
+          :disabled="exportingReport"
+          @click="exportReport"
+        />
+        <UButton
+          label="刷新赛制列表"
+          icon="i-lucide-refresh-cw"
+          color="neutral"
+          variant="soft"
+          :loading="loadingFormats"
+          @click="loadFormats"
+        />
+      </div>
     </header>
+
+    <p v-if="exportingReport" role="status" class="text-sm text-muted">正在重新核对全部赛制并整理报告，请稍候。</p>
+    <UAlert v-if="exportError" color="error" variant="soft" title="报告暂时无法导出" :description="exportError" />
 
     <UAlert
       v-if="formatsError"
@@ -82,6 +96,12 @@
                 :color="statusColor(reports[format.formatId]!.status)"
                 variant="soft"
               />
+              <span
+                v-if="reports[format.formatId]!.status === 'consistent' || reports[format.formatId]!.status === 'differences'"
+                class="text-sm text-muted"
+              >
+                官网 {{ reports[format.formatId]!.officialCount ?? '—' }} 张 · 本地 {{ reports[format.formatId]!.localCount ?? '—' }} 张
+              </span>
               <p v-if="reportReason(reports[format.formatId]!)" class="text-sm text-muted">
                 {{ reportReason(reports[format.formatId]!) }}
               </p>
@@ -123,6 +143,28 @@
               <DifferenceGroup title="本地有、官网没有" :items="reports[format.formatId]!.localOnly" kind="localOnly" />
               <DifferenceGroup title="禁限状态不同" :items="reports[format.formatId]!.statusDifferences" kind="statusDifferences" />
               <DifferenceGroup title="积分不同" :items="reports[format.formatId]!.pointsDifferences" kind="pointsDifferences" />
+            </div>
+
+            <div v-if="(reports[format.formatId]!.groups?.length ?? 0) > 0" class="space-y-2">
+              <h3 class="text-sm font-medium text-highlighted">按类别核对的牌</h3>
+              <ul class="space-y-1 text-sm text-muted">
+                <li v-for="item in reports[format.formatId]!.groups ?? []" :key="item.group">
+                  {{ groupLabel(item.group) }}（{{ item.cardCount }} 张）：已纳入核对
+                </li>
+              </ul>
+            </div>
+
+            <div v-if="(reports[format.formatId]!.approximateMatches?.length ?? 0) > 0" class="space-y-2">
+              <h3 class="text-sm font-medium text-highlighted">模糊匹配的牌</h3>
+              <p class="text-sm text-muted">以下条目已匹配，官网原文与本地卡名存在差异。</p>
+              <ul class="space-y-1 text-sm">
+                <li v-for="item in reports[format.formatId]!.approximateMatches ?? []" :key="`${item.cardId}:${item.officialName}`">
+                  <span class="text-muted">官网：{{ item.officialName }}</span>
+                  <span class="mx-2">→</span>
+                  <span class="font-medium text-highlighted">{{ item.localName }}</span>
+                  <span class="text-muted">（{{ item.method === 'front' ? '按正面卡名匹配' : item.method === 'parentheses' ? '忽略附注后匹配' : '近似卡名匹配' }}）</span>
+                </li>
+              </ul>
             </div>
 
             <div v-if="reports[format.formatId]!.unmatched.length > 0" class="space-y-2">
@@ -170,6 +212,27 @@ const checking = ref<Record<string, boolean>>({});
 const requestErrors = ref<Record<string, string>>({});
 const loadingFormats = ref(false);
 const formatsError = ref('');
+const exportingReport = ref(false);
+const exportError = ref('');
+
+/** Downloads a fresh whole-format report without depending on previously opened results. */
+async function exportReport() {
+  exportingReport.value = true;
+  exportError.value = '';
+  try {
+    const url = new URL(readDesktopRuntimeRpcUrl());
+    url.pathname = '/magic/banlist-report';
+    url.search = '';
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) throw new Error('report unavailable');
+    const report = await response.json();
+    triggerJsonDownload(report, `magic-banlist-report-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+  } catch {
+    exportError.value = '请确认桌面运行时和本地数据库可用，然后重试。';
+  } finally {
+    exportingReport.value = false;
+  }
+}
 
 /** Loads the local format list without clearing previously completed comparisons. */
 async function loadFormats() {
@@ -250,6 +313,8 @@ function reportReason(report: BanlistReport): string {
 /** Turns the source reader's failure into an actionable maintainer-facing message. */
 function unavailableReason(reason: string | null): string {
   if (!reason) return '官网清单暂时无法读取。可打开官网清单检查后重试。';
+  if (reason === 'The official page has no separate Standard Brawl list.') return '官网未提供独立的标准争锋清单，当前无法完成核对。';
+  if (/The inherited .+ banned list could not be read completely\./.test(reason)) return '无法完整读取该赛制沿用的禁牌表，请稍后重试。';
   if (reason === 'The page did not contain the expected list content.') {
     return '已读取官网页面，但没有找到预期的清单内容。页面结构可能已变化，请打开官网检查后重试。';
   }
@@ -274,6 +339,7 @@ function formatTime(value: string): string {
 function kindLabel(value: string | null): string {
   const labels: Record<string, string> = {
     banned:              '禁用',
+    banned_in_bo1:       'BO1 禁用',
     restricted:          '限制',
     suspended:           '暂停',
     banned_as_commander: '禁作指挥官',
@@ -286,6 +352,14 @@ function kindLabel(value: string | null): string {
   return value == null ? '无' : labels[value] ?? '其他';
 }
 
+/** Names collective card restrictions in product language. */
+function groupLabel(group: string): string {
+  const labels: Record<string, string> = {
+    ante: '赌注牌', conspiracy: '诡局牌', offensive: '冒犯性牌', unfinity: '贴纸与景点相关牌',
+  };
+  return labels[group] ?? '其他类别';
+}
+
 /** Translates known source notices so status limitations read consistently in Chinese. */
 function noticeText(sourceId: string, _notice: string): string {
   if (sourceId === 'conquest') return '此网页处于只读状态，可能未包含之后在 Discord 发布的更新。';
@@ -296,13 +370,12 @@ function noticeText(sourceId: string, _notice: string): string {
 /** Translates known official-list limitations into clear follow-up guidance. */
 function manualReviewText(description: string): string {
   const translations: Record<string, string> = {
-    'The Vintage banned list must be checked separately.':                                             'Canadian Highlander 还沿用 Vintage 禁牌表，请同时查看该清单。',
-    'The format also uses the Vintage banned list.':                                                   '该赛制还沿用 Vintage 禁牌表。',
-    'The Conquest card pool excludes reserved-list and other rules-defined cards.':                    'Conquest 牌池还会排除保留清单牌及其他规则定义的牌。',
-    'Cards removed from constructed formats, Conspiracy cards, and ante cards are also excluded.':     '此外，构筑赛制移除的牌、诡局牌和赌注牌也不适用。',
-    'Ante, Conspiracy, and cards removed from constructed formats are also banned.':                   '此外，赌注牌、诡局牌及构筑赛制移除的牌也禁止使用。',
-    'Ante, Conspiracy, silver-bordered, Vanguard, acorn, sticker, and Attraction cards are excluded.': '此外，赌注牌、诡局牌、银边牌、先驱牌、橡果标记牌、贴纸牌和景点牌也不适用。',
-    'Some official restriction categories have no matching local status.':                             '部分官网禁限类别无法与本地状态直接对应，请人工确认。',
+    'The Vintage banned list must be checked separately.':                                         'Canadian Highlander 还沿用 Vintage 禁牌表，请同时查看该清单。',
+    'The format also uses the Vintage banned list.':                                               '该赛制还沿用 Vintage 禁牌表。',
+    'The Conquest card pool excludes reserved-list and other rules-defined cards.':                'Conquest 牌池还会排除保留清单牌及其他规则定义的牌。',
+    'Cards removed from constructed formats, Conspiracy cards, and ante cards are also excluded.': '此外，构筑赛制移除的牌、诡局牌和赌注牌也不适用。',
+    'Ante, Conspiracy, and cards removed from constructed formats are also banned.':               '此外，赌注牌、诡局牌及构筑赛制移除的牌也禁止使用。',
+    'Some official restriction categories have no matching local status.':                         '部分官网禁限类别无法与本地状态直接对应，请人工确认。',
   };
   return translations[description] ?? '官网还包含无法自动核对的适用范围，请打开官网清单人工确认。';
 }
@@ -315,26 +388,40 @@ const DifferenceGroup = defineComponent({
     items: { type: Array as PropType<BanlistReport['officialOnly']>, required: true },
   },
   setup(props) {
-    return () => props.items.length === 0
-      ? null
-      : h('section', { class: 'space-y-2' }, [
+    /** Keeps card-specific statuses visible inside expanded categories. */
+    const renderCard = (item: BanlistReport['officialOnly'][number]) => h('li', { key: item.cardId, class: 'flex flex-wrap items-baseline gap-x-2' }, [
+      h('span', { class: 'font-medium text-highlighted' }, item.name),
+      props.kind === 'statusDifferences'
+        ? h('span', { class: 'text-muted' }, `官网：${kindLabel(item.officialKind)} · 本地：${kindLabel(item.localStatus)}`)
+        : null,
+      props.kind === 'pointsDifferences'
+        ? h('span', { class: 'text-muted' }, `官网：${item.officialPoints ?? '无'} · 本地：${item.localPoints ?? '无'}`)
+        : null,
+      item.officialKind != null && props.kind === 'officialOnly'
+        ? h('span', { class: 'text-muted' }, kindLabel(item.officialKind))
+        : null,
+      item.localStatus != null && props.kind === 'localOnly'
+        ? h('span', { class: 'text-muted' }, kindLabel(item.localStatus))
+        : null,
+    ]);
+    return () => {
+      if (props.items.length === 0) return null;
+      const groups = new Map<string, BanlistReport['officialOnly']>();
+      for (const item of props.items) {
+        if (item.group == null) continue;
+        const members = groups.get(item.group) ?? [];
+        members.push(item);
+        groups.set(item.group, members);
+      }
+      return h('section', { class: 'space-y-2' }, [
         h('h3', { class: 'text-sm font-medium text-highlighted' }, `${props.title}（${props.items.length}）`),
-        h('ul', { class: 'space-y-1 text-sm' }, props.items.map(item => h('li', { key: item.cardId, class: 'flex flex-wrap items-baseline gap-x-2' }, [
-          h('span', { class: 'font-medium text-highlighted' }, item.name),
-          props.kind === 'statusDifferences'
-            ? h('span', { class: 'text-muted' }, `官网：${kindLabel(item.officialKind)} · 本地：${kindLabel(item.localStatus)}`)
-            : null,
-          props.kind === 'pointsDifferences'
-            ? h('span', { class: 'text-muted' }, `官网：${item.officialPoints ?? '无'} · 本地：${item.localPoints ?? '无'}`)
-            : null,
-          item.officialKind != null && props.kind === 'officialOnly'
-            ? h('span', { class: 'text-muted' }, kindLabel(item.officialKind))
-            : null,
-          item.localStatus != null && props.kind === 'localOnly'
-            ? h('span', { class: 'text-muted' }, kindLabel(item.localStatus))
-            : null,
-        ]))),
+        h('ul', { class: 'space-y-1 text-sm' }, props.items.filter(item => item.group == null).map(renderCard)),
+        ...[...groups].map(([group, members]) => h('details', { key: group, class: 'text-sm' }, [
+          h('summary', { class: 'cursor-pointer font-medium text-highlighted' }, `${groupLabel(group)}（${members.length} 张）`),
+          h('ul', { class: 'mt-2 space-y-1 pl-4' }, members.map(renderCard)),
+        ])),
       ]);
+    };
   },
 });
 

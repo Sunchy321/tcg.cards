@@ -412,8 +412,9 @@ const resolveCardNames = os
 
 const comparisonDifference = z.object({
   cardId:         z.string(),
+  group:          z.string().nullable(),
   name:           z.string(),
-  officialKind:   z.enum(['banned', 'restricted', 'suspended', 'banned_as_commander', 'banned_as_companion', 'banned_in_deck', 'banned_as_leader', 'points']).nullable(),
+  officialKind:   z.enum(['banned', 'banned_in_bo1', 'restricted', 'suspended', 'banned_as_commander', 'banned_as_companion', 'banned_in_deck', 'banned_as_leader', 'points']).nullable(),
   localStatus:    z.enum(['banned_as_commander', 'banned_as_companion', 'banned_in_bo1', 'banned', 'game_changer', 'legal', 'restricted', 'suspended', 'unavailable', 'score']).nullable(),
   officialPoints: z.number().nullable(),
   localPoints:    z.number().nullable(),
@@ -460,18 +461,27 @@ const compareOfficial = os
       fetchedAt:  z.string(),
       notices:    z.string().array(),
     }),
-    reason:            z.string().nullable(),
-    officialOnly:      comparisonDifference.array(),
-    localOnly:         comparisonDifference.array(),
-    statusDifferences: comparisonDifference.array(),
-    pointsDifferences: comparisonDifference.array(),
-    unmatched:         z.object({
+    officialCount:      z.number().int().nonnegative().nullable(),
+    localCount:         z.number().int().nonnegative().nullable(),
+    reason:             z.string().nullable(),
+    officialOnly:       comparisonDifference.array(),
+    localOnly:          comparisonDifference.array(),
+    statusDifferences:  comparisonDifference.array(),
+    pointsDifferences:  comparisonDifference.array(),
+    approximateMatches: z.object({
+      cardId:       z.string(),
+      officialName: z.string(),
+      localName:    z.string(),
+      method:       z.enum(['front', 'parentheses', 'fuzzy']),
+    }).array(),
+    unmatched: z.object({
       name:       z.string(),
-      kind:       z.enum(['banned', 'restricted', 'suspended', 'banned_as_commander', 'banned_as_companion', 'banned_in_deck', 'banned_as_leader', 'points']),
+      kind:       z.enum(['banned', 'banned_in_bo1', 'restricted', 'suspended', 'banned_as_commander', 'banned_as_companion', 'banned_in_deck', 'banned_as_leader', 'points']),
       points:     z.number().nullable(),
       candidates: z.string().array(),
       reason:     z.enum(['not_found', 'ambiguous']),
     }).array(),
+    groups:       z.object({ group: z.string(), description: z.string(), cardCount: z.number().int() }).array(),
     manualReview: z.object({ description: z.string(), expanded: z.boolean() }).array(),
   }))
   .handler(async ({ input }) => compareOfficialBanlist(input.formatId));
