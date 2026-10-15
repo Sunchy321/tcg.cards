@@ -422,23 +422,26 @@ const comparisonDifference = z.object({
 const listOfficialFormats = os
   .input(z.object({}))
   .output(z.array(z.object({
-    formatId:      z.string(),
-    names:         z.array(z.object({ lang: z.string(), name: z.string() })),
-    coverage:      z.enum(['configured', 'not_applicable', 'needs_confirmation']),
+    formatId:       z.string(),
+    names:          z.array(z.object({ lang: z.string(), name: z.string() })),
+    coverage:       z.enum(['configured', 'not_applicable', 'needs_confirmation']),
     coverageReason: z.string().nullable(),
   })))
   .handler(async () => {
     const db = getLocalDb();
     const formats = await db.select({ formatId: Format.formatId, localization: Format.localization })
-      .from(Format)
-      .orderBy(Format.formatId);
+      .from(Format);
+    const formatOrder = new Map(magicFormats.map((formatId, index) => [formatId, index]));
+    formats.sort((a, b) => (formatOrder.get(a.formatId) ?? Number.MAX_SAFE_INTEGER)
+      - (formatOrder.get(b.formatId) ?? Number.MAX_SAFE_INTEGER)
+      || a.formatId.localeCompare(b.formatId));
     const coverageByFormat = new Map(sourceCoverage.map(item => [item.formatId, item]));
     return formats.map(format => {
       const coverage = coverageByFormat.get(format.formatId);
       return {
-        formatId: format.formatId,
-        names: format.localization,
-        coverage: coverage?.status ?? 'needs_confirmation',
+        formatId:       format.formatId,
+        names:          format.localization,
+        coverage:       coverage?.status ?? 'needs_confirmation',
         coverageReason: coverage?.reason ?? 'No official source has been confirmed for this format.',
       };
     });

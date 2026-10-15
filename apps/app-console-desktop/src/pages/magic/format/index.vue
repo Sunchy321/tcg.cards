@@ -187,6 +187,7 @@ async function loadFormats() {
 /** Fetches one format report while preserving results already shown for other formats. */
 async function compare(formatId: string) {
   checking.value[formatId] = true;
+  // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
   delete requestErrors.value[formatId];
   try {
     reports.value[formatId] = await client.magic.announcement.compareOfficial({ formatId });
@@ -215,10 +216,10 @@ function coverageLabel(status: FormatItem['coverage']): string {
 function coverageReason(format: FormatItem): string {
   const translations: Record<string, string> = {
     'The format is discontinued and has no current official list.': '该赛制已停止维护，目前没有可核对的官方清单。',
-    'The format website states that it currently has no banlist.': '该赛制官网目前没有公布禁限表。',
-    'This local fork is outside the official-list check scope.': '此赛制分支不在本次核对范围内。',
-    'This format is outside the official-list check scope.': '此赛制不在本次核对范围内。',
-    'No official source has been confirmed for this format.': '该赛制的官方清单尚未确认。',
+    'The format website states that it currently has no banlist.':  '该赛制官网目前没有公布禁限表。',
+    'This local fork is outside the official-list check scope.':    '此赛制分支不在本次核对范围内。',
+    'This format is outside the official-list check scope.':        '此赛制不在本次核对范围内。',
+    'No official source has been confirmed for this format.':       '该赛制的官方清单尚未确认。',
   };
   const reason = format.coverageReason ?? '';
   return translations[reason] ?? '该赛制目前没有可核对的官方清单。';
@@ -239,11 +240,28 @@ function statusColor(status: BanlistReport['status']): 'success' | 'warning' | '
   return 'error';
 }
 
-/** Presents an actionable explanation without exposing transport or parsing details. */
+/** Presents the source reader's failure reason in language suitable for maintainers. */
 function reportReason(report: BanlistReport): string {
-  if (report.status === 'unavailable') return '官网清单暂时无法读取或页面内容已变化。可打开官网清单检查后重试。';
+  if (report.status === 'unavailable') return unavailableReason(report.reason);
   if (report.status === 'incomplete') return '部分卡牌或适用范围无法完整核对，请查看下方条目并人工确认。';
   return report.reason ?? '';
+}
+
+/** Turns the source reader's failure into an actionable maintainer-facing message. */
+function unavailableReason(reason: string | null): string {
+  if (!reason) return '官网清单暂时无法读取。可打开官网清单检查后重试。';
+  if (reason === 'The page did not contain the expected list content.') {
+    return '已读取官网页面，但没有找到预期的清单内容。页面结构可能已变化，请打开官网检查后重试。';
+  }
+  if (reason === 'The official page returned an empty response.') {
+    return '官网返回了空内容，请稍后重试或打开官网清单检查。';
+  }
+  const status = reason.match(/returned HTTP (\d{3})\./)?.[1];
+  if (status) return `官网暂时拒绝或无法处理自动读取请求（HTTP ${status}）。请打开官网清单检查后重试。`;
+  if (/Was there a typo in the url or port\?|ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ECONNRESET|fetch failed|network/i.test(reason)) {
+    return `当前运行环境无法连接到官网：${reason}。请检查网络连接后重试。`;
+  }
+  return `读取官网清单失败：${reason}`;
 }
 
 /** Formats a source timestamp for the maintainer. */
@@ -255,21 +273,21 @@ function formatTime(value: string): string {
 /** Returns a product-facing label for a restriction category or local status. */
 function kindLabel(value: string | null): string {
   const labels: Record<string, string> = {
-    banned: '禁用',
-    restricted: '限制',
-    suspended: '暂停',
+    banned:              '禁用',
+    restricted:          '限制',
+    suspended:           '暂停',
     banned_as_commander: '禁作指挥官',
     banned_as_companion: '禁作行侣',
-    banned_in_deck: '禁入套牌',
-    banned_as_leader: '禁作领队',
-    points: '积分',
-    score: '积分',
+    banned_in_deck:      '禁入套牌',
+    banned_as_leader:    '禁作领队',
+    points:              '积分',
+    score:               '积分',
   };
   return value == null ? '无' : labels[value] ?? '其他';
 }
 
 /** Translates known source notices so status limitations read consistently in Chinese. */
-function noticeText(sourceId: string, notice: string): string {
+function noticeText(sourceId: string, _notice: string): string {
   if (sourceId === 'conquest') return '此网页处于只读状态，可能未包含之后在 Discord 发布的更新。';
   if (sourceId === 'leviathan') return '此赛制已结束，官网展示的是保留的最后一版清单。';
   return '官网清单附带了需要留意的说明，请查看官网页面。';
@@ -278,13 +296,13 @@ function noticeText(sourceId: string, notice: string): string {
 /** Translates known official-list limitations into clear follow-up guidance. */
 function manualReviewText(description: string): string {
   const translations: Record<string, string> = {
-    'The Vintage banned list must be checked separately.': 'Canadian Highlander 还沿用 Vintage 禁牌表，请同时查看该清单。',
-    'The format also uses the Vintage banned list.': '该赛制还沿用 Vintage 禁牌表。',
-    'The Conquest card pool excludes reserved-list and other rules-defined cards.': 'Conquest 牌池还会排除保留清单牌及其他规则定义的牌。',
-    'Cards removed from constructed formats, Conspiracy cards, and ante cards are also excluded.': '此外，构筑赛制移除的牌、诡局牌和赌注牌也不适用。',
-    'Ante, Conspiracy, and cards removed from constructed formats are also banned.': '此外，赌注牌、诡局牌及构筑赛制移除的牌也禁止使用。',
+    'The Vintage banned list must be checked separately.':                                             'Canadian Highlander 还沿用 Vintage 禁牌表，请同时查看该清单。',
+    'The format also uses the Vintage banned list.':                                                   '该赛制还沿用 Vintage 禁牌表。',
+    'The Conquest card pool excludes reserved-list and other rules-defined cards.':                    'Conquest 牌池还会排除保留清单牌及其他规则定义的牌。',
+    'Cards removed from constructed formats, Conspiracy cards, and ante cards are also excluded.':     '此外，构筑赛制移除的牌、诡局牌和赌注牌也不适用。',
+    'Ante, Conspiracy, and cards removed from constructed formats are also banned.':                   '此外，赌注牌、诡局牌及构筑赛制移除的牌也禁止使用。',
     'Ante, Conspiracy, silver-bordered, Vanguard, acorn, sticker, and Attraction cards are excluded.': '此外，赌注牌、诡局牌、银边牌、先驱牌、橡果标记牌、贴纸牌和景点牌也不适用。',
-    'Some official restriction categories have no matching local status.': '部分官网禁限类别无法与本地状态直接对应，请人工确认。',
+    'Some official restriction categories have no matching local status.':                             '部分官网禁限类别无法与本地状态直接对应，请人工确认。',
   };
   return translations[description] ?? '官网还包含无法自动核对的适用范围，请打开官网清单人工确认。';
 }
@@ -293,28 +311,30 @@ function manualReviewText(description: string): string {
 const DifferenceGroup = defineComponent({
   props: {
     title: { type: String, required: true },
-    kind: { type: String, required: true },
+    kind:  { type: String, required: true },
     items: { type: Array as PropType<BanlistReport['officialOnly']>, required: true },
   },
   setup(props) {
-    return () => props.items.length === 0 ? null : h('section', { class: 'space-y-2' }, [
-      h('h3', { class: 'text-sm font-medium text-highlighted' }, `${props.title}（${props.items.length}）`),
-      h('ul', { class: 'space-y-1 text-sm' }, props.items.map(item => h('li', { key: item.cardId, class: 'flex flex-wrap items-baseline gap-x-2' }, [
-        h('span', { class: 'font-medium text-highlighted' }, item.name),
-        props.kind === 'statusDifferences'
-          ? h('span', { class: 'text-muted' }, `官网：${kindLabel(item.officialKind)} · 本地：${kindLabel(item.localStatus)}`)
-          : null,
-        props.kind === 'pointsDifferences'
-          ? h('span', { class: 'text-muted' }, `官网：${item.officialPoints ?? '无'} · 本地：${item.localPoints ?? '无'}`)
-          : null,
-        item.officialKind != null && props.kind === 'officialOnly'
-          ? h('span', { class: 'text-muted' }, kindLabel(item.officialKind))
-          : null,
-        item.localStatus != null && props.kind === 'localOnly'
-          ? h('span', { class: 'text-muted' }, kindLabel(item.localStatus))
-          : null,
-      ]))),
-    ]);
+    return () => props.items.length === 0
+      ? null
+      : h('section', { class: 'space-y-2' }, [
+        h('h3', { class: 'text-sm font-medium text-highlighted' }, `${props.title}（${props.items.length}）`),
+        h('ul', { class: 'space-y-1 text-sm' }, props.items.map(item => h('li', { key: item.cardId, class: 'flex flex-wrap items-baseline gap-x-2' }, [
+          h('span', { class: 'font-medium text-highlighted' }, item.name),
+          props.kind === 'statusDifferences'
+            ? h('span', { class: 'text-muted' }, `官网：${kindLabel(item.officialKind)} · 本地：${kindLabel(item.localStatus)}`)
+            : null,
+          props.kind === 'pointsDifferences'
+            ? h('span', { class: 'text-muted' }, `官网：${item.officialPoints ?? '无'} · 本地：${item.localPoints ?? '无'}`)
+            : null,
+          item.officialKind != null && props.kind === 'officialOnly'
+            ? h('span', { class: 'text-muted' }, kindLabel(item.officialKind))
+            : null,
+          item.localStatus != null && props.kind === 'localOnly'
+            ? h('span', { class: 'text-muted' }, kindLabel(item.localStatus))
+            : null,
+        ]))),
+      ]);
   },
 });
 
