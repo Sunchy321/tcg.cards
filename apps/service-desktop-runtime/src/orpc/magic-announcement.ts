@@ -13,6 +13,7 @@ import { groupCardLists } from '../lib/magic/announcement/data/card-groups';
 import { runApply, type ApplyCardMeta } from '../lib/magic/announcement/apply';
 import { cloneSourceFormats, isSentinelCardId } from '../lib/magic/announcement/projection';
 import { compareOfficialBanlist } from '../lib/magic/banlist-check/compare';
+import { sourceCoverage } from '../lib/magic/banlist-check/sources';
 
 const itemInput = z.object({
   type:          gameChangeType,
@@ -418,6 +419,31 @@ const comparisonDifference = z.object({
   localPoints:    z.number().nullable(),
 });
 
+const listOfficialFormats = os
+  .input(z.object({}))
+  .output(z.array(z.object({
+    formatId:      z.string(),
+    names:         z.array(z.object({ lang: z.string(), name: z.string() })),
+    coverage:      z.enum(['configured', 'not_applicable', 'needs_confirmation']),
+    coverageReason: z.string().nullable(),
+  })))
+  .handler(async () => {
+    const db = getLocalDb();
+    const formats = await db.select({ formatId: Format.formatId, localization: Format.localization })
+      .from(Format)
+      .orderBy(Format.formatId);
+    const coverageByFormat = new Map(sourceCoverage.map(item => [item.formatId, item]));
+    return formats.map(format => {
+      const coverage = coverageByFormat.get(format.formatId);
+      return {
+        formatId: format.formatId,
+        names: format.localization,
+        coverage: coverage?.status ?? 'needs_confirmation',
+        coverageReason: coverage?.reason ?? 'No official source has been confirmed for this format.',
+      };
+    });
+  });
+
 const compareOfficial = os
   .input(z.object({ formatId: z.enum(magicFormats) }))
   .output(z.object({
@@ -456,5 +482,6 @@ export const magicAnnouncementRouter = {
   apply,
   searchCards,
   resolveCardNames,
+  listOfficialFormats,
   compareOfficial,
 };
