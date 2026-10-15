@@ -51,6 +51,7 @@ export const formats = [
   'canadian_highlander',
   'pauper_commander',
   'pauper_duelcommander',
+  'conquest',
 ];
 
 export const colors = ['W', 'U', 'B', 'R', 'G', 'O', 'P'];

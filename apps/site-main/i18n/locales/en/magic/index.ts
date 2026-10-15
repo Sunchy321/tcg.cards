@@ -945,6 +945,7 @@ export default {
     'canadian_highlander':  'Canadian Highlander',
     'pauper_commander':     'Pauper Commander',
     'pauper_duelcommander': 'Pauper Duel Commander',
+    'conquest':             'Conquest',
 
     'two_head_giant': 'Two Head Giant',
 

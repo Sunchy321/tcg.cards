@@ -689,6 +689,7 @@ export default {
     'canadian_highlander':  'Canadian Highlander',
     'pauper_commander':     '纯普指挥官',
     'pauper_duelcommander': '纯普指挥官1v1',
+    'conquest':             'Conquest',
 
     'two_head_giant': '双头巨人',
   },

@@ -27,6 +27,7 @@ export const magicEternalFormats = [
   'canadian_highlander',
   'pauper_commander',
   'pauper_duelcommander',
+  'conquest',
 ] as const;
 
 /**

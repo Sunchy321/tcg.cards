@@ -10,6 +10,7 @@ export const announcementSource = z.enum([
   'leviathan_commander',
   'oathbreaker',
   'pauper_commander',
+  'conquest',
   'initial',
   'release',
   'rotation',
