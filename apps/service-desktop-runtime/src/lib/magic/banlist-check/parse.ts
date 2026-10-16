@@ -195,8 +195,8 @@ export function parseListSections(html: string, source: OfficialSource, formatId
     });
   } else {
     const kindByFormat: Record<string, RestrictionKind> = {
-      historic:             'suspended', timeless:             'restricted',
-      duelcommander:        'banned_in_deck', pauper_duelcommander: 'banned_in_deck',
+      'historic':             'suspended', 'timeless':             'restricted',
+      'duelcommander':        'banned_in_deck', 'pauper-duelcommander': 'banned_in_deck',
     };
     let activeKind: RestrictionKind = kindByFormat[formatId] ?? 'banned';
     const headings = $('h1,h2,h3,h4').toArray();
@@ -280,7 +280,7 @@ export function parseListSections(html: string, source: OfficialSource, formatId
     ...(inheritedFormats.length ? { inheritedFormats } : {}),
     reason:     complete
       ? null
-      : source.parser === 'wizards' && formatId === 'standard_brawl' && !foundSection
+      : source.parser === 'wizards' && formatId === 'standard-brawl' && !foundSection
         ? 'The official page has no separate Standard Brawl list.'
         : 'The page did not contain the expected list content.',
   };
@@ -289,11 +289,11 @@ export function parseListSections(html: string, source: OfficialSource, formatId
 /** Selects a list section whose heading names the requested Wizards format. */
 function sectionMatchesFormat(title: string, formatId: string): boolean {
   const names: Record<string, string[]> = {
-    commander:      ['commander banned cards'],
-    standard:       ['standard banned cards'], pioneer:        ['pioneer banned cards'], modern:         ['modern banned cards'],
-    legacy:         ['legacy banned cards'], vintage:        ['vintage banned and restricted cards'], alchemy:        ['alchemy banned cards'],
-    historic:       ['historic banned cards'], timeless:       ['timeless banned and restricted cards'],
-    pauper:         ['pauper banned cards'], brawl:          ['brawl banned cards'], standard_brawl: ['standard brawl banned cards'],
+    'commander':      ['commander banned cards'],
+    'standard':       ['standard banned cards'], 'pioneer':        ['pioneer banned cards'], 'modern':         ['modern banned cards'],
+    'legacy':         ['legacy banned cards'], 'vintage':        ['vintage banned and restricted cards'], 'alchemy':        ['alchemy banned cards'],
+    'historic':       ['historic banned cards'], 'timeless':       ['timeless banned and restricted cards'],
+    'pauper':         ['pauper banned cards'], 'brawl':          ['brawl banned cards'], 'standard-brawl': ['standard brawl banned cards'],
   };
   return (names[formatId] ?? []).some(name => title === name);
 }

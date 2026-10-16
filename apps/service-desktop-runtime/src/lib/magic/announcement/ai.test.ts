@@ -8,9 +8,9 @@ describe('Magic announcement parsing', () => {
   test('uses imported card identity rules for punctuation, accents and complete multi-face names', () => {
     const result = normalizeAiResult({
       header: { date: '2026-10-14', effectiveDateOnline: '2026-10-15', effectiveDateArena: '2026-10-16' },
-      items: [
-        { type: 'card_change', status: 'banned', format: 'modern', cardName: "Nadu, Winged Wisdom", cardId: 'invented' },
-        { type: 'card_change', status: 'legal', format: 'legacy', cardName: "Lim-Dûl's Vault" },
+      items:  [
+        { type: 'card_change', status: 'banned', format: 'modern', cardName: 'Nadu, Winged Wisdom', cardId: 'invented' },
+        { type: 'card_change', status: 'legal', format: 'legacy', cardName: 'Lim-Dûl\'s Vault' },
         { type: 'card_split', cardName: 'Fire // Ice', relatedNames: ['Fire', 'Ice'] },
       ],
     });
@@ -24,9 +24,9 @@ describe('Magic announcement parsing', () => {
   test('preserves separate format changes, points and item effective dates', () => {
     const result = normalizeAiResult({
       header: {},
-      items: [
+      items:  [
         { type: 'card_change', format: 'vintage', status: 'restricted', cardName: 'Sol Ring', effectiveDate: '2026-10-15' },
-        { type: 'card_change', format: 'canadian_highlander', status: 'score', score: 4, cardName: 'Sol Ring' },
+        { type: 'card_change', format: 'canadian-highlander', status: 'score', score: 4, cardName: 'Sol Ring' },
         { type: 'card_change', format: 'commander', status: 'game_changer', cardName: 'Sol Ring' },
         { type: 'rule_change' },
       ],
@@ -74,7 +74,7 @@ describe('Magic announcement parsing', () => {
     let receivedArticle = false;
     const output = JSON.stringify({
       header: { date: '2026-10-14' },
-      items: [{ type: 'card_change', status: 'banned', format: 'commander', cardName: 'Sol Ring' }],
+      items:  [{ type: 'card_change', status: 'banned', format: 'commander', cardName: 'Sol Ring' }],
     });
     const fetchMock = spyOn(globalThis, 'fetch').mockImplementation(Object.assign(async (request: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
       const url = request instanceof Request ? request.url : String(request);
@@ -145,4 +145,13 @@ describe('Magic announcement parsing', () => {
       logMock.mockRestore();
     }
   });
+});
+
+test('announcement parsing accepts the six additional canonical formats', () => {
+  const formats = ['tiny-leader-reborn', 'predh', 'gladiator', 'old-school', 'premodern', 'competitive-brawl'];
+  const result = normalizeAiResult({
+    header: {},
+    items:  formats.map(format => ({ type: 'card_change', status: 'banned', format, cardName: 'Sol Ring' })),
+  });
+  expect(result.items.map(item => item.format)).toEqual(formats);
 });

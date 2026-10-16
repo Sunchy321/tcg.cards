@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { nameRubyKey, type NameRubyLookup } from '@tcg-cards/model/magic/name-ruby';
 
-import { projectCard, type AssembledCard } from './project-card';
+import { convertLegalities, projectCard, type AssembledCard } from './project-card';
 
 /**
  * Build a minimal single-face card carrying only what the localization and
@@ -379,5 +379,29 @@ describe('ambit override merge (ticket 03)', () => {
   test('no override row means the seed stands — deletion falls back', () => {
     const result = projectCard(card(), undefined, undefined);
     expect(result.cards[0]).toMatchObject({ category: 'default', ambit: 'primary' });
+  });
+});
+
+test('Scryfall legalities use canonical format URL identifiers', () => {
+  expect(convertLegalities({
+    standardbrawl:    'legal',
+    paupercommander:  'banned',
+    duel:             'restricted',
+    tlr:              'banned',
+    predh:            'legal',
+    gladiator:        'legal',
+    oldschool:        'restricted',
+    premodern:        'not_legal',
+    competitivebrawl: 'legal',
+  })).toEqual({
+    'standard-brawl':     'legal',
+    'pauper-commander':   'banned',
+    'duelcommander':      'restricted',
+    'tiny-leader-reborn': 'banned',
+    'predh':              'legal',
+    'gladiator':          'legal',
+    'old-school':         'restricted',
+    'premodern':          'unavailable',
+    'competitive-brawl':  'legal',
   });
 });

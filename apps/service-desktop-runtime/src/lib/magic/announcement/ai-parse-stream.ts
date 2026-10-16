@@ -4,7 +4,7 @@ import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 
 import { readAiConfig } from '../../../runtime-config';
 import { parseAiResult } from './ai';
-import { magicEternalFormats, magicRotatingFormats } from './data/format-keywords';
+import { formats } from '@tcg-cards/model/magic/schema/basic';
 
 /** Source links and optional title supplied by the announcement editor. */
 export interface AiParseStreamInput {
@@ -93,7 +93,7 @@ Types and allowed statuses:
 - rule_change, format_birth, format_death, card_split, card_merge: status must be null.
 Unbanning or removal from a restriction means legal. Removal from Game Changers means legal.
 For score changes use status score and an explicitly stated positive integer score.
-Canonical format identifiers: ${[...magicRotatingFormats, ...magicEternalFormats].join(', ')}.
+Canonical format identifiers: ${formats.join(', ')}.
 Map human format names to these identifiers (e.g. Duel Commander to duelcommander); never invent a format identifier. Unknown format is null.
 cardName and relatedNames must be complete canonical ENGLISH card names, including both faces separated by // where applicable. Never generate cardId values. Do not use localized names or invent missing English names; use null instead.
 card_change/card_update/card_split/card_merge may have cardName and relatedNames; set_change only setId; rule_change only ruleId; format_birth/format_death have no entity references.

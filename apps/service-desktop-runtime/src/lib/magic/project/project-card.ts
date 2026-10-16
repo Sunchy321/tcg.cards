@@ -300,9 +300,12 @@ function toLegality(status: string): string {
 }
 
 const FORMAT_RENAME: Record<string, string> = {
-  duel:            'duelcommander',
-  paupercommander: 'pauper_commander',
-  standardbrawl:   'standard_brawl',
+  duel:             'duelcommander',
+  paupercommander:  'pauper-commander',
+  standardbrawl:    'standard-brawl',
+  tlr:              'tiny-leader-reborn',
+  oldschool:        'old-school',
+  competitivebrawl: 'competitive-brawl',
 };
 
 /** Map raw scryfall legalities into the product's format/legality vocabulary. */

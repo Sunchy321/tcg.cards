@@ -17,7 +17,7 @@
       "category": "default",
       "tags": [],
       "legalities": {
-        "tlr": "legal",
+        "tiny-leader-reborn": "legal",
         "duelcommander": "legal",
         "brawl": "unavailable",
         "penny": "unavailable",
@@ -34,12 +34,12 @@
         "timeless": "unavailable",
         "commander": "legal",
         "gladiator": "unavailable",
-        "oldschool": "unavailable",
+        "old-school": "unavailable",
         "premodern": "unavailable",
         "oathbreaker": "legal",
-        "standard_brawl": "unavailable",
-        "pauper_commander": "unavailable",
-        "competitivebrawl": "unavailable"
+        "standard-brawl": "unavailable",
+        "pauper-commander": "unavailable",
+        "competitive-brawl": "unavailable"
       },
       "scryfallOracleId": [
         "0007c283-5b7a-4c00-9ca1-b455c8dff8c3"

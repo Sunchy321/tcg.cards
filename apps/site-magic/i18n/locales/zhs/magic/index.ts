@@ -677,21 +677,28 @@ export default {
 
     'commander':           '指挥官',
     'duelcommander':       '法禁指挥官',
-    'duelcommander_docfx': '法禁指挥官（DocFX分叉）',
-    'leviathan_commander': '海怪禁指挥官',
+    'duelcommander-docfx': '法禁指挥官（DocFX分叉）',
+    'leviathan-commander': '海怪禁指挥官',
     'commander1v1':        '指挥官1v1',
     'brawl':               '争锋',
-    'standard_brawl':      '标准争锋',
+    'standard-brawl':      '标准争锋',
 
     'pauper':               '纯普',
     'oathbreaker':          '破誓人',
     'penny':                'Penny Dreadful',
-    'canadian_highlander':  'Canadian Highlander',
-    'pauper_commander':     '纯普指挥官',
-    'pauper_duelcommander': '纯普指挥官1v1',
-    'conquest':             'Conquest',
+    'canadian-highlander':  'Canadian Highlander',
+    'pauper-commander':     '纯普指挥官',
+    'pauper-duelcommander': '纯普指挥官1v1',
+    'conquest':             '征服',
 
-    'two_head_giant': '双头巨人',
+    'tiny-leader-reborn': '小指挥官：重生',
+    'predh':              '怀旧指挥官',
+    'gladiator':          '角斗士',
+    'old-school':         '怀旧93/94',
+    'premodern':          '前摩登',
+    'competitive-brawl':  '竞技争锋',
+
+    'two-head-giant': '双头巨人',
   },
 
   rarity: {

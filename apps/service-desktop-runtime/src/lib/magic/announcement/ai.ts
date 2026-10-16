@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { slugifyName } from '@tcg-cards/shared/magic/slug';
 import { aiAnnouncementHeader, aiAnnouncementResult, type AiAnnouncementResult } from '@tcg-cards/model/magic/schema/announcement-ai';
-import { magicEternalFormats, magicRotatingFormats } from './data/format-keywords';
+import { formats } from '@tcg-cards/model/magic/schema/basic';
 
 const cardName = z.string().trim().min(1).refine(name => {
   const letters = name.match(/\p{Letter}/gu) ?? [];
@@ -16,7 +16,7 @@ export function normalizeAiResult(value: unknown): AiAnnouncementResult {
       type:          z.string(),
       status:        z.string().nullish(),
       effectiveDate: z.string().nullish(),
-      format:        z.enum([...magicRotatingFormats, ...magicEternalFormats]).nullish(),
+      format:        z.enum(formats).nullish(),
       cardName:      cardName.nullish(),
       relatedNames:  z.array(cardName).default([]),
       setId:         z.string().nullish(),

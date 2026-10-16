@@ -28,7 +28,7 @@ describe('Magic announcement form application', () => {
     applyMagicAiResult(form, aiAnnouncementResult.parse({
       header: { name: 'Source title', date: '2026-10-14', effectiveDateOnline: '2026-10-15', effectiveDateArena: '2026-10-16' },
       items:  [
-        { type: 'card_change', status: 'score', score: 4, format: 'canadian_highlander', cardId: 'sol-ring', effectiveDate: '2026-10-15' },
+        { type: 'card_change', status: 'score', score: 4, format: 'canadian-highlander', cardId: 'sol-ring', effectiveDate: '2026-10-15' },
         { type: 'card_split', cardId: 'fire--ice', relatedCards: ['fire', 'ice'] },
       ],
     }), config);

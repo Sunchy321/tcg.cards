@@ -8,7 +8,7 @@ export const officialSources: OfficialSource[] = [
     id:      'wizards',
     name:    'Wizards of the Coast',
     url:     'https://magic.wizards.com/en/banned-restricted-list',
-    formats: ['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'alchemy', 'historic', 'timeless', 'pauper', 'brawl', 'standard_brawl', 'commander'],
+    formats: ['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'alchemy', 'historic', 'timeless', 'pauper', 'brawl', 'standard-brawl', 'commander'],
     parser:  'wizards',
   },
   {
@@ -22,7 +22,7 @@ export const officialSources: OfficialSource[] = [
     id:      'canadian_highlander',
     name:    'Canadian Highlander',
     url:     'https://canadianhighlander.ca/points-list/',
-    formats: ['canadian_highlander'],
+    formats: ['canadian-highlander'],
     parser:  'canadian_highlander',
   },
   {
@@ -44,32 +44,32 @@ export const officialSources: OfficialSource[] = [
     id:      'pdh',
     name:    'PDH Home Base',
     url:     'https://pdhhomebase.com/rules/',
-    formats: ['pauper_commander'],
+    formats: ['pauper-commander'],
     parser:  'pdh',
   },
   {
     id:      'pdc',
     name:    'Pauper Duel Commander Committee',
     url:     'https://pauperduelcommander.fr/fr/banlist/',
-    formats: ['pauper_duelcommander'],
+    formats: ['pauper-duelcommander'],
     parser:  'pdc',
   },
   {
     id:      'leviathan',
     name:    'Leviathan Commander',
     url:     'https://leviathancommander.wixsite.com/home/current-ban-list',
-    formats: ['leviathan_commander'],
+    formats: ['leviathan-commander'],
     parser:  'leviathan',
     notices: ['The format has ended; this is its retained final list.'],
   },
 ];
 
 const coverageNotes: Record<string, Omit<SourceCoverage, 'formatId'>> = {
-  extended:            { status: 'not_applicable', reason: 'The format is discontinued and has no current official list.' },
-  penny:               { status: 'not_applicable', reason: 'The format website states that it currently has no banlist.' },
-  duelcommander_docfx: { status: 'not_applicable', reason: 'This local fork is outside the official-list check scope.' },
-  commander1v1:        { status: 'not_applicable', reason: 'This format is outside the official-list check scope.' },
-  explorer:            { status: 'not_applicable', reason: 'This format is outside the official-list check scope.' },
+  'extended':            { status: 'not_applicable', reason: 'The format is discontinued and has no current official list.' },
+  'penny':               { status: 'not_applicable', reason: 'The format website states that it currently has no banlist.' },
+  'duelcommander-docfx': { status: 'not_applicable', reason: 'This local fork is outside the official-list check scope.' },
+  'commander1v1':        { status: 'not_applicable', reason: 'This format is outside the official-list check scope.' },
+  'explorer':            { status: 'not_applicable', reason: 'This format is outside the official-list check scope.' },
 };
 
 /** Records every model format as covered, inapplicable, or requiring confirmation. */

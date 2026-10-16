@@ -19,7 +19,7 @@ test('Historic keeps its banlist after a same-level explanation heading without 
 test('Wizards ordinary, Standard and Competitive Brawl never reuse one another sections', () => {
   const html = '<h3>Brawl Banned Cards</h3><ul><li>Oko, Thief of Crowns</li></ul><h3>Competitive Brawl Banned Cards</h3><p>The following cards are banned as your commander:</p><ul><li>Oko, Thief of Crowns</li><li>Ajani, Nacatl Pariah</li></ul>';
   expect(parse(html, 'brawl').entries.map(row => row.name)).toEqual(['Oko, Thief of Crowns']);
-  const standard = parse(html, 'standard_brawl');
+  const standard = parse(html, 'standard-brawl');
   expect(standard.entries).toEqual([]);
   expect(standard.complete).toBe(false);
 });
@@ -38,14 +38,14 @@ test('Oathbreaker collective wording resolves all four groups and ignores printi
 });
 
 test('PDH reads its spaced paragraph title, linked cards, and category lines', () => {
-  const result = parse('<p><span>B A N L I S T</span></p><div><p><a href="https://scryfall.com/card/ice/87/mystic-remora">Mystic Remora</a><br><a href="https://scryfall.com/card/pcy/45/rhystic-study">Rhystic Study</a><br>Cards that Wizards has removed from all constructed formats (full list here)<br>Cards with the Conspiracy card type (full list here)<br>Cards referring to ante (full list here)</p></div>', 'pauper_commander');
+  const result = parse('<p><span>B A N L I S T</span></p><div><p><a href="https://scryfall.com/card/ice/87/mystic-remora">Mystic Remora</a><br><a href="https://scryfall.com/card/pcy/45/rhystic-study">Rhystic Study</a><br>Cards that Wizards has removed from all constructed formats (full list here)<br>Cards with the Conspiracy card type (full list here)<br>Cards referring to ante (full list here)</p></div>', 'pauper-commander');
   expect(result.complete).toBe(true);
   expect(result.entries.map(row => row.name)).toEqual(['Mystic Remora', 'Rhystic Study']);
   expect(result.scopes.map(row => row.group)).toEqual(['offensive', 'conspiracy', 'ante']);
 });
 
 test('PDC reads sibling grids outside the title container and preserves commander/deck statuses', () => {
-  const result = parse('<section><div><h2>Interdit en tant que commandant</h2></div><ul data-banlist-grid><li data-card-name="loyal apprentice">Loyal Apprentice</li></ul></section><section><div><h2>Interdit dans le deck</h2></div><ul data-banlist-grid><li data-card-name="campfire">Campfire Nouveau</li></ul></section><section><h2>Historique des changements</h2><li>Old card</li></section>', 'pauper_duelcommander');
+  const result = parse('<section><div><h2>Interdit en tant que commandant</h2></div><ul data-banlist-grid><li data-card-name="loyal apprentice">Loyal Apprentice</li></ul></section><section><div><h2>Interdit dans le deck</h2></div><ul data-banlist-grid><li data-card-name="campfire">Campfire Nouveau</li></ul></section><section><h2>Historique des changements</h2><li>Old card</li></section>', 'pauper-duelcommander');
   expect(result.complete).toBe(true);
   expect(result.entries.map(row => [row.name, row.kind])).toEqual([['Loyal Apprentice', 'banned_as_commander'], ['Campfire', 'banned_in_deck']]);
 });
@@ -65,10 +65,10 @@ test('Canadian Highlander resolves Vintage bans and collective rules, but never 
     const page: OfficialPage = { url, html, fetchedAt: '2026-10-15', httpStatus: 200, contentType: 'text/html', sha256: null, text: html, rows: [], error: null };
     return page;
   });
-  const result = await fetchOfficialBanlist('canadian_highlander', reader.read);
+  const result = await fetchOfficialBanlist('canadian-highlander', reader.read);
   expect(result.entries.map(row => [row.name, row.kind])).toEqual([['Time Walk', 'points'], ['Chaos Orb', 'banned']]);
   expect(result.scopes).toMatchObject([{ group: 'ante' }]);
-  const report = compareBanlists('canadian_highlander', result, { banlist: [] }, [], { ante: ['darkpact'] });
+  const report = compareBanlists('canadian-highlander', result, { banlist: [] }, [], { ante: ['darkpact'] });
   expect(report.manualReview).toEqual([]);
 });
 
@@ -81,11 +81,11 @@ test('collective bans respect tracked sets, Arena availability, and existing Pau
   ]);
   const result = groupEligibility([
     { formatId: 'standard', sets: ['current'] }, { formatId: 'timeless', sets: null },
-    { formatId: 'brawl', sets: null }, { formatId: 'pauper', sets: null }, { formatId: 'pauper_commander', sets: null },
+    { formatId: 'brawl', sets: null }, { formatId: 'pauper', sets: null }, { formatId: 'pauper-commander', sets: null },
   ], [...metadata.keys()], metadata);
   expect([...result.standard!]).toEqual(['arena-common']);
   expect([...result.timeless!]).toEqual(['arena-common']);
   expect([...result.brawl!]).toEqual(['arena-common']);
   expect([...result.pauper!]).toEqual(['old-paper', 'arena-common']);
-  expect([...result.pauper_commander!]).toEqual(['old-paper', 'arena-common', 'uncommon-creature']);
+  expect([...result['pauper-commander']!]).toEqual(['old-paper', 'arena-common', 'uncommon-creature']);
 });

@@ -298,12 +298,12 @@ describe('Duel Commander page sections', () => {
 });
 
 test('compares the Leviathan collective exclusions as the three supported groups', () => {
-  const leviathan: OfficialSource = { ...source, id: 'leviathan', parser: 'leviathan', formats: ['leviathan_commander'] };
-  const official = parseListSections('<div class="wixui-rich-text"><h2>Ban List</h2></div><div class="wixui-rich-text"><ul><li>Sol Ring</li></ul></div><div class="wixui-rich-text"><ul><li>Ante cards</li><li>Conspiracy cards</li><li>Silver Border Cards</li><li>Vanguards cards</li><li>Unfinity cards with acorn holo-foil</li><li>All cards that bring a sticker or an</li><li>Attraction into the game</li></ul></div>', leviathan, 'leviathan_commander', '2026-10-15');
+  const leviathan: OfficialSource = { ...source, id: 'leviathan', parser: 'leviathan', formats: ['leviathan-commander'] };
+  const official = parseListSections('<div class="wixui-rich-text"><h2>Ban List</h2></div><div class="wixui-rich-text"><ul><li>Sol Ring</li></ul></div><div class="wixui-rich-text"><ul><li>Ante cards</li><li>Conspiracy cards</li><li>Silver Border Cards</li><li>Vanguards cards</li><li>Unfinity cards with acorn holo-foil</li><li>All cards that bring a sticker or an</li><li>Attraction into the game</li></ul></div>', leviathan, 'leviathan-commander', '2026-10-15');
   expect(official.scopes.map(scope => scope.group)).toEqual(['ante', 'conspiracy', 'unfinity']);
   const groups = { ante: ['darkpact'], conspiracy: ['power-play'], unfinity: ['ticketomaton'] };
   const cards = ['sol-ring', ...Object.values(groups).flat()].map(cardId => ({ cardId, name: cardId === 'sol-ring' ? 'Sol Ring' : cardId, localizedName: null }));
-  const report = compareBanlists('leviathan_commander', official, {
+  const report = compareBanlists('leviathan-commander', official, {
     banlist: cards.map(card => ({ cardId: card.cardId, status: 'banned' })),
   }, cards, groups);
   expect(report.status).toBe('consistent');
@@ -313,12 +313,12 @@ test('compares the Leviathan collective exclusions as the three supported groups
 });
 
 test('reads Leviathan cards across Wix text blocks and respects paragraph category changes', () => {
-  const leviathan: OfficialSource = { ...source, id: 'leviathan', parser: 'leviathan', formats: ['leviathan_commander'], notices: ['The format has ended; this is its retained final list.'] };
+  const leviathan: OfficialSource = { ...source, id: 'leviathan', parser: 'leviathan', formats: ['leviathan-commander'], notices: ['The format has ended; this is its retained final list.'] };
   const official = parseListSections(`<div class="wixui-rich-text"><h2>BAN LIST</h2></div>
     <div class="wixui-rich-text"><ul><li>Ancestral Recall</li><li>Food Chain&#8203;</li></ul></div>
     <div class="wixui-rich-text"><ul><li>Mana Crypt</li><li>Time Wal k</li></ul></div>
     <div class="wixui-rich-text"><p>Banned as Companion:</p><ul><li>Lutri, the Spellchaser</li></ul></div>
-    <div class="wixui-rich-text"><p>The following cards are also banned from being played as a commander (but can still be part of your 99 cards):</p><ul><li>Baral, Chief of Compliance</li></ul></div>`, leviathan, 'leviathan_commander', '2026-10-15');
+    <div class="wixui-rich-text"><p>The following cards are also banned from being played as a commander (but can still be part of your 99 cards):</p><ul><li>Baral, Chief of Compliance</li></ul></div>`, leviathan, 'leviathan-commander', '2026-10-15');
   expect(official.entries.map(entry => [entry.name, entry.kind])).toEqual([
     ['Ancestral Recall', 'banned'], ['Food Chain', 'banned'], ['Mana Crypt', 'banned'], ['Time Wal k', 'banned'],
     ['Lutri, the Spellchaser', 'banned_as_companion'], ['Baral, Chief of Compliance', 'banned_as_commander'],

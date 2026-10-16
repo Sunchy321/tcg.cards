@@ -134,7 +134,7 @@ export function pauperEligible(meta: ApplyCardMeta | undefined, formatId: string
   if (formatId === 'pauper') {
     return meta.rarities.includes('common');
   }
-  if (formatId === 'pauper_commander' || formatId === 'pauper_duelcommander') {
+  if (formatId === 'pauper-commander' || formatId === 'pauper-duelcommander') {
     return meta.typeMain.includes('creature')
       ? (meta.rarities.includes('common') || meta.rarities.includes('uncommon'))
       : meta.rarities.includes('common');

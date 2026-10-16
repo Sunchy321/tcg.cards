@@ -18,7 +18,7 @@ export function groupEligibility(
       if (!meta || !pauperEligible(meta, format.formatId)) return false;
       if (format.sets != null && !meta.sets.some(set => format.sets!.includes(set))) return false;
       // These formats use Arena's card pool even when the local format does not track individual sets.
-      if (['alchemy', 'historic', 'timeless', 'brawl', 'standard_brawl'].includes(format.formatId) && !meta.games.includes('arena')) return false;
+      if (['alchemy', 'historic', 'timeless', 'brawl', 'standard-brawl'].includes(format.formatId) && !meta.games.includes('arena')) return false;
       return true;
     }));
   }
