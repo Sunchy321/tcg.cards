@@ -16,7 +16,6 @@ export const magicEternalFormats = [
   'vintage',
   'commander',
   'duelcommander',
-  'duelcommander-docfx',
   'leviathan-commander',
   'commander1v1',
   'brawl',

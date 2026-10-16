@@ -65,11 +65,10 @@ export const officialSources: OfficialSource[] = [
 ];
 
 const coverageNotes: Record<string, Omit<SourceCoverage, 'formatId'>> = {
-  'extended':            { status: 'not_applicable', reason: 'The format is discontinued and has no current official list.' },
-  'penny':               { status: 'not_applicable', reason: 'The format website states that it currently has no banlist.' },
-  'duelcommander-docfx': { status: 'not_applicable', reason: 'This local fork is outside the official-list check scope.' },
-  'commander1v1':        { status: 'not_applicable', reason: 'This format is outside the official-list check scope.' },
-  'explorer':            { status: 'not_applicable', reason: 'This format is outside the official-list check scope.' },
+  extended:     { status: 'not_applicable', reason: 'The format is discontinued and has no current official list.' },
+  penny:        { status: 'not_applicable', reason: 'The format website states that it currently has no banlist.' },
+  commander1v1: { status: 'not_applicable', reason: 'This format is outside the official-list check scope.' },
+  explorer:     { status: 'not_applicable', reason: 'This format is outside the official-list check scope.' },
 };
 
 /** Records every model format as covered, inapplicable, or requiring confirmation. */

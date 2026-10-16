@@ -27,38 +27,16 @@ export const manaSymbols = [
 
 export const symbols = [...manaSymbols, 'T', 'Q', 'H', 'E', 'A', 'P', 'PW', 'CHAOS', 'TK'];
 
-export const formats = [
-  'standard',
-  'pioneer',
-  'modern',
-  'extended',
-  'legacy',
-  'vintage',
-  'alchemy',
-  'historic',
-  'timeless',
-  'explorer',
-  'commander',
-  'duelcommander',
-  'duelcommander-docfx',
-  'leviathan-commander',
-  'commander1v1',
-  'brawl',
-  'standard-brawl',
-  'pauper',
-  'oathbreaker',
-  'penny',
-  'canadian-highlander',
-  'pauper-commander',
-  'pauper-duelcommander',
-  'conquest',
-  'tiny-leader-reborn',
-  'predh',
-  'gladiator',
-  'old-school',
-  'premodern',
-  'competitive-brawl',
+/** Format choices ordered by paper, online, community adoption, and historical use. */
+export const formatGroups = [
+  ['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'pauper', 'commander'],
+  ['historic', 'timeless', 'alchemy', 'brawl', 'competitive-brawl', 'standard-brawl'],
+  ['duelcommander', 'premodern', 'old-school', 'canadian-highlander', 'pauper-commander'],
+  ['oathbreaker', 'penny', 'gladiator', 'predh', 'tiny-leader-reborn', 'pauper-duelcommander', 'conquest'],
+  ['extended', 'explorer', 'commander1v1', 'leviathan-commander'],
 ];
+
+export const formats = formatGroups.flat();
 
 export const colors = ['W', 'U', 'B', 'R', 'G', 'O', 'P'];
 

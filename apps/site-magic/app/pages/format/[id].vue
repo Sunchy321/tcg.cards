@@ -235,7 +235,7 @@ import { last } from 'lodash-es';
 import type { Format } from '#model/magic/schema/format';
 import type { Legality } from '#model/magic/schema/announcement';
 
-import { birthday as magicBirthday, formats as magicFormats } from '#model/magic/schema/basic';
+import { birthday as magicBirthday, formatGroups as magicFormatGroups } from '#model/magic/schema/basic';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -325,22 +325,21 @@ const expandGroups = computed(() => route.query.expand !== undefined);
 const formatList = ref<string[]>([]);
 
 onMounted(async () => {
-  const list = await $orpc.magic.format.list();
-  formatList.value = [...list].sort((a, b) => {
-    const ai = magicFormats.indexOf(a);
-    const bi = magicFormats.indexOf(b);
-    if (ai === -1 && bi === -1) return a < b ? -1 : 1;
-    if (ai === -1) return 1;
-    if (bi === -1) return -1;
-    return ai - bi;
-  });
+  formatList.value = await $orpc.magic.format.list();
 });
 
-// Reactive items ref for the format select — auto-updates when formatList or
-// locale changes, keeping the AppHeader dropdown in sync without a manual watch.
-const formatItems = computed(() =>
-  formatList.value.map(f => ({ value: f, label: i18n.t(`magic.format.${f}`) })),
-);
+// Nested choice arrays render separators while keeping translations reactive.
+const formatItems = computed(() => {
+  const remaining = new Set(formatList.value);
+  const groups = magicFormatGroups.map(group => group.filter(id => remaining.delete(id)));
+
+  // Preserve database-only formats at the end instead of hiding their pages.
+  groups[groups.length - 1]!.push(...[...remaining].sort());
+
+  return groups.filter(group => group.length > 0).map(group =>
+    group.map(id => ({ value: id, label: i18n.t(`magic.format.${id}`) })),
+  );
+});
 
 // Register dynamic param state once.  We pass computed refs so the composable
 // can read the latest items/value reactively without extra watchers.

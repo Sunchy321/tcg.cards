@@ -677,7 +677,6 @@ export default {
 
     'commander':           '指挥官',
     'duelcommander':       '法禁指挥官',
-    'duelcommander-docfx': '法禁指挥官（DocFX分叉）',
     'leviathan-commander': '海怪禁指挥官',
     'commander1v1':        '指挥官1v1',
     'brawl':               '争锋',
@@ -686,7 +685,7 @@ export default {
     'pauper':               '纯普',
     'oathbreaker':          '破誓人',
     'penny':                'Penny Dreadful',
-    'canadian-highlander':  'Canadian Highlander',
+    'canadian-highlander':  '加拿大高地人',
     'pauper-commander':     '纯普指挥官',
     'pauper-duelcommander': '纯普指挥官1v1',
     'conquest':             '征服',
