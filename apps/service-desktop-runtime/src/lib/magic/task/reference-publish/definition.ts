@@ -1,13 +1,11 @@
 import { z } from 'zod';
 
 import { createDb } from '@tcg-cards/db';
-import { Format as LocalFormat } from '@tcg-cards/db/schema/local/magic';
-import { Format as RemoteFormat } from '@tcg-cards/db/schema/remote/magic';
 
-import { createDefinition } from '#task/definition';
-import { chunkValues } from '../../../hearthstone/hsdata-publish';
+import { createDefinition } from '../../../task/definition';
 import { getLocalDb } from '../../../hearthstone/hsdata-local-db';
 import { requireMagicPublishTargetByIdentity } from '../../magic-publish-target';
+import { publishReferences, referenceStore } from '../../set-import/publish';
 
 /** Stable task type for mirroring magic reference data. */
 export const referencePublishTaskType = 'magic_reference_publish';
@@ -17,10 +15,12 @@ const input = z.object({
 });
 
 const output = z.object({
-  formatCount:     z.number(),
-  totalRowCount:   z.number(),
-  changedRowCount: z.number(),
-  dryRun:          z.boolean(),
+  formatCount:       z.number(),
+  setCount:          z.number(), localizationCount: z.number(), boosterCount:      z.number(),
+  sheetCount:        z.number(), sheetCardCount:    z.number(), packCount:         z.number(), packContentCount:  z.number(),
+  totalRowCount:     z.number(),
+  changedRowCount:   z.number(),
+  dryRun:            z.boolean(),
 });
 
 const publishStreamScope = z.object({
@@ -28,8 +28,8 @@ const publishStreamScope = z.object({
   environment:   z.string(),
 });
 
-/** Mirrors the local format table to the publish target as a full replace. */
-export const referencePublishTaskDefinition = createDefinition(referencePublishTaskType, { version: '2026-10-15:v1' })
+/** Publishes formats, series, translated names and complete boosters as one remote transaction. */
+export const referencePublishTaskDefinition = createDefinition(referencePublishTaskType, { version: '2026-10-17:v1' })
   .scope(publishStreamScope, {
     type:    'publish_stream' as const,
     resolve: scope => ({
@@ -45,28 +45,14 @@ export const referencePublishTaskDefinition = createDefinition(referencePublishT
       dryRun: input.dryRun ?? false,
     }),
   })
-  .stage('mirror_formats', { label: 'Mirror formats to remote', progressMode: 'simple' })
+  .stage('mirror_references', { label: '发布赛制、系列与补充包', progressMode: 'simple' })
   .handler(async ({ ctx }) => {
     const { target, dryRun } = ctx;
-    const formats = await getLocalDb().select().from(LocalFormat);
-
-    if (!dryRun) {
-      const remoteDb = createDb(target.connectionString);
-      try {
-        await remoteDb.delete(RemoteFormat);
-        for (const chunk of chunkValues(formats)) {
-          await remoteDb.insert(RemoteFormat).values(chunk);
-        }
-      } finally {
-        await remoteDb.$client.end({ timeout: 1 });
-      }
+    const remoteDb = createDb(target.connectionString);
+    try {
+      return await publishReferences(referenceStore(getLocalDb(), remoteDb), dryRun);
+    } finally {
+      await remoteDb.$client.end({ timeout: 1 });
     }
-
-    return {
-      formatCount:     formats.length,
-      totalRowCount:   formats.length,
-      changedRowCount: formats.length,
-      dryRun,
-    };
   })
   .build();

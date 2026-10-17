@@ -73,7 +73,7 @@
       </template>
     </TaskController>
 
-    <TaskResultCard v-if="taskResult" :result="taskResult" />
+    <TaskResultCard v-if="taskResult" :result="displayResult" :labels="RESULT_LABELS" />
   </div>
 </template>
 
@@ -94,6 +94,26 @@ const publishTargetError = ref('');
 const dryRun = ref(false);
 const force = ref(false);
 const taskResult = ref<Record<string, unknown> | null>(null);
+
+/** Product labels for the newly expanded reference-data publishing report. */
+const RESULT_LABELS: Record<string, string> = {
+  formatCount:       '赛制',
+  setCount:          '系列',
+  localizationCount: '系列译名',
+  boosterCount:      '补充包类型',
+  sheetCount:        '卡池',
+  sheetCardCount:    '卡池中的卡牌',
+  packCount:         '配包组合',
+  packContentCount:  '配包内容',
+  totalRowCount:     '数据总数',
+  changedRowCount:   '本次发布数量',
+  dryRun:            '仅预览',
+};
+const displayResult = computed(() => {
+  const result = taskResult.value;
+  if (!result || !('setCount' in result)) return result;
+  return { ...result, dryRun: result.dryRun ? '是' : '否' };
+});
 
 const controller = ref<{ attach(snapshot: TaskPageSnapshot): void, currentTaskRunId: string | null }>();
 
@@ -129,7 +149,7 @@ async function loadPublishTargets() {
 }
 
 const publishTypes = [
-  { label: '信息表数据', value: 'reference' },
+  { label: '赛制、系列与补充包', value: 'reference' },
   { label: '数据发布', value: 'data' },
   { label: '公告发布', value: 'announcement' },
 ];

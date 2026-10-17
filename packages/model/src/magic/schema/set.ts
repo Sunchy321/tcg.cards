@@ -103,3 +103,14 @@ export type Set = z.infer<typeof set>;
 export type SetLocalization = z.infer<typeof setLocalization>;
 export type Booster = z.infer<typeof booster>;
 export type SetProfile = z.infer<typeof setProfile>;
+
+/** Resource suffixes of the existing transform-card icons. */
+export const transformIcons = ['0', '1', 'sun', 'moon', 'land', 'planeswalker', 'compass',
+  'emrakul', 'eldritch-moon', 'rising-sun', 'open-fan', 'closed-fan'] as const;
+
+/** Human-maintained display values edited independently of imported metadata. */
+export const setDisplayChoice = z.strictObject({
+  setId:           z.string().min(1),
+  symbolStyle:     z.array(z.string().trim().min(1).max(100)).max(16).nullable(),
+  doubleFacedIcon: z.array(z.string().regex(/^[a-z0-9-]+$/).max(100)).length(2).nullable(),
+});

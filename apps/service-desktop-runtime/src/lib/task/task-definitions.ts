@@ -65,6 +65,8 @@ import { magicRubyImportTaskDefinition } from '../magic/task/magic-ruby-import/d
 registerTaskDefinition(magicRubyImportTaskDefinition);
 
 import { magicProjectTaskDefinition } from '../magic/task/magic-project/definition';
+import { magicSetImportTaskDefinition } from '../magic/task/set-import/definition';
+registerTaskDefinition(magicSetImportTaskDefinition);
 import { magicPublishTaskDefinition } from '../magic/task/publish/definition';
 registerTaskDefinition(magicProjectTaskDefinition);
 registerTaskDefinition(magicPublishTaskDefinition);

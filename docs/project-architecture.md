@@ -216,6 +216,12 @@ When a game workflow depends on local repositories, local files, or local Postgr
 
 When a table mixes manually maintained fields with build-generated or import-generated fields, split the responsibilities instead of relying on ambiguous merge ownership.
 
+## Series Display Choices and Publishing
+
+Data-maintenance records belong in `{game}_data`, including manually maintained shared choices; manual editing alone does not make a record application-user state.
+
+Magic series metadata and booster composition are built locally and published as static domain data. Each booster product occupies one row identified by series and booster code, with its complete pack and sheet composition stored as typed JSONB. Imports replace all booster products of a series atomically; publishing and read interfaces use that same complete structure. Shared series display choices are maintenance data in `magic_data`; imports preserve that authority and materialize the chosen values into the exportable series rows. Only those derived display values are published, alongside series names and complete booster composition. Remote sites do not read the local choice table, and the domain schema has no dependency on it.
+
 ## Documentation Rule
 
 Architecture documents under `docs/` describe stable boundaries and authority rules.

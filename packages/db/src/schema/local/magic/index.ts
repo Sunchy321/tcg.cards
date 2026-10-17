@@ -15,3 +15,4 @@ export * from './sync';
 export * from './config';
 export * from './review';
 export * from './publish';
+export * from './set-display';

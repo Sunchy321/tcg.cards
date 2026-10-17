@@ -243,6 +243,9 @@ A Blizzard-internal numeric id carried by Hearthstone sources and imports. The i
 
 ## Magic (万智牌)
 
+### series display choice (系列展示选择)
+The maintainer's shared selection of a series symbol style and its double-faced card icons. It applies to the series for all viewers and remains independent of imported series metadata.
+
 ### cardId (卡牌身份)
 A card's stable identity across versions. The default derivation is the slug of the normalized English name, applied for most games as closely as possible. Even when the slug cannot be derived (name collisions, renamed cards), the invariant holds: the same cardId must always be treated as the same card logically. A card's base version and its rebalanced versions share one cardId.
 

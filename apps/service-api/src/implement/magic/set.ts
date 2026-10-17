@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm';
 import { os } from '../../orpc';
 
 import { db } from '@tcg-cards/db';
-import { Set } from '@tcg-cards/db/schema/shared/magic/set';
+import { Set, Booster } from '@tcg-cards/db/schema/shared/magic/set';
 import type { Rarity } from '@tcg-cards/model/magic/schema/basic';
 
 const detail = os.magic.set.detail
@@ -18,6 +18,13 @@ const detail = os.magic.set.detail
     if (row == null) {
       throw new ORPCError('NOT_FOUND');
     }
+
+    const boosters = await db.select({
+      boosterId:   Booster.boosterId,
+      totalWeight: Booster.totalWeight,
+      packs:       Booster.packs,
+      sheets:      Booster.sheets,
+    }).from(Booster).where(eq(Booster.setId, input.setId));
 
     return {
       setId:  row.setId,
@@ -61,7 +68,7 @@ const detail = os.magic.set.detail
       cardsphereSetId:  row.cardsphereSetId ?? null,
       tokenSetCode:     row.tokenSetCode ?? null,
 
-      boosters: null,
+      boosters,
     };
   });
 

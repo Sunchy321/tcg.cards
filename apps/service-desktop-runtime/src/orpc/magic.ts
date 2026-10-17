@@ -18,6 +18,7 @@ import { listMtgchArchives, listMtgjsonFiles, listScryfallFiles } from '../lib/m
 import { magicRuleRouter } from './magic-rule';
 import { magicRubyRouter } from './magic-ruby';
 import { magicAmbitRouter } from './magic-ambit';
+import { magicSetRouter } from './magic-set';
 import { magicCommitsRouter } from './magic-commits';
 import { magicAnnouncementRouter } from './magic-announcement';
 import { resolvePath } from '../lib/game-paths';
@@ -657,6 +658,7 @@ const markPrintImages = os
   });
 
 export const magicRouter = {
+  set:          magicSetRouter,
   getDataState,
   images:       { sets: listImageSets, compare: compareImages, qualityCheck: checkImagesQuality, clear: clearPrintImages, mark: markPrintImages, localPreview: localImagePreview },
   analyze:      { imageArchive: analyzeImageArchive },

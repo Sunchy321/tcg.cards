@@ -134,6 +134,7 @@ export function getGameNavItems(game: Game): ConsoleNavLink[] {
           { label: 'MTGJSON', icon: 'i-lucide-folder', to: `/${game}/data-source/mtgjson` },
           { label: 'MTGCH', icon: 'i-lucide-file-json', to: `/${game}/data-source/mtgch` },
           { label: 'MTGA 注音', icon: 'i-lucide-languages', to: `/${game}/data-source/mtga` },
+          { label: '系列导入', icon: 'i-lucide-folder-down', to: `/${game}/set-import` },
           { label: '投影', icon: 'i-lucide-box', to: `/${game}/project` },
           { label: '评审', icon: 'i-lucide-clipboard-list', to: `/${game}/review` },
         ],

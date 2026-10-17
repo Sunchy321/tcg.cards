@@ -2,7 +2,7 @@ import { ORPCError, os } from '@orpc/server';
 
 import { z } from 'zod';
 import { omit, uniq } from 'lodash-es';
-import { eq, getTableColumns, inArray } from 'drizzle-orm';
+import { eq, getTableColumns } from 'drizzle-orm';
 
 import axios from 'axios';
 import * as cheerio from 'cheerio';
@@ -11,7 +11,7 @@ import { set, setProfile } from '#model/magic/schema/set';
 import type { Rarity } from '#model/magic/schema/basic';
 
 import { db } from '#db/db';
-import { Booster, Pack, PackContent, Set, SetLocalization, Sheet, SheetCard } from '#schema/shared/magic/set';
+import { Booster, Set, SetLocalization } from '#schema/shared/magic/set';
 import { Print } from '#schema/shared/magic/print';
 
 const list = os
@@ -87,45 +87,12 @@ const complete = os
       ...omit(getTableColumns(SetLocalization), 'setId'),
     }).from(SetLocalization).where(eq(SetLocalization.setId, setId));
 
-    const allBoosters = await db.select()
-      .from(Booster)
-      .where(eq(Booster.setId, setId));
-
-    const boosterIds = allBoosters.map(b => b.id);
-
-    const allPacks = await db.select()
-      .from(Pack)
-      .where(inArray(Pack.boosterId, boosterIds));
-
-    const allSheets = await db.select()
-      .from(Sheet)
-      .where(inArray(Sheet.boosterId, boosterIds));
-
-    const allPackContents = await db.select()
-      .from(PackContent)
-      .where(inArray(PackContent.packId, allPacks.map(p => p.id)));
-
-    const allSheetCards = await db.select()
-      .from(SheetCard)
-      .where(inArray(SheetCard.sheetId, allSheets.map(s => s.id)));
-
-    const boosters = allBoosters.map(b => {
-      const packs = allPacks.filter(p => p.boosterId === b.id).map(p => ({
-        ...omit(p, ['id', 'boosterId']),
-        contents: allPackContents.filter(c => c.packId === p.id).map(c => omit(c, ['id', 'packId'])),
-      }));
-
-      const sheets = allSheets.filter(s => s.boosterId === b.id).map(s => ({
-        ...omit(s, ['id', 'boosterId']),
-        cards: allSheetCards.filter(c => c.sheetId === s.id).map(c => omit(c, ['id', 'sheetId'])),
-      }));
-
-      return {
-        ...omit(b, ['id', 'setId']),
-        packs,
-        sheets,
-      };
-    });
+    const boosters = await db.select({
+      boosterId:   Booster.boosterId,
+      totalWeight: Booster.totalWeight,
+      packs:       Booster.packs,
+      sheets:      Booster.sheets,
+    }).from(Booster).where(eq(Booster.setId, setId));
 
     return {
       ...set,
