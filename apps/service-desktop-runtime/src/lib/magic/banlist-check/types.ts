@@ -41,7 +41,7 @@ export interface OfficialSource {
   name:           string;
   url:            string;
   formats:        string[];
-  parser:         'wizards' | 'commander' | 'oathbreaker' | 'canadian_highlander' | 'duelcommander' | 'conquest' | 'pdh' | 'pdc' | 'leviathan';
+  parser:         'wizards' | 'commander' | 'oathbreaker' | 'canadian_highlander' | 'duelcommander' | 'conquest' | 'pdh' | 'pdc' | 'leviathan' | 'tlr' | 'gladiator' | 'oldschool';
   notices?:       string[];
   updatePattern?: RegExp;
 }

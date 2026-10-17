@@ -99,6 +99,73 @@ export function parseListSections(html: string, source: OfficialSource, formatId
         if (name) addEntry({ name, kind, points: null, note: null }, card);
       });
     });
+  } else if (source.parser === 'tlr') {
+    $('h1,h2,h3,h4').each((_, heading) => {
+      const title = $(heading).text().replace(/\s+/g, ' ').trim();
+      let kind: RestrictionKind;
+      if (/banned as tiny leader/i.test(title)) kind = 'banned_as_commander';
+      else if (/banned as companion/i.test(title)) kind = 'banned_as_companion';
+      else if (/banned from deck construction/i.test(title)) kind = 'banned';
+      else if (/categorically excluded/i.test(title)) {
+        foundSection = true;
+        $(heading).nextUntil('h1,h2,h3,h4').find('li').each((_, item) => {
+          const text = $(item).clone().children('ul,ol').remove().end().text().replace(/\s+/g, ' ').trim();
+          if (!text) return;
+          scopes.push({ description: text, expanded: false, group: ruleGroup(text) ?? undefined, originUrl: source.url });
+        });
+        return;
+      } else return;
+
+      foundSection = true;
+      $(heading).nextUntil('h1,h2,h3,h4').find('li').each((_, item) => {
+        const text = $(item).clone().children('ul,ol').remove().end().text().replace(/\s+/g, ' ').trim();
+        if (!text || /^(?:none|no cards)$/i.test(text)) return;
+        sectionContentFound = true;
+        // The official TLR page retains the printed title's historical "Imperial" typo;
+        // the current Oracle identity is "Empyrial".
+        const name = text === 'Derevi, Imperial Tactician' ? 'Derevi, Empyrial Tactician' : text;
+        addEntry({ name, kind, points: null, note: null }, item);
+      });
+    });
+  } else if (source.parser === 'gladiator') {
+    $('h1,h2,h3,h4').each((_, heading) => {
+      if (!/^the banned list$/i.test($(heading).text().replace(/\s+/g, ' ').trim())) return;
+      foundSection = true;
+      $(heading).nextUntil('h1,h2,h3,h4').find('li').each((_, item) => {
+        const name = $(item).text().replace(/\s+/g, ' ').trim();
+        if (!name) return;
+        sectionContentFound = true;
+        addEntry({ name, kind: 'banned', points: null, note: null }, item);
+      });
+    });
+  } else if (source.parser === 'oldschool') {
+    let activeKind: RestrictionKind | null = null;
+    $('h1,h2,h3,h4,p,li').each((_, node) => {
+      const text = $(node).clone().children('ul,ol').remove().end().text().replace(/\s+/g, ' ').trim();
+      if (node.tagName === 'p') {
+        const lines = $(node).clone();
+        lines.find('br').replaceWith('\n');
+        for (const rawLine of lines.text().split('\n')) {
+          const line = rawLine.replace(/[•·]/g, '').replace(/\s+/g, ' ').trim();
+          if (/^the following cards are banned by ec in 93-94 tournaments\b/i.test(line)) { activeKind = 'banned'; foundSection = true; continue; }
+          if (/^the following cards are restricted by ec in 93-94 tournaments\b/i.test(line)) { activeKind = 'restricted'; foundSection = true; continue; }
+          if (!activeKind || !line) continue;
+          sectionContentFound = true;
+          addEntry({ name: line, kind: activeKind, points: null, note: null }, node);
+        }
+        return;
+      }
+      if (/^h[1-4]$/.test(node.tagName)) {
+        if (/^the following cards are banned by ec in 93-94 tournaments\b/i.test(text)) { activeKind = 'banned'; foundSection = true; }
+        else if (/^the following cards are restricted by ec in 93-94 tournaments\b/i.test(text)) { activeKind = 'restricted'; foundSection = true; }
+        else if (/^h[1-4]$/.test(node.tagName) && activeKind) activeKind = null;
+        return;
+      }
+      if (!activeKind || !text || $(node).parents('li').length) return;
+      sectionContentFound = true;
+      foundSection = true;
+      addEntry({ name: text, kind: activeKind, points: null, note: null }, node);
+    });
   } else if (source.parser === 'conquest') {
     foundSection = $('h1,h2').toArray().some(node => /^banlist$/i.test($(node).text().trim()));
     const content = $('.wp-block-post-content,.entry-content').first();
@@ -273,7 +340,7 @@ export function parseListSections(html: string, source: OfficialSource, formatId
 
   const filtered = entries.filter(entry => entry.name.trim().length > 0);
   const noCurrentEntries = /no current suspensions|no cards are currently banned|there are no banned cards/i.test(bodyText);
-  const complete = foundSection && (source.parser === 'wizards' ? sectionContentFound : filtered.length > 0 || scopes.length > 0 || noCurrentEntries);
+  const complete = foundSection && (source.parser === 'wizards' || source.parser === 'tlr' || source.parser === 'gladiator' || source.parser === 'oldschool' ? sectionContentFound : filtered.length > 0 || scopes.length > 0 || noCurrentEntries);
   return {
     formatId, sourceId:   source.id, sourceName: source.name, url:        source.url, fetchedAt, updatedAt,
     entries:    filtered, scopes:     deduplicateScopes(scopes), notices:    [...new Set(notices)], complete,
@@ -294,6 +361,7 @@ function sectionMatchesFormat(title: string, formatId: string): boolean {
     'legacy':         ['legacy banned cards'], 'vintage':        ['vintage banned and restricted cards'], 'alchemy':        ['alchemy banned cards'],
     'historic':       ['historic banned cards'], 'timeless':       ['timeless banned and restricted cards'],
     'pauper':         ['pauper banned cards'], 'brawl':          ['brawl banned cards'], 'standard-brawl': ['standard brawl banned cards'],
+    'competitive-brawl': ['competitive brawl banned cards'],
   };
   return (names[formatId] ?? []).some(name => title === name);
 }
