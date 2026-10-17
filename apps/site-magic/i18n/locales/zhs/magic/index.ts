@@ -160,6 +160,33 @@ export default {
   set: {
     $self: '系列',
 
+    types: {
+      core:             '核心系列',
+      expansion:        '补充系列',
+      masters:          '大师／重制系列',
+      commander:        '指挥官',
+      promo:            '赠卡',
+      token:            '衍生物',
+      funny:            '鸡飞系列',
+      memorabilia:      '纪念系列',
+      alchemy:          '炼金',
+      arsenal:          '军火库',
+      box:              '盒装系列',
+      draft_innovation: '特殊轮抽系列',
+      duel_deck:        '对决套牌',
+      from_the_vault:   '来自保险库',
+      masterpiece:      '逸品',
+      minigame:         '小游戏',
+      planechase:       '时空竞逐',
+      premium_deck:     '优质套牌',
+      spellbook:        '咒语书',
+      starter:          '入门系列',
+      treasure_chest:   '宝箱',
+      vanguard:         '先锋',
+      art_series:       '美术卡',
+      other:            '其他',
+    },
+
     booster: {
       name: {
         'draft':           '轮抽补充包',

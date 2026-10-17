@@ -1,18 +1,52 @@
 export default {
+  seriesCatalog: {
+    title:        'Sets',
+    types:        'Set types',
+    all:          'All sets',
+    major:        'Major set',
+    majorOnly:    'Major sets only',
+    search:       'Search set names or codes…',
+    year:         'Release year',
+    allYears:     'All years',
+    undated:      'Date unknown',
+    sort:         'Sort order',
+    newest:       'Release: newest first',
+    oldest:       'Release: oldest first',
+    byName:       'Name: A → Z',
+    total:        '{count} sets',
+    clear:        'Clear filters',
+    name:         'Set name',
+    code:         'Code',
+    type:         'Type',
+    releaseDate:  'Release date',
+    parent:       'Part of',
+    children:     '{count} subsets',
+    childrenOf:   'Subsets of {name}',
+    removeParent: 'Remove subset filter',
+    loading:      'Loading sets…',
+    loadFailed:   'Unable to load sets. Please try again.',
+    retry:        'Retry',
+    empty:        'No matching sets. Try changing the search or filters.',
+    range:        '{start}–{end} of {total}',
+    pageSize:     'Sets per page',
+    perPage:      '{count} per page',
+    other:        'Other',
+  },
+
   footer: {
     dataSources: 'Data Sources',
   },
 
   announcement: {
-    'empty':         'No announcements yet',
-    'itemCountUnit': 'entries',
+    empty:         'No announcements yet',
+    itemCountUnit: 'entries',
   },
 
   ambit: {
-    'primary':    'Primary',
-    'additional': 'Additional',
-    'full':       'Full',
-    'widened':    'Widened: {level}',
+    primary:    'Primary',
+    additional: 'Additional',
+    full:       'Full',
+    widened:    'Widened: {level}',
   },
 
   locale: {

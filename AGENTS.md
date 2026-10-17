@@ -6,7 +6,7 @@
 
 **NEVER commit on your own unless the user explicitly instructs you to commit.**
 
-**NEVER surface development-time concepts in the user-facing frontend UI** — design decisions, design process, internal naming, or pipeline/table/step jargon (e.g. schema names, table names, stage names, review kinds, field paths) must not appear in interface text or be dumped as raw JSON to the screen. UI copy must use product/user language.
+**NEVER display user instructions, design decisions, or development-time concepts in the user-facing frontend UI.** This includes paraphrased requirements, explanations of implementation choices, design-process notes, internal naming, and pipeline/table/step jargon (e.g. schema names, table names, stage names, review kinds, field paths), including in tooltips or raw JSON. UI copy must describe product content and actions in user language; keep instructions and design rationale in engineering documents or the conversation.
 
 ## Agent skills
 

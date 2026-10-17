@@ -30,6 +30,32 @@ const list = os
     return sets.map(s => s.setId);
   });
 
+// Read the catalog in two bounded queries instead of issuing one request per set.
+const profiles = os
+  .output(setProfile.array())
+  .handler(async () => {
+    const [sets, localizations] = await Promise.all([
+      db.select({
+        setId:           Set.setId,
+        parent:          Set.parent,
+        type:            Set.type,
+        symbolStyle:     Set.symbolStyle,
+        doubleFacedIcon: Set.doubleFacedIcon,
+        releaseDate:     Set.releaseDate,
+      }).from(Set),
+      db.select().from(SetLocalization),
+    ]);
+
+    const grouped = new Map<string, { lang: string, name: string | null, link: string | null }[]>();
+    for (const { setId, ...localization } of localizations) {
+      const rows = grouped.get(setId) ?? [];
+      rows.push(localization);
+      grouped.set(setId, rows);
+    }
+
+    return sets.map(set => ({ ...set, localization: grouped.get(set.setId) ?? [] }));
+  });
+
 const full = os
   .route({
     method:      'GET',
@@ -301,6 +327,7 @@ const save = os
 
 export const setTrpc = {
   list,
+  profiles,
   full,
   complete,
   profile,

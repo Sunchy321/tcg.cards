@@ -160,6 +160,33 @@ export default {
   set: {
     $self: 'Sets',
 
+    types: {
+      core:             'Core sets',
+      expansion:        'Expansions',
+      masters:          'Masters / Remastered',
+      commander:        'Commander',
+      promo:            'Promos',
+      token:            'Tokens',
+      funny:            'Un-sets',
+      memorabilia:      'Memorabilia',
+      alchemy:          'Alchemy',
+      arsenal:          'Arsenal',
+      box:              'Box sets',
+      draft_innovation: 'Special draft sets',
+      duel_deck:        'Duel Decks',
+      from_the_vault:   'From the Vault',
+      masterpiece:      'Masterpieces',
+      minigame:         'Minigames',
+      planechase:       'Planechase',
+      premium_deck:     'Premium Decks',
+      spellbook:        'Spellbooks',
+      starter:          'Starter sets',
+      treasure_chest:   'Treasure Chests',
+      vanguard:         'Vanguard',
+      art_series:       'Art series',
+      other:            'Other',
+    },
+
     booster: {
       name: {
         'draft':           'Draft Booster',

@@ -1,18 +1,52 @@
 export default {
+  seriesCatalog: {
+    title:        '系列',
+    types:        '系列类型',
+    all:          '全部系列',
+    major:        '主要系列',
+    majorOnly:    '只看主要系列',
+    search:       '搜索系列名称或代码…',
+    year:         '发行年份',
+    allYears:     '全部年份',
+    undated:      '日期未知',
+    sort:         '排序方式',
+    newest:       '发行时间：新 → 旧',
+    oldest:       '发行时间：旧 → 新',
+    byName:       '名称排序',
+    total:        '{count} 个系列',
+    clear:        '清除筛选',
+    name:         '系列名称',
+    code:         '代码',
+    type:         '类型',
+    releaseDate:  '发行日期',
+    parent:       '所属系列',
+    children:     '{count} 个附属系列',
+    childrenOf:   '「{name}」的附属系列',
+    removeParent: '移除所属系列筛选',
+    loading:      '正在加载系列…',
+    loadFailed:   '系列加载失败，请重试。',
+    retry:        '重试',
+    empty:        '未找到匹配的系列，请调整搜索词或筛选条件。',
+    range:        '{start}–{end} / {total}',
+    pageSize:     '每页数量',
+    perPage:      '每页 {count} 条',
+    other:        '其他',
+  },
+
   footer: {
     dataSources: '数据来源',
   },
 
   announcement: {
-    'empty':         '暂无公告',
-    'itemCountUnit': '条',
+    empty:         '暂无公告',
+    itemCountUnit: '条',
   },
 
   ambit: {
-    'primary':    '常规',
-    'additional': '附加',
-    'full':       '全部',
-    'widened':    '已放宽：{level}',
+    primary:    '常规',
+    additional: '附加',
+    full:       '全部',
+    widened:    '已放宽：{level}',
   },
 
   locale: {
