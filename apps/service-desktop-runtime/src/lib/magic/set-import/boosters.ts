@@ -12,11 +12,16 @@ class BoosterDataError extends Error {}
 
 /** Builds the UUID bridge once for all series without silently choosing ambiguous print faces. */
 export function createPrintLookup(cards: SourceCard[], prints: PrintIdentity[]): PrintLookup {
-  const source = new Map<string, Set<string>>();
+  const source = new Map<string, Map<string, { scryfallId: string, face: string | null }>>();
   const local = new Map<string, Map<string, PrintIdentity>>();
   for (const card of cards) {
-    const ids = source.get(card.uuid) ?? new Set<string>();
-    ids.add(card.scryfallId);
+    // Only reversible art variants split into separate local face prints;
+    // ordinary transforming cards retain one print for both source sides.
+    const face = card.layout === 'reversible_card'
+      ? card.side === 'a' ? 'front' : card.side === 'b' ? 'back' : null
+      : null;
+    const ids = source.get(card.uuid) ?? new Map();
+    ids.set(JSON.stringify([card.scryfallId, face]), { scryfallId: card.scryfallId, face });
     source.set(card.uuid, ids);
   }
   for (const print of prints) {
@@ -28,9 +33,11 @@ export function createPrintLookup(cards: SourceCard[], prints: PrintIdentity[]):
   return uuid => {
     const ids = source.get(uuid);
     if (!ids || ids.size !== 1) throw new BoosterDataError('部分卡牌缺少明确的来源对应关系。');
-    const matches = local.get([...ids][0]!);
-    if (!matches || matches.size !== 1) throw new BoosterDataError('部分卡牌未找到唯一的本地印刷。');
-    return [...matches.values()][0]!;
+    const identity = [...ids.values()][0]!;
+    const matches = [...(local.get(identity.scryfallId)?.values() ?? [])]
+      .filter(print => identity.face === null || print.scryfallFace === identity.face);
+    if (matches.length !== 1) throw new BoosterDataError('部分卡牌未找到唯一的本地印刷。');
+    return matches[0]!;
   };
 }
 

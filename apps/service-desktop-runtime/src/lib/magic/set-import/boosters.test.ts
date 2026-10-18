@@ -14,6 +14,37 @@ const lookup = createPrintLookup([{ uuid: 'a', scryfallId: 's-a' }, { uuid: 'b',
 ]);
 
 describe('booster import', () => {
+  test('resolves reversible booster UUIDs to their explicit front and back prints', () => {
+    const resolve = createPrintLookup([
+      { uuid: 'a', scryfallId: 'reversible', layout: 'reversible_card', side: 'a' },
+      { uuid: 'b', scryfallId: 'reversible', layout: 'reversible_card', side: 'b' },
+    ], [
+      { scryfallId: 'reversible', cardId: 'command-tower', set: 'rex', number: '26b', lang: 'en', scryfallFace: 'back' },
+      { scryfallId: 'reversible', cardId: 'command-tower', set: 'rex', number: '26a', lang: 'en', scryfallFace: 'front' },
+    ]);
+    const result = buildBoosters('lci', raw, resolve);
+    expect(result[0]!.sheets![0]!.cards.map(c => [c.cardId, c.set, c.number, c.lang, c.weight])).toEqual([
+      ['command-tower', 'rex', '26a', 'en', 1], ['command-tower', 'rex', '26b', 'en', 1],
+    ]);
+  });
+
+  test('does not treat ordinary transforming card sides as separate print faces', () => {
+    const resolve = createPrintLookup([
+      { uuid: 'a', scryfallId: 'transform', layout: 'transform', side: 'a' },
+      { uuid: 'b', scryfallId: 'transform', layout: 'transform', side: 'b' },
+    ], [{ scryfallId: 'transform', cardId: 'card', set: 'lci', number: '1', lang: 'en', scryfallFace: null }]);
+    expect(resolve('a').number).toBe('1');
+    expect(resolve('b').number).toBe('1');
+  });
+
+  test('rejects missing, conflicting and still-ambiguous reversible faces', () => {
+    const front = { scryfallId: 'reversible', cardId: 'command-tower', set: 'rex', number: '26a', lang: 'en', scryfallFace: 'front' };
+    const source = { uuid: 'a', scryfallId: 'reversible', layout: 'reversible_card', side: 'a' };
+    expect(() => createPrintLookup([source], [{ ...front, scryfallFace: 'back' }])('a')).toThrow('唯一');
+    expect(() => createPrintLookup([source], [front, { ...front, number: '27a' }])('a')).toThrow('唯一');
+    expect(() => createPrintLookup([source, { ...source, side: 'b' }], [front])('a')).toThrow('来源');
+  });
+
   test('preserves complete pack contents, printed identities and source probabilities', () => {
     const result = buildBoosters('neo', raw, lookup);
     expect(result).toHaveLength(1);
@@ -44,7 +75,7 @@ describe('booster import', () => {
     expect(stored.get('bad')).toBe(original);
     expect(stored.get('missing')).toBe(original);
     expect(stored.get('empty')).toEqual([]);
-    expect(stored.get('good')?.[0]?.sheets.flatMap(s => s.cards)).toHaveLength(2);
+    expect(stored.get('good')?.[0]?.sheets?.flatMap(s => s.cards)).toHaveLength(2);
   });
 
   test('rejects broken weights and ambiguous print mappings before creating a replacement', () => {

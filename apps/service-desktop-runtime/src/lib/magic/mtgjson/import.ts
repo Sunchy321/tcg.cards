@@ -1,4 +1,5 @@
 import { readdirSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { db } from '@tcg-cards/db/db';
 import { MtgjsonSet } from '@tcg-cards/db/schema/local/magic';
@@ -76,9 +77,19 @@ export async function importMtgjsonSetFile(file: string): Promise<ImportCounts> 
   return { ...counts, deleted: 0 };
 }
 
-/** Soft-deletes cached sets whose code is not present among the dir's set files. */
+/** Soft-deletes cached sets absent from the internal codes of the source files. */
 export async function finalizeMtgjsonSets(dir: string): Promise<number> {
   const files = readdirSync(dir).filter(f => f.endsWith('.json'));
-  const imported = new Set(files.map(f => f.replace(/\.json$/, '')));
+  const imported = new Set<string>();
+  // Filenames can escape reserved names (CON_.json); identity is data.code,
+  // just as it is during import. Validate every code before deleting any rows.
+  for (const file of files) {
+    const parsed = await Bun.file(join(dir, file)).json() as MtgjsonSetFile;
+    const code = parsed.data?.code;
+    if (typeof code !== 'string' || code.trim().length === 0) {
+      throw new Error(`MTGJSON set file has no valid series code: ${file}`);
+    }
+    imported.add(code);
+  }
   return softDeleteMissing(db, MtgjsonSet, [MtgjsonSet.setId], ['setId'], imported);
 }

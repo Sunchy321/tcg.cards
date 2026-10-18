@@ -40,12 +40,14 @@ const saveDisplay = os.input(setDisplayChoice).output(z.object({ setId: z.string
     return { setId };
   });
 
-/** Starts both import stages without a preview or stage-specific retry input. */
-const importTask = os.input(z.object({})).output(taskPageSnapshot).handler(async () =>
-  createAndRunTask(definition.taskType, {
-    taskType:          definition.taskType, definitionVersion: definition.definitionVersion,
-    scope:             { type: definition.scopeType, key: 'global', snapshot: {} }, params:            {},
-  }));
+/** Starts the full import, or the icons-only variant that refreshes just the set icons. */
+const importTask = os.input(z.strictObject({ iconsOnly: z.boolean().optional(), force: z.boolean().optional() })).output(taskPageSnapshot)
+  .handler(async ({ input }) =>
+    createAndRunTask(definition.taskType, {
+      taskType:          definition.taskType, definitionVersion: definition.definitionVersion,
+      scope:             { type: definition.scopeType, key: 'global', snapshot: {} },
+      params:            { iconsOnly: input.iconsOnly === true, force: input.force === true },
+    }));
 
 /** Desktop-only management surface for source-owned metadata and human display choices. */
 export const magicSetRouter = { list, saveDisplay, importTask };

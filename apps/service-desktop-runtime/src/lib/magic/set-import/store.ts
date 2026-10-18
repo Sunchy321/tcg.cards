@@ -24,6 +24,19 @@ export async function fetchSeries(): Promise<SourceSeries[]> {
   return parseSeriesResponse(await response.json());
 }
 
+/** Cached series list of the last complete import, the icons-only run's input. */
+export async function loadSeriesCache(database: LocalDb): Promise<SourceSeries[]> {
+  const rows = await database.select({
+    id:          ScryfallSet.setId, code:        ScryfallSet.code, name:        ScryfallSet.name, setType:     ScryfallSet.setType,
+    cardCount:   ScryfallSet.cardCount, digital:     ScryfallSet.digital, foilOnly:    ScryfallSet.foilOnly, nonfoilOnly: ScryfallSet.nonfoilOnly,
+    iconSvgUri:  ScryfallSet.iconSvgUri,
+  }).from(ScryfallSet).where(isNull(ScryfallSet.deletedAt));
+  return rows.map(row => ({
+    id:           row.id, code:         row.code, name:         row.name, set_type:     row.setType, card_count:   row.cardCount,
+    digital:      row.digital, foil_only:    row.foilOnly, nonfoil_only: row.nonfoilOnly, icon_svg_uri: row.iconSvgUri ?? undefined,
+  }));
+}
+
 /** Caches a successfully validated complete list and reads lightweight supplemental inputs. */
 export async function prepareSeries(database: LocalDb, sources: SourceSeries[]): Promise<SeriesInputs> {
   await database.transaction(async tx => {
@@ -101,21 +114,24 @@ export async function saveDisplayChoice(database: LocalDb, setId: string, choice
 }
 
 /** Cached MTGJSON identifiers bridged to the game's existing print identity. */
-export interface SourceCard { uuid: string, scryfallId: string }
+export type SourceCard = { uuid: string, scryfallId: string, layout?: string | null, side?: string | null };
 /** Local print identity used by booster membership, excluding historical duplicates. */
-export interface PrintIdentity { scryfallId: string | null, cardId: string, set: string, number: string, lang: string }
+export interface PrintIdentity {
+  scryfallId: string | null; cardId: string; set: string; number: string; lang: string; scryfallFace?: string | null;
+}
 
 /** Reads compact UUID mappings without transferring full source-card payloads. */
 export async function loadBoosterIdentities(database: LocalDb): Promise<{ cards: SourceCard[], prints: PrintIdentity[] }> {
-  const cards = await database.execute<{ uuid: string, scryfallId: string }>(sql`
-    select card->>'uuid' as uuid, card->'identifiers'->>'scryfallId' as "scryfallId"
+  const cards = await database.execute<SourceCard>(sql`
+    select card->>'uuid' as uuid, card->'identifiers'->>'scryfallId' as "scryfallId",
+      card->>'layout' as layout, card->>'side' as side
     from ${MtgjsonSet}, lateral jsonb_array_elements(
       coalesce(${MtgjsonSet.data}->'cards', '[]'::jsonb) || coalesce(${MtgjsonSet.data}->'tokens', '[]'::jsonb)
     ) as card
     where ${MtgjsonSet.deletedAt} is null and card->'identifiers'->>'scryfallId' is not null
   `);
-  const prints = await database.select({ scryfallId: Print.scryfallCardId, cardId:     Print.cardId,
-    set:        Print.set, number:     Print.number, lang:       Print.lang }).from(Print)
+  const prints = await database.select({ scryfallId:   Print.scryfallCardId, cardId:       Print.cardId,
+    set:          Print.set, number:       Print.number, lang:         Print.lang, scryfallFace: Print.scryfallFace }).from(Print)
     .where(and(isNull(Print.deletedAt), eq(Print.version, ''), eq(Print.source, ''), isNotNull(Print.scryfallCardId)));
   return { cards: [...cards], prints };
 }

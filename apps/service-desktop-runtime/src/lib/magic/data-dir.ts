@@ -24,9 +24,9 @@ export function listMtgchArchives(mtgchDir: string): DataFile[] {
     .map(f => ({ name: f, path: join(mtgchDir, f) }));
 }
 
-/** MTGJSON per-set directory `<mtgjsonDir>/set` and its file count. */
+/** MTGJSON per-set directory `<mtgjsonDir>/AllSetFiles` and its file count. */
 export function listMtgjsonFiles(mtgjsonDir: string): { dir: string | null, fileCount: number } {
-  const dir = join(mtgjsonDir, 'set');
+  const dir = join(mtgjsonDir, 'AllSetFiles');
   if (!existsSync(dir)) return { dir: null, fileCount: 0 };
   return {
     dir,

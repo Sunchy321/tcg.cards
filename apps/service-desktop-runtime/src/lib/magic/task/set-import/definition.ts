@@ -1,9 +1,11 @@
 import { z } from 'zod';
 import { createDefinition } from '../../../task/definition';
 import { getLocalDb } from '../../../hearthstone/hsdata-local-db';
-import { fetchSeries, loadBoosterIdentities, prepareSeries, writeSeries, type SeriesInputs } from '../../set-import/store';
+import { fetchSeries, loadBoosterIdentities, loadSeriesCache, prepareSeries, writeSeries, type SeriesInputs } from '../../set-import/store';
 import { createPrintLookup, updateBoosters, type BoosterReport, type PrintLookup } from '../../set-import/boosters';
 import { boosterStore } from '../../set-import/booster-store';
+import { applyIconWork, emptyIconReport, planIconWork, recordIconResult, type IconPlan, type IconReport } from '../../set-import/icons';
+import { resolvePath } from '../../../game-paths';
 import type { SourceSeries } from '../../set-import/series';
 
 /** Independent series import with no stage-specific resume operation. */
@@ -12,25 +14,36 @@ export const magicSetImportTaskType = 'magic_set_import';
 const output = z.object({
   series:             z.number(), boosterSeries:      z.number(),
   missingSeries:      z.array(z.string()), missingSupplements: z.array(z.string()),
+  iconSeries:         z.number(), iconFiles:          z.number(), iconUnchanged:      z.number(),
+  missingIcons:       z.array(z.string()),
 });
-/** Ephemeral source snapshot shared by the two stages of one non-resumable run. */
+/** Ephemeral source snapshot shared by the stages of one non-resumable run. */
 interface ImportContext {
-  sources: SourceSeries[];
-  inputs?: SeriesInputs;
-  lookup?: PrintLookup;
-  report:  BoosterReport;
+  sources:   SourceSeries[];
+  inputs?:   SeriesInputs;
+  lookup?:   PrintLookup;
+  report:    BoosterReport;
+  icons:     IconReport;
+  iconPlan?: IconPlan;
+  iconsOnly: boolean;
+  force:     boolean;
 }
 /** Sequential cursor used only within a running stage, never exposed as a resume option. */
 interface Cursor { index: number }
 
-/** Updates metadata first and isolates each complete booster replacement in its own transaction. */
+/** Updates metadata first, isolates each complete booster replacement in its own transaction, then refreshes set icons; icons-only runs refresh just the icons from the cached series list. */
 export const magicSetImportTaskDefinition = createDefinition(magicSetImportTaskType, {
-  version: '2026-10-17:v1', effectModel: 'reconcilable',
+  version: '2026-10-18:v3', effectModel: 'reconcilable',
 })
   .scope(z.object({}), { type: magicSetImportTaskType, resolve: () => ({ key: 'global', snapshot: {} }) })
-  .input(z.object({})).output(output)
-  .context({ init: (): ImportContext => ({ sources: [], report: { updated: 0, missing: [], failed: [] } }) })
+  .input(z.strictObject({ iconsOnly: z.boolean().optional(), force: z.boolean().optional() })).output(output)
+  .context({ init: (input): ImportContext => ({ sources: [], report: { updated: 0, missing: [], failed: [] }, icons: emptyIconReport(), iconsOnly: input.iconsOnly === true, force: input.force === true }) })
   .stage('series', { label: '更新系列资料', progressMode: 'bounded', resumeMode: 'none' })
+  .enable({
+    // Icons-only runs refresh just the icons; the cached series list takes the series stage's place.
+    when:      input => !input.iconsOnly,
+    otherwise: () => ({ series: 0 }),
+  })
   .entry(async ({ ctx }) => {
     try {
       ctx.sources = await fetchSeries();
@@ -54,6 +67,10 @@ export const magicSetImportTaskDefinition = createDefinition(magicSetImportTaskT
   })
   .exit(({ ctx }) => ({ series: ctx.sources.length }))
   .stage('boosters', { label: '更新补充包', progressMode: 'bounded', resumeMode: 'none' })
+  .enable({
+    when:      input => !input.iconsOnly,
+    otherwise: () => ({ series: 0, boosterSeries: 0, missingSeries: [], missingSupplements: [] }),
+  })
   .entry(async ({ ctx }) => {
     try {
       const { cards, prints } = await loadBoosterIdentities(getLocalDb());
@@ -87,5 +104,54 @@ export const magicSetImportTaskDefinition = createDefinition(magicSetImportTaskT
     }
     return { series:             ctx.sources.length, boosterSeries:      ctx.report.updated,
       missingSeries:      ctx.inputs!.missingSeries, missingSupplements: ctx.inputs!.missingSupplements };
+  })
+  .stage('icons', { label: '更新系列图标', progressMode: 'bounded', resumeMode: 'none' })
+  .entry(async ({ ctx }) => {
+    const iconRoot = resolvePath('magic.image.set');
+    if (!iconRoot) throw new Error('系列图标还没有存放位置，请先在设置中配置「系列图」目录。');
+    const vectorsRoot = resolvePath('magic.data.mtg-vectors');
+    if (!vectorsRoot) throw new Error('图标来源尚未配置，请先在设置中配置 MTG Vectors 目录。');
+    if (ctx.iconsOnly) {
+      try {
+        ctx.sources = await loadSeriesCache(getLocalDb());
+      } catch (error) {
+        console.error('[magic:set-import] Could not load the cached series list', error);
+        throw new Error('暂时无法读取已导入的系列资料，请先完成一次系列导入后重试。', { cause: error });
+      }
+    }
+    try {
+      ctx.iconPlan = planIconWork(ctx.sources, vectorsRoot, iconRoot);
+    } catch (error) {
+      console.error('[magic:set-import] Could not plan set icons', error);
+      throw new Error('图标来源暂时无法读取，请确认 MTG Vectors 目录可用后重试。', { cause: error });
+    }
+    return { total: ctx.iconPlan.work.length, blockInput: { index: 0 } as Cursor };
+  })
+  .block(async ({ ctx, blockInput, progress, done }) => {
+    const work = ctx.iconPlan!.work[blockInput.index];
+    if (work) {
+      try {
+        recordIconResult(ctx.icons, work, await applyIconWork(work, ctx.force));
+      } catch (error) {
+        console.error('[magic:set-import] Could not place set icon', error);
+        ctx.icons.failed.push({ file: `${work.set}/${work.file}`, message: error instanceof Error ? error.message : String(error) });
+      }
+    }
+    const next = { index: blockInput.index + 1 };
+    progress({ done: next.index, total: ctx.iconPlan!.work.length });
+    return next.index >= ctx.iconPlan!.work.length ? done(next) : next;
+  })
+  .exit(({ ctx }) => {
+    if (ctx.icons.failed.length) {
+      const details = ctx.icons.failed.map(f => `${f.file}: ${f.message}`).join('\n');
+      const prefix = ctx.iconsOnly ? '' : '系列资料与补充包已更新；';
+      throw new Error(`${prefix}系列图标已更新 ${ctx.icons.written} 个文件，${ctx.icons.failed.length} 个失败并保留原文件。\n${details}`);
+    }
+    return {
+      series:             ctx.iconsOnly ? 0 : ctx.sources.length, boosterSeries:      ctx.report.updated,
+      missingSeries:      ctx.inputs?.missingSeries ?? [], missingSupplements: ctx.inputs?.missingSupplements ?? [],
+      iconSeries:         ctx.icons.touched.size, iconFiles:          ctx.icons.written, iconUnchanged:      ctx.icons.unchanged,
+      missingIcons:       ctx.iconPlan!.missingDefaults,
+    };
   })
   .build();
