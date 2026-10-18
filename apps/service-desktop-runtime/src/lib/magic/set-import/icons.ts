@@ -11,11 +11,19 @@ import type { SourceSeries } from './series';
 const inheritedIconTypes = ['promo', 'token', 'memorabilia', 'funny'];
 
 /**
- * mtg-vectors rarity files copied under their canonical asset names. The
- * remaining catalog files (token, timeshifted, 80% variants, …) are curated
- * by hand and stay untouched, and the default icon comes from Scryfall.
+ * mtg-vectors catalog files copied under their canonical asset names. The
+ * watermark doubles as the series' default icon; Scryfall's icon fills in
+ * only for series without a vector directory. The remaining catalog files
+ * (token, timeshifted, 80% variants, …) are curated by hand and stay untouched.
  */
-const rarityIconFiles: Record<string, string> = { C: 'common', U: 'uncommon', R: 'rare', M: 'mythic' };
+const rarityIconFiles: Record<string, string> = { C: 'common', U: 'uncommon', R: 'rare', M: 'mythic', WM: 'default' };
+
+/**
+ * Explicit `.alt` catalog mappings the generic scan must not pick up: the
+ * back-face symbol variant of From the Vault: Transform, kept beside the
+ * front-face `v17` directory under a suffixed name.
+ */
+const altSetDirs: Record<string, string> = { V17: 'v17-back' };
 
 /** One icon file to place into the local asset bucket: a local copy or a download. */
 export interface IconWork {
@@ -33,9 +41,10 @@ export interface IconPlan {
 }
 
 /**
- * Plans every set icon file of one import: rarity icons from every mtg-vectors
- * set directory of the optimized distribution build (hidden `.alt`/`.extras`
- * catalogs excluded), then Scryfall default icons for all series that do not
+ * Plans every set icon file of one import: catalog icons from every mtg-vectors
+ * set directory of the optimized distribution build, whose watermark doubles as
+ * the series' default icon, plus the explicit `.alt` back-face mappings, then
+ * Scryfall default icons only for series without vector coverage that do not
  * inherit their parent's icon. Both halves are sorted so repeated runs process
  * files in a stable order.
  */
@@ -43,24 +52,30 @@ export function planIconWork(sources: SourceSeries[], vectorsRoot: string | null
   const work: IconWork[] = [];
   const missingDefaults: string[] = [];
 
+  const pushCatalogDir = (dir: string, targetName: string) => {
+    for (const [code, name] of Object.entries(rarityIconFiles)) {
+      const source = join(dir, `${code}.svg`);
+      if (!existsSync(source)) continue;
+      if (code === 'WM') coveredDefaults.add(targetName);
+      work.push({ set: targetName, file: `${name}.svg`, target: join(iconRoot, 'icon', targetName, `${name}.svg`), source });
+    }
+  };
+
   const catalogDir = vectorsRoot == null ? null : join(vectorsRoot, 'svg', 'optimized', 'set');
+  const coveredDefaults = new Set<string>();
   if (catalogDir != null && existsSync(catalogDir)) {
     const sets = readdirSync(catalogDir, { withFileTypes: true })
       .filter(entry => entry.isDirectory() && !entry.name.startsWith('.'))
       .map(entry => entry.name)
       .sort();
-    for (const set of sets) {
-      for (const [code, name] of Object.entries(rarityIconFiles)) {
-        const source = join(catalogDir, set, `${code}.svg`);
-        if (!existsSync(source)) continue;
-        work.push({ set: set.toLowerCase(), file: `${name}.svg`, target: join(iconRoot, 'icon', set.toLowerCase(), `${name}.svg`), source });
-      }
-    }
+    for (const set of sets) pushCatalogDir(join(catalogDir, set), set.toLowerCase());
+    for (const [source, target] of Object.entries(altSetDirs)) pushCatalogDir(join(catalogDir, '.alt', source), target);
   }
 
   const series = [...sources].sort((a, b) => a.code.localeCompare(b.code));
   for (const s of series) {
     if (inheritedIconTypes.includes(s.set_type)) continue;
+    if (coveredDefaults.has(s.code.toLowerCase())) continue;
     if (!s.icon_svg_uri) {
       missingDefaults.push(s.code.toLowerCase());
       continue;

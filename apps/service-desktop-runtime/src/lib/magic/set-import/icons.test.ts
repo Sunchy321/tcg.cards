@@ -26,7 +26,7 @@ describe('set icon planning', () => {
     tempRoots.push(vectors);
     for (const set of ['10E', '.alt', '2X2']) {
       mkdirSync(join(vectors, 'svg', 'optimized', 'set', set), { recursive: true });
-      for (const file of ['C.svg', 'U.svg', 'R.svg', 'M.svg', 'T.svg', '80.svg']) {
+      for (const file of ['C.svg', 'U.svg', 'R.svg', 'M.svg', 'T.svg', 'WM.svg', '80.svg']) {
         writeFileSync(join(vectors, 'svg', 'optimized', 'set', set, file), file);
       }
     }
@@ -34,26 +34,46 @@ describe('set icon planning', () => {
 
     const plan = planIconWork([], vectors, '/icons');
     expect(plan.work.map(w => [w.set, w.file])).toEqual([
-      ['10e', 'common.svg'], ['10e', 'uncommon.svg'], ['10e', 'rare.svg'], ['10e', 'mythic.svg'],
-      ['2x2', 'common.svg'], ['2x2', 'uncommon.svg'], ['2x2', 'rare.svg'],
+      ['10e', 'common.svg'], ['10e', 'uncommon.svg'], ['10e', 'rare.svg'], ['10e', 'mythic.svg'], ['10e', 'default.svg'],
+      ['2x2', 'common.svg'], ['2x2', 'uncommon.svg'], ['2x2', 'rare.svg'], ['2x2', 'default.svg'],
     ]);
     expect(plan.work.every(w => w.target === join('/icons', 'icon', w.set, w.file))).toBe(true);
     expect(plan.missingDefaults).toEqual([]);
   });
 
-  test('downloads Scryfall defaults except series inheriting their parent icon or lacking a source', () => {
+  test('maps the hidden .alt catalog to its suffixed back-face directory', () => {
+    const vectors = mkdtempSync(join(tmpdir(), 'vectors-alt-'));
+    tempRoots.push(vectors);
+    mkdirSync(join(vectors, 'svg', 'optimized', 'set', '.alt', 'V17'), { recursive: true });
+    for (const file of ['C.svg', 'U.svg', 'R.svg', 'M.svg', 'T.svg', 'WM.svg']) {
+      writeFileSync(join(vectors, 'svg', 'optimized', 'set', '.alt', 'V17', file), file);
+    }
+
+    const plan = planIconWork([], vectors, '/icons');
+    expect(plan.work.filter(w => w.set === 'v17-back').map(w => w.file)).toEqual([
+      'common.svg', 'uncommon.svg', 'rare.svg', 'mythic.svg', 'default.svg',
+    ]);
+    expect(plan.work.every(w => w.set !== 'v17-back' || w.target === join('/icons', 'icon', 'v17-back', w.file))).toBe(true);
+  });
+
+  test('downloads Scryfall defaults except series inheriting their parent icon, lacking a source, or covered by a vector watermark', () => {
+    const vectors = mkdtempSync(join(tmpdir(), 'vectors-wm-'));
+    tempRoots.push(vectors);
+    mkdirSync(join(vectors, 'svg', 'optimized', 'set', 'MH3'), { recursive: true });
+    writeFileSync(join(vectors, 'svg', 'optimized', 'set', 'MH3', 'WM.svg'), 'wm');
+
     const sources = [
       source('Neo', 'expansion', 'https://img.scryfall.io/sets/neo.svg'),
       source('PNeo', 'promo', 'https://img.scryfall.io/sets/pneo.svg'),
       source('Mh3', 'masters', 'https://img.scryfall.io/sets/mh3.svg'),
       source('Tsp', 'expansion'),
     ];
-    const plan = planIconWork(sources, null, '/icons');
-    expect(plan.work.map(w => [w.set, w.file, w.url])).toEqual([
-      ['mh3', 'default.svg', 'https://img.scryfall.io/sets/mh3.svg'],
+    const plan = planIconWork(sources, vectors, '/icons');
+    expect(plan.work.filter(w => w.url !== undefined).map(w => [w.set, w.file, w.url])).toEqual([
       ['neo', 'default.svg', 'https://img.scryfall.io/sets/neo.svg'],
     ]);
     expect(plan.missingDefaults).toEqual(['tsp']);
+    expect(plan.work.some(w => w.set === 'mh3' && w.file === 'default.svg' && w.source?.endsWith('WM.svg'))).toBe(true);
   });
 
   test('keeps an unconfigured vector source to defaults only', () => {

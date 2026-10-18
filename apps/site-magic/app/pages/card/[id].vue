@@ -279,10 +279,30 @@
                     class="mb-1 flex cursor-pointer items-center gap-2 hover:opacity-70"
                     @click="navigateToSet(group.set)"
                   >
+                    <div
+                      v-if="group.set === 'v17'"
+                      class="relative h-4 w-4 shrink-0 transform-3d [transition:transform_0.5s]"
+                      :class="partIndex === 1 ? 'transform-[rotateY(-180deg)]' : ''"
+                    >
+                      <img
+                        :src="setIconUrl('v17', groupRarity(group))"
+                        class="absolute inset-0 h-full w-full object-contain backface-hidden dark:invert"
+                        :alt="group.set"
+                        @error="fallIconBack"
+                      >
+                      <img
+                        :src="setIconUrl('v17-back', groupRarity(group))"
+                        class="absolute inset-0 h-full w-full object-contain backface-hidden transform-[rotateY(180deg)] dark:invert"
+                        :alt="group.set"
+                        @error="fallIconBack"
+                      >
+                    </div>
                     <img
+                      v-else
                       :src="getSetIconUrl(group.set, groupRarity(group))"
                       class="w-4 h-4 shrink-0 object-contain dark:invert"
                       :alt="group.set"
+                      @error="fallIconBack"
                     >
                     <UTooltip :text="getSetName(group.set)" class="min-w-0 flex-1 truncate">
                       <div class="truncate" :class="group.set === data.set ? 'text-primary' : 'text-gray-500 dark:text-gray-400'">
@@ -605,12 +625,27 @@ const getSetName = (setId: string) => {
 
 const AUX_SET_TYPES = ['promo', 'token', 'memorabilia', 'funny', 'masters', 'planechase', 'box', 'archenemy'];
 
+/** Direct asset-store icon URL, without the card-page resolution rules. */
+const setIconUrl = (iconSet: string, rarity: string) => `${assetBaseUrl}/magic/set/icon/${iconSet}/${rarity}.svg`;
+
 const getSetIconUrl = (setId: string, rarity: string) => {
+  // Pristine Talisman is the one PnPH card bearing the Mirrodin Pure symbol.
+  if (setId === 'pnph' && data.value?.cardId === 'pristine-talisman') {
+    return `${assetBaseUrl}/magic/set/icon/nph/common-pure.svg`;
+  }
   const profile = setProfiles.value?.[setId];
   const iconSet = (profile && AUX_SET_TYPES.includes(profile.type) && profile.parent)
     ? profile.parent
     : setId;
-  return `${assetBaseUrl}/magic/set/icon/${iconSet}/${rarity}.svg`;
+  return setIconUrl(iconSet, rarity);
+};
+
+/** Falls a set icon missing from the asset store back to the shared default symbol. */
+const fallIconBack = (event: Event) => {
+  const img = event.target as HTMLImageElement;
+  if (img.dataset.iconFallback !== undefined) return;
+  img.dataset.iconFallback = '';
+  img.src = `${assetBaseUrl}/magic/set/icon/default.svg`;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -33,7 +33,7 @@ interface Cursor { index: number }
 
 /** Updates metadata first, isolates each complete booster replacement in its own transaction, then refreshes set icons; icons-only runs refresh just the icons from the cached series list. */
 export const magicSetImportTaskDefinition = createDefinition(magicSetImportTaskType, {
-  version: '2026-10-18:v3', effectModel: 'reconcilable',
+  version: '2026-10-18:v4', effectModel: 'reconcilable',
 })
   .scope(z.object({}), { type: magicSetImportTaskType, resolve: () => ({ key: 'global', snapshot: {} }) })
   .input(z.strictObject({ iconsOnly: z.boolean().optional(), force: z.boolean().optional() })).output(output)
