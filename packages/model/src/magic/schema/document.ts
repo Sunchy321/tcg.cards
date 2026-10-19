@@ -34,31 +34,31 @@ export const nodeChangeRelationSide = z.enum(['from', 'to']);
 export const changeReviewStatus = z.enum(['pending', 'confirmed', 'rejected', 'override']);
 
 export const nodeChangeDetails = z.strictObject({
-  oldContentHash: z.string().optional(),
-  newContentHash: z.string().optional(),
-  diffPatch: z.string().optional(),
-  oldNodeId: z.string().optional(),
-  newNodeId: z.string().optional(),
-  oldPath: z.string().optional(),
-  newPath: z.string().optional(),
+  oldContentHash:  z.string().optional(),
+  newContentHash:  z.string().optional(),
+  diffPatch:       z.string().optional(),
+  oldNodeId:       z.string().optional(),
+  newNodeId:       z.string().optional(),
+  oldPath:         z.string().optional(),
+  newPath:         z.string().optional(),
   similarityScore: z.number().optional(),
-  note: z.string().optional(),
+  note:            z.string().optional(),
 });
 
 export const changeReviewOverrideRelation = z.strictObject({
-  side: nodeChangeRelationSide,
+  side:      nodeChangeRelationSide,
   nodeRefId: z.string().nullable(),
-  entityId: z.string().nullable(),
-  weight: z.number().nullable(),
+  entityId:  z.string().nullable(),
+  weight:    z.number().nullable(),
 });
 
 export const changeReviewOverridePayload = z.strictObject({
-  type: z.string().optional(),
-  entityId: z.string().nullable().optional(),
+  type:          z.string().optional(),
+  entityId:      z.string().nullable().optional(),
   fromNodeRefId: z.string().nullable().optional(),
-  toNodeRefId: z.string().nullable().optional(),
-  relations: changeReviewOverrideRelation.array().optional(),
-  note: z.string().optional(),
+  toNodeRefId:   z.string().nullable().optional(),
+  relations:     changeReviewOverrideRelation.array().optional(),
+  note:          z.string().optional(),
 });
 
 export type DefinitionStatus = z.infer<typeof definitionStatus>;

@@ -1,24 +1,34 @@
-import { randomUUID } from 'node:crypto';
-import { gunzipSync } from 'node:zlib';
-
-import { and, desc, eq, lt } from 'drizzle-orm';
-
-import { db } from '@tcg-cards/db/db';
-import {
-  DocumentNode,
-  DocumentNodeContent,
-  DocumentVersion,
-} from '@tcg-cards/db/schema/shared/magic';
-import { DocumentVersionImport } from '@tcg-cards/db/schema/local/magic/document';
+import { createHash, randomUUID } from 'node:crypto';
 
 import type { NodeChangeDetails, NodeChangeReviewStateCache, NodeChangeType } from '@tcg-cards/model/magic/schema/document';
-
 import type { ParsedDocumentNode } from './parser';
-import { generateHash, normalizeFingerprint } from './importer';
+import type { Revision } from './store';
+
+/** Fingerprint exact readable content without importing persistence code. */
+function generateHash(content: string): string {
+  return createHash('sha256').update(content, 'utf8').digest('hex');
+}
+
+/** Ignore punctuation and spacing for matching otherwise equivalent text. */
+function normalizeFingerprint(content: string): string {
+  return content.toLowerCase().replace(/[.,;:!?()[\]{}'"“”‘’]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+/** Adapt immutable revision nodes into stable identities for the matching algorithm. */
+export function matchRevisionNodes(previous: Revision | null, parsed: ParsedDocumentNode[], revisionId: string): MatchResult {
+  return matchEntities((previous?.nodes ?? []).map(node => ({
+    id: node.id, nodeId: node.anchor ?? node.nodeKey, nodeKind: node.kind,
+    path: node.path, level: node.level, parentNodeId: node.parentId,
+    sourceContentHash: node.rawText ? generateHash(node.rawText) : null,
+    sourceFingerprintHash: node.rawText ? generateHash(normalizeFingerprint(node.rawText)) : null,
+    entityId: node.nodeKey, content: node.rawText,
+  })), parsed, revisionId);
+}
 
 // --- Types ---
 
-interface OldNode {
+/** Retain prior content and its stable identity for matching. */
+export interface OldNode {
   id:                    string;
   nodeId:                string;
   nodeKind:              string;
@@ -31,6 +41,7 @@ interface OldNode {
   content:               string | null;
 }
 
+/** Precompute matching fingerprints for incoming content. */
 interface NewNode {
   id:              string;
   nodeId:          string;
@@ -43,6 +54,7 @@ interface NewNode {
   fingerprintHash: string | null;
 }
 
+/** Associate incoming nodes with stable identities. */
 export interface EntityAssignment {
   entityId:         string;
   isNew:            boolean;
@@ -50,6 +62,7 @@ export interface EntityAssignment {
   originNodeId?:    string;
 }
 
+/** Preserve every source and destination in split or merge changes. */
 export interface ChangeRelation {
   side:      'from' | 'to';
   entityId:  string | null;
@@ -59,6 +72,7 @@ export interface ChangeRelation {
   sortOrder: number;
 }
 
+/** Describe one classified structural or textual change. */
 export interface ChangeRecord {
   entityId:          string | null;
   fromNodeRefId:     string | null;
@@ -70,6 +84,7 @@ export interface ChangeRecord {
   relations?:        ChangeRelation[];
 }
 
+/** Return stable node assignments and their classified differences. */
 export interface MatchResult {
   entityAssignments: Map<string, EntityAssignment>;
   changes:           ChangeRecord[];
@@ -77,6 +92,7 @@ export interface MatchResult {
 
 // --- Similarity Functions ---
 
+/** Normalize words for overlap scoring. */
 function tokenize(text: string): string[] {
   return text
     .toLowerCase()
@@ -85,6 +101,7 @@ function tokenize(text: string): string[] {
     .filter(w => w.length > 0);
 }
 
+/** Measure shared vocabulary independently of repeated words. */
 function diceSimilarity(text1: string, text2: string): number {
   const tokens1 = tokenize(text1);
   const tokens2 = tokenize(text2);
@@ -99,6 +116,7 @@ function diceSimilarity(text1: string, text2: string): number {
   return (2 * intersection) / (set1.size + set2.size);
 }
 
+/** Collect character trigrams for local similarity. */
 function generateTrigrams(text: string): Set<string> {
   const normalized = text.toLowerCase().replace(/\s+/g, ' ').trim();
   const trigrams = new Set<string>();
@@ -108,6 +126,7 @@ function generateTrigrams(text: string): Set<string> {
   return trigrams;
 }
 
+/** Measure shared character trigrams. */
 function trigramSimilarity(text1: string, text2: string): number {
   const trigrams1 = generateTrigrams(text1);
   const trigrams2 = generateTrigrams(text2);
@@ -123,6 +142,7 @@ function trigramSimilarity(text1: string, text2: string): number {
 
 // --- Structure Helpers ---
 
+/** Extract the structural rule prefix. */
 function getChapter(nodeId: string): string {
   // Rule nodeIds: "702.1a" -> chapter "702", section "702"
   // But chapters are like "1", "2", ..., "9" (single digit)
@@ -135,10 +155,12 @@ function getChapter(nodeId: string): string {
   return nodeId.slice(0, dotIndex);
 }
 
+/** Select a structural ancestor path. */
 function getPathPrefix(path: string, depth: number): string {
   return path.split('/').slice(0, depth).join('/');
 }
 
+/** Detect nodes sharing nearby ancestry. */
 function isNearbyPath(path1: string, path2: string): boolean {
   const parts1 = path1.split('/');
   const parts2 = path2.split('/');
@@ -158,11 +180,13 @@ function isNearbyPath(path1: string, path2: string): boolean {
   return shared >= Math.ceil(minLen / 2);
 }
 
+/** Detect movement between top-level chapters. */
 function isSignificantPathChange(path1: string, path2: string): boolean {
   // Different top-level chapter
   return getPathPrefix(path1, 1) !== getPathPrefix(path2, 1);
 }
 
+/** Prefer structurally nearby matching candidates. */
 function structureBonus(oldNode: OldNode, newNode: { nodeKind: string, path: string, level: number, parentNodeId: string | null }): number {
   // Same parent node gives highest bonus
   if (oldNode.parentNodeId && oldNode.parentNodeId === newNode.parentNodeId) return 1.0;
@@ -173,6 +197,7 @@ function structureBonus(oldNode: OldNode, newNode: { nodeKind: string, path: str
   return 0.0;
 }
 
+/** Combine lexical, character, and structural similarity. */
 function scoreCandidate(oldText: string, newText: string, bonus: number): number {
   const dice = diceSimilarity(oldText, newText);
   const trigram = trigramSimilarity(oldText, newText);
@@ -181,6 +206,7 @@ function scoreCandidate(oldText: string, newText: string, bonus: number): number
 
 // --- Change Classification ---
 
+/** Classify a matched pair by content and structural movement. */
 function classifyChange(
   oldNode: OldNode,
   newNode: NewNode,
@@ -320,100 +346,9 @@ function classifyChange(
   };
 }
 
-// --- Database Queries ---
-
-export async function findPreviousVersion(documentId: string, currentVersionTag: string): Promise<string | null> {
-  const result = await db
-    .select({ id: DocumentVersion.id })
-    .from(DocumentVersion)
-    .innerJoin(DocumentVersionImport, eq(DocumentVersionImport.versionId, DocumentVersion.id))
-    .where(and(
-      eq(DocumentVersion.documentId, documentId),
-      eq(DocumentVersionImport.importStatus, 'completed'),
-      lt(DocumentVersion.versionTag, currentVersionTag),
-    ))
-    .orderBy(desc(DocumentVersion.versionTag))
-    .limit(1)
-    .then(rows => rows[0] ?? null);
-
-  return result?.id ?? null;
-}
-
-export async function loadPreviousVersionNodes(versionId: string): Promise<OldNode[]> {
-  return loadVersionNodesAsOld(versionId);
-}
-
-async function loadVersionNodesRaw(versionId: string) {
-  return db
-    .select({
-      id:                    DocumentNode.id,
-      documentId:            DocumentNode.documentId,
-      versionId:             DocumentNode.versionId,
-      nodeId:                DocumentNode.nodeId,
-      nodeKind:              DocumentNode.nodeKind,
-      path:                  DocumentNode.path,
-      level:                 DocumentNode.level,
-      parentNodeId:          DocumentNode.parentNodeId,
-      siblingOrder:          DocumentNode.siblingOrder,
-      sourceContentHash:     DocumentNode.sourceContentHash,
-      sourceFingerprintHash: DocumentNode.sourceFingerprintHash,
-      entityId:              DocumentNode.entityId,
-      contentBytes:          DocumentNodeContent.content,
-    })
-    .from(DocumentNode)
-    .leftJoin(DocumentNodeContent, and(
-      eq(DocumentNodeContent.documentNodeId, DocumentNode.id),
-      eq(DocumentNodeContent.status, 'source'),
-    ))
-    .where(eq(DocumentNode.versionId, versionId));
-}
-
-async function loadVersionNodesAsOld(
-  versionId: string,
-  entityOverrides?: Map<string, string>,
-): Promise<OldNode[]> {
-  const rows = await loadVersionNodesRaw(versionId);
-
-  return rows.map(row => ({
-    id:                    row.id,
-    nodeId:                row.nodeId,
-    nodeKind:              row.nodeKind,
-    path:                  row.path,
-    level:                 row.level,
-    parentNodeId:          row.parentNodeId,
-    sourceContentHash:     row.sourceContentHash,
-    sourceFingerprintHash: row.sourceFingerprintHash,
-    entityId:              entityOverrides?.get(row.nodeId) ?? row.entityId,
-    content:               row.contentBytes ? gunzipSync(Buffer.from(row.contentBytes)).toString('utf8') : null,
-  }));
-}
-
-export async function loadVersionNodesAsParsed(versionId: string): Promise<ParsedDocumentNode[]> {
-  const rows = await loadVersionNodesRaw(versionId);
-
-  return rows.map(row => ({
-    id:           row.id,
-    documentId:   row.documentId,
-    versionId:    row.versionId,
-    nodeId:       row.nodeId,
-    nodeKind:     row.nodeKind as ParsedDocumentNode['nodeKind'],
-    path:         row.path,
-    level:        row.level,
-    parentNodeId: row.parentNodeId,
-    siblingOrder: row.siblingOrder,
-    content:      row.contentBytes ? gunzipSync(Buffer.from(row.contentBytes)).toString('utf8') : null,
-  }));
-}
-
-export async function loadVersionNodesForRematch(
-  versionId: string,
-  entityOverrides: Map<string, string>,
-): Promise<OldNode[]> {
-  return loadVersionNodesAsOld(versionId, entityOverrides);
-}
-
 // --- Pre-compute Hashes ---
 
+/** Compute exact and normalized content hashes. */
 function prepareNewNodes(parsedNodes: ParsedDocumentNode[]): NewNode[] {
   return parsedNodes.map(node => ({
     id:              node.id,
@@ -437,6 +372,7 @@ const MERGE_CANDIDATE_THRESHOLD = 0.55;
 const MERGE_COVERAGE_THRESHOLD = 0.8;
 const MAX_SPLIT_CANDIDATES = 4;
 
+/** Match stable identities and preserve split and merge relations. */
 export function matchEntities(
   oldNodes: OldNode[],
   parsedNodes: ParsedDocumentNode[],
@@ -484,6 +420,7 @@ export function matchEntities(
     newByFingerprintHash.set(node.fingerprintHash, list);
   }
 
+  /** Assign a prior identity and record meaningful differences. */
   function recordMatch(
     oldNode: OldNode,
     newNode: NewNode,

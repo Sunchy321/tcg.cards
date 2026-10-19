@@ -1,5 +1,7 @@
+/** Distinguishes source headings, rule text, and examples. */
 export type DocumentNodeKind = 'heading' | 'implicit_heading' | 'content' | 'example';
 
+/** Describes a source node before assigning its saved revision identity. */
 export interface ParsedDocumentNode {
   id:           string;
   documentId:   string;
@@ -13,6 +15,7 @@ export interface ParsedDocumentNode {
   content:      string | null;
 }
 
+/** Captures one parsed CR source and its document structure. */
 export interface ParsedDocumentSource {
   documentId:     string;
   versionId:      string;
@@ -23,6 +26,7 @@ export interface ParsedDocumentSource {
   nodes:          ParsedDocumentNode[];
 }
 
+/** Tracks source containers and sibling order during one parse. */
 interface ParserContext {
   documentId:      string;
   versionId:       string;
@@ -38,6 +42,7 @@ const rulePattern = /^(\d+\.\d+)\.\s+(.+)$/;
 const subrulePattern = /^(\d+\.\d+[a-z])\.?\s+(.+)$/;
 const effectiveDatePattern = /^These rules are effective as of (.+)\.$/i;
 
+/** Normalizes source line endings without interpreting game symbols. */
 function normalizeText(input: string): string {
   return input
     .replace(/^\uFEFF/, '')
@@ -45,6 +50,7 @@ function normalizeText(input: string): string {
     .replace(/\r/g, '\n');
 }
 
+/** Separates source paragraphs while preserving their internal lines. */
 function splitParagraphs(input: string): string[] {
   return normalizeText(input)
     .split(/\n\s*\n+/)
@@ -52,6 +58,7 @@ function splitParagraphs(input: string): string[] {
     .filter(Boolean);
 }
 
+/** Joins wrapped source lines into one readable paragraph. */
 function normalizeParagraph(input: string): string {
   return input
     .split('\n')
@@ -61,6 +68,7 @@ function normalizeParagraph(input: string): string {
     .trim();
 }
 
+/** Builds a stable anchor for a glossary term. */
 function toTermSlug(term: string): string {
   return term
     .trim()
@@ -70,18 +78,22 @@ function toTermSlug(term: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
+/** Scopes a parsed node to the source edition. */
 function buildVersionNodeId(versionId: string, nodeId: string): string {
   return `${versionId}/${nodeId}`;
 }
 
+/** Derives the numeric chapter containing a rule section. */
 function getChapterIdFromSectionId(sectionId: string): string {
   return String(Math.floor(Number(sectionId) / 100));
 }
 
+/** Constructs the chapter and section path for source navigation. */
 function buildSectionPath(sectionId: string): string {
   return `${getChapterIdFromSectionId(sectionId)}/${sectionId}`;
 }
 
+/** Constructs hierarchical paths for rules and subrules. */
 function buildRulePath(nodeId: string): string {
   const subruleMatch = nodeId.match(/^(\d+)\.(\d+)([a-z])$/);
   if (subruleMatch) {
@@ -98,6 +110,7 @@ function buildRulePath(nodeId: string): string {
   return nodeId;
 }
 
+/** Resolves a rule or subrule parent from its official number. */
 function getRuleParentId(nodeId: string): string | null {
   const subruleMatch = nodeId.match(/^(\d+\.\d+)[a-z]$/);
   if (subruleMatch) {
@@ -112,6 +125,7 @@ function getRuleParentId(nodeId: string): string | null {
   return null;
 }
 
+/** Determines indentation from the official rule number. */
 function getRuleLevel(nodeId: string): number {
   if (/^\d+\.\d+[a-z]$/.test(nodeId)) {
     return 3;
@@ -124,6 +138,7 @@ function getRuleLevel(nodeId: string): number {
   return 0;
 }
 
+/** Allocates source order within one parent container. */
 function nextSiblingOrder(context: ParserContext, parentNodeId: string | null): number {
   const key = parentNodeId ?? '__root__';
   const next = (context.siblingMap.get(key) ?? 0) + 1;
@@ -131,6 +146,7 @@ function nextSiblingOrder(context: ParserContext, parentNodeId: string | null): 
   return next;
 }
 
+/** Creates a source node or enriches an existing structural container. */
 function createNode(
   context: ParserContext,
   input: {
@@ -168,6 +184,7 @@ function createNode(
   return next;
 }
 
+/** Creates a chapter or section container before its body. */
 function ensureContainer(
   context: ParserContext,
   nodeId: string,
@@ -191,6 +208,7 @@ function ensureContainer(
   });
 }
 
+/** Attaches the source heading text to its container. */
 function ensureContainerTitle(
   context: ParserContext,
   nodeId: string,
@@ -211,6 +229,7 @@ function ensureContainerTitle(
   });
 }
 
+/** Appends body paragraphs within a source container. */
 function appendContentNode(
   context: ParserContext,
   parentNodeId: string,
@@ -244,6 +263,7 @@ function appendContentNode(
   });
 }
 
+/** Creates a numbered example under its rule or container. */
 function createExampleNode(
   context: ParserContext,
   parentNodeId: string,
@@ -254,6 +274,7 @@ function createExampleNode(
   return appendContentNode(context, parentNodeId, `example.${count}`, 'example', text);
 }
 
+/** Recognizes short glossary and rule headings from source text. */
 function isImplicitHeadingText(paragraph: string): boolean {
   if (!paragraph || paragraph.startsWith('Example:')) {
     return false;
@@ -266,6 +287,7 @@ function isImplicitHeadingText(paragraph: string): boolean {
   return paragraph.length <= 120;
 }
 
+/** Collects a glossary term and its explanation in one node. */
 function createGlossaryTermNode(
   context: ParserContext,
   term: string,
@@ -288,6 +310,7 @@ function createGlossaryTermNode(
   });
 }
 
+/** Parses official CR text into ordered source nodes and edition metadata. */
 export function parseMagicCrDocument(input: {
   documentId?: string;
   versionTag:  string;
@@ -313,6 +336,7 @@ export function parseMagicCrDocument(input: {
   let glossaryTerm: string | null = null;
   let glossaryParts: string[] = [];
 
+  /** Appends continuation text to the active body node. */
   const appendBodyText = (text: string): void => {
     if (
       currentLeafNodeId
@@ -329,6 +353,7 @@ export function parseMagicCrDocument(input: {
     }
   };
 
+  /** Preserves source example boundaries within a paragraph. */
   const appendBodyLines = (lines: string[]): void => {
     for (const line of lines) {
       if (line.startsWith('Example:')) {

@@ -1,7 +1,7 @@
 import { ORPCError, os } from '@orpc/server';
 
 import z from 'zod';
-import { and, desc, eq, gte, lte, or, sql } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 
 import { locale } from '#model/magic/schema/basic';
 import { toolResultOf, evidenceBundle } from '#model/magic/schema/agent';
@@ -14,7 +14,8 @@ import { db } from '#db/db';
 import { Card, CardView } from '#schema/shared/magic/card';
 import { Ruling } from '#schema/shared/magic/ruling';
 import { CardRelation } from '#schema/shared/magic/card-relation';
-import { Rule, RuleItem } from '#schema/shared/magic/rule';
+import { createDocumentStore } from '@tcg-cards/console-api/lib/magic/documents/database';
+import { readCrRelease } from '@tcg-cards/console-api/lib/magic/documents/cr-reader';
 
 import { search } from '~~/server/search';
 
@@ -187,6 +188,17 @@ const getRulings = os
   })
   .callable();
 
+/** Reads published CR nodes for agent tools without consulting local imports. */
+async function readRulePage(date: string | undefined, language: string) {
+  try {
+    const store = createDocumentStore(db, 'remote');
+    return (await readCrRelease(store, date, language)).page;
+  } catch (error) {
+    if (error instanceof Error && /not found|missing/.test(error.message)) throw new ORPCError('NOT_FOUND');
+    throw error;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // get_rule_sections — retrieve rule items by serial/keyword
 // ---------------------------------------------------------------------------
@@ -207,50 +219,16 @@ const getRuleSections = os
   .handler(async ({ input }) => {
     const { lang, from, to } = input;
 
-    // Use the latest rule if no date is given
-    let date = input.date;
-
-    if (date == null) {
-      const latest = await db.select({ date: Rule.date })
-        .from(Rule)
-        .orderBy(desc(Rule.date))
-        .limit(1)
-        .then(rows => rows[0]);
-
-      if (latest == null) {
-        throw new ORPCError('NOT_FOUND');
-      }
-
-      date = latest.date;
-    }
-
-    const rule = await db.select()
-      .from(Rule)
-      .where(and(
-        eq(Rule.date, date),
-        or(eq(Rule.lang, 'en'), eq(Rule.lang, lang)),
-      ))
-      .then(rows => rows[0]);
-
-    if (rule == null) {
-      throw new ORPCError('NOT_FOUND');
-    }
-
-    const items = await db.select({
-      itemId:   RuleItem.itemId,
-      index:    RuleItem.index,
-      depth:    RuleItem.depth,
-      serial:   RuleItem.serial,
-      text:     RuleItem.text,
-      richText: RuleItem.richText,
-    }).from(RuleItem)
-      .where(and(
-        eq(RuleItem.date, rule.date),
-        eq(RuleItem.lang, rule.lang),
-        gte(RuleItem.index, from),
-        lte(RuleItem.index, to),
-      ))
-      .orderBy(RuleItem.index);
+    const page = await readRulePage(input.date, lang);
+    const date = page.version.effectiveDate;
+    const items = page.sections.map((node, index) => ({
+      itemId:   node.entityId,
+      index,
+      depth:    node.level,
+      serial:   node.serial,
+      text:     node.text ?? '',
+      richText: node.text ?? '',
+    })).filter(item => item.index >= from && item.index <= to);
 
     const evidence: EvidenceItem[] = items.map(item => ({
       sourceType: 'document_node' as const,
@@ -292,37 +270,20 @@ const getRuleBySerial = os
   .handler(async ({ input }) => {
     const { ruleNumber, lang } = input;
 
-    const latestRule = await db.select()
-      .from(Rule)
-      .where(eq(Rule.lang, lang))
-      .orderBy(desc(Rule.date))
-      .limit(1)
-      .then(rows => rows[0]);
-
-    if (latestRule == null) {
-      throw new ORPCError('NOT_FOUND');
-    }
-
-    const items = await db.select({
-      itemId: RuleItem.itemId,
-      serial: RuleItem.serial,
-      text:   RuleItem.text,
-    }).from(RuleItem)
-      .where(and(
-        eq(RuleItem.date, latestRule.date),
-        eq(RuleItem.lang, lang),
-        sql`${RuleItem.serial} LIKE ${ruleNumber + '%'}`,
-      ))
-      .orderBy(RuleItem.index)
-      .limit(30);
+    const page = await readRulePage(undefined, lang);
+    const date = page.version.effectiveDate;
+    const items = page.sections
+      .filter(node => node.serial?.startsWith(ruleNumber))
+      .slice(0, 30)
+      .map(node => ({ itemId: node.entityId, serial: node.serial, text: node.text ?? '' }));
 
     const evidence: EvidenceItem[] = items.map(item => ({
       sourceType: 'document_node' as const,
       sourceKey:  item.itemId,
-      versionKey: latestRule.date,
+      versionKey: date,
       locale:     lang,
       snippet:    `${item.serial ?? ''} ${item.text}`.trim().slice(0, 200),
-      citation:   `rule:${latestRule.date}:${item.itemId}`,
+      citation:   `rule:${date}:${item.itemId}`,
       score:      1,
     }));
 

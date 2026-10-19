@@ -1,23 +1,20 @@
-import { os as create } from '@orpc/server';
+import { os as create, ORPCError } from '@orpc/server';
 import { z } from 'zod';
 
-import {
-  deleteDocumentVersion,
-  importDocumentVersion,
-  rematchDocument,
-} from '../../lib/magic/document/importer';
-
+/** Provides raw source archive storage. */
 interface RuleR2DataBucket {
   get(key: string): Promise<{ text(): Promise<string> } | null>;
   head(key: string): Promise<unknown>;
   put(key: string, value: string | ArrayBuffer | Uint8Array, options?: unknown): Promise<unknown>;
 }
 
+/** Provides downloadable original-file storage. */
 interface RuleR2AssetBucket {
   head(key: string): Promise<unknown>;
   put(key: string, value: string | ArrayBuffer | Uint8Array, options?: unknown): Promise<unknown>;
 }
 
+/** Supplies remote archive bindings for file operations. */
 interface RuleEnv {
   R2_DATA:  RuleR2DataBucket;
   R2_ASSET: RuleR2AssetBucket;
@@ -25,12 +22,14 @@ interface RuleEnv {
 
 const os = create.$context<{ env: RuleEnv }>();
 
+/** Identifies official source downloads by format. */
 interface RuleLinks {
   docx?: string;
   pdf?:  string;
   txt?:  string;
 }
 
+/** Extracts supported official source-file download links. */
 function extractLinks(html: string): RuleLinks {
   const links: RuleLinks = {};
   const hrefRegex = /href="([^"]+\.(docx|pdf|txt))"/gi;
@@ -49,6 +48,7 @@ function extractLinks(html: string): RuleLinks {
   return links;
 }
 
+/** Finds an official edition date in a source-file name. */
 function extractVersionDateFromFilename(url: string): string | null {
   try {
     const pathname = new URL(url).pathname;
@@ -60,20 +60,9 @@ function extractVersionDateFromFilename(url: string): string | null {
   }
 }
 
+/** Normalizes source archive text without changing literal game symbols. */
 function normalizeRuleText(content: string): string {
-  return content
-    .replace(/^\uFEFF/, '')
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
-    .trimEnd() + '\n';
-}
-
-function toDocumentVersionId(versionId: string): string {
-  if (versionId.includes(':')) {
-    return versionId;
-  }
-
-  return `magic-cr:${versionId}`;
+  return content.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').trimEnd() + '\n';
 }
 
 /** Normalizes a compact YYYYMMDD date to the archive's dashed form; dashed input passes through. */
@@ -94,7 +83,7 @@ export const deleteVersion = os
   }))
   .output(z.void())
   .handler(async ({ input }) => {
-    await deleteDocumentVersion(toDocumentVersionId(input.id));
+    throw new ORPCError('BAD_REQUEST', { message: '请在桌面管理端删除规则版本。' });
   });
 
 export const syncLatest = os
@@ -247,45 +236,8 @@ export const loadFromData = os
       merged:   z.number(),
     }),
   }))
-  .handler(async ({ input, context }) => {
-    const env = context.env;
-    const versionId = toDashedVersionDate(input.versionId);
-
-    const r2Key = `magic/rule/${versionId}.txt`;
-    console.log(`[LoadFromData] Checking R2 for ${r2Key}`);
-
-    const object = await env.R2_DATA.get(r2Key);
-    if (!object) {
-      throw new Error(`File not found in R2: ${r2Key}`);
-    }
-
-    const txtContent = await object.text();
-    console.log(`[LoadFromData] File size: ${txtContent.length} bytes`);
-
-    const result = await importDocumentVersion({
-      documentId: 'magic-cr',
-      content:    txtContent,
-      versionTag: versionId,
-    });
-
-    console.log(`[LoadFromData] Import completed: ${result.totalNodes} nodes`);
-
-    return {
-      success:          true,
-      sourceId:         versionId,
-      totalNodes:       result.totalNodes,
-      newEntities:      0,
-      existingEntities: 0,
-      changes:          {
-        added:    0,
-        removed:  0,
-        modified: 0,
-        renamed:  0,
-        moved:    0,
-        split:    0,
-        merged:   0,
-      },
-    };
+  .handler(async () => {
+    throw new ORPCError('BAD_REQUEST', { message: '请在桌面管理端导入规则。' });
   });
 
 export const uploadToR2 = os
@@ -456,5 +408,6 @@ export const rematch = os
   }))
   .output(z.void())
   .handler(async ({ input }) => {
-    await rematchDocument(input.documentId);
+    // Comparisons now derive from immutable releases on every request; there is no stored match graph to rebuild.
+    return;
   });

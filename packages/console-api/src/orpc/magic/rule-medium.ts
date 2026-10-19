@@ -11,14 +11,11 @@ import {
   getChangeDetail,
   submitReview,
   batchReview,
-} from '../../lib/magic/document/reviewer';
-import {
   getNodeHistory,
   compareVersions as compareVersionsLib,
-} from '../../lib/magic/document/history';
-import { getLocalizedContent } from '../../lib/magic/document/content';
-
-const os = create;
+  getNodeContents,
+} from '../../lib/magic/documents/reviewer';
+const os = create.$context<{ user: { id: string } | null }>();
 
 export const changes = os
   .route({
@@ -45,7 +42,7 @@ export const change = os
     tags:        ['Magic', 'Rule'],
   })
   .input(z.object({
-    changeId: z.string().uuid(),
+    changeId: z.string().min(1),
   }))
   .handler(async ({ input }) => {
     return getChangeDetail(input.changeId);
@@ -58,13 +55,13 @@ export const review = os
     tags:        ['Magic', 'Rule'],
   })
   .input(z.object({
-    changeId:        z.string().uuid(),
+    changeId:        z.string().min(1),
     status:          z.enum(['confirmed', 'rejected', 'override']),
     reason:          z.string().optional(),
     overridePayload: changeReviewOverridePayload.optional(),
   }))
-  .handler(async ({ input }) => {
-    return submitReview(input);
+  .handler(async ({ input, context }) => {
+    return submitReview({ ...input, reviewerId: context.user?.id });
   });
 
 export const reviewBatch = os
@@ -74,12 +71,12 @@ export const reviewBatch = os
     tags:        ['Magic', 'Rule'],
   })
   .input(z.object({
-    changeIds: z.string().uuid().array().min(1).max(100),
+    changeIds: z.string().min(1).array().min(1).max(100),
     status:    z.enum(['confirmed', 'rejected']),
     reason:    z.string().optional(),
   }))
-  .handler(async ({ input }) => {
-    return batchReview(input);
+  .handler(async ({ input, context }) => {
+    return batchReview({ ...input, reviewerId: context.user?.id });
   });
 
 export const nodeHistory = os
@@ -92,8 +89,8 @@ export const nodeHistory = os
     documentId: z.string(),
     entityId:   z.string(),
   }))
-  .handler(async ({ input }) => {
-    return getNodeHistory(input);
+  .handler(async ({ input, context }) => {
+    return getNodeHistory(input, context.user?.id);
   });
 
 export const compareVersions = os
@@ -122,15 +119,5 @@ export const nodeContent = os
   }))
   .output(z.record(z.string(), z.string().nullable()))
   .handler(async ({ input }) => {
-    const contentMap = await getLocalizedContent({
-      nodeIds:      input.nodeIds,
-      locale:       'en',
-      sourceLocale: 'en',
-    });
-
-    const result: Record<string, string | null> = {};
-    for (const nodeId of input.nodeIds) {
-      result[nodeId] = contentMap.get(nodeId)?.content ?? null;
-    }
-    return result;
+    return getNodeContents(input.nodeIds);
   });

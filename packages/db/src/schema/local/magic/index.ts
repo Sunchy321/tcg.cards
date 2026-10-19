@@ -9,10 +9,12 @@ export * from './print-commits';
 export * from './slug-annotation';
 export * from './ambit-override';
 export * from './localization-authority';
-export * from './document';
 export * from './field-sync';
 export * from './sync';
 export * from './config';
 export * from './review';
 export * from './publish';
 export * from './set-display';
+
+export * from './documents';
+export * from './document-imports';

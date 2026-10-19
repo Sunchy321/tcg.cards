@@ -2,6 +2,7 @@
   <div class="min-h-screen bg-neutral-50 dark:bg-neutral-950">
     <div class="mx-auto flex max-w-400 gap-0 px-3 py-4 sm:px-4">
       <aside
+        v-if="page.document.settings?.outline ?? true"
         class="hidden w-72 shrink-0 border-r border-neutral-200 bg-white/85 pr-4 backdrop-blur dark:border-white/10 dark:bg-white/5 lg:block"
       >
         <div class="sticky top-16 space-y-4 pb-6 pt-2">
@@ -15,7 +16,7 @@
                 @update:model-value="value => setVersion(value as string)"
               />
 
-              <NuxtLink :to="diffLink" class="block">
+              <NuxtLink v-if="page.document.settings?.compare ?? true" :to="diffLink" class="block">
                 <UButton icon="lucide:file-diff" variant="outline" size="sm" block>
                   {{ $t('magic.document.compare_versions') }}
                 </UButton>
@@ -86,7 +87,7 @@
                 class="w-full"
                 @update:model-value="value => setVersion(value as string)"
               />
-              <NuxtLink :to="diffLink" class="block">
+              <NuxtLink v-if="page.document.settings?.compare ?? true" :to="diffLink" class="block">
                 <UButton icon="lucide:file-diff" variant="outline" size="sm" block>
                   {{ $t('magic.document.compare_versions') }}
                 </UButton>
@@ -159,7 +160,7 @@
                     :class="headingClass(section)"
                   >
                     <span v-if="section.serial" class="article-serial">{{ section.serial }}</span>
-                    <span>{{ section.text }}</span>
+                    <DocumentText :text="section.text" :markers="section.markers" :slug="page.document.slug" :version-tag="page.version.versionTag" />
                   </component>
 
                   <div
@@ -182,7 +183,7 @@
                       >
                         {{ section.serial }}
                       </span>
-                      {{ paragraph }}
+                      <DocumentText :text="paragraph" :markers="paragraphMarkers(section, index)" :slug="page.document.slug" :version-tag="page.version.versionTag" />
                     </p>
                   </div>
                 </section>
@@ -469,6 +470,21 @@ const sectionParagraphs = (section: DocumentReaderSection): string[] => {
   ];
 };
 
+/** Keeps annotation offsets aligned when the existing reader splits paragraphs. */
+const paragraphMarkers = (section: DocumentReaderSection, index: number) => {
+  const paragraphs = sectionParagraphs(section);
+  const text = section.text ?? '';
+  let start = 0;
+  for (let i = 0; i <= index; i++) {
+    const position = text.indexOf(paragraphs[i] ?? '', start);
+    if (position < 0) return [];
+    start = position + (i < index ? (paragraphs[i]?.length ?? 0) : 0);
+  }
+  const end = start + (paragraphs[index]?.length ?? 0);
+  return (section.markers ?? []).filter(marker => marker.start < end && marker.end > start)
+    .map(marker => ({ ...marker, start: Math.max(marker.start, start) - start, end: Math.min(marker.end, end) - start }));
+};
+
 const isHeadingLike = (section: DocumentReaderSection): boolean =>
   section.kind === 'heading' || section.nodeId.endsWith('.title');
 
@@ -606,7 +622,7 @@ const copyAnchor = async (nodeId: string) => {
 };
 
 watch([() => summary.value.version.id, currentChapterNodeId], ([versionId, chapterNodeId], [prevVersionId, prevChapterNodeId]) => {
-  if (!versionId || !chapterNodeId) {
+  if (!versionId) {
     return;
   }
 

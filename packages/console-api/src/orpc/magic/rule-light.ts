@@ -1,48 +1,29 @@
 import { os as create } from '@orpc/server';
 import { z } from 'zod';
-import { eq } from 'drizzle-orm';
+import { createHash } from 'node:crypto';
 
 import { db } from '@tcg-cards/db/db';
-import {
-  DocumentNode,
-  DocumentVersion,
-} from '@tcg-cards/db/schema/shared/magic';
-import { DocumentVersionImport } from '@tcg-cards/db/schema/local/magic/document';
-
 import { locale } from '@tcg-cards/model/magic/schema/basic';
+import { createDocumentStore } from '../../lib/magic/documents/database';
+import { listCrReleases, readCrRelease } from '../../lib/magic/documents/cr-reader';
 
-import { listDocumentVersions } from '../../lib/magic/document/importer';
-import { getDocumentConfig } from '../../lib/magic/document/config';
-import { getLocalizedContent } from '../../lib/magic/document/content';
-
+/** Lists imported source objects from the data bucket. */
 interface RuleR2DataBucket {
   list(input: { prefix: string }): Promise<{ objects?: Array<{ key: string }> }>;
 }
 
+/** Lists downloadable source files from the asset bucket. */
 interface RuleR2AssetBucket {
   list(input: { prefix: string }): Promise<{ objects?: Array<{ key: string }> }>;
 }
 
+/** Supplies archive buckets without local database dependencies. */
 interface RuleEnv {
   R2_DATA:  RuleR2DataBucket;
   R2_ASSET: RuleR2AssetBucket;
 }
 
 const os = create.$context<{ env: RuleEnv }>();
-
-function toDocumentVersionId(versionId: string): string {
-  if (versionId.includes(':')) {
-    return versionId;
-  }
-
-  return `magic-cr:${versionId}`;
-}
-
-function toVersionTag(versionId: string): string {
-  return versionId.includes(':')
-    ? versionId.split(':').at(-1) ?? versionId
-    : versionId;
-}
 
 /** R2 file presence for one rule version: data-bucket txt key plus archive file groups. */
 interface RuleBucketFiles {
@@ -133,14 +114,16 @@ export const list = os
   .handler(async ({ context }) => {
     const env = context.env;
 
-    const dbVersions = (await listDocumentVersions('magic-cr')).map(version => ({
-      id:              version.versionTag,
-      effectiveDate:   version.effectiveDate,
-      publishedAt:     version.publishedAt,
-      totalRules:      version.totalNodes,
-      lifecycleStatus: version.lifecycleStatus,
-      importedAt:      version.importedAt,
-    }));
+    const store = createDocumentStore(db, 'remote');
+    const releases = await listCrReleases(store);
+    const dbVersions = await Promise.all(releases.map(async (release, index) => ({
+      id:              toDashedVersionDate(release.versionTag),
+      effectiveDate:   release.effectiveDate,
+      publishedAt:     release.publishedAt.toISOString().slice(0, 10),
+      totalRules:      (await store.revision(release.sourceRevisionId))?.nodes.length ?? null,
+      lifecycleStatus: index === 0 ? 'active' : 'superseded',
+      importedAt:      null,
+    })));
 
     const bucketFiles = await scanRuleBucketFiles(env);
 
@@ -244,37 +227,18 @@ export const get = os
     importedAt:    z.date().nullable(),
   }))
   .handler(async ({ input }) => {
-    const result = await db
-      .select({
-        id:            DocumentVersion.id,
-        effectiveDate: DocumentVersion.effectiveDate,
-        publishedAt:   DocumentVersion.publishedAt,
-        txtUrl:        DocumentVersion.txtUrl,
-        pdfUrl:        DocumentVersion.pdfUrl,
-        docxUrl:       DocumentVersion.docxUrl,
-        totalNodes:    DocumentVersion.totalNodes,
-        status:        DocumentVersion.lifecycleStatus,
-        importedAt:    DocumentVersionImport.importedAt,
-      })
-      .from(DocumentVersion)
-      .leftJoin(DocumentVersionImport, eq(DocumentVersionImport.versionId, DocumentVersion.id))
-      .where(eq(DocumentVersion.id, toDocumentVersionId(input.id)))
-      .limit(1);
-
-    if (!result[0]) {
-      throw new Error('Rule version not found');
-    }
-
+    const { release, page } = await readCrRelease(createDocumentStore(db, 'remote'), input.id);
+    const fileUrl = (formats: string[]) => release.files.find(file => file.language === 'en' && formats.includes(file.format))?.sourceUrl ?? null;
     return {
-      id:            toVersionTag(result[0].id),
-      effectiveDate: result[0].effectiveDate,
-      publishedAt:   result[0].publishedAt,
-      txtUrl:        result[0].txtUrl,
-      pdfUrl:        result[0].pdfUrl,
-      docxUrl:       result[0].docxUrl,
-      totalRules:    result[0].totalNodes,
-      status:        result[0].status,
-      importedAt:    result[0].importedAt ?? null,
+      id:            toDashedVersionDate(release.versionTag),
+      effectiveDate: release.effectiveDate,
+      publishedAt:   release.publishedAt.toISOString().slice(0, 10),
+      txtUrl:        fileUrl(['txt']),
+      pdfUrl:        fileUrl(['pdf']),
+      docxUrl:       fileUrl(['doc', 'docx']),
+      totalRules:    page.sections.length,
+      status:        page.version.isLatest ? 'active' : 'superseded',
+      importedAt:    null,
     };
   });
 
@@ -303,65 +267,27 @@ export const getNodes = os
     isStale:      z.boolean(),
   })))
   .handler(async ({ input }) => {
-    const versionId = toDocumentVersionId(input.sourceId);
-    const documentId = versionId.split(':')[0]!;
-    const config = getDocumentConfig(documentId);
-    const sourceLocale = config?.sourceLocale ?? 'en';
-    const requestedLocale = input.locale ?? sourceLocale;
-
-    const nodes = await db
-      .select({
-        id:                 DocumentNode.id,
-        nodeId:             DocumentNode.nodeId,
-        path:               DocumentNode.path,
-        level:              DocumentNode.level,
-        parentId:           DocumentNode.parentNodeId,
-        siblingOrder:       DocumentNode.siblingOrder,
-        sourceContentHash:  DocumentNode.sourceContentHash,
-        entityId:           DocumentNode.entityId,
-        sourceContentRefId: DocumentNode.sourceContentRefId,
-      })
-      .from(DocumentNode)
-      .where(eq(DocumentNode.versionId, versionId))
-      .orderBy(DocumentNode.path);
-
-    const nodeIds = nodes.map(node => node.id);
-    const contentResults = await getLocalizedContent({
-      nodeIds,
-      locale: requestedLocale,
-      sourceLocale,
+    const store = createDocumentStore(db, 'remote');
+    const { release, page } = await readCrRelease(store, input.sourceId, input.locale);
+    const revision = await store.revision(release.sourceRevisionId);
+    const nodes = new Map(revision?.nodes.map(node => [node.anchor ?? node.nodeKey, node]) ?? []);
+    const titles = new Map(page.sections.filter(section => section.nodeId.endsWith('.title'))
+      .map(section => [section.parentNodeId, section.text]));
+    return page.sections.filter(section => !section.nodeId.endsWith('.title')).map(section => {
+      const node = nodes.get(section.nodeId);
+      return {
+        id:           node?.id ?? section.nodeId,
+        sourceId:     input.sourceId,
+        ruleId:       section.nodeId,
+        path:         section.path,
+        level:        section.level,
+        parentId:     node?.parentId ?? null,
+        siblingOrder: section.siblingOrder,
+        title:        titles.get(section.nodeId) ?? null,
+        contentHash:  createHash('sha256').update(node?.rawText ?? '').digest('hex'),
+        entityId:     section.entityId,
+        content:      section.text,
+        isStale:      false,
+      };
     });
-
-    const titleMap = new Map<string, string>();
-
-    for (const node of nodes) {
-      if (!node.nodeId.endsWith('.title') || !node.parentId) {
-        continue;
-      }
-
-      const result = contentResults.get(node.id);
-      if (result) {
-        titleMap.set(node.parentId, result.content);
-      }
-    }
-
-    return nodes
-      .filter(node => !node.nodeId.endsWith('.title'))
-      .map(node => {
-        const result = contentResults.get(node.id);
-        return {
-          id:           node.id,
-          sourceId:     input.sourceId,
-          ruleId:       node.nodeId,
-          path:         node.path,
-          level:        node.level,
-          parentId:     node.parentId,
-          siblingOrder: node.siblingOrder,
-          title:        titleMap.get(node.id) ?? null,
-          contentHash:  node.sourceContentHash ?? '',
-          entityId:     node.entityId,
-          content:      result?.content ?? null,
-          isStale:      result?.isStale ?? false,
-        };
-      });
   });
