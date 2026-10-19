@@ -222,6 +222,14 @@ Data-maintenance records belong in `{game}_data`, including manually maintained 
 
 Magic series metadata and booster composition are built locally and published as static domain data. Each booster product occupies one row identified by series and booster code, with its complete pack and sheet composition stored as typed JSONB. Imports replace all booster products of a series atomically; publishing and read interfaces use that same complete structure. Shared series display choices are maintenance data in `magic_data`; imports preserve that authority and materialize the chosen values into the exportable series rows. Only those derived display values are published, alongside series names and complete booster composition. Remote sites do not read the local choice table, and the domain schema has no dependency on it.
 
+## Static and User Content Serving
+
+Within each game, static documents and decks are built in local `{game}` tables and explicitly published into remote `{game}_app` serving tables that also contain user-created content. Local contains no user data, user foreign keys, or user-operation records. Import configuration, execution state, and build metadata remain local `{game}_data`; public reads do not depend on those records. Common rendering does not introduce cross-game content storage.
+
+The remote table namespace does not transfer ownership of static-origin rows to remote workflows. Explicit origin and stable publication identity delimit the publisher's write set; user-origin content and user operations remain remote-owned. The content contracts are shared, but physical local and remote schemas need not be identical. No second remote static content table is required. This serving pattern is specific to these content workflows, not a change to unrelated domain-table publication.
+
+Documents distinguish saved revisions from public releases. Translations reference exact source revision nodes and follow the source release sequence. Node text is authoritative for full-text search; typed markers carry formatting and references, and game symbols remain literal text. The accepted target model and its implementation boundaries are recorded in [ADR-0018](adr/0018-documents-unify-remote-content-with-node-based-translations.md).
+
 ## Documentation Rule
 
 Architecture documents under `docs/` describe stable boundaries and authority rules.

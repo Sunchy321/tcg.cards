@@ -311,6 +311,20 @@ A `#`-prefixed sentinel cardId (e.g. `#conspiracy`) on a magic card_change item.
 ### apply (应用)
 The magic derivation that rebuilds everything derivable from the announcement stream: seed each format's set rotation from set release data, replay every announcement chronologically with format-keyword expansion, and write the resulting sets, banlist, and every item's projection back. Full replay with no intermediate fact tables; rerunning it from scratch is always the recovery path. It is the only producer of item projections for magic.
 
+## Documents (文章与文档)
+
+### document revision (文章修订)
+An immutable saved content state produced by an explicit save or import/generation. A revision can remain unpublished; its presence does not make it a public release.
+
+### document release (正式版本)
+An intentional published edition of a document, identifying its source content and associated language content. It is distinct from the intermediate revisions used to prepare or correct that content.
+
+### document translation (文档翻译)
+A document's target-language rendition whose text corresponds to specific source nodes. Its saved revisions can change while its public version identity follows the source release.
+
+### document node (文档节点)
+A separately addressable unit of document structure or text used for translation correspondence, section references, and content comparison. A displayed rule number can change without changing the node's identity.
+
 ## Yu-Gi-Oh! (游戏王)
 
 ### card name variant (卡名变体)
