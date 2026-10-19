@@ -6,7 +6,7 @@ import type { TaskRunSnapshot } from './store';
 export function createIdleTaskPageSnapshot(): TaskPageSnapshot {
   return {
     pageTask: { kind: 'idle' },
-    stages: [],
+    stages:   [],
   };
 }
 
@@ -59,44 +59,46 @@ function buildPageTask(snapshot: TaskRunSnapshot): TaskPageSnapshot['pageTask'] 
   );
 
   return {
-    kind: 'attached',
-    taskRunId: run.id,
-    runRevision: run.runRevision,
-    taskType: run.taskType,
-    taskScopeType: run.scope.type,
-    taskScopeKey: run.scope.key,
+    kind:              'attached',
+    taskRunId:         run.id,
+    runRevision:       run.runRevision,
+    taskType:          run.taskType,
+    taskScopeType:     run.scope.type,
+    taskScopeKey:      run.scope.key,
     taskScopeSnapshot: run.scope.snapshot,
-    status: run.status,
-    supportsResume: run.supportsResume,
-    currentStageKey: run.currentStageKey,
+    status:            run.status,
+    // Only expose the publication mode, not arbitrary stored task parameters.
+    ...(typeof run.params.dryRun === 'boolean' ? { dryRun: run.params.dryRun } : {}),
+    supportsResume:    run.supportsResume,
+    currentStageKey:   run.currentStageKey,
     currentStageIndex: run.currentStageIndex,
     currentResumeMode: run.currentResumeMode,
-    pausedResumeMode: run.pausedResumeMode,
-    progressMode: currentStage?.progressMode ?? null,
-    startedAt: run.startedAt,
-    finishedAt: run.finishedAt,
-    errorCode: run.errorCode,
-    errorMessage: run.errorMessage,
-    terminalReason: run.terminalReason,
-    canPause: canPauseStatus(snapshot),
-    canResume: canResumeStatus(run.status),
-    canCancel: canCancelStatus(run.status),
+    pausedResumeMode:  run.pausedResumeMode,
+    progressMode:      currentStage?.progressMode ?? null,
+    startedAt:         run.startedAt,
+    finishedAt:        run.finishedAt,
+    errorCode:         run.errorCode,
+    errorMessage:      run.errorMessage,
+    terminalReason:    run.terminalReason,
+    canPause:          canPauseStatus(snapshot),
+    canResume:         canResumeStatus(run.status),
+    canCancel:         canCancelStatus(run.status),
   };
 }
 
 /** Converts one framework stage state to the model TaskStage type. */
 function toTaskStageModel(stage: TaskRunSnapshot['stages'][number]): TaskStage {
   const model: TaskStage = {
-    stageKey: stage.stageKey,
-    stageIndex: stage.stageIndex,
-    label: stage.label,
-    status: stage.status,
+    stageKey:     stage.stageKey,
+    stageIndex:   stage.stageIndex,
+    label:        stage.label,
+    status:       stage.status,
     progressMode: stage.progressMode,
-    resumeMode: stage.resumeMode,
-    total: stage.total,
-    done: stage.done,
-    startedAt: stage.startedAt,
-    finishedAt: stage.finishedAt,
+    resumeMode:   stage.resumeMode,
+    total:        stage.total,
+    done:         stage.done,
+    startedAt:    stage.startedAt,
+    finishedAt:   stage.finishedAt,
   };
   if (stage.segments) {
     model.segments = stage.segments;
@@ -108,7 +110,7 @@ function toTaskStageModel(stage: TaskRunSnapshot['stages'][number]): TaskStage {
 export function buildTaskPageSnapshot(snapshot: TaskRunSnapshot): TaskPageSnapshot {
   return {
     pageTask: buildPageTask(snapshot),
-    stages: snapshot.stages.map(toTaskStageModel),
-    result: toSnapshotResult(snapshot.run.result),
+    stages:   snapshot.stages.map(toTaskStageModel),
+    result:   toSnapshotResult(snapshot.run.result),
   };
 }

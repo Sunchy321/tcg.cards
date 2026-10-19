@@ -46,8 +46,9 @@ function render() {
     if (link?.type === 'link' && /^(https?:|mailto:)/i.test(link.href)) children = h('a', { href: link.href, rel: 'noopener noreferrer' }, children);
     if (link?.type === 'chapter') {
       const label = children;
+      const document = link.documentId ?? props.slug;
       children = h(NuxtLink, { to: {
-        path:  `/document/${link.documentId ?? props.slug}`,
+        path:  `/document/${document === 'magic-cr' ? 'cr' : document}`,
         query: { version: link.releaseId ?? props.versionTag, node: link.anchor },
         hash:  `#${encodeURIComponent(link.anchor)}`,
       } }, () => label);

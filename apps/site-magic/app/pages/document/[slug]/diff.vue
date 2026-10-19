@@ -166,6 +166,8 @@ import type {
 definePageMeta({
   layout: 'main',
   game:   'magic',
+  // Match the reader's single public CR address.
+  validate: route => !('slug' in route.params && route.params.slug === 'magic-cr'),
 });
 
 const { $orpc } = useNuxtApp();

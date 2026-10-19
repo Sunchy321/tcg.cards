@@ -101,6 +101,7 @@ export const taskPageTaskAttached = z.strictObject({
   taskScopeKey:      z.string().trim().min(1),
   taskScopeSnapshot: jsonRecord.optional(),
   status:            taskRunStatus,
+  dryRun:            z.boolean().optional(),
   supportsResume:    z.boolean(),
   currentStageKey:   z.string().nullable(),
   currentStageIndex: z.int().nonnegative().nullable(),

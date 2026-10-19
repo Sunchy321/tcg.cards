@@ -11,6 +11,28 @@ export interface PublicationCounts {
   releases: number;
 }
 
+/** Publishes the local static collection atomically while preserving remote user content. */
+export async function publishStaticDocuments(source: DocumentStore, target: DocumentStore, options: { dryRun?: boolean } = {}): Promise<PublicationCounts> {
+  return source.transaction('static-documents', async local => {
+    const documents = (await local.documents()).filter(document => document.origin === 'static')
+      .sort((left, right) => left.id.localeCompare(right.id));
+    if (documents.length === 0) throw new Error('No static documents available to publish');
+    // A conflict in a later article must roll back articles written earlier in this batch.
+    return target.transaction('static-documents', async remote => {
+      const counts: PublicationCounts = { documents: 0, translations: 0, revisions: 0, nodes: 0, releases: 0 };
+      for (const document of documents) {
+        const result = await publishDocument(local, remote, document.id, options);
+        counts.documents += result.documents;
+        counts.translations += result.translations;
+        counts.revisions += result.revisions;
+        counts.nodes += result.nodes;
+        counts.releases += result.releases;
+      }
+      return counts;
+    });
+  });
+}
+
 /** Publish one static article without importing build state or touching user content. */
 export async function publishDocument(source: DocumentStore, target: DocumentStore, documentId: string, options: { dryRun?: boolean } = {}): Promise<PublicationCounts> {
   return source.transaction(documentId, async local => {

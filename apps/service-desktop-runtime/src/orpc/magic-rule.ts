@@ -1,8 +1,6 @@
 import { z } from 'zod';
 import { ORPCError } from '@orpc/server';
-import { createDb } from '@tcg-cards/db';
-import { publishDocument } from '@tcg-cards/console-api/lib/magic/documents/publish';
-import { requireMagicPublishTargetByIdentity } from '../lib/magic/magic-publish-target';
+import { publishDocuments } from '../lib/magic/document-publish';
 import { eq } from 'drizzle-orm';
 import { sourceFile, textMarker, translationMethod, reviewStatus } from '@tcg-cards/model/magic/schema/document-content';
 
@@ -105,16 +103,14 @@ const releases = os.input(z.object({ slug: z.string().default('magic-cr'), versi
   .handler(({ input }) => localRules().read(input));
 
 /** Publishes one static document into the configured remote serving target. */
-const publish = os.input(z.object({ documentId: z.string().default('magic-cr'), publishTarget: z.string(), environment: z.string(), dryRun: z.boolean().default(false) }))
-  .handler(async ({ input }) => {
-    const target = requireMagicPublishTargetByIdentity(input.publishTarget, input.environment);
-    const remote = createDb(target.connectionString);
-    try {
-      return await publishDocument(createDocumentStore(getLocalDb(), 'local'), createDocumentStore(remote, 'remote'), input.documentId, { dryRun: input.dryRun });
-    } finally {
-      await remote.$client.end({ timeout: 1 });
-    }
-  });
+const publish = os.input(z.object({
+  documentId:        z.string().default('magic-cr'),
+  publishTarget:     z.string(),
+  environment:       z.string(),
+  targetFingerprint: z.string().optional(),
+  dryRun:            z.boolean().default(false),
+}))
+  .handler(({ input }) => publishDocuments(input, input.documentId));
 
 /** Retires the local edition so the next publication withdraws it without losing content. */
 const deleteVersion = os.input(z.object({ releaseId: z.string() }))

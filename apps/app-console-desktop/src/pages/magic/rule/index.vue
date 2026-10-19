@@ -12,6 +12,7 @@
           </p>
         </div>
         <div class="ml-auto flex gap-2">
+          <UButton to="/magic/publish?type=document" label="发布文档" icon="i-lucide-upload" color="neutral" variant="soft" />
           <UButton
             label="刷新"
             icon="i-lucide-refresh-cw"

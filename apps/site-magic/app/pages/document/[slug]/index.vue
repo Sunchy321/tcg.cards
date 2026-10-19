@@ -160,7 +160,7 @@
                     :class="headingClass(section)"
                   >
                     <span v-if="section.serial" class="article-serial">{{ section.serial }}</span>
-                    <DocumentText :text="section.text" :markers="section.markers" :slug="page.document.slug" :version-tag="page.version.versionTag" />
+                    <DocumentText :text="section.text" :markers="section.markers" :slug="slugBase" :version-tag="page.version.versionTag" />
                   </component>
 
                   <div
@@ -183,7 +183,7 @@
                       >
                         {{ section.serial }}
                       </span>
-                      <DocumentText :text="paragraph" :markers="paragraphMarkers(section, index)" :slug="page.document.slug" :version-tag="page.version.versionTag" />
+                      <DocumentText :text="paragraph" :markers="paragraphMarkers(section, index)" :slug="slugBase" :version-tag="page.version.versionTag" />
                     </p>
                   </div>
                 </section>
@@ -209,6 +209,8 @@ import { locale as localeSchema } from '#model/magic/schema/basic';
 definePageMeta({
   layout: 'main',
   game:   'magic',
+  // The stored CR identity is not an alternative public address.
+  validate: route => !('slug' in route.params && route.params.slug === 'magic-cr'),
 });
 
 type TreeItem = {

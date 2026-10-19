@@ -53,6 +53,11 @@ describe('snapshot', () => {
   });
 
   describe('buildTaskPageSnapshot', () => {
+    test('reports the saved publication mode so retries cannot display a different preview setting', () => {
+      const result = buildTaskPageSnapshot(snapshot({ status: 'pending', params: { dryRun: false } }));
+      expect(result.pageTask).toMatchObject({ kind: 'attached', dryRun: false });
+    });
+
     test('terminal statuses produce attached page task with final state', () => {
       const terminalStatuses: TaskRunRecord['status'][] = [
         'completed', 'failed', 'canceled', 'abandoned',

@@ -97,6 +97,7 @@ const emit = defineEmits<{
   'failed':        [taskRunId: string, errorCode: string | null, errorMessage: string | null];
   'create-error':  [opKey: string, message: string];
   'status-change': [status: TaskRunStatus];
+  'snapshot':      [snapshot: TaskPageSnapshot];
 }>();
 
 const { register } = useTaskRegistry();
@@ -159,6 +160,7 @@ function startWatching(taskRunId: string) {
       onEvent(event: TaskPageEvent) {
         pageTask.value = event.pageTask;
         stages.value = event.stages;
+        emit('snapshot', event);
 
         if (event.pageTask.kind === 'attached') {
           selectTaskType(event.pageTask.taskType);
@@ -194,6 +196,7 @@ async function execute(op: TaskOperation) {
     if (snapshot.pageTask.kind === 'attached') {
       pageTask.value = snapshot.pageTask;
       stages.value = snapshot.stages;
+      emit('snapshot', snapshot);
       register(snapshot);
       startWatching(snapshot.pageTask.taskRunId);
     }
@@ -211,6 +214,7 @@ function attach(snapshot: TaskPageSnapshot) {
   selectTaskType(snapshot.pageTask.taskType);
   pageTask.value = snapshot.pageTask;
   stages.value = snapshot.stages;
+  emit('snapshot', snapshot);
   register(snapshot);
   startWatching(snapshot.pageTask.taskRunId);
   activeOpKey.value = null;
@@ -271,6 +275,7 @@ async function handleRetry() {
     if (result.pageTask.kind === 'attached') {
       pageTask.value = result.pageTask;
       stages.value = result.stages;
+      emit('snapshot', result);
       register(result);
       startWatching(result.pageTask.taskRunId);
     }

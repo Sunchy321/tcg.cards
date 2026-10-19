@@ -41,6 +41,7 @@ import { checkImageQuality, imageQualityReport } from '../lib/magic/image-import
 import { magicPublishTaskDefinition } from '../lib/magic/task/publish';
 import { announcementPublishTaskDefinition } from '../lib/magic/task/announcement-publish';
 import { referencePublishTaskDefinition } from '../lib/magic/task/reference-publish';
+import { documentPublishTaskDefinition } from '../lib/magic/task/document-publish/definition';
 
 const magicDataFile = z.strictObject({
   name: z.string(),
@@ -462,6 +463,26 @@ const announcementPublishTask = os
     });
   });
 
+/** Creates a static collection publication without replacing an active publication task. */
+const documentPublishTask = os
+  .input(z.strictObject({
+    publishTarget:     z.string().trim().min(1),
+    environment:       z.string().trim().min(1),
+    targetFingerprint: z.string().trim().min(1),
+    dryRun:            z.boolean().default(false),
+  }))
+  .output(taskPageSnapshot)
+  .handler(({ input }) => {
+    const { dryRun, ...scope } = input;
+    const resolved = documentPublishTaskDefinition.resolveScope(scope);
+    return createAndRunTask(documentPublishTaskDefinition.taskType, {
+      taskType:          documentPublishTaskDefinition.taskType,
+      definitionVersion: documentPublishTaskDefinition.definitionVersion,
+      scope:             { type: documentPublishTaskDefinition.scopeType, key: resolved.key, snapshot: resolved.snapshot as Record<string, unknown> },
+      params:            { dryRun },
+    }, { abandonStale: false });
+  });
+
 const referencePublishTask = os
   .input(z.strictObject({
     publishTarget: z.string().trim().min(1),
@@ -668,7 +689,7 @@ export const magicRouter = {
   ambit:        magicAmbitRouter,
   commits:      magicCommitsRouter,
   announcement: magicAnnouncementRouter,
-  publish:      { publishTask, announcementPublishTask, referencePublishTask },
+  publish:      { publishTask, announcementPublishTask, referencePublishTask, documentPublishTask },
   slug:         { listConflicts: listSlugConflicts, resolveConflict: resolveSlugConflict, member: slugMember },
   review:       { list: reviewList },
 };

@@ -2,7 +2,7 @@
   <UCard v-if="result">
     <template #header>
       <div class="flex items-center gap-2">
-        <span class="font-medium">导入报告</span>
+        <span class="font-medium">{{ title ?? '导入报告' }}</span>
         <UBadge label="Success" color="success" variant="soft" />
       </div>
     </template>
@@ -29,6 +29,7 @@
 </template>
 
 <script setup lang="ts">
+/** Describes the four counts returned by import operations. */
 interface ImportCountsLike {
   inserted:  number;
   updated:   number;
@@ -36,12 +37,14 @@ interface ImportCountsLike {
   deleted:   number;
 }
 
+/** Displays one labeled operation result. */
 interface ReportGroup {
-  label:  string;
+  label:   string;
   counts?: ImportCountsLike;
   value?:  string | number;
 }
 
+/** Detects grouped import counts while leaving publication totals unchanged. */
 function isImportCounts(value: unknown): boolean {
   if (!value || typeof value !== 'object') return false;
   const obj = value as Record<string, unknown>;
@@ -52,7 +55,8 @@ function isImportCounts(value: unknown): boolean {
 }
 
 const props = defineProps<{
-  result: Record<string, unknown> | null;
+  title?:  string;
+  result:  Record<string, unknown> | null;
   /** Optional result-key → display-label mapping; unmapped keys keep the raw key. */
   labels?: Record<string, string>;
 }>();

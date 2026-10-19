@@ -26,7 +26,7 @@ async function getReaderPage(input: z.infer<typeof readerInput>, actorId?: strin
 const reader = os.input(readerInput).output(documentReaderPage)
   .handler(({ input, context }) => getReaderPage(input, context.user?.id));
 const summary = os.input(readerInput).output(documentReaderSummary).handler(async ({ input, context }) => {
-  const { _sections, ...page } = await getReaderPage(input, context.user?.id);
+  const { sections: _sections, ...page } = await getReaderPage(input, context.user?.id);
   return page;
 });
 const chapter = os.input(readerInput.extend({ chapterNodeId: z.string() })).output(documentReaderChapter)

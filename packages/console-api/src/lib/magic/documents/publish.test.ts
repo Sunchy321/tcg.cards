@@ -2,7 +2,8 @@ import { expect, test } from 'bun:test';
 
 import { createDocumentService } from './service';
 import { memoryStore } from './testing';
-import { publishDocument } from './publish';
+import { publishDocument, publishStaticDocuments } from './publish';
+import type { DocumentStore } from './store';
 
 const cr = `Magic: The Gathering Comprehensive Rules
 
@@ -22,6 +23,77 @@ Credits
 
 100.1. Pay {W} to continue.
 `;
+
+/** Adds an ordinary static article independently of the CR importer. */
+async function addGuide(store: DocumentStore) {
+  const at = new Date('2026-10-01T00:00:00Z');
+  await store.putDocument({
+    id: 'a-guide', slug: 'a-guide', title: 'A guide', sourceLanguage: 'en', origin: 'static', staticKey: 'a-guide', visibility: 'public',
+    settings: { outline: false, compare: false, historyPublic: false, copyable: false }, createdAt: at, updatedAt: at, deletedAt: null,
+  });
+  await store.putRevision({
+    id: 'guide:revision', documentId: 'a-guide', title: 'A guide', language: 'en', translationId: null, sourceRevisionId: null, createdAt: at, deletedAt: null,
+    nodes: [{
+      id: 'guide:node', revisionId: 'guide:revision', nodeKey: 'one', kind: 'content', anchor: 'one', path: '0001', level: 1,
+      parentId: null, siblingOrder: 0, rawText: 'An ordinary static article.', markers: [], sourceNodeId: null, sourceRevisionId: null,
+      translationMethod: null, reviewStatus: null,
+    }],
+  });
+  await store.putRelease({
+    id: 'guide:release', documentId: 'a-guide', versionTag: '1', sourceRevisionId: 'guide:revision', publishedAt: at, effectiveDate: null, files: [], deletedAt: null,
+  });
+}
+
+test('publishes all static articles and keeps user articles readable across retries', async () => {
+  const source = memoryStore();
+  const target = memoryStore();
+  await createDocumentService(source, { track: 'local' }).importCr({ content: cr });
+  await addGuide(source);
+  const owner = createDocumentService(target, { track: 'remote', actorId: 'alice' });
+  const article = await owner.create({ slug: 'my-private-article', title: 'My private article', language: 'en' });
+  const revision = await owner.save({ documentId: article.id, title: article.title, nodes: [{ nodeKey: 'one', rawText: 'My own content.' }] });
+  await owner.publish({ documentId: article.id, revisionId: revision.id, versionTag: '1' });
+
+  const first = await publishStaticDocuments(source, target);
+  expect(first.documents).toBe(2);
+  expect(first.releases).toBe(2);
+  expect(await publishStaticDocuments(source, target)).toEqual(first);
+  const reader = createDocumentService(target, { track: 'remote' });
+  expect((await reader.read({ slug: 'a-guide' })).sections[0]?.text).toBe('An ordinary static article.');
+  expect((await reader.read({ slug: 'magic-cr' })).sections.some(node => node.text === 'Pay {W} to continue.')).toBe(true);
+  expect((await owner.read({ slug: article.slug })).sections[0]?.text).toBe('My own content.');
+});
+
+test('previews the complete static collection without making any article readable remotely', async () => {
+  const source = memoryStore();
+  const target = memoryStore();
+  await createDocumentService(source, { track: 'local' }).importCr({ content: cr });
+  await addGuide(source);
+  expect((await publishStaticDocuments(source, target, { dryRun: true })).documents).toBe(2);
+  const reader = createDocumentService(target, { track: 'remote' });
+  await expect(reader.read({ slug: 'a-guide' })).rejects.toThrow('not found');
+  await expect(reader.read({ slug: 'magic-cr' })).rejects.toThrow('not found');
+});
+
+test('rolls back the entire collection when a later article collides with a user article', async () => {
+  const source = memoryStore();
+  const target = memoryStore();
+  await createDocumentService(source, { track: 'local' }).importCr({ content: cr });
+  await addGuide(source);
+  const owner = createDocumentService(target, { track: 'remote', actorId: 'alice' });
+  const article = await owner.create({ slug: 'magic-cr', title: 'My article', language: 'en' });
+  const revision = await owner.save({ documentId: article.id, title: article.title, nodes: [{ nodeKey: 'one', rawText: 'User-owned content.' }] });
+  await owner.publish({ documentId: article.id, revisionId: revision.id, versionTag: '1' });
+  await expect(publishStaticDocuments(source, target)).rejects.toThrow('collides');
+  await expect(owner.read({ slug: 'a-guide' })).rejects.toThrow('not found');
+  expect((await owner.read({ slug: 'magic-cr' })).sections[0]?.text).toBe('User-owned content.');
+});
+
+test('rejects an empty static collection with no writes', async () => {
+  const target = memoryStore();
+  await expect(publishStaticDocuments(memoryStore(), target)).rejects.toThrow('No static documents');
+  expect(await target.documents()).toEqual([]);
+});
 
 test('publishes static content and retries without recreating immutable revisions', async () => {
   const source = memoryStore();
