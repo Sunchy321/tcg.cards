@@ -46,6 +46,8 @@ export function memoryStore(): DocumentStore {
     putDocument: async row => { state.documents.set(row.id, structuredClone(row)); },
     revisions: async id => structuredClone([...state.revisions.values()].filter(row => row.documentId === id).map(({ nodes, ...row }) => row)),
     revision: async id => structuredClone(state.revisions.get(id)),
+    /** Counts persisted nodes for edition list queries. */
+    revisionNodeCounts: async ids => new Map(ids.map(id => [id, state.revisions.get(id)?.nodes.length ?? 0])),
     putRevision: async row => {
       if (state.revisions.has(row.id)) throw new Error('Revision already exists');
       state.revisions.set(row.id, structuredClone(row));

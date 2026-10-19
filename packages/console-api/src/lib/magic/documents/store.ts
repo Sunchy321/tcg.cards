@@ -109,6 +109,8 @@ export interface DocumentStore {
   putDocument(document: Document): Promise<void>;
   revisions(documentId: string): Promise<Omit<Revision, 'nodes'>[]>;
   revision(id: string): Promise<Revision | undefined>;
+  /** Counts saved nodes in the requested revisions without reading their content. */
+  revisionNodeCounts(revisionIds: string[]): Promise<Map<string, number>>;
   putRevision(revision: Revision): Promise<void>;
   hideRevision(id: string, at: Date): Promise<void>;
   translations(documentId: string): Promise<Translation[]>;

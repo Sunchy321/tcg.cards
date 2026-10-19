@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, ilike, isNull, notExists, or, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt, ilike, inArray, isNull, notExists, or, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import type { createDb } from '@tcg-cards/db/db';
@@ -140,6 +140,15 @@ function createStore(database: Database | Transaction, track: Track, transaction
         .where(eq(DocumentRevisionNode.revisionId, id))
         .orderBy(asc(DocumentRevisionNode.path), asc(DocumentRevisionNode.siblingOrder), asc(DocumentRevisionNode.id));
       return { ...row, nodes };
+    },
+    /** Counts saved nodes without loading historical article text. */
+    async revisionNodeCounts(revisionIds) {
+      if (revisionIds.length === 0) return new Map();
+      // Edition lists need counts, not every historical rulebook's full text.
+      const rows = await database.select({ revisionId: DocumentRevisionNode.revisionId, total: count() })
+        .from(DocumentRevisionNode).where(inArray(DocumentRevisionNode.revisionId, revisionIds))
+        .groupBy(DocumentRevisionNode.revisionId);
+      return new Map(rows.map(row => [row.revisionId, row.total]));
     },
     async putRevision(revision) {
       const { nodes, ...row } = revision;

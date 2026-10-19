@@ -65,7 +65,7 @@ export async function downloadLatestRules(): Promise<RuleDownloadResult> {
     .map(async target => {
       const content = await fetchRuleFile(target.url!);
       if (content == null) {
-        // Only the txt is required; the doc/pdf mirrors are best-effort, matching remote sync behavior.
+        // TXT is required for import; unavailable optional formats can be downloaded on a later retry.
         if (target.required) {
           throw new Error('Failed to download the TXT file');
         }
@@ -73,7 +73,8 @@ export async function downloadLatestRules(): Promise<RuleDownloadResult> {
       }
 
       mkdirSync(dirname(target.path), { recursive: true });
-      writeFileSync(target.path, target.path.endsWith('.txt') ? normalizeRuleText(content) : Buffer.from(content));
+      // Preserve the original download. Article import owns text normalization.
+      writeFileSync(target.path, Buffer.from(content));
       return target.path;
     }))).filter(name => name != null);
 
@@ -107,13 +108,4 @@ function presentArchiveFiles(ruleDir: string, version: string): string[] {
 /** Converts a compact YYYYMMDD date from Wizards filenames to the archive's dashed form. */
 export function toDashedDate(compact: string): string {
   return `${compact.slice(0, 4)}-${compact.slice(4, 6)}-${compact.slice(6, 8)}`;
-}
-
-/** Normalizes rule text line endings to match the copy stored in the remote data bucket. */
-function normalizeRuleText(content: ArrayBuffer): string {
-  return new TextDecoder().decode(content)
-    .replace(/^\uFEFF/, '')
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
-    .trimEnd() + '\n';
 }

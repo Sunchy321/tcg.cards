@@ -8,7 +8,7 @@
             <h1 class="text-xl font-semibold">规则</h1>
           </div>
           <p class="mt-1 text-sm text-muted">
-            从威世智官网获取最新版本的万智牌完整规则文件,同时保存到本地与云端。
+            从威世智官网下载完整规则文件，并导入本地规则文章。
           </p>
         </div>
         <div class="ml-auto flex gap-2">
@@ -18,18 +18,23 @@
             color="neutral"
             variant="soft"
             :loading="loadingVersions"
+            :disabled="downloading || importingVersion != null"
             @click="refreshVersions"
           />
           <UButton
             label="下载最新规则"
             icon="i-lucide-download"
             :loading="downloading"
+            :disabled="importingVersion != null"
             @click="downloadLatest"
           />
         </div>
       </div>
       <p v-if="listWarning" class="mt-2 text-sm text-warning">
         {{ listWarning }}
+      </p>
+      <p v-if="importError" role="alert" class="mt-2 text-sm text-error">
+        {{ importError }}
       </p>
     </div>
 
@@ -45,6 +50,12 @@
             </th>
             <th class="px-4 py-3 font-medium">
               云端
+            </th>
+            <th class="px-4 py-3 font-medium">
+              本地文章
+            </th>
+            <th class="px-4 py-3 font-medium">
+              操作
             </th>
           </tr>
         </thead>
@@ -83,6 +94,22 @@
               </div>
               <span v-else class="text-muted">未同步</span>
             </td>
+            <td class="px-4 py-3">
+              <UBadge v-if="row.imported" label="已导入" color="success" variant="soft" size="xs" />
+              <span v-else class="text-muted">{{ localListFailed ? '状态未知' : '未导入' }}</span>
+              <span v-if="row.totalNodes != null" class="ml-2 text-xs text-muted">{{ row.totalNodes }} 个条目</span>
+            </td>
+            <td class="px-4 py-3">
+              <UButton
+                :label="row.imported ? '再次导入' : '导入'"
+                icon="i-lucide-file-input"
+                size="xs"
+                variant="soft"
+                :loading="importingVersion === row.date"
+                :disabled="!row.local.txt || downloading || (importingVersion != null && importingVersion !== row.date)"
+                @click="importVersion(row.date)"
+              />
+            </td>
           </tr>
         </tbody>
       </table>
@@ -107,32 +134,40 @@ definePageMeta({
 
 const remote = useApiClient() as RouterClient<DesktopRouter>;
 
+/** Tracks which original file formats are available for one edition. */
 interface FileFlags {
   txt: boolean;
   doc: boolean;
   pdf: boolean;
 }
 
+/** Combines source-file availability with persistent local article state. */
 interface VersionRow {
-  date:  string;
-  local: FileFlags;
-  cloud: FileFlags;
+  date:       string;
+  local:      FileFlags;
+  cloud:      FileFlags;
+  imported:   boolean;
+  totalNodes: number | null;
 }
 
 const fileFormats = ['txt', 'doc', 'pdf'] as const;
 
+/** Starts a format group with no downloaded files. */
 function emptyFlags(): FileFlags {
   return { txt: false, doc: false, pdf: false };
 }
 
+/** Lists formats available in one file group. */
 function presentFormats(flags: FileFlags) {
   return fileFormats.filter(format => flags[format]);
 }
 
+/** Detects whether a version has any original files. */
 function hasFiles(flags: FileFlags) {
   return presentFormats(flags).length > 0;
 }
 
+/** Formats compact official edition dates for display. */
 function formatDate(value: string) {
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return value;
@@ -143,10 +178,12 @@ function formatDate(value: string) {
     : value;
 }
 
+/** Extracts a readable operation failure. */
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** Merges downloaded source files and local article state by edition date. */
 function mergeVersions(
   local: Awaited<ReturnType<typeof orpc.magic.rule.listLocal>>,
   cloud: Awaited<ReturnType<typeof remote.magic.rule.listFiles>>,
@@ -155,19 +192,25 @@ function mergeVersions(
 
   for (const version of cloud) {
     rows.set(version.id, {
-      date:  version.id,
-      local: emptyFlags(),
-      cloud: { ...version.files },
+      date:       version.id,
+      local:      emptyFlags(),
+      cloud:      { ...version.files },
+      imported:   false,
+      totalNodes: null,
     });
   }
 
   for (const version of local) {
     const row = rows.get(version.date) ?? {
-      date:  version.date,
-      local: emptyFlags(),
-      cloud: emptyFlags(),
+      date:       version.date,
+      local:      emptyFlags(),
+      cloud:      emptyFlags(),
+      imported:   false,
+      totalNodes: null,
     };
     row.local = { ...version.files };
+    row.imported = version.imported;
+    row.totalNodes = version.totalNodes;
     rows.set(version.date, row);
   }
 
@@ -177,7 +220,11 @@ function mergeVersions(
 const rows = ref<VersionRow[]>([]);
 const loadingVersions = ref(false);
 const listWarning = ref<string | null>(null);
+const localListFailed = ref(false);
+const importingVersion = ref<string | null>(null);
+const importError = ref<string | null>(null);
 
+/** Reloads source availability and saved local article status. */
 async function refreshVersions() {
   loadingVersions.value = true;
   try {
@@ -190,6 +237,7 @@ async function refreshVersions() {
       ...(local.status === 'rejected' ? [`本地版本读取失败:${errorMessage(local.reason)}`] : []),
       ...(cloud.status === 'rejected' ? [`云端版本获取失败:${errorMessage(cloud.reason)}`] : []),
     ];
+    localListFailed.value = local.status === 'rejected';
     listWarning.value = warnings.length > 0 ? warnings.join(' ') : null;
 
     rows.value = mergeVersions(
@@ -207,41 +255,42 @@ onMounted(() => {
 
 const downloading = ref(false);
 
+/** Downloads official originals locally without independently fetching a remote copy. */
 async function downloadLatest() {
   downloading.value = true;
   try {
-    const [cloud, local] = await Promise.allSettled([
-      remote.magic.rule.syncLatest(),
-      orpc.magic.rule.downloadLatest(),
-    ]);
-
-    const toast = useToast();
-    const failures = [
-      ...(cloud.status === 'rejected' ? [`云端下载失败:${errorMessage(cloud.reason)}`] : []),
-      ...(local.status === 'rejected' ? [`本地下载失败:${errorMessage(local.reason)}`] : []),
-    ];
-
-    if (failures.length === 2) {
-      toast.add({ title: '下载失败', description: failures.join(' '), color: 'error' });
-    } else if (failures.length === 1) {
-      toast.add({ title: '部分失败', description: failures.join(' '), color: 'warning' });
-    } else if (cloud.status === 'fulfilled' && local.status === 'fulfilled') {
-      if (cloud.value.sourceId !== local.value.version) {
-        toast.add({
-          title:       '两端版本不一致',
-          description: `云端为 ${formatDate(cloud.value.sourceId)},本地为 ${formatDate(local.value.version)},可重试下载。`,
-          color:       'warning',
-        });
-      } else if (!cloud.value.downloaded && !local.value.downloaded) {
-        toast.add({ title: '已是最新', description: `最新版本 ${formatDate(local.value.version)} 已保存在本地与云端。`, color: 'info' });
-      } else {
-        toast.add({ title: '已下载最新规则', description: `版本 ${formatDate(local.value.version)} 已保存在本地与云端。`, color: 'success' });
-      }
-    }
-
+    const result = await orpc.magic.rule.downloadLatest();
+    useToast().add({
+      title:       result.downloaded ? '已下载最新规则' : '已是最新',
+      description: `版本 ${formatDate(result.version)} 已保存在本地。`,
+      color:       result.downloaded ? 'success' : 'info',
+    });
     await refreshVersions();
+  } catch (error) {
+    useToast().add({ title: '下载失败', description: errorMessage(error), color: 'error' });
   } finally {
     downloading.value = false;
+  }
+}
+
+/** Imports a downloaded edition and refreshes its saved status, including after failures. */
+async function importVersion(version: string) {
+  if (importingVersion.value != null) return;
+  importingVersion.value = version;
+  importError.value = null;
+  try {
+    const result = await orpc.magic.rule.importVersion({ version });
+    useToast().add({
+      title:       '导入完成',
+      description: `${formatDate(version)}，共 ${result.totalNodes} 个规则条目。`,
+      color:       'success',
+    });
+  } catch (error) {
+    importError.value = `${formatDate(version)} 导入失败：${errorMessage(error)}`;
+    useToast().add({ title: '导入失败', description: importError.value, color: 'error' });
+  } finally {
+    await refreshVersions();
+    importingVersion.value = null;
   }
 }
 </script>

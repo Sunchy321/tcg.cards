@@ -1,10 +1,8 @@
 import { z } from 'zod';
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { ORPCError } from '@orpc/server';
 import { createDb } from '@tcg-cards/db';
 import { publishDocument } from '@tcg-cards/console-api/lib/magic/documents/publish';
 import { requireMagicPublishTargetByIdentity } from '../lib/magic/magic-publish-target';
-import { createHash, randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { sourceFile, textMarker, translationMethod, reviewStatus } from '@tcg-cards/model/magic/schema/document-content';
 
@@ -15,24 +13,71 @@ import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
 
 import { resolvePath } from '../lib/game-paths';
 import { downloadLatestRules } from '../lib/magic/rule/download';
-import { listLocalRuleVersions } from '../lib/magic/rule/list';
+import { createRuleOperations } from '../lib/magic/rule/operations';
 import { os } from './index';
 
 const localRuleVersion = z.strictObject({
-  date:  z.string(),
-  files: z.strictObject({
+  date:       z.string(),
+  imported:   z.boolean(),
+  releaseId:  z.string().nullable(),
+  totalNodes: z.number().int().nonnegative().nullable(),
+  files:      z.strictObject({
     txt: z.boolean(),
     doc: z.boolean(),
     pdf: z.boolean(),
   }),
 });
 
+/** Binds rule operations to the current local database and source directory. */
+function localRules() {
+  const database = getLocalDb();
+  return createRuleOperations({
+    root:  resolvePath('magic.image.rule'),
+    store: createDocumentStore(database, 'local'),
+    /** Saves attempt progress without changing the imported article's lifecycle. */
+    async recordImport(attempt) {
+      if (attempt.status === 'processing') {
+        await database.insert(DocumentImportRun).values({
+          id:            attempt.id, documentId:    'magic-cr', sourceHash:    attempt.sourceHash,
+          parserVersion: 'magic-cr-txt-v1', status:        attempt.status,
+        });
+      } else {
+        await database.update(DocumentImportRun).set({
+          status:      attempt.status, revisionId:  attempt.revisionId,
+          error:       attempt.error, completedAt: attempt.completedAt,
+        }).where(eq(DocumentImportRun.id, attempt.id));
+      }
+    },
+  });
+}
+
+/** Returns actionable local-rule failures without exposing source paths or database internals. */
+function ruleError(error: unknown, fallback: string) {
+  const messages: Record<string, string> = {
+    'Rule directory is not configured':                       '请先配置规则文件目录。',
+    'Local desktop database URL is not configured':           '请先配置本地数据库。',
+    'Parsed document has no rule nodes':                      '未能从 TXT 文件识别规则正文，请检查文件内容。',
+    'CR version does not match its effective date':           '文件中的生效日期与所选版本不一致。',
+    'Official release already exists with different content': '此版本已导入，当前文件内容与已导入内容不同。',
+  };
+  const missingFile = error instanceof Error && 'code' in error && error.code === 'ENOENT';
+  const message = missingFile
+    ? '未找到该版本的 TXT 文件，请先下载规则。'
+    : error instanceof Error ? messages[error.message] : undefined;
+  return new ORPCError(message ? 'BAD_REQUEST' : 'INTERNAL_SERVER_ERROR', {
+    message: message ?? fallback, cause: error,
+  });
+}
+
 const listLocal = os
   .input(z.void())
   .output(z.array(localRuleVersion))
   .handler(async () => {
-    const ruleDir = resolvePath('magic.image.rule');
-    return ruleDir != null ? listLocalRuleVersions(ruleDir) : [];
+    try {
+      return await localRules().listLocal();
+    } catch (error) {
+      throw ruleError(error, '无法读取本地规则，请检查本地数据库连接后重试。');
+    }
   });
 
 const downloadLatest = os
@@ -46,34 +91,18 @@ const downloadLatest = os
 
 /** Imports a previously downloaded source using only the local build database. */
 const importVersion = os
-  .input(z.object({ version: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), files: sourceFile.array().optional() }))
+  .input(z.object({ version: z.iso.date(), files: sourceFile.array().optional() }))
   .handler(async ({ input }) => {
-    const root = resolvePath('magic.image.rule');
-    if (!root) throw new Error('Rule directory is not configured');
-    const content = await readFile(join(root, 'txt', `${input.version}.txt`), 'utf8');
-    const database = getLocalDb();
-    const id = randomUUID();
-    await database.insert(DocumentImportRun).values({
-      id,
-      documentId:    'magic-cr',
-      sourceHash:    createHash('sha256').update(content).digest('hex'),
-      parserVersion: 'magic-cr-txt-v1',
-      status:        'processing',
-    });
     try {
-      const documents = createDocumentService(createDocumentStore(database, 'local'), { track: 'local' });
-      const result = await documents.importCr({ content, versionTag: input.version.replaceAll('-', ''), files: input.files });
-      await database.update(DocumentImportRun).set({ status: 'completed', revisionId: result.revisionId, completedAt: new Date() }).where(eq(DocumentImportRun.id, id));
-      return result;
+      return await localRules().importVersion(input);
     } catch (error) {
-      await database.update(DocumentImportRun).set({ status: 'failed', error: error instanceof Error ? error.message : String(error), completedAt: new Date() }).where(eq(DocumentImportRun.id, id));
-      throw error;
+      throw ruleError(error, '规则导入失败，请检查本地数据库连接后重试。');
     }
   });
 
 /** Reads imported releases locally without application tables or import-state joins. */
 const releases = os.input(z.object({ slug: z.string().default('magic-cr'), versionTag: z.string().optional() }))
-  .handler(({ input }) => createDocumentService(createDocumentStore(getLocalDb(), 'local'), { track: 'local' }).read(input));
+  .handler(({ input }) => localRules().read(input));
 
 /** Publishes one static document into the configured remote serving target. */
 const publish = os.input(z.object({ documentId: z.string().default('magic-cr'), publishTarget: z.string(), environment: z.string(), dryRun: z.boolean().default(false) }))

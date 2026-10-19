@@ -115,7 +115,7 @@ describe('ensureRuleDir', () => {
 });
 
 describe('downloadLatestRules', () => {
-  test('writes the archive layout, normalizes the txt, skips rejected formats, and is idempotent', async () => {
+  test('preserves original file bytes, skips rejected formats, and is idempotent', async () => {
     const root = mkdtempSync(join(tmpdir(), 'rule-'));
     applyPathOverrides({ asset: root });
 
@@ -144,7 +144,7 @@ describe('downloadLatestRules', () => {
       });
 
       const ruleDir = join(root, 'magic', 'rule');
-      expect(readFileSync(join(ruleDir, 'txt', '2024-02-02.txt'), 'utf8')).toBe('Chapter 1.\nRule 104.1.\n');
+      expect(readFileSync(join(ruleDir, 'txt', '2024-02-02.txt'))).toEqual(Buffer.from('\uFEFFChapter 1.\r\nRule 104.1.\r\n'));
       expect(readFileSync(join(ruleDir, 'doc', '2024-02-02.docx')).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]))).toBe(true);
 
       const second = await downloadLatestRules();
