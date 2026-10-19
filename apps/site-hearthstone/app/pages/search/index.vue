@@ -1271,7 +1271,7 @@ const validateNumericInput = (event: Event) => {
 };
 
 /** Returns the public URL of the Hearthstone class icon image for a search filter. */
-const classIconUrl = (value: string) => `/icons/hearthstone/classes/${value.replaceAll('_', '-')}.png`;
+const classIconUrl = (value: string) => `/icons/hearthstone/classes/${value.replaceAll('_', '-')}.webp`;
 </script>
 
 <style lang="scss" scoped>
