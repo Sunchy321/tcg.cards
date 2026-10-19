@@ -1,4 +1,6 @@
 import { fileURLToPath } from 'url';
+import { IconUsageScanner } from '@nuxt/icon/utils';
+import { useNuxt } from 'nuxt/kit';
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -74,10 +76,31 @@ export default defineNuxtConfig({
   },
 
   icon: {
-    provider:      'server',
-    // Edge builds default to remote collections unless local bundling is explicit.
-    serverBundle:  'local',
+    provider:      'none',
+    serverBundle:  false,
     fallbackToApi: false,
+    // Hyphenated names still need collection prefixes when the server bundle is disabled.
+    collections:   ['lucide', 'mdi', 'simple-icons', 'i'],
+    clientBundle:  {
+      scan: {
+        // Action definitions and app configuration also contain icon names.
+        globInclude:       ['app/**/*.{vue,ts,js,jsx,tsx}'],
+        // The complete custom collection below also covers constructed names.
+        ignoreCollections: ['i'],
+      },
+      includeCustomCollections: true,
+    },
+  },
+
+  hooks: {
+    'modules:done'() {
+      const nuxt = useNuxt();
+      nuxt.hook('icon:clientBundleIcons', icons => {
+        // Nuxt UI resolves its built-in icon names from app configuration at runtime.
+        const scanner = new IconUsageScanner({ ignoreCollections: ['i'] });
+        scanner.extractFromCode(JSON.stringify(nuxt.options.appConfig), icons);
+      });
+    },
   },
 
   i18n: {

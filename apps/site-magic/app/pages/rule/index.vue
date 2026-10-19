@@ -57,7 +57,7 @@
         />
         <NuxtLink :to="`/rule/diff?from=${prevDate}&to=${currentDate}`">
           <UButton
-            icon="lucide:git-diff"
+            icon="lucide:file-diff"
             variant="ghost"
             size="sm"
           />

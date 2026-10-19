@@ -277,6 +277,7 @@
         "@better-auth/api-key": "^1.5.5",
         "@better-auth/drizzle-adapter": "^1.5.5",
         "@iconify-json/lucide": "^1.2.104",
+        "@iconify-json/mdi": "^1.2.3",
         "@iconify-json/simple-icons": "^1.2.72",
         "@nuxt/icon": "^2.2.1",
         "@nuxt/ui": "4.5.1",
@@ -947,6 +948,8 @@
     "@humanwhocodes/retry": ["@humanwhocodes/retry@0.4.3", "", {}, "sha512-bV0Tgo9K4hfPCek+aMAn81RppFKv2ySDQeMoSZuvTASywNTnVJCArCZE2FWqpvIatKu7VMRLWlR1EazvVhDyhQ=="],
 
     "@iconify-json/lucide": ["@iconify-json/lucide@1.2.104", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-Vh4VPA/UNFhSPzEdDnSuOPA1xO6b/kI1w4SLBEiKnsFYPWimq2tVDynMgKnwddz6iZpuZfZU4PXR6kn0hJayKw=="],
+
+    "@iconify-json/mdi": ["@iconify-json/mdi@1.2.3", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-O3cLwbDOK7NNDf2ihaQOH5F9JglnulNDFV7WprU2dSoZu3h3cWH//h74uQAB87brHmvFVxIOkuBX2sZSzYhScg=="],
 
     "@iconify-json/simple-icons": ["@iconify-json/simple-icons@1.2.72", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-wkcixntHvaCoqPqerGrNFcHQ3Yx1ux4ZkhscCDK0DEHpP62XCH+cxq1HTsRjbUiQl/M9K8bj03HF6Wgn5iE2rQ=="],
 

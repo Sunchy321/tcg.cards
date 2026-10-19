@@ -859,7 +859,7 @@ const relationIcon = (relation: string): string => ({
   hero_power:         'lucide:zap',
   heroic_hero_power:  'lucide:zap',
   plague_token:       'lucide:biohazard',
-  titan_ability:      'lucide:badge-bolt',
+  titan_ability:      'lucide:zap',
 } as Record<string, string>)[relation] ?? 'lucide:copy';
 
 // Diff
