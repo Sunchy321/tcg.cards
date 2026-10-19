@@ -74,7 +74,10 @@ export default defineNuxtConfig({
   },
 
   icon: {
-    provider: 'server',
+    provider:      'server',
+    // Edge builds default to remote collections unless local bundling is explicit.
+    serverBundle:  'local',
+    fallbackToApi: false,
   },
 
   i18n: {
