@@ -9,19 +9,12 @@
 
     <div class="sets-grid">
       <NuxtLink
-        v-for="set in hearthstoneSets"
-        :key="set"
-        :to="setLink(set)"
+        v-for="set in sets"
+        :key="set.setId"
+        :to="setLink(set.setId)"
         class="set-card"
       >
-        <span v-if="setIconUrl(set) != null" class="hs-set-icon-tile">
-          <img
-            :src="setIconUrl(set) ?? ''"
-            alt=""
-            class="hs-set-icon-image"
-            :class="setIconTone(set) === 'mono' ? 'hs-set-icon-image--mono' : 'hs-set-icon-image--color'"
-          >
-        </span>
+        <HearthstoneSetIcon :set-id="set.setId" />
         <span class="set-card-name">{{ setName(set) }}</span>
       </NuxtLink>
     </div>
@@ -29,10 +22,11 @@
 </template>
 
 <script setup lang="ts">
-import { hearthstoneSets } from '~/utils/hearthstone-sets';
-import { hearthstoneSetIconTone, hearthstoneSetIconUrl } from '~/utils/hearthstone-set-icons';
+import type { Set } from '#model/hearthstone/schema/set';
 
-const { t, te } = useI18n();
+const { t } = useI18n();
+const lang = useGameLocale();
+const { data: sets } = await useHearthstoneSets();
 const { setActions } = useActions();
 const actions = useHearthstoneActions();
 
@@ -52,17 +46,12 @@ const setLink = (set: string) => ({
   query: { q: `set:${set} order:name+` },
 });
 
-// Returns the localized set name without exposing internal set ids.
-const setName = (set: string) => {
-  const key = `hearthstone.set.${set}`;
-  return te(key) ? t(key) : '';
-};
+// Reads the series name from database localizations with an English fallback.
+const setName = (set: Set) => set.localization[lang.value]?.full
+  ?? set.localization.en?.full
+  ?? set.rawName
+  ?? '';
 
-// Returns the public icon URL for known Hearthstone sets.
-const setIconUrl = (set: string) => hearthstoneSetIconUrl(set);
-
-// Returns whether the set icon should be rendered as mono or full color.
-const setIconTone = (set: string) => hearthstoneSetIconTone(set);
 </script>
 
 <style scoped>

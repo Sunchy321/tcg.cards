@@ -101,14 +101,7 @@
           <!-- Set -->
           <div v-if="setText" class="mb-6">
             <div class="hs-set-display">
-              <span v-if="setIconUrl != null" class="hs-set-icon-tile">
-                <img
-                  :src="setIconUrl"
-                  alt=""
-                  class="hs-set-icon-image"
-                  :class="setIconTone === 'mono' ? 'hs-set-icon-image--mono' : 'hs-set-icon-image--color'"
-                >
-              </span>
+              <HearthstoneSetIcon v-if="data.set" :set-id="data.set" />
               <span class="hs-set-name">{{ setText }}</span>
             </div>
           </div>
@@ -374,7 +367,6 @@ import { isCardImageVariantAllowed, type CardImageVariantRow, type ImageVariantM
 
 import { CodeDiff } from 'v-code-diff';
 import { getHearthstoneLabel } from '~/utils/hearthstone-labels';
-import { hearthstoneSetIconTone, hearthstoneSetIconUrl } from '~/utils/hearthstone-set-icons';
 
 const { $orpc } = useNuxtApp();
 const route = useRoute('card-id');
@@ -647,71 +639,15 @@ const legalityEntries = computed(() =>
 
 // Set
 
+const { data: sets } = await useHearthstoneSets();
+
 const setText = computed(() => {
-  const set = data.value?.set;
-  if (!set) return null;
-
-  const setLocale = lang.value === 'zhs' || lang.value === 'zht' ? lang.value : 'en';
-  const key = `hearthstone.set.${set}`;
-  return nativeSetNames[setLocale][set] ?? (te(key) ? t(key) : set);
+  const set = sets.value.find(set => set.setId === data.value?.set);
+  return set?.localization[lang.value]?.full
+    ?? set?.localization.en?.full
+    ?? set?.rawName
+    ?? null;
 });
-
-/** Resolves the current set artwork from the local Hearthstone asset map. */
-const setIconUrl = computed(() => {
-  const set = data.value?.set;
-  return set == null ? null : hearthstoneSetIconUrl(set);
-});
-
-/** Selects the rendering treatment required by the current set artwork. */
-const setIconTone = computed(() => {
-  const set = data.value?.set;
-  return set == null ? 'mono' : hearthstoneSetIconTone(set);
-});
-
-const nativeSetNames: Record<'en' | 'zhs' | 'zht', Record<string, string>> = {
-  en: {
-    CORE:     'Core',
-    SET_1691: 'Murder at Castle Nathria',
-    SET_1809: 'Festival of Legends',
-    SET_1858: 'TITANS',
-    SET_1892: 'Showdown in the Badlands',
-    SET_1897: 'Whizbang\'s Workshop',
-    SET_1905: 'Perils in Paradise',
-    SET_1935: 'The Great Dark Beyond',
-    SET_1946: 'Into the Emerald Dream',
-    SET_1952: 'The Lost City of Un\'Goro',
-    SET_1957: 'Across the Timeways',
-    SET_1980: 'CATACLYSM',
-  },
-  zhs: {
-    CORE:     '核心',
-    SET_1691: '纳斯利亚堡的悬案',
-    SET_1809: '传奇音乐节',
-    SET_1858: '泰坦诸神',
-    SET_1892: '决战荒芜之地',
-    SET_1897: '威兹班的工坊',
-    SET_1905: '胜地历险记',
-    SET_1935: '深暗领域',
-    SET_1946: '翡翠梦境',
-    SET_1952: '安戈洛龟途',
-    SET_1957: '穿越时间流',
-    SET_1980: '大地的裂变',
-  },
-  zht: {
-    CORE:     '核心',
-    SET_1691: '納斯利亞堡懸案',
-    SET_1809: '傳奇音樂祭',
-    SET_1858: '泰坦',
-    SET_1892: '決戰荒蕪之地',
-    SET_1897: '威茲邦的工作坊',
-    SET_1905: '天堂島危機',
-    SET_1935: '無垠黑暗之境',
-    SET_1946: '深入翡翠夢境',
-    SET_1952: '安戈洛失落之城',
-    SET_1957: '時光特攻隊',
-    SET_1980: '浩劫與重生',
-  },
-};
 
 // Related cards
 
