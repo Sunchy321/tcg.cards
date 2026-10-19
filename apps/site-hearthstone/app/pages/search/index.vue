@@ -1399,7 +1399,7 @@ const classIconUrl = (value: string) => `/icons/hearthstone/classes/${value.repl
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
-    background-image: url(/icons/mana-crystal.png);
+    background-image: url(/icons/mana-crystal.webp);
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;

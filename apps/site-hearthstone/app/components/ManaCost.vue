@@ -1,7 +1,7 @@
 <template>
   <span class="mana-cost" :class="sizeClass" aria-label="Mana cost">
     <img
-      src="/icons/mana-crystal.svg"
+      src="/icons/mana-crystal.webp"
       alt=""
       class="mana-cost__image"
       aria-hidden="true"
