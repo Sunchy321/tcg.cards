@@ -819,6 +819,10 @@ export default {
     load_failed:         '加载文档阅读数据失败。',
 
     diff: {
+      reference_updates:      '引用更新',
+      reference_only:         '仅引用编号更新',
+      hide_reference_updates: '隐藏引用编号更新',
+
       $self:            '版本对比',
       from_version:     '旧版本',
       to_version:       '新版本',
@@ -836,9 +840,10 @@ export default {
         removed:          '删除',
         modified:         '修改',
         moved:            '移动',
-        renamed:          '重命名',
-        renamed_modified: '重命名并修改',
+        renamed:          '编号变化',
+        renamed_modified: '编号与内容变化',
         split:            '拆分',
+        moved_modified:   '移动并修改',
         merged:           '合并',
       },
     },

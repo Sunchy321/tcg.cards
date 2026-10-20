@@ -1,3 +1,5 @@
+import { patchCrSource } from './source-patches';
+
 /** Distinguishes source headings, rule text, and examples. */
 export type DocumentNodeKind = 'heading' | 'implicit_heading' | 'content' | 'example';
 
@@ -38,12 +40,14 @@ interface ParserContext {
 
 const chapterPattern = /^([1-9]\d?)\.\s+(.+)$/;
 const sectionPattern = /^(\d{3})\.\s+(.+)$/;
-const rulePattern = /^(\d+\.\d+)\.?\s+(.+)$/;
-const subrulePattern = /^(\d+\.\d+[a-z]+)\.?\s+(.+)$/;
+// Some official files omit the space after the terminal number punctuation (901.4.All).
+// A bare number still needs whitespace so adjoining prose cannot supply a false boundary.
+const rulePattern = /^(\d+\.\d+)(?:\.\s*|\s+)(\S.*)$/;
+const subrulePattern = /^(\d+\.\d+[a-z]+)(?:\.\s*|\s+)(\S.*)$/;
 const effectiveDatePattern = /^These rules are effective as of (.+)\.$/i;
 
 /** Identifies the official TXT parsing rules used by import attempts. */
-export const crParserVersion = 'magic-cr-txt-v2';
+export const crParserVersion = 'magic-cr-txt-v6';
 
 /** Normalizes source line endings without interpreting game symbols. */
 function normalizeText(input: string): string {
@@ -329,7 +333,7 @@ export function parseMagicCrDocument(input: {
 }): ParsedDocumentSource {
   const documentId = input.documentId ?? 'magic-cr';
   const versionId = `${documentId}:${input.versionTag}`;
-  const paragraphs = splitParagraphs(input.content);
+  const paragraphs = patchCrSource(input.versionTag, splitParagraphs(input.content));
   const context: ParserContext = {
     documentId,
     versionId,

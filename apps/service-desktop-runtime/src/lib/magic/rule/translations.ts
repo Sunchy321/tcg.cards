@@ -1,15 +1,46 @@
 import { readdir, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import z from 'zod';
 
 import { createDocumentService } from '@tcg-cards/console-api/lib/magic/documents/service';
-import { CrTranslationError } from '@tcg-cards/console-api/lib/magic/documents/community';
+import { CrTranslationError, crTranslationEffectiveDate } from '@tcg-cards/console-api/lib/magic/documents/community';
 import type { DocumentStore } from '@tcg-cards/console-api/lib/magic/documents/store';
 
 /** Supplies the local community checkout and its static content store. */
 interface Dependencies {
   root:  string | null;
   store: DocumentStore;
+}
+
+/** Read source JSON without exposing parser exceptions or modifying the checkout. */
+async function readEdition(file: string): Promise<unknown> {
+  try {
+    return JSON.parse((await readFile(file, 'utf8')).replace(/^\uFEFF/, ''));
+  } catch {
+    throw new CrTranslationError([`${basename(file)}：中英对照文件无法读取，请检查文件格式。`]);
+  }
+}
+
+/** Resolve files by their English effective dates and reject ambiguous selections. */
+async function editionFiles(root: string): Promise<Map<string, string>> {
+  let files: string[];
+  try {
+    files = await readdir(join(root, 'scripts'));
+  } catch {
+    throw new CrTranslationError(['无法读取中文译本目录，请检查本地译本设置。']);
+  }
+  const dates = new Map<string, string>();
+  for (const file of files.sort()) {
+    if (!/^\d{8}\.json$/.test(file)) continue;
+    const path = join(root, 'scripts', file);
+    const date = crTranslationEffectiveDate(await readEdition(path), file);
+    const previous = dates.get(date);
+    if (previous != null) {
+      throw new CrTranslationError([`${date}：对应多个中英对照文件（${basename(previous)}、${file}），请检查本地译本目录。`]);
+    }
+    dates.set(date, path);
+  }
+  return dates;
 }
 
 /** Exposes local paired editions without fetching or creating their English sources. */
@@ -19,17 +50,8 @@ export function createRuleTranslationOperations({ root, store }: Dependencies) {
     async list() {
       const dates = new Map<string, { date: string, available: boolean, imported: boolean }>();
       if (root != null) {
-        let files: string[];
-        try {
-          files = await readdir(join(root, 'scripts'));
-        } catch {
-          throw new CrTranslationError(['无法读取中文译本目录，请检查本地译本设置。']);
-        }
-        for (const file of files) {
-          if (!/^\d{8}\.json$/.test(file)) continue;
-          const compact = file.slice(0, 8);
-          const date = `${compact.slice(0, 4)}-${compact.slice(4, 6)}-${compact.slice(6, 8)}`;
-          if (z.iso.date().safeParse(date).success) dates.set(date, { date, available: true, imported: false });
+        for (const date of (await editionFiles(root)).keys()) {
+          dates.set(date, { date, available: true, imported: false });
         }
       }
       const translation = (await store.translations('magic-cr')).find(row => row.language === 'zhs');
@@ -48,18 +70,9 @@ export function createRuleTranslationOperations({ root, store }: Dependencies) {
     async importVersion(input: { version: string }) {
       const date = z.iso.date().parse(input.version);
       if (root == null) throw new CrTranslationError(['请先在游戏设置中配置完整规则中文译本目录。']);
-      let text: string;
-      try {
-        text = await readFile(join(root, 'scripts', `${date.replaceAll('-', '')}.json`), 'utf8');
-      } catch {
-        throw new CrTranslationError([`${date}：未找到可读取的中英对照文件，请检查本地译本目录。`]);
-      }
-      let content: unknown;
-      try {
-        content = JSON.parse(text.replace(/^\uFEFF/, ''));
-      } catch {
-        throw new CrTranslationError([`${date}：中英对照文件无法读取，请检查文件格式。`]);
-      }
+      const file = (await editionFiles(root)).get(date);
+      if (file == null) throw new CrTranslationError([`${date}：未找到可读取的中英对照文件，请检查本地译本目录。`]);
+      const content = await readEdition(file);
       return createDocumentService(store, { track: 'local' }).importCrTranslation({ versionTag: date, content });
     },
   };

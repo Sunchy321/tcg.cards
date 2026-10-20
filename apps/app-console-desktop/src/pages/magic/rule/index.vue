@@ -1,6 +1,6 @@
 <template>
-  <div class="desktop-page h-full space-y-4 overflow-y-auto">
-    <div class="rounded-xl border border-slate-200 bg-white p-4">
+  <div class="desktop-page space-y-4" :style="{ '--rule-header-height': `${headerHeight}px` }">
+    <div ref="ruleHeader" class="sticky top-0 z-20 rounded-xl border border-slate-200 bg-white p-4">
       <div class="flex items-center gap-6">
         <div>
           <div class="flex items-center gap-2">
@@ -44,7 +44,7 @@
 
     <div class="rounded-xl border border-slate-200 bg-white">
       <table v-if="rows.length > 0" class="w-full text-sm">
-        <thead>
+        <thead class="sticky top-[calc(var(--rule-header-height)+1rem)] z-10 bg-white">
           <tr class="border-b border-slate-200 text-left text-muted">
             <th class="px-4 py-3 font-medium">
               版本
@@ -254,6 +254,10 @@ function mergeVersions(
   return [...rows.values()].sort((a, b) => b.date.localeCompare(a.date));
 }
 
+const ruleHeader = ref<HTMLElement | null>(null);
+const headerHeight = ref(0);
+let headerObserver: ResizeObserver | null = null;
+
 const rows = ref<VersionRow[]>([]);
 const loadingVersions = ref(false);
 const listWarning = ref<string | null>(null);
@@ -295,7 +299,20 @@ async function refreshVersions() {
 }
 
 onMounted(() => {
+  const element = ruleHeader.value;
+  if (element != null) {
+    // Warnings and import errors can resize the pinned header while the list is scrolled.
+    headerObserver = new ResizeObserver(() => {
+      headerHeight.value = element.getBoundingClientRect().height;
+    });
+    headerHeight.value = element.getBoundingClientRect().height;
+    headerObserver.observe(element);
+  }
   void refreshVersions();
+});
+
+onBeforeUnmount(() => {
+  headerObserver?.disconnect();
 });
 
 const downloading = ref(false);

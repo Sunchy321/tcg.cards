@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import type { NodeChangeDetails, NodeChangeReviewStateCache, NodeChangeType } from '@tcg-cards/model/magic/schema/document';
 import type { ParsedDocumentNode } from './parser';
 import type { Revision } from './store';
+import { excludeInsertedNumbering } from './renumbering';
 
 /** Fingerprint exact readable content without importing persistence code. */
 function generateHash(content: string): string {
@@ -18,7 +19,7 @@ function normalizeFingerprint(content: string): string {
 export function matchRevisionNodes(previous: Revision | null, parsed: ParsedDocumentNode[], revisionId: string): MatchResult {
   return matchEntities((previous?.nodes ?? []).map(node => ({
     id: node.id, nodeId: node.anchor ?? node.nodeKey, nodeKind: node.kind,
-    path: node.path, level: node.level, parentNodeId: node.parentId,
+    path: node.path, level: node.level, parentNodeId: node.parentId, siblingOrder: node.siblingOrder,
     sourceContentHash: node.rawText ? generateHash(node.rawText) : null,
     sourceFingerprintHash: node.rawText ? generateHash(normalizeFingerprint(node.rawText)) : null,
     entityId: node.nodeKey, content: node.rawText,
@@ -35,6 +36,7 @@ export interface OldNode {
   path:                  string;
   level:                 number;
   parentNodeId:          string | null;
+  siblingOrder:          number;
   sourceContentHash:     string | null;
   sourceFingerprintHash: string | null;
   entityId:              string;
@@ -363,9 +365,10 @@ function prepareNewNodes(parsedNodes: ParsedDocumentNode[]): NewNode[] {
   }));
 }
 
-// --- Four-Stage Matching ---
+// --- Content and structural matching ---
 
 const SIMILARITY_THRESHOLD = 0.55;
+const DISTANT_SIMILARITY_THRESHOLD = 0.8;
 const SPLIT_CANDIDATE_THRESHOLD = 0.55;
 const SPLIT_COVERAGE_THRESHOLD = 0.8;
 const MERGE_CANDIDATE_THRESHOLD = 0.55;
@@ -451,13 +454,16 @@ export function matchEntities(
     });
   }
 
-  // --- Stage 1: Same nodeId ---
+  // --- Stage 1: Unchanged content at the same address ---
   for (const oldNode of oldNodes) {
     if (matchedOldIds.has(oldNode.nodeId)) continue;
     const newNode = newByNodeId.get(oldNode.nodeId);
     if (!newNode || matchedNewIds.has(newNode.nodeId)) continue;
 
-    recordMatch(oldNode, newNode, 'nodeId', 1.0);
+    // An occupied number may now describe a newly inserted rule. Reserve only
+    // unchanged pairs before searching for the old wording at another address.
+    if (oldNode.content !== newNode.content) continue;
+    recordMatch(oldNode, newNode, oldNode.path === newNode.path ? 'nodeId' : 'content', 1.0);
   }
 
   // --- Stage 2: Exact content hash match ---
@@ -468,7 +474,8 @@ export function matchEntities(
     const candidates = newByContentHash.get(oldNode.sourceContentHash);
     if (!candidates) continue;
 
-    const available = candidates.find(n => !matchedNewIds.has(n.nodeId));
+    // Identical wording is not evidence that a heading became a body paragraph.
+    const available = candidates.find(n => !matchedNewIds.has(n.nodeId) && n.nodeKind === oldNode.nodeKind && n.level === oldNode.level);
     if (!available) continue;
 
     recordMatch(oldNode, available, 'content', 1.0);
@@ -482,50 +489,47 @@ export function matchEntities(
     const candidates = newByFingerprintHash.get(oldNode.sourceFingerprintHash);
     if (!candidates) continue;
 
-    // Prefer same nodeKind and level
+    // Fingerprint matches must preserve node kind and structural depth.
     const available = candidates
       .filter(n => !matchedNewIds.has(n.nodeId))
-      .find(n => n.nodeKind === oldNode.nodeKind && n.level === oldNode.level)
-      ?? candidates.find(n => !matchedNewIds.has(n.nodeId));
+      .find(n => n.nodeKind === oldNode.nodeKind && n.level === oldNode.level);
 
     if (!available) continue;
 
     recordMatch(oldNode, available, 'fingerprint', 1.0);
   }
 
-  // --- Stage 4: Candidate set similarity ---
+  // --- Stage 4: Strongest remaining content candidates ---
+  const proposals: { oldNode: OldNode; newNode: NewNode; score: number }[] = [];
   for (const oldNode of oldNodes) {
-    if (matchedOldIds.has(oldNode.nodeId)) continue;
-    if (!oldNode.content) continue;
-
-    const candidates = newNodes
-      .filter(n => !matchedNewIds.has(n.nodeId))
-      .filter(n => n.content != null)
-      .filter(n => {
-        if (n.level !== oldNode.level) return false;
-        if (n.nodeKind !== oldNode.nodeKind) return false;
-        const sameChapter = getChapter(n.nodeId) === getChapter(oldNode.nodeId);
-        const closePath = isNearbyPath(oldNode.path, n.path);
-        return sameChapter || closePath;
-      });
-
-    if (candidates.length === 0) continue;
-
-    let bestCandidate: NewNode | null = null;
-    let bestScore = 0;
-
-    for (const candidate of candidates) {
-      const bonus = structureBonus(oldNode, candidate);
-      const score = scoreCandidate(oldNode.content, candidate.content!, bonus);
-      if (score > bestScore) {
-        bestScore = score;
-        bestCandidate = candidate;
-      }
+    if (matchedOldIds.has(oldNode.nodeId) || !oldNode.content) continue;
+    for (const newNode of newNodes) {
+      if (matchedNewIds.has(newNode.nodeId) || !newNode.content) continue;
+      if (newNode.level !== oldNode.level || newNode.nodeKind !== oldNode.nodeKind) continue;
+      const nearby = getChapter(newNode.nodeId) === getChapter(oldNode.nodeId) || isNearbyPath(oldNode.path, newNode.path);
+      const score = nearby
+        ? scoreCandidate(oldNode.content, newNode.content, structureBonus(oldNode, newNode))
+        : scoreCandidate(oldNode.content, newNode.content, 0) / 0.85;
+      // Normalize distant text evidence without awarding a structural bonus.
+      // A distant match needs substantially stronger text evidence than a local edit.
+      if (score >= (nearby ? SIMILARITY_THRESHOLD : DISTANT_SIMILARITY_THRESHOLD)) proposals.push({ oldNode, newNode, score });
     }
+  }
+  // Source iteration order must not let a weak same-number match consume a much
+  // stronger moved-and-edited candidate needed by another rule.
+  proposals.sort((left, right) => right.score - left.score
+    || Number(right.oldNode.nodeId === right.newNode.nodeId) - Number(left.oldNode.nodeId === left.newNode.nodeId));
+  for (const { oldNode, newNode, score } of proposals) {
+    if (matchedOldIds.has(oldNode.nodeId) || matchedNewIds.has(newNode.nodeId)) continue;
+    recordMatch(oldNode, newNode, 'similarity', score);
+  }
 
-    if (bestCandidate && bestScore >= SIMILARITY_THRESHOLD) {
-      recordMatch(oldNode, bestCandidate, 'similarity', bestScore);
-    }
+  // Retain ordinary rewrites at an unchanged address when no content-based
+  // correspondence claimed either side; these can legitimately share few words.
+  for (const oldNode of oldNodes) {
+    const newNode = newByNodeId.get(oldNode.nodeId);
+    if (matchedOldIds.has(oldNode.nodeId) || newNode == null || matchedNewIds.has(newNode.nodeId)) continue;
+    recordMatch(oldNode, newNode, 'nodeId', 1.0);
   }
 
   // --- Split Detection ---
@@ -727,5 +731,5 @@ export function matchEntities(
     });
   }
 
-  return { entityAssignments, changes };
+  return { entityAssignments, changes: excludeInsertedNumbering(oldNodes, parsedNodes, entityAssignments, changes) };
 }

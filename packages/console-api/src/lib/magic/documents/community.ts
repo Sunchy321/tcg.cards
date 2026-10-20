@@ -45,6 +45,20 @@ export class CrTranslationError extends Error {
   }
 }
 
+/** Read the edition's authoritative English effective date independently of repository labels. */
+export function crTranslationEffectiveDate(content: unknown, label: string): string {
+  const header = z.object({ intro: z.object({ contents: z.object({ en: z.string() }).array().min(2) }) }).safeParse(content);
+  const sentence = header.success ? header.data.intro.contents[1]!.en.trim() : '';
+  const match = sentence.match(/^These rules are effective as of ([A-Za-z]+) (\d{1,2}), (\d{4})\.?$/);
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const month = match == null ? 0 : months.indexOf(match[1]!) + 1;
+  const date = match == null ? '' : `${match[3]}-${String(month).padStart(2, '0')}-${match[2]!.padStart(2, '0')}`;
+  if (month === 0 || !z.iso.date().safeParse(date).success) {
+    throw new CrTranslationError([`${label}：无法识别译文依据的英文生效日期，请检查中英对照文件。`]);
+  }
+  return date;
+}
+
 /** Ignores layout whitespace while preserving every source word and symbol. */
 function normalized(text: string): string {
   return text.replace(/^\uFEFF/, '').replace(/\s+/gu, ' ').trim();
@@ -55,7 +69,9 @@ export function alignCrTranslation(content: unknown, source: Revision, versionTa
   const parsed = edition.safeParse(content);
   if (!parsed.success) throw new CrTranslationError([`${versionTag}：译文文件格式无效，请检查中英对照文件。`]);
   const data = parsed.data;
-  if (data.version !== versionTag) throw new CrTranslationError([`${versionTag}：译文文件的版本为 ${data.version}，与所选日期不符。`]);
+  if (crTranslationEffectiveDate(data, versionTag).replaceAll('-', '') !== versionTag) {
+    throw new CrTranslationError([`${versionTag}：译文依据的英文生效日期不符。`]);
+  }
   const groups = new Map<string, { label: string; parts: Part[] }>();
   const ruleChildren = new Map<string | null, string[]>();
   const anchors = new Set(source.nodes.flatMap(node => node.anchor == null ? [] : [node.anchor]));
@@ -79,14 +95,10 @@ export function alignCrTranslation(content: unknown, source: Revision, versionTa
     groups.set(key, { label, parts });
   }
 
-  const [title, date, introduction, ...intro] = data.intro.contents;
+  const [title, , introduction, ...intro] = data.intro.contents;
   if (normalized(title!.en) !== 'Magic: The Gathering Comprehensive Rules'
     || normalized(introduction!.en) !== 'Introduction') {
     throw new CrTranslationError([`${versionTag}：译文前言的英文标题无法对应。`]);
-  }
-  const effectiveDate = new Date(`${date!.en.match(/^These rules are effective as of (.+)\.$/)?.[1]} UTC`);
-  if (Number.isNaN(effectiveDate.getTime()) || effectiveDate.toISOString().slice(0, 10).replaceAll('-', '') !== versionTag) {
-    throw new CrTranslationError([`${versionTag}：译文依据的英文生效日期不符。`]);
   }
   add('intro', '前言', [introduction!, ...intro]);
 

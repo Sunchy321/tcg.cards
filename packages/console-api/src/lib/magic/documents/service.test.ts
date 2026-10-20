@@ -246,3 +246,11 @@ test('exposes saved revision contents only while their history is public and not
   await owner.clearHistory({ documentId: document.id, revisionIds: [revision.id] });
   await expect(reader.revision({ documentId: document.id, revisionId: revision.id })).rejects.toThrow('not found');
 });
+
+test('keeps adjoining prose in its paragraph when a rule number has neither punctuation nor whitespace', async () => {
+  const documents = createDocumentService(memoryStore(), { track: 'local' });
+  await documents.importCr({ content: cr + '\n100.2Continue playing without a valid number separator.\n' });
+  const page = await documents.read({ slug: 'magic-cr' });
+  expect(page.sections.some(node => node.nodeId === '100.2')).toBe(false);
+  expect(page.sections.find(node => node.nodeId === '100.1')?.text).toContain('100.2Continue playing without a valid number separator.');
+});

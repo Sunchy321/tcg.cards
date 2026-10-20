@@ -4,6 +4,7 @@ import type { DocumentOutlineItem } from '@tcg-cards/model/magic/schema/document
 import type { SourceFile } from '@tcg-cards/model/magic/schema/document-content';
 import { matchRevisionNodes } from './matcher';
 import { importText } from './text';
+import { orderedNodes } from './nodes';
 import { documentSettings, sourceFile } from '@tcg-cards/model/magic/schema/document-content';
 import { createTranslationOperations } from './translations';
 import { createAuthoringOperations } from './authoring';
@@ -176,28 +177,4 @@ function buildReader(
     version: { ...version(release), isLatest: release.id === releases[0]?.id },
     versions: releases.map(version), files: release.files, outline: document.settings.outline ? roots : [], sections,
   };
-}
-
-/** Preserves authored sibling order instead of sorting section labels alphabetically. */
-function orderedNodes(nodes: Node[]): Node[] {
-  const children = new Map<string | null, Node[]>();
-  for (const node of nodes) {
-    const siblings = children.get(node.parentId) ?? [];
-    siblings.push(node);
-    children.set(node.parentId, siblings);
-  }
-  const result: Node[] = [];
-  const visited = new Set<string>();
-  /** Walks the immutable tree in document order. */
-  function visit(parentId: string | null) {
-    for (const node of (children.get(parentId) ?? []).sort((a, b) => a.siblingOrder - b.siblingOrder || a.id.localeCompare(b.id))) {
-      if (visited.has(node.id)) throw new Error('Node parent cycle');
-      visited.add(node.id);
-      result.push(node);
-      visit(node.id);
-    }
-  }
-  visit(null);
-  if (result.length !== nodes.length) throw new Error('Node parent missing');
-  return result;
 }

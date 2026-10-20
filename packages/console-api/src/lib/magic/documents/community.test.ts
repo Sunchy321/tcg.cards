@@ -42,7 +42,8 @@ test('requires an existing English edition and preserves selected Chinese on ali
   const before = await documents.read({ slug: 'magic-cr', locale: 'zhs' });
   const revisions = await documents.revisions('magic-cr');
   for (const changed of [
-    { ...communityTranslation, version: '20260807' },
+    { ...communityTranslation, intro: { contents: communityTranslation.intro.contents.map((entry, index) => index === 1
+      ? { ...entry, en: 'These rules are effective as of September 24, 2026.' } : entry) } },
     { ...communityTranslation, main: [communityTranslation.main[0], communityTranslation.main[0]] },
     { ...communityTranslation, glossary: [{ ...communityTranslation.glossary[0], en: 'A different source definition.' }] },
     { ...communityTranslation, main: [{ ...communityTranslation.main[0], subrules: [] }] },
@@ -75,3 +76,39 @@ test.skipIf(!process.env.DOCUMENT_TEST_LOCAL_URL || !process.env.DOCUMENT_TEST_R
   const [stdout, stderr, code] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited]);
   expect(code, `${stdout}\n${stderr}`).toBe(0);
 }, 30000);
+
+test('rejects unpaired glossary paragraphs instead of repairing source data during import', async () => {
+  const store = memoryStore();
+  const documents = createDocumentService(store, { track: 'local' });
+  await documents.importCr({ content: communitySource });
+  const content = { ...communityTranslation, glossary: [{ ...communityTranslation.glossary[0]!,
+    en: 'A multiplayer variant.\n\nAnother term', zh: '一种多人玩法。\n多余的译文\n另一个词条',
+  }] };
+  await expect(documents.importCrTranslation({ versionTag: '20260925', content })).rejects.toThrow('没有对应英文的译文');
+  expect(await store.translations('magic-cr')).toEqual([]);
+});
+
+test('imports Chinese against source rules whose explicit number punctuation has no following space', async () => {
+  const store = memoryStore();
+  const documents = createDocumentService(store, { track: 'local' });
+  const parent = 'In addition to the normal game materials, each player needs a supplementary planar deck.';
+  const die = 'A planar die is a six-sided die. One face has the Planeswalker symbol. One face has the chaos symbol. The other faces are blank.';
+  const zone = 'All plane and phenomenon cards remain in the command zone throughout the game, both while they’re part of a planar deck and while they’re face up.';
+  const source = communitySource.replace('\nGlossary\n', `\n9. Casual Variants\n\n901. Planechase\n\n901.3. ${parent}\n\n901.3a ${die}\n\n901.4.${zone}\n\n901.4a.Keep the face-up cards visible.\n\nGlossary\n`);
+  await documents.importCr({ content: source });
+  const content = { ...communityTranslation, main: [...communityTranslation.main, {
+    chapter: '9.', en: 'Casual Variants', zh: '休闲玩法', subrules: [{
+      chapter: '901.', en: 'Planechase', zh: '竞逐时空', subrules: [
+        { chapter: '901.3.', en: parent, zh: '每位牌手需要时空套牌。', subrules: [{ chapter: '901.3a', en: die, zh: '时空骰为六面骰。' }] },
+        { chapter: '901.4.', en: zone, zh: '所有时空牌和异象牌都留在统帅区。', subrules: [{ chapter: '901.4a', en: 'Keep the face-up cards visible.', zh: '保持牌面朝上的牌可见。' }] },
+      ],
+    }],
+  }] };
+  await documents.importCrTranslation({ versionTag: '20260925', content });
+  const english = await documents.read({ slug: 'magic-cr', locale: 'en' });
+  expect(english.sections.find(node => node.nodeId === '901.3a')?.text).toBe(die);
+  expect(english.sections.find(node => node.nodeId === '901.4')).toMatchObject({ text: zone, parentNodeId: '901' });
+  const chinese = await documents.read({ slug: 'magic-cr', locale: 'zhs' });
+  expect(chinese.sections.find(node => node.nodeId === '901.4')?.text).toBe('所有时空牌和异象牌都留在统帅区。');
+  expect(chinese.sections.find(node => node.nodeId === '901.4a')).toMatchObject({ text: '保持牌面朝上的牌可见。', parentNodeId: '901.4' });
+});

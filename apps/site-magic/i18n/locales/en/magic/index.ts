@@ -1236,6 +1236,10 @@ export default {
     load_failed:         'Failed to load document reader data.',
 
     diff: {
+      reference_updates:      'References',
+      reference_only:         'Reference numbering only',
+      hide_reference_updates: 'Hide reference numbering updates',
+
       $self:            'Version Diff',
       from_version:     'From Version',
       to_version:       'To Version',
@@ -1256,6 +1260,7 @@ export default {
         renamed:          'Renamed',
         renamed_modified: 'Renamed & Modified',
         split:            'Split',
+        moved_modified:   'Moved and edited',
         merged:           'Merged',
       },
     },

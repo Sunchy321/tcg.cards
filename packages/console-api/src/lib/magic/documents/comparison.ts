@@ -1,8 +1,12 @@
-import type { DocumentChangeTextDiff, DocumentDiffPage, DocumentDiffSection, DocumentEntityHistoryPage, DocumentSectionLocaleState, VersionSummary } from '@tcg-cards/model/magic/schema/document-page';
+import type { DocumentDiffPage, DocumentDiffSection, DocumentEntityHistoryPage, DocumentSectionLocaleState, VersionSummary } from '@tcg-cards/model/magic/schema/document-page';
 import type { ParsedDocumentNode } from './parser';
 import type { DocumentContext } from './service';
 import type { Document, DocumentStore, Node, Release, Revision } from './store';
 import { matchRevisionNodes, type ChangeRecord } from './matcher';
+import { orderedNodes } from './nodes';
+import { textDiff } from './diff-text';
+import { createReferenceComparison } from './references';
+export { textDiff } from './diff-text';
 
 /** Compare formal editions without depending on import state or exposing drafts. */
 export function createComparisonOperations(store: DocumentStore, context: DocumentContext) {
@@ -32,19 +36,56 @@ export function createComparisonOperations(store: DocumentStore, context: Docume
         changes.push({ type: 'modified', entityId: previous.nodeKey, fromNodeRefId: previous.id,
           toNodeRefId: node.id, confidenceScore: 1, details: {} });
       }
+      // Translation-only changes are discovered after source matching, but their
+      // display position follows the same tree order as every other changed node.
+      const positions = new Map(to.nodes.map((node, index) => [node.id, index]));
+      const destinations = new Map<string, number>();
+      for (const node of to.nodes) {
+        const assignment = matched.entityAssignments.get(node.anchor ?? node.nodeKey);
+        if (assignment?.isNew === false) destinations.set(assignment.entityId, positions.get(node.id)!);
+      }
+      const oldPositions = new Map<string, number>();
+      let following = to.nodes.length;
+      for (const node of [...from.nodes].reverse()) {
+        const destination = destinations.get(node.nodeKey);
+        if (destination != null) following = destination;
+        // Removed content remains immediately before its next surviving neighbor.
+        oldPositions.set(node.id, destination ?? following - 0.5);
+      }
+      const previousOrder = new Map(from.nodes.map((node, index) => [node.id, index]));
+      /** Position a change at its earliest destination, or its retained source context. */
+      function position(change: ChangeRecord) {
+        const current = relationNodes(change, 'to', toText).map(node => positions.get(node.id)!);
+        return current.length > 0 ? Math.min(...current)
+          : Math.min(...relationNodes(change, 'from', fromText).map(node => oldPositions.get(node.id)!));
+      }
+      changes.sort((left, right) => position(left) - position(right)
+        || (previousOrder.get(left.fromNodeRefId ?? '') ?? 0) - (previousOrder.get(right.fromNodeRefId ?? '') ?? 0));
       const fromSource = new Map(from.nodes.map(node => [node.id, node]));
       const toSource = new Map(to.nodes.map(node => [node.id, node]));
-      const stats = { added: 0, removed: 0, modified: 0, moved: 0, renamed: 0, renamedModified: 0, split: 0, merged: 0 };
+      const references = createReferenceComparison(from, to, matched, { from: fromRelease.id, to: toRelease.id });
+      const stats = { added: 0, removed: 0, modified: 0, referenceUpdated: 0, moved: 0, renamed: 0, renamedModified: 0, split: 0, merged: 0 };
       const rows: DocumentDiffPage['rows'] = changes.map(change => {
-        stats[change.type === 'renamed_modified' ? 'renamedModified' : change.type]++;
         const oldNodes = relationNodes(change, 'from', fromText);
         const newNodes = relationNodes(change, 'to', toText);
+        const reference = oldNodes.length === 1 && newNodes.length === 1 ? references(oldNodes[0]!, newNodes[0]!) : undefined;
+        const oldOriginal = oldNodes.length === 1 ? fromSource.get(oldNodes[0]!.id) : undefined;
+        const newOriginal = newNodes.length === 1 ? toSource.get(newNodes[0]!.id) : undefined;
+        const sourceOnly = oldOriginal != null && newOriginal != null
+          && (oldOriginal.rawText === newOriginal.rawText || references(oldOriginal, newOriginal).referenceOnly);
+        const referenceOnly = reference?.referenceOnly === true && sourceOnly;
+        if (referenceOnly) {
+          stats.referenceUpdated++;
+          if (change.type === 'renamed_modified') stats.renamed++;
+          else if (change.type !== 'modified') stats[change.type]++;
+        } else stats[change.type === 'renamed_modified' ? 'renamedModified' : change.type]++;
         const oldSections = oldNodes.map(section);
         const newSections = newNodes.map(section);
         return {
-          kind: 'change', type: change.type, from: oldSections[0] ?? null, to: newSections[0] ?? null,
+          kind: 'change', type: referenceOnly && change.type === 'renamed_modified' ? 'renamed' : change.type, from: oldSections[0] ?? null, to: newSections[0] ?? null,
           fromNodes: oldSections, toNodes: newSections,
-          textDiff: textDiff(oldNodes.map(node => node.rawText).join('\n'), newNodes.map(node => node.rawText).join('\n')),
+          textDiff: reference?.textDiff ?? textDiff(oldNodes.map(node => node.rawText).join('\n'), newNodes.map(node => node.rawText).join('\n')),
+          referenceOnly, referenceUpdates: reference?.referenceUpdates ?? [],
           translationOnly: oldNodes.length === 1 && newNodes.length === 1
             && !oldNodes[0]!.localeState.isFallback && !newNodes[0]!.localeState.isFallback
             && oldNodes[0]!.localeState.status !== 'source' && newNodes[0]!.localeState.status !== 'source'
@@ -146,7 +187,7 @@ function assertReadable(document: Document | undefined, context: DocumentContext
 async function loadRevision(store: DocumentStore, release: Release): Promise<Revision> {
   const revision = await store.revision(release.sourceRevisionId);
   if (revision == null || revision.documentId !== release.documentId || revision.translationId != null) throw new Error('Release content missing');
-  return revision;
+  return { ...revision, nodes: orderedNodes(revision.nodes) };
 }
 
 /** Adapt content into the parser-shaped input expected by the pure matcher. */
@@ -198,21 +239,4 @@ function section(node: DisplayNode): DocumentDiffSection {
 /** Format a formal edition using stable dates from its release record. */
 function version(release: Release): VersionSummary {
   return { id: release.id, versionTag: release.versionTag, effectiveDate: release.effectiveDate ?? release.publishedAt.toISOString().slice(0, 10), publishedAt: release.publishedAt.toISOString().slice(0, 10) };
-}
-
-/** Preserve a common prefix and suffix while highlighting the changed middle. */
-export function textDiff(before: string, after: string): DocumentChangeTextDiff | null {
-  if (before === after) return null;
-  const left = Array.from(before);
-  const right = Array.from(after);
-  let prefix = 0;
-  while (prefix < left.length && prefix < right.length && left[prefix] === right[prefix]) prefix++;
-  let suffix = 0;
-  while (suffix < left.length - prefix && suffix < right.length - prefix && left[left.length - suffix - 1] === right[right.length - suffix - 1]) suffix++;
-  const blocks: DocumentChangeTextDiff['blocks'] = [];
-  if (prefix > 0) blocks.push({ type: 'common', text: left.slice(0, prefix).join('') });
-  if (left.length > prefix + suffix) blocks.push({ type: 'removed', text: left.slice(prefix, left.length - suffix).join('') });
-  if (right.length > prefix + suffix) blocks.push({ type: 'added', text: right.slice(prefix, right.length - suffix).join('') });
-  if (suffix > 0) blocks.push({ type: 'common', text: left.slice(left.length - suffix).join('') });
-  return { mode: 'inline', blocks };
 }
