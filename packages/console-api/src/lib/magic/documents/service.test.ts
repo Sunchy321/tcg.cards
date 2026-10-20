@@ -77,6 +77,120 @@ test('serves the selected node translation under its original official release',
   expect(page.versions).toHaveLength(1);
 });
 
+test('keeps multi-letter rules and punctuated glossary terms individually addressable', async () => {
+  const documents = createDocumentService(memoryStore(), { track: 'local' });
+  await documents.importCr({ content: cr + `
+7. Additional Rules
+
+704. State-Based Actions
+
+704.5. State-based actions follow.
+
+704.5z Roles are checked.
+
+704.5aa If a player controls a permanent with start your engines! and that player has no speed, that player’s speed becomes 1.
+
+Glossary
+
+Banding, “Bands with Other”
+A keyword ability.
+
+Partner, “Partner—[text],” “Partner with [name]”
+A partner ability.
+
+Team vs. Team Variant
+A multiplayer variant.
+
+Start Your Engines!
+A keyword ability that increases speed.
+
+Credits
+
+Editing: Test editor.
+` });
+  const page = await documents.read({ slug: 'magic-cr' });
+  expect(page.sections.find(node => node.nodeId === '704.5aa')).toMatchObject({
+    serial: '704.5aa', parentNodeId: '704.5', level: 3, path: '7/704/5/aa',
+  });
+  expect(page.sections.filter(node => node.parentNodeId === 'glossary').map(node => node.text)).toEqual([
+    'Banding, “Bands with Other”\n\nA keyword ability.',
+    'Partner, “Partner—[text],” “Partner with [name]”\n\nA partner ability.',
+    'Team vs. Team Variant\n\nA multiplayer variant.',
+    'Start Your Engines!\n\nA keyword ability that increases speed.',
+  ]);
+});
+
+test('imports official TXT line separators and missing rule-number punctuation without merging adjacent rules', async () => {
+  const documents = createDocumentService(memoryStore(), { track: 'local' });
+  await documents.importCr({ content: cr + `
+2. Parts of a Card
+
+205. Type Line
+
+205.4. Supertypes
+
+205.4b An object's supertype is independent of its card type.
+Example: Legendary lands stay legendary.
+\u00a0
+205.4c Any land with the supertype “basic” is a basic land.\u2028\u00a0\u00a0 Cards printed before Eighth Edition did not use “basic”.
+
+5. Turn Structure
+
+509. Declare Blockers Step
+
+509.1. The defending player declares blockers.
+
+509.1a The defending player chooses creatures.
+\u00a0
+509.1b The defending player checks restrictions.\u2028\u00a0\u00a0 A restriction may be created by an evasion ability.
+Example: Check flying and shadow.
+
+6. Spells, Abilities, and Effects
+
+606. Loyalty Abilities
+
+606.4. Loyalty ability costs may be modified by other effects.
+\u00a0
+606.5 Multiple loyalty costs are combined into a single cost.
+Example: Combine the additional cost.
+` });
+  const page = await documents.read({ slug: 'magic-cr' });
+  expect(page.sections.find(node => node.nodeId === '205.4c')).toMatchObject({
+    text: 'Any land with the supertype “basic” is a basic land.\n\nCards printed before Eighth Edition did not use “basic”.', parentNodeId: '205.4',
+  });
+  expect(page.sections.find(node => node.nodeId === '205.4b.example.1')?.text).toBe('Example: Legendary lands stay legendary.');
+  expect(page.sections.find(node => node.nodeId === '509.1a')?.text).toBe('The defending player chooses creatures.');
+  expect(page.sections.find(node => node.nodeId === '509.1b')).toMatchObject({
+    text: 'The defending player checks restrictions.\n\nA restriction may be created by an evasion ability.', parentNodeId: '509.1',
+  });
+  expect(page.sections.find(node => node.nodeId === '509.1b.example.1')?.text).toBe('Example: Check flying and shadow.');
+  expect(page.sections.find(node => node.nodeId === '606.4')?.text).toBe('Loyalty ability costs may be modified by other effects.');
+  expect(page.sections.find(node => node.nodeId === '606.5')).toMatchObject({
+    text: 'Multiple loyalty costs are combined into a single cost.', parentNodeId: '606',
+  });
+  expect(page.sections.find(node => node.nodeId === '606.5.example.1')?.text).toBe('Example: Combine the additional cost.');
+});
+
+test('manually reimporting the same file repairs its public parsing without creating an editing revision', async () => {
+  const content = cr + '\n100.2. Keep playing.\n';
+  const prepared = memoryStore();
+  const imported = await createDocumentService(prepared, { track: 'local' }).importCr({ content });
+  const source = (await prepared.revision(imported.revisionId))!;
+  const store = memoryStore();
+  await store.putDocument((await prepared.document('magic-cr'))!);
+  // Reproduce an edition saved by a parser that merged the following rule into 100.1.
+  await store.putRevision({ ...source, nodes: source.nodes.filter(node => node.anchor !== '100.2').map(node => node.anchor === '100.1'
+    ? { ...node, rawText: 'Pay {W} to continue.\n\n100.2. Keep playing.' } : node) });
+  await store.putRelease((await prepared.releases('magic-cr'))[0]!);
+  const documents = createDocumentService(store, { track: 'local' });
+  expect((await documents.read({ slug: 'magic-cr' })).sections.some(node => node.nodeId === '100.2')).toBe(false);
+  const repaired = await documents.importCr({ content });
+  expect(repaired.revisionId).toBe(imported.revisionId);
+  expect((await documents.read({ slug: 'magic-cr' })).sections.find(node => node.nodeId === '100.2')?.text).toBe('Keep playing.');
+  expect(await documents.revisions('magic-cr')).toHaveLength(1);
+  expect(await store.releases('magic-cr')).toHaveLength(1);
+});
+
 test('searches readable public text and literals without indexing marker IDs or drafts', async () => {
   const store = memoryStore();
   const local = createDocumentService(store, { track: 'local' });

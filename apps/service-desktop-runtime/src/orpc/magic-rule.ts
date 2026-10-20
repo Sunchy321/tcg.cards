@@ -12,6 +12,9 @@ import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
 import { resolvePath } from '../lib/game-paths';
 import { downloadLatestRules } from '../lib/magic/rule/download';
 import { createRuleOperations } from '../lib/magic/rule/operations';
+import { createRuleTranslationOperations } from '../lib/magic/rule/translations';
+import { CrTranslationError } from '@tcg-cards/console-api/lib/magic/documents/community';
+import { crParserVersion } from '@tcg-cards/console-api/lib/magic/documents/parser';
 import { os } from './index';
 
 const localRuleVersion = z.strictObject({
@@ -37,7 +40,7 @@ function localRules() {
       if (attempt.status === 'processing') {
         await database.insert(DocumentImportRun).values({
           id:            attempt.id, documentId:    'magic-cr', sourceHash:    attempt.sourceHash,
-          parserVersion: 'magic-cr-txt-v1', status:        attempt.status,
+          parserVersion: crParserVersion, status:        attempt.status,
         });
       } else {
         await database.update(DocumentImportRun).set({
@@ -51,12 +54,16 @@ function localRules() {
 
 /** Returns actionable local-rule failures without exposing source paths or database internals. */
 function ruleError(error: unknown, fallback: string) {
+  if (error instanceof CrTranslationError) {
+    return new ORPCError('BAD_REQUEST', { message: error.message, cause: error });
+  }
   const messages: Record<string, string> = {
-    'Rule directory is not configured':                       '请先配置规则文件目录。',
-    'Local desktop database URL is not configured':           '请先配置本地数据库。',
-    'Parsed document has no rule nodes':                      '未能从 TXT 文件识别规则正文，请检查文件内容。',
-    'CR version does not match its effective date':           '文件中的生效日期与所选版本不一致。',
-    'Official release already exists with different content': '此版本已导入，当前文件内容与已导入内容不同。',
+    'Rule directory is not configured':                          '请先配置规则文件目录。',
+    'Local desktop database URL is not configured':              '请先配置本地数据库。',
+    'Parsed document has no rule nodes':                         '未能从 TXT 文件识别规则正文，请检查文件内容。',
+    'CR version does not match its effective date':              '文件中的生效日期与所选版本不一致。',
+    'Official release already exists with different content':    '此版本已导入，当前文件内容与已导入内容不同。',
+    'Imported source has dependent translations or comparisons': '此版本已有译文或比较记录引用旧规则，请先处理这些关联后重新解析。',
   };
   const missingFile = error instanceof Error && 'code' in error && error.code === 'ENOENT';
   const message = missingFile
@@ -99,7 +106,7 @@ const importVersion = os
   });
 
 /** Reads imported releases locally without application tables or import-state joins. */
-const releases = os.input(z.object({ slug: z.string().default('magic-cr'), versionTag: z.string().optional() }))
+const releases = os.input(z.object({ slug: z.string().default('magic-cr'), versionTag: z.string().optional(), locale: z.string().optional() }))
   .handler(({ input }) => localRules().read(input));
 
 /** Publishes one static document into the configured remote serving target. */
@@ -126,6 +133,35 @@ const saveTranslation = os.input(z.object({
 const selectTranslation = os.input(z.object({ documentId: z.string(), releaseId: z.string(), revisionId: z.string() }))
   .handler(({ input }) => createDocumentService(createDocumentStore(getLocalDb(), 'local'), { track: 'local' }).selectTranslation(input));
 
+/** Uses the declared data directory and existing static document database for Chinese editions. */
+function localTranslations() {
+  return createRuleTranslationOperations({
+    root:  resolvePath('magic.data.magic-comp-rules-zh-cn'),
+    store: createDocumentStore(getLocalDb(), 'local'),
+  });
+}
+
+/** Lists available Chinese editions together with their saved serving state. */
+const listTranslations = os.input(z.void()).output(z.object({
+  configured: z.boolean(),
+  versions:   z.array(z.object({ date: z.iso.date(), available: z.boolean(), imported: z.boolean() })),
+})).handler(async () => {
+  try {
+    return await localTranslations().list();
+  } catch (error) {
+    throw ruleError(error, '无法读取中文译本，请检查本地设置后重试。');
+  }
+});
+
+/** Imports and selects one human translation without changing the official English edition. */
+const importTranslation = os.input(z.object({ version: z.iso.date() })).handler(async ({ input }) => {
+  try {
+    return await localTranslations().importVersion(input);
+  } catch (error) {
+    throw ruleError(error, '中文译本导入失败，请检查本地设置后重试。');
+  }
+});
+
 /** Local-only Comprehensive Rules procedures; remote rule procedures keep their own paths. */
 export const magicRuleRouter = {
   listLocal,
@@ -134,6 +170,8 @@ export const magicRuleRouter = {
   deleteVersion,
   saveTranslation,
   selectTranslation,
+  listTranslations,
+  importTranslation,
   releases,
   downloadLatest,
 };

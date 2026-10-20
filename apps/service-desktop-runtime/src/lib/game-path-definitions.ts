@@ -8,6 +8,7 @@ registerGamePaths('magic', {
     { name: 'gatherer', label: 'Gatherer' },
     { name: 'mtga', label: 'MTGA' },
     { name: 'mtg-vectors', label: 'MTG Vectors' },
+    { name: 'magic-comp-rules-zh-cn', label: '完整规则中文译本' },
   ],
   image: [
     { name: 'card', label: '卡图' },

@@ -11,6 +11,7 @@ import MagicSymbol from './Symbol.vue';
 import MagicCardAvatar from './CardAvatar.vue';
 
 const props = defineProps<{ text: string, markers?: TextMarker[], slug: string, versionTag: string }>();
+const route = useRoute();
 
 /** Renders literal game symbols without interpreting plain text as Markdown or HTML. */
 function symbolText(text: string): VNodeChild[] {
@@ -49,7 +50,7 @@ function render() {
       const document = link.documentId ?? props.slug;
       children = h(NuxtLink, { to: {
         path:  `/document/${document === 'magic-cr' ? 'cr' : document}`,
-        query: { version: link.releaseId ?? props.versionTag, node: link.anchor },
+        query: { version: link.releaseId ?? props.versionTag, node: link.anchor, locale: typeof route.query.locale === 'string' ? route.query.locale : undefined },
         hash:  `#${encodeURIComponent(link.anchor)}`,
       } }, () => label);
     }

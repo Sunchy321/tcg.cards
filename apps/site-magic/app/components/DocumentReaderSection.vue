@@ -9,6 +9,9 @@
       section.kind === 'example' ? 'my-2 mb-4 ml-6 border-l border-(--reader-line) py-1 pl-5 text-[0.9375rem] text-(--reader-muted)' : 'text-base sm:text-[1.0625rem]',
     ]"
   >
+    <span v-if="section.localeState.isFallback" class="mb-2 block text-xs text-(--reader-muted)">
+      {{ $t('magic.document.translation_missing') }}
+    </span>
     <component
       :is="headingTag"
       v-if="isHeading && section.text"

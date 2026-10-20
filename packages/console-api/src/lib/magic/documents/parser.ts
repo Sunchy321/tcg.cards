@@ -38,16 +38,21 @@ interface ParserContext {
 
 const chapterPattern = /^([1-9]\d?)\.\s+(.+)$/;
 const sectionPattern = /^(\d{3})\.\s+(.+)$/;
-const rulePattern = /^(\d+\.\d+)\.\s+(.+)$/;
-const subrulePattern = /^(\d+\.\d+[a-z])\.?\s+(.+)$/;
+const rulePattern = /^(\d+\.\d+)\.?\s+(.+)$/;
+const subrulePattern = /^(\d+\.\d+[a-z]+)\.?\s+(.+)$/;
 const effectiveDatePattern = /^These rules are effective as of (.+)\.$/i;
+
+/** Identifies the official TXT parsing rules used by import attempts. */
+export const crParserVersion = 'magic-cr-txt-v2';
 
 /** Normalizes source line endings without interpreting game symbols. */
 function normalizeText(input: string): string {
   return input
     .replace(/^\uFEFF/, '')
     .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n');
+    .replace(/\r/g, '\n')
+    // Official TXT files also contain Unicode line breaks inside numbered rules.
+    .replace(/[\u2028\u2029]/g, '\n');
 }
 
 /** Separates source paragraphs while preserving their internal lines. */
@@ -69,7 +74,7 @@ function normalizeParagraph(input: string): string {
 }
 
 /** Builds a stable anchor for a glossary term. */
-function toTermSlug(term: string): string {
+export function toTermSlug(term: string): string {
   return term
     .trim()
     .toLowerCase()
@@ -95,7 +100,7 @@ function buildSectionPath(sectionId: string): string {
 
 /** Constructs hierarchical paths for rules and subrules. */
 function buildRulePath(nodeId: string): string {
-  const subruleMatch = nodeId.match(/^(\d+)\.(\d+)([a-z])$/);
+  const subruleMatch = nodeId.match(/^(\d+)\.(\d+)([a-z]+)$/);
   if (subruleMatch) {
     const [, sectionId, rule, subrule] = subruleMatch;
     return `${buildSectionPath(sectionId!)}/${rule}/${subrule}`;
@@ -112,7 +117,7 @@ function buildRulePath(nodeId: string): string {
 
 /** Resolves a rule or subrule parent from its official number. */
 function getRuleParentId(nodeId: string): string | null {
-  const subruleMatch = nodeId.match(/^(\d+\.\d+)[a-z]$/);
+  const subruleMatch = nodeId.match(/^(\d+\.\d+)[a-z]+$/);
   if (subruleMatch) {
     return subruleMatch[1] ?? null;
   }
@@ -127,7 +132,7 @@ function getRuleParentId(nodeId: string): string | null {
 
 /** Determines indentation from the official rule number. */
 function getRuleLevel(nodeId: string): number {
-  if (/^\d+\.\d+[a-z]$/.test(nodeId)) {
+  if (/^\d+\.\d+[a-z]+$/.test(nodeId)) {
     return 3;
   }
 
@@ -285,6 +290,12 @@ function isImplicitHeadingText(paragraph: string): boolean {
   }
 
   return paragraph.length <= 120;
+}
+
+/** Recognizes glossary titles without rejecting quoted names or internal periods. */
+function isGlossaryTerm(text: string): boolean {
+  return text.length > 0 && text.length <= 120
+    && !/[.?:;：]$/u.test(text) && !/^(Example:|[0-9]+[.)]\s)/u.test(text);
 }
 
 /** Collects a glossary term and its explanation in one node. */
@@ -559,7 +570,7 @@ export function parseMagicCrDocument(input: {
         continue;
       }
 
-      if (isImplicitHeadingText(glossaryHead)) {
+      if (isGlossaryTerm(glossaryHead)) {
         if (glossaryTerm) {
           createGlossaryTermNode(context, glossaryTerm, glossaryParts);
         }
@@ -604,7 +615,7 @@ export function parseMagicCrDocument(input: {
     versionTag:     input.versionTag,
     effectiveDate,
     publishedAt:    effectiveDate,
-    parserStrategy: 'magic-cr-txt-v1',
+    parserStrategy: crParserVersion,
     nodes:          context.nodes,
   };
 }

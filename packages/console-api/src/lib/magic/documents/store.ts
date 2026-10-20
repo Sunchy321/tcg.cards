@@ -36,7 +36,7 @@ export interface Node {
   reviewStatus: ReviewStatus | null;
 }
 
-/** Saves a complete immutable article or translation state. */
+/** Saves authored content or the selected public content of an imported source. */
 export interface Revision {
   id: string;
   documentId: string;
@@ -112,6 +112,8 @@ export interface DocumentStore {
   /** Counts saved nodes in the requested revisions without reading their content. */
   revisionNodeCounts(revisionIds: string[]): Promise<Map<string, number>>;
   putRevision(revision: Revision): Promise<void>;
+  /** Rebuilds an imported public source's parsing without creating an editing revision. */
+  reparseRevision(revision: Revision, options?: { dryRun?: boolean }): Promise<void>;
   hideRevision(id: string, at: Date): Promise<void>;
   translations(documentId: string): Promise<Translation[]>;
   putTranslation(translation: Translation): Promise<void>;

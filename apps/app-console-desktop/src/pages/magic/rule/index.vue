@@ -19,14 +19,14 @@
             color="neutral"
             variant="soft"
             :loading="loadingVersions"
-            :disabled="downloading || importingVersion != null"
+            :disabled="downloading || importingVersion != null || importingTranslation != null"
             @click="refreshVersions"
           />
           <UButton
             label="下载最新规则"
             icon="i-lucide-download"
             :loading="downloading"
-            :disabled="importingVersion != null"
+            :disabled="importingVersion != null || importingTranslation != null"
             @click="downloadLatest"
           />
         </div>
@@ -34,8 +34,11 @@
       <p v-if="listWarning" class="mt-2 text-sm text-warning">
         {{ listWarning }}
       </p>
-      <p v-if="importError" role="alert" class="mt-2 text-sm text-error">
+      <p v-if="importError" role="alert" class="mt-2 whitespace-pre-line text-sm text-error">
         {{ importError }}
+      </p>
+      <p v-if="!translationsConfigured && !translationListFailed" class="mt-2 text-sm text-muted">
+        导入中文前，请先在 <NuxtLink to="/settings/games/magic" class="text-primary underline">Magic 设置</NuxtLink> 中配置完整规则中文译本目录。
       </p>
     </div>
 
@@ -54,6 +57,9 @@
             </th>
             <th class="px-4 py-3 font-medium">
               本地文章
+            </th>
+            <th class="px-4 py-3 font-medium">
+              中文译文
             </th>
             <th class="px-4 py-3 font-medium">
               操作
@@ -101,14 +107,27 @@
               <span v-if="row.totalNodes != null" class="ml-2 text-xs text-muted">{{ row.totalNodes }} 个条目</span>
             </td>
             <td class="px-4 py-3">
+              <UBadge v-if="row.translationImported" label="已导入" color="success" variant="soft" size="xs" />
+              <span v-else class="text-muted">{{ translationListFailed ? '状态未知' : row.translationAvailable ? '可导入' : '暂无译文' }}</span>
+            </td>
+            <td class="space-x-2 px-4 py-3">
               <UButton
                 :label="row.imported ? '再次导入' : '导入'"
                 icon="i-lucide-file-input"
                 size="xs"
                 variant="soft"
                 :loading="importingVersion === row.date"
-                :disabled="!row.local.txt || downloading || (importingVersion != null && importingVersion !== row.date)"
+                :disabled="!row.local.txt || downloading || importingTranslation != null || (importingVersion != null && importingVersion !== row.date)"
                 @click="importVersion(row.date)"
+              />
+              <UButton
+                :label="row.translationImported ? '再次导入中文' : '导入中文'"
+                icon="i-lucide-languages"
+                size="xs"
+                variant="soft"
+                :loading="importingTranslation === row.date"
+                :disabled="!row.imported || !row.translationAvailable || downloading || importingVersion != null || (importingTranslation != null && importingTranslation !== row.date)"
+                @click="importTranslation(row.date)"
               />
             </td>
           </tr>
@@ -144,11 +163,13 @@ interface FileFlags {
 
 /** Combines source-file availability with persistent local article state. */
 interface VersionRow {
-  date:       string;
-  local:      FileFlags;
-  cloud:      FileFlags;
-  imported:   boolean;
-  totalNodes: number | null;
+  date:                 string;
+  local:                FileFlags;
+  cloud:                FileFlags;
+  imported:             boolean;
+  totalNodes:           number | null;
+  translationAvailable: boolean;
+  translationImported:  boolean;
 }
 
 const fileFormats = ['txt', 'doc', 'pdf'] as const;
@@ -188,31 +209,46 @@ function errorMessage(error: unknown) {
 function mergeVersions(
   local: Awaited<ReturnType<typeof orpc.magic.rule.listLocal>>,
   cloud: Awaited<ReturnType<typeof remote.magic.rule.listFiles>>,
+  translations: Awaited<ReturnType<typeof orpc.magic.rule.listTranslations>>['versions'],
 ): VersionRow[] {
   const rows = new Map<string, VersionRow>();
 
   for (const version of cloud) {
     rows.set(version.id, {
-      date:       version.id,
-      local:      emptyFlags(),
-      cloud:      { ...version.files },
-      imported:   false,
-      totalNodes: null,
+      date:                 version.id,
+      local:                emptyFlags(),
+      cloud:                { ...version.files },
+      imported:             false,
+      totalNodes:           null,
+      translationAvailable: false,
+      translationImported:  false,
     });
   }
 
   for (const version of local) {
     const row = rows.get(version.date) ?? {
-      date:       version.date,
-      local:      emptyFlags(),
-      cloud:      emptyFlags(),
-      imported:   false,
-      totalNodes: null,
+      date:                 version.date,
+      local:                emptyFlags(),
+      cloud:                emptyFlags(),
+      imported:             false,
+      totalNodes:           null,
+      translationAvailable: false,
+      translationImported:  false,
     };
     row.local = { ...version.files };
     row.imported = version.imported;
     row.totalNodes = version.totalNodes;
     rows.set(version.date, row);
+  }
+
+  for (const translation of translations) {
+    const row = rows.get(translation.date) ?? {
+      date:                 translation.date, local:                emptyFlags(), cloud:                emptyFlags(), imported:             false, totalNodes:           null,
+      translationAvailable: false, translationImported:  false,
+    };
+    row.translationAvailable = translation.available;
+    row.translationImported = translation.imported;
+    rows.set(translation.date, row);
   }
 
   return [...rows.values()].sort((a, b) => b.date.localeCompare(a.date));
@@ -224,26 +260,34 @@ const listWarning = ref<string | null>(null);
 const localListFailed = ref(false);
 const importingVersion = ref<string | null>(null);
 const importError = ref<string | null>(null);
+const importingTranslation = ref<string | null>(null);
+const translationsConfigured = ref(true);
+const translationListFailed = ref(false);
 
 /** Reloads source availability and saved local article status. */
 async function refreshVersions() {
   loadingVersions.value = true;
   try {
-    const [local, cloud] = await Promise.allSettled([
+    const [local, cloud, translations] = await Promise.allSettled([
       orpc.magic.rule.listLocal(),
       remote.magic.rule.listFiles(),
+      orpc.magic.rule.listTranslations(),
     ]);
 
     const warnings = [
       ...(local.status === 'rejected' ? [`本地版本读取失败:${errorMessage(local.reason)}`] : []),
       ...(cloud.status === 'rejected' ? [`云端版本获取失败:${errorMessage(cloud.reason)}`] : []),
+      ...(translations.status === 'rejected' ? [`中文译本读取失败：${errorMessage(translations.reason)}`] : []),
     ];
     localListFailed.value = local.status === 'rejected';
+    translationListFailed.value = translations.status === 'rejected';
+    translationsConfigured.value = translations.status === 'fulfilled' && translations.value.configured;
     listWarning.value = warnings.length > 0 ? warnings.join(' ') : null;
 
     rows.value = mergeVersions(
       local.status === 'fulfilled' ? local.value : [],
       cloud.status === 'fulfilled' ? cloud.value : [],
+      translations.status === 'fulfilled' ? translations.value.versions : [],
     );
   } finally {
     loadingVersions.value = false;
@@ -258,6 +302,7 @@ const downloading = ref(false);
 
 /** Downloads official originals locally without independently fetching a remote copy. */
 async function downloadLatest() {
+  if (downloading.value || importingVersion.value != null || importingTranslation.value != null) return;
   downloading.value = true;
   try {
     const result = await orpc.magic.rule.downloadLatest();
@@ -276,7 +321,7 @@ async function downloadLatest() {
 
 /** Imports a downloaded edition and refreshes its saved status, including after failures. */
 async function importVersion(version: string) {
-  if (importingVersion.value != null) return;
+  if (importingVersion.value != null || importingTranslation.value != null || downloading.value) return;
   importingVersion.value = version;
   importError.value = null;
   try {
@@ -292,6 +337,23 @@ async function importVersion(version: string) {
   } finally {
     await refreshVersions();
     importingVersion.value = null;
+  }
+}
+
+/** Imports a local Chinese edition and refreshes its persistent selection after completion. */
+async function importTranslation(version: string) {
+  if (importingTranslation.value != null || importingVersion.value != null || downloading.value) return;
+  importingTranslation.value = version;
+  importError.value = null;
+  try {
+    const result = await orpc.magic.rule.importTranslation({ version });
+    useToast().add({ title: '中文导入完成', description: `${formatDate(version)}，共 ${result.totalNodes} 个条目。`, color: 'success' });
+  } catch (error) {
+    importError.value = `${formatDate(version)} 中文导入失败：${errorMessage(error)}`;
+    useToast().add({ title: '中文导入失败', description: importError.value, color: 'error' });
+  } finally {
+    await refreshVersions();
+    importingTranslation.value = null;
   }
 }
 </script>

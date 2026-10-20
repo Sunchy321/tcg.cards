@@ -117,6 +117,21 @@ test('dry run validates and counts content without writing anything', async () =
   expect(await target.revisions('magic-cr')).toEqual([]);
 });
 
+test('publishes repaired parsing of the same public source without creating another revision', async () => {
+  const source = memoryStore();
+  const target = memoryStore();
+  const imported = await createDocumentService(source, { track: 'local' }).importCr({ content: cr + '\n100.2. Keep playing.\n' });
+  const original = (await source.revision(imported.revisionId))!;
+  await target.putDocument((await source.document('magic-cr'))!);
+  await target.putRevision({ ...original, nodes: original.nodes.filter(node => node.anchor !== '100.2') });
+  await target.putRelease((await source.releases('magic-cr'))[0]!);
+  await publishDocument(source, target, 'magic-cr', { dryRun: true });
+  expect((await target.revision(imported.revisionId))?.nodes.some(node => node.anchor === '100.2')).toBe(false);
+  await publishDocument(source, target, 'magic-cr');
+  expect((await createDocumentService(target, { track: 'remote' }).read({ slug: 'magic-cr' })).sections.find(node => node.nodeId === '100.2')?.text).toBe('Keep playing.');
+  expect(await target.revisions('magic-cr')).toHaveLength(1);
+});
+
 test('preserves unrelated user content and rejects user identity or slug collisions', async () => {
   const source = memoryStore();
   const target = memoryStore();

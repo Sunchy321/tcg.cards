@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from 'node:util';
 
 import type { DocumentStore, Revision } from './store';
+import { sameRevision } from './reparse';
 
 /** Report the complete publication snapshot, including dry runs and retries. */
 export interface PublicationCounts {
@@ -95,14 +96,21 @@ export async function publishDocument(source: DocumentStore, target: DocumentSto
         }
       }
       const newRevisions: Revision[] = [];
+      const reparsed: Revision[] = [];
       for (const revision of ordered) {
         const previous = await remote.revision(revision.id);
         if (previous == null) newRevisions.push(revision);
-        else if (!sameRevision(previous, revision)) throw new Error('Publication immutable revision conflicts');
+        else if (!sameRevision(previous, revision)) {
+          if (sameRevision(previous, { ...revision, nodes: previous.nodes })) {
+            await remote.reparseRevision(revision, { dryRun: true });
+            reparsed.push(revision);
+          } else throw new Error('Publication immutable revision conflicts');
+        }
       }
       if (options.dryRun) return counts;
       await remote.putDocument({ ...document, origin: 'static', authorId: null, visibility: 'public' });
       for (const translation of translations) await remote.putTranslation(translation);
+      for (const revision of reparsed) await remote.reparseRevision(revision);
       for (const revision of newRevisions) await remote.putRevision(revision);
       for (const revision of ordered) {
         if (revision.deletedAt != null) await remote.hideRevision(revision.id, revision.deletedAt);
@@ -129,12 +137,4 @@ function orderRevisions(revisions: Revision[]): Revision[] {
     pending = pending.filter(row => !inserted.has(row.id));
   }
   return result;
-}
-
-/** Compare immutable content independently of history cleanup and SQL row ordering. */
-function sameRevision(left: Revision, right: Revision): boolean {
-  const { deletedAt: _leftDeleted, nodes: leftNodes, ...leftContent } = left;
-  const { deletedAt: _rightDeleted, nodes: rightNodes, ...rightContent } = right;
-  return isDeepStrictEqual(leftContent, rightContent)
-    && isDeepStrictEqual([...leftNodes].sort((a, b) => a.id.localeCompare(b.id)), [...rightNodes].sort((a, b) => a.id.localeCompare(b.id)));
 }

@@ -8,6 +8,8 @@ import { documentSettings, sourceFile } from '@tcg-cards/model/magic/schema/docu
 import { createTranslationOperations } from './translations';
 import { createAuthoringOperations } from './authoring';
 import { parseMagicCrDocument } from './parser';
+import { alignCrTranslation, CrTranslationError } from './community';
+import { sameRevision } from './reparse';
 import type { DocumentStore, Node, Revision } from './store';
 
 /** Selects storage ownership and the authenticated user for document operations. */
@@ -21,6 +23,24 @@ export function createDocumentService(store: DocumentStore, context: DocumentCon
   return {
     ...createAuthoringOperations(store, context),
     ...createTranslationOperations(store, context),
+    /** Imports a community edition only after its exact English release has been prepared. */
+    async importCrTranslation(input: { versionTag: string; content: unknown }) {
+      if (context.track !== 'local') throw new Error('Static translations require local storage');
+      const versionTag = input.versionTag.replaceAll('-', '');
+      return store.transaction('magic-cr', async tx => {
+        const release = (await tx.releases('magic-cr')).find(row => row.versionTag === versionTag && row.deletedAt == null);
+        if (release == null) throw new CrTranslationError([`${versionTag}：请先通过英文规则导入准备此版本。`]);
+        const source = await tx.revision(release.sourceRevisionId);
+        if (source == null || source.language !== 'en' || source.translationId != null) {
+          throw new CrTranslationError([`${versionTag}：此版本缺少有效的英文原文。`]);
+        }
+        const aligned = alignCrTranslation(input.content, source, versionTag);
+        const translations = createTranslationOperations(tx, context);
+        const revision = await translations.saveTranslation(aligned);
+        await translations.selectTranslation({ documentId: 'magic-cr', releaseId: release.id, revisionId: revision.id });
+        return { versionTag, releaseId: release.id, revisionId: revision.id, totalNodes: revision.nodes.length };
+      });
+    },
     async importCr(input: { content: string; versionTag?: string; files?: SourceFile[] }) {
       if (context.track !== 'local') throw new Error('Static imports require local storage');
       const normalized = input.content.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').trimEnd() + '\n';
@@ -38,7 +58,6 @@ export function createDocumentService(store: DocumentStore, context: DocumentCon
         const existingRelease = (await tx.releases('magic-cr')).find(row => row.id === releaseId);
         if (existingRelease && existingRelease.sourceRevisionId !== revisionId) throw new Error('Official release already exists with different content');
         const existing = await tx.revision(revisionId);
-        if (existing) return { documentId: 'magic-cr', revisionId, releaseId, versionTag, effectiveDate, totalNodes: existing.nodes.length };
         const at = new Date();
         const document = await tx.document('magic-cr');
         await tx.putDocument(document ?? {
@@ -52,13 +71,19 @@ export function createDocumentService(store: DocumentStore, context: DocumentCon
         const previousRelease = (await tx.releases('magic-cr')).filter(row => !row.deletedAt && row.versionTag < versionTag).sort((a, b) => b.versionTag.localeCompare(a.versionTag))[0];
         const previousRevision = previousRelease ? await tx.revision(previousRelease.sourceRevisionId) : undefined;
         const assignments = previousRevision ? matchRevisionNodes(previousRevision, parsed.nodes, revisionId).entityAssignments : undefined;
+        const existingKeys = new Map(existing?.nodes.map(node => [node.anchor, node.nodeKey]));
         const nodes: Node[] = parsed.nodes.map(node => ({
-          id: ids.get(node.id)!, revisionId, nodeKey: assignments?.get(node.nodeId)?.entityId ?? node.nodeId, kind: node.nodeKind,
+          id: ids.get(node.id)!, revisionId, nodeKey: existingKeys.get(node.nodeId) ?? assignments?.get(node.nodeId)?.entityId ?? node.nodeId, kind: node.nodeKind,
           anchor: node.nodeId, path: node.path, level: node.level,
           parentId: node.parentNodeId ? ids.get(node.parentNodeId) ?? null : null,
           siblingOrder: node.siblingOrder, ...importText(node.content ?? '', anchors),
           sourceNodeId: null, sourceRevisionId: null, translationMethod: null, reviewStatus: null,
         }));
+        if (existing) {
+          const reparsed = { ...existing, nodes };
+          if (!sameRevision(existing, reparsed)) await tx.reparseRevision(reparsed);
+          return { documentId: 'magic-cr', revisionId, releaseId, versionTag, effectiveDate, totalNodes: nodes.length };
+        }
         await tx.putRevision({
           id: revisionId, documentId: 'magic-cr', translationId: null, sourceRevisionId: null,
           title: 'Comprehensive Rules', language: 'en', createdAt: at, deletedAt: null, nodes,
@@ -117,7 +142,7 @@ function buildReader(
   const translations = new Map(translated?.nodes.map(node => [node.sourceNodeId, node]) ?? []);
   const sections = orderedNodes(source.nodes).map(node => ({
     nodeId: node.anchor ?? node.nodeKey, entityId: node.nodeKey, kind: node.kind,
-    serial: /^\d+(?:\.\d+[a-z]?)?$/.test(node.anchor ?? '') ? `${node.anchor}${/[a-z]$/.test(node.anchor!) ? '' : '.'}` : null,
+    serial: /^\d+(?:\.\d+[a-z]*)?$/.test(node.anchor ?? '') ? `${node.anchor}${/[a-z]$/.test(node.anchor!) ? '' : '.'}` : null,
     text: translations.get(node.id)?.rawText ?? (node.rawText || null),
     markers: translations.get(node.id)?.markers ?? node.markers,
     translationMethod: translations.get(node.id)?.translationMethod ?? null,

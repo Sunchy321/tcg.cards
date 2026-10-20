@@ -4,8 +4,10 @@ import { alias } from 'drizzle-orm/pg-core';
 import type { createDb } from '@tcg-cards/db/db';
 import * as local from '@tcg-cards/db/schema/local/magic/documents';
 import * as remote from '@tcg-cards/db/schema/remote/magic/documents';
+import { DocumentComparison } from '@tcg-cards/db/schema/remote/magic/document';
 
 import type { Document, DocumentStore, Node } from './store';
+import { assertReparse } from './reparse';
 
 /** Accept the configured database without opening a connection during import. */
 type Database = ReturnType<typeof createDb>;
@@ -15,7 +17,7 @@ type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
 type Track = 'local' | 'remote';
 
 /** Persist document content with per-document transactional serialization. */
-export function createDocumentStore(database: Database, track: Track): DocumentStore {
+export function createDocumentStore(database: Database | Transaction, track: Track): DocumentStore {
   return createStore(database, track, false);
 }
 
@@ -157,6 +159,27 @@ function createStore(database: Database | Transaction, track: Track, transaction
         .onConflictDoNothing({ target: DocumentRevision.id }).returning({ id: DocumentRevision.id });
       if (inserted.length === 0) return;
       await insertNodes(database, DocumentRevisionNode, nodes);
+    },
+    /** Rebuilds public source parsing atomically while leaving the release and revision identity intact. */
+    async reparseRevision(revision, options) {
+      if (!transactional) return createStore(database, track, false).transaction(revision.documentId, tx => tx.reparseRevision(revision, options));
+      const store = createStore(database, track, true);
+      const [document, previous, releases, translationRefs] = await Promise.all([
+        store.document(revision.documentId), store.revision(revision.id), store.releases(revision.documentId),
+        database.select({ id: DocumentRevision.id }).from(DocumentRevision).where(eq(DocumentRevision.sourceRevisionId, revision.id)).limit(1),
+      ]);
+      const comparisons = track === 'remote'
+        ? await database.select({ id: DocumentComparison.id }).from(DocumentComparison)
+          .where(or(eq(DocumentComparison.fromRevisionId, revision.id), eq(DocumentComparison.toRevisionId, revision.id))).limit(1)
+        : [];
+      assertReparse({ document, previous, revision,
+        released: releases.some(row => row.sourceRevisionId === revision.id && row.deletedAt == null),
+        referenced: translationRefs.length > 0 || comparisons.length > 0,
+      });
+      if (options?.dryRun) return;
+      // Imported nodes are regenerated from the same retained source file; no revision or release is deleted.
+      await database.delete(DocumentRevisionNode).where(eq(DocumentRevisionNode.revisionId, revision.id));
+      await insertNodes(database, DocumentRevisionNode, revision.nodes);
     },
     async hideRevision(id, at) {
       await database.update(DocumentRevision).set({ deletedAt: at }).where(eq(DocumentRevision.id, id));

@@ -18,35 +18,38 @@ interface ReviewInput { changeId: string; status: 'confirmed' | 'rejected' | 'ov
 
 /** Cache deterministic comparison targets against their exact source snapshots. */
 async function comparison(input: VersionPair) {
-  const store = createDocumentStore(db, 'remote');
-  const document = await store.document(input.documentId);
-  if (document == null || document.deletedAt != null) throw new Error('Document not found');
-  const releases = (await store.releases(document.id)).filter(row => row.deletedAt == null);
-  const from = releases.find(row => row.id === input.fromVersionId);
-  const to = releases.find(row => row.id === input.toVersionId);
-  if (from == null || to == null) throw new Error('Release not found');
-  const id = createHash('sha256').update(JSON.stringify([document.id, from.id, to.id, from.sourceRevisionId, to.sourceRevisionId])).digest('hex');
-  const [existing] = await db.select().from(DocumentComparison).where(eq(DocumentComparison.id, id)).limit(1);
-  if (existing != null) return existing;
-  const previous = await store.revision(from.sourceRevisionId);
-  const next = await store.revision(to.sourceRevisionId);
-  if (previous == null || next == null) throw new Error('Release content missing');
-  const result = matchRevisionNodes(previous, next.nodes.map(node => ({ id: node.id, documentId: document.id,
-    versionId: next.id, nodeId: node.anchor ?? node.nodeKey, nodeKind: node.kind, path: node.path,
-    level: node.level, parentNodeId: node.parentId, siblingOrder: node.siblingOrder, content: node.rawText })), next.id);
-  const nodeKeys = new Map([...previous.nodes, ...next.nodes].map(node => [node.id, node.nodeKey]));
-  const changes: StoredDocumentChange[] = result.changes.map((change, index) => {
-    // Split/merge assignments are generated during matching; persisted node keys are authoritative.
-    const primaryId = change.type === 'split' ? change.fromNodeRefId : change.toNodeRefId ?? change.fromNodeRefId;
-    return { id: `${id}:${index}`, entityId: primaryId == null ? change.entityId : nodeKeys.get(primaryId) ?? change.entityId, fromNodeRefId: change.fromNodeRefId,
-      toNodeRefId: change.toNodeRefId, type: change.type, confidenceScore: change.confidenceScore, details: change.details,
-      relations: change.relations?.map(relation => ({ ...relation, entityId: relation.nodeRefId == null ? relation.entityId : nodeKeys.get(relation.nodeRefId) ?? relation.entityId })) };
+  return db.transaction(async tx => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`magic-document:${input.documentId}`}))`);
+    const store = createDocumentStore(tx, 'remote');
+    const document = await store.document(input.documentId);
+    if (document == null || document.deletedAt != null) throw new Error('Document not found');
+    const releases = (await store.releases(document.id)).filter(row => row.deletedAt == null);
+    const from = releases.find(row => row.id === input.fromVersionId);
+    const to = releases.find(row => row.id === input.toVersionId);
+    if (from == null || to == null) throw new Error('Release not found');
+    const id = createHash('sha256').update(JSON.stringify([document.id, from.id, to.id, from.sourceRevisionId, to.sourceRevisionId])).digest('hex');
+    const [existing] = await tx.select().from(DocumentComparison).where(eq(DocumentComparison.id, id)).limit(1);
+    if (existing != null) return existing;
+    const previous = await store.revision(from.sourceRevisionId);
+    const next = await store.revision(to.sourceRevisionId);
+    if (previous == null || next == null) throw new Error('Release content missing');
+    const result = matchRevisionNodes(previous, next.nodes.map(node => ({ id: node.id, documentId: document.id,
+      versionId: next.id, nodeId: node.anchor ?? node.nodeKey, nodeKind: node.kind, path: node.path,
+      level: node.level, parentNodeId: node.parentId, siblingOrder: node.siblingOrder, content: node.rawText })), next.id);
+    const nodeKeys = new Map([...previous.nodes, ...next.nodes].map(node => [node.id, node.nodeKey]));
+    const changes: StoredDocumentChange[] = result.changes.map((change, index) => {
+      // Split/merge assignments are generated during matching; persisted node keys are authoritative.
+      const primaryId = change.type === 'split' ? change.fromNodeRefId : change.toNodeRefId ?? change.fromNodeRefId;
+      return { id: `${id}:${index}`, entityId: primaryId == null ? change.entityId : nodeKeys.get(primaryId) ?? change.entityId, fromNodeRefId: change.fromNodeRefId,
+        toNodeRefId: change.toNodeRefId, type: change.type, confidenceScore: change.confidenceScore, details: change.details,
+        relations: change.relations?.map(relation => ({ ...relation, entityId: relation.nodeRefId == null ? relation.entityId : nodeKeys.get(relation.nodeRefId) ?? relation.entityId })) };
+    });
+    const row = { id, ...input, fromRevisionId: previous.id, toRevisionId: next.id, changes };
+    await tx.insert(DocumentComparison).values(row).onConflictDoNothing({ target: DocumentComparison.id });
+    const [saved] = await tx.select().from(DocumentComparison).where(eq(DocumentComparison.id, id)).limit(1);
+    if (saved == null) throw new Error('Comparison could not be saved');
+    return saved;
   });
-  const row = { id, ...input, fromRevisionId: previous.id, toRevisionId: next.id, changes };
-  await db.insert(DocumentComparison).values(row).onConflictDoNothing({ target: DocumentComparison.id });
-  const [saved] = await db.select().from(DocumentComparison).where(eq(DocumentComparison.id, id)).limit(1);
-  if (saved == null) throw new Error('Comparison could not be saved');
-  return saved;
 }
 
 /** Translate stored conclusions into the existing administration contract. */

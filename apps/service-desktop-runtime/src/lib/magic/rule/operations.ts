@@ -67,7 +67,7 @@ export function createRuleOperations({ root, store, recordImport }: RuleDependen
       }
     },
     /** Reads an imported local edition through the shared article reader. */
-    read(input: { slug?: string, versionTag?: string }) {
+    read(input: { slug?: string, versionTag?: string, locale?: string }) {
       return documents.read({ ...input, slug: input.slug ?? 'magic-cr' });
     },
   };

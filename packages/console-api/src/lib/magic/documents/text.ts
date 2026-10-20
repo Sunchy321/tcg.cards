@@ -20,7 +20,7 @@ export function importText(input: string, anchors: Set<string>): { rawText: stri
     previous = match.index + match[0].length;
   }
   rawText += input.slice(previous);
-  for (const match of rawText.matchAll(/\b\d{3}\.\d+[a-z]?\b/g)) {
+  for (const match of rawText.matchAll(/(?<![a-zA-Z0-9_])\d{3}\.\d+[a-z]*(?![a-z0-9])/gu)) {
     if (anchors.has(match[0]) && !markers.some(marker => marker.start <= match.index && marker.end > match.index)) {
       markers.push({ type: 'chapter', anchor: match[0], start: match.index, end: match.index + match[0].length });
     }

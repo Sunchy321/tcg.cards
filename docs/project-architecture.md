@@ -230,6 +230,8 @@ The remote table namespace does not transfer ownership of static-origin rows to 
 
 Documents distinguish saved revisions from public releases. Translations reference exact source revision nodes and follow the source release sequence. Node text is authoritative for full-text search; typed markers carry formatting and references, and game symbols remain literal text. The accepted target model and its implementation boundaries are recorded in [ADR-0018](adr/0018-documents-unify-remote-content-with-node-based-translations.md).
 
+A manual CR reimport can repair parsing of the same retained source file directly in its public source revision, without adding an editing revision. The static publication path supports the same transactional node replacement. Existing translation or comparison dependencies block replacement, and the retained original bytes and revision metadata remain unchanged.
+
 ## Documentation Rule
 
 Architecture documents under `docs/` describe stable boundaries and authority rules.

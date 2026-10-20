@@ -1,4 +1,5 @@
 import type { Document, DocumentStore, Release, ReleaseTranslation, Revision, SearchHit, Translation } from './store';
+import { assertReparse } from './reparse';
 
 /** Exercises operation contracts with transactional storage and rollback. */
 export function memoryStore(): DocumentStore {
@@ -51,6 +52,15 @@ export function memoryStore(): DocumentStore {
     putRevision: async row => {
       if (state.revisions.has(row.id)) throw new Error('Revision already exists');
       state.revisions.set(row.id, structuredClone(row));
+    },
+    /** Replaces only the parsing of an unreferenced imported public source. */
+    reparseRevision: async (revision, options) => {
+      assertReparse({
+        document: state.documents.get(revision.documentId), previous: state.revisions.get(revision.id), revision,
+        released: [...state.releases.values()].some(row => row.sourceRevisionId === revision.id && row.deletedAt == null),
+        referenced: [...state.revisions.values()].some(row => row.sourceRevisionId === revision.id),
+      });
+      if (!options?.dryRun) state.revisions.set(revision.id, structuredClone(revision));
     },
     hideRevision: async (id, at) => { const row = state.revisions.get(id); if (row) row.deletedAt = at; },
     translations: async id => structuredClone([...state.translations.values()].filter(row => row.documentId === id)),
