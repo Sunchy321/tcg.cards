@@ -1,8 +1,18 @@
 <template>
   <div class="document-reader min-h-dvh font-sans text-default">
-    <div class="sticky top-0 z-50 bg-linear-to-br from-[var(--color-theme-from)] via-[var(--color-theme-via)] to-[var(--color-theme-to)] max-sm:[&_header_[data-slot=center]]:min-w-0 max-sm:[&_header_[data-slot=center]>span]:truncate">
+    <div class="sticky top-0 z-50 bg-linear-to-br from-(--color-theme-from) via-(--color-theme-via) to-(--color-theme-to) max-sm:[&_header_[data-slot=center]]:min-w-0 max-sm:[&_header_[data-slot=center]>span]:truncate">
       <AppHeader />
     </div>
+
+    <DocumentControls
+      v-if="summaryReady"
+      :versions="summary.versions"
+      :version-tag="summary.version.versionTag"
+      :locale="currentLocale"
+      :compare-to="compareTo"
+      @version="selectVersion"
+      @locale="selectLocale"
+    />
 
     <DocumentOutline
       v-if="(summary.document.settings?.outline ?? true) && summary.outline.length"
@@ -52,11 +62,10 @@
 
 <script setup lang="ts">
 import type { DocumentOutlineItem, DocumentReaderSummary } from '#model/magic/schema/document-page';
-import { locale as localeSchema } from '#model/magic/schema/basic';
 
 definePageMeta({
-  layout: false,
-  game:   'magic',
+  layout:   false,
+  game:     'magic',
   // Imported storage identifiers are not alternative public document addresses.
   validate: route => !('slug' in route.params && route.params.slug === 'magic-cr'),
 });
@@ -72,8 +81,10 @@ const slugBase = computed(() => String(route.params.slug ?? 'cr'));
 const apiSlug = computed(() => slugBase.value === 'cr' ? 'magic-cr' : slugBase.value);
 const versionQuery = computed(() => typeof route.query.version === 'string' ? route.query.version : undefined);
 const currentLocale = computed(() => {
-  const parsed = localeSchema.safeParse(route.query.locale);
-  return parsed.success ? parsed.data : 'en';
+  // Explicit reading choices survive shared links; otherwise follow the interface,
+  // independently of the game's card/data locale setting.
+  const selected = route.query.locale;
+  return selected === 'en' || selected === 'zhs' ? selected : i18n.locale.value === 'zhs' ? 'zhs' : 'en';
 });
 const summary = shallowRef<DocumentReaderSummary>({
   document: { id: '', slug: '', name: '' },
@@ -82,6 +93,26 @@ const summary = shallowRef<DocumentReaderSummary>({
   outline:  [],
 });
 const documentName = computed(() => slugBase.value === 'cr' ? i18n.t('magic.document.names.cr') : summary.value.document.name);
+const compareTo = computed(() => {
+  if (!summary.value.document.settings?.compare || summary.value.versions.length < 2) return undefined;
+  const index = summary.value.versions.findIndex(version => version.versionTag === summary.value.version.versionTag);
+  const older = summary.value.versions[index + 1];
+  const newer = summary.value.versions[index - 1];
+  const from = older?.versionTag ?? summary.value.version.versionTag;
+  const to = older ? summary.value.version.versionTag : newer?.versionTag;
+  return to == null ? undefined : { path: `/document/${slugBase.value}/diff`, query: { from, to, locale: currentLocale.value } };
+});
+
+/** Keep the selected rule and reading language while opening another edition. */
+function selectVersion(version: string) {
+  void router.push({ query: { ...route.query, version, locale: currentLocale.value }, hash: route.hash });
+}
+
+/** Keep the selected edition and rule while changing only the reading language. */
+function selectLocale(locale: string) {
+  void router.push({ query: { ...route.query, locale }, hash: route.hash });
+}
+
 const pendingSummary = ref(false);
 const summaryFailed = ref(false);
 const summaryReady = ref(false);
@@ -269,8 +300,16 @@ async function retryReading() {
   checkBoundaries();
 }
 
-watch([apiSlug, versionQuery, currentLocale], () => { void loadSummary(); }, { immediate: true });
-watch(() => route.hash, () => { if (summaryReady.value && !pendingSummary.value) void openNode(requestedNode()); });
+watch([apiSlug, versionQuery, currentLocale], () => {
+  void loadSummary();
+}, { immediate: true });
+
+watch(() => route.hash, () => {
+  if (summaryReady.value && !pendingSummary.value) {
+    void openNode(requestedNode());
+  }
+});
+
 watch([previousSentinel, nextSentinel], observeBoundaries, { flush: 'post' });
 
 onMounted(() => {

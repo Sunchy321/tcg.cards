@@ -74,3 +74,8 @@ Enforce same-document ownership of revisions, same-revision parentage, translati
 - Whole-document JSON would weaken node references, selective reads, and translation constraints. Per-node text plus markers avoids maintaining a second full rich-text copy and keeps search text authoritative.
 
 The implementation removes the old shared document/rule tables and their import-state read dependencies. Static import and publication execute locally; remote comparison caches and user review history reference exact new revisions and remain independent of publication. The existing advanced matcher operates on revision nodes, and formal node history resolves lineage chronologically so archive import order does not determine identity. Existing rule URLs use a common CR serving adapter. Full-text search combines a derived PostgreSQL simple index with literal substring matching for Chinese text and symbols; more advanced segmentation remains a separate choice. Database migration files are generated only at commit time; accepting and implementing this model does not apply it to a configured database.
+
+
+## Deferred direction: translations as independent works (2026-10-20)
+
+The user requested that a translation be understood as an independent work, reopening the earlier decision to reject independently identified translated articles. This is a recorded direction for a later model revision, not an implementation change in this iteration. The current dedicated-translation model and its source-version/node relationships remain in use. The concrete identity, ownership, publication lifecycle, and migration design have not been decided; they must not be inferred from this note.

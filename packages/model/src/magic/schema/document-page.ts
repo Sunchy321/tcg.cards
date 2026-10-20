@@ -164,11 +164,12 @@ export const documentComparePage = z.strictObject({
 });
 
 export const documentDiffSection = z.strictObject({
-  nodeId: z.string(),
-  kind:   nodeKind,
-  serial: z.string().nullable(),
-  text:   z.string().nullable(),
-  level:  z.number(),
+  localeState: documentSectionLocaleState,
+  nodeId:      z.string(),
+  kind:        nodeKind,
+  serial:      z.string().nullable(),
+  text:        z.string().nullable(),
+  level:       z.number(),
 });
 
 export const documentDiffRow = z.discriminatedUnion('kind', [
@@ -177,13 +178,14 @@ export const documentDiffRow = z.discriminatedUnion('kind', [
     count: z.number(),
   }),
   z.strictObject({
-    kind:      z.literal('change'),
-    type:      nodeChangeType,
-    from:      documentDiffSection.nullable(),
-    to:        documentDiffSection.nullable(),
-    textDiff:  documentChangeTextDiff.nullable(),
-    fromNodes: documentDiffSection.array().optional(),
-    toNodes:   documentDiffSection.array().optional(),
+    kind:            z.literal('change'),
+    type:            nodeChangeType,
+    from:            documentDiffSection.nullable(),
+    to:              documentDiffSection.nullable(),
+    textDiff:        documentChangeTextDiff.nullable(),
+    translationOnly: z.boolean(),
+    fromNodes:       documentDiffSection.array().optional(),
+    toNodes:         documentDiffSection.array().optional(),
   }),
 ]);
 

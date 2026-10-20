@@ -2,7 +2,7 @@
   <div class="min-h-screen bg-neutral-50 dark:bg-neutral-950">
     <div class="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6">
       <!-- Back link -->
-      <NuxtLink :to="`/document/${slugBase}`" class="mb-4 inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-700 dark:text-white/50 dark:hover:text-white/80">
+      <NuxtLink :to="{ path: `/document/${slugBase}`, query: { locale: currentLocale, version: toVersionTag } }" class="mb-4 inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-700 dark:text-white/50 dark:hover:text-white/80">
         <UIcon name="lucide:arrow-left" class="size-4" />
         {{ $t('magic.document.back_to_document') }}
       </NuxtLink>
@@ -100,13 +100,13 @@
         </div>
 
         <!-- Empty state -->
-        <div v-if="filteredRows.length === 0" class="py-16 text-center text-neutral-500 dark:text-white/50">
+        <div v-if="filteredChangeCount === 0" class="py-16 text-center text-neutral-500 dark:text-white/50">
           <UIcon name="lucide:check-circle" class="mx-auto mb-3 size-10 opacity-40" />
           <p>{{ $t('magic.document.diff.no_changes') }}</p>
         </div>
 
         <!-- Diff rows -->
-        <div class="mt-2 space-y-0">
+        <div v-if="filteredChangeCount > 0" class="mt-2 space-y-0">
           <template v-for="(row, idx) in filteredRows" :key="idx">
             <!-- Omitted marker -->
             <div
@@ -125,25 +125,22 @@
               v-else
               :class="['grid grid-cols-2 gap-4 rounded-lg py-1', changeRowBg(row.type)]"
             >
+              <p v-if="row.translationOnly" class="col-span-2 px-3 text-xs text-muted">{{ $t('magic.document.diff.translation_only') }}</p>
               <!-- From (left) -->
               <div class="min-w-0 px-3 py-1">
-                <DiffSection
-                  v-if="row.from"
-                  :section="row.from"
+                <DocumentDiffSide
+                  :sections="row.fromNodes ?? (row.from ? [row.from] : [])"
                   :text-diff="row.textDiff"
                   side="from"
-                  :type="row.type"
                 />
               </div>
 
               <!-- To (right) -->
               <div class="min-w-0 px-3 py-1">
-                <DiffSection
-                  v-if="row.to"
-                  :section="row.to"
+                <DocumentDiffSide
+                  :sections="row.toNodes ?? (row.to ? [row.to] : [])"
                   :text-diff="row.textDiff"
                   side="to"
-                  :type="row.type"
                 />
               </div>
             </div>
@@ -155,17 +152,14 @@
 </template>
 
 <script setup lang="ts">
-import { h, defineComponent, type PropType, type VNode } from 'vue';
 import type {
-  DocumentChangeTextBlock,
   DocumentDiffPage,
   DocumentDiffRow,
-  DocumentDiffSection,
 } from '#model/magic/schema/document-page';
 
 definePageMeta({
-  layout: 'main',
-  game:   'magic',
+  layout:   'main',
+  game:     'magic',
   // Match the reader's single public CR address.
   validate: route => !('slug' in route.params && route.params.slug === 'magic-cr'),
 });
@@ -178,85 +172,62 @@ const router = useRouter();
 const slugBase = computed(() => String(route.params.slug ?? 'cr'));
 const apiSlug = computed(() => slugBase.value === 'cr' ? 'magic-cr' : slugBase.value);
 
-// Version list
+const currentLocale = computed(() => {
+  // Explicit reading choices survive shared links; otherwise follow the interface,
+  // independently of the game's card/data locale setting.
+  const selected = route.query.locale;
+  return selected === 'en' || selected === 'zhs' ? selected : i18n.locale.value === 'zhs' ? 'zhs' : 'en';
+});
 const versionItems = ref<Array<{ label: string, value: string }>>([]);
 const fromVersionTag = ref('');
 const toVersionTag = ref('');
 const loading = ref(false);
 const errorMessage = ref<string | null>(null);
-const diffData = ref<DocumentDiffPage | null>(null);
+const diffData = shallowRef<DocumentDiffPage | null>(null);
+let requestToken = 0;
 
-const loadVersions = async () => {
-  try {
-    const summary = await $orpc.magic.document.summary({
-      slug:   apiSlug.value,
-      locale: 'en',
-    });
-
-    versionItems.value = summary.versions.map(v => ({
-      label: `${v.versionTag} · ${v.effectiveDate}`,
-      value: v.versionTag,
-    }));
-
-    const qFrom = route.query.from as string | undefined;
-    const qTo = route.query.to as string | undefined;
-
-    if (qFrom && summary.versions.some(v => v.versionTag === qFrom)) {
-      fromVersionTag.value = qFrom;
-    } else if (summary.versions.length >= 2) {
-      fromVersionTag.value = summary.versions[1]!.versionTag;
-    }
-
-    if (qTo && summary.versions.some(v => v.versionTag === qTo)) {
-      toVersionTag.value = qTo;
-    } else if (summary.versions.length >= 1) {
-      toVersionTag.value = summary.versions[0]!.versionTag;
-    }
-  } catch {
-    errorMessage.value = i18n.t('magic.document.load_failed');
-  }
-};
-
-const loadCompare = async () => {
-  if (!fromVersionTag.value || !toVersionTag.value || fromVersionTag.value === toVersionTag.value) {
-    return;
-  }
-
+/** Resolve dates from the address and ignore responses for an older navigation. */
+async function loadComparison() {
+  const token = ++requestToken;
   loading.value = true;
   errorMessage.value = null;
-
+  diffData.value = null;
   try {
-    diffData.value = await $orpc.magic.document.compare({
-      slug:           apiSlug.value,
-      fromVersionTag: fromVersionTag.value,
-      toVersionTag:   toVersionTag.value,
-      locale:         'en',
-    });
+    const slug = apiSlug.value;
+    const locale = currentLocale.value;
+    const summary = await $orpc.magic.document.summary({ slug, locale });
+    if (token !== requestToken) return;
+    versionItems.value = summary.versions.map(version => ({ label: `${version.versionTag} · ${version.effectiveDate}`, value: version.versionTag }));
+    const from = typeof route.query.from === 'string' ? route.query.from : undefined;
+    const to = typeof route.query.to === 'string' ? route.query.to : undefined;
+    fromVersionTag.value = summary.versions.find(version => version.versionTag === from)?.versionTag ?? summary.versions[1]?.versionTag ?? summary.versions[0]?.versionTag ?? '';
+    toVersionTag.value = summary.versions.find(version => version.versionTag === to)?.versionTag ?? summary.versions[0]?.versionTag ?? '';
+    if (!fromVersionTag.value || !toVersionTag.value) return;
+    const result = await $orpc.magic.document.compare({ slug, fromVersionTag: fromVersionTag.value, toVersionTag: toVersionTag.value, locale });
+    if (token === requestToken) diffData.value = result;
   } catch {
-    errorMessage.value = i18n.t('magic.document.diff.load_failed');
-    diffData.value = null;
+    if (token === requestToken) errorMessage.value = i18n.t('magic.document.diff.load_failed');
   } finally {
-    loading.value = false;
+    if (token === requestToken) loading.value = false;
   }
-};
+}
 
-const setFrom = (value: string) => {
-  fromVersionTag.value = value;
-  void router.replace({ query: { ...route.query, from: value } });
-};
+/** Preserve reading language and the other date while selecting an edition. */
+function setFrom(value: string) {
+  void router.replace({ query: { ...route.query, from: value, locale: currentLocale.value } });
+}
 
-const setTo = (value: string) => {
-  toVersionTag.value = value;
-  void router.replace({ query: { ...route.query, to: value } });
-};
+/** Preserve reading language and the other date while selecting an edition. */
+function setTo(value: string) {
+  void router.replace({ query: { ...route.query, to: value, locale: currentLocale.value } });
+}
 
-watch([fromVersionTag, toVersionTag], () => {
-  void loadCompare();
-});
+watch([apiSlug, currentLocale, () => route.query.from, () => route.query.to], () => {
+  void loadComparison();
+}, { immediate: true });
 
-onMounted(async () => {
-  await loadVersions();
-  await loadCompare();
+onBeforeUnmount(() => {
+  requestToken += 1;
 });
 
 // Stats
@@ -322,6 +293,7 @@ const filteredChangeCount = computed(() =>
 );
 
 // Row background color
+/** Color each existing change category consistently across both sides. */
 function changeRowBg(type: string): string {
   switch (type) {
   case 'added':
@@ -337,153 +309,6 @@ function changeRowBg(type: string): string {
   default:
     return 'bg-neutral-50/60 dark:bg-white/[0.02]';
   }
-}
-
-// Section rendering helpers
-function isHeadingLike(section: DocumentDiffSection): boolean {
-  return section.kind === 'heading';
-}
-
-function headingTag(section: DocumentDiffSection): 'h3' | 'h4' | 'h5' {
-  if (section.level <= 0) return 'h3';
-  if (section.level === 1) return 'h4';
-  return 'h5';
-}
-
-function headingClass(section: DocumentDiffSection): string {
-  if (section.kind === 'heading') {
-    if (section.level <= 0) return 'diff-title diff-title-main';
-    if (section.level === 1) return 'diff-title diff-title-section';
-    if (section.level === 2) return 'diff-title diff-title-subsection';
-  }
-
-  return 'diff-title diff-title-inline';
-}
-
-function splitParagraphs(content: string | null): string[] {
-  if (!content) return [];
-  return content.split(/\n{2,}/).map(p => p.trim()).filter(p => p.length > 0);
-}
-
-// Diff section component
-const DiffSection = defineComponent({
-  props: {
-    section:  { type: Object as PropType<DocumentDiffSection>, required: true },
-    textDiff: { type: Object as PropType<{ mode: string, blocks: DocumentChangeTextBlock[] } | null>, default: null },
-    side:     { type: String as PropType<'from' | 'to'>, required: true },
-    type:     { type: String, required: true },
-  },
-  setup(props) {
-    return () => {
-      const { section, textDiff, side, type } = props;
-
-      // Heading-like sections
-      if (isHeadingLike(section) && section.text) {
-        const children: Array<VNode | string> = [];
-
-        if (section.serial) {
-          children.push(h('span', { class: 'diff-serial' }, section.serial));
-        } else {
-          children.push(h('span', { class: 'diff-node-id' }, section.nodeId));
-        }
-
-        children.push(h('span', null, section.text));
-
-        return h(headingTag(section), { class: headingClass(section) }, children);
-      }
-
-      // Content sections
-      if (!section.text) {
-        return h('div', { class: 'diff-content' });
-      }
-
-      // For modified content with textDiff, render inline diff
-      if (textDiff && (type === 'modified' || type === 'renamed_modified')) {
-        return renderDiffContent(section, textDiff.blocks, side);
-      }
-
-      // Plain content
-      const paragraphs = splitParagraphs(section.text);
-      const pNodes = paragraphs.map((text, i) => {
-        const pChildren: Array<VNode | string> = [];
-
-        if (i === 0 && section.kind !== 'example') {
-          if (section.serial) {
-            pChildren.push(h('span', { class: 'diff-serial' }, section.serial));
-          } else {
-            pChildren.push(h('span', { class: 'diff-node-id' }, section.nodeId));
-          }
-        }
-
-        pChildren.push(text);
-        return h('p', { key: i }, pChildren);
-      });
-
-      const contentChildren: Array<VNode | string> = [];
-
-      if (section.kind === 'example') {
-        contentChildren.push(h('div', { class: 'diff-example-label' }, 'Example'));
-      }
-
-      contentChildren.push(...pNodes);
-
-      const cls = section.kind === 'example'
-        ? 'diff-content diff-content-example'
-        : section.kind === 'implicit_heading'
-          ? 'diff-content diff-content-implicit-heading'
-          : 'diff-content';
-
-      return h('div', { class: cls }, contentChildren);
-    };
-  },
-});
-
-function renderDiffContent(
-  section: DocumentDiffSection,
-  blocks: DocumentChangeTextBlock[],
-  side: 'from' | 'to',
-): VNode {
-  // Filter blocks for this side
-  const filtered = blocks.filter(b => {
-    if (b.type === 'common') return true;
-    if (side === 'from') return b.type === 'removed';
-    return b.type === 'added';
-  });
-
-  const children: Array<VNode | string> = [];
-
-  if (section.kind !== 'example') {
-    if (section.serial) {
-      children.push(h('span', { class: 'diff-serial' }, section.serial));
-    } else {
-      children.push(h('span', { class: 'diff-node-id' }, section.nodeId));
-    }
-  }
-
-  for (const block of filtered) {
-    if (block.type === 'common') {
-      children.push(block.text);
-    } else if (block.type === 'removed') {
-      children.push(h('span', {
-        class: 'rounded bg-red-200/70 px-0.5 text-red-800 dark:bg-red-800/40 dark:text-red-200',
-      }, block.text));
-    } else {
-      children.push(h('span', {
-        class: 'rounded bg-green-200/70 px-0.5 text-green-800 dark:bg-green-800/40 dark:text-green-200',
-      }, block.text));
-    }
-  }
-
-  if (section.kind === 'example') {
-    return h('div', { class: 'diff-content diff-content-example' }, [
-      h('div', { class: 'diff-example-label' }, 'Example'),
-      h('p', { class: 'whitespace-pre-line' }, children),
-    ]);
-  }
-
-  return h('div', { class: 'diff-content' }, [
-    h('p', { class: 'whitespace-pre-line' }, children),
-  ]);
 }
 
 useTitle(() => i18n.t('magic.document.diff.$self'));
