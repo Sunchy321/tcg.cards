@@ -1,18 +1,17 @@
+import { diffArrays } from 'diff';
 import type { DocumentChangeTextDiff } from '@tcg-cards/model/magic/schema/document-page';
 
-/** Preserve a common prefix and suffix while highlighting the changed middle. */
+/** Keeps rule addresses intact while comparing all other Unicode characters individually. */
+function tokens(text: string): string[] {
+  return text.match(/(?<![a-zA-Z0-9_])\d{3}\.\d+[a-z]*(?![a-z0-9])|[\s\S]/gu) ?? [];
+}
+
+/** Highlights separate edits while retaining every unchanged interval. */
 export function textDiff(before: string, after: string): DocumentChangeTextDiff | null {
   if (before === after) return null;
-  const left = Array.from(before);
-  const right = Array.from(after);
-  let prefix = 0;
-  while (prefix < left.length && prefix < right.length && left[prefix] === right[prefix]) prefix++;
-  let suffix = 0;
-  while (suffix < left.length - prefix && suffix < right.length - prefix && left[left.length - suffix - 1] === right[right.length - suffix - 1]) suffix++;
-  const blocks: DocumentChangeTextDiff['blocks'] = [];
-  if (prefix > 0) blocks.push({ type: 'common', text: left.slice(0, prefix).join('') });
-  if (left.length > prefix + suffix) blocks.push({ type: 'removed', text: left.slice(prefix, left.length - suffix).join('') });
-  if (right.length > prefix + suffix) blocks.push({ type: 'added', text: right.slice(prefix, right.length - suffix).join('') });
-  if (suffix > 0) blocks.push({ type: 'common', text: left.slice(left.length - suffix).join('') });
+  const blocks: DocumentChangeTextDiff['blocks'] = diffArrays(tokens(before), tokens(after)).map(change => ({
+    type: change.removed ? 'removed' : change.added ? 'added' : 'common',
+    text: change.value.join(''),
+  }));
   return { mode: 'inline', blocks };
 }

@@ -65,7 +65,11 @@ test('separates proven reference highlights from real wording changes in the sam
   expect(row.textDiff?.blocks.filter(block => block.isMinor)).toEqual([
     { type: 'removed', text: '100.1', isMinor: true }, { type: 'added', text: '100.2', isMinor: true },
   ]);
-  expect(row.textDiff?.blocks.filter(block => block.type !== 'common' && !block.isMinor).map(block => block.text)).toEqual(['one card', 'two cards']);
+  expect(row.textDiff?.blocks.filter(block => block.type !== 'added').map(block => block.text).join('')).toBe('See rule 100.1. Draw one card.');
+  expect(row.textDiff?.blocks.filter(block => block.type !== 'removed').map(block => block.text).join('')).toBe('See rule 100.2. Draw two cards.');
+  expect(row.textDiff?.blocks.some(block => block.type === 'common' && block.text.includes('card'))).toBe(true);
+  expect(row.textDiff?.blocks.some(block => block.type === 'removed' && !block.isMinor)).toBe(true);
+  expect(row.textDiff?.blocks.some(block => block.type === 'added' && !block.isMinor)).toBe(true);
 });
 
 test('does not confirm a moved target with unrelated changed content', async () => {
