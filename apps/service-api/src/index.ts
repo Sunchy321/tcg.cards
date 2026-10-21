@@ -1,7 +1,9 @@
 import { Hono } from 'hono';
 import { OpenAPIHandler } from '@orpc/openapi/fetch';
 import { OpenAPIGenerator } from '@orpc/openapi';
+import type { SchemaConverter } from '@orpc/openapi';
 import { createDb, runWithDb } from '@tcg-cards/db';
+import z from 'zod';
 
 import { authenticate, isConstantEndpoint, pathSegments } from './auth-middleware';
 import { registry } from './registry';
@@ -65,7 +67,18 @@ hono.get('/health', c => c.json({
 }));
 
 hono.get('/openapi.json', async c => {
-  const generator = new OpenAPIGenerator();
+  const generator = new OpenAPIGenerator({
+    schemaConverters: [{
+      condition: schema => schema instanceof z.ZodType,
+      /** Converts shared Zod contracts so response media types match the actual transport. */
+      convert(schema, options) {
+        if (!(schema instanceof z.ZodType)) return [false, {}];
+        // The libraries disagree on the unused $vocabulary keyword's TypeScript type.
+        const json = z.toJSONSchema(schema, { io: options.strategy, unrepresentable: 'any' }) as Awaited<ReturnType<SchemaConverter['convert']>>[1];
+        return [!schema.isOptional(), json];
+      },
+    }],
+  });
   const spec = await generator.generate(registry, {
     info: { title: 'TCG Cards API', version: 'v1' },
   });

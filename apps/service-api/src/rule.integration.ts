@@ -145,15 +145,18 @@ test('returns only public file descriptors and excludes retired releases and arb
 });
 
 test('enforces existing API key and game permissions and describes the routes in OpenAPI', async () => {
-  for (const route of ['list', 'versions?ruleId=magic-cr', 'meta?ruleId=magic-cr']) {
+  for (const route of ['list', 'versions?ruleId=magic-cr', 'meta?ruleId=magic-cr', 'text?ruleId=magic-cr', 'content?ruleId=magic-cr']) {
     expect((await request(`/v1/magic/rule/${route}`, null)).status).toBe(401);
     expect((await request(`/v1/magic/rule/${route}`, 'hearthstone-key')).status).toBe(403);
   }
   expect((await request('/v1/magic/rule/meta')).status).toBe(400);
   const spec = await request('/openapi.json', null);
   expect(spec.status).toBe(200);
-  const document = await spec.json() as { paths: Record<string, { get?: { description?: string } }> };
-  for (const route of ['list', 'versions', 'meta']) expect(document.paths[`/magic/rule/${route}`]?.get).toBeDefined();
+  const document = await spec.json() as { paths: Record<string, { get?: { description?: string, responses: Record<string, { content?: Record<string, unknown> }> } }> };
+  for (const route of ['list', 'versions', 'meta', 'text', 'content']) expect(document.paths[`/magic/rule/${route}`]?.get).toBeDefined();
+  expect(document.paths['/magic/rule/text']?.get?.responses['200']?.content).toHaveProperty('text/plain');
+  expect(document.paths['/magic/rule/text']?.get?.responses['200']?.content).not.toHaveProperty('application/json');
+  expect(document.paths['/magic/rule/content']?.get?.responses['200']?.content).toHaveProperty('application/json');
   expect(document.paths['/magic/rule/meta']?.get?.description).toContain('one character per complete game symbol');
   expect((await request('/magic/rule/meta?ruleId=magic-cr')).status).toBe(200);
 });
@@ -221,4 +224,80 @@ test('resolves published R2 keys per application and downloads all formats with 
   } finally {
     await server.stop(true);
   }
+});
+
+test('reads one published body as real plain text and ordered structured JSON', async () => {
+  const documents = createDocumentService(source, { track: 'local' });
+  const imported = await documents.importCr({ content: content.replace('October 1, 2026', 'January 1, 2027') + '\n100.1a. Say **hello**.\n' });
+  const path = '?ruleId=magic-cr&versionTag=20270101';
+  for (const route of ['text', 'content']) expect((await request(`/v1/magic/rule/${route}${path}`)).status).toBe(404);
+  await publishDocument(source, target, 'magic-cr');
+  const response = await request(`/v1/magic/rule/text${path}`);
+  expect(response.status, response.status === 200 ? '' : await response.clone().text()).toBe(200);
+  expect(response.headers.get('content-type')).toBe('text/plain; charset=utf-8');
+  expect(Buffer.from(await response.arrayBuffer())).toEqual(Buffer.from('Introduction\n\nHi.\n\n1. Basics\n\n100. General\n\n100.1. Pay {W}.\n\n100.1a. Say hello.'));
+  const structured = await request('/v1/magic/rule/content?ruleId=magic-cr');
+  expect(structured.status).toBe(200);
+  expect(structured.headers.get('content-type')).toContain('application/json');
+  const body = await structured.json() as RuleContent;
+  expect(body).toMatchObject({ ruleId: 'magic-cr', versionTag: '20270101', revisionId: imported.revisionId, language: 'en' });
+  expect(body.nodes.map(node => node.anchor)).toEqual(['intro', 'intro.content', '1', '100', '100.1', '100.1a']);
+  expect(body.nodes[5]).toMatchObject({ anchor: '100.1a', parentKey: body.nodes[4]!.nodeKey, level: 3, order: 5, rawText: 'Say hello.', markers: [{ type: 'emphasis', style: 'strong', start: 4, end: 9 }] });
+  const metadata = await (await request(`/v1/magic/rule/meta${path}`)).json() as RuleMetadata;
+  expect(body.revisionId).toBe(metadata.revisionId);
+  expect(body.language).toBe(metadata.language);
+  expect(body.nodes).toHaveLength(metadata.meta.entryCount!);
+});
+
+test('reads only selected translations in source order and rejects missing or hidden content', async () => {
+  const documents = createDocumentService(source, { track: 'local' });
+  const imported = await documents.importCr({ content: content.replace('October 1, 2026', 'February 1, 2027') + '\n100.2. Second rule.\n\n100.10. Tenth rule.\n' });
+  const translated = await documents.saveTranslation({
+    documentId:       imported.documentId, sourceRevisionId: imported.revisionId, language:         'zhs',
+    // Saved order and sibling numbers alone cannot determine full document order.
+    nodes:            [
+      { sourceNodeId: `${imported.revisionId}/100.10`, rawText: '第十条 😀', translationMethod: 'human' },
+      { sourceNodeId: `${imported.revisionId}/100.2`, rawText: '第二条 {W/U}', translationMethod: 'human' },
+    ],
+  });
+  await documents.selectTranslation({ documentId: imported.documentId, releaseId: imported.releaseId, revisionId: translated.id });
+  await documents.saveTranslation({
+    documentId:       imported.documentId, sourceRevisionId: imported.revisionId, language:         'zhs',
+    nodes:            [{ sourceNodeId: `${imported.revisionId}/100.2`, rawText: 'UNSELECTED', translationMethod: 'human' }],
+  });
+  await publishDocument(source, target, 'magic-cr');
+  const suffix = '?ruleId=magic-cr&versionTag=20270201&language=zhs';
+  const metadata = await (await request(`/v1/magic/rule/meta${suffix}`)).json() as RuleMetadata;
+  const body = await (await request(`/v1/magic/rule/content${suffix}`)).json() as RuleContent;
+  expect(body.revisionId).toBe(translated.id);
+  expect(body.revisionId).toBe(metadata.revisionId);
+  expect(body.language).toBe(metadata.language);
+  expect(body.nodes).toHaveLength(metadata.meta.entryCount!);
+  expect(body.nodes.map(node => ({ anchor: node.anchor, rawText: node.rawText, level: node.level, order: node.order }))).toEqual([
+    { anchor: '100.2', rawText: '第二条 {W/U}', level: 2, order: 0 },
+    { anchor: '100.10', rawText: '第十条 😀', level: 2, order: 1 },
+  ]);
+  const original = await (await request('/v1/magic/rule/content?ruleId=magic-cr')).json() as RuleContent;
+  const parent = original.nodes.find(node => node.anchor === '100')!;
+  expect(body.nodes.map(node => node.parentKey)).toEqual([parent.nodeKey, parent.nodeKey]);
+  const text = await request(`/v1/magic/rule/text${suffix}`);
+  expect(Buffer.from(await text.arrayBuffer())).toEqual(Buffer.from('100.2. 第二条 {W/U}\n\n100.10. 第十条 😀'));
+  const originalText = await (await request('/magic/rule/text?ruleId=magic-cr')).text();
+  expect(originalText).toContain('100.2. Second rule.\n\n100.10. Tenth rule.');
+  const historical = await (await request('/v1/magic/rule/content?ruleId=magic-cr&versionTag=20261101&language=zhs')).json() as RuleContent;
+  expect(historical.versionTag).toBe('20261101');
+  expect(historical.nodes.map(node => node.rawText)).toEqual(['支付 {W/U}，别停！😀']);
+  for (const route of ['text', 'content']) {
+    for (const query of ['ruleId=unknown', 'ruleId=magic-cr&versionTag=missing', 'ruleId=magic-cr&language=fr', 'ruleId=magic-cr&versionTag=20270101&language=zhs', `ruleId=magic-cr&versionTag=${imported.revisionId}`]) {
+      expect((await request(`/v1/magic/rule/${route}?${query}`)).status).toBe(404);
+    }
+    expect((await request(`/v1/magic/rule/${route}`)).status).toBe(400);
+  }
+  const document = (await target.document('magic-cr'))!;
+  await target.putDocument({ ...document, visibility: 'private' });
+  for (const route of ['text', 'content']) expect((await request(`/v1/magic/rule/${route}${suffix}`)).status).toBe(404);
+  await target.putDocument(document);
+  await documents.retireRelease({ documentId: imported.documentId, releaseId: imported.releaseId });
+  await publishDocument(source, target, 'magic-cr');
+  for (const route of ['text', 'content']) expect((await request(`/v1/magic/rule/${route}${suffix}`)).status).toBe(404);
 });

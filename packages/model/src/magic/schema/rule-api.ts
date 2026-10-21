@@ -1,6 +1,7 @@
 import z from 'zod';
 
-import { documentMeta, sourceFile } from './document-content';
+import { documentMeta, sourceFile, textMarker } from './document-content';
+import { nodeKind } from './document';
 
 export const ruleIdentity = z.strictObject({
   id:             z.string(),
@@ -30,6 +31,26 @@ export const ruleMetadata = z.strictObject({
   meta:          documentMeta,
   files:         z.array(ruleFile),
 });
+
+export const ruleNode = z.strictObject({
+  nodeKey:      z.string(),
+  kind:         nodeKind,
+  anchor:       z.string().nullable(),
+  path:         z.string(),
+  level:        z.number().int().nonnegative(),
+  parentKey:    z.string().nullable(),
+  siblingOrder: z.number().int().nonnegative(),
+  order:        z.number().int().nonnegative(),
+  rawText:      z.string(),
+  markers:      textMarker.array(),
+});
+
+export const ruleContent = ruleMetadata.pick({
+  ruleId: true, title: true, versionTag: true, revisionId: true, language: true, effectiveDate: true, publishedAt: true,
+}).extend({ nodes: ruleNode.array() });
+
+/** Returns one selected language's saved text in source document order. */
+export type RuleContent = z.infer<typeof ruleContent>;
 
 /** Describes one published rulebook available to API clients. */
 export type RuleIdentity = z.infer<typeof ruleIdentity>;

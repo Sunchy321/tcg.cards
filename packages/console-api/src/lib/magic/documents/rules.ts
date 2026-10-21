@@ -1,11 +1,13 @@
 import { documentMeta } from '@tcg-cards/model/magic/schema/document-content';
 import { ruleFile } from '@tcg-cards/model/magic/schema/rule-api';
 import { sourceFileUrl } from '@tcg-cards/model/magic/source-file';
-import type { RuleIdentity, RuleMetadata, RuleVersion } from '@tcg-cards/model/magic/schema/rule-api';
+import type { RuleContent, RuleIdentity, RuleMetadata, RuleVersion } from '@tcg-cards/model/magic/schema/rule-api';
+
+import { orderedNodes } from './nodes';
 
 import type { Document, DocumentStore, Release } from './store';
 
-/** Reads published rule metadata without loading full rulebook node text. */
+/** Reads selected published rule metadata and bodies from the serving store. */
 export function createRuleReader(store: DocumentStore, options: { assetBaseUrl?: string } = {}) {
   /** Selects supported rule identities without treating arbitrary articles as rules. */
   async function document(ruleId: string): Promise<Document | undefined> {
@@ -18,6 +20,28 @@ export function createRuleReader(store: DocumentStore, options: { assetBaseUrl?:
   async function releases(documentId: string): Promise<Release[]> {
     return (await store.releases(documentId)).filter(row => row.deletedAt == null)
       .sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime() || b.versionTag.localeCompare(a.versionTag));
+  }
+
+  /** Resolves the same exact public edition and language for every read format. */
+  async function select(input: { ruleId: string; versionTag?: string; language?: string }) {
+    const row = await document(input.ruleId);
+    if (row == null) return undefined;
+    const available = await releases(row.id);
+    const release = input.versionTag == null ? available[0] : available.find(item => item.versionTag === input.versionTag);
+    if (release == null) return undefined;
+    const revisions = await store.revisions(row.id);
+    const source = revisions.find(item => item.id === release.sourceRevisionId && item.translationId == null);
+    if (source == null) return undefined;
+    let revision = source;
+    if (input.language != null && input.language !== source.language) {
+      const translation = (await store.translations(row.id)).find(item => item.language === input.language);
+      const binding = translation ? (await store.releaseTranslations(release.id)).find(item => item.translationId === translation.id) : undefined;
+      const selected = binding ? revisions.find(item => item.id === binding.revisionId && item.language === input.language
+        && item.sourceRevisionId === source.id && item.translationId === translation!.id) : undefined;
+      if (selected == null) return undefined;
+      revision = selected;
+    }
+    return { row, release, revision, source };
   }
 
   return {
@@ -44,23 +68,9 @@ export function createRuleReader(store: DocumentStore, options: { assetBaseUrl?:
     },
     /** Resolves an exact selected language without the site's source-text fallback. */
     async meta(input: { ruleId: string; versionTag?: string; language?: string }): Promise<RuleMetadata | undefined> {
-      const row = await document(input.ruleId);
-      if (row == null) return undefined;
-      const available = await releases(row.id);
-      const release = input.versionTag == null ? available[0] : available.find(item => item.versionTag === input.versionTag);
-      if (release == null) return undefined;
-      const revisions = await store.revisions(row.id);
-      const source = revisions.find(item => item.id === release.sourceRevisionId && item.translationId == null);
-      if (source == null) return undefined;
-      let revision = source;
-      if (input.language != null && input.language !== source.language) {
-        const translation = (await store.translations(row.id)).find(item => item.language === input.language);
-        const binding = translation ? (await store.releaseTranslations(release.id)).find(item => item.translationId === translation.id) : undefined;
-        const selected = binding ? revisions.find(item => item.id === binding.revisionId && item.language === input.language
-          && item.sourceRevisionId === source.id && item.translationId === translation!.id) : undefined;
-        if (selected == null) return undefined;
-        revision = selected;
-      }
+      const selected = await select(input);
+      if (selected == null) return undefined;
+      const { row, release, revision } = selected;
       return {
         ruleId: row.id, title: revision.title, versionTag: release.versionTag, revisionId: revision.id, language: revision.language,
         effectiveDate: release.effectiveDate, publishedAt: release.publishedAt.toISOString(), meta: documentMeta.parse(revision.meta ?? {}),
@@ -69,6 +79,32 @@ export function createRuleReader(store: DocumentStore, options: { assetBaseUrl?:
             const { storageKey: _key, ...publicFile } = file;
             return ruleFile.parse({ ...publicFile, downloadUrl: sourceFileUrl(file, options.assetBaseUrl) });
           }),
+      };
+    },
+    /** Reads saved text while preserving the source hierarchy for sparse translations. */
+    async content(input: { ruleId: string; versionTag?: string; language?: string }): Promise<RuleContent | undefined> {
+      const selected = await select(input);
+      if (selected == null) return undefined;
+      const { row, release, revision, source } = selected;
+      const original = await store.revision(source.id);
+      const saved = revision.id === source.id ? original : await store.revision(revision.id);
+      if (original == null || saved == null) return undefined;
+      const parents = new Map(original.nodes.map(node => [node.id, node.nodeKey]));
+      const translated = new Map(saved.nodes.map(node => [node.sourceNodeId, node]));
+      // Translation rows do not store a complete parent tree; source references own structure.
+      const nodes: RuleContent['nodes'] = [];
+      for (const node of orderedNodes(original.nodes)) {
+        const text = revision.id === source.id ? node : translated.get(node.id);
+        if (text == null) continue;
+        nodes.push({
+          nodeKey: node.nodeKey, kind: node.kind, anchor: node.anchor, path: node.path, level: node.level,
+          parentKey: node.parentId == null ? null : parents.get(node.parentId) ?? null,
+          siblingOrder: node.siblingOrder, order: nodes.length, rawText: text.rawText, markers: text.markers,
+        });
+      }
+      return {
+        ruleId: row.id, title: revision.title, versionTag: release.versionTag, revisionId: revision.id,
+        language: revision.language, effectiveDate: release.effectiveDate, publishedAt: release.publishedAt.toISOString(), nodes,
       };
     },
   };

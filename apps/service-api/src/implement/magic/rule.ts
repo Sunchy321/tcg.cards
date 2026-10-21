@@ -20,4 +20,21 @@ const meta = os.magic.rule.meta.handler(async ({ input, context }) => {
   return result;
 });
 
-export const rule = { list, versions, meta };
+const content = os.magic.rule.content.handler(async ({ input }) => {
+  const result = await reader.content(input);
+  if (result == null) throw new ORPCError('NOT_FOUND');
+  return result;
+});
+const text = os.magic.rule.text.handler(async ({ input }) => {
+  const result = await reader.content(input);
+  if (result == null) throw new ORPCError('NOT_FOUND');
+  const body = result.nodes.map(node => {
+    // Synthetic anchors identify unnumbered paragraphs and must not become prose.
+    const number = node.anchor != null && /^\d+(?:\.\d+)*[a-z]*$/.test(node.anchor) ? `${node.anchor}. ` : '';
+    return `${number}${node.rawText}`;
+  }).join('\n\n');
+  // File output keeps the OpenAPI transport from JSON-encoding the text string.
+  return new File([body], 'rules.txt', { type: 'text/plain; charset=utf-8' });
+});
+
+export const rule = { list, versions, meta, text, content };
