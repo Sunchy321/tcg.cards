@@ -108,9 +108,8 @@
                 <span class="h-px flex-1 bg-border" />
               </div>
               <section v-else class="border-b border-default last:border-b-0">
-                <div v-if="row.translationOnly || row.referenceOnly || !['added', 'removed', 'modified'].includes(row.type)" class="flex flex-wrap items-center gap-2 px-3 pt-3 sm:px-6">
+                <div v-if="row.referenceOnly || !['added', 'removed', 'modified'].includes(row.type)" class="flex flex-wrap items-center gap-2 px-3 pt-3 sm:px-6">
                   <span v-if="row.referenceOnly" class="inline-block rounded border border-primary/20 bg-primary/5 px-2 py-0.5 text-[0.65rem] text-primary">{{ $t('magic.document.diff.reference_only') }}</span>
-                  <span v-if="row.translationOnly" class="inline-block rounded border border-primary/20 bg-primary/5 px-2 py-0.5 text-[0.65rem] text-primary">{{ $t('magic.document.diff.translation_only') }}</span>
                   <span
                     v-if="!['added', 'removed', 'modified'].includes(row.type)"
                     class="inline-block rounded border border-default bg-muted px-2 py-0.5 text-[0.65rem] text-muted"

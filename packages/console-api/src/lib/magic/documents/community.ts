@@ -64,11 +64,16 @@ function normalized(text: string): string {
   return text.replace(/^\uFEFF/, '').replace(/\s+/gu, ' ').trim();
 }
 
+/** Parses a complete bilingual edition before using any of its translations. */
+export function parseCrTranslation(content: unknown, label: string) {
+  const parsed = edition.safeParse(content);
+  if (!parsed.success) throw new CrTranslationError([`${label}：译文文件格式无效，请检查中英对照文件。`]);
+  return parsed.data;
+}
+
 /** Validates paired repository data against an already saved English revision. */
 export function alignCrTranslation(content: unknown, source: Revision, versionTag: string) {
-  const parsed = edition.safeParse(content);
-  if (!parsed.success) throw new CrTranslationError([`${versionTag}：译文文件格式无效，请检查中英对照文件。`]);
-  const data = parsed.data;
+  const data = parseCrTranslation(content, versionTag);
   if (crTranslationEffectiveDate(data, versionTag).replaceAll('-', '') !== versionTag) {
     throw new CrTranslationError([`${versionTag}：译文依据的英文生效日期不符。`]);
   }

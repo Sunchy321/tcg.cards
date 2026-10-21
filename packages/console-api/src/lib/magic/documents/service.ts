@@ -10,6 +10,7 @@ import { createTranslationOperations } from './translations';
 import { createAuthoringOperations } from './authoring';
 import { parseMagicCrDocument } from './parser';
 import { alignCrTranslation, CrTranslationError } from './community';
+import { latestCrTranslation } from './community-latest';
 import { sameRevision } from './reparse';
 import type { DocumentStore, Node, Revision } from './store';
 
@@ -25,7 +26,7 @@ export function createDocumentService(store: DocumentStore, context: DocumentCon
     ...createAuthoringOperations(store, context),
     ...createTranslationOperations(store, context),
     /** Imports a community edition only after its exact English release has been prepared. */
-    async importCrTranslation(input: { versionTag: string; content: unknown }) {
+    async importCrTranslation(input: { versionTag: string; content: unknown; editions?: unknown[] }) {
       if (context.track !== 'local') throw new Error('Static translations require local storage');
       const versionTag = input.versionTag.replaceAll('-', '');
       return store.transaction('magic-cr', async tx => {
@@ -35,7 +36,10 @@ export function createDocumentService(store: DocumentStore, context: DocumentCon
         if (source == null || source.language !== 'en' || source.translationId != null) {
           throw new CrTranslationError([`${versionTag}：此版本缺少有效的英文原文。`]);
         }
-        const aligned = alignCrTranslation(input.content, source, versionTag);
+        // Validate the original edition first; newer translations must not hide source defects.
+        const original = alignCrTranslation(input.content, source, versionTag);
+        const aligned = input.editions == null ? original
+          : alignCrTranslation(latestCrTranslation(input.content, input.editions), source, versionTag);
         const translations = createTranslationOperations(tx, context);
         const revision = await translations.saveTranslation(aligned);
         await translations.selectTranslation({ documentId: 'magic-cr', releaseId: release.id, revisionId: revision.id });

@@ -66,14 +66,16 @@ export function createRuleTranslationOperations({ root, store }: Dependencies) {
       }
       return { configured: root != null, versions: [...dates.values()].sort((a, b) => b.date.localeCompare(a.date)) };
     },
-    /** Reads and validates one paired edition before importing its Chinese content. */
+    /** Validates the requested source and scans every edition for its newest matching translations. */
     async importVersion(input: { version: string }) {
       const date = z.iso.date().parse(input.version);
       if (root == null) throw new CrTranslationError(['请先在游戏设置中配置完整规则中文译本目录。']);
-      const file = (await editionFiles(root)).get(date);
+      const files = await editionFiles(root);
+      const file = files.get(date);
       if (file == null) throw new CrTranslationError([`${date}：未找到可读取的中英对照文件，请检查本地译本目录。`]);
       const content = await readEdition(file);
-      return createDocumentService(store, { track: 'local' }).importCrTranslation({ versionTag: date, content });
+      const editions = await Promise.all([...files.values()].map(readEdition));
+      return createDocumentService(store, { track: 'local' }).importCrTranslation({ versionTag: date, content, editions });
     },
   };
 }
