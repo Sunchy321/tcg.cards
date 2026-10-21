@@ -507,6 +507,21 @@ const definition = createDefinition(magicPublishTaskType, {
         await db.update(PublishBatch)
           .set({ status: 'completed', completedAt: new Date(), updatedAt: new Date() })
           .where(eq(PublishBatch.id, batch.id));
+
+        // Diff rows only serve the batch while it is in flight: once applied,
+        // the row baseline carries the published state, so completed batches
+        // keep their metadata but shed their rows to stop the table growing
+        // by one full diff per publish.
+        const completedIds = await db.select({ id: PublishBatch.id }).from(PublishBatch)
+          .where(and(
+            eq(PublishBatch.publishTarget, stream.publishTarget),
+            eq(PublishBatch.environment, stream.environment),
+            eq(PublishBatch.publishType, stream.publishType),
+            eq(PublishBatch.status, 'completed'),
+          )).then(rows => rows.map(row => row.id));
+        if (completedIds.length > 0) {
+          await db.delete(PublishBatchRow).where(inArray(PublishBatchRow.batchId, completedIds));
+        }
       } finally {
         await remoteDb.$client.end({ timeout: 1 });
       }
