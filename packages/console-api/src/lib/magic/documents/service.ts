@@ -12,6 +12,7 @@ import { parseMagicCrDocument } from './parser';
 import { alignCrTranslation, CrTranslationError } from './community';
 import { latestCrTranslation } from './community-latest';
 import { sameRevision } from './reparse';
+import { calculateStatistics } from './statistics';
 import type { DocumentStore, Node, Revision } from './store';
 
 /** Selects storage ownership and the authenticated user for document operations. */
@@ -87,6 +88,7 @@ export function createDocumentService(store: DocumentStore, context: DocumentCon
         if (existing) {
           const reparsed = { ...existing, nodes };
           if (!sameRevision(existing, reparsed)) await tx.reparseRevision(reparsed);
+          await tx.updateRevisionMeta(revisionId, calculateStatistics(nodes, 'magic-cr', existing.meta));
           if (existingRelease && input.files != null) {
             // Reimport may add downloads without changing the retained source revision.
             // Preserve descriptors for formats no longer present in the local archive.
@@ -103,6 +105,7 @@ export function createDocumentService(store: DocumentStore, context: DocumentCon
         await tx.putRevision({
           id: revisionId, documentId: 'magic-cr', translationId: null, sourceRevisionId: null,
           title: 'Comprehensive Rules', language: 'en', createdAt: at, deletedAt: null, nodes,
+          meta: calculateStatistics(nodes, 'magic-cr'),
         });
         await tx.putRelease({
           id: releaseId, documentId: 'magic-cr', versionTag, sourceRevisionId: revisionId,

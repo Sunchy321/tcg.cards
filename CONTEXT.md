@@ -325,6 +325,9 @@ A document's target-language rendition whose text corresponds to specific source
 ### document node (文档节点)
 A separately addressable unit of document structure or text used for translation correspondence, section references, and content comparison. A displayed rule number can change without changing the node's identity.
 
+### rule statistics (规则统计)
+Measurements of a rule revision's own saved text and structure, distinct from the byte size of its downloadable source files. A complete game symbol counts as one character. A translation's statistics exclude source-language text displayed as a fallback; rule-specific classifications need not apply to every rulebook.
+
 ## Yu-Gi-Oh! (游戏王)
 
 ### card name variant (卡名变体)

@@ -2,10 +2,10 @@ import { isDeepStrictEqual } from 'node:util';
 
 import type { Document, Revision } from './store';
 
-/** Compares saved content independently of SQL ordering and hidden history entries. */
+/** Compares saved content independently of derived metadata, SQL order and history visibility. */
 export function sameRevision(left: Revision, right: Revision): boolean {
-  const { deletedAt: _leftDeleted, nodes: leftNodes, ...leftContent } = left;
-  const { deletedAt: _rightDeleted, nodes: rightNodes, ...rightContent } = right;
+  const { deletedAt: _leftDeleted, meta: _leftMeta, nodes: leftNodes, ...leftContent } = left;
+  const { deletedAt: _rightDeleted, meta: _rightMeta, nodes: rightNodes, ...rightContent } = right;
   return isDeepStrictEqual(leftContent, rightContent)
     && isDeepStrictEqual([...leftNodes].sort((a, b) => a.id.localeCompare(b.id)), [...rightNodes].sort((a, b) => a.id.localeCompare(b.id)));
 }

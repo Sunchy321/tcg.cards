@@ -1,4 +1,4 @@
-import type { DocumentSettings, SourceFile, TextMarker, TranslationMethod, ReviewStatus } from '@tcg-cards/model/magic/schema/document-content';
+import type { DocumentMeta, DocumentSettings, SourceFile, TextMarker, TranslationMethod, ReviewStatus } from '@tcg-cards/model/magic/schema/document-content';
 import type { NodeKind } from '@tcg-cards/model/magic/schema/document';
 
 /** Stores one document identity independently of its saved content. */
@@ -47,6 +47,7 @@ export interface Revision {
   createdAt: Date;
   deletedAt: Date | null;
   nodes: Node[];
+  meta?: DocumentMeta;
 }
 
 /** Identifies the only translation in one target language. */
@@ -112,6 +113,8 @@ export interface DocumentStore {
   /** Counts saved nodes in the requested revisions without reading their content. */
   revisionNodeCounts(revisionIds: string[]): Promise<Map<string, number>>;
   putRevision(revision: Revision): Promise<void>;
+  /** Updates derived metadata without modifying saved text or its references. */
+  updateRevisionMeta(id: string, meta: DocumentMeta): Promise<void>;
   /** Rebuilds an imported public source's parsing without creating an editing revision. */
   reparseRevision(revision: Revision, options?: { dryRun?: boolean }): Promise<void>;
   hideRevision(id: string, at: Date): Promise<void>;

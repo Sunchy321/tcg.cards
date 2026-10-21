@@ -53,6 +53,10 @@ export function memoryStore(): DocumentStore {
       if (state.revisions.has(row.id)) throw new Error('Revision already exists');
       state.revisions.set(row.id, structuredClone(row));
     },
+    updateRevisionMeta: async (id, meta) => {
+      const revision = state.revisions.get(id);
+      if (revision) revision.meta = structuredClone(meta);
+    },
     /** Replaces only the parsing of an unreferenced imported public source. */
     reparseRevision: async (revision, options) => {
       assertReparse({

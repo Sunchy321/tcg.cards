@@ -12,6 +12,25 @@ export const documentSettings = z.strictObject({
   copyable:      z.boolean().default(false),
 });
 
+export const documentStatistics = z.strictObject({
+  characterCount:    z.number().int().nonnegative(),
+  wordCount:         z.number().int().nonnegative(),
+  entryCount:        z.number().int().nonnegative(),
+  chapterCount:      z.number().int().nonnegative().nullable(),
+  ruleCount:         z.number().int().nonnegative().nullable(),
+  exampleCount:      z.number().int().nonnegative().nullable(),
+  termCount:         z.number().int().nonnegative().nullable(),
+  calculatedAt:      z.iso.datetime(),
+  calculatorVersion: z.string().min(1),
+});
+
+export const documentMeta = documentStatistics.partial();
+
+/** Measures saved readable text independently of source-file bytes. */
+export type DocumentStatistics = z.infer<typeof documentStatistics>;
+/** Contains derived information without changing a revision's saved content. */
+export type DocumentMeta = z.infer<typeof documentMeta>;
+
 const range = { start: z.number().int().nonnegative(), end: z.number().int().positive() };
 
 // Offsets address UTF-16 code units, matching JavaScript string slicing.

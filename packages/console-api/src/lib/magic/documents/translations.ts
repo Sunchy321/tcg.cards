@@ -4,6 +4,7 @@ import z from 'zod';
 import { reviewStatus, textMarker, translationMethod } from '@tcg-cards/model/magic/schema/document-content';
 
 import { validateMarkers } from './text';
+import { calculateStatistics } from './statistics';
 import type { DocumentContext } from './service';
 import type { Document, DocumentStore, Revision } from './store';
 
@@ -64,6 +65,7 @@ export function createTranslationOperations(store: DocumentStore, context: Docum
             };
           }),
         };
+        revision.meta = calculateStatistics(revision.nodes, document.staticKey === 'magic-cr' ? 'magic-cr' : undefined);
         await tx.putRevision(revision);
         return revision;
       });

@@ -117,6 +117,34 @@ test('dry run validates and counts content without writing anything', async () =
   expect(await target.revisions('magic-cr')).toEqual([]);
 });
 
+test('publishes statistics backfills without rewriting referenced content and keeps previews and retries stable', async () => {
+  const source = memoryStore();
+  const target = memoryStore();
+  const documents = createDocumentService(source, { track: 'local' });
+  const imported = await documents.importCr({ content: cr });
+  const revision = (await source.revision(imported.revisionId))!;
+  const translated = await documents.saveTranslation({
+    documentId: imported.documentId, sourceRevisionId: revision.id, language: 'zhs',
+    nodes: [{ sourceNodeId: `${revision.id}/100.1`, rawText: '支付 {W}。', translationMethod: 'human' }],
+  });
+  await documents.selectTranslation({ documentId: imported.documentId, releaseId: imported.releaseId, revisionId: translated.id });
+  await publishDocument(source, target, 'magic-cr');
+  await source.updateRevisionMeta(revision.id, {});
+  await target.updateRevisionMeta(revision.id, {});
+  await documents.importCr({ content: cr });
+  const recalculated = (await documents.revision({ documentId: imported.documentId, revisionId: revision.id })).meta;
+  expect(recalculated?.ruleCount).toBe(1);
+  await publishDocument(source, target, 'magic-cr', { dryRun: true });
+  expect((await target.revision(revision.id))?.meta).toEqual({});
+  await publishDocument(source, target, 'magic-cr');
+  const published = (await target.revision(revision.id))!;
+  expect(published.meta).toEqual(recalculated);
+  expect(published.nodes).toEqual(revision.nodes);
+  expect((await target.releaseTranslations(imported.releaseId))[0]?.revisionId).toBe(translated.id);
+  await publishDocument(source, target, 'magic-cr');
+  expect((await target.revision(revision.id))?.meta).toEqual(recalculated);
+});
+
 test('publishes repaired parsing of the same public source without creating another revision', async () => {
   const source = memoryStore();
   const target = memoryStore();

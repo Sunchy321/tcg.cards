@@ -5,6 +5,7 @@ import { formatRouter } from './format';
 import { info } from './info';
 import { printRouter } from './print';
 import { setRouter } from './set';
+import { ruleRouter } from './rule';
 
 export const magicRouter = {
   // '' resolves /v1/magic to the game info endpoint.
@@ -15,4 +16,5 @@ export const magicRouter = {
   'format':       formatRouter,
   'print':        printRouter,
   'set':          setRouter,
+  'rule':         ruleRouter,
 };

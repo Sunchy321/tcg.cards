@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from 'node:util';
+import { documentMeta } from '@tcg-cards/model/magic/schema/document-content';
 
 import type { DocumentStore, Revision } from './store';
 import { sameRevision } from './reparse';
@@ -113,6 +114,8 @@ export async function publishDocument(source: DocumentStore, target: DocumentSto
       for (const revision of reparsed) await remote.reparseRevision(revision);
       for (const revision of newRevisions) await remote.putRevision(revision);
       for (const revision of ordered) {
+        // Derived statistics can be backfilled without replacing referenced nodes.
+        await remote.updateRevisionMeta(revision.id, documentMeta.parse(revision.meta ?? {}));
         if (revision.deletedAt != null) await remote.hideRevision(revision.id, revision.deletedAt);
       }
       for (const release of releases) await remote.putRelease(release);

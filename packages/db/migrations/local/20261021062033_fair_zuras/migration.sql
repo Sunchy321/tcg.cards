@@ -1,0 +1,1 @@
+ALTER TABLE "magic"."document_revisions" ADD COLUMN "meta" jsonb DEFAULT '{}' NOT NULL;

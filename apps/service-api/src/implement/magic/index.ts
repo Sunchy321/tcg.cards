@@ -5,6 +5,7 @@ import { print } from './print';
 import { announcement } from './announcement';
 import { format } from './format';
 import { set } from './set';
+import { rule } from './rule';
 
 export const magic = {
   '':             info,
@@ -14,4 +15,5 @@ export const magic = {
   'announcement': announcement,
   'format':       format,
   'set':          set,
+  'rule':         rule,
 };

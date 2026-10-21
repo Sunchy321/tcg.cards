@@ -160,6 +160,9 @@ function createStore(database: Database | Transaction, track: Track, transaction
       if (inserted.length === 0) return;
       await insertNodes(database, DocumentRevisionNode, nodes);
     },
+    async updateRevisionMeta(id, meta) {
+      await database.update(DocumentRevision).set({ meta }).where(eq(DocumentRevision.id, id));
+    },
     /** Rebuilds public source parsing atomically while leaving the release and revision identity intact. */
     async reparseRevision(revision, options) {
       if (!transactional) return createStore(database, track, false).transaction(revision.documentId, tx => tx.reparseRevision(revision, options));

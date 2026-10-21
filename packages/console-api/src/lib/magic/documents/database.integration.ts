@@ -6,6 +6,7 @@ import { createDb, runWithDb } from '@tcg-cards/db/db';
 import { createDocumentStore } from './database';
 import { createDocumentService } from './service';
 import { publishDocument } from './publish';
+import { createRuleReader } from './rules';
 import { compareVersions, submitReview } from './reviewer';
 
 const localUrl = process.env.DOCUMENT_TEST_LOCAL_URL;
@@ -29,6 +30,16 @@ test.skipIf(!localUrl || !remoteUrl)('imports, translates, publishes, searches a
     await source.selectTranslation({ documentId: 'magic-cr', releaseId: second.releaseId, revisionId: translated.id });
     await publishDocument(localStore, remoteStore, 'magic-cr');
     await publishDocument(localStore, remoteStore, 'magic-cr');
+    const metadata = createRuleReader(remoteStore);
+    expect((await metadata.meta({ ruleId: 'magic-cr' }))?.meta?.ruleCount).toBe(1);
+    expect((await metadata.meta({ ruleId: 'magic-cr', language: 'zhs' }))?.meta).toMatchObject({
+      characterCount: 7, wordCount: 0, entryCount: 1, ruleCount: 1,
+    });
+    await remoteStore.updateRevisionMeta(second.revisionId, {});
+    await publishDocument(localStore, remoteStore, 'magic-cr', { dryRun: true });
+    expect((await metadata.meta({ ruleId: 'magic-cr' }))?.meta).toEqual({});
+    await publishDocument(localStore, remoteStore, 'magic-cr');
+    expect((await metadata.meta({ ruleId: 'magic-cr' }))?.meta?.ruleCount).toBe(1);
     const reader = createDocumentService(remoteStore, { track: 'remote' });
     expect((await reader.read({ slug: 'magic-cr', locale: 'zhs' })).sections.find(node => node.nodeId === '100.1')?.text).toBe('支付 {U} 后继续。');
     expect((await reader.search({ query: '支付', language: 'zhs' }))[0]?.language).toBe('zhs');

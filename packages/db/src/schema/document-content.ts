@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { type AnyPgColumn, type PgSchema, check, foreignKey, index, integer, jsonb, primaryKey, text, timestamp, unique } from 'drizzle-orm/pg-core';
 
-import type { DocumentSettings, ReviewStatus, SourceFile, TextMarker, TranslationMethod } from '#model/magic/schema/document-content';
+import type { DocumentMeta, DocumentSettings, ReviewStatus, SourceFile, TextMarker, TranslationMethod } from '#model/magic/schema/document-content';
 import type { NodeKind } from '#model/magic/schema/document';
 
 /** Share content columns without pulling remote users into local schemas. */
@@ -40,6 +40,7 @@ export function documentTables(schema: PgSchema, documentId: AnyPgColumn) {
     sourceRevisionId: text('source_revision_id'),
     title:            text('title').notNull(),
     language:         text('language').notNull(),
+    meta:             jsonb('meta').$type<DocumentMeta>().notNull().default({}),
     createdAt:        timestamp('created_at').notNull().defaultNow(),
     deletedAt:        timestamp('deleted_at'),
   }, table => [
