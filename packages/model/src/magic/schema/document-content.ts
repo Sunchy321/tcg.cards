@@ -48,13 +48,23 @@ export const textMarker = z.discriminatedUnion('type', [
 ]).refine(marker => marker.end > marker.start, 'Marker end must follow its start');
 
 export const sourceFile = z.strictObject({
-  format:        z.enum(['txt', 'pdf', 'doc', 'docx']),
-  language:      z.string().min(1),
-  sourceUrl:     z.url().optional(),
-  storageKey:    z.string().optional(),
-  sha256:        z.string().regex(/^[a-f0-9]{64}$/).optional(),
-  size:          z.number().int().nonnegative().optional(),
-  translationId: z.string().optional(),
+  format:                z.enum(['txt', 'pdf', 'doc', 'docx', 'rtf']),
+  language:              z.string().min(1),
+  sourceUrl:             z.url().nullish(),
+  effectiveUrl:          z.url().nullish(),
+  originalFilename:      z.string().min(1).nullish(),
+  contentType:           z.string().min(1).nullish(),
+  sourceKind:            z.string().min(1).nullish(),
+  publisher:             z.string().min(1).nullish(),
+  declaredEffectiveDate: z.iso.date().nullish(),
+  filenameDate:          z.iso.date().nullish(),
+  dateBasis:             z.enum(['document', 'filename', 'unresolved']).nullish(),
+  pageCount:             z.number().int().positive().nullish(),
+  encoding:              z.string().min(1).nullish(),
+  storageKey:            z.string().optional(),
+  sha256:                z.string().regex(/^[a-f0-9]{64}$/).optional(),
+  size:                  z.number().int().nonnegative().optional(),
+  translationId:         z.string().optional(),
 }).refine(file => file.sourceUrl != null || file.storageKey != null, 'A source URL or storage key is required');
 
 /** Configure independent document capabilities. */

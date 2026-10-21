@@ -14,8 +14,8 @@ const versions = os.magic.rule.versions.handler(async ({ input }) => {
   if (result == null) throw new ORPCError('NOT_FOUND');
   return result;
 });
-const meta = os.magic.rule.meta.handler(async ({ input }) => {
-  const result = await reader.meta(input);
+const meta = os.magic.rule.meta.handler(async ({ input, context }) => {
+  const result = await createRuleReader(createDocumentStore(db, 'remote'), { assetBaseUrl: context.assetBaseUrl }).meta(input);
   if (result == null) throw new ORPCError('NOT_FOUND');
   return result;
 });

@@ -49,14 +49,13 @@
 
 <script setup lang="ts">
 import type { SourceFile } from '#model/magic/schema/document-content';
+import { sourceFileUrl } from '@tcg-cards/model/magic/source-file';
 
 const props = defineProps<{ files: SourceFile[] }>();
 const i18n = useI18n();
 const { public: { assetBaseUrl } } = useRuntimeConfig();
 const downloads = computed(() => props.files.flatMap(file => {
-  const url = file.storageKey != null
-    ? `${assetBaseUrl.replace(/\/$/, '')}/${file.storageKey.split('/').map(encodeURIComponent).join('/')}`
-    : file.sourceUrl;
+  const url = sourceFileUrl(file, assetBaseUrl);
   return url != null ? [{ ...file, url }] : [];
 }));
 const container = useTemplateRef('container');

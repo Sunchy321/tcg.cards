@@ -64,6 +64,7 @@ function ruleError(error: unknown, fallback: string) {
     'CR version does not match its effective date':              '文件中的生效日期与所选版本不一致。',
     'Official release already exists with different content':    '此版本已导入，当前文件内容与已导入内容不同。',
     'Imported source has dependent translations or comparisons': '此版本已有译文或比较记录引用旧规则，请先处理这些关联后重新解析。',
+    'Original file does not match its supplied metadata':        '原文件与提供的大小或校验值不一致，请核对后重新导入。',
   };
   const missingFile = error instanceof Error && 'code' in error && error.code === 'ENOENT';
   const message = missingFile

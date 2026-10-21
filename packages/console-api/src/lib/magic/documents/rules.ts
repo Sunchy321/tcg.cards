@@ -1,11 +1,12 @@
 import { documentMeta } from '@tcg-cards/model/magic/schema/document-content';
 import { ruleFile } from '@tcg-cards/model/magic/schema/rule-api';
+import { sourceFileUrl } from '@tcg-cards/model/magic/source-file';
 import type { RuleIdentity, RuleMetadata, RuleVersion } from '@tcg-cards/model/magic/schema/rule-api';
 
 import type { Document, DocumentStore, Release } from './store';
 
 /** Reads published rule metadata without loading full rulebook node text. */
-export function createRuleReader(store: DocumentStore) {
+export function createRuleReader(store: DocumentStore, options: { assetBaseUrl?: string } = {}) {
   /** Selects supported rule identities without treating arbitrary articles as rules. */
   async function document(ruleId: string): Promise<Document | undefined> {
     if (ruleId !== 'magic-cr') return undefined;
@@ -64,7 +65,10 @@ export function createRuleReader(store: DocumentStore) {
         ruleId: row.id, title: revision.title, versionTag: release.versionTag, revisionId: revision.id, language: revision.language,
         effectiveDate: release.effectiveDate, publishedAt: release.publishedAt.toISOString(), meta: documentMeta.parse(revision.meta ?? {}),
         files: release.files.filter(file => file.language === revision.language && (file.translationId == null || file.translationId === revision.translationId))
-          .map(({ storageKey: _key, ...file }) => ruleFile.parse(file)),
+          .map(file => {
+            const { storageKey: _key, ...publicFile } = file;
+            return ruleFile.parse({ ...publicFile, downloadUrl: sourceFileUrl(file, options.assetBaseUrl) });
+          }),
       };
     },
   };

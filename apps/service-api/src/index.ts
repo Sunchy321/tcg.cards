@@ -73,7 +73,7 @@ hono.get('/openapi.json', async c => {
   return c.json(spec);
 });
 
-hono.options('/v1/*', c => {
+hono.options('/v1/*', () => {
   return new Response(null, { status: 204, headers: corsHeaders() });
 });
 
@@ -86,7 +86,9 @@ async function handleApiRequest(request: Request, env: ApiServiceEnv) {
     return authError;
   }
 
-  const { response } = await openapiHandler.handle(request, { prefix: '/v1' });
+  const { response } = await openapiHandler.handle(request, {
+    prefix: '/v1', context: { assetBaseUrl: env.ASSET_BASE_URL ?? 'https://asset.tcg.cards' },
+  });
 
   if (response) {
     return response;

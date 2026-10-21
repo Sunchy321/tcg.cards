@@ -14,6 +14,7 @@ const groups = [
   { flag: 'txt' as const, dir: 'txt', exts: ['txt'] },
   { flag: 'doc' as const, dir: 'doc', exts: ['doc', 'docx'] },
   { flag: 'pdf' as const, dir: 'pdf', exts: ['pdf'] },
+  { flag: null, dir: 'rtf', exts: ['rtf'] },
 ] as const;
 
 /** Describes only the original files actually retained in a version's archive. */
@@ -49,7 +50,7 @@ export function listLocalRuleVersions(ruleDir: string): LocalRuleVersion[] {
       }
 
       const entry = versions.get(date) ?? { date, files: { txt: false, doc: false, pdf: false } };
-      entry.files[group.flag] = true;
+      if (group.flag != null) entry.files[group.flag] = true;
       versions.set(date, entry);
     }
   }

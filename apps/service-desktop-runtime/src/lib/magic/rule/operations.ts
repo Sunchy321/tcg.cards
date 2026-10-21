@@ -6,7 +6,8 @@ import { z } from 'zod';
 import { createDocumentService } from '@tcg-cards/console-api/lib/magic/documents/service';
 import type { DocumentStore } from '@tcg-cards/console-api/lib/magic/documents/store';
 import type { SourceFile } from '@tcg-cards/model/magic/schema/document-content';
-import { listLocalRuleFiles, listLocalRuleVersions } from './list';
+import { listLocalRuleVersions } from './list';
+import { readOriginalRuleFiles, textEncoding } from './files';
 
 /** Records an import attempt independently of the article's saved content. */
 export interface RuleImportAttempt {
@@ -54,12 +55,27 @@ export function createRuleOperations({ root, store, recordImport }: RuleDependen
       // Validate before constructing a source path, including calls outside RPC.
       const version = versionDate.parse(input.version);
       if (root == null) throw new Error('Rule directory is not configured');
-      const content = await readFile(join(root, 'txt', `${version}.txt`), 'utf8');
-      const attempt = { id: randomUUID(), sourceHash: createHash('sha256').update(content).digest('hex') };
+      const bytes = await readFile(join(root, 'txt', `${version}.txt`));
+      const content = new TextDecoder(textEncoding(bytes) ?? 'utf-8').decode(bytes);
+      const attempt = { id: randomUUID(), sourceHash: createHash('sha256').update(bytes).digest('hex') };
       await recordImport({ ...attempt, status: 'processing' });
       try {
-        const result = await documents.importCr({
-          content, versionTag: version.replaceAll('-', ''), files: input.files ?? listLocalRuleFiles(root, version),
+        const result = await store.transaction('magic-cr', async tx => {
+          const versionTag = version.replaceAll('-', '');
+          const previous = (await tx.releases('magic-cr')).find(release => release.versionTag === versionTag);
+          /** Groups one format within its source or translated language. */
+          const key = (file: SourceFile) => `${file.language}:${file.format}:${file.translationId ?? ''}`;
+          const supplied = new Map(previous?.files.map(file => [key(file), file]));
+          for (const file of input.files ?? []) supplied.set(key(file), { ...supplied.get(key(file)), ...file });
+          const files = await readOriginalRuleFiles(root, version, [...supplied.values()], { txtBytes: bytes, supplied: input.files });
+          const imported = await createDocumentService(tx, { track: 'local' }).importCr({ content, versionTag, files });
+          const release = (await tx.releases('magic-cr')).find(row => row.id === imported.releaseId)!;
+          // The parsed TXT is the only file whose declared effective date is proven here.
+          await tx.putRelease({ ...release, files: release.files.map(file => file.format === 'txt' && file.language === 'en'
+            && file.storageKey === `magic/rule/txt/${version}.txt` && imported.effectiveDate != null
+            ? { ...file, declaredEffectiveDate: imported.effectiveDate, dateBasis: 'document' }
+            : file) });
+          return imported;
         });
         await recordImport({ ...attempt, status: 'completed', revisionId: result.revisionId, completedAt: new Date() });
         return result;

@@ -17,7 +17,7 @@ export const ruleVersion = z.strictObject({
 
 // File storage keys are private implementation details, not download URLs.
 const { storageKey: _storageKey, ...fileFields } = sourceFile.shape;
-export const ruleFile = z.strictObject(fileFields);
+export const ruleFile = z.strictObject({ ...fileFields, downloadUrl: z.url().nullable() });
 
 export const ruleMetadata = z.strictObject({
   ruleId:        z.string(),
