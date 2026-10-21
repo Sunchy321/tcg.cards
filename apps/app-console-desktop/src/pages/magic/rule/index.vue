@@ -251,7 +251,10 @@ function mergeVersions(
     rows.set(translation.date, row);
   }
 
-  return [...rows.values()].sort((a, b) => b.date.localeCompare(a.date));
+  // These archived editions have a different structure from the supported rule import format.
+  return [...rows.values()]
+    .filter(row => !['1999-04-23', '1999-11-01'].includes(formatDate(row.date)))
+    .sort((a, b) => b.date.localeCompare(a.date));
 }
 
 const ruleHeader = ref<HTMLElement | null>(null);
