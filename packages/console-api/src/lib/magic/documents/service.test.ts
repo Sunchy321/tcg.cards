@@ -268,3 +268,30 @@ test('keeps adjoining prose in its paragraph when a rule number has neither punc
   expect(page.sections.some(node => node.nodeId === '100.2')).toBe(false);
   expect(page.sections.find(node => node.nodeId === '100.1')?.text).toContain('100.2Continue playing without a valid number separator.');
 });
+
+
+test('keeps historical CR releases in official chronology with legacy or unpunctuated date headers', async () => {
+  const store = memoryStore();
+  const documents = createDocumentService(store, { track: 'local' });
+  await documents.importCr({ content: cr });
+  const legacy = await documents.importCr({ content: cr.replace('effective as of October 1, 2026.', 'current as of October 1, 2006.'), versionTag: '20061001' });
+  expect(legacy.effectiveDate).toBe('2006-10-01');
+  const unpunctuated = await documents.importCr({ content: cr.replace('October 1, 2026.', 'October 1, 2024'), versionTag: '20241001' });
+  expect(unpunctuated.effectiveDate).toBe('2024-10-01');
+  expect((await documents.read({ slug: 'magic-cr' })).version.versionTag).toBe('20261001');
+  expect((await store.releases('magic-cr')).find(release => release.id === legacy.releaseId)?.publishedAt.toISOString()).toBe('2006-10-01T00:00:00.000Z');
+});
+
+test('treats blank-line whitespace as identical CR content and keeps the saved revision', async () => {
+  const store = memoryStore();
+  const documents = createDocumentService(store, { track: 'local' });
+  const first = await documents.importCr({ content: cr });
+  const padded = cr.replace('\n\n100.1.', '\n \n100.1.');
+  expect(padded).not.toBe(cr);
+  const second = await documents.importCr({ content: padded });
+  expect(second.revisionId).toBe(first.revisionId);
+  expect((await store.releases('magic-cr'))[0]?.sourceRevisionId).toBe(first.revisionId);
+  await expect(documents.importCr({ content: cr.replace('Pay {W} to continue.', 'Changed rule text.') })).rejects.toThrow('different content');
+  expect((await store.releases('magic-cr'))[0]?.sourceRevisionId).toBe(first.revisionId);
+  expect(await store.revisions('magic-cr')).toHaveLength(1);
+});

@@ -52,6 +52,7 @@ export const sourceFile = z.strictObject({
   language:              z.string().min(1),
   sourceUrl:             z.url().nullish(),
   effectiveUrl:          z.url().nullish(),
+  officialUrl:           z.url().nullish(),
   originalFilename:      z.string().min(1).nullish(),
   contentType:           z.string().min(1).nullish(),
   sourceKind:            z.string().min(1).nullish(),

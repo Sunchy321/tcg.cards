@@ -21,6 +21,13 @@ export interface DocumentContext {
   actorId?: string;
 }
 
+/** True when saved nodes carry the same rule text as a fresh parse, whatever capture whitespace or node order. */
+function sameRuleContent(nodes: Node[], parsed: ReturnType<typeof parseMagicCrDocument>['nodes'], anchors: Set<string>): boolean {
+  if (nodes.length !== parsed.length) return false;
+  const saved = new Map(nodes.map(node => [node.anchor, node.rawText]));
+  return parsed.every(node => saved.get(node.nodeId) === importText(node.content ?? '', anchors).rawText);
+}
+
 /** Provides the document operation boundary shared by imports and serving adapters. */
 export function createDocumentService(store: DocumentStore, context: DocumentContext) {
   return {
@@ -47,10 +54,12 @@ export function createDocumentService(store: DocumentStore, context: DocumentCon
         return { versionTag, releaseId: release.id, revisionId: revision.id, totalNodes: revision.nodes.length };
       });
     },
+    /** Imports authoritative CR text with its proven official date and retained original files. */
     async importCr(input: { content: string; versionTag?: string; files?: SourceFile[] }) {
       if (context.track !== 'local') throw new Error('Static imports require local storage');
       const normalized = input.content.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').trimEnd() + '\n';
-      const dateMatch = normalized.match(/These rules are effective as of (.+)\./i);
+      // Historical originals say 'current', and some official TXT headers omit the final period.
+      const dateMatch = normalized.match(/^These rules are (?:effective|current) as of ([A-Za-z]+ \d{1,2}, \d{4})\.?\s*$/im);
       const date = dateMatch ? new Date(`${dateMatch[1]} UTC`) : null;
       const effectiveDate = date && !Number.isNaN(date.getTime()) ? date.toISOString().slice(0, 10) : null;
       const versionTag = input.versionTag?.replaceAll('-', '') ?? effectiveDate?.replaceAll('-', '');
@@ -62,8 +71,15 @@ export function createDocumentService(store: DocumentStore, context: DocumentCon
       const releaseId = `magic-cr:${versionTag}`;
       return store.transaction('magic-cr', async tx => {
         const existingRelease = (await tx.releases('magic-cr')).find(row => row.id === releaseId);
-        if (existingRelease && existingRelease.sourceRevisionId !== revisionId) throw new Error('Official release already exists with different content');
-        const existing = await tx.revision(revisionId);
+        const anchors = new Set(parsed.nodes.map(node => node.nodeId));
+        // Official TXT and mirror captures differ in blank-line whitespace; parsed rule content decides identity.
+        let contentId = revisionId;
+        if (existingRelease && existingRelease.sourceRevisionId !== revisionId) {
+          const saved = await tx.revision(existingRelease.sourceRevisionId);
+          if (saved == null || !sameRuleContent(saved.nodes, parsed.nodes, anchors)) throw new Error('Official release already exists with different content');
+          contentId = existingRelease.sourceRevisionId;
+        }
+        const existing = await tx.revision(contentId);
         const at = new Date();
         const document = await tx.document('magic-cr');
         await tx.putDocument(document ?? {
@@ -72,14 +88,13 @@ export function createDocumentService(store: DocumentStore, context: DocumentCon
           settings: documentSettings.parse({ outline: true, compare: true }),
           createdAt: at, updatedAt: at, deletedAt: null,
         });
-        const ids = new Map(parsed.nodes.map(node => [node.id, `${revisionId}/${node.nodeId}`]));
-        const anchors = new Set(parsed.nodes.map(node => node.nodeId));
+        const ids = new Map(parsed.nodes.map(node => [node.id, `${contentId}/${node.nodeId}`]));
         const previousRelease = (await tx.releases('magic-cr')).filter(row => !row.deletedAt && row.versionTag < versionTag).sort((a, b) => b.versionTag.localeCompare(a.versionTag))[0];
         const previousRevision = previousRelease ? await tx.revision(previousRelease.sourceRevisionId) : undefined;
-        const assignments = previousRevision ? matchRevisionNodes(previousRevision, parsed.nodes, revisionId).entityAssignments : undefined;
+        const assignments = previousRevision ? matchRevisionNodes(previousRevision, parsed.nodes, contentId).entityAssignments : undefined;
         const existingKeys = new Map(existing?.nodes.map(node => [node.anchor, node.nodeKey]));
         const nodes: Node[] = parsed.nodes.map(node => ({
-          id: ids.get(node.id)!, revisionId, nodeKey: existingKeys.get(node.nodeId) ?? assignments?.get(node.nodeId)?.entityId ?? node.nodeId, kind: node.nodeKind,
+          id: ids.get(node.id)!, revisionId: contentId, nodeKey: existingKeys.get(node.nodeId) ?? assignments?.get(node.nodeId)?.entityId ?? node.nodeId, kind: node.nodeKind,
           anchor: node.nodeId, path: node.path, level: node.level,
           parentId: node.parentNodeId ? ids.get(node.parentNodeId) ?? null : null,
           siblingOrder: node.siblingOrder, ...importText(node.content ?? '', anchors),
@@ -88,7 +103,7 @@ export function createDocumentService(store: DocumentStore, context: DocumentCon
         if (existing) {
           const reparsed = { ...existing, nodes };
           if (!sameRevision(existing, reparsed)) await tx.reparseRevision(reparsed);
-          await tx.updateRevisionMeta(revisionId, calculateStatistics(nodes, 'magic-cr', existing.meta));
+          await tx.updateRevisionMeta(contentId, calculateStatistics(nodes, 'magic-cr', existing.meta));
           if (existingRelease && input.files != null) {
             // Reimport may add downloads without changing the retained source revision.
             // Preserve descriptors for formats no longer present in the local archive.
@@ -100,19 +115,19 @@ export function createDocumentService(store: DocumentStore, context: DocumentCon
             }
             await tx.putRelease({ ...existingRelease, files: [...files.values()] });
           }
-          return { documentId: 'magic-cr', revisionId, releaseId, versionTag, effectiveDate, totalNodes: nodes.length };
+          return { documentId: 'magic-cr', revisionId: contentId, releaseId, versionTag, effectiveDate, totalNodes: nodes.length };
         }
         await tx.putRevision({
-          id: revisionId, documentId: 'magic-cr', translationId: null, sourceRevisionId: null,
+          id: contentId, documentId: 'magic-cr', translationId: null, sourceRevisionId: null,
           title: 'Comprehensive Rules', language: 'en', createdAt: at, deletedAt: null, nodes,
           meta: calculateStatistics(nodes, 'magic-cr'),
         });
         await tx.putRelease({
-          id: releaseId, documentId: 'magic-cr', versionTag, sourceRevisionId: revisionId,
+          id: releaseId, documentId: 'magic-cr', versionTag, sourceRevisionId: contentId,
           publishedAt: effectiveDate ? new Date(`${effectiveDate}T00:00:00Z`) : at,
           effectiveDate, files: (input.files ?? []).map(file => sourceFile.parse(file)), deletedAt: null,
         });
-        return { documentId: 'magic-cr', revisionId, releaseId, versionTag, effectiveDate, totalNodes: nodes.length };
+        return { documentId: 'magic-cr', revisionId: contentId, releaseId, versionTag, effectiveDate, totalNodes: nodes.length };
       });
     },
     async retireRelease(input: { documentId: string; releaseId: string }) {
