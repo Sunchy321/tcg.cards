@@ -87,6 +87,17 @@ export function createDocumentService(store: DocumentStore, context: DocumentCon
         if (existing) {
           const reparsed = { ...existing, nodes };
           if (!sameRevision(existing, reparsed)) await tx.reparseRevision(reparsed);
+          if (existingRelease && input.files != null) {
+            // Reimport may add downloads without changing the retained source revision.
+            // Preserve descriptors for formats no longer present in the local archive.
+            const files = new Map(existingRelease.files.map(file => [`${file.language}:${file.format}:${file.translationId ?? ''}`, file]));
+            for (const value of input.files) {
+              const file = sourceFile.parse(value);
+              const key = `${file.language}:${file.format}:${file.translationId ?? ''}`;
+              files.set(key, { ...files.get(key), ...file });
+            }
+            await tx.putRelease({ ...existingRelease, files: [...files.values()] });
+          }
           return { documentId: 'magic-cr', revisionId, releaseId, versionTag, effectiveDate, totalNodes: nodes.length };
         }
         await tx.putRevision({

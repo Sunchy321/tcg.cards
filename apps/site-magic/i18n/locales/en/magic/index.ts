@@ -1221,6 +1221,7 @@ export default {
     },
     reading_options:     'Version and language',
     close_options:       'Close reading options',
+    download_original:   'Download original',
     version:             'Rule version',
     language:            'Reading language',
     compare_versions:    'Compare Versions',

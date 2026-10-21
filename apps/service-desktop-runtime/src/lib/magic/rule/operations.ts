@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { createDocumentService } from '@tcg-cards/console-api/lib/magic/documents/service';
 import type { DocumentStore } from '@tcg-cards/console-api/lib/magic/documents/store';
 import type { SourceFile } from '@tcg-cards/model/magic/schema/document-content';
-import { listLocalRuleVersions } from './list';
+import { listLocalRuleFiles, listLocalRuleVersions } from './list';
 
 /** Records an import attempt independently of the article's saved content. */
 export interface RuleImportAttempt {
@@ -58,7 +58,9 @@ export function createRuleOperations({ root, store, recordImport }: RuleDependen
       const attempt = { id: randomUUID(), sourceHash: createHash('sha256').update(content).digest('hex') };
       await recordImport({ ...attempt, status: 'processing' });
       try {
-        const result = await documents.importCr({ content, versionTag: version.replaceAll('-', ''), files: input.files });
+        const result = await documents.importCr({
+          content, versionTag: version.replaceAll('-', ''), files: input.files ?? listLocalRuleFiles(root, version),
+        });
         await recordImport({ ...attempt, status: 'completed', revisionId: result.revisionId, completedAt: new Date() });
         return result;
       } catch (error) {

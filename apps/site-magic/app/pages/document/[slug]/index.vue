@@ -14,6 +14,12 @@
       @locale="selectLocale"
     />
 
+    <DocumentDownloads
+      v-if="summaryReady && slugBase === 'cr'"
+      :key="summary.version.id"
+      :files="summary.files ?? []"
+    />
+
     <DocumentOutline
       v-if="(summary.document.settings?.outline ?? true) && summary.outline.length"
       :items="summary.outline"

@@ -804,6 +804,7 @@ export default {
     },
     reading_options:     '版本与语言',
     close_options:       '收起阅读设置',
+    download_original:   '下载原文件',
     version:             '规则版本',
     language:            '阅读语言',
     compare_versions:    '比较版本',

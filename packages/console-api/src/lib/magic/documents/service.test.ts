@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { createDocumentService } from './service';
 import { memoryStore } from './testing';
+import type { SourceFile } from '@tcg-cards/model/magic/schema/document-content';
 
 const cr = `Magic: The Gathering Comprehensive Rules
 
@@ -23,6 +24,19 @@ Credits
 `;
 
 describe('document operations', () => {
+  test('fills missing original files on reimport without changing the release or saved text', async () => {
+    const store = memoryStore();
+    const documents = createDocumentService(store, { track: 'local' });
+    await documents.importCr({ content: cr });
+    const [before] = await store.releases('magic-cr');
+    if (before == null) throw new Error('Expected an imported CR release');
+    const files: SourceFile[] = [{ format: 'pdf', language: 'en', storageKey: 'magic/rule/pdf/2026-10-01.pdf' }];
+    await documents.importCr({ content: cr, files });
+    expect((await store.releases('magic-cr'))[0]).toEqual({ ...before, files });
+    await expect(documents.importCr({ content: cr.replace('Pay {W}', 'Pay {U}'), files: [{ format: 'txt', language: 'en', storageKey: 'other.txt' }] })).rejects.toThrow('different content');
+    expect((await store.releases('magic-cr'))[0]).toEqual({ ...before, files });
+  });
+
   test('imports a static CR release without users and keeps repeated imports idempotent', async () => {
     const documents = createDocumentService(memoryStore(), { track: 'local' });
     const first = await documents.importCr({ content: cr, files: [{ format: 'pdf', language: 'en', sourceUrl: 'https://example.test/CR.pdf' }] });
