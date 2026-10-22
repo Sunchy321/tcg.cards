@@ -44,7 +44,7 @@ const compare = os.input(z.object({ slug: z.string(), fromVersionTag: z.string()
 const nodeHistory = os.input(z.object({ documentId: z.string(), nodeKey: z.string() }))
   .output(documentEntityHistoryPage).handler(({ input, context }) =>
     createComparisonOperations(createDocumentStore(db, 'remote'), { track: 'remote', actorId: context.user?.id }).nodeHistory(input));
-const itemHistory = os.input(z.object({ slug: z.string(), itemId: z.string(), locale: z.string().default('en') }))
+const itemHistory = os.input(z.object({ slug: z.string(), itemId: z.string(), locale: z.string().default('en'), versionTag: z.string().optional() }))
   .output(documentItemHistoryPage).handler(async ({ input, context }) => {
     try {
       return await createItemHistoryOperations(createDocumentStore(db, 'remote'), { track: 'remote', actorId: context.user?.id }).itemHistory(input);

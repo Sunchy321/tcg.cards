@@ -4,7 +4,7 @@
       <AppHeader />
     </div>
 
-    <main class="mx-auto w-[calc(100%-3rem)] max-w-240 pb-32 pt-12 transition-opacity motion-reduce:transition-none sm:w-[calc(100%-6rem)] sm:pt-20" :class="{ 'opacity-60': refreshing }">
+    <main class="mx-auto w-[calc(100%-5rem)] max-w-218 pb-32 pt-12 transition-opacity motion-reduce:transition-none sm:w-[calc(100%-6rem)] sm:pt-20" :class="{ 'opacity-60': refreshing }">
       <div v-if="pending" class="flex justify-center py-16" role="status">
         <UIcon name="lucide:loader" class="size-5 animate-spin text-stone-400 motion-reduce:animate-none" :aria-label="$t('magic.document.loading')" />
       </div>
@@ -14,9 +14,14 @@
       </div>
 
       <template v-else-if="data">
-        <h2 class="sr-only">{{ $t('magic.document.history.$self') }}</h2>
-        <p class="text-sm leading-loose text-(--reader-muted) [&_a]:text-(--reader-accent)">
-          <span v-if="data.entry.serial" class="mr-3 font-mono tracking-tight">{{ data.entry.serial }}</span>
+        <nav class="mb-7 text-xs text-(--reader-muted)" :aria-label="$t('magic.document.history.$self')">
+          <NuxtLink :to="{ path: `/document/${slug}`, query: localeQuery }" class="hover:underline">{{ documentName }}</NuxtLink>
+          <span aria-hidden="true"> / </span>{{ $t('magic.document.history.$self') }}
+        </nav>
+        <h1 class="text-[1.6875rem] font-semibold leading-snug tracking-tight sm:text-3xl">
+          {{ data.entry.serial ? $t('magic.document.history.title', { serial: data.entry.serial }) : $t('magic.document.history.$self') }}
+        </h1>
+        <p class="mt-3 text-sm leading-loose text-(--reader-muted) [&_a]:text-(--reader-accent)">
           <DocumentText :text="data.entry.excerpt" :slug="slug" :version-tag="lastVersionTag" />
         </p>
         <div class="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-(--reader-muted)">
@@ -44,32 +49,35 @@
 
         <section :aria-label="$t('magic.document.history.$self')">
           <template v-for="(row, index) in data.rows" :key="index">
-            <article v-if="row.kind === 'period'" class="border-t border-(--reader-line) py-6 first:border-t-0">
+            <article v-if="row.kind === 'period'" class="border-t border-(--reader-line) py-6 first:border-t-0 [.transition+&]:border-t-0">
               <header class="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-(--reader-muted)">
-                <template v-for="cell in row.cells" :key="cell.itemId">
-                  <span v-if="cell.serial" class="font-mono tracking-tight">{{ cell.serial }}</span>
-                  <span v-if="cell.renamedFrom" class="tag">{{ $t('magic.document.history.renamed_from', { serial: cell.renamedFrom }) }}</span>
-                  <span v-if="cell.state === 'added'" class="tag">{{ $t('magic.document.history.added') }}</span>
-                  <span v-if="cell.isFallback" class="tag">{{ $t('magic.document.history.fallback') }}</span>
-                </template>
-                <span class="ml-auto flex items-center gap-1.5">
-                  <NuxtLink :to="readerLink(row.versionFrom, row.cells[0])" class="font-mono tabular-nums hover:underline">{{ fmt(row.dateFrom) }}</NuxtLink>
-                  <template v-if="row.dateTo">
-                    <span>—</span>
-                    <NuxtLink :to="readerLink(row.versionTo, row.cells[0])" class="font-mono tabular-nums hover:underline">{{ fmt(row.dateTo) }}</NuxtLink>
-                  </template>
-                  <span v-else>{{ $t('magic.document.history.latest') }}</span>
-                </span>
+                <NuxtLink :to="readerLink(row.versionFrom, row.cells[0])" class="font-mono tabular-nums text-(--reader-accent) hover:underline">{{ fmt(row.dateFrom) }}</NuxtLink>
+                <span>—</span>
+                <NuxtLink v-if="row.dateTo" :to="readerLink(row.versionTo, row.cells[0])" class="font-mono tabular-nums text-(--reader-accent) hover:underline">{{ fmt(row.dateTo) }}</NuxtLink>
+                <span v-else>{{ $t('magic.document.history.latest') }}</span>
               </header>
               <div
                 v-for="cell in row.cells"
                 :key="cell.itemId"
-                class="entry relative py-0.5"
+                class="entry relative py-0.5 [&+.entry]:mt-[0.8rem]"
                 :class="{ 'entry-focus': focused(cell) }"
               >
+                <div v-if="lineageMarks(cell, index).length" class="absolute right-[calc(100%+0.75rem)] top-[0.65rem] flex flex-col gap-1">
+                  <UTooltip v-for="kind in lineageMarks(cell, index)" :key="kind" :text="eventKind(kind)">
+                    <span role="img" tabindex="0" :aria-label="eventKind(kind)" class="inline-flex size-4.5 items-center justify-center text-(--reader-muted) focus-visible:outline-2 focus-visible:outline-offset-2">
+                      <UIcon :name="kind === 'split' ? 'lucide:split' : 'lucide:merge'" class="size-4.5 rotate-180" aria-hidden="true" />
+                    </span>
+                  </UTooltip>
+                </div>
+                <div v-if="cell.renamedFrom || cell.state === 'added' || cell.isFallback" class="mb-1 flex flex-wrap gap-x-3 gap-y-1 text-[0.6875rem] text-(--reader-muted)">
+                  <span v-if="cell.renamedFrom">{{ $t('magic.document.history.renamed_from', { serial: cell.renamedFrom }) }}</span>
+                  <span v-if="cell.state === 'added'">{{ $t('magic.document.history.added') }}</span>
+                  <span v-if="cell.isFallback">{{ $t('magic.document.history.fallback') }}</span>
+                </div>
                 <p class="m-0 wrap-anywhere text-base leading-loose sm:text-[1.0625rem]" :class="{ 'text-(--reader-muted)': !cell.changed }" :lang="cell.lang">
-                  <span v-if="cell.serial" class="mr-3 font-mono text-sm tracking-tight text-(--reader-muted)">{{ cell.serial }}</span>
-                  <template v-for="(span, spanIndex) in cell.diff ?? [{ type: 'common', value: cell.text }]" :key="spanIndex">
+                  <NuxtLink v-if="cell.isSnapshot && cell.serial" :to="historyLink(cell.itemId)" class="mr-3 font-mono text-sm tracking-tight text-(--reader-accent) hover:underline">{{ cell.serial }}</NuxtLink>
+                  <span v-else-if="cell.serial" class="mr-3 font-mono text-sm tracking-tight text-(--reader-muted)">{{ cell.serial }}</span>
+                  <template v-for="(span, spanIndex) in textSpans(cell)" :key="spanIndex">
                     <mark v-if="span.type !== 'common'" :class="markClass(span.type)"><DocumentText :text="span.value" :slug="slug" :version-tag="row.versionTo" /></mark>
                     <DocumentText v-else :text="span.value" :slug="slug" :version-tag="row.versionTo" />
                   </template>
@@ -79,7 +87,24 @@
             <div v-else class="transition" role="group" :aria-label="eventLabel(row.event)">
               <span class="transition-label">
                 <span>{{ eventKind(row.event.kind) }}</span>
-                <span class="font-mono tabular-nums">{{ fmt(row.event.date) }}</span>
+                <template v-if="row.event.kind === 'removed'">
+                  <NuxtLink v-for="party in row.event.from" :key="party.itemId" :to="historyLink(party.itemId)" class="font-mono text-(--reader-accent) hover:underline">{{ party.serial ?? $t('magic.document.history.$self') }}</NuxtLink>
+                  <span class="font-mono tabular-nums">{{ fmt(row.event.date) }}</span>
+                </template>
+                <template v-else>
+                  <span class="flex flex-wrap items-baseline justify-center gap-x-1.5 gap-y-1 font-mono tabular-nums">
+                    <template v-for="(party, partyIndex) in row.event.from" :key="party.itemId">
+                      <span v-if="partyIndex" aria-hidden="true">＋</span>
+                      <NuxtLink :to="historyLink(party.itemId)" class="text-(--reader-accent) hover:underline">{{ party.serial ?? $t('magic.document.history.$self') }}</NuxtLink>
+                    </template>
+                    <span aria-hidden="true">→</span>
+                    <template v-for="(party, partyIndex) in row.event.to" :key="party.itemId">
+                      <span v-if="partyIndex" aria-hidden="true">＋</span>
+                      <NuxtLink :to="historyLink(party.itemId)" class="text-(--reader-accent) hover:underline">{{ party.serial ?? $t('magic.document.history.$self') }}</NuxtLink>
+                    </template>
+                  </span>
+                  <NuxtLink v-if="row.event.versionFrom && row.event.versionTo" :to="{ path: `/document/${slug}/diff`, query: { from: row.event.versionFrom, to: row.event.versionTo, ...localeQuery } }" class="whitespace-nowrap text-(--reader-accent) hover:underline">{{ $t('magic.document.history.compare') }} ↗</NuxtLink>
+                </template>
               </span>
             </div>
           </template>
@@ -103,19 +128,20 @@ definePageMeta({
 
 const { $orpc } = useNuxtApp();
 const i18n = useI18n();
-const route = useRoute('document-slug');
+const route = useRoute('document-slug-history');
 const router = useRouter();
 
-const slug = computed(() => String(route.params.slug ?? 'cr'));
-const apiSlug = computed(() => slug.value === 'cr' ? 'magic-cr' : slug.value);
+const slug = computed(() => String(route.params.slug ?? 'comprehensive-rules'));
+const apiSlug = computed(() => slug.value === 'comprehensive-rules' ? 'magic-cr' : slug.value);
 const itemId = computed(() => typeof route.query.id === 'string' ? route.query.id : undefined);
+const entryVersion = computed(() => typeof route.query.version === 'string' ? route.query.version : undefined);
 const currentLocale = computed(() => {
   // The same reading choice as the reader: an explicit language survives shared links.
   const selected = route.query.locale;
   return selected === 'en' || selected === 'zhs' ? selected : i18n.locale.value === 'zhs' ? 'zhs' : 'en';
 });
 const localeQuery = computed(() => ({ locale: currentLocale.value }));
-const documentName = computed(() => slug.value === 'cr' ? i18n.t('magic.document.names.cr') : data.value?.document.name ?? slug.value);
+const documentName = computed(() => slug.value === 'comprehensive-rules' ? i18n.t('magic.document.names.cr') : data.value?.document.name ?? slug.value);
 
 const data = shallowRef<DocumentItemHistoryPage | null>(null);
 const pending = ref(false);
@@ -123,6 +149,7 @@ const refreshing = ref(false);
 const failed = ref(false);
 
 const lastVersionTag = computed(() => {
+  if (data.value?.entry.versionTag) return data.value.entry.versionTag;
   for (let index = data.value?.rows.length ?? 0; index >= 0; index -= 1) {
     const row = data.value?.rows[index];
     if (row?.kind === 'period') return row.versionTo;
@@ -130,6 +157,7 @@ const lastVersionTag = computed(() => {
   return '';
 });
 
+/** Formats an effective date for the timeline. */
 function fmt(date: string) {
   return date.replaceAll('-', '.');
 }
@@ -139,6 +167,7 @@ function selectLocale(language: string) {
   void router.push({ query: { ...route.query, locale: language } });
 }
 
+/** Maps the two directional comparisons to the agreed highlight colours. */
 function markClass(type: DocumentItemHistoryDiffSpan['type']) {
   const map: Record<DocumentItemHistoryDiffSpan['type'], string> = {
     add:    'bg-green-100 dark:bg-green-500/30',
@@ -149,29 +178,58 @@ function markClass(type: DocumentItemHistoryDiffSpan['type']) {
   return map[type];
 }
 
-/** Highlights only the queried entry once the page carries several lineage members. */
-function focused(cell: DocumentItemHistoryCell) {
-  return data.value != null && data.value.entry.lineageCount > 1 && cell.itemId === data.value.entry.itemId;
+/** Preserves a full plain-text row when no directional comparison is available. */
+function textSpans(cell: DocumentItemHistoryCell): DocumentItemHistoryDiffSpan[] {
+  return cell.diff ?? [{ type: 'common', value: cell.text }];
 }
 
+/** Highlights only the queried entry once the page carries several lineage members. */
+function focused(cell: DocumentItemHistoryCell) {
+  return data.value != null && cell.itemId === data.value.entry.itemId;
+}
+
+/** Opens the exact edition and official anchor of a period. */
 function readerLink(versionTag: string, cell?: DocumentItemHistoryCell) {
-  const anchor = cell?.serial?.replace(/\.$/, '');
+  const anchor = cell?.nodeId ?? cell?.serial?.replace(/\.$/, '');
   return {
     path:  `/document/${slug.value}`,
-    query: { version: versionTag, ...localeQuery.value },
+    query: { version: versionTag, node: anchor, ...localeQuery.value },
     hash:  anchor ? `#${encodeURIComponent(anchor)}` : undefined,
   };
 }
 
+/** Localizes a structural event name. */
 function eventKind(kind: DocumentItemHistoryEvent['kind']) {
   return i18n.t(`magic.document.history.${kind}`);
 }
 
+/** Describes the relation with official numbers rather than internal identities. */
 function eventLabel(event: DocumentItemHistoryEvent) {
-  return `${eventKind(event.kind)} ${fmt(event.date)}`;
+  return `${eventKind(event.kind)} ${event.from.map(party => party.serial).filter(Boolean).join(' + ')} → ${event.to.map(party => party.serial).filter(Boolean).join(' + ')} ${fmt(event.date)}`;
+}
+
+/** Opens another participant in the same reading language. */
+function historyLink(id: string) {
+  return { path: `/document/${slug.value}/history`, query: { id, ...localeQuery.value } };
+}
+
+/** Shows both boundary roles when an entry is split and merged within one period. */
+function lineageMarks(cell: DocumentItemHistoryCell, index: number): ('split' | 'merged')[] {
+  const marks: ('split' | 'merged')[] = [];
+  const previous = data.value?.rows[index - 1];
+  const next = data.value?.rows[index + 1];
+  if ((cell.state === 'split' || previous?.kind === 'event') && (previous.event.kind === 'split' && previous.event.to.some(party => party.itemId === cell.itemId))) {
+    marks.push('split');
+  }
+
+  if ((cell.state === 'merged' || next?.kind === 'event') && (next.event.kind === 'merged' && next.event.from.some(party => party.itemId === cell.itemId))) {
+    marks.push('merged');
+  }
+  return marks;
 }
 
 let loadToken = 0;
+/** Keeps the current timeline while fetching a new language or entry. */
 async function load() {
   const token = ++loadToken;
   if (itemId.value == null) {
@@ -183,7 +241,7 @@ async function load() {
   if (data.value == null) pending.value = true;
   else refreshing.value = true;
   try {
-    const page = await $orpc.magic.document.itemHistory({ slug: apiSlug.value, itemId: itemId.value, locale: currentLocale.value });
+    const page = await $orpc.magic.document.itemHistory({ slug: apiSlug.value, itemId: itemId.value, locale: currentLocale.value, versionTag: entryVersion.value });
     if (token !== loadToken) return;
     data.value = page;
     failed.value = false;
@@ -199,7 +257,7 @@ async function load() {
   }
 }
 
-watch([apiSlug, itemId, currentLocale], load, { immediate: true });
+watch([apiSlug, itemId, entryVersion, currentLocale], load, { immediate: true });
 
 useTitle(() => `${documentName.value} / ${i18n.t('magic.document.history.$self')}`);
 </script>
@@ -211,12 +269,6 @@ useTitle(() => `${documentName.value} / ${i18n.t('magic.document.history.$self')
   --reader-line: var(--ui-border);
   --reader-accent: var(--ui-primary);
   background: var(--reader-bg);
-}
-
-.tag {
-  color: var(--reader-muted);
-  font-size: 0.6875rem;
-  white-space: nowrap;
 }
 
 .entry-focus::before {
@@ -262,6 +314,9 @@ mark {
 .transition-label {
   display: flex;
   align-items: baseline;
-  gap: 0.55rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  text-align: center;
+  gap: 0.35rem 0.55rem;
 }
 </style>

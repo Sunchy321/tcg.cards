@@ -191,7 +191,7 @@ export async function loadRevision(store: DocumentStore, release: Release): Prom
 }
 
 /** Adapt content into the parser-shaped input expected by the pure matcher. */
-function asParsed(revision: Revision): ParsedDocumentNode[] {
+export function asParsed(revision: Revision): ParsedDocumentNode[] {
   return revision.nodes.map(node => ({ id: node.id, documentId: revision.documentId, versionId: revision.id,
     nodeId: node.anchor ?? node.nodeKey, nodeKind: node.kind, path: node.path, level: node.level,
     parentNodeId: node.parentId, siblingOrder: node.siblingOrder, content: node.rawText }));

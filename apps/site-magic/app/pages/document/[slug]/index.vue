@@ -15,7 +15,7 @@
     />
 
     <DocumentDownloads
-      v-if="summaryReady && slugBase === 'cr'"
+      v-if="summaryReady && slugBase === 'comprehensive-rules'"
       :key="summary.version.id"
       :files="summary.files ?? []"
     />
@@ -84,8 +84,8 @@ const router = useRouter();
 const article = useTemplateRef('article');
 const previousSentinel = useTemplateRef('previousSentinel');
 const nextSentinel = useTemplateRef('nextSentinel');
-const slugBase = computed(() => String(route.params.slug ?? 'cr'));
-const apiSlug = computed(() => slugBase.value === 'cr' ? 'magic-cr' : slugBase.value);
+const slugBase = computed(() => String(route.params.slug ?? 'comprehensive-rules'));
+const apiSlug = computed(() => slugBase.value === 'comprehensive-rules' ? 'magic-cr' : slugBase.value);
 const versionQuery = computed(() => typeof route.query.version === 'string' ? route.query.version : undefined);
 const currentLocale = computed(() => {
   // Explicit reading choices survive shared links; otherwise follow the interface,
@@ -99,7 +99,7 @@ const summary = shallowRef<DocumentReaderSummary>({
   versions: [],
   outline:  [],
 });
-const documentName = computed(() => slugBase.value === 'cr' ? i18n.t('magic.document.names.cr') : summary.value.document.name);
+const documentName = computed(() => slugBase.value === 'comprehensive-rules' ? i18n.t('magic.document.names.cr') : summary.value.document.name);
 const compareTo = computed(() => {
   if (!summary.value.document.settings?.compare || summary.value.versions.length < 2) return undefined;
   const index = summary.value.versions.findIndex(version => version.versionTag === summary.value.version.versionTag);

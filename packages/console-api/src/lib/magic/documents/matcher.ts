@@ -103,21 +103,6 @@ function tokenize(text: string): string[] {
     .filter(w => w.length > 0);
 }
 
-/** Measure shared vocabulary independently of repeated words. */
-function diceSimilarity(text1: string, text2: string): number {
-  const tokens1 = tokenize(text1);
-  const tokens2 = tokenize(text2);
-
-  if (tokens1.length === 0 && tokens2.length === 0) return 1;
-  if (tokens1.length === 0 || tokens2.length === 0) return 0;
-
-  const set1 = new Set(tokens1);
-  const set2 = new Set(tokens2);
-  const intersection = [...set1].filter(t => set2.has(t)).length;
-
-  return (2 * intersection) / (set1.size + set2.size);
-}
-
 /** Collect character trigrams for local similarity. */
 function generateTrigrams(text: string): Set<string> {
   const normalized = text.toLowerCase().replace(/\s+/g, ' ').trim();
@@ -126,20 +111,6 @@ function generateTrigrams(text: string): Set<string> {
     trigrams.add(normalized.slice(i, i + 3));
   }
   return trigrams;
-}
-
-/** Measure shared character trigrams. */
-function trigramSimilarity(text1: string, text2: string): number {
-  const trigrams1 = generateTrigrams(text1);
-  const trigrams2 = generateTrigrams(text2);
-
-  if (trigrams1.size === 0 && trigrams2.size === 0) return 1;
-  if (trigrams1.size === 0 || trigrams2.size === 0) return 0;
-
-  const intersection = [...trigrams1].filter(t => trigrams2.has(t)).length;
-  const union = new Set([...trigrams1, ...trigrams2]).size;
-
-  return intersection / union;
 }
 
 // --- Structure Helpers ---
@@ -199,11 +170,38 @@ function structureBonus(oldNode: OldNode, newNode: { nodeKind: string, path: str
   return 0.0;
 }
 
-/** Combine lexical, character, and structural similarity. */
-function scoreCandidate(oldText: string, newText: string, bonus: number): number {
-  const dice = diceSimilarity(oldText, newText);
-  const trigram = trigramSimilarity(oldText, newText);
-  return dice * 0.45 + trigram * 0.40 + bonus * 0.15;
+/** Counts shared members without allocating an intersection or union. */
+function sharedSize(left: Set<string>, right: Set<string>): number {
+  let count = 0;
+  for (const value of left.size <= right.size ? left : right) {
+    if ((left.size <= right.size ? right : left).has(value)) count++;
+  }
+  return count;
+}
+
+/** Reuses text features within one comparison without changing its scoring rules. */
+function createCandidateScorer() {
+  const features = new Map<string, { words: Set<string>; trigrams: Set<string> }>();
+  /** Tokenizes each source or combined candidate text only once per match. */
+  function feature(text: string) {
+    let value = features.get(text);
+    if (!value) {
+      value = { words: new Set(tokenize(text)), trigrams: generateTrigrams(text) };
+      features.set(text, value);
+    }
+    return value;
+  }
+  /** Combines the same vocabulary, character and structural evidence as before. */
+  return (oldText: string, newText: string, bonus: number): number => {
+    const left = feature(oldText);
+    const right = feature(newText);
+    const words = left.words.size + right.words.size;
+    const dice = words === 0 ? 1 : 2 * sharedSize(left.words, right.words) / words;
+    const shared = sharedSize(left.trigrams, right.trigrams);
+    const union = left.trigrams.size + right.trigrams.size - shared;
+    const trigram = union === 0 ? 1 : shared / union;
+    return dice * 0.45 + trigram * 0.40 + bonus * 0.15;
+  };
 }
 
 // --- Change Classification ---
@@ -382,6 +380,7 @@ export function matchEntities(
   newVersionId: string,
 ): MatchResult {
   const newNodes = prepareNewNodes(parsedNodes);
+  const scoreCandidate = createCandidateScorer();
 
   const matchedOldIds = new Set<string>();
   const matchedNewIds = new Set<string>();

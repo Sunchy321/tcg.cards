@@ -1,11 +1,12 @@
 import { diffWordsWithSpace } from 'diff';
 
 import type {
-  DocumentItemHistoryDiffSpan, DocumentItemHistoryPage, DocumentItemHistoryRow,
+  DocumentItemHistoryCell, DocumentItemHistoryDiffSpan, DocumentItemHistoryEvent, DocumentItemHistoryPage, DocumentItemHistoryRow,
 } from '@tcg-cards/model/magic/schema/document-page';
 import type { DocumentContext } from './service';
-import type { Document, DocumentStore, Release } from './store';
-import { displayedNodes, loadRevision } from './comparison';
+import type { Document, DocumentStore, Node, Release } from './store';
+import { displayedNodes } from './comparison';
+import { loadItemLineage } from './item-history-lineage';
 
 /** Keeps game symbols and rule references atomic while comparing surrounding text. */
 function encode(text: string, map: Map<string, string>): string {
@@ -89,14 +90,9 @@ export function threeWayTextDiff(previous: string | null, current: string, next:
   return spans;
 }
 
-/** True when two displays describe the same reading state and share one period. */
-function sameState(left: { text: string, serial: string | null, lang: string }, right: { text: string, serial: string | null, lang: string }): boolean {
-  return left.text === right.text && left.serial === right.serial && left.lang === right.lang;
-}
-
 /** Formats an anchor for display while keeping the reader's address form separately. */
 function displaySerial(anchor: string | null): string | null {
-  if (anchor == null) return null;
+  if (anchor == null || !/^\d+(?:\.\d+[a-z]*)?$/.test(anchor)) return null;
   return /^\d+(?:\.\d+[a-z]*)?$/.test(anchor) && !/[a-z]$/.test(anchor) ? `${anchor}.` : anchor;
 }
 
@@ -113,79 +109,153 @@ function assertHistoryReadable(document: Document | undefined, context: Document
   if (context.track !== 'local' && !owner && (!document.settings.historyPublic || document.visibility !== 'public')) throw new Error('Document not found');
 }
 
-/** Rebuilds one entry's formal history as a time-aligned row grid over published editions. */
+/** One displayed entry at an exact formal edition. */
+interface HistoryState {
+  index: number;
+  node: Node;
+  text: string;
+  serial: string | null;
+  lang: string;
+  isFallback: boolean;
+}
+
+/** Checks display continuity without hiding number or fallback changes. */
+function sameStates(left: HistoryState[], right: HistoryState[]) {
+  return left.length === right.length && left.every((state, index) => {
+    const other = right[index]!;
+    return state.node.nodeKey === other.node.nodeKey && state.node.anchor === other.node.anchor && state.text === other.text && state.serial === other.serial
+      && state.lang === other.lang && state.isFallback === other.isFallback;
+  });
+}
+
+/** Rebuilds the reachable lineage over shared comparison boundaries and formal editions. */
 export function createItemHistoryOperations(store: DocumentStore, context: DocumentContext) {
   return {
-    async itemHistory(input: { slug: string; itemId: string; locale: string }): Promise<DocumentItemHistoryPage> {
+    async itemHistory(input: { slug: string; itemId: string; locale: string; versionTag?: string }): Promise<DocumentItemHistoryPage> {
       const document = (await store.documents()).find(row => row.slug === input.slug);
       assertHistoryReadable(document, context);
       const releases = (await store.releases(document.id)).filter(row => row.deletedAt == null)
         .sort((left, right) => left.versionTag.localeCompare(right.versionTag) || left.id.localeCompare(right.id));
-      const latestId = releases.at(-1)?.id;
-      interface State { release: Release, text: string, serial: string | null, lang: string, isFallback: boolean }
-      const states: State[] = [];
-      for (const release of releases) {
-        const source = await loadRevision(store, release);
-        const node = source.nodes.find(row => row.nodeKey === input.itemId);
-        if (node == null) continue;
-        const view = (await displayedNodes(store, release, source, input.locale)).get(node.id)!;
-        states.push({ release, text: view.rawText, serial: view.anchor, lang: view.localeState.locale, isFallback: view.localeState.isFallback });
+      const { editions, members, events, resolvedItemId, nodeIds } = await loadItemLineage(store, releases, input.itemId, input.versionTag);
+      const views = new Map<number, Promise<Map<string, HistoryState>>>();
+      /** Resolves a translation at the same edition as its source snapshot. */
+      async function stateAt(index: number, node: Node): Promise<HistoryState> {
+        const edition = editions[index]!;
+        if (!views.has(index)) {
+          const needed = new Set(edition.revision.nodes.filter(row => members.has(row.nodeKey)).map(row => row.id));
+          for (const event of events) {
+            if (event.index === index) for (const row of event.to) needed.add(row.id);
+            if (event.index === index + 1) for (const row of event.from) needed.add(row.id);
+          }
+          views.set(index, displayedNodes(store, edition.release, edition.revision, input.locale).then(displayed => {
+            // Retain only the visible lineage, rather than a second copy of
+            // every rule in every edition for the lifetime of the request.
+            const selected = new Map<string, HistoryState>();
+            for (const source of edition.revision.nodes) {
+              if (!needed.has(source.id)) continue;
+              const view = displayed.get(source.id)!;
+              selected.set(source.id, { index, node: source, text: view.rawText, serial: displaySerial(source.anchor), lang: view.localeState.locale, isFallback: view.localeState.isFallback });
+            }
+            return selected;
+          }));
+        }
+        return (await views.get(index)!).get(node.id)!;
       }
-      if (states.length === 0 || latestId == null) throw new Error('Item not found in published content');
-
-      const periods: { from: State, to: State }[] = [];
-      for (const state of states) {
-        const last = periods.at(-1);
-        if (last && sameState(last.to, state)) last.to = state;
-        else periods.push({ from: state, to: state });
+      const states: HistoryState[][] = [];
+      for (let index = 0; index < editions.length; index++) {
+        states.push(await Promise.all(editions[index]!.revision.nodes.filter(node => members.has(node.nodeKey)).map(node => stateAt(index, node))));
       }
-      const first = periods[0]!;
-      const last = periods.at(-1)!;
-      const alive = last.to.release.id === latestId;
-      const party = (state: State) => ({ itemId: input.itemId, serial: displaySerial(state.serial) });
-      const bornFirst = first.from.release.id === releases[0]!.id;
+      // An entry born by merging still needs the preceding source snapshot row,
+      // even when none of those sources belongs to its expanded split lineage.
+      for (const event of events.filter(event => event.kind === 'merged')) {
+        const before = states[event.index - 1]!;
+        for (const node of event.from) {
+          if (!before.some(state => state.node.nodeKey === node.nodeKey)) before.push(await stateAt(event.index - 1, node));
+        }
+      }
+      /** Uses actual adjacent content, including shared split/merge participants, without cross-language diffing. */
+      async function adjacentText(state: HistoryState, direction: -1 | 1): Promise<string | null> {
+        const index = state.index + direction;
+        if (index < 0 || index >= editions.length) return null;
+        const neighbour = editions[index]!.nodes.get(state.node.nodeKey);
+        if (neighbour && members.has(state.node.nodeKey)) {
+          const view = await stateAt(index, neighbour);
+          return view.lang === state.lang ? view.text : null;
+        }
+        const boundary = events.find(event => event.index === (direction === -1 ? state.index : index)
+          && (direction === -1 ? event.to : event.from).some(node => node.id === state.node.id));
+        if (!boundary) return null;
+        const related = await Promise.all((direction === -1 ? boundary.from : boundary.to).map(node => stateAt(index, node)));
+        return related.every(view => view.lang === state.lang) ? related.map(view => view.text).join('\n') : null;
+      }
+      const periods: { from: number; to: number }[] = [];
+      for (let index = 0; index < editions.length; index++) {
+        if (states[index]!.length === 0) continue;
+        const previous = periods.at(-1);
+        if (previous && previous.to === index - 1 && !events.some(event => event.index === index)
+          && sameStates(states[previous.to]!, states[index]!)) previous.to = index;
+        else periods.push({ from: index, to: index });
+      }
+      /** Keeps only public official numbers in relation labels. */
+      function party(node: Node) {
+        return { itemId: node.nodeKey, serial: displaySerial(node.anchor) };
+      }
+      const boundaries = new Map<number, DocumentItemHistoryEvent[]>();
+      for (const event of events) {
+        const list = boundaries.get(event.index) ?? [];
+        list.push({ kind: event.kind, date: dateOf(releases[event.index]!), from: event.from.map(party), to: event.to.map(party),
+          versionFrom: releases[event.index - 1]!.versionTag, versionTo: releases[event.index]!.versionTag });
+        boundaries.set(event.index, list);
+      }
+      for (let index = 1; index < states.length; index++) {
+        const removed = states[index - 1]!.filter(state => !editions[index]!.nodes.has(state.node.nodeKey)
+          && !events.some(event => event.index === index && event.from.some(node => node.id === state.node.id)));
+        if (removed.length) boundaries.set(index, [...boundaries.get(index) ?? [], {
+          kind: 'removed', date: dateOf(releases[index]!), from: removed.map(state => party(state.node)), to: [],
+        }]);
+      }
       const rows: DocumentItemHistoryRow[] = [];
-      periods.forEach((period, index) => {
-        const previous = periods[index - 1];
-        const next = periods[index + 1];
-        rows.push({
-          kind: 'period',
-          dateFrom: dateOf(period.from.release),
-          dateTo: period.to.release.id === latestId ? null : dateOf(period.to.release),
-          versionFrom: period.from.release.versionTag,
-          versionTo: period.to.release.versionTag,
-          cells: [{
-            itemId: input.itemId,
-            serial: displaySerial(period.to.serial),
-            renamedFrom: previous && previous.to.serial !== period.to.serial ? displaySerial(previous.to.serial) : null,
-            lang: period.to.lang,
-            isFallback: period.to.isFallback,
-            text: period.to.text,
-            diff: threeWayTextDiff(
-              previous && previous.to.lang === period.to.lang ? previous.to.text : null,
-              period.to.text,
-              next && next.to.lang === period.to.lang ? next.to.text : null,
-            ),
-            changed: previous == null || previous.to.text !== period.to.text,
-            state: index === 0 && !bornFirst ? 'added' : null,
-          }],
-        });
-      });
-      if (!alive) {
-        const gone = releases.find(row => row.versionTag > last.to.release.versionTag)!;
-        rows.push({ kind: 'event', event: { kind: 'removed', date: dateOf(gone), from: [party(last.to)], to: [] } });
+      for (let index = 0; index < editions.length; index++) {
+        for (const event of boundaries.get(index) ?? []) rows.push({ kind: 'event', event });
+        const period = periods.find(row => row.from === index);
+        if (!period) continue;
+        const cells: DocumentItemHistoryCell[] = [];
+        const displayed = [...states[period.to]!];
+        const merging = events.filter(event => event.kind === 'merged' && event.index === period.to + 1);
+        for (const event of merging) {
+          for (const node of event.from) {
+            if (!displayed.some(state => state.node.nodeKey === node.nodeKey)) displayed.push(await stateAt(period.to, node));
+          }
+        }
+        for (const state of displayed) {
+          const snapshot = !members.has(state.node.nodeKey);
+          const firstState = snapshot ? state : states[period.from]!.find(row => row.node.nodeKey === state.node.nodeKey)!;
+          const previous = period.from > 0 ? states[period.from - 1]!.find(row => row.node.nodeKey === state.node.nodeKey) : undefined;
+          const birth = events.find(event => event.index === period.from && event.to.some(node => node.id === firstState.node.id));
+          const mergesNext = merging.some(event => event.from.some(node => node.id === state.node.id));
+          cells.push({
+            itemId: state.node.nodeKey, nodeId: nodeIds.get(state.node.id), serial: state.serial,
+            renamedFrom: previous && previous.serial !== state.serial ? previous.serial : null,
+            lang: state.lang, isFallback: state.isFallback, text: state.text,
+            diff: threeWayTextDiff(snapshot ? null : await adjacentText(firstState, -1), state.text, await adjacentText(state, 1)),
+            changed: previous == null || previous.text !== state.text,
+            state: mergesNext ? 'merged' : birth?.kind === 'split' ? 'split' : birth ? null : !previous && period.from > 0 ? 'added' : null,
+            ...(snapshot ? { isSnapshot: true } : {}),
+          });
+        }
+        rows.push({ kind: 'period', dateFrom: dateOf(releases[period.from]!),
+          dateTo: period.to === releases.length - 1 ? null : dateOf(releases[period.to]!),
+          versionFrom: releases[period.from]!.versionTag, versionTo: releases[period.to]!.versionTag, cells });
       }
+      const queried = states.flat().filter(state => state.node.nodeKey === resolvedItemId);
+      const last = queried.at(-1)!;
+      const firstPeriod = periods[0]!;
+      const lastPeriod = periods.at(-1)!;
       return {
         document: { id: document.id, slug: document.slug, name: document.title, origin: document.origin, settings: document.settings },
-        entry: {
-          itemId: input.itemId,
-          serial: displaySerial(last.to.serial),
-          excerpt: last.to.text,
-          firstDate: dateOf(first.from.release),
-          lastDate: alive ? null : dateOf(last.to.release),
-          lineageCount: 1,
-          periodCount: periods.length,
-        },
+        entry: { itemId: resolvedItemId, serial: last.serial, excerpt: last.text, versionTag: releases[last.index]!.versionTag,
+          firstDate: dateOf(releases[firstPeriod.from]!), lastDate: lastPeriod.to === releases.length - 1 ? null : dateOf(releases[lastPeriod.to]!),
+          lineageCount: members.size, periodCount: periods.length },
         rows,
       };
     },

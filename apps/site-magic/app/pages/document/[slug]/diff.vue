@@ -150,11 +150,11 @@ definePageMeta({
 
 const { $orpc } = useNuxtApp();
 const i18n = useI18n();
-const route = useRoute('document-slug');
+const route = useRoute('document-slug-diff');
 const router = useRouter();
 
-const slugBase = computed(() => String(route.params.slug ?? 'cr'));
-const apiSlug = computed(() => slugBase.value === 'cr' ? 'magic-cr' : slugBase.value);
+const slugBase = computed(() => String(route.params.slug ?? 'comprehensive-rules'));
+const apiSlug = computed(() => slugBase.value === 'comprehensive-rules' ? 'magic-cr' : slugBase.value);
 
 const currentLocale = computed(() => {
   // Explicit reading choices survive shared links; otherwise follow the interface,

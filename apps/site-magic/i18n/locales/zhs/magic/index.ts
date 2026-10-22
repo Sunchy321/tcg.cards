@@ -851,6 +851,10 @@ export default {
 
     history: {
       $self:        '条目历史',
+      title:        '{serial} 的历史',
+      split:        '拆分',
+      merged:       '合并',
+      compare:      '全文对比',
       period:       '{count} 个时段',
       lineage:      '{count} 条相关规则',
       added:        '新增',

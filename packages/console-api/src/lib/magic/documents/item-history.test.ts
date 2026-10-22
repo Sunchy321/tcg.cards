@@ -143,3 +143,81 @@ test('keeps game symbols atomic and highlights an edit against both neighbours',
   expect(spans.every(span => span.value.length > 0)).toBe(true);
   expect(threeWayTextDiff(null, 'unchanged text', null).every(span => span.type === 'common')).toBe(true);
 });
+
+test('opens the same complete split lineage from either side and repeats unchanged siblings', async () => {
+  const store = memoryStore();
+  const owner = createDocumentService(store, { track: 'remote', actorId: 'alice' });
+  const document = await owner.create({ slug: 'split-history', title: 'Guide', language: 'en', visibility: 'public', settings: { compare: true, historyPublic: true } });
+  const original = await owner.save({ documentId: document.id, title: 'Guide', nodes: [{ nodeKey: 'original', rawText: 'alpha beta gamma delta epsilon zeta eta theta' }] });
+  await owner.publish({ documentId: document.id, revisionId: original.id, versionTag: '1' });
+  const children = [
+    { nodeKey: 'chapter', kind: 'heading' as const, rawText: 'Chapter' },
+    { nodeKey: 'left', parentKey: 'chapter', rawText: 'alpha beta gamma delta epsilon' },
+    { nodeKey: 'right', parentKey: 'chapter', rawText: 'delta epsilon zeta eta theta' },
+  ];
+  const split = await owner.save({ documentId: document.id, title: 'Guide', nodes: children });
+  await owner.publish({ documentId: document.id, revisionId: split.id, versionTag: '2' });
+  const edited = await owner.save({ documentId: document.id, title: 'Guide', nodes: children.map(node => node.nodeKey === 'left' ? { ...node, rawText: `${node.rawText} iota` } : node) });
+  await owner.publish({ documentId: document.id, revisionId: edited.id, versionTag: '3' });
+  const history = createItemHistoryOperations(store, { track: 'remote' });
+  const parent = await history.itemHistory({ slug: document.slug, itemId: 'original', locale: 'en' });
+  const child = await history.itemHistory({ slug: document.slug, itemId: 'left', locale: 'en' });
+  expect(parent.rows).toEqual(child.rows);
+  expect(parent.entry.lineageCount).toBe(3);
+  expect(parent.rows.some(row => row.kind === 'event' && row.event.kind === 'split' && row.event.to.length === 2)).toBe(true);
+  const rows = periods(parent.rows);
+  expect(rows.map(row => row.cells.length)).toEqual([1, 2, 2]);
+  expect(rows[1]!.cells.every(cell => cell.state === 'split')).toBe(true);
+  expect(rows[2]!.cells.find(cell => cell.itemId === 'right')?.changed).toBe(false);
+});
+
+test('shows every merge source immediately before the merge without importing external earlier history', async () => {
+  const store = memoryStore();
+  const owner = createDocumentService(store, { track: 'remote', actorId: 'alice' });
+  const document = await owner.create({ slug: 'merge-history', title: 'Guide', language: 'en', visibility: 'public', settings: { compare: true, historyPublic: true } });
+  const children = [
+    { nodeKey: 'chapter', kind: 'heading' as const, rawText: 'Chapter' },
+    { nodeKey: 'left', parentKey: 'chapter', rawText: 'alpha beta gamma delta epsilon' },
+    { nodeKey: 'right', parentKey: 'chapter', rawText: 'delta epsilon zeta eta theta' },
+  ];
+  const earlier = await owner.save({ documentId: document.id, title: 'Guide', nodes: children.map(node => node.nodeKey === 'right' ? { ...node, rawText: 'Earlier unrelated wording.' } : node) });
+  await owner.publish({ documentId: document.id, revisionId: earlier.id, versionTag: '1' });
+  const sources = await owner.save({ documentId: document.id, title: 'Guide', nodes: children });
+  await owner.publish({ documentId: document.id, revisionId: sources.id, versionTag: '2' });
+  const merged = await owner.save({ documentId: document.id, title: 'Guide', nodes: [{ nodeKey: 'combined', rawText: 'alpha beta gamma delta epsilon zeta eta theta' }] });
+  await owner.publish({ documentId: document.id, revisionId: merged.id, versionTag: '3' });
+  const history = createItemHistoryOperations(store, { track: 'remote' });
+  const source = await history.itemHistory({ slug: document.slug, itemId: 'left', locale: 'en' });
+  expect(source.entry.lineageCount).toBe(2);
+  expect(periods(source.rows).at(-1)?.cells[0]?.itemId).toBe('combined');
+  expect(source.rows.some(row => row.kind === 'event' && row.event.kind === 'removed')).toBe(false);
+  expect(source.rows.some(row => row.kind === 'event' && row.event.kind === 'merged' && row.event.from.length === 2 && row.event.versionTo === '3')).toBe(true);
+  const target = await history.itemHistory({ slug: document.slug, itemId: 'combined', locale: 'en' });
+  expect(target.entry.lineageCount).toBe(1);
+  expect(periods(target.rows).map(row => row.versionFrom)).toEqual(['2', '3']);
+  const before = periods(target.rows)[0]!;
+  expect(before.cells.map(cell => cell.text)).toEqual(children.slice(1).map(node => node.rawText));
+  expect(before.cells.every(cell => cell.state === 'merged' && cell.isSnapshot)).toBe(true);
+  expect(JSON.stringify(target)).not.toContain('Earlier unrelated wording.');
+});
+
+test('does not reconnect an imported key reused after an entry disappeared', async () => {
+  const store = memoryStore();
+  const owner = createDocumentService(store, { track: 'remote', actorId: 'alice' });
+  const document = await owner.create({ slug: 'reused-history', title: 'Guide', language: 'en', visibility: 'public', settings: { historyPublic: true } });
+  const old = await owner.save({ documentId: document.id, title: 'Guide', nodes: [{ nodeKey: 'reused', rawText: 'Old rule about losing the game.' }] });
+  await owner.publish({ documentId: document.id, revisionId: old.id, versionTag: '1' });
+  const absent = await owner.save({ documentId: document.id, title: 'Guide', nodes: [] });
+  await owner.publish({ documentId: document.id, revisionId: absent.id, versionTag: '2' });
+  const fresh = await owner.save({ documentId: document.id, title: 'Guide', nodes: [{ nodeKey: 'reused', rawText: 'Unrelated new definition of player.' }] });
+  await owner.publish({ documentId: document.id, revisionId: fresh.id, versionTag: '3' });
+  const history = createItemHistoryOperations(store, { track: 'remote' });
+  const current = await history.itemHistory({ slug: document.slug, itemId: 'reused', locale: 'en' });
+  expect(periods(current.rows).map(row => row.versionFrom)).toEqual(['3']);
+  const previous = await history.itemHistory({ slug: document.slug, itemId: old.nodes[0]!.id, locale: 'en' });
+  expect(periods(previous.rows).map(row => row.versionFrom)).toEqual(['1']);
+  expect(JSON.stringify(previous)).not.toContain('Unrelated new definition');
+  const fromOldReader = await history.itemHistory({ slug: document.slug, itemId: 'reused', versionTag: '1', locale: 'en' });
+  expect(fromOldReader.rows).toEqual(previous.rows);
+  await expect(history.itemHistory({ slug: document.slug, itemId: 'reused', versionTag: '2', locale: 'en' })).rejects.toThrow('Item not found');
+});

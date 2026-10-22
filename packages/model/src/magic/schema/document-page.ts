@@ -249,14 +249,17 @@ export const documentItemHistoryParty = z.strictObject({
 });
 
 export const documentItemHistoryEvent = z.strictObject({
-  kind: z.enum(['added', 'removed', 'split', 'merged']),
-  date: z.iso.date(),
-  from: documentItemHistoryParty.array(),
-  to:   documentItemHistoryParty.array(),
+  kind:        z.enum(['added', 'removed', 'split', 'merged']),
+  date:        z.iso.date(),
+  from:        documentItemHistoryParty.array(),
+  to:          documentItemHistoryParty.array(),
+  versionFrom: z.string().optional(),
+  versionTo:   z.string().optional(),
 });
 
 export const documentItemHistoryCell = z.strictObject({
   itemId:      z.string(),
+  nodeId:      z.string().optional(),
   serial:      z.string().nullable(),
   renamedFrom: z.string().nullable(),
   lang:        z.string(),
@@ -265,6 +268,7 @@ export const documentItemHistoryCell = z.strictObject({
   diff:        documentItemHistoryDiffSpan.array().nullable(),
   changed:     z.boolean(),
   state:       z.enum(['added', 'split', 'merged']).nullable(),
+  isSnapshot:  z.boolean().optional(),
 });
 
 export const documentItemHistoryRow = z.discriminatedUnion('kind', [
@@ -288,6 +292,7 @@ export const documentItemHistoryPage = z.strictObject({
     itemId:       z.string(),
     serial:       z.string().nullable(),
     excerpt:      z.string(),
+    versionTag:   z.string().optional(),
     firstDate:    z.iso.date(),
     lastDate:     z.iso.date().nullable(),
     lineageCount: z.number(),

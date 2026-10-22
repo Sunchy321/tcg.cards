@@ -1268,6 +1268,10 @@ export default {
 
     history: {
       $self:        'Entry History',
+      title:        'History of {serial}',
+      split:        'Split',
+      merged:       'Merged',
+      compare:      'Full comparison',
       period:       '{count} periods',
       lineage:      '{count} related rules',
       added:        'Added',

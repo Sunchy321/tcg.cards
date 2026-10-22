@@ -49,7 +49,7 @@ function render() {
       const label = children;
       const document = link.documentId ?? props.slug;
       children = h(NuxtLink, { to: {
-        path:  `/document/${document === 'magic-cr' ? 'cr' : document}`,
+        path:  `/document/${document === 'magic-cr' || document === 'cr' ? 'comprehensive-rules' : document}`,
         query: { version: link.releaseId ?? props.versionTag, node: link.anchor, locale: typeof route.query.locale === 'string' ? route.query.locale : undefined },
         hash:  `#${encodeURIComponent(link.anchor)}`,
       } }, () => label);
