@@ -52,6 +52,7 @@
             :section="section"
             :slug="slugBase"
             :version-tag="summary.version.versionTag"
+            :history-enabled="summary.document.settings?.historyPublic === true"
           />
         </article>
 

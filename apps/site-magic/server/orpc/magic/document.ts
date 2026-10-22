@@ -3,11 +3,12 @@ import z from 'zod';
 
 import { createDocumentService } from '@tcg-cards/console-api/lib/magic/documents/service';
 import { createComparisonOperations } from '@tcg-cards/console-api/lib/magic/documents/comparison';
+import { createItemHistoryOperations } from '@tcg-cards/console-api/lib/magic/documents/item-history';
 import { createDocumentStore } from '@tcg-cards/console-api/lib/magic/documents/database';
 import { db } from '#db/db';
 import { os } from '#server/orpc';
 import {
-  documentDiffPage, documentEntityHistoryPage, documentReaderChapter, documentReaderPage, documentReaderSummary,
+  documentDiffPage, documentEntityHistoryPage, documentItemHistoryPage, documentReaderChapter, documentReaderPage, documentReaderSummary,
 } from '#model/magic/schema/document-page';
 import { documentAuthoring } from './document-authoring';
 
@@ -43,8 +44,17 @@ const compare = os.input(z.object({ slug: z.string(), fromVersionTag: z.string()
 const nodeHistory = os.input(z.object({ documentId: z.string(), nodeKey: z.string() }))
   .output(documentEntityHistoryPage).handler(({ input, context }) =>
     createComparisonOperations(createDocumentStore(db, 'remote'), { track: 'remote', actorId: context.user?.id }).nodeHistory(input));
+const itemHistory = os.input(z.object({ slug: z.string(), itemId: z.string(), locale: z.string().default('en') }))
+  .output(documentItemHistoryPage).handler(async ({ input, context }) => {
+    try {
+      return await createItemHistoryOperations(createDocumentStore(db, 'remote'), { track: 'remote', actorId: context.user?.id }).itemHistory(input);
+    } catch (error) {
+      if (error instanceof Error && /not found|missing/.test(error.message)) throw new ORPCError('NOT_FOUND');
+      throw error;
+    }
+  });
 const search = os.input(z.object({ query: z.string().max(500), slug: z.string().optional(), language: z.string().optional(), limit: z.number().int().min(1).max(100).optional() }))
   .handler(({ input }) => createDocumentService(createDocumentStore(db, 'remote'), { track: 'remote' }).search(input));
 
-export const documentTrpc = { ...documentAuthoring, reader, summary, chapter, compare, nodeHistory, search };
+export const documentTrpc = { ...documentAuthoring, reader, summary, chapter, compare, nodeHistory, itemHistory, search };
 export const documentApi = documentTrpc;

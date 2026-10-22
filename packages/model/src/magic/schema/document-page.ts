@@ -238,6 +238,64 @@ export const documentEntityHistoryPage = z.strictObject({
   timeline: documentEntityHistoryEntry.array(),
 });
 
+export const documentItemHistoryDiffSpan = z.strictObject({
+  type:  z.enum(['common', 'add', 'remove', 'dual']),
+  value: z.string(),
+});
+
+export const documentItemHistoryParty = z.strictObject({
+  itemId: z.string(),
+  serial: z.string().nullable(),
+});
+
+export const documentItemHistoryEvent = z.strictObject({
+  kind: z.enum(['added', 'removed', 'split', 'merged']),
+  date: z.iso.date(),
+  from: documentItemHistoryParty.array(),
+  to:   documentItemHistoryParty.array(),
+});
+
+export const documentItemHistoryCell = z.strictObject({
+  itemId:      z.string(),
+  serial:      z.string().nullable(),
+  renamedFrom: z.string().nullable(),
+  lang:        z.string(),
+  isFallback:  z.boolean(),
+  text:        z.string(),
+  diff:        documentItemHistoryDiffSpan.array().nullable(),
+  changed:     z.boolean(),
+  state:       z.enum(['added', 'split', 'merged']).nullable(),
+});
+
+export const documentItemHistoryRow = z.discriminatedUnion('kind', [
+  z.strictObject({
+    kind:        z.literal('period'),
+    dateFrom:    z.iso.date(),
+    dateTo:      z.iso.date().nullable(),
+    versionFrom: z.string(),
+    versionTo:   z.string(),
+    cells:       documentItemHistoryCell.array(),
+  }),
+  z.strictObject({
+    kind:  z.literal('event'),
+    event: documentItemHistoryEvent,
+  }),
+]);
+
+export const documentItemHistoryPage = z.strictObject({
+  document: documentSummary,
+  entry:    z.strictObject({
+    itemId:       z.string(),
+    serial:       z.string().nullable(),
+    excerpt:      z.string(),
+    firstDate:    z.iso.date(),
+    lastDate:     z.iso.date().nullable(),
+    lineageCount: z.number(),
+    periodCount:  z.number(),
+  }),
+  rows: documentItemHistoryRow.array(),
+});
+
 export const documentReviewQueueItem = z.strictObject({
   changeId:        z.string(),
   type:            nodeChangeType,
@@ -304,6 +362,12 @@ export type DocumentDiffRow = z.infer<typeof documentDiffRow>;
 export type DocumentDiffPage = z.infer<typeof documentDiffPage>;
 export type DocumentEntityHistoryEntry = z.infer<typeof documentEntityHistoryEntry>;
 export type DocumentEntityHistoryPage = z.infer<typeof documentEntityHistoryPage>;
+export type DocumentItemHistoryDiffSpan = z.infer<typeof documentItemHistoryDiffSpan>;
+export type DocumentItemHistoryParty = z.infer<typeof documentItemHistoryParty>;
+export type DocumentItemHistoryEvent = z.infer<typeof documentItemHistoryEvent>;
+export type DocumentItemHistoryCell = z.infer<typeof documentItemHistoryCell>;
+export type DocumentItemHistoryRow = z.infer<typeof documentItemHistoryRow>;
+export type DocumentItemHistoryPage = z.infer<typeof documentItemHistoryPage>;
 export type DocumentReviewQueueItem = z.infer<typeof documentReviewQueueItem>;
 export type DocumentReviewQueuePage = z.infer<typeof documentReviewQueuePage>;
 export type DocumentReviewDetail = z.infer<typeof documentReviewDetail>;

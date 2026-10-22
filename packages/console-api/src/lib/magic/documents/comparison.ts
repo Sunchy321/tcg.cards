@@ -184,7 +184,7 @@ function assertReadable(document: Document | undefined, context: DocumentContext
 }
 
 /** Resolve retained revision content even after edit-history cleanup. */
-async function loadRevision(store: DocumentStore, release: Release): Promise<Revision> {
+export async function loadRevision(store: DocumentStore, release: Release): Promise<Revision> {
   const revision = await store.revision(release.sourceRevisionId);
   if (revision == null || revision.documentId !== release.documentId || revision.translationId != null) throw new Error('Release content missing');
   return { ...revision, nodes: orderedNodes(revision.nodes) };
@@ -203,7 +203,7 @@ interface DisplayNode extends Node {
 }
 
 /** Overlay only the selected translation, retaining source structure for missing nodes. */
-async function displayedNodes(store: DocumentStore, release: Release, source: Revision, language?: string): Promise<Map<string, DisplayNode>> {
+export async function displayedNodes(store: DocumentStore, release: Release, source: Revision, language?: string): Promise<Map<string, DisplayNode>> {
   const nodes = new Map<string, DisplayNode>(source.nodes.map(node => [node.id, { ...node,
     localeState: { locale: source.language, status: 'source', isFallback: language != null && language !== source.language },
   }]));
