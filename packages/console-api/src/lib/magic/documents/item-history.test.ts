@@ -128,11 +128,12 @@ test('is hidden behind the publication gate on the remote track and open on the 
   const store = memoryStore();
   const service = createDocumentService(store, { track: 'local' });
   await service.importCr({ content: cr('October 1, 2026', 'Pay {W} to continue.') });
-  const remote = createItemHistoryOperations(store, { track: 'remote' });
-  await expect(remote.itemHistory({ slug: 'magic-cr', itemId: '100.1', locale: 'en' })).rejects.toThrow('Document not found');
   const document = (await store.documents()).find(row => row.slug === 'magic-cr')!;
+  await store.putDocument({ ...document, settings: documentSettings.parse({ outline: true, compare: true, historyPublic: false }) });
+  await expect(createItemHistoryOperations(store, { track: 'remote' }).itemHistory({ slug: 'magic-cr', itemId: '100.1', locale: 'en' })).rejects.toThrow('Document not found');
+  await expect(createItemHistoryOperations(store, { track: 'local' }).itemHistory({ slug: 'magic-cr', itemId: '100.1', locale: 'en' })).resolves.toMatchObject({ entry: { itemId: '100.1' } });
   await store.putDocument({ ...document, settings: documentSettings.parse({ outline: true, compare: true, historyPublic: true }) });
-  await expect(remote.itemHistory({ slug: 'magic-cr', itemId: '100.1', locale: 'en' })).resolves.toMatchObject({ entry: { itemId: '100.1' } });
+  await expect(createItemHistoryOperations(store, { track: 'remote' }).itemHistory({ slug: 'magic-cr', itemId: '100.1', locale: 'en' })).resolves.toMatchObject({ entry: { itemId: '100.1' } });
 });
 
 test('keeps game symbols atomic and highlights an edit against both neighbours', () => {

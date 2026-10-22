@@ -85,7 +85,7 @@ export function createDocumentService(store: DocumentStore, context: DocumentCon
         await tx.putDocument(document ?? {
           id: 'magic-cr', slug: 'magic-cr', title: 'Comprehensive Rules', sourceLanguage: 'en',
           origin: 'static', staticKey: 'magic-cr', visibility: 'public',
-          settings: documentSettings.parse({ outline: true, compare: true }),
+          settings: documentSettings.parse({ outline: true, compare: true, historyPublic: true }),
           createdAt: at, updatedAt: at, deletedAt: null,
         });
         const ids = new Map(parsed.nodes.map(node => [node.id, `${contentId}/${node.nodeId}`]));
