@@ -204,6 +204,9 @@ The desktop-configured directory that stores generated image files under exactly
 ### search DSL (搜索 DSL)
 The shared text query language for card search (`cost>=3 class:mage`, `text:战吼`), with a per-game command vocabulary. The URL query string is its only source of truth: the advanced-search panel is a bidirectional view over the same expression tree rather than a separate page, and filters sync into the DSL text without triggering a search.
 
+### Magic type multi-value query (万智牌类别多值查询)
+Magic's `t:`, `ot:`, `lt:`, and `pt:` commands accept unquoted lists. In positive values, `,` and `&` combine required terms, while `|` combines alternatives, with the same AND/OR meanings as operators between commands. Quoted and regular-expression values remain literal. Exact-match lists (`=`) select alternatives. Negation applies to the list as a whole; comma lists mean none of the listed terms, while `&` keeps its all-terms meaning before negation. Mixing AND-style separators with `|`, or leaving an empty list item, is an error.
+
 ## Card Ambit (收录范围)
 
 ### card ambit (收录范围)
@@ -268,6 +271,9 @@ A localization row that exists because no official standard row could be formed 
 ### localized (译本)
 The card page's default text mode, showing the localization authority's text for the selected language. It stands beside `oracle` (原文), the English oracle text, and `printed` (印文), the text as printed on one specific card.
 _Avoid_: unified
+
+### print surface (印刷面)
+The name, type line, and rules text belonging to one specific printing, distinct from a card's localized oracle text. For Simplified Chinese, MTGCH supplies these values per print; missing fields fall back individually to Scryfall printed text and then English oracle text.
 
 ### card version (卡牌版本)
 A temporal state of a card whose effect was modified over time (a Hearthstone-style buff/nerf). A card has a base version plus zero or more later versions. The base version carries no date; each later version carries its effective date. A card can be modified multiple times, including back to its original content. A version reference with no date resolves to the latest version (the most recent later version, or the base if there is none). Each version is stored as a complete record carrying the full card content (name, typeline, text, stats), never as a delta from another version. A paper card and its online rebalance that are used in different contexts (online version vs paper version) are a split of nature — they are TWO separate cards, not versions of one card. Scryfall does not record balance-change history, so the import produces only the current (base) state; version records are authored manually in the future and are not part of the current import task. The version dimension is reserved as a column in the fact-table primary key (base = empty string, later version = date); the design also leaves room for Oracle errata states.

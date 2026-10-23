@@ -1,6 +1,6 @@
 # 0018: Documents unify remote content with node-based translations
 
-**Status:** Accepted; core implementation and generated database migrations are present; database application and deployment are pending.
+`**Status:** Accepted; core implementation and generated database migrations are present; all current remote migration timestamps are recorded in the configured production database, including the document migrations verified on 2026-10-23. Runtime application deployment is not independently verified.
 
 Static documents and user-authored documents share a content model and remote serving tables, while the local build database contains only user-independent static content. Documents distinguish saved revisions from public releases, represent content as nodes, and attach translations to exact source nodes. This supports ordinary articles and large rulebooks without imposing CR-specific import or comparison workflows on every document.
 
