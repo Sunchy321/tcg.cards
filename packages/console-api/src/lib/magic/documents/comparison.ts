@@ -2,11 +2,12 @@ import type { DocumentDiffPage, DocumentDiffSection, DocumentEntityHistoryPage, 
 import type { ParsedDocumentNode } from './parser';
 import type { DocumentContext } from './service';
 import type { Document, DocumentStore, Node, NodeRelation, Release, Revision } from './store';
-import { matchRevisionNodes, type ChangeRecord } from './matcher';
+import { classifyLinkedNodes, suppressInsertedNumbering, type ChangeRecord, type EntityAssignment, type MatchResult } from './matcher';
 import { orderedNodes } from './nodes';
 import { textDiff } from './diff-text';
 import { createReferenceComparison } from './references';
 import { formalReleases, preparedAdjacencies } from './adjacency';
+import { assertCompleteRelationGroups, replayComparisonPath } from './comparison-replay';
 export { textDiff } from './diff-text';
 
 /** Compare formal editions without depending on import state or exposing drafts. */
@@ -16,16 +17,28 @@ export function createComparisonOperations(store: DocumentStore, context: Docume
       const document = (await store.documents()).find(row => row.slug === input.slug);
       assertReadable(document, context);
       if (!document.settings.compare) throw new Error('Document comparison is disabled');
-      const releases = (await store.releases(document.id)).filter(row => row.deletedAt == null);
+      const releases = formalReleases(await store.releases(document.id));
       const fromRelease = releases.find(row => row.versionTag === input.fromVersionTag);
       const toRelease = releases.find(row => row.versionTag === input.toVersionTag);
       if (fromRelease == null || toRelease == null) throw new Error('Release not found');
+      const fromIndex = releases.findIndex(row => row.id === fromRelease.id);
+      const toIndex = releases.findIndex(row => row.id === toRelease.id);
+      const firstIndex = Math.min(fromIndex, toIndex);
+      const lastIndex = Math.max(fromIndex, toIndex);
+      const path = releases.slice(firstIndex, lastIndex + 1);
+      const { comparisons } = fromIndex === toIndex ? { comparisons: [] } : await preparedAdjacencies(store, path, releases);
       const from = await loadRevision(store, fromRelease);
-      const to = await loadRevision(store, toRelease);
+      const to = fromRelease.id === toRelease.id ? from : await loadRevision(store, toRelease);
       const fromText = await displayedNodes(store, fromRelease, from, input.locale);
       const toText = await displayedNodes(store, toRelease, to, input.locale);
-      // Correspondence and structural changes always come from the original language.
-      const matched = matchRevisionNodes(from, asParsed(to), to.id);
+      const chronologicalFrom = fromIndex <= toIndex ? from : to;
+      const chronologicalTo = fromIndex <= toIndex ? to : from;
+      const chronologicalGroups = comparisons.length === 0 ? [] : await replayComparisonPath(
+        store, comparisons.map(row => row.id), chronologicalFrom.nodes, chronologicalTo.nodes,
+      );
+      const endpointGroups = fromIndex <= toIndex ? chronologicalGroups
+        : chronologicalGroups.map(group => ({ from: group.to, to: group.from }));
+      const matched = createEndpointMatch(endpointGroups, from, to);
       const changes = [...matched.changes];
       const affected = new Set(changes.flatMap(change => relationNodes(change, 'to', toText).map(node => node.id)));
       const previousByKey = new Map(from.nodes.map(node => [node.nodeKey, node]));
@@ -197,36 +210,121 @@ export function createComparisonOperations(store: DocumentStore, context: Docume
   };
 }
 
+/** Convert replayed endpoint components into the existing change record contract. */
+function createEndpointMatch(groups: Awaited<ReturnType<typeof replayComparisonPath>>, from: Revision, to: Revision): MatchResult {
+  const fromById = new Map(from.nodes.map(node => [node.id, node]));
+  const toById = new Map(to.nodes.map(node => [node.id, node]));
+  const entityAssignments = new Map<string, EntityAssignment>();
+  const changes: ChangeRecord[] = [];
+  const assignedTargets = new Set<string>();
+
+  /** Resolve persisted relation participants to actual endpoint nodes. */
+  function nodeFor(row: NodeRelation, nodes: Map<string, Node>): Node {
+    const node = nodes.get(row.nodeId);
+    if (node == null) throw new Error('Document relations are incomplete');
+    return node;
+  }
+
+  /** Pair unique endpoint evidence without running the matching algorithm again. */
+  function pairUnique(left: NodeRelation[], right: NodeRelation[], key: (row: NodeRelation, side: 'from' | 'to') => string) {
+    const leftByKey = new Map<string, NodeRelation[]>();
+    const rightByKey = new Map<string, NodeRelation[]>();
+    for (const row of left) leftByKey.set(key(row, 'from'), [...leftByKey.get(key(row, 'from')) ?? [], row]);
+    for (const row of right) rightByKey.set(key(row, 'to'), [...rightByKey.get(key(row, 'to')) ?? [], row]);
+    const pairs: { from: NodeRelation; to: NodeRelation }[] = [];
+    const usedLeft = new Set<string>();
+    const usedRight = new Set<string>();
+    for (const [value, fromRows] of leftByKey) {
+      const toRows = rightByKey.get(value);
+      if (value === '' || fromRows.length !== 1 || toRows?.length !== 1) continue;
+      pairs.push({ from: fromRows[0]!, to: toRows[0]! });
+      usedLeft.add(fromRows[0]!.nodeId);
+      usedRight.add(toRows[0]!.nodeId);
+    }
+    return { pairs, left: left.filter(row => !usedLeft.has(row.nodeId)), right: right.filter(row => !usedRight.has(row.nodeId)) };
+  }
+
+  /** Register an endpoint pair and classify only its actual source content. */
+  function addPair(fromRow: NodeRelation, toRow: NodeRelation) {
+    const oldNode = nodeFor(fromRow, fromById);
+    const newNode = nodeFor(toRow, toById);
+    const targetKey = newNode.anchor ?? newNode.nodeKey;
+    const previous = entityAssignments.get(targetKey);
+    if (previous != null && previous.entityId !== oldNode.nodeKey) throw new Error('Document relations are ambiguous');
+    entityAssignments.set(targetKey, { entityId: oldNode.nodeKey, isNew: false });
+    assignedTargets.add(newNode.id);
+    if (oldNode.rawText === newNode.rawText && (oldNode.anchor ?? oldNode.nodeKey) === (newNode.anchor ?? newNode.nodeKey)
+      && oldNode.path === newNode.path) return;
+    const classification = classifyLinkedNodes(oldNode, newNode);
+    changes.push({ entityId: oldNode.nodeKey, fromNodeRefId: oldNode.id, toNodeRefId: newNode.id,
+      type: classification.type, confidenceScore: 1, details: classification.details });
+  }
+
+  /** Add an existing multi-section change row for the remaining relation participants. */
+  function addGroup(type: ChangeRecord['type'], left: NodeRelation[], right: NodeRelation[]) {
+    for (const row of right) {
+      if (!assignedTargets.has(row.nodeId)) {
+        const node = nodeFor(row, toById);
+        entityAssignments.set(node.anchor ?? node.nodeKey, { entityId: row.identity, isNew: true });
+      }
+    }
+    const relations: NonNullable<ChangeRecord['relations']> = [
+      ...left.map((row, sortOrder) => ({ side: 'from' as const, entityId: row.identity, nodeRefId: row.nodeId,
+        nodeId: nodeFor(row, fromById).anchor ?? nodeFor(row, fromById).nodeKey, weight: null, sortOrder })),
+      ...right.map((row, sortOrder) => ({ side: 'to' as const, entityId: row.identity, nodeRefId: row.nodeId,
+        nodeId: nodeFor(row, toById).anchor ?? nodeFor(row, toById).nodeKey, weight: null, sortOrder })),
+    ];
+    changes.push({ entityId: left[0]?.identity ?? right[0]?.identity ?? null,
+      fromNodeRefId: left[0]?.nodeId ?? null, toNodeRefId: right[0]?.nodeId ?? null,
+      type, confidenceScore: 1, details: {}, relations });
+  }
+
+  for (const group of groups) {
+    let left = group.from;
+    let right = group.to;
+    const paired: { from: NodeRelation; to: NodeRelation }[] = [];
+    const byIdentity = pairUnique(left, right, row => row.identity);
+    paired.push(...byIdentity.pairs);
+    left = byIdentity.left;
+    right = byIdentity.right;
+    const byAddress = pairUnique(left, right, (row, side) => {
+      const node = nodeFor(row, side === 'from' ? fromById : toById);
+      return JSON.stringify([node.kind, node.anchor ?? node.nodeKey]);
+    });
+    paired.push(...byAddress.pairs);
+    left = byAddress.left;
+    right = byAddress.right;
+    const byContent = pairUnique(left, right, (row, side) => {
+      const node = nodeFor(row, side === 'from' ? fromById : toById);
+      return JSON.stringify([node.kind, node.level, node.rawText]);
+    });
+    paired.push(...byContent.pairs);
+    left = byContent.left;
+    right = byContent.right;
+    if (left.length === 1 && right.length === 1) {
+      paired.push({ from: left[0]!, to: right[0]! });
+      left = [];
+      right = [];
+    }
+    for (const pair of paired) addPair(pair.from, pair.to);
+    if (left.length === 0 && right.length === 0) continue;
+    const type: ChangeRecord['type'] = left.length === 0 ? 'added'
+      : right.length === 0 ? 'removed'
+        : left.length === 1 && right.length > 1 ? 'split'
+          : left.length > 1 && right.length === 1 ? 'merged' : 'modified';
+    addGroup(type, left, right);
+  }
+  for (const node of to.nodes) {
+    const key = node.anchor ?? node.nodeKey;
+    if (!entityAssignments.has(key)) entityAssignments.set(key, { entityId: node.nodeKey, isNew: true });
+  }
+  return suppressInsertedNumbering(from, to, { entityAssignments, changes });
+}
+
 /** Describe formal changes in reader-facing language. */
 function changeSummary(change: { type: Exclude<NodeRelation['kind'], 'unchanged'> }): string {
   return { added: 'Added', removed: 'Removed', modified: 'Text updated', moved: 'Moved to another chapter',
     renamed: 'Number changed', renamed_modified: 'Number and text changed', split: 'Divided into multiple sections', merged: 'Combined into one section' }[change.type];
-}
-
-/** Reject partial participant groups before they can produce a false identity timeline. */
-function assertCompleteRelationGroups(rows: NodeRelation[]): void {
-  const groups = new Map<string, NodeRelation[]>();
-  for (const row of rows) {
-    const key = JSON.stringify([row.comparisonId, row.groupId]);
-    groups.set(key, [...groups.get(key) ?? [], row]);
-  }
-  for (const participants of groups.values()) {
-    const kind = participants[0]!.kind;
-    if (participants.some(row => row.kind !== kind)) throw new Error('Document relations are incomplete');
-    const from = participants.filter(row => row.side === 'from');
-    const to = participants.filter(row => row.side === 'to');
-    const valid = kind === 'unchanged' || kind === 'modified' || kind === 'moved' || kind === 'renamed' || kind === 'renamed_modified'
-      ? from.length === 1 && to.length === 1
-      : kind === 'added' ? from.length === 0 && to.length === 1
-        : kind === 'removed' ? from.length === 1 && to.length === 0
-          : kind === 'split' ? from.length === 1 && to.length >= 2
-            : from.length >= 2 && to.length === 1;
-    if (!valid) throw new Error('Document relations are incomplete');
-    for (const sideRows of [from, to]) {
-      const positions = sideRows.map(row => row.position).sort((left, right) => left - right);
-      if (positions.some((position, index) => position !== index)) throw new Error('Document relations are incomplete');
-    }
-  }
 }
 
 /** Reject inaccessible identities before reading their formal content. */

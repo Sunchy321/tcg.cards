@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 
 import type { NodeChangeDetails, NodeChangeReviewStateCache, NodeChangeType } from '@tcg-cards/model/magic/schema/document';
 import type { ParsedDocumentNode } from './parser';
-import type { Revision } from './store';
+import type { Node, Revision } from './store';
 import { excludeInsertedNumbering } from './renumbering';
 
 /** Fingerprint exact readable content without importing persistence code. */
@@ -17,13 +17,26 @@ function normalizeFingerprint(content: string): string {
 
 /** Adapt immutable revision nodes into stable identities for the matching algorithm. */
 export function matchRevisionNodes(previous: Revision | null, parsed: ParsedDocumentNode[], revisionId: string): MatchResult {
-  return matchEntities((previous?.nodes ?? []).map(node => ({
+  return matchEntities((previous?.nodes ?? []).map(oldNode), parsed, revisionId);
+}
+
+/** Preserve prior sibling-number suppression for pairs established by relation replay. */
+export function suppressInsertedNumbering(previous: Revision, next: Revision, matched: MatchResult): MatchResult {
+  const parsed = next.nodes.map(node => ({ id: node.id, documentId: next.documentId, versionId: next.id,
+    nodeId: node.anchor ?? node.nodeKey, nodeKind: node.kind, path: node.path, level: node.level,
+    parentNodeId: node.parentId, siblingOrder: node.siblingOrder, content: node.rawText }));
+  return { ...matched, changes: excludeInsertedNumbering(previous.nodes.map(oldNode), parsed, matched.entityAssignments, matched.changes) };
+}
+
+/** Retain the source fields used by matching and passive-number classification. */
+function oldNode(node: Node): OldNode {
+  return {
     id: node.id, nodeId: node.anchor ?? node.nodeKey, nodeKind: node.kind,
     path: node.path, level: node.level, parentNodeId: node.parentId, siblingOrder: node.siblingOrder,
     sourceContentHash: node.rawText ? generateHash(node.rawText) : null,
     sourceFingerprintHash: node.rawText ? generateHash(normalizeFingerprint(node.rawText)) : null,
     entityId: node.nodeKey, content: node.rawText,
-  })), parsed, revisionId);
+  };
 }
 
 // --- Types ---
@@ -344,6 +357,27 @@ function classifyChange(
       similarityScore: score,
     },
   };
+}
+
+/** Classify a pair whose identity was already established by saved relations. */
+export function classifyLinkedNodes(oldNode: Node, newNode: Node): { type: NodeChangeType, details: NodeChangeDetails } {
+  const previous: OldNode = {
+    id: oldNode.id, nodeId: oldNode.anchor ?? oldNode.nodeKey, nodeKind: oldNode.kind,
+    path: oldNode.path, level: oldNode.level, parentNodeId: oldNode.parentId, siblingOrder: oldNode.siblingOrder,
+    sourceContentHash: oldNode.rawText ? generateHash(oldNode.rawText) : null,
+    sourceFingerprintHash: oldNode.rawText ? generateHash(normalizeFingerprint(oldNode.rawText)) : null,
+    entityId: oldNode.nodeKey, content: oldNode.rawText,
+  };
+  const next: NewNode = {
+    id: newNode.id, nodeId: newNode.anchor ?? newNode.nodeKey, nodeKind: newNode.kind,
+    path: newNode.path, level: newNode.level, parentNodeId: newNode.parentId, content: newNode.rawText,
+    contentHash: newNode.rawText ? generateHash(newNode.rawText) : null,
+    fingerprintHash: newNode.rawText ? generateHash(normalizeFingerprint(newNode.rawText)) : null,
+  };
+  const stage = previous.nodeId === next.nodeId ? 'nodeId'
+    : previous.content === next.content ? 'content'
+      : previous.sourceFingerprintHash === next.fingerprintHash ? 'fingerprint' : 'similarity';
+  return classifyChange(previous, next, stage, 1);
 }
 
 // --- Pre-compute Hashes ---

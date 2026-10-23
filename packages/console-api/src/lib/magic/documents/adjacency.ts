@@ -172,12 +172,12 @@ export function createAdjacencyOperations(store: DocumentStore, context: Documen
 }
 
 /** Validate every required boundary using source metadata, never historical full text. */
-export async function preparedAdjacencies(store: DocumentStore, releases: Release[]) {
+export async function preparedAdjacencies(store: DocumentStore, releases: Release[], timeline: Release[] = releases) {
   const headers = await store.revisionHeaders([...new Set(releases.map(row => row.sourceRevisionId))]);
   const revisions = new Map(headers.map(row => [row.id, row]));
   const saved = releases.length < 2 ? [] : await store.adjacencies(releases[0]!.documentId);
   const comparisons: Adjacency[] = [];
-  const sequence = timelineHash(releases);
+  const sequence = timelineHash(formalReleases(timeline));
   for (let index = 0; index < releases.length; index++) {
     const release = releases[index]!;
     const revision = revisions.get(release.sourceRevisionId);

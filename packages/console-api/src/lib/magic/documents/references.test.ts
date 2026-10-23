@@ -12,6 +12,7 @@ test('proves reference renumbering using the moved target instead of treating ev
   const service = createDocumentService(store, { track: 'local' });
   await service.importCr({ content: beforeMovement });
   await service.importCr({ content: afterMovement });
+  await service.computeRelations({ documentId: 'magic-cr' });
   const result = await createComparisonOperations(store, { track: 'local' }).compare({ slug: 'magic-cr', fromVersionTag: '20260807', toVersionTag: '20260925', locale: 'en' });
   expect(result.rows.find(row => row.kind === 'change' && row.to?.nodeId === '506.8c')).toMatchObject({
     referenceOnly: true, referenceUpdates: [{ from: '506.7', to: '506.8' }],
@@ -27,6 +28,7 @@ async function compareReference(before: string, after: string) {
   const service = createDocumentService(store, { track: 'local' });
   await service.importCr({ content: header + before });
   await service.importCr({ content: header.replace('October 1', 'November 1') + after });
+  await service.computeRelations({ documentId: 'magic-cr' });
   return createComparisonOperations(store, { track: 'local' }).compare({ slug: 'magic-cr', fromVersionTag: '20261001', toVersionTag: '20261101', locale: 'en' });
 }
 
@@ -105,6 +107,7 @@ test('checks Chinese marker offsets and does not conceal source-content changes 
       }] });
       await translations.selectTranslation({ documentId: 'magic-cr', releaseId: edition.releaseId, revisionId: revision.id });
     }
+    await service.computeRelations({ documentId: 'magic-cr' });
     const result = await createComparisonOperations(store, { track: 'local' }).compare({ slug: 'magic-cr', fromVersionTag: '20261001', toVersionTag: '20261101', locale: 'zhs' });
     expect(result.rows.find(row => row.kind === 'change' && row.to?.nodeId === '100.3')).toMatchObject({ referenceOnly: !sourceChanged,
       referenceUpdates: [{ from: '100.1', to: '100.2' }], textDiff: { blocks: [
