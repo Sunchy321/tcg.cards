@@ -24,6 +24,11 @@ test.skipIf(!url)('reuses persisted local and remote relations after rebuilding 
     await staticService.importCr({ content: source('November', 'U') });
     const query = { slug: 'magic-cr', itemId: '100.1', locale: 'en' };
     await expect(createItemHistoryOperations(local, { track: 'local' }).itemHistory(query)).rejects.toThrow('relations');
+    await expect(staticService.computeRelations({ documentId: 'magic-cr' }, { onProgress: progress => {
+      if (progress.phase === 'saving' && progress.done === 1) throw new Error('cancelled rebuild');
+    } })).rejects.toThrow('cancelled rebuild');
+    expect(await local.adjacencies('magic-cr')).toEqual([]);
+    await expect(createItemHistoryOperations(local, { track: 'local' }).itemHistory(query)).rejects.toThrow('relations');
     // Publication has no relation preparation or completeness gate.
     await publishDocument(local, memoryStore(), 'magic-cr');
     await staticService.computeRelations({ documentId: 'magic-cr' });
@@ -35,6 +40,27 @@ test.skipIf(!url)('reuses persisted local and remote relations after rebuilding 
     const revision = (await reopened.revision(first.revisionId))!;
     await reopened.reparseRevision({ ...revision, nodes: revision.nodes.map(node => node.anchor === '100.1' ? { ...node, rawText: 'Pay {B} to continue.' } : node) });
     await expect(createItemHistoryOperations(reopened, { track: 'local' }).itemHistory(query)).rejects.toThrow('relations');
+
+    let enterRebuild!: () => void;
+    let continueRebuild!: () => void;
+    let waited = false;
+    const entered = new Promise<void>(resolve => { enterRebuild = resolve; });
+    const waiting = new Promise<void>(resolve => { continueRebuild = resolve; });
+    const rebuilding = createDocumentService(reopened, { track: 'local' }).computeRelations({ documentId: 'magic-cr' }, { onProgress: async progress => {
+      if (!waited && progress.phase === 'comparing' && progress.done === 0) {
+        waited = true;
+        enterRebuild();
+        await waiting;
+      }
+    } });
+    await entered;
+    const current = (await reopened.revision(first.revisionId))!;
+    const reparsing = reopened.reparseRevision({ ...current, nodes: current.nodes.map(node => node.anchor === '100.1' ? { ...node, rawText: 'Pay {G} after the concurrent repair.' } : node) });
+    continueRebuild();
+    await Promise.all([rebuilding, reparsing]);
+    await expect(createItemHistoryOperations(reopened, { track: 'local' }).itemHistory(query)).rejects.toThrow('relations');
+    await createDocumentService(reopened, { track: 'local' }).computeRelations({ documentId: 'magic-cr' });
+    await expect(createItemHistoryOperations(reopened, { track: 'local' }).itemHistory(query)).resolves.toMatchObject({ entry: { itemId: '100.1' } });
 
     const userId = `relations-${randomUUID()}`;
     await database.execute(sql`INSERT INTO public.users (id, name, email) VALUES (${userId}, 'Relations test', ${`${userId}@example.test`})`);

@@ -13,30 +13,42 @@ export interface PublicationCounts {
   releases: number;
 }
 
-/** Publishes the local static collection atomically while preserving remote user content. */
+/** Publishes static content atomically, then transports saved relations independently. */
 export async function publishStaticDocuments(source: DocumentStore, target: DocumentStore, options: { dryRun?: boolean } = {}): Promise<PublicationCounts> {
-  return source.transaction('static-documents', async local => {
+  const published = await source.transaction('static-documents', async local => {
     const documents = (await local.documents()).filter(document => document.origin === 'static')
       .sort((left, right) => left.id.localeCompare(right.id));
     if (documents.length === 0) throw new Error('No static documents available to publish');
     // A conflict in a later article must roll back articles written earlier in this batch.
-    return target.transaction('static-documents', async remote => {
-      const counts: PublicationCounts = { documents: 0, translations: 0, revisions: 0, nodes: 0, releases: 0 };
+    const counts = await target.transaction('static-documents', async remote => {
+      const result: PublicationCounts = { documents: 0, translations: 0, revisions: 0, nodes: 0, releases: 0 };
       for (const document of documents) {
-        const result = await publishDocument(local, remote, document.id, options);
-        counts.documents += result.documents;
-        counts.translations += result.translations;
-        counts.revisions += result.revisions;
-        counts.nodes += result.nodes;
-        counts.releases += result.releases;
+        const current = await publishDocumentContent(local, remote, document.id, options);
+        result.documents += current.documents;
+        result.translations += current.translations;
+        result.revisions += current.revisions;
+        result.nodes += current.nodes;
+        result.releases += current.releases;
       }
-      return counts;
+      return result;
     });
+    return { counts, documentIds: documents.map(document => document.id) };
   });
+  if (!options.dryRun) {
+    for (const documentId of published.documentIds) await publishRelationsBestEffort(source, target, documentId);
+  }
+  return published.counts;
 }
 
 /** Publish one static article without importing build state or touching user content. */
 export async function publishDocument(source: DocumentStore, target: DocumentStore, documentId: string, options: { dryRun?: boolean } = {}): Promise<PublicationCounts> {
+  const counts = await publishDocumentContent(source, target, documentId, options);
+  if (!options.dryRun) await publishRelationsBestEffort(source, target, documentId);
+  return counts;
+}
+
+/** Commit validated static content before attempting independent derived-data transport. */
+async function publishDocumentContent(source: DocumentStore, target: DocumentStore, documentId: string, options: { dryRun?: boolean }): Promise<PublicationCounts> {
   return source.transaction(documentId, async local => {
     const document = await local.document(documentId);
     if (document == null) throw new Error('Document not found');
@@ -123,6 +135,25 @@ export async function publishDocument(source: DocumentStore, target: DocumentSto
       return counts;
     });
   });
+}
+
+/** Copy only stored relation rows in a separate transaction after content publication. */
+async function publishRelationsBestEffort(source: DocumentStore, target: DocumentStore, documentId: string): Promise<void> {
+  try {
+    await source.transaction(documentId, async local => {
+      const adjacencies = await local.adjacencies(documentId);
+      await target.transaction(documentId, async remote => {
+        await remote.pruneAdjacencies(documentId, adjacencies.map(row => row.id));
+        // Copy one boundary at a time to bound memory for large rulebooks.
+        for (const adjacency of adjacencies) {
+          const relations = await local.adjacencyRelations([adjacency.id]);
+          await remote.putAdjacency(adjacency, relations);
+        }
+      });
+    });
+  } catch {
+    // Relation availability may affect history reads, but it never decides whether content publishes.
+  }
 }
 
 /** Preserve source dependency order even when revisions share timestamps. */

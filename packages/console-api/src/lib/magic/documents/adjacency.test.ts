@@ -135,6 +135,25 @@ test('keeps a paragraph continuous when it moves between chapters', async () => 
   expect(page.entry.excerpt).toBe('A paragraph that remains unchanged.');
 });
 
+test('failed manual rebuilds leave no partial relations and recover on explicit retry', async () => {
+  const store = memoryStore();
+  const service = createDocumentService(store, { track: 'local' });
+  const cr = (month: string, symbol: string) => `Magic: The Gathering Comprehensive Rules\n\nThese rules are effective as of ${month} 1, 2026.\n\nIntroduction\n\nExample.\n\nContents\n\nCredits\n\n1. Game Concepts\n\n100. General\n\n100.1. Pay {${symbol}} to continue.\n`;
+  await service.importCr({ content: cr('October', 'W') });
+  await service.importCr({ content: cr('November', 'U') });
+  const history = createItemHistoryOperations(store, { track: 'local' });
+  const query = { slug: 'magic-cr', itemId: '100.1', locale: 'en' };
+
+  await expect(service.computeRelations({ documentId: 'magic-cr' }, { onProgress: progress => {
+    if (progress.phase === 'saving' && progress.done === 1) throw new Error('cancelled rebuild');
+  } })).rejects.toThrow('cancelled rebuild');
+  expect(await store.adjacencies('magic-cr')).toEqual([]);
+  await expect(history.itemHistory(query)).rejects.toThrow('relations');
+
+  await service.computeRelations({ documentId: 'magic-cr' });
+  await expect(history.itemHistory(query)).resolves.toMatchObject({ entry: { itemId: '100.1' } });
+});
+
 test('reports manual progress and distinguishes missing, ready and outdated formal relations', async () => {
   const store = memoryStore();
   const service = createDocumentService(store, { track: 'local' });

@@ -1,9 +1,12 @@
 import { expect, test } from 'bun:test';
 import { randomUUID } from 'node:crypto';
-import { sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
+import { DocumentChangeReview, DocumentComparison } from '@tcg-cards/db/schema/remote/magic/document';
 
 import { createDb, runWithDb } from '@tcg-cards/db/db';
+import { createComparisonOperations } from './comparison';
 import { createDocumentStore } from './database';
+import { createItemHistoryOperations } from './item-history';
 import { createDocumentService } from './service';
 import { publishDocument } from './publish';
 import { createRuleReader } from './rules';
@@ -28,6 +31,9 @@ test.skipIf(!localUrl || !remoteUrl)('imports, translates, publishes, searches a
       { sourceNodeId: `${second.revisionId}/100.1`, rawText: '支付 {U} 后继续。', translationMethod: 'machine' },
     ] });
     await source.selectTranslation({ documentId: 'magic-cr', releaseId: second.releaseId, revisionId: translated.id });
+    const translatedSource = (await localStore.revision(second.revisionId))!;
+    await expect(localStore.reparseRevision(translatedSource)).rejects.toThrow('dependent translations');
+    await source.computeRelations({ documentId: 'magic-cr' });
     await publishDocument(localStore, remoteStore, 'magic-cr');
     await publishDocument(localStore, remoteStore, 'magic-cr');
     const metadata = createRuleReader(remoteStore);
@@ -56,8 +62,8 @@ test.skipIf(!localUrl || !remoteUrl)('imports, translates, publishes, searches a
     expect(await reader.search({ query: 'Secret' })).toEqual([]);
     await publishDocument(localStore, remoteStore, 'magic-cr');
     expect((await owner.read({ slug: userId })).document.id).toBe(article.id);
-    await runWithDb(remote, async () => {
-      const pair = { documentId: 'magic-cr', fromVersionId: first.releaseId, toVersionId: second.releaseId };
+    const pair = { documentId: 'magic-cr', fromVersionId: first.releaseId, toVersionId: second.releaseId };
+    const reviewEvidence = await runWithDb(remote, async () => {
       const compared = await compareVersions(pair);
       const change = compared.changes.find(row => row.type === 'modified');
       expect(change).toBeDefined();
@@ -65,7 +71,34 @@ test.skipIf(!localUrl || !remoteUrl)('imports, translates, publishes, searches a
       const reviewed = await compareVersions(pair);
       expect(reviewed.changes.find(row => row.id === change!.id)?.reviewStateCache).toBe('confirmed');
       expect(reviewed.reviewRevision).toBe(compared.reviewRevision + 1);
+      const [basis] = await remote.select().from(DocumentComparison).where(and(
+        eq(DocumentComparison.documentId, pair.documentId), eq(DocumentComparison.fromVersionId, pair.fromVersionId),
+        eq(DocumentComparison.toVersionId, pair.toVersionId),
+      )).limit(1);
+      expect(basis).toBeDefined();
+      const reviews = await remote.select().from(DocumentChangeReview).where(eq(DocumentChangeReview.comparisonId, basis!.id));
+      return { reviewed, basis, reviews };
     });
+
+    const originalFirst = (await localStore.revision(first.revisionId))!;
+    const repairedText = 'Pay {W} to continue after the parser repair.';
+    await localStore.reparseRevision({ ...originalFirst, nodes: originalFirst.nodes.map(node => node.anchor === '100.1' ? { ...node, rawText: repairedText } : node) });
+    await expect(createItemHistoryOperations(localStore, { track: 'local' }).itemHistory({ slug: 'magic-cr', itemId: '100.1', locale: 'en' })).rejects.toThrow('relations');
+    await source.computeRelations({ documentId: 'magic-cr' });
+    await publishDocument(localStore, remoteStore, 'magic-cr');
+    const refreshed = await createComparisonOperations(remoteStore, { track: 'remote' }).compare({
+      slug: 'magic-cr', fromVersionTag: '20261001', toVersionTag: '20261101', locale: 'en',
+    });
+    expect(refreshed.rows.some(row => row.kind === 'change' && row.from?.text === repairedText)).toBe(true);
+    const [basisAfter] = await remote.select().from(DocumentComparison).where(eq(DocumentComparison.id, reviewEvidence.basis!.id)).limit(1);
+    const reviewsAfter = await remote.select().from(DocumentChangeReview).where(eq(DocumentChangeReview.comparisonId, reviewEvidence.basis!.id));
+    expect(basisAfter).toEqual(reviewEvidence.basis);
+    expect(reviewsAfter).toEqual(reviewEvidence.reviews);
+    await runWithDb(remote, async () => {
+      expect(await compareVersions(pair)).toEqual(reviewEvidence.reviewed);
+    });
+    const repairedHistory = await createItemHistoryOperations(remoteStore, { track: 'remote' }).itemHistory({ slug: 'magic-cr', itemId: '100.1', locale: 'en' });
+    expect(repairedHistory.rows.some(row => row.kind === 'period' && row.cells.some(cell => cell.text === repairedText))).toBe(true);
   } finally {
     await Promise.all([local.$client.end({ timeout: 1 }), remote.$client.end({ timeout: 1 })]);
   }

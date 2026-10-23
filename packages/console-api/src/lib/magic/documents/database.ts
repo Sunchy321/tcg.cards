@@ -5,7 +5,6 @@ import { alias } from 'drizzle-orm/pg-core';
 import type { createDb } from '@tcg-cards/db/db';
 import * as local from '@tcg-cards/db/schema/local/magic/documents';
 import * as remote from '@tcg-cards/db/schema/remote/magic/documents';
-import { DocumentComparison } from '@tcg-cards/db/schema/remote/magic/document';
 
 import type { Document, DocumentStore, Node } from './store';
 import { assertReparse } from './reparse';
@@ -72,6 +71,11 @@ function createStore(database: Database | Transaction, track: Track, transaction
     /** Read prepared boundary metadata for one document. */
     async adjacencies(documentId) {
       return database.select().from(DocumentAdjacency).where(eq(DocumentAdjacency.documentId, documentId));
+    },
+    /** Read every participant row for the requested boundaries for static publication. */
+    async adjacencyRelations(comparisonIds) {
+      if (comparisonIds.length === 0) return [];
+      return database.select().from(DocumentNodeRelation).where(inArray(DocumentNodeRelation.comparisonId, comparisonIds));
     },
     /** Replace a complete boundary and all participants inside the document transaction. */
     async putAdjacency(comparison, relations) {
@@ -230,13 +234,9 @@ function createStore(database: Database | Transaction, track: Track, transaction
         store.document(revision.documentId), store.revision(revision.id), store.releases(revision.documentId),
         database.select({ id: DocumentRevision.id }).from(DocumentRevision).where(eq(DocumentRevision.sourceRevisionId, revision.id)).limit(1),
       ]);
-      const comparisons = track === 'remote'
-        ? await database.select({ id: DocumentComparison.id }).from(DocumentComparison)
-          .where(or(eq(DocumentComparison.fromRevisionId, revision.id), eq(DocumentComparison.toRevisionId, revision.id))).limit(1)
-        : [];
       assertReparse({ document, previous, revision,
         released: releases.some(row => row.sourceRevisionId === revision.id && row.deletedAt == null),
-        referenced: translationRefs.length > 0 || comparisons.length > 0,
+        hasTranslationReferences: translationRefs.length > 0,
       });
       if (options?.dryRun) return;
       // Imported nodes are regenerated from the same retained source file; no revision or release is deleted.

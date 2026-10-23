@@ -28,6 +28,7 @@ export function memoryStore(): DocumentStore {
       }
     },
     adjacencies: async id => structuredClone([...state.comparisons.values()].filter(row => row.documentId === id)),
+    adjacencyRelations: async ids => structuredClone(ids.flatMap(id => state.relations.get(id) ?? [])),
     putAdjacency: async (comparison, relations) => {
       state.comparisons.set(comparison.id, structuredClone(comparison));
       state.relations.set(comparison.id, structuredClone(relations));
@@ -86,7 +87,7 @@ export function memoryStore(): DocumentStore {
       assertReparse({
         document: state.documents.get(revision.documentId), previous: state.revisions.get(revision.id), revision,
         released: [...state.releases.values()].some(row => row.sourceRevisionId === revision.id && row.deletedAt == null),
-        referenced: [...state.revisions.values()].some(row => row.sourceRevisionId === revision.id),
+        hasTranslationReferences: [...state.revisions.values()].some(row => row.sourceRevisionId === revision.id),
       });
       if (!options?.dryRun) state.revisions.set(revision.id, structuredClone({ ...revision, contentHash: revisionHash(revision) }));
     },

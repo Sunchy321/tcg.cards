@@ -147,6 +147,7 @@ export interface DocumentStore {
   /** Remove superseded derived boundaries without touching retained review comparisons. */
   pruneAdjacencies(documentId: string, keepIds: string[]): Promise<void>;
   adjacencies(documentId: string): Promise<Adjacency[]>;
+  adjacencyRelations(comparisonIds: string[]): Promise<NodeRelation[]>;
   putAdjacency(comparison: Adjacency, relations: NodeRelation[]): Promise<void>;
   nodeRelations(query: RelationQuery): Promise<NodeRelation[]>;
   searchPublished(input: SearchInput): Promise<SearchHit[]>;

@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 
+import { createItemHistoryOperations } from './item-history';
 import { createDocumentService } from './service';
 import { memoryStore } from './testing';
 import { publishDocument, publishStaticDocuments } from './publish';
@@ -43,6 +44,82 @@ async function addGuide(store: DocumentStore) {
     id: 'guide:release', documentId: 'a-guide', versionTag: '1', sourceRevisionId: 'guide:revision', publishedAt: at, effectiveDate: null, files: [], deletedAt: null,
   });
 }
+
+async function addRuleEditions(store: DocumentStore, count: number) {
+  const service = createDocumentService(store, { track: 'local' });
+  const months = ['October', 'November', 'December'];
+  const symbols = ['W', 'U', 'B'];
+  for (let index = 0; index < count; index++) {
+    await service.importCr({ content: cr.replace('October 1, 2026.', `${months[index]} 1, 2026.`).replace('{W}', `{${symbols[index]}}`) });
+  }
+  return service;
+}
+
+test('publishes prepared static relations for local history without computing them during publication', async () => {
+  const source = memoryStore();
+  const target = memoryStore();
+  const service = await addRuleEditions(source, 2);
+  await service.computeRelations({ documentId: 'magic-cr' });
+  const query = { slug: 'magic-cr', itemId: '100.1', locale: 'en' };
+  const expected = await createItemHistoryOperations(source, { track: 'local' }).itemHistory(query);
+
+  await publishStaticDocuments(source, target);
+
+  const comparisons = await source.adjacencies('magic-cr');
+  expect(await target.adjacencies('magic-cr')).toEqual(comparisons);
+  expect(await target.adjacencyRelations(comparisons.map(row => row.id))).toEqual(await source.adjacencyRelations(comparisons.map(row => row.id)));
+  expect(await createItemHistoryOperations(target, { track: 'remote' }).itemHistory(query)).toEqual(expected);
+});
+
+test('publishes content with stale stored relations but leaves history unavailable', async () => {
+  const source = memoryStore();
+  const target = memoryStore();
+  const service = await addRuleEditions(source, 2);
+  await service.computeRelations({ documentId: 'magic-cr' });
+  const first = (await source.revision((await source.releases('magic-cr'))[0]!.sourceRevisionId))!;
+  await source.reparseRevision({ ...first, nodes: first.nodes.map(node => node.anchor === '100.1' ? { ...node, rawText: 'Repaired text.' } : node) });
+
+  await publishDocument(source, target, 'magic-cr');
+
+  expect((await target.revision(first.id))?.nodes.some(row => row.rawText === 'Repaired text.')).toBe(true);
+  expect((await createDocumentService(target, { track: 'remote' }).read({ slug: 'magic-cr' })).sections.some(row => row.text === 'Pay {U} to continue.')).toBe(true);
+  expect(await target.adjacencies('magic-cr')).toHaveLength(1);
+  await expect(createItemHistoryOperations(target, { track: 'remote' }).itemHistory({ slug: 'magic-cr', itemId: '100.1', locale: 'en' })).rejects.toThrow('relations');
+});
+
+test('publishes readable static content without preparing missing relations', async () => {
+  const source = memoryStore();
+  const target = memoryStore();
+  await addRuleEditions(source, 2);
+
+  await publishDocument(source, target, 'magic-cr');
+
+  expect((await createDocumentService(target, { track: 'remote' }).read({ slug: 'magic-cr' })).sections.some(row => row.text === 'Pay {U} to continue.')).toBe(true);
+  expect(await target.adjacencies('magic-cr')).toEqual([]);
+  await expect(createItemHistoryOperations(target, { track: 'remote' }).itemHistory({ slug: 'magic-cr', itemId: '100.1', locale: 'en' })).rejects.toThrow('relations');
+});
+
+test('keeps published content when atomic relation transport fails partway through', async () => {
+  const source = memoryStore();
+  const target = memoryStore();
+  const service = await addRuleEditions(source, 3);
+  await service.computeRelations({ documentId: 'magic-cr' });
+  const putAdjacency = target.putAdjacency;
+  let writes = 0;
+  target.putAdjacency = async (...args) => {
+    writes++;
+    if (writes === 2) throw new Error('simulated relation transport failure');
+    await putAdjacency(...args);
+  };
+
+  await publishDocument(source, target, 'magic-cr');
+
+  target.putAdjacency = putAdjacency;
+  expect(writes).toBe(2);
+  expect(await target.adjacencies('magic-cr')).toEqual([]);
+  expect((await createDocumentService(target, { track: 'remote' }).read({ slug: 'magic-cr' })).sections.some(row => row.text === 'Pay {B} to continue.')).toBe(true);
+  await expect(createItemHistoryOperations(target, { track: 'remote' }).itemHistory({ slug: 'magic-cr', itemId: '100.1', locale: 'en' })).rejects.toThrow('relations');
+});
 
 test('publishes all static articles and keeps user articles readable across retries', async () => {
   const source = memoryStore();
@@ -107,14 +184,16 @@ test('publishes static content and retries without recreating immutable revision
   expect(page.sections.some(node => node.text === 'Pay {W} to continue.')).toBe(true);
 });
 
-test('dry run validates and counts content without writing anything', async () => {
+test('dry run validates content without transporting prepared relations', async () => {
   const source = memoryStore();
   const target = memoryStore();
-  await createDocumentService(source, { track: 'local' }).importCr({ content: cr });
+  const service = await addRuleEditions(source, 2);
+  await service.computeRelations({ documentId: 'magic-cr' });
   const counts = await publishDocument(source, target, 'magic-cr', { dryRun: true });
-  expect(counts.revisions).toBe(1);
+  expect(counts.revisions).toBe(2);
   expect(await target.documents()).toEqual([]);
   expect(await target.revisions('magic-cr')).toEqual([]);
+  expect(await target.adjacencies('magic-cr')).toEqual([]);
 });
 
 test('publishes statistics backfills without rewriting referenced content and keeps previews and retries stable', async () => {
