@@ -211,10 +211,11 @@ export async function displayedNodes(store: DocumentStore, release: Release, sou
   const translations = await store.translations(source.documentId);
   const translation = translations.find(row => row.language === language);
   const binding = (await store.releaseTranslations(release.id)).find(row => row.translationId === translation?.id);
-  const revision = binding == null ? undefined : await store.revision(binding.revisionId);
+  const revision = binding == null ? undefined : (await store.revisionHeaders([binding.revisionId]))[0];
   if (revision?.sourceRevisionId !== source.id || revision.documentId !== source.documentId
     || revision.translationId !== translation?.id || revision.language !== language) return nodes;
-  for (const node of revision.nodes) {
+  const translated = await store.selectNodes({ revisionIds: [revision.id], sourceNodeIds: source.nodes.map(node => node.id) });
+  for (const node of translated) {
     const original = node.sourceNodeId == null ? undefined : nodes.get(node.sourceNodeId);
     if (original != null && node.rawText.trim() !== '') nodes.set(original.id, { ...original, rawText: node.rawText, markers: node.markers,
       localeState: { locale: revision.language, status: 'published', isFallback: false },

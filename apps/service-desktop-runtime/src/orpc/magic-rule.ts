@@ -1,3 +1,7 @@
+import { taskPageSnapshot } from '@tcg-cards/model/task';
+import { documentRelationsTaskDefinition } from '../lib/magic/task/document-relations/definition';
+import { readRelationState } from '../lib/magic/rule/relations';
+import { createAndRunTask } from './task';
 import { z } from 'zod';
 import { ORPCError } from '@orpc/server';
 import { publishDocuments } from '../lib/magic/document-publish';
@@ -106,6 +110,42 @@ const importVersion = os
     }
   });
 
+/** Start static correspondence in a worker without replacing an active computation. */
+const computeRelations = os
+  .input(z.object({ documentId: z.string().default('magic-cr') }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    const document = await createDocumentStore(getLocalDb(), 'local').document(input.documentId);
+    if (document?.origin !== 'static' || document.deletedAt != null) throw new ORPCError('BAD_REQUEST', { message: '请先导入规则。' });
+    const definition = documentRelationsTaskDefinition;
+    const scope = definition.resolveScope(input);
+    try {
+      return await createAndRunTask(definition.taskType, {
+        taskType:          definition.taskType, definitionVersion: definition.definitionVersion,
+        scope:             { type: definition.scopeType, key: scope.key, snapshot: scope.snapshot as Record<string, unknown> }, params:            {},
+      }, { abandonStale: false });
+    } catch (error) {
+      if (error instanceof ORPCError && error.code === 'CONFLICT') throw new ORPCError('CONFLICT', { message: '版本关系正在计算，请等待完成。', cause: error });
+      throw ruleError(error, '无法开始计算版本关系，请重试。');
+    }
+  });
+
+/** Return current readiness together with the last persisted computation run. */
+const relationState = os
+  .input(z.object({
+    documentId: z.string().default('magic-cr'),
+  }))
+  .output(z.object({
+    versions: z.object({
+      releaseId:          z.string(),
+      versionTag:         z.string(),
+      previousVersionTag: z.string().nullable(),
+      status:             z.enum(['not_needed', 'unprepared', 'ready', 'outdated']),
+    }).array(),
+    task: taskPageSnapshot,
+  }))
+  .handler(({ input }) => readRelationState(getLocalDb(), input.documentId));
+
 /** Reads imported releases locally without application tables or import-state joins. */
 const releases = os.input(z.object({ slug: z.string().default('magic-cr'), versionTag: z.string().optional(), locale: z.string().optional() }))
   .handler(({ input }) => localRules().read(input));
@@ -166,6 +206,8 @@ const importTranslation = os.input(z.object({ version: z.iso.date() })).handler(
 /** Local-only Comprehensive Rules procedures; remote rule procedures keep their own paths. */
 export const magicRuleRouter = {
   listLocal,
+  computeRelations,
+  relationState,
   importVersion,
   publish,
   deleteVersion,

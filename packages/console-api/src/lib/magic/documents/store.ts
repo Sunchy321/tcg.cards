@@ -48,6 +48,7 @@ export interface Revision {
   deletedAt: Date | null;
   nodes: Node[];
   meta?: DocumentMeta;
+  contentHash?: string | null;
 }
 
 /** Identifies the only translation in one target language. */
@@ -101,8 +102,53 @@ export interface SearchInput {
   limit: number;
 }
 
+/** Bind one complete comparison to exact neighboring published revisions. */
+export interface Adjacency {
+  id: string;
+  documentId: string;
+  fromReleaseId: string;
+  toReleaseId: string;
+  fromRevisionId: string;
+  toRevisionId: string;
+  fromHash: string;
+  toHash: string;
+  algorithm: string;
+  timelineHash: string;
+}
+
+/** Preserve every participant, including unchanged one-to-one continuations. */
+export interface NodeRelation {
+  comparisonId: string;
+  groupId: string;
+  side: 'from' | 'to';
+  nodeId: string;
+  identity: string;
+  itemId: string;
+  kind: import('@tcg-cards/model/magic/schema/document').NodeChangeType | 'unchanged';
+  position: number;
+}
+
+/** Select a small reachable subset of persisted relation participants. */
+export interface RelationQuery {
+  comparisonIds: string[];
+  nodeIds?: string[];
+  identities?: string[];
+  groups?: { comparisonId: string; groupId: string }[];
+}
+
 /** Persists document operations transactionally without exposing SQL to callers. */
 export interface DocumentStore {
+  /** Read source metadata without loading revision nodes. */
+  revisionHeaders(ids: string[]): Promise<Omit<Revision, 'nodes'>[]>;
+  /** Select exact nodes, published entry addresses, or translation source references. */
+  selectNodes(input: { revisionIds: string[]; ids?: string[]; itemId?: string; sourceNodeIds?: string[] }): Promise<Node[]>;
+  /** Backfill a verified content fingerprint during explicit preparation. */
+  setRevisionHash(id: string, hash: string): Promise<void>;
+  /** Remove superseded derived boundaries without touching retained review comparisons. */
+  pruneAdjacencies(documentId: string, keepIds: string[]): Promise<void>;
+  adjacencies(documentId: string): Promise<Adjacency[]>;
+  putAdjacency(comparison: Adjacency, relations: NodeRelation[]): Promise<void>;
+  nodeRelations(query: RelationQuery): Promise<NodeRelation[]>;
   searchPublished(input: SearchInput): Promise<SearchHit[]>;
   transaction<T>(documentId: string, operation: (store: DocumentStore) => Promise<T>): Promise<T>;
   documents(): Promise<Document[]>;

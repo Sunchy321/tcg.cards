@@ -1215,6 +1215,10 @@ export default {
   },
 
   document: {
+    compute_relations: 'Compute version relations',
+    relations_ready:   'Version relations calculated',
+    relations_failed:  'Could not calculate version relations. Please try again.',
+
     $self: 'Document',
     names: {
       cr: 'Comprehensive Rules',

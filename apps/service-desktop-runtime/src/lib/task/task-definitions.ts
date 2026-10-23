@@ -90,3 +90,6 @@ registerTaskDefinition(yugiohNeuronImportTaskDefinition);
 
 import { testWorkTaskDefinition } from './test-definition';
 registerTaskDefinition(testWorkTaskDefinition);
+
+import { documentRelationsTaskDefinition } from '../magic/task/document-relations/definition';
+registerTaskDefinition(documentRelationsTaskDefinition);

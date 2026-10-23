@@ -38,6 +38,11 @@
       </div>
 
       <template v-else-if="summaryReady">
+        <div v-if="summary.document.canManage" class="mb-6 flex justify-end">
+          <UButton color="neutral" variant="soft" icon="lucide:git-compare-arrows" :loading="computingRelations" @click="computeRelations">
+            {{ $t('magic.document.compute_relations') }}
+          </UButton>
+        </div>
         <div ref="previousSentinel" class="h-px" aria-hidden="true" />
         <div v-if="pending === 'previous'" class="py-4 text-center text-xs text-stone-500" role="status">{{ $t('magic.document.loading') }}</div>
         <div v-if="failed === 'previous'" class="py-4 text-sm" role="alert">
@@ -79,6 +84,7 @@ definePageMeta({
 
 const { $orpc } = useNuxtApp();
 const i18n = useI18n();
+const session = authClient.useSession();
 const route = useRoute('document-slug');
 const router = useRouter();
 const article = useTemplateRef('article');
@@ -118,6 +124,22 @@ function selectVersion(version: string) {
 /** Keep the selected edition and rule while changing only the reading language. */
 function selectLocale(locale: string) {
   void router.push({ query: { ...route.query, locale }, hash: route.hash });
+}
+
+const computingRelations = ref(false);
+
+/** Prepare this author's published editions independently of reading or publishing. */
+async function computeRelations() {
+  if (computingRelations.value || !summary.value.document.canManage) return;
+  computingRelations.value = true;
+  try {
+    await $orpc.magic.document.computeRelations({ documentId: summary.value.document.id });
+    useToast().add({ title: i18n.t('magic.document.relations_ready'), color: 'success' });
+  } catch {
+    useToast().add({ title: i18n.t('magic.document.relations_failed'), color: 'error' });
+  } finally {
+    computingRelations.value = false;
+  }
 }
 
 const pendingSummary = ref(false);
@@ -306,6 +328,12 @@ async function retryReading() {
   if (changed && direction === 'previous' && anchor?.isConnected && top != null) window.scrollBy(0, anchor.getBoundingClientRect().top - top);
   checkBoundaries();
 }
+
+// Management capabilities belong to the active session, including account changes.
+watch(() => session.value.data?.user.id, () => {
+  summary.value = { ...summary.value, document: { ...summary.value.document, canManage: false } };
+  void loadSummary();
+});
 
 watch([apiSlug, versionQuery, currentLocale], () => {
   void loadSummary();

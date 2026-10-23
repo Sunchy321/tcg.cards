@@ -798,6 +798,10 @@ export default {
   },
 
   document: {
+    compute_relations: '计算版本关系',
+    relations_ready:   '版本关系已计算',
+    relations_failed:  '版本关系计算失败，请重试。',
+
     $self: '文档',
     names: {
       cr: '综合规则',

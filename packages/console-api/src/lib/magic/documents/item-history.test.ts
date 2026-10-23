@@ -30,9 +30,11 @@ Credits
 ${rule1001 == null ? '' : `\n100.1. ${rule1001}\n`}`;
 }
 
+/** Explicitly prepare formal source relations before reading public history. */
 async function publishedHistory(store: Awaited<ReturnType<typeof memoryStore>>) {
   const document = (await store.documents()).find(row => row.slug === 'magic-cr')!;
   await store.putDocument({ ...document, settings: documentSettings.parse({ outline: true, compare: true, historyPublic: true }) });
+  await createDocumentService(store, { track: 'local' }).computeRelations({ documentId: document.id });
   return createItemHistoryOperations(store, { track: 'remote' });
 }
 
@@ -159,6 +161,7 @@ test('opens the same complete split lineage from either side and repeats unchang
   await owner.publish({ documentId: document.id, revisionId: split.id, versionTag: '2' });
   const edited = await owner.save({ documentId: document.id, title: 'Guide', nodes: children.map(node => node.nodeKey === 'left' ? { ...node, rawText: `${node.rawText} iota` } : node) });
   await owner.publish({ documentId: document.id, revisionId: edited.id, versionTag: '3' });
+  await owner.computeRelations({ documentId: document.id });
   const history = createItemHistoryOperations(store, { track: 'remote' });
   const parent = await history.itemHistory({ slug: document.slug, itemId: 'original', locale: 'en' });
   const child = await history.itemHistory({ slug: document.slug, itemId: 'left', locale: 'en' });
@@ -186,6 +189,7 @@ test('shows every merge source immediately before the merge without importing ex
   await owner.publish({ documentId: document.id, revisionId: sources.id, versionTag: '2' });
   const merged = await owner.save({ documentId: document.id, title: 'Guide', nodes: [{ nodeKey: 'combined', rawText: 'alpha beta gamma delta epsilon zeta eta theta' }] });
   await owner.publish({ documentId: document.id, revisionId: merged.id, versionTag: '3' });
+  await owner.computeRelations({ documentId: document.id });
   const history = createItemHistoryOperations(store, { track: 'remote' });
   const source = await history.itemHistory({ slug: document.slug, itemId: 'left', locale: 'en' });
   expect(source.entry.lineageCount).toBe(2);
@@ -211,6 +215,7 @@ test('does not reconnect an imported key reused after an entry disappeared', asy
   await owner.publish({ documentId: document.id, revisionId: absent.id, versionTag: '2' });
   const fresh = await owner.save({ documentId: document.id, title: 'Guide', nodes: [{ nodeKey: 'reused', rawText: 'Unrelated new definition of player.' }] });
   await owner.publish({ documentId: document.id, revisionId: fresh.id, versionTag: '3' });
+  await owner.computeRelations({ documentId: document.id });
   const history = createItemHistoryOperations(store, { track: 'remote' });
   const current = await history.itemHistory({ slug: document.slug, itemId: 'reused', locale: 'en' });
   expect(periods(current.rows).map(row => row.versionFrom)).toEqual(['3']);

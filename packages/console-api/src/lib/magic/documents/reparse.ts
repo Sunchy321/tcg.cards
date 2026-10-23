@@ -4,8 +4,8 @@ import type { Document, Revision } from './store';
 
 /** Compares saved content independently of derived metadata, SQL order and history visibility. */
 export function sameRevision(left: Revision, right: Revision): boolean {
-  const { deletedAt: _leftDeleted, meta: _leftMeta, nodes: leftNodes, ...leftContent } = left;
-  const { deletedAt: _rightDeleted, meta: _rightMeta, nodes: rightNodes, ...rightContent } = right;
+  const { deletedAt: _leftDeleted, meta: _leftMeta, contentHash: _leftHash, nodes: leftNodes, ...leftContent } = left;
+  const { deletedAt: _rightDeleted, meta: _rightMeta, contentHash: _rightHash, nodes: rightNodes, ...rightContent } = right;
   return isDeepStrictEqual(leftContent, rightContent)
     && isDeepStrictEqual([...leftNodes].sort((a, b) => a.id.localeCompare(b.id)), [...rightNodes].sort((a, b) => a.id.localeCompare(b.id)));
 }

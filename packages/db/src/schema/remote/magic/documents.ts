@@ -1,3 +1,4 @@
+import { documentRelationTables } from '../../document-relations';
 import { sql } from 'drizzle-orm';
 import { check, text, unique } from 'drizzle-orm/pg-core';
 
@@ -21,3 +22,5 @@ export const Document = appSchema.table('documents', {
 ]);
 
 export const { DocumentTranslation, DocumentRevision, DocumentRevisionNode, DocumentRelease, DocumentReleaseTranslation } = documentTables(appSchema, Document.id);
+
+export const { DocumentAdjacency, DocumentNodeRelation } = documentRelationTables(appSchema, Document.id, DocumentRelease.id, DocumentRevision.id);

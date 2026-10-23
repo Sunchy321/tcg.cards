@@ -1,3 +1,4 @@
+import { formalReleases, createAdjacencyOperations } from './adjacency';
 import { createHash } from 'node:crypto';
 
 import type { DocumentOutlineItem } from '@tcg-cards/model/magic/schema/document-page';
@@ -32,6 +33,7 @@ function sameRuleContent(nodes: Node[], parsed: ReturnType<typeof parseMagicCrDo
 export function createDocumentService(store: DocumentStore, context: DocumentContext) {
   return {
     ...createAuthoringOperations(store, context),
+    ...createAdjacencyOperations(store, context),
     ...createTranslationOperations(store, context),
     /** Imports a community edition only after its exact English release has been prepared. */
     async importCrTranslation(input: { versionTag: string; content: unknown; editions?: unknown[] }) {
@@ -148,7 +150,7 @@ export function createDocumentService(store: DocumentStore, context: DocumentCon
     async read(input: { slug: string; versionTag?: string; locale?: string }) {
       const document = (await store.documents()).find(row => (row.slug === input.slug || row.id === input.slug) && !row.deletedAt);
       if (!document || (document.visibility === 'private' && document.authorId !== context.actorId)) throw new Error('Document not found');
-      const releases = (await store.releases(document.id)).filter(row => !row.deletedAt).sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime() || b.versionTag.localeCompare(a.versionTag));
+      const releases = formalReleases(await store.releases(document.id)).reverse();
       const release = input.versionTag ? releases.find(row => row.versionTag === input.versionTag || row.id === input.versionTag) : releases[0];
       if (!release) throw new Error('Release not found');
       const source = await store.revision(release.sourceRevisionId);
@@ -159,7 +161,8 @@ export function createDocumentService(store: DocumentStore, context: DocumentCon
         const binding = translation ? (await store.releaseTranslations(release.id)).find(row => row.translationId === translation.id) : undefined;
         if (binding) translated = await store.revision(binding.revisionId);
       }
-      return buildReader(document, release, releases, source, translated, input.locale);
+      const page = buildReader(document, release, releases, source, translated, input.locale);
+      return { ...page, document: { ...page.document, canManage: context.track === 'remote' && document.origin === 'user' && context.actorId != null && document.authorId === context.actorId } };
     },
   };
 }

@@ -1,4 +1,5 @@
-import type { Document, DocumentStore, Release, ReleaseTranslation, Revision, SearchHit, Translation } from './store';
+import { revisionHash } from './content-hash';
+import type { Adjacency, NodeRelation, Document, DocumentStore, Release, ReleaseTranslation, Revision, SearchHit, Translation } from './store';
 import { assertReparse } from './reparse';
 
 /** Exercises operation contracts with transactional storage and rollback. */
@@ -8,9 +9,32 @@ export function memoryStore(): DocumentStore {
     revisions: new Map<string, Revision>(),
     translations: new Map<string, Translation>(),
     releases: new Map<string, Release>(),
+    comparisons: new Map<string, Adjacency>(),
+    relations: new Map<string, NodeRelation[]>(),
     bindings: new Map<string, ReleaseTranslation>(),
   };
   const store: DocumentStore = {
+    revisionHeaders: async ids => structuredClone([...state.revisions.values()].filter(row => ids.includes(row.id)).map(({ nodes, ...row }) => row)),
+    selectNodes: async input => structuredClone([...state.revisions.values()].filter(row => input.revisionIds.includes(row.id)).flatMap(row => row.nodes)
+      .filter(node => (input.ids?.includes(node.id) ?? false) || (input.itemId != null && (node.nodeKey === input.itemId || node.id === input.itemId))
+        || (node.sourceNodeId != null && (input.sourceNodeIds?.includes(node.sourceNodeId) ?? false)))),
+    setRevisionHash: async (id, hash) => { const revision = state.revisions.get(id); if (revision) revision.contentHash = hash; },
+    pruneAdjacencies: async (documentId, keepIds) => {
+      for (const row of state.comparisons.values()) {
+        if (row.documentId === documentId && !keepIds.includes(row.id)) {
+          state.comparisons.delete(row.id);
+          state.relations.delete(row.id);
+        }
+      }
+    },
+    adjacencies: async id => structuredClone([...state.comparisons.values()].filter(row => row.documentId === id)),
+    putAdjacency: async (comparison, relations) => {
+      state.comparisons.set(comparison.id, structuredClone(comparison));
+      state.relations.set(comparison.id, structuredClone(relations));
+    },
+    nodeRelations: async query => structuredClone(query.comparisonIds.flatMap(id => state.relations.get(id) ?? [])
+      .filter(row => (query.nodeIds?.includes(row.nodeId) ?? false) || (query.identities?.includes(row.identity) ?? false)
+        || (query.groups?.some(group => group.comparisonId === row.comparisonId && group.groupId === row.groupId) ?? false))),
     async searchPublished(input) {
       const query = input.query.trim().toLowerCase();
       if (query.length === 0) return [];
@@ -51,7 +75,7 @@ export function memoryStore(): DocumentStore {
     revisionNodeCounts: async ids => new Map(ids.map(id => [id, state.revisions.get(id)?.nodes.length ?? 0])),
     putRevision: async row => {
       if (state.revisions.has(row.id)) throw new Error('Revision already exists');
-      state.revisions.set(row.id, structuredClone(row));
+      state.revisions.set(row.id, structuredClone({ ...row, contentHash: revisionHash(row) }));
     },
     updateRevisionMeta: async (id, meta) => {
       const revision = state.revisions.get(id);
@@ -64,7 +88,7 @@ export function memoryStore(): DocumentStore {
         released: [...state.releases.values()].some(row => row.sourceRevisionId === revision.id && row.deletedAt == null),
         referenced: [...state.revisions.values()].some(row => row.sourceRevisionId === revision.id),
       });
-      if (!options?.dryRun) state.revisions.set(revision.id, structuredClone(revision));
+      if (!options?.dryRun) state.revisions.set(revision.id, structuredClone({ ...revision, contentHash: revisionHash(revision) }));
     },
     hideRevision: async (id, at) => { const row = state.revisions.get(id); if (row) row.deletedAt = at; },
     translations: async id => structuredClone([...state.translations.values()].filter(row => row.documentId === id)),

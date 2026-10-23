@@ -1,4 +1,5 @@
-import { and, asc, count, desc, eq, gt, ilike, inArray, isNull, notExists, or, sql } from 'drizzle-orm';
+import { revisionHash } from './content-hash';
+import { and, asc, count, desc, eq, gt, ilike, inArray, isNull, notExists, notInArray, or, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import type { createDb } from '@tcg-cards/db/db';
@@ -24,7 +25,7 @@ export function createDocumentStore(database: Database | Transaction, track: Tra
 /** Adapt SQL operations while retaining access to soft-deleted reference content. */
 function createStore(database: Database | Transaction, track: Track, transactional: boolean): DocumentStore {
   const tables = track === 'local' ? local : remote;
-  const { DocumentRevision, DocumentRevisionNode, DocumentTranslation, DocumentRelease, DocumentReleaseTranslation } = tables;
+  const { DocumentRevision, DocumentRevisionNode, DocumentTranslation, DocumentRelease, DocumentReleaseTranslation, DocumentAdjacency, DocumentNodeRelation } = tables;
 
   /** Map local identities into the common serving contract without inventing users. */
   async function documents(): Promise<Document[]> {
@@ -36,6 +37,63 @@ function createStore(database: Database | Transaction, track: Track, transaction
   }
 
   return {
+    /** Read revision metadata without transferring historical node content. */
+    async revisionHeaders(ids) {
+      if (ids.length === 0) return [];
+      return database.select().from(DocumentRevision).where(inArray(DocumentRevision.id, ids));
+    },
+    /** Select only requested IDs, entry addresses, or translation sources; an empty selection reads nothing. */
+    async selectNodes(input) {
+      if (input.revisionIds.length === 0) return [];
+      const predicates = [
+        input.ids?.length ? inArray(DocumentRevisionNode.id, input.ids) : undefined,
+        input.itemId == null ? undefined : or(eq(DocumentRevisionNode.nodeKey, input.itemId), eq(DocumentRevisionNode.id, input.itemId)),
+        input.sourceNodeIds?.length ? inArray(DocumentRevisionNode.sourceNodeId, input.sourceNodeIds) : undefined,
+      ].filter(row => row != null);
+      if (predicates.length === 0) return [];
+      return database.select().from(DocumentRevisionNode).where(and(inArray(DocumentRevisionNode.revisionId, input.revisionIds), or(...predicates)))
+        .orderBy(asc(DocumentRevisionNode.path), asc(DocumentRevisionNode.siblingOrder), asc(DocumentRevisionNode.id));
+    },
+    /** Record the verified source fingerprint during explicit preparation. */
+    async setRevisionHash(id, contentHash) {
+      await database.update(DocumentRevision).set({ contentHash }).where(eq(DocumentRevision.id, id));
+    },
+    /** Remove obsolete derived boundaries while preserving separately owned review evidence. */
+    async pruneAdjacencies(documentId, keepIds) {
+      const stale = await database.select({ id: DocumentAdjacency.id }).from(DocumentAdjacency).where(and(
+        eq(DocumentAdjacency.documentId, documentId), keepIds.length ? notInArray(DocumentAdjacency.id, keepIds) : undefined,
+      ));
+      if (stale.length === 0) return;
+      const ids = stale.map(row => row.id);
+      // Only replaceable derived comparisons are purged; review evidence has separate ownership.
+      await database.delete(DocumentNodeRelation).where(inArray(DocumentNodeRelation.comparisonId, ids));
+      await database.delete(DocumentAdjacency).where(inArray(DocumentAdjacency.id, ids));
+    },
+    /** Read prepared boundary metadata for one document. */
+    async adjacencies(documentId) {
+      return database.select().from(DocumentAdjacency).where(eq(DocumentAdjacency.documentId, documentId));
+    },
+    /** Replace a complete boundary and all participants inside the document transaction. */
+    async putAdjacency(comparison, relations) {
+      if (!transactional) return createStore(database, track, false).transaction(comparison.documentId, tx => tx.putAdjacency(comparison, relations));
+      await database.insert(DocumentAdjacency).values(comparison).onConflictDoUpdate({ target: DocumentAdjacency.id, set: comparison });
+      // Relations are replaceable derived rows without soft-delete semantics or review ownership.
+      await database.delete(DocumentNodeRelation).where(eq(DocumentNodeRelation.comparisonId, comparison.id));
+      for (let offset = 0; offset < relations.length; offset += 500) {
+        await database.insert(DocumentNodeRelation).values(relations.slice(offset, offset + 500));
+      }
+    },
+    /** Read participants matching any requested node, identity, or boundary group. */
+    async nodeRelations(query) {
+      if (query.comparisonIds.length === 0) return [];
+      const predicates = [
+        query.nodeIds?.length ? inArray(DocumentNodeRelation.nodeId, query.nodeIds) : undefined,
+        query.identities?.length ? inArray(DocumentNodeRelation.identity, query.identities) : undefined,
+        ...(query.groups ?? []).map(group => and(eq(DocumentNodeRelation.comparisonId, group.comparisonId), eq(DocumentNodeRelation.groupId, group.groupId))),
+      ].filter(row => row != null);
+      if (predicates.length === 0) return [];
+      return database.select().from(DocumentNodeRelation).where(and(inArray(DocumentNodeRelation.comparisonId, query.comparisonIds), or(...predicates)));
+    },
     async searchPublished(input) {
       const query = input.query.trim();
       if (query.length === 0) return [];
@@ -153,7 +211,8 @@ function createStore(database: Database | Transaction, track: Track, transaction
       return new Map(rows.map(row => [row.revisionId, row.total]));
     },
     async putRevision(revision) {
-      const { nodes, ...row } = revision;
+      const { nodes, ...content } = revision;
+      const row = { ...content, contentHash: revisionHash(revision) };
       // A retry must not mutate immutable saved text or recreate its nodes.
       const inserted = await database.insert(DocumentRevision).values(row)
         .onConflictDoNothing({ target: DocumentRevision.id }).returning({ id: DocumentRevision.id });
@@ -183,6 +242,7 @@ function createStore(database: Database | Transaction, track: Track, transaction
       // Imported nodes are regenerated from the same retained source file; no revision or release is deleted.
       await database.delete(DocumentRevisionNode).where(eq(DocumentRevisionNode.revisionId, revision.id));
       await insertNodes(database, DocumentRevisionNode, revision.nodes);
+      await store.setRevisionHash(revision.id, revisionHash(revision));
     },
     async hideRevision(id, at) {
       await database.update(DocumentRevision).set({ deletedAt: at }).where(eq(DocumentRevision.id, id));

@@ -207,7 +207,7 @@ test('publishes translated and hidden referenced revisions with the official edi
   await source.hideRevision(original.id, new Date('2026-10-02'));
   await publishDocument(source, target, 'magic-cr');
   expect((await target.revision(original.id))?.deletedAt).toEqual(new Date('2026-10-02'));
-  expect(await target.revision(translated.id)).toEqual(translated);
+  expect(await target.revision(translated.id)).toEqual(await source.revision(translated.id));
   expect((await target.releaseTranslations(result.releaseId))[0]?.revisionId).toBe(translated.id);
 });
 

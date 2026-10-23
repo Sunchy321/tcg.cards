@@ -40,6 +40,7 @@ export function documentTables(schema: PgSchema, documentId: AnyPgColumn) {
     sourceRevisionId: text('source_revision_id'),
     title:            text('title').notNull(),
     language:         text('language').notNull(),
+    contentHash:      text('content_hash'),
     meta:             jsonb('meta').$type<DocumentMeta>().notNull().default({}),
     createdAt:        timestamp('created_at').notNull().defaultNow(),
     deletedAt:        timestamp('deleted_at'),

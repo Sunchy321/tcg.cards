@@ -49,4 +49,6 @@ const saveTranslation = owner.input(documentId.extend({
 const selectTranslation = owner.input(revisionId.extend({ releaseId: z.string() }))
   .handler(({ input, context }) => context.documents.selectTranslation(input));
 
-export const documentAuthoring = { create, save, publish, revision, restore, clearHistory, revisions, saveTranslation, selectTranslation };
+const computeRelations = owner.input(documentId).handler(({ input, context }) => context.documents.computeRelations(input));
+
+export const documentAuthoring = { create, save, computeRelations, publish, revision, restore, clearHistory, revisions, saveTranslation, selectTranslation };

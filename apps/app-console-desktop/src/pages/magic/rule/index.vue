@@ -12,6 +12,15 @@
           </p>
         </div>
         <div class="ml-auto flex gap-2">
+          <UButton
+            label="计算版本关系"
+            icon="i-lucide-git-compare-arrows"
+            color="neutral"
+            variant="soft"
+            :loading="computingRelations"
+            :disabled="!relationStateLoaded || computingRelations || downloading || importingVersion != null || importingTranslation != null || loadingVersions || !rows.some(row => row.imported)"
+            @click="computeRelations"
+          />
           <UButton to="/magic/publish?type=document" label="发布文档" icon="i-lucide-upload" color="neutral" variant="soft" />
           <UButton
             label="刷新"
@@ -19,17 +28,31 @@
             color="neutral"
             variant="soft"
             :loading="loadingVersions"
-            :disabled="downloading || importingVersion != null || importingTranslation != null"
+            :disabled="computingRelations || downloading || importingVersion != null || importingTranslation != null"
             @click="refreshVersions"
           />
           <UButton
             label="下载最新规则"
             icon="i-lucide-download"
             :loading="downloading"
-            :disabled="importingVersion != null || importingTranslation != null"
+            :disabled="computingRelations || importingVersion != null || importingTranslation != null"
             @click="downloadLatest"
           />
         </div>
+      </div>
+      <div class="mt-3 space-y-2 border-t border-slate-100 pt-3 text-sm" role="status" aria-live="polite">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <span>{{ relationSummary }}</span>
+          <span v-if="relationTask?.finishedAt" class="text-xs text-muted">{{ new Date(relationTask.finishedAt).toLocaleString('zh-CN') }}</span>
+        </div>
+        <template v-if="computingRelations">
+          <p class="text-xs text-muted">
+            {{ relationProgress?.name ?? '等待开始计算…' }}
+            <span v-if="relationProgress"> · {{ relationProgress.done }} / {{ relationProgress.total }}</span>
+          </p>
+          <progress class="h-2 w-full accent-primary" aria-label="版本关系计算进度" :value="progressTotal > 0 ? progressDone : undefined" :max="Math.max(1, progressTotal)" />
+        </template>
+        <p v-if="relationStateError" class="text-xs text-warning">无法更新版本关系状态，正在重试…</p>
       </div>
       <p v-if="listWarning" class="mt-2 text-sm text-warning">
         {{ listWarning }}
@@ -60,6 +83,9 @@
             </th>
             <th class="px-4 py-3 font-medium">
               中文译文
+            </th>
+            <th class="px-4 py-3 font-medium">
+              版本关系
             </th>
             <th class="px-4 py-3 font-medium">
               操作
@@ -110,6 +136,9 @@
               <UBadge v-if="row.translationImported" label="已导入" color="success" variant="soft" size="xs" />
               <span v-else class="text-muted">{{ translationListFailed ? '状态未知' : row.translationAvailable ? '可导入' : '暂无译文' }}</span>
             </td>
+            <td class="px-4 py-3">
+              <span :class="relationVersions.get(formatDate(row.date))?.status === 'ready' ? 'text-success' : 'text-muted'">{{ relationLabel(row) }}</span>
+            </td>
             <td class="space-x-2 px-4 py-3">
               <UButton
                 :label="row.imported ? '再次导入' : '导入'"
@@ -117,7 +146,7 @@
                 size="xs"
                 variant="soft"
                 :loading="importingVersion === row.date"
-                :disabled="!row.local.txt || downloading || importingTranslation != null || (importingVersion != null && importingVersion !== row.date)"
+                :disabled="computingRelations || !row.local.txt || downloading || importingTranslation != null || (importingVersion != null && importingVersion !== row.date)"
                 @click="importVersion(row.date)"
               />
               <UButton
@@ -126,7 +155,7 @@
                 size="xs"
                 variant="soft"
                 :loading="importingTranslation === row.date"
-                :disabled="!row.imported || !row.translationAvailable || downloading || importingVersion != null || (importingTranslation != null && importingTranslation !== row.date)"
+                :disabled="computingRelations || !row.imported || !row.translationAvailable || downloading || importingVersion != null || (importingTranslation != null && importingTranslation !== row.date)"
                 @click="importTranslation(row.date)"
               />
             </td>
@@ -312,17 +341,93 @@ onMounted(() => {
     headerObserver.observe(element);
   }
   void refreshVersions();
+  void pollRelationState();
 });
 
 onBeforeUnmount(() => {
   headerObserver?.disconnect();
+  relationStopped = true;
+  clearTimeout(relationTimer);
 });
 
 const downloading = ref(false);
+const startingRelations = ref(false);
+const relationState = shallowRef<Awaited<ReturnType<typeof orpc.magic.rule.relationState>> | null>(null);
+const relationStateLoaded = ref(false);
+const relationStateError = ref(false);
+const terminalRelationStatuses = new Set(['completed', 'failed', 'canceled', 'abandoned']);
+const relationTask = computed(() => relationState.value?.task.pageTask.kind === 'attached' ? relationState.value.task.pageTask : null);
+const computingRelations = computed(() => startingRelations.value || (relationTask.value != null && !terminalRelationStatuses.has(relationTask.value.status)));
+const relationStage = computed(() => relationState.value?.task.stages[0]);
+const relationProgress = computed(() => relationStage.value?.segments?.[0]);
+const progressDone = computed(() => relationStage.value?.done ?? 0);
+const progressTotal = computed(() => relationStage.value?.total ?? 0);
+const relationVersions = computed(() => new Map((relationState.value?.versions ?? []).map(row => [formatDate(row.versionTag), row])));
+const relationSummary = computed(() => {
+  if (!relationStateLoaded.value) return '正在读取版本关系状态…';
+  if (computingRelations.value) return '正在计算版本关系';
+  const status = relationTask.value?.status;
+  if (status === 'failed') return '版本关系计算失败，请重试。';
+  if (status === 'abandoned' || status === 'canceled') return '版本关系计算已中断，请重新计算。';
+  const needed = (relationState.value?.versions ?? []).filter(row => row.status !== 'not_needed');
+  const ready = needed.filter(row => row.status === 'ready').length;
+  if (needed.length === 0) return '暂无需要比较的版本';
+  return `${status === 'completed' ? '上次计算已完成 · ' : ''}版本关系可用 ${ready} / ${needed.length}${ready < needed.length ? ' · 需要计算' : ''}`;
+});
+let relationTimer: ReturnType<typeof setTimeout> | undefined;
+let relationStopped = false;
+let relationRequest = 0;
+
+/** Describe committed correspondence to the preceding formal edition. */
+function relationLabel(row: VersionRow): string {
+  if (!row.imported) return '—';
+  if (!relationStateLoaded.value || relationStateError.value) return '状态未知';
+  const status = relationVersions.value.get(formatDate(row.date))?.status;
+  return { not_needed: '无需比较', unprepared: '未计算', ready: '可用', outdated: '需重算' }[status ?? 'unprepared'];
+}
+
+/** Refresh persisted task progress without tying the worker lifetime to this page. */
+async function refreshRelationState() {
+  const request = ++relationRequest;
+  try {
+    const next = await orpc.magic.rule.relationState({ documentId: 'magic-cr' });
+    if (relationStopped || request !== relationRequest) return;
+    relationState.value = next;
+    relationStateLoaded.value = true;
+    relationStateError.value = false;
+  } catch {
+    if (!relationStopped && request === relationRequest) relationStateError.value = true;
+  }
+}
+
+/** Poll serially, including terminal snapshots so another page's computation is discovered. */
+async function pollRelationState() {
+  await refreshRelationState();
+  if (!relationStopped) relationTimer = setTimeout(pollRelationState, computingRelations.value ? 1000 : 5000);
+}
+
+/** Start a durable background computation and display its returned pending snapshot. */
+async function computeRelations() {
+  if (!relationStateLoaded.value || computingRelations.value || downloading.value || importingVersion.value != null || importingTranslation.value != null) return;
+  startingRelations.value = true;
+  ++relationRequest;
+  try {
+    const task = await orpc.magic.rule.computeRelations({ documentId: 'magic-cr' });
+    if (relationStopped) return;
+    ++relationRequest;
+    relationState.value = { versions: relationState.value?.versions ?? [], task };
+    relationStateError.value = false;
+  } catch {
+    if (!relationStopped) useToast().add({ title: '无法开始计算版本关系，请刷新状态后重试。', color: 'error' });
+    await refreshRelationState();
+  } finally {
+    startingRelations.value = false;
+  }
+}
 
 /** Downloads official originals locally without independently fetching a remote copy. */
 async function downloadLatest() {
-  if (downloading.value || importingVersion.value != null || importingTranslation.value != null) return;
+  if (computingRelations.value || downloading.value || importingVersion.value != null || importingTranslation.value != null) return;
   downloading.value = true;
   try {
     const result = await orpc.magic.rule.downloadLatest();
@@ -341,7 +446,7 @@ async function downloadLatest() {
 
 /** Imports a downloaded edition and refreshes its saved status, including after failures. */
 async function importVersion(version: string) {
-  if (importingVersion.value != null || importingTranslation.value != null || downloading.value) return;
+  if (computingRelations.value || importingVersion.value != null || importingTranslation.value != null || downloading.value) return;
   importingVersion.value = version;
   importError.value = null;
   try {
@@ -356,13 +461,14 @@ async function importVersion(version: string) {
     useToast().add({ title: '导入失败', description: importError.value, color: 'error' });
   } finally {
     await refreshVersions();
+    await refreshRelationState();
     importingVersion.value = null;
   }
 }
 
 /** Imports a local Chinese edition and refreshes its persistent selection after completion. */
 async function importTranslation(version: string) {
-  if (importingTranslation.value != null || importingVersion.value != null || downloading.value) return;
+  if (computingRelations.value || importingTranslation.value != null || importingVersion.value != null || downloading.value) return;
   importingTranslation.value = version;
   importError.value = null;
   try {

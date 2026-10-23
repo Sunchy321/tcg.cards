@@ -17,11 +17,12 @@ const versionSummary = z.strictObject({
 });
 
 const documentSummary = z.strictObject({
-  id:       z.string(),
-  slug:     z.string(),
-  name:     z.string(),
-  origin:   documentOrigin.optional(),
-  settings: documentSettings.optional(),
+  id:        z.string(),
+  slug:      z.string(),
+  name:      z.string(),
+  origin:    documentOrigin.optional(),
+  settings:  documentSettings.optional(),
+  canManage: z.boolean().optional(),
 });
 
 export interface DocumentOutlineItem {

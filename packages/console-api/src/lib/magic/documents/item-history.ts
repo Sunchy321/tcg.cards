@@ -7,6 +7,7 @@ import type { DocumentContext } from './service';
 import type { Document, DocumentStore, Node, Release } from './store';
 import { displayedNodes } from './comparison';
 import { loadItemLineage } from './item-history-lineage';
+import { formalReleases } from './adjacency';
 
 /** Keeps game symbols and rule references atomic while comparing surrounding text. */
 function encode(text: string, map: Map<string, string>): string {
@@ -16,6 +17,7 @@ function encode(text: string, map: Map<string, string>): string {
   });
 }
 
+/** Restore atomic tokens after word comparison. */
 function decode(text: string, map: Map<string, string>): string {
   return [...text].map(char => {
     const code = char.codePointAt(0)!;
@@ -128,136 +130,139 @@ function sameStates(left: HistoryState[], right: HistoryState[]) {
   });
 }
 
-/** Rebuilds the reachable lineage over shared comparison boundaries and formal editions. */
+/** Read prepared source lineage through the existing entry-history presentation contract. */
 export function createItemHistoryOperations(store: DocumentStore, context: DocumentContext) {
   return {
+    /** Present reachable formal content without running the source matcher. */
     async itemHistory(input: { slug: string; itemId: string; locale: string; versionTag?: string }): Promise<DocumentItemHistoryPage> {
       const document = (await store.documents()).find(row => row.slug === input.slug);
       assertHistoryReadable(document, context);
-      const releases = (await store.releases(document.id)).filter(row => row.deletedAt == null)
-        .sort((left, right) => left.versionTag.localeCompare(right.versionTag) || left.id.localeCompare(right.id));
-      const { editions, members, events, resolvedItemId, nodeIds } = await loadItemLineage(store, releases, input.itemId, input.versionTag);
-      const views = new Map<number, Promise<Map<string, HistoryState>>>();
-      /** Resolves a translation at the same edition as its source snapshot. */
-      async function stateAt(index: number, node: Node): Promise<HistoryState> {
-        const edition = editions[index]!;
-        if (!views.has(index)) {
-          const needed = new Set(edition.revision.nodes.filter(row => members.has(row.nodeKey)).map(row => row.id));
-          for (const event of events) {
-            if (event.index === index) for (const row of event.to) needed.add(row.id);
-            if (event.index === index + 1) for (const row of event.from) needed.add(row.id);
-          }
-          views.set(index, displayedNodes(store, edition.release, edition.revision, input.locale).then(displayed => {
-            // Retain only the visible lineage, rather than a second copy of
-            // every rule in every edition for the lifetime of the request.
-            const selected = new Map<string, HistoryState>();
-            for (const source of edition.revision.nodes) {
-              if (!needed.has(source.id)) continue;
-              const view = displayed.get(source.id)!;
-              selected.set(source.id, { index, node: source, text: view.rawText, serial: displaySerial(source.anchor), lang: view.localeState.locale, isFallback: view.localeState.isFallback });
+      return store.transaction(document.id, async store => {
+        assertHistoryReadable(await store.document(document.id), context);
+        const releases = formalReleases(await store.releases(document.id));
+        const { editions, members, events, resolvedItemId, nodeIds } = await loadItemLineage(store, releases, input.itemId, input.versionTag);
+        const views = new Map<number, Promise<Map<string, HistoryState>>>();
+        /** Resolves a translation at the same edition as its source snapshot. */
+        async function stateAt(index: number, node: Node): Promise<HistoryState> {
+          const edition = editions[index]!;
+          if (!views.has(index)) {
+            const needed = new Set(edition.revision.nodes.filter(row => members.has(row.nodeKey)).map(row => row.id));
+            for (const event of events) {
+              if (event.index === index) for (const row of event.to) needed.add(row.id);
+              if (event.index === index + 1) for (const row of event.from) needed.add(row.id);
             }
-            return selected;
-          }));
+            views.set(index, displayedNodes(store, edition.release, edition.revision, input.locale).then(displayed => {
+              // Retain only the visible lineage, rather than a second copy of
+              // every rule in every edition for the lifetime of the request.
+              const selected = new Map<string, HistoryState>();
+              for (const source of edition.revision.nodes) {
+                if (!needed.has(source.id)) continue;
+                const view = displayed.get(source.id)!;
+                selected.set(source.id, { index, node: source, text: view.rawText, serial: displaySerial(source.anchor), lang: view.localeState.locale, isFallback: view.localeState.isFallback });
+              }
+              return selected;
+            }));
+          }
+          return (await views.get(index)!).get(node.id)!;
         }
-        return (await views.get(index)!).get(node.id)!;
-      }
-      const states: HistoryState[][] = [];
-      for (let index = 0; index < editions.length; index++) {
-        states.push(await Promise.all(editions[index]!.revision.nodes.filter(node => members.has(node.nodeKey)).map(node => stateAt(index, node))));
-      }
-      // An entry born by merging still needs the preceding source snapshot row,
-      // even when none of those sources belongs to its expanded split lineage.
-      for (const event of events.filter(event => event.kind === 'merged')) {
-        const before = states[event.index - 1]!;
-        for (const node of event.from) {
-          if (!before.some(state => state.node.nodeKey === node.nodeKey)) before.push(await stateAt(event.index - 1, node));
+        const states: HistoryState[][] = [];
+        for (let index = 0; index < editions.length; index++) {
+          states.push(await Promise.all(editions[index]!.revision.nodes.filter(node => members.has(node.nodeKey)).map(node => stateAt(index, node))));
         }
-      }
-      /** Uses actual adjacent content, including shared split/merge participants, without cross-language diffing. */
-      async function adjacentText(state: HistoryState, direction: -1 | 1): Promise<string | null> {
-        const index = state.index + direction;
-        if (index < 0 || index >= editions.length) return null;
-        const neighbour = editions[index]!.nodes.get(state.node.nodeKey);
-        if (neighbour && members.has(state.node.nodeKey)) {
-          const view = await stateAt(index, neighbour);
-          return view.lang === state.lang ? view.text : null;
-        }
-        const boundary = events.find(event => event.index === (direction === -1 ? state.index : index)
-          && (direction === -1 ? event.to : event.from).some(node => node.id === state.node.id));
-        if (!boundary) return null;
-        const related = await Promise.all((direction === -1 ? boundary.from : boundary.to).map(node => stateAt(index, node)));
-        return related.every(view => view.lang === state.lang) ? related.map(view => view.text).join('\n') : null;
-      }
-      const periods: { from: number; to: number }[] = [];
-      for (let index = 0; index < editions.length; index++) {
-        if (states[index]!.length === 0) continue;
-        const previous = periods.at(-1);
-        if (previous && previous.to === index - 1 && !events.some(event => event.index === index)
-          && sameStates(states[previous.to]!, states[index]!)) previous.to = index;
-        else periods.push({ from: index, to: index });
-      }
-      /** Keeps only public official numbers in relation labels. */
-      function party(node: Node) {
-        return { itemId: node.nodeKey, serial: displaySerial(node.anchor) };
-      }
-      const boundaries = new Map<number, DocumentItemHistoryEvent[]>();
-      for (const event of events) {
-        const list = boundaries.get(event.index) ?? [];
-        list.push({ kind: event.kind, date: dateOf(releases[event.index]!), from: event.from.map(party), to: event.to.map(party),
-          versionFrom: releases[event.index - 1]!.versionTag, versionTo: releases[event.index]!.versionTag });
-        boundaries.set(event.index, list);
-      }
-      for (let index = 1; index < states.length; index++) {
-        const removed = states[index - 1]!.filter(state => !editions[index]!.nodes.has(state.node.nodeKey)
-          && !events.some(event => event.index === index && event.from.some(node => node.id === state.node.id)));
-        if (removed.length) boundaries.set(index, [...boundaries.get(index) ?? [], {
-          kind: 'removed', date: dateOf(releases[index]!), from: removed.map(state => party(state.node)), to: [],
-        }]);
-      }
-      const rows: DocumentItemHistoryRow[] = [];
-      for (let index = 0; index < editions.length; index++) {
-        for (const event of boundaries.get(index) ?? []) rows.push({ kind: 'event', event });
-        const period = periods.find(row => row.from === index);
-        if (!period) continue;
-        const cells: DocumentItemHistoryCell[] = [];
-        const displayed = [...states[period.to]!];
-        const merging = events.filter(event => event.kind === 'merged' && event.index === period.to + 1);
-        for (const event of merging) {
+        // An entry born by merging still needs the preceding source snapshot row,
+        // even when none of those sources belongs to its expanded split lineage.
+        for (const event of events.filter(event => event.kind === 'merged')) {
+          const before = states[event.index - 1]!;
           for (const node of event.from) {
-            if (!displayed.some(state => state.node.nodeKey === node.nodeKey)) displayed.push(await stateAt(period.to, node));
+            if (!before.some(state => state.node.nodeKey === node.nodeKey)) before.push(await stateAt(event.index - 1, node));
           }
         }
-        for (const state of displayed) {
-          const snapshot = !members.has(state.node.nodeKey);
-          const firstState = snapshot ? state : states[period.from]!.find(row => row.node.nodeKey === state.node.nodeKey)!;
-          const previous = period.from > 0 ? states[period.from - 1]!.find(row => row.node.nodeKey === state.node.nodeKey) : undefined;
-          const birth = events.find(event => event.index === period.from && event.to.some(node => node.id === firstState.node.id));
-          const mergesNext = merging.some(event => event.from.some(node => node.id === state.node.id));
-          cells.push({
-            itemId: state.node.nodeKey, nodeId: nodeIds.get(state.node.id), serial: state.serial,
-            renamedFrom: previous && previous.serial !== state.serial ? previous.serial : null,
-            lang: state.lang, isFallback: state.isFallback, text: state.text,
-            diff: threeWayTextDiff(snapshot ? null : await adjacentText(firstState, -1), state.text, await adjacentText(state, 1)),
-            changed: previous == null || previous.text !== state.text,
-            state: mergesNext ? 'merged' : birth?.kind === 'split' ? 'split' : birth ? null : !previous && period.from > 0 ? 'added' : null,
-            ...(snapshot ? { isSnapshot: true } : {}),
-          });
+        /** Uses actual adjacent content, including shared split/merge participants, without cross-language diffing. */
+        async function adjacentText(state: HistoryState, direction: -1 | 1): Promise<string | null> {
+          const index = state.index + direction;
+          if (index < 0 || index >= editions.length) return null;
+          const neighbour = editions[index]!.nodes.get(state.node.nodeKey);
+          if (neighbour && members.has(state.node.nodeKey)) {
+            const view = await stateAt(index, neighbour);
+            return view.lang === state.lang ? view.text : null;
+          }
+          const boundary = events.find(event => event.index === (direction === -1 ? state.index : index)
+            && (direction === -1 ? event.to : event.from).some(node => node.id === state.node.id));
+          if (!boundary) return null;
+          const related = await Promise.all((direction === -1 ? boundary.from : boundary.to).map(node => stateAt(index, node)));
+          return related.every(view => view.lang === state.lang) ? related.map(view => view.text).join('\n') : null;
         }
-        rows.push({ kind: 'period', dateFrom: dateOf(releases[period.from]!),
-          dateTo: period.to === releases.length - 1 ? null : dateOf(releases[period.to]!),
-          versionFrom: releases[period.from]!.versionTag, versionTo: releases[period.to]!.versionTag, cells });
-      }
-      const queried = states.flat().filter(state => state.node.nodeKey === resolvedItemId);
-      const last = queried.at(-1)!;
-      const firstPeriod = periods[0]!;
-      const lastPeriod = periods.at(-1)!;
-      return {
-        document: { id: document.id, slug: document.slug, name: document.title, origin: document.origin, settings: document.settings },
-        entry: { itemId: resolvedItemId, serial: last.serial, excerpt: last.text, versionTag: releases[last.index]!.versionTag,
-          firstDate: dateOf(releases[firstPeriod.from]!), lastDate: lastPeriod.to === releases.length - 1 ? null : dateOf(releases[lastPeriod.to]!),
-          lineageCount: members.size, periodCount: periods.length },
-        rows,
-      };
+        const periods: { from: number; to: number }[] = [];
+        for (let index = 0; index < editions.length; index++) {
+          if (states[index]!.length === 0) continue;
+          const previous = periods.at(-1);
+          if (previous && previous.to === index - 1 && !events.some(event => event.index === index)
+            && sameStates(states[previous.to]!, states[index]!)) previous.to = index;
+          else periods.push({ from: index, to: index });
+        }
+        /** Keeps only public official numbers in relation labels. */
+        function party(node: Node) {
+          return { itemId: node.nodeKey, serial: displaySerial(node.anchor) };
+        }
+        const boundaries = new Map<number, DocumentItemHistoryEvent[]>();
+        for (const event of events) {
+          const list = boundaries.get(event.index) ?? [];
+          list.push({ kind: event.kind, date: dateOf(releases[event.index]!), from: event.from.map(party), to: event.to.map(party),
+            versionFrom: releases[event.index - 1]!.versionTag, versionTo: releases[event.index]!.versionTag });
+          boundaries.set(event.index, list);
+        }
+        for (let index = 1; index < states.length; index++) {
+          const removed = states[index - 1]!.filter(state => !editions[index]!.nodes.has(state.node.nodeKey)
+            && !events.some(event => event.index === index && event.from.some(node => node.id === state.node.id)));
+          if (removed.length) boundaries.set(index, [...boundaries.get(index) ?? [], {
+            kind: 'removed', date: dateOf(releases[index]!), from: removed.map(state => party(state.node)), to: [],
+          }]);
+        }
+        const rows: DocumentItemHistoryRow[] = [];
+        for (let index = 0; index < editions.length; index++) {
+          for (const event of boundaries.get(index) ?? []) rows.push({ kind: 'event', event });
+          const period = periods.find(row => row.from === index);
+          if (!period) continue;
+          const cells: DocumentItemHistoryCell[] = [];
+          const displayed = [...states[period.to]!];
+          const merging = events.filter(event => event.kind === 'merged' && event.index === period.to + 1);
+          for (const event of merging) {
+            for (const node of event.from) {
+              if (!displayed.some(state => state.node.nodeKey === node.nodeKey)) displayed.push(await stateAt(period.to, node));
+            }
+          }
+          for (const state of displayed) {
+            const snapshot = !members.has(state.node.nodeKey);
+            const firstState = snapshot ? state : states[period.from]!.find(row => row.node.nodeKey === state.node.nodeKey)!;
+            const previous = period.from > 0 ? states[period.from - 1]!.find(row => row.node.nodeKey === state.node.nodeKey) : undefined;
+            const birth = events.find(event => event.index === period.from && event.to.some(node => node.id === firstState.node.id));
+            const mergesNext = merging.some(event => event.from.some(node => node.id === state.node.id));
+            cells.push({
+              itemId: state.node.nodeKey, nodeId: nodeIds.get(state.node.id), serial: state.serial,
+              renamedFrom: previous && previous.serial !== state.serial ? previous.serial : null,
+              lang: state.lang, isFallback: state.isFallback, text: state.text,
+              diff: threeWayTextDiff(snapshot ? null : await adjacentText(firstState, -1), state.text, await adjacentText(state, 1)),
+              changed: previous == null || previous.text !== state.text,
+              state: mergesNext ? 'merged' : birth?.kind === 'split' ? 'split' : birth ? null : !previous && period.from > 0 ? 'added' : null,
+              ...(snapshot ? { isSnapshot: true } : {}),
+            });
+          }
+          rows.push({ kind: 'period', dateFrom: dateOf(releases[period.from]!),
+            dateTo: period.to === releases.length - 1 ? null : dateOf(releases[period.to]!),
+            versionFrom: releases[period.from]!.versionTag, versionTo: releases[period.to]!.versionTag, cells });
+        }
+        const queried = states.flat().filter(state => state.node.nodeKey === resolvedItemId);
+        const last = queried.at(-1)!;
+        const firstPeriod = periods[0]!;
+        const lastPeriod = periods.at(-1)!;
+        return {
+          document: { id: document.id, slug: document.slug, name: document.title, origin: document.origin, settings: document.settings },
+          entry: { itemId: resolvedItemId, serial: last.serial, excerpt: last.text, versionTag: releases[last.index]!.versionTag,
+            firstDate: dateOf(releases[firstPeriod.from]!), lastDate: lastPeriod.to === releases.length - 1 ? null : dateOf(releases[lastPeriod.to]!),
+            lineageCount: members.size, periodCount: periods.length },
+          rows,
+        };
+      });
     },
   };
 }
