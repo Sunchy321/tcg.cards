@@ -60,21 +60,18 @@
                 v-for="cell in row.cells"
                 :key="cell.itemId"
                 class="entry relative py-0.5 [&+.entry]:mt-[0.8rem]"
-                :class="{ 'entry-focus': focused(cell) }"
               >
-                <div v-if="lineageMarks(cell, index).length" class="absolute right-[calc(100%+0.75rem)] top-[0.65rem] flex flex-col gap-1">
-                  <UTooltip v-for="kind in lineageMarks(cell, index)" :key="kind" :text="eventKind(kind)">
-                    <span role="img" tabindex="0" :aria-label="eventKind(kind)" class="inline-flex size-4.5 items-center justify-center text-(--reader-muted) focus-visible:outline-2 focus-visible:outline-offset-2">
-                      <UIcon :name="kind === 'split' ? 'lucide:split' : 'lucide:merge'" class="size-4.5 rotate-180" aria-hidden="true" />
+                <div v-if="lineageMarks(cell, index).length" class="absolute right-[calc(100%+0.75rem)] top-[0.65rem] flex flex-col items-center gap-1">
+                  <UTooltip v-for="mark in lineageMarks(cell, index)" :key="mark.kind" :text="mark.label" :delay-duration="0">
+                    <span role="img" tabindex="0" :aria-label="mark.label" class="inline-flex size-4.5 items-center justify-center text-(--reader-muted) focus-visible:outline-2 focus-visible:outline-offset-2">
+                      <UIcon :name="mark.icon" class="size-4.5" :class="{ 'rotate-180': mark.kind === 'split' || mark.kind === 'merged' }" aria-hidden="true" />
                     </span>
                   </UTooltip>
                 </div>
-                <div v-if="cell.renamedFrom || cell.state === 'added' || cell.isFallback" class="mb-1 flex flex-wrap gap-x-3 gap-y-1 text-[0.6875rem] text-(--reader-muted)">
-                  <span v-if="cell.renamedFrom">{{ $t('magic.document.history.renamed_from', { serial: cell.renamedFrom }) }}</span>
-                  <span v-if="cell.state === 'added'">{{ $t('magic.document.history.added') }}</span>
-                  <span v-if="cell.isFallback">{{ $t('magic.document.history.fallback') }}</span>
-                </div>
-                <p class="m-0 wrap-anywhere text-base leading-loose sm:text-[1.0625rem]" :class="{ 'text-(--reader-muted)': !cell.changed }" :lang="cell.lang">
+                <span v-if="cell.isFallback" role="img" :aria-label="$t('magic.document.history.fallback')" class="pointer-events-none absolute bottom-1 right-0 inline-flex select-none items-center font-mono text-xs leading-none text-default/15">
+                  <UIcon name="lucide:languages" class="size-3" aria-hidden="true" />
+                </span>
+                <p class="relative m-0 wrap-anywhere text-base leading-loose sm:text-[1.0625rem]" :class="{ 'text-(--reader-muted)': !cell.changed, 'pr-11': cell.isFallback }" :lang="cell.lang">
                   <NuxtLink v-if="cell.isSnapshot && cell.serial" :to="historyLink(cell.itemId)" class="mr-3 font-mono text-sm tracking-tight text-(--reader-accent) hover:underline">{{ cell.serial }}</NuxtLink>
                   <span v-else-if="cell.serial" class="mr-3 font-mono text-sm tracking-tight text-(--reader-muted)">{{ cell.serial }}</span>
                   <template v-for="(span, spanIndex) in textSpans(cell)" :key="spanIndex">
@@ -84,27 +81,35 @@
                 </p>
               </div>
             </article>
+            <article v-else-if="row.event.kind === 'removed'" class="border-t border-(--reader-line) py-6" :aria-label="eventLabel(row.event)">
+              <header class="mb-3 text-xs text-(--reader-muted)">
+                <span class="font-mono tabular-nums">{{ fmt(row.event.date) }}</span>
+              </header>
+              <div v-for="party in row.event.from" :key="party.itemId" class="relative min-h-9 py-0.5">
+                <div class="absolute right-[calc(100%+0.75rem)] top-[0.65rem]">
+                  <UTooltip :text="eventKind('removed')" :delay-duration="0">
+                    <span role="img" tabindex="0" :aria-label="eventKind('removed')" class="inline-flex size-4.5 items-center justify-center text-(--reader-muted) focus-visible:outline-2 focus-visible:outline-offset-2">
+                      <UIcon name="lucide:minus" class="size-4.5" aria-hidden="true" />
+                    </span>
+                  </UTooltip>
+                </div>
+              </div>
+            </article>
             <div v-else class="transition" role="group" :aria-label="eventLabel(row.event)">
               <span class="transition-label">
                 <span>{{ eventKind(row.event.kind) }}</span>
-                <template v-if="row.event.kind === 'removed'">
-                  <NuxtLink v-for="party in row.event.from" :key="party.itemId" :to="historyLink(party.itemId)" class="font-mono text-(--reader-accent) hover:underline">{{ party.serial ?? $t('magic.document.history.$self') }}</NuxtLink>
-                  <span class="font-mono tabular-nums">{{ fmt(row.event.date) }}</span>
-                </template>
-                <template v-else>
-                  <span class="flex flex-wrap items-baseline justify-center gap-x-1.5 gap-y-1 font-mono tabular-nums">
-                    <template v-for="(party, partyIndex) in row.event.from" :key="party.itemId">
-                      <span v-if="partyIndex" aria-hidden="true">＋</span>
-                      <NuxtLink :to="historyLink(party.itemId)" class="text-(--reader-accent) hover:underline">{{ party.serial ?? $t('magic.document.history.$self') }}</NuxtLink>
-                    </template>
-                    <span aria-hidden="true">→</span>
-                    <template v-for="(party, partyIndex) in row.event.to" :key="party.itemId">
-                      <span v-if="partyIndex" aria-hidden="true">＋</span>
-                      <NuxtLink :to="historyLink(party.itemId)" class="text-(--reader-accent) hover:underline">{{ party.serial ?? $t('magic.document.history.$self') }}</NuxtLink>
-                    </template>
-                  </span>
-                  <NuxtLink v-if="row.event.versionFrom && row.event.versionTo" :to="{ path: `/document/${slug}/diff`, query: { from: row.event.versionFrom, to: row.event.versionTo, ...localeQuery } }" class="whitespace-nowrap text-(--reader-accent) hover:underline">{{ $t('magic.document.history.compare') }} ↗</NuxtLink>
-                </template>
+                <span class="flex flex-wrap items-baseline justify-center gap-x-1.5 gap-y-1 font-mono tabular-nums">
+                  <template v-for="(party, partyIndex) in row.event.from" :key="party.itemId">
+                    <span v-if="partyIndex" aria-hidden="true">＋</span>
+                    <NuxtLink :to="historyLink(party.itemId)" class="text-(--reader-accent) hover:underline">{{ party.serial ?? $t('magic.document.history.$self') }}</NuxtLink>
+                  </template>
+                  <span aria-hidden="true">→</span>
+                  <template v-for="(party, partyIndex) in row.event.to" :key="party.itemId">
+                    <span v-if="partyIndex" aria-hidden="true">＋</span>
+                    <NuxtLink :to="historyLink(party.itemId)" class="text-(--reader-accent) hover:underline">{{ party.serial ?? $t('magic.document.history.$self') }}</NuxtLink>
+                  </template>
+                </span>
+                <NuxtLink v-if="row.event.versionFrom && row.event.versionTo" :to="{ path: `/document/${slug}/diff`, query: { from: row.event.versionFrom, to: row.event.versionTo, ...localeQuery } }" class="whitespace-nowrap text-(--reader-accent) hover:underline">{{ $t('magic.document.history.compare') }} ↗</NuxtLink>
               </span>
             </div>
           </template>
@@ -183,11 +188,6 @@ function textSpans(cell: DocumentItemHistoryCell): DocumentItemHistoryDiffSpan[]
   return cell.diff ?? [{ type: 'common', value: cell.text }];
 }
 
-/** Highlights only the queried entry once the page carries several lineage members. */
-function focused(cell: DocumentItemHistoryCell) {
-  return data.value != null && cell.itemId === data.value.entry.itemId;
-}
-
 /** Opens the exact edition and official anchor of a period. */
 function readerLink(versionTag: string, cell?: DocumentItemHistoryCell) {
   const anchor = cell?.nodeId ?? cell?.serial?.replace(/\.$/, '');
@@ -213,18 +213,35 @@ function historyLink(id: string) {
   return { path: `/document/${slug.value}/history`, query: { id, ...localeQuery.value } };
 }
 
-/** Shows both boundary roles when an entry is split and merged within one period. */
-function lineageMarks(cell: DocumentItemHistoryCell, index: number): ('split' | 'merged')[] {
-  const marks: ('split' | 'merged')[] = [];
+/** Describes one event symbol in the outside gutter. */
+interface HistoryMark {
+  kind:  'split' | 'merged' | 'added' | 'renamed';
+  icon:  string;
+  label: string;
+}
+
+/** Keeps entry changes and structural roles in the same outside gutter. */
+function lineageMarks(cell: DocumentItemHistoryCell, index: number): HistoryMark[] {
+  const marks: HistoryMark[] = [];
   const previous = data.value?.rows[index - 1];
   const next = data.value?.rows[index + 1];
-  if ((cell.state === 'split' || previous?.kind === 'event') && (previous.event.kind === 'split' && previous.event.to.some(party => party.itemId === cell.itemId))) {
-    marks.push('split');
+
+  if (previous?.kind === 'event' && previous.event.kind === 'split' && previous.event.to.some(party => party.itemId === cell.itemId)) {
+    marks.push({ kind: 'split', icon: 'lucide:split', label: eventKind('split') });
   }
 
-  if ((cell.state === 'merged' || next?.kind === 'event') && (next.event.kind === 'merged' && next.event.from.some(party => party.itemId === cell.itemId))) {
-    marks.push('merged');
+  if (next?.kind === 'event' && next.event.kind === 'merged' && next.event.from.some(party => party.itemId === cell.itemId)) {
+    marks.push({ kind: 'merged', icon: 'lucide:merge', label: eventKind('merged') });
   }
+
+  if (cell.state === 'added') {
+    marks.push({ kind: 'added', icon: 'lucide:plus', label: i18n.t('magic.document.history.added') });
+  }
+
+  if (cell.renamedFrom) {
+    marks.push({ kind: 'renamed', icon: 'lucide:hash', label: i18n.t('magic.document.history.renamed_from', { serial: cell.renamedFrom }) });
+  }
+
   return marks;
 }
 
@@ -269,22 +286,6 @@ useTitle(() => `${documentName.value} / ${i18n.t('magic.document.history.$self')
   --reader-line: var(--ui-border);
   --reader-accent: var(--ui-primary);
   background: var(--reader-bg);
-}
-
-.entry-focus::before {
-  content: '';
-  position: absolute;
-  left: -0.9rem;
-  top: 0.35rem;
-  bottom: 0.35rem;
-  width: 3px;
-  border-radius: 3px;
-  background: var(--reader-accent);
-}
-
-.entry-focus {
-  background: color-mix(in srgb, var(--reader-accent) 6%, transparent);
-  border-radius: 3px;
 }
 
 mark {
