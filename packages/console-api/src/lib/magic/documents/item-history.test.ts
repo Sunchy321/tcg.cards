@@ -205,6 +205,83 @@ test('shows every merge source immediately before the merge without importing ex
   expect(JSON.stringify(target)).not.toContain('Earlier unrelated wording.');
 });
 
+test('replays multiple split and merge rounds across the complete entry history', async () => {
+  const store = memoryStore();
+  const owner = createDocumentService(store, { track: 'remote', actorId: 'alice' });
+  const document = await owner.create({ slug: 'multi-round-history', title: 'Guide', language: 'en', visibility: 'public', settings: { historyPublic: true } });
+  const originalText = 'alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho sigma';
+  const rightText = 'theta iota kappa lambda mu nu xi omicron pi rho';
+  const editions = [
+    [{ nodeKey: 'original', rawText: originalText }],
+    [
+      { nodeKey: 'chapter', kind: 'heading' as const, rawText: 'Chapter' },
+      { nodeKey: 'left', parentKey: 'chapter', rawText: 'alpha beta gamma delta epsilon zeta eta theta iota' },
+      { nodeKey: 'right', parentKey: 'chapter', rawText: rightText },
+    ],
+    [
+      { nodeKey: 'chapter', kind: 'heading' as const, rawText: 'Chapter' },
+      { nodeKey: 'subchapter', kind: 'heading' as const, parentKey: 'chapter', rawText: 'Subchapter' },
+      { nodeKey: 'left', parentKey: 'chapter', rawText: 'alpha beta gamma delta epsilon zeta eta theta iota' },
+      { nodeKey: 'right-top', parentKey: 'subchapter', rawText: 'theta iota kappa lambda mu nu' },
+      { nodeKey: 'right-bottom', parentKey: 'subchapter', rawText: 'mu nu xi omicron pi rho' },
+    ],
+    [
+      { nodeKey: 'chapter', kind: 'heading' as const, rawText: 'Chapter' },
+      { nodeKey: 'left', parentKey: 'chapter', rawText: 'alpha beta gamma delta epsilon zeta eta theta iota' },
+      { nodeKey: 'right-again', parentKey: 'chapter', rawText: rightText },
+    ],
+    [{ nodeKey: 'combined', rawText: originalText }],
+  ];
+  for (const [index, nodes] of editions.entries()) {
+    const revision = await owner.save({ documentId: document.id, title: 'Guide', nodes });
+    const release = await owner.publish({ documentId: document.id, revisionId: revision.id, versionTag: String(index + 1) });
+    await store.putRelease({ ...release, publishedAt: new Date(Date.UTC(2026, 9, index + 1)) });
+  }
+  await owner.computeRelations({ documentId: document.id });
+  const page = await createItemHistoryOperations(store, { track: 'remote' }).itemHistory({
+    slug: document.slug, itemId: 'original', locale: 'en',
+  });
+  const events = page.rows.filter(row => row.kind === 'event').map(row => row.kind === 'event' ? row.event.kind : null);
+  expect(events).toEqual(['split', 'split', 'merged', 'merged']);
+  expect(periods(page.rows).map(row => row.versionFrom)).toEqual(['1', '2', '3', '4', '5']);
+  expect(periods(page.rows).map(row => row.cells.length)).toEqual([1, 2, 3, 2, 1]);
+  expect(periods(page.rows).at(-1)?.cells[0]?.itemId).toBe('combined');
+});
+
+test('prepares the same public history when formal releases arrive in reverse order', async () => {
+  const editions = [
+    { versionTag: '1', nodes: [{ nodeKey: 'original', rawText: 'alpha beta gamma delta epsilon zeta eta theta' }] },
+    { versionTag: '2', nodes: [
+      { nodeKey: 'chapter', kind: 'heading' as const, rawText: 'Chapter' },
+      { nodeKey: 'left', parentKey: 'chapter', rawText: 'alpha beta gamma delta epsilon' },
+      { nodeKey: 'right', parentKey: 'chapter', rawText: 'delta epsilon zeta eta theta' },
+    ] },
+    { versionTag: '3', nodes: [
+      { nodeKey: 'chapter', kind: 'heading' as const, rawText: 'Chapter' },
+      { nodeKey: 'left', parentKey: 'chapter', rawText: 'alpha beta gamma delta epsilon iota' },
+      { nodeKey: 'right', parentKey: 'chapter', rawText: 'delta epsilon zeta eta theta' },
+    ] },
+  ];
+  /** Builds one public history after importing and preparing releases in the given order. */
+  async function prepare(order: number[], slug: string) {
+    const store = memoryStore();
+    const owner = createDocumentService(store, { track: 'remote', actorId: 'alice' });
+    const document = await owner.create({ slug, title: 'Guide', language: 'en', visibility: 'public', settings: { historyPublic: true } });
+    for (const index of order) {
+      const edition = editions[index]!;
+      const revision = await owner.save({ documentId: document.id, title: 'Guide', nodes: edition.nodes });
+      const release = await owner.publish({ documentId: document.id, revisionId: revision.id, versionTag: edition.versionTag });
+      await store.putRelease({ ...release, publishedAt: new Date(Date.UTC(2026, 9, Number(edition.versionTag))) });
+    }
+    await owner.computeRelations({ documentId: document.id });
+    return createItemHistoryOperations(store, { track: 'remote' }).itemHistory({ slug, itemId: 'original', locale: 'en' });
+  }
+  const chronological = await prepare([0, 1, 2], 'chronological-import');
+  const reverse = await prepare([2, 1, 0], 'reverse-import');
+  expect(reverse.entry).toEqual(chronological.entry);
+  expect(reverse.rows).toEqual(chronological.rows);
+});
+
 test('does not reconnect an imported key reused after an entry disappeared', async () => {
   const store = memoryStore();
   const owner = createDocumentService(store, { track: 'remote', actorId: 'alice' });

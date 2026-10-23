@@ -1,11 +1,12 @@
 import type { DocumentDiffPage, DocumentDiffSection, DocumentEntityHistoryPage, DocumentSectionLocaleState, VersionSummary } from '@tcg-cards/model/magic/schema/document-page';
 import type { ParsedDocumentNode } from './parser';
 import type { DocumentContext } from './service';
-import type { Document, DocumentStore, Node, Release, Revision } from './store';
+import type { Document, DocumentStore, Node, NodeRelation, Release, Revision } from './store';
 import { matchRevisionNodes, type ChangeRecord } from './matcher';
 import { orderedNodes } from './nodes';
 import { textDiff } from './diff-text';
 import { createReferenceComparison } from './references';
+import { formalReleases, preparedAdjacencies } from './adjacency';
 export { textDiff } from './diff-text';
 
 /** Compare formal editions without depending on import state or exposing drafts. */
@@ -98,84 +99,134 @@ export function createComparisonOperations(store: DocumentStore, context: Docume
       if (omitted > 0) rows.push({ kind: 'omitted', count: omitted });
       return { document: { id: document.id, slug: document.slug, name: document.title, origin: document.origin, settings: document.settings }, fromVersion: version(fromRelease), toVersion: version(toRelease), stats, rows };
     },
+    /** Present one persisted identity without connecting split or merge targets to its past. */
     async nodeHistory(input: { documentId: string; nodeKey: string }): Promise<DocumentEntityHistoryPage> {
       const document = await store.document(input.documentId);
       assertReadable(document, context);
-      const releases = (await store.releases(document.id)).filter(row => row.deletedAt == null)
-        .sort((a, b) => a.publishedAt.getTime() - b.publishedAt.getTime() || a.id.localeCompare(b.id));
-      const timeline: DocumentEntityHistoryPage['timeline'] = [];
-      const editions = await historyEditions(store, releases);
-      const identities = new Set(editions.flatMap(edition => edition.original.nodes
-        .filter(node => node.nodeKey === input.nodeKey)
-        .map(node => edition.revision.nodes.find(canonical => canonical.id === node.id)!.nodeKey)));
-      if (identities.size === 0) throw new Error('Node not found in published content');
+      const releases = formalReleases(await store.releases(document.id));
+      const { comparisons } = await preparedAdjacencies(store, releases);
+      const revisionIds = releases.map(row => row.sourceRevisionId);
+      const candidates = await store.selectNodes({ revisionIds, itemId: input.nodeKey });
+      if (candidates.length === 0) throw new Error('Node not found in published content');
+      const comparisonIds = comparisons.map(row => row.id);
+      const seedRelations = comparisonIds.length === 0 ? [] : await store.nodeRelations({
+        comparisonIds, nodeIds: candidates.map(node => node.id),
+      });
+      if (comparisonIds.length > 0 && candidates.some(node => !seedRelations.some(row => row.nodeId === node.id))) {
+        throw new Error('Document relations are incomplete');
+      }
+      const identities = new Set(seedRelations.map(row => row.identity));
+      if (comparisonIds.length === 0) {
+        for (const node of candidates) identities.add(node.nodeKey);
+      } else if (identities.size === 0) {
+        throw new Error('Document relations are incomplete');
+      }
       if (identities.size > 1) throw new Error('Node identity is ambiguous across published content');
       const identity = [...identities][0]!;
-      let originNodeId: string | undefined;
-      let originVersionTag: string | undefined;
-      let currentNodeId: string | null = null;
-      let currentVersionTag: string | null = null;
-      for (const { release, revision, changes } of editions) {
-        const node = revision.nodes.find(row => row.nodeKey === identity);
-        const change = changes.find(row => row.entityId === identity || row.relations?.some(relation => relation.entityId === identity));
-        if (node != null && originNodeId == null) {
-          originNodeId = node.anchor ?? node.nodeKey;
-          originVersionTag = release.versionTag;
-        }
-        if (originNodeId != null) {
-          const state = node != null ? 'present' : change?.type === 'split' ? 'split' : change?.type === 'merged' ? 'merged' : 'removed';
-          timeline.push({ versionId: release.id, versionTag: release.versionTag, effectiveDate: version(release).effectiveDate,
-            nodeId: node == null ? null : node.anchor ?? node.nodeKey, title: node?.rawText ?? null, content: node?.rawText ?? null,
-            state, change: change == null ? null : { changeId: `${release.id}/${input.nodeKey}/${change.type}`, type: change.type, reviewState: 'unreviewed', summary: changeSummary(change) } });
-          currentNodeId = node == null ? null : node.anchor ?? node.nodeKey;
-          currentVersionTag = node == null ? null : release.versionTag;
+      const relationRows = comparisonIds.length === 0 ? [] : await store.nodeRelations({ comparisonIds, identities: [identity] });
+      const groups = [...new Map(relationRows.map(row => [JSON.stringify([row.comparisonId, row.groupId]), {
+        comparisonId: row.comparisonId, groupId: row.groupId,
+      }])).values()];
+      if (groups.length > 0) assertCompleteRelationGroups(await store.nodeRelations({ comparisonIds, groups }));
+      const nodeIdsByRevision = new Map<string, Set<string>>();
+      const incomingByRevision = new Map<string, typeof relationRows>();
+      const revisionByComparison = new Map(comparisons.map(row => [row.id, { from: row.fromRevisionId, to: row.toRevisionId }]));
+      for (const row of relationRows) {
+        const boundary = revisionByComparison.get(row.comparisonId);
+        const revisionId = boundary?.[row.side];
+        if (revisionId == null) throw new Error('Document relations are incomplete');
+        const nodeIds = nodeIdsByRevision.get(revisionId) ?? new Set<string>();
+        nodeIds.add(row.nodeId);
+        nodeIdsByRevision.set(revisionId, nodeIds);
+        const targetRevisionId = boundary?.to;
+        if (targetRevisionId != null) {
+          const incoming = incomingByRevision.get(targetRevisionId) ?? [];
+          incoming.push(row);
+          incomingByRevision.set(targetRevisionId, incoming);
         }
       }
-      if (originNodeId == null || originVersionTag == null) throw new Error('Node not found in published content');
+      if (comparisonIds.length > 0 && relationRows.length === 0) throw new Error('Document relations are incomplete');
+      const selectedIds = [...new Set([...nodeIdsByRevision.values()].flatMap(ids => [...ids]))];
+      const selectedNodes = await store.selectNodes({ revisionIds, ids: selectedIds });
+      const nodesById = new Map(selectedNodes.map(node => [node.id, node]));
+      if (selectedIds.some(id => !nodesById.has(id))) throw new Error('Document relations are incomplete');
+      const identitiesByRevision = new Map<string, Node>();
+      for (const release of releases) {
+        const rows = nodeIdsByRevision.get(release.sourceRevisionId) ?? new Set<string>();
+        if (rows.size > 1) throw new Error('Document relations are ambiguous');
+        const nodeId = [...rows][0];
+        if (nodeId != null) identitiesByRevision.set(release.sourceRevisionId, nodesById.get(nodeId)!);
+      }
+      for (const [index, release] of releases.entries()) {
+        const node = identitiesByRevision.get(release.sourceRevisionId);
+        if (node == null) continue;
+        const incoming = comparisons[index - 1];
+        const outgoing = comparisons[index];
+        if (incoming && !relationRows.some(row => row.comparisonId === incoming.id && row.side === 'to' && row.nodeId === node.id)) {
+          throw new Error('Document relations are incomplete');
+        }
+        if (outgoing && !relationRows.some(row => row.comparisonId === outgoing.id && row.side === 'from' && row.nodeId === node.id)) {
+          throw new Error('Document relations are incomplete');
+        }
+      }
+      if (comparisonIds.length === 0 && candidates.length === 1) identitiesByRevision.set(candidates[0]!.revisionId, candidates[0]!);
+      const originIndex = releases.findIndex(release => identitiesByRevision.has(release.sourceRevisionId));
+      if (originIndex < 0) throw new Error('Node not found in published content');
+      const timeline: DocumentEntityHistoryPage['timeline'] = [];
+      const originNode = identitiesByRevision.get(releases[originIndex]!.sourceRevisionId)!;
+      const originNodeId = originNode.anchor ?? originNode.nodeKey;
+      const originVersionTag = releases[originIndex]!.versionTag;
+      let currentNodeId: string | null = null;
+      let currentVersionTag: string | null = null;
+      for (let index = originIndex; index < releases.length; index++) {
+        const release = releases[index]!;
+        const node = identitiesByRevision.get(release.sourceRevisionId);
+        const change = (incomingByRevision.get(release.sourceRevisionId) ?? []).find(row => row.kind !== 'unchanged');
+        const state = node != null ? 'present' : change?.kind === 'split' ? 'split' : change?.kind === 'merged' ? 'merged' : 'removed';
+        const changeType = change?.kind === 'unchanged' ? undefined : change?.kind;
+        timeline.push({ versionId: release.id, versionTag: release.versionTag, effectiveDate: version(release).effectiveDate,
+          nodeId: node == null ? null : node.anchor ?? node.nodeKey, title: node?.rawText ?? null, content: node?.rawText ?? null,
+          state, change: changeType == null ? null : { changeId: `${release.id}/${input.nodeKey}/${changeType}`, type: changeType,
+            reviewState: 'unreviewed', summary: changeSummary({ type: changeType }) } });
+        currentNodeId = node == null ? null : node.anchor ?? node.nodeKey;
+        currentVersionTag = node == null ? null : release.versionTag;
+      }
       return { document: { id: document.id, slug: document.slug, name: document.title, origin: document.origin, settings: document.settings },
         entity: { id: input.nodeKey, originNodeId, originVersionTag, currentNodeId, currentVersionTag, totalRevisions: timeline.length }, timeline };
     },
   };
 }
 
-/** Track canonical identities separately from immutable import-time assignments. */
-interface HistoryEdition {
-  release: Release;
-  original: Revision;
-  revision: Revision;
-  changes: ChangeRecord[];
-}
-
-/** Rebuild chronological lineage so archived editions may be imported in any order. */
-async function historyEditions(store: DocumentStore, releases: Release[]): Promise<HistoryEdition[]> {
-  const editions: HistoryEdition[] = [];
-  let previous: Revision | null = null;
-  for (const release of releases) {
-    const original = await loadRevision(store, release);
-    const matched = matchRevisionNodes(previous, asParsed(original), original.id);
-    const revision: Revision = { ...original, nodes: original.nodes.map(node => {
-      const assignment = matched.entityAssignments.get(node.anchor ?? node.nodeKey);
-      return { ...node, nodeKey: assignment == null || assignment.isNew ? node.id : assignment.entityId };
-    }) };
-    const keys = new Map([...(previous?.nodes ?? []), ...revision.nodes].map(node => [node.id, node.nodeKey]));
-    const changes = matched.changes.map(change => {
-      const primary = change.type === 'split' ? change.fromNodeRefId : change.toNodeRefId ?? change.fromNodeRefId;
-      return { ...change, entityId: primary == null ? null : keys.get(primary) ?? null,
-        relations: change.relations?.map(relation => ({ ...relation,
-          entityId: relation.nodeRefId == null ? null : keys.get(relation.nodeRefId) ?? null,
-        })),
-      };
-    });
-    editions.push({ release, original, revision, changes });
-    previous = revision;
-  }
-  return editions;
-}
-
 /** Describe formal changes in reader-facing language. */
-function changeSummary(change: ChangeRecord): string {
+function changeSummary(change: { type: Exclude<NodeRelation['kind'], 'unchanged'> }): string {
   return { added: 'Added', removed: 'Removed', modified: 'Text updated', moved: 'Moved to another chapter',
     renamed: 'Number changed', renamed_modified: 'Number and text changed', split: 'Divided into multiple sections', merged: 'Combined into one section' }[change.type];
+}
+
+/** Reject partial participant groups before they can produce a false identity timeline. */
+function assertCompleteRelationGroups(rows: NodeRelation[]): void {
+  const groups = new Map<string, NodeRelation[]>();
+  for (const row of rows) {
+    const key = JSON.stringify([row.comparisonId, row.groupId]);
+    groups.set(key, [...groups.get(key) ?? [], row]);
+  }
+  for (const participants of groups.values()) {
+    const kind = participants[0]!.kind;
+    if (participants.some(row => row.kind !== kind)) throw new Error('Document relations are incomplete');
+    const from = participants.filter(row => row.side === 'from');
+    const to = participants.filter(row => row.side === 'to');
+    const valid = kind === 'unchanged' || kind === 'modified' || kind === 'moved' || kind === 'renamed' || kind === 'renamed_modified'
+      ? from.length === 1 && to.length === 1
+      : kind === 'added' ? from.length === 0 && to.length === 1
+        : kind === 'removed' ? from.length === 1 && to.length === 0
+          : kind === 'split' ? from.length === 1 && to.length >= 2
+            : from.length >= 2 && to.length === 1;
+    if (!valid) throw new Error('Document relations are incomplete');
+    for (const sideRows of [from, to]) {
+      const positions = sideRows.map(row => row.position).sort((left, right) => left - right);
+      if (positions.some((position, index) => position !== index)) throw new Error('Document relations are incomplete');
+    }
+  }
 }
 
 /** Reject inaccessible identities before reading their formal content. */

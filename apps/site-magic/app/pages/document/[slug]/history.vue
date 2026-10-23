@@ -9,7 +9,8 @@
         <UIcon name="lucide:loader" class="size-5 animate-spin text-stone-400 motion-reduce:animate-none" :aria-label="$t('magic.document.loading')" />
       </div>
       <div v-else-if="failed" role="alert" class="space-y-4 py-8 text-sm">
-        <p>{{ $t('magic.document.history.not_found') }}</p>
+        <p v-if="failureKey === 'not_found'">{{ $t('magic.document.history.not_found') }}</p>
+        <p v-else>{{ $t('magic.document.history.load_failed') }}</p>
         <UButton color="neutral" variant="ghost" @click="load">{{ $t('magic.document.retry') }}</UButton>
       </div>
 
@@ -123,6 +124,7 @@
 
 <script setup lang="ts">
 import type { DocumentItemHistoryCell, DocumentItemHistoryDiffSpan, DocumentItemHistoryEvent, DocumentItemHistoryPage } from '#model/magic/schema/document-page';
+import { documentHistoryErrorKey } from '~/composables/documentHistoryError';
 
 definePageMeta({
   layout:   false,
@@ -152,6 +154,7 @@ const data = shallowRef<DocumentItemHistoryPage | null>(null);
 const pending = ref(false);
 const refreshing = ref(false);
 const failed = ref(false);
+const failureKey = ref<'not_found' | 'load_failed'>('not_found');
 
 const lastVersionTag = computed(() => {
   if (data.value?.entry.versionTag) return data.value.entry.versionTag;
@@ -251,6 +254,7 @@ async function load() {
   const token = ++loadToken;
   if (itemId.value == null) {
     data.value = null;
+    failureKey.value = 'not_found';
     failed.value = true;
     return;
   }
@@ -262,9 +266,10 @@ async function load() {
     if (token !== loadToken) return;
     data.value = page;
     failed.value = false;
-  } catch {
+  } catch (error) {
     if (token !== loadToken) return;
     data.value = null;
+    failureKey.value = documentHistoryErrorKey(error);
     failed.value = true;
   } finally {
     if (token === loadToken) {

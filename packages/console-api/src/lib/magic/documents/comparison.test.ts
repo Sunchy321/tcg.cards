@@ -34,10 +34,45 @@ test('compares published editions and excludes unpublished revision text from no
   const result = await comparison.compare({ slug: 'magic-cr', fromVersionTag: '20261001', toVersionTag: '20261101' });
   expect(result.stats.modified).toBeGreaterThan(0);
   expect(result.rows.some(row => row.kind === 'change' && row.from?.text?.includes('{W}') && row.to?.text?.includes('{U}'))).toBe(true);
+  await service.computeRelations({ documentId: 'magic-cr' });
   const original = (await store.revision(first.revisionId))!;
   const nodeKey = original.nodes.find(node => node.anchor === '100.1')!.nodeKey;
   const history = await comparison.nodeHistory({ documentId: 'magic-cr', nodeKey });
   expect(history.timeline.length).toBe(2);
+});
+
+test('node history requires prepared relations and reads only the selected identity nodes', async () => {
+  const store = memoryStore();
+  const service = createDocumentService(store, { track: 'remote', actorId: 'alice' });
+  const document = await service.create({ slug: 'prepared-node-history', title: 'Guide', language: 'en', visibility: 'public' });
+  for (const [index, text] of ['Original paragraph.', 'Revised paragraph.', 'Final paragraph.'].entries()) {
+    const revision = await service.save({ documentId: document.id, title: 'Guide', nodes: [
+      { nodeKey: 'intro', rawText: text },
+      ...Array.from({ length: 20 }, (_, other) => ({ nodeKey: `unrelated-${other}`, rawText: `Unrelated paragraph ${other}.` })),
+    ] });
+    const release = await service.publish({ documentId: document.id, revisionId: revision.id, versionTag: String(index + 1) });
+    await store.putRelease({ ...release, publishedAt: new Date(Date.UTC(2026, 9, index + 1)) });
+  }
+  const history = createComparisonOperations(store, { track: 'remote' });
+  await expect(history.nodeHistory({ documentId: document.id, nodeKey: 'intro' })).rejects.toThrow('relations');
+  await service.computeRelations({ documentId: document.id });
+  const observed = { ...store,
+    /** A prepared history read must select relation nodes instead of loading revisions. */
+    async revision() { throw new Error('Node history must not load complete revisions'); },
+  };
+  const result = await createComparisonOperations(observed, { track: 'remote' }).nodeHistory({ documentId: document.id, nodeKey: 'intro' });
+  expect(result.timeline.map(row => row.content)).toEqual(['Original paragraph.', 'Revised paragraph.', 'Final paragraph.']);
+  const releases = (await store.releases(document.id)).sort((left, right) => left.publishedAt.getTime() - right.publishedAt.getTime());
+  const boundaries = await store.adjacencies(document.id);
+  const missing = boundaries.find(row => row.toReleaseId === releases[2]!.id)!;
+  await store.putAdjacency(missing, []);
+  await expect(history.nodeHistory({ documentId: document.id, nodeKey: 'intro' })).rejects.toThrow('incomplete');
+  await service.computeRelations({ documentId: document.id });
+  const boundary = boundaries.find(row => row.fromReleaseId === releases[0]!.id)!;
+  const nodes = await store.selectNodes({ revisionIds: releases.slice(0, 2).map(row => row.sourceRevisionId), itemId: 'intro' });
+  const participants = await store.nodeRelations({ comparisonIds: [boundary!.id], nodeIds: nodes.map(node => node.id) });
+  await store.putAdjacency(boundary!, participants.filter(row => row.side === 'from'));
+  await expect(history.nodeHistory({ documentId: document.id, nodeKey: 'intro' })).rejects.toThrow('incomplete');
 });
 
 test('retains renamed and moved classifications when rule numbers change', async () => {
@@ -103,6 +138,7 @@ test('tracks renamed formal nodes across reverse imports from either saved ident
   const older = await service.importCr({ content });
   const oldKey = (await store.revision(older.revisionId))!.nodes.find(node => node.anchor === '100.1')!.nodeKey;
   const newKey = (await store.revision(newer.revisionId))!.nodes.find(node => node.anchor === '100.2')!.nodeKey;
+  await service.computeRelations({ documentId: 'magic-cr' });
   const comparison = createComparisonOperations(store, { track: 'local' });
   for (const nodeKey of [oldKey, newKey]) {
     const history = await comparison.nodeHistory({ documentId: 'magic-cr', nodeKey });
@@ -122,11 +158,31 @@ test('does not attach a reused displayed rule number to an unrelated removed lin
   await owner.publish({ documentId: document.id, revisionId: empty.id, versionTag: '2' });
   const replacement = await owner.save({ documentId: document.id, title: 'Guide', nodes: [{ nodeKey: 'replacement-identity', anchor: '100.1', rawText: 'Completely unrelated replacement.' }] });
   await owner.publish({ documentId: document.id, revisionId: replacement.id, versionTag: '3' });
+  await owner.computeRelations({ documentId: document.id });
   const comparison = createComparisonOperations(store, { track: 'remote' });
   const old = await comparison.nodeHistory({ documentId: document.id, nodeKey: 'original-identity' });
   expect(old.timeline.map(row => row.state)).toEqual(['present', 'removed', 'removed']);
   const latest = await comparison.nodeHistory({ documentId: document.id, nodeKey: 'replacement-identity' });
   expect(latest.timeline.map(row => row.versionTag)).toEqual(['3']);
+});
+
+test('does not combine multiple lifetimes that reuse the same node key', async () => {
+  const store = memoryStore();
+  const owner = createDocumentService(store, { track: 'remote', actorId: 'alice' });
+  const document = await owner.create({ slug: 'reused-key-history', title: 'Guide', language: 'en', visibility: 'public' });
+  const old = await owner.save({ documentId: document.id, title: 'Guide', nodes: [{ nodeKey: 'reused', rawText: 'Old meaning.' }] });
+  await owner.publish({ documentId: document.id, revisionId: old.id, versionTag: '1' });
+  const absent = await owner.save({ documentId: document.id, title: 'Guide', nodes: [] });
+  await owner.publish({ documentId: document.id, revisionId: absent.id, versionTag: '2' });
+  const fresh = await owner.save({ documentId: document.id, title: 'Guide', nodes: [{ nodeKey: 'reused', rawText: 'New unrelated meaning.' }] });
+  await owner.publish({ documentId: document.id, revisionId: fresh.id, versionTag: '3' });
+  await owner.computeRelations({ documentId: document.id });
+  const history = createComparisonOperations(store, { track: 'remote' });
+  await expect(history.nodeHistory({ documentId: document.id, nodeKey: 'reused' })).rejects.toThrow('ambiguous');
+  const releases = (await store.releases(document.id)).sort((left, right) => left.publishedAt.getTime() - right.publishedAt.getTime());
+  const firstBoundary = (await store.adjacencies(document.id)).find(row => row.fromReleaseId === releases[0]!.id)!;
+  await store.putAdjacency(firstBoundary, []);
+  await expect(history.nodeHistory({ documentId: document.id, nodeKey: 'reused' })).rejects.toThrow('incomplete');
 });
 
 test('retains split and merged ancestry without treating their children as the original identity', async () => {
@@ -144,13 +200,17 @@ test('retains split and merged ancestry without treating their children as the o
   await owner.publish({ documentId: document.id, revisionId: split.id, versionTag: '2' });
   const merged = await owner.save({ documentId: document.id, title: 'Guide', nodes: [{ nodeKey: 'recombined', rawText: originalText }] });
   await owner.publish({ documentId: document.id, revisionId: merged.id, versionTag: '3' });
+  await owner.computeRelations({ documentId: document.id });
   const comparison = createComparisonOperations(store, { track: 'remote' });
   const original = await comparison.nodeHistory({ documentId: document.id, nodeKey: 'original' });
   expect(original.timeline.map(row => row.state)).toEqual(['present', 'split', 'removed']);
+  expect(original.timeline.map(row => row.change?.type ?? null)).toEqual([null, 'split', null]);
   const child = await comparison.nodeHistory({ documentId: document.id, nodeKey: 'left' });
   expect(child.timeline.map(row => row.state)).toEqual(['present', 'merged']);
+  expect(child.timeline.at(-1)?.change?.type).toBe('merged');
   const recombined = await comparison.nodeHistory({ documentId: document.id, nodeKey: 'recombined' });
   expect(recombined.timeline.map(row => row.versionTag)).toEqual(['3']);
+  expect(recombined.timeline[0]?.change?.type).toBe('merged');
 });
 
 
