@@ -152,8 +152,8 @@ DROP TABLE "magic"."rule_node";--> statement-breakpoint
 DROP TABLE "magic"."rule_source";--> statement-breakpoint
 DROP TABLE "magic_app"."document_change_review_states";--> statement-breakpoint
 DROP TABLE "magic_app"."document_version_pair_revisions";--> statement-breakpoint
-DROP INDEX "document_change_reviews_change_id_latest_uq";--> statement-breakpoint
-DROP INDEX "document_change_reviews_change_id_is_latest_revision_idx";--> statement-breakpoint
+DROP INDEX "magic_app"."document_change_reviews_change_id_latest_uq";--> statement-breakpoint
+DROP INDEX "magic_app"."document_change_reviews_change_id_is_latest_revision_idx";--> statement-breakpoint
 ALTER TABLE "magic_app"."document_change_reviews" ADD COLUMN "comparison_id" text NOT NULL;--> statement-breakpoint
 ALTER TABLE "magic_app"."document_change_reviews" ALTER COLUMN "change_id" SET DATA TYPE text USING "change_id"::text;--> statement-breakpoint
 ALTER TABLE "magic_app"."document_change_reviews" ALTER COLUMN "reviewer_id" SET NOT NULL;--> statement-breakpoint
