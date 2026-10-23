@@ -1,7 +1,10 @@
 import type { InjectionKey } from 'vue';
 import { inject, provide } from '#imports';
+import type { Game } from '@tcg-cards/base';
 
+/** Management lifecycle and optional local game access supplied by a host. */
 export interface ConsoleAdminHost {
+  localGames?: readonly Game[];
   initialize?(): Promise<void> | void;
   signOut(): Promise<void> | void;
 }

@@ -26,7 +26,9 @@
 当前 `apps/` 工作区包含以下项目级应用：
 
 - `app-console-desktop`
-  desktop 管理端，也是领域数据重型工作流的主要本地运行时。这个应用拥有最完整的本地操作能力，包括访问本地仓库、本地 PostgreSQL 和 desktop 专属工作流。
+  Electron desktop 管理端，目标是领域数据重型工作流的主要本地运行时。它作为独立 workspace 构建，完成后将完全替代原 Tauri 实现。本地管理不强制登录；涉及远端数据库的鉴权与发布能力结合设计。
+- `app-console-tauri`（迁移过渡）
+  原 desktop 管理端，在迁移期间独立保留，仍通过单独的 Bun desktop runtime 执行现有工作流。新 Electron 应用不依赖它的代码。
 - `app-console-mobile`（规划中）
   轻量移动管理终端。它的管理层级整体上接近 `site-console`，但运行在移动设备上，而不是运行在 Web 上。它后续也可以承载一部分不适合在浏览器中实现的轻量管理能力。
 - `app-desktop`（规划中）
@@ -68,6 +70,10 @@ desktop 的能力位于这个远端 router 顺序之上，因为它还包含本�
 `service-internal` 内部可以承载面向 desktop 的完整 router 面，但这并不意味着每一个 app 形态客户端都应获得其中全部能力。
 
 ## 包列表
+
+桌面开发启动与 Electron 入口构建使用社区 `nuxt-electron` 模块集成，以其生成的 quick-start 模板为起点。Nuxt 负责界面构建，Forge 负责应用打包；应用自身的进程与 IPC 职责仍保持明确。
+
+Electron 桌面界面经受控 preload 桥复用共享 Nuxt 管理端壳。主进程负责窗口和应用生命周期，本地业务在隔离的 Node.js 进程中执行。生产桌面运行不依赖单独启动的 Bun HTTP 服务。PostgreSQL、Git、数据仓库及既有外部工具仍由外部管理。Bun workspace 包管理与测试不属于本次运行时替换范围。参见 [ADR-0019](adr/0019-electron-replaces-tauri-console.md)。
 
 `packages/` 工作区包含供多个应用复用的共享基础模块：
 

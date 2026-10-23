@@ -26,7 +26,9 @@ New application names under `apps/` should follow these prefixes when they fit o
 The `apps/` workspace currently contains these project-level applications:
 
 - `app-console-desktop`
-  Desktop admin console and the primary local runtime for heavy domain-data workflows. This app owns the most complete local operational capability, including access to local repositories, local PostgreSQL, and desktop-only workflows.
+  Electron desktop admin console and the intended primary local runtime for heavy domain-data workflows. It is being built as an independent workspace that will completely replace the former Tauri implementation. Local management does not require a remote login; remote database access and publishing authentication are being designed together.
+- `app-console-tauri` (transitional)
+  The former desktop admin console, retained independently during migration. It still runs the existing workflows with the separate Bun desktop runtime. Its code is not a dependency of the Electron application.
 - `app-console-mobile` (planned)
   Lightweight mobile management client. It is intended to cover a management tier similar to `site-console`, but run on mobile devices instead of the web. It may also support selected lightweight management capabilities that are not practical in a browser.
 - `app-desktop` (planned)
@@ -68,6 +70,10 @@ Desktop sits above that remote-router ordering because it also owns local-only c
 `service-internal` may host the full desktop-oriented router surface internally, but that does not imply every app-shaped client should receive every exposed capability.
 
 ## Packages
+
+Desktop development and Electron entry builds are integrated through the community `nuxt-electron` module, based on its generated quick-start template. Nuxt owns the renderer build and Forge packages the application; application-specific process and IPC responsibilities remain explicit.
+
+The Electron desktop renderer reuses the shared Nuxt console shell through a restricted preload bridge. Its main process owns windows and application lifecycle; local business execution belongs in isolated Node.js processes. Production desktop execution must not depend on a separately started Bun HTTP service. PostgreSQL, Git, data repositories, and existing external tools remain externally managed. The existing Bun workspace package manager and tests are outside this runtime replacement. See [ADR-0019](adr/0019-electron-replaces-tauri-console.md).
 
 The `packages/` workspace contains shared building blocks used across multiple applications:
 

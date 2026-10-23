@@ -102,7 +102,7 @@
           <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-gray-500 dark:text-gray-400" />
         </div>
 
-        <div v-else-if="session" class="min-h-full">
+        <div v-else-if="session || host?.localGames" class="min-h-full">
           <slot />
         </div>
 
@@ -171,7 +171,7 @@ const session = computed(() => platform.session.get());
 const userRole = computed(() => session.value?.user?.role ?? null);
 const userName = computed(() => session.value?.user?.name ?? 'Console User');
 const sessionRole = computed(() => userRole.value ?? 'user');
-const accessibleGames = computed(() => getAccessibleGames(userRole.value));
+const accessibleGames = computed(() => host?.localGames ?? getAccessibleGames(userRole.value));
 const showUserManagement = computed(() => canManageUsers(userRole.value));
 const gameSelectItems = computed(() => getGameSelectItems(accessibleGames.value));
 const userNavItems = getUserNavItems();

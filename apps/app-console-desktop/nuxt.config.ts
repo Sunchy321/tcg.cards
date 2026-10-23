@@ -1,83 +1,32 @@
-import { fileURLToPath } from 'url';
+import { fileURLToPath } from 'node:url';
+import { electronOptions } from './electron/options';
 
 export default defineNuxtConfig({
   extends: ['@tcg-cards/console-shell', '@tcg-cards/ui'],
-
-  ssr:    false,
+  ssr: false,
   srcDir: 'src',
-
-  modules: ['@nuxt/eslint', '@nuxt/ui', '@nuxt/icon'],
-
-  devServer: {
-    port: 1420,
-  },
-
-  vite: {
-    optimizeDeps: {
-      include: [
-        // Tauri cold starts are more sensitive to Vite's late dependency discovery.
-        // Pre-bundle the desktop app's first-screen client deps to avoid a dev-time full reload.
-        '@tauri-apps/api/core',
-        '@tauri-apps/api/window',
-        '@tauri-apps/api/webviewWindow',
-        '@orpc/client',
-        '@orpc/client/fetch',
-        'better-auth',
-        'better-auth/client/plugins',
-        'better-auth/vue',
-        'better-auth/adapters/drizzle',
-        'better-auth/plugins',
-        'better-auth/plugins/access',
-        'better-auth/plugins/admin/access',
-        '@iconify/vue',
-        '@iconify/utils/lib/css/icon',
-        'monaco-editor/esm/vs/editor/editor.api',
-      ],
-    },
-  },
-
+  modules: ['nuxt-electron', '@nuxt/ui', '@nuxt/icon'],
+  electron: electronOptions,
+  devServer: { port: 1420 },
   css: ['~/assets/css/main.css'],
-
-  components: [
-    { path: '~/components', pathPrefix: false },
-  ],
-
-  // The ui layer's public dir is not copied into the build output when consumed
-  // through a custom srcDir, so mount it explicitly for /placeholder assets.
+  router: { options: { hashMode: true } },
   nitro: {
     publicAssets: [
       { dir: fileURLToPath(new URL('./node_modules/@tcg-cards/ui/public', import.meta.url)), baseURL: '/' },
     ],
   },
-
-  router: {
-    options: {
-      hashMode: true,
-    },
-  },
-
   fonts: {
-    providers: {
-      google:      false,
-      googleicons: false,
-      bunny:       false,
-      fontshare:   false,
-      fontsource:  false,
-    },
+    providers: { google: false, googleicons: false, bunny: false, fontshare: false, fontsource: false },
   },
-
   icon: {
-    provider:          'none',
-    customCollections: [
-      {
-        prefix:    'i',
-        dir:       fileURLToPath(new URL('./node_modules/@tcg-cards/ui/app/assets/icons', import.meta.url)),
-        recursive: true,
-      },
-    ],
+    provider: 'none',
     clientBundle: {
+      // Layout icons are selected dynamically, so template scanning cannot discover them.
+      icons: [
+        'lucide:layout-dashboard', 'lucide:chevron-down', 'lucide:settings',
+        'lucide:log-out', 'lucide:loader-circle', 'lucide:circle-alert',
+      ],
       scan: {
-        globExclude: ['dist', 'build', 'coverage', 'test', 'tests', '.*'],
         globInclude: [
           'src/**/*.{vue,ts}',
           'node_modules/@tcg-cards/console-core/src/**/*.{vue,ts}',
@@ -87,19 +36,5 @@ export default defineNuxtConfig({
       },
     },
   },
-
   compatibilityDate: '2026-05-01',
-
-  typescript: {
-    tsConfig: {
-      compilerOptions: {
-        // bun:test in console tests and the Bun APIs of bundled runtime sources.
-        types: ['bun'],
-      },
-    },
-  },
-
-  alias: {
-    '#model': fileURLToPath(new URL('./node_modules/@tcg-cards/model/src', import.meta.url)),
-  },
 });
