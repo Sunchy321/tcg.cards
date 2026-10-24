@@ -18,4 +18,11 @@ provideConsoleAdminHost(createConsoleAdminHost({
   localGames: GAMES,
   async signOut() {},
 }));
+
+const router = useRouter();
+let unsubscribe: (() => void) | undefined;
+onMounted(() => {
+  unsubscribe = window.desktop.onOpenSettings(() => { void router.push('/settings'); });
+});
+onBeforeUnmount(() => unsubscribe?.());
 </script>

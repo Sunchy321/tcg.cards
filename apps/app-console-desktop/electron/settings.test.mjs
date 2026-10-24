@@ -18,6 +18,17 @@ async function launch(profile) {
 async function navigate(page, path) {
   await page.evaluate(value => { location.hash = value; }, path);
 }
+/** Invokes the actual native application-menu command shared with its accelerator. */
+async function openSettings(app) {
+  await app.evaluate(({ Menu }) => {
+    const menu = Menu.getApplicationMenu();
+    const item = menu?.getMenuItemById('open-settings');
+    if (!item || !menu.items[0].submenu.items.includes(item) || item.accelerator !== 'Command+,') {
+      throw new Error('Settings command is missing from the application menu');
+    }
+    item.click();
+  });
+}
 /** Edits the visible Monaco document through its keyboard interface. */
 async function editJson(page, text) {
   const editor = page.locator('.monaco-editor [role="textbox"]').first();
@@ -42,8 +53,17 @@ test('settings persist after completed edits and JSON protects invalid and unsav
     await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0].setSize(1280, 800); });
     page.on('pageerror', error => console.error('Renderer:', error.message));
     await page.getByText('最近活动', { exact: true }).waitFor();
-    await page.getByRole('link', { name: '设置', exact: true }).click();
+    await openSettings(app);
     await page.getByRole('main').getByRole('heading', { name: '设置', exact: true }).waitFor();
+    const closed = page.waitForEvent('close');
+    await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0].close(); });
+    await closed;
+    const reopened = app.waitForEvent('window');
+    await openSettings(app);
+    page = await reopened;
+    await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0].setSize(1280, 800); });
+    await page.getByRole('main').getByRole('heading', { name: '设置', exact: true }).waitFor();
+    console.log('PASS native settings menu, accelerator and closed-window restoration');
     await navigate(page, '/settings/model');
     const model = page.getByLabel('模型名称', { exact: true });
     await model.fill('local-test-model');
@@ -78,7 +98,7 @@ test('settings persist after completed edits and JSON protects invalid and unsav
     await page.getByRole('button', { name: '保存', exact: true }).click();
     await page.getByRole('alert').filter({ hasText: '不支持的项目' }).waitFor();
     assert.deepEqual((await page.evaluate(() => window.desktop.settings.read())).config, snapshot.config);
-    await page.getByRole('link', { name: '数据库', exact: true }).click();
+    await openSettings(app);
     await page.getByRole('dialog').waitFor();
     await page.getByRole('button', { name: '保存并离开', exact: true }).click();
     assert.equal(await page.getByRole('dialog').count(), 1);

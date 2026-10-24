@@ -1,9 +1,9 @@
-import { app, BrowserWindow, dialog, ipcMain, net, protocol } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, MenuItem, net, protocol } from 'electron';
 import Store from 'electron-store';
 import { resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { HEALTH_CHANNEL, CLOSE_REQUESTED } from './contract';
+import { HEALTH_CHANNEL, OPEN_SETTINGS, CLOSE_REQUESTED } from './contract';
 import { RuntimeClient } from './runtime-client';
 import { Settings } from './settings';
 import { credentials } from './credentials';
@@ -36,7 +36,7 @@ function isAppUrl(value: string) {
 }
 
 /** Creates or focuses the existing management window without requiring a session. */
-function openMainWindow() {
+function openMainWindow(settings = false) {
   if (mainWindow) {
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.show();
@@ -74,7 +74,38 @@ function openMainWindow() {
   window.webContents.on('will-navigate', (event, url) => {
     if (!isAppUrl(url)) event.preventDefault();
   });
-  void window.loadURL(rendererUrl);
+  const url = new URL(rendererUrl);
+  if (settings) url.hash = '/settings';
+  void window.loadURL(url.href);
+}
+
+/** Opens settings through the router so existing unsaved-change guards still apply. */
+function openSettings() {
+  if (!mainWindow) { openMainWindow(true); return; }
+  const window = mainWindow;
+  openMainWindow();
+  /** Delivers the request only after the preload has registered its listener. */
+  const send = () => { if (!window.isDestroyed()) window.webContents.send(OPEN_SETTINGS); };
+  if (window.webContents.isLoadingMainFrame()) window.webContents.once('did-finish-load', send);
+  else send();
+}
+
+/** Extends the standard macOS application menu while preserving its other commands. */
+function installSettingsMenu() {
+  if (process.platform !== 'darwin') return;
+  const menu = Menu.getApplicationMenu();
+  const application = menu?.items[0];
+  if (!menu || !application?.submenu) return;
+  const items = application.submenu.items;
+  const submenu = new Menu();
+  for (const item of items.slice(0, 2)) submenu.append(item);
+  submenu.append(new MenuItem({ id: 'open-settings', label: '设置…', accelerator: 'Command+,', click: openSettings }));
+  submenu.append(new MenuItem({ type: 'separator' }));
+  for (const item of items.slice(2)) submenu.append(item);
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    { label: application.label, submenu },
+    ...menu.items.slice(1),
+  ]));
 }
 
 /** Rechecks the current main frame and development-server identity for privileged IPC. */
@@ -117,7 +148,8 @@ app.whenReady().then(async () => {
     return runtime!.health();
   });
   openMainWindow();
-  app.on('activate', openMainWindow);
+  installSettingsMenu();
+  app.on('activate', () => openMainWindow());
 }).catch(error => {
   // Keep diagnostics useful without logging settings or credential-bearing errors.
   console.error('[console startup]', startupPhase, error instanceof Error ? error.name : 'Error');

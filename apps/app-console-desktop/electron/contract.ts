@@ -9,6 +9,7 @@ export interface RuntimeHealth {
 
 /** Restricted native capabilities available to the desktop renderer. */
 export interface DesktopBridge {
+  onOpenSettings(listener: () => void): () => void;
   settings: {
     read(): Promise<SettingsSnapshot>;
     update(key: string, value: unknown): Promise<SettingsSnapshot>;
@@ -39,6 +40,7 @@ export interface RuntimeResponse {
 }
 
 export const HEALTH_CHANNEL = 'desktop:runtime:health';
+export const OPEN_SETTINGS = 'desktop:open-settings';
 
 /** Settings requests admitted by the main-process gateway. */
 export type SettingsRequest =

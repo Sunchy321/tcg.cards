@@ -1,8 +1,21 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import { HEALTH_CHANNEL, SETTINGS_CHANNEL, CLOSE_CHANNEL, CLOSE_REQUESTED, type DesktopBridge } from './contract';
+import { HEALTH_CHANNEL, OPEN_SETTINGS, SETTINGS_CHANNEL, CLOSE_CHANNEL, CLOSE_REQUESTED, type DesktopBridge } from './contract';
+
+let settingsListener: (() => void) | undefined;
+let settingsRequested = false;
+// Keep menu requests received after document load but before Nuxt mounts.
+ipcRenderer.on(OPEN_SETTINGS, () => {
+  if (settingsListener) settingsListener();
+  else settingsRequested = true;
+});
 
 const bridge: DesktopBridge = {
+  onOpenSettings(listener) {
+    settingsListener = listener;
+    if (settingsRequested) { settingsRequested = false; listener(); }
+    return () => { if (settingsListener === listener) settingsListener = undefined; };
+  },
   settings: {
     read: () => ipcRenderer.invoke(SETTINGS_CHANNEL, { action: 'read' }),
     update: (key, value) => ipcRenderer.invoke(SETTINGS_CHANNEL, { action: 'update', key, value }),
