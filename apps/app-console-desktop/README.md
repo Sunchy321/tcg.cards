@@ -8,13 +8,13 @@ Install workspace dependencies from the repository root with `bun install`, then
 
 Use `bun run dev:web` to run Nuxt and the Electron build watchers without opening Electron. After building, `bun run preview` opens the static application.
 
-The shell opens local management without signing in. Settings, tasks, publishing authentication, and game workflows are migrated through separate tickets; existing Tauri features are not yet all available in Electron.
+The shell opens local management without signing in. Settings are available locally; tasks, publishing authentication, and game workflows are migrated through separate tickets. Existing Tauri features are not yet all available in Electron.
 
 ## Verification
 
 - `bun run typecheck` checks the renderer and Electron entries.
 - `bun run build` generates Nuxt static assets and all Electron entries through `nuxt-electron`.
-- After building, `bun run test:electron` exercises a hidden Electron window and IPC bridge using static assets and an isolated temporary profile. Set `VITE_DEV_SERVER_URL=http://localhost:1420` to exercise the development server instead.
+- After building, `bun run test:electron` exercises a hidden Electron window and IPC bridge using static assets and an isolated temporary profile.
 - `bun run package:electron` creates a macOS application; `bun run make:electron` also creates its ZIP distribution. Signing, notarization, and automatic updates are not configured.
 
 Installed execution uses Electron's bundled Node.js, not a system Bun runtime. PostgreSQL and existing external tools remain separately managed.
@@ -30,3 +30,17 @@ bun x nuxt init /private/tmp/tcg-nuxt-electron-starter-20261024 \
 ```
 
 The generated template supplies the Nuxt module integration, `--no-fork` development command, Electron entries, preload reload pattern, and static-build flow. Adaptations align Nuxt/Vue/Electron versions with this workspace, retain Forge instead of the example's electron-builder, reuse the console layers, and restrict IPC rather than copy the demo's generic IPC bridge. Renderer Node polyfills are omitted. The existing secure app protocol is retained, so the module's default file-URL path rewrites are disabled. Main and business entries build together, with startup waiting for preload as well. Pure renderer and build-time dependencies are development dependencies; no package manifest rewrite is needed during packaging.
+
+## Settings
+
+Settings are owned by the main process and persisted with `electron-store` in Electron's `userData` directory (`settings.json`). Public configuration and encrypted credentials are separate sections of the stored envelope. The advanced editor reads and replaces only public configuration; it cannot read or write secret values. Database connection strings are stored as complete encrypted values. `safeStorage` must be available; failures never fall back to plaintext.
+
+Inputs save after blur or Enter, and selects save after a completed selection. Invalid edits retain the previously saved value. The advanced JSON editor requires explicit save, rejects unsupported fields, and prompts before discarding unsaved changes. A running task must retain a detached configuration and credential snapshot obtained at its start; changes apply to subsequent tasks.
+
+First startup reads the former Tauri configuration under `~/Library/Application Support/cards.tcg.console-desktop/` and the existing `tcg-cards-console-desktop` Keychain service. Ordinary values are validated and credentials are encrypted before persistence. Diagnostic outcomes are retained per category, including partial failures; inheritance information is not displayed in the UI. The old files and Keychain entries remain untouched, and later starts do not overwrite the new settings. Old session material is archived encrypted, without restoring a logged-in session. Login and remote publication access are still separate migration work.
+
+Legacy nested path overrides are converted to declared dotted keys in the public `paths` object. Explicit paths remain valid without existing folders; derived game paths are returned only when their folders exist and are never persisted by reading them. This also allows a game root and its individual overrides to coexist.
+
+Development launches authenticate the Nuxt instance with a fresh challenge and HMAC before opening the renderer and on privileged requests. An unrelated service on port 1420 is insufficient. Launch through `bun run dev`; manually setting `VITE_DEV_SERVER_URL` without the matching launch identity will be rejected.
+
+`bun run test:settings` exercises configuration, secret failure, inheritance and development trust boundaries. `bun run test:electron` additionally tests the settings UI in a hidden application with temporary user data. Smoke-test launches never read legacy files or credentials. Set `ELECTRON_TEST_EXECUTABLE` to the packaged macOS executable to run the settings UI test against it. The encryption integration test uses only generated temporary values with real OS encryption. Inheritance from your actual legacy environment remains part of manual verification.

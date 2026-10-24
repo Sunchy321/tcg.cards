@@ -71,6 +71,8 @@ Desktop sits above that remote-router ordering because it also owns local-only c
 
 ## Packages
 
+Desktop settings are owned by the main process and persisted with `electron-store`; credentials use Electron `safeStorage`. The renderer accesses validated settings through the restricted preload bridge. Advanced JSON exposes ordinary configuration only. Running tasks retain their startup configuration snapshot.
+
 Desktop development and Electron entry builds are integrated through the community `nuxt-electron` module, based on its generated quick-start template. Nuxt owns the renderer build and Forge packages the application; application-specific process and IPC responsibilities remain explicit.
 
 The Electron desktop renderer reuses the shared Nuxt console shell through a restricted preload bridge. Its main process owns windows and application lifecycle; local business execution belongs in isolated Node.js processes. Production desktop execution must not depend on a separately started Bun HTTP service. PostgreSQL, Git, data repositories, and existing external tools remain externally managed. The existing Bun workspace package manager and tests are outside this runtime replacement. See [ADR-0019](adr/0019-electron-replaces-tauri-console.md).

@@ -71,6 +71,8 @@ desktop 的能力位于这个远端 router 顺序之上，因为它还包含本�
 
 ## 包列表
 
+桌面配置由主进程管理，并使用 `electron-store` 持久化；凭据使用 Electron `safeStorage` 加密。界面经受限 preload 桥访问经过校验的设置，高级 JSON 仅包含普通配置。运行中任务保留启动时的配置快照。
+
 桌面开发启动与 Electron 入口构建使用社区 `nuxt-electron` 模块集成，以其生成的 quick-start 模板为起点。Nuxt 负责界面构建，Forge 负责应用打包；应用自身的进程与 IPC 职责仍保持明确。
 
 Electron 桌面界面经受控 preload 桥复用共享 Nuxt 管理端壳。主进程负责窗口和应用生命周期，本地业务在隔离的 Node.js 进程中执行。生产桌面运行不依赖单独启动的 Bun HTTP 服务。PostgreSQL、Git、数据仓库及既有外部工具仍由外部管理。Bun workspace 包管理与测试不属于本次运行时替换范围。参见 [ADR-0019](adr/0019-electron-replaces-tauri-console.md)。

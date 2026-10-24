@@ -1,8 +1,13 @@
+import { randomBytes } from 'node:crypto';
 import type { ElectronOptions as NuxtElectronOptions } from 'nuxt-electron';
 import type { ElectronOptions } from 'vite-plugin-electron';
 
 /** Lifecycle callbacks supplied by the community Electron build plugin. */
 type BuildLifecycle = Parameters<NonNullable<ElectronOptions['onstart']>>[0];
+
+// Keep the launch identity in the server and child environment, never in renderer assets.
+export const developmentIdentity = randomBytes(32).toString('hex');
+process.env.CONSOLE_DEV_IDENTITY = developmentIdentity;
 
 const ready = new Set<'main' | 'preload'>();
 let started = false;
@@ -27,10 +32,13 @@ export const electronOptions: NuxtElectronOptions = {
   disableDefaultOptions: true,
   build: [
     {
+      // Shared Nuxt tsconfig references may not exist during the first dev build.
+      vite: { esbuild: { tsconfigRaw: '{"compilerOptions":{"target":"ES2022"}}' } },
       entry: { main: 'electron/main.ts', runtime: 'electron/runtime.ts' },
       onstart: lifecycle => onBuilt('main', lifecycle),
     },
     {
+      vite: { esbuild: { tsconfigRaw: '{"compilerOptions":{"target":"ES2022"}}' } },
       entry: 'electron/preload.ts',
       onstart: lifecycle => onBuilt('preload', lifecycle),
     },
