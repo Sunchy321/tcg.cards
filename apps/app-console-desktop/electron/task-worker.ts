@@ -5,7 +5,9 @@ import { TaskRun } from '@tcg-cards/db/schema/local/task';
 
 import './task/discover';
 import { getTask } from './task/registry';
+import type { TaskDefinition, TaskStageDefinition } from './task/registry';
 import { TaskStore } from './task/store';
+import type { WorkerCommand } from './contract';
 
 /** Immutable launch data passed by the task host to one Worker. */
 interface LaunchData {
@@ -14,13 +16,131 @@ interface LaunchData {
   databaseUrl: string;
 }
 
+/** Terminal statuses a Worker must never overwrite with its own failure. */
+const terminalStatuses = ['canceled', 'failed', 'completed', 'abandoned'];
+
 const launch = workerData as LaunchData;
 const port = parentPort;
 if (!port) throw new Error('Task Worker requires a parent');
 
-/** Announces a state change so the host can fetch one authoritative snapshot. */
+/** Announces a startup phase so the host can fetch one authoritative snapshot. */
 function changed(phase: 'loading' | 'running' | 'finished'): void {
   port!.postMessage({ taskRunId: launch.taskRunId, phase });
+}
+
+/** Announces that a control request settled without a startup phase change. */
+function settled(): void {
+  port!.postMessage({ taskRunId: launch.taskRunId, settled: true });
+}
+
+/** Outcome of one pass over the planned stages. */
+type Outcome = 'done' | 'paused' | 'canceled' | 'failed';
+
+/** Latest control instruction received from the host. */
+let control: 'pause' | 'cancel' | null = null;
+/** Aborts the currently running stage attempt. */
+let controller: AbortController | null = null;
+/** Resolves the paused wait when the host sends resume or cancel. */
+let wake: (() => void) | undefined;
+
+port!.on('message', (message: WorkerCommand) => {
+  if (message.taskRunId !== launch.taskRunId) return;
+  if (message.control === 'resume') {
+    control = null;
+    wake?.();
+    return;
+  }
+  control = message.control;
+  if (controller) controller.abort(message.control);
+  else wake?.();
+});
+
+/** Waits inside the paused state until the host resumes or cancels the run. */
+function waitWhilePaused(): Promise<'resume' | 'cancel'> {
+  return new Promise(resolve => {
+    wake = () => {
+      wake = undefined;
+      resolve(control === 'cancel' ? 'cancel' : 'resume');
+    };
+  });
+}
+
+/** Reads the persisted status of this run, null when the row disappeared. */
+async function statusOf(store: TaskStore): Promise<string | null> {
+  const view = await store.get(launch.taskRunId);
+  return view?.status ?? null;
+}
+
+/** Stops one stage attempt at its safe boundary and reports the settled outcome. */
+async function settleInterrupted(store: TaskStore, stageKey: string): Promise<Outcome> {
+  const status = await statusOf(store);
+  if (status === null || terminalStatuses.includes(status)) return 'canceled';
+  if (control === 'pause') {
+    await store.markPaused(launch.taskRunId, stageKey, 'none');
+    control = null;
+    settled();
+    return 'paused';
+  }
+  await store.markCanceled(launch.taskRunId);
+  settled();
+  return 'canceled';
+}
+
+/** Runs one pass over the planned stages; paused stops at the current safe boundary. */
+async function runOnce(
+  store: TaskStore,
+  definition: TaskDefinition,
+  stages: TaskStageDefinition[],
+  params: Record<string, unknown>,
+  resumed: boolean,
+): Promise<Outcome> {
+  controller = new AbortController();
+  const snapshot = await store.get(launch.taskRunId);
+  if (!snapshot) return 'failed';
+  if (terminalStatuses.includes(snapshot.status)) return 'canceled';
+  for (const [index, stage] of stages.entries()) {
+    if (snapshot.stages[index]?.status === 'completed') continue;
+    if (!(await store.beginStage(launch.taskRunId, stage.key, index))) {
+      const status = await statusOf(store);
+      if (status === 'pausing') {
+        await store.markPaused(launch.taskRunId, stage.key, 'none');
+        settled();
+        return 'paused';
+      }
+      if (status === 'canceling') {
+        await store.markCanceled(launch.taskRunId);
+        settled();
+      }
+      return 'canceled';
+    }
+    changed('running');
+    const resume = resumed ? { done: snapshot.stages[index]?.done ?? 0 } : undefined;
+    try {
+      await stage.run({
+        params,
+        signal: controller.signal,
+        resume,
+        async progress(done: number) {
+          if (!Number.isSafeInteger(done) || done < 0 || done > stage.total) {
+            throw new Error('Invalid task progress');
+          }
+          await store.progress(launch.taskRunId, stage.key, done);
+          changed('running');
+        },
+      });
+    } catch (error) {
+      if (controller.signal.aborted) return settleInterrupted(store, stage.key);
+      if (terminalStatuses.includes((await statusOf(store)) ?? '')) return 'canceled';
+      await store.fail(launch.taskRunId, error instanceof Error ? error.message : 'Task failed');
+      changed('finished');
+      return 'failed';
+    }
+    await store.completeStage(launch.taskRunId, stage.key);
+    changed('running');
+  }
+  await store.complete(launch.taskRunId, definition.result?.(params) ?? {});
+  changed('finished');
+  return 'done';
 }
 
 /** Loads one task definition and runs its planned stages in this Worker. */
@@ -37,30 +157,21 @@ async function execute(): Promise<void> {
     const stages = await definition.stages(params);
     await store.plan(launch.taskRunId, stages);
     changed('running');
-    const controller = new AbortController();
-    for (const [index, stage] of stages.entries()) {
-      await store.beginStage(launch.taskRunId, stage.key, index);
-      changed('running');
-      await stage.run({
-        params,
-        signal: controller.signal,
-        async progress(done) {
-          if (!Number.isSafeInteger(done) || done < 0 || done > stage.total) {
-            throw new Error('Invalid task progress');
-          }
-          await store.progress(launch.taskRunId, stage.key, done);
-          changed('running');
-        },
-      });
-      await store.completeStage(launch.taskRunId, stage.key);
-      changed('running');
+    let resumed = false;
+    for (;;) {
+      const outcome = await runOnce(store, definition, stages, params, resumed);
+      if (outcome !== 'paused') return;
+      if (await waitWhilePaused() === 'cancel') return;
+      resumed = true;
     }
-    await store.complete(launch.taskRunId, definition.result?.(params) ?? {});
-    changed('finished');
   } catch (error) {
+    if (terminalStatuses.includes((await statusOf(store)) ?? '')) return;
     await store.fail(launch.taskRunId, error instanceof Error ? error.message : 'Task failed');
     changed('finished');
   }
 }
 
-void execute();
+void execute().finally(() => {
+  // Quiet exits still flush their last messages; nothing may resume this Worker afterwards.
+  port!.unref();
+});

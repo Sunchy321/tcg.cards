@@ -194,17 +194,40 @@ app
       await authorize(event);
       const parsed = z.discriminatedUnion('action', [
         z.strictObject({ action: z.literal('start'), taskType: z.string().min(1), params: z.record(z.string(), z.unknown()) }),
+        z.strictObject({ action: z.literal('retry'), taskRunId: z.uuid() }),
+        z.strictObject({ action: z.literal('control'), taskRunId: z.uuid(), kind: z.enum(['pause', 'resume', 'cancel']) }),
+        z.strictObject({ action: z.literal('latestByTypes'), taskTypes: z.array(z.string().min(1)).min(1) }),
         z.strictObject({ action: z.literal('list') }),
         z.strictObject({ action: z.literal('get'), taskRunId: z.uuid() }),
       ]).parse(request);
       if (parsed.action === 'list') return runtime!.list(await settings.secret('database') ?? undefined);
       if (parsed.action === 'get') return runtime!.get(parsed.taskRunId, await settings.secret('database') ?? undefined);
+      if (parsed.action === 'control' || parsed.action === 'latestByTypes') {
+        const url = await settings.secret('database');
+        if (!url) throw new Error('请先在设置中填写本地数据库连接。');
+        return parsed.action === 'control'
+          ? runtime!.control(parsed.taskRunId, parsed.kind, url)
+          : runtime!.latestByTypes(parsed.taskTypes, url);
+      }
+      const url = await settings.secret('database');
+      let taskType: string;
+      let retryOfTaskRunId: string | null = null;
+      if (parsed.action === 'start') {
+        taskType = parsed.taskType;
+      } else {
+        if (!url) throw new Error('请先在设置中填写本地数据库连接。');
+        const source = await runtime!.get(parsed.taskRunId, url);
+        if (!source) throw new Error('任务不存在或已清除。');
+        taskType = source.taskType;
+        retryOfTaskRunId = parsed.taskRunId;
+      }
+      const label = taskType;
       const taskRunId = randomUUID();
       const createdAt = new Date().toISOString();
       const accepted: TaskView = {
         id:           taskRunId,
-        taskType:     parsed.taskType,
-        label:        parsed.taskType,
+        taskType,
+        label,
         status:       'pending',
         phase:        'accepted',
         elapsedMs:    0,
@@ -215,10 +238,26 @@ app
         startedAt:    null,
         finishedAt:   null,
       };
+      // Reuse the existing unfinished run of this type instead of accepting a competing one.
+      if (url) {
+        const existing = await runtime!.findActiveByType(taskType, url);
+        if (existing) {
+          mainWindow?.webContents.send(TASK_CHANGED_CHANNEL, existing);
+          return { taskRunId: existing.id, existing: true };
+        }
+      }
       mainWindow?.webContents.send(TASK_CHANGED_CHANNEL, accepted);
-      void settings.secret('database').then(url => {
+      const launchParams = parsed.action === 'start' ? parsed.params : null;
+      const dispatch = (async () => {
         if (!url) throw new Error('请先在设置中填写本地数据库连接。');
-        return runtime!.start(taskRunId, parsed.taskType, parsed.params, url);
+        if (retryOfTaskRunId) return runtime!.retry(taskRunId, retryOfTaskRunId, url);
+        if (launchParams !== null) return runtime!.start(taskRunId, taskType, launchParams, url);
+        throw new Error('无法启动任务');
+      })();
+      void dispatch.then(result => {
+        if (result.created) return;
+        mainWindow?.webContents.send(TASK_CHANGED_CHANNEL, result.task);
+        mainWindow?.webContents.send(TASK_CHANGED_CHANNEL, { ...accepted, status: 'discarded', phase: 'finished', finishedAt: new Date().toISOString() });
       }).catch(error => {
         const failed: TaskView = {
           ...accepted,
@@ -229,7 +268,7 @@ app
         };
         mainWindow?.webContents.send(TASK_CHANGED_CHANNEL, failed);
       });
-      return { taskRunId };
+      return { taskRunId, existing: false };
     });
     openMainWindow();
     installSettingsMenu();

@@ -51,9 +51,12 @@ const bridge: DesktopBridge = {
     health: () => ipcRenderer.invoke(HEALTH_CHANNEL),
   },
   tasks: {
-    start: (taskType, params) => ipcRenderer.invoke(TASK_CHANNEL, { action: 'start', taskType, params }),
-    list:  () => ipcRenderer.invoke(TASK_CHANNEL, { action: 'list' }),
-    get:   taskRunId => ipcRenderer.invoke(TASK_CHANNEL, { action: 'get', taskRunId }),
+    start:         (taskType, params) => ipcRenderer.invoke(TASK_CHANNEL, { action: 'start', taskType, params }),
+    retry:         taskRunId => ipcRenderer.invoke(TASK_CHANNEL, { action: 'retry', taskRunId }),
+    control:       (taskRunId, kind) => ipcRenderer.invoke(TASK_CHANNEL, { action: 'control', taskRunId, kind }),
+    latestByTypes: taskTypes => ipcRenderer.invoke(TASK_CHANNEL, { action: 'latestByTypes', taskTypes }),
+    list:          () => ipcRenderer.invoke(TASK_CHANNEL, { action: 'list' }),
+    get:           taskRunId => ipcRenderer.invoke(TASK_CHANNEL, { action: 'get', taskRunId }),
     onChange(listener) {
       const handler = (_event: Electron.IpcRendererEvent, task: TaskView) => listener(task);
       ipcRenderer.on(TASK_CHANGED_CHANNEL, handler);

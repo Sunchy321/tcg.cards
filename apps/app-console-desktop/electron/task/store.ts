@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { createDb } from '@tcg-cards/db';
 import { TaskRun, TaskStage as TaskStageRow } from '@tcg-cards/db/schema/local/task';
 
@@ -7,6 +7,12 @@ import type { TaskRegistration } from './registry';
 
 /** Active run states retained by the original task model. */
 const activeStatuses = ['pending', 'running', 'pausing', 'paused', 'resuming', 'canceling'] as const;
+
+/** Terminal states from which a new run may be retried with the original parameters. */
+const retryableStatuses: readonly string[] = ['failed', 'canceled', 'abandoned'];
+
+/** Every persisted state that ends a run. */
+const terminalStatuses: readonly string[] = [...retryableStatuses, 'completed'];
 
 /** Persists and reads task snapshots in the existing local PostgreSQL tables. */
 export class TaskStore {
@@ -17,7 +23,12 @@ export class TaskStore {
   }
 
   /** Creates a pending run before any Worker definition is loaded. */
-  async create(id: string, registration: TaskRegistration, params: Record<string, unknown>): Promise<TaskView> {
+  async create(
+    id: string,
+    registration: TaskRegistration,
+    params: Record<string, unknown>,
+    retryOfTaskRunId?: string,
+  ): Promise<TaskView> {
     const scope = registration.scope(params);
     await this.db.insert(TaskRun).values({
       id,
@@ -29,10 +40,30 @@ export class TaskStore {
       params,
       supportsResume:    registration.supportsResume,
       status:            'pending',
+      retryOfTaskRunId:  retryOfTaskRunId ?? null,
     });
     const view = await this.get(id);
     if (!view) throw new Error('Task was not saved');
     return view;
+  }
+
+  /** Returns the single unfinished run of one task type, whatever its scope is. */
+  async findActiveByType(taskType: string): Promise<TaskView | null> {
+    const [row] = await this.db.select({ id: TaskRun.id }).from(TaskRun)
+      .where(and(eq(TaskRun.taskType, taskType), inArray(TaskRun.status, [...activeStatuses])))
+      .orderBy(TaskRun.createdAt)
+      .limit(1);
+    return row ? this.get(row.id) : null;
+  }
+
+  /** Returns the newest run of each requested task type regardless of status. */
+  async latestByTypes(taskTypes: string[]): Promise<TaskView[]> {
+    if (taskTypes.length === 0) return [];
+    const rows = await this.db.selectDistinctOn([TaskRun.taskType], { id: TaskRun.id })
+      .from(TaskRun)
+      .where(inArray(TaskRun.taskType, taskTypes))
+      .orderBy(TaskRun.taskType, desc(TaskRun.createdAt));
+    return (await Promise.all(rows.map(row => this.get(row.id)))).filter((task): task is TaskView => task !== null);
   }
 
   /** Returns all unfinished runs across every registered task type. */
@@ -71,6 +102,90 @@ export class TaskStore {
     };
   }
 
+  /** Reports whether one run ended and can no longer be controlled. */
+  async isTerminal(id: string): Promise<boolean> {
+    const [row] = await this.db.select({ status: TaskRun.status }).from(TaskRun).where(eq(TaskRun.id, id)).limit(1);
+    return !row || terminalStatuses.includes(row.status);
+  }
+
+  /** Reports whether one run ended in a state that allows a same-parameter retry. */
+  async isRetryable(id: string): Promise<boolean> {
+    const [row] = await this.db.select({ status: TaskRun.status }).from(TaskRun).where(eq(TaskRun.id, id)).limit(1);
+    return !!row && retryableStatuses.includes(row.status);
+  }
+
+  /** Reads the original task type and parameters kept by one run. */
+  async parametersOf(id: string): Promise<{ taskType: string, params: Record<string, unknown> } | null> {
+    const [row] = await this.db.select({ taskType: TaskRun.taskType, params: TaskRun.params })
+      .from(TaskRun).where(eq(TaskRun.id, id)).limit(1);
+    return row ?? null;
+  }
+
+  /** Marks a running run as pausing so its Worker stops at the next safe boundary. */
+  async requestPause(id: string): Promise<boolean> {
+    const rows = await this.db.update(TaskRun).set({
+      status:             'pausing',
+      controlRequestKind: 'pause',
+      runRevision:        sql`${TaskRun.runRevision} + 1`,
+    }).where(and(eq(TaskRun.id, id), eq(TaskRun.status, 'running'))).returning({ id: TaskRun.id });
+    return rows.length > 0;
+  }
+
+  /** Clears a settled pause so the waiting Worker may continue its current stage. */
+  async requestResume(id: string): Promise<boolean> {
+    const rows = await this.db.update(TaskRun).set({
+      status:             'resuming',
+      controlRequestKind: null,
+      runRevision:        sql`${TaskRun.runRevision} + 1`,
+    }).where(and(eq(TaskRun.id, id), eq(TaskRun.status, 'paused'))).returning({ id: TaskRun.id });
+    return rows.length > 0;
+  }
+
+  /** Marks a running or pausing run as canceling at its current safe boundary. */
+  async requestCancel(id: string): Promise<boolean> {
+    const rows = await this.db.update(TaskRun).set({
+      status:             'canceling',
+      controlRequestKind: 'cancel',
+      runRevision:        sql`${TaskRun.runRevision} + 1`,
+    }).where(and(eq(TaskRun.id, id), inArray(TaskRun.status, ['running', 'pausing']))).returning({ id: TaskRun.id });
+    return rows.length > 0;
+  }
+
+  /** Finalizes a manual cancel from any status that has no safe boundary left to wait for. */
+  async markCanceled(id: string): Promise<boolean> {
+    const rows = await this.db.update(TaskRun).set({
+      status:             'canceled',
+      terminalReason:     'manual_cancel',
+      finishedAt:         new Date(),
+      controlRequestKind: null,
+      currentStageKey:    null,
+      currentStageIndex:  null,
+      currentResumeMode:  null,
+      pausedResumeMode:   null,
+      runRevision:        sql`${TaskRun.runRevision} + 1`,
+    }).where(and(eq(TaskRun.id, id), inArray(TaskRun.status, [...activeStatuses]))).returning({ id: TaskRun.id });
+    if (rows.length === 0) return false;
+    await this.db.update(TaskStageRow).set({ status: 'canceled', finishedAt: new Date() })
+      .where(and(
+        eq(TaskStageRow.taskRunId, id),
+        inArray(TaskStageRow.status, ['pending', 'running', 'paused']),
+      ));
+    return true;
+  }
+
+  /** Persists one Worker-side pause at a safe boundary inside the current stage. */
+  async markPaused(id: string, stageKey: string, resumeMode: 'none' | 'durable' | 'session_bound'): Promise<void> {
+    await this.db.update(TaskStageRow).set({ status: 'paused' })
+      .where(and(eq(TaskStageRow.taskRunId, id), eq(TaskStageRow.stageKey, stageKey)));
+    await this.db.update(TaskRun).set({
+      status:             'paused',
+      controlRequestKind: null,
+      currentStageKey:    stageKey,
+      pausedResumeMode:   resumeMode,
+      runRevision:        sql`${TaskRun.runRevision} + 1`,
+    }).where(and(eq(TaskRun.id, id), inArray(TaskRun.status, ['running', 'pausing'])));
+  }
+
   /** Inserts the stage skeleton after the Worker has loaded its definition. */
   async plan(id: string, stages: { key: string, label: string, total: number }[]): Promise<void> {
     if (stages.length === 0) return;
@@ -87,18 +202,21 @@ export class TaskStore {
     })));
   }
 
-  /** Starts a stage and records when actual execution begins. */
-  async beginStage(id: string, key: string, index: number): Promise<void> {
-    await this.db.update(TaskStageRow).set({ status: 'running', startedAt: new Date() })
-      .where(and(eq(TaskStageRow.taskRunId, id), eq(TaskStageRow.stageKey, key)));
-    await this.db.update(TaskRun).set({
+  /** Starts a stage and records when actual execution begins; false when a control state outran it. */
+  async beginStage(id: string, key: string, index: number): Promise<boolean> {
+    const rows = await this.db.update(TaskRun).set({
       status:            'running',
       startedAt:         sql`coalesce(${TaskRun.startedAt}, now())`,
       currentStageKey:   key,
       currentStageIndex: index,
       currentResumeMode: 'none',
+      pausedResumeMode:  null,
       runRevision:       sql`${TaskRun.runRevision} + 1`,
-    }).where(eq(TaskRun.id, id));
+    }).where(and(eq(TaskRun.id, id), inArray(TaskRun.status, ['pending', 'running', 'resuming']))).returning({ id: TaskRun.id });
+    if (rows.length === 0) return false;
+    await this.db.update(TaskStageRow).set({ status: 'running', startedAt: new Date() })
+      .where(and(eq(TaskStageRow.taskRunId, id), eq(TaskStageRow.stageKey, key)));
+    return true;
   }
 
   /** Saves monotonic bounded progress for one stage. */
@@ -117,8 +235,13 @@ export class TaskStore {
   /** Marks the entire run complete and stores its result. */
   async complete(id: string, result: Record<string, unknown>): Promise<void> {
     await this.db.update(TaskRun).set({
-      status:            'completed', result, finishedAt:        new Date(), currentStageKey:   null,
-      currentStageIndex: null, currentResumeMode: null,
+      status:            'completed',
+      result,
+      finishedAt:        new Date(),
+      currentStageKey:   null,
+      currentStageIndex: null,
+      currentResumeMode: null,
+      pausedResumeMode:  null,
       runRevision:       sql`${TaskRun.runRevision} + 1`,
     }).where(eq(TaskRun.id, id));
   }
@@ -126,10 +249,16 @@ export class TaskStore {
   /** Clears an unfinished run after a Worker or preparation failure. */
   async fail(id: string, message: string): Promise<void> {
     await this.db.update(TaskRun).set({
-      status:            'failed', terminalReason:    'execution_failed', errorMessage:      message,
-      finishedAt:        new Date(), currentStageKey:   null, currentStageIndex: null,
-      currentResumeMode: null, runRevision:       sql`${TaskRun.runRevision} + 1`,
-    }).where(eq(TaskRun.id, id));
+      status:            'failed',
+      terminalReason:    'execution_failed',
+      errorMessage:      message,
+      finishedAt:        new Date(),
+      currentStageKey:   null,
+      currentStageIndex: null,
+      currentResumeMode: null,
+      pausedResumeMode:  null,
+      runRevision:       sql`${TaskRun.runRevision} + 1`,
+    }).where(and(eq(TaskRun.id, id), inArray(TaskRun.status, [...activeStatuses])));
     await this.db.update(TaskStageRow).set({ status: 'failed', finishedAt: new Date() })
       .where(and(eq(TaskStageRow.taskRunId, id), eq(TaskStageRow.status, 'running')));
   }

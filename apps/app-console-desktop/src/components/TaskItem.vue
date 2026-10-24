@@ -5,9 +5,7 @@
         <p class="font-medium">{{ task.label }}</p>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ statusLabel }}</p>
       </div>
-      <UBadge :color="task.status === 'failed' ? 'error' : task.status === 'completed' ? 'success' : 'primary'" variant="soft">
-        {{ task.status === 'completed' ? '已完成' : task.status === 'failed' ? '失败' : '进行中' }}
-      </UBadge>
+      <UBadge :color="badgeColor" variant="soft">{{ badgeLabel }}</UBadge>
     </div>
     <div v-for="stage in task.stages" :key="stage.key" class="mt-4">
       <div class="flex justify-between text-sm">
@@ -49,12 +47,38 @@ onBeforeUnmount(() => {
 });
 
 const waitingSeconds = computed(() => Math.max(0, Math.floor((clock.value - Date.parse(props.task.createdAt)) / 1_000)));
+
+const statusTexts: Record<string, string> = {
+  pending:     '等待开始',
+  running:     '正在运行',
+  pausing:     '正在暂停',
+  paused:      '已暂停',
+  resuming:    '正在继续',
+  canceling:   '正在取消',
+  canceled:    '已取消',
+  failed:      '执行失败',
+  completed:   '已完成',
+  abandoned:   '已放弃',
+  interrupted: '已中断，等待继续',
+};
+
+const badgeColor = computed(() => {
+  if (props.task.status === 'failed') return 'error';
+  if (props.task.status === 'completed') return 'success';
+  if (['paused', 'pausing', 'canceling', 'resuming', 'interrupted'].includes(props.task.status)) return 'warning';
+  if (['canceled', 'abandoned'].includes(props.task.status)) return 'neutral';
+  return 'primary';
+});
+
+const badgeLabel = computed(() => statusTexts[props.task.status] ?? props.task.status);
+
 const statusLabel = computed(() => {
-  if (props.task.status === 'completed') return '已完成';
-  if (props.task.status === 'failed') return '执行失败';
-  if (props.task.status === 'running') return '正在运行';
-  if (props.task.phase === 'saving') return `正在保存任务 · 已等待 ${waitingSeconds.value} 秒`;
-  if (props.task.phase === 'loading') return `正在准备任务 · 已等待 ${waitingSeconds.value} 秒`;
-  return `等待开始 · 已等待 ${waitingSeconds.value} 秒`;
+  if (props.task.status === 'pending') {
+    if (props.task.phase === 'saving') return `正在保存任务 · 已等待 ${waitingSeconds.value} 秒`;
+    if (props.task.phase === 'loading') return `正在准备任务 · 已等待 ${waitingSeconds.value} 秒`;
+    return `等待开始 · 已等待 ${waitingSeconds.value} 秒`;
+  }
+  if (props.task.status === 'paused' || props.task.status === 'interrupted') return `${statusTexts[props.task.status]}，可点击“继续”`;
+  return statusTexts[props.task.status] ?? props.task.status;
 });
 </script>

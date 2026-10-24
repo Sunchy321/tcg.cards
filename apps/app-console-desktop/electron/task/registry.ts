@@ -18,9 +18,11 @@ export interface TaskStageDefinition {
 
 /** The Worker-side context for one stage. */
 export interface TaskStageContext {
-  params: Record<string, unknown>;
-  signal: AbortSignal;
+  params:  Record<string, unknown>;
+  signal:  AbortSignal;
   progress(done: number): Promise<void>;
+  /** Present when the stage re-enters after a pause; done is the persisted stage progress. */
+  resume?: { done: number };
 }
 
 /** The Worker-side task definition. */

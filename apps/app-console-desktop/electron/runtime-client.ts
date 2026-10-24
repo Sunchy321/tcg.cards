@@ -1,7 +1,15 @@
 import { utilityProcess } from 'electron';
 import type { UtilityProcess } from 'electron';
 
-import type { RuntimeHealth, RuntimeRequest, RuntimeResponse, RuntimeTaskEvent, TaskView } from './contract';
+import type {
+  RuntimeHealth,
+  RuntimeRequest,
+  RuntimeResponse,
+  RuntimeTaskEvent,
+  TaskControlKind,
+  TaskStartResult,
+  TaskView,
+} from './contract';
 
 /** Pending business calls rejected when their process exits or times out. */
 interface PendingCall {
@@ -51,8 +59,28 @@ export class RuntimeClient {
   }
 
   /** Saves and dispatches one task after the main process accepts its identity. */
-  start(taskRunId: string, taskType: string, params: Record<string, unknown>, databaseUrl: string): Promise<TaskView> {
-    return this.call<TaskView>({ id: ++this.nextId, method: 'task:start', taskRunId, taskType, params, databaseUrl });
+  start(taskRunId: string, taskType: string, params: Record<string, unknown>, databaseUrl: string): Promise<TaskStartResult> {
+    return this.call<TaskStartResult>({ id: ++this.nextId, method: 'task:start', taskRunId, taskType, params, databaseUrl });
+  }
+
+  /** Retries one terminal run with its original parameters under a new identity. */
+  retry(taskRunId: string, retryOfTaskRunId: string, databaseUrl: string): Promise<TaskStartResult> {
+    return this.call<TaskStartResult>({ id: ++this.nextId, method: 'task:retry', taskRunId, retryOfTaskRunId, databaseUrl });
+  }
+
+  /** Forwards one control request to the Worker that owns a run. */
+  control(taskRunId: string, kind: TaskControlKind, databaseUrl: string): Promise<TaskView> {
+    return this.call<TaskView>({ id: ++this.nextId, method: 'task:control', taskRunId, kind, databaseUrl });
+  }
+
+  /** Reads the unfinished run of one task type, whatever its scope is. */
+  findActiveByType(taskType: string, databaseUrl: string): Promise<TaskView | null> {
+    return this.call<TaskView | null>({ id: ++this.nextId, method: 'task:find-active', taskType, databaseUrl });
+  }
+
+  /** Reads the newest run of each requested task type regardless of status. */
+  latestByTypes(taskTypes: string[], databaseUrl: string): Promise<TaskView[]> {
+    return this.call<TaskView[]>({ id: ++this.nextId, method: 'task:latest-by-types', taskTypes, databaseUrl });
   }
 
   /** Lists unfinished tasks from the persistent task store. */

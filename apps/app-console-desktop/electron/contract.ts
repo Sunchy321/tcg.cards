@@ -26,11 +26,29 @@ export interface DesktopBridge {
     health(): Promise<RuntimeHealth>;
   };
   tasks: {
-    start(taskType: string, params: Record<string, unknown>): Promise<{ taskRunId: string }>;
+    start(taskType: string, params: Record<string, unknown>): Promise<TaskStartReply>;
+    retry(taskRunId: string): Promise<TaskStartReply>;
+    control(taskRunId: string, kind: TaskControlKind): Promise<TaskView>;
+    latestByTypes(taskTypes: string[]): Promise<TaskView[]>;
     list(): Promise<TaskView[]>;
     get(taskRunId: string): Promise<TaskView | null>;
     onChange(listener: (task: TaskView) => void): () => void;
   };
+}
+
+/** Control operations admitted while one run is unfinished. */
+export type TaskControlKind = 'pause' | 'resume' | 'cancel';
+
+/** Reply to a launch or retry request; existing means an unfinished run was reused. */
+export interface TaskStartReply {
+  taskRunId: string;
+  existing:  boolean;
+}
+
+/** Host-side outcome of a create-or-reuse request for one task type. */
+export interface TaskStartResult {
+  created: boolean;
+  task:    TaskView;
 }
 
 /** A stage snapshot safe to display in the renderer. */
@@ -47,6 +65,7 @@ export interface TaskView {
   id:           string;
   taskType:     string;
   label:        string;
+  /** Persisted lifecycle state; discarded marks a renderer identity that lost a creation race and never existed. */
   status:       string;
   phase:        'accepted' | 'saving' | 'starting' | 'loading' | 'running' | 'finished';
   elapsedMs:    number;
@@ -61,15 +80,33 @@ export interface TaskView {
 /** Request sent only between the main and local business processes. */
 export type RuntimeRequest
   = | { id: number, method: 'health' }
+    | { id: number, method: 'task:find-active', taskType: string, databaseUrl: string }
     | { id: number, method: 'task:start', taskRunId: string, taskType: string, params: Record<string, unknown>, databaseUrl: string }
+    | { id: number, method: 'task:retry', taskRunId: string, retryOfTaskRunId: string, databaseUrl: string }
+    | { id: number, method: 'task:control', taskRunId: string, kind: TaskControlKind, databaseUrl: string }
+    | { id: number, method: 'task:latest-by-types', taskTypes: string[], databaseUrl: string }
     | { id: number, method: 'task:list', databaseUrl?: string }
     | { id: number, method: 'task:get', taskRunId: string, databaseUrl?: string };
 
 /** Response sent only between the local business and main processes. */
 export interface RuntimeResponse {
   id:      number;
-  result?: RuntimeHealth | TaskView | TaskView[] | null;
+  result?: RuntimeHealth | TaskView | TaskView[] | TaskStartResult | null;
   error?:  string;
+}
+
+/** A control or progress notification sent from one Worker to the task host. */
+export interface WorkerMessage {
+  taskRunId: string;
+  phase?:    TaskView['phase'];
+  /** Signals that a control request settled without changing the startup phase. */
+  settled?:  boolean;
+}
+
+/** A control instruction sent from the task host to one Worker. */
+export interface WorkerCommand {
+  taskRunId: string;
+  control:   TaskControlKind;
 }
 
 /** A task update pushed from the task host to every open renderer. */

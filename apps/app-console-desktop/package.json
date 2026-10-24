@@ -12,7 +12,7 @@
     "lint": "eslint .",
     "typecheck:electron": "tsc -p electron/tsconfig.json",
     "test:electron": "node --test electron/smoke.test.mjs electron/settings.test.mjs electron/tasks.test.mjs",
-    "test:tasks": "node --test electron/tasks.test.mjs",
+    "test:tasks": "node --test electron/tasks.test.mjs && bun test electron/task/store.test.ts",
     "package:electron": "bun run build && electron-forge package",
     "make:electron": "bun run build && electron-forge make",
     "typecheck": "nuxt typecheck && bun run typecheck:electron",
