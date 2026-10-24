@@ -17,8 +17,8 @@ test('imports a human community translation and publishes source-aligned Chinese
   expect(page.outline.find(node => node.nodeId === '1')?.label).toBe('1. 游戏概念');
   expect(page.sections.find(node => node.nodeId === 'intro.content')?.text).toBe('一本规则参考文档。\n\n请参阅最新规则。');
   expect(page.sections.find(node => node.nodeId === '100.1')).toMatchObject({
-    text: '支付 {W}。参见规则100.2。', translationMethod: 'human', reviewStatus: 'unreviewed',
-    markers: [{ type: 'chapter', anchor: '100.2', start: 11, end: 16 }],
+    text:              '支付 {W}。参见规则100.2。', translationMethod: 'human', reviewStatus:      'unreviewed',
+    markers:           [{ type: 'chapter', anchor: '100.2', start: 11, end: 16 }],
   });
   expect(page.sections.filter(node => node.kind === 'example').map(node => node.text)).toEqual([
     '例如：支付一点白色法术力。', '例如：不要支付两次。',
@@ -43,7 +43,8 @@ test('requires an existing English edition and preserves selected Chinese on ali
   const revisions = await documents.revisions('magic-cr');
   for (const changed of [
     { ...communityTranslation, intro: { contents: communityTranslation.intro.contents.map((entry, index) => index === 1
-      ? { ...entry, en: 'These rules are effective as of September 24, 2026.' } : entry) } },
+      ? { ...entry, en: 'These rules are effective as of September 24, 2026.' }
+      : entry) } },
     { ...communityTranslation, main: [communityTranslation.main[0], communityTranslation.main[0]] },
     { ...communityTranslation, glossary: [{ ...communityTranslation.glossary[0], en: 'A different source definition.' }] },
     { ...communityTranslation, main: [{ ...communityTranslation.main[0], subrules: [] }] },
@@ -61,7 +62,9 @@ test('rolls back saved translation content when selecting the edition fails', as
   const documents = createDocumentService(store, { track: 'local' });
   await documents.importCr({ content: communitySource });
   const original = store.putReleaseTranslation;
-  store.putReleaseTranslation = async () => { throw new Error('Selection unavailable'); };
+  store.putReleaseTranslation = async () => {
+    throw new Error('Selection unavailable');
+  };
   await expect(documents.importCrTranslation({ versionTag: '20260925', content: communityTranslation })).rejects.toThrow('Selection unavailable');
   expect(await store.translations('magic-cr')).toEqual([]);
   expect(await documents.revisions('magic-cr')).toHaveLength(1);
@@ -97,8 +100,8 @@ test('imports Chinese against source rules whose explicit number punctuation has
   const source = communitySource.replace('\nGlossary\n', `\n9. Casual Variants\n\n901. Planechase\n\n901.3. ${parent}\n\n901.3a ${die}\n\n901.4.${zone}\n\n901.4a.Keep the face-up cards visible.\n\nGlossary\n`);
   await documents.importCr({ content: source });
   const content = { ...communityTranslation, main: [...communityTranslation.main, {
-    chapter: '9.', en: 'Casual Variants', zh: '休闲玩法', subrules: [{
-      chapter: '901.', en: 'Planechase', zh: '竞逐时空', subrules: [
+    chapter:  '9.', en:       'Casual Variants', zh:       '休闲玩法', subrules: [{
+      chapter:  '901.', en:       'Planechase', zh:       '竞逐时空', subrules: [
         { chapter: '901.3.', en: parent, zh: '每位牌手需要时空套牌。', subrules: [{ chapter: '901.3a', en: die, zh: '时空骰为六面骰。' }] },
         { chapter: '901.4.', en: zone, zh: '所有时空牌和异象牌都留在统帅区。', subrules: [{ chapter: '901.4a', en: 'Keep the face-up cards visible.', zh: '保持牌面朝上的牌可见。' }] },
       ],

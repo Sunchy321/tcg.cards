@@ -33,7 +33,7 @@ export async function fetchEvolveHtml(origin: string, path: string, fetcher: typ
     try {
       const response = await fetcher(url, {
         headers: {
-          accept: 'text/html',
+          'accept':     'text/html',
           'user-agent': evolveUserAgent,
         },
       });

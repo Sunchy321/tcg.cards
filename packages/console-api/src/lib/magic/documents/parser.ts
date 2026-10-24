@@ -199,7 +199,7 @@ function ensureContainer(
   nodeId: string,
   path: string,
   options?: {
-    level?: number;
+    level?:        number;
     parentNodeId?: string | null;
   },
 ): ParsedDocumentNode {

@@ -40,8 +40,8 @@ test('imports saved-text statistics with one character per game symbol and prese
   const imported = await documents.importCr({ content });
   const first = await documents.revision({ documentId: imported.documentId, revisionId: imported.revisionId });
   expect(first.meta).toMatchObject({
-    characterCount: 86, wordCount: 14, entryCount: 11,
-    chapterCount: 1, ruleCount: 2, exampleCount: 1, termCount: 1,
+    characterCount:    86, wordCount:         14, entryCount:        11,
+    chapterCount:      1, ruleCount:         2, exampleCount:      1, termCount:         1,
     calculatorVersion: 'rule-statistics-v1',
   });
   expect(first.meta?.calculatedAt).toEqual(expect.any(String));
@@ -55,8 +55,8 @@ test('counts only saved translated nodes and preserves source statistics and tra
   const documents = createDocumentService(memoryStore(), { track: 'local' });
   const imported = await documents.importCr({ content });
   const translated = await documents.saveTranslation({
-    documentId: imported.documentId, sourceRevisionId: imported.revisionId, language: 'zhs',
-    nodes: [{ sourceNodeId: `${imported.revisionId}/100.1`, rawText: '支付 {W/U}，别停！😀', translationMethod: 'human' }],
+    documentId:       imported.documentId, sourceRevisionId: imported.revisionId, language:         'zhs',
+    nodes:            [{ sourceNodeId: `${imported.revisionId}/100.1`, rawText: '支付 {W/U}，别停！😀', translationMethod: 'human' }],
   });
   expect(translated.meta).toMatchObject({
     characterCount: 8, wordCount: 0, entryCount: 1, chapterCount: 0, ruleCount: 1, exampleCount: 0, termCount: 0,
@@ -72,11 +72,11 @@ test('leaves CR-specific classifications unknown for independently authored cont
   const document = await documents.create({ slug: 'a-guide', title: 'Guide', language: 'en' });
   const source = await documents.save({ documentId: document.id, title: document.title, nodes: [{ nodeKey: '100.1', rawText: 'A guide.' }] });
   const translated = await documents.saveTranslation({
-    documentId: document.id, sourceRevisionId: source.id, language: 'zhs',
-    nodes: [{ sourceNodeId: source.nodes[0]!.id, rawText: '支付 {W/U}，别停！😀', translationMethod: 'human' }],
+    documentId:       document.id, sourceRevisionId: source.id, language:         'zhs',
+    nodes:            [{ sourceNodeId: source.nodes[0]!.id, rawText: '支付 {W/U}，别停！😀', translationMethod: 'human' }],
   });
   expect(translated.meta).toMatchObject({
-    characterCount: 8, wordCount: 0, entryCount: 1,
-    chapterCount: null, ruleCount: null, exampleCount: null, termCount: null,
+    characterCount: 8, wordCount:      0, entryCount:     1,
+    chapterCount:   null, ruleCount:      null, exampleCount:   null, termCount:      null,
   });
 });

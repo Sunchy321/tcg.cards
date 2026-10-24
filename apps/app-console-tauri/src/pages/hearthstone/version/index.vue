@@ -1,96 +1,3 @@
-<script setup lang="ts">
-import { useToast } from '@nuxt/ui/composables';
-import { useDesktopRuntimeClient } from '~/composables/useDesktopRuntimeClient';
-import { getConsoleErrorMessage } from '@tcg-cards/console-core';
-
-definePageMeta({
-  layout: 'admin',
-  title: '版本管理',
-});
-
-interface PatchRow {
-  buildNumber: number;
-  name: string;
-  shortName: string;
-  hash: string;
-  releaseDate: string | null;
-}
-
-const toast = useToast();
-const client = useDesktopRuntimeClient();
-
-const loading = ref(false);
-const syncing = ref(false);
-const items = ref<PatchRow[]>([]);
-const selectedPatch = ref<PatchRow | null>(null);
-const filters = reactive({ q: '' });
-const page = ref(1);
-const pageSize = 50;
-
-const total = computed(() => items.value.length);
-const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)));
-
-const pagedItems = computed(() => {
-  let filtered = items.value;
-  if (filters.q) {
-    const q = filters.q.toLowerCase();
-    filtered = filtered.filter(p =>
-      String(p.buildNumber).includes(q) ||
-      p.name.toLowerCase().includes(q) ||
-      p.shortName.toLowerCase().includes(q),
-    );
-  }
-  const start = (page.value - 1) * pageSize;
-  return filtered.slice(start, start + pageSize);
-});
-
-function selectPatch(buildNumber: number) {
-  selectedPatch.value = items.value.find(p => p.buildNumber === buildNumber) ?? null;
-}
-
-function resetFilters() {
-  filters.q = '';
-  page.value = 1;
-}
-
-async function loadPatches() {
-  loading.value = true;
-  try {
-    const data = await (client.hearthstone as any).announcement.patches() as PatchRow[];
-    items.value = (data ?? []).sort((a, b) => b.buildNumber - a.buildNumber);
-    if (selectedPatch.value && !items.value.find(p => p.buildNumber === selectedPatch.value!.buildNumber)) {
-      selectedPatch.value = null;
-    }
-  } catch (error) {
-    toast.add({ title: '加载失败', description: getConsoleErrorMessage(error), color: 'error' });
-  } finally {
-    loading.value = false;
-  }
-}
-
-async function syncPatches() {
-  syncing.value = true;
-  try {
-    const result = await client.hsdata.syncPatches() as { count: number };
-    toast.add({ title: '同步完成', description: `已同步 ${result.count} 个 patch`, color: 'success' });
-    await loadPatches();
-  } catch (error) {
-    toast.add({ title: '同步失败', description: getConsoleErrorMessage(error), color: 'error' });
-  } finally {
-    syncing.value = false;
-  }
-}
-
-function formatBuildDate(date: string | null): string {
-  if (!date) return '—';
-  return new Date(date).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
-}
-
-onMounted(() => {
-  loadPatches();
-});
-</script>
-
 <template>
   <div class="desktop-page h-full space-y-4 overflow-y-auto">
     <div class="rounded-xl border border-slate-200 bg-white p-4">
@@ -226,3 +133,96 @@ onMounted(() => {
     </div>
   </div>
 </template>
+
+<script setup lang="ts">
+import { useToast } from '@nuxt/ui/composables';
+import { useDesktopRuntimeClient } from '~/composables/useDesktopRuntimeClient';
+import { getConsoleErrorMessage } from '@tcg-cards/console-core';
+
+definePageMeta({
+  layout: 'admin',
+  title:  '版本管理',
+});
+
+interface PatchRow {
+  buildNumber: number;
+  name:        string;
+  shortName:   string;
+  hash:        string;
+  releaseDate: string | null;
+}
+
+const toast = useToast();
+const client = useDesktopRuntimeClient();
+
+const loading = ref(false);
+const syncing = ref(false);
+const items = ref<PatchRow[]>([]);
+const selectedPatch = ref<PatchRow | null>(null);
+const filters = reactive({ q: '' });
+const page = ref(1);
+const pageSize = 50;
+
+const total = computed(() => items.value.length);
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)));
+
+const pagedItems = computed(() => {
+  let filtered = items.value;
+  if (filters.q) {
+    const q = filters.q.toLowerCase();
+    filtered = filtered.filter(p =>
+      String(p.buildNumber).includes(q)
+      || p.name.toLowerCase().includes(q)
+      || p.shortName.toLowerCase().includes(q),
+    );
+  }
+  const start = (page.value - 1) * pageSize;
+  return filtered.slice(start, start + pageSize);
+});
+
+function selectPatch(buildNumber: number) {
+  selectedPatch.value = items.value.find(p => p.buildNumber === buildNumber) ?? null;
+}
+
+function resetFilters() {
+  filters.q = '';
+  page.value = 1;
+}
+
+async function loadPatches() {
+  loading.value = true;
+  try {
+    const data = await (client.hearthstone as any).announcement.patches() as PatchRow[];
+    items.value = (data ?? []).sort((a, b) => b.buildNumber - a.buildNumber);
+    if (selectedPatch.value && !items.value.find(p => p.buildNumber === selectedPatch.value!.buildNumber)) {
+      selectedPatch.value = null;
+    }
+  } catch (error) {
+    toast.add({ title: '加载失败', description: getConsoleErrorMessage(error), color: 'error' });
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function syncPatches() {
+  syncing.value = true;
+  try {
+    const result = await client.hsdata.syncPatches() as { count: number };
+    toast.add({ title: '同步完成', description: `已同步 ${result.count} 个 patch`, color: 'success' });
+    await loadPatches();
+  } catch (error) {
+    toast.add({ title: '同步失败', description: getConsoleErrorMessage(error), color: 'error' });
+  } finally {
+    syncing.value = false;
+  }
+}
+
+function formatBuildDate(date: string | null): string {
+  if (!date) return '—';
+  return new Date(date).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
+}
+
+onMounted(() => {
+  loadPatches();
+});
+</script>

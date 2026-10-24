@@ -35,9 +35,9 @@ export const CardEvolutionLocalization = schema.table('card_evolution_localizati
     .references(() => CardEvolution.cardId, { onDelete: 'cascade' }),
   lang: lang('lang').notNull(),
 
-  skillText: text('skill_text'),
-  flavourText: text('flavour_text'),
-  cardImageHash: varchar('card_image_hash', { length: 32 }).notNull(),
+  skillText:           text('skill_text'),
+  flavourText:         text('flavour_text'),
+  cardImageHash:       varchar('card_image_hash', { length: 32 }).notNull(),
   cardBannerImageHash: varchar('card_banner_image_hash', { length: 32 }),
 
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

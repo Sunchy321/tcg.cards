@@ -152,17 +152,17 @@
           <!-- Legalities -->
           <div v-if="legalityEntries.length > 0" class="grid grid-cols-2 gap-x-4 gap-y-1 mb-6 text-sm">
             <div
-              v-for="[fmt, status] in legalityEntries"
+              v-for="[fmt, legalityStatus] in legalityEntries"
               :key="fmt"
               class="hs-legality-row"
-              :class="status === 'legal' ? 'hs-legality-row--available' : 'hs-legality-row--unavailable'"
+              :class="legalityStatus === 'legal' ? 'hs-legality-row--available' : 'hs-legality-row--unavailable'"
             >
               <span class="truncate min-w-0">
                 {{ $te(`hearthstone.format.${fmt}`) ? $t(`hearthstone.format.${fmt}`) : fmt }}
               </span>
               <span
                 class="font-medium shrink-0 text-xs"
-              >{{ $t(`hearthstone.legality.${status}`) }}</span>
+              >{{ $t(`hearthstone.legality.${legalityStatus}`) }}</span>
             </div>
           </div>
 

@@ -82,7 +82,7 @@ export const deleteVersion = os
     id: z.string(),
   }))
   .output(z.void())
-  .handler(async ({ input }) => {
+  .handler(async () => {
     throw new ORPCError('BAD_REQUEST', { message: '请在桌面管理端删除规则版本。' });
   });
 
@@ -407,7 +407,7 @@ export const rematch = os
     documentId: z.string(),
   }))
   .output(z.void())
-  .handler(async ({ input }) => {
+  .handler(async () => {
     // Comparisons now derive from immutable releases on every request; there is no stored match graph to rebuild.
     return;
   });

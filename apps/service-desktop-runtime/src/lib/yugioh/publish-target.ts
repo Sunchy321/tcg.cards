@@ -4,10 +4,10 @@ import { readYugiohPublishTargetOverride } from '../../runtime-config';
 
 /** Complete test remote target required by the Yu-Gi-Oh! publisher. */
 export interface YugiohPublishTarget {
-  publishTargetId: string;
-  environment: 'test';
+  publishTargetId:   string;
+  environment:       'test';
   targetFingerprint: string;
-  connectionString: string;
+  connectionString:  string;
 }
 
 /** Optional target field normalized into a non-empty string or null. */

@@ -43,9 +43,9 @@ const rubyEntry = rubyRow.extend({
 
 /** Deep-links a reading to the site: one representative card page per reading. */
 const rubyTarget = z.strictObject({
-  cardId: z.string(),
-  set:    z.string(),
-  number: z.string(),
+  cardId:    z.string(),
+  set:       z.string(),
+  number:    z.string(),
   partIndex: z.number(),
 });
 
@@ -102,7 +102,7 @@ const list = os
         updatedAt:      row.updatedAt.toISOString(),
         exceptionsList: Object.entries(row.exceptions ?? {}).map(([key, rubyName]) => ({ key, rubyName })),
       })),
-      total: Number(totalRow?.n ?? 0),
+      total:  Number(totalRow?.n ?? 0),
       counts: {
         draft:    Number(statusRows.find(r => r.status === 'draft')?.n ?? 0),
         reviewed: Number(statusRows.find(r => r.status === 'reviewed')?.n ?? 0),
@@ -202,9 +202,9 @@ const update = os
 
     if (current == null) {
       await db.insert(NameRuby).values({
-        lang: input.lang as never,
-        kind: input.kind,
-        name: input.name,
+        lang:   input.lang as never,
+        kind:   input.kind,
+        name:   input.name,
         ...values,
         source: 'manual',
         status: input.status ?? 'reviewed',

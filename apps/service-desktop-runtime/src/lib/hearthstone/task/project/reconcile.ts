@@ -110,7 +110,7 @@ export async function reconcileRows<T extends { version: number[] }>(
 
     finalByKey.set(options.keyOf(row), {
       ...cloneReconcileRow(row),
-      version:  nextVersion,
+      version: nextVersion,
     });
   }
 
@@ -127,7 +127,7 @@ export async function reconcileRows<T extends { version: number[] }>(
       inserted += 1;
       finalByKey.set(key, {
         ...cloneReconcileRow(row),
-        version:  [...row.version],
+        version: [...row.version],
       });
     } else {
       if (existing.version.includes(options.build)) {
@@ -139,7 +139,7 @@ export async function reconcileRows<T extends { version: number[] }>(
       finalByKey.set(key, {
         ...(current ?? cloneReconcileRow(row)),
         ...cloneReconcileRow(row),
-        version:  mergeVersion(current?.version ?? [], ...row.version),
+        version: mergeVersion(current?.version ?? [], ...row.version),
       });
     }
   }

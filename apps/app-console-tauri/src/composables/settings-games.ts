@@ -1,9 +1,9 @@
 import { GAMES, type Game } from '@tcg-cards/base';
 
 const gameLabels: Record<Game, string> = {
-  magic:      'Magic',
+  magic:       'Magic',
   hearthstone: 'Hearthstone',
-  yugioh:     'Yu-Gi-Oh!',
+  yugioh:      'Yu-Gi-Oh!',
   shadowverse: 'Shadowverse',
 };
 

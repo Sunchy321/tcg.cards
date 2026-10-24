@@ -39,10 +39,10 @@ export async function fetchSveCardListPage(page: number, fetcher: typeof fetch =
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       const response = await fetcher(url, {
-        method: 'POST',
+        method:  'POST',
         headers: {
           'content-type': 'application/json',
-          'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
+          'user-agent':   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
         },
         body: JSON.stringify({ pageable: { offset: (page - 1) * listPageSize, limit: listPageSize } }),
       });

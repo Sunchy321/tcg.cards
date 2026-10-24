@@ -12,18 +12,18 @@ function fakeDefinition(taskType: string): TaskDefinition {
   return {
     taskType,
     definitionVersion: 'v1',
-    supportsResume: false,
-    effectModel: 'atomic',
+    supportsResume:    false,
+    effectModel:       'atomic',
     buildStagePlan(_input: TaskRunInput) {
       return [];
     },
-    prepareStageEntry({ stage }: { run: TaskRunInput; stage: TaskStageState; resume: boolean }) {
+    prepareStageEntry({ stage }: { run: TaskRunInput, stage: TaskStageState, resume: boolean }) {
       return {
-        stageKey: stage.stageKey,
-        stageIndex: stage.stageIndex,
+        stageKey:     stage.stageKey,
+        stageIndex:   stage.stageIndex,
         progressMode: stage.progressMode,
-        resumeMode: stage.resumeMode,
-        total: stage.total,
+        resumeMode:   stage.resumeMode,
+        total:        stage.total,
       };
     },
     buildBlocks() {

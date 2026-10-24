@@ -4,14 +4,14 @@ import type { Node, Revision } from './store';
 import { textDiff } from './diff-text';
 
 /** Retain the exact source endpoints whose numbering relationship must be proven. */
-interface Pair { before: Node; after: Node }
+interface Pair { before: Node, after: Node }
 /** Preserve ordinary text separately from a verified reference to one source identity. */
-interface Part { text: string; pair?: Pair }
+interface Part { text: string, pair?: Pair }
 /** Describe proven reference changes independently of structural changes. */
-interface Result { referenceOnly: boolean; referenceUpdates: { from: string; to: string }[]; textDiff: DocumentChangeTextDiff | null }
+interface Result { referenceOnly: boolean, referenceUpdates: { from: string, to: string }[], textDiff: DocumentChangeTextDiff | null }
 
 /** Verify renumbering against exact source correspondence, then inspect each language's own markers. */
-export function createReferenceComparison(before: Revision, after: Revision, matched: MatchResult, releases: { from: string; to: string }) {
+export function createReferenceComparison(before: Revision, after: Revision, matched: MatchResult, releases: { from: string, to: string }) {
   const originals = new Map(before.nodes.map(node => [node.nodeKey, node]));
   const fromPairs = new Map<string, Pair>();
   const toPairs = new Map<string, Pair>();
@@ -76,7 +76,7 @@ export function createReferenceComparison(before: Revision, after: Revision, mat
     const left = parts(oldNode, 'from');
     const right = parts(newNode, 'to');
     const occurrences = (items: Part[], id: string) => items.filter(part => part.pair?.before.id === id).length;
-    const shared: { left: number; right: number }[] = [];
+    const shared: { left: number, right: number }[] = [];
     const sameSequence = left.length === right.length
       && left.every((part, index) => part.pair?.before.id === right[index]!.pair?.before.id);
     let next = 0;
@@ -90,7 +90,7 @@ export function createReferenceComparison(before: Revision, after: Revision, mat
       next = target + 1;
     }
     let ordinaryChange = false;
-    const updates = new Map<string, { from: string; to: string }>();
+    const updates = new Map<string, { from: string, to: string }>();
     const blocks: DocumentChangeTextBlock[] = [];
     let oldOffset = 0;
     let newOffset = 0;
@@ -112,8 +112,8 @@ export function createReferenceComparison(before: Revision, after: Revision, mat
       newOffset = position.right + 1;
     }
     ordinary(left.slice(oldOffset).map(part => part.text).join(''), right.slice(newOffset).map(part => part.text).join(''));
-    return { referenceOnly: updates.size > 0 && !ordinaryChange, referenceUpdates: [...updates.values()],
-      textDiff: oldNode.rawText === newNode.rawText ? null : { mode: 'inline', blocks } };
+    return { referenceOnly:    updates.size > 0 && !ordinaryChange, referenceUpdates: [...updates.values()],
+      textDiff:         oldNode.rawText === newNode.rawText ? null : { mode: 'inline', blocks } };
   }
   return analyze;
 }

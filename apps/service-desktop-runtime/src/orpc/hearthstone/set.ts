@@ -20,12 +20,9 @@ import {
   setUpdateInput,
   type SetListInput,
   type SetProfile,
-  type SetUpdateInput,
 } from '@tcg-cards/model/hearthstone/schema/set';
 
 import { getLocalDb } from '../../lib/hearthstone/hsdata-local-db';
-
-type LocalDb = ReturnType<typeof getLocalDb>;
 
 function normalizeText(value: string | null) {
   const text = value?.trim();

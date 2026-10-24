@@ -4,11 +4,11 @@ import { z } from 'zod';
 // P0.4 — Embedding defaults
 // ---------------------------------------------------------------------------
 
-export const EMBEDDING_MODEL      = '@cf/baai/bge-m3';
+export const EMBEDDING_MODEL = '@cf/baai/bge-m3';
 export const EMBEDDING_DIMENSIONS = 1024;
-export const EMBEDDING_DISTANCE   = 'cosine' as const;
-export const QUERY_TIMEOUT_MS     = 1500;
-export const DOCUMENT_TIMEOUT_MS  = 15000;
+export const EMBEDDING_DISTANCE = 'cosine' as const;
+export const QUERY_TIMEOUT_MS = 1500;
+export const DOCUMENT_TIMEOUT_MS = 15000;
 export const DOCUMENT_MAX_RETRIES = 3;
 
 export const embeddingConfig = z.strictObject({

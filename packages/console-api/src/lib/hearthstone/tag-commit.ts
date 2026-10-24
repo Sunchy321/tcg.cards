@@ -34,43 +34,43 @@ type FieldConflictInsert = typeof FieldConflict.$inferInsert;
 
 /** Editable tag fields projected through the shared field-commit pipeline. */
 export type TagWrite = {
-  slug: string;
-  slugAliases: string[];
-  name: string | null;
-  rawName: string | null;
-  rawType: string | null;
-  rawNames: string[];
-  normalizeKind: string;
-  normalizeConfig: Record<string, unknown>;
+  slug:              string;
+  slugAliases:       string[];
+  name:              string | null;
+  rawName:           string | null;
+  rawType:           string | null;
+  rawNames:          string[];
+  normalizeKind:     string;
+  normalizeConfig:   Record<string, unknown>;
   projectTargetType: string | null;
   projectTargetPath: string | null;
-  projectKind: string | null;
-  projectConfig: Record<string, unknown>;
-  status: string;
-  description: string | null;
+  projectKind:       string | null;
+  projectConfig:     Record<string, unknown>;
+  status:            string;
+  description:       string | null;
 };
 
 /** Apply outcomes returned after one incoming tag commit is processed. */
 export type ApplyTagCommitResult = {
   status: 'applied' | 'duplicate' | 'accepted_without_projection';
-  row: TagRow;
+  row:    TagRow;
   commit: FieldCommitRow;
 };
 
 /** Conflict context emitted when one incoming tag commit cannot be merged. */
 export type ApplyTagCommitConflictInput = {
-  commit: FieldCommitInsert;
-  current: TagRow;
-  winner: FieldWinnerRow | undefined;
-  processingSide: 'local' | 'remote';
+  commit:          FieldCommitInsert;
+  current:         TagRow;
+  winner:          FieldWinnerRow | undefined;
+  processingSide:  'local' | 'remote';
   processingStage: 'apply' | 'replay';
-  reason: string;
+  reason:          string;
 };
 
 /** Optional hooks that customize conflict persistence for one apply attempt. */
 export type ApplyTagCommitOptions = {
   conflictTarget?: {
-    processingSide: 'local' | 'remote';
+    processingSide:  'local' | 'remote';
     processingStage: 'apply' | 'replay';
   };
   onConflict?: (tx: DbTx, input: ApplyTagCommitConflictInput) => Promise<void>;
@@ -299,7 +299,7 @@ async function insertConflict(
     entityType:      'tag',
     entityKey:       input.commit.entityKey,
     fieldPath:       input.commit.fieldPath,
-    sourceSummary:      {
+    sourceSummary:   {
       clientMutationId: input.commit.clientMutationId,
       commitKind:       input.commit.commitKind,
       operation:        input.commit.operation,
@@ -485,9 +485,9 @@ export async function applyTagCommit(
       commit,
       current,
       winner,
-      processingSide: conflictTarget.processingSide,
+      processingSide:  conflictTarget.processingSide,
       processingStage: conflictTarget.processingStage,
-      reason: 'expected_row_revision_mismatch',
+      reason:          'expected_row_revision_mismatch',
     });
 
     throw new ORPCError('CONFLICT', {
@@ -500,9 +500,9 @@ export async function applyTagCommit(
       commit,
       current,
       winner,
-      processingSide: conflictTarget.processingSide,
+      processingSide:  conflictTarget.processingSide,
       processingStage: conflictTarget.processingStage,
-      reason: 'expected_winner_revision_mismatch',
+      reason:          'expected_winner_revision_mismatch',
     });
 
     throw new ORPCError('CONFLICT', {
@@ -634,33 +634,15 @@ import type {
 
 /** Options that control how one tag edit commit is persisted and synced. */
 export interface TagServiceOptions {
-  syncStatus: 'pending_push' | 'synced' | 'pulled';
-  editorRuntime: string;
+  syncStatus:     'pending_push' | 'synced' | 'pulled';
+  editorRuntime:  string;
   editorIdentity: string;
-  editorSource: string;
+  editorSource:   string;
   conflictTarget: {
-    processingSide: 'local' | 'remote';
+    processingSide:  'local' | 'remote';
     processingStage: 'apply' | 'replay';
   };
 }
-
-/** Serializable tag field write shape accepted by shared tag service helpers. */
-type TagWriteInput = {
-  slug: string;
-  slugAliases: string[];
-  name: string | null;
-  rawName: string | null;
-  rawType: string | null;
-  rawNames: string[];
-  normalizeKind: string;
-  normalizeConfig: Record<string, unknown>;
-  projectTargetType: string | null;
-  projectTargetPath: string | null;
-  projectKind: string | null;
-  projectConfig: Record<string, unknown>;
-  status: string;
-  description: string | null;
-};
 
 const projectKindSet = new Set([
   'assign_value',
@@ -893,7 +875,7 @@ function collectTagDiffsShared(current: TagRow, next: TagWrite, winners: FieldWi
       return {
         field,
         fieldPath,
-        value: next[field],
+        value:          next[field],
         previousWinner: winnerByField.get(fieldPath),
       };
     });
@@ -985,27 +967,25 @@ export async function saveTagEdit(
 
 /** One raw tag discovered during hsdata import. */
 export interface DiscoveredTagInput {
-  enumId: number;
+  enumId:  number;
   rawName: string | null;
   rawType: string | null;
 }
 
 /** Snapshot of an existing tag before import discovery writes. */
 export interface ExistingTagSnapshot {
-  enumId: number;
-  slug: string;
-  rawName: string | null;
-  rawType: string | null;
-  rawNames: string[];
-  normalizeKind: string;
-  projectTargetType: string | null;
-  projectTargetPath: string | null;
-  projectKind: string | null;
+  enumId:             number;
+  slug:               string;
+  rawName:            string | null;
+  rawType:            string | null;
+  rawNames:           string[];
+  normalizeKind:      string;
+  projectTargetType:  string | null;
+  projectTargetPath:  string | null;
+  projectKind:        string | null;
   firstSeenSourceTag: number | null;
-  lastSeenSourceTag: number | null;
+  lastSeenSourceTag:  number | null;
 }
-
-
 
 /** Slugifies one raw tag name into a stable identifier, avoiding duplicates. */
 function slugify(rawName: string | null, enumId: number, conflicts: ReadonlySet<string>) {
@@ -1049,14 +1029,14 @@ function buildRowCreateCommit(
       resolutionMode:        'rule_auto',
       resolutionFingerprint: 'hearthstone-tag-hsdata-discovery:v1',
     }),
-    reviewStatus:       'auto_approved',
-    reviewedBy:         null,
-    reviewedAt:         null,
-    reviewReason:       null,
-    projectionStatus:   'pending',
-    syncStatus:         options.syncStatus,
-    createdAt:          new Date(),
-    projectedAt:        null,
+    reviewStatus:     'auto_approved',
+    reviewedBy:       null,
+    reviewedAt:       null,
+    reviewReason:     null,
+    projectionStatus: 'pending',
+    syncStatus:       options.syncStatus,
+    createdAt:        new Date(),
+    projectedAt:      null,
   };
 }
 
@@ -1071,7 +1051,7 @@ export async function importDiscoveredTags(
   sourceTag: number,
   tags: DiscoveredTagInput[],
   options: TagServiceOptions & { dryRun?: boolean },
-): Promise<{ existing: Map<number, ExistingTagSnapshot>; discovered: number[]; updated: number }> {
+): Promise<{ existing: Map<number, ExistingTagSnapshot>, discovered: number[], updated: number }> {
   const dryRun = options.dryRun ?? false;
   const enumIds = [...new Set(tags.map(tag => tag.enumId))].sort((a, b) => a - b);
   const existingRows = await tx.select()
@@ -1256,13 +1236,13 @@ function fieldEditCommit(
       resolutionMode:        'rule_auto',
       resolutionFingerprint: 'hearthstone-tag-hsdata-discovery:v1',
     }),
-    reviewStatus:       'auto_approved',
-    reviewedBy:         null,
-    reviewedAt:         null,
-    reviewReason:       null,
-    projectionStatus:   'pending',
-    syncStatus:         options.syncStatus,
-    createdAt:          new Date(),
-    projectedAt:        null,
+    reviewStatus:     'auto_approved',
+    reviewedBy:       null,
+    reviewedAt:       null,
+    reviewReason:     null,
+    projectionStatus: 'pending',
+    syncStatus:       options.syncStatus,
+    createdAt:        new Date(),
+    projectedAt:      null,
   };
 }

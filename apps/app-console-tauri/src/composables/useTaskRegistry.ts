@@ -36,13 +36,13 @@ export function useTaskRegistry() {
 
   /** All registered task events (latest snapshot for each task). */
   const taskEvents = computed(() => {
-    _rev.value;
+    const _revision = _rev.value;
     return Array.from(_map.values());
   });
 
   /** Count of non-terminal (active) tasks. */
   const activeTaskCount = computed(() => {
-    _rev.value;
+    const _revision = _rev.value;
     let n = 0;
     for (const ev of _map.values()) {
       if (ev.pageTask.kind === 'attached' && !terminalStatuses.has(ev.pageTask.status)) n++;

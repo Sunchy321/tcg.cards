@@ -82,7 +82,8 @@ export function threeWayTextDiff(previous: string | null, current: string, next:
     // Both run lists reconstruct the same middle text, so their fronts must agree.
     const length = Math.min(beforeText.length, afterText.length);
     if (beforeText.slice(0, length) !== afterText.slice(0, length)) throw new Error('Diff mismatch');
-    push(typeof beforeRun === 'string' ? (typeof afterRun === 'string' ? 'common' : 'remove')
+    push(typeof beforeRun === 'string'
+      ? (typeof afterRun === 'string' ? 'common' : 'remove')
       : typeof afterRun === 'string' ? 'add' : 'dual', beforeText.slice(0, length));
     before[left] = consumeRun(beforeRun, 'before', length);
     after[right] = consumeRun(afterRun, 'after', length);
@@ -113,11 +114,11 @@ function assertHistoryReadable(document: Document | undefined, context: Document
 
 /** One displayed entry at an exact formal edition. */
 interface HistoryState {
-  index: number;
-  node: Node;
-  text: string;
-  serial: string | null;
-  lang: string;
+  index:      number;
+  node:       Node;
+  text:       string;
+  serial:     string | null;
+  lang:       string;
   isFallback: boolean;
 }
 
@@ -134,7 +135,7 @@ function sameStates(left: HistoryState[], right: HistoryState[]) {
 export function createItemHistoryOperations(store: DocumentStore, context: DocumentContext) {
   return {
     /** Present reachable formal content without running the source matcher. */
-    async itemHistory(input: { slug: string; itemId: string; locale: string; versionTag?: string }): Promise<DocumentItemHistoryPage> {
+    async itemHistory(input: { slug: string, itemId: string, locale: string, versionTag?: string }): Promise<DocumentItemHistoryPage> {
       const document = (await store.documents()).find(row => row.slug === input.slug);
       assertHistoryReadable(document, context);
       return store.transaction(document.id, async store => {
@@ -192,7 +193,7 @@ export function createItemHistoryOperations(store: DocumentStore, context: Docum
           const related = await Promise.all((direction === -1 ? boundary.from : boundary.to).map(node => stateAt(index, node)));
           return related.every(view => view.lang === state.lang) ? related.map(view => view.text).join('\n') : null;
         }
-        const periods: { from: number; to: number }[] = [];
+        const periods: { from: number, to: number }[] = [];
         for (let index = 0; index < editions.length; index++) {
           if (states[index]!.length === 0) continue;
           const previous = periods.at(-1);
@@ -207,8 +208,8 @@ export function createItemHistoryOperations(store: DocumentStore, context: Docum
         const boundaries = new Map<number, DocumentItemHistoryEvent[]>();
         for (const event of events) {
           const list = boundaries.get(event.index) ?? [];
-          list.push({ kind: event.kind, date: dateOf(releases[event.index]!), from: event.from.map(party), to: event.to.map(party),
-            versionFrom: releases[event.index - 1]!.versionTag, versionTo: releases[event.index]!.versionTag });
+          list.push({ kind:        event.kind, date:        dateOf(releases[event.index]!), from:        event.from.map(party), to:          event.to.map(party),
+            versionFrom: releases[event.index - 1]!.versionTag, versionTo:   releases[event.index]!.versionTag });
           boundaries.set(event.index, list);
         }
         for (let index = 1; index < states.length; index++) {
@@ -238,18 +239,18 @@ export function createItemHistoryOperations(store: DocumentStore, context: Docum
             const birth = events.find(event => event.index === period.from && event.to.some(node => node.id === firstState.node.id));
             const mergesNext = merging.some(event => event.from.some(node => node.id === state.node.id));
             cells.push({
-              itemId: state.node.nodeKey, nodeId: nodeIds.get(state.node.id), serial: state.serial,
+              itemId:      state.node.nodeKey, nodeId:      nodeIds.get(state.node.id), serial:      state.serial,
               renamedFrom: previous && previous.serial !== state.serial ? previous.serial : null,
-              lang: state.lang, isFallback: state.isFallback, text: state.text,
-              diff: threeWayTextDiff(snapshot ? null : await adjacentText(firstState, -1), state.text, await adjacentText(state, 1)),
-              changed: previous == null || previous.text !== state.text,
-              state: mergesNext ? 'merged' : birth?.kind === 'split' ? 'split' : birth ? null : !previous && period.from > 0 ? 'added' : null,
+              lang:        state.lang, isFallback:  state.isFallback, text:        state.text,
+              diff:        threeWayTextDiff(snapshot ? null : await adjacentText(firstState, -1), state.text, await adjacentText(state, 1)),
+              changed:     previous == null || previous.text !== state.text,
+              state:       mergesNext ? 'merged' : birth?.kind === 'split' ? 'split' : birth ? null : !previous && period.from > 0 ? 'added' : null,
               ...(snapshot ? { isSnapshot: true } : {}),
             });
           }
-          rows.push({ kind: 'period', dateFrom: dateOf(releases[period.from]!),
-            dateTo: period.to === releases.length - 1 ? null : dateOf(releases[period.to]!),
-            versionFrom: releases[period.from]!.versionTag, versionTo: releases[period.to]!.versionTag, cells });
+          rows.push({ kind:        'period', dateFrom:    dateOf(releases[period.from]!),
+            dateTo:      period.to === releases.length - 1 ? null : dateOf(releases[period.to]!),
+            versionFrom: releases[period.from]!.versionTag, versionTo:   releases[period.to]!.versionTag, cells });
         }
         const queried = states.flat().filter(state => state.node.nodeKey === resolvedItemId);
         const last = queried.at(-1)!;
@@ -257,9 +258,9 @@ export function createItemHistoryOperations(store: DocumentStore, context: Docum
         const lastPeriod = periods.at(-1)!;
         return {
           document: { id: document.id, slug: document.slug, name: document.title, origin: document.origin, settings: document.settings },
-          entry: { itemId: resolvedItemId, serial: last.serial, excerpt: last.text, versionTag: releases[last.index]!.versionTag,
-            firstDate: dateOf(releases[firstPeriod.from]!), lastDate: lastPeriod.to === releases.length - 1 ? null : dateOf(releases[lastPeriod.to]!),
-            lineageCount: members.size, periodCount: periods.length },
+          entry:    { itemId:       resolvedItemId, serial:       last.serial, excerpt:      last.text, versionTag:   releases[last.index]!.versionTag,
+            firstDate:    dateOf(releases[firstPeriod.from]!), lastDate:     lastPeriod.to === releases.length - 1 ? null : dateOf(releases[lastPeriod.to]!),
+            lineageCount: members.size, periodCount:  periods.length },
           rows,
         };
       });

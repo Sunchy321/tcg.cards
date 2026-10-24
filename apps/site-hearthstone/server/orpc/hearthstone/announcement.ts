@@ -224,11 +224,11 @@ const cardHistory = os
   });
 
 type AnnouncementContext = {
-  date:   string | null;
-  name:   string | null;
-  source: string | null;
-  link:   { url: string, label?: string }[] | null;
-  version: number;
+  date:        string | null;
+  name:        string | null;
+  source:      string | null;
+  link:        { url: string, label?: string }[] | null;
+  version:     number;
   lastVersion: number | null;
 };
 
@@ -239,12 +239,12 @@ async function announcementContexts(
   const ids = [...new Set(rows.map(row => row.item.announcementId))];
   const annRows = await db
     .select({
-      id:         Announcement.id,
-      date:       Announcement.date,
-      name:       Announcement.name,
-      source:     Announcement.source,
-      link:       Announcement.link,
-      version:    Announcement.version,
+      id:          Announcement.id,
+      date:        Announcement.date,
+      name:        Announcement.name,
+      source:      Announcement.source,
+      link:        Announcement.link,
+      version:     Announcement.version,
       lastVersion: Announcement.lastVersion,
     })
     .from(Announcement)

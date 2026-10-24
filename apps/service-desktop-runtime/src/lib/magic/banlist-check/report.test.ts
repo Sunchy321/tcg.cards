@@ -104,7 +104,9 @@ describe('whole-format evidence report', () => {
   });
 
   test('does not disguise a database failure as an empty successful report', async () => {
-    const response = await buildBanlistReportResponse(false, async () => { throw new Error('database unavailable'); });
+    const response = await buildBanlistReportResponse(false, async () => {
+      throw new Error('database unavailable');
+    });
     expect(response.status).toBe(500);
     expect(await response.json()).toMatchObject({ reason: 'database unavailable' });
   });

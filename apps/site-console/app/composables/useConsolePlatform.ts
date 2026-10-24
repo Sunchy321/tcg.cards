@@ -6,7 +6,7 @@ import {
   createMemoryStorage,
 } from '@tcg-cards/console-platform';
 
-import { authClient, type Session } from '~/composables/auth';
+import type { Session } from '~/composables/auth';
 
 import type { AnyRouter } from '@orpc/server';
 

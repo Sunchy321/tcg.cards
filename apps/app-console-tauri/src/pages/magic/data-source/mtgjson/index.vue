@@ -6,7 +6,7 @@
     task-title="MTGJSON 导入"
     :operation="operation"
   >
-    <template #params="{ disabled, dataState }">
+    <template #params="{ dataState }">
       <div class="space-y-4 pt-4">
         <div class="rounded-lg border border-default p-3">
           <div class="text-xs text-muted">MTGJSON set 目录</div>

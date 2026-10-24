@@ -35,7 +35,7 @@
           @failed="onFailed"
           @create-error="onCreateError"
         >
-          <template #actions-before="{ activeOp }">
+          <template #actions-before>
             <UButton
               :label="`批量导入（${batchSourceTags.length}）`"
               icon="i-lucide-list-start"

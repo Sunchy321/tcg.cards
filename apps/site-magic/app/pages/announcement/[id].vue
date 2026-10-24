@@ -192,7 +192,9 @@ const groupModalOpen = computed({
   get: () => selectedGroup.value != null,
   set: (open: boolean) => { if (!open) selectedGroup.value = null; },
 });
-watch(announcementId, () => { selectedGroup.value = null; });
+watch(announcementId, () => {
+  selectedGroup.value = null;
+});
 
 /** Labels change groups in the interface language without exposing internal type keys. */
 function typeLabel(type: string): string {

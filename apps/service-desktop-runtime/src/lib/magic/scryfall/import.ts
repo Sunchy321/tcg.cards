@@ -173,4 +173,3 @@ export async function importScryfallRulings(file: string, onProgress?: (done: nu
   counts.deleted = await softDeleteMissing(db, ScryfallRuling, [ScryfallRuling.id], ['id'], imported);
   return counts;
 }
-

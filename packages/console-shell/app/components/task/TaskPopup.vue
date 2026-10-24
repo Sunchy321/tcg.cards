@@ -62,7 +62,7 @@ import type { TaskPageEvent } from '@tcg-cards/model/task';
 
 const open = ref(false);
 
-const props = defineProps<{
+defineProps<{
   tasks: TaskPageEvent[];
   count: number;
 }>();

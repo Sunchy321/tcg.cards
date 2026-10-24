@@ -58,7 +58,7 @@ const onVersionedPage = computed(() => versionFromPath(route.path) !== null);
 const currentVersion = computed(() => versionFromPath(route.path) ?? DOC_VERSIONS[0]);
 
 const versionItems = DOC_VERSIONS.map(version => ({
-  label:  version,
+  label:    version,
   onSelect: () => {
     if (version !== currentVersion.value) {
       router.push(withVersion(route.path, version));

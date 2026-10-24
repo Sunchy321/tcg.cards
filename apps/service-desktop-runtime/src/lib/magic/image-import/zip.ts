@@ -40,7 +40,7 @@ export interface ZipImageInfo {
   /** Full entry filename including directory segments. */
   filename: string;
   /** Uncompressed byte size of the entry. */
-  size: number;
+  size:     number;
 }
 
 /** Opens the zip at `zipPath` and passes its image entries to `fn`, closing the reader afterwards. */

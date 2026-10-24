@@ -3,6 +3,8 @@ import type { SourceFile } from './schema/document-content';
 /** Resolves an R2 key against the consuming application's asset origin. */
 export function sourceFileUrl(file: SourceFile, assetBaseUrl?: string): string | null {
   const segments = file.storageKey?.split('/');
+  // Control bytes are forbidden in externally supplied storage keys.
+  // eslint-disable-next-line no-control-regex -- Validate the complete ASCII control range.
   if (segments && segments.every(segment => segment.length > 0 && segment !== '.' && segment !== '..' && !/[\\\u0000-\u001f]/.test(segment))) {
     if (assetBaseUrl == null) return null;
     const base = new URL(assetBaseUrl);

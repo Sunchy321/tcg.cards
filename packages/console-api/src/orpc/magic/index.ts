@@ -4,47 +4,46 @@ import { changes, change, review, reviewBatch, nodeHistory, compareVersions, nod
 import { deleteVersion, syncLatest, loadFromData, uploadToR2, uploadArchive, rematch } from './rule-heavy';
 
 export const magicLight = {
-	dataSource:   dataSourceTrpc,
-	rule:         { list, listFiles, get, getNodes },
+  dataSource: dataSourceTrpc,
+  rule:       { list, listFiles, get, getNodes },
 };
 
 export const magicMedium = {
-	dataSource:   dataSourceTrpc,
-	rule:         {
-		list,
-		listFiles,
-		get,
-		getNodes,
-		changes,
-		change,
-		review,
-		reviewBatch,
-		nodeHistory,
-		compareVersions,
-		nodeContent,
-	},
+  dataSource: dataSourceTrpc,
+  rule:       {
+    list,
+    listFiles,
+    get,
+    getNodes,
+    changes,
+    change,
+    review,
+    reviewBatch,
+    nodeHistory,
+    compareVersions,
+    nodeContent,
+  },
 };
 
 export const magicFull = {
-	dataSource:   dataSourceTrpc,
-	rule:         {
-		list,
-		listFiles,
-		get,
-		getNodes,
-		changes,
-		change,
-		review,
-		reviewBatch,
-		nodeHistory,
-		compareVersions,
-		nodeContent,
-		loadFromData,
-		uploadToR2,
-		uploadArchive,
-		syncLatest,
-		delete:  deleteVersion,
-		rematch,
-	},
+  dataSource: dataSourceTrpc,
+  rule:       {
+    list,
+    listFiles,
+    get,
+    getNodes,
+    changes,
+    change,
+    review,
+    reviewBatch,
+    nodeHistory,
+    compareVersions,
+    nodeContent,
+    loadFromData,
+    uploadToR2,
+    uploadArchive,
+    syncLatest,
+    delete: deleteVersion,
+    rematch,
+  },
 };
-

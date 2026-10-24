@@ -22,20 +22,20 @@ export function matchRevisionNodes(previous: Revision | null, parsed: ParsedDocu
 
 /** Preserve prior sibling-number suppression for pairs established by relation replay. */
 export function suppressInsertedNumbering(previous: Revision, next: Revision, matched: MatchResult): MatchResult {
-  const parsed = next.nodes.map(node => ({ id: node.id, documentId: next.documentId, versionId: next.id,
-    nodeId: node.anchor ?? node.nodeKey, nodeKind: node.kind, path: node.path, level: node.level,
-    parentNodeId: node.parentId, siblingOrder: node.siblingOrder, content: node.rawText }));
+  const parsed = next.nodes.map(node => ({ id:           node.id, documentId:   next.documentId, versionId:    next.id,
+    nodeId:       node.anchor ?? node.nodeKey, nodeKind:     node.kind, path:         node.path, level:        node.level,
+    parentNodeId: node.parentId, siblingOrder: node.siblingOrder, content:      node.rawText }));
   return { ...matched, changes: excludeInsertedNumbering(previous.nodes.map(oldNode), parsed, matched.entityAssignments, matched.changes) };
 }
 
 /** Retain the source fields used by matching and passive-number classification. */
 function oldNode(node: Node): OldNode {
   return {
-    id: node.id, nodeId: node.anchor ?? node.nodeKey, nodeKind: node.kind,
-    path: node.path, level: node.level, parentNodeId: node.parentId, siblingOrder: node.siblingOrder,
-    sourceContentHash: node.rawText ? generateHash(node.rawText) : null,
+    id:                    node.id, nodeId:                node.anchor ?? node.nodeKey, nodeKind:              node.kind,
+    path:                  node.path, level:                 node.level, parentNodeId:          node.parentId, siblingOrder:          node.siblingOrder,
+    sourceContentHash:     node.rawText ? generateHash(node.rawText) : null,
     sourceFingerprintHash: node.rawText ? generateHash(normalizeFingerprint(node.rawText)) : null,
-    entityId: node.nodeKey, content: node.rawText,
+    entityId:              node.nodeKey, content:               node.rawText,
   };
 }
 
@@ -194,7 +194,7 @@ function sharedSize(left: Set<string>, right: Set<string>): number {
 
 /** Reuses text features within one comparison without changing its scoring rules. */
 function createCandidateScorer() {
-  const features = new Map<string, { words: Set<string>; trigrams: Set<string> }>();
+  const features = new Map<string, { words: Set<string>, trigrams: Set<string> }>();
   /** Tokenizes each source or combined candidate text only once per match. */
   function feature(text: string) {
     let value = features.get(text);
@@ -362,20 +362,22 @@ function classifyChange(
 /** Classify a pair whose identity was already established by saved relations. */
 export function classifyLinkedNodes(oldNode: Node, newNode: Node): { type: NodeChangeType, details: NodeChangeDetails } {
   const previous: OldNode = {
-    id: oldNode.id, nodeId: oldNode.anchor ?? oldNode.nodeKey, nodeKind: oldNode.kind,
-    path: oldNode.path, level: oldNode.level, parentNodeId: oldNode.parentId, siblingOrder: oldNode.siblingOrder,
-    sourceContentHash: oldNode.rawText ? generateHash(oldNode.rawText) : null,
+    id:                    oldNode.id, nodeId:                oldNode.anchor ?? oldNode.nodeKey, nodeKind:              oldNode.kind,
+    path:                  oldNode.path, level:                 oldNode.level, parentNodeId:          oldNode.parentId, siblingOrder:          oldNode.siblingOrder,
+    sourceContentHash:     oldNode.rawText ? generateHash(oldNode.rawText) : null,
     sourceFingerprintHash: oldNode.rawText ? generateHash(normalizeFingerprint(oldNode.rawText)) : null,
-    entityId: oldNode.nodeKey, content: oldNode.rawText,
+    entityId:              oldNode.nodeKey, content:               oldNode.rawText,
   };
   const next: NewNode = {
-    id: newNode.id, nodeId: newNode.anchor ?? newNode.nodeKey, nodeKind: newNode.kind,
-    path: newNode.path, level: newNode.level, parentNodeId: newNode.parentId, content: newNode.rawText,
-    contentHash: newNode.rawText ? generateHash(newNode.rawText) : null,
+    id:              newNode.id, nodeId:          newNode.anchor ?? newNode.nodeKey, nodeKind:        newNode.kind,
+    path:            newNode.path, level:           newNode.level, parentNodeId:    newNode.parentId, content:         newNode.rawText,
+    contentHash:     newNode.rawText ? generateHash(newNode.rawText) : null,
     fingerprintHash: newNode.rawText ? generateHash(normalizeFingerprint(newNode.rawText)) : null,
   };
-  const stage = previous.nodeId === next.nodeId ? 'nodeId'
-    : previous.content === next.content ? 'content'
+  const stage = previous.nodeId === next.nodeId
+    ? 'nodeId'
+    : previous.content === next.content
+      ? 'content'
       : previous.sourceFingerprintHash === next.fingerprintHash ? 'fingerprint' : 'similarity';
   return classifyChange(previous, next, stage, 1);
 }
@@ -533,7 +535,7 @@ export function matchEntities(
   }
 
   // --- Stage 4: Strongest remaining content candidates ---
-  const proposals: { oldNode: OldNode; newNode: NewNode; score: number }[] = [];
+  const proposals: { oldNode: OldNode, newNode: NewNode, score: number }[] = [];
   for (const oldNode of oldNodes) {
     if (matchedOldIds.has(oldNode.nodeId) || !oldNode.content) continue;
     for (const newNode of newNodes) {

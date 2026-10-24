@@ -74,4 +74,3 @@ export const ProjectionReview = dataSchema.table('projection_review', {
   index('projection_review_kind_status_idx').on(table.kind, table.status),
   index('projection_review_subject_idx').on(table.subject),
 ]);
-

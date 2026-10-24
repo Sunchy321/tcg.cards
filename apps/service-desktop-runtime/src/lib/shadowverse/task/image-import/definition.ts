@@ -18,7 +18,7 @@ import type { ImageImportCounters } from '../../image-import';
 /** Per-run state shared across task stages. */
 interface ImageImportContext {
   batchId: string | null;
-  assets: PlannedImageAsset[];
+  assets:  PlannedImageAsset[];
 }
 
 /** Durable block cursor carrying the running download counters. */
@@ -36,108 +36,108 @@ export const imageImportTaskDefinition = createDefinition('shadowverse_images_im
   )
   .input(z.strictObject({}))
   .output(z.strictObject({
-    assetCount: z.number(),
-    status: z.string(),
-    downloadedCount: z.number(),
-    skippedCount: z.number(),
-    missingCount: z.number(),
-    failedCount: z.number(),
+    assetCount:          z.number(),
+    status:              z.string(),
+    downloadedCount:     z.number(),
+    skippedCount:        z.number(),
+    missingCount:        z.number(),
+    failedCount:         z.number(),
     downloadedByteCount: z.number(),
   }))
   .context({
     init: (): ImageImportContext => ({
       batchId: null,
-      assets: [],
+      assets:  [],
     }),
   })
 
   .stage('importing', { label: '下载并导入卡图', progressMode: 'bounded', resumeMode: 'durable' })
-    .entry(async ({ ctx }) => {
-      const db = getShadowverseLocalDb();
-      await markInterruptedImageImportBatches(db);
+  .entry(async ({ ctx }) => {
+    const db = getShadowverseLocalDb();
+    await markInterruptedImageImportBatches(db);
 
-      const batch = await db.insert(ImageImportBatch)
-        .values({ source: shadowverseImageSource })
-        .returning()
-        .then(rows => rows[0]);
+    const batch = await db.insert(ImageImportBatch)
+      .values({ source: shadowverseImageSource })
+      .returning()
+      .then(rows => rows[0]);
 
-      if (batch == null) {
-        throw new Error('Image import batch creation did not return a batch ID.');
+    if (batch == null) {
+      throw new Error('Image import batch creation did not return a batch ID.');
+    }
+
+    ctx.batchId = batch.id;
+    ctx.assets = await buildImageAssetPlan(db);
+
+    return {
+      total:      ctx.assets.length,
+      blockInput: {
+        index:               0,
+        downloadedCount:     0,
+        skippedCount:        0,
+        missingCount:        0,
+        failedCount:         0,
+        downloadedByteCount: 0,
+      } satisfies ImageImportCursor,
+    };
+  })
+  .block(async ({ ctx, blockInput, progress, done }) => {
+    const db = getShadowverseLocalDb();
+    const batchId = ctx.batchId!;
+
+    if (blockInput.index >= ctx.assets.length) {
+      return done(blockInput);
+    }
+
+    const cursor: ImageImportCursor = { ...blockInput };
+
+    for (const asset of ctx.assets.slice(cursor.index, cursor.index + CHUNK_SIZE)) {
+      const { outcome, byteSize } = await processImageAsset(db, batchId, asset);
+
+      if (outcome === 'downloaded') {
+        cursor.downloadedCount += 1;
+        cursor.downloadedByteCount += byteSize;
       }
+      if (outcome === 'skipped') cursor.skippedCount += 1;
+      if (outcome === 'missing') cursor.missingCount += 1;
+      if (outcome === 'failed') cursor.failedCount += 1;
+    }
 
-      ctx.batchId = batch.id;
-      ctx.assets = await buildImageAssetPlan(db);
+    cursor.index += CHUNK_SIZE;
 
-      return {
-        total: ctx.assets.length,
-        blockInput: {
-          index: 0,
-          downloadedCount: 0,
-          skippedCount: 0,
-          missingCount: 0,
-          failedCount: 0,
-          downloadedByteCount: 0,
-        } satisfies ImageImportCursor,
-      };
-    })
-    .block(async ({ ctx, blockInput, progress, done }) => {
-      const db = getShadowverseLocalDb();
-      const batchId = ctx.batchId!;
+    progress({
+      done:  Math.min(cursor.index, ctx.assets.length),
+      total: ctx.assets.length,
+    });
 
-      if (blockInput.index >= ctx.assets.length) {
-        return done(blockInput);
-      }
+    if (cursor.index >= ctx.assets.length) {
+      return done(cursor);
+    }
 
-      const cursor: ImageImportCursor = { ...blockInput };
-
-      for (const asset of ctx.assets.slice(cursor.index, cursor.index + CHUNK_SIZE)) {
-        const { outcome, byteSize } = await processImageAsset(db, batchId, asset);
-
-        if (outcome === 'downloaded') {
-          cursor.downloadedCount += 1;
-          cursor.downloadedByteCount += byteSize;
-        }
-        if (outcome === 'skipped') cursor.skippedCount += 1;
-        if (outcome === 'missing') cursor.missingCount += 1;
-        if (outcome === 'failed') cursor.failedCount += 1;
-      }
-
-      cursor.index += CHUNK_SIZE;
-
-      progress({
-        done: Math.min(cursor.index, ctx.assets.length),
-        total: ctx.assets.length,
-      });
-
-      if (cursor.index >= ctx.assets.length) {
-        return done(cursor);
-      }
-
-      return cursor;
-    })
-    .exit(async ({ ctx, blockInput }) => {
-      const db = getShadowverseLocalDb();
-      const batch = await finalizeImageImportBatch({
-        db,
-        batchId: ctx.batchId!,
-        counters: {
-          downloadedCount: blockInput.downloadedCount,
-          skippedCount: blockInput.skippedCount,
-          missingCount: blockInput.missingCount,
-          failedCount: blockInput.failedCount,
-          downloadedByteCount: blockInput.downloadedByteCount,
-        },
-        assetCount: ctx.assets.length,
-      });
-
-      return {
-        assetCount: ctx.assets.length,
-        status: batch?.status ?? 'failed',
-        downloadedCount: blockInput.downloadedCount,
-        skippedCount: blockInput.skippedCount,
-        missingCount: blockInput.missingCount,
-        failedCount: blockInput.failedCount,
+    return cursor;
+  })
+  .exit(async ({ ctx, blockInput }) => {
+    const db = getShadowverseLocalDb();
+    const batch = await finalizeImageImportBatch({
+      db,
+      batchId:  ctx.batchId!,
+      counters: {
+        downloadedCount:     blockInput.downloadedCount,
+        skippedCount:        blockInput.skippedCount,
+        missingCount:        blockInput.missingCount,
+        failedCount:         blockInput.failedCount,
         downloadedByteCount: blockInput.downloadedByteCount,
-      };
-    })
+      },
+      assetCount: ctx.assets.length,
+    });
+
+    return {
+      assetCount:          ctx.assets.length,
+      status:              batch?.status ?? 'failed',
+      downloadedCount:     blockInput.downloadedCount,
+      skippedCount:        blockInput.skippedCount,
+      missingCount:        blockInput.missingCount,
+      failedCount:         blockInput.failedCount,
+      downloadedByteCount: blockInput.downloadedByteCount,
+    };
+  })
   .build();

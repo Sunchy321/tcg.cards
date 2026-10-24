@@ -7,9 +7,9 @@ import type { ConsoleApiClientContext, ConsoleApiRequestMeta } from '@tcg-cards/
 export type { ConsoleApiClientContext, ConsoleApiRequestMeta } from '@tcg-cards/console-api/request-meta';
 
 export interface CreateConsoleApiClientOptions {
-  url: string;
-  headers?: ConstructorParameters<typeof RPCLink>[0]['headers'];
-  fetch?: ConstructorParameters<typeof RPCLink>[0]['fetch'];
+  url:             string;
+  headers?:        ConstructorParameters<typeof RPCLink>[0]['headers'];
+  fetch?:          ConstructorParameters<typeof RPCLink>[0]['fetch'];
   defaultContext?: ConsoleApiClientContext;
 }
 
@@ -36,9 +36,9 @@ export interface ConsoleStorage {
 }
 
 export interface ConsoleToastInput {
-  title: string;
+  title:        string;
   description?: string;
-  color?: 'error' | 'info' | 'primary' | 'success' | 'warning';
+  color?:       'error' | 'info' | 'primary' | 'success' | 'warning';
 }
 
 export interface ConsoleToast {
@@ -47,12 +47,12 @@ export interface ConsoleToast {
 
 export type ConsoleCapabilityLevel = 'light' | 'medium' | 'full';
 
-export type ConsoleCapabilityErrorCode =
-  | 'unsupported'
-  | 'permission_denied'
-  | 'cancelled'
-  | 'invalid_input'
-  | 'failed';
+export type ConsoleCapabilityErrorCode
+  = | 'unsupported'
+    | 'permission_denied'
+    | 'cancelled'
+    | 'invalid_input'
+    | 'failed';
 
 export class ConsoleCapabilityError extends Error {
   code: ConsoleCapabilityErrorCode;
@@ -65,14 +65,14 @@ export class ConsoleCapabilityError extends Error {
 }
 
 export interface ConsoleFilePickerFilter {
-  name: string;
+  name:       string;
   extensions: string[];
 }
 
 export interface ConsolePickFilesInput {
-  multiple?: boolean;
+  multiple?:  boolean;
   directory?: boolean;
-  filters?: ConsoleFilePickerFilter[];
+  filters?:   ConsoleFilePickerFilter[];
 }
 
 export interface ConsolePickFilesResult {
@@ -84,24 +84,24 @@ export interface ConsoleGitRepositoryRef {
 }
 
 export interface ConsoleGitTag {
-  name: string;
+  name:    string;
   commit?: string;
 }
 
 export interface ConsoleToolRunInput {
-  name: string;
+  name:  string;
   args?: string[];
-  cwd?: string;
+  cwd?:  string;
 }
 
 export interface ConsoleToolRunResult {
-  code: number;
+  code:   number;
   stdout: string;
   stderr: string;
 }
 
 export interface ConsoleUploadFileInput {
-  path: string;
+  path:         string;
   contentType?: string;
 }
 
@@ -128,19 +128,19 @@ export interface ConsoleUploadCapabilities {
 }
 
 export interface ConsoleCapabilities {
-  level: ConsoleCapabilityLevel;
-  files: ConsoleFileCapabilities;
-  git: ConsoleGitCapabilities;
-  tools: ConsoleToolCapabilities;
+  level:  ConsoleCapabilityLevel;
+  files:  ConsoleFileCapabilities;
+  git:    ConsoleGitCapabilities;
+  tools:  ConsoleToolCapabilities;
   upload: ConsoleUploadCapabilities;
 }
 
 export interface ConsolePlatform<TSession = unknown> {
-  api: ConsoleApi;
-  router: ConsoleRouter;
+  api:     ConsoleApi;
+  router:  ConsoleRouter;
   session: ConsoleSession<TSession>;
   storage: ConsoleStorage;
-  toast: ConsoleToast;
+  toast:   ConsoleToast;
 }
 
 export const consolePlatformKey: InjectionKey<ConsolePlatform<unknown>> = Symbol('console-platform');
@@ -159,7 +159,7 @@ export function createConsoleApiClient<TRouter extends AnyRouter>(
   options: CreateConsoleApiClientOptions,
 ): RouterClient<TRouter, ConsoleApiClientContext> {
   const link = new RPCLink<ConsoleApiClientContext>({
-    url: options.url,
+    url:     options.url,
     headers: async (clientOptions, path, input) => {
       const mergedContext = mergeClientContext(options.defaultContext, clientOptions.context);
       const baseHeaders = await resolveHeaders(options.headers, {
@@ -181,7 +181,7 @@ export function createConsoleApiClient<TRouter extends AnyRouter>(
 /** Resolves user-supplied headers into a concrete header bag. */
 async function resolveHeaders(
   value: CreateConsoleApiClientOptions['headers'],
-  clientOptions: { context: ConsoleApiClientContext; signal?: AbortSignal; lastEventId?: string },
+  clientOptions: { context: ConsoleApiClientContext, signal?: AbortSignal, lastEventId?: string },
   path: readonly string[],
   input: unknown,
 ) {

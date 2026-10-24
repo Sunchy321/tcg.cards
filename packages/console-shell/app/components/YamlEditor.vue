@@ -67,7 +67,7 @@ import { isScalar, isSeq, parseDocument, visit } from 'yaml';
 
 const props = defineProps<{
   modelValue: string;
-  error?: string;
+  error?:     string;
 }>();
 
 const emit = defineEmits<{
@@ -80,15 +80,15 @@ const isDark = ref(false);
 
 const contextMenu = ref({
   show: false,
-  x: 0,
-  y: 0,
-  url: '',
+  x:    0,
+  y:    0,
+  url:  '',
 });
 
 interface LinkRange {
   from: number;
-  to: number;
-  url: string;
+  to:   number;
+  url:  string;
 }
 
 const linkRanges = ref<LinkRange[]>([]);
@@ -120,7 +120,7 @@ function parseLinkRanges(content: string): LinkRange[] {
 
             ranges.push({
               from: urlStart,
-              to: urlEnd,
+              to:   urlEnd,
               url,
             });
           }
@@ -157,9 +157,9 @@ function checkCursorPosition(view: EditorView) {
 
   contextMenu.value = {
     show: true,
-    x: coords.left - editorRect.left,
-    y: coords.top - editorRect.top - 10,
-    url: link.url,
+    x:    coords.left - editorRect.left,
+    y:    coords.top - editorRect.top - 10,
+    url:  link.url,
   };
 }
 
@@ -225,7 +225,7 @@ function initEditor() {
   if (!editorRef.value) return;
 
   const state = EditorState.create({
-    doc: props.modelValue,
+    doc:        props.modelValue,
     extensions: createExtensions(),
   });
 
@@ -251,7 +251,7 @@ function setupColorModeObserver() {
     if (wasDark !== isDark.value && editorView.value) {
       const content = editorView.value.state.doc.toString();
       const state = EditorState.create({
-        doc: content,
+        doc:        content,
         extensions: createExtensions(),
       });
 
@@ -260,20 +260,20 @@ function setupColorModeObserver() {
   });
 
   colorModeObserver.observe(document.documentElement, {
-    attributes: true,
+    attributes:      true,
     attributeFilter: ['class'],
   });
 }
 
-watch(() => props.modelValue, (value) => {
+watch(() => props.modelValue, value => {
   if (!editorView.value) return;
 
   const current = editorView.value.state.doc.toString();
   if (current !== value) {
     const transaction = editorView.value.state.update({
       changes: {
-        from: 0,
-        to: current.length,
+        from:   0,
+        to:     current.length,
         insert: value,
       },
       effects: StateEffect.reconfigure.of(createExtensions()),

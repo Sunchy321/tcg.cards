@@ -33,11 +33,11 @@ export const ImageImportBatch = dataSchema.table('image_import_batches', {
 
   source: text('source').notNull(),
 
-  assetCount:         integer('asset_count').notNull().default(0),
-  downloadedCount:    integer('downloaded_count').notNull().default(0),
-  skippedCount:       integer('skipped_count').notNull().default(0),
-  missingCount:       integer('missing_count').notNull().default(0),
-  failedCount:        integer('failed_count').notNull().default(0),
+  assetCount:          integer('asset_count').notNull().default(0),
+  downloadedCount:     integer('downloaded_count').notNull().default(0),
+  skippedCount:        integer('skipped_count').notNull().default(0),
+  missingCount:        integer('missing_count').notNull().default(0),
+  failedCount:         integer('failed_count').notNull().default(0),
   downloadedByteCount: bigint('downloaded_byte_count', { mode: 'number' }).notNull().default(0),
 
   status: imageImportBatchStatus('status').notNull().default('running'),
@@ -67,15 +67,15 @@ export type ImageAssetKind = 'card' | 'card_evo' | 'style_card' | 'style_evo' | 
 export const ImageAsset = dataSchema.table('image_assets', {
   id: bigserial('id', { mode: 'number' }).primaryKey(),
 
-  lang: lang('lang').notNull(),
-  kind: varchar('kind', { length: 16 }).$type<ImageAssetKind>().notNull(),
+  lang:   lang('lang').notNull(),
+  kind:   varchar('kind', { length: 16 }).$type<ImageAssetKind>().notNull(),
   cardId: bigint('card_id', { mode: 'number' })
     .notNull()
     .references(() => Card.cardId, { onDelete: 'cascade' }),
   /** 0 for card-level images; the source list position for style images. */
   styleIndex: integer('style_index').notNull().default(0),
 
-  hash: varchar('hash', { length: 32 }).notNull(),
+  hash:     varchar('hash', { length: 32 }).notNull(),
   filePath: text('file_path').notNull(),
   byteSize: integer('byte_size'),
 

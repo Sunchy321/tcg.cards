@@ -31,48 +31,48 @@ import {
 
 /** Aggregate primary-image import result returned to desktop clients. */
 export interface YugiohImageImportReport {
-  batchId: string;
-  source: string;
-  metadataUrl: string;
-  metadataHash: string | null;
-  status: 'running' | 'completed' | 'completed_with_errors' | 'failed' | 'interrupted';
-  metadataRecordCount: number;
-  eligibleCardCount: number;
+  batchId:              string;
+  source:               string;
+  metadataUrl:          string;
+  metadataHash:         string | null;
+  status:               'running' | 'completed' | 'completed_with_errors' | 'failed' | 'interrupted';
+  metadataRecordCount:  number;
+  eligibleCardCount:    number;
   unavailableCardCount: number;
   unmatchedSourceCount: number;
-  addedCount: number;
-  updatedCount: number;
-  skippedCount: number;
-  missingCount: number;
-  failedCount: number;
-  softDeletedCount: number;
-  downloadedByteCount: number;
-  error: string | null;
-  startedAt: string;
-  completedAt: string | null;
+  addedCount:           number;
+  updatedCount:         number;
+  skippedCount:         number;
+  missingCount:         number;
+  failedCount:          number;
+  softDeletedCount:     number;
+  downloadedByteCount:  number;
+  error:                string | null;
+  startedAt:            string;
+  completedAt:          string | null;
 }
 
 /** Optional progress event emitted while one image metadata snapshot is applied. */
 export interface YugiohImageImportProgress {
-  phase: string;
-  message: string;
+  phase:           string;
+  message:         string;
   completedCount?: number;
-  totalCount?: number;
+  totalCount?:     number;
 }
 
 /** Pure inputs controlling whether one matched image is added, updated, or skipped. */
 export interface ImageImportDecisionInput {
-  hasDomainImage: boolean;
+  hasDomainImage:    boolean;
   domainImageActive: boolean;
-  mappingMatches: boolean;
-  localAssetValid: boolean;
+  mappingMatches:    boolean;
+  localAssetValid:   boolean;
 }
 
 /** Minimal state controlling whether a previously active image must be soft-deleted. */
 export interface ImageSoftDeleteInput {
-  mappingActive: boolean;
+  mappingActive:       boolean;
   sourceRecordMatched: boolean;
-  cardMatched: boolean;
+  cardMatched:         boolean;
 }
 
 /** Existing image state classified without performing network or database writes. */
@@ -96,25 +96,25 @@ export function shouldSoftDeletePrimaryImage(input: ImageSoftDeleteInput) {
 /** Database batch row converted into the stable desktop report shape. */
 function buildImageImportReport(batch: typeof ImageImportBatch.$inferSelect): YugiohImageImportReport {
   return {
-    batchId: batch.id,
-    source: batch.source,
-    metadataUrl: batch.metadataUrl,
-    metadataHash: batch.metadataHash,
-    status: batch.status,
-    metadataRecordCount: batch.metadataRecordCount,
-    eligibleCardCount: batch.eligibleCardCount,
+    batchId:              batch.id,
+    source:               batch.source,
+    metadataUrl:          batch.metadataUrl,
+    metadataHash:         batch.metadataHash,
+    status:               batch.status,
+    metadataRecordCount:  batch.metadataRecordCount,
+    eligibleCardCount:    batch.eligibleCardCount,
     unavailableCardCount: batch.unavailableCardCount,
     unmatchedSourceCount: batch.unmatchedSourceCount,
-    addedCount: batch.addedCount,
-    updatedCount: batch.updatedCount,
-    skippedCount: batch.skippedCount,
-    missingCount: batch.missingCount,
-    failedCount: batch.failedCount,
-    softDeletedCount: batch.softDeletedCount,
-    downloadedByteCount: batch.downloadedByteCount,
-    error: batch.error,
-    startedAt: batch.startedAt.toISOString(),
-    completedAt: batch.completedAt?.toISOString() ?? null,
+    addedCount:           batch.addedCount,
+    updatedCount:         batch.updatedCount,
+    skippedCount:         batch.skippedCount,
+    missingCount:         batch.missingCount,
+    failedCount:          batch.failedCount,
+    softDeletedCount:     batch.softDeletedCount,
+    downloadedByteCount:  batch.downloadedByteCount,
+    error:                batch.error,
+    startedAt:            batch.startedAt.toISOString(),
+    completedAt:          batch.completedAt?.toISOString() ?? null,
   };
 }
 
@@ -161,7 +161,7 @@ async function runBounded<T>(values: T[], limit: number, worker: (value: T, inde
 
 /** Source record and matching card paired for one bounded download task. */
 interface ImageCandidate {
-  card: typeof Card.$inferSelect;
+  card:   typeof Card.$inferSelect;
   record: YugiohImageMetadataRecord;
 }
 
@@ -183,10 +183,10 @@ function mappingMatches(
 
 /** One complete primary-image metadata snapshot downloaded and applied to local cards. */
 export async function importYugiohImages(options?: {
-  bucketDir?: string;
-  fetcher?: ImageFetcher;
+  bucketDir?:   string;
+  fetcher?:     ImageFetcher;
   concurrency?: number;
-  onProgress?: (progress: YugiohImageImportProgress) => void;
+  onProgress?:  (progress: YugiohImageImportProgress) => void;
 }) {
   const db = getYugiohLocalDb();
   const bucketDir = options?.bucketDir ?? requireYugiohImageBucketDir();
@@ -209,7 +209,7 @@ export async function importYugiohImages(options?: {
     ));
 
   const batch = await db.insert(ImageImportBatch).values({
-    source: yugiohImageSource,
+    source:      yugiohImageSource,
     metadataUrl: yugiohImageMetadataUrl,
   }).returning().then(rows => rows[0]);
 
@@ -265,22 +265,22 @@ export async function importYugiohImages(options?: {
     let completedCount = 0;
 
     await db.update(ImageImportBatch).set({
-      metadataHash: metadata.metadataHash,
-      etag: metadata.etag,
-      lastModified: metadata.lastModified,
+      metadataHash:        metadata.metadataHash,
+      etag:                metadata.etag,
+      lastModified:        metadata.lastModified,
       metadataRecordCount: metadata.records.length,
-      eligibleCardCount: candidates.length,
+      eligibleCardCount:   candidates.length,
       unavailableCardCount,
       unmatchedSourceCount,
       missingCount,
-      updatedAt: new Date(),
+      updatedAt:           new Date(),
     }).where(eq(ImageImportBatch.id, batch.id));
 
     onProgress?.({
-      phase: 'images',
-      message: '正在导入主卡图…',
+      phase:          'images',
+      message:        '正在导入主卡图…',
       completedCount: 0,
-      totalCount: candidates.length,
+      totalCount:     candidates.length,
     });
 
     await runBounded(candidates, concurrency, async ({ card, record }) => {
@@ -309,8 +309,8 @@ export async function importYugiohImages(options?: {
         if (action === 'skipped' && mapping != null) {
           await db.update(CardImageSource).set({
             lastSeenBatchId: batch.id,
-            retiredAt: null,
-            updatedAt: new Date(),
+            retiredAt:       null,
+            updatedAt:       new Date(),
           }).where(and(
             eq(CardImageSource.source, yugiohImageSource),
             eq(CardImageSource.sourceRecordId, record.sourceRecordId),
@@ -335,42 +335,42 @@ export async function importYugiohImages(options?: {
           }
 
           await tx.update(Card).set({
-            primaryImageR2Bucket: yugiohImageR2Bucket,
-            primaryImageR2Key: image.r2Key,
+            primaryImageR2Bucket:    yugiohImageR2Bucket,
+            primaryImageR2Key:       image.r2Key,
             primaryImageContentType: 'image/webp',
-            primaryImageByteSize: image.byteSize,
-            primaryImageWidth: image.width,
-            primaryImageHeight: image.height,
-            primaryImageSha256: image.sha256,
-            primaryImageDeletedAt: null,
-            updatedAt: now,
+            primaryImageByteSize:    image.byteSize,
+            primaryImageWidth:       image.width,
+            primaryImageHeight:      image.height,
+            primaryImageSha256:      image.sha256,
+            primaryImageDeletedAt:   null,
+            updatedAt:               now,
           }).where(eq(Card.id, card.id));
 
           await tx.insert(CardImageSource).values({
-            source: yugiohImageSource,
-            sourceRecordId: record.sourceRecordId,
-            cardId: card.id,
-            sourceUrl: record.sourceUrl,
-            sourceMd5: record.md5,
-            sourceByteSize: record.byteSize,
+            source:           yugiohImageSource,
+            sourceRecordId:   record.sourceRecordId,
+            cardId:           card.id,
+            sourceUrl:        record.sourceUrl,
+            sourceMd5:        record.md5,
+            sourceByteSize:   record.byteSize,
             sourceModifiedAt: record.modifiedAt,
-            assetSha256: image.sha256,
-            r2Key: image.r2Key,
+            assetSha256:      image.sha256,
+            r2Key:            image.r2Key,
             firstSeenBatchId: batch.id,
-            lastSeenBatchId: batch.id,
+            lastSeenBatchId:  batch.id,
           }).onConflictDoUpdate({
             target: [CardImageSource.source, CardImageSource.sourceRecordId],
-            set: {
-              cardId: card.id,
-              sourceUrl: record.sourceUrl,
-              sourceMd5: record.md5,
-              sourceByteSize: record.byteSize,
+            set:    {
+              cardId:           card.id,
+              sourceUrl:        record.sourceUrl,
+              sourceMd5:        record.md5,
+              sourceByteSize:   record.byteSize,
               sourceModifiedAt: record.modifiedAt,
-              assetSha256: image.sha256,
-              r2Key: image.r2Key,
-              lastSeenBatchId: batch.id,
-              retiredAt: null,
-              updatedAt: now,
+              assetSha256:      image.sha256,
+              r2Key:            image.r2Key,
+              lastSeenBatchId:  batch.id,
+              retiredAt:        null,
+              updatedAt:        now,
             },
           });
         });
@@ -385,13 +385,13 @@ export async function importYugiohImages(options?: {
         const code = error instanceof ImageSourceError ? error.code : 'IMAGE_IMPORT_ERROR';
 
         await db.insert(ImageImportFailure).values({
-          batchId: batch.id,
+          batchId:        batch.id,
           sourceRecordId: record.sourceRecordId,
-          stage: getFailureStage(error),
+          stage:          getFailureStage(error),
           code,
-          message: getErrorMessage(error),
-          payload: {
-            cardId: card.id,
+          message:        getErrorMessage(error),
+          payload:        {
+            cardId:         card.id,
             sourceFileName: record.fileName,
             sourceByteSize: record.byteSize,
           },
@@ -399,8 +399,8 @@ export async function importYugiohImages(options?: {
       } finally {
         completedCount += 1;
         onProgress?.({
-          phase: 'images',
-          message: '正在导入主卡图…',
+          phase:      'images',
+          message:    '正在导入主卡图…',
           completedCount,
           totalCount: candidates.length,
         });
@@ -444,22 +444,22 @@ export async function importYugiohImages(options?: {
 
     if (status === 'completed') {
       await db.insert(ImageImportState).values({
-        source: yugiohImageSource,
-        metadataUrl: yugiohImageMetadataUrl,
+        source:                yugiohImageSource,
+        metadataUrl:           yugiohImageMetadataUrl,
         lastSuccessfulBatchId: batch.id,
-        metadataHash: metadata.metadataHash,
-        etag: metadata.etag,
-        lastModified: metadata.lastModified,
-        updatedAt: completedAt,
+        metadataHash:          metadata.metadataHash,
+        etag:                  metadata.etag,
+        lastModified:          metadata.lastModified,
+        updatedAt:             completedAt,
       }).onConflictDoUpdate({
         target: ImageImportState.source,
-        set: {
-          metadataUrl: yugiohImageMetadataUrl,
+        set:    {
+          metadataUrl:           yugiohImageMetadataUrl,
           lastSuccessfulBatchId: batch.id,
-          metadataHash: metadata.metadataHash,
-          etag: metadata.etag,
-          lastModified: metadata.lastModified,
-          updatedAt: completedAt,
+          metadataHash:          metadata.metadataHash,
+          etag:                  metadata.etag,
+          lastModified:          metadata.lastModified,
+          updatedAt:             completedAt,
         },
       });
     }
@@ -482,20 +482,20 @@ export async function importYugiohImages(options?: {
     }
 
     onProgress?.({
-      phase: 'completed',
-      message: '主卡图导入完成。',
+      phase:          'completed',
+      message:        '主卡图导入完成。',
       completedCount: candidates.length,
-      totalCount: candidates.length,
+      totalCount:     candidates.length,
     });
     return buildImageImportReport(completed);
   } catch (error) {
     const failedAt = new Date();
 
     await db.update(ImageImportBatch).set({
-      status: 'failed',
-      error: getErrorMessage(error),
+      status:      'failed',
+      error:       getErrorMessage(error),
       completedAt: failedAt,
-      updatedAt: failedAt,
+      updatedAt:   failedAt,
     }).where(eq(ImageImportBatch.id, batch.id));
     throw error;
   }

@@ -11,7 +11,7 @@ import {
 import { exportCardImageRequirements, importCardImageArchiveFromBrowser } from '../../lib/hearthstone/card-image';
 
 interface ImageEnv {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   R2_ASSET?:        any;
   R2_ASSET_BUCKET?: string;
 }
@@ -61,15 +61,14 @@ const importArchive = os
   .output(cardImageImportResult)
   .handler(async ({ context, input }) => {
     try {
-      /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
       return await importCardImageArchiveFromBrowser({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         requirementContent: await (input.requirements as any).text() as string,
         manifest:           JSON.parse(input.manifest),
         files:              await Promise.all(input.files.map(async file => ({
           requestId: file.requestId,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          bytes:     new Uint8Array(await (file.file as any).arrayBuffer() as ArrayBuffer),
+
+          bytes: new Uint8Array(await (file.file as any).arrayBuffer() as ArrayBuffer),
         }))),
         env: {
           R2_ASSET:        context.env.R2_ASSET,

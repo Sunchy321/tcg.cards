@@ -15,7 +15,6 @@
 
 import { and, eq, isNull, sql } from 'drizzle-orm';
 
-import { createDb } from '@tcg-cards/db';
 import { ScryfallCard } from '@tcg-cards/db/schema/local/magic';
 import { CardLocalization, CardPartLocalization } from '@tcg-cards/db/schema/shared/magic/card';
 import { Print, PrintPart } from '@tcg-cards/db/schema/shared/magic/print';

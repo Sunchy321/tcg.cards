@@ -25,46 +25,46 @@ const pngSignature = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]);
 /** Local bucket import file backed by an existing PNG path or in-memory bytes. */
 export interface CardImageLocalImportFile {
   fileName: string;
-  path?: string;
-  bytes?: Uint8Array;
+  path?:    string;
+  bytes?:   Uint8Array;
 }
 
 /** Input payload required to validate PNG files and write WebP assets locally. */
 export interface CardImageLocalImportInput {
   requirementContent: string;
-  requirementName: string;
-  files: CardImageLocalImportFile[];
-  bucketDir: string;
-  force: boolean;
-  dryRun: boolean;
+  requirementName:    string;
+  files:              CardImageLocalImportFile[];
+  bucketDir:          string;
+  force:              boolean;
+  dryRun:             boolean;
 }
 
 /** Rejected local import file paired with one readable error message. */
 export interface CardImageLocalImportProblem {
   fileName: string;
-  message: string;
+  message:  string;
 }
 
 /** Summary returned after one local bucket import finishes. */
 export interface CardImageLocalImportSummary {
   requirementName: string;
-  expectedCount: number;
-  writtenCount: number;
-  skippedCount: number;
-  missingCount: number;
-  rejectedCount: number;
-  dryRun: boolean;
+  expectedCount:   number;
+  writtenCount:    number;
+  skippedCount:    number;
+  missingCount:    number;
+  rejectedCount:   number;
+  dryRun:          boolean;
 }
 
 /** Complete local import result including the summary and every rejected file. */
 export interface CardImageLocalImportResult {
-  summary: CardImageLocalImportSummary;
+  summary:  CardImageLocalImportSummary;
   problems: CardImageLocalImportProblem[];
 }
 
 /** PNG width and height decoded from the IHDR chunk. */
 export interface PngMetadata {
-  width: number;
+  width:  number;
   height: number;
 }
 
@@ -274,7 +274,7 @@ export async function importCardImageFilesToLocalBucket(
         if (pngMeta.width !== request.output.width || pngMeta.height !== request.output.height) {
           problems.push({
             fileName: request.output.fileName,
-            message: `PNG dimensions ${pngMeta.width}x${pngMeta.height} do not match expected ${request.output.width}x${request.output.height}`,
+            message:  `PNG dimensions ${pngMeta.width}x${pngMeta.height} do not match expected ${request.output.width}x${request.output.height}`,
           });
           continue;
         }
@@ -298,7 +298,7 @@ export async function importCardImageFilesToLocalBucket(
           if (!input.force) {
             problems.push({
               fileName: request.output.fileName,
-              message: `Output already exists with different content: ${outputPath}`,
+              message:  `Output already exists with different content: ${outputPath}`,
             });
             continue;
           }
@@ -313,7 +313,7 @@ export async function importCardImageFilesToLocalBucket(
       } catch (error) {
         problems.push({
           fileName: request.output.fileName,
-          message: error instanceof Error ? error.message : 'Unexpected import error',
+          message:  error instanceof Error ? error.message : 'Unexpected import error',
         });
       }
     }
@@ -321,12 +321,12 @@ export async function importCardImageFilesToLocalBucket(
     return {
       summary: {
         requirementName: input.requirementName,
-        expectedCount: requirementFile.requests.length,
+        expectedCount:   requirementFile.requests.length,
         writtenCount,
         skippedCount,
         missingCount,
-        rejectedCount: problems.length,
-        dryRun: input.dryRun,
+        rejectedCount:   problems.length,
+        dryRun:          input.dryRun,
       },
       problems,
     };

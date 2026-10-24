@@ -42,7 +42,7 @@ export async function authFetch(input: RequestInfo | URL, init?: RequestInit): P
     const localResponse = await fetch(`${desktopRuntimeRpcUrl}${path}`, {
       method,
       headers: mergedHeaders,
-      body: bodyText,
+      body:    bodyText,
     });
 
     if (localResponse.status !== 404) {
@@ -69,7 +69,7 @@ export async function authFetch(input: RequestInfo | URL, init?: RequestInit): P
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`RPC request failed: ${message}`);
+    throw new Error(`RPC request failed: ${message}`, { cause: error });
   }
 }
 

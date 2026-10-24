@@ -15,13 +15,13 @@ import { onMounted, onUnmounted, ref, shallowRef, watch } from 'vue';
 
 const props = defineProps<{
   modelValue: string;
-  schema: Record<string, unknown>;
-  disabled?: boolean;
+  schema:     Record<string, unknown>;
+  disabled?:  boolean;
 }>();
 
 const emit = defineEmits<{
   'update:modelValue': [value: string];
-  'validationChange': [payload: MonacoJsonEditorValidation];
+  'validationChange':  [payload: MonacoJsonEditorValidation];
 }>();
 
 /** Monaco editor module loaded on the client. */
@@ -61,22 +61,22 @@ function getThemeName() {
 /** Monaco editor options built for the desktop config editing experience. */
 function createEditorOptions(): Monaco.editor.IStandaloneEditorConstructionOptions {
   return {
-    value:                       props.modelValue,
-    language:                    'json',
-    automaticLayout:             true,
-    formatOnPaste:               true,
-    formatOnType:                true,
-    minimap:                     { enabled: false },
-    wordWrap:                    'on',
-    lineNumbersMinChars:         3,
-    scrollBeyondLastLine:        false,
-    quickSuggestions:            { comments: false, other: true, strings: true },
-    suggestOnTriggerCharacters:  true,
-    tabSize:                     2,
-    insertSpaces:                true,
-    readOnly:                    props.disabled ?? false,
-    bracketPairColorization:     { enabled: true },
-    guides:                      { bracketPairs: true, indentation: true },
+    value:                      props.modelValue,
+    language:                   'json',
+    automaticLayout:            true,
+    formatOnPaste:              true,
+    formatOnType:               true,
+    minimap:                    { enabled: false },
+    wordWrap:                   'on',
+    lineNumbersMinChars:        3,
+    scrollBeyondLastLine:       false,
+    quickSuggestions:           { comments: false, other: true, strings: true },
+    suggestOnTriggerCharacters: true,
+    tabSize:                    2,
+    insertSpaces:               true,
+    readOnly:                   props.disabled ?? false,
+    bracketPairColorization:    { enabled: true },
+    guides:                     { bracketPairs: true, indentation: true },
   };
 }
 
@@ -88,9 +88,9 @@ function applySchema(runtime: MonacoRuntime) {
     enableSchemaRequest: false,
     schemas:             [
       {
-        uri: schemaUri,
+        uri:       schemaUri,
         fileMatch: [modelUri],
-        schema: props.schema,
+        schema:    props.schema,
       },
     ],
   });

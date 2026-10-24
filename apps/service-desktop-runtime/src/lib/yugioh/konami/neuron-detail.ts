@@ -228,7 +228,7 @@ export function parseNeuronDetail(html: string, cid: number, locale: string): Ne
     locale,
     name,
     nameAnnotation: nameAnnotation ?? null,
-    ruby:      ruby || null,
+    ruby:           ruby || null,
     enName,
     attribute,
     level,
@@ -238,14 +238,14 @@ export function parseNeuronDetail(html: string, cid: number, locale: string): Ne
     pendulumScale,
     atk,
     def,
-    species:   speciesParts[0] ?? null,
-    typeText:  speciesParts.slice(1).join('/') || null,
-    text:      cardText,
+    species:        speciesParts[0] ?? null,
+    typeText:       speciesParts.slice(1).join('/') || null,
+    text:           cardText,
     pendulumText,
     note,
-    specItems: specItems.map(item => ({ title: item.title, value: item.value })),
+    specItems:      specItems.map(item => ({ title: item.title, value: item.value })),
     imageIds,
-    prints:    parsePrints(printsSection(html)),
+    prints:         parsePrints(printsSection(html)),
   };
 }
 

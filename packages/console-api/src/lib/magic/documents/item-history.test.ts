@@ -94,7 +94,7 @@ test('marks an entry that enters and later leaves the published editions', async
 
   expect(page.entry.firstDate).toBe('2026-11-01');
   expect(page.entry.lastDate).toBe('2026-12-01');
-  const [born, changed, gone] = periods(page.rows);
+  const [born, changed] = periods(page.rows);
   expect(born!.dateFrom).toBe('2026-11-01');
   expect(born!.cells[0]!.state).toBe('added');
   expect(changed!.cells[0]!.diff?.some(span => span.type === 'add' && span.value.includes('{U}'))).toBe(true);
@@ -108,8 +108,8 @@ test('follows the reading language with an English fallback and no cross-languag
   const second = await service.importCr({ content: cr('November 1, 2026', 'Pay {U} to continue.') });
   const operations = createTranslationOperations(store, { track: 'local' });
   const revision = await operations.saveTranslation({
-    documentId: 'magic-cr', sourceRevisionId: second.revisionId, language: 'zh-CN',
-    nodes: [{ sourceNodeId: (await store.revision(second.revisionId))!.nodes.find(node => node.anchor === '100.1')!.id, rawText: '支付 {U}。', translationMethod: 'machine' }],
+    documentId:       'magic-cr', sourceRevisionId: second.revisionId, language:         'zh-CN',
+    nodes:            [{ sourceNodeId: (await store.revision(second.revisionId))!.nodes.find(node => node.anchor === '100.1')!.id, rawText: '支付 {U}。', translationMethod: 'machine' }],
   });
   await operations.selectTranslation({ documentId: 'magic-cr', releaseId: second.releaseId, revisionId: revision.id });
   void first;
@@ -251,12 +251,12 @@ test('replays multiple split and merge rounds across the complete entry history'
 test('prepares the same public history when formal releases arrive in reverse order', async () => {
   const editions = [
     { versionTag: '1', nodes: [{ nodeKey: 'original', rawText: 'alpha beta gamma delta epsilon zeta eta theta' }] },
-    { versionTag: '2', nodes: [
+    { versionTag: '2', nodes:      [
       { nodeKey: 'chapter', kind: 'heading' as const, rawText: 'Chapter' },
       { nodeKey: 'left', parentKey: 'chapter', rawText: 'alpha beta gamma delta epsilon' },
       { nodeKey: 'right', parentKey: 'chapter', rawText: 'delta epsilon zeta eta theta' },
     ] },
-    { versionTag: '3', nodes: [
+    { versionTag: '3', nodes:      [
       { nodeKey: 'chapter', kind: 'heading' as const, rawText: 'Chapter' },
       { nodeKey: 'left', parentKey: 'chapter', rawText: 'alpha beta gamma delta epsilon iota' },
       { nodeKey: 'right', parentKey: 'chapter', rawText: 'delta epsilon zeta eta theta' },

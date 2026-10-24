@@ -32,37 +32,37 @@ const kindOrder: ImageAssetKind[] = ['card', 'banner', 'card_evo', 'banner_evo',
 
 /** One planned image download resolved to its local file path and source URL. */
 export interface PlannedImageAsset {
-  lang: ShadowverseLang;
-  kind: ImageAssetKind;
-  cardId: number;
+  lang:       ShadowverseLang;
+  kind:       ImageAssetKind;
+  cardId:     number;
   styleIndex: number;
-  hash: string;
-  filePath: string;
-  url: string;
+  hash:       string;
+  filePath:   string;
+  url:        string;
 }
 
 /** Optional progress update emitted during one desktop image import. */
 export interface ShadowverseImageImportProgress {
-  phase: string;
-  message: string;
+  phase:           string;
+  message:         string;
   completedCount?: number;
-  totalCount?: number;
+  totalCount?:     number;
 }
 
 /** Image import batch summary returned to desktop clients. */
 export interface ShadowverseImageImportReport {
-  batchId: string;
-  source: string;
-  status: 'running' | 'completed' | 'completed_with_errors' | 'failed' | 'interrupted';
-  assetCount: number;
-  downloadedCount: number;
-  skippedCount: number;
-  missingCount: number;
-  failedCount: number;
+  batchId:             string;
+  source:              string;
+  status:              'running' | 'completed' | 'completed_with_errors' | 'failed' | 'interrupted';
+  assetCount:          number;
+  downloadedCount:     number;
+  skippedCount:        number;
+  missingCount:        number;
+  failedCount:         number;
   downloadedByteCount: number;
-  error: string | null;
-  startedAt: string;
-  completedAt: string | null;
+  error:               string | null;
+  startedAt:           string;
+  completedAt:         string | null;
 }
 
 /** Deterministic sort order so a resumed run walks assets in the same sequence. */
@@ -78,9 +78,9 @@ function planSortKey(asset: PlannedImageAsset) {
 /** Collects planned base and banner assets for every active card localization. */
 async function planCardAssets(db: ShadowverseLocalDb): Promise<PlannedImageAsset[]> {
   const rows = await db.select({
-    lang: CardLocalization.lang,
-    cardId: CardLocalization.cardId,
-    cardImageHash: CardLocalization.cardImageHash,
+    lang:                CardLocalization.lang,
+    cardId:              CardLocalization.cardId,
+    cardImageHash:       CardLocalization.cardImageHash,
     cardBannerImageHash: CardLocalization.cardBannerImageHash,
   })
     .from(CardLocalization)
@@ -103,9 +103,9 @@ async function planCardAssets(db: ShadowverseLocalDb): Promise<PlannedImageAsset
 /** Collects planned evolution assets for every active card evolution localization. */
 async function planEvolutionAssets(db: ShadowverseLocalDb): Promise<PlannedImageAsset[]> {
   const rows = await db.select({
-    lang: CardEvolutionLocalization.lang,
-    cardId: CardEvolutionLocalization.cardId,
-    cardImageHash: CardEvolutionLocalization.cardImageHash,
+    lang:                CardEvolutionLocalization.lang,
+    cardId:              CardEvolutionLocalization.cardId,
+    cardImageHash:       CardEvolutionLocalization.cardImageHash,
     cardBannerImageHash: CardEvolutionLocalization.cardBannerImageHash,
   })
     .from(CardEvolutionLocalization)
@@ -128,10 +128,10 @@ async function planEvolutionAssets(db: ShadowverseLocalDb): Promise<PlannedImage
 /** Collects planned style assets for every active card style localization. */
 async function planStyleAssets(db: ShadowverseLocalDb): Promise<PlannedImageAsset[]> {
   const rows = await db.select({
-    lang: CardStyleLocalization.lang,
-    cardId: CardStyleLocalization.cardId,
-    styleIndex: CardStyleLocalization.styleIndex,
-    cardImageHash: CardStyleLocalization.cardImageHash,
+    lang:             CardStyleLocalization.lang,
+    cardId:           CardStyleLocalization.cardId,
+    styleIndex:       CardStyleLocalization.styleIndex,
+    cardImageHash:    CardStyleLocalization.cardImageHash,
     evoCardImageHash: CardStyleLocalization.evoCardImageHash,
   })
     .from(CardStyleLocalization)
@@ -209,7 +209,7 @@ export async function processImageAsset(
   db: ShadowverseLocalDb,
   batchId: string,
   asset: PlannedImageAsset,
-): Promise<{ outcome: 'downloaded' | 'skipped' | 'missing' | 'failed'; byteSize: number }> {
+): Promise<{ outcome: 'downloaded' | 'skipped' | 'missing' | 'failed', byteSize: number }> {
   const key = imageAssetKey(asset.lang, asset.kind, asset.cardId, asset.styleIndex);
 
   try {
@@ -234,13 +234,13 @@ export async function processImageAsset(
     await db.insert(ImageImportFailure).values({
       batchId,
       assetKey: key,
-      stage: 'download',
+      stage:    'download',
       code,
       message,
-      payload: { url: asset.url, cardId: asset.cardId, kind: asset.kind },
+      payload:  { url: asset.url, cardId: asset.cardId, kind: asset.kind },
     }).onConflictDoUpdate({
       target: [ImageImportFailure.batchId, ImageImportFailure.assetKey],
-      set: { stage: 'download', code, message },
+      set:    { stage: 'download', code, message },
     });
 
     return { outcome: isMissing ? 'missing' : 'failed', byteSize: 0 };
@@ -255,19 +255,19 @@ async function upsertImageAssetRow(
   downloadedAt: Date | null,
 ) {
   await db.insert(ImageAsset).values({
-    lang: asset.lang,
-    kind: asset.kind,
-    cardId: asset.cardId,
-    styleIndex: asset.styleIndex,
-    hash: asset.hash,
-    filePath: asset.filePath,
+    lang:         asset.lang,
+    kind:         asset.kind,
+    cardId:       asset.cardId,
+    styleIndex:   asset.styleIndex,
+    hash:         asset.hash,
+    filePath:     asset.filePath,
     byteSize,
     downloadedAt: downloadedAt ?? new Date(),
   }).onConflictDoUpdate({
     target: [ImageAsset.lang, ImageAsset.kind, ImageAsset.cardId, ImageAsset.styleIndex],
-    set: {
-      hash: asset.hash,
-      filePath: asset.filePath,
+    set:    {
+      hash:      asset.hash,
+      filePath:  asset.filePath,
       byteSize,
       retiredAt: null,
       ...(downloadedAt == null ? {} : { downloadedAt }),
@@ -278,18 +278,18 @@ async function upsertImageAssetRow(
 /** One database image import batch row converted into the stable desktop report shape. */
 export function buildImageImportReport(batch: typeof ImageImportBatch.$inferSelect): ShadowverseImageImportReport {
   return {
-    batchId: batch.id,
-    source: batch.source,
-    status: batch.status,
-    assetCount: batch.assetCount,
-    downloadedCount: batch.downloadedCount,
-    skippedCount: batch.skippedCount,
-    missingCount: batch.missingCount,
-    failedCount: batch.failedCount,
+    batchId:             batch.id,
+    source:              batch.source,
+    status:              batch.status,
+    assetCount:          batch.assetCount,
+    downloadedCount:     batch.downloadedCount,
+    skippedCount:        batch.skippedCount,
+    missingCount:        batch.missingCount,
+    failedCount:         batch.failedCount,
     downloadedByteCount: batch.downloadedByteCount,
-    error: batch.error,
-    startedAt: batch.startedAt.toISOString(),
-    completedAt: batch.completedAt?.toISOString() ?? null,
+    error:               batch.error,
+    startedAt:           batch.startedAt.toISOString(),
+    completedAt:         batch.completedAt?.toISOString() ?? null,
   };
 }
 
@@ -306,18 +306,18 @@ export async function listShadowverseImageImportBatches(limit = 20) {
 
 /** Running counters threaded through the image import blocks. */
 export interface ImageImportCounters {
-  downloadedCount: number;
-  skippedCount: number;
-  missingCount: number;
-  failedCount: number;
+  downloadedCount:     number;
+  skippedCount:        number;
+  missingCount:        number;
+  failedCount:         number;
   downloadedByteCount: number;
 }
 
 /** Aggregated counters persisted once all planned assets are processed. */
 export async function finalizeImageImportBatch(options: {
-  db: ShadowverseLocalDb;
-  batchId: string;
-  counters: ImageImportCounters;
+  db:         ShadowverseLocalDb;
+  batchId:    string;
+  counters:   ImageImportCounters;
   assetCount: number;
 }) {
   const { db, batchId, counters, assetCount } = options;
@@ -328,13 +328,13 @@ export async function finalizeImageImportBatch(options: {
     .set({
       status,
       assetCount,
-      downloadedCount: counters.downloadedCount,
-      skippedCount: counters.skippedCount,
-      missingCount: counters.missingCount,
-      failedCount: counters.failedCount,
+      downloadedCount:     counters.downloadedCount,
+      skippedCount:        counters.skippedCount,
+      missingCount:        counters.missingCount,
+      failedCount:         counters.failedCount,
       downloadedByteCount: counters.downloadedByteCount,
       completedAt,
-      updatedAt: completedAt,
+      updatedAt:           completedAt,
     })
     .where(eq(ImageImportBatch.id, batchId))
     .returning()

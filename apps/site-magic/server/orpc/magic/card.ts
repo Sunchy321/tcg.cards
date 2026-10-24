@@ -4,7 +4,7 @@ import z from 'zod';
 import { random as randomInt, omit } from 'lodash-es';
 import { and, asc, desc, eq, getColumns, sql } from 'drizzle-orm';
 
-import { formats as formatList, locale } from '#model/magic/schema/basic';
+import { locale } from '#model/magic/schema/basic';
 import { cardProfile, cardView } from '#model/magic/schema/card';
 import type {
   CardPrintView as ICardPrintView } from '#model/magic/schema/print';
@@ -20,7 +20,6 @@ import { Card, CardLocalization, CardPart, CardPartLocalization, CardView } from
 import { CardEditorView, Print, PrintPart, CardPrintView } from '#schema/shared/magic/print';
 import { Ruling } from '#schema/shared/magic/ruling';
 import { CardRelation } from '#schema/shared/magic/card-relation';
-import { Format } from '#schema/shared/magic/format';
 
 // import { generateText, Output } from 'ai';
 // import { createQwen } from 'qwen-ai-provider-v5';

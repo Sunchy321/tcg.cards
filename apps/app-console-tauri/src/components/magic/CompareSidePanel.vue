@@ -56,15 +56,15 @@
 defineProps<{
   title: string;
   side:  {
-    status:     'ok' | 'unavailable';
-    source:     'scryfall' | 'gatherer';
-    reason?:    string;
-    width?:     number;
-    height?:    number;
-    byteSize?:  number;
+    status:        'ok' | 'unavailable';
+    source:        'scryfall' | 'gatherer';
+    reason?:       string;
+    width?:        number;
+    height?:       number;
+    byteSize?:     number;
     qualityScore?: number | null;
-    tier?:      string;
-    preview?:   string;
+    tier?:         string;
+    preview?:      string;
   };
 }>();
 

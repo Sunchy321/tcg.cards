@@ -7,10 +7,10 @@ import {
 
 /** Complete Hearthstone publish target state required by the Bun publish workflow. */
 export interface HsdataPublishTarget {
-  publishTarget: string;
-  environment: string;
+  publishTarget:     string;
+  environment:       string;
   targetFingerprint: string;
-  connectionString: string;
+  connectionString:  string;
 }
 
 /** Trims one optional publish-target field into a nullable non-empty string. */

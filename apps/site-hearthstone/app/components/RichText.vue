@@ -1,16 +1,19 @@
 <template>
+  <!-- eslint-disable vue/no-v-html -->
+  <!-- Card text is escaped before only supported formatting tags are added. -->
   <div class="hs-rich-text" v-html="rendered" />
+  <!-- eslint-enable vue/no-v-html -->
 </template>
 
 <script setup lang="ts">
 const props = withDefaults(defineProps<{
-  disableNewline?: boolean;
+  disableNewline?:     boolean;
   preserveLineBreaks?: boolean;
-  flattenLineBreaks?: boolean;
+  flattenLineBreaks?:  boolean;
 }>(), {
-  disableNewline: false,
+  disableNewline:     false,
   preserveLineBreaks: true,
-  flattenLineBreaks: false,
+  flattenLineBreaks:  false,
 });
 
 const slots = defineSlots<{
@@ -44,7 +47,7 @@ const rendered = computed(() => {
     .replace(/&lt;\/?(?:b|i)&gt;/gi, '')
     .replace(/\$[a-z]+(\d+)/gi, '$1')
     .replace(/#(\d+)/g, '$1')
-    .replace(/\s*[\(（]?\{\d+\}[\)）]?/g, '')
+    .replace(/\s*[(（]?\{\d+\}[)）]?/g, '')
     .replace(/\s+([.,!?;:。！？；：])/g, '$1')
     .replace(/@/g, '');
 

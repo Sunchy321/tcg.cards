@@ -4,9 +4,9 @@ import { importText } from './text';
 /** Holds one paragraph together with its structural context and destination. */
 interface Part {
   context: string;
-  group: string;
-  text: string;
-  write: (text: string) => void;
+  group:   string;
+  text:    string;
+  write:   (text: string) => void;
 }
 
 /** Retains the schema-validated edition shape for traversal and rewriting. */
@@ -27,7 +27,7 @@ function editionParts(data: Edition): Map<string, Part[]> {
     groups.add(key);
   }
   /** Validates paragraph pairing and preserves each paragraph's own destination. */
-  function add(pair: { en: string; zh: string }, role: string, context: string[], group: string) {
+  function add(pair: { en: string, zh: string }, role: string, context: string[], group: string) {
     const en = pair.en.split('\n');
     const zh = pair.zh === '' ? en.map(() => '') : pair.zh.split('\n');
     if (en.length !== zh.length) throw new CrTranslationError([`${data.version}：${group} 的中英文段落无法对应。`]);
@@ -39,7 +39,7 @@ function editionParts(data: Edition): Map<string, Part[]> {
       }
       const key = JSON.stringify([role, source]);
       const rows = parts.get(key) ?? [];
-      rows.push({ context: JSON.stringify(context), group, text: zh[index]!.trim(), write: value => {
+      rows.push({ context: JSON.stringify(context), group, text:    zh[index]!.trim(), write:   value => {
         zh[index] = value;
         pair.zh = zh.join('\n');
       } });
@@ -61,7 +61,9 @@ function editionParts(data: Edition): Map<string, Part[]> {
     add(name, 'term', [], term.enname);
     // The title is stored separately from its body in the repository JSON.
     const title = parts.get(JSON.stringify(['term', sourceText(term.enname)]))!.at(-1)!;
-    title.write = value => { term.zhname = value; };
+    title.write = value => {
+      term.zhname = value;
+    };
     add(term, 'definition', [sourceText(term.enname)], term.enname);
   });
   for (const section of ['intro', 'credits'] as const) {
@@ -90,8 +92,11 @@ export function latestCrTranslation(content: unknown, editions: unknown[]) {
         const sameGroup = contextual.filter(row => row.group === part.group);
         // Repeated English can mean different things (for example, Exile as a zone or action).
         // Cross-number reuse requires a unique contextual match, or unique source on both sides.
-        const selected = sameGroup.length > 0 ? sameGroup : contextual.length > 0 ? contextual
-          : parts.length === 1 && matches.length === 1 ? matches : [];
+        const selected = sameGroup.length > 0
+          ? sameGroup
+          : contextual.length > 0
+            ? contextual
+            : parts.length === 1 && matches.length === 1 ? matches : [];
         if (selected.length === 0) continue;
         const wording = new Set(selected.map(row => row.text));
         if (wording.size === 1 && selected[0]!.text === '') continue;

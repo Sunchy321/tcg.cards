@@ -10,7 +10,7 @@ export type ShadowverseLocalDb = ReturnType<typeof createDb>;
 /** Cached local database client paired with its active connection string. */
 interface ShadowverseLocalDbState {
   connectionString: string;
-  db: ShadowverseLocalDb;
+  db:               ShadowverseLocalDb;
 }
 
 let localDbState: ShadowverseLocalDbState | null = null;

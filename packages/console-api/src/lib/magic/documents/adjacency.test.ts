@@ -33,13 +33,13 @@ test('reads only reachable source and translation nodes after preparation', asyn
   const service = createDocumentService(store, context);
   const document = await service.create({ slug: 'large-article', title: 'Article', language: 'en' });
   for (let index = 0; index < 3; index++) {
-    const revision = await service.save({ documentId: document.id, title: document.title, nodes: [
+    const revision = await service.save({ documentId: document.id, title:      document.title, nodes:      [
       { nodeKey: 'intro', rawText: `Read paragraph ${index}.` },
       ...Array.from({ length: 40 }, (_, other) => ({ nodeKey: `other-${other}`, rawText: `Unrelated section ${other}.` })),
     ] });
     const release = await service.publish({ documentId: document.id, revisionId: revision.id, versionTag: String(index) });
     await store.putRelease({ ...release, publishedAt: new Date(Date.UTC(2026, 9, index + 1)) });
-    const translated = await service.saveTranslation({ documentId: document.id, sourceRevisionId: revision.id, language: 'zhs', nodes: revision.nodes.map(node => ({
+    const translated = await service.saveTranslation({ documentId:       document.id, sourceRevisionId: revision.id, language:         'zhs', nodes:            revision.nodes.map(node => ({
       sourceNodeId: node.id, rawText: node.nodeKey === 'intro' ? `译文${index}` : `其他内容${node.nodeKey}`, translationMethod: 'human' as const,
     })) });
     await service.selectTranslation({ documentId: document.id, releaseId: release.id, revisionId: translated.id });
@@ -63,7 +63,7 @@ test('reads only reachable source and translation nodes after preparation', asyn
   expect(readNodes).toBeLessThanOrEqual(9);
   const latest = (await store.releases(document.id)).sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime())[0]!;
   const source = (await store.revision(latest.sourceRevisionId))!;
-  const correction = await service.saveTranslation({ documentId: document.id, sourceRevisionId: source.id, language: 'zhs', nodes: [{
+  const correction = await service.saveTranslation({ documentId:       document.id, sourceRevisionId: source.id, language:         'zhs', nodes:            [{
     sourceNodeId: source.nodes.find(node => node.nodeKey === 'intro')!.id, rawText: '修订后的译文', translationMethod: 'human',
   }] });
   await service.selectTranslation({ documentId: document.id, releaseId: latest.id, revisionId: correction.id });
@@ -120,7 +120,7 @@ test('keeps a paragraph continuous when it moves between chapters', async () => 
   const service = createDocumentService(store, context);
   const document = await service.create({ slug: 'moved-paragraph', title: 'Guide', language: 'en' });
   for (const [index, parentKey] of ['first', 'second'].entries()) {
-    const revision = await service.save({ documentId: document.id, title: document.title, nodes: [
+    const revision = await service.save({ documentId: document.id, title:      document.title, nodes:      [
       { nodeKey: 'first', kind: 'heading', rawText: 'First chapter' },
       { nodeKey: 'second', kind: 'heading', rawText: 'Second chapter' },
       { nodeKey: 'paragraph', parentKey, rawText: 'A paragraph that remains unchanged.' },
@@ -162,8 +162,10 @@ test('reports manual progress and distinguishes missing, ready and outdated form
   await service.importCr({ content: cr('November') });
   const before = await service.relationStatus({ documentId: 'magic-cr' });
   expect(before.versions.map(row => row.status)).toEqual(['not_needed', 'unprepared']);
-  const progress: { phase: string; done: number; total: number }[] = [];
-  await service.computeRelations({ documentId: 'magic-cr' }, { onProgress: update => { progress.push(update); } });
+  const progress: { phase: string, done: number, total: number }[] = [];
+  await service.computeRelations({ documentId: 'magic-cr' }, { onProgress: update => {
+    progress.push(update);
+  } });
   expect(progress[0]).toMatchObject({ phase: 'comparing', done: 0, total: 1 });
   expect(progress.some(row => row.phase === 'saving' && row.done === 1)).toBe(true);
   expect(progress.at(-1)).toMatchObject({ phase: 'completed', done: 1, total: 1 });

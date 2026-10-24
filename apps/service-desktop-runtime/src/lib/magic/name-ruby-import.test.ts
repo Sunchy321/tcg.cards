@@ -1,6 +1,7 @@
 import { afterAll, describe, expect, test } from 'bun:test';
 import { Database } from 'bun:sqlite';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -65,18 +66,17 @@ describe('extractNameRubyRows', () => {
 describe('resolveCardDatabasePath', () => {
   test('verifies the manifest sha256 and rejects a mismatched file', () => {
     const manifest = join(dir, 'Manifest.mtga');
-    const { createHash } = require('node:crypto') as typeof import('node:crypto');
-    const good = createHash('sha256').update(require('node:fs').readFileSync(dbPath)).digest('base64');
-    require('node:fs').writeFileSync(manifest, JSON.stringify({
+    const good = createHash('sha256').update(readFileSync(dbPath)).digest('base64');
+    writeFileSync(manifest, JSON.stringify({
       Assets: [{ Name: 'Raw_CardDatabase_deadbeef.mtga', sha256: good }],
     }));
     expect(resolveCardDatabasePath(dir)).toBe(dbPath);
 
-    require('node:fs').writeFileSync(manifest, JSON.stringify({
+    writeFileSync(manifest, JSON.stringify({
       Assets: [{ Name: 'Raw_CardDatabase_deadbeef.mtga', sha256: 'wrong==' }],
     }));
     expect(() => resolveCardDatabasePath(dir)).toThrow(/sha256 mismatch/);
-    require('node:fs').rmSync(manifest);
+    rmSync(manifest);
   });
 
   test('falls back to the conventional file when no manifest exists', () => {

@@ -1218,9 +1218,9 @@ export async function importParsedHsdata(input: ImportParsedHsdataInput): Promis
         .onConflictDoUpdate({
           target: [Patch.buildNumber],
           set:    {
-            name:      input.name,
+            name: input.name,
             shortName,
-            hash:      input.hash,
+            hash: input.hash,
           },
         });
 

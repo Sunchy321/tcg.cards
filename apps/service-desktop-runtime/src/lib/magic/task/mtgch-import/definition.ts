@@ -78,7 +78,7 @@ const definition = createDefinition(magicMtgchImportTaskType, {
   })
   .stage('scryfall', { label: '导入 Scryfall Card', progressMode: 'bounded', resumeMode: 'durable' })
   .entry(async ({ ctx, checkpoint }) => {
-    const total = (ctx as unknown as MagicCtx).lineCounts["scryfall_card.json"] ?? 0;
+    const total = (ctx as unknown as MagicCtx).lineCounts['scryfall_card.json'] ?? 0;
     const restored = checkpoint?.blockInput as FileBlockState | undefined;
     if (restored) return { total, blockInput: restored };
     return { total, blockInput: { done: 0, total, counts: emptyCounts } satisfies FileBlockState };
@@ -95,7 +95,7 @@ const definition = createDefinition(magicMtgchImportTaskType, {
   })
   .stage('card', { label: '导入 Card', progressMode: 'bounded', resumeMode: 'durable' })
   .entry(async ({ ctx, checkpoint }) => {
-    const total = (ctx as unknown as MagicCtx).lineCounts["zhs_card.json"] ?? 0;
+    const total = (ctx as unknown as MagicCtx).lineCounts['zhs_card.json'] ?? 0;
     const restored = checkpoint?.blockInput as FileBlockState | undefined;
     if (restored) return { total, blockInput: restored };
     return { total, blockInput: { done: 0, total, counts: emptyCounts } satisfies FileBlockState };
@@ -112,7 +112,7 @@ const definition = createDefinition(magicMtgchImportTaskType, {
   })
   .stage('oracle', { label: '导入 Oracle', progressMode: 'bounded', resumeMode: 'durable' })
   .entry(async ({ ctx, checkpoint }) => {
-    const total = (ctx as unknown as MagicCtx).lineCounts["zhs_oracle.json"] ?? 0;
+    const total = (ctx as unknown as MagicCtx).lineCounts['zhs_oracle.json'] ?? 0;
     const restored = checkpoint?.blockInput as FileBlockState | undefined;
     if (restored) return { total, blockInput: restored };
     return { total, blockInput: { done: 0, total, counts: emptyCounts } satisfies FileBlockState };
@@ -129,7 +129,7 @@ const definition = createDefinition(magicMtgchImportTaskType, {
   })
   .stage('flavor', { label: '导入 Flavor', progressMode: 'bounded', resumeMode: 'durable' })
   .entry(async ({ ctx, checkpoint }) => {
-    const total = (ctx as unknown as MagicCtx).lineCounts["zhs_flavor.json"] ?? 0;
+    const total = (ctx as unknown as MagicCtx).lineCounts['zhs_flavor.json'] ?? 0;
     const restored = checkpoint?.blockInput as FileBlockState | undefined;
     if (restored) return { total, blockInput: restored };
     return { total, blockInput: { done: 0, total, counts: emptyCounts } satisfies FileBlockState };
@@ -146,7 +146,7 @@ const definition = createDefinition(magicMtgchImportTaskType, {
   })
   .stage('ruling', { label: '导入 Ruling', progressMode: 'bounded', resumeMode: 'durable' })
   .entry(async ({ ctx, checkpoint }) => {
-    const total = (ctx as unknown as MagicCtx).lineCounts["zhs_ruling.json"] ?? 0;
+    const total = (ctx as unknown as MagicCtx).lineCounts['zhs_ruling.json'] ?? 0;
     const restored = checkpoint?.blockInput as FileBlockState | undefined;
     if (restored) return { total, blockInput: restored };
     return { total, blockInput: { done: 0, total, counts: emptyCounts } satisfies FileBlockState };
@@ -163,7 +163,7 @@ const definition = createDefinition(magicMtgchImportTaskType, {
   })
   .stage('set', { label: '导入 Set', progressMode: 'bounded', resumeMode: 'durable' })
   .entry(async ({ ctx, checkpoint }) => {
-    const total = (ctx as unknown as MagicCtx).lineCounts["zhs_set.json"] ?? 0;
+    const total = (ctx as unknown as MagicCtx).lineCounts['zhs_set.json'] ?? 0;
     const restored = checkpoint?.blockInput as FileBlockState | undefined;
     if (restored) return { total, blockInput: restored };
     return { total, blockInput: { done: 0, total, counts: emptyCounts } satisfies FileBlockState };
@@ -180,7 +180,7 @@ const definition = createDefinition(magicMtgchImportTaskType, {
   })
   .stage('type', { label: '导入 Type', progressMode: 'bounded', resumeMode: 'durable' })
   .entry(async ({ ctx, checkpoint }) => {
-    const total = (ctx as unknown as MagicCtx).lineCounts["zhs_type.json"] ?? 0;
+    const total = (ctx as unknown as MagicCtx).lineCounts['zhs_type.json'] ?? 0;
     const restored = checkpoint?.blockInput as FileBlockState | undefined;
     if (restored) return { total, blockInput: restored };
     return { total, blockInput: { done: 0, total, counts: emptyCounts } satisfies FileBlockState };

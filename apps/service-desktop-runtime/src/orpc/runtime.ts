@@ -25,33 +25,33 @@ import {
 
 /** Runtime status returned by desktop runtime health procedures. */
 const runtimeStatus = z.object({
-  service:                 z.string(),
-  runtime:                 z.string(),
-  status:                  z.literal('ok'),
-  localDatabaseConfigured: z.boolean(),
-  pathsConfigured:         z.boolean(),
-  imageConfigured:         z.boolean(),
-  publishTargetConfigured: z.boolean(),
+  service:                       z.string(),
+  runtime:                       z.string(),
+  status:                        z.literal('ok'),
+  localDatabaseConfigured:       z.boolean(),
+  pathsConfigured:               z.boolean(),
+  imageConfigured:               z.boolean(),
+  publishTargetConfigured:       z.boolean(),
   yugiohPublishTargetConfigured: z.boolean(),
-  yugiohImageConfigured:   z.boolean(),
-  aiConfigured:            z.boolean(),
-  time:                    z.string(),
+  yugiohImageConfigured:         z.boolean(),
+  aiConfigured:                  z.boolean(),
+  time:                          z.string(),
 });
 
 /** Standard desktop runtime health payload shared across HTTP and RPC surfaces. */
 function buildStatus() {
   return {
-    service:                 'service-desktop-runtime',
-    runtime:                 'bun',
-    status:                  'ok' as const,
-    localDatabaseConfigured: hasLocalDatabaseUrl(),
-    pathsConfigured:         Object.keys(readAllPathOverrides()).length > 0,
-    imageConfigured:         hasHearthstoneImageOverride(),
-    publishTargetConfigured: hasHearthstonePublishTargetOverride(),
+    service:                       'service-desktop-runtime',
+    runtime:                       'bun',
+    status:                        'ok' as const,
+    localDatabaseConfigured:       hasLocalDatabaseUrl(),
+    pathsConfigured:               Object.keys(readAllPathOverrides()).length > 0,
+    imageConfigured:               hasHearthstoneImageOverride(),
+    publishTargetConfigured:       hasHearthstonePublishTargetOverride(),
     yugiohPublishTargetConfigured: hasYugiohPublishTargetOverride(),
-    yugiohImageConfigured:   hasYugiohImageOverride(),
-    aiConfigured:            hasAiConfig(),
-    time:                    new Date().toISOString(),
+    yugiohImageConfigured:         hasYugiohImageOverride(),
+    aiConfigured:                  hasAiConfig(),
+    time:                          new Date().toISOString(),
   };
 }
 
@@ -99,10 +99,10 @@ const configureDesktopStateInput = z.strictObject({
         bucketDir: z.string().trim().min(1).nullable(),
       }),
       publish: z.strictObject({
-        publishTargetId: z.string().trim().min(1).nullable(),
-        environment: z.string().trim().min(1).nullable(),
+        publishTargetId:   z.string().trim().min(1).nullable(),
+        environment:       z.string().trim().min(1).nullable(),
         targetFingerprint: z.string().trim().min(1).nullable(),
-        connectionString: z.string().trim().min(1).nullable(),
+        connectionString:  z.string().trim().min(1).nullable(),
       }),
     }),
   }),

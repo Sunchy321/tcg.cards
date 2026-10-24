@@ -6,9 +6,9 @@ import { getLocalDb } from '../../../lib/hearthstone/hsdata-local-db';
 
 export const listPatches = os
   .route({
-    method: 'GET',
+    method:      'GET',
     description: 'List patches for version dropdown',
-    tags: ['Desktop', 'Hearthstone', 'Announcement'],
+    tags:        ['Desktop', 'Hearthstone', 'Announcement'],
   })
   .input(z.any())
   .output(z.any())

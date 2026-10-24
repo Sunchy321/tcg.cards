@@ -9,14 +9,14 @@ import type { DocumentContext } from './service';
 import type { Document, DocumentStore, Revision } from './store';
 
 const translationInput = z.strictObject({
-  documentId: z.string().min(1),
+  documentId:       z.string().min(1),
   sourceRevisionId: z.string().min(1),
-  language: z.string().trim().min(1),
-  title: z.string().min(1).optional(),
-  nodes: z.array(z.strictObject({
+  language:         z.string().trim().min(1),
+  title:            z.string().min(1).optional(),
+  nodes:            z.array(z.strictObject({
     sourceNodeId: z.string().min(1),
-    rawText: z.string(),
-    markers: z.array(textMarker).default([]),
+    rawText:      z.string(),
+    markers:      z.array(textMarker).default([]),
     translationMethod,
     reviewStatus: reviewStatus.default('unreviewed'),
   })),
@@ -50,18 +50,18 @@ export function createTranslationOperations(store: DocumentStore, context: Docum
         if (existing == null) await tx.putTranslation(translation);
         const revisionId = randomUUID();
         const revision: Revision = {
-          id: revisionId, documentId: document.id, translationId: translation.id,
-          sourceRevisionId: source.id, language: parsed.language, title: parsed.title ?? source.title,
-          createdAt: new Date(), deletedAt: null,
-          nodes: parsed.nodes.map(node => {
+          id:               revisionId, documentId:       document.id, translationId:    translation.id,
+          sourceRevisionId: source.id, language:         parsed.language, title:            parsed.title ?? source.title,
+          createdAt:        new Date(), deletedAt:        null,
+          nodes:            parsed.nodes.map(node => {
             const original = sourceNodes.get(node.sourceNodeId)!;
             return {
-              id: randomUUID(), revisionId, nodeKey: original.nodeKey, kind: original.kind,
-              anchor: original.anchor, path: original.path, level: original.level,
-              parentId: null, siblingOrder: original.siblingOrder,
-              rawText: node.rawText, markers: node.markers,
-              sourceNodeId: original.id, sourceRevisionId: source.id,
-              translationMethod: node.translationMethod, reviewStatus: node.reviewStatus,
+              id:                randomUUID(), revisionId, nodeKey:           original.nodeKey, kind:              original.kind,
+              anchor:            original.anchor, path:              original.path, level:             original.level,
+              parentId:          null, siblingOrder:      original.siblingOrder,
+              rawText:           node.rawText, markers:           node.markers,
+              sourceNodeId:      original.id, sourceRevisionId:  source.id,
+              translationMethod: node.translationMethod, reviewStatus:      node.reviewStatus,
             };
           }),
         };
@@ -70,7 +70,7 @@ export function createTranslationOperations(store: DocumentStore, context: Docum
         return revision;
       });
     },
-    async selectTranslation(input: { documentId: string; releaseId: string; revisionId: string }): Promise<void> {
+    async selectTranslation(input: { documentId: string, releaseId: string, revisionId: string }): Promise<void> {
       await store.transaction(input.documentId, async tx => {
         const document = await tx.document(input.documentId);
         assertWritable(document, context);

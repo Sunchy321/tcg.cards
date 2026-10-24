@@ -14,6 +14,16 @@ export default withNuxt(
     },
   },
   {
+    files:           ['src/composables/useApiClient.ts', 'src/utils/**/*.test.ts'],
+    languageOptions: {
+      globals: {
+        Bun:         'readonly',
+        RequestInfo: 'readonly',
+        RequestInit: 'readonly',
+      },
+    },
+  },
+  {
     ignores: ['src-tauri/', 'dist/', 'node_modules/'],
   },
 );

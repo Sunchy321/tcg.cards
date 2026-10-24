@@ -3,17 +3,17 @@ import type { DocumentStore, Node, NodeRelation, Release, Revision } from './sto
 
 /** Source content and stable identities of one formal edition. */
 export interface HistoryEdition {
-  release: Release;
+  release:  Release;
   revision: Revision;
-  nodes: Map<string, Node>;
+  nodes:    Map<string, Node>;
 }
 
 /** A structural change at the beginning of the indexed edition. */
 export interface HistoryBoundary {
   index: number;
-  kind: 'split' | 'merged';
-  from: Node[];
-  to: Node[];
+  kind:  'split' | 'merged';
+  from:  Node[];
+  to:    Node[];
 }
 
 /** Load only persisted reachable participants and the source nodes needed for display. */
@@ -88,5 +88,5 @@ export async function loadItemLineage(store: DocumentStore, inputReleases: Relea
     boundaries.set(key, { index, kind: row.kind, from: nodes('from'), to: nodes('to') });
   }
   return { editions, members: new Set([...identities].map(id => aliases.get(id) ?? resolvedItemId)),
-    events: [...boundaries.values()].sort((a, b) => a.index - b.index), resolvedItemId, nodeIds };
+    events:  [...boundaries.values()].sort((a, b) => a.index - b.index), resolvedItemId, nodeIds };
 }

@@ -36,10 +36,10 @@ type FieldConflictRow = typeof FieldConflict.$inferSelect;
 
 /** Conflict resolution metadata forwarded into follow-up commits. */
 export type ResolveTagConflictOptions = {
-  editorRuntime: string;
-  editorIdentity: string;
-  editorSource: string;
-  syncStatus: string;
+  editorRuntime:   string;
+  editorIdentity:  string;
+  editorSource:    string;
+  syncStatus:      string;
   conflictTarget?: ApplyTagCommitOptions['conflictTarget'];
 };
 
@@ -240,63 +240,63 @@ export async function resolveTagConflict(
     const resolvedAt = new Date();
 
     switch (input.resolution) {
-      case 'accept_incoming': {
-        if (conflict.incomingValue === undefined) {
-          throw new ORPCError('BAD_REQUEST', {
-            message: 'accept_incoming requires an incoming conflict value',
-          });
-        }
-
-        await applyTagCommit(tx, buildResolutionCommit(
-          conflict,
-          context.row,
-          context.winner,
-          conflict.incomingValue,
-          'conflict_resolution',
-          input.resolution,
-          options,
-        ), {
-          conflictTarget: options.conflictTarget,
-        });
-        break;
-      }
-      case 'winner_clear': {
-        if (!autoBaseFields.has(context.field)) {
-          throw new ORPCError('BAD_REQUEST', {
-            message: 'winner_clear only supports auto-base tag fields',
-          });
-        }
-
-        await applyTagCommit(tx, buildResolutionCommit(
-          conflict,
-          context.row,
-          context.winner,
-          conflict.candidateBaseValue ?? null,
-          'winner_clear',
-          input.resolution,
-          options,
-        ), {
-          conflictTarget: options.conflictTarget,
-        });
-        break;
-      }
-      case 'keep_current_winner': {
-        if (conflict.conflictKind === 'base_drift' && context.winner) {
-          await tx.update(FieldWinner)
-            .set({
-              baseRevision: conflict.baseRevision,
-              updatedAt:    resolvedAt,
-            })
-            .where(eq(FieldWinner.id, context.winner.id));
-        }
-        break;
-      }
-      case 'require_followup_commit':
-        break;
-      default:
+    case 'accept_incoming': {
+      if (conflict.incomingValue === undefined) {
         throw new ORPCError('BAD_REQUEST', {
-          message: `Unsupported conflict resolution: ${String(input.resolution)}`,
+          message: 'accept_incoming requires an incoming conflict value',
         });
+      }
+
+      await applyTagCommit(tx, buildResolutionCommit(
+        conflict,
+        context.row,
+        context.winner,
+        conflict.incomingValue,
+        'conflict_resolution',
+        input.resolution,
+        options,
+      ), {
+        conflictTarget: options.conflictTarget,
+      });
+      break;
+    }
+    case 'winner_clear': {
+      if (!autoBaseFields.has(context.field)) {
+        throw new ORPCError('BAD_REQUEST', {
+          message: 'winner_clear only supports auto-base tag fields',
+        });
+      }
+
+      await applyTagCommit(tx, buildResolutionCommit(
+        conflict,
+        context.row,
+        context.winner,
+        conflict.candidateBaseValue ?? null,
+        'winner_clear',
+        input.resolution,
+        options,
+      ), {
+        conflictTarget: options.conflictTarget,
+      });
+      break;
+    }
+    case 'keep_current_winner': {
+      if (conflict.conflictKind === 'base_drift' && context.winner) {
+        await tx.update(FieldWinner)
+          .set({
+            baseRevision: conflict.baseRevision,
+            updatedAt:    resolvedAt,
+          })
+          .where(eq(FieldWinner.id, context.winner.id));
+      }
+      break;
+    }
+    case 'require_followup_commit':
+      break;
+    default:
+      throw new ORPCError('BAD_REQUEST', {
+        message: `Unsupported conflict resolution: ${String(input.resolution)}`,
+      });
     }
 
     const updated = await tx.update(FieldConflict)

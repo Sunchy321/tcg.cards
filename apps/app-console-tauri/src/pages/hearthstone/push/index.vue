@@ -222,18 +222,18 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useDesktopRuntimeClient } from '~/composables/useDesktopRuntimeClient';
 
 interface PushBatchRow {
-  id: string;
-  stream: string;
-  consumer: string;
-  status: string;
-  pushedCount: number;
-  duplicateCount: number;
-  blockedReason: string | null;
-  blockedMessage: string | null;
+  id:              string;
+  stream:          string;
+  consumer:        string;
+  status:          string;
+  pushedCount:     number;
+  duplicateCount:  number;
+  blockedReason:   string | null;
+  blockedMessage:  string | null;
   blockedSequence: number | null;
-  startedAt: string;
-  completedAt: string | null;
-  createdAt: string;
+  startedAt:       string;
+  completedAt:     string | null;
+  createdAt:       string;
 }
 
 definePageMeta({
@@ -246,31 +246,31 @@ const client = useDesktopRuntimeClient();
 const isRunning = ref(false);
 const error = ref('');
 const progress = ref<{
-  phase: string;
-  message: string;
-  startedAt: string;
-  finishedAt: string | null;
-  totalCount: number | null;
-  completedCount: number | null;
-  pushed: Array<{ localSequence: number; clientMutationId: string; status: string }>;
-  blockedReason: string | null;
-  blockedMessage: string | null;
+  phase:           string;
+  message:         string;
+  startedAt:       string;
+  finishedAt:      string | null;
+  totalCount:      number | null;
+  completedCount:  number | null;
+  pushed:          Array<{ localSequence: number, clientMutationId: string, status: string }>;
+  blockedReason:   string | null;
+  blockedMessage:  string | null;
   blockedSequence: number | null;
 } | null>(null);
 const pushResult = ref<typeof progress.value>(null);
 const history = ref<PushBatchRow[]>([]);
 const historyLoading = ref(false);
-const incompleteBatch = ref<{ id: string; stream: string; startedAt: string } | null>(null);
+const incompleteBatch = ref<{ id: string, stream: string, startedAt: string } | null>(null);
 const clockMs = ref(Date.now());
 let clockHandle: ReturnType<typeof setInterval> | null = null;
 let stopStream: (() => void) | null = null;
 
 const phaseLabel = computed(() => {
   switch (progress.value?.phase) {
-    case 'pushing': return '正在推送';
-    case 'completed': return '推送完成';
-    case 'failed': return '推送失败';
-    default: return progress.value?.phase ?? '';
+  case 'pushing': return '正在推送';
+  case 'completed': return '推送完成';
+  case 'failed': return '推送失败';
+  default: return progress.value?.phase ?? '';
   }
 });
 
@@ -318,11 +318,16 @@ const finishedAt = computed(() => {
 function startClock() {
   stopClock();
   clockMs.value = Date.now();
-  clockHandle = setInterval(() => { clockMs.value = Date.now(); }, 500);
+  clockHandle = setInterval(() => {
+    clockMs.value = Date.now();
+  }, 500);
 }
 
 function stopClock() {
-  if (clockHandle != null) { clearInterval(clockHandle); clockHandle = null; }
+  if (clockHandle != null) {
+    clearInterval(clockHandle);
+    clockHandle = null;
+  }
 }
 
 async function startPush() {
@@ -336,17 +341,17 @@ async function startPush() {
   try {
     await client.tag.pushToRemoteWithProgress({});
     stopStream = consumeEventIterator(client.tag.watchPushProgress(), {
-      onEvent: (event) => {
+      onEvent: event => {
         progress.value = {
-          phase: event.phase,
-          message: event.message,
-          startedAt: event.startedAt,
-          finishedAt: event.finishedAt,
-          totalCount: event.totalCount,
-          completedCount: event.completedCount,
-          pushed: event.pushed,
-          blockedReason: event.blockedReason,
-          blockedMessage: event.blockedMessage,
+          phase:           event.phase,
+          message:         event.message,
+          startedAt:       event.startedAt,
+          finishedAt:      event.finishedAt,
+          totalCount:      event.totalCount,
+          completedCount:  event.completedCount,
+          pushed:          event.pushed,
+          blockedReason:   event.blockedReason,
+          blockedMessage:  event.blockedMessage,
           blockedSequence: event.blockedSequence,
         };
       },

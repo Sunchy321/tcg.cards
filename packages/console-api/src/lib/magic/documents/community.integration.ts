@@ -103,7 +103,10 @@ test.skipIf(!localUrl || !remoteUrl)('comparison waits for an in-flight public s
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('magic-document:magic-cr'))`);
       let settled = false;
       comparison = runWithDb(remote, () => compareVersions({ documentId: 'magic-cr', fromVersionId: from.releaseId, toVersionId: to.releaseId }));
-      void comparison.then(() => { settled = true; }, () => { settled = true; });
+      const markSettled = () => {
+        settled = true;
+      };
+      void comparison.then(markSettled, markSettled);
       const deadline = Date.now() + 2000;
       while (!settled && !waiting && Date.now() < deadline) {
         await tx.execute(sql`SELECT pg_stat_clear_snapshot()`);
@@ -119,7 +122,6 @@ test.skipIf(!localUrl || !remoteUrl)('comparison waits for an in-flight public s
   }
 }, 10000);
 
-
 test.skipIf(!localUrl || !remoteUrl)('publishes two selected Chinese editions for source-based public comparison', async () => {
   const local = createDb(localUrl!);
   const remote = createDb(remoteUrl!);
@@ -132,8 +134,8 @@ test.skipIf(!localUrl || !remoteUrl)('publishes two selected Chinese editions fo
     const second = await service.importCr({ content: content(24) });
     for (const [edition, wording] of [[first, '支付白色法术力。'], [second, '支付 {W}。']] as const) {
       const original = (await source.revision(edition.revisionId))!;
-      const translated = await translations.saveTranslation({ documentId: 'magic-cr', sourceRevisionId: original.id, language: 'zhs',
-        nodes: [{ sourceNodeId: original.nodes.find(node => node.anchor === '100.1')!.id, rawText: wording, translationMethod: 'human' }] });
+      const translated = await translations.saveTranslation({ documentId:       'magic-cr', sourceRevisionId: original.id, language:         'zhs',
+        nodes:            [{ sourceNodeId: original.nodes.find(node => node.anchor === '100.1')!.id, rawText: wording, translationMethod: 'human' }] });
       await translations.selectTranslation({ documentId: 'magic-cr', releaseId: edition.releaseId, revisionId: translated.id });
     }
     const target = createDocumentStore(remote, 'remote');
@@ -142,9 +144,9 @@ test.skipIf(!localUrl || !remoteUrl)('publishes two selected Chinese editions fo
     const input = { slug: 'magic-cr', fromVersionTag: '20261023', toVersionTag: '20261024', locale: 'zhs' };
     const result = documentDiffPage.parse(await comparison.compare(input));
     expect(result.rows.find(row => row.kind === 'change' && row.from?.nodeId === '100.1')).toMatchObject({ translationOnly: true,
-      from: { text: '支付白色法术力。', localeState: { isFallback: false } }, to: { text: '支付 {W}。', localeState: { isFallback: false } } });
+      from:            { text: '支付白色法术力。', localeState: { isFallback: false } }, to:              { text: '支付 {W}。', localeState: { isFallback: false } } });
     expect(result.rows.find(row => row.kind === 'change' && row.from?.nodeId === '100.2')).toMatchObject({ translationOnly: false,
-      from: { text: 'Draw one cards.', localeState: { isFallback: true } }, to: { text: 'Draw two cards.', localeState: { isFallback: true } } });
+      from:            { text: 'Draw one cards.', localeState: { isFallback: true } }, to:              { text: 'Draw two cards.', localeState: { isFallback: true } } });
     expect((await comparison.compare({ ...input, locale: 'en' })).rows.some(row => row.kind === 'change' && row.from?.nodeId === '100.1')).toBe(false);
   } finally {
     await Promise.all([local.$client.end({ timeout: 1 }), remote.$client.end({ timeout: 1 })]);

@@ -5,18 +5,18 @@ import { assertReparse } from './reparse';
 
 const at = new Date('2026-10-01T00:00:00Z');
 const document: Document = {
-  id: 'magic-cr', slug: 'magic-cr', title: 'Rules', sourceLanguage: 'en', origin: 'static', staticKey: 'magic-cr',
-  visibility: 'public', settings: { outline: false, compare: true, historyPublic: true, copyable: true },
-  createdAt: at, updatedAt: at, deletedAt: null,
+  id:             'magic-cr', slug:           'magic-cr', title:          'Rules', sourceLanguage: 'en', origin:         'static', staticKey:      'magic-cr',
+  visibility:     'public', settings:       { outline: false, compare: true, historyPublic: true, copyable: true },
+  createdAt:      at, updatedAt:      at, deletedAt:      null,
 };
 const node: Node = {
-  id: 'revision/100.1', revisionId: 'revision', nodeKey: '100.1', kind: 'content', anchor: '100.1', path: '1/100/1', level: 3,
-  parentId: null, siblingOrder: 0, rawText: 'Pay {W}.', markers: [], sourceNodeId: null, sourceRevisionId: null,
-  translationMethod: null, reviewStatus: null,
+  id:                'revision/100.1', revisionId:        'revision', nodeKey:           '100.1', kind:              'content', anchor:            '100.1', path:              '1/100/1', level:             3,
+  parentId:          null, siblingOrder:      0, rawText:           'Pay {W}.', markers:           [], sourceNodeId:      null, sourceRevisionId:  null,
+  translationMethod: null, reviewStatus:      null,
 };
 const previous: Revision = {
-  id: 'revision', documentId: 'magic-cr', translationId: null, sourceRevisionId: null, title: 'Rules', language: 'en',
-  createdAt: at, deletedAt: null, nodes: [node],
+  id:               'revision', documentId:       'magic-cr', translationId:    null, sourceRevisionId: null, title:            'Rules', language:         'en',
+  createdAt:        at, deletedAt:        null, nodes:            [node],
 };
 const revision: Revision = { ...previous, nodes: [{ ...node, rawText: 'Pay {W} after the update.' }] };
 

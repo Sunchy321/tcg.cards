@@ -58,7 +58,7 @@ import type { TaskPageSnapshot } from '@tcg-cards/model/task';
 import type { TaskOperation } from '~/components/task/TaskController.vue';
 import { getMagicDataState, type MagicDataState } from '~/composables/useMagicData';
 
-const props = defineProps<{
+defineProps<{
   title:       string;
   icon:        string;
   description: string;

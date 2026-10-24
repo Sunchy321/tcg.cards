@@ -1,14 +1,14 @@
 /** Holds one locally loaded preview for a specific item side and language. */
 export interface SidePreview {
-  side: string;
-  lang: string;
-  hash: string;
-  category: string;
-  template: string;
-  base64: string;
+  side:      string;
+  lang:      string;
+  hash:      string;
+  category:  string;
+  template:  string;
+  base64:    string;
   mimeType?: string;
   /** Whether the image is a transient preview or a persisted storage image. */
-  source: 'preview' | 'storage';
+  source:    'preview' | 'storage';
 }
 
 /** Merges successfully loaded previews without discarding unaffected sides or languages. */

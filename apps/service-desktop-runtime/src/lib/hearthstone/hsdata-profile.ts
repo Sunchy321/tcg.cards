@@ -6,10 +6,10 @@ export type HsdataProfileFields = Record<string, HsdataProfileValue>;
 
 /** One recorded profiling step. */
 export interface HsdataProfileStep {
-  step: string;
+  step:      string;
   elapsedMs: number;
-  totalMs: number;
-  extra?: HsdataProfileFields;
+  totalMs:   number;
+  extra?:    HsdataProfileFields;
 }
 
 /** Callback invoked each time a profiling step completes. */

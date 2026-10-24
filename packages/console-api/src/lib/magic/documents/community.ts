@@ -8,31 +8,31 @@ const pair = z.object({ en: z.string().min(1), zh: z.string() });
 
 /** Describes a numbered bilingual entry and its attached source paragraphs. */
 interface Rule {
-  chapter: string;
-  en: string;
-  zh: string;
+  chapter:  string;
+  en:       string;
+  zh:       string;
   subrules: Rule[];
-  extras: z.infer<typeof pair>[];
+  extras:   z.infer<typeof pair>[];
 }
 
 const rule: z.ZodType<Rule> = pair.extend({
-  chapter: z.string().regex(/^(?:[1-9]\.|\d{3}\.|\d{3}\.\d+(?:\.|[a-z]+))$/),
+  chapter:  z.string().regex(/^(?:[1-9]\.|\d{3}\.|\d{3}\.\d+(?:\.|[a-z]+))$/),
   subrules: z.lazy(() => rule.array()).default([]),
-  extras: pair.array().default([]),
+  extras:   pair.array().default([]),
 });
 
 const edition = z.object({
-  version: z.string().regex(/^\d{8}$/),
-  intro: z.object({ contents: pair.array().min(3) }),
-  main: rule.array().min(1),
+  version:  z.string().regex(/^\d{8}$/),
+  intro:    z.object({ contents: pair.array().min(3) }),
+  main:     rule.array().min(1),
   glossary: pair.extend({ enname: z.string().min(1), zhname: z.string() }).array(),
-  credits: z.object({ contents: pair.array().min(1) }),
+  credits:  z.object({ contents: pair.array().min(1) }),
 });
 
 /** Tracks each source paragraph so unmatched translations cannot disappear silently. */
 interface Part {
-  en: string;
-  zh: string;
+  en:   string;
+  zh:   string;
   used: boolean;
 }
 
@@ -77,7 +77,7 @@ export function alignCrTranslation(content: unknown, source: Revision, versionTa
   if (crTranslationEffectiveDate(data, versionTag).replaceAll('-', '') !== versionTag) {
     throw new CrTranslationError([`${versionTag}：译文依据的英文生效日期不符。`]);
   }
-  const groups = new Map<string, { label: string; parts: Part[] }>();
+  const groups = new Map<string, { label: string, parts: Part[] }>();
   const ruleChildren = new Map<string | null, string[]>();
   const anchors = new Set(source.nodes.flatMap(node => node.anchor == null ? [] : [node.anchor]));
   const issues: string[] = [];

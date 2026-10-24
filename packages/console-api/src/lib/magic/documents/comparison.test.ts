@@ -7,7 +7,7 @@ import { beforeMovement, afterMovement } from './movement.fixture';
 import { createComparisonOperations as createRawComparisonOperations } from './comparison';
 
 /** Prepare neighboring relations before exercising the public diff operation. */
-function createComparisonOperations(store: ReturnType<typeof memoryStore>, context: { track: 'local' | 'remote'; actorId?: string }) {
+function createComparisonOperations(store: ReturnType<typeof memoryStore>, context: { track: 'local' | 'remote', actorId?: string }) {
   const operations = createRawComparisonOperations(store, context);
   return {
     ...operations,
@@ -51,7 +51,10 @@ test('compares published editions and excludes unpublished revision text from no
   let unpreparedBodyReads = 0;
   const observed = { ...store,
     /** A missing relation boundary must fail before complete endpoint bodies are loaded. */
-    async revision(id: string) { unpreparedBodyReads++; return store.revision(id); },
+    async revision(id: string) {
+      unpreparedBodyReads++;
+      return store.revision(id);
+    },
   };
   const comparison = createRawComparisonOperations(observed, { track: 'local' });
   const input = { slug: 'magic-cr', fromVersionTag: '20261001', toVersionTag: '20261101' };
@@ -141,7 +144,7 @@ test('compares distant editions without loading intermediate revision bodies', a
   const document = await service.create({ slug: 'bounded-compare', title: 'Guide', language: 'en', visibility: 'public', settings: { compare: true } });
   const revisions: string[] = [];
   for (const [versionTag, day] of [['1', 1], ['10', 2], ['2', 3]] as const) {
-    const revision = await service.save({ documentId: document.id, title: document.title, nodes: [
+    const revision = await service.save({ documentId: document.id, title:      document.title, nodes:      [
       { nodeKey: 'intro', rawText: `Paragraph ${versionTag}.` },
       ...Array.from({ length: 40 }, (_, index) => ({ nodeKey: `unrelated-${index}`, rawText: `Unrelated ${index}.` })),
     ] });
@@ -154,7 +157,10 @@ test('compares distant editions without loading intermediate revision bodies', a
   const observed = { ...store,
     /** Fail if a comparison loads a non-endpoint revision body. */
     async revision(id: string) {
-      if (id === revisions[1]) { middleBodyRead = true; throw new Error('Intermediate revision content must not be read'); }
+      if (id === revisions[1]) {
+        middleBodyRead = true;
+        throw new Error('Intermediate revision content must not be read');
+      }
       return store.revision(id);
     },
   };
@@ -236,7 +242,7 @@ test('node history requires prepared relations and reads only the selected ident
   const service = createDocumentService(store, { track: 'remote', actorId: 'alice' });
   const document = await service.create({ slug: 'prepared-node-history', title: 'Guide', language: 'en', visibility: 'public' });
   for (const [index, text] of ['Original paragraph.', 'Revised paragraph.', 'Final paragraph.'].entries()) {
-    const revision = await service.save({ documentId: document.id, title: 'Guide', nodes: [
+    const revision = await service.save({ documentId: document.id, title:      'Guide', nodes:      [
       { nodeKey: 'intro', rawText: text },
       ...Array.from({ length: 20 }, (_, other) => ({ nodeKey: `unrelated-${other}`, rawText: `Unrelated paragraph ${other}.` })),
     ] });
@@ -280,7 +286,7 @@ test('preserves all participants in split and merge comparisons', async () => {
   const document = await service.create({ slug: 'split-guide', title: 'Guide', language: 'en', visibility: 'public', settings: { compare: true } });
   const first = await service.save({ documentId: document.id, title: 'Guide', nodes: [{ nodeKey: 'combined', rawText: 'alpha beta gamma delta epsilon zeta eta theta' }] });
   await service.publish({ documentId: document.id, revisionId: first.id, versionTag: '1' });
-  const second = await service.save({ documentId: document.id, title: 'Guide', nodes: [
+  const second = await service.save({ documentId: document.id, title:      'Guide', nodes:      [
     { nodeKey: 'chapter', kind: 'heading', rawText: 'Chapter' },
     { nodeKey: 'left', parentKey: 'chapter', rawText: 'alpha beta gamma delta epsilon' },
     { nodeKey: 'right', parentKey: 'chapter', rawText: 'delta epsilon zeta eta theta' },
@@ -384,7 +390,7 @@ test('keeps an external branch in the endpoint relation group after a split and 
   const middleRevision = (await store.revision(releases[1]!.sourceRevisionId))!;
   const finalRevision = (await store.revision(releases[2]!.sourceRevisionId))!;
   const sourceRevision = (await store.revision(releases[0]!.sourceRevisionId))!;
-  const firstRows = await store.nodeRelations({ comparisonIds: [firstAdjacency.id], nodeIds: [
+  const firstRows = await store.nodeRelations({ comparisonIds: [firstAdjacency.id], nodeIds:       [
     ...sourceRevision.nodes.map(node => node.id), ...middleRevision.nodes.map(node => node.id),
   ] });
   /** Retain the middle edition's persisted identity for a source node key. */
@@ -425,7 +431,10 @@ test('rejects private histories and comparison-disabled documents and ignores un
   let unauthorizedRelationReads = 0;
   const observed = { ...store,
     /** Private comparison access must fail before reading any saved body. */
-    async revision(id: string) { unauthorizedBodyReads++; return store.revision(id); },
+    async revision(id: string) {
+      unauthorizedBodyReads++;
+      return store.revision(id);
+    },
     /** Private comparison access must fail before examining relation identities. */
     async nodeRelations(query: Parameters<typeof store.nodeRelations>[0]) {
       unauthorizedRelationReads++;
@@ -513,7 +522,7 @@ test('retains split and merged ancestry without treating their children as the o
   const originalText = 'alpha beta gamma delta epsilon zeta eta theta';
   const first = await owner.save({ documentId: document.id, title: 'Guide', nodes: [{ nodeKey: 'original', rawText: originalText }] });
   await owner.publish({ documentId: document.id, revisionId: first.id, versionTag: '1' });
-  const split = await owner.save({ documentId: document.id, title: 'Guide', nodes: [
+  const split = await owner.save({ documentId: document.id, title:      'Guide', nodes:      [
     { nodeKey: 'chapter', kind: 'heading', rawText: 'Chapter' },
     { nodeKey: 'left', parentKey: 'chapter', rawText: 'alpha beta gamma delta epsilon' },
     { nodeKey: 'right', parentKey: 'chapter', rawText: 'delta epsilon zeta eta theta' },
@@ -534,7 +543,6 @@ test('retains split and merged ancestry without treating their children as the o
   expect(recombined.timeline[0]?.change?.type).toBe('merged');
 });
 
-
 test('compares selected Chinese wording on unchanged English and marks translation-only differences', async () => {
   const store = memoryStore();
   const service = createDocumentService(store, { track: 'local' });
@@ -543,27 +551,27 @@ test('compares selected Chinese wording on unchanged English and marks translati
   const second = await service.importCr({ content: content.replace('October 1', 'November 1') });
   for (const [edition, text] of [[first, '支付 {W} 后继续。'], [second, '支付 {W} 以继续。']] as const) {
     const source = (await store.revision(edition.revisionId))!;
-    const translated = await translations.saveTranslation({ documentId: 'magic-cr', sourceRevisionId: source.id, language: 'zhs',
-      nodes: [{ sourceNodeId: source.nodes.find(node => node.anchor === '100.1')!.id, rawText: text, translationMethod: 'human' }] });
+    const translated = await translations.saveTranslation({ documentId:       'magic-cr', sourceRevisionId: source.id, language:         'zhs',
+      nodes:            [{ sourceNodeId: source.nodes.find(node => node.anchor === '100.1')!.id, rawText: text, translationMethod: 'human' }] });
     await translations.selectTranslation({ documentId: 'magic-cr', releaseId: edition.releaseId, revisionId: translated.id });
   }
   const comparison = createComparisonOperations(store, { track: 'local' });
   const result = await comparison.compare({ slug: 'magic-cr', fromVersionTag: '20261001', toVersionTag: '20261101', locale: 'zhs' });
   expect(result.rows.find(row => row.kind === 'change' && row.from?.nodeId === '100.1')).toMatchObject({
-    type: 'modified', translationOnly: true,
-    from: { text: '支付 {W} 后继续。', localeState: { locale: 'zhs', isFallback: false } },
-    to: { text: '支付 {W} 以继续。', localeState: { locale: 'zhs', isFallback: false } },
-    textDiff: { blocks: [{ type: 'common', text: '支付 {W} ' }, { type: 'removed', text: '后' }, { type: 'added', text: '以' }, { type: 'common', text: '继续。' }] },
+    type:            'modified', translationOnly: true,
+    from:            { text: '支付 {W} 后继续。', localeState: { locale: 'zhs', isFallback: false } },
+    to:              { text: '支付 {W} 以继续。', localeState: { locale: 'zhs', isFallback: false } },
+    textDiff:        { blocks: [{ type: 'common', text: '支付 {W} ' }, { type: 'removed', text: '后' }, { type: 'added', text: '以' }, { type: 'common', text: '继续。' }] },
   });
   expect((await comparison.compare({ slug: 'magic-cr', fromVersionTag: '20261001', toVersionTag: '20261101', locale: 'en' })).rows.filter(row => row.kind === 'change')).toHaveLength(0);
 });
 
 /** Select a minimal translation through the same operations used by import. */
-async function selectChinese(store: ReturnType<typeof memoryStore>, edition: { revisionId: string; releaseId: string }, text: string, anchor = '100.1') {
+async function selectChinese(store: ReturnType<typeof memoryStore>, edition: { revisionId: string, releaseId: string }, text: string, anchor = '100.1') {
   const source = (await store.revision(edition.revisionId))!;
   const translations = createTranslationOperations(store, { track: 'local' });
-  const revision = await translations.saveTranslation({ documentId: 'magic-cr', sourceRevisionId: source.id, language: 'zhs',
-    nodes: [{ sourceNodeId: source.nodes.find(node => node.anchor === anchor)!.id, rawText: text, translationMethod: 'human' }] });
+  const revision = await translations.saveTranslation({ documentId:       'magic-cr', sourceRevisionId: source.id, language:         'zhs',
+    nodes:            [{ sourceNodeId: source.nodes.find(node => node.anchor === anchor)!.id, rawText: text, translationMethod: 'human' }] });
   await translations.selectTranslation({ documentId: 'magic-cr', releaseId: edition.releaseId, revisionId: revision.id });
   return revision;
 }
@@ -595,15 +603,15 @@ test('uses only each release selected translation and distinguishes source chang
   const input = { slug: 'magic-cr', fromVersionTag: '20261001', toVersionTag: '20261101', locale: 'zhs' };
   const fallback = await comparison.compare(input);
   expect(fallback.rows.find(row => row.kind === 'change' && row.from?.nodeId === '100.1')).toMatchObject({ translationOnly: false,
-    from: { text: '支付 {W} 以继续。', localeState: { isFallback: false } },
-    to: { text: 'Pay {U} to continue.', localeState: { locale: 'en', isFallback: true } } });
+    from:            { text: '支付 {W} 以继续。', localeState: { isFallback: false } },
+    to:              { text: 'Pay {U} to continue.', localeState: { locale: 'en', isFallback: true } } });
   await selectChinese(store, second, '支付 {U} 以继续。');
   const source = (await store.revision(second.revisionId))!;
-  await createTranslationOperations(store, { track: 'local' }).saveTranslation({ documentId: 'magic-cr', sourceRevisionId: source.id, language: 'zhs',
-    nodes: [{ sourceNodeId: source.nodes.find(node => node.anchor === '100.1')!.id, rawText: '未选择的秘密译文', translationMethod: 'human' }] });
+  await createTranslationOperations(store, { track: 'local' }).saveTranslation({ documentId:       'magic-cr', sourceRevisionId: source.id, language:         'zhs',
+    nodes:            [{ sourceNodeId: source.nodes.find(node => node.anchor === '100.1')!.id, rawText: '未选择的秘密译文', translationMethod: 'human' }] });
   const translated = await comparison.compare(input);
   expect(translated.rows.find(row => row.kind === 'change' && row.from?.nodeId === '100.1')).toMatchObject({ translationOnly: false,
-    to: { text: '支付 {U} 以继续。', localeState: { isFallback: false } } });
+    to:              { text: '支付 {U} 以继续。', localeState: { isFallback: false } } });
   expect(JSON.stringify(translated)).not.toContain('秘密');
   // A blank selected entry is missing content, not a translated empty paragraph.
   await selectChinese(store, second, '   ');
@@ -634,15 +642,15 @@ test('preserves English split and merge participants while rendering unrelated C
   const document = await service.create({ slug: 'chinese-split', title: 'Guide', language: 'en', visibility: 'public', settings: { compare: true } });
   const first = await service.save({ documentId: document.id, title: 'Guide', nodes: [{ nodeKey: 'combined', rawText: 'alpha beta gamma delta epsilon zeta eta theta' }] });
   const from = await service.publish({ documentId: document.id, revisionId: first.id, versionTag: '1' });
-  const second = await service.save({ documentId: document.id, title: 'Guide', nodes: [
+  const second = await service.save({ documentId: document.id, title:      'Guide', nodes:      [
     { nodeKey: 'chapter', kind: 'heading', rawText: 'Chapter' },
     { nodeKey: 'left', parentKey: 'chapter', rawText: 'alpha beta gamma delta epsilon' },
     { nodeKey: 'right', parentKey: 'chapter', rawText: 'delta epsilon zeta eta theta' },
   ] });
   const to = await service.publish({ documentId: document.id, revisionId: second.id, versionTag: '2' });
   for (const [source, release, texts] of [[first, from, ['原先合在一起的规则。']], [second, to, ['章节', '第一段独立表述。', '第二段另一表述。']]] as const) {
-    const translation = await translations.saveTranslation({ documentId: document.id, sourceRevisionId: source.id, language: 'zhs',
-      nodes: source.nodes.map((node, index) => ({ sourceNodeId: node.id, rawText: texts[index]!, translationMethod: 'human' })) });
+    const translation = await translations.saveTranslation({ documentId:       document.id, sourceRevisionId: source.id, language:         'zhs',
+      nodes:            source.nodes.map((node, index) => ({ sourceNodeId: node.id, rawText: texts[index]!, translationMethod: 'human' })) });
     await translations.selectTranslation({ documentId: document.id, releaseId: release.id, revisionId: translation.id });
   }
   const comparison = createComparisonOperations(store, { track: 'remote' });
@@ -687,7 +695,6 @@ test('places additions and removals alongside translation changes instead of gro
   ]);
 });
 
-
 test('suppresses renumbering caused by an insertion while retaining actual wording changes', async () => {
   const store = memoryStore();
   const service = createDocumentService(store, { track: 'local' });
@@ -708,7 +715,6 @@ test('suppresses renumbering caused by an insertion while retaining actual wordi
   ]);
 });
 
-
 test('recognizes exchanged occupied numbers and distant edited rules without losing inserted content', async () => {
   const store = memoryStore();
   const service = createDocumentService(store, { track: 'local' });
@@ -720,7 +726,7 @@ test('recognizes exchanged occupied numbers and distant edited rules without los
   const rows = result.rows.filter(row => row.kind === 'change');
   expect(rows.some(row => row.to?.nodeId === '100.1')).toBe(false);
   expect(rows.find(row => row.to?.nodeId === '100.2')).toMatchObject({ type: 'added', from: null });
-  expect(rows.find(row => row.to?.nodeId === '200.1')).toMatchObject({ type: 'moved', from: { nodeId: '100.1' }, textDiff: { blocks: [
+  expect(rows.find(row => row.to?.nodeId === '200.1')).toMatchObject({ type:     'moved', from:     { nodeId: '100.1' }, textDiff: { blocks: [
     { type: 'common', text: 'A player may pay {' }, { type: 'removed', text: 'W' }, { type: 'added', text: 'U' }, { type: 'common', text: '} during their turn to draw exactly one card.' },
   ] } });
 });
@@ -748,7 +754,6 @@ test('retains translation wording changes on passively renumbered rules without 
     type: 'modified', translationOnly: true, from: { nodeId: '100.1' }, to: { nodeId: '100.2' },
   });
 });
-
 
 test('ignores passive sibling renumbering when another rule moves into or out of the chapter', async () => {
   const store = memoryStore();

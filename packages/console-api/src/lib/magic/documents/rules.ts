@@ -23,7 +23,7 @@ export function createRuleReader(store: DocumentStore, options: { assetBaseUrl?:
   }
 
   /** Resolves the same exact public edition and language for every read format. */
-  async function select(input: { ruleId: string; versionTag?: string; language?: string }) {
+  async function select(input: { ruleId: string, versionTag?: string, language?: string }) {
     const row = await document(input.ruleId);
     if (row == null) return undefined;
     const available = await releases(row.id);
@@ -36,8 +36,10 @@ export function createRuleReader(store: DocumentStore, options: { assetBaseUrl?:
     if (input.language != null && input.language !== source.language) {
       const translation = (await store.translations(row.id)).find(item => item.language === input.language);
       const binding = translation ? (await store.releaseTranslations(release.id)).find(item => item.translationId === translation.id) : undefined;
-      const selected = binding ? revisions.find(item => item.id === binding.revisionId && item.language === input.language
-        && item.sourceRevisionId === source.id && item.translationId === translation!.id) : undefined;
+      const selected = binding
+        ? revisions.find(item => item.id === binding.revisionId && item.language === input.language
+          && item.sourceRevisionId === source.id && item.translationId === translation!.id)
+        : undefined;
       if (selected == null) return undefined;
       revision = selected;
     }
@@ -67,14 +69,14 @@ export function createRuleReader(store: DocumentStore, options: { assetBaseUrl?:
       }));
     },
     /** Resolves an exact selected language without the site's source-text fallback. */
-    async meta(input: { ruleId: string; versionTag?: string; language?: string }): Promise<RuleMetadata | undefined> {
+    async meta(input: { ruleId: string, versionTag?: string, language?: string }): Promise<RuleMetadata | undefined> {
       const selected = await select(input);
       if (selected == null) return undefined;
       const { row, release, revision } = selected;
       return {
-        ruleId: row.id, title: revision.title, versionTag: release.versionTag, revisionId: revision.id, language: revision.language,
-        effectiveDate: release.effectiveDate, publishedAt: release.publishedAt.toISOString(), meta: documentMeta.parse(revision.meta ?? {}),
-        files: release.files.filter(file => file.language === revision.language && (file.translationId == null || file.translationId === revision.translationId))
+        ruleId:        row.id, title:         revision.title, versionTag:    release.versionTag, revisionId:    revision.id, language:      revision.language,
+        effectiveDate: release.effectiveDate, publishedAt:   release.publishedAt.toISOString(), meta:          documentMeta.parse(revision.meta ?? {}),
+        files:         release.files.filter(file => file.language === revision.language && (file.translationId == null || file.translationId === revision.translationId))
           .map(file => {
             const { storageKey: _key, ...publicFile } = file;
             return ruleFile.parse({ ...publicFile, downloadUrl: sourceFileUrl(file, options.assetBaseUrl) });
@@ -82,7 +84,7 @@ export function createRuleReader(store: DocumentStore, options: { assetBaseUrl?:
       };
     },
     /** Reads saved text while preserving the source hierarchy for sparse translations. */
-    async content(input: { ruleId: string; versionTag?: string; language?: string }): Promise<RuleContent | undefined> {
+    async content(input: { ruleId: string, versionTag?: string, language?: string }): Promise<RuleContent | undefined> {
       const selected = await select(input);
       if (selected == null) return undefined;
       const { row, release, revision, source } = selected;
@@ -97,14 +99,14 @@ export function createRuleReader(store: DocumentStore, options: { assetBaseUrl?:
         const text = revision.id === source.id ? node : translated.get(node.id);
         if (text == null) continue;
         nodes.push({
-          nodeKey: node.nodeKey, kind: node.kind, anchor: node.anchor, path: node.path, level: node.level,
-          parentKey: node.parentId == null ? null : parents.get(node.parentId) ?? null,
-          siblingOrder: node.siblingOrder, order: nodes.length, rawText: text.rawText, markers: text.markers,
+          nodeKey:      node.nodeKey, kind:         node.kind, anchor:       node.anchor, path:         node.path, level:        node.level,
+          parentKey:    node.parentId == null ? null : parents.get(node.parentId) ?? null,
+          siblingOrder: node.siblingOrder, order:        nodes.length, rawText:      text.rawText, markers:      text.markers,
         });
       }
       return {
-        ruleId: row.id, title: revision.title, versionTag: release.versionTag, revisionId: revision.id,
-        language: revision.language, effectiveDate: release.effectiveDate, publishedAt: release.publishedAt.toISOString(), nodes,
+        ruleId:        row.id, title:         revision.title, versionTag:    release.versionTag, revisionId:    revision.id,
+        language:      revision.language, effectiveDate: release.effectiveDate, publishedAt:   release.publishedAt.toISOString(), nodes,
       };
     },
   };

@@ -10,12 +10,12 @@ import type { Document, DocumentStore, Node, Revision } from './store';
 
 /** Accepts readable node text and semantic annotations at the saving boundary. */
 export interface NodeInput {
-  nodeKey: string;
-  rawText: string;
-  kind?: NodeKind;
+  nodeKey:    string;
+  rawText:    string;
+  kind?:      NodeKind;
   parentKey?: string | null;
-  anchor?: string;
-  markers?: TextMarker[];
+  anchor?:    string;
+  markers?:   TextMarker[];
 }
 
 /** Requires user ownership before any remote authoring operation. */
@@ -44,12 +44,12 @@ export function saveNodes(revisionId: string, inputs: NodeInput[]): Node[] {
     const markers = validateMarkers(node.rawText, node.markers ?? []);
     const ancestors = ancestry(node.nodeKey);
     return {
-      id: `${revisionId}/${node.nodeKey}`, revisionId, nodeKey: node.nodeKey,
-      kind: node.kind ?? 'content', anchor: node.anchor ?? node.nodeKey,
-      path: ancestors.map(key => String(inputs.findIndex(input => input.nodeKey === key)).padStart(8, '0')).join('/'),
-      level: ancestors.length - 1, parentId: node.parentKey ? `${revisionId}/${node.parentKey}` : null,
-      siblingOrder: index, rawText: node.rawText, markers,
-      sourceNodeId: null, sourceRevisionId: null, translationMethod: null, reviewStatus: null,
+      id:                `${revisionId}/${node.nodeKey}`, revisionId, nodeKey:           node.nodeKey,
+      kind:              node.kind ?? 'content', anchor:            node.anchor ?? node.nodeKey,
+      path:              ancestors.map(key => String(inputs.findIndex(input => input.nodeKey === key)).padStart(8, '0')).join('/'),
+      level:             ancestors.length - 1, parentId:          node.parentKey ? `${revisionId}/${node.parentKey}` : null,
+      siblingOrder:      index, rawText:           node.rawText, markers,
+      sourceNodeId:      null, sourceRevisionId:  null, translationMethod: null, reviewStatus:      null,
     };
   });
 }
@@ -57,7 +57,7 @@ export function saveNodes(revisionId: string, inputs: NodeInput[]): Node[] {
 /** Exposes explicit save, release, restore, and history cleanup for user documents. */
 export function createAuthoringOperations(store: DocumentStore, context: DocumentContext) {
   return {
-    async create(input: { slug: string; title: string; language: string; visibility?: Document['visibility']; settings?: Partial<DocumentSettings> }) {
+    async create(input: { slug: string, title: string, language: string, visibility?: Document['visibility'], settings?: Partial<DocumentSettings> }) {
       if (context.track !== 'remote' || !context.actorId) throw new Error('Not allowed');
       if (!input.slug.trim() || !input.title.trim() || !input.language.trim()) throw new Error('Document identity is incomplete');
       const id = randomUUID();
@@ -65,30 +65,30 @@ export function createAuthoringOperations(store: DocumentStore, context: Documen
         if ((await tx.documents()).some(row => row.slug === input.slug)) throw new Error('Document slug already exists');
         const at = new Date();
         const document: Document = {
-          id, slug: input.slug, title: input.title, sourceLanguage: input.language,
-          origin: 'user', staticKey: null, authorId: context.actorId, visibility: input.visibility ?? 'private',
-          settings: documentSettings.parse(input.settings ?? {}), createdAt: at, updatedAt: at, deletedAt: null,
+          id, slug:           input.slug, title:          input.title, sourceLanguage: input.language,
+          origin:         'user', staticKey:      null, authorId:       context.actorId, visibility:     input.visibility ?? 'private',
+          settings:       documentSettings.parse(input.settings ?? {}), createdAt:      at, updatedAt:      at, deletedAt:      null,
         };
         await tx.putDocument(document);
         return document;
       });
     },
-    async save(input: { documentId: string; title: string; nodes: NodeInput[] }) {
+    async save(input: { documentId: string, title: string, nodes: NodeInput[] }) {
       return store.transaction(input.documentId, async tx => {
         const document = await requireOwner(tx, context, input.documentId);
         if (!input.title.trim()) throw new Error('Document title is required');
         const id = randomUUID();
         const revision: Revision = {
-          id, documentId: document.id, translationId: null, sourceRevisionId: null,
-          title: input.title, language: document.sourceLanguage, createdAt: new Date(), deletedAt: null,
-          nodes: saveNodes(id, input.nodes),
+          id, documentId:       document.id, translationId:    null, sourceRevisionId: null,
+          title:            input.title, language:         document.sourceLanguage, createdAt:        new Date(), deletedAt:        null,
+          nodes:            saveNodes(id, input.nodes),
         };
         await tx.putRevision(revision);
         await tx.putDocument({ ...document, updatedAt: revision.createdAt });
         return revision;
       });
     },
-    async publish(input: { documentId: string; revisionId: string; versionTag: string; effectiveDate?: string; files?: SourceFile[] }) {
+    async publish(input: { documentId: string, revisionId: string, versionTag: string, effectiveDate?: string, files?: SourceFile[] }) {
       return store.transaction(input.documentId, async tx => {
         await requireOwner(tx, context, input.documentId);
         const revision = await tx.revision(input.revisionId);
@@ -100,9 +100,9 @@ export function createAuthoringOperations(store: DocumentStore, context: Documen
           return existing;
         }
         const release = {
-          id: `${input.documentId}:${input.versionTag}`, documentId: input.documentId,
-          versionTag: input.versionTag, sourceRevisionId: revision.id, publishedAt: new Date(),
-          effectiveDate: input.effectiveDate ?? null, files: (input.files ?? []).map(file => sourceFile.parse(file)), deletedAt: null,
+          id:               `${input.documentId}:${input.versionTag}`, documentId:       input.documentId,
+          versionTag:       input.versionTag, sourceRevisionId: revision.id, publishedAt:      new Date(),
+          effectiveDate:    input.effectiveDate ?? null, files:            (input.files ?? []).map(file => sourceFile.parse(file)), deletedAt:        null,
         };
         await tx.putRelease(release);
         return release;
@@ -112,23 +112,23 @@ export function createAuthoringOperations(store: DocumentStore, context: Documen
       await readableHistory(store, context, documentId);
       return (await store.revisions(documentId)).filter(row => !row.deletedAt);
     },
-    async revision(input: { documentId: string; revisionId: string }) {
+    async revision(input: { documentId: string, revisionId: string }) {
       const document = await readableHistory(store, context, input.documentId);
       const revision = await store.revision(input.revisionId);
       const owner = context.actorId != null && document.authorId === context.actorId;
       if (!revision || revision.documentId !== input.documentId || (revision.deletedAt && !owner && context.track !== 'local')) throw new Error('Revision not found');
       return revision;
     },
-    async restore(input: { documentId: string; revisionId: string }) {
+    async restore(input: { documentId: string, revisionId: string }) {
       const revision = await this.revision(input);
       if (revision.translationId) throw new Error('Use translation operations to restore a translation');
       const keys = new Map(revision.nodes.map(node => [node.id, node.nodeKey]));
-      return this.save({ documentId: input.documentId, title: revision.title, nodes: revision.nodes.map(node => ({
-        nodeKey: node.nodeKey, rawText: node.rawText, markers: node.markers, kind: node.kind,
-        anchor: node.anchor ?? undefined, parentKey: node.parentId ? keys.get(node.parentId) : null,
+      return this.save({ documentId: input.documentId, title:      revision.title, nodes:      revision.nodes.map(node => ({
+        nodeKey:   node.nodeKey, rawText:   node.rawText, markers:   node.markers, kind:      node.kind,
+        anchor:    node.anchor ?? undefined, parentKey: node.parentId ? keys.get(node.parentId) : null,
       })) });
     },
-    async clearHistory(input: { documentId: string; revisionIds: string[] }) {
+    async clearHistory(input: { documentId: string, revisionIds: string[] }) {
       return store.transaction(input.documentId, async tx => {
         await requireOwner(tx, context, input.documentId);
         for (const id of input.revisionIds) {

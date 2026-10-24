@@ -106,9 +106,9 @@ export const list = os
     dataStatus:    z.enum(['imported', 'pending', 'missing']),
     r2Key:         z.string().nullable(),
     assetStatus:   z.strictObject({
-      txt:  z.boolean(),
-      doc:  z.boolean(),
-      pdf:  z.boolean(),
+      txt: z.boolean(),
+      doc: z.boolean(),
+      pdf: z.boolean(),
     }),
   }).array())
   .handler(async ({ context }) => {
@@ -189,9 +189,9 @@ export const listFiles = os
     id:       z.string(),
     dataFile: z.boolean(),
     files:    z.strictObject({
-      txt:  z.boolean(),
-      doc:  z.boolean(),
-      pdf:  z.boolean(),
+      txt: z.boolean(),
+      doc: z.boolean(),
+      pdf: z.boolean(),
     }),
   }).array())
   .handler(async ({ context }) => {

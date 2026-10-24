@@ -53,11 +53,11 @@ function archiveNameHints(zipPath: string, selected: { info: ZipImageInfo }[]): 
 }
 
 interface CandidateScore {
-  set:       string;
-  lang:      string;
-  nameHits:  number;
+  set:        string;
+  lang:       string;
+  nameHits:   number;
   numberHits: number;
-  hint:      boolean;
+  hint:       boolean;
 }
 
 /** Infers the naming convention and set/lang candidates of an import zip against the local prints. */
@@ -78,8 +78,8 @@ export async function analyzeImportZip(db: LocalDb, zipPath: string): Promise<Im
       pairs.set(key, candidate);
     }
     return {
-      convention: 'tree',
-      entryCount: infos.length,
+      convention:   'tree',
+      entryCount:   infos.length,
       unrecognized: infos
         .map(info => info.filename)
         .filter(filename => !treeFilenames.has(filename))
@@ -114,13 +114,13 @@ export async function analyzeImportZip(db: LocalDb, zipPath: string): Promise<Im
   const nameRanking = names.length === 0
     ? []
     : await runWithDb(db, () => db.select({
-        set:  Print.set,
-        lang: Print.lang,
-        hits: sql<number>`count(distinct ${Print.name})::int`,
-      }).from(Print).where(and(
-        isNull(Print.deletedAt),
-        inArray(Print.name, names),
-      )).groupBy(Print.set, Print.lang).orderBy(desc(sql`count(distinct ${Print.name})`)).limit(20));
+      set:  Print.set,
+      lang: Print.lang,
+      hits: sql<number>`count(distinct ${Print.name})::int`,
+    }).from(Print).where(and(
+      isNull(Print.deletedAt),
+      inArray(Print.name, names),
+    )).groupBy(Print.set, Print.lang).orderBy(desc(sql`count(distinct ${Print.name})`)).limit(20));
 
   // Filename signal: zip file name and top-level directory names matched
   // against set codes; matching sets contribute their language list.
@@ -128,9 +128,9 @@ export async function analyzeImportZip(db: LocalDb, zipPath: string): Promise<Im
   const hintSets = hints.length === 0
     ? []
     : await runWithDb(db, () => db.select({
-        code: MagicSet.scryfallCode,
-        langs: MagicSet.langs,
-      }).from(MagicSet).where(inArray(sql`lower(${MagicSet.scryfallCode})`, hints)));
+      code:  MagicSet.scryfallCode,
+      langs: MagicSet.langs,
+    }).from(MagicSet).where(inArray(sql`lower(${MagicSet.scryfallCode})`, hints)));
 
   // Number signal: how many archive numbers exist as collector numbers of
   // each candidate (set, lang) pair.
@@ -138,14 +138,14 @@ export async function analyzeImportZip(db: LocalDb, zipPath: string): Promise<Im
   const numberRanking = verifySets.size === 0 || numbers.length === 0
     ? []
     : await runWithDb(db, () => db.select({
-        set:  Print.set,
-        lang: Print.lang,
-        hits: sql<number>`count(distinct ${Print.number})::int`,
-      }).from(Print).where(and(
-        isNull(Print.deletedAt),
-        inArray(Print.set, [...verifySets]),
-        inArray(Print.number, numbers),
-      )).groupBy(Print.set, Print.lang));
+      set:  Print.set,
+      lang: Print.lang,
+      hits: sql<number>`count(distinct ${Print.number})::int`,
+    }).from(Print).where(and(
+      isNull(Print.deletedAt),
+      inArray(Print.set, [...verifySets]),
+      inArray(Print.number, numbers),
+    )).groupBy(Print.set, Print.lang));
 
   const scores = new Map<string, CandidateScore>();
   const scoreOf = (set: string, lang: string): CandidateScore => {

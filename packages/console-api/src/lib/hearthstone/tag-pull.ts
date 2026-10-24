@@ -33,30 +33,30 @@ export type TagPullStopReason = 'conflict' | 'error';
 
 /** One remote tag commit replayed into local state during one pull run. */
 export type TagPullItem = {
-  remoteCommitId: string;
-  remoteSequence: number;
+  remoteCommitId:   string;
+  remoteSequence:   number;
   clientMutationId: string;
-  status: Exclude<TagPullStatus, 'blocked'>;
+  status:           Exclude<TagPullStatus, 'blocked'>;
 };
 
 /** Inputs required for one cursor-backed desktop tag pull run. */
 export type PullRemoteTagCommitsInput = {
-  localDb: SyncDb;
+  localDb:  SyncDb;
   remoteDb: SyncDb;
   consumer: string;
-  limit?: number;
-  stream?: string;
+  limit?:   number;
+  stream?:  string;
 };
 
 /** Summary returned after one cursor-backed desktop tag pull run. */
 export type PullRemoteTagCommitsResult = {
-  stream: string;
-  consumer: string;
-  pulled: TagPullItem[];
+  stream:             string;
+  consumer:           string;
+  pulled:             TagPullItem[];
   lastPulledSequence: number;
-  blockedSequence: number | null;
-  blockedReason: TagPullStopReason | null;
-  blockedMessage: string | null;
+  blockedSequence:    number | null;
+  blockedReason:      TagPullStopReason | null;
+  blockedMessage:     string | null;
 };
 
 /** Loads the current local cursor row for one desktop sync consumer. */
@@ -115,7 +115,7 @@ async function markLocalCommitPulled(
   tx: SyncTx,
   input: {
     consumer: string;
-    stream: string;
+    stream:   string;
     sequence: number;
   },
 ) {
@@ -146,10 +146,10 @@ async function markLocalCommitPulled(
 /** Translates one local replay outcome into the pull item recorded for this run. */
 function toPullItem(commit: FieldCommitRow, result: ApplyTagCommitResult): TagPullItem {
   return {
-    remoteCommitId:    commit.id,
-    remoteSequence:    commit.sequence,
-    clientMutationId:  commit.clientMutationId,
-    status:            result.status,
+    remoteCommitId:   commit.id,
+    remoteSequence:   commit.sequence,
+    clientMutationId: commit.clientMutationId,
+    status:           result.status,
   };
 }
 
@@ -184,12 +184,12 @@ async function insertReplayConflict(
     entityKey:       input.commit.entityKey,
     fieldPath:       input.commit.fieldPath,
     sourceSummary:   {
-      remoteSequence:    input.remoteSequence,
-      clientMutationId:  input.commit.clientMutationId,
-      commitKind:        input.commit.commitKind,
-      operation:         input.commit.operation,
-      editorRuntime:     input.commit.editorRuntime,
-      editorIdentity:    input.commit.editorIdentity,
+      remoteSequence:   input.remoteSequence,
+      clientMutationId: input.commit.clientMutationId,
+      commitKind:       input.commit.commitKind,
+      operation:        input.commit.operation,
+      editorRuntime:    input.commit.editorRuntime,
+      editorIdentity:   input.commit.editorIdentity,
     },
     candidateBaseValue: null,
     localValue:         input.current[input.commit.fieldPath.replace(/^tag\./, '') as keyof typeof input.current] ?? null,

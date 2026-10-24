@@ -32,13 +32,13 @@ export interface PrintImageCoords {
 }
 
 export interface LedgerBackfillPrep {
-  rows:          Array<(typeof AssetImage)['$inferInsert']>;
+  rows:         Array<(typeof AssetImage)['$inferInsert']>;
   /** Face slots carrying metadata, whether or not their file verified. */
-  faces:         number;
-  missing:       number;
-  mismatched:    number;
-  missingKeys:   string[];
-  mismatchKeys:  string[];
+  faces:        number;
+  missing:      number;
+  mismatched:   number;
+  missingKeys:  string[];
+  mismatchKeys: string[];
 }
 
 /**
@@ -72,16 +72,16 @@ export function ledgerRowsForPrint(root: string, coords: PrintImageCoords, image
 
 export interface AssetLedgerBackfillCounts {
   /** Face slots carrying metadata, whether or not their file verified. */
-  faces:        number;
-  seeded:       number;
-  updated:      number;
-  unchanged:    number;
-  missing:      number;
-  mismatched:   number;
-  missingKeys:  string[];
-  mismatchKeys: string[];
+  faces:              number;
+  seeded:             number;
+  updated:            number;
+  unchanged:          number;
+  missing:            number;
+  mismatched:         number;
+  missingKeys:        string[];
+  mismatchKeys:       string[];
   /** Placeholder tombstones written for prints already marked as no-image. */
-  tombstones:        number;
+  tombstones:         number;
   /** Prints whose placeholder state is already represented in the ledger. */
   tombstoneUnchanged: number;
 }
@@ -93,12 +93,12 @@ const CHUNK = 500;
  * Reads only — the fact rows are never touched, and a rerun converges: rows
  * already identical to their metadata are skipped by the change check.
  */
-export async function backfillAssetLedger(db: LocalDb, scope: { set?: string; langs?: string[] } = {}): Promise<AssetLedgerBackfillCounts> {
+export async function backfillAssetLedger(db: LocalDb, scope: { set?: string, langs?: string[] } = {}): Promise<AssetLedgerBackfillCounts> {
   const root = cardImageRoot();
   const verifiedAt = new Date();
   const counts: AssetLedgerBackfillCounts = {
-    faces: 0, seeded: 0, updated: 0, unchanged: 0, missing: 0, mismatched: 0, missingKeys: [], mismatchKeys: [],
-    tombstones: 0, tombstoneUnchanged: 0,
+    faces:              0, seeded:             0, updated:            0, unchanged:          0, missing:            0, mismatched:         0, missingKeys:        [], mismatchKeys:       [],
+    tombstones:         0, tombstoneUnchanged: 0,
   };
 
   const conditions = [
@@ -124,7 +124,7 @@ export async function backfillAssetLedger(db: LocalDb, scope: { set?: string; la
 
     // Source variants of one printing share their file, so the first non-null
     // metadata wins and no face is converted twice across chunks.
-    const prints = new Map<string, { lang: string; number: string; set: string; imageInfo: ImageInfo }>();
+    const prints = new Map<string, { lang: string, number: string, set: string, imageInfo: ImageInfo }>();
     for (const r of rows) {
       if (r.imageInfo == null) continue;
       const printKey = `${r.lang}/${r.number}`;

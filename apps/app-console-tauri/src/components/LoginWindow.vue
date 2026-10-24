@@ -1,3 +1,74 @@
+<template>
+  <main class="h-screen overflow-hidden">
+    <UCard
+      :ui="{ root: 'h-full w-full rounded-none ring-0', body: 'h-full flex flex-col gap-3 py-6 justify-center' }"
+    >
+      <div
+        v-if="loading"
+        class="desktop-muted flex items-center gap-2 py-2 text-sm"
+      >
+        <UIcon
+          name="i-lucide-loader-circle"
+          class="size-4 animate-spin"
+        />
+        <span>正在恢复会话...</span>
+      </div>
+
+      <form
+        v-else
+        class="space-y-4"
+        @submit.prevent="handleSignIn"
+      >
+        <UFormField
+          label="用户名"
+          name="username"
+        >
+          <UInput
+            v-model="form.username"
+            autocomplete="username"
+            placeholder="请输入用户名"
+            icon="i-lucide-user"
+            required
+            class="w-full"
+          />
+        </UFormField>
+
+        <UFormField
+          label="密码"
+          name="password"
+        >
+          <UInput
+            v-model="form.password"
+            type="password"
+            autocomplete="current-password"
+            placeholder="请输入密码"
+            icon="i-lucide-lock"
+            required
+            class="w-full"
+          />
+        </UFormField>
+
+        <div class="h-16">
+          <UAlert
+            v-if="errorMsg"
+            color="error"
+            variant="soft"
+            :description="errorMsg"
+            icon="i-lucide-circle-alert"
+          />
+        </div>
+
+        <UButton
+          type="submit"
+          label="登录"
+          class="w-full justify-center"
+          :loading="submitting"
+        />
+      </form>
+    </UCard>
+  </main>
+</template>
+
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
@@ -96,74 +167,3 @@ onMounted(async () => {
   }
 });
 </script>
-
-<template>
-  <main class="h-screen overflow-hidden">
-    <UCard
-      :ui="{ root: 'h-full w-full rounded-none ring-0', body: 'h-full flex flex-col gap-3 py-6 justify-center' }"
-    >
-      <div
-        v-if="loading"
-        class="desktop-muted flex items-center gap-2 py-2 text-sm"
-      >
-        <UIcon
-          name="i-lucide-loader-circle"
-          class="size-4 animate-spin"
-        />
-        <span>正在恢复会话...</span>
-      </div>
-
-      <form
-        v-else
-        class="space-y-4"
-        @submit.prevent="handleSignIn"
-      >
-        <UFormField
-          label="用户名"
-          name="username"
-        >
-          <UInput
-            v-model="form.username"
-            autocomplete="username"
-            placeholder="请输入用户名"
-            icon="i-lucide-user"
-            required
-            class="w-full"
-          />
-        </UFormField>
-
-        <UFormField
-          label="密码"
-          name="password"
-        >
-          <UInput
-            v-model="form.password"
-            type="password"
-            autocomplete="current-password"
-            placeholder="请输入密码"
-            icon="i-lucide-lock"
-            required
-            class="w-full"
-          />
-        </UFormField>
-
-        <div class="h-16">
-          <UAlert
-            v-if="errorMsg"
-            color="error"
-            variant="soft"
-            :description="errorMsg"
-            icon="i-lucide-circle-alert"
-          />
-        </div>
-
-        <UButton
-          type="submit"
-          label="登录"
-          class="w-full justify-center"
-          :loading="submitting"
-        />
-      </form>
-    </UCard>
-  </main>
-</template>

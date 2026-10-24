@@ -409,7 +409,7 @@ function formatBytes(value: number) {
 function startJobPolling() {
   stopJobPolling();
   jobPoll = setInterval(() => {
-    void getYugiohJob().then((value) => {
+    void getYugiohJob().then(value => {
       job.value = value;
     }).catch(() => undefined);
   }, 750);
@@ -485,7 +485,7 @@ async function runImport() {
 /** Native directory picker updates the form without persisting it. */
 async function chooseImageBucket() {
   imageError.value = '';
-  const directory = await pickDesktopDirectory(trimToNull(imageBucketInput.value)).catch((error) => {
+  const directory = await pickDesktopDirectory(trimToNull(imageBucketInput.value)).catch(error => {
     imageError.value = errorMessage(error);
     return null;
   });

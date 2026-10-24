@@ -14,7 +14,7 @@ import { onMounted, onUnmounted, ref, shallowRef, watch } from 'vue';
 
 const props = defineProps<{
   modelValue: string;
-  height?: string;
+  height?:    string;
 }>();
 
 const emit = defineEmits<{
@@ -73,7 +73,7 @@ function setupColorModeObserver() {
 onMounted(() => {
   if (!editorRef.value) return;
   editorView.value = new EditorView({
-    state: EditorState.create({ doc: props.modelValue, extensions: createExtensions() }),
+    state:  EditorState.create({ doc: props.modelValue, extensions: createExtensions() }),
     parent: editorRef.value,
   });
   setupColorModeObserver();

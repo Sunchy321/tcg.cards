@@ -28,40 +28,40 @@ import type { NormalizedCard, SourceRecordFailure } from './cards-source';
 
 /** Candidate internal IDs found while reconciling one source record. */
 export interface CardIdentityCandidates {
-  mappedCardId: number | null;
-  cidCardId: number | null;
+  mappedCardId:   number | null;
+  cidCardId:      number | null;
   passwordCardId: number | null;
 }
 
 /** Identity resolution result choosing an existing card or a new auto-increment ID. */
-export type CardIdentity =
-  | { kind: 'existing'; cardId: number }
-  | { kind: 'new' };
+export type CardIdentity
+  = | { kind: 'existing', cardId: number }
+    | { kind: 'new' };
 
 /** Import batch summary returned to desktop clients. */
 export interface YugiohImportReport {
-  batchId: string;
-  source: string;
-  sourceUrl: string;
-  archiveHash: string | null;
-  status: 'running' | 'completed' | 'completed_with_errors' | 'failed' | 'interrupted';
+  batchId:           string;
+  source:            string;
+  sourceUrl:         string;
+  archiveHash:       string | null;
+  status:            'running' | 'completed' | 'completed_with_errors' | 'failed' | 'interrupted';
   sourceRecordCount: number;
-  addedCount: number;
-  updatedCount: number;
-  skippedCount: number;
-  failedCount: number;
-  softDeletedCount: number;
-  error: string | null;
-  startedAt: string;
-  completedAt: string | null;
+  addedCount:        number;
+  updatedCount:      number;
+  skippedCount:      number;
+  failedCount:       number;
+  softDeletedCount:  number;
+  error:             string | null;
+  startedAt:         string;
+  completedAt:       string | null;
 }
 
 /** Optional progress update emitted during one desktop import. */
 export interface YugiohImportProgress {
-  phase: string;
-  message: string;
+  phase:           string;
+  message:         string;
   completedCount?: number;
-  totalCount?: number;
+  totalCount?:     number;
 }
 
 /** Conflict raised when stable source identifiers point at different cards. */
@@ -75,10 +75,10 @@ export class CardIdentityConflictError extends Error {
 
 /** Whether one mapped card can skip a domain update during an identical import. */
 export function shouldSkipCardImport(input: {
-  sourceHash: string;
+  sourceHash:         string;
   previousSourceHash: string | null;
-  mappingRetired: boolean;
-  cardDeleted: boolean;
+  mappingRetired:     boolean;
+  cardDeleted:        boolean;
 }) {
   return input.previousSourceHash === input.sourceHash
     && !input.mappingRetired
@@ -117,15 +117,15 @@ export function resolveCardIdentity(candidates: CardIdentityCandidates): CardIde
 /** Database column values derived from one normalized source card. */
 function cardValues(card: NormalizedCard) {
   return {
-    cid: card.cid,
-    password: card.password,
-    ot: card.ot,
-    setcode: card.setcode == null ? null : BigInt(card.setcode),
-    type: card.type,
-    attack: card.attack,
-    defense: card.defense,
-    level: card.level,
-    race: card.race,
+    cid:       card.cid,
+    password:  card.password,
+    ot:        card.ot,
+    setcode:   card.setcode == null ? null : BigInt(card.setcode),
+    type:      card.type,
+    attack:    card.attack,
+    defense:   card.defense,
+    level:     card.level,
+    race:      card.race,
     attribute: card.attribute,
   };
 }
@@ -135,34 +135,34 @@ export function projectCardLocalizations(card: NormalizedCard, cardId: number) {
   return [
     {
       cardId,
-      locale: 'zhs' as const,
-      name: card.cnName,
-      nameRuby: null,
-      typesText: card.typesText,
+      locale:              'zhs' as const,
+      name:                card.cnName,
+      nameRuby:            null,
+      typesText:           card.typesText,
       pendulumDescription: card.pendulumDescription,
-      description: card.description,
+      description:         card.description,
     },
     ...(card.jpName != null || card.jpRuby != null
       ? [{
-          cardId,
-          locale: 'ja' as const,
-          name: card.jpName,
-          nameRuby: card.jpRuby,
-          typesText: null,
-          pendulumDescription: null,
-          description: null,
-        }]
+        cardId,
+        locale:              'ja' as const,
+        name:                card.jpName,
+        nameRuby:            card.jpRuby,
+        typesText:           null,
+        pendulumDescription: null,
+        description:         null,
+      }]
       : []),
     ...(card.enName != null
       ? [{
-          cardId,
-          locale: 'en' as const,
-          name: card.enName,
-          nameRuby: null,
-          typesText: null,
-          pendulumDescription: null,
-          description: null,
-        }]
+        cardId,
+        locale:              'en' as const,
+        name:                card.enName,
+        nameRuby:            null,
+        typesText:           null,
+        pendulumDescription: null,
+        description:         null,
+      }]
       : []),
   ];
 }
@@ -177,7 +177,7 @@ export function projectCardNameVariants(card: NormalizedCard, cardId: number) {
   ];
 
   return candidates
-    .filter((candidate): candidate is { kind: typeof candidate.kind; name: string } => (
+    .filter((candidate): candidate is { kind: typeof candidate.kind, name: string } => (
       candidate.name != null && candidate.name !== card.cnName
     ))
     .map(candidate => ({
@@ -205,14 +205,14 @@ async function replaceCardContent(
     .values(localizations)
     .onConflictDoUpdate({
       target: [CardLocalization.cardId, CardLocalization.locale],
-      set: {
-        name: sql`excluded.name`,
-        nameRuby: sql`excluded.name_ruby`,
-        typesText: sql`excluded.types_text`,
+      set:    {
+        name:                sql`excluded.name`,
+        nameRuby:            sql`excluded.name_ruby`,
+        typesText:           sql`excluded.types_text`,
         pendulumDescription: sql`excluded.pendulum_description`,
-        description: sql`excluded.description`,
-        deletedAt: null,
-        updatedAt: now,
+        description:         sql`excluded.description`,
+        deletedAt:           null,
+        updatedAt:           now,
       },
     });
 
@@ -228,8 +228,8 @@ async function replaceCardContent(
     .values(variants)
     .onConflictDoUpdate({
       target: [CardNameVariant.cardId, CardNameVariant.locale, CardNameVariant.kind],
-      set: {
-        name: sql`excluded.name`,
+      set:    {
+        name:      sql`excluded.name`,
         deletedAt: null,
         updatedAt: now,
       },
@@ -239,20 +239,20 @@ async function replaceCardContent(
 /** One database import batch row converted into the stable desktop report shape. */
 function buildImportReport(batch: typeof ImportBatch.$inferSelect): YugiohImportReport {
   return {
-    batchId: batch.id,
-    source: batch.source,
-    sourceUrl: batch.sourceUrl,
-    archiveHash: batch.archiveHash,
-    status: batch.status,
+    batchId:           batch.id,
+    source:            batch.source,
+    sourceUrl:         batch.sourceUrl,
+    archiveHash:       batch.archiveHash,
+    status:            batch.status,
     sourceRecordCount: batch.sourceRecordCount,
-    addedCount: batch.addedCount,
-    updatedCount: batch.updatedCount,
-    skippedCount: batch.skippedCount,
-    failedCount: batch.failedCount,
-    softDeletedCount: batch.softDeletedCount,
-    error: batch.error,
-    startedAt: batch.startedAt.toISOString(),
-    completedAt: batch.completedAt?.toISOString() ?? null,
+    addedCount:        batch.addedCount,
+    updatedCount:      batch.updatedCount,
+    skippedCount:      batch.skippedCount,
+    failedCount:       batch.failedCount,
+    softDeletedCount:  batch.softDeletedCount,
+    error:             batch.error,
+    startedAt:         batch.startedAt.toISOString(),
+    completedAt:       batch.completedAt?.toISOString() ?? null,
   };
 }
 
@@ -317,12 +317,12 @@ async function applyCard(
       await replaceCardContent(tx, card, inserted.id, now);
 
       await tx.insert(CardSource).values({
-        source: yugiohCardsSource,
-        sourceRecordId: card.sourceRecordId,
-        cardId: inserted.id,
-        sourceHash: card.sourceHash,
+        source:           yugiohCardsSource,
+        sourceRecordId:   card.sourceRecordId,
+        cardId:           inserted.id,
+        sourceHash:       card.sourceHash,
         firstSeenBatchId: batchId,
-        lastSeenBatchId: batchId,
+        lastSeenBatchId:  batchId,
       });
 
       return 'added' as const;
@@ -339,10 +339,10 @@ async function applyCard(
     }
 
     const skipped = shouldSkipCardImport({
-      sourceHash: card.sourceHash,
+      sourceHash:         card.sourceHash,
       previousSourceHash: mapping?.sourceHash ?? null,
-      mappingRetired: mapping?.retiredAt != null,
-      cardDeleted: existing.deletedAt != null,
+      mappingRetired:     mapping?.retiredAt != null,
+      cardDeleted:        existing.deletedAt != null,
     });
 
     if (skipped) {
@@ -364,20 +364,20 @@ async function applyCard(
 
     if (mapping == null) {
       await tx.insert(CardSource).values({
-        source: yugiohCardsSource,
-        sourceRecordId: card.sourceRecordId,
-        cardId: identity.cardId,
-        sourceHash: card.sourceHash,
+        source:           yugiohCardsSource,
+        sourceRecordId:   card.sourceRecordId,
+        cardId:           identity.cardId,
+        sourceHash:       card.sourceHash,
         firstSeenBatchId: batchId,
-        lastSeenBatchId: batchId,
+        lastSeenBatchId:  batchId,
       });
     } else {
       await tx.update(CardSource)
         .set({
-          sourceHash: card.sourceHash,
+          sourceHash:      card.sourceHash,
           lastSeenBatchId: batchId,
-          retiredAt: null,
-          updatedAt: now,
+          retiredAt:       null,
+          updatedAt:       now,
         })
         .where(and(
           eq(CardSource.source, yugiohCardsSource),
@@ -398,15 +398,15 @@ async function recordFailure(
   await db.insert(ImportFailure).values({
     batchId,
     sourceRecordId: failure.sourceRecordId,
-    stage: failure.stage,
-    code: failure.code,
-    message: failure.message,
-    payload: failure.payload,
+    stage:          failure.stage,
+    code:           failure.code,
+    message:        failure.message,
+    payload:        failure.payload,
   }).onConflictDoUpdate({
     target: [ImportFailure.batchId, ImportFailure.sourceRecordId],
-    set: {
-      stage: failure.stage,
-      code: failure.code,
+    set:    {
+      stage:   failure.stage,
+      code:    failure.code,
       message: failure.message,
       payload: failure.payload,
     },
@@ -420,7 +420,7 @@ async function softDeleteMissingCards(
 ) {
   const activeMappings = await db.select({
     sourceRecordId: CardSource.sourceRecordId,
-    cardId: CardSource.cardId,
+    cardId:         CardSource.cardId,
   })
     .from(CardSource)
     .where(and(
@@ -515,12 +515,12 @@ export async function importYugiohCards(options?: {
 
     await db.update(ImportBatch)
       .set({
-        archiveHash: source.archiveHash,
-        etag: source.etag,
-        lastModified: source.lastModified,
-        unknownFields: source.unknownFields,
+        archiveHash:       source.archiveHash,
+        etag:              source.etag,
+        lastModified:      source.lastModified,
+        unknownFields:     source.unknownFields,
         sourceRecordCount: source.seenSourceRecordIds.length,
-        updatedAt: new Date(),
+        updatedAt:         new Date(),
       })
       .where(eq(ImportBatch.id, batch.id));
 
@@ -535,10 +535,10 @@ export async function importYugiohCards(options?: {
     }
 
     onProgress?.({
-      phase: 'importing',
-      message: '正在导入卡牌…',
+      phase:          'importing',
+      message:        '正在导入卡牌…',
       completedCount: 0,
-      totalCount: source.cards.length,
+      totalCount:     source.cards.length,
     });
 
     for (let index = 0; index < source.cards.length; index += 1) {
@@ -553,20 +553,20 @@ export async function importYugiohCards(options?: {
       } catch (error) {
         await recordFailure(db, batch.id, {
           sourceRecordId: card.sourceRecordId,
-          stage: 'write',
-          code: error instanceof CardIdentityConflictError ? 'IDENTITY_CONFLICT' : 'DATABASE_WRITE',
-          message: getErrorMessage(error),
-          payload: { cid: card.cid, password: card.password },
+          stage:          'write',
+          code:           error instanceof CardIdentityConflictError ? 'IDENTITY_CONFLICT' : 'DATABASE_WRITE',
+          message:        getErrorMessage(error),
+          payload:        { cid: card.cid, password: card.password },
         });
         failedCount += 1;
       }
 
       if ((index + 1) % 100 === 0 || index + 1 === source.cards.length) {
         onProgress?.({
-          phase: 'importing',
-          message: '正在导入卡牌…',
+          phase:          'importing',
+          message:        '正在导入卡牌…',
           completedCount: index + 1,
-          totalCount: source.cards.length,
+          totalCount:     source.cards.length,
         });
       }
     }
@@ -580,22 +580,22 @@ export async function importYugiohCards(options?: {
     const status = failedCount > 0 ? 'completed_with_errors' as const : 'completed' as const;
 
     await db.insert(ImportState).values({
-      source: yugiohCardsSource,
-      sourceUrl: yugiohCardsUrl,
+      source:                yugiohCardsSource,
+      sourceUrl:             yugiohCardsUrl,
       lastSuccessfulBatchId: batch.id,
-      archiveHash: source.archiveHash,
-      etag: source.etag,
-      lastModified: source.lastModified,
-      updatedAt: completedAt,
+      archiveHash:           source.archiveHash,
+      etag:                  source.etag,
+      lastModified:          source.lastModified,
+      updatedAt:             completedAt,
     }).onConflictDoUpdate({
       target: ImportState.source,
-      set: {
-        sourceUrl: yugiohCardsUrl,
+      set:    {
+        sourceUrl:             yugiohCardsUrl,
         lastSuccessfulBatchId: batch.id,
-        archiveHash: source.archiveHash,
-        etag: source.etag,
-        lastModified: source.lastModified,
-        updatedAt: completedAt,
+        archiveHash:           source.archiveHash,
+        etag:                  source.etag,
+        lastModified:          source.lastModified,
+        updatedAt:             completedAt,
       },
     });
 

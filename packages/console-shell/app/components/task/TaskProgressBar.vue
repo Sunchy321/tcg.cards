@@ -122,20 +122,28 @@ const rightText = computed(() => {
   if (!props.stage || props.stage.progressMode !== 'bounded' || !props.stage.total) return '';
   if (props.status === 'paused') return `${props.stage.done ?? 0} / ${props.stage.total}`;
   if (props.status === 'completed') return `${props.stage.total} / ${props.stage.total}  100%`;
-  if (props.status === 'failed' || props.status === 'canceled') return `${props.stage.done ?? 0} / ${props.stage.total}  ${Math.round((props.stage.done ?? 0) / props.stage.total * 100)}%`;
+  if (props.status === 'failed' || props.status === 'canceled') {
+    return `${props.stage.done ?? 0} / ${props.stage.total}  ${Math.round((props.stage.done ?? 0) / props.stage.total * 100)}%`;
+  }
   if (props.status === 'running') {
     const pct = progress.value;
-    if (pct != null) return `${props.stage.done ?? 0} / ${props.stage.total}  ${pct}%`;
+    if (pct != null) {
+      return `${props.stage.done ?? 0} / ${props.stage.total}  ${pct}%`;
+    }
     return `${props.stage.done ?? 0} / ${props.stage.total}`;
   }
   return `${props.stage.done ?? 0} / ${props.stage.total}`;
 });
 
 const stageTimeText = computed(() => {
-  clock.value; // reactive tick
-  if (!props.stage?.startedAt) return '';
+  const _clock = clock.value;
+  if (!props.stage?.startedAt) {
+    return '';
+  }
   const startedMs = new Date(props.stage.startedAt).getTime();
-  if (!Number.isFinite(startedMs)) return '';
+  if (!Number.isFinite(startedMs)) {
+    return '';
+  }
   const nowMs = props.stage.finishedAt ? new Date(props.stage.finishedAt).getTime() : Date.now();
   const elapsed = Math.max(0, Math.floor((nowMs - startedMs) / 1000));
   const elapsedStr = formatTime(elapsed);

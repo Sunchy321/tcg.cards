@@ -72,17 +72,17 @@ interface AttachmentData {
 }
 
 const props = withDefaults(defineProps<{
-  cardId:          string;
-  version:         number;
-  type:            string;
-  name?:           string;
-  src?:            string | null;
-  renderHash?:     string | null;
-  variant?:        CardImageOption;
-  category?:       ImageCategory;
-  loading?:        'eager' | 'lazy';
-  mechanics?:      Record<string, boolean | number>;
-  attachment?:     AttachmentData | null;
+  cardId:           string;
+  version:          number;
+  type:             string;
+  name?:            string;
+  src?:             string | null;
+  renderHash?:      string | null;
+  variant?:         CardImageOption;
+  category?:        ImageCategory;
+  loading?:         'eager' | 'lazy';
+  mechanics?:       Record<string, boolean | number>;
+  attachment?:      AttachmentData | null;
   attachmentLabel?: string;
 }>(), {
   name:            undefined,
@@ -123,11 +123,33 @@ onMounted(() => {
 // attachment card also clears the main-front state so it is not covered.
 function hoverHandlers(state: Ref<boolean>, onActivate?: () => void) {
   return {
-    onPointerEnter: () => { if (!isCoarse.value) { state.value = true; onActivate?.(); } },
-    onPointerLeave: () => { if (!isCoarse.value) state.value = false; },
-    onFocus:        () => { if (!isCoarse.value) { state.value = true; onActivate?.(); } },
-    onBlur:         () => { if (!isCoarse.value) state.value = false; },
-    onClick:        () => { if (isCoarse.value) state.value = !state.value; },
+    onPointerEnter: () => {
+      if (!isCoarse.value) {
+        state.value = true;
+        onActivate?.();
+      }
+    },
+    onPointerLeave: () => {
+      if (!isCoarse.value) {
+        state.value = false;
+      }
+    },
+    onFocus: () => {
+      if (!isCoarse.value) {
+        state.value = true;
+        onActivate?.();
+      }
+    },
+    onBlur: () => {
+      if (!isCoarse.value) {
+        state.value = false;
+      }
+    },
+    onClick: () => {
+      if (isCoarse.value) {
+        state.value = !state.value;
+      }
+    },
   };
 }
 
@@ -146,9 +168,9 @@ function onMainPointerMove(event: PointerEvent) {
     return;
   }
   const rect = el.getBoundingClientRect();
-  const overAttachment =
-    event.clientX >= rect.left && event.clientX <= rect.right &&
-    event.clientY >= rect.top && event.clientY <= rect.bottom;
+  const overAttachment
+    = event.clientX >= rect.left && event.clientX <= rect.right
+      && event.clientY >= rect.top && event.clientY <= rect.bottom;
   mainFront.value = !overAttachment;
 }
 

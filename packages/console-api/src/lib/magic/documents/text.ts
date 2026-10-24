@@ -2,7 +2,7 @@ import { textMarker } from '@tcg-cards/model/magic/schema/document-content';
 import type { TextMarker } from '@tcg-cards/model/magic/schema/document-content';
 
 /** Converts supported import annotations to readable text and semantic ranges. */
-export function importText(input: string, anchors: Set<string>): { rawText: string; markers: TextMarker[] } {
+export function importText(input: string, anchors: Set<string>): { rawText: string, markers: TextMarker[] } {
   let rawText = '';
   const markers: TextMarker[] = [];
   // Game symbols remain ordinary text; only explicit annotations change representation.

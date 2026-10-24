@@ -22,31 +22,31 @@ export const neuronPrintEntry = z.looseObject({
  * recognize are kept verbatim in `specItems` so nothing is silently dropped.
  */
 export const neuronCardData = z.looseObject({
-  cid:           z.int(),
-  locale:        z.string(),
-  name:          z.string(),
+  cid:            z.int(),
+  locale:         z.string(),
+  name:           z.string(),
   /** Rename provenance split off the displayed name ("Updated from: Big Core"). */
   nameAnnotation: z.string().nullable().optional(),
-  ruby:          z.string().nullable().optional(),
-  enName:        z.string().nullable().optional(),
-  attribute:     z.string().nullable().optional(),
-  level:         z.int().nullable().optional(),
-  rank:          z.int().nullable().optional(),
-  linkRating:    z.int().nullable().optional(),
+  ruby:           z.string().nullable().optional(),
+  enName:         z.string().nullable().optional(),
+  attribute:      z.string().nullable().optional(),
+  level:          z.int().nullable().optional(),
+  rank:           z.int().nullable().optional(),
+  linkRating:     z.int().nullable().optional(),
   /** Konami's link-marker encoding ("813"), read from the arrow icon class. */
-  linkMarker:    z.string().nullable().optional(),
-  pendulumScale: z.int().nullable().optional(),
-  atk:           z.string().nullable().optional(),
-  def:           z.string().nullable().optional(),
-  species:       z.string().nullable().optional(),
-  typeText:      z.string().nullable().optional(),
-  text:          z.string().nullable().optional(),
-  pendulumText:  z.string().nullable().optional(),
+  linkMarker:     z.string().nullable().optional(),
+  pendulumScale:  z.int().nullable().optional(),
+  atk:            z.string().nullable().optional(),
+  def:            z.string().nullable().optional(),
+  species:        z.string().nullable().optional(),
+  typeText:       z.string().nullable().optional(),
+  text:           z.string().nullable().optional(),
+  pendulumText:   z.string().nullable().optional(),
   /** Rename/errata notice from the page's Note box, when present. */
-  note:          z.string().nullable().optional(),
-  specItems:     z.looseObject({ title: z.string(), value: z.string() }).array(),
-  imageIds:      z.int().array(),
-  prints:        neuronPrintEntry.array(),
+  note:           z.string().nullable().optional(),
+  specItems:      z.looseObject({ title: z.string(), value: z.string() }).array(),
+  imageIds:       z.int().array(),
+  prints:         neuronPrintEntry.array(),
 });
 
 export type NeuronPrintEntry = z.infer<typeof neuronPrintEntry>;

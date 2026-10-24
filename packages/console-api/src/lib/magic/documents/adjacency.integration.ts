@@ -44,8 +44,12 @@ test.skipIf(!url)('reuses persisted local and remote relations after rebuilding 
     let enterRebuild!: () => void;
     let continueRebuild!: () => void;
     let waited = false;
-    const entered = new Promise<void>(resolve => { enterRebuild = resolve; });
-    const waiting = new Promise<void>(resolve => { continueRebuild = resolve; });
+    const entered = new Promise<void>(resolve => {
+      enterRebuild = resolve;
+    });
+    const waiting = new Promise<void>(resolve => {
+      continueRebuild = resolve;
+    });
     const rebuilding = createDocumentService(reopened, { track: 'local' }).computeRelations({ documentId: 'magic-cr' }, { onProgress: async progress => {
       if (!waited && progress.phase === 'comparing' && progress.done === 0) {
         waited = true;
@@ -69,7 +73,7 @@ test.skipIf(!url)('reuses persisted local and remote relations after rebuilding 
     const owner = createDocumentService(remote, context);
     const article = await owner.create({ slug: userId, title: 'Private article', language: 'en' });
     for (const [index, versionTag] of ['1', '10', '2'].entries()) {
-      const revision = await owner.save({ documentId: article.id, title: article.title, nodes: [
+      const revision = await owner.save({ documentId: article.id, title:      article.title, nodes:      [
         { nodeKey: 'intro', rawText: index === 0 ? 'Pay white to continue.' : 'Pay blue to continue.' },
         { nodeKey: 'unchanged', rawText: 'Always retain this paragraph.' },
       ] });

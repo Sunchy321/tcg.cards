@@ -42,7 +42,7 @@ export function useDesktopConsolePlatform() {
       },
     }),
     storage: createConsoleStorage(window.localStorage),
-    toast: {
+    toast:   {
       show(input) {
         toast.add(input);
       },

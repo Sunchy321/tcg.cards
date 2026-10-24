@@ -57,8 +57,8 @@ const put = os
         config: input.config,
       })
       .onConflictDoUpdate({
-        target:  [UserConfig.userId, UserConfig.gameId],
-        set:     { config: input.config },
+        target: [UserConfig.userId, UserConfig.gameId],
+        set:    { config: input.config },
       });
 
     return { ok: true };

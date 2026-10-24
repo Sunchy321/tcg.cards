@@ -4,17 +4,17 @@ import { ORPCError } from '@orpc/server';
 
 /** Current in-memory Yu-Gi-Oh! desktop task snapshot. */
 export interface YugiohJobSnapshot {
-  jobId: string;
-  kind: 'import' | 'image_import' | 'publish';
-  status: 'running' | 'completed' | 'failed';
-  phase: string;
-  message: string;
+  jobId:          string;
+  kind:           'import' | 'image_import' | 'publish';
+  status:         'running' | 'completed' | 'failed';
+  phase:          string;
+  message:        string;
   completedCount: number | null;
-  totalCount: number | null;
-  error: string | null;
-  startedAt: string;
-  updatedAt: string;
-  finishedAt: string | null;
+  totalCount:     number | null;
+  error:          string | null;
+  startedAt:      string;
+  updatedAt:      string;
+  finishedAt:     string | null;
 }
 
 let currentJob: YugiohJobSnapshot | null = null;
@@ -26,10 +26,10 @@ export function getCurrentYugiohJob() {
 
 /** Current running task updated with one progress event. */
 export function updateCurrentYugiohJob(progress: {
-  phase: string;
-  message: string;
+  phase:           string;
+  message:         string;
   completedCount?: number;
-  totalCount?: number;
+  totalCount?:     number;
 }) {
   if (currentJob?.status !== 'running') {
     return;
@@ -37,11 +37,11 @@ export function updateCurrentYugiohJob(progress: {
 
   currentJob = {
     ...currentJob,
-    phase: progress.phase,
-    message: progress.message,
+    phase:          progress.phase,
+    message:        progress.message,
     completedCount: progress.completedCount ?? currentJob.completedCount,
-    totalCount: progress.totalCount ?? currentJob.totalCount,
-    updatedAt: new Date().toISOString(),
+    totalCount:     progress.totalCount ?? currentJob.totalCount,
+    updatedAt:      new Date().toISOString(),
   };
 }
 
@@ -64,17 +64,17 @@ export async function runYugiohJob<T>(
       : '正在准备发布…';
 
   currentJob = {
-    jobId: randomUUID(),
+    jobId:          randomUUID(),
     kind,
-    status: 'running',
-    phase: 'starting',
-    message: startingMessage,
+    status:         'running',
+    phase:          'starting',
+    message:        startingMessage,
     completedCount: null,
-    totalCount: null,
-    error: null,
+    totalCount:     null,
+    error:          null,
     startedAt,
-    updatedAt: startedAt,
-    finishedAt: null,
+    updatedAt:      startedAt,
+    finishedAt:     null,
   };
 
   try {
@@ -88,9 +88,9 @@ export async function runYugiohJob<T>(
 
     currentJob = {
       ...currentJob,
-      status: 'completed',
-      phase: 'completed',
-      message: completedMessage,
+      status:    'completed',
+      phase:     'completed',
+      message:   completedMessage,
       updatedAt: finishedAt,
       finishedAt,
     };
@@ -102,10 +102,10 @@ export async function runYugiohJob<T>(
 
     currentJob = {
       ...currentJob,
-      status: 'failed',
-      phase: 'failed',
-      message: '任务失败。',
-      error: message,
+      status:    'failed',
+      phase:     'failed',
+      message:   '任务失败。',
+      error:     message,
       updatedAt: finishedAt,
       finishedAt,
     };

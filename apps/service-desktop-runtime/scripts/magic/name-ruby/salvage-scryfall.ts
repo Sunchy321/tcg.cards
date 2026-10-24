@@ -41,10 +41,10 @@ const url = process.env.DESKTOP_LOCAL_DATABASE_URL ?? 'postgresql://postgres:pos
 const db = createDb(url);
 
 const rows = await db.select({
-  set:             ScryfallCard.set,
-  number:          ScryfallCard.collectorNumber,
-  printedName:     ScryfallCard.printedName,
-  releasedAt:      ScryfallCard.releasedAt,
+  set:         ScryfallCard.set,
+  number:      ScryfallCard.collectorNumber,
+  printedName: ScryfallCard.printedName,
+  releasedAt:  ScryfallCard.releasedAt,
 })
   .from(ScryfallCard)
   .where(and(
@@ -74,10 +74,19 @@ function processGlossed(raw: string, set: string, number: string) {
   candidates++;
   const name = stripNameRuby(raw);
   const reading = validateNameRuby(name, normalizeRubyParens(raw));
-  if (reading == null) { invalid++; return; }
-  if (!usedNames.has(name)) { unanchored++; return; }
+  if (reading == null) {
+    invalid++;
+    return;
+  }
+  if (!usedNames.has(name)) {
+    unanchored++;
+    return;
+  }
   let readings = byName.get(name);
-  if (readings == null) { readings = new Map(); byName.set(name, readings); }
+  if (readings == null) {
+    readings = new Map();
+    byName.set(name, readings);
+  }
   const anchor = `${set}:${number}`;
   const entry = readings.get(reading);
   if (entry != null) entry.anchors.add(anchor);
@@ -90,9 +99,9 @@ for (const row of rows) {
 
 // Multi-face cards carry the glosses inside card_faces entries.
 const faceRows = await db.select({
-  set:             ScryfallCard.set,
-  number:          ScryfallCard.collectorNumber,
-  cardFaces:       ScryfallCard.cardFaces,
+  set:       ScryfallCard.set,
+  number:    ScryfallCard.collectorNumber,
+  cardFaces: ScryfallCard.cardFaces,
 })
   .from(ScryfallCard)
   .where(and(
@@ -119,13 +128,13 @@ for (const [name, readings] of byName) {
     for (const anchor of variant.anchors) exceptions[anchor] = variant.reading;
   }
   values.push({
-    lang: 'ja',
-    kind: 'name',
+    lang:       'ja',
+    kind:       'name',
     name,
-    rubyName: def.reading,
+    rubyName:   def.reading,
     exceptions: Object.keys(exceptions).length > 0 ? exceptions : null,
-    source: 'scryfall_salvage',
-    status: 'draft',
+    source:     'scryfall_salvage',
+    status:     'draft',
   });
 }
 

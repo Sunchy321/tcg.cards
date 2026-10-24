@@ -36,7 +36,7 @@ if (isDesktopRuntime && !isLoginWindow) {
 // Sync editor identity with auth state
 if (isDesktopRuntime) {
   const runtime = useDesktopRuntimeClient();
-  watch(currentAuthState, (state) => {
+  watch(currentAuthState, state => {
     const username = state?.user?.username ?? state?.user?.name ?? 'unknown';
     void runtime.runtime.configureEditorIdentity({ editorIdentity: username });
   }, { immediate: true });

@@ -53,28 +53,6 @@ const createDefaultState = (): AdvancedSearchState => ({
   format:       '',
 });
 
-const quoteValue = (value: string) => {
-  if (value === '') {
-    return '""';
-  }
-
-  if (/[\s"()]/.test(value)) {
-    return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
-  }
-
-  return value;
-};
-
-const buildText = (command: string, value: string) => {
-  const trimmed = value.trim();
-
-  if (trimmed === '') {
-    return null;
-  }
-
-  return `${command}:${quoteValue(trimmed)}`;
-};
-
 const buildNumeric = (command: string, state: NumericFieldState) => {
   if (state.value.trim() === '') {
     return null;
@@ -107,14 +85,6 @@ const buildNumericChips = (command: string, values: string[]) => {
   }
 
   return `(${queries.join(' | ')})`;
-};
-
-const buildOrder = (state: OrderFieldState) => {
-  if (state.value === '') {
-    return null;
-  }
-
-  return `order:${state.value}${state.direction}`;
 };
 
 export const buildAdvancedSearchDSL = (state: AdvancedSearchState) => {

@@ -6,11 +6,11 @@ import { sameRevision } from './reparse';
 
 /** Report the complete publication snapshot, including dry runs and retries. */
 export interface PublicationCounts {
-  documents: number;
+  documents:    number;
   translations: number;
-  revisions: number;
-  nodes: number;
-  releases: number;
+  revisions:    number;
+  nodes:        number;
+  releases:     number;
 }
 
 /** Publishes static content atomically, then transports saved relations independently. */

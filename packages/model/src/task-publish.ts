@@ -11,15 +11,15 @@ export const publishTaskScope = publishStream.extend({
 });
 
 export const publishTaskParams = z.strictObject({
-  publishType: z.string().trim().min(1).default('card_data'),
-  dryRun: z.boolean().optional(),
+  publishType:   z.string().trim().min(1).default('card_data'),
+  dryRun:        z.boolean().optional(),
   operationKind: z.enum(['publish']).default('publish'),
 });
 
 export const publishTaskCreateInput = z.strictObject({
   taskType: z.literal('hearthstone_publish'),
-  scope: publishStream,
-  params: publishTaskParams,
+  scope:    publishStream,
+  params:   publishTaskParams,
 });
 
 export type PublishTaskType = z.infer<typeof publishTaskType>;

@@ -33,35 +33,35 @@ import type { SveCardListItem } from '#model/shadowverse/schema/data/evolve-card
 
 /** Optional progress update emitted during one desktop import. */
 export interface EvolveImportProgress {
-  phase: string;
-  message: string;
+  phase:           string;
+  message:         string;
   completedCount?: number;
-  totalCount?: number;
+  totalCount?:     number;
 }
 
 /** Import batch summary returned to desktop clients. */
 export interface EvolveImportReport {
-  batchId: string;
-  source: string;
-  sourceUrl: string;
-  status: 'running' | 'completed' | 'completed_with_errors' | 'failed' | 'interrupted';
+  batchId:           string;
+  source:            string;
+  sourceUrl:         string;
+  status:            'running' | 'completed' | 'completed_with_errors' | 'failed' | 'interrupted';
   sourceRecordCount: number;
-  addedCount: number;
-  updatedCount: number;
-  skippedCount: number;
-  failedCount: number;
-  softDeletedCount: number;
-  error: string | null;
-  startedAt: string;
-  completedAt: string | null;
+  addedCount:        number;
+  updatedCount:      number;
+  skippedCount:      number;
+  failedCount:       number;
+  softDeletedCount:  number;
+  error:             string | null;
+  startedAt:         string;
+  completedAt:       string | null;
 }
 
 /** Running per-card counters threaded through the import blocks. */
 export interface EvolveImportCounters {
-  addedCount: number;
+  addedCount:   number;
   updatedCount: number;
   skippedCount: number;
-  failedCount: number;
+  failedCount:  number;
 }
 
 export const evolveSourceUrl = 'https://shadowverse-evolve.com/cardlist/cardsearch';
@@ -99,23 +99,8 @@ export async function recordEvolveImportFailure(
     payload,
   }).onConflictDoUpdate({
     target: [EvolveImportFailure.batchId, EvolveImportFailure.sourceRecordId],
-    set: { stage, code, message, payload },
+    set:    { stage, code, message, payload },
   });
-}
-
-/** Card pack row upserted from one card's product information. */
-async function applyEvolveCardSet(
-  db: ShadowverseEvolveLocalDb,
-  cardSetCode: string,
-  name: string,
-  releaseDate: string | null,
-) {
-  await db.insert(EvolveCardSet)
-    .values({ cardSetCode, name, releaseDate })
-    .onConflictDoUpdate({
-      target: EvolveCardSet.cardSetCode,
-      set: { name, releaseDate, deletedAt: null },
-    });
 }
 
 /** Whether the stored core card row already matches the parsed payload exactly. */
@@ -139,17 +124,17 @@ async function applyEvolveCard(
   detail: ParsedEvolveDetail,
 ): Promise<'added' | 'updated' | 'skipped'> {
   const values = {
-    cardNo: detail.cardNo,
-    cardSetCode: detail.cardNo.split('-')[0] ?? null,
-    craft: detail.craft,
-    cardType: detail.cardType,
-    tribes: detail.tribes,
-    rarity: detail.rarity,
-    cost: detail.cost,
-    attack: detail.attack,
-    life: detail.life,
+    cardNo:         detail.cardNo,
+    cardSetCode:    detail.cardNo.split('-')[0] ?? null,
+    craft:          detail.craft,
+    cardType:       detail.cardType,
+    tribes:         detail.tribes,
+    rarity:         detail.rarity,
+    cost:           detail.cost,
+    attack:         detail.attack,
+    life:           detail.life,
     relatedCardNos: detail.relatedCardNos.length > 0 ? detail.relatedCardNos : null,
-    imageUrlJa: detail.imageUrl,
+    imageUrlJa:     detail.imageUrl,
   };
 
   const existing = await db.select()
@@ -177,8 +162,8 @@ async function applyEvolveCard(
 /** Localization column values for one parsed card detail. */
 function evolveLocalizationValues(detail: ParsedEvolveDetail) {
   return {
-    name: detail.name,
-    skillText: detail.skillText,
+    name:        detail.name,
+    skillText:   detail.skillText,
     flavourText: detail.flavourText,
     illustrator: detail.illustrator,
   };
@@ -196,7 +181,7 @@ async function applyEvolveLocalization(
     .values({ cardNo: detail.cardNo, lang, ...values })
     .onConflictDoUpdate({
       target: [EvolveCardLocalization.cardNo, EvolveCardLocalization.lang],
-      set: values,
+      set:    values,
     });
 }
 
@@ -213,10 +198,10 @@ async function applyEvolveQuestions(
   }
 
   await db.insert(EvolveCardQuestion).values(detail.questions.map(entry => ({
-    id: entry.id,
-    cardNo: detail.cardNo,
-    question: entry.question,
-    answer: entry.answer,
+    id:         entry.id,
+    cardNo:     detail.cardNo,
+    question:   entry.question,
+    answer:     entry.answer,
     answeredAt: entry.answeredAt,
   })));
 }
@@ -228,8 +213,8 @@ async function applyEvolveZhCard(db: ShadowverseEvolveLocalDb, card: SveCardList
   }
 
   const values = {
-    name: card.name_cn.trim(),
-    skillText: card.desc_cn ?? null,
+    name:        card.name_cn.trim(),
+    skillText:   card.desc_cn ?? null,
     flavourText: null,
     illustrator: null,
   };
@@ -238,7 +223,7 @@ async function applyEvolveZhCard(db: ShadowverseEvolveLocalDb, card: SveCardList
     .values({ cardNo: card.card_no, lang: 'zh-cn', ...values })
     .onConflictDoUpdate({
       target: [EvolveCardLocalization.cardNo, EvolveCardLocalization.lang],
-      set: values,
+      set:    values,
     });
 
   return 'applied' as const;
@@ -257,12 +242,12 @@ export async function importEvolveJaCard(
     await db.insert(EvolveCardSet)
       .values({
         cardSetCode: detail.cardNo.split('-')[0] ?? cardNo,
-        name: detail.product ?? cardNo,
+        name:        detail.product ?? cardNo,
         releaseDate: detail.releaseDate,
       })
       .onConflictDoUpdate({
         target: EvolveCardSet.cardSetCode,
-        set: { name: detail.product ?? cardNo, releaseDate: detail.releaseDate, deletedAt: null },
+        set:    { name: detail.product ?? cardNo, releaseDate: detail.releaseDate, deletedAt: null },
       });
 
     const action = await applyEvolveCard(db, detail);
@@ -356,19 +341,19 @@ export async function softDeleteMissingEvolveCards(db: ShadowverseEvolveLocalDb,
 /** One database import batch row converted into the stable desktop report shape. */
 export function buildEvolveImportReport(batch: typeof EvolveImportBatch.$inferSelect): EvolveImportReport {
   return {
-    batchId: batch.id,
-    source: batch.source,
-    sourceUrl: batch.sourceUrl,
-    status: batch.status,
+    batchId:           batch.id,
+    source:            batch.source,
+    sourceUrl:         batch.sourceUrl,
+    status:            batch.status,
     sourceRecordCount: batch.sourceRecordCount,
-    addedCount: batch.addedCount,
-    updatedCount: batch.updatedCount,
-    skippedCount: batch.skippedCount,
-    failedCount: batch.failedCount,
-    softDeletedCount: batch.softDeletedCount,
-    error: batch.error,
-    startedAt: batch.startedAt.toISOString(),
-    completedAt: batch.completedAt?.toISOString() ?? null,
+    addedCount:        batch.addedCount,
+    updatedCount:      batch.updatedCount,
+    skippedCount:      batch.skippedCount,
+    failedCount:       batch.failedCount,
+    softDeletedCount:  batch.softDeletedCount,
+    error:             batch.error,
+    startedAt:         batch.startedAt.toISOString(),
+    completedAt:       batch.completedAt?.toISOString() ?? null,
   };
 }
 
@@ -385,11 +370,11 @@ export async function listEvolveImportBatches(limit = 20) {
 
 /** Aggregated counters persisted once all languages finish. */
 export async function finalizeEvolveImportBatch(options: {
-  db: ShadowverseEvolveLocalDb;
-  batchId: string;
-  counters: EvolveImportCounters;
+  db:                ShadowverseEvolveLocalDb;
+  batchId:           string;
+  counters:          EvolveImportCounters;
   sourceRecordCount: number;
-  softDeletedCount: number;
+  softDeletedCount:  number;
 }) {
   const { db, batchId, counters, sourceRecordCount, softDeletedCount } = options;
   const completedAt = new Date();
@@ -397,17 +382,17 @@ export async function finalizeEvolveImportBatch(options: {
 
   await db.insert(EvolveImportState)
     .values({
-      source: evolveJaSource,
-      sourceUrl: evolveSourceUrl,
+      source:                evolveJaSource,
+      sourceUrl:             evolveSourceUrl,
       lastSuccessfulBatchId: batchId,
-      updatedAt: completedAt,
+      updatedAt:             completedAt,
     })
     .onConflictDoUpdate({
       target: EvolveImportState.source,
-      set: {
-        sourceUrl: evolveSourceUrl,
+      set:    {
+        sourceUrl:             evolveSourceUrl,
         lastSuccessfulBatchId: batchId,
-        updatedAt: completedAt,
+        updatedAt:             completedAt,
       },
     });
 
@@ -415,13 +400,13 @@ export async function finalizeEvolveImportBatch(options: {
     .set({
       status,
       sourceRecordCount,
-      addedCount: counters.addedCount,
+      addedCount:   counters.addedCount,
       updatedCount: counters.updatedCount,
       skippedCount: counters.skippedCount,
-      failedCount: counters.failedCount,
+      failedCount:  counters.failedCount,
       softDeletedCount,
       completedAt,
-      updatedAt: completedAt,
+      updatedAt:    completedAt,
     })
     .where(eq(EvolveImportBatch.id, batchId))
     .returning()

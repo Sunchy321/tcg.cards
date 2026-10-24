@@ -175,26 +175,26 @@
 
 <script setup lang="ts">
 
-definePageMeta({
-  layout: 'admin',
-  title:  'Set 管理',
-});
 import { useConsolePlatform } from '@tcg-cards/console-platform';
 import { computed, onMounted, reactive, ref } from 'vue';
 
 import type { SetProfile } from '@tcg-cards/model/hearthstone/schema/set';
+definePageMeta({
+  layout: 'admin',
+  title:  'Set 管理',
+});
 
 const platform = useConsolePlatform();
 const orpc: any = platform.api.createClient();
 
 /** Editable per-language localization row used by the set form. */
 interface LocalizationFormItem {
-  key: string;
-  lang: string;
-  full: string;
-  short: string;
+  key:      string;
+  lang:     string;
+  full:     string;
+  short:    string;
   initials: string;
-  mini: string;
+  mini:     string;
 }
 
 const filters = reactive({ q: '', type: '', group: '' });
@@ -211,15 +211,15 @@ const nextLocKey = ref(0);
 
 const form = reactive({
   originalSetId: '',
-  setId: '',
-  dbfId: '',
-  rawName: '',
-  type: '',
-  releaseDate: '',
+  setId:         '',
+  dbfId:         '',
+  rawName:       '',
+  type:          '',
+  releaseDate:   '',
   cardCountFull: '',
-  cardCount: '',
-  group: '',
-  localization: [] as LocalizationFormItem[],
+  cardCount:     '',
+  group:         '',
+  localization:  [] as LocalizationFormItem[],
 });
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / limit.value)));
@@ -232,7 +232,7 @@ const canSave = computed(() => {
 });
 
 /** Toast shown through the shared console platform. */
-function showToast(input: { title: string; description?: string; color?: 'error' | 'success' }) {
+function showToast(input: { title: string, description?: string, color?: 'error' | 'success' }) {
   platform.toast.show(input);
 }
 
@@ -240,12 +240,12 @@ function showToast(input: { title: string; description?: string; color?: 'error'
 function createLocRow(names?: SetProfile['localization'][string]): LocalizationFormItem {
   nextLocKey.value += 1;
   return {
-    key: `loc-${nextLocKey.value}`,
-    lang: '',
-    full: names?.full ?? '',
-    short: names?.short ?? '',
+    key:      `loc-${nextLocKey.value}`,
+    lang:     '',
+    full:     names?.full ?? '',
+    short:    names?.short ?? '',
     initials: names?.initials ?? '',
-    mini: names?.mini ?? '',
+    mini:     names?.mini ?? '',
   };
 }
 
@@ -274,21 +274,6 @@ function applyProfile(item: SetProfile) {
     ...createLocRow(names),
     lang,
   }));
-  formError.value = '';
-}
-
-/** Editable form reset when no set is selected. */
-function resetForm() {
-  form.originalSetId = '';
-  form.setId = '';
-  form.dbfId = '';
-  form.rawName = '';
-  form.type = '';
-  form.releaseDate = '';
-  form.cardCountFull = '';
-  form.cardCount = '';
-  form.group = '';
-  form.localization = [];
   formError.value = '';
 }
 
@@ -327,10 +312,10 @@ async function loadSets() {
   loading.value = true;
   try {
     const result = await orpc.hearthstone.set.list({
-      q: filters.q.trim() || undefined,
-      type: filters.type.trim() || undefined,
+      q:     filters.q.trim() || undefined,
+      type:  filters.type.trim() || undefined,
       group: filters.group.trim() || undefined,
-      page: page.value,
+      page:  page.value,
       limit: limit.value,
     });
     items.value = result.items;
@@ -401,15 +386,15 @@ async function saveSet() {
   try {
     const result = await orpc.hearthstone.set.update({
       originalSetId: form.originalSetId,
-      setId: form.setId.trim(),
-      dbfId: parseOptionalInt(form.dbfId),
-      rawName: form.rawName.trim() || null,
-      type: form.type.trim(),
-      releaseDate: form.releaseDate,
+      setId:         form.setId.trim(),
+      dbfId:         parseOptionalInt(form.dbfId),
+      rawName:       form.rawName.trim() || null,
+      type:          form.type.trim(),
+      releaseDate:   form.releaseDate,
       cardCountFull: parseOptionalInt(form.cardCountFull),
-      cardCount: parseOptionalInt(form.cardCount),
-      group: form.group.trim() || null,
-      localization: normalizeLocalizations(),
+      cardCount:     parseOptionalInt(form.cardCount),
+      group:         form.group.trim() || null,
+      localization:  normalizeLocalizations(),
     });
     showToast({ title: '保存成功', color: 'success' });
     await loadSets();

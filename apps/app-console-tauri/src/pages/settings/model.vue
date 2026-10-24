@@ -86,14 +86,14 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: 'admin', title: '模型配置' });
 import { getDesktopAiConfig, setDesktopAiConfig, type DesktopAiConfig } from '~/composables/useDesktopSettings';
 import { onMounted, reactive, ref } from 'vue';
+definePageMeta({ layout: 'admin', title: '模型配置' });
 
 const loading = ref(false);
 const saving = ref(false);
 const testing = ref(false);
-const testResult = ref<{ ok: boolean; message: string } | null>(null);
+const testResult = ref<{ ok: boolean, message: string } | null>(null);
 
 const form = reactive({ apiKey: '', baseUrl: '', model: '' });
 
@@ -105,8 +105,13 @@ function fill(data: DesktopAiConfig) {
 
 onMounted(async () => {
   loading.value = true;
-  try { fill(await getDesktopAiConfig()); } catch { /* ignore */ }
-  finally { loading.value = false; }
+  try {
+    fill(await getDesktopAiConfig());
+  } catch {
+    // The form remains usable with its default values when no saved config exists.
+  } finally {
+    loading.value = false;
+  }
 });
 
 async function save() {

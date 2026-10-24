@@ -16,8 +16,8 @@ import { schema } from './schema';
 
 /** One official FAQ entry attached to a card, verbatim from the source API. */
 export interface CardQuestion {
-  question?: string;
-  answer?: string;
+  question?:     string;
+  answer?:       string;
   [key: string]: unknown;
 }
 
@@ -28,15 +28,15 @@ export const CardLocalization = schema.table('card_localizations', {
     .references(() => Card.cardId, { onDelete: 'cascade' }),
   lang: lang('lang').notNull(),
 
-  name: text('name').notNull(),
-  nameRuby: text('name_ruby'),
-  skillText: text('skill_text'),
+  name:        text('name').notNull(),
+  nameRuby:    text('name_ruby'),
+  skillText:   text('skill_text'),
   flavourText: text('flavour_text'),
-  cv: text('cv'),
+  cv:          text('cv'),
   illustrator: text('illustrator'),
-  questions: jsonb('questions').$type<CardQuestion[]>(),
+  questions:   jsonb('questions').$type<CardQuestion[]>(),
 
-  cardImageHash: varchar('card_image_hash', { length: 32 }).notNull(),
+  cardImageHash:       varchar('card_image_hash', { length: 32 }).notNull(),
   cardBannerImageHash: varchar('card_banner_image_hash', { length: 32 }),
 
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

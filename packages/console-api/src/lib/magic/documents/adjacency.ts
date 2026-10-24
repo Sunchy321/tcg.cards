@@ -22,17 +22,17 @@ function timelineHash(releases: Release[]): string {
 
 /** Report durable task progress without treating uncommitted relations as available. */
 export interface RelationProgress {
-  phase: 'comparing' | 'saving' | 'completed';
-  done: number;
-  total: number;
+  phase:          'comparing' | 'saving' | 'completed';
+  done:           number;
+  total:          number;
   fromVersionTag: string | null;
-  toVersionTag: string | null;
+  toVersionTag:   string | null;
 }
 
 /** Allow desktop execution to persist progress and cooperate with task cancellation. */
 export interface ComputationOptions {
   onProgress?: (progress: RelationProgress) => void | Promise<void>;
-  signal?: AbortSignal;
+  signal?:     AbortSignal;
 }
 
 /** Apply the same management permission to computation and readiness inspection. */
@@ -75,16 +75,16 @@ export function createAdjacencyOperations(store: DocumentStore, context: Documen
         const identities = new Map<string, string>();
         const latest = new Map<string, Node>();
         const aliasOwners = new Map<string, string>();
-        const comparisons: { comparison: Adjacency; relations: NodeRelation[] }[] = [];
+        const comparisons: { comparison: Adjacency, relations: NodeRelation[] }[] = [];
         for (let index = 0; index < releases.length; index++) {
           const release = releases[index]!;
-          if (index > 0) await report({ phase: 'comparing', done: index - 1, total,
-            fromVersionTag: releases[index - 1]!.versionTag, toVersionTag: release.versionTag });
+          if (index > 0) await report({ phase:          'comparing', done:           index - 1, total,
+            fromVersionTag: releases[index - 1]!.versionTag, toVersionTag:   release.versionTag });
           const original = await loadRevision(tx, release);
           const hash = revisionHash(original);
           await tx.setRevisionHash(original.id, hash);
           const matched = previous == null ? null : matchRevisionNodes(previous, asParsed(original), original.id);
-          const canonical: Revision = { ...original, contentHash: hash, nodes: original.nodes.map(node => {
+          const canonical: Revision = { ...original, contentHash: hash, nodes:       original.nodes.map(node => {
             const assignment = matched?.entityAssignments.get(node.anchor ?? node.nodeKey);
             const identity = assignment?.isNew === false ? assignment.entityId : node.id;
             identities.set(node.id, identity);
@@ -98,8 +98,8 @@ export function createAdjacencyOperations(store: DocumentStore, context: Documen
           }
           const fromRelease = releases[index - 1]!;
           const id = createHash('sha256').update(JSON.stringify([document!.id, fromRelease.id, release.id])).digest('hex');
-          const comparison: Adjacency = { id, documentId: document!.id, fromReleaseId: fromRelease.id, toReleaseId: release.id,
-            fromRevisionId: previous.id, toRevisionId: original.id, fromHash: previous.contentHash!, toHash: hash, algorithm: adjacencyAlgorithm, timelineHash: sequence };
+          const comparison: Adjacency = { id, documentId:     document!.id, fromReleaseId:  fromRelease.id, toReleaseId:    release.id,
+            fromRevisionId: previous.id, toRevisionId:   original.id, fromHash:       previous.contentHash!, toHash:         hash, algorithm:      adjacencyAlgorithm, timelineHash:   sequence };
           const relations: NodeRelation[] = [];
           const claimed = new Set<string>();
           /** Record every participant once, retaining ordered split and merge groups. */
@@ -162,8 +162,10 @@ export function createAdjacencyOperations(store: DocumentStore, context: Documen
       return { versions: releases.map((release, index) => {
         const previous = releases[index - 1];
         const comparison = previous == null ? undefined : comparisons.find(row => row.fromReleaseId === previous.id && row.toReleaseId === release.id);
-        const status: 'not_needed' | 'unprepared' | 'ready' | 'outdated' = previous == null ? 'not_needed'
-          : isPrepared(comparison, previous, release, revisions, sequence) ? 'ready'
+        const status: 'not_needed' | 'unprepared' | 'ready' | 'outdated' = previous == null
+          ? 'not_needed'
+          : isPrepared(comparison, previous, release, revisions, sequence)
+            ? 'ready'
             : comparisons.some(row => row.toReleaseId === release.id) ? 'outdated' : 'unprepared';
         return { releaseId: release.id, versionTag: release.versionTag, previousVersionTag: previous?.versionTag ?? null, status };
       }) };

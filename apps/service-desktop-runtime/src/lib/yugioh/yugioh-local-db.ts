@@ -10,7 +10,7 @@ export type YugiohLocalDb = ReturnType<typeof createDb>;
 /** Cached local database client paired with its active connection string. */
 interface YugiohLocalDbState {
   connectionString: string;
-  db: YugiohLocalDb;
+  db:               YugiohLocalDb;
 }
 
 let localDbState: YugiohLocalDbState | null = null;

@@ -57,16 +57,16 @@ interface RaceBucketSpec {
 
 // BACON_SUBSET_* tags that assign a Battlegrounds race bucket to a card.
 const RACE_BUCKET_TAGS: RaceBucketSpec[] = [
-  { enumId: 1591, race: 'dragon',    rawName: 'BACON_SUBSET_DRAGON' },
-  { enumId: 1592, race: 'murloc',    rawName: 'BACON_SUBSET_MURLOC' },
-  { enumId: 1593, race: 'demon',     rawName: 'BACON_SUBSET_DEMON' },
-  { enumId: 1594, race: 'beast',     rawName: 'BACON_SUBSET_BEAST' },
-  { enumId: 1595, race: 'mech',      rawName: 'BACON_SUBSET_MECH' },
-  { enumId: 1596, race: 'pirate',    rawName: 'BACON_SUBSET_PIRATE' },
+  { enumId: 1591, race: 'dragon', rawName: 'BACON_SUBSET_DRAGON' },
+  { enumId: 1592, race: 'murloc', rawName: 'BACON_SUBSET_MURLOC' },
+  { enumId: 1593, race: 'demon', rawName: 'BACON_SUBSET_DEMON' },
+  { enumId: 1594, race: 'beast', rawName: 'BACON_SUBSET_BEAST' },
+  { enumId: 1595, race: 'mech', rawName: 'BACON_SUBSET_MECH' },
+  { enumId: 1596, race: 'pirate', rawName: 'BACON_SUBSET_PIRATE' },
   { enumId: 1688, race: 'elemental', rawName: 'BACON_SUBSET_ELEMENTALS' },
-  { enumId: 1845, race: 'quilboar',  rawName: 'BACON_SUBSET_QUILLBOAR' },
-  { enumId: 2272, race: 'naga',      rawName: 'BACON_SUBSET_NAGA' },
-  { enumId: 2347, race: 'undead',    rawName: 'BACON_SUBSET_UNDEAD' },
+  { enumId: 1845, race: 'quilboar', rawName: 'BACON_SUBSET_QUILLBOAR' },
+  { enumId: 2272, race: 'naga', rawName: 'BACON_SUBSET_NAGA' },
+  { enumId: 2347, race: 'undead', rawName: 'BACON_SUBSET_UNDEAD' },
 ];
 
 const dryRun = process.argv.includes('--dry-run');

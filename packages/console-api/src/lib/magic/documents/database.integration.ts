@@ -27,7 +27,7 @@ test.skipIf(!localUrl || !remoteUrl)('imports, translates, publishes, searches a
     const text = `Magic: The Gathering Comprehensive Rules\n\nThese rules are effective as of October 1, 2026.\n\nIntroduction\n\nA test rulebook.\n\nContents\n\nCredits\n\n1. Game Concepts\n\n100. General\n\n100.1. Pay {W} to continue.\n`;
     const first = await source.importCr({ content: text });
     const second = await source.importCr({ content: text.replace('October 1', 'November 1').replace('{W}', '{U}') });
-    const translated = await source.saveTranslation({ documentId: 'magic-cr', sourceRevisionId: second.revisionId, language: 'zhs', nodes: [
+    const translated = await source.saveTranslation({ documentId:       'magic-cr', sourceRevisionId: second.revisionId, language:         'zhs', nodes:            [
       { sourceNodeId: `${second.revisionId}/100.1`, rawText: '支付 {U} 后继续。', translationMethod: 'machine' },
     ] });
     await source.selectTranslation({ documentId: 'magic-cr', releaseId: second.releaseId, revisionId: translated.id });

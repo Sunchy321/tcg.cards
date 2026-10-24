@@ -13,11 +13,11 @@ import {
 } from './render';
 
 export interface RenderAllStreamInput {
-  items:       RenderItemLike[];
-  version:     number;
+  items:        RenderItemLike[];
+  version:      number;
   lastVersion?: number | null;
-  langs:       Locale[];
-  mode:        'missing' | 'all';
+  langs:        Locale[];
+  mode:         'missing' | 'all';
 }
 
 /**
@@ -55,7 +55,11 @@ export function buildRenderAllStreamResponse(input: RenderAllStreamInput): Respo
       } catch (error) {
         send({ type: 'error', message: error instanceof Error ? error.message : String(error) });
       } finally {
-        try { controller.close(); } catch { /* already closed */ }
+        try {
+          controller.close();
+        } catch {
+          // The consumer may have canceled the stream before cleanup.
+        }
       }
     },
   });
@@ -64,7 +68,7 @@ export function buildRenderAllStreamResponse(input: RenderAllStreamInput): Respo
     headers: {
       'content-type':  'text/event-stream',
       'cache-control': 'no-cache',
-      connection:      'keep-alive',
+      'connection':    'keep-alive',
     },
   });
 }

@@ -8,31 +8,31 @@ import type { YugiohPublishReport } from 'service-desktop-runtime/lib/yugioh/car
 /** Fixed structured source metadata returned by the desktop runtime. */
 export interface YugiohSourceInfo {
   source: string;
-  url: string;
+  url:    string;
 }
 
 /** Current and recent local import state returned to the settings page. */
 export interface YugiohImportState {
-  latest: YugiohImportReport | null;
+  latest:  YugiohImportReport | null;
   batches: YugiohImportReport[];
 }
 
 /** Fixed primary-image source metadata returned by the desktop runtime. */
 export interface YugiohImageSourceInfo {
-  source: string;
+  source:      string;
   metadataUrl: string;
 }
 
 /** Current and recent primary-image import state returned to the settings page. */
 export interface YugiohImageImportState {
-  latest: YugiohImageImportReport | null;
+  latest:  YugiohImageImportReport | null;
   batches: YugiohImageImportReport[];
 }
 
 /** Current and recent test publication state returned to the settings page. */
 export interface YugiohPublishState {
   incomplete: YugiohPublishReport | null;
-  batches: YugiohPublishReport[];
+  batches:    YugiohPublishReport[];
 }
 
 /** Fixed Yu-Gi-Oh! card source metadata loaded from the local runtime. */

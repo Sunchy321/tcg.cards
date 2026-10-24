@@ -18,7 +18,7 @@ import type { DocumentStore, Node, Revision } from './store';
 
 /** Selects storage ownership and the authenticated user for document operations. */
 export interface DocumentContext {
-  track: 'local' | 'remote';
+  track:    'local' | 'remote';
   actorId?: string;
 }
 
@@ -36,7 +36,7 @@ export function createDocumentService(store: DocumentStore, context: DocumentCon
     ...createAdjacencyOperations(store, context),
     ...createTranslationOperations(store, context),
     /** Imports a community edition only after its exact English release has been prepared. */
-    async importCrTranslation(input: { versionTag: string; content: unknown; editions?: unknown[] }) {
+    async importCrTranslation(input: { versionTag: string, content: unknown, editions?: unknown[] }) {
       if (context.track !== 'local') throw new Error('Static translations require local storage');
       const versionTag = input.versionTag.replaceAll('-', '');
       return store.transaction('magic-cr', async tx => {
@@ -48,7 +48,8 @@ export function createDocumentService(store: DocumentStore, context: DocumentCon
         }
         // Validate the original edition first; newer translations must not hide source defects.
         const original = alignCrTranslation(input.content, source, versionTag);
-        const aligned = input.editions == null ? original
+        const aligned = input.editions == null
+          ? original
           : alignCrTranslation(latestCrTranslation(input.content, input.editions), source, versionTag);
         const translations = createTranslationOperations(tx, context);
         const revision = await translations.saveTranslation(aligned);
@@ -57,7 +58,7 @@ export function createDocumentService(store: DocumentStore, context: DocumentCon
       });
     },
     /** Imports authoritative CR text with its proven official date and retained original files. */
-    async importCr(input: { content: string; versionTag?: string; files?: SourceFile[] }) {
+    async importCr(input: { content: string, versionTag?: string, files?: SourceFile[] }) {
       if (context.track !== 'local') throw new Error('Static imports require local storage');
       const normalized = input.content.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').trimEnd() + '\n';
       // Historical originals say 'current', and some official TXT headers omit the final period.
@@ -85,10 +86,10 @@ export function createDocumentService(store: DocumentStore, context: DocumentCon
         const at = new Date();
         const document = await tx.document('magic-cr');
         await tx.putDocument(document ?? {
-          id: 'magic-cr', slug: 'magic-cr', title: 'Comprehensive Rules', sourceLanguage: 'en',
-          origin: 'static', staticKey: 'magic-cr', visibility: 'public',
-          settings: documentSettings.parse({ outline: true, compare: true, historyPublic: true }),
-          createdAt: at, updatedAt: at, deletedAt: null,
+          id:             'magic-cr', slug:           'magic-cr', title:          'Comprehensive Rules', sourceLanguage: 'en',
+          origin:         'static', staticKey:      'magic-cr', visibility:     'public',
+          settings:       documentSettings.parse({ outline: true, compare: true, historyPublic: true }),
+          createdAt:      at, updatedAt:      at, deletedAt:      null,
         });
         const ids = new Map(parsed.nodes.map(node => [node.id, `${contentId}/${node.nodeId}`]));
         const previousRelease = (await tx.releases('magic-cr')).filter(row => !row.deletedAt && row.versionTag < versionTag).sort((a, b) => b.versionTag.localeCompare(a.versionTag))[0];
@@ -96,11 +97,11 @@ export function createDocumentService(store: DocumentStore, context: DocumentCon
         const assignments = previousRevision ? matchRevisionNodes(previousRevision, parsed.nodes, contentId).entityAssignments : undefined;
         const existingKeys = new Map(existing?.nodes.map(node => [node.anchor, node.nodeKey]));
         const nodes: Node[] = parsed.nodes.map(node => ({
-          id: ids.get(node.id)!, revisionId: contentId, nodeKey: existingKeys.get(node.nodeId) ?? assignments?.get(node.nodeId)?.entityId ?? node.nodeId, kind: node.nodeKind,
-          anchor: node.nodeId, path: node.path, level: node.level,
-          parentId: node.parentNodeId ? ids.get(node.parentNodeId) ?? null : null,
-          siblingOrder: node.siblingOrder, ...importText(node.content ?? '', anchors),
-          sourceNodeId: null, sourceRevisionId: null, translationMethod: null, reviewStatus: null,
+          id:                ids.get(node.id)!, revisionId:        contentId, nodeKey:           existingKeys.get(node.nodeId) ?? assignments?.get(node.nodeId)?.entityId ?? node.nodeId, kind:              node.nodeKind,
+          anchor:            node.nodeId, path:              node.path, level:             node.level,
+          parentId:          node.parentNodeId ? ids.get(node.parentNodeId) ?? null : null,
+          siblingOrder:      node.siblingOrder, ...importText(node.content ?? '', anchors),
+          sourceNodeId:      null, sourceRevisionId:  null, translationMethod: null, reviewStatus:      null,
         }));
         if (existing) {
           const reparsed = { ...existing, nodes };
@@ -120,19 +121,19 @@ export function createDocumentService(store: DocumentStore, context: DocumentCon
           return { documentId: 'magic-cr', revisionId: contentId, releaseId, versionTag, effectiveDate, totalNodes: nodes.length };
         }
         await tx.putRevision({
-          id: contentId, documentId: 'magic-cr', translationId: null, sourceRevisionId: null,
-          title: 'Comprehensive Rules', language: 'en', createdAt: at, deletedAt: null, nodes,
-          meta: calculateStatistics(nodes, 'magic-cr'),
+          id:               contentId, documentId:       'magic-cr', translationId:    null, sourceRevisionId: null,
+          title:            'Comprehensive Rules', language:         'en', createdAt:        at, deletedAt:        null, nodes,
+          meta:             calculateStatistics(nodes, 'magic-cr'),
         });
         await tx.putRelease({
-          id: releaseId, documentId: 'magic-cr', versionTag, sourceRevisionId: contentId,
-          publishedAt: effectiveDate ? new Date(`${effectiveDate}T00:00:00Z`) : at,
-          effectiveDate, files: (input.files ?? []).map(file => sourceFile.parse(file)), deletedAt: null,
+          id:               releaseId, documentId:       'magic-cr', versionTag, sourceRevisionId: contentId,
+          publishedAt:      effectiveDate ? new Date(`${effectiveDate}T00:00:00Z`) : at,
+          effectiveDate, files:            (input.files ?? []).map(file => sourceFile.parse(file)), deletedAt:        null,
         });
         return { documentId: 'magic-cr', revisionId: contentId, releaseId, versionTag, effectiveDate, totalNodes: nodes.length };
       });
     },
-    async retireRelease(input: { documentId: string; releaseId: string }) {
+    async retireRelease(input: { documentId: string, releaseId: string }) {
       if (context.track !== 'local') throw new Error('Static releases are maintained locally');
       return store.transaction(input.documentId, async tx => {
         const document = await tx.document(input.documentId);
@@ -142,12 +143,12 @@ export function createDocumentService(store: DocumentStore, context: DocumentCon
         await tx.putRelease({ ...release, deletedAt: new Date() });
       });
     },
-    async search(input: { query: string; slug?: string; language?: string; limit?: number }) {
+    async search(input: { query: string, slug?: string, language?: string, limit?: number }) {
       const query = input.query.trim();
       if (!query) return [];
       return store.searchPublished({ ...input, query, limit: Math.max(1, Math.min(100, input.limit ?? 30)) });
     },
-    async read(input: { slug: string; versionTag?: string; locale?: string }) {
+    async read(input: { slug: string, versionTag?: string, locale?: string }) {
       const document = (await store.documents()).find(row => (row.slug === input.slug || row.id === input.slug) && !row.deletedAt);
       if (!document || (document.visibility === 'private' && document.authorId !== context.actorId)) throw new Error('Document not found');
       const releases = formalReleases(await store.releases(document.id)).reverse();
@@ -178,26 +179,26 @@ function buildReader(
 ) {
   const translations = new Map(translated?.nodes.map(node => [node.sourceNodeId, node]) ?? []);
   const sections = orderedNodes(source.nodes).map(node => ({
-    nodeId: node.anchor ?? node.nodeKey, entityId: node.nodeKey, kind: node.kind,
-    serial: /^\d+(?:\.\d+[a-z]*)?$/.test(node.anchor ?? '') ? `${node.anchor}${/[a-z]$/.test(node.anchor!) ? '' : '.'}` : null,
-    text: translations.get(node.id)?.rawText ?? (node.rawText || null),
-    markers: translations.get(node.id)?.markers ?? node.markers,
+    nodeId:            node.anchor ?? node.nodeKey, entityId:          node.nodeKey, kind:              node.kind,
+    serial:            /^\d+(?:\.\d+[a-z]*)?$/.test(node.anchor ?? '') ? `${node.anchor}${/[a-z]$/.test(node.anchor!) ? '' : '.'}` : null,
+    text:              translations.get(node.id)?.rawText ?? (node.rawText || null),
+    markers:           translations.get(node.id)?.markers ?? node.markers,
     translationMethod: translations.get(node.id)?.translationMethod ?? null,
-    reviewStatus: translations.get(node.id)?.reviewStatus ?? null,
-    navText: translations.get(node.id)?.rawText ?? (node.rawText || null),
-    path: node.path, level: node.level,
-    parentNodeId: source.nodes.find(parent => parent.id === node.parentId)?.anchor ?? null,
-    siblingOrder: node.siblingOrder, latestChange: null, historyCount: 0,
-    localeState: {
-      locale: translations.has(node.id) ? translated!.language : source.language,
-      status: translations.has(node.id) ? 'published' as const : 'source' as const,
+    reviewStatus:      translations.get(node.id)?.reviewStatus ?? null,
+    navText:           translations.get(node.id)?.rawText ?? (node.rawText || null),
+    path:              node.path, level:             node.level,
+    parentNodeId:      source.nodes.find(parent => parent.id === node.parentId)?.anchor ?? null,
+    siblingOrder:      node.siblingOrder, latestChange:      null, historyCount:      0,
+    localeState:       {
+      locale:     translations.has(node.id) ? translated!.language : source.language,
+      status:     translations.has(node.id) ? 'published' as const : 'source' as const,
       isFallback: requestedLanguage != null && requestedLanguage !== source.language && !translations.has(node.id),
     },
   }));
   const outline: DocumentOutlineItem[] = sections.filter(node => node.kind === 'heading' || node.kind === 'implicit_heading').map(node => ({
-    key: node.nodeId, nodeId: node.nodeId, entityId: node.entityId,
-    label: `${node.serial ? `${node.serial} ` : ''}${node.text ?? node.nodeId}`,
-    serial: node.serial, level: node.level, kind: node.kind,
+    key:      node.nodeId, nodeId:   node.nodeId, entityId: node.entityId,
+    label:    `${node.serial ? `${node.serial} ` : ''}${node.text ?? node.nodeId}`,
+    serial:   node.serial, level:    node.level, kind:     node.kind,
     children: [],
   }));
   const roots = [] as typeof outline;
@@ -205,12 +206,16 @@ function buildReader(
   for (const item of outline) {
     const parentId = sections.find(node => node.nodeId === item.nodeId)?.parentNodeId;
     const parent = parentId ? byId.get(parentId) : undefined;
-    if (parent) (parent.children ??= []).push(item); else roots.push(item);
+    if (parent) {
+      (parent.children ??= []).push(item);
+    } else {
+      roots.push(item);
+    }
   }
   const version = (row: typeof release) => ({ id: row.id, versionTag: row.versionTag, effectiveDate: row.effectiveDate ?? row.publishedAt.toISOString().slice(0, 10), publishedAt: row.publishedAt.toISOString().slice(0, 10) });
   return {
     document: { id: document.id, slug: document.slug, name: source.title, origin: document.origin, settings: document.settings },
-    version: { ...version(release), isLatest: release.id === releases[0]?.id },
-    versions: releases.map(version), files: release.files, outline: document.settings.outline ? roots : [], sections,
+    version:  { ...version(release), isLatest: release.id === releases[0]?.id },
+    versions: releases.map(version), files:    release.files, outline:  document.settings.outline ? roots : [], sections,
   };
 }

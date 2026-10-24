@@ -7,29 +7,29 @@ import { PushBatch } from '@tcg-cards/db/schema/local/hearthstone';
 import { getLocalDb } from './hsdata-local-db';
 
 /** Tag push phases exposed to the frontend progress UI. */
-export type TagPushPhase =
-  | 'pushing'
-  | 'completed'
-  | 'failed';
+export type TagPushPhase
+  = | 'pushing'
+    | 'completed'
+    | 'failed';
 
 /** One pushed commit result. */
 export interface TagPushItemLog {
-  localSequence: number;
+  localSequence:    number;
   clientMutationId: string;
-  status: 'applied' | 'duplicate';
+  status:           'applied' | 'duplicate';
 }
 
 /** Progress event streamed to the frontend. */
 export interface TagPushProgressEvent {
-  phase: TagPushPhase | string;
-  message: string;
-  startedAt: string;
-  finishedAt: string | null;
-  totalCount: number | null;
-  completedCount: number | null;
-  pushed: TagPushItemLog[];
-  blockedReason: string | null;
-  blockedMessage: string | null;
+  phase:           TagPushPhase | string;
+  message:         string;
+  startedAt:       string;
+  finishedAt:      string | null;
+  totalCount:      number | null;
+  completedCount:  number | null;
+  pushed:          TagPushItemLog[];
+  blockedReason:   string | null;
+  blockedMessage:  string | null;
   blockedSequence: number | null;
 }
 
@@ -59,19 +59,27 @@ async function* streamProgress(): AsyncGenerator<TagPushProgressEvent> {
   const push = (event: TagPushProgressEvent) => {
     if (stopped) return;
     queue.push(event);
-    if (wake) { const resolve = wake; wake = null; resolve(); }
+    if (wake) {
+      const resolve = wake;
+      wake = null;
+      resolve();
+    }
   };
 
   const subscriber: ProgressSubscriber = { publish: push };
   subscribers.add(subscriber);
-  const unsubscribe = () => { subscribers.delete(subscriber); };
+  const unsubscribe = () => {
+    subscribers.delete(subscriber);
+  };
 
   if (currentJob) push(currentJob);
 
   try {
     while (!stopped) {
       if (queue.length === 0) {
-        await new Promise<void>(resolve => { wake = resolve; });
+        await new Promise<void>(resolve => {
+          wake = resolve;
+        });
       }
       while (queue.length > 0) {
         const event = queue.shift()!;
@@ -90,15 +98,15 @@ async function* streamProgress(): AsyncGenerator<TagPushProgressEvent> {
 export function startTagPushJob(connectionString: string, limit?: number): void {
   const now = new Date().toISOString();
   notify({
-    phase: 'pushing',
-    message: '正在推送 tag commits 到远端...',
-    startedAt: now,
-    finishedAt: null,
-    totalCount: null,
-    completedCount: null,
-    pushed: [],
-    blockedReason: null,
-    blockedMessage: null,
+    phase:           'pushing',
+    message:         '正在推送 tag commits 到远端...',
+    startedAt:       now,
+    finishedAt:      null,
+    totalCount:      null,
+    completedCount:  null,
+    pushed:          [],
+    blockedReason:   null,
+    blockedMessage:  null,
     blockedSequence: null,
   });
 
@@ -107,8 +115,8 @@ export function startTagPushJob(connectionString: string, limit?: number): void 
 
 /** Checks for an incomplete push batch that may need to be resumed. */
 export async function getIncompletePushBatch(): Promise<{
-  id: string;
-  stream: string;
+  id:        string;
+  stream:    string;
   startedAt: string;
 } | null> {
   const db = getLocalDb();
@@ -159,12 +167,12 @@ async function runPush(connectionString: string, limit?: number) {
   // Persist 'pushing' state first, so incomplete batches are detectable after restart.
   const batchId = crypto.randomUUID();
   await localDb.insert(PushBatch).values({
-    id:              batchId,
-    stream:          'hearthstone.tag',
-    consumer:        'desktop',
-    status:          'pushing',
-    pushedCount:     0,
-    duplicateCount:  0,
+    id:             batchId,
+    stream:         'hearthstone.tag',
+    consumer:       'desktop',
+    status:         'pushing',
+    pushedCount:    0,
+    duplicateCount: 0,
     startedAt,
   });
 
@@ -172,19 +180,19 @@ async function runPush(connectionString: string, limit?: number) {
     const result = await pushPendingTagCommits({
       localDb,
       remoteDb,
-      consumer: 'desktop',
+      consumer:   'desktop',
       limit,
       onProgress: ({ completed, total }) => {
         notify({
-          phase: 'pushing',
-          message: `正在推送 ${completed}/${total}...`,
-          startedAt: startedAt.toISOString(),
-          finishedAt: null,
-          totalCount: total,
-          completedCount: completed,
-          pushed: [],
-          blockedReason: null,
-          blockedMessage: null,
+          phase:           'pushing',
+          message:         `正在推送 ${completed}/${total}...`,
+          startedAt:       startedAt.toISOString(),
+          finishedAt:      null,
+          totalCount:      total,
+          completedCount:  completed,
+          pushed:          [],
+          blockedReason:   null,
+          blockedMessage:  null,
           blockedSequence: null,
         });
       },
@@ -205,17 +213,17 @@ async function runPush(connectionString: string, limit?: number) {
       .where(eq(PushBatch.id, batchId));
 
     notify({
-      phase: status,
+      phase:   status,
       message: result.blockedReason
         ? `推送被阻止于 ${result.blockedReason}: ${result.blockedMessage}`
         : `推送完成：${result.pushed.length} 条 commit`,
-      startedAt: startedAt.toISOString(),
-      finishedAt: new Date().toISOString(),
-      totalCount: result.pushed.length + (result.blockedSequence ? 1 : 0),
-      completedCount: result.pushed.length,
-      pushed: result.pushed,
-      blockedReason: result.blockedReason,
-      blockedMessage: result.blockedMessage,
+      startedAt:       startedAt.toISOString(),
+      finishedAt:      new Date().toISOString(),
+      totalCount:      result.pushed.length + (result.blockedSequence ? 1 : 0),
+      completedCount:  result.pushed.length,
+      pushed:          result.pushed,
+      blockedReason:   result.blockedReason,
+      blockedMessage:  result.blockedMessage,
       blockedSequence: result.blockedSequence,
     });
   } catch (error) {
@@ -232,15 +240,15 @@ async function runPush(connectionString: string, limit?: number) {
       .where(eq(PushBatch.id, batchId));
 
     notify({
-      phase: 'failed',
-      message: `推送失败: ${message}`,
-      startedAt: startedAt.toISOString(),
-      finishedAt: new Date().toISOString(),
-      totalCount: null,
-      completedCount: null,
-      pushed: [],
-      blockedReason: 'error',
-      blockedMessage: message,
+      phase:           'failed',
+      message:         `推送失败: ${message}`,
+      startedAt:       startedAt.toISOString(),
+      finishedAt:      new Date().toISOString(),
+      totalCount:      null,
+      completedCount:  null,
+      pushed:          [],
+      blockedReason:   'error',
+      blockedMessage:  message,
       blockedSequence: null,
     });
   } finally {

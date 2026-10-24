@@ -247,7 +247,7 @@ class InsertBuilder {
 
 /** Update query builder used by the memory db. */
 class UpdateBuilder {
-  private values: Partial<Row> = {};
+  private values:    Partial<Row> = {};
   private condition: unknown;
 
   constructor(

@@ -16,7 +16,7 @@ export function excludeInsertedNumbering(oldNodes: OldNode[], newNodes: ParsedDo
   }
 
   /** Group physical siblings independently of their displayed numbers. */
-  function siblings<T extends { parentNodeId: string | null; siblingOrder: number }>(nodes: T[]): Map<string | null, T[]> {
+  function siblings<T extends { parentNodeId: string | null, siblingOrder: number }>(nodes: T[]): Map<string | null, T[]> {
     const groups = new Map<string | null, T[]>();
     for (const node of nodes) {
       const group = groups.get(node.parentNodeId) ?? [];

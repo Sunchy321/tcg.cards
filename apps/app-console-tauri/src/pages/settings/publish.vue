@@ -271,9 +271,9 @@ async function testDraftTarget(id: string) {
     target.targetFingerprint = '';
     target.testError = getConsoleErrorMessage(error, '发布目标测试失败');
     toast.add({
-      title: '发布目标测试失败',
+      title:       '发布目标测试失败',
       description: target.testError,
-      color: 'error',
+      color:       'error',
     });
   } finally {
     target.testing = false;
@@ -291,9 +291,9 @@ async function registerDraftTarget(id: string) {
   try {
     const { registerRemotePublishStream } = await import('~/composables/useHsdataRepo');
     await registerRemotePublishStream({
-      connectionString: target.connectionString.trim(),
-      publishTarget: target.publishTarget.trim(),
-      environment: target.environment.trim(),
+      connectionString:  target.connectionString.trim(),
+      publishTarget:     target.publishTarget.trim(),
+      environment:       target.environment.trim(),
       targetFingerprint: target.targetFingerprint,
     });
 
@@ -304,9 +304,9 @@ async function registerDraftTarget(id: string) {
   } catch (error) {
     console.error('Failed to register remote publish stream:', error);
     toast.add({
-      title: '注册失败',
+      title:       '注册失败',
       description: getConsoleErrorMessage(error, '注册远程发布目标失败'),
-      color: 'error',
+      color:       'error',
     });
   } finally {
     target.registering = false;
@@ -316,27 +316,27 @@ async function registerDraftTarget(id: string) {
 /** Persists the current publish target table after all rows have valid fingerprints. */
 async function saveTargets() {
   const rows = draftTargets.value.map(target => ({
-    credentialKey: target.credentialKey,
-    publishTarget: target.publishTarget.trim(),
-    environment: target.environment.trim(),
-    connectionString: target.connectionString.trim(),
+    credentialKey:     target.credentialKey,
+    publishTarget:     target.publishTarget.trim(),
+    environment:       target.environment.trim(),
+    connectionString:  target.connectionString.trim(),
     targetFingerprint: target.targetFingerprint.trim(),
   }));
 
   if (rows.some(row => !row.publishTarget || !row.environment || !row.connectionString)) {
     toast.add({
-      title: '发布配置保存失败',
+      title:       '发布配置保存失败',
       description: '存在未填写完整的发布配置。',
-      color: 'error',
+      color:       'error',
     });
     return;
   }
 
   if (rows.some(row => !row.targetFingerprint)) {
     toast.add({
-      title: '发布配置保存失败',
+      title:       '发布配置保存失败',
       description: '存在未测试或已失效的 fingerprint，请先逐行测试。',
-      color: 'error',
+      color:       'error',
     });
     return;
   }
@@ -353,9 +353,9 @@ async function saveTargets() {
   } catch (error) {
     console.error('Failed to save desktop publish targets:', error);
     toast.add({
-      title: '发布配置保存失败',
+      title:       '发布配置保存失败',
       description: getConsoleErrorMessage(error, '发布配置保存失败'),
-      color: 'error',
+      color:       'error',
     });
   } finally {
     savingTargets.value = false;

@@ -135,13 +135,13 @@ export const EvolveImageImportBatch = dataSchema.table('evolve_image_import_batc
 export const EvolveImageAsset = dataSchema.table('evolve_image_assets', {
   id: bigserial('id', { mode: 'number' }).primaryKey(),
 
-  lang: text('lang').notNull(),
+  lang:   text('lang').notNull(),
   cardNo: text('card_no')
     .notNull()
     .references(() => EvolveCard.cardNo, { onDelete: 'cascade' }),
 
-  filePath: text('file_path').notNull(),
-  byteSize: integer('byte_size'),
+  filePath:     text('file_path').notNull(),
+  byteSize:     integer('byte_size'),
   downloadedAt: timestamp('downloaded_at', { withTimezone: true }),
 
   retiredAt: timestamp('retired_at', { withTimezone: true }),

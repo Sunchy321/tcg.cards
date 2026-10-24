@@ -17,7 +17,7 @@ export default defineNuxtPlugin({
 
     let retried = false;
 
-    nuxtApp.hook('app:error', (error) => {
+    nuxtApp.hook('app:error', error => {
       if (retried) {
         return;
       }

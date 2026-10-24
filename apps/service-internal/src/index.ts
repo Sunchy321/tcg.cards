@@ -40,16 +40,6 @@ const rpcHandler = new RPCHandler(router as any, {
   ],
 });
 
-/** Error responses encoded as the lightweight JSON shape expected by desktop callers. */
-function jsonErrorResponse(status: number, code: string, message: string) {
-  return new Response(JSON.stringify({ code, message }), {
-    status,
-    headers: {
-      'content-type': 'application/json',
-    },
-  });
-}
-
 hono.get('/', c => c.json({
   service: 'service-internal',
   status:  'ok',

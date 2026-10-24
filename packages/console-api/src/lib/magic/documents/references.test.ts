@@ -90,7 +90,6 @@ test('grounds transitive reference updates in an independently unchanged target'
   });
 });
 
-
 test('checks Chinese marker offsets and does not conceal source-content changes behind translated reference updates', async () => {
   for (const sourceChanged of [false, true]) {
     const store = memoryStore();
@@ -101,16 +100,16 @@ test('checks Chinese marker offsets and does not conceal source-content changes 
     const second = await service.importCr({ content: header.replace('October 1', 'November 1') + newBody });
     for (const [edition, text] of [[first, '参见规则100.1。'], [second, '参见规则100.2。']] as const) {
       const source = (await store.revision(edition.revisionId))!;
-      const revision = await translations.saveTranslation({ documentId: 'magic-cr', sourceRevisionId: source.id, language: 'zhs', nodes: [{
-        sourceNodeId: source.nodes.find(node => node.anchor === '100.3')!.id,
+      const revision = await translations.saveTranslation({ documentId:       'magic-cr', sourceRevisionId: source.id, language:         'zhs', nodes:            [{
+        sourceNodeId:      source.nodes.find(node => node.anchor === '100.3')!.id,
         ...importText(text, new Set(source.nodes.flatMap(node => node.anchor == null ? [] : [node.anchor]))), translationMethod: 'human',
       }] });
       await translations.selectTranslation({ documentId: 'magic-cr', releaseId: edition.releaseId, revisionId: revision.id });
     }
     await service.computeRelations({ documentId: 'magic-cr' });
     const result = await createComparisonOperations(store, { track: 'local' }).compare({ slug: 'magic-cr', fromVersionTag: '20261001', toVersionTag: '20261101', locale: 'zhs' });
-    expect(result.rows.find(row => row.kind === 'change' && row.to?.nodeId === '100.3')).toMatchObject({ referenceOnly: !sourceChanged,
-      referenceUpdates: [{ from: '100.1', to: '100.2' }], textDiff: { blocks: [
+    expect(result.rows.find(row => row.kind === 'change' && row.to?.nodeId === '100.3')).toMatchObject({ referenceOnly:    !sourceChanged,
+      referenceUpdates: [{ from: '100.1', to: '100.2' }], textDiff:         { blocks: [
         { type: 'common', text: '参见规则' }, { type: 'removed', text: '100.1', isMinor: true },
         { type: 'added', text: '100.2', isMinor: true }, { type: 'common', text: '。' },
       ] } });
@@ -125,7 +124,6 @@ test('does not confirm numbering from ambiguous identical targets', async () => 
   expect(result.rows.find(row => row.kind === 'change' && row.to?.nodeId === '100.4')).toMatchObject({ referenceOnly: false, referenceUpdates: [] });
 });
 
-
 test('retains a proven update when another reference is added to the same paragraph', async () => {
   const result = await compareReference(
     '100.1. Pay {W} to continue.\n\n100.2. Draw a card.\n\n100.4. See rule 100.1.\n',
@@ -139,7 +137,6 @@ test('retains a proven update when another reference is added to the same paragr
   ]);
   expect(row.textDiff?.blocks.some(block => block.type === 'added' && !block.isMinor && block.text.includes('100.3'))).toBe(true);
 });
-
 
 test('preserves repeated references when their complete target sequence is unchanged', async () => {
   const result = await compareReference(...referenceBodies('See rule 100.1, then follow rule 100.1.', 'See rule 100.2, then follow rule 100.2.'));

@@ -12,16 +12,16 @@ import { dataSchema } from '../../shared/yugioh/schema';
 
 /** Last successful desktop-led card publication accepted by one remote target. */
 export const PublishLedger = dataSchema.table('publish_ledgers', {
-  publishTargetId: text('publish_target_id').primaryKey(),
-  environment:     text('environment').notNull(),
+  publishTargetId:   text('publish_target_id').primaryKey(),
+  environment:       text('environment').notNull(),
   targetFingerprint: text('target_fingerprint').notNull(),
-  batchId: uuid('batch_id').notNull(),
-  manifestHash:    text('manifest_hash').notNull(),
-  totalRowCount:   integer('total_row_count').notNull(),
-  changedRowCount: integer('changed_row_count').notNull().default(0),
-  publishedAt: timestamp('published_at', { withTimezone: true }).notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true })
+  batchId:           uuid('batch_id').notNull(),
+  manifestHash:      text('manifest_hash').notNull(),
+  totalRowCount:     integer('total_row_count').notNull(),
+  changedRowCount:   integer('changed_row_count').notNull().default(0),
+  publishedAt:       timestamp('published_at', { withTimezone: true }).notNull(),
+  createdAt:         timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt:         timestamp('updated_at', { withTimezone: true })
     .defaultNow()
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),

@@ -29,15 +29,15 @@ Credits
 async function addGuide(store: DocumentStore) {
   const at = new Date('2026-10-01T00:00:00Z');
   await store.putDocument({
-    id: 'a-guide', slug: 'a-guide', title: 'A guide', sourceLanguage: 'en', origin: 'static', staticKey: 'a-guide', visibility: 'public',
-    settings: { outline: false, compare: false, historyPublic: false, copyable: false }, createdAt: at, updatedAt: at, deletedAt: null,
+    id:             'a-guide', slug:           'a-guide', title:          'A guide', sourceLanguage: 'en', origin:         'static', staticKey:      'a-guide', visibility:     'public',
+    settings:       { outline: false, compare: false, historyPublic: false, copyable: false }, createdAt:      at, updatedAt:      at, deletedAt:      null,
   });
   await store.putRevision({
-    id: 'guide:revision', documentId: 'a-guide', title: 'A guide', language: 'en', translationId: null, sourceRevisionId: null, createdAt: at, deletedAt: null,
-    nodes: [{
-      id: 'guide:node', revisionId: 'guide:revision', nodeKey: 'one', kind: 'content', anchor: 'one', path: '0001', level: 1,
-      parentId: null, siblingOrder: 0, rawText: 'An ordinary static article.', markers: [], sourceNodeId: null, sourceRevisionId: null,
-      translationMethod: null, reviewStatus: null,
+    id:               'guide:revision', documentId:       'a-guide', title:            'A guide', language:         'en', translationId:    null, sourceRevisionId: null, createdAt:        at, deletedAt:        null,
+    nodes:            [{
+      id:                'guide:node', revisionId:        'guide:revision', nodeKey:           'one', kind:              'content', anchor:            'one', path:              '0001', level:             1,
+      parentId:          null, siblingOrder:      0, rawText:           'An ordinary static article.', markers:           [], sourceNodeId:      null, sourceRevisionId:  null,
+      translationMethod: null, reviewStatus:      null,
     }],
   });
   await store.putRelease({
@@ -203,8 +203,8 @@ test('publishes statistics backfills without rewriting referenced content and ke
   const imported = await documents.importCr({ content: cr });
   const revision = (await source.revision(imported.revisionId))!;
   const translated = await documents.saveTranslation({
-    documentId: imported.documentId, sourceRevisionId: revision.id, language: 'zhs',
-    nodes: [{ sourceNodeId: `${revision.id}/100.1`, rawText: '支付 {W}。', translationMethod: 'human' }],
+    documentId:       imported.documentId, sourceRevisionId: revision.id, language:         'zhs',
+    nodes:            [{ sourceNodeId: `${revision.id}/100.1`, rawText: '支付 {W}。', translationMethod: 'human' }],
   });
   await documents.selectTranslation({ documentId: imported.documentId, releaseId: imported.releaseId, revisionId: translated.id });
   await publishDocument(source, target, 'magic-cr');
@@ -278,8 +278,8 @@ test('publishes translated and hidden referenced revisions with the official edi
   const translation = { id: 'cr-zh', documentId: 'magic-cr', language: 'zh-CN' };
   await source.putTranslation(translation);
   const translated = {
-    ...original, id: 'zh-revision', translationId: translation.id, sourceRevisionId: original.id, language: translation.language,
-    nodes: original.nodes.map(node => ({ ...node, id: `zh-${node.id}`, revisionId: 'zh-revision', parentId: node.parentId == null ? null : `zh-${node.parentId}`, sourceRevisionId: original.id, sourceNodeId: node.id, translationMethod: 'machine' as const, reviewStatus: 'unreviewed' as const })),
+    ...original, id:               'zh-revision', translationId:    translation.id, sourceRevisionId: original.id, language:         translation.language,
+    nodes:            original.nodes.map(node => ({ ...node, id: `zh-${node.id}`, revisionId: 'zh-revision', parentId: node.parentId == null ? null : `zh-${node.parentId}`, sourceRevisionId: original.id, sourceNodeId: node.id, translationMethod: 'machine' as const, reviewStatus: 'unreviewed' as const })),
   };
   await source.putRevision(translated);
   await source.putReleaseTranslation({ releaseId: result.releaseId, documentId: 'magic-cr', sourceRevisionId: original.id, translationId: translation.id, revisionId: translated.id });

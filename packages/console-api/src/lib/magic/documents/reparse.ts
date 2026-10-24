@@ -12,10 +12,10 @@ export function sameRevision(left: Revision, right: Revision): boolean {
 
 /** Restricts parsing repairs to released CR sources without dependent translations. */
 export function assertReparse(input: {
-  document: Document | undefined;
-  previous: Revision | undefined;
-  revision: Revision;
-  released: boolean;
+  document:                 Document | undefined;
+  previous:                 Revision | undefined;
+  revision:                 Revision;
+  released:                 boolean;
   hasTranslationReferences: boolean;
 }) {
   const { document, previous, revision, released, hasTranslationReferences } = input;

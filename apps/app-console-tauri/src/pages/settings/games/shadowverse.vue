@@ -262,22 +262,22 @@ definePageMeta({
 });
 
 interface CardsImportResult {
-  cardCount: number;
-  status: string;
-  addedCount: number;
-  updatedCount: number;
-  skippedCount: number;
-  failedCount: number;
+  cardCount:        number;
+  status:           string;
+  addedCount:       number;
+  updatedCount:     number;
+  skippedCount:     number;
+  failedCount:      number;
   softDeletedCount: number;
 }
 
 interface ImagesImportResult {
-  assetCount: number;
-  status: string;
-  downloadedCount: number;
-  skippedCount: number;
-  missingCount: number;
-  failedCount: number;
+  assetCount:          number;
+  status:              string;
+  downloadedCount:     number;
+  skippedCount:        number;
+  missingCount:        number;
+  failedCount:         number;
   downloadedByteCount: number;
 }
 

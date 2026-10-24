@@ -16,7 +16,6 @@ import {
 } from '@tcg-cards/db/schema/local/shadowverse';
 
 import {
-  downloadLangSnapshot,
   shadowverseCardsSource,
   shadowverseCardsUrl,
 } from './cards-source';
@@ -28,55 +27,55 @@ import type { ShadowverseLang } from '#model/shadowverse/schema/data/card-list';
 
 /** Optional progress update emitted during one desktop import. */
 export interface ShadowverseImportProgress {
-  phase: string;
-  message: string;
+  phase:           string;
+  message:         string;
   completedCount?: number;
-  totalCount?: number;
+  totalCount?:     number;
 }
 
 /** Import batch summary returned to desktop clients. */
 export interface ShadowverseImportReport {
-  batchId: string;
-  source: string;
-  sourceUrl: string;
-  status: 'running' | 'completed' | 'completed_with_errors' | 'failed' | 'interrupted';
+  batchId:           string;
+  source:            string;
+  sourceUrl:         string;
+  status:            'running' | 'completed' | 'completed_with_errors' | 'failed' | 'interrupted';
   sourceRecordCount: number;
-  addedCount: number;
-  updatedCount: number;
-  skippedCount: number;
-  failedCount: number;
-  softDeletedCount: number;
-  error: string | null;
-  startedAt: string;
-  completedAt: string | null;
+  addedCount:        number;
+  updatedCount:      number;
+  skippedCount:      number;
+  failedCount:       number;
+  softDeletedCount:  number;
+  error:             string | null;
+  startedAt:         string;
+  completedAt:       string | null;
 }
 
 /** Running per-card counters threaded through the import blocks. */
 export interface ImportCounters {
-  addedCount: number;
+  addedCount:   number;
   updatedCount: number;
   skippedCount: number;
-  failedCount: number;
+  failedCount:  number;
 }
 
 /** Column values derived from the language-independent card payload. */
 function cardValues(common: NormalizedCardData['common']) {
   return {
-    cardId: common.card_id,
-    baseCardId: common.base_card_id,
-    cardResourceId: common.card_resource_id,
-    originalCardId: common.original_card_id,
-    cardSetId: common.card_set_id,
-    type: common.type,
-    class: common.class,
-    rarity: common.rarity,
-    cost: common.cost,
-    atk: common.atk,
-    life: common.life,
-    tribes: common.tribes,
-    isToken: common.is_token,
-    isIncludeRotation: common.is_include_rotation,
-    deckEnabledNum: common.deck_enabled_num,
+    cardId:                  common.card_id,
+    baseCardId:              common.base_card_id,
+    cardResourceId:          common.card_resource_id,
+    originalCardId:          common.original_card_id,
+    cardSetId:               common.card_set_id,
+    type:                    common.type,
+    class:                   common.class,
+    rarity:                  common.rarity,
+    cost:                    common.cost,
+    atk:                     common.atk,
+    life:                    common.life,
+    tribes:                  common.tribes,
+    isToken:                 common.is_token,
+    isIncludeRotation:       common.is_include_rotation,
+    deckEnabledNum:          common.deck_enabled_num,
     isStarterAbilityChanged: common.is_starter_ability_changed,
   };
 }
@@ -84,14 +83,14 @@ function cardValues(common: NormalizedCardData['common']) {
 /** Localized column values derived from one language's card payload. */
 function localizationValues(common: NormalizedCardData['common']) {
   return {
-    name: common.name,
-    nameRuby: common.name_ruby,
-    skillText: common.skill_text,
-    flavourText: common.flavour_text,
-    cv: common.cv,
-    illustrator: common.illustrator,
-    questions: common.questions,
-    cardImageHash: common.card_image_hash,
+    name:                common.name,
+    nameRuby:            common.name_ruby,
+    skillText:           common.skill_text,
+    flavourText:         common.flavour_text,
+    cv:                  common.cv,
+    illustrator:         common.illustrator,
+    questions:           common.questions,
+    cardImageHash:       common.card_image_hash,
     cardBannerImageHash: common.card_banner_image_hash,
   };
 }
@@ -149,7 +148,7 @@ export async function recordImportFailure(
     payload,
   }).onConflictDoUpdate({
     target: [ImportFailure.batchId, ImportFailure.sourceRecordId],
-    set: { stage, code, message, payload },
+    set:    { stage, code, message, payload },
   });
 }
 
@@ -171,14 +170,14 @@ async function importCardSets(
       .values({ cardSetId })
       .onConflictDoUpdate({
         target: CardSet.cardSetId,
-        set: { deletedAt: null },
+        set:    { deletedAt: null },
       });
 
     await db.insert(CardSetLocalization)
       .values({ cardSetId, lang: snapshot.lang, name })
       .onConflictDoUpdate({
         target: [CardSetLocalization.cardSetId, CardSetLocalization.lang],
-        set: { name },
+        set:    { name },
       });
   }
 
@@ -191,7 +190,7 @@ async function importCardSets(
       .values({ cardSetId })
       .onConflictDoUpdate({
         target: CardSet.cardSetId,
-        set: { deletedAt: null },
+        set:    { deletedAt: null },
       });
   }
 }
@@ -234,7 +233,7 @@ async function applyCardLocalization(
     .values({ cardId: card.cardId, lang, ...localizationValues(card.common) })
     .onConflictDoUpdate({
       target: [CardLocalization.cardId, CardLocalization.lang],
-      set: localizationValues(card.common),
+      set:    localizationValues(card.common),
     });
 }
 
@@ -259,13 +258,13 @@ async function applyCardEvolution(
     .values({ cardId: card.cardId, ...values })
     .onConflictDoUpdate({
       target: CardEvolution.cardId,
-      set: values,
+      set:    values,
     });
 
   const evoLocalization = {
-    skillText: evo.skill_text,
-    flavourText: evo.flavour_text,
-    cardImageHash: evo.card_image_hash,
+    skillText:           evo.skill_text,
+    flavourText:         evo.flavour_text,
+    cardImageHash:       evo.card_image_hash,
     cardBannerImageHash: evo.card_banner_image_hash,
   };
 
@@ -273,7 +272,7 @@ async function applyCardEvolution(
     .values({ cardId: card.cardId, lang, ...evoLocalization })
     .onConflictDoUpdate({
       target: [CardEvolutionLocalization.cardId, CardEvolutionLocalization.lang],
-      set: evoLocalization,
+      set:    evoLocalization,
     })
     .catch(async error => {
       await recordImportFailure(db, batchId, `${card.cardId}:evo:${lang}`, 'write', 'DATABASE_WRITE', getErrorMessage(error), { cardId: card.cardId });
@@ -301,14 +300,14 @@ async function applyCardStyles(
   for (let styleIndex = 0; styleIndex < styles.length; styleIndex += 1) {
     const style = styles[styleIndex]!;
     const values = {
-      name: style.name,
-      nameRuby: style.name_ruby,
-      cv: style.cv,
-      illustrator: style.illustrator,
-      skillText: style.skill_text,
-      flavourText: style.flavour_text,
-      evoFlavourText: style.evo_flavour_text,
-      cardImageHash: style.hash,
+      name:             style.name,
+      nameRuby:         style.name_ruby,
+      cv:               style.cv,
+      illustrator:      style.illustrator,
+      skillText:        style.skill_text,
+      flavourText:      style.flavour_text,
+      evoFlavourText:   style.evo_flavour_text,
+      cardImageHash:    style.hash,
       evoCardImageHash: style.evo_hash,
     };
 
@@ -317,7 +316,7 @@ async function applyCardStyles(
         .values({ cardId: card.cardId, styleIndex, lang, ...values })
         .onConflictDoUpdate({
           target: [CardStyleLocalization.cardId, CardStyleLocalization.styleIndex, CardStyleLocalization.lang],
-          set: values,
+          set:    values,
         });
     } catch (error) {
       await recordImportFailure(db, batchId, `${card.cardId}:style${styleIndex}:${lang}`, 'write', 'DATABASE_WRITE', getErrorMessage(error), { cardId: card.cardId, styleIndex });
@@ -344,13 +343,13 @@ async function applyCardRelations(
       await db.insert(CardRelation)
         .values({
           cardId,
-          relatedCardIds: relation.related_card_ids,
+          relatedCardIds:        relation.related_card_ids,
           specificEffectCardIds: relation.specific_effect_card_ids,
         })
         .onConflictDoUpdate({
           target: CardRelation.cardId,
-          set: {
-            relatedCardIds: relation.related_card_ids,
+          set:    {
+            relatedCardIds:        relation.related_card_ids,
             specificEffectCardIds: relation.specific_effect_card_ids,
           },
         });
@@ -362,10 +361,10 @@ async function applyCardRelations(
 
 /** One language snapshot imported into the local build database. */
 export async function importLangSnapshot(options: {
-  db: ShadowverseLocalDb;
-  batchId: string;
-  snapshot: NormalizedLangSnapshot;
-  isCorePass: boolean;
+  db:          ShadowverseLocalDb;
+  batchId:     string;
+  snapshot:    NormalizedLangSnapshot;
+  isCorePass:  boolean;
   onProgress?: (progress: ShadowverseImportProgress) => void;
 }): Promise<ImportCounters> {
   const { db, batchId, snapshot, isCorePass, onProgress } = options;
@@ -397,10 +396,10 @@ export async function importLangSnapshot(options: {
 
     if ((index + 1) % 100 === 0 || index + 1 === snapshot.cards.length) {
       onProgress?.({
-        phase: 'importing',
-        message: `正在导入 ${snapshot.lang} 卡牌…`,
+        phase:          'importing',
+        message:        `正在导入 ${snapshot.lang} 卡牌…`,
         completedCount: index + 1,
-        totalCount: snapshot.cards.length,
+        totalCount:     snapshot.cards.length,
       });
     }
   }
@@ -437,19 +436,19 @@ export async function softDeleteMissingCards(db: ShadowverseLocalDb, seenCardIds
 /** One database import batch row converted into the stable desktop report shape. */
 export function buildImportReport(batch: typeof ImportBatch.$inferSelect): ShadowverseImportReport {
   return {
-    batchId: batch.id,
-    source: batch.source,
-    sourceUrl: batch.sourceUrl,
-    status: batch.status,
+    batchId:           batch.id,
+    source:            batch.source,
+    sourceUrl:         batch.sourceUrl,
+    status:            batch.status,
     sourceRecordCount: batch.sourceRecordCount,
-    addedCount: batch.addedCount,
-    updatedCount: batch.updatedCount,
-    skippedCount: batch.skippedCount,
-    failedCount: batch.failedCount,
-    softDeletedCount: batch.softDeletedCount,
-    error: batch.error,
-    startedAt: batch.startedAt.toISOString(),
-    completedAt: batch.completedAt?.toISOString() ?? null,
+    addedCount:        batch.addedCount,
+    updatedCount:      batch.updatedCount,
+    skippedCount:      batch.skippedCount,
+    failedCount:       batch.failedCount,
+    softDeletedCount:  batch.softDeletedCount,
+    error:             batch.error,
+    startedAt:         batch.startedAt.toISOString(),
+    completedAt:       batch.completedAt?.toISOString() ?? null,
   };
 }
 
@@ -466,12 +465,12 @@ export async function listShadowverseImportBatches(limit = 20) {
 
 /** Aggregated counters and unknown fields persisted after all languages finish. */
 export async function finalizeImportBatch(options: {
-  db: ShadowverseLocalDb;
-  batchId: string;
-  counters: ImportCounters;
+  db:                ShadowverseLocalDb;
+  batchId:           string;
+  counters:          ImportCounters;
   sourceRecordCount: number;
-  unknownFields: string[];
-  softDeletedCount: number;
+  unknownFields:     string[];
+  softDeletedCount:  number;
 }) {
   const { db, batchId, counters, sourceRecordCount, unknownFields, softDeletedCount } = options;
   const completedAt = new Date();
@@ -479,17 +478,17 @@ export async function finalizeImportBatch(options: {
 
   await db.insert(ImportState)
     .values({
-      source: shadowverseCardsSource,
-      sourceUrl: shadowverseCardsUrl,
+      source:                shadowverseCardsSource,
+      sourceUrl:             shadowverseCardsUrl,
       lastSuccessfulBatchId: batchId,
-      updatedAt: completedAt,
+      updatedAt:             completedAt,
     })
     .onConflictDoUpdate({
       target: ImportState.source,
-      set: {
-        sourceUrl: shadowverseCardsUrl,
+      set:    {
+        sourceUrl:             shadowverseCardsUrl,
         lastSuccessfulBatchId: batchId,
-        updatedAt: completedAt,
+        updatedAt:             completedAt,
       },
     });
 
@@ -497,14 +496,14 @@ export async function finalizeImportBatch(options: {
     .set({
       status,
       sourceRecordCount,
-      addedCount: counters.addedCount,
+      addedCount:   counters.addedCount,
       updatedCount: counters.updatedCount,
       skippedCount: counters.skippedCount,
-      failedCount: counters.failedCount,
+      failedCount:  counters.failedCount,
       softDeletedCount,
       unknownFields,
       completedAt,
-      updatedAt: completedAt,
+      updatedAt:    completedAt,
     })
     .where(eq(ImportBatch.id, batchId))
     .returning()

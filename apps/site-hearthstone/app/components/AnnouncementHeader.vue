@@ -24,7 +24,7 @@
 
 <script setup lang="ts">
 interface HeaderLink {
-  url:   string;
+  url:    string;
   label?: string;
 }
 

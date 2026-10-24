@@ -78,8 +78,8 @@ test('serves the selected node translation under its original official release',
   const documents = createDocumentService(memoryStore(), { track: 'local' });
   const imported = await documents.importCr({ content: cr });
   const translation = await documents.saveTranslation({
-    documentId: imported.documentId, sourceRevisionId: imported.revisionId, language: 'zhs',
-    nodes: [{ sourceNodeId: `${imported.revisionId}/100.1`, rawText: '支付 {W} 后继续。', translationMethod: 'machine' }],
+    documentId:       imported.documentId, sourceRevisionId: imported.revisionId, language:         'zhs',
+    nodes:            [{ sourceNodeId: `${imported.revisionId}/100.1`, rawText: '支付 {W} 后继续。', translationMethod: 'machine' }],
   });
   await documents.selectTranslation({ documentId: imported.documentId, releaseId: imported.releaseId, revisionId: translation.id });
   const page = await documents.read({ slug: 'magic-cr', locale: 'zhs' });
@@ -194,7 +194,8 @@ test('manually reimporting the same file repairs its public parsing without crea
   await store.putDocument((await prepared.document('magic-cr'))!);
   // Reproduce an edition saved by a parser that merged the following rule into 100.1.
   await store.putRevision({ ...source, nodes: source.nodes.filter(node => node.anchor !== '100.2').map(node => node.anchor === '100.1'
-    ? { ...node, rawText: 'Pay {W} to continue.\n\n100.2. Keep playing.' } : node) });
+    ? { ...node, rawText: 'Pay {W} to continue.\n\n100.2. Keep playing.' }
+    : node) });
   await store.putRelease((await prepared.releases('magic-cr'))[0]!);
   const documents = createDocumentService(store, { track: 'local' });
   expect((await documents.read({ slug: 'magic-cr' })).sections.some(node => node.nodeId === '100.2')).toBe(false);
@@ -234,7 +235,7 @@ test('retires a local edition without destroying its saved content', async () =>
 test('rejects authored markers that cut a Unicode character in half', async () => {
   const owner = createDocumentService(memoryStore(), { track: 'remote', actorId: 'alice' });
   const document = await owner.create({ slug: 'unicode', title: 'Unicode', language: 'en' });
-  await expect(owner.save({ documentId: document.id, title: document.title, nodes: [
+  await expect(owner.save({ documentId: document.id, title:      document.title, nodes:      [
     { nodeKey: 'one', rawText: '😀', markers: [{ type: 'emphasis', style: 'strong', start: 1, end: 2 }] },
   ] })).rejects.toThrow('character');
 });
@@ -268,7 +269,6 @@ test('keeps adjoining prose in its paragraph when a rule number has neither punc
   expect(page.sections.some(node => node.nodeId === '100.2')).toBe(false);
   expect(page.sections.find(node => node.nodeId === '100.1')?.text).toContain('100.2Continue playing without a valid number separator.');
 });
-
 
 test('keeps historical CR releases in official chronology with legacy or unpunctuated date headers', async () => {
   const store = memoryStore();

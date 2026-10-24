@@ -346,8 +346,8 @@ export function buildRequest(
     },
     variant,
     renderMode: 'full-set',
-    override: override ? { ...override } : undefined,
-    output: {
+    override:   override ? { ...override } : undefined,
+    output:     {
       fileName:              buildCardImagePngFileName(requestId),
       format:                'png',
       width:                 cardImageOutputWidth,
@@ -686,7 +686,7 @@ export async function buildCardImageMissingPlan(
   }
 
   return {
-    keys:              [...keysByRequestId.values()],
+    keys: [...keysByRequestId.values()],
     candidateRowCount,
     totalVariantCount,
     readyVariantCount,
@@ -772,8 +772,8 @@ export function buildCardImageRequirementExportFile(
       remainingEstimate:  0,
     },
     batch: {
-      index:  1,
-      cursor: null,
+      index:   1,
+      cursor:  null,
       hasMore: false,
     },
     defaults: {
@@ -798,10 +798,10 @@ export function buildCardImageRequirementExportFile(
 export async function recordCardImageExport(
   database: CardImageDb,
   input: {
-    filters:     CardImageRequirementExportInput;
-    exportId:    string;
-    fileName:    string;
-    content:     string;
+    filters:      CardImageRequirementExportInput;
+    exportId:     string;
+    fileName:     string;
+    content:      string;
     requestCount: number;
   },
 ): Promise<void> {
@@ -1130,24 +1130,24 @@ export async function importCardImageArchiveFromBrowser(input: {
       for (const file of plan.acceptedFiles) {
         await tx.insert(CardImageAsset)
           .values({
-            renderHash:       file.request.card.renderHash,
-            category:         file.request.variant.category,
-            lang:             file.request.card.lang,
-            zone:             file.request.variant.zone,
-            template:         file.request.variant.template,
-            premium:          file.request.variant.premium,
+            renderHash:     file.request.card.renderHash,
+            category:       file.request.variant.category,
+            lang:           file.request.card.lang,
+            zone:           file.request.variant.zone,
+            template:       file.request.variant.template,
+            premium:        file.request.variant.premium,
             r2Bucket,
-            r2Key:            file.r2Key,
-            contentType:      'image/webp',
-            byteSize:         file.byteSize,
-            width:            file.request.output.width,
-            height:           file.request.output.height,
-            sha256:           file.sha256,
-            sourceExportId:   requirementFile.exportId,
-            sourceImportId:   importId,
-            status:           'ready',
-            errorMessage:     null,
-            verifiedAt:       now,
+            r2Key:          file.r2Key,
+            contentType:    'image/webp',
+            byteSize:       file.byteSize,
+            width:          file.request.output.width,
+            height:         file.request.output.height,
+            sha256:         file.sha256,
+            sourceExportId: requirementFile.exportId,
+            sourceImportId: importId,
+            status:         'ready',
+            errorMessage:   null,
+            verifiedAt:     now,
           })
           .onConflictDoUpdate({
             target: [CardImageAsset.renderHash, CardImageAsset.category, CardImageAsset.zone, CardImageAsset.template, CardImageAsset.premium],
@@ -1199,7 +1199,7 @@ export async function importCardImageArchiveFromBrowser(input: {
 export async function exportCardImageRequirements(
   rawInput: CardImageRequirementExportInput,
   options?: {
-    db?: CardImageDb | undefined;
+    db?:       CardImageDb | undefined;
     r2Bucket?: string | undefined;
   },
 ): Promise<CardImageRequirementExportResult> {

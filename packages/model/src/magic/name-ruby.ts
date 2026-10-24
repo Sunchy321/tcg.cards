@@ -24,6 +24,7 @@ export interface NameRubySegment {
 const FULL_WIDTH_OPEN = '（';
 const FULL_WIDTH_CLOSE = '）';
 /** Hiragana, voiced marks, katakana, the middle dot, the long-vowel mark and iteration marks. */
+// eslint-disable-next-line no-misleading-character-class
 const KANA_RE = /^[\u3041-\u3096\u3099-\u309F\u30A1-\u30FA\u30FB\u30FC\u30FD-\u30FF]+$/;
 
 function isKana(ch: string): boolean {

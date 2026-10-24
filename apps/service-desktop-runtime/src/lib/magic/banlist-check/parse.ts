@@ -147,8 +147,16 @@ export function parseListSections(html: string, source: OfficialSource, formatId
         lines.find('br').replaceWith('\n');
         for (const rawLine of lines.text().split('\n')) {
           const line = rawLine.replace(/[•·]/g, '').replace(/\s+/g, ' ').trim();
-          if (/^the following cards are banned by ec in 93-94 tournaments\b/i.test(line)) { activeKind = 'banned'; foundSection = true; continue; }
-          if (/^the following cards are restricted by ec in 93-94 tournaments\b/i.test(line)) { activeKind = 'restricted'; foundSection = true; continue; }
+          if (/^the following cards are banned by ec in 93-94 tournaments\b/i.test(line)) {
+            activeKind = 'banned';
+            foundSection = true;
+            continue;
+          }
+          if (/^the following cards are restricted by ec in 93-94 tournaments\b/i.test(line)) {
+            activeKind = 'restricted';
+            foundSection = true;
+            continue;
+          }
           if (!activeKind || !line) continue;
           sectionContentFound = true;
           addEntry({ name: line, kind: activeKind, points: null, note: null }, node);
@@ -156,9 +164,15 @@ export function parseListSections(html: string, source: OfficialSource, formatId
         return;
       }
       if (/^h[1-4]$/.test(node.tagName)) {
-        if (/^the following cards are banned by ec in 93-94 tournaments\b/i.test(text)) { activeKind = 'banned'; foundSection = true; }
-        else if (/^the following cards are restricted by ec in 93-94 tournaments\b/i.test(text)) { activeKind = 'restricted'; foundSection = true; }
-        else if (/^h[1-4]$/.test(node.tagName) && activeKind) activeKind = null;
+        if (/^the following cards are banned by ec in 93-94 tournaments\b/i.test(text)) {
+          activeKind = 'banned';
+          foundSection = true;
+        } else if (/^the following cards are restricted by ec in 93-94 tournaments\b/i.test(text)) {
+          activeKind = 'restricted';
+          foundSection = true;
+        } else if (activeKind) {
+          activeKind = null;
+        }
         return;
       }
       if (!activeKind || !text || $(node).parents('li').length) return;
@@ -356,11 +370,11 @@ export function parseListSections(html: string, source: OfficialSource, formatId
 /** Selects a list section whose heading names the requested Wizards format. */
 function sectionMatchesFormat(title: string, formatId: string): boolean {
   const names: Record<string, string[]> = {
-    'commander':      ['commander banned cards'],
-    'standard':       ['standard banned cards'], 'pioneer':        ['pioneer banned cards'], 'modern':         ['modern banned cards'],
-    'legacy':         ['legacy banned cards'], 'vintage':        ['vintage banned and restricted cards'], 'alchemy':        ['alchemy banned cards'],
-    'historic':       ['historic banned cards'], 'timeless':       ['timeless banned and restricted cards'],
-    'pauper':         ['pauper banned cards'], 'brawl':          ['brawl banned cards'], 'standard-brawl': ['standard brawl banned cards'],
+    'commander':         ['commander banned cards'],
+    'standard':          ['standard banned cards'], 'pioneer':           ['pioneer banned cards'], 'modern':            ['modern banned cards'],
+    'legacy':            ['legacy banned cards'], 'vintage':           ['vintage banned and restricted cards'], 'alchemy':           ['alchemy banned cards'],
+    'historic':          ['historic banned cards'], 'timeless':          ['timeless banned and restricted cards'],
+    'pauper':            ['pauper banned cards'], 'brawl':             ['brawl banned cards'], 'standard-brawl':    ['standard brawl banned cards'],
     'competitive-brawl': ['competitive brawl banned cards'],
   };
   return (names[formatId] ?? []).some(name => title === name);

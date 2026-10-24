@@ -6,10 +6,10 @@ export type ConsoleApiSyncMode = 'local_edit' | 'remote_edit' | 'pull';
 
 /** Request metadata propagated from the API caller into commit writers. */
 export interface ConsoleApiRequestMeta {
-  editorRuntime?: ConsoleApiEditorRuntime;
-  syncMode?: ConsoleApiSyncMode;
+  editorRuntime?:  ConsoleApiEditorRuntime;
+  syncMode?:       ConsoleApiSyncMode;
   editorIdentity?: string;
-  editorSource?: string;
+  editorSource?:   string;
 }
 
 /** Per-call client context forwarded through the RPC transport. */

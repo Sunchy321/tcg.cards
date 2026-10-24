@@ -20,9 +20,6 @@ type SyncTx = Parameters<Parameters<SyncDb['transaction']>[0]>[0];
 /** Push direction shared by cursor-backed desktop tag sync. */
 const tagCommitStream = 'hearthstone.tag';
 
-/** Cursor rows persisted for one local desktop sync consumer. */
-type FieldSyncCursorRow = typeof FieldSyncCursor.$inferSelect;
-
 /** Result status returned after one local tag commit push attempt. */
 export type TagPushStatus = 'applied' | 'duplicate' | 'blocked';
 
@@ -31,31 +28,31 @@ export type TagPushStopReason = 'conflict' | 'error';
 
 /** One pushed local tag commit and the remote outcome observed for it. */
 export type TagPushItem = {
-  localCommitId: string;
-  localSequence: number;
+  localCommitId:    string;
+  localSequence:    number;
   clientMutationId: string;
-  status: Exclude<TagPushStatus, 'blocked'>;
+  status:           Exclude<TagPushStatus, 'blocked'>;
 };
 
 /** Inputs required for one cursor-backed desktop tag push run. */
 export type PushPendingTagCommitsInput = {
-  localDb: SyncDb;
-  remoteDb: SyncDb;
-  consumer: string;
-  limit?: number;
-  stream?: string;
-  onProgress?: (event: { completed: number; total: number }) => void;
+  localDb:     SyncDb;
+  remoteDb:    SyncDb;
+  consumer:    string;
+  limit?:      number;
+  stream?:     string;
+  onProgress?: (event: { completed: number, total: number }) => void;
 };
 
 /** Summary returned after one cursor-backed desktop tag push run. */
 export type PushPendingTagCommitsResult = {
-  stream: string;
-  consumer: string;
-  pushed: TagPushItem[];
+  stream:             string;
+  consumer:           string;
+  pushed:             TagPushItem[];
   lastPushedSequence: number;
-  blockedSequence: number | null;
-  blockedReason: TagPushStopReason | null;
-  blockedMessage: string | null;
+  blockedSequence:    number | null;
+  blockedReason:      TagPushStopReason | null;
+  blockedMessage:     string | null;
 };
 
 /** Loads the current local cursor row for one desktop sync consumer. */
@@ -109,7 +106,7 @@ async function markLocalCommitSynced(
   input: {
     commitId: string;
     consumer: string;
-    stream: string;
+    stream:   string;
     sequence: number;
   },
 ) {
@@ -138,10 +135,10 @@ async function markLocalCommitSynced(
 /** Translates one remote apply outcome into the local push item recorded for this run. */
 function toPushItem(commit: FieldCommitRow, result: ApplyTagCommitResult): TagPushItem {
   return {
-    localCommitId:     commit.id,
-    localSequence:     commit.sequence,
-    clientMutationId:  commit.clientMutationId,
-    status:            result.status === 'duplicate' ? 'duplicate' : 'applied',
+    localCommitId:    commit.id,
+    localSequence:    commit.sequence,
+    clientMutationId: commit.clientMutationId,
+    status:           result.status === 'duplicate' ? 'duplicate' : 'applied',
   };
 }
 
@@ -210,10 +207,10 @@ export async function pushPendingTagCommits(
       ));
 
       await input.localDb.transaction(async tx => await markLocalCommitSynced(tx, {
-        commitId:  commit.id,
-        consumer:  input.consumer,
+        commitId: commit.id,
+        consumer: input.consumer,
         stream,
-        sequence:  commit.sequence,
+        sequence: commit.sequence,
       }));
 
       pushed.push(toPushItem(commit, result));
@@ -257,13 +254,13 @@ export async function pushPendingTagCommits(
             operation:        commit.operation,
             editorRuntime:    commit.editorRuntime,
           },
-          localValue:       (remoteTag as Record<string, unknown> | null)?.[field] ?? null,
-          incomingValue:    commit.value,
-          winnerValue:      remoteWinner?.winnerValue ?? null,
-          effectiveValue:   (remoteTag as Record<string, unknown> | null)?.[field] ?? null,
-          baseRevision:     commit.baseRevision,
-          status:           'open',
-          reason:           message,
+          localValue:     (remoteTag as Record<string, unknown> | null)?.[field] ?? null,
+          incomingValue:  commit.value,
+          winnerValue:    remoteWinner?.winnerValue ?? null,
+          effectiveValue: (remoteTag as Record<string, unknown> | null)?.[field] ?? null,
+          baseRevision:   commit.baseRevision,
+          status:         'open',
+          reason:         message,
         });
       } catch {
         // Best-effort conflict write.

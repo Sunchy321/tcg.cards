@@ -106,12 +106,12 @@ function createStore(database: Database | Transaction, track: Track, transaction
       const newer = alias(DocumentRelease, 'newer_release');
       const pattern = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
       const fields = {
-        documentId: Document.id, slug: Document.slug, title: DocumentRevision.title,
-        releaseId: DocumentRelease.id, versionTag: DocumentRelease.versionTag,
-        nodeId: DocumentRevisionNode.id, nodeKey: DocumentRevisionNode.nodeKey,
-        anchor: DocumentRevisionNode.anchor, rawText: DocumentRevisionNode.rawText,
-        language: DocumentRevision.language, markers: DocumentRevisionNode.markers,
-        publishedAt: DocumentRelease.publishedAt, path: DocumentRevisionNode.path,
+        documentId:  Document.id, slug:        Document.slug, title:       DocumentRevision.title,
+        releaseId:   DocumentRelease.id, versionTag:  DocumentRelease.versionTag,
+        nodeId:      DocumentRevisionNode.id, nodeKey:     DocumentRevisionNode.nodeKey,
+        anchor:      DocumentRevisionNode.anchor, rawText:     DocumentRevisionNode.rawText,
+        language:    DocumentRevision.language, markers:     DocumentRevisionNode.markers,
+        publishedAt: DocumentRelease.publishedAt, path:        DocumentRevisionNode.path,
       };
       // Keep released content searchable after its edit-history entry is hidden.
       const conditions = and(
@@ -235,7 +235,7 @@ function createStore(database: Database | Transaction, track: Track, transaction
         database.select({ id: DocumentRevision.id }).from(DocumentRevision).where(eq(DocumentRevision.sourceRevisionId, revision.id)).limit(1),
       ]);
       assertReparse({ document, previous, revision,
-        released: releases.some(row => row.sourceRevisionId === revision.id && row.deletedAt == null),
+        released:                 releases.some(row => row.sourceRevisionId === revision.id && row.deletedAt == null),
         hasTranslationReferences: translationRefs.length > 0,
       });
       if (options?.dryRun) return;
@@ -268,7 +268,7 @@ function createStore(database: Database | Transaction, track: Track, transaction
     async putReleaseTranslation(binding) {
       await database.insert(DocumentReleaseTranslation).values(binding).onConflictDoUpdate({
         target: [DocumentReleaseTranslation.releaseId, DocumentReleaseTranslation.translationId],
-        set: binding,
+        set:    binding,
       });
     },
   };

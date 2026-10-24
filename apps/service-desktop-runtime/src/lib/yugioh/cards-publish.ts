@@ -31,56 +31,56 @@ import { requireYugiohPublishTarget } from './publish-target';
 
 /** Complete shared-domain card bundle included in local and remote manifests. */
 export interface PublishCardRow {
-  card: typeof LocalCard.$inferSelect;
+  card:          typeof LocalCard.$inferSelect;
   localizations: Array<typeof LocalCardLocalization.$inferSelect>;
-  nameVariants: Array<typeof LocalCardNameVariant.$inferSelect>;
+  nameVariants:  Array<typeof LocalCardNameVariant.$inferSelect>;
 }
 
 /** Aggregate row counts retained for one publish plan. */
 export interface CardPublishCounts {
-  totalRowCount: number;
-  changedRowCount: number;
-  insertedRowCount: number;
-  updatedRowCount: number;
+  totalRowCount:     number;
+  changedRowCount:   number;
+  insertedRowCount:  number;
+  updatedRowCount:   number;
   unchangedRowCount: number;
 }
 
 /** One deterministic publish action for a local card row. */
 export interface CardPublishPlanRow {
-  cardId: number;
-  rowHash: string;
+  cardId:          number;
+  rowHash:         string;
   previousRowHash: string | null;
-  action: 'insert' | 'update' | 'unchanged';
+  action:          'insert' | 'update' | 'unchanged';
 }
 
 /** Complete deterministic card publication plan. */
 export interface CardPublishPlan {
-  rows: CardPublishPlanRow[];
-  counts: CardPublishCounts;
+  rows:         CardPublishPlanRow[];
+  counts:       CardPublishCounts;
   manifestHash: string;
 }
 
 /** Publish batch summary returned to desktop clients. */
 export interface YugiohPublishReport extends CardPublishCounts {
-  batchId: string;
-  publishTargetId: string;
-  environment: string;
-  targetFingerprint: string;
-  manifestHash: string;
+  batchId:              string;
+  publishTargetId:      string;
+  environment:          string;
+  targetFingerprint:    string;
+  manifestHash:         string;
   previousManifestHash: string | null;
-  status: 'planning' | 'applying' | 'completed' | 'failed';
-  error: string | null;
-  createdAt: string;
-  completedAt: string | null;
-  pendingRowCount?: number;
+  status:               'planning' | 'applying' | 'completed' | 'failed';
+  error:                string | null;
+  createdAt:            string;
+  completedAt:          string | null;
+  pendingRowCount?:     number;
 }
 
 /** Optional progress update emitted during one desktop publication. */
 export interface YugiohPublishProgress {
-  phase: string;
-  message: string;
+  phase:           string;
+  message:         string;
   completedCount?: number;
-  totalCount?: number;
+  totalCount?:     number;
 }
 
 /** Remote card identity drift that requires manual target cleanup. */
@@ -102,11 +102,11 @@ function serializableCard(card: PublishCardRow) {
   return {
     card: {
       ...card.card,
-      setcode: card.card.setcode?.toString() ?? null,
+      setcode:               card.card.setcode?.toString() ?? null,
       primaryImageDeletedAt: card.card.primaryImageDeletedAt?.toISOString() ?? null,
-      createdAt: card.card.createdAt.toISOString(),
-      updatedAt: card.card.updatedAt.toISOString(),
-      deletedAt: card.card.deletedAt?.toISOString() ?? null,
+      createdAt:             card.card.createdAt.toISOString(),
+      updatedAt:             card.card.updatedAt.toISOString(),
+      deletedAt:             card.card.deletedAt?.toISOString() ?? null,
     },
     localizations: [...card.localizations]
       .sort((left, right) => left.locale.localeCompare(right.locale, 'en'))
@@ -169,7 +169,7 @@ export function buildCardPublishPlan(
   return {
     rows,
     counts: {
-      totalRowCount: rows.length,
+      totalRowCount:   rows.length,
       changedRowCount: insertedRowCount + updatedRowCount,
       insertedRowCount,
       updatedRowCount,
@@ -223,11 +223,11 @@ export function assertRemoteIdentityCompatible(
 
 /** Remote ledger and live card manifest checked against the local publish baseline. */
 export function assertRemoteLedgerCompatible(input: {
-  expectedManifestHash: string | null;
-  targetEnvironment: string;
-  targetFingerprint: string;
-  remoteManifestHash: string;
-  remoteRowCount: number;
+  expectedManifestHash:      string | null;
+  targetEnvironment:         string;
+  targetFingerprint:         string;
+  remoteManifestHash:        string;
+  remoteRowCount:            number;
   allowIntermediateManifest: boolean;
   ledger: Pick<
     typeof PublishLedger.$inferSelect,
@@ -265,10 +265,10 @@ export function assertRemoteLedgerCompatible(input: {
 export function assertRemoteRowsRecoverable(
   remoteCards: PublishCardRow[],
   rows: Array<{
-    cardId: number;
+    cardId:          number;
     previousRowHash: string | null;
-    rowHash: string;
-    status: string;
+    rowHash:         string;
+    status:          string;
   }>,
 ) {
   const remoteById = new Map(remoteCards.map(card => [card.card.id, card]));
@@ -305,7 +305,7 @@ export function assertRemoteRowsRecoverable(
 }
 
 /** Pending publish rows selected in stable card-ID order for recovery. */
-export function selectResumablePublishRows<T extends { cardId: number; status: string }>(rows: T[]) {
+export function selectResumablePublishRows<T extends { cardId: number, status: string }>(rows: T[]) {
   return rows
     .filter(row => row.status === 'pending')
     .sort((left, right) => left.cardId - right.cardId);
@@ -348,21 +348,21 @@ export function assertPublishedManifest(
 /** Publish batch database row converted into the stable desktop report shape. */
 function buildPublishReport(batch: typeof PublishBatch.$inferSelect): YugiohPublishReport {
   return {
-    batchId: batch.id,
-    publishTargetId: batch.publishTargetId,
-    environment: batch.environment,
-    targetFingerprint: batch.targetFingerprint,
-    manifestHash: batch.manifestHash,
+    batchId:              batch.id,
+    publishTargetId:      batch.publishTargetId,
+    environment:          batch.environment,
+    targetFingerprint:    batch.targetFingerprint,
+    manifestHash:         batch.manifestHash,
     previousManifestHash: batch.previousManifestHash,
-    status: batch.status,
-    error: batch.error,
-    totalRowCount: batch.totalRowCount,
-    changedRowCount: batch.changedRowCount,
-    insertedRowCount: batch.insertedRowCount,
-    updatedRowCount: batch.updatedRowCount,
-    unchangedRowCount: batch.unchangedRowCount,
-    createdAt: batch.createdAt.toISOString(),
-    completedAt: batch.completedAt?.toISOString() ?? null,
+    status:               batch.status,
+    error:                batch.error,
+    totalRowCount:        batch.totalRowCount,
+    changedRowCount:      batch.changedRowCount,
+    insertedRowCount:     batch.insertedRowCount,
+    updatedRowCount:      batch.updatedRowCount,
+    unchangedRowCount:    batch.unchangedRowCount,
+    createdAt:            batch.createdAt.toISOString(),
+    completedAt:          batch.completedAt?.toISOString() ?? null,
   };
 }
 
@@ -374,52 +374,52 @@ export function buildRemoteCardValues(card: PublishCardRow) {
 }
 
 const remoteConflictValues = {
-  cid: sql`excluded.cid`,
-  password: sql`excluded.password`,
-  ot: sql`excluded.ot`,
-  setcode: sql`excluded.setcode`,
-  type: sql`excluded.type`,
-  attack: sql`excluded.attack`,
-  defense: sql`excluded.defense`,
-  level: sql`excluded.level`,
-  race: sql`excluded.race`,
-  attribute: sql`excluded.attribute`,
-  primaryImageR2Bucket: sql`excluded.primary_image_r2_bucket`,
-  primaryImageR2Key: sql`excluded.primary_image_r2_key`,
+  cid:                     sql`excluded.cid`,
+  password:                sql`excluded.password`,
+  ot:                      sql`excluded.ot`,
+  setcode:                 sql`excluded.setcode`,
+  type:                    sql`excluded.type`,
+  attack:                  sql`excluded.attack`,
+  defense:                 sql`excluded.defense`,
+  level:                   sql`excluded.level`,
+  race:                    sql`excluded.race`,
+  attribute:               sql`excluded.attribute`,
+  primaryImageR2Bucket:    sql`excluded.primary_image_r2_bucket`,
+  primaryImageR2Key:       sql`excluded.primary_image_r2_key`,
   primaryImageContentType: sql`excluded.primary_image_content_type`,
-  primaryImageByteSize: sql`excluded.primary_image_byte_size`,
-  primaryImageWidth: sql`excluded.primary_image_width`,
-  primaryImageHeight: sql`excluded.primary_image_height`,
-  primaryImageSha256: sql`excluded.primary_image_sha256`,
-  primaryImageDeletedAt: sql`excluded.primary_image_deleted_at`,
-  createdAt: sql`excluded.created_at`,
-  updatedAt: sql`excluded.updated_at`,
-  deletedAt: sql`excluded.deleted_at`,
+  primaryImageByteSize:    sql`excluded.primary_image_byte_size`,
+  primaryImageWidth:       sql`excluded.primary_image_width`,
+  primaryImageHeight:      sql`excluded.primary_image_height`,
+  primaryImageSha256:      sql`excluded.primary_image_sha256`,
+  primaryImageDeletedAt:   sql`excluded.primary_image_deleted_at`,
+  createdAt:               sql`excluded.created_at`,
+  updatedAt:               sql`excluded.updated_at`,
+  deletedAt:               sql`excluded.deleted_at`,
 };
 
 /** Localized rows copied to remote while preserving their composite identity. */
 function buildRemoteLocalizationValues(card: PublishCardRow) {
   return card.localizations.map(localization => ({
-    cardId: localization.cardId,
-    locale: localization.locale,
-    name: localization.name,
-    nameRuby: localization.nameRuby,
-    typesText: localization.typesText,
+    cardId:              localization.cardId,
+    locale:              localization.locale,
+    name:                localization.name,
+    nameRuby:            localization.nameRuby,
+    typesText:           localization.typesText,
     pendulumDescription: localization.pendulumDescription,
-    description: localization.description,
-    createdAt: localization.createdAt,
-    updatedAt: localization.updatedAt,
-    deletedAt: localization.deletedAt,
+    description:         localization.description,
+    createdAt:           localization.createdAt,
+    updatedAt:           localization.updatedAt,
+    deletedAt:           localization.deletedAt,
   }));
 }
 
 /** Searchable name-variant rows copied to remote with their named identity intact. */
 function buildRemoteNameVariantValues(card: PublishCardRow) {
   return card.nameVariants.map(variant => ({
-    cardId: variant.cardId,
-    locale: variant.locale,
-    kind: variant.kind,
-    name: variant.name,
+    cardId:    variant.cardId,
+    locale:    variant.locale,
+    kind:      variant.kind,
+    name:      variant.name,
     createdAt: variant.createdAt,
     updatedAt: variant.updatedAt,
     deletedAt: variant.deletedAt,
@@ -427,18 +427,18 @@ function buildRemoteNameVariantValues(card: PublishCardRow) {
 }
 
 const remoteLocalizationConflictValues = {
-  name: sql`excluded.name`,
-  nameRuby: sql`excluded.name_ruby`,
-  typesText: sql`excluded.types_text`,
+  name:                sql`excluded.name`,
+  nameRuby:            sql`excluded.name_ruby`,
+  typesText:           sql`excluded.types_text`,
   pendulumDescription: sql`excluded.pendulum_description`,
-  description: sql`excluded.description`,
-  createdAt: sql`excluded.created_at`,
-  updatedAt: sql`excluded.updated_at`,
-  deletedAt: sql`excluded.deleted_at`,
+  description:         sql`excluded.description`,
+  createdAt:           sql`excluded.created_at`,
+  updatedAt:           sql`excluded.updated_at`,
+  deletedAt:           sql`excluded.deleted_at`,
 };
 
 const remoteNameVariantConflictValues = {
-  name: sql`excluded.name`,
+  name:      sql`excluded.name`,
   createdAt: sql`excluded.created_at`,
   updatedAt: sql`excluded.updated_at`,
   deletedAt: sql`excluded.deleted_at`,
@@ -479,7 +479,7 @@ function buildPublishCards(
   return cards.map(card => ({
     card,
     localizations: localizationsByCardId.get(card.id) ?? [],
-    nameVariants: nameVariantsByCardId.get(card.id) ?? [],
+    nameVariants:  nameVariantsByCardId.get(card.id) ?? [],
   }));
 }
 
@@ -521,7 +521,7 @@ async function loadPreviousHashes(
   }
 
   const rows = await db.select({
-    cardId: PublishBatchRow.cardId,
+    cardId:  PublishBatchRow.cardId,
     rowHash: PublishBatchRow.rowHash,
   })
     .from(PublishBatchRow)
@@ -541,10 +541,10 @@ export async function createYugiohPublishPlan() {
   const { baseline, hashes } = await loadPreviousHashes(db, target.publishTargetId);
   const plan = buildCardPublishPlan(cards, hashes);
   const batch = await db.insert(PublishBatch).values({
-    publishTargetId: target.publishTargetId,
-    environment: target.environment,
-    targetFingerprint: target.targetFingerprint,
-    manifestHash: plan.manifestHash,
+    publishTargetId:      target.publishTargetId,
+    environment:          target.environment,
+    targetFingerprint:    target.targetFingerprint,
+    manifestHash:         plan.manifestHash,
     previousManifestHash: baseline?.manifestHash ?? null,
     ...plan.counts,
   }).returning().then(rows => rows[0]);
@@ -555,13 +555,13 @@ export async function createYugiohPublishPlan() {
 
   for (const chunk of chunkValues(plan.rows, 500)) {
     await db.insert(PublishBatchRow).values(chunk.map(row => ({
-      batchId: batch.id,
-      cardId: row.cardId,
-      rowHash: row.rowHash,
+      batchId:         batch.id,
+      cardId:          row.cardId,
+      rowHash:         row.rowHash,
       previousRowHash: row.previousRowHash,
-      action: row.action,
-      status: row.action === 'unchanged' ? 'skipped' as const : 'pending' as const,
-      appliedAt: row.action === 'unchanged' ? new Date() : null,
+      action:          row.action,
+      status:          row.action === 'unchanged' ? 'skipped' as const : 'pending' as const,
+      appliedAt:       row.action === 'unchanged' ? new Date() : null,
     })));
   }
 
@@ -627,8 +627,8 @@ export async function executeYugiohPublishBatch(
   }
 
   const liveTarget = await resolveYugiohPublishTarget({
-    publishTargetId: target.publishTargetId,
-    environment: target.environment,
+    publishTargetId:  target.publishTargetId,
+    environment:      target.environment,
     connectionString: target.connectionString,
   });
 
@@ -666,13 +666,13 @@ export async function executeYugiohPublishBatch(
     try {
       assertRemoteIdentityCompatible(localCards, remoteCards);
       assertRemoteLedgerCompatible({
-        expectedManifestHash: batch.previousManifestHash,
-        targetEnvironment: target.environment,
-        targetFingerprint: target.targetFingerprint,
-        remoteManifestHash: remotePlan.manifestHash,
-        remoteRowCount: remotePlan.counts.totalRowCount,
+        expectedManifestHash:      batch.previousManifestHash,
+        targetEnvironment:         target.environment,
+        targetFingerprint:         target.targetFingerprint,
+        remoteManifestHash:        remotePlan.manifestHash,
+        remoteRowCount:            remotePlan.counts.totalRowCount,
         allowIntermediateManifest: batch.status === 'applying',
-        ledger: remoteLedger,
+        ledger:                    remoteLedger,
       });
 
       if (batch.status === 'applying') {
@@ -693,8 +693,8 @@ export async function executeYugiohPublishBatch(
     let completedCount = 0;
 
     options?.onProgress?.({
-      phase: 'publishing',
-      message: '正在发布卡牌到测试 remote…',
+      phase:      'publishing',
+      message:    '正在发布卡牌到测试 remote…',
       completedCount,
       totalCount: pending.length,
     });
@@ -720,7 +720,7 @@ export async function executeYugiohPublishBatch(
             .values(cards.map(buildRemoteCardValues))
             .onConflictDoUpdate({
               target: RemoteCard.id,
-              set: remoteConflictValues,
+              set:    remoteConflictValues,
             });
 
           await tx.update(RemoteCardLocalization)
@@ -735,7 +735,7 @@ export async function executeYugiohPublishBatch(
               .values(localizations)
               .onConflictDoUpdate({
                 target: [RemoteCardLocalization.cardId, RemoteCardLocalization.locale],
-                set: remoteLocalizationConflictValues,
+                set:    remoteLocalizationConflictValues,
               });
           }
 
@@ -744,7 +744,7 @@ export async function executeYugiohPublishBatch(
               .values(nameVariants)
               .onConflictDoUpdate({
                 target: [RemoteCardNameVariant.cardId, RemoteCardNameVariant.locale, RemoteCardNameVariant.kind],
-                set: remoteNameVariantConflictValues,
+                set:    remoteNameVariantConflictValues,
               });
           }
         });
@@ -776,8 +776,8 @@ export async function executeYugiohPublishBatch(
 
       completedCount += chunk.length;
       options?.onProgress?.({
-        phase: 'publishing',
-        message: '正在发布卡牌到测试 remote…',
+        phase:      'publishing',
+        message:    '正在发布卡牌到测试 remote…',
         completedCount,
         totalCount: pending.length,
       });
@@ -798,47 +798,47 @@ export async function executeYugiohPublishBatch(
     await remoteDb.transaction(async tx => {
       await calibrateRemoteIdentity(tx, finalRemoteCards.map(card => card.card.id));
       await tx.insert(PublishLedger).values({
-        publishTargetId: target.publishTargetId,
-        environment: target.environment,
+        publishTargetId:   target.publishTargetId,
+        environment:       target.environment,
         targetFingerprint: target.targetFingerprint,
-        batchId: batch.id,
-        manifestHash: batch.manifestHash,
-        totalRowCount: batch.totalRowCount,
-        changedRowCount: batch.changedRowCount,
+        batchId:           batch.id,
+        manifestHash:      batch.manifestHash,
+        totalRowCount:     batch.totalRowCount,
+        changedRowCount:   batch.changedRowCount,
         publishedAt,
       }).onConflictDoUpdate({
         target: PublishLedger.publishTargetId,
-        set: {
-          environment: target.environment,
+        set:    {
+          environment:       target.environment,
           targetFingerprint: target.targetFingerprint,
-          batchId: batch.id,
-          manifestHash: batch.manifestHash,
-          totalRowCount: batch.totalRowCount,
-          changedRowCount: batch.changedRowCount,
+          batchId:           batch.id,
+          manifestHash:      batch.manifestHash,
+          totalRowCount:     batch.totalRowCount,
+          changedRowCount:   batch.changedRowCount,
           publishedAt,
-          updatedAt: publishedAt,
+          updatedAt:         publishedAt,
         },
       });
     });
 
     await localDb.insert(PublishBaseline).values({
-      publishTargetId: target.publishTargetId,
-      environment: target.environment,
+      publishTargetId:   target.publishTargetId,
+      environment:       target.environment,
       targetFingerprint: target.targetFingerprint,
-      batchId: batch.id,
-      manifestHash: batch.manifestHash,
-      totalRowCount: batch.totalRowCount,
+      batchId:           batch.id,
+      manifestHash:      batch.manifestHash,
+      totalRowCount:     batch.totalRowCount,
       publishedAt,
     }).onConflictDoUpdate({
       target: PublishBaseline.publishTargetId,
-      set: {
-        environment: target.environment,
+      set:    {
+        environment:       target.environment,
         targetFingerprint: target.targetFingerprint,
-        batchId: batch.id,
-        manifestHash: batch.manifestHash,
-        totalRowCount: batch.totalRowCount,
+        batchId:           batch.id,
+        manifestHash:      batch.manifestHash,
+        totalRowCount:     batch.totalRowCount,
         publishedAt,
-        updatedAt: publishedAt,
+        updatedAt:         publishedAt,
       },
     });
 

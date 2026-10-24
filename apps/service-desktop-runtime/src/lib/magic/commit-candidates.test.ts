@@ -81,8 +81,8 @@ function card(overrides: Partial<CandidateCardFacts> = {}): CandidateCardFacts {
 test('candidateOracleEligible accepts normal cards and single-card DFTs', () => {
   expect(candidateOracleEligible(card())).toBe(true);
   expect(candidateOracleEligible(card({
-    layout: 'double_faced_token',
-    name: 'Incubator // Phyrexian',
+    layout:    'double_faced_token',
+    name:      'Incubator // Phyrexian',
     cardFaces: [{ name: 'Incubator' }, { name: 'Phyrexian' }],
   }))).toBe(true);
 });
@@ -91,16 +91,16 @@ test('candidateOracleEligible rejects reversible cards and split DFTs', () => {
   expect(candidateOracleEligible(card({ layout: 'reversible_card' }))).toBe(false);
   // split DFT: two differently-named faces that are not a known single-card pair
   expect(candidateOracleEligible(card({
-    layout: 'double_faced_token',
-    name: 'Angel // Demon',
+    layout:    'double_faced_token',
+    name:      'Angel // Demon',
     cardFaces: [{ name: 'Angel' }, { name: 'Demon' }],
   }))).toBe(false);
 });
 
 test('candidateOracleEligible accepts art-back tokens — they project as two-face cards', () => {
   expect(candidateOracleEligible(card({
-    layout: 'double_faced_token',
-    name: 'Zombie // Zombie',
+    layout:    'double_faced_token',
+    name:      'Zombie // Zombie',
     cardFaces: [{ name: 'Zombie' }, { name: 'Zombie' }],
   }))).toBe(true);
 });

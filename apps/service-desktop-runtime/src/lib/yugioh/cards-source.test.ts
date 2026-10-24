@@ -23,7 +23,7 @@ function crc32(bytes: Uint8Array) {
 }
 
 /** Minimal ZIP archive containing stored or deflated UTF-8 files for parser tests. */
-function buildZip(files: Array<{ name: string; contents: string; deflated?: boolean }>) {
+function buildZip(files: Array<{ name: string, contents: string, deflated?: boolean }>) {
   const localParts: Buffer[] = [];
   const centralParts: Buffer[] = [];
   let offset = 0;
@@ -78,22 +78,22 @@ function buildZip(files: Array<{ name: string; contents: string; deflated?: bool
 /** Representative source record with all required nested structures. */
 function makeRecord(overrides: Record<string, unknown> = {}) {
   return {
-    cid: 4007,
-    id: 89631139,
+    cid:     4007,
+    id:      89631139,
     sc_name: ' 青眼白龙 ',
-    text: {
+    text:    {
       types: '[怪兽|通常] 龙/光',
       pdesc: '',
-      desc: '传说之龙。',
+      desc:  '传说之龙。',
     },
     data: {
-      ot: 11,
-      setcode: 221,
-      type: 17,
-      atk: 3000,
-      def: 2500,
-      level: 8,
-      race: 8192,
+      ot:        11,
+      setcode:   221,
+      type:      17,
+      atk:       3000,
+      def:       2500,
+      level:     8,
+      race:      8192,
       attribute: 16,
     },
     ...overrides,
@@ -108,12 +108,12 @@ describe('parseCardsJson', () => {
     expect(result.seenSourceRecordIds).toEqual(['4007']);
     expect(result.cards).toHaveLength(1);
     expect(result.cards[0]).toMatchObject({
-      sourceRecordId: '4007',
-      cid: 4007,
-      password: '89631139',
-      scName: '青眼白龙',
+      sourceRecordId:      '4007',
+      cid:                 4007,
+      password:            '89631139',
+      scName:              '青眼白龙',
       pendulumDescription: null,
-      attack: 3000,
+      attack:              3000,
     });
     expect(result.cards[0]?.sourceHash).toMatch(/^[a-f0-9]{64}$/);
   });
@@ -132,9 +132,9 @@ describe('parseCardsJson', () => {
 
     expect(result.failures).toEqual([]);
     expect(result.cards[0]).toMatchObject({
-      cid: 23419,
+      cid:      23419,
       password: null,
-      setcode: '132858190492402140',
+      setcode:  '132858190492402140',
     });
   });
 
@@ -169,8 +169,8 @@ describe('parseCardsJson', () => {
     const result = parseCardsJson(JSON.stringify({
       4007: makeRecord({
         future_field: true,
-        text: { types: 'type', pdesc: '', desc: 'text', future_text: true },
-        data: { ot: 1, future_data: 2 },
+        text:         { types: 'type', pdesc: '', desc: 'text', future_text: true },
+        data:         { ot: 1, future_data: 2 },
       }),
     }));
 

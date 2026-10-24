@@ -29,55 +29,55 @@ const knownDataFields = new Set(['ot', 'setcode', 'type', 'atk', 'def', 'level',
 
 /** Normalized card fields written into the exportable Yu-Gi-Oh! domain table. */
 export interface NormalizedCard {
-  sourceRecordId: string;
-  sourceHash: string;
-  cid: number | null;
-  password: string | null;
-  cnName: string | null;
-  scName: string | null;
-  mdName: string | null;
-  nwbbsName: string | null;
-  cnocgName: string | null;
-  jpRuby: string | null;
-  jpName: string | null;
-  enName: string | null;
-  mdEnName: string | null;
-  wikiEnName: string | null;
-  setExt: string | null;
-  typesText: string | null;
+  sourceRecordId:      string;
+  sourceHash:          string;
+  cid:                 number | null;
+  password:            string | null;
+  cnName:              string | null;
+  scName:              string | null;
+  mdName:              string | null;
+  nwbbsName:           string | null;
+  cnocgName:           string | null;
+  jpRuby:              string | null;
+  jpName:              string | null;
+  enName:              string | null;
+  mdEnName:            string | null;
+  wikiEnName:          string | null;
+  setExt:              string | null;
+  typesText:           string | null;
   pendulumDescription: string | null;
-  description: string | null;
-  ot: number | null;
-  setcode: string | null;
-  type: number | null;
-  attack: number | null;
-  defense: number | null;
-  level: number | null;
-  race: number | null;
-  attribute: number | null;
+  description:         string | null;
+  ot:                  number | null;
+  setcode:             string | null;
+  type:                number | null;
+  attack:              number | null;
+  defense:             number | null;
+  level:               number | null;
+  race:                number | null;
+  attribute:           number | null;
 }
 
 /** One invalid source record retained for explicit import failure reporting. */
 export interface SourceRecordFailure {
   sourceRecordId: string;
-  stage: 'validation' | 'write';
-  code: string;
-  message: string;
-  payload: Record<string, unknown> | null;
+  stage:          'validation' | 'write';
+  code:           string;
+  message:        string;
+  payload:        Record<string, unknown> | null;
 }
 
 /** Complete cards.json parse result including valid rows and all observed source keys. */
 export interface CardsParseResult {
-  cards: NormalizedCard[];
-  failures: SourceRecordFailure[];
+  cards:               NormalizedCard[];
+  failures:            SourceRecordFailure[];
   seenSourceRecordIds: string[];
-  unknownFields: string[];
+  unknownFields:       string[];
 }
 
 /** Downloaded source snapshot plus transport metadata used by import state. */
 export interface DownloadedCardsSource extends CardsParseResult {
-  archiveHash: string;
-  etag: string | null;
+  archiveHash:  string;
+  etag:         string | null;
   lastModified: string | null;
 }
 
@@ -179,30 +179,30 @@ function sha256(value: Uint8Array | string) {
 /** Canonical domain payload with stable insertion order for source hashing. */
 function canonicalCardPayload(card: Omit<NormalizedCard, 'sourceRecordId' | 'sourceHash'>) {
   return {
-    cid: card.cid,
-    password: card.password,
-    cnName: card.cnName,
-    scName: card.scName,
-    mdName: card.mdName,
-    nwbbsName: card.nwbbsName,
-    cnocgName: card.cnocgName,
-    jpRuby: card.jpRuby,
-    jpName: card.jpName,
-    enName: card.enName,
-    mdEnName: card.mdEnName,
-    wikiEnName: card.wikiEnName,
-    setExt: card.setExt,
-    typesText: card.typesText,
+    cid:                 card.cid,
+    password:            card.password,
+    cnName:              card.cnName,
+    scName:              card.scName,
+    mdName:              card.mdName,
+    nwbbsName:           card.nwbbsName,
+    cnocgName:           card.cnocgName,
+    jpRuby:              card.jpRuby,
+    jpName:              card.jpName,
+    enName:              card.enName,
+    mdEnName:            card.mdEnName,
+    wikiEnName:          card.wikiEnName,
+    setExt:              card.setExt,
+    typesText:           card.typesText,
     pendulumDescription: card.pendulumDescription,
-    description: card.description,
-    ot: card.ot,
-    setcode: card.setcode,
-    type: card.type,
-    attack: card.attack,
-    defense: card.defense,
-    level: card.level,
-    race: card.race,
-    attribute: card.attribute,
+    description:         card.description,
+    ot:                  card.ot,
+    setcode:             card.setcode,
+    type:                card.type,
+    attack:              card.attack,
+    defense:             card.defense,
+    level:               card.level,
+    race:                card.race,
+    attribute:           card.attribute,
   };
 }
 
@@ -250,29 +250,29 @@ function normalizeCard(sourceRecordId: string, value: unknown) {
 
   const fields = {
     cid,
-    password: normalizePassword(value.id),
-    cnName: readOptionalText(value.cn_name, 'cn_name'),
-    scName: readOptionalText(value.sc_name, 'sc_name'),
-    mdName: readOptionalText(value.md_name, 'md_name'),
-    nwbbsName: readOptionalText(value.nwbbs_n, 'nwbbs_n'),
-    cnocgName: readOptionalText(value.cnocg_n, 'cnocg_n'),
-    jpRuby: readOptionalText(value.jp_ruby, 'jp_ruby'),
-    jpName: readOptionalText(value.jp_name, 'jp_name'),
-    enName: readOptionalText(value.en_name, 'en_name'),
-    mdEnName: readOptionalText(value.md_en_n, 'md_en_n'),
-    wikiEnName: readOptionalText(value.wiki_en, 'wiki_en'),
-    setExt: readOptionalText(value.set_ext, 'set_ext'),
-    typesText: readOptionalText(text.types, 'text.types'),
+    password:            normalizePassword(value.id),
+    cnName:              readOptionalText(value.cn_name, 'cn_name'),
+    scName:              readOptionalText(value.sc_name, 'sc_name'),
+    mdName:              readOptionalText(value.md_name, 'md_name'),
+    nwbbsName:           readOptionalText(value.nwbbs_n, 'nwbbs_n'),
+    cnocgName:           readOptionalText(value.cnocg_n, 'cnocg_n'),
+    jpRuby:              readOptionalText(value.jp_ruby, 'jp_ruby'),
+    jpName:              readOptionalText(value.jp_name, 'jp_name'),
+    enName:              readOptionalText(value.en_name, 'en_name'),
+    mdEnName:            readOptionalText(value.md_en_n, 'md_en_n'),
+    wikiEnName:          readOptionalText(value.wiki_en, 'wiki_en'),
+    setExt:              readOptionalText(value.set_ext, 'set_ext'),
+    typesText:           readOptionalText(text.types, 'text.types'),
     pendulumDescription: readOptionalText(text.pdesc, 'text.pdesc'),
-    description: readOptionalText(text.desc, 'text.desc'),
-    ot: readOptionalInteger(data.ot, 'data.ot'),
-    setcode: readOptionalBigInteger(data.setcode, 'data.setcode'),
-    type: readOptionalInteger(data.type, 'data.type'),
-    attack: readOptionalInteger(data.atk, 'data.atk'),
-    defense: readOptionalInteger(data.def, 'data.def'),
-    level: readOptionalInteger(data.level, 'data.level'),
-    race: readOptionalInteger(data.race, 'data.race'),
-    attribute: readOptionalInteger(data.attribute, 'data.attribute'),
+    description:         readOptionalText(text.desc, 'text.desc'),
+    ot:                  readOptionalInteger(data.ot, 'data.ot'),
+    setcode:             readOptionalBigInteger(data.setcode, 'data.setcode'),
+    type:                readOptionalInteger(data.type, 'data.type'),
+    attack:              readOptionalInteger(data.atk, 'data.atk'),
+    defense:             readOptionalInteger(data.def, 'data.def'),
+    level:               readOptionalInteger(data.level, 'data.level'),
+    race:                readOptionalInteger(data.race, 'data.race'),
+    attribute:           readOptionalInteger(data.attribute, 'data.attribute'),
   } satisfies Omit<NormalizedCard, 'sourceRecordId' | 'sourceHash'>;
 
   return {
@@ -365,7 +365,7 @@ function failurePayload(value: unknown) {
 
   return {
     cid: value.cid ?? null,
-    id: value.id ?? null,
+    id:  value.id ?? null,
   };
 }
 
@@ -444,8 +444,8 @@ export function parseCardsJson(text: string): CardsParseResult {
 
       failures.push({
         sourceRecordId,
-        stage: 'validation',
-        code: sourceError.code,
+        stage:   'validation',
+        code:    sourceError.code,
         message: sourceError.message,
         payload: failurePayload(record),
       });
@@ -516,13 +516,13 @@ function findEndRecord(view: DataView, bytes: Uint8Array) {
 
 /** One regular ZIP entry decoded from the central directory. */
 interface ZipEntry {
-  name: string;
-  flags: number;
-  method: number;
-  crc: number;
-  compressedSize: number;
+  name:             string;
+  flags:            number;
+  method:           number;
+  crc:              number;
+  compressedSize:   number;
   uncompressedSize: number;
-  localOffset: number;
+  localOffset:      number;
 }
 
 /** ZIP central directory decoded without extracting files to disk. */
@@ -574,12 +574,12 @@ function readCentralDirectory(bytes: Uint8Array) {
 
     entries.push({
       name,
-      flags: uint16(view, bytes, offset + 8, 'ZIP entry flags'),
-      method: uint16(view, bytes, offset + 10, 'ZIP compression method'),
-      crc: uint32(view, bytes, offset + 16, 'ZIP entry CRC'),
-      compressedSize: uint32(view, bytes, offset + 20, 'ZIP compressed size'),
+      flags:            uint16(view, bytes, offset + 8, 'ZIP entry flags'),
+      method:           uint16(view, bytes, offset + 10, 'ZIP compression method'),
+      crc:              uint32(view, bytes, offset + 16, 'ZIP entry CRC'),
+      compressedSize:   uint32(view, bytes, offset + 20, 'ZIP compressed size'),
       uncompressedSize: uint32(view, bytes, offset + 24, 'ZIP uncompressed size'),
-      localOffset: uint32(view, bytes, offset + 42, 'ZIP local offset'),
+      localOffset:      uint32(view, bytes, offset + 42, 'ZIP local offset'),
     });
 
     offset = nameOffset + nameLength + extraLength + commentLength;
@@ -688,8 +688,8 @@ export async function downloadCardsSource(
 
   return {
     ...parsed,
-    archiveHash: sha256(bytes),
-    etag: response.headers.get('etag'),
+    archiveHash:  sha256(bytes),
+    etag:         response.headers.get('etag'),
     lastModified: response.headers.get('last-modified'),
   };
 }

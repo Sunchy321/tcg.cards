@@ -14,7 +14,7 @@ export function calculateStatistics(nodes: Node[], ruleKind?: 'magic-cr', previo
     wordCount += (text.match(/[A-Za-z]+(?:['’][A-Za-z]+)*/g) ?? []).length;
   }
   const counts = {
-    characterCount, wordCount, entryCount: nodes.length,
+    characterCount, wordCount, entryCount:        nodes.length,
     ...(ruleKind === 'magic-cr' ? crCounts(nodes) : { chapterCount: null, ruleCount: null, exampleCount: null, termCount: null }),
     calculatorVersion: 'rule-statistics-v1',
   };
@@ -27,8 +27,8 @@ export function calculateStatistics(nodes: Node[], ruleKind?: 'magic-cr', previo
 function crCounts(nodes: Node[]): Pick<DocumentStatistics, 'chapterCount' | 'ruleCount' | 'exampleCount' | 'termCount'> {
   return {
     chapterCount: nodes.filter(node => node.kind === 'heading' && /^[1-9]\d?$/.test(node.anchor ?? '')).length,
-    ruleCount: nodes.filter(node => /^\d+\.\d+[a-z]*$/.test(node.anchor ?? '')).length,
+    ruleCount:    nodes.filter(node => /^\d+\.\d+[a-z]*$/.test(node.anchor ?? '')).length,
     exampleCount: nodes.filter(node => node.kind === 'example').length,
-    termCount: nodes.filter(node => node.kind === 'implicit_heading' && node.anchor?.startsWith('glossary.')).length,
+    termCount:    nodes.filter(node => node.kind === 'implicit_heading' && node.anchor?.startsWith('glossary.')).length,
   };
 }

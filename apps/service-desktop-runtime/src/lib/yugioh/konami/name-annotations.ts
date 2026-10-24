@@ -14,7 +14,7 @@ const ANNOTATION_RE = /^(.*?)\s*\(((?:Updated from|Geändert von|Actualisé de|A
 
 export interface SplitName {
   /** The name without its rename annotation. */
-  name: string;
+  name:       string;
   /** The annotation's content ("Updated from: Big Core"), or null when absent. */
   annotation: string | null;
 }

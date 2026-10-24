@@ -1,1 +1,1 @@
-export * from "./definition";
+export * from './definition';

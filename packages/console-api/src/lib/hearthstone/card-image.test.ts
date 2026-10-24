@@ -33,10 +33,10 @@ const schemaMock = {
   CardImageExport: {},
   CardImageImport: {},
   Entity:          {
-    version:  'version',
+    version: 'version',
   },
   EntityLocalization: {
-    version:  'version',
+    version: 'version',
   },
   Set: {},
   Tag: {},
@@ -224,7 +224,7 @@ function buildSingleRequestRequirementFile(input?: {
       },
       variant,
       renderMode: 'full-set',
-      output: {
+      output:     {
         fileName:              buildCardImagePngFileName(requestId),
         format:                'png',
         width:                 512,
@@ -300,7 +300,7 @@ function buildMultiRequestRequirementFile(renderHashes: string[]): ImageRequirem
         },
         variant,
         renderMode: 'full-set',
-        output: {
+        output:     {
           fileName:              buildCardImagePngFileName(requestId),
           format:                'png',
           width:                 512,
@@ -542,7 +542,7 @@ describe('card image helpers', () => {
           },
           variant,
           renderMode: 'full-set',
-          output: {
+          output:     {
             fileName:              buildCardImagePngFileName(requestId),
             format:                'png',
             width:                 512,
@@ -571,7 +571,7 @@ describe('card image helpers', () => {
           },
           variant,
           renderMode: 'full-set',
-          output: {
+          output:     {
             fileName:              `${buildCardImageRequestId(`${renderHash.slice(0, -1)}2`, variant).replace('sha256:', '')}.png`,
             format:                'png',
             width:                 512,

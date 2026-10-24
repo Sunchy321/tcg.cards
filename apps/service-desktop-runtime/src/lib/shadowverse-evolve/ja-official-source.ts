@@ -83,23 +83,23 @@ function normalizeMarkup(html: string) {
 
 /** One parsed Evolve card detail page in one language. */
 export interface ParsedEvolveDetail {
-  cardNo: string;
-  name: string;
-  craft: string | null;
-  cardType: string | null;
-  tribes: string | null;
-  rarity: string | null;
-  product: string | null;
-  cost: number | null;
-  attack: number | null;
-  life: number | null;
-  skillText: string | null;
-  flavourText: string | null;
-  illustrator: string | null;
+  cardNo:         string;
+  name:           string;
+  craft:          string | null;
+  cardType:       string | null;
+  tribes:         string | null;
+  rarity:         string | null;
+  product:        string | null;
+  cost:           number | null;
+  attack:         number | null;
+  life:           number | null;
+  skillText:      string | null;
+  flavourText:    string | null;
+  illustrator:    string | null;
   relatedCardNos: string[];
-  releaseDate: string | null;
-  imageUrl: string | null;
-  questions: Array<{ id: string; questionNo: string; question: string; answer: string; answeredAt: string | null }>;
+  releaseDate:    string | null;
+  imageUrl:       string | null;
+  questions:      Array<{ id: string, questionNo: string, question: string, answer: string, answeredAt: string | null }>;
 }
 
 /**
@@ -169,7 +169,7 @@ export function parseEvolveDetailHtml(
     }
 
     questions.push({
-      id: `${cardNo}:${titleMatch?.[1] ?? title}`,
+      id:         `${cardNo}:${titleMatch?.[1] ?? title}`,
       questionNo: titleMatch?.[1] ?? title,
       question,
       answer,
@@ -182,21 +182,21 @@ export function parseEvolveDetailHtml(
   return {
     cardNo,
     name,
-    craft: info[labels.craft] ?? null,
-    cardType: info[labels.cardType] ?? null,
-    tribes: info[labels.tribes] ?? null,
-    rarity: info[labels.rarity] ?? null,
-    product: info[labels.product] ?? null,
-    cost: parseStatusNumber('.status-Item-Cost'),
-    attack: parseStatusNumber('.status-Item-Power'),
-    life: parseStatusNumber('.status-Item-Hp'),
-    skillText: skillHtml.trim().length > 0 ? normalizeMarkup(skillHtml) : null,
+    craft:       info[labels.craft] ?? null,
+    cardType:    info[labels.cardType] ?? null,
+    tribes:      info[labels.tribes] ?? null,
+    rarity:      info[labels.rarity] ?? null,
+    product:     info[labels.product] ?? null,
+    cost:        parseStatusNumber('.status-Item-Cost'),
+    attack:      parseStatusNumber('.status-Item-Power'),
+    life:        parseStatusNumber('.status-Item-Hp'),
+    skillText:   skillHtml.trim().length > 0 ? normalizeMarkup(skillHtml) : null,
     flavourText: box.find('.speech').first().text().trim() || null,
     // Amulet-style pages put the card number in the heading span instead of an illustrator.
     illustrator: illustratorRaw === cardNo ? null : illustratorRaw || null,
     relatedCardNos,
     releaseDate: $('.cardlist-Detail_Products .date').first().text().trim() || null,
-    imageUrl: box.find('.img img').first().attr('src') ?? null,
+    imageUrl:    box.find('.img img').first().attr('src') ?? null,
     questions,
   };
 }

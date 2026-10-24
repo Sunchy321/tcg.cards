@@ -20,7 +20,7 @@ import { aiAnnouncementResult, type AiAnnouncementResult } from '@tcg-cards/mode
 const props = defineProps<{ name?: string, url: string, requestKey: number }>();
 const emit = defineEmits<{
   result: [result: AiAnnouncementResult, requestKey: number];
-  close: [];
+  close:  [];
 }>();
 const phase = ref('fetch');
 const completed = ref(false);
@@ -74,6 +74,8 @@ function close(): void {
 watch(status, value => {
   if (value === 'ready' && !completed.value && !cancelled.value) invalid.value = true;
 });
-onMounted(() => { void sendMessage({ text: '解析公告' }); });
+onMounted(() => {
+  void sendMessage({ text: '解析公告' });
+});
 onBeforeUnmount(cancel);
 </script>

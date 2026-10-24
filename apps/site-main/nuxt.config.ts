@@ -27,9 +27,8 @@ export default defineNuxtConfig({
     },
   },
 
-
   alias: {
-    '#base': fileURLToPath(new URL('../../packages/base/src', import.meta.url)),
+    '#base':   fileURLToPath(new URL('../../packages/base/src', import.meta.url)),
     '#app-ui': fileURLToPath(new URL('../../packages/ui/app', import.meta.url)),
   },
 

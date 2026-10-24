@@ -415,9 +415,9 @@ const selected = reactive<Record<string, string[]>>({});
 
 const sections: FilterSection[] = props.catalog.sections;
 
-const currentKindLabel = computed(() =>
-  props.catalog.cardKinds.find(kind => kind.value === cardKind.value)?.label ?? '全部卡',
-);
+// const currentKindLabel = computed(() =>
+//   props.catalog.cardKinds.find(kind => kind.value === cardKind.value)?.label ?? '全部卡',
+// );
 
 const visibleSections = computed(() =>
   sections.filter(section => section.kinds.includes(cardKind.value)),

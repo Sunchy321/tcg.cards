@@ -132,15 +132,15 @@ export const ruleNodeSchema = z.strictObject({
 });
 
 export const ruleChangeDetailsSchema = z.strictObject({
-  oldContentHash:   z.string().optional(),
-  newContentHash:   z.string().optional(),
-  oldRuleId:        z.string().optional(),
-  newRuleId:        z.string().optional(),
-  similarityScore:  z.number().optional(),
-  splitInto:        z.string().array().optional(),
-  splitRatios:      z.number().array().optional(),
-  mergedFrom:       z.string().array().optional(),
-  similarities:     z.number().array().optional(),
+  oldContentHash:  z.string().optional(),
+  newContentHash:  z.string().optional(),
+  oldRuleId:       z.string().optional(),
+  newRuleId:       z.string().optional(),
+  similarityScore: z.number().optional(),
+  splitInto:       z.string().array().optional(),
+  splitRatios:     z.number().array().optional(),
+  mergedFrom:      z.string().array().optional(),
+  similarities:    z.number().array().optional(),
 });
 
 export const ruleChangeSchema = z.strictObject({
@@ -169,7 +169,7 @@ export const parsedRuleNodeSchema = z.strictObject({
 });
 
 export const parsedRuleSourceSchema = z.strictObject({
-  id:           z.string(),
+  id:            z.string(),
   effectiveDate: z.string(),
   publishedAt:   z.string(),
   totalRules:    z.number(),
@@ -177,11 +177,11 @@ export const parsedRuleSourceSchema = z.strictObject({
 });
 
 export const matchResultSchema = z.strictObject({
-  type:        z.enum(['unchanged', 'added', 'removed', 'modified', 'renamed', 'renamed_modified', 'moved']),
-  oldNodeId:   z.string().nullable(),
-  newNodeId:   z.string().nullable(),
-  similarity:  z.number(),
-  details:     z.strictObject({
+  type:       z.enum(['unchanged', 'added', 'removed', 'modified', 'renamed', 'renamed_modified', 'moved']),
+  oldNodeId:  z.string().nullable(),
+  newNodeId:  z.string().nullable(),
+  similarity: z.number(),
+  details:    z.strictObject({
     oldRuleId:        z.string().optional(),
     newRuleId:        z.string().optional(),
     oldContentHash:   z.string().optional(),

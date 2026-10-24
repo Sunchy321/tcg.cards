@@ -98,7 +98,10 @@ export async function loadNameRubyAnchors(database: NameRubyImportDb): Promise<M
   for (const row of rows) {
     const key = `${row.set.toLowerCase()}:${row.number.trim()}`;
     let names = anchors.get(key);
-    if (names == null) { names = new Set(); anchors.set(key, names); }
+    if (names == null) {
+      names = new Set();
+      anchors.set(key, names);
+    }
     names.add(stripNameRuby(row.name));
   }
   return anchors;
@@ -153,11 +156,20 @@ export function extractNameRubyRows(
 
     const name = stripNameRuby(title);
     const anchorNames = anchors.get(`${card.ExpansionCode.toLowerCase()}:${card.CollectorNumber.trim()}`);
-    if (anchorNames == null) { counts.unanchored++; continue; }
-    if (!anchorNames.has(name)) { counts.mismatched++; continue; }
+    if (anchorNames == null) {
+      counts.unanchored++;
+      continue;
+    }
+    if (!anchorNames.has(name)) {
+      counts.mismatched++;
+      continue;
+    }
 
     const rubyName = validateNameRuby(name, normalizeRubyParens(title));
-    if (rubyName == null) { counts.invalid++; continue; }
+    if (rubyName == null) {
+      counts.invalid++;
+      continue;
+    }
 
     if (!rows.has(name)) {
       rows.set(name, { lang: 'ja', kind: 'name', name, rubyName, source: 'mtga_loc', status: 'draft' });

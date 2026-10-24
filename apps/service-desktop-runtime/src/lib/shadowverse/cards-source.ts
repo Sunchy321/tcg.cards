@@ -98,23 +98,21 @@ const knownStyleFields = new Set([
   'evo_flavour_text',
 ]);
 
-const knownRelationFields = new Set(['related_card_ids', 'specific_effect_card_ids']);
-
 /** One card's full per-language payload after schema validation. */
 export interface NormalizedCardData {
   cardId: number;
   common: CardCommon;
-  evo: CardEvo | null;
+  evo:    CardEvo | null;
   styles: CardStylePayload[];
 }
 
 /** One complete language snapshot of the official card universe. */
 export interface NormalizedLangSnapshot {
-  lang: ShadowverseLang;
-  count: number;
-  cards: NormalizedCardData[];
-  relations: Record<string, CardRelations>;
-  cardSetNames: Record<string, string>;
+  lang:          ShadowverseLang;
+  count:         number;
+  cards:         NormalizedCardData[];
+  relations:     Record<string, CardRelations>;
+  cardSetNames:  Record<string, string>;
   unknownFields: string[];
 }
 
@@ -192,17 +190,17 @@ export function parseCardListPayload(payload: unknown, lang: ShadowverseLang): N
       return {
         cardId,
         common: detail.common,
-        evo: detail.evo != null && !Array.isArray(detail.evo) ? detail.evo : null,
+        evo:    detail.evo != null && !Array.isArray(detail.evo) ? detail.evo : null,
         styles: detail.style_card_list,
       };
     });
 
   return {
     lang,
-    count: parsed.data.count,
+    count:         parsed.data.count,
     cards,
-    relations: parsed.data.cards,
-    cardSetNames: parsed.data.card_set_names,
+    relations:     parsed.data.cards,
+    cardSetNames:  parsed.data.card_set_names,
     unknownFields: collectUnknownFields(raw, data, parsed.data.card_details as unknown as Record<string, unknown>),
   };
 }
@@ -230,7 +228,7 @@ export async function fetchCardListPage(
     try {
       const response = await fetcher(url, {
         headers: {
-          accept: 'application/json',
+          'accept':     'application/json',
           lang,
           'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
         },

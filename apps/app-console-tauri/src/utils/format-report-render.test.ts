@@ -106,7 +106,9 @@ test('exports fresh HTTP results rather than reports already open in the page', 
 
 test('reports failed exports and releases the busy state without downloading an error document', async () => {
   let downloaded = false;
-  const state = exportHandler(async () => new Response('unavailable', { status: 500 }), () => { downloaded = true; });
+  const state = exportHandler(async () => new Response('unavailable', { status: 500 }), () => {
+    downloaded = true;
+  });
   await state.handler();
   expect(downloaded).toBe(false);
   expect(state.busy.value).toBe(false);

@@ -3,137 +3,137 @@ import type { NodeKind } from '@tcg-cards/model/magic/schema/document';
 
 /** Stores one document identity independently of its saved content. */
 export interface Document {
-  id: string;
-  slug: string;
-  title: string;
+  id:             string;
+  slug:           string;
+  title:          string;
   sourceLanguage: string;
-  origin: 'static' | 'user';
-  staticKey: string | null;
-  authorId?: string | null;
-  visibility: 'public' | 'unlisted' | 'private';
-  settings: DocumentSettings;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt: Date | null;
+  origin:         'static' | 'user';
+  staticKey:      string | null;
+  authorId?:      string | null;
+  visibility:     'public' | 'unlisted' | 'private';
+  settings:       DocumentSettings;
+  createdAt:      Date;
+  updatedAt:      Date;
+  deletedAt:      Date | null;
 }
 
 /** Preserves one node's text, annotations, and exact translation source. */
 export interface Node {
-  id: string;
-  revisionId: string;
-  nodeKey: string;
-  kind: NodeKind;
-  anchor: string | null;
-  path: string;
-  level: number;
-  parentId: string | null;
-  siblingOrder: number;
-  rawText: string;
-  markers: TextMarker[];
-  sourceNodeId: string | null;
-  sourceRevisionId: string | null;
+  id:                string;
+  revisionId:        string;
+  nodeKey:           string;
+  kind:              NodeKind;
+  anchor:            string | null;
+  path:              string;
+  level:             number;
+  parentId:          string | null;
+  siblingOrder:      number;
+  rawText:           string;
+  markers:           TextMarker[];
+  sourceNodeId:      string | null;
+  sourceRevisionId:  string | null;
   translationMethod: TranslationMethod | null;
-  reviewStatus: ReviewStatus | null;
+  reviewStatus:      ReviewStatus | null;
 }
 
 /** Saves authored content or the selected public content of an imported source. */
 export interface Revision {
-  id: string;
-  documentId: string;
-  translationId: string | null;
+  id:               string;
+  documentId:       string;
+  translationId:    string | null;
   sourceRevisionId: string | null;
-  title: string;
-  language: string;
-  createdAt: Date;
-  deletedAt: Date | null;
-  nodes: Node[];
-  meta?: DocumentMeta;
-  contentHash?: string | null;
+  title:            string;
+  language:         string;
+  createdAt:        Date;
+  deletedAt:        Date | null;
+  nodes:            Node[];
+  meta?:            DocumentMeta;
+  contentHash?:     string | null;
 }
 
 /** Identifies the only translation in one target language. */
 export interface Translation {
-  id: string;
+  id:         string;
   documentId: string;
-  language: string;
+  language:   string;
 }
 
 /** Selects source content for an intentional public edition. */
 export interface Release {
-  id: string;
-  documentId: string;
-  versionTag: string;
+  id:               string;
+  documentId:       string;
+  versionTag:       string;
   sourceRevisionId: string;
-  publishedAt: Date;
-  effectiveDate: string | null;
-  files: SourceFile[];
-  deletedAt: Date | null;
+  publishedAt:      Date;
+  effectiveDate:    string | null;
+  files:            SourceFile[];
+  deletedAt:        Date | null;
 }
 
 /** Selects a translation revision without creating another public edition. */
 export interface ReleaseTranslation {
-  documentId: string;
+  documentId:       string;
   sourceRevisionId: string;
-  releaseId: string;
-  translationId: string;
-  revisionId: string;
+  releaseId:        string;
+  translationId:    string;
+  revisionId:       string;
 }
 
 /** Return readable text only from the currently published source or selected translation. */
 export interface SearchHit {
   documentId: string;
-  slug: string;
-  title: string;
-  releaseId: string;
+  slug:       string;
+  title:      string;
+  releaseId:  string;
   versionTag: string;
-  nodeId: string;
-  nodeKey: string;
-  anchor: string | null;
-  rawText: string;
-  language: string;
-  markers: TextMarker[];
+  nodeId:     string;
+  nodeKey:    string;
+  anchor:     string | null;
+  rawText:    string;
+  language:   string;
+  markers:    TextMarker[];
 }
 
 /** Bound public search without exposing intermediate revisions. */
 export interface SearchInput {
-  query: string;
-  slug?: string;
+  query:     string;
+  slug?:     string;
   language?: string;
-  limit: number;
+  limit:     number;
 }
 
 /** Bind one complete comparison to exact neighboring published revisions. */
 export interface Adjacency {
-  id: string;
-  documentId: string;
-  fromReleaseId: string;
-  toReleaseId: string;
+  id:             string;
+  documentId:     string;
+  fromReleaseId:  string;
+  toReleaseId:    string;
   fromRevisionId: string;
-  toRevisionId: string;
-  fromHash: string;
-  toHash: string;
-  algorithm: string;
-  timelineHash: string;
+  toRevisionId:   string;
+  fromHash:       string;
+  toHash:         string;
+  algorithm:      string;
+  timelineHash:   string;
 }
 
 /** Preserve every participant, including unchanged one-to-one continuations. */
 export interface NodeRelation {
   comparisonId: string;
-  groupId: string;
-  side: 'from' | 'to';
-  nodeId: string;
-  identity: string;
-  itemId: string;
-  kind: import('@tcg-cards/model/magic/schema/document').NodeChangeType | 'unchanged';
-  position: number;
+  groupId:      string;
+  side:         'from' | 'to';
+  nodeId:       string;
+  identity:     string;
+  itemId:       string;
+  kind:         import('@tcg-cards/model/magic/schema/document').NodeChangeType | 'unchanged';
+  position:     number;
 }
 
 /** Select a small reachable subset of persisted relation participants. */
 export interface RelationQuery {
   comparisonIds: string[];
-  nodeIds?: string[];
-  identities?: string[];
-  groups?: { comparisonId: string; groupId: string }[];
+  nodeIds?:      string[];
+  identities?:   string[];
+  groups?:       { comparisonId: string, groupId: string }[];
 }
 
 /** Persists document operations transactionally without exposing SQL to callers. */
@@ -141,7 +141,7 @@ export interface DocumentStore {
   /** Read source metadata without loading revision nodes. */
   revisionHeaders(ids: string[]): Promise<Omit<Revision, 'nodes'>[]>;
   /** Select exact nodes, published entry addresses, or translation source references. */
-  selectNodes(input: { revisionIds: string[]; ids?: string[]; itemId?: string; sourceNodeIds?: string[] }): Promise<Node[]>;
+  selectNodes(input: { revisionIds: string[], ids?: string[], itemId?: string, sourceNodeIds?: string[] }): Promise<Node[]>;
   /** Backfill a verified content fingerprint during explicit preparation. */
   setRevisionHash(id: string, hash: string): Promise<void>;
   /** Remove superseded derived boundaries without touching retained review comparisons. */

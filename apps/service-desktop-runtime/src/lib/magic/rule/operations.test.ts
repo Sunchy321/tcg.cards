@@ -213,7 +213,6 @@ test.skipIf(!process.env.DOCUMENT_TEST_LOCAL_URL)('PostgreSQL desktop rule RPC i
   expect(code, `${stdout}\n${stderr}`).toBe(0);
 }, 30000);
 
-
 test('imports retained originals using matching overwrite evidence instead of the old inventory', async () => {
   const root = await archive();
   const research = await mkdtemp(join(tmpdir(), 'cr-evidence-'));
@@ -226,26 +225,26 @@ test('imports retained originals using matching overwrite evidence instead of th
   expect(createHash('sha256').update('%PDF-new').digest('hex')).toBe(pdfHash);
   const url = 'https://media.wizards.com/2026/MagicCompRules20261001.pdf';
   await writeFile(join(research, 'inventory.json'), JSON.stringify({
-    asset: [{ path: '/old/pdf/2026-10-01.pdf', version: '2026-10-01', format: 'pdf', sha256: '0'.repeat(64), bytes: 99 }],
-    candidates: [{ path: 'downloads/current.pdf', version: '2026-10-01', format: 'pdf', sha256: pdfHash, bytes: 8,
-      url, source: 'official', effective_dates: ['2026-10-01'], date_basis: 'document' }],
+    asset:      [{ path: '/old/pdf/2026-10-01.pdf', version: '2026-10-01', format: 'pdf', sha256: '0'.repeat(64), bytes: 99 }],
+    candidates: [{ path:            'downloads/current.pdf', version:         '2026-10-01', format:          'pdf', sha256:          pdfHash, bytes:           8,
+      url, source:          'official', effective_dates: ['2026-10-01'], date_basis:      'document' }],
   }));
   await writeFile(join(research, 'official-overwrite-result.json'), JSON.stringify({ files: [{
-    version: '2026-10-01', format: 'pdf', target: 'pdf/2026-10-01.pdf', source: 'downloads/current.pdf',
-    url, effective_url: url, old_sha256: '0'.repeat(64), new_sha256: pdfHash,
+    version:       '2026-10-01', format:        'pdf', target:        'pdf/2026-10-01.pdf', source:        'downloads/current.pdf',
+    url, effective_url: url, old_sha256:    '0'.repeat(64), new_sha256:    pdfHash,
   }] }));
   await writeFile(join(research, 'requests.json'), JSON.stringify([
     { path: 'downloads/current.pdf', url, effective_url: url, valid: true, http: '200', sha256: pdfHash, bytes: 8 },
-    { path: 'downloads/current.txt', url: 'https://bad.test/login', effective_url: 'https://bad.test/login', valid: false,
-      http: '200', sha256: txtHash, bytes: Buffer.byteLength(cr) },
+    { path:          'downloads/current.txt', url:           'https://bad.test/login', effective_url: 'https://bad.test/login', valid:         false,
+      http:          '200', sha256:        txtHash, bytes:         Buffer.byteLength(cr) },
   ]));
   const store = memoryStore();
   const result = await importExistingRules({ root, research, store, recordImport: async () => {} });
   expect(result.summary).toMatchObject({ imported: 1, failed: 0, skipped: 0 });
   expect(result.versions[0]?.uncertain).toContainEqual({ format: 'txt', reason: 'source_unconfirmed' });
   const page = await createRuleOperations({ root, store, recordImport: async () => {} }).read({});
-  expect(page.files.find(file => file.format === 'pdf')).toMatchObject({ sourceUrl: url, effectiveUrl: url,
-    sha256: pdfHash, size: 8, sourceKind: 'official', declaredEffectiveDate: '2026-10-01', dateBasis: 'document' });
+  expect(page.files.find(file => file.format === 'pdf')).toMatchObject({ sourceUrl:             url, effectiveUrl:          url,
+    sha256:                pdfHash, size:                  8, sourceKind:            'official', declaredEffectiveDate: '2026-10-01', dateBasis:             'document' });
   expect(page.files.find(file => file.format === 'txt')).toMatchObject({ sourceUrl: null, effectiveUrl: null, sha256: txtHash });
   const before = JSON.stringify(page.files);
   const retry = await importExistingRules({ root, research, store, recordImport: async () => {} });
@@ -261,7 +260,9 @@ test('preflights existing rules without persisting content or attempts and repor
   await writeFile(join(root, 'pdf', '2026-09-01.pdf'), '%PDF-unknown');
   const store = memoryStore();
   const attempts: RuleImportAttempt[] = [];
-  const report = await importExistingRules({ root, store, dryRun: true, recordImport: async attempt => { attempts.push(attempt); } });
+  const report = await importExistingRules({ root, store, dryRun:       true, recordImport: async attempt => {
+    attempts.push(attempt);
+  } });
   expect(report.mode).toBe('preflight');
   expect(report.summary).toMatchObject({ imported: 1, skipped: 1, failed: 0 });
   expect(report.versions[0]).toMatchObject({ version: '2026-09-01', status: 'skipped', reason: 'TXT source is unavailable' });
@@ -274,13 +275,13 @@ test('backfills existing translation statistics while retaining verified provena
   const root = await archive();
   const store = memoryStore();
   const rules = createRuleOperations({ root, store, recordImport: async () => {} });
-  const imported = await rules.importVersion({ version: '2026-10-01', files: [{
-    format: 'txt', language: 'en', sourceUrl: 'https://example.test/rules.txt',
+  const imported = await rules.importVersion({ version: '2026-10-01', files:   [{
+    format:       'txt', language:     'en', sourceUrl:    'https://example.test/rules.txt',
     effectiveUrl: 'https://cdn.example.test/rules.txt',
   }] });
   const documents = createDocumentService(store, { track: 'local' });
-  const translation = await documents.saveTranslation({ documentId: 'magic-cr', sourceRevisionId: imported.revisionId, language: 'zhs',
-    nodes: [{ sourceNodeId: `${imported.revisionId}/100.1`, rawText: '支付 {W}。', translationMethod: 'human' }] });
+  const translation = await documents.saveTranslation({ documentId:       'magic-cr', sourceRevisionId: imported.revisionId, language:         'zhs',
+    nodes:            [{ sourceNodeId: `${imported.revisionId}/100.1`, rawText: '支付 {W}。', translationMethod: 'human' }] });
   await documents.selectTranslation({ documentId: 'magic-cr', releaseId: imported.releaseId, revisionId: translation.id });
   await store.updateRevisionMeta(translation.id, {});
   const before = await store.revision(translation.id);
@@ -299,7 +300,6 @@ test('backfills existing translation statistics while retaining verified provena
   expect(await store.revisions('magic-cr')).toHaveLength(2);
 });
 
-
 test('publishes imported metadata without research files and leaves serving state unchanged until publication', async () => {
   const root = await archive();
   const research = await mkdtemp(join(tmpdir(), 'cr-serving-evidence-'));
@@ -307,12 +307,12 @@ test('publishes imported metadata without research files and leaves serving stat
   const sha256 = '453352b1f6b4585ed373e28046f43b228ca30ac0b37c2c75421159beb8d0910d';
   const url = 'https://archive.example.test/2026-10-01.txt';
   await writeFile(join(research, 'inventory.json'), JSON.stringify({ candidates: [{
-    path: 'downloads/rules.txt', url, source: 'archive', version: '2026-10-01', format: 'txt', sha256, bytes: 207,
-    effective_dates: ['2026-10-01'], date_basis: 'document',
+    path:            'downloads/rules.txt', url, source:          'archive', version:         '2026-10-01', format:          'txt', sha256, bytes:           207,
+    effective_dates: ['2026-10-01'], date_basis:      'document',
   }] }));
   // An unsuccessful request cannot establish the final download destination.
-  await writeFile(join(research, 'requests.json'), JSON.stringify([{ path: 'downloads/rules.txt', url,
-    effective_url: 'https://archive.example.test/login', valid: false, http: '404', sha256, bytes: 207 }]));
+  await writeFile(join(research, 'requests.json'), JSON.stringify([{ path:          'downloads/rules.txt', url,
+    effective_url: 'https://archive.example.test/login', valid:         false, http:          '404', sha256, bytes:         207 }]));
   const source = memoryStore();
   const target = memoryStore();
   const reader = createRuleReader(target, { assetBaseUrl: 'https://assets.example.test/' });
@@ -324,9 +324,9 @@ test('publishes imported metadata without research files and leaves serving stat
   await rm(research, { recursive: true });
   await publishDocument(source, target, 'magic-cr');
   const metadata = await reader.meta({ ruleId: 'magic-cr' });
-  expect(metadata).toMatchObject({ versionTag: '20261001', meta: { ruleCount: 1, entryCount: 5 }, files: [{
-    format: 'txt', size: 207, sha256, sourceUrl: url, effectiveUrl: null,
-    downloadUrl: 'https://assets.example.test/magic/rule/txt/2026-10-01.txt',
+  expect(metadata).toMatchObject({ versionTag: '20261001', meta:       { ruleCount: 1, entryCount: 5 }, files:      [{
+    format:       'txt', size:         207, sha256, sourceUrl:    url, effectiveUrl: null,
+    downloadUrl:  'https://assets.example.test/magic/rule/txt/2026-10-01.txt',
   }] });
   expect(JSON.stringify(metadata)).not.toContain(root);
   expect(JSON.stringify(metadata)).not.toContain('checkedAt');
@@ -341,11 +341,11 @@ test('cross-checks fill records, ambiguous mirrors and overwrite mismatches with
   const research = await mkdtemp(join(tmpdir(), 'cr-cross-check-'));
   directories.push(research);
   const sha256 = '453352b1f6b4585ed373e28046f43b228ca30ac0b37c2c75421159beb8d0910d';
-  const candidate = { path: 'downloads/original.txt', url: 'https://mirror.example.test/2026-10-01.txt', source: 'archive',
-    version: '2026-10-01', format: 'txt', sha256, bytes: 207, effective_dates: ['2026-10-01'], date_basis: 'document' };
+  const candidate = { path:            'downloads/original.txt', url:             'https://mirror.example.test/2026-10-01.txt', source:          'archive',
+    version:         '2026-10-01', format:          'txt', sha256, bytes:           207, effective_dates: ['2026-10-01'], date_basis:      'document' };
   const copy = { target: 'txt/2026-10-01.txt', version: '2026-10-01', format: 'txt', sha256, bytes: 207, downloads: [candidate] };
-  const request = { path: candidate.path, url: candidate.url, effective_url: 'https://cdn.example.test/2026-10-01.txt',
-    valid: true, http: '200', sha256, bytes: 207 };
+  const request = { path:          candidate.path, url:           candidate.url, effective_url: 'https://cdn.example.test/2026-10-01.txt',
+    valid:         true, http:          '200', sha256, bytes:         207 };
   await writeFile(join(research, 'asset-fill-result.json'), JSON.stringify({ copies: [copy] }));
   await writeFile(join(research, 'requests.json'), JSON.stringify([request]));
   const imported = await importExistingRules({ root, research, store: memoryStore(), recordImport: async () => {} });
@@ -364,8 +364,8 @@ test('cross-checks fill records, ambiguous mirrors and overwrite mismatches with
   expect(mismatch.versions[0]?.files[0]?.sourceUrl).toBeNull();
   expect(mismatch.versions[0]?.uncertain).toContainEqual({ format: 'txt', reason: 'copy_mismatch' });
   await writeFile(join(research, 'official-overwrite-result.json'), JSON.stringify({ files: [{
-    version: '2026-10-01', format: 'txt', target: 'txt/2026-10-01.txt', source: candidate.path,
-    url: candidate.url, effective_url: request.effective_url, old_sha256: sha256, new_sha256: '1'.repeat(64),
+    version:       '2026-10-01', format:        'txt', target:        'txt/2026-10-01.txt', source:        candidate.path,
+    url:           candidate.url, effective_url: request.effective_url, old_sha256:    sha256, new_sha256:    '1'.repeat(64),
   }] }));
   const overwritten = await importExistingRules({ root, research, store: memoryStore(), recordImport: async () => {} });
   expect(overwritten.versions[0]?.files[0]?.sourceUrl).toBeNull();
@@ -388,7 +388,6 @@ test('stops a batch when database capacity is exhausted without exposing driver 
   expect(await store.releases('magic-cr')).toEqual([]);
 });
 
-
 test('retains verified same-byte provenance when a later evidence bundle is incomplete', async () => {
   const root = await archive();
   const research = await mkdtemp(join(tmpdir(), 'cr-incomplete-evidence-'));
@@ -396,14 +395,14 @@ test('retains verified same-byte provenance when a later evidence bundle is inco
   const store = memoryStore();
   const rules = createRuleOperations({ root, store, recordImport: async () => {} });
   const url = 'https://mirror.example.test/2026-10-01.txt';
-  await rules.importVersion({ version: '2026-10-01', files: [{
-    format: 'txt', language: 'en', sourceUrl: url, effectiveUrl: 'https://cdn.example.test/rules.txt',
-    sourceKind: 'archive', originalFilename: 'original-2026-10-01.txt', filenameDate: '2026-10-01',
+  await rules.importVersion({ version: '2026-10-01', files:   [{
+    format:           'txt', language:         'en', sourceUrl:        url, effectiveUrl:     'https://cdn.example.test/rules.txt',
+    sourceKind:       'archive', originalFilename: 'original-2026-10-01.txt', filenameDate:     '2026-10-01',
   }] });
   const before = (await rules.read({})).files;
   await writeFile(join(research, 'inventory.json'), JSON.stringify({ candidates: [{
-    path: 'downloads/rules.txt', version: '2026-10-01', format: 'txt', url,
-    sha256: '453352b1f6b4585ed373e28046f43b228ca30ac0b37c2c75421159beb8d0910d', bytes: 207,
+    path:    'downloads/rules.txt', version: '2026-10-01', format:  'txt', url,
+    sha256:  '453352b1f6b4585ed373e28046f43b228ca30ac0b37c2c75421159beb8d0910d', bytes:   207,
   }] }));
   const report = await importExistingRules({ root, research, store, recordImport: async () => {} });
   expect((await rules.read({})).files).toEqual(before);
@@ -419,7 +418,9 @@ test('rejects an existing release with unproven saved dates and records rollback
   const saved = { ...release!, effectiveDate: null, publishedAt: new Date('2030-01-01T00:00:00Z') };
   await store.putRelease(saved);
   const attempts: RuleImportAttempt[] = [];
-  const result = await importExistingRules({ root, store, recordImport: async attempt => { attempts.push(attempt); } });
+  const result = await importExistingRules({ root, store, recordImport: async attempt => {
+    attempts.push(attempt);
+  } });
   expect(result.versions[0]).toMatchObject({ status: 'failed', reason: 'Existing CR release date conflicts with retained source' });
   expect(await store.releases('magic-cr')).toEqual([saved]);
   expect(attempts.map(attempt => attempt.status)).toEqual(['processing', 'failed']);
@@ -440,17 +441,17 @@ test('saves the historical official release address separately from the actual d
   const research = await mkdtemp(join(tmpdir(), 'cr-official-url-'));
   directories.push(research);
   const officialUrl = 'https://media.wizards.com/2026/downloads/MagicCompRules%2020261001.txt';
-  await writeFile(join(research, 'url-index-data-mapping.json'), JSON.stringify({ summary: {}, urls: [
+  await writeFile(join(research, 'url-index-data-mapping.json'), JSON.stringify({ summary: {}, urls:    [
     // A confirmed body date keys the address even when the index matched no local data file.
     { index: 1, url: officialUrl, available: true, http: '200', effective_date: '2026-10-01', data_files: [] },
-    { index: 2, url: 'https://media.wizards.com/2026/downloads/MagicCompRules_20260901.txt', available: false,
-      effective_date: '2026-09-01', data_files: ['/srv/research-data/magic/rule/2026-09-01.txt'] },
-    { index: 3, url: 'http://www.wizards.com/dci/oracle/CompRuleBook-11-1-99.txt', available: false,
-      effective_date: null, candidate_date: '1999-11-01', data_files: [] },
+    { index:          2, url:            'https://media.wizards.com/2026/downloads/MagicCompRules_20260901.txt', available:      false,
+      effective_date: '2026-09-01', data_files:     ['/srv/research-data/magic/rule/2026-09-01.txt'] },
+    { index:          3, url:            'http://www.wizards.com/dci/oracle/CompRuleBook-11-1-99.txt', available:      false,
+      effective_date: null, candidate_date: '1999-11-01', data_files:     [] },
     { index: 4, url: 'https://mirror.example.test/rules/index.html', data_files: ['/srv/research-data/magic/rule/2026-10-01.txt'] },
     // Disagreeing dates, unknown extensions and unmapped entries never attach.
-    { index: 5, url: 'https://media.wizards.com/2026/downloads/MagicCompRules_20261015.txt',
-      effective_date: '2026-10-01', data_files: ['/srv/research-data/magic/rule/2026-09-01.txt'] },
+    { index:          5, url:            'https://media.wizards.com/2026/downloads/MagicCompRules_20261015.txt',
+      effective_date: '2026-10-01', data_files:     ['/srv/research-data/magic/rule/2026-09-01.txt'] },
   ] }));
   const source = memoryStore();
   const first = await importExistingRules({ root, research, store: source, recordImport: async () => {} });
@@ -488,8 +489,8 @@ test('keeps the saved revision when a retained TXT differs only in blank-line wh
   const rules = createRuleOperations({ root, store, recordImport: async () => {} });
   const imported = await rules.importVersion({ version: '2026-10-01' });
   const documents = createDocumentService(store, { track: 'local' });
-  const translation = await documents.saveTranslation({ documentId: 'magic-cr', sourceRevisionId: imported.revisionId, language: 'zhs',
-    nodes: [{ sourceNodeId: `${imported.revisionId}/100.1`, rawText: '支付 {W}。', translationMethod: 'human' }] });
+  const translation = await documents.saveTranslation({ documentId:       'magic-cr', sourceRevisionId: imported.revisionId, language:         'zhs',
+    nodes:            [{ sourceNodeId: `${imported.revisionId}/100.1`, rawText: '支付 {W}。', translationMethod: 'human' }] });
   await documents.selectTranslation({ documentId: 'magic-cr', releaseId: imported.releaseId, revisionId: translation.id });
   const bytes = await Bun.file(join(root, 'txt', '2026-10-01.txt')).text();
   await writeFile(join(root, 'txt', '2026-10-01.txt'), bytes.replace('\n\n100.1.', '\n \n100.1.'));

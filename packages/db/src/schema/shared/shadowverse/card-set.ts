@@ -2,7 +2,6 @@ import {
   check,
   index,
   integer,
-  pgEnum,
   primaryKey,
   text,
   timestamp,

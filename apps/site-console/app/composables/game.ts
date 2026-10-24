@@ -1,9 +1,5 @@
 import { GAMES } from '#base';
-import {
-  GAME_LABELS,
-  resolveGameFromPath,
-  type Game,
-} from '@tcg-cards/console-core';
+import { resolveGameFromPath, type Game } from '@tcg-cards/console-core';
 
 export function useCurrentGame() {
   const route = useRoute();
