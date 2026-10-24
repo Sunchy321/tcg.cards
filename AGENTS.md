@@ -61,7 +61,7 @@ Long-term memory is `CONTEXT.md` — a glossary, never implementation details an
 
 Work tickets from the tracker, and mark a ticket done as soon as it is done.
 
-After a feature is completed, do not run linting unless the user explicitly asks for it.
+After a feature is completed, do not run linting unless the user asks for it or an explicitly requested commit is being prepared. Before that commit, run `eslint --fix`, manually resolve all remaining lint findings, and briefly report the result.
 
 If the user explicitly asks for step-by-step execution, implement only one planned step per turn, then pause and wait for the user's next instruction before continuing.
 

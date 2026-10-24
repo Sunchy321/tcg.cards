@@ -26,6 +26,10 @@ Only use the logical OR operator (`||`) for frontend fallback behavior when bool
 
 Avoid cross-package relative paths in frontend code. Prefer `node_modules`-based imports and package exports whenever possible.
 
+Use braces for every `if` and `while` body, including single-statement bodies. Put each statement on its own line. In a multiline object literal, put at most one `key: value` pair on each line; a fully single-line object literal may contain multiple pairs.
+
+Use blank lines to separate distinct declarations and logical blocks, keeping definitions and control flow easy to scan instead of crowding them together.
+
 **In frontend UI text, do not mention specific deployment details or internal design and implementation plans. Keep user-facing copy focused on product behavior and functionality.**
 
 ## Naming
