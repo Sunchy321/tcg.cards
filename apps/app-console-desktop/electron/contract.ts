@@ -25,21 +25,62 @@ export interface DesktopBridge {
   runtime: {
     health(): Promise<RuntimeHealth>;
   };
+  tasks: {
+    start(taskType: string, params: Record<string, unknown>): Promise<{ taskRunId: string }>;
+    list(): Promise<TaskView[]>;
+    get(taskRunId: string): Promise<TaskView | null>;
+    onChange(listener: (task: TaskView) => void): () => void;
+  };
+}
+
+/** A stage snapshot safe to display in the renderer. */
+export interface TaskStageView {
+  key:    string;
+  label:  string;
+  status: string;
+  done:   number | null;
+  total:  number | null;
+}
+
+/** A public view of one persisted task run. */
+export interface TaskView {
+  id:           string;
+  taskType:     string;
+  label:        string;
+  status:       string;
+  phase:        'accepted' | 'saving' | 'starting' | 'loading' | 'running' | 'finished';
+  elapsedMs:    number;
+  stages:       TaskStageView[];
+  result:       Record<string, unknown> | null;
+  errorMessage: string | null;
+  createdAt:    string;
+  startedAt:    string | null;
+  finishedAt:   string | null;
 }
 
 /** Request sent only between the main and local business processes. */
-export interface RuntimeRequest {
-  id:     number;
-  method: 'health';
-}
+export type RuntimeRequest
+  = | { id: number, method: 'health' }
+    | { id: number, method: 'task:start', taskRunId: string, taskType: string, params: Record<string, unknown>, databaseUrl: string }
+    | { id: number, method: 'task:list', databaseUrl?: string }
+    | { id: number, method: 'task:get', taskRunId: string, databaseUrl?: string };
 
 /** Response sent only between the local business and main processes. */
 export interface RuntimeResponse {
-  id:     number;
-  result: RuntimeHealth;
+  id:      number;
+  result?: RuntimeHealth | TaskView | TaskView[] | null;
+  error?:  string;
+}
+
+/** A task update pushed from the task host to every open renderer. */
+export interface RuntimeTaskEvent {
+  event: 'task:changed';
+  task:  TaskView;
 }
 
 export const HEALTH_CHANNEL = 'desktop:runtime:health';
+export const TASK_CHANNEL = 'desktop:task';
+export const TASK_CHANGED_CHANNEL = 'desktop:task:changed';
 export const OPEN_SETTINGS = 'desktop:open-settings';
 
 /** Settings requests admitted by the main-process gateway. */

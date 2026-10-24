@@ -2,8 +2,11 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, MenuItem, net, protocol } fr
 import Store from 'electron-store';
 import { resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { randomUUID } from 'node:crypto';
+import { z } from 'zod';
 
-import { HEALTH_CHANNEL, OPEN_SETTINGS, CLOSE_REQUESTED } from './contract';
+import { HEALTH_CHANNEL, OPEN_SETTINGS, CLOSE_REQUESTED, TASK_CHANNEL, TASK_CHANGED_CHANNEL } from './contract';
+import type { TaskView } from './contract';
 import { RuntimeClient } from './runtime-client';
 import { Settings } from './settings';
 import { credentials } from './credentials';
@@ -178,9 +181,55 @@ app
       },
     );
     runtime = new RuntimeClient(resolve(__dirname, 'runtime.js'));
+    runtime.onTaskChange(task => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(TASK_CHANGED_CHANNEL, task);
+      }
+    });
     ipcMain.handle(HEALTH_CHANNEL, async event => {
       await authorize(event);
       return runtime!.health();
+    });
+    ipcMain.handle(TASK_CHANNEL, async (event, request: unknown) => {
+      await authorize(event);
+      const parsed = z.discriminatedUnion('action', [
+        z.strictObject({ action: z.literal('start'), taskType: z.string().min(1), params: z.record(z.string(), z.unknown()) }),
+        z.strictObject({ action: z.literal('list') }),
+        z.strictObject({ action: z.literal('get'), taskRunId: z.uuid() }),
+      ]).parse(request);
+      if (parsed.action === 'list') return runtime!.list(await settings.secret('database') ?? undefined);
+      if (parsed.action === 'get') return runtime!.get(parsed.taskRunId, await settings.secret('database') ?? undefined);
+      const taskRunId = randomUUID();
+      const createdAt = new Date().toISOString();
+      const accepted: TaskView = {
+        id:           taskRunId,
+        taskType:     parsed.taskType,
+        label:        parsed.taskType,
+        status:       'pending',
+        phase:        'accepted',
+        elapsedMs:    0,
+        stages:       [],
+        result:       null,
+        errorMessage: null,
+        createdAt,
+        startedAt:    null,
+        finishedAt:   null,
+      };
+      mainWindow?.webContents.send(TASK_CHANGED_CHANNEL, accepted);
+      void settings.secret('database').then(url => {
+        if (!url) throw new Error('请先在设置中填写本地数据库连接。');
+        return runtime!.start(taskRunId, parsed.taskType, parsed.params, url);
+      }).catch(error => {
+        const failed: TaskView = {
+          ...accepted,
+          status:       'failed',
+          phase:        'finished',
+          finishedAt:   new Date().toISOString(),
+          errorMessage: error instanceof Error ? error.message : '无法启动任务',
+        };
+        mainWindow?.webContents.send(TASK_CHANGED_CHANNEL, failed);
+      });
+      return { taskRunId };
     });
     openMainWindow();
     installSettingsMenu();

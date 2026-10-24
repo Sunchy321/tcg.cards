@@ -75,7 +75,7 @@ desktop 的能力位于这个远端 router 顺序之上，因为它还包含本�
 
 桌面开发启动与 Electron 入口构建使用社区 `nuxt-electron` 模块集成，以其生成的 quick-start 模板为起点。Nuxt 负责界面构建，Forge 负责应用打包；应用自身的进程与 IPC 职责仍保持明确。
 
-Electron 桌面界面经受控 preload 桥复用共享 Nuxt 管理端壳。主进程负责窗口和应用生命周期，本地业务在隔离的 Node.js 进程中执行。生产桌面运行不依赖单独启动的 Bun HTTP 服务。PostgreSQL、Git、数据仓库及既有外部工具仍由外部管理。Bun workspace 包管理与测试不属于本次运行时替换范围。参见 [ADR-0019](adr/0019-electron-replaces-tauri-console.md)。
+Electron 桌面界面经受控 preload 桥复用共享 Nuxt 管理端壳。主进程负责窗口和应用生命周期。一个常驻 Electron `utilityProcess` 管理本地任务调度和状态，并通过 Node.js Worker 线程运行任务定义。本地 PostgreSQL 任务表是任务身份与历史的持久来源，界面向任务宿主查询和订阅。生产桌面运行不依赖单独启动的 Bun HTTP 服务。PostgreSQL、Git、数据仓库及既有外部工具仍由外部管理。Bun workspace 包管理与测试不属于本次运行时替换范围。参见 [ADR-0019](adr/0019-electron-replaces-tauri-console.md) 和 [ADR-0020](adr/0020-electron-task-host.md)。
 
 `packages/` 工作区包含供多个应用复用的共享基础模块：
 

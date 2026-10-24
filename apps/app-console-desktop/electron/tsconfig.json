@@ -8,12 +8,13 @@
     "skipLibCheck": true,
     "types": [
       "node",
-      "electron"
+      "electron",
+      "vite/client"
     ],
     "allowImportingTsExtensions": true
   },
   "include": [
-    "*.ts",
+    "**/*.ts",
     "../shared/*.ts"
   ]
 }

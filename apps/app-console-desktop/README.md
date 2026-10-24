@@ -8,7 +8,7 @@ Install workspace dependencies from the repository root with `bun install`, then
 
 Use `bun run dev:web` to run Nuxt and the Electron build watchers without opening Electron. After building, `bun run preview` opens the static application.
 
-The shell opens local management without signing in. Settings are available locally; tasks, publishing authentication, and game workflows are migrated through separate tickets. Existing Tauri features are not yet all available in Electron.
+The shell opens local management without signing in. Settings and the initial task runtime are available locally; publishing authentication and game workflows are migrated through separate tickets. Existing Tauri features are not yet all available in Electron.
 
 ## Verification
 
@@ -16,8 +16,15 @@ The shell opens local management without signing in. Settings are available loca
 - `bun run build` generates Nuxt static assets and all Electron entries through `nuxt-electron`.
 - After building, `bun run test:electron` exercises a hidden Electron window and IPC bridge using static assets and an isolated temporary profile.
 - `bun run package:electron` creates a macOS application; `bun run make:electron` also creates its ZIP distribution. Signing, notarization, and automatic updates are not configured.
+- If the Electron ZIP is already available locally, set `ELECTRON_ZIP_DIR` to its containing directory when packaging to avoid a download.
 
 Installed execution uses Electron's bundled Node.js, not a system Bun runtime. PostgreSQL and existing external tools remain separately managed.
+
+## Tasks
+
+The task host is a long-lived Electron utility process. It records runs and stages in the configured local PostgreSQL database and starts Worker threads for task definitions. Each task calls the framework's `registerTask` from a `*.task.ts` module under the Electron business source tree. The build discovers those lightweight modules automatically; the definition is loaded in a Worker only when requested.
+
+The `/dev/tasks` page starts a short development task. `/tasks` and the header task button show unfinished runs from the task host. The development task requires a local PostgreSQL connection under Settings → Database; it does not read game or remote data. Run `bun --env-file=../../packages/db/.env.local-dev run test:tasks` from this app to exercise the page, IPC, host, Worker, progress and completion against the configured local development database. The test is skipped when `DATABASE_URL` is absent.
 
 ## Scaffold provenance
 

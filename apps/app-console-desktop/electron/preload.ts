@@ -6,7 +6,10 @@ import {
   SETTINGS_CHANNEL,
   CLOSE_CHANNEL,
   CLOSE_REQUESTED,
+  TASK_CHANNEL,
+  TASK_CHANGED_CHANNEL,
   type DesktopBridge,
+  type TaskView,
 } from './contract';
 
 let settingsListener: (() => void) | undefined;
@@ -46,6 +49,16 @@ const bridge: DesktopBridge = {
   },
   runtime: {
     health: () => ipcRenderer.invoke(HEALTH_CHANNEL),
+  },
+  tasks: {
+    start: (taskType, params) => ipcRenderer.invoke(TASK_CHANNEL, { action: 'start', taskType, params }),
+    list:  () => ipcRenderer.invoke(TASK_CHANNEL, { action: 'list' }),
+    get:   taskRunId => ipcRenderer.invoke(TASK_CHANNEL, { action: 'get', taskRunId }),
+    onChange(listener) {
+      const handler = (_event: Electron.IpcRendererEvent, task: TaskView) => listener(task);
+      ipcRenderer.on(TASK_CHANGED_CHANNEL, handler);
+      return () => ipcRenderer.removeListener(TASK_CHANGED_CHANNEL, handler);
+    },
   },
 };
 
