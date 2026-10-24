@@ -1,5 +1,5 @@
 <template>
-  <UAlert role="alert" v-if="initError" color="error" :description="initError" />
+  <UAlert v-if="initError" role="alert" color="error" :description="initError" />
   <div class="overflow-hidden rounded-lg border border-default bg-default">
     <div ref="editorRef" class="h-140 w-full" />
   </div>
@@ -7,22 +7,19 @@
 
 <script setup lang="ts">
 import type * as Monaco from 'monaco-editor';
-import type {
-  MonacoJsonEditorRef,
-  MonacoJsonEditorValidation,
-} from '~/types/monaco-json-editor';
+import type { MonacoJsonEditorRef, MonacoJsonEditorValidation } from '~/types/monaco-json-editor';
 
 import { onMounted, onUnmounted, ref, shallowRef, watch } from 'vue';
 
 const props = defineProps<{
   modelValue: string;
-  schema: Record<string, unknown>;
-  disabled?: boolean;
+  schema:     Record<string, unknown>;
+  disabled?:  boolean;
 }>();
 
 const emit = defineEmits<{
   'update:modelValue': [value: string];
-  'validationChange': [payload: MonacoJsonEditorValidation];
+  'validationChange':  [payload: MonacoJsonEditorValidation];
 }>();
 
 /** Monaco editor module loaded on the client. */
@@ -64,22 +61,22 @@ function getThemeName() {
 /** Monaco editor options built for the desktop config editing experience. */
 function createEditorOptions(): Monaco.editor.IStandaloneEditorConstructionOptions {
   return {
-    value:                       props.modelValue,
-    language:                    'json',
-    automaticLayout:             true,
-    formatOnPaste:               true,
-    formatOnType:                true,
-    minimap:                     { enabled: false },
-    wordWrap:                    'on',
-    lineNumbersMinChars:         3,
-    scrollBeyondLastLine:        false,
-    quickSuggestions:            { comments: false, other: true, strings: true },
-    suggestOnTriggerCharacters:  true,
-    tabSize:                     2,
-    insertSpaces:                true,
-    readOnly:                    props.disabled ?? false,
-    bracketPairColorization:     { enabled: true },
-    guides:                      { bracketPairs: true, indentation: true },
+    value:                      props.modelValue,
+    language:                   'json',
+    automaticLayout:            true,
+    formatOnPaste:              true,
+    formatOnType:               true,
+    minimap:                    { enabled: false },
+    wordWrap:                   'on',
+    lineNumbersMinChars:        3,
+    scrollBeyondLastLine:       false,
+    quickSuggestions:           { comments: false, other: true, strings: true },
+    suggestOnTriggerCharacters: true,
+    tabSize:                    2,
+    insertSpaces:               true,
+    readOnly:                   props.disabled ?? false,
+    bracketPairColorization:    { enabled: true },
+    guides:                     { bracketPairs: true, indentation: true },
   };
 }
 
@@ -91,9 +88,9 @@ function applySchema(runtime: MonacoRuntime) {
     enableSchemaRequest: false,
     schemas:             [
       {
-        uri: schemaUri,
+        uri:       schemaUri,
         fileMatch: [modelUri],
-        schema: props.schema,
+        schema:    props.schema,
       },
     ],
   });
@@ -153,11 +150,7 @@ async function initEditor() {
   if (disposed || !editorRef.value) return;
   applySchema(runtime);
 
-  model.value = runtime.monaco.editor.createModel(
-    props.modelValue,
-    'json',
-    runtime.monaco.Uri.parse(modelUri),
-  );
+  model.value = runtime.monaco.editor.createModel(props.modelValue, 'json', runtime.monaco.Uri.parse(modelUri));
 
   editor.value = runtime.monaco.editor.create(editorRef.value, {
     ...createEditorOptions(),
@@ -192,31 +185,43 @@ defineExpose<MonacoJsonEditorRef>({
   formatDocument,
 });
 
-watch(() => props.modelValue, value => {
-  const current = editor.value?.getValue();
+watch(
+  () => props.modelValue,
+  value => {
+    const current = editor.value?.getValue();
 
-  if (!editor.value || current === value) {
-    return;
-  }
+    if (!editor.value || current === value) {
+      return;
+    }
 
-  editor.value.setValue(value);
-});
+    editor.value.setValue(value);
+  },
+);
 
-watch(() => props.schema, async () => {
-  const runtime = await loadMonaco();
-  if (disposed || !editorRef.value) return;
-  applySchema(runtime);
-  emitValidation(runtime);
-}, { deep: true });
+watch(
+  () => props.schema,
+  async () => {
+    const runtime = await loadMonaco();
+    if (disposed || !editorRef.value) return;
+    applySchema(runtime);
+    emitValidation(runtime);
+  },
+  { deep: true },
+);
 
-watch(() => props.disabled, value => {
-  editor.value?.updateOptions({
-    readOnly: value ?? false,
-  });
-});
+watch(
+  () => props.disabled,
+  value => {
+    editor.value?.updateOptions({
+      readOnly: value ?? false,
+    });
+  },
+);
 
 onMounted(() => {
-  void initEditor().catch(() => { if (!disposed) initError.value = '编辑器加载失败，请重新打开此页。'; });
+  void initEditor().catch(() => {
+    if (!disposed) initError.value = '编辑器加载失败，请重新打开此页。';
+  });
 });
 
 onUnmounted(() => {

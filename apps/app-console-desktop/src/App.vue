@@ -14,15 +14,19 @@ import { createConsoleAdminHost, provideConsoleAdminHost } from '@tcg-cards/cons
 import { useDesktopPlatform } from './composables/useDesktopPlatform';
 
 provideConsolePlatform(useDesktopPlatform());
-provideConsoleAdminHost(createConsoleAdminHost({
-  localGames: GAMES,
-  async signOut() {},
-}));
+provideConsoleAdminHost(
+  createConsoleAdminHost({
+    localGames: GAMES,
+    async signOut() {},
+  }),
+);
 
 const router = useRouter();
 let unsubscribe: (() => void) | undefined;
 onMounted(() => {
-  unsubscribe = window.desktop.onOpenSettings(() => { void router.push('/settings'); });
+  unsubscribe = window.desktop.onOpenSettings(() => {
+    void router.push('/settings');
+  });
 });
 onBeforeUnmount(() => unsubscribe?.());
 </script>

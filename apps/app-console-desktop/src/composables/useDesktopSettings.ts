@@ -2,7 +2,8 @@ import type { SettingsSnapshot } from '../../shared/settings';
 
 /** Removes Electron transport wording while keeping the main process's sanitized error. */
 export function settingsError(error: unknown) {
-  const text = error && typeof error === 'object' && 'message' in error && typeof error.message === 'string' ? error.message : '';
+  const text
+    = error && typeof error === 'object' && 'message' in error && typeof error.message === 'string' ? error.message : '';
   const message = text.includes('Error: ') ? text.slice(text.lastIndexOf('Error: ') + 7) : text;
   return /^[\u3400-\u9fff]/.test(message) ? message : '操作失败，请检查设置后重试。';
 }
@@ -17,9 +18,13 @@ export function useDesktopSettings() {
   async function load() {
     loading.value = true;
     error.value = '';
-    try { snapshot.value = await bridge.read(); }
-    catch (cause) { error.value = settingsError(cause); }
-    finally { loading.value = false; }
+    try {
+      snapshot.value = await bridge.read();
+    } catch (cause) {
+      error.value = settingsError(cause);
+    } finally {
+      loading.value = false;
+    }
   }
   /** Applies a confirmed save response without discarding another page's editor text. */
   async function update(key: string, value: unknown) {

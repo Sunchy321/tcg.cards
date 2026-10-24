@@ -30,16 +30,16 @@ function onBuilt(group: 'main' | 'preload', lifecycle: BuildLifecycle) {
 export const electronOptions: NuxtElectronOptions = {
   // Existing secure app-protocol URLs do not need the module's file:// path rewrites.
   disableDefaultOptions: true,
-  build: [
+  build:                 [
     {
       // Shared Nuxt tsconfig references may not exist during the first dev build.
-      vite: { esbuild: { tsconfigRaw: '{"compilerOptions":{"target":"ES2022"}}' } },
-      entry: { main: 'electron/main.ts', runtime: 'electron/runtime.ts' },
+      vite:    { esbuild: { tsconfigRaw: '{"compilerOptions":{"target":"ES2022"}}' } },
+      entry:   { main: 'electron/main.ts', runtime: 'electron/runtime.ts' },
       onstart: lifecycle => onBuilt('main', lifecycle),
     },
     {
-      vite: { esbuild: { tsconfigRaw: '{"compilerOptions":{"target":"ES2022"}}' } },
-      entry: 'electron/preload.ts',
+      vite:    { esbuild: { tsconfigRaw: '{"compilerOptions":{"target":"ES2022"}}' } },
+      entry:   'electron/preload.ts',
       onstart: lifecycle => onBuilt('preload', lifecycle),
     },
   ],

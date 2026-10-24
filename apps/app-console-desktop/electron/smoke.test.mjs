@@ -11,8 +11,8 @@ test('opens local management without signing in and restores a closed window', {
   let app;
   try {
     app = await electron.launch({
-      args: ['.', '--smoke-test', `--user-data-dir=${profile}`],
-      env: { ...process.env },
+      args:    ['.', '--smoke-test', `--user-data-dir=${profile}`],
+      env:     { ...process.env },
       timeout: 60_000,
     });
     app.process().stderr?.on('data', chunk => process.stderr.write(chunk));
@@ -36,14 +36,19 @@ test('opens local management without signing in and restores a closed window', {
     });
     await closed;
     const reopened = app.waitForEvent('window');
-    await app.evaluate(({ app }) => { app.emit('activate'); });
+    await app.evaluate(({ app }) => {
+      app.emit('activate');
+    });
     const restored = await reopened;
     await restored.getByText('最近活动', { exact: true }).waitFor({ timeout: 60_000 });
     assert.equal((await restored.evaluate(() => window.desktop.runtime.health())).runtime, 'node');
 
     // A failed business process must reject calls rather than leave the UI waiting.
     process.kill(health.pid, 'SIGTERM');
-    await assert.rejects(restored.evaluate(() => window.desktop.runtime.health()), /unavailable|exited/i);
+    await assert.rejects(
+      restored.evaluate(() => window.desktop.runtime.health()),
+      /unavailable|exited/i,
+    );
   } finally {
     await app?.close();
     await rm(profile, { recursive: true, force: true });

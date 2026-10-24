@@ -27,6 +27,6 @@ export function useDesktopPlatform() {
     },
     session: createConsoleSession({ get: () => null }),
     storage: createConsoleStorage(window.localStorage),
-    toast: { show: input => { toast.add(input); } },
+    toast:   { show: input => { toast.add(input); } },
   });
 }

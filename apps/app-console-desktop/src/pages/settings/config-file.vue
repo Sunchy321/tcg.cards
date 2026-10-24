@@ -3,18 +3,38 @@
     <UCard>
       <div class="space-y-4">
         <div class="flex gap-2">
-          <UButton label="保存" icon="i-lucide-save" :loading="saving" :disabled="!dirty || saving" @click="void save()" />
-          <UButton label="格式化" icon="i-lucide-braces" color="neutral" variant="soft" :disabled="saving" @click="format" />
-          <UButton label="重新加载" icon="i-lucide-rotate-ccw" color="neutral" variant="ghost" :disabled="saving" @click="reload" />
+          <UButton
+            label="保存"
+            icon="i-lucide-save"
+            :loading="saving"
+            :disabled="!dirty || saving"
+            @click="void save()"
+          />
+          <UButton
+            label="格式化"
+            icon="i-lucide-braces"
+            color="neutral"
+            variant="soft"
+            :disabled="saving"
+            @click="format"
+          />
+          <UButton
+            label="重新加载"
+            icon="i-lucide-rotate-ccw"
+            color="neutral"
+            variant="ghost"
+            :disabled="saving"
+            @click="reload"
+          />
           <span v-if="dirty" class="self-center text-xs text-muted">有未保存的修改</span>
         </div>
-        <UAlert role="alert" v-if="error" color="error" :description="error" />
+        <UAlert v-if="error" role="alert" color="error" :description="error" />
         <p v-if="saved" role="status" class="text-sm text-success">已保存。</p>
         <MonacoJsonEditor v-if="loaded" v-model="text" :schema="jsonSchema" :disabled="saving" />
       </div>
     </UCard>
     <UModal v-model:open="confirmOpen" title="保存修改？" description="还有未保存的配置修改。" :dismissible="false">
-      <template #body><UAlert role="alert" v-if="error" color="error" :description="error" /></template>
+      <template #body><UAlert v-if="error" role="alert" color="error" :description="error" /></template>
       <template #footer>
         <div class="flex w-full flex-wrap justify-end gap-2">
           <UButton label="继续编辑" color="neutral" variant="ghost" :disabled="saving" @click="choose('cancel')" />
@@ -53,7 +73,9 @@ async function load() {
     revision.value = snapshot.value.revision;
     loaded.value = true;
     error.value = '';
-  } catch (cause) { error.value = settingsError(cause); }
+  } catch (cause) {
+    error.value = settingsError(cause);
+  }
 }
 /** Persists only a completely valid document and retains text when persistence fails. */
 async function save() {
@@ -69,23 +91,33 @@ async function save() {
     await bridge.setDirty(false);
     saved.value = true;
     return true;
-  } catch (cause) { error.value = settingsError(cause); return false; }
-  finally { saving.value = false; }
+  } catch (cause) {
+    error.value = settingsError(cause);
+    return false;
+  } finally {
+    saving.value = false;
+  }
 }
 /** Formats a valid draft without saving it. */
 function format() {
-  try { text.value = JSON.stringify(parseConfiguration(text.value), null, 2); error.value = ''; }
-  catch (cause) { error.value = settingsError(cause); }
+  try {
+    text.value = JSON.stringify(parseConfiguration(text.value), null, 2);
+    error.value = '';
+  } catch (cause) {
+    error.value = settingsError(cause);
+  }
 }
 /** Opens one shared three-choice prompt for navigation, reload and native close. */
 function confirm(): Promise<'save' | 'discard' | 'cancel'> {
   if (pending) return Promise.resolve('cancel');
   confirmOpen.value = true;
-  return new Promise(resolve => { pending = resolve; });
+  return new Promise(resolve => {
+    pending = resolve;
+  });
 }
 /** Leaves the prompt open on failed validation so the draft is never silently discarded. */
 async function choose(choice: 'save' | 'discard' | 'cancel') {
-  if (choice === 'save' && !await save()) return;
+  if (choice === 'save' && !(await save())) return;
   confirmOpen.value = false;
   const resolve = pending;
   pending = undefined;
@@ -93,11 +125,21 @@ async function choose(choice: 'save' | 'discard' | 'cancel') {
 }
 /** Confirms before a reload can discard a draft. */
 async function reload() {
-  if (dirty.value && await confirm() === 'cancel') return;
+  if (dirty.value && (await confirm()) === 'cancel') return;
   await load();
 }
-watch(dirty, value => { void bridge.setDirty(value).catch(cause => { error.value = settingsError(cause); }); }, { flush: 'sync' });
-watch(text, () => { saved.value = false; });
+watch(
+  dirty,
+  value => {
+    void bridge.setDirty(value).catch(cause => {
+      error.value = settingsError(cause);
+    });
+  },
+  { flush: 'sync' },
+);
+watch(text, () => {
+  saved.value = false;
+});
 onBeforeRouteLeave(async () => {
   if (!dirty.value) return true;
   const choice = await confirm();

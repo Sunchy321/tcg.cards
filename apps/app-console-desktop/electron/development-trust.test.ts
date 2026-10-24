@@ -8,7 +8,9 @@ test('rejects an arbitrary local HTTP service even on an otherwise acceptable or
   let trusted = false;
   const server = createServer((request, response) => {
     const challenge = new URL(request.url!, 'http://localhost').searchParams.get('challenge')!;
-    response.end(trusted ? createHmac('sha256', 'test-launch-identity').update(challenge).digest('hex') : 'arbitrary page');
+    response.end(
+      trusted ? createHmac('sha256', 'test-launch-identity').update(challenge).digest('hex') : 'arbitrary page',
+    );
   });
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   try {
@@ -20,7 +22,9 @@ test('rejects an arbitrary local HTTP service even on an otherwise acceptable or
     await verifyDevelopment(url, 'test-launch-identity');
     await assert.rejects(verifyDevelopment(url, undefined));
     await assert.rejects(verifyDevelopment(url, 'another-launch'));
-  } finally { await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())); }
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close(error => (error ? reject(error) : resolve())));
+  }
 });
 
 test('waits for the current development identity during a server rebuild', async () => {
@@ -36,11 +40,13 @@ test('waits for the current development identity during a server rebuild', async
     assert.ok(address && typeof address !== 'string');
     const url = `http://127.0.0.1:${address.port}`;
     await assert.rejects(verifyDevelopment(url, 'current-launch'));
-    rebuilt = setTimeout(() => { identity = 'current-launch'; }, 150);
+    rebuilt = setTimeout(() => {
+      identity = 'current-launch';
+    }, 150);
     await verifyDevelopment(url, 'current-launch', 1500);
     await assert.rejects(verifyDevelopment(url, 'unrelated-launch', 100));
   } finally {
     clearTimeout(rebuilt);
-    await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+    await new Promise<void>((resolve, reject) => server.close(error => (error ? reject(error) : resolve())));
   }
 });
