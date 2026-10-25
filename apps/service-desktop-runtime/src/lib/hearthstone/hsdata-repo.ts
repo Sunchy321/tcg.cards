@@ -1,6 +1,9 @@
-import { spawnSync } from 'node:child_process';
-import { existsSync, statSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { spawn, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { createReadStream, existsSync, statSync } from 'node:fs';
+import { access } from 'node:fs/promises';
+import { Readable } from 'node:stream';
+import { join, resolve } from 'node:path';
 
 import { ORPCError } from '@orpc/server';
 
@@ -178,16 +181,37 @@ const runGit = (repoPath: string, args: string[], stdin?: string) => {
   return command.stdout;
 };
 
-/** Starts one Bun-managed git subprocess with piped stdout and stderr. */
+/** Starts one git subprocess with piped stdout and stderr. */
 const spawnGit = (repoPath: string, args: string[], stdin?: string) => {
   try {
-    return Bun.spawn({
-      cmd:    ['git', ...args],
-      cwd:    repoPath,
-      stdin:  stdin == null ? 'ignore' : Buffer.from(stdin, 'utf8'),
-      stdout: 'pipe',
-      stderr: 'pipe',
+    const child = spawn('git', args, { cwd: repoPath, stdio: [stdin == null ? 'ignore' : 'pipe', 'pipe', 'pipe'] });
+    if (stdin != null) child.stdin?.end(stdin, 'utf8');
+
+    let signalCode: NodeJS.Signals | null = null;
+    let spawnError: Error | null = null;
+    let stderrText = '';
+    child.stderr?.setEncoding('utf8');
+    child.stderr?.on('data', chunk => {
+      stderrText += chunk;
     });
+    const exited = new Promise<number | null>(resolveExit => {
+      child.once('close', (status, signal) => {
+        signalCode = signal;
+        resolveExit(status);
+      });
+      child.once('error', error => {
+        spawnError = error;
+        resolveExit(null);
+      });
+    });
+
+    return {
+      stdout: Readable.toWeb(child.stdout!) as unknown as ReadableStream<Uint8Array>,
+      exited,
+      get signalCode() { return signalCode; },
+      get spawnError() { return spawnError; },
+      get stderrText() { return stderrText; },
+    };
   } catch (error) {
     const err = new Error(formatGitCommandFailure(args, {
       status: null,
@@ -201,21 +225,20 @@ const spawnGit = (repoPath: string, args: string[], stdin?: string) => {
   }
 };
 
-/** Reads one git command stdout fully through Bun.spawn for payload-sized outputs. */
+/** Reads one git command stdout fully for payload-sized outputs. */
 const runGitText = async (repoPath: string, args: string[], stdin?: string) => {
   const command = spawnGit(repoPath, args, stdin);
-  const [status, stdout, stderr] = await Promise.all([
+  const [status, stdout] = await Promise.all([
     command.exited,
     new Response(command.stdout).text(),
-    new Response(command.stderr).text(),
   ]);
 
   if (status !== 0) {
     throw new Error(formatGitCommandFailure(args, {
       status,
       signal: command.signalCode,
-      error:  null,
-      stderr,
+      error:  command.spawnError,
+      stderr: command.stderrText,
     }));
   }
 
@@ -347,9 +370,13 @@ export const syncHsdataRemoteVersions = () => {
 const readWorktreeXml = async (repoPath: string) => {
   const parts: string[] = [];
   for (const path of cardDefsPartPaths) {
-    const file = Bun.file(`${repoPath}/${path}`);
-    if (!await file.exists()) continue;
-    parts.push(await readNormalizedHsdataXmlStream(file.stream()));
+    const filePath = join(repoPath, path);
+    try {
+      await access(filePath);
+    } catch {
+      continue;
+    }
+    parts.push(await readNormalizedHsdataXmlStream(Readable.toWeb(createReadStream(filePath)) as unknown as ReadableStream<Uint8Array>));
   }
 
   return mergeCardDefsXmlText(parts[0]!, parts.slice(1));
@@ -567,7 +594,7 @@ const listRefCardDefsParts = (repoPath: string, objectPrefix: string) => {
 };
 
 /** Drains one stream into one running hasher without buffering the whole payload. */
-const hashStreamInto = async (stream: ReadableStream<Uint8Array>, hasher: Bun.CryptoHasher) => {
+const hashStreamInto = async (stream: ReadableStream<Uint8Array>, hasher: ReturnType<typeof createHash>) => {
   const reader = stream.getReader();
   while (true) {
     const { done, value } = await reader.read();
@@ -581,7 +608,7 @@ const hashStreamInto = async (stream: ReadableStream<Uint8Array>, hasher: Bun.Cr
  *  matches the patch metadata sync and stays identical for single-part refs. */
 const parseRefHsdataParts = async (repoPath: string, objectPrefix: string): Promise<ParsedHsdataStreamResult> => {
   const objects = listRefCardDefsParts(repoPath, objectPrefix);
-  const rawHasher = new Bun.CryptoHasher('sha256');
+  const rawHasher = createHash('sha256');
   const parts: ParsedHsdataStreamResult[] = [];
 
   for (const object of objects) {
@@ -604,8 +631,8 @@ const parseRefHsdataParts = async (repoPath: string, objectPrefix: string): Prom
       throw new Error(formatGitCommandFailure(args, {
         status,
         signal: proc.signalCode,
-        error:  null,
-        stderr: await new Response(proc.stderr).text(),
+        error:  proc.spawnError,
+        stderr: proc.stderrText,
       }));
     }
     if (parseError != null) {
@@ -620,19 +647,21 @@ const parseRefHsdataParts = async (repoPath: string, objectPrefix: string): Prom
 
 /** Parses every existing CardDefs part file in the worktree into one merged payload. */
 const parseWorktreeHsdataParts = async (repoPath: string): Promise<ParsedHsdataStreamResult> => {
-  const rawHasher = new Bun.CryptoHasher('sha256');
+  const rawHasher = createHash('sha256');
   const parts: ParsedHsdataStreamResult[] = [];
 
   for (const path of cardDefsPartPaths) {
-    const file = Bun.file(`${repoPath}/${path}`);
-    if (!await file.exists()) {
+    const filePath = join(repoPath, path);
+    try {
+      await access(filePath);
+    } catch {
       if (path === cardDefsBasePath) {
         throw new Error(`${cardDefsBasePath} was not found in the hsdata repo worktree`);
       }
       continue;
     }
 
-    const [hashStream, parseStream] = file.stream().tee();
+    const [hashStream, parseStream] = (Readable.toWeb(createReadStream(filePath)) as unknown as ReadableStream<Uint8Array>).tee();
     const hashDone = hashStreamInto(hashStream, rawHasher);
     parts.push(await parseHsdataXmlStream(parseStream));
     await hashDone;
@@ -692,7 +721,7 @@ export const collectAllPatchMeta = async (): Promise<HsdataPatchMeta[]> => {
     // Hash the raw bytes of every existing part file in stable part order, matching
     // the multi-part import source hash (identical for pre-split single-file refs).
     const objects = listRefCardDefsParts(repoPath, `${tagRef}:`);
-    const hasher = new Bun.CryptoHasher('sha256');
+    const hasher = createHash('sha256');
     for (const object of objects) {
       const proc = spawnGit(repoPath, ['cat-file', 'blob', object]);
       const reader = proc.stdout.getReader();
@@ -703,10 +732,10 @@ export const collectAllPatchMeta = async (): Promise<HsdataPatchMeta[]> => {
       }
       const exitStatus = await proc.exited;
       if (exitStatus !== 0) {
-        const stderr = await new Response(proc.stderr).text();
+        const stderr = proc.stderrText;
         throw new Error(formatGitCommandFailure(
           ['cat-file', 'blob', object],
-          { status: exitStatus, signal: proc.signalCode, error: null, stderr },
+          { status: exitStatus, signal: proc.signalCode, error: proc.spawnError, stderr },
         ));
       }
     }
@@ -728,7 +757,7 @@ export const collectAllPatchMeta = async (): Promise<HsdataPatchMeta[]> => {
 
     try {
       const objects = listRefCardDefsParts(repoPath, `${extraCommit}:`);
-      const hasher = new Bun.CryptoHasher('sha256');
+      const hasher = createHash('sha256');
       for (const object of objects) {
         const proc = spawnGit(repoPath, ['cat-file', 'blob', object]);
         const reader = proc.stdout.getReader();

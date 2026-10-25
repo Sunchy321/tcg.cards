@@ -1,13 +1,14 @@
 import { os } from '../index';
 import { z } from 'zod';
 import { readdirSync, statSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { inArray } from 'drizzle-orm';
 
 import { getLocalDb } from '../../lib/hearthstone/hsdata-local-db';
 import { PatchState } from '@tcg-cards/db/schema/local/hearthstone';
 
-const WORKSPACE = resolve(import.meta.dir, '..', '..', '..', '..', '..', '..');
+const WORKSPACE = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..', '..');
 const UNPACK_DIR = resolve(WORKSPACE, 'data', 'hearthstone', 'unpack');
 
 const buildInfo = z.object({

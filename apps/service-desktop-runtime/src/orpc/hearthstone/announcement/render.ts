@@ -1,7 +1,10 @@
 import { ORPCError, os } from '@orpc/server';
+import { execFile as execFileCallback } from 'node:child_process';
+import { readFile, writeFile } from 'node:fs/promises';
 import { z } from 'zod';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { promisify } from 'node:util';
 import { mkdtemp, rm } from 'node:fs/promises';
 
 import { checkItemImages, prepareItemRequests, renderAllItems, renderPreparedRequest } from '../../../lib/hearthstone/announcement/render';
@@ -9,6 +12,7 @@ import { requireHearthstoneImageBucketDir } from '../../../lib/hearthstone/image
 import { locale } from '@tcg-cards/model/hearthstone/schema/basic';
 
 const RENDERABLE_TYPES = ['card_change', 'card_update'] as const;
+const execFile = promisify(execFileCallback);
 
 const itemInput = z.object({
   itemKey:     z.string().min(1),
@@ -120,14 +124,17 @@ export const downloadItemImages = os
       const paths: string[] = [];
       for (const file of rawFiles) {
         const path = join(dir, file.fileName);
-        await Bun.write(path, file.bytes);
+        await writeFile(path, file.bytes);
         paths.push(path);
       }
       const fileName = `${input.item.cardId ?? 'announcement'}-images.zip`;
       const archivePath = join(dir, fileName);
-      const process = Bun.spawn(['zip', '-j', archivePath, ...paths]);
-      if (await process.exited !== 0) throw new Error('创建 ZIP 失败');
-      const bytes = new Uint8Array(await Bun.file(archivePath).arrayBuffer());
+      try {
+        await execFile('zip', ['-j', archivePath, ...paths]);
+      } catch {
+        throw new Error('创建 ZIP 失败');
+      }
+      const bytes = await readFile(archivePath);
       return { files: [], archive: { fileName, base64: Buffer.from(bytes).toString('base64') }, errors };
     } finally {
       await rm(dir, { recursive: true, force: true });
@@ -147,13 +154,14 @@ export const previewImage = os
     const prefix = input.renderHash.slice(0, 2);
     const filePath = join(bucketDir, 'hearthstone', 'card', input.category, 'hand', input.template, 'normal', prefix, `${input.renderHash}.webp`);
 
-    const file = Bun.file(filePath);
-    if (!(await file.exists())) {
+    let bytes: Buffer;
+    try {
+      bytes = await readFile(filePath);
+    } catch {
       throw new ORPCError('NOT_FOUND', { message: `Rendered image not found: ${filePath}` });
     }
 
-    const bytes = await file.arrayBuffer();
-    return { base64: Buffer.from(new Uint8Array(bytes)).toString('base64') };
+    return { base64: bytes.toString('base64') };
   });
 
 export const getItemImages = os

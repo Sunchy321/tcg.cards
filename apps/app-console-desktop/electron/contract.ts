@@ -1,4 +1,6 @@
 import type { SettingsSnapshot } from '../shared/settings';
+import type { TaskPageSnapshot } from '@tcg-cards/model/task';
+import type { RuntimeOverrides } from './runtime/runtime-config';
 
 /** User-facing target and scope shown before one publish task is accepted. */
 export interface PublishConfirmation {
@@ -13,9 +15,13 @@ export interface RuntimeHealth {
   version: string;
 }
 
+/** Configuration snapshot passed from Electron to the isolated runtime process. */
+export type { RuntimeOverrides };
+
 /** Restricted native capabilities available to the desktop renderer. */
 export interface DesktopBridge {
   onOpenSettings(listener: () => void): () => void;
+  external: { open(url: string): Promise<void> };
   auth: {
     status(): Promise<RemoteAuthStatus>;
     login(baseUrl: string, username: string, password: string): Promise<RemoteAuthStatus>;
@@ -36,6 +42,11 @@ export interface DesktopBridge {
   runtime: {
     health(): Promise<RuntimeHealth>;
   };
+  api: {
+    request(input: DesktopApiRequest): Promise<DesktopApiResponse>;
+    cancel(requestId: string): void;
+    onStream(listener: (event: DesktopApiStreamEvent) => void): () => void;
+  };
   tasks: {
     start(taskType: string, params: Record<string, unknown>): Promise<TaskStartReply | null>;
     retry(taskRunId: string): Promise<TaskStartReply | null>;
@@ -45,6 +56,29 @@ export interface DesktopBridge {
     get(taskRunId: string): Promise<TaskView | null>;
     onChange(listener: (task: TaskView) => void): () => void;
   };
+}
+
+/** HTTP-shaped request carried through private IPC to the local business process. */
+export interface DesktopApiRequest {
+  requestId: string;
+  path:      string;
+  method:    string;
+  headers:   Array<[string, string]>;
+  body:      Uint8Array | null;
+}
+
+/** Response metadata returned before its body stream is relayed over IPC. */
+export interface DesktopApiResponse {
+  status:  number;
+  headers: Array<[string, string]>;
+}
+
+/** One response-body chunk or terminal notification for a renderer request. */
+export interface DesktopApiStreamEvent {
+  requestId: string;
+  kind:      'chunk' | 'end';
+  chunk?:    Uint8Array;
+  error?:    string;
 }
 
 /** Control operations admitted while one run is unfinished. */
@@ -73,19 +107,21 @@ export interface TaskStageView {
 
 /** A public view of one persisted task run. */
 export interface TaskView {
-  id:           string;
-  taskType:     string;
-  label:        string;
+  id:            string;
+  taskType:      string;
+  label:         string;
   /** Persisted lifecycle state; discarded marks a renderer identity that lost a creation race and never existed. */
-  status:       string;
-  phase:        'accepted' | 'saving' | 'starting' | 'loading' | 'running' | 'finished';
-  elapsedMs:    number;
-  stages:       TaskStageView[];
-  result:       Record<string, unknown> | null;
-  errorMessage: string | null;
-  createdAt:    string;
-  startedAt:    string | null;
-  finishedAt:   string | null;
+  status:        string;
+  phase:         'accepted' | 'saving' | 'starting' | 'loading' | 'running' | 'finished';
+  elapsedMs:     number;
+  stages:        TaskStageView[];
+  result:        Record<string, unknown> | null;
+  errorMessage:  string | null;
+  createdAt:     string;
+  startedAt:     string | null;
+  finishedAt:    string | null;
+  /** Task page view produced from the same persisted run and stage rows. */
+  pageSnapshot?: TaskPageSnapshot;
 }
 
 /** Request sent only between the main and local business processes. */
@@ -100,12 +136,15 @@ export type RuntimeRequest
     | { id: number, method: 'task:control', taskRunId: string, kind: TaskControlKind, databaseUrl: string }
     | { id: number, method: 'task:latest-by-types', taskTypes: string[], databaseUrl: string }
     | { id: number, method: 'task:list', databaseUrl?: string }
-    | { id: number, method: 'task:get', taskRunId: string, databaseUrl?: string };
+    | { id: number, method: 'task:get', taskRunId: string, databaseUrl?: string }
+    | { id: number, method: 'api:request', path: string, requestMethod: string, headers: Array<[string, string]>, body: Uint8Array | null }
+    | { id: number, method: 'api:cancel', requestId: number }
+    | { id: number, method: 'runtime:configure', state: RuntimeOverrides };
 
 /** Response sent only between the local business and main processes. */
 export interface RuntimeResponse {
   id:      number;
-  result?: RuntimeHealth | TaskDescription | TaskView | TaskView[] | TaskStartResult | null;
+  result?: RuntimeHealth | TaskDescription | TaskView | TaskView[] | TaskStartResult | DesktopApiResponse | null;
   error?:  string;
 }
 
@@ -141,10 +180,25 @@ export interface RuntimeTaskEvent {
   task:  TaskView;
 }
 
+/** A response body chunk produced by the local service Fetch handler. */
+export interface RuntimeApiStreamEvent {
+  event:  'api:chunk' | 'api:end';
+  id:     number;
+  chunk?: Uint8Array;
+  error?: string;
+}
+
+/** Any asynchronous event emitted by the local business process. */
+export type RuntimeProcessEvent = RuntimeTaskEvent | RuntimeApiStreamEvent;
+
 export const HEALTH_CHANNEL = 'desktop:runtime:health';
 export const TASK_CHANNEL = 'desktop:task';
 export const TASK_CHANGED_CHANNEL = 'desktop:task:changed';
+export const API_CHANNEL = 'desktop:api';
+export const API_CANCEL_CHANNEL = 'desktop:api:cancel';
+export const API_STREAM_CHANNEL = 'desktop:api:stream';
 export const OPEN_SETTINGS = 'desktop:open-settings';
+export const EXTERNAL_OPEN_CHANNEL = 'desktop:external:open';
 
 /** Settings requests admitted by the main-process gateway. */
 export type SettingsRequest

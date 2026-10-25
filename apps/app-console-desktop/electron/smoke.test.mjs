@@ -30,6 +30,22 @@ test('opens local management without signing in and restores a closed window', {
     assert.notEqual(health.pid, await app.evaluate(() => process.pid));
     assert.equal(await page.evaluate(() => typeof window.require), 'undefined');
 
+    const apiProbe = await page.evaluate(async () => {
+      const requestId = crypto.randomUUID();
+      try {
+        return await window.desktop.api.request({
+          requestId,
+          path:    '/rpc/__ipc_probe__',
+          method:  'GET',
+          headers: [],
+          body:    null,
+        });
+      } finally {
+        window.desktop.api.cancel(requestId);
+      }
+    });
+    assert.ok(Number.isInteger(apiProbe.status), 'the desktop API IPC handler should return an HTTP response');
+
     const closed = page.waitForEvent('close');
     await app.evaluate(({ BrowserWindow }) => {
       BrowserWindow.getAllWindows()[0].close();

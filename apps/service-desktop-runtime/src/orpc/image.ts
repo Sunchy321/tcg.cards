@@ -17,6 +17,11 @@ import { importCardImageFilesToLocalBucket } from '@tcg-cards/console-api/lib/he
 
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { execFile as execFileCallback } from 'node:child_process';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { promisify } from 'node:util';
+import { eq } from 'drizzle-orm';
+import { TaskRun } from '@tcg-cards/db/schema/local/task';
 
 import { os } from './index';
 import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
@@ -27,6 +32,8 @@ import {
 } from '../lib/hearthstone/image-config';
 import { buildCardIdRenderRequests, buildDebugRenderRequests } from '../lib/hearthstone/image-debug';
 import { getImageRenderCtx } from '../lib/hearthstone/task/image-render';
+
+const execFile = promisify(execFileCallback);
 
 const localImportFileInput = z.strictObject({
   fileName:    z.string().trim().min(1),
@@ -519,7 +526,7 @@ const downloadArchive = os
 
     const requests = result.requests;
     const tempDir = join(tmpdir(), `hs-download-${crypto.randomUUID()}`);
-    await Bun.spawn(['mkdir', '-p', tempDir]).exited;
+    await mkdir(tempDir, { recursive: true });
 
     const pngPaths: string[] = [];
 
@@ -534,7 +541,7 @@ const downloadArchive = os
         if (response.ok) {
           const bytes = new Uint8Array(await response.arrayBuffer());
           const pngPath = join(tempDir, request.output.fileName);
-          await Bun.write(pngPath, bytes);
+          await writeFile(pngPath, bytes);
           pngPaths.push(pngPath);
         }
       } catch {
@@ -550,13 +557,13 @@ const downloadArchive = os
 
     const archiveName = `${result.cardId}-renders.zip`;
     const archivePath = join(tempDir, archiveName);
-    await Bun.spawn(['zip', '-j', archivePath, ...pngPaths]).exited;
+    await execFile('zip', ['-j', archivePath, ...pngPaths]);
 
-    const zipBytes = await Bun.file(archivePath).arrayBuffer();
-    const base64Zip = Buffer.from(new Uint8Array(zipBytes)).toString('base64');
+    const zipBytes = await readFile(archivePath);
+    const base64Zip = zipBytes.toString('base64');
 
     // Clean up temp files
-    await Bun.spawn(['rm', '-rf', tempDir]).exited.catch(() => {});
+    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
 
     return {
       fileName: archiveName,
@@ -578,18 +585,38 @@ const getArchive = os
   .input(getArchiveInput)
   .output(downloadArchiveSyncOutput)
   .handler(async ({ input }) => {
-    const file = Bun.file(input.filePath.trim());
-    if (!(await file.exists())) {
+    let zipBytes: Buffer;
+    try {
+      zipBytes = await readFile(input.filePath.trim());
+    } catch {
       throw new ORPCError('NOT_FOUND', {
         message: `Archive not found: ${input.filePath}`,
       });
     }
-    const zipBytes = await file.arrayBuffer();
-    const base64Zip = Buffer.from(new Uint8Array(zipBytes)).toString('base64');
     return {
-      fileName: input.filePath.split(/[/\\]/).pop() ?? 'archive.zip',
-      base64Zip,
+      fileName:  input.filePath.split(/[/\\]/).pop() ?? 'archive.zip',
+      base64Zip: zipBytes.toString('base64'),
     };
+  });
+
+/** Downloads the archive for one completed image task without accepting a filesystem path. */
+const downloadTaskArchive = os
+  .input(z.strictObject({ taskRunId: z.uuid() }))
+  .output(downloadArchiveSyncOutput)
+  .handler(async ({ input }) => {
+    const [run] = await getLocalDb().select({ taskType: TaskRun.taskType, status: TaskRun.status, params: TaskRun.params })
+      .from(TaskRun).where(eq(TaskRun.id, input.taskRunId)).limit(1);
+    if (!run || run.taskType !== 'hearthstone_image_render' || run.status !== 'completed' || run.params.outputMode !== 'download') {
+      throw new ORPCError('NOT_FOUND', { message: 'Rendered image archive was not found.' });
+    }
+    const archivePath = join(tmpdir(), `hearthstone-renders-${input.taskRunId}.zip`);
+    let zipBytes: Buffer;
+    try {
+      zipBytes = await readFile(archivePath);
+    } catch {
+      throw new ORPCError('NOT_FOUND', { message: 'Rendered image archive was not found.' });
+    }
+    return { fileName: 'hearthstone-renders.zip', base64Zip: zipBytes.toString('base64') };
   });
 
 /** Returns the download archive path for a completed image render task. */
@@ -612,4 +639,5 @@ export const imageRouter = {
   downloadArchive,
   getArchive,
   getTaskArchive,
+  downloadTaskArchive,
 };

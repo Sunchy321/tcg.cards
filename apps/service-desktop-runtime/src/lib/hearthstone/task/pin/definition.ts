@@ -1,5 +1,5 @@
+import { createHash, randomUUID, type Hash } from 'node:crypto';
 import { z } from 'zod';
-import { randomUUID } from 'node:crypto';
 
 import { and, asc, count, eq, sql } from 'drizzle-orm';
 import { createDb } from '@tcg-cards/db';
@@ -59,7 +59,7 @@ const pinOutput = z.object({
 const FULL_SCAN_TABLES: TableName[] = ['entities', 'entity_localizations', 'entity_relations', 'cards'];
 
 interface PinScanState {
-  manifest:      Bun.CryptoHasher;
+  manifest:      Hash;
   builds:        Set<number>;
   totalRowCount: number;
   completed:     number;
@@ -332,7 +332,7 @@ export const pinTaskDefinition = createDefinition(pinTaskType, { version: '2026-
     ));
 
     ctx.scan = {
-      manifest:      new Bun.CryptoHasher('sha256'),
+      manifest:      createHash('sha256'),
       builds:        new Set(),
       totalRowCount: counts.totalRowCount,
       completed:     0,

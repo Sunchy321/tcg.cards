@@ -1,5 +1,16 @@
 import type { SettingsSnapshot } from '../../shared/settings';
 
+export {
+  getDesktopHearthstoneImageSettings,
+  getDesktopPath,
+  getDesktopPublishTargets,
+  setDesktopPath,
+} from '~/lib/legacy-desktop-settings';
+export type {
+  DesktopHearthstoneImageSettings,
+  DesktopPublishTarget,
+} from '~/lib/legacy-desktop-settings';
+
 /** Removes Electron transport wording while keeping the main process's sanitized error. */
 export function settingsError(error: unknown) {
   const text

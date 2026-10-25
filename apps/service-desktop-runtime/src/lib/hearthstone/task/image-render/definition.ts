@@ -1,3 +1,5 @@
+import { execFile as execFileCallback } from 'node:child_process';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import type {
   TaskBlock,
   TaskDefinition,
@@ -18,7 +20,10 @@ import { getLocalDb } from '../../hsdata-local-db';
 import { requireHearthstoneImageBucketDir, requireHearthstoneImageRendererBaseUrl } from '../../image-config';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { promisify } from 'node:util';
 import { omit } from 'lodash-es';
+
+const execFile = promisify(execFileCallback);
 
 export const imageRenderTaskType = 'hearthstone_image_render';
 export const imageRenderDefinitionVersion = '2026-06-27:v1';
@@ -123,13 +128,12 @@ export async function executeImageRenderBlock(input: {
 
   if (stageKey === 'finalizing') {
     if (ctx.outputMode === 'download' && ctx.archiveFilePaths && ctx.archiveFilePaths.length > 0 && !ctx.archivePath) {
-      const archiveName = `hearthstone-renders-v${Date.now()}.zip`;
-      const archivePath = join(tmpdir(), archiveName);
-      await Bun.spawn(['zip', '-j', archivePath, ...ctx.archiveFilePaths]).exited;
+      const archivePath = join(tmpdir(), `hearthstone-renders-${taskRunId}.zip`);
+      await execFile('zip', ['-j', archivePath, ...ctx.archiveFilePaths]);
       ctx.archivePath = archivePath;
       for (const fp of ctx.archiveFilePaths) {
         try {
-          await Bun.spawnSync(['rm', '-f', fp]);
+          await rm(fp, { force: true });
         } catch {
           // The archive is already complete; temporary-file cleanup is best effort.
         }
@@ -264,9 +268,9 @@ export async function executeImageRenderBlock(input: {
       }
     } else {
       const tempDir = join(tmpdir(), 'hearthstone-image-render');
-      await Bun.write(join(tempDir, 'dummy'), '').catch(() => Bun.spawnSync(['mkdir', '-p', tempDir]));
+      await mkdir(tempDir, { recursive: true });
       for (const f of renderedFiles) {
-        await Bun.write(join(tempDir, f.fileName), f.bytes);
+        await writeFile(join(tempDir, f.fileName), f.bytes);
       }
       ctx.archiveFilePaths = renderedFiles.map(f => join(tempDir, f.fileName));
     }

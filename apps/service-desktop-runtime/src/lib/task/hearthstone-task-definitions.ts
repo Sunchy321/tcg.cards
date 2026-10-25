@@ -1,0 +1,24 @@
+import { registerTaskDefinition, registerTypedTaskDefinition } from './registry';
+import { imageRenderTaskDefinition } from '../hearthstone/task/image-render/definition';
+import { hsdataImportTaskDefinition } from '../hearthstone/task/import/definition';
+import { pinTaskDefinition } from '../hearthstone/task/pin/definition';
+import { projectTaskDefinition } from '../hearthstone/task/project/definition';
+import { cardsProjectTaskDefinition } from '../hearthstone/task/cards-project/definition';
+import { publishTaskDefinition } from '../hearthstone/task/publish/definition';
+import { unpackImportTaskDefinition } from '../hearthstone/task/unpack-import/definition';
+import { announcementPublishTaskDefinition } from '../hearthstone/task/announcement-publish/definition';
+import { referencePublishTaskDefinition } from '../hearthstone/task/reference-publish/definition';
+import { hearthstonePurgeTaskDefinition } from '../hearthstone/task/purge/definition';
+import { singleCardPublishTaskDefinition } from '../hearthstone/task/single-card-publish/definition';
+
+registerTaskDefinition(imageRenderTaskDefinition);
+registerTypedTaskDefinition(hsdataImportTaskDefinition);
+registerTypedTaskDefinition(pinTaskDefinition);
+registerTypedTaskDefinition(projectTaskDefinition);
+registerTypedTaskDefinition(cardsProjectTaskDefinition);
+registerTypedTaskDefinition(publishTaskDefinition);
+registerTypedTaskDefinition(unpackImportTaskDefinition);
+registerTypedTaskDefinition(announcementPublishTaskDefinition);
+registerTypedTaskDefinition(referencePublishTaskDefinition);
+registerTypedTaskDefinition(hearthstonePurgeTaskDefinition);
+registerTypedTaskDefinition(singleCardPublishTaskDefinition);

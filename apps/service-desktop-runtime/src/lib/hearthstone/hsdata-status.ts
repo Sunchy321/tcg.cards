@@ -1,5 +1,6 @@
 import { readdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { desc, eq, sql } from 'drizzle-orm';
 
 import {
@@ -123,7 +124,7 @@ const toIsoString = (value: Date | string | null | undefined) => {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 };
 
-const WORKSPACE = resolve(import.meta.dir, '..', '..', '..', '..', '..', '..');
+const WORKSPACE = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..', '..');
 const UNPACK_DIR = resolve(WORKSPACE, 'data', 'hearthstone', 'unpack');
 
 function listUnpackBuildNumbers(): Set<number> {

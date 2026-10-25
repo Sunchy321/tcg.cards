@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 
 import { createDb } from '@tcg-cards/db';
@@ -44,17 +45,9 @@ type DatabaseIdentityRow = Record<string, unknown> & {
   serverPort:   number | null;
 };
 
-function toHex(hash: Uint8Array): string {
-  let hex = '';
-  for (let i = 0; i < hash.length; i++) {
-    hex += hash[i]!.toString(16).padStart(2, '0');
-  }
-  return hex;
-}
-
 /** Lowercase hexadecimal SHA-256 digest computed from one text input. */
 function sha256Hex(input: string) {
-  return toHex(Bun.SHA256.hash(input) as Uint8Array);
+  return createHash('sha256').update(input).digest('hex');
 }
 
 /** Leading and trailing single or double quotes removed from one parsed connection value. */

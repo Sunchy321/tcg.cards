@@ -57,18 +57,18 @@ test('pause and resume settle through persisted control statuses', {
   // Pausing a run that has not started yet is refused.
   assert.equal(await task.requestPause(id), false);
 
-  assert.equal(await task.beginStage(id, 'work', 0), true);
+  assert.equal(await task.beginStage(id, 'work', 0, 'none'), true);
   assert.equal((await task.get(id))?.status, 'running');
 
   assert.equal(await task.requestPause(id), true);
   // A pausing run cannot re-enter a stage; the Worker settles the pause instead.
-  assert.equal(await task.beginStage(id, 'work', 0), false);
+  assert.equal(await task.beginStage(id, 'work', 0, 'none'), false);
   await task.markPaused(id, 'work', 'none');
   assert.equal((await task.get(id))?.status, 'paused');
 
   assert.equal(await task.requestResume(id), true);
   assert.equal((await task.get(id))?.status, 'resuming');
-  assert.equal(await task.beginStage(id, 'work', 0), true);
+  assert.equal(await task.beginStage(id, 'work', 0, 'none'), true);
   assert.equal((await task.get(id))?.status, 'running');
 
   assert.equal(await task.requestCancel(id), true);

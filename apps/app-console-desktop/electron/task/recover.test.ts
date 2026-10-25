@@ -43,8 +43,8 @@ async function stoppedRun(
   const id = randomUUID();
   await task.create(id, registration(taskType), { k: 1 });
   await task.plan(id, [{ key: 'work', label: '执行中', total: 5, resumeMode }]);
-  await task.beginStage(id, 'work', 0);
-  await task.progress(id, 'work', 3);
+  await task.beginStage(id, 'work', 0, resumeMode);
+  await task.progress(id, 'work', { done: 3 });
   if (options.paused) {
     await task.requestPause(id);
     await task.markPaused(id, 'work', resumeMode);

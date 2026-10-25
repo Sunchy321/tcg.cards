@@ -33,7 +33,13 @@ export const electronOptions: NuxtElectronOptions = {
   build:                 [
     {
       // Shared Nuxt tsconfig references may not exist during the first dev build.
-      vite:    { esbuild: { tsconfigRaw: '{"compilerOptions":{"target":"ES2022"}}' } },
+      vite: {
+        esbuild: { tsconfigRaw: '{"compilerOptions":{"target":"ES2022"}}' },
+        resolve: {
+          // Resolve workspace model imports consistently across package boundaries.
+          alias: [{ find: /^#model\/(.*)$/, replacement: '@tcg-cards/model/$1' }],
+        },
+      },
       entry:   { 'main': 'electron/main.ts', 'runtime': 'electron/runtime.ts', 'task-worker': 'electron/task-worker.ts' },
       onstart: lifecycle => onBuilt('main', lifecycle),
     },

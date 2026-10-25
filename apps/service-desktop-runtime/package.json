@@ -2,9 +2,20 @@
   "name": "service-desktop-runtime",
   "private": true,
   "type": "module",
+  "imports": {
+    "#model/*": "@tcg-cards/model/*",
+    "#task/*": "./src/lib/task/*.ts"
+  },
   "exports": {
     ".": "./src/index.ts",
+    "./app": "./src/app.ts",
+    "./electron-app": "./src/electron-app.ts",
+    "./runtime-config": "./src/runtime-config.ts",
+    "./task-runtime": "./src/task-runtime.ts",
     "./orpc": "./src/orpc/service.ts",
+    "./orpc/hearthstone": "./src/orpc/hearthstone/index.ts",
+    "./orpc/image": "./src/orpc/image.ts",
+    "./orpc/runtime": "./src/orpc/runtime.ts",
     "./lib/hearthstone/*": "./src/lib/hearthstone/*.ts",
     "./lib/shadowverse/*": "./src/lib/shadowverse/*.ts",
     "./lib/shadowverse-evolve/*": "./src/lib/shadowverse-evolve/*.ts",

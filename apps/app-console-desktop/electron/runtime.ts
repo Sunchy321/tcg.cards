@@ -2,6 +2,8 @@ import { Worker } from 'node:worker_threads';
 import { resolve } from 'node:path';
 
 import './task/discover';
+import { electronRuntimeApp } from './runtime-app';
+import { applyRuntimeOverrides, collectRuntimeOverrides } from './runtime/runtime-config';
 import { findTask, getTask } from './task/registry';
 import type { TaskDescription,
   RuntimeRequest,
@@ -20,6 +22,7 @@ const recovered = new Map<string, Promise<void>>();
 const workers = new Map<string, Worker>();
 const bootTimes = new Map<string, number>();
 const phases = new Map<string, TaskView['phase']>();
+const apiControllers = new Map<number, AbortController>();
 
 /** Set once a deliberate shutdown starts; new task work is refused from then on. */
 let closing = false;
@@ -103,7 +106,7 @@ function instruct(taskRunId: string, control: TaskControlKind): void {
 function launch(store: TaskStore, taskRunId: string, taskType: string, databaseUrl: string): void {
   phases.set(taskRunId, 'starting');
   const worker = new Worker(resolve(__dirname, 'task-worker.js'), {
-    workerData: { taskRunId, taskType, databaseUrl },
+    workerData: { taskRunId, taskType, databaseUrl, runtimeOverrides: collectRuntimeOverrides() },
   });
   workers.set(taskRunId, worker);
   let settled = false;
@@ -239,6 +242,14 @@ async function handle(request: RuntimeRequest): Promise<RuntimeResponse> {
     await shutdownHost();
     return { id: request.id, result: null };
   }
+  if (request.method === 'runtime:configure') {
+    applyRuntimeOverrides(request.state);
+    return { id: request.id, result: null };
+  }
+  if (request.method === 'api:cancel') {
+    apiControllers.get(request.requestId)?.abort('renderer canceled request');
+    return { id: request.id, result: null };
+  }
   if (closing && ['task:start', 'task:retry', 'task:control'].includes(request.method)) {
     throw new Error('应用正在退出，不能操作任务。');
   }
@@ -302,7 +313,68 @@ async function handle(request: RuntimeRequest): Promise<RuntimeResponse> {
   throw new Error('Unsupported task request');
 }
 
+/** Runs one Fetch request inside the isolated Node process and forwards its response stream. */
+async function handleApiRequest(request: Extract<RuntimeRequest, { method: 'api:request' }>): Promise<void> {
+  const controller = new AbortController();
+  apiControllers.set(request.id, controller);
+  let headersSent = false;
+
+  try {
+    const url = new URL(request.path, 'http://desktop.local');
+    if (url.origin !== 'http://desktop.local' || !url.pathname.startsWith('/')) {
+      throw new Error('Invalid local API path');
+    }
+    const body = request.body == null ? undefined : Uint8Array.from(request.body).buffer;
+    const headers = new Headers(request.headers);
+    headers.set('x-tcg-task-host', 'electron');
+    const fetchRequest = new Request(url, {
+      method: request.requestMethod,
+      headers,
+      body,
+      signal: controller.signal,
+    });
+    const response = await electronRuntimeApp.fetch(fetchRequest);
+    process.parentPort.postMessage({
+      id:     request.id,
+      result: { status: response.status, headers: [...response.headers.entries()] },
+    } satisfies RuntimeResponse);
+    headersSent = true;
+
+    if (!response.body) {
+      process.parentPort.postMessage({ event: 'api:end', id: request.id });
+      return;
+    }
+
+    const reader = response.body.getReader();
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value.byteLength > 0) {
+          process.parentPort.postMessage({ event: 'api:chunk', id: request.id, chunk: value });
+        }
+      }
+      process.parentPort.postMessage({ event: 'api:end', id: request.id });
+    } finally {
+      reader.releaseLock();
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Local API request failed';
+    if (headersSent) {
+      process.parentPort.postMessage({ event: 'api:end', id: request.id, error: message });
+    } else {
+      process.parentPort.postMessage({ id: request.id, error: message } satisfies RuntimeResponse);
+    }
+  } finally {
+    apiControllers.delete(request.id);
+  }
+}
+
 process.parentPort.on('message', ({ data }: { data: RuntimeRequest }) => {
+  if (data.method === 'api:request') {
+    void handleApiRequest(data);
+    return;
+  }
   void handle(data).then(response => process.parentPort.postMessage(response)).catch(error => {
     process.parentPort.postMessage({ id: data.id, error: error instanceof Error ? error.message : 'Task request failed' } satisfies RuntimeResponse);
   });

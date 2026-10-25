@@ -1,9 +1,10 @@
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { createDb } from '@tcg-cards/db';
 import { TaskRun, TaskStage as TaskStageRow } from '@tcg-cards/db/schema/local/task';
+import type { TaskPageSnapshot, TaskStage } from '@tcg-cards/model/task';
 
 import type { TaskView } from '../contract';
-import type { TaskRegistration, TaskStageResumeMode } from './registry';
+import type { TaskProgressMode, TaskProgressUpdate, TaskRegistration, TaskStageResumeMode } from './registry';
 
 /** Active run states retained by the original task model; interrupted still occupies its slot. */
 const activeStatuses = ['pending', 'running', 'pausing', 'paused', 'resuming', 'canceling', 'interrupted'] as const;
@@ -118,6 +119,48 @@ export class TaskStore {
     if (!run) return null;
     const stages = await this.db.select().from(TaskStageRow)
       .where(eq(TaskStageRow.taskRunId, id)).orderBy(TaskStageRow.stageIndex);
+    const currentStage = stages.find(stage => stage.stageKey === run.currentStageKey && stage.stageIndex === run.currentStageIndex);
+    const pageSnapshot: TaskPageSnapshot = {
+      pageTask: {
+        kind:              'attached',
+        taskRunId:         run.id,
+        runRevision:       run.runRevision,
+        taskType:          run.taskType,
+        taskScopeType:     run.taskScopeType,
+        taskScopeKey:      run.taskScopeKey,
+        taskScopeSnapshot: run.taskScopeSnapshot ?? undefined,
+        status:            run.status,
+        ...(typeof run.params.dryRun === 'boolean' ? { dryRun: run.params.dryRun } : {}),
+        supportsResume:    run.supportsResume,
+        currentStageKey:   run.currentStageKey,
+        currentStageIndex: run.currentStageIndex,
+        currentResumeMode: run.currentResumeMode,
+        pausedResumeMode:  run.pausedResumeMode,
+        progressMode:      currentStage?.progressMode ?? null,
+        startedAt:         run.startedAt?.toISOString() ?? null,
+        finishedAt:        run.finishedAt?.toISOString() ?? null,
+        errorCode:         run.errorCode,
+        errorMessage:      run.errorMessage,
+        terminalReason:    run.terminalReason,
+        canPause:          run.status === 'running' && run.supportsResume,
+        canResume:         run.status === 'paused' || run.status === 'interrupted',
+        canCancel:         ['pending', 'running', 'pausing', 'paused', 'resuming'].includes(run.status),
+      },
+      stages: stages.map((stage): TaskStage => ({
+        stageKey:     stage.stageKey,
+        stageIndex:   stage.stageIndex,
+        label:        stage.label,
+        status:       stage.status,
+        progressMode: stage.progressMode,
+        resumeMode:   stage.resumeMode,
+        total:        stage.total,
+        done:         stage.done,
+        startedAt:    stage.startedAt?.toISOString() ?? null,
+        finishedAt:   stage.finishedAt?.toISOString() ?? null,
+        ...(stage.segments ? { segments: stage.segments } : {}),
+      })),
+      ...(run.status === 'completed' && run.result ? { result: run.result } : {}),
+    };
     return {
       id:        run.id,
       taskType:  run.taskType,
@@ -132,11 +175,12 @@ export class TaskStore {
         done:   stage.done,
         total:  stage.total,
       })),
-      result:       run.result,
+      result:       run.status === 'completed' ? run.result : null,
       errorMessage: run.errorMessage,
       createdAt:    run.createdAt.toISOString(),
       startedAt:    run.startedAt?.toISOString() ?? null,
       finishedAt:   run.finishedAt?.toISOString() ?? null,
+      pageSnapshot,
     };
   }
 
@@ -157,6 +201,26 @@ export class TaskStore {
     const [row] = await this.db.select({ taskType: TaskRun.taskType, params: TaskRun.params })
       .from(TaskRun).where(eq(TaskRun.id, id)).limit(1);
     return row ?? null;
+  }
+
+  /** Reads one stage checkpoint without including it in renderer-facing snapshots. */
+  async resumeState(id: string, stageKey: string): Promise<{ done: number | null, token: Record<string, unknown> | null } | null> {
+    const [row] = await this.db.select({ done: TaskStageRow.done, resumeToken: TaskStageRow.resumeToken })
+      .from(TaskStageRow)
+      .where(and(eq(TaskStageRow.taskRunId, id), eq(TaskStageRow.stageKey, stageKey)))
+      .limit(1);
+    return row ? { done: row.done, token: row.resumeToken ?? null } : null;
+  }
+
+  /** Reads the saved task result for a resumed Worker. */
+  async resultOf(id: string): Promise<Record<string, unknown> | null> {
+    const [row] = await this.db.select({ result: TaskRun.result }).from(TaskRun).where(eq(TaskRun.id, id)).limit(1);
+    return row?.result ?? null;
+  }
+
+  /** Saves one task result while its Worker is active. */
+  async saveResult(id: string, result: Record<string, unknown>): Promise<void> {
+    await this.db.update(TaskRun).set({ result }).where(eq(TaskRun.id, id));
   }
 
   /** Marks a running run as pausing so its Worker stops at the next safe boundary. */
@@ -213,12 +277,19 @@ export class TaskStore {
 
   /** Persists one Worker-side pause at a safe boundary inside the current stage. */
   async markPaused(id: string, stageKey: string, resumeMode: TaskStageResumeMode): Promise<void> {
+    const [stage] = await this.db.select({ stageIndex: TaskStageRow.stageIndex })
+      .from(TaskStageRow)
+      .where(and(eq(TaskStageRow.taskRunId, id), eq(TaskStageRow.stageKey, stageKey)))
+      .limit(1);
+    if (!stage) throw new Error('Task stage was not found');
     await this.db.update(TaskStageRow).set({ status: 'paused' })
       .where(and(eq(TaskStageRow.taskRunId, id), eq(TaskStageRow.stageKey, stageKey)));
     await this.db.update(TaskRun).set({
       status:             'paused',
       controlRequestKind: null,
       currentStageKey:    stageKey,
+      currentStageIndex:  stage.stageIndex,
+      currentResumeMode:  resumeMode,
       pausedResumeMode:   resumeMode,
       runRevision:        sql`${TaskRun.runRevision} + 1`,
     }).where(and(eq(TaskRun.id, id), inArray(TaskRun.status, ['running', 'pausing'])));
@@ -226,9 +297,17 @@ export class TaskStore {
 
   /** Moves a run whose execution environment disappeared onto the interrupted checkpoint. */
   async markInterrupted(id: string, stageKey: string): Promise<boolean> {
+    const [stage] = await this.db.select({ stageIndex: TaskStageRow.stageIndex, resumeMode: TaskStageRow.resumeMode })
+      .from(TaskStageRow)
+      .where(and(eq(TaskStageRow.taskRunId, id), eq(TaskStageRow.stageKey, stageKey)))
+      .limit(1);
+    if (!stage) return false;
     const rows = await this.db.update(TaskRun).set({
       status:             'interrupted',
       controlRequestKind: null,
+      currentStageKey:    stageKey,
+      currentStageIndex:  stage.stageIndex,
+      currentResumeMode:  stage.resumeMode,
       pausedResumeMode:   null,
       runtimeBootId:      null,
       resumeContextKey:   null,
@@ -272,7 +351,7 @@ export class TaskStore {
   }
 
   /** Inserts the stage skeleton after the Worker has loaded its definition. */
-  async plan(id: string, stages: { key: string, label: string, total: number, resumeMode?: TaskStageResumeMode }[]): Promise<void> {
+  async plan(id: string, stages: { key: string, label: string, total: number | null, progressMode?: TaskProgressMode, resumeMode?: TaskStageResumeMode }[]): Promise<void> {
     if (stages.length === 0) return;
     await this.db.insert(TaskStageRow).values(stages.map((stage, index) => ({
       taskRunId:    id,
@@ -280,7 +359,7 @@ export class TaskStore {
       stageIndex:   index,
       label:        stage.label,
       status:       'pending' as const,
-      progressMode: 'bounded' as const,
+      progressMode: stage.progressMode ?? 'bounded' as const,
       resumeMode:   stage.resumeMode ?? 'none' as const,
       total:        stage.total,
       done:         0,
@@ -288,13 +367,13 @@ export class TaskStore {
   }
 
   /** Starts a stage and records when actual execution begins; false when a control state outran it. */
-  async beginStage(id: string, key: string, index: number): Promise<boolean> {
+  async beginStage(id: string, key: string, index: number, resumeMode: TaskStageResumeMode): Promise<boolean> {
     const rows = await this.db.update(TaskRun).set({
       status:            'running',
       startedAt:         sql`coalesce(${TaskRun.startedAt}, now())`,
       currentStageKey:   key,
       currentStageIndex: index,
-      currentResumeMode: 'none',
+      currentResumeMode: resumeMode,
       pausedResumeMode:  null,
       runRevision:       sql`${TaskRun.runRevision} + 1`,
     }).where(and(eq(TaskRun.id, id), inArray(TaskRun.status, ['pending', 'running', 'resuming']))).returning({ id: TaskRun.id });
@@ -304,9 +383,25 @@ export class TaskStore {
     return true;
   }
 
-  /** Saves monotonic bounded progress for one stage. */
-  async progress(id: string, key: string, done: number): Promise<void> {
-    await this.db.update(TaskStageRow).set({ done }).where(and(
+  /** Saves stage progress and optional visual segments. */
+  async progress(id: string, key: string, update: TaskProgressUpdate): Promise<void> {
+    const patch: Partial<typeof TaskStageRow.$inferInsert> = { done: update.done };
+    if (update.total !== undefined) patch.total = update.total;
+    if (update.segments !== undefined) patch.segments = update.segments;
+    await this.db.update(TaskStageRow).set(patch).where(and(
+      eq(TaskStageRow.taskRunId, id), eq(TaskStageRow.stageKey, key),
+    ));
+  }
+
+  /** Persists one domain checkpoint with its latest progress. */
+  async checkpoint(id: string, key: string, token: Record<string, unknown>, update?: TaskProgressUpdate): Promise<void> {
+    const patch: Partial<typeof TaskStageRow.$inferInsert> = { resumeToken: token };
+    if (update) {
+      patch.done = update.done;
+      if (update.total !== undefined) patch.total = update.total;
+      if (update.segments !== undefined) patch.segments = update.segments;
+    }
+    await this.db.update(TaskStageRow).set(patch).where(and(
       eq(TaskStageRow.taskRunId, id), eq(TaskStageRow.stageKey, key),
     ));
   }

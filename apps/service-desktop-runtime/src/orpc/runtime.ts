@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process';
 import { z } from 'zod';
 
 import { os } from './index';
@@ -42,7 +43,7 @@ const runtimeStatus = z.object({
 function buildStatus() {
   return {
     service:                       'service-desktop-runtime',
-    runtime:                       'bun',
+    runtime:                       'bun' in process.versions ? 'bun' : 'node',
     status:                        'ok' as const,
     localDatabaseConfigured:       hasLocalDatabaseUrl(),
     pathsConfigured:               Object.keys(readAllPathOverrides()).length > 0,
@@ -206,12 +207,12 @@ const openPath = os
   .output(openPathResult)
   .handler(async ({ input }) => {
     const cmd = getOpenCommand();
-    const proc = Bun.spawn([cmd, input.path], {
-      stdout: 'pipe',
-      stderr: 'pipe',
+    const proc = spawn(cmd, [input.path], { stdio: 'ignore' });
+    const exitCode = await new Promise<number | null>((resolve, reject) => {
+      proc.once('error', reject);
+      proc.once('close', resolve);
     });
-    await proc.exited;
-    return { ok: proc.exitCode === 0 };
+    return { ok: exitCode === 0 };
   });
 
 const configureEditorIdentityInput = z.strictObject({

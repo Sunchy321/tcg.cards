@@ -1,10 +1,11 @@
-import { resolve } from 'node:path';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /** Source name recorded on Evolve image import batches. */
 export const evolveImageSource = 'shadowverse-evolve';
 
 /** Workspace root, resolved from this file's location so the runtime works from any cwd. */
-const WORKSPACE = resolve(import.meta.dir, '..', '..', '..', '..', '..');
+const WORKSPACE = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..');
 
 /** Local bucket directory holding downloaded Evolve card images, git-ignored under /data. */
 export function getEvolveImageBucketDir() {

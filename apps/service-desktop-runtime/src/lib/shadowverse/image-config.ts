@@ -1,4 +1,5 @@
-import { resolve } from 'node:path';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import type { ImageAssetKind } from '@tcg-cards/db/schema/local/shadowverse/image-import';
 import type { ShadowverseLang } from '#model/shadowverse/schema/data/card-list';
@@ -6,7 +7,7 @@ import type { ShadowverseLang } from '#model/shadowverse/schema/data/card-list';
 export const shadowverseImageSource = 'shadowverse-wb';
 
 /** Workspace root, resolved from this file's location so the runtime works from any cwd. */
-const WORKSPACE = resolve(import.meta.dir, '..', '..', '..', '..', '..');
+const WORKSPACE = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..');
 
 /** Local bucket directory holding downloaded Shadowverse card images, git-ignored under /data. */
 export function getShadowverseImageBucketDir() {

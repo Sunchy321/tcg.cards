@@ -2,10 +2,13 @@ import { utilityProcess } from 'electron';
 import type { UtilityProcess } from 'electron';
 
 import type {
+  RuntimeOverrides,
   RuntimeHealth,
+  RuntimeApiStreamEvent,
   RuntimeRequest,
   RuntimeResponse,
-  RuntimeTaskEvent,
+  RuntimeProcessEvent,
+  DesktopApiResponse,
   TaskControlKind,
   TaskDescription,
   TaskStartResult,
@@ -24,6 +27,7 @@ export class RuntimeClient {
   private process: UtilityProcess;
   private pending = new Map<number, PendingCall>();
   private listeners = new Set<(task: TaskView) => void>();
+  private apiListeners = new Map<number, (event: RuntimeApiStreamEvent) => void>();
   private nextId = 0;
   private available = true;
   private stopping = false;
@@ -39,9 +43,15 @@ export class RuntimeClient {
   /** Forks one host instance and wires its replies, task events and exit handling. */
   private connect(): UtilityProcess {
     const process = utilityProcess.fork(this.entry, [], { serviceName: 'TCG Cards' });
-    process.on('message', (message: RuntimeResponse | RuntimeTaskEvent) => {
+    process.on('message', (message: RuntimeResponse | RuntimeProcessEvent) => {
       if ('event' in message) {
-        for (const listener of this.listeners) listener(message.task);
+        if (message.event === 'task:changed') {
+          for (const listener of this.listeners) listener(message.task);
+          return;
+        }
+        const listener = this.apiListeners.get(message.id);
+        listener?.(message);
+        if (message.event === 'api:end') this.apiListeners.delete(message.id);
         return;
       }
       const call = this.pending.get(message.id);
@@ -72,6 +82,35 @@ export class RuntimeClient {
   /** Queries the live Node business process through its private message port. */
   health(): Promise<RuntimeHealth> {
     return this.call<RuntimeHealth>({ id: ++this.nextId, method: 'health' });
+  }
+
+  /** Refreshes process-local settings before API or task work uses them. */
+  configure(state: RuntimeOverrides): Promise<null> {
+    return this.call<null>({ id: ++this.nextId, method: 'runtime:configure', state });
+  }
+
+  /** Sends one API request to the service Fetch handler and streams its body to the caller. */
+  requestApi(
+    input: { path: string, method: string, headers: Array<[string, string]>, body: Uint8Array | null },
+    onStream: (event: RuntimeApiStreamEvent) => void,
+  ): { id: number, response: Promise<DesktopApiResponse> } {
+    const id = ++this.nextId;
+    this.apiListeners.set(id, onStream);
+    const response = this.call<DesktopApiResponse>({
+      id,
+      method:        'api:request',
+      path:          input.path,
+      requestMethod: input.method,
+      headers:       input.headers,
+      body:          input.body,
+    });
+    void response.catch(() => this.apiListeners.delete(id));
+    return { id, response };
+  }
+
+  /** Aborts one streamed API response when its renderer stops consuming the body. */
+  cancelApiRequest(requestId: number): void {
+    void this.call<null>({ id: ++this.nextId, method: 'api:cancel', requestId }).catch(() => {});
   }
 
   /** Reads one task type's registration facts, null when the type is unknown. */
@@ -158,5 +197,9 @@ export class RuntimeClient {
       call.reject(error);
     }
     this.pending.clear();
+    for (const [id, listener] of this.apiListeners) {
+      listener({ event: 'api:end', id, error: error.message });
+    }
+    this.apiListeners.clear();
   }
 }

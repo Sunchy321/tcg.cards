@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 
 import {
@@ -96,7 +97,7 @@ async function ensurePngPath(tempDir: string, file: CardImageLocalImportFile) {
   }
 
   const targetPath = join(tempDir, file.fileName);
-  await Bun.write(targetPath, bytes);
+  await writeFile(targetPath, bytes);
   return targetPath;
 }
 
@@ -115,37 +116,45 @@ async function loadPngBytes(file: CardImageLocalImportFile) {
 
 /** Verifies that `cwebp` is installed before conversion starts. */
 function ensureCwebp() {
-  const result = Bun.spawnSync(['cwebp', '-version'], {
-    stdout: 'pipe',
-    stderr: 'pipe',
-  });
-
-  if (result.exitCode !== 0) {
+  try {
+    execFileSync('cwebp', ['-version'], { stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (error) {
     fail([
       'cwebp was not found or failed to run.',
       'Install libwebp first, for example: brew install webp',
-      decodeOutput(result.stderr),
+      readCommandError(error),
     ].filter(Boolean).join('\n'));
   }
 }
 
 /** Converts one PNG file into one temporary WebP file with the shared preset. */
 async function convertPngToWebp(inputPath: string, outputPath: string) {
-  const result = Bun.spawnSync([
-    'cwebp',
-    '-quiet',
-    ...cwebpPresetArgs,
-    inputPath,
-    '-o',
-    outputPath,
-  ], {
-    stdout: 'pipe',
-    stderr: 'pipe',
-  });
-
-  if (result.exitCode !== 0) {
-    fail(`cwebp failed for ${inputPath}:\n${decodeOutput(result.stderr)}`);
+  try {
+    execFileSync('cwebp', [
+      '-quiet',
+      ...cwebpPresetArgs,
+      inputPath,
+      '-o',
+      outputPath,
+    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (error) {
+    fail(`cwebp failed for ${inputPath}:\n${readCommandError(error)}`);
   }
+}
+
+/** Extracts stderr from a failed Node child-process command. */
+function readCommandError(error: unknown) {
+  if (typeof error !== 'object' || error === null || !('stderr' in error)) {
+    return '';
+  }
+
+  const stderr = error.stderr;
+
+  if (stderr instanceof Uint8Array) {
+    return decodeOutput(stderr);
+  }
+
+  return typeof stderr === 'string' ? stderr.trim() : '';
 }
 
 /** Builds one file-name map and rejects duplicate local PNG names up front. */
@@ -306,7 +315,7 @@ export async function importCardImageFilesToLocalBucket(
 
         if (!input.dryRun) {
           await mkdir(dirname(outputPath), { recursive: true });
-          await Bun.write(outputPath, webpBytes);
+          await writeFile(outputPath, webpBytes);
         }
 
         writtenCount += 1;

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { and, count, desc, eq, gt, inArray, isNotNull, lte, or, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import type { PublishStream } from '@tcg-cards/model/game-data-sync';
@@ -147,16 +148,8 @@ interface RemotePublishGateState {
   ledger:       typeof PublishLedger.$inferSelect | null;
 }
 
-function toHex(hash: Uint8Array): string {
-  let hex = '';
-  for (let i = 0; i < hash.length; i++) {
-    hex += hash[i]!.toString(16).padStart(2, '0');
-  }
-  return hex;
-}
-
 function sha256Hex(input: string): string {
-  return toHex(Bun.SHA256.hash(input) as Uint8Array);
+  return createHash('sha256').update(input).digest('hex');
 }
 
 const emptyHash = sha256Hex('[]');

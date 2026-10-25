@@ -1,15 +1,20 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 import {
+  API_CANCEL_CHANNEL,
+  API_CHANNEL,
+  API_STREAM_CHANNEL,
   AUTH_CHANNEL,
   HEALTH_CHANNEL,
   OPEN_SETTINGS,
   SETTINGS_CHANNEL,
   CLOSE_CHANNEL,
   CLOSE_REQUESTED,
+  EXTERNAL_OPEN_CHANNEL,
   TASK_CHANNEL,
   TASK_CHANGED_CHANNEL,
   type DesktopBridge,
+  type DesktopApiStreamEvent,
   type TaskView,
 } from './contract';
 
@@ -37,6 +42,9 @@ const bridge: DesktopBridge = {
     login:  (baseUrl, username, password) => ipcRenderer.invoke(AUTH_CHANNEL, { action: 'login', baseUrl, username, password }),
     logout: () => ipcRenderer.invoke(AUTH_CHANNEL, { action: 'logout' }),
   },
+  external: {
+    open: url => ipcRenderer.invoke(EXTERNAL_OPEN_CHANNEL, url),
+  },
   settings: {
     read:          () => ipcRenderer.invoke(SETTINGS_CHANNEL, { action: 'read' }),
     update:        (key, value) => ipcRenderer.invoke(SETTINGS_CHANNEL, { action: 'update', key, value }),
@@ -55,6 +63,15 @@ const bridge: DesktopBridge = {
   },
   runtime: {
     health: () => ipcRenderer.invoke(HEALTH_CHANNEL),
+  },
+  api: {
+    request: input => ipcRenderer.invoke(API_CHANNEL, input),
+    cancel:  requestId => ipcRenderer.send(API_CANCEL_CHANNEL, requestId),
+    onStream(listener) {
+      const handler = (_event: Electron.IpcRendererEvent, value: DesktopApiStreamEvent) => listener(value);
+      ipcRenderer.on(API_STREAM_CHANNEL, handler);
+      return () => ipcRenderer.removeListener(API_STREAM_CHANNEL, handler);
+    },
   },
   tasks: {
     start:         (taskType, params) => ipcRenderer.invoke(TASK_CHANNEL, { action: 'start', taskType, params }),

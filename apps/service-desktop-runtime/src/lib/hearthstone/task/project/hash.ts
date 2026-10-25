@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import canonicalize from 'canonicalize';
 
 import { RENDER_MECHANIC_IDS } from '@tcg-cards/model/hearthstone/constant/tag';
@@ -9,7 +10,7 @@ import { computeRenderHints } from './render-hints';
 export const renderMechanicKeys: ReadonlySet<string> = new Set(RENDER_MECHANIC_IDS);
 
 export function hashCanonicalJson(value: unknown): string {
-  return Bun.SHA256.hash(canonicalize(value)!, 'hex') as string;
+  return createHash('sha256').update(canonicalize(value)!).digest('hex');
 }
 
 export function mergeVersion(...inputs: Array<number[] | number>): number[] {
