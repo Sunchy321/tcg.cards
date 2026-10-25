@@ -9,6 +9,12 @@ export function stepsOf(params: Record<string, unknown>): number {
 /** Waits between progress updates so a controlled task remains observable. */
 function delay(milliseconds: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
+    // An abort that landed between two awaits must still stop the next step:
+    // a listener registered on an already-aborted signal never fires.
+    if (signal.aborted) {
+      reject(signal.reason instanceof Error ? signal.reason : new Error('Task stopped'));
+      return;
+    }
     const timer = setTimeout(resolve, milliseconds);
     signal.addEventListener('abort', () => {
       clearTimeout(timer);

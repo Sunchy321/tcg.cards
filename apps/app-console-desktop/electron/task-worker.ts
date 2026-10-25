@@ -151,6 +151,9 @@ async function runOnce(
       changed('finished');
       return 'failed';
     }
+    // A stage that returned after a swallowed abort still settles at the boundary
+    // instead of proceeding to completion and blocking the shutdown.
+    if (controller.signal.aborted) return settleInterrupted(store, stage);
     await store.completeStage(launch.taskRunId, stage.key);
     changed('running');
   }

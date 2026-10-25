@@ -614,6 +614,57 @@ test('restarts a crashed task host so runs stop looking alive and can continue',
   }
 });
 
+/** Execution keeps its startup snapshot; editing settings while a task runs stays allowed. */
+test('keeps executing on the startup database snapshot while the live setting is edited', {
+  timeout: 180_000,
+  skip:    !databaseUrl(),
+}, async () => {
+  const { app, page, profile } = await launchConsole();
+  try {
+    await clearDevelopmentRuns(page);
+    await page.evaluate(() => {
+      window.location.hash = '#/dev/tasks';
+    });
+    await page.getByRole('heading', { name: '测试任务' }).waitFor();
+
+    await page.getByRole('spinbutton').fill('12');
+    await launchButton(page, '测试任务').click();
+    const run = await waitForRunning(page, 'dev_sample', 2);
+
+    // Saving settings during a run never consults the running task's connection.
+    await page.evaluate(
+      url => window.desktop.settings.setSecret('database', url),
+      'postgresql://snapshot-check@localhost:5432/unrelated',
+    );
+
+    // Host pushes do not read settings, so progress and completion must arrive
+    // while the live connection still points somewhere else.
+    const finishedOnSnapshot = await page.evaluate(id => new Promise((resolve, reject) => {
+      const seen = [];
+      const stop = window.desktop.tasks.onChange(task => {
+        if (task.id !== id) return;
+        const done = task.stages[0]?.done ?? 0;
+        if (done > (seen[seen.length - 1] ?? -1)) seen.push(done);
+        if (task.status === 'completed') {
+          stop();
+          resolve({ seen, done });
+        } else if (task.status === 'failed') {
+          stop();
+          reject(new Error(task.errorMessage ?? 'Task failed on the startup snapshot'));
+        }
+      });
+    }), run.id);
+    assert.ok(finishedOnSnapshot.seen.length >= 2, 'progress must advance while the live setting differs from the snapshot');
+    assert.ok(finishedOnSnapshot.seen.at(-1) > finishedOnSnapshot.seen[0], 'progress must advance while the live setting differs');
+    assert.equal(finishedOnSnapshot.done, 12);
+  } finally {
+    // The original connection comes back only after the run ended on its startup snapshot.
+    await page.evaluate(url => window.desktop.settings.setSecret('database', url), databaseUrl()).catch(() => {});
+    await app?.close();
+    await rm(profile, { recursive: true, force: true });
+  }
+});
+
 /** A Worker that dies mid-run becomes a visible failure instead of a fake running state. */
 test('marks a run failed when its Worker dies unexpectedly', {
   timeout: 180_000,
