@@ -1,5 +1,11 @@
 import type { SettingsSnapshot } from '../shared/settings';
 
+/** User-facing target and scope shown before one publish task is accepted. */
+export interface PublishConfirmation {
+  environment: string;
+  scope:       string;
+}
+
 /** Health information returned by the isolated local business process. */
 export interface RuntimeHealth {
   runtime: 'node';
@@ -31,8 +37,8 @@ export interface DesktopBridge {
     health(): Promise<RuntimeHealth>;
   };
   tasks: {
-    start(taskType: string, params: Record<string, unknown>): Promise<TaskStartReply>;
-    retry(taskRunId: string): Promise<TaskStartReply>;
+    start(taskType: string, params: Record<string, unknown>): Promise<TaskStartReply | null>;
+    retry(taskRunId: string): Promise<TaskStartReply | null>;
     control(taskRunId: string, kind: TaskControlKind): Promise<TaskView>;
     latestByTypes(taskTypes: string[]): Promise<TaskView[]>;
     list(): Promise<TaskView[]>;
@@ -86,10 +92,11 @@ export interface TaskView {
 export type RuntimeRequest
   = | { id: number, method: 'health' }
     | { id: number, method: 'shutdown' }
-    | { id: number, method: 'task:describe', taskType: string }
+    | { id: number, method: 'task:describe', taskType: string, params?: Record<string, unknown> }
+    | { id: number, method: 'task:describe-retry', taskRunId: string, databaseUrl: string }
     | { id: number, method: 'task:find-active', taskType: string, databaseUrl: string }
     | { id: number, method: 'task:start', taskRunId: string, taskType: string, params: Record<string, unknown>, databaseUrl: string }
-    | { id: number, method: 'task:retry', taskRunId: string, retryOfTaskRunId: string, databaseUrl: string }
+    | { id: number, method: 'task:retry', taskRunId: string, retryOfTaskRunId: string, databaseUrl: string, operatorUserId?: string }
     | { id: number, method: 'task:control', taskRunId: string, kind: TaskControlKind, databaseUrl: string }
     | { id: number, method: 'task:latest-by-types', taskTypes: string[], databaseUrl: string }
     | { id: number, method: 'task:list', databaseUrl?: string }
@@ -104,10 +111,11 @@ export interface RuntimeResponse {
 
 /** Registration facts the main process needs before a run exists. */
 export interface TaskDescription {
-  taskType:  string;
-  label:     string;
+  taskType:            string;
   /** Present when starting this task type requires remote publish admission. */
-  admission: { game: AdmissionGame } | null;
+  admission:           { game: AdmissionGame } | null;
+  /** Present when the task registration can describe its target and publish scope. */
+  publishConfirmation: PublishConfirmation | null;
 }
 
 /** Games whose data a publish admission can be requested for. */

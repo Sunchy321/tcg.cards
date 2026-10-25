@@ -72,6 +72,7 @@ interface PinCtx {
   environment:          string;
   targetFingerprint:    string;
   publishType:          string;
+  operatorUserId:       string | null;
   previousRange:        { buildMin: number, buildMax: number } | null;
   previousManifestHash: string | null;
   publishedAt:          Date;
@@ -247,12 +248,17 @@ export const pinTaskDefinition = createDefinition(pinTaskType, { version: '2026-
       resolve: scope => ({ key: `${scope.publishTarget}:${scope.environment}:pin`, snapshot: scope }),
     },
   )
-  .input(z.strictObject({ publishTarget: z.literal('hearthstone'), environment: z.string().trim().min(1) }))
+  .input(z.strictObject({
+    publishTarget:  z.literal('hearthstone'),
+    environment:    z.string().trim().min(1),
+    operatorUserId: z.string().trim().min(1).optional(),
+  }))
   .output(pinOutput)
   .context({
-    init: (): PinCtx => ({
+    init: (input): PinCtx => ({
       batchId:              '', publishTarget:        '', environment:          '', targetFingerprint:    '',
-      publishType:          'card_data', previousRange:        null, previousManifestHash: null, publishedAt:          new Date(),
+      publishType:          'card_data', operatorUserId:       input.operatorUserId ?? null,
+      previousRange:        null, previousManifestHash: null, publishedAt:          new Date(),
     }),
   })
 
@@ -385,6 +391,7 @@ export const pinTaskDefinition = createDefinition(pinTaskType, { version: '2026-
         await upsertRemotePublishLedger(tx, {
           batchId:               ctx.batchId, publishTarget:         ctx.publishTarget, environment:           ctx.environment,
           targetFingerprint:     ctx.targetFingerprint, publishType:           ctx.publishType,
+          operatorUserId:        ctx.operatorUserId,
           range, generationFingerprint: publishCardDataGeneration.fingerprint,
           generationOrder:       publishCardDataGeneration.order,
           counts:                {

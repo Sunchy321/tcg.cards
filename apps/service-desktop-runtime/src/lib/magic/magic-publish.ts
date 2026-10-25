@@ -602,6 +602,7 @@ export async function updateBaseline(
 export async function upsertRemotePublishLedger(
   remoteDb: PublishDb,
   batch: typeof PublishBatch.$inferSelect,
+  operatorUserId: string | null = null,
 ): Promise<void> {
   await remoteDb.insert(PublishLedger).values({
     publishTarget:         batch.publishTarget,
@@ -609,6 +610,7 @@ export async function upsertRemotePublishLedger(
     publishType:           batch.publishType,
     targetFingerprint:     batch.targetFingerprint,
     batchId:               batch.id,
+    operatorUserId,
     // The shared ledger schema carries the hearthstone build range; magic has
     // no build concept, so the placeholder range satisfies the NOT NULL gates.
     buildMin:              1,
@@ -628,6 +630,7 @@ export async function upsertRemotePublishLedger(
     set: {
       targetFingerprint:     batch.targetFingerprint,
       batchId:               batch.id,
+      operatorUserId,
       generationFingerprint: batch.generationFingerprint,
       generationOrder:       batch.generationOrder,
       manifestHash:          batch.manifestHash,

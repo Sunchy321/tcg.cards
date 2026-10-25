@@ -49,6 +49,7 @@ export const PublishLedger = pgTable('publish_ledgers', {
 
   targetFingerprint: text('target_fingerprint').notNull(),
   batchId:           uuid('batch_id').notNull(),
+  operatorUserId:    text('operator_user_id'),
 
   buildMin: integer('build_min').notNull(),
   buildMax: integer('build_max').notNull(),

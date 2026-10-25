@@ -75,8 +75,13 @@ export class RuntimeClient {
   }
 
   /** Reads one task type's registration facts, null when the type is unknown. */
-  describe(taskType: string): Promise<TaskDescription | null> {
-    return this.call<TaskDescription | null>({ id: ++this.nextId, method: 'task:describe', taskType });
+  describe(taskType: string, params?: Record<string, unknown>): Promise<TaskDescription | null> {
+    return this.call<TaskDescription | null>({ id: ++this.nextId, method: 'task:describe', taskType, params });
+  }
+
+  /** Describes a retry from saved task parameters without returning them to the renderer. */
+  describeRetry(taskRunId: string, databaseUrl: string): Promise<TaskDescription | null> {
+    return this.call<TaskDescription | null>({ id: ++this.nextId, method: 'task:describe-retry', taskRunId, databaseUrl });
   }
 
   /** Saves and dispatches one task after the main process accepts its identity. */
@@ -85,8 +90,8 @@ export class RuntimeClient {
   }
 
   /** Retries one terminal run with its original parameters under a new identity. */
-  retry(taskRunId: string, retryOfTaskRunId: string, databaseUrl: string): Promise<TaskStartResult> {
-    return this.call<TaskStartResult>({ id: ++this.nextId, method: 'task:retry', taskRunId, retryOfTaskRunId, databaseUrl });
+  retry(taskRunId: string, retryOfTaskRunId: string, databaseUrl: string, operatorUserId?: string): Promise<TaskStartResult> {
+    return this.call<TaskStartResult>({ id: ++this.nextId, method: 'task:retry', taskRunId, retryOfTaskRunId, databaseUrl, operatorUserId });
   }
 
   /** Forwards one control request to the Worker that owns a run. */

@@ -849,6 +849,7 @@ export async function upsertRemotePublishLedger(
     environment:           string;
     targetFingerprint:     string;
     publishType:           string;
+    operatorUserId:        string | null;
     range:                 PublishDatasetRange;
     generationFingerprint: GenerationFingerprint;
     generationOrder:       GenerationOrder;
@@ -863,6 +864,7 @@ export async function upsertRemotePublishLedger(
     publishType:           input.publishType,
     targetFingerprint:     input.targetFingerprint,
     batchId:               input.batchId,
+    operatorUserId:        input.operatorUserId,
     buildMin:              input.range.buildMin,
     buildMax:              input.range.buildMax,
     generationFingerprint: input.generationFingerprint,
@@ -885,6 +887,7 @@ export async function upsertRemotePublishLedger(
         publishType:           input.publishType,
         targetFingerprint:     input.targetFingerprint,
         batchId:               input.batchId,
+        operatorUserId:        input.operatorUserId,
         buildMin:              input.range.buildMin,
         buildMax:              input.range.buildMax,
         generationFingerprint: input.generationFingerprint,

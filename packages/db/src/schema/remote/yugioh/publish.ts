@@ -16,6 +16,7 @@ export const PublishLedger = dataSchema.table('publish_ledgers', {
   environment:       text('environment').notNull(),
   targetFingerprint: text('target_fingerprint').notNull(),
   batchId:           uuid('batch_id').notNull(),
+  operatorUserId:    text('operator_user_id'),
   manifestHash:      text('manifest_hash').notNull(),
   totalRowCount:     integer('total_row_count').notNull(),
   changedRowCount:   integer('changed_row_count').notNull().default(0),

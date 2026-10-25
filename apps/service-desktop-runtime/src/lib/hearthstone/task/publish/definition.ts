@@ -88,6 +88,7 @@ interface PublishCtx {
   db:              PublishDb;
   dryRun:          boolean;
   force:           boolean;
+  operatorUserId:  string | null;
   operationKind:   string;
   stream:          { publishTarget: string, environment: string, publishType: string, targetFingerprint: string };
   batchId?:        string;
@@ -559,9 +560,10 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
     },
   )
   .input(z.object({
-    dryRun:        z.boolean().optional(),
-    operationKind: z.enum(['publish', 'revert']),
-    force:         z.boolean().optional(),
+    dryRun:         z.boolean().optional(),
+    operationKind:  z.enum(['publish', 'revert']),
+    force:          z.boolean().optional(),
+    operatorUserId: z.string().trim().min(1).optional(),
   }))
   .output(z.object({
     manifestHash:         z.string(),
@@ -593,6 +595,7 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
         db:              getLocalDb() as unknown as PublishDb,
         dryRun:          input.dryRun ?? false,
         force:           input.force ?? false,
+        operatorUserId:  input.operatorUserId ?? null,
         operationKind:   input.operationKind,
         stream:          { publishTarget: target.publishTarget, environment: target.environment, publishType: 'card_data', targetFingerprint: target.targetFingerprint },
         pendingRowCount: 0,
@@ -835,6 +838,7 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
           await upsertRemotePublishLedger(tx, {
             batchId:               batch.id, publishTarget:         batch.publishTarget, environment:           batch.environment,
             targetFingerprint:     batch.targetFingerprint, publishType:           batch.publishType,
+            operatorUserId:        ctx.operatorUserId,
             range:                 { buildMin: batch.buildMin, buildMax: batch.buildMax },
             generationFingerprint: batch.generationFingerprint, generationOrder:       batch.generationOrder,
             counts:                {

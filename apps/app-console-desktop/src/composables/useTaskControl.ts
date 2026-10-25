@@ -1,4 +1,4 @@
-import type { TaskView } from '../../electron/contract';
+import type { TaskStartReply, TaskView } from '../../electron/contract';
 import { isTaskActive, useTasks } from './useTasks';
 
 /** One task type a control can start, labelled for the page it lives on. */
@@ -51,13 +51,14 @@ export function useTaskControl(descriptors: TaskControlDescriptor[]) {
   }
 
   /** Shares one request path for launch and retry so existing runs surface the same way. */
-  async function operate(taskType: string, request: () => Promise<{ taskRunId: string, existing: boolean }>): Promise<void> {
+  async function operate(taskType: string, request: () => Promise<TaskStartReply | null>): Promise<void> {
     if (busy.value) return;
     busy.value = true;
     error.value = '';
     existingNotice.value = '';
     try {
       const reply = await request();
+      if (!reply) return;
       if (reply.existing) {
         existingNotice.value = '已有任务，正在显示现有任务。';
         void refresh([taskType]);

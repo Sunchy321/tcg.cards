@@ -25,5 +25,5 @@ export default defineEventHandler(async event => {
     setResponseStatus(event, 403, 'Forbidden');
     return { allowed: false };
   }
-  return { allowed: true, game: parsed.data.game, username: session.user.username ?? session.user.name };
+  return { allowed: true, game: parsed.data.game, userId: session.user.id };
 });

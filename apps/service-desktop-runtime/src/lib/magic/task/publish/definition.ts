@@ -37,10 +37,11 @@ import { requireMagicPublishTargetByIdentity } from '../../magic-publish-target'
 export const magicPublishTaskType = 'magic_publish';
 
 const input = z.object({
-  publishTarget: z.string().trim().min(1),
-  environment:   z.string().trim().min(1),
-  dryRun:        z.boolean().optional().default(false),
-  force:         z.boolean().optional().default(false),
+  publishTarget:  z.string().trim().min(1),
+  environment:    z.string().trim().min(1),
+  operatorUserId: z.string().trim().min(1).optional(),
+  dryRun:         z.boolean().optional().default(false),
+  force:          z.boolean().optional().default(false),
 });
 
 const countsSchema = z.object({
@@ -108,6 +109,7 @@ interface TaskCtx {
   force:                boolean;
   publishTarget:        string;
   environment:          string;
+  operatorUserId:       string | null;
   targetFingerprint:    string;
   connectionString:     string;
   batchId:              string | null;
@@ -137,6 +139,7 @@ const definition = createDefinition(magicPublishTaskType, {
       force:                values.force ?? false,
       publishTarget:        values.publishTarget,
       environment:          values.environment,
+      operatorUserId:       values.operatorUserId ?? null,
       targetFingerprint:    '',
       connectionString:     '',
       batchId:              null,
@@ -502,7 +505,7 @@ const definition = createDefinition(magicPublishTaskType, {
             updatedAt:             new Date(),
           },
         });
-        await upsertRemotePublishLedger(remoteDb, batch);
+        await upsertRemotePublishLedger(remoteDb, batch, c.operatorUserId);
         await releaseRemotePublishLease(remoteDb, { ...stream, leaseHolderId: batch.id });
         await db.update(PublishBatch)
           .set({ status: 'completed', completedAt: new Date(), updatedAt: new Date() })

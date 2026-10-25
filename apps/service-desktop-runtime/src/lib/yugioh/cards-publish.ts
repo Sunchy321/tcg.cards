@@ -600,7 +600,7 @@ async function calibrateRemoteIdentity(
 /** Planned local rows applied to the verified test remote with resumable chunks. */
 export async function executeYugiohPublishBatch(
   batchId: string,
-  options?: { onProgress?: (progress: YugiohPublishProgress) => void },
+  options?: { operatorUserId?: string, onProgress?: (progress: YugiohPublishProgress) => void },
 ) {
   const target = requireYugiohPublishTarget();
   const localDb = getYugiohLocalDb();
@@ -802,6 +802,7 @@ export async function executeYugiohPublishBatch(
         environment:       target.environment,
         targetFingerprint: target.targetFingerprint,
         batchId:           batch.id,
+        operatorUserId:    options?.operatorUserId ?? null,
         manifestHash:      batch.manifestHash,
         totalRowCount:     batch.totalRowCount,
         changedRowCount:   batch.changedRowCount,
@@ -812,6 +813,7 @@ export async function executeYugiohPublishBatch(
           environment:       target.environment,
           targetFingerprint: target.targetFingerprint,
           batchId:           batch.id,
+          operatorUserId:    options?.operatorUserId ?? null,
           manifestHash:      batch.manifestHash,
           totalRowCount:     batch.totalRowCount,
           changedRowCount:   batch.changedRowCount,
@@ -861,7 +863,8 @@ export async function executeYugiohPublishBatch(
 
 /** Existing incomplete batch resumed before any new publish plan is created. */
 export async function publishYugiohCards(options?: {
-  onProgress?: (progress: YugiohPublishProgress) => void;
+  operatorUserId?: string;
+  onProgress?:     (progress: YugiohPublishProgress) => void;
 }) {
   const incomplete = await getIncompleteYugiohPublishBatch();
 

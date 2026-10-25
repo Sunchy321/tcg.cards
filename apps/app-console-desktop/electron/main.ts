@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 
 import { HEALTH_CHANNEL, OPEN_SETTINGS, CLOSE_REQUESTED, TASK_CHANNEL, TASK_CHANGED_CHANNEL } from './contract';
-import type { TaskView } from './contract';
+import type { AdmissionGame, TaskView } from './contract';
 import { RuntimeClient } from './runtime-client';
 import { Settings } from './settings';
 import { credentials } from './credentials';
@@ -14,7 +14,7 @@ import { inheritSettings } from './legacy-settings';
 import { legacySources } from './legacy-sources';
 import { registerSettings } from './settings-ipc';
 import { registerAuth } from './auth';
-import { admitPublish } from './publish-admission';
+import { admitPublish, PUBLISH_GAME_LABELS } from './publish-admission';
 import { verifyDevelopment } from './development-trust';
 import type { IpcMainInvokeEvent, MessageBoxOptions } from 'electron';
 
@@ -34,7 +34,6 @@ const developmentUrl = !app.isPackaged ? process.env.VITE_DEV_SERVER_URL || unde
 const rendererUrl = developmentUrl ?? 'tcg-console://app/index.html';
 const rendererOrigin = new URL(rendererUrl).origin;
 const smokeTest = process.argv.includes('--smoke-test');
-
 /** Restricts navigation and privileged IPC to the app's own renderer document. */
 function isAppUrl(value: string) {
   const url = new URL(value);
@@ -132,6 +131,32 @@ async function authorize(event: IpcMainInvokeEvent) {
   if (developmentUrl) await verifyDevelopment(developmentUrl, process.env.CONSOLE_DEV_IDENTITY);
 }
 
+/** Confirms one publish target and scope before remote admission or task creation. */
+async function confirmPublish(game: AdmissionGame, environment: string, scope: string): Promise<boolean> {
+  const parent = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
+  const options: MessageBoxOptions = {
+    type:      'warning',
+    title:     '确认发布',
+    message:   `将发布${PUBLISH_GAME_LABELS[game]}数据到“${environment}”。`,
+    detail:    `发布范围：${scope}`,
+    buttons:   ['取消', '确认发布'],
+    defaultId: 0,
+    cancelId:  0,
+  };
+  const result = parent
+    ? await dialog.showMessageBox(parent, options)
+    : await dialog.showMessageBox(options);
+  return result.response === 1;
+}
+
+/** Prevents renderer-supplied operator IDs from entering persisted task parameters. */
+function taskParamsWithOperator(params: Record<string, unknown>, operatorUserId?: string): Record<string, unknown> {
+  const value = { ...params };
+  Reflect.deleteProperty(value, 'operatorUserId');
+  if (operatorUserId) value.operatorUserId = operatorUserId;
+  return value;
+}
+
 let startupPhase = 'development';
 app
   .whenReady()
@@ -222,6 +247,12 @@ app
       if (parsed.action === 'control' || parsed.action === 'latestByTypes') {
         const url = await settings.secret('database');
         if (!url) throw new Error('请先在设置中填写本地数据库连接。');
+        if (parsed.action === 'control' && parsed.kind === 'resume') {
+          // Continuing a publish run relaunches its Worker, so it passes the same admission.
+          const source = await runtime!.get(parsed.taskRunId, url);
+          const resumed = source ? await runtime!.describe(source.taskType) : null;
+          if (resumed?.admission) await admitPublish(settings, resumed.admission.game);
+        }
         return parsed.action === 'control'
           ? runtime!.control(parsed.taskRunId, parsed.kind, url)
           : runtime!.latestByTypes(parsed.taskTypes, url);
@@ -238,9 +269,27 @@ app
         taskType = source.taskType;
         retryOfTaskRunId = parsed.taskRunId;
       }
+      if (!url) throw new Error('请先在设置中填写本地数据库连接。');
+      const existing = await runtime!.findActiveByType(taskType, url);
+      if (existing) {
+        const existingDescription = await runtime!.describe(taskType);
+        if (existingDescription?.admission) await admitPublish(settings, existingDescription.admission.game);
+        mainWindow?.webContents.send(TASK_CHANGED_CHANNEL, existing);
+        return { taskRunId: existing.id, existing: true };
+      }
+      const description = parsed.action === 'start'
+        ? await runtime!.describe(taskType, parsed.params)
+        : await runtime!.describeRetry(parsed.taskRunId, url);
+      if (description?.publishConfirmation) {
+        if (!description.admission) throw new Error('发布任务缺少权限检查。');
+        const { environment, scope } = description.publishConfirmation;
+        if (!environment.trim() || !scope.trim()) throw new Error('无法确认发布目标和范围。');
+        if (!(await confirmPublish(description.admission.game, environment, scope))) return null;
+      }
       // Publish tasks pass fail-closed remote admission before anything is started or reused.
-      const description = await runtime!.describe(taskType);
-      if (description?.admission) await admitPublish(settings, description.admission.game);
+      const operatorUserId = description?.admission
+        ? await admitPublish(settings, description.admission.game)
+        : undefined;
       const label = taskType;
       const taskRunId = randomUUID();
       const createdAt = new Date().toISOString();
@@ -258,19 +307,13 @@ app
         startedAt:    null,
         finishedAt:   null,
       };
-      // Reuse the existing unfinished run of this type instead of accepting a competing one.
-      if (url) {
-        const existing = await runtime!.findActiveByType(taskType, url);
-        if (existing) {
-          mainWindow?.webContents.send(TASK_CHANGED_CHANNEL, existing);
-          return { taskRunId: existing.id, existing: true };
-        }
-      }
       mainWindow?.webContents.send(TASK_CHANGED_CHANNEL, accepted);
-      const launchParams = parsed.action === 'start' ? parsed.params : null;
+      const launchParams = parsed.action === 'start'
+        ? taskParamsWithOperator(parsed.params, operatorUserId)
+        : null;
       const dispatch = (async () => {
         if (!url) throw new Error('请先在设置中填写本地数据库连接。');
-        if (retryOfTaskRunId) return runtime!.retry(taskRunId, retryOfTaskRunId, url);
+        if (retryOfTaskRunId) return runtime!.retry(taskRunId, retryOfTaskRunId, url, operatorUserId);
         if (launchParams !== null) return runtime!.start(taskRunId, taskType, launchParams, url);
         throw new Error('无法启动任务');
       })();

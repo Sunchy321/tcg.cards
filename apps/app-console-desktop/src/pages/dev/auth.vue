@@ -59,6 +59,7 @@ async function runPublish() {
   try {
     if (!await requireSession()) return;
     const started = await window.desktop.tasks.start('dev_publish', { steps: 4 });
+    if (!started) return;
     for (let attempt = 0; attempt < 80; attempt++) {
       const task = await window.desktop.tasks.get(started.taskRunId);
       if (task?.status === 'completed') {

@@ -12,7 +12,7 @@ function backend() {
     if (request.url === '/publish/admission' && request.method === 'POST') {
       response.statusCode = state.status;
       response.setHeader('content-type', 'application/json');
-      response.end(state.status === 200 ? '{"allowed":true,"game":"magic"}' : '{"allowed":false}');
+      response.end(state.status === 200 ? '{"allowed":true,"game":"magic","userId":"user-123"}' : '{"allowed":false}');
       return;
     }
     response.statusCode = 404;

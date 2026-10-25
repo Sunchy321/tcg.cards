@@ -40,7 +40,7 @@ async function consoleBackend() {
     if (request.url === '/publish/admission' && request.method === 'POST') {
       response.statusCode = state.admissionStatus;
       response.setHeader('content-type', 'application/json');
-      response.end(state.admissionStatus === 200 ? '{"allowed":true,"game":"magic"}' : '{"allowed":false}');
+      response.end(state.admissionStatus === 200 ? '{"allowed":true,"game":"magic","userId":"user-123"}' : '{"allowed":false}');
       return;
     }
     response.statusCode = 404;
@@ -227,6 +227,11 @@ test('admission refusals stop the publish task before it starts', {
   const profile = await mkdtemp(join(tmpdir(), 'console-auth-'));
   const session = await launchConsole(profile);
   try {
+    // Local prerequisites come first, so the admission cases need a database string.
+    await session.page.evaluate(
+      url => window.desktop.settings.setSecret('database', url),
+      'postgresql://admission-check@localhost:5432/unused',
+    );
     // Without a session the gate refuses before any request leaves the app.
     const noSession = await session.page.evaluate(async () => {
       try {

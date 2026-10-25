@@ -3,9 +3,7 @@ import { resolve } from 'node:path';
 
 import './task/discover';
 import { findTask, getTask } from './task/registry';
-import { recoverUnfinishedRuns } from './task/recover';
-import { TaskStore } from './task/store';
-import type {
+import type { TaskDescription,
   RuntimeRequest,
   RuntimeResponse,
   RuntimeTaskEvent,
@@ -13,8 +11,9 @@ import type {
   TaskStartResult,
   TaskView,
   WorkerCommand,
-  WorkerMessage,
-} from './contract';
+  WorkerMessage } from './contract';
+import { recoverUnfinishedRuns } from './task/recover';
+import { TaskStore } from './task/store';
 
 const stores = new Map<string, TaskStore>();
 const recovered = new Map<string, Promise<void>>();
@@ -27,6 +26,17 @@ let closing = false;
 
 /** Statuses that can still be controlled before a run settles. */
 const controllableStatuses = ['pending', 'running', 'pausing', 'paused', 'resuming', 'canceling', 'interrupted'];
+
+/** Projects a registration into the host-only facts needed before task acceptance. */
+function describeTask(taskType: string, params?: Record<string, unknown>): TaskDescription | null {
+  const registration = findTask(taskType);
+  if (!registration) return null;
+  return {
+    taskType:            taskType,
+    admission:           registration.admission ?? null,
+    publishConfirmation: params ? registration.publishConfirmation?.(params) ?? null : null,
+  };
+}
 
 /** Resolves after the given delay so shutdowns are never blocked by a stuck Worker. */
 function delay(milliseconds: number): Promise<void> {
@@ -234,13 +244,13 @@ async function handle(request: RuntimeRequest): Promise<RuntimeResponse> {
   }
   const store = 'databaseUrl' in request && request.databaseUrl ? await storeReady(request.databaseUrl) : null;
   if (request.method === 'task:describe') {
-    const registration = findTask(request.taskType);
-    return {
-      id:     request.id,
-      result: registration
-        ? { taskType: registration.taskType, label: registration.label, admission: registration.admission ?? null }
-        : null,
-    };
+    return { id: request.id, result: describeTask(request.taskType, request.params) };
+  }
+  if (request.method === 'task:describe-retry') {
+    if (!store) throw new Error('Local database is not configured');
+    const source = await store.parametersOf(request.taskRunId);
+    if (!source) throw new Error('任务不存在或已清除。');
+    return { id: request.id, result: describeTask(source.taskType, source.params) };
   }
   if (request.method === 'task:list') {
     await Promise.allSettled(recovered.values());
@@ -279,7 +289,7 @@ async function handle(request: RuntimeRequest): Promise<RuntimeResponse> {
       store,
       request.taskRunId,
       source.taskType,
-      source.params,
+      request.operatorUserId == null ? source.params : { ...source.params, operatorUserId: request.operatorUserId },
       request.databaseUrl,
       request.retryOfTaskRunId,
     );

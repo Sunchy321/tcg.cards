@@ -1,11 +1,15 @@
+import type { AdmissionGame, PublishConfirmation } from '../contract';
+
 /** Metadata and a lazy Worker-side loader for one task type. */
 export interface TaskRegistration {
-  taskType:       string;
-  label:          string;
-  version:        string;
-  supportsResume: boolean;
+  taskType:             string;
+  label:                string;
+  version:              string;
+  supportsResume:       boolean;
   /** Present when starting this task type requires remote publish admission first. */
-  admission?:     { game: 'magic' | 'hearthstone' | 'yugioh' | 'shadowverse' };
+  admission?:           { game: AdmissionGame };
+  /** Builds safe confirmation copy from launch parameters without exposing raw task data. */
+  publishConfirmation?: (params: Record<string, unknown>) => PublishConfirmation | null;
   scope(params: Record<string, unknown>): { type: string, key: string, snapshot?: Record<string, unknown> };
   load(): Promise<{ default: TaskDefinition }>;
 }
