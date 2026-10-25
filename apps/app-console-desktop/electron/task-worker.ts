@@ -34,10 +34,12 @@ function settled(): void {
 }
 
 /** Outcome of one pass over the planned stages. */
-type Outcome = 'done' | 'paused' | 'canceled' | 'failed';
+type Outcome = 'done' | 'paused' | 'canceled' | 'failed' | 'stopped';
 
 /** Latest control instruction received from the host. */
 let control: 'pause' | 'cancel' | null = null;
+/** Set when the host asked this Worker to stop for a deliberate shutdown. */
+let stopping = false;
 /** Aborts the currently running stage attempt. */
 let controller: AbortController | null = null;
 /** Resolves the paused wait when the host sends resume or cancel. */
@@ -50,9 +52,18 @@ port!.on('message', (message: WorkerCommand) => {
     wake?.();
     return;
   }
+  if (message.control === 'shutdown') {
+    // Stop at the current safe boundary without deciding the run's final state.
+    stopping = true;
+    control = null;
+    if (controller) controller.abort('shutdown');
+    wake?.();
+    return;
+  }
   control = message.control;
+  // A stale controller from a finished stage attempt must not swallow the wake.
   if (controller) controller.abort(message.control);
-  else wake?.();
+  wake?.();
 });
 
 /** Waits inside the paused state until the host resumes or cancels the run. */
@@ -75,6 +86,11 @@ async function statusOf(store: TaskStore): Promise<string | null> {
 async function settleInterrupted(store: TaskStore, stage: TaskStageDefinition): Promise<Outcome> {
   const status = await statusOf(store);
   if (status === null || terminalStatuses.includes(status)) return 'canceled';
+  if (stopping) {
+    // A deliberate shutdown leaves the persisted checkpoint untouched for the host to classify.
+    settled();
+    return 'stopped';
+  }
   if (control === 'pause') {
     await store.markPaused(launch.taskRunId, stage.key, stage.resumeMode ?? 'none');
     control = null;
@@ -163,9 +179,15 @@ async function execute(): Promise<void> {
     changed('running');
     let resumed = snapshot.stages.length > 0;
     for (;;) {
+      // A shutdown may have arrived while the definition was still loading.
+      if (stopping) {
+        settled();
+        return;
+      }
       const outcome = await runOnce(store, definition, stages, params, resumed);
       if (outcome !== 'paused') return;
       if (await waitWhilePaused() === 'cancel') return;
+      if (stopping) return;
       resumed = true;
     }
   } catch (error) {

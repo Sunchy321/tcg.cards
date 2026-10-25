@@ -80,6 +80,7 @@ export interface TaskView {
 /** Request sent only between the main and local business processes. */
 export type RuntimeRequest
   = | { id: number, method: 'health' }
+    | { id: number, method: 'shutdown' }
     | { id: number, method: 'task:find-active', taskType: string, databaseUrl: string }
     | { id: number, method: 'task:start', taskRunId: string, taskType: string, params: Record<string, unknown>, databaseUrl: string }
     | { id: number, method: 'task:retry', taskRunId: string, retryOfTaskRunId: string, databaseUrl: string }
@@ -103,10 +104,10 @@ export interface WorkerMessage {
   settled?:  boolean;
 }
 
-/** A control instruction sent from the task host to one Worker. */
+/** A control instruction sent from the task host to one Worker; shutdown stops it at a safe boundary. */
 export interface WorkerCommand {
   taskRunId: string;
-  control:   TaskControlKind;
+  control:   TaskControlKind | 'shutdown';
 }
 
 /** A task update pushed from the task host to every open renderer. */

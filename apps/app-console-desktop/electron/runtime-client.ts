@@ -25,11 +25,20 @@ export class RuntimeClient {
   private listeners = new Set<(task: TaskView) => void>();
   private nextId = 0;
   private available = true;
+  private stopping = false;
 
-  /** Starts the bundled Node business entrypoint for this app instance. */
-  constructor(entry: string) {
-    this.process = utilityProcess.fork(entry, [], { serviceName: 'TCG Cards' });
-    this.process.on('message', (message: RuntimeResponse | RuntimeTaskEvent) => {
+  /** Starts the bundled Node business entrypoint; a crashed instance is restarted automatically. */
+  constructor(
+    private entry: string,
+    private onRestart?: () => void,
+  ) {
+    this.process = this.connect();
+  }
+
+  /** Forks one host instance and wires its replies, task events and exit handling. */
+  private connect(): UtilityProcess {
+    const process = utilityProcess.fork(this.entry, [], { serviceName: 'TCG Cards' });
+    process.on('message', (message: RuntimeResponse | RuntimeTaskEvent) => {
       if ('event' in message) {
         for (const listener of this.listeners) listener(message.task);
         return;
@@ -41,10 +50,16 @@ export class RuntimeClient {
       if (message.error) call.reject(new Error(message.error));
       else call.resolve(message.result);
     });
-    this.process.on('exit', () => {
+    process.on('exit', () => {
       this.available = false;
       this.rejectPending(new Error('Local business process exited'));
+      if (this.stopping) return;
+      // A crashed host must heal so unfinished runs are reclassified instead of looking alive.
+      this.process = this.connect();
+      this.available = true;
+      this.onRestart?.();
     });
+    return process;
   }
 
   /** Subscribes to authoritative changes while the main process remains alive. */
@@ -93,8 +108,14 @@ export class RuntimeClient {
     return this.call<TaskView | null>({ id: ++this.nextId, method: 'task:get', taskRunId, databaseUrl });
   }
 
+  /** Winds running tasks down at safe boundaries before the application exits. */
+  shutdown(): Promise<null> {
+    return this.call<null>({ id: ++this.nextId, method: 'shutdown' });
+  }
+
   /** Releases the business process when the application exits. */
   stop(): void {
+    this.stopping = true;
     this.available = false;
     this.rejectPending(new Error('Application is quitting'));
     this.process.kill();

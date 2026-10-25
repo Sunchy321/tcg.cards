@@ -18,6 +18,8 @@ async function launchConsole() {
     timeout: 60_000,
   });
   app.process().stderr?.on('data', chunk => process.stderr.write(chunk));
+  // Cleanup closes must never block on the native quit confirmation.
+  await patchQuitDialog(app, 1);
   const page = await app.firstWindow();
   await page.getByText('最近活动', { exact: true }).waitFor();
   await page.evaluate(url => window.desktop.settings.setSecret('database', url), databaseUrl());
@@ -56,10 +58,40 @@ async function waitForRunning(page, taskType, minDone, attempts = 80) {
   throw new Error(`Task ${taskType} never reached running`);
 }
 
-/** Quits the app the way a real restart does: the task host and Workers die mid-run. */
+/** Quits the app the way a real crash does: the task host and Workers die mid-run. */
 async function restartApp(session) {
-  await session.app.close();
+  session.app.process().kill('SIGKILL');
+  await waitForExit(session.app);
   await rm(session.profile, { recursive: true, force: true });
+}
+
+/** Steers the native quit confirmation without a visible dialog. */
+async function patchQuitDialog(app, response) {
+  await app.evaluate(({ dialog }, choice) => {
+    if (!dialog.__originalMessageBox) dialog.__originalMessageBox = dialog.showMessageBox;
+    dialog.showMessageBox = async () => ({ response: choice });
+  }, response);
+}
+
+/** Puts the native quit confirmation back so later closes can quit normally. */
+async function restoreQuitDialog(app) {
+  await app.evaluate(({ dialog }) => {
+    if (dialog.__originalMessageBox) {
+      dialog.showMessageBox = dialog.__originalMessageBox;
+      dialog.__originalMessageBox = undefined;
+    }
+  });
+}
+
+/** Resolves once the Electron process really exited after a confirmed quit. */
+async function waitForExit(app) {
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('the app did not exit')), 60_000);
+    app.process().once('exit', () => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
 }
 
 /** Locates the launch row of one development task type. */
@@ -441,6 +473,171 @@ test('keeps tasks running behind a closed window and reads live state after reop
   } finally {
     await app?.close();
     await reopened?.close().catch(() => {});
+    await rm(profile, { recursive: true, force: true });
+  }
+});
+
+/** Quitting with unfinished tasks asks first; canceling leaves the run untouched. */
+test('asks before quitting with unfinished tasks and keeps them running when canceled', {
+  timeout: 180_000,
+  skip:    !databaseUrl(),
+}, async () => {
+  const { app, page, profile } = await launchConsole();
+  try {
+    await clearDevelopmentRuns(page);
+    await page.evaluate(() => {
+      window.location.hash = '#/dev/tasks';
+    });
+    await page.getByRole('heading', { name: '测试任务' }).waitFor();
+    await page.getByRole('spinbutton').fill('12');
+    await launchButton(page, '测试任务').click();
+    const run = await waitForRunning(page, 'dev_sample', 2);
+
+    await patchQuitDialog(app, 0);
+    await app.evaluate(electron => electron.app.quit());
+    // A canceled confirmation must leave the app and the run exactly as they were.
+    await new Promise(resolve => setTimeout(resolve, 1_500));
+    assert.equal(app.process().exitCode, null, 'the app should still be running');
+    const untouched = await page.evaluate(id => window.desktop.tasks.get(id), run.id);
+    assert.equal(untouched.status, 'running');
+    const finished = await waitForStatus(page, run.id, ['completed'], 160);
+    assert.equal(finished.stages[0].done, 12);
+  } finally {
+    await restoreQuitDialog(app).catch(() => {});
+    if (app.process().exitCode === null) await app.close();
+    await rm(profile, { recursive: true, force: true });
+  }
+});
+
+/** A confirmed quit stops at safe boundaries; the next boot waits for a manual continue. */
+test('winds unfinished tasks down on a confirmed quit and waits for manual continue', {
+  timeout: 300_000,
+  skip:    !databaseUrl(),
+}, async () => {
+  const first = await launchConsole();
+  await clearDevelopmentRuns(first.page);
+  await first.page.evaluate(() => Promise.all([
+    window.desktop.tasks.start('dev_sample', { steps: 40 }),
+    window.desktop.tasks.start('dev_sample_b', { steps: 40 }),
+  ]));
+  const durable = await waitForRunning(first.page, 'dev_sample', 2);
+  const fragile = await waitForRunning(first.page, 'dev_sample_b', 2);
+  await patchQuitDialog(first.app, 1);
+  await first.app.evaluate(electron => electron.app.quit());
+  await waitForExit(first.app);
+  await rm(first.profile, { recursive: true, force: true });
+
+  const second = await launchConsole();
+  try {
+    // The durable run waits at its checkpoint; the fragile one is abandoned and frees its type.
+    const interrupted = await waitForStatus(second.page, durable.id, ['interrupted']);
+    const persistedDone = interrupted.stages[0].done;
+    assert.ok(persistedDone >= 2 && persistedDone < 40);
+    assert.equal(interrupted.stages[0].status, 'paused');
+    const abandoned = await waitForStatus(second.page, fragile.id, ['abandoned']);
+    assert.equal(abandoned.stages[0].status, 'abandoned');
+
+    // Nothing continues on its own after the restart.
+    await new Promise(resolve => setTimeout(resolve, 1_500));
+    const waiting = await second.page.evaluate(id => window.desktop.tasks.get(id), durable.id);
+    assert.equal(waiting.status, 'interrupted');
+
+    await second.page.evaluate(() => {
+      window.location.hash = '#/dev/tasks';
+    });
+    await second.page.getByRole('heading', { name: '测试任务' }).waitFor();
+    await second.page.getByText('已中断，等待继续').first().waitFor();
+    await second.page.getByRole('button', { name: '继续' }).click();
+
+    let running;
+    for (let attempt = 0; attempt < 80; attempt++) {
+      const current = await second.page.evaluate(id => window.desktop.tasks.get(id), durable.id);
+      if (current?.status === 'running') {
+        running = current;
+        break;
+      }
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    assert.ok(running, 'the continued run should reach running');
+    assert.ok(running.stages[0].done >= persistedDone, 'continuation must not redo persisted progress');
+    const finished = await waitForStatus(second.page, durable.id, ['completed'], 160);
+    assert.equal(finished.stages[0].done, 40);
+  } finally {
+    await second.app?.close();
+    await rm(second.profile, { recursive: true, force: true });
+  }
+});
+
+/** A crashed task host restarts, reclassifies its runs and stays usable. */
+test('restarts a crashed task host so runs stop looking alive and can continue', {
+  timeout: 300_000,
+  skip:    !databaseUrl(),
+}, async () => {
+  const { app, page, profile } = await launchConsole();
+  try {
+    await clearDevelopmentRuns(page);
+    await page.evaluate(() => {
+      window.desktop.tasks.start('dev_sample', { steps: 40 });
+    });
+    const run = await waitForRunning(page, 'dev_sample', 2);
+    const before = await page.evaluate(() => window.desktop.runtime.health());
+
+    // Killing the host kills its Workers; the replacement host must reclassify the run.
+    process.kill(before.pid, 'SIGKILL');
+    const interrupted = await waitForStatus(page, run.id, ['interrupted'], 160);
+    assert.ok(interrupted.stages[0].done >= 2, 'the persisted checkpoint should survive the crash');
+
+    let revived = null;
+    for (let attempt = 0; attempt < 80; attempt++) {
+      try {
+        const current = await page.evaluate(() => window.desktop.runtime.health());
+        if (current.pid !== before.pid) {
+          revived = current;
+          break;
+        }
+      } catch { /* still restarting */ }
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    assert.ok(revived, 'the task host should restart after crashing');
+
+    await page.evaluate(() => {
+      window.location.hash = '#/dev/tasks';
+    });
+    await page.getByRole('heading', { name: '测试任务' }).waitFor();
+    await page.getByText('已中断，等待继续').first().waitFor();
+    await page.getByRole('button', { name: '继续' }).click();
+    const finished = await waitForStatus(page, run.id, ['completed'], 160);
+    assert.equal(finished.stages[0].done, 40);
+  } finally {
+    await app?.close();
+    await rm(profile, { recursive: true, force: true });
+  }
+});
+
+/** A Worker that dies mid-run becomes a visible failure instead of a fake running state. */
+test('marks a run failed when its Worker dies unexpectedly', {
+  timeout: 180_000,
+  skip:    !databaseUrl(),
+}, async () => {
+  const { app, page, profile } = await launchConsole();
+  try {
+    await clearDevelopmentRuns(page);
+    await page.evaluate(() => {
+      window.desktop.tasks.start('dev_sample_crash', {});
+    });
+    let run;
+    for (let attempt = 0; attempt < 80; attempt++) {
+      const active = await page.evaluate(() => window.desktop.tasks.list());
+      run = active.find(task => task.taskType === 'dev_sample_crash');
+      if (run) break;
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    assert.ok(run, 'the crash task should appear in the host list');
+    const failed = await waitForStatus(page, run.id, ['failed']);
+    assert.match(failed.errorMessage ?? '', /执行环境/);
+    assert.equal(failed.stages[0].done, 1);
+  } finally {
+    await app?.close();
     await rm(profile, { recursive: true, force: true });
   }
 });

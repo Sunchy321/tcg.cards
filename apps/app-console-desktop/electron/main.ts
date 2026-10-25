@@ -14,7 +14,7 @@ import { inheritSettings } from './legacy-settings';
 import { legacySources } from './legacy-sources';
 import { registerSettings } from './settings-ipc';
 import { verifyDevelopment } from './development-trust';
-import type { IpcMainInvokeEvent } from 'electron';
+import type { IpcMainInvokeEvent, MessageBoxOptions } from 'electron';
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'tcg-console', privileges: { standard: true, secure: true, supportFetchAPI: true } },
@@ -23,6 +23,9 @@ protocol.registerSchemesAsPrivileged([
 let dirty = false;
 let quitting = false;
 let unloadIntent: 'close' | 'reload' | null = null;
+/** Set while unfinished tasks are being wound down for a confirmed quit. */
+let taskShutdown: Promise<void> | null = null;
+let taskQuitPrompt = false;
 let mainWindow: BrowserWindow | null = null;
 let runtime: RuntimeClient | null = null;
 const developmentUrl = !app.isPackaged ? process.env.VITE_DEV_SERVER_URL || undefined : undefined;
@@ -182,7 +185,13 @@ app
         } else mainWindow?.close();
       },
     );
-    runtime = new RuntimeClient(resolve(__dirname, 'runtime.js'));
+    runtime = new RuntimeClient(resolve(__dirname, 'runtime.js'), () => {
+      if (taskShutdown) return;
+      // Reopening the configured database reruns the recovery scan so crashed runs stop looking alive.
+      void settings.secret('database')
+        .then(url => (url ? runtime?.list(url) : undefined))
+        .catch(() => {});
+    });
     runtime.onTaskChange(task => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send(TASK_CHANGED_CHANNEL, task);
@@ -202,6 +211,9 @@ app
         z.strictObject({ action: z.literal('list') }),
         z.strictObject({ action: z.literal('get'), taskRunId: z.uuid() }),
       ]).parse(request);
+      if ((parsed.action === 'start' || parsed.action === 'retry') && taskShutdown) {
+        throw new Error('应用正在退出，不能启动新任务。');
+      }
       if (parsed.action === 'list') return runtime!.list(await settings.secret('database') ?? undefined);
       if (parsed.action === 'get') return runtime!.get(parsed.taskRunId, await settings.secret('database') ?? undefined);
       if (parsed.action === 'control' || parsed.action === 'latestByTypes') {
@@ -289,11 +301,47 @@ app
     app.quit();
   });
 
+/** Confirms a quit that would interrupt unfinished tasks, then winds them down before quitting. */
+async function confirmQuitWithTasks(): Promise<void> {
+  if (!runtime) return;
+  let unfinished = 0;
+  try {
+    unfinished = (await runtime.list()).length;
+  } catch { /* Without the host there is nothing to wind down; the next boot classifies runs. */ }
+  if (unfinished > 0) {
+    const parent = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
+    const options: MessageBoxOptions = {
+      type:      'warning',
+      title:     '退出管理台',
+      message:   `有 ${unfinished} 个任务尚未结束，确定要退出吗？`,
+      detail:    '退出时会保存可用进度；可恢复的任务下次打开时等待手动继续。',
+      buttons:   ['取消', '退出'],
+      defaultId: 0,
+      cancelId:  0,
+    };
+    // Canceling leaves every task running exactly as it was.
+    if ((parent ? await dialog.showMessageBox(parent, options) : await dialog.showMessageBox(options)).response !== 1) return;
+  }
+  taskShutdown = runtime.shutdown().then(() => {}, () => {});
+  await taskShutdown;
+  app.quit();
+}
+
 app.on('before-quit', event => {
-  if (!dirty) return;
+  if (dirty) {
+    event.preventDefault();
+    quitting = true;
+    mainWindow?.webContents.send(CLOSE_REQUESTED);
+    return;
+  }
+  // Tasks are already wound down; let this quit through.
+  if (taskShutdown) return;
   event.preventDefault();
-  quitting = true;
-  mainWindow?.webContents.send(CLOSE_REQUESTED);
+  if (taskQuitPrompt) return;
+  taskQuitPrompt = true;
+  void confirmQuitWithTasks().finally(() => {
+    taskQuitPrompt = false;
+  });
 });
 
 // macOS keeps the application and local execution alive after closing its window.

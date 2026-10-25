@@ -22,8 +22,16 @@ const workers = new Map<string, Worker>();
 const bootTimes = new Map<string, number>();
 const phases = new Map<string, TaskView['phase']>();
 
+/** Set once a deliberate shutdown starts; new task work is refused from then on. */
+let closing = false;
+
 /** Statuses that can still be controlled before a run settles. */
 const controllableStatuses = ['pending', 'running', 'pausing', 'paused', 'resuming', 'canceling', 'interrupted'];
+
+/** Resolves after the given delay so shutdowns are never blocked by a stuck Worker. */
+function delay(milliseconds: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
 
 /** Reuses one local database client for each configured connection string. */
 function storeFor(databaseUrl: string): TaskStore {
@@ -35,12 +43,18 @@ function storeFor(databaseUrl: string): TaskStore {
   return store;
 }
 
+/** Reclassifies unfinished runs of one database and reports the resulting states. */
+async function recoverAndPublish(store: TaskStore): Promise<void> {
+  await recoverUnfinishedRuns(store, findTask);
+  for (const task of await store.listActive()) await publish(store, task.id);
+}
+
 /** Opens one database and classifies runs from previous boots exactly once before it is read. */
 async function storeReady(databaseUrl: string): Promise<TaskStore> {
   const store = storeFor(databaseUrl);
   let pending = recovered.get(databaseUrl);
   if (!pending) {
-    pending = recoverUnfinishedRuns(store, findTask).catch(error => {
+    pending = recoverAndPublish(store).catch(error => {
       recovered.delete(databaseUrl);
       throw error;
     });
@@ -88,7 +102,8 @@ function launch(store: TaskStore, taskRunId: string, taskType: string, databaseU
     if (settled) return;
     settled = true;
     phases.set(taskRunId, 'finished');
-    if (!(await store.isTerminal(taskRunId))) await store.fail(taskRunId, '任务执行环境异常结束');
+    // A deliberate shutdown leaves reclassification to the recovery scan instead of failing the run.
+    if (!closing && !(await store.isTerminal(taskRunId))) await store.fail(taskRunId, '任务执行环境异常结束');
     await publish(store, taskRunId);
   };
   worker.on('message', (message: WorkerMessage) => {
@@ -191,11 +206,31 @@ async function control(
   return decorate(updated);
 }
 
+/** Stops accepting task work, winds every Worker down at a safe boundary, and reclassifies runs. */
+async function shutdownHost(): Promise<void> {
+  closing = true;
+  for (const [taskRunId, worker] of workers) {
+    worker.postMessage({ taskRunId, control: 'shutdown' } satisfies WorkerCommand);
+  }
+  await Promise.race([
+    Promise.allSettled([...workers.values()].map(worker => new Promise<void>(resolve => worker.once('exit', resolve)))),
+    delay(10_000),
+  ]);
+  for (const store of stores.values()) await recoverAndPublish(store).catch(() => {});
+}
+
 /** Serves task commands through Electron's private utility-process port. */
 async function handle(request: RuntimeRequest): Promise<RuntimeResponse> {
   if (!Number.isSafeInteger(request.id)) throw new Error('Invalid request');
   if (request.method === 'health') {
     return { id: request.id, result: { runtime: 'node', pid: process.pid, version: process.versions.node } };
+  }
+  if (request.method === 'shutdown') {
+    await shutdownHost();
+    return { id: request.id, result: null };
+  }
+  if (closing && ['task:start', 'task:retry', 'task:control'].includes(request.method)) {
+    throw new Error('应用正在退出，不能操作任务。');
   }
   const store = 'databaseUrl' in request && request.databaseUrl ? await storeReady(request.databaseUrl) : null;
   if (request.method === 'task:list') {

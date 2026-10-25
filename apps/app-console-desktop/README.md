@@ -28,6 +28,8 @@ The `/dev/tasks` page starts a short development task. `/tasks` and the header t
 
 Closing the window or rebuilding pages does not disturb running tasks. When the app restarts, the host classifies unfinished runs once per database before serving reads: runs stopped inside a stage with a durable checkpoint wait as `interrupted` for a manual continue that relaunches a Worker from the persisted progress, manually paused recoverable runs keep their pause, and the rest are abandoned, freeing their task type.
 
+Quitting with unfinished tasks asks for confirmation first; canceling leaves the tasks untouched. A confirmed quit stops accepting new task work, stops every Worker at its current safe boundary, and applies the same classification immediately: recoverable runs become `interrupted`, unrecoverable ones are abandoned, and manual pauses keep their pause. Nothing continues automatically on the next launch. A crashed task host is restarted by the main process, and the recovery scan reruns so unfinished runs are reclassified instead of remaining displayed as running.
+
 ## Scaffold provenance
 
 Recreated from the author's [nuxt-electron quick-start](https://github.com/caoxiemeihao/nuxt-electron/tree/main/quick-start), generated on 2026-10-24 using Nuxt CLI 3.33.1:

@@ -43,12 +43,21 @@ test('opens local management without signing in and restores a closed window', {
     await restored.getByText('最近活动', { exact: true }).waitFor({ timeout: 60_000 });
     assert.equal((await restored.evaluate(() => window.desktop.runtime.health())).runtime, 'node');
 
-    // A failed business process must reject calls rather than leave the UI waiting.
+    // A crashed business process must heal so unfinished runs never look alive forever.
     process.kill(health.pid, 'SIGTERM');
-    await assert.rejects(
-      restored.evaluate(() => window.desktop.runtime.health()),
-      /unavailable|exited/i,
-    );
+    let revived = null;
+    for (let attempt = 0; attempt < 80; attempt++) {
+      try {
+        const current = await restored.evaluate(() => window.desktop.runtime.health());
+        if (current.pid !== health.pid) {
+          revived = current;
+          break;
+        }
+      } catch { /* still restarting */ }
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    assert.ok(revived, 'the business process should restart after crashing');
+    assert.equal(revived.runtime, 'node');
   } finally {
     await app?.close();
     await rm(profile, { recursive: true, force: true });

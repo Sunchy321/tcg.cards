@@ -55,6 +55,7 @@ definePageMeta({ layout: 'admin' });
 const { entries, occupying, existingNotice, error, busy, launch, retry, control } = useTaskControl([
   { taskType: 'dev_sample', label: '测试任务' },
   { taskType: 'dev_sample_b', label: '测试任务 B' },
+  { taskType: 'dev_sample_crash', label: '异常退出任务' },
 ]);
 
 const steps = ref(10);
