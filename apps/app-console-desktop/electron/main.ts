@@ -13,6 +13,7 @@ import { credentials } from './credentials';
 import { inheritSettings } from './legacy-settings';
 import { legacySources } from './legacy-sources';
 import { registerSettings } from './settings-ipc';
+import { registerAuth } from './auth';
 import { verifyDevelopment } from './development-trust';
 import type { IpcMainInvokeEvent, MessageBoxOptions } from 'electron';
 
@@ -185,6 +186,7 @@ app
         } else mainWindow?.close();
       },
     );
+    registerAuth(settings, authorize);
     runtime = new RuntimeClient(resolve(__dirname, 'runtime.js'), () => {
       if (taskShutdown) return;
       // Reopening the configured database reruns the recovery scan so crashed runs stop looking alive.

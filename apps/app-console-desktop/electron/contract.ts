@@ -10,6 +10,11 @@ export interface RuntimeHealth {
 /** Restricted native capabilities available to the desktop renderer. */
 export interface DesktopBridge {
   onOpenSettings(listener: () => void): () => void;
+  auth: {
+    status(): Promise<RemoteAuthStatus>;
+    login(baseUrl: string, username: string, password: string): Promise<RemoteAuthStatus>;
+    logout(): Promise<RemoteAuthStatus>;
+  };
   settings: {
     read(): Promise<SettingsSnapshot>;
     update(key: string, value: unknown): Promise<SettingsSnapshot>;
@@ -138,3 +143,19 @@ export type GamePaths = Record<'data' | 'image', { root: string | null, leaves: 
 export const SETTINGS_CHANNEL = 'desktop:settings';
 export const CLOSE_CHANNEL = 'desktop:settings:close';
 export const CLOSE_REQUESTED = 'desktop:settings:close-requested';
+
+/** Local view of the persisted console session; loggedIn never contacts the backend. */
+export interface RemoteAuthStatus {
+  baseUrl:   string | null;
+  username:  string | null;
+  expiresAt: string | null;
+  loggedIn:  boolean;
+}
+
+/** Remote-session requests admitted by the main-process gateway. */
+export type AuthRequest
+  = | { action: 'status' }
+    | { action: 'login', baseUrl: string, username: string, password: string }
+    | { action: 'logout' };
+
+export const AUTH_CHANNEL = 'desktop:auth';

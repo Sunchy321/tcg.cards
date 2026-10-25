@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 import {
+  AUTH_CHANNEL,
   HEALTH_CHANNEL,
   OPEN_SETTINGS,
   SETTINGS_CHANNEL,
@@ -30,6 +31,11 @@ const bridge: DesktopBridge = {
     return () => {
       if (settingsListener === listener) settingsListener = undefined;
     };
+  },
+  auth: {
+    status: () => ipcRenderer.invoke(AUTH_CHANNEL, { action: 'status' }),
+    login:  (baseUrl, username, password) => ipcRenderer.invoke(AUTH_CHANNEL, { action: 'login', baseUrl, username, password }),
+    logout: () => ipcRenderer.invoke(AUTH_CHANNEL, { action: 'logout' }),
   },
   settings: {
     read:          () => ipcRenderer.invoke(SETTINGS_CHANNEL, { action: 'read' }),

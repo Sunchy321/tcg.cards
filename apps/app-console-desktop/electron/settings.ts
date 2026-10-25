@@ -154,7 +154,7 @@ export class Settings {
   /** Encrypts one complete secret before any persistent write occurs. */
   setSecret(key: string, value: string | null, options: { inherited?: boolean } = {}) {
     return this.transact(async draft => {
-      if (!/^(database|ai|legacy-session|legacy-login|yugioh-publish|publish:[\w-]+)$/.test(key))
+      if (!/^(database|ai|legacy-session|legacy-login|remote-session|yugioh-publish|publish:[\w-]+)$/.test(key))
         throw new Error('不支持的凭据项目。');
       if (!options.inherited) {
         const target = draft.config.publish.find(item => `publish:${item.credentialKey}` === key);

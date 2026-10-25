@@ -4,6 +4,7 @@ export const generalSettings = [
   { label: '数据目录', buttonLabel: '数据目录设置', icon: 'i-lucide-folder-tree', to: '/settings/data-source' },
   { label: '模型配置', buttonLabel: '模型配置', icon: 'i-lucide-sparkles', to: '/settings/model' },
   { label: '发布配置', buttonLabel: '发布配置', icon: 'i-lucide-upload', to: '/settings/publish' },
+  { label: '远端登录', buttonLabel: '远端登录', icon: 'i-lucide-log-in', to: '/settings/remote' },
 ];
 
 /** Game configuration links use the same locally bundled logos as the old desktop app. */

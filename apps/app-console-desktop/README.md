@@ -8,7 +8,11 @@ Install workspace dependencies from the repository root with `bun install`, then
 
 Use `bun run dev:web` to run Nuxt and the Electron build watchers without opening Electron. After building, `bun run preview` opens the static application.
 
-The shell opens local management without signing in. Settings and the initial task runtime are available locally; publishing authentication and game workflows are migrated through separate tickets. Existing Tauri features are not yet all available in Electron.
+The shell opens local management without signing in. Settings and the initial task runtime are available locally; publishing admission and game workflows are migrated through separate tickets. Existing Tauri features are not yet all available in Electron.
+
+## Remote session
+
+Settings → 远端登录 signs in to the deployed web console (`/auth` endpoints, better-auth) with the console service address, username and password. The session cookie is encrypted as the `remote-session` secret and persists across restarts until logout or expiry; local features never require it. Operations gated on a remote session guide to that page and return afterwards — the `/dev/auth` page exercises the flow, and `bun run test:auth` verifies the login, guidance, restart persistence and secret handling against a stub console backend. Admission checks for publishing are separate migration work ([ADR-0021](../../docs/adr/0021-desktop-publish-authorization.md)).
 
 ## Verification
 
@@ -48,7 +52,7 @@ Settings are owned by the main process and persisted with `electron-store` in El
 
 Inputs save after blur or Enter, and selects save after a completed selection. Invalid edits retain the previously saved value. The advanced JSON editor requires explicit save, rejects unsupported fields, and prompts before discarding unsaved changes. A running task must retain a detached configuration and credential snapshot obtained at its start; changes apply to subsequent tasks.
 
-First startup reads the former Tauri configuration under `~/Library/Application Support/cards.tcg.console-desktop/` and the existing `tcg-cards-console-desktop` Keychain service. Ordinary values are validated and credentials are encrypted before persistence. Diagnostic outcomes are retained per category, including partial failures; inheritance information is not displayed in the UI. The old files and Keychain entries remain untouched, and later starts do not overwrite the new settings. Old session material is archived encrypted, without restoring a logged-in session. Login and remote publication access are still separate migration work.
+First startup reads the former Tauri configuration under `~/Library/Application Support/cards.tcg.console-desktop/` and the existing `tcg-cards-console-desktop` Keychain service. Ordinary values are validated and credentials are encrypted before persistence. Diagnostic outcomes are retained per category, including partial failures; inheritance information is not displayed in the UI. The old files and Keychain entries remain untouched, and later starts do not overwrite the new settings. Old session material is archived encrypted, without restoring a logged-in session.
 
 Legacy nested path overrides are converted to declared dotted keys in the public `paths` object. Explicit paths remain valid without existing folders; derived game paths are returned only when their folders exist and are never persisted by reading them. This also allows a game root and its individual overrides to coexist.
 

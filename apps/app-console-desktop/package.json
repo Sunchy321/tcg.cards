@@ -11,13 +11,14 @@
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
     "typecheck:electron": "tsc -p electron/tsconfig.json",
-    "test:electron": "node --test electron/smoke.test.mjs electron/settings.test.mjs electron/tasks.test.mjs",
+    "test:electron": "node --test electron/smoke.test.mjs electron/settings.test.mjs electron/tasks.test.mjs electron/auth.test.mjs",
     "test:tasks": "node --test electron/tasks.test.mjs && bun test electron/task/store.test.ts electron/task/recover.test.ts",
     "package:electron": "bun run build && electron-forge package",
     "make:electron": "bun run build && electron-forge make",
     "typecheck": "nuxt typecheck && bun run typecheck:electron",
     "dev:web": "ELECTRON_STARTUP_PREVENT=1 nuxt dev --no-fork --port 1420",
-    "test:settings": "node --experimental-strip-types --test electron/settings.test.ts electron/legacy-settings.test.ts electron/legacy-sources.test.ts electron/development-trust.test.ts"
+    "test:settings": "node --experimental-strip-types --test electron/settings.test.ts electron/legacy-settings.test.ts electron/legacy-sources.test.ts electron/development-trust.test.ts",
+    "test:auth": "node --experimental-strip-types --test electron/auth.test.ts && node --test electron/auth.test.mjs"
   },
   "devDependencies": {
     "@electron-forge/cli": "^8.0.1",

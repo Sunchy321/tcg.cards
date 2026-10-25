@@ -18,7 +18,7 @@ const request = z.discriminatedUnion('action', [
   }),
   z.strictObject({
     action: z.literal('secret'),
-    key:    z.string().regex(/^(database|ai|yugioh-publish|publish:[a-f0-9-]{36})$/),
+    key:    z.string().regex(/^(database|ai|remote-session|yugioh-publish|publish:[a-f0-9-]{36})$/),
     value:  z.string().max(65_536).nullable(),
   }),
   z.strictObject({ action: z.literal('directory'), current: z.string().nullable() }),
