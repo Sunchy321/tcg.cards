@@ -1,7 +1,7 @@
 import { createAccessControl } from 'better-auth/plugins/access';
 import { defaultStatements, adminAc, userAc } from 'better-auth/plugins/admin/access';
 
-import { GAMES } from '@tcg-cards/base';
+import { GAMES, type Game } from '@tcg-cards/base';
 
 export const ac = createAccessControl({
   ...defaultStatements,
@@ -32,3 +32,10 @@ export const roles = {
   user,
   ...gameAdmins,
 };
+
+/** Reports whether one stored role name carries the per-game data permission. */
+export function gameDataPermission(role: string | null | undefined, game: Game): boolean {
+  // Mirrors the role table above: owner holds every game, only a game's own admin holds it.
+  if (role === 'owner') return true;
+  return role === `admin/${game}`;
+}

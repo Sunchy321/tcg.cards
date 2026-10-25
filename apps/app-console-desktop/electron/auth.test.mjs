@@ -9,10 +9,11 @@ import { _electron as electron } from 'playwright';
 const USERNAME = 'operator';
 const PASSWORD = 'e2e-secret-password-xyz';
 const TOKEN = 'e2e-session-token-xyz';
+const databaseUrl = () => process.env.DATABASE_URL;
 
 /** Console-backend stub with an in-memory session shared by every app launch. */
 async function consoleBackend() {
-  const state = { session: null, cookies: [] };
+  const state = { session: null, admissionStatus: 200 };
   const server = createServer((request, response) => {
     if (request.url === '/auth/sign-in/username' && request.method === 'POST') {
       let body = '';
@@ -36,12 +37,19 @@ async function consoleBackend() {
       response.end('{}');
       return;
     }
+    if (request.url === '/publish/admission' && request.method === 'POST') {
+      response.statusCode = state.admissionStatus;
+      response.setHeader('content-type', 'application/json');
+      response.end(state.admissionStatus === 200 ? '{"allowed":true,"game":"magic"}' : '{"allowed":false}');
+      return;
+    }
     response.statusCode = 404;
     response.end();
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   return {
     baseUrl: `http://127.0.0.1:${server.address().port}`,
+    state,
     async close() {
       await new Promise(resolve => server.close(resolve));
     },
@@ -206,6 +214,88 @@ test('the session persists across restarts and logout clears it', {
       await third.app.close();
     }
   } finally {
+    await rm(profile, { recursive: true, force: true });
+    await backend.close();
+  }
+});
+
+/** Publish admission refusals stop the development publish task before it starts. */
+test('admission refusals stop the publish task before it starts', {
+  timeout: 180_000,
+}, async () => {
+  const backend = await consoleBackend();
+  const profile = await mkdtemp(join(tmpdir(), 'console-auth-'));
+  const session = await launchConsole(profile);
+  try {
+    // Without a session the gate refuses before any request leaves the app.
+    const noSession = await session.page.evaluate(async () => {
+      try {
+        await window.desktop.tasks.start('dev_publish', { steps: 4 });
+        return null;
+      } catch (error) {
+        return error.message;
+      }
+    });
+    assert.match(noSession, /需要先登录/);
+
+    await loginThroughSettings(session.page, backend.baseUrl);
+
+    // A denied account never creates a run.
+    backend.state.admissionStatus = 403;
+    const denied = await session.page.evaluate(async () => {
+      try {
+        await window.desktop.tasks.start('dev_publish', { steps: 4 });
+        return null;
+      } catch (error) {
+        return error.message;
+      }
+    });
+    assert.match(denied, /没有发布万智牌/);
+
+    // An unreachable backend fails closed instead of skipping the check.
+    backend.state.admissionStatus = 200;
+    await backend.close();
+    const unreachable = await session.page.evaluate(async () => {
+      try {
+        await window.desktop.tasks.start('dev_publish', { steps: 4 });
+        return null;
+      } catch (error) {
+        return error.message;
+      }
+    });
+    assert.match(unreachable, /无法连接服务/);
+  } finally {
+    await session.app?.close();
+    await rm(profile, { recursive: true, force: true });
+    await backend.close().catch(() => {});
+  }
+});
+
+/** An admitted publish task runs to completion through the real gate. */
+test('an admitted publish task runs to completion', {
+  timeout: 180_000,
+  skip:    !databaseUrl(),
+}, async () => {
+  const backend = await consoleBackend();
+  const profile = await mkdtemp(join(tmpdir(), 'console-auth-'));
+  const session = await launchConsole(profile);
+  try {
+    await session.page.evaluate(url => window.desktop.settings.setSecret('database', url), databaseUrl());
+    await loginThroughSettings(session.page, backend.baseUrl);
+    const started = await session.page.evaluate(() => window.desktop.tasks.start('dev_publish', { steps: 4 }));
+    assert.equal(started.existing, false);
+    for (let attempt = 0; attempt < 80; attempt++) {
+      const task = await session.page.evaluate(id => window.desktop.tasks.get(id), started.taskRunId);
+      if (task?.status === 'completed') {
+        assert.equal(task.stages[0].done, 4);
+        return;
+      }
+      if (task?.status === 'failed') throw new Error(task.errorMessage ?? 'publish task failed');
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    throw new Error('publish task never completed');
+  } finally {
+    await session.app?.close();
     await rm(profile, { recursive: true, force: true });
     await backend.close();
   }

@@ -86,6 +86,7 @@ export interface TaskView {
 export type RuntimeRequest
   = | { id: number, method: 'health' }
     | { id: number, method: 'shutdown' }
+    | { id: number, method: 'task:describe', taskType: string }
     | { id: number, method: 'task:find-active', taskType: string, databaseUrl: string }
     | { id: number, method: 'task:start', taskRunId: string, taskType: string, params: Record<string, unknown>, databaseUrl: string }
     | { id: number, method: 'task:retry', taskRunId: string, retryOfTaskRunId: string, databaseUrl: string }
@@ -97,9 +98,20 @@ export type RuntimeRequest
 /** Response sent only between the local business and main processes. */
 export interface RuntimeResponse {
   id:      number;
-  result?: RuntimeHealth | TaskView | TaskView[] | TaskStartResult | null;
+  result?: RuntimeHealth | TaskDescription | TaskView | TaskView[] | TaskStartResult | null;
   error?:  string;
 }
+
+/** Registration facts the main process needs before a run exists. */
+export interface TaskDescription {
+  taskType:  string;
+  label:     string;
+  /** Present when starting this task type requires remote publish admission. */
+  admission: { game: AdmissionGame } | null;
+}
+
+/** Games whose data a publish admission can be requested for. */
+export type AdmissionGame = 'magic' | 'hearthstone' | 'yugioh' | 'shadowverse';
 
 /** A control or progress notification sent from one Worker to the task host. */
 export interface WorkerMessage {

@@ -14,6 +14,24 @@ The shell opens local management without signing in. Settings and the initial ta
 
 Settings → 远端登录 signs in to the deployed web console (`/auth` endpoints, better-auth) with the console service address, username and password. The session cookie is encrypted as the `remote-session` secret and persists across restarts until logout or expiry; local features never require it. Operations gated on a remote session guide to that page and return afterwards — the `/dev/auth` page exercises the flow, and `bun run test:auth` verifies the login, guidance, restart persistence and secret handling against a stub console backend. Admission checks for publishing are separate migration work ([ADR-0021](../../docs/adr/0021-desktop-publish-authorization.md)).
 
+## Publish admission
+
+Task types that publish declare `admission: { game }` in their registration. Before such a task starts or reuses an unfinished run, the main process asks the deployed console backend (`POST /publish/admission`) whether the logged-in account holds that game's data permission (`owner` or `admin/<game>`). Refusal, an expired login and an unreachable backend all stop the publish with an explicit error — the check never fails open. The `/dev/auth` page starts an admission-gated development task end to end.
+
+Publish connection strings are the app's own least-privilege boundary ([ADR-0021](../../docs/adr/0021-desktop-publish-authorization.md)); short-lived server-issued credentials are deliberately not built, and credential resolution stays at the single seam of reading a publish target's secret. Create one dedicated role per remote environment instead of reusing an owner connection, e.g. for a Magic target:
+
+```sql
+CREATE ROLE console_publisher LOGIN PASSWORD '…';
+-- The target game's serving schema:
+GRANT USAGE ON SCHEMA magic TO console_publisher;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA magic TO console_publisher;
+ALTER DEFAULT PRIVILEGES IN SCHEMA magic GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO console_publisher;
+-- Publish coordination lives beside the account tables in public:
+GRANT SELECT, INSERT, UPDATE, DELETE ON publish_stream_registrations, publish_ledgers TO console_publisher;
+```
+
+The role intentionally receives nothing on `users`, `sessions` or the other account tables. Replace `magic` with `hearthstone` or `yugioh` per target; extend the grant list only when a game's migrated publish flow proves it needs more.
+
 ## Verification
 
 - `bun run typecheck` checks the renderer and Electron entries.

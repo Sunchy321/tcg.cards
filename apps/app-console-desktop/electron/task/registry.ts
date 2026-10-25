@@ -4,6 +4,8 @@ export interface TaskRegistration {
   label:          string;
   version:        string;
   supportsResume: boolean;
+  /** Present when starting this task type requires remote publish admission first. */
+  admission?:     { game: 'magic' | 'hearthstone' | 'yugioh' | 'shadowverse' };
   scope(params: Record<string, unknown>): { type: string, key: string, snapshot?: Record<string, unknown> };
   load(): Promise<{ default: TaskDefinition }>;
 }

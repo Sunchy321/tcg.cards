@@ -18,7 +18,7 @@
     "typecheck": "nuxt typecheck && bun run typecheck:electron",
     "dev:web": "ELECTRON_STARTUP_PREVENT=1 nuxt dev --no-fork --port 1420",
     "test:settings": "node --experimental-strip-types --test electron/settings.test.ts electron/legacy-settings.test.ts electron/legacy-sources.test.ts electron/development-trust.test.ts",
-    "test:auth": "node --experimental-strip-types --test electron/auth.test.ts && node --test electron/auth.test.mjs"
+    "test:auth": "node --experimental-strip-types --test electron/auth.test.ts electron/publish-admission.test.ts && node --test electron/auth.test.mjs"
   },
   "devDependencies": {
     "@electron-forge/cli": "^8.0.1",

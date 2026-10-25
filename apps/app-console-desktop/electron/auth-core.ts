@@ -86,6 +86,12 @@ export async function authStatus(settings: Settings): Promise<RemoteAuthStatus> 
   return statusOf(await stored(settings));
 }
 
+/** Exposes the transport envelope of the stored session for trusted backend calls. */
+export async function authSessionEnvelope(settings: Settings): Promise<{ baseUrl: string, cookieHeader: string } | null> {
+  const session = await stored(settings);
+  return session ? { baseUrl: session.baseUrl, cookieHeader: session.cookieHeader } : null;
+}
+
 /** Signs in to the deployed console backend and keeps the session cookie encrypted. */
 export async function authLogin(settings: Settings, baseUrl: string, username: string, password: string): Promise<RemoteAuthStatus> {
   const base = serviceBase(baseUrl);

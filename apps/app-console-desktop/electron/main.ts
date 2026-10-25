@@ -14,6 +14,7 @@ import { inheritSettings } from './legacy-settings';
 import { legacySources } from './legacy-sources';
 import { registerSettings } from './settings-ipc';
 import { registerAuth } from './auth';
+import { admitPublish } from './publish-admission';
 import { verifyDevelopment } from './development-trust';
 import type { IpcMainInvokeEvent, MessageBoxOptions } from 'electron';
 
@@ -237,6 +238,9 @@ app
         taskType = source.taskType;
         retryOfTaskRunId = parsed.taskRunId;
       }
+      // Publish tasks pass fail-closed remote admission before anything is started or reused.
+      const description = await runtime!.describe(taskType);
+      if (description?.admission) await admitPublish(settings, description.admission.game);
       const label = taskType;
       const taskRunId = randomUUID();
       const createdAt = new Date().toISOString();

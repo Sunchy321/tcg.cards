@@ -7,6 +7,7 @@ import type {
   RuntimeResponse,
   RuntimeTaskEvent,
   TaskControlKind,
+  TaskDescription,
   TaskStartResult,
   TaskView,
 } from './contract';
@@ -71,6 +72,11 @@ export class RuntimeClient {
   /** Queries the live Node business process through its private message port. */
   health(): Promise<RuntimeHealth> {
     return this.call<RuntimeHealth>({ id: ++this.nextId, method: 'health' });
+  }
+
+  /** Reads one task type's registration facts, null when the type is unknown. */
+  describe(taskType: string): Promise<TaskDescription | null> {
+    return this.call<TaskDescription | null>({ id: ++this.nextId, method: 'task:describe', taskType });
   }
 
   /** Saves and dispatches one task after the main process accepts its identity. */

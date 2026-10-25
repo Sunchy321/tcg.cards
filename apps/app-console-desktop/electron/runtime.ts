@@ -233,6 +233,15 @@ async function handle(request: RuntimeRequest): Promise<RuntimeResponse> {
     throw new Error('应用正在退出，不能操作任务。');
   }
   const store = 'databaseUrl' in request && request.databaseUrl ? await storeReady(request.databaseUrl) : null;
+  if (request.method === 'task:describe') {
+    const registration = findTask(request.taskType);
+    return {
+      id:     request.id,
+      result: registration
+        ? { taskType: registration.taskType, label: registration.label, admission: registration.admission ?? null }
+        : null,
+    };
+  }
   if (request.method === 'task:list') {
     await Promise.allSettled(recovered.values());
     const groups = await Promise.all([...stores.values()].map(knownStore => knownStore.listActive()));
