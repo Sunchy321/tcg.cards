@@ -161,6 +161,9 @@ The last successfully published state per publish target, kept on the build-auth
 ### publish-owned table (发布归属表)
 A domain table whose only legitimate writer is the publisher; an out-of-band edit on it is reported as drift rather than merged. Only fields deliberately marked collaborative may be edited on the remote side.
 
+### publish ledger (发布账本)
+The remote per-stream record of the last successful publish: which batch, which build range, and the generation fingerprint. It lets the serving side reconcile without the remote database being a build authority, and it carries the operator who ran the publish — the audit trail of who advanced a stream, surviving any local machine.
+
 ## Import Pipeline (导入管线)
 
 ### hsdata
