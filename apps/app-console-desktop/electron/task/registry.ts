@@ -8,11 +8,16 @@ export interface TaskRegistration {
   load(): Promise<{ default: TaskDefinition }>;
 }
 
+/** Resume contracts a stage can declare for its stop boundaries. */
+export type TaskStageResumeMode = 'none' | 'durable' | 'session_bound';
+
 /** One planned stage executed entirely inside a Worker. */
 export interface TaskStageDefinition {
-  key:   string;
-  label: string;
-  total: number;
+  key:         string;
+  label:       string;
+  total:       number;
+  /** Whether persisted stage progress is a checkpoint that survives a restart; defaults to none. */
+  resumeMode?: TaskStageResumeMode;
   run(context: TaskStageContext): Promise<void>;
 }
 
@@ -46,4 +51,9 @@ export function getTask(taskType: string): TaskRegistration {
   const registration = registrations.get(taskType);
   if (!registration) throw new Error(`Unknown task type: ${taskType}`);
   return registration;
+}
+
+/** Looks a task up without throwing so boot recovery can classify unknown types. */
+export function findTask(taskType: string): TaskRegistration | undefined {
+  return registrations.get(taskType);
 }

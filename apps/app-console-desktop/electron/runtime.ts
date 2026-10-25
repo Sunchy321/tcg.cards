@@ -2,7 +2,8 @@ import { Worker } from 'node:worker_threads';
 import { resolve } from 'node:path';
 
 import './task/discover';
-import { getTask } from './task/registry';
+import { findTask, getTask } from './task/registry';
+import { recoverUnfinishedRuns } from './task/recover';
 import { TaskStore } from './task/store';
 import type {
   RuntimeRequest,
@@ -16,12 +17,13 @@ import type {
 } from './contract';
 
 const stores = new Map<string, TaskStore>();
+const recovered = new Map<string, Promise<void>>();
 const workers = new Map<string, Worker>();
 const bootTimes = new Map<string, number>();
 const phases = new Map<string, TaskView['phase']>();
 
 /** Statuses that can still be controlled before a run settles. */
-const controllableStatuses = ['pending', 'running', 'pausing', 'paused', 'resuming', 'canceling'];
+const controllableStatuses = ['pending', 'running', 'pausing', 'paused', 'resuming', 'canceling', 'interrupted'];
 
 /** Reuses one local database client for each configured connection string. */
 function storeFor(databaseUrl: string): TaskStore {
@@ -30,6 +32,21 @@ function storeFor(databaseUrl: string): TaskStore {
     store = new TaskStore(databaseUrl);
     stores.set(databaseUrl, store);
   }
+  return store;
+}
+
+/** Opens one database and classifies runs from previous boots exactly once before it is read. */
+async function storeReady(databaseUrl: string): Promise<TaskStore> {
+  const store = storeFor(databaseUrl);
+  let pending = recovered.get(databaseUrl);
+  if (!pending) {
+    pending = recoverUnfinishedRuns(store, findTask).catch(error => {
+      recovered.delete(databaseUrl);
+      throw error;
+    });
+    recovered.set(databaseUrl, pending);
+  }
+  await pending;
   return store;
 }
 
@@ -143,6 +160,7 @@ async function control(
   store: TaskStore,
   taskRunId: string,
   kind: TaskControlKind,
+  databaseUrl: string,
 ): Promise<TaskView> {
   const task = await store.get(taskRunId);
   if (!task) throw new Error('任务不存在或已清除。');
@@ -153,10 +171,11 @@ async function control(
     if (!(await store.requestPause(taskRunId))) throw new Error('任务状态已变化，请刷新后重试。');
     instruct(taskRunId, 'pause');
   } else if (kind === 'resume') {
-    if (task.status !== 'paused') throw new Error('任务当前状态不支持继续。');
-    if (!worker) throw new Error('任务执行环境已丢失，无法继续。');
+    if (!['paused', 'interrupted'].includes(task.status)) throw new Error('任务当前状态不支持继续。');
     if (!(await store.requestResume(taskRunId))) throw new Error('任务状态已变化，请刷新后重试。');
-    instruct(taskRunId, 'resume');
+    // A Worker that survived keeps its stage in memory; otherwise a fresh one continues the checkpoint.
+    if (worker) instruct(taskRunId, 'resume');
+    else launch(store, taskRunId, task.taskType, databaseUrl);
   } else {
     if (!controllableStatuses.includes(task.status)) throw new Error('任务已结束，无法取消。');
     if (['running', 'pausing'].includes(task.status) && worker) {
@@ -178,13 +197,15 @@ async function handle(request: RuntimeRequest): Promise<RuntimeResponse> {
   if (request.method === 'health') {
     return { id: request.id, result: { runtime: 'node', pid: process.pid, version: process.versions.node } };
   }
-  const store = 'databaseUrl' in request && request.databaseUrl ? storeFor(request.databaseUrl) : null;
+  const store = 'databaseUrl' in request && request.databaseUrl ? await storeReady(request.databaseUrl) : null;
   if (request.method === 'task:list') {
+    await Promise.allSettled(recovered.values());
     const groups = await Promise.all([...stores.values()].map(knownStore => knownStore.listActive()));
     const tasks = [...new Map(groups.flat().map(task => [task.id, decorate(task)])).values()];
     return { id: request.id, result: tasks };
   }
   if (request.method === 'task:get') {
+    await Promise.allSettled(recovered.values());
     for (const knownStore of stores.values()) {
       const task = await knownStore.get(request.taskRunId);
       if (task) return { id: request.id, result: decorate(task) };
@@ -221,7 +242,7 @@ async function handle(request: RuntimeRequest): Promise<RuntimeResponse> {
     return { id: request.id, result };
   }
   if (request.method === 'task:control') {
-    const task = await control(store, request.taskRunId, request.kind);
+    const task = await control(store, request.taskRunId, request.kind, request.databaseUrl);
     return { id: request.id, result: task };
   }
   throw new Error('Unsupported task request');

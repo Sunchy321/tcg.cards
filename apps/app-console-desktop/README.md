@@ -26,6 +26,8 @@ The task host is a long-lived Electron utility process. It records runs and stag
 
 The `/dev/tasks` page starts a short development task. `/tasks` and the header task button show unfinished runs from the task host. The development task requires a local PostgreSQL connection under Settings → Database; it does not read game or remote data. Run `bun --env-file=../../packages/db/.env.local-dev run test:tasks` from this app to exercise the page, IPC, host, Worker, progress and completion against the configured local development database. The test is skipped when `DATABASE_URL` is absent.
 
+Closing the window or rebuilding pages does not disturb running tasks. When the app restarts, the host classifies unfinished runs once per database before serving reads: runs stopped inside a stage with a durable checkpoint wait as `interrupted` for a manual continue that relaunches a Worker from the persisted progress, manually paused recoverable runs keep their pause, and the rest are abandoned, freeing their task type.
+
 ## Scaffold provenance
 
 Recreated from the author's [nuxt-electron quick-start](https://github.com/caoxiemeihao/nuxt-electron/tree/main/quick-start), generated on 2026-10-24 using Nuxt CLI 3.33.1:

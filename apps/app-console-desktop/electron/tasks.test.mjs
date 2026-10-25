@@ -45,6 +45,23 @@ async function waitForStatus(page, taskRunId, statuses, attempts = 80) {
   throw new Error(`Task ${taskRunId} never reached ${statuses.join('/')}`);
 }
 
+/** Waits until one task type is running with persisted progress to continue from. */
+async function waitForRunning(page, taskType, minDone, attempts = 80) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const active = await page.evaluate(() => window.desktop.tasks.list());
+    const run = active.find(task => task.taskType === taskType);
+    if (run && run.status === 'running' && (run.stages[0]?.done ?? 0) >= minDone) return run;
+    await new Promise(resolve => setTimeout(resolve, 250));
+  }
+  throw new Error(`Task ${taskType} never reached running`);
+}
+
+/** Quits the app the way a real restart does: the task host and Workers die mid-run. */
+async function restartApp(session) {
+  await session.app.close();
+  await rm(session.profile, { recursive: true, force: true });
+}
+
 /** Locates the launch row of one development task type. */
 const typeRow = (page, label) => page.locator('div.flex-wrap', { has: page.getByText(label, { exact: true }) });
 
@@ -231,6 +248,199 @@ test('pauses at a safe boundary and continues from persisted progress', {
     assert.equal(finished.stages[0].done, 12);
   } finally {
     await app?.close();
+    await rm(profile, { recursive: true, force: true });
+  }
+});
+
+/** A durable run survives an app restart as interrupted and continues from its checkpoint. */
+test('marks a durable run interrupted after a restart and continues from persisted progress', {
+  timeout: 300_000,
+  skip:    !databaseUrl(),
+}, async () => {
+  const first = await launchConsole();
+  let run;
+  try {
+    await clearDevelopmentRuns(first.page);
+    await first.page.evaluate(() => {
+      window.location.hash = '#/dev/tasks';
+    });
+    await first.page.getByRole('heading', { name: '测试任务' }).waitFor();
+    await first.page.getByRole('spinbutton').fill('40');
+    await launchButton(first.page, '测试任务').click();
+    run = await waitForRunning(first.page, 'dev_sample', 2);
+  } finally {
+    await restartApp(first);
+  }
+
+  const second = await launchConsole();
+  try {
+    const interrupted = await waitForStatus(second.page, run.id, ['interrupted']);
+    const persistedDone = interrupted.stages[0].done;
+    assert.ok(persistedDone >= 2 && persistedDone < 40);
+    assert.equal(interrupted.stages[0].status, 'paused');
+
+    // The run never resumes on its own after a restart.
+    await new Promise(resolve => setTimeout(resolve, 1_500));
+    const waiting = await second.page.evaluate(id => window.desktop.tasks.get(id), run.id);
+    assert.equal(waiting.status, 'interrupted');
+
+    await second.page.evaluate(() => {
+      window.location.hash = '#/dev/tasks';
+    });
+    await second.page.getByRole('heading', { name: '测试任务' }).waitFor();
+    await second.page.getByText('已中断，等待继续').first().waitFor();
+    await second.page.getByRole('button', { name: '继续' }).click();
+
+    // Continuation resumes at the checkpoint instead of redoing the stage.
+    let running;
+    for (let attempt = 0; attempt < 80; attempt++) {
+      const current = await second.page.evaluate(id => window.desktop.tasks.get(id), run.id);
+      if (current?.status === 'running') {
+        running = current;
+        break;
+      }
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    assert.ok(running, 'the continued run should reach running');
+    assert.ok(running.stages[0].done >= persistedDone, 'continuation must not redo persisted progress');
+    const finished = await waitForStatus(second.page, run.id, ['completed'], 160);
+    assert.equal(finished.stages[0].done, 40);
+  } finally {
+    await second.app?.close();
+    await rm(second.profile, { recursive: true, force: true });
+  }
+});
+
+/** A run without a durable checkpoint is abandoned by a restart and its task type is freed. */
+test('abandons an unrecoverable run after a restart and accepts a new one without ceremony', {
+  timeout: 300_000,
+  skip:    !databaseUrl(),
+}, async () => {
+  const first = await launchConsole();
+  let run;
+  try {
+    await clearDevelopmentRuns(first.page);
+    await first.page.evaluate(() => {
+      window.location.hash = '#/dev/tasks';
+    });
+    await first.page.getByRole('heading', { name: '测试任务' }).waitFor();
+    await first.page.getByRole('spinbutton').fill('30');
+    await launchButton(first.page, '测试任务 B').click();
+    run = await waitForRunning(first.page, 'dev_sample_b', 2);
+  } finally {
+    await restartApp(first);
+  }
+
+  const second = await launchConsole();
+  try {
+    const abandoned = await waitForStatus(second.page, run.id, ['abandoned']);
+    assert.equal(abandoned.stages[0].status, 'abandoned');
+
+    // The freed task type starts a fresh run without an existing-run prompt.
+    const started = await second.page.evaluate(
+      params => window.desktop.tasks.start('dev_sample_b', params),
+      { steps: 3 },
+    );
+    assert.equal(started.existing, false);
+    assert.notEqual(started.taskRunId, run.id);
+    const finished = await waitForStatus(second.page, started.taskRunId, ['completed'], 160);
+    assert.equal(finished.stages[0].done, 3);
+  } finally {
+    await second.app?.close();
+    await rm(second.profile, { recursive: true, force: true });
+  }
+});
+
+/** A manually paused durable run keeps its pause across a restart and still continues. */
+test('keeps a manually paused run paused across a restart and continues it', {
+  timeout: 300_000,
+  skip:    !databaseUrl(),
+}, async () => {
+  const first = await launchConsole();
+  let run;
+  try {
+    await clearDevelopmentRuns(first.page);
+    await first.page.evaluate(() => {
+      window.location.hash = '#/dev/tasks';
+    });
+    await first.page.getByRole('heading', { name: '测试任务' }).waitFor();
+    await first.page.getByRole('spinbutton').fill('20');
+    await launchButton(first.page, '测试任务').click();
+    run = await waitForRunning(first.page, 'dev_sample', 2);
+    await first.page.getByRole('button', { name: '暂停' }).click();
+    await waitForStatus(first.page, run.id, ['paused']);
+  } finally {
+    await restartApp(first);
+  }
+
+  const second = await launchConsole();
+  try {
+    const paused = await waitForStatus(second.page, run.id, ['paused']);
+    const persistedDone = paused.stages[0].done;
+    assert.ok(persistedDone >= 2 && persistedDone < 20);
+
+    await second.page.evaluate(() => {
+      window.location.hash = '#/dev/tasks';
+    });
+    await second.page.getByRole('heading', { name: '测试任务' }).waitFor();
+    await second.page.getByText('已暂停', { exact: true }).first().waitFor();
+    await second.page.getByRole('button', { name: '继续' }).click();
+
+    let running;
+    for (let attempt = 0; attempt < 80; attempt++) {
+      const current = await second.page.evaluate(id => window.desktop.tasks.get(id), run.id);
+      if (current?.status === 'running') {
+        running = current;
+        break;
+      }
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    assert.ok(running, 'the paused run should continue after the restart');
+    assert.ok(running.stages[0].done >= persistedDone, 'continuation must not redo persisted progress');
+    const finished = await waitForStatus(second.page, run.id, ['completed'], 160);
+    assert.equal(finished.stages[0].done, 20);
+  } finally {
+    await second.app?.close();
+    await rm(second.profile, { recursive: true, force: true });
+  }
+});
+
+/** Closing the window leaves the task host running; reopening reads its live state. */
+test('keeps tasks running behind a closed window and reads live state after reopening', {
+  timeout: 180_000,
+  skip:    !databaseUrl(),
+}, async () => {
+  const { app, page, profile } = await launchConsole();
+  let reopened = null;
+  try {
+    await clearDevelopmentRuns(page);
+    await page.evaluate(() => {
+      window.location.hash = '#/dev/tasks';
+    });
+    await page.getByRole('heading', { name: '测试任务' }).waitFor();
+    await page.getByRole('spinbutton').fill('12');
+    await launchButton(page, '测试任务').click();
+    const run = await waitForRunning(page, 'dev_sample', 2);
+
+    await page.close();
+    // The destroyed window is nulled asynchronously; wait before asking for a new one.
+    for (let attempt = 0; attempt < 40; attempt++) {
+      const windows = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length);
+      if (windows === 0) break;
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    await app.evaluate(electron => electron.app.emit('activate'));
+    reopened = await app.waitForEvent('window', { timeout: 30_000 });
+    await reopened.getByText('最近活动', { exact: true }).waitFor();
+
+    const behind = await reopened.evaluate(id => window.desktop.tasks.get(id), run.id);
+    assert.equal(behind.status, 'running');
+    assert.ok(behind.stages[0].done >= run.stages[0].done);
+    const finished = await waitForStatus(reopened, run.id, ['completed'], 160);
+    assert.equal(finished.stages[0].done, 12);
+  } finally {
+    await app?.close();
+    await reopened?.close().catch(() => {});
     await rm(profile, { recursive: true, force: true });
   }
 });

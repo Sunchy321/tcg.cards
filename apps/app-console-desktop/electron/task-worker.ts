@@ -72,11 +72,11 @@ async function statusOf(store: TaskStore): Promise<string | null> {
 }
 
 /** Stops one stage attempt at its safe boundary and reports the settled outcome. */
-async function settleInterrupted(store: TaskStore, stageKey: string): Promise<Outcome> {
+async function settleInterrupted(store: TaskStore, stage: TaskStageDefinition): Promise<Outcome> {
   const status = await statusOf(store);
   if (status === null || terminalStatuses.includes(status)) return 'canceled';
   if (control === 'pause') {
-    await store.markPaused(launch.taskRunId, stageKey, 'none');
+    await store.markPaused(launch.taskRunId, stage.key, stage.resumeMode ?? 'none');
     control = null;
     settled();
     return 'paused';
@@ -103,7 +103,7 @@ async function runOnce(
     if (!(await store.beginStage(launch.taskRunId, stage.key, index))) {
       const status = await statusOf(store);
       if (status === 'pausing') {
-        await store.markPaused(launch.taskRunId, stage.key, 'none');
+        await store.markPaused(launch.taskRunId, stage.key, stage.resumeMode ?? 'none');
         settled();
         return 'paused';
       }
@@ -129,7 +129,7 @@ async function runOnce(
         },
       });
     } catch (error) {
-      if (controller.signal.aborted) return settleInterrupted(store, stage.key);
+      if (controller.signal.aborted) return settleInterrupted(store, stage);
       if (terminalStatuses.includes((await statusOf(store)) ?? '')) return 'canceled';
       await store.fail(launch.taskRunId, error instanceof Error ? error.message : 'Task failed');
       changed('finished');
@@ -155,9 +155,13 @@ async function execute(): Promise<void> {
     if (!record) throw new Error('Task parameters were not found');
     const params = record.params;
     const stages = await definition.stages(params);
-    await store.plan(launch.taskRunId, stages);
+    const snapshot = await store.get(launch.taskRunId);
+    if (!snapshot) throw new Error('Task record was not found');
+    // A run that already persisted its stage skeleton is a continuation: its
+    // current stage re-enters with the persisted progress as the resume point.
+    if (snapshot.stages.length === 0) await store.plan(launch.taskRunId, stages);
     changed('running');
-    let resumed = false;
+    let resumed = snapshot.stages.length > 0;
     for (;;) {
       const outcome = await runOnce(store, definition, stages, params, resumed);
       if (outcome !== 'paused') return;

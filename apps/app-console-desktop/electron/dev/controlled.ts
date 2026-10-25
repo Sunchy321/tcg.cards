@@ -18,7 +18,7 @@ function delay(milliseconds: number, signal: AbortSignal): Promise<void> {
 }
 
 /** Builds one observable single-stage task that continues from persisted progress. */
-export function controlledDefinition(stepMs: number): TaskDefinition {
+export function controlledDefinition(stepMs: number, resumeMode: 'none' | 'durable' = 'none'): TaskDefinition {
   return {
     stages: params => {
       const steps = stepsOf(params);
@@ -26,6 +26,7 @@ export function controlledDefinition(stepMs: number): TaskDefinition {
         key:   'work',
         label: '执行中',
         total: steps,
+        resumeMode,
         async run({ signal, progress, resume }) {
           for (let step = (resume?.done ?? 0) + 1; step <= steps; step++) {
             await delay(stepMs, signal);

@@ -1,3 +1,4 @@
 import { controlledDefinition } from './controlled';
 
-export default controlledDefinition(400);
+// Durable boundaries let the run survive an app restart as interrupted.
+export default controlledDefinition(400, 'durable');

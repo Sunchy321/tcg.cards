@@ -8,9 +8,15 @@
         <TaskItem :task="occupying" />
         <div class="flex flex-wrap gap-2">
           <UButton v-if="occupying.status === 'running'" :loading="busy" @click="control(occupying, 'pause')">暂停</UButton>
-          <UButton v-if="occupying.status === 'paused'" :loading="busy" @click="control(occupying, 'resume')">继续</UButton>
           <UButton
-            v-if="['pending', 'running', 'pausing', 'paused', 'resuming'].includes(occupying.status)"
+            v-if="['paused', 'interrupted'].includes(occupying.status)"
+            :loading="busy"
+            @click="control(occupying, 'resume')"
+          >
+            继续
+          </UButton>
+          <UButton
+            v-if="['pending', 'running', 'pausing', 'paused', 'resuming', 'interrupted'].includes(occupying.status)"
             color="error"
             variant="soft"
             :loading="busy"

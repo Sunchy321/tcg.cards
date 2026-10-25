@@ -38,7 +38,8 @@ function isAppUrl(value: string) {
 
 /** Creates or focuses the existing management window without requiring a session. */
 function openMainWindow(settings = false) {
-  if (mainWindow) {
+  // A closing window is destroyed before its closed handler clears the reference.
+  if (mainWindow && !mainWindow.isDestroyed()) {
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.show();
     mainWindow.focus();
@@ -71,7 +72,8 @@ function openMainWindow(settings = false) {
     window.webContents.send(CLOSE_REQUESTED);
   });
   window.on('closed', () => {
-    mainWindow = null;
+    // A restored replacement may already own the reference when this fires late.
+    if (mainWindow === window) mainWindow = null;
   });
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', (event, url) => {

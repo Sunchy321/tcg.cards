@@ -3,16 +3,29 @@ import { createDb } from '@tcg-cards/db';
 import { TaskRun, TaskStage as TaskStageRow } from '@tcg-cards/db/schema/local/task';
 
 import type { TaskView } from '../contract';
-import type { TaskRegistration } from './registry';
+import type { TaskRegistration, TaskStageResumeMode } from './registry';
 
-/** Active run states retained by the original task model. */
-const activeStatuses = ['pending', 'running', 'pausing', 'paused', 'resuming', 'canceling'] as const;
+/** Active run states retained by the original task model; interrupted still occupies its slot. */
+const activeStatuses = ['pending', 'running', 'pausing', 'paused', 'resuming', 'canceling', 'interrupted'] as const;
 
 /** Terminal states from which a new run may be retried with the original parameters. */
 const retryableStatuses: readonly string[] = ['failed', 'canceled', 'abandoned'];
 
 /** Every persisted state that ends a run. */
 const terminalStatuses: readonly string[] = [...retryableStatuses, 'completed'];
+
+/** Why an unfinished run became abandoned when its execution environment disappeared. */
+export type AbandonReason = 'abandoned_stale_run' | 'resume_context_lost' | 'resume_incompatible';
+
+/** One unfinished run with the fields boot recovery classifies it by. */
+export interface RecoveryRun {
+  id:                string;
+  taskType:          string;
+  definitionVersion: string;
+  status:            string;
+  currentStageKey:   string | null;
+  stages:            { stageKey: string, status: string, resumeMode: string, done: number | null }[];
+}
 
 /** Persists and reads task snapshots in the existing local PostgreSQL tables. */
 export class TaskStore {
@@ -72,6 +85,31 @@ export class TaskStore {
       .where(inArray(TaskRun.status, [...activeStatuses]))
       .orderBy(TaskRun.createdAt);
     return (await Promise.all(rows.map(row => this.get(row.id)))).filter((task): task is TaskView => task !== null);
+  }
+
+  /** Reads every unfinished run with the fields boot recovery classifies it by. */
+  async listRecoveryRuns(): Promise<RecoveryRun[]> {
+    const rows = await this.db.select({
+      id:                TaskRun.id,
+      taskType:          TaskRun.taskType,
+      definitionVersion: TaskRun.definitionVersion,
+      status:            TaskRun.status,
+      currentStageKey:   TaskRun.currentStageKey,
+    }).from(TaskRun).where(inArray(TaskRun.status, [...activeStatuses])).orderBy(TaskRun.createdAt);
+    const stages = await this.db.select({
+      taskRunId:  TaskStageRow.taskRunId,
+      stageKey:   TaskStageRow.stageKey,
+      status:     TaskStageRow.status,
+      resumeMode: TaskStageRow.resumeMode,
+      done:       TaskStageRow.done,
+    }).from(TaskStageRow);
+    const byRun = new Map<string, RecoveryRun['stages']>();
+    for (const stage of stages) {
+      const list = byRun.get(stage.taskRunId) ?? [];
+      list.push({ stageKey: stage.stageKey, status: stage.status, resumeMode: stage.resumeMode, done: stage.done });
+      byRun.set(stage.taskRunId, list);
+    }
+    return rows.map(row => ({ ...row, stages: byRun.get(row.id) ?? [] }));
   }
 
   /** Reads one run and its stages through the same view used by all task pages. */
@@ -137,7 +175,7 @@ export class TaskStore {
       status:             'resuming',
       controlRequestKind: null,
       runRevision:        sql`${TaskRun.runRevision} + 1`,
-    }).where(and(eq(TaskRun.id, id), eq(TaskRun.status, 'paused'))).returning({ id: TaskRun.id });
+    }).where(and(eq(TaskRun.id, id), inArray(TaskRun.status, ['paused', 'interrupted']))).returning({ id: TaskRun.id });
     return rows.length > 0;
   }
 
@@ -174,7 +212,7 @@ export class TaskStore {
   }
 
   /** Persists one Worker-side pause at a safe boundary inside the current stage. */
-  async markPaused(id: string, stageKey: string, resumeMode: 'none' | 'durable' | 'session_bound'): Promise<void> {
+  async markPaused(id: string, stageKey: string, resumeMode: TaskStageResumeMode): Promise<void> {
     await this.db.update(TaskStageRow).set({ status: 'paused' })
       .where(and(eq(TaskStageRow.taskRunId, id), eq(TaskStageRow.stageKey, stageKey)));
     await this.db.update(TaskRun).set({
@@ -186,8 +224,55 @@ export class TaskStore {
     }).where(and(eq(TaskRun.id, id), inArray(TaskRun.status, ['running', 'pausing'])));
   }
 
+  /** Moves a run whose execution environment disappeared onto the interrupted checkpoint. */
+  async markInterrupted(id: string, stageKey: string): Promise<boolean> {
+    const rows = await this.db.update(TaskRun).set({
+      status:             'interrupted',
+      controlRequestKind: null,
+      pausedResumeMode:   null,
+      runtimeBootId:      null,
+      resumeContextKey:   null,
+      runRevision:        sql`${TaskRun.runRevision} + 1`,
+    }).where(and(
+      eq(TaskRun.id, id),
+      inArray(TaskRun.status, ['pending', 'running', 'pausing', 'resuming', 'canceling']),
+    )).returning({ id: TaskRun.id });
+    if (rows.length === 0) return false;
+    await this.db.update(TaskStageRow).set({ status: 'paused' })
+      .where(and(
+        eq(TaskStageRow.taskRunId, id),
+        eq(TaskStageRow.stageKey, stageKey),
+        inArray(TaskStageRow.status, ['running', 'pending']),
+      ));
+    return true;
+  }
+
+  /** Ends an unfinished run as abandoned, freeing the slot of its task type. */
+  async markAbandoned(id: string, reason: AbandonReason): Promise<boolean> {
+    const rows = await this.db.update(TaskRun).set({
+      status:             'abandoned',
+      terminalReason:     reason,
+      finishedAt:         new Date(),
+      controlRequestKind: null,
+      currentStageKey:    null,
+      currentStageIndex:  null,
+      currentResumeMode:  null,
+      pausedResumeMode:   null,
+      runtimeBootId:      null,
+      resumeContextKey:   null,
+      runRevision:        sql`${TaskRun.runRevision} + 1`,
+    }).where(and(eq(TaskRun.id, id), inArray(TaskRun.status, [...activeStatuses]))).returning({ id: TaskRun.id });
+    if (rows.length === 0) return false;
+    await this.db.update(TaskStageRow).set({ status: 'abandoned', finishedAt: new Date() })
+      .where(and(
+        eq(TaskStageRow.taskRunId, id),
+        inArray(TaskStageRow.status, ['pending', 'running', 'paused']),
+      ));
+    return true;
+  }
+
   /** Inserts the stage skeleton after the Worker has loaded its definition. */
-  async plan(id: string, stages: { key: string, label: string, total: number }[]): Promise<void> {
+  async plan(id: string, stages: { key: string, label: string, total: number, resumeMode?: TaskStageResumeMode }[]): Promise<void> {
     if (stages.length === 0) return;
     await this.db.insert(TaskStageRow).values(stages.map((stage, index) => ({
       taskRunId:    id,
@@ -196,7 +281,7 @@ export class TaskStore {
       label:        stage.label,
       status:       'pending' as const,
       progressMode: 'bounded' as const,
-      resumeMode:   'none' as const,
+      resumeMode:   stage.resumeMode ?? 'none' as const,
       total:        stage.total,
       done:         0,
     })));

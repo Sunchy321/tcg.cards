@@ -65,6 +65,9 @@ The manual cleanup operation that hard-deletes all soft-deleted rows from the lo
 
 ## Task System (任务系统)
 
+### interrupted (已中断)
+A persisted unfinished run state entered when the execution environment (task host or Worker) disappeared while the run was stopped inside a stage with a durable checkpoint. Distinct from a manual `paused`: it still occupies its task type's single unfinished slot, never resumes automatically, and shows "已中断，等待继续"; a manual continue launches a fresh Worker that re-enters the stage from the persisted progress. Runs without a durable checkpoint — or whose task definition is missing or has a different version — become `abandoned` instead, freeing the slot. A manually paused run with a durable checkpoint keeps its `paused` state across restarts.
+
 ### Task Definition
 Definition of a task type, defining its lifecycle hooks weakly typed (current) or strongly typed (target). Being migrated to a generic definition with explicit per-task type parameters. Uses a builder API: `createDefinition().input(zod).output(zod).scope({...}).context({...}).stage(...)`.
 

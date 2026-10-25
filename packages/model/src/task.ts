@@ -13,6 +13,9 @@ export const taskRunStatus = z.enum([
   'failed',
   'completed',
   'abandoned',
+  // An unfinished state: the execution environment disappeared while a durable
+  // stage checkpoint remains, so the run still occupies its task type slot.
+  'interrupted',
 ]);
 
 export const taskStageStatus = z.enum([

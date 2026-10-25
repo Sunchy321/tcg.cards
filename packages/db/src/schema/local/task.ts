@@ -14,7 +14,12 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
-/** Runtime-wide lifecycle states tracked on one heavy task run snapshot. */
+/**
+ * Runtime-wide lifecycle states tracked on one heavy task run snapshot.
+ * `interrupted` is appended last so existing databases take it as a plain
+ * `ALTER TYPE ... ADD VALUE`; it is an unfinished state that keeps occupying
+ * the task type slot after the execution environment disappeared.
+ */
 export const taskRunStatus = pgEnum('task_run_status', [
   'pending',
   'running',
@@ -26,6 +31,7 @@ export const taskRunStatus = pgEnum('task_run_status', [
   'failed',
   'completed',
   'abandoned',
+  'interrupted',
 ]);
 
 /** Stage-local lifecycle states tracked on one heavy task stage snapshot. */
@@ -113,7 +119,7 @@ export const TaskRun = pgTable('task_runs', {
   }),
   uniqueIndex('task_runs_active_task_type_uq')
     .on(table.taskType)
-    .where(sql`${table.status} in ('pending', 'running', 'pausing', 'paused', 'resuming', 'canceling')`),
+    .where(sql`${table.status} in ('pending', 'running', 'pausing', 'paused', 'resuming', 'canceling', 'interrupted')`),
   index('task_runs_status_idx').on(table.status),
   index('task_runs_scope_idx').on(table.taskScopeType, table.taskScopeKey),
   index('task_runs_task_type_status_idx').on(table.taskType, table.status),
