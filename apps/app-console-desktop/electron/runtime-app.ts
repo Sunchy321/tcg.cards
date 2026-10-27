@@ -9,6 +9,7 @@ import { locale } from '@tcg-cards/model/hearthstone/schema/basic';
 
 import { hearthstoneRouter } from './runtime/orpc/hearthstone';
 import { imageRouter } from './runtime/orpc/image';
+import { magicRouter } from './runtime/orpc/magic';
 import { runtimeRouter } from './runtime/orpc/runtime';
 import './runtime/lib/game-path-definitions';
 import { requireHearthstoneImageBucketDir } from './runtime/lib/hearthstone/image-config';
@@ -43,6 +44,7 @@ const electronRouter = {
   hearthstone: withoutLegacyPublishBypass(hearthstoneRouter as Record<string, unknown>),
   hsdata:      withoutLegacyPublishBypass(hearthstoneRouter as Record<string, unknown>),
   image:       withoutArbitraryArchiveReads(imageRouter as Record<string, unknown>),
+  magic:       magicRouter,
 };
 
 const rpcHandler = new RPCHandler(electronRouter as any, {

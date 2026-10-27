@@ -91,13 +91,13 @@ export function getGameNavItems(game: Game): ConsoleNavLink[] {
   if (game === 'hearthstone') {
     items.push(
       {
-        label:    '数据管线',
+        label:    '数据导入与整理',
         icon:     'i-lucide-workflow',
         children: [
           { label: '版本管理', icon: 'i-lucide-git-branch', to: `/${game}/version` },
           { label: '拆包导入', icon: 'i-lucide-package-open', to: `/${game}/unpack-import` },
           { label: 'hsdata导入', icon: 'i-lucide-download', to: `/${game}/hsdata-import` },
-          { label: '数据投影', icon: 'i-lucide-box', to: `/${game}/projection` },
+          { label: '数据整理', icon: 'i-lucide-box', to: `/${game}/projection` },
         ],
       },
       {
@@ -113,7 +113,7 @@ export function getGameNavItems(game: Game): ConsoleNavLink[] {
         ],
       },
       {
-        label:    '发布管线',
+        label:    '数据发布',
         icon:     'i-lucide-upload',
         children: [
           { label: '发布', icon: 'i-lucide-upload', to: `/${game}/publish` },
@@ -126,7 +126,7 @@ export function getGameNavItems(game: Game): ConsoleNavLink[] {
   } else if (game === 'magic') {
     items.push(
       {
-        label:    '数据管线',
+        label:    '数据导入与整理',
         icon:     'i-lucide-workflow',
         children: [
           { label: 'Scryfall', icon: 'i-lucide-download', to: `/${game}/data-source/scryfall` },
@@ -135,17 +135,17 @@ export function getGameNavItems(game: Game): ConsoleNavLink[] {
           { label: 'MTGCH', icon: 'i-lucide-file-json', to: `/${game}/data-source/mtgch` },
           { label: 'MTGA 注音', icon: 'i-lucide-languages', to: `/${game}/data-source/mtga` },
           { label: '系列导入', icon: 'i-lucide-folder-down', to: `/${game}/set-import` },
-          { label: '投影', icon: 'i-lucide-box', to: `/${game}/project` },
-          { label: '评审', icon: 'i-lucide-clipboard-list', to: `/${game}/review` },
+          { label: '卡牌数据整理', icon: 'i-lucide-box', to: `/${game}/project` },
+          { label: '待处理事项', icon: 'i-lucide-clipboard-list', to: `/${game}/review` },
         ],
       },
       {
-        label:    '数据浏览',
+        label:    '卡牌与资料',
         icon:     'i-lucide-database',
         children: [
           { label: '卡牌', icon: 'i-lucide-layers', to: `/${game}/card` },
           { label: '系列', icon: 'i-lucide-folder-open', to: `/${game}/set` },
-          { label: '赛制', icon: 'i-lucide-shield-check', to: `/${game}/format` },
+          { label: '禁限牌报告', icon: 'i-lucide-shield-check', to: `/${game}/format` },
           // Only hosts whose layer ships the announcement page resolve this route; others drop it in isRouteAccessible.
           { label: '公告', icon: 'i-lucide-megaphone', to: `/${game}/announcement` },
           { label: '规则', icon: 'i-lucide-book-open', to: `/${game}/rule` },
@@ -156,7 +156,7 @@ export function getGameNavItems(game: Game): ConsoleNavLink[] {
         ],
       },
       {
-        label:    '发布管线',
+        label:    '数据发布',
         icon:     'i-lucide-upload',
         children: [
           { label: '发布', icon: 'i-lucide-upload', to: `/${game}/publish` },
@@ -166,7 +166,7 @@ export function getGameNavItems(game: Game): ConsoleNavLink[] {
   } else if (game === 'yugioh') {
     items.push(
       {
-        label:    '数据管线',
+        label:    '数据导入',
         icon:     'i-lucide-workflow',
         children: [
           { label: 'Neuron 官方库', icon: 'i-lucide-globe', to: `/${game}/data-source/neuron` },

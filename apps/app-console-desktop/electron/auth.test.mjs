@@ -222,15 +222,15 @@ test('the session persists across restarts and logout clears it', {
 /** Publish admission refusals stop the development publish task before it starts. */
 test('admission refusals stop the publish task before it starts', {
   timeout: 180_000,
+  skip:    !databaseUrl(),
 }, async () => {
   const backend = await consoleBackend();
   const profile = await mkdtemp(join(tmpdir(), 'console-auth-'));
   const session = await launchConsole(profile);
   try {
-    // Local prerequisites come first, so the admission cases need a database string.
     await session.page.evaluate(
       url => window.desktop.settings.setSecret('database', url),
-      'postgresql://admission-check@localhost:5432/unused',
+      databaseUrl(),
     );
     // Without a session the gate refuses before any request leaves the app.
     const noSession = await session.page.evaluate(async () => {

@@ -1,6 +1,7 @@
 import { createConsoleApiClient } from '@tcg-cards/console-platform';
 import type { hearthstoneRouter } from '../../electron/runtime/orpc/hearthstone';
 import type { imageRouter } from '../../electron/runtime/orpc/image';
+import type { magicRouter } from '../../electron/runtime/orpc/magic';
 import type { runtimeRouter } from '../../electron/runtime/orpc/runtime';
 import { desktopApiFetch } from '~/composables/useDesktopPlatform';
 import type { TaskPageSnapshot } from '@tcg-cards/model/task';
@@ -9,6 +10,7 @@ type DesktopRouter = {
   hearthstone: typeof hearthstoneRouter;
   hsdata:      typeof hearthstoneRouter;
   image:       typeof imageRouter;
+  magic:       typeof magicRouter;
   runtime:     typeof runtimeRouter;
 };
 
