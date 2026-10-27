@@ -86,6 +86,30 @@ registerLegacyTask({
 }, async () => (await import('../runtime/lib/magic/task/set-import/definition')).magicSetImportTaskDefinition);
 
 registerLegacyTask({
+  taskType:       'magic_image_import_remote',
+  label:          '卡图批量导入',
+  version:        '2026-09-28:v3',
+  supportsResume: true,
+  scope:          () => ({ type: 'magic_image_import_remote', key: 'global', snapshot: {} }),
+}, async () => (await import('../runtime/lib/magic/task/image-import-remote/definition')).magicImageImportRemoteTaskDefinition);
+
+registerLegacyTask({
+  taskType:       'magic_image_import_local',
+  label:          '卡图压缩包导入',
+  version:        '2026-09-09:v1',
+  supportsResume: true,
+  scope:          () => ({ type: 'magic_image_import_local', key: 'global', snapshot: {} }),
+}, async () => (await import('../runtime/lib/magic/task/image-import-local/definition')).magicImageImportLocalTaskDefinition);
+
+registerLegacyTask({
+  taskType:       'magic_image_import_single',
+  label:          '单张卡图导入',
+  version:        '2026-09-28:v3',
+  supportsResume: true,
+  scope:          () => ({ type: 'magic_image_import_single', key: 'global', snapshot: {} }),
+}, async () => (await import('../runtime/lib/magic/task/image-import-single/definition')).magicImageImportSingleTaskDefinition);
+
+registerLegacyTask({
   taskType:            'magic_publish',
   label:               '万智牌数据发布',
   version:             '2026-09-05:v1',

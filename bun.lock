@@ -20,6 +20,9 @@
     "apps/app-console-desktop": {
       "name": "tcg-cards-console-desktop",
       "version": "0.1.0",
+      "dependencies": {
+        "sharp": "^0.34.5",
+      },
       "devDependencies": {
         "@ai-sdk/openai-compatible": "^3.0.12",
         "@ai-sdk/vue": "4.0.31",
@@ -47,6 +50,7 @@
         "@tcg-cards/ui": "workspace:*",
         "@types/lodash-es": "^4.17.12",
         "@types/node": "^25.6.0",
+        "@zip.js/zip.js": "^2.11.2",
         "ai": "7.0.31",
         "canonicalize": "^3.0.0",
         "cheerio": "^1.2.0",

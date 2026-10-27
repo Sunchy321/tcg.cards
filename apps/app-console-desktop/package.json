@@ -24,6 +24,9 @@
     "test:settings": "node --experimental-strip-types --test electron/settings.test.ts electron/legacy-settings.test.ts electron/legacy-sources.test.ts electron/development-trust.test.ts",
     "test:auth": "node --experimental-strip-types --test electron/auth.test.ts electron/publish-admission.test.ts && node --test electron/auth.test.mjs"
   },
+  "dependencies": {
+    "sharp": "^0.34.5"
+  },
   "devDependencies": {
     "@electron-forge/cli": "^8.0.1",
     "@electron-forge/maker-zip": "^8.0.1",
@@ -45,6 +48,7 @@
     "@tcg-cards/ui": "workspace:*",
     "@types/node": "^25.6.0",
     "@types/lodash-es": "^4.17.12",
+    "@zip.js/zip.js": "^2.11.2",
     "electron": "^45.0.0",
     "eslint": "^10.2.1",
     "eslint-config-custom": "workspace:*",

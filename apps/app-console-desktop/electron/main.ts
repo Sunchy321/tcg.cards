@@ -23,6 +23,7 @@ import { credentials } from './credentials';
 import { inheritSettings } from './legacy-settings';
 import { legacySources } from './legacy-sources';
 import { registerSettings } from './settings-ipc';
+import { registerFileDialogs } from './file-dialog-ipc';
 import { registerAuth } from './auth';
 import { admitPublish, PUBLISH_GAME_LABELS } from './publish-admission';
 import { verifyDevelopment } from './development-trust';
@@ -298,6 +299,7 @@ app
         } else mainWindow?.close();
       },
     );
+    registerFileDialogs(() => mainWindow, authorize);
     registerAuth(settings, authorize);
     runtime = new RuntimeClient(resolve(__dirname, 'runtime.js'), () => {
       syncedRuntimeSettingsRevision = -1;

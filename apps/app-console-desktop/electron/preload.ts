@@ -11,6 +11,7 @@ import {
   CLOSE_CHANNEL,
   CLOSE_REQUESTED,
   EXTERNAL_OPEN_CHANNEL,
+  FILE_DIALOG_CHANNEL,
   TASK_CHANNEL,
   TASK_CHANGED_CHANNEL,
   type DesktopBridge,
@@ -44,6 +45,9 @@ const bridge: DesktopBridge = {
   },
   external: {
     open: url => ipcRenderer.invoke(EXTERNAL_OPEN_CHANNEL, url),
+  },
+  files: {
+    pickZipArchive: () => ipcRenderer.invoke(FILE_DIALOG_CHANNEL, { action: 'zipArchive' }),
   },
   settings: {
     read:          () => ipcRenderer.invoke(SETTINGS_CHANNEL, { action: 'read' }),

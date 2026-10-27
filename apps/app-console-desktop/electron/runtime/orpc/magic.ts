@@ -13,6 +13,7 @@ import { inconsistentMergedSlugs, unitViewFace, type FaceLike } from '../lib/mag
 import { resolvePath } from '../lib/game-paths';
 import { magicAmbitRouter } from './magic-ambit';
 import { magicCommitsRouter } from './magic-commits';
+import { magicImageImportRouter } from './magic-image-import';
 import { magicRubyRouter } from './magic-ruby';
 import { magicSetRouter } from './magic-set';
 
@@ -246,6 +247,8 @@ const reviewList = os.output(z.strictObject({ items: z.array(reviewItem) })).han
 export const magicRouter = {
   getDataState,
   set:     magicSetRouter,
+  images:  magicImageImportRouter.images,
+  analyze: magicImageImportRouter.analyze,
   ruby:    magicRubyRouter,
   ambit:   magicAmbitRouter,
   commits: magicCommitsRouter,

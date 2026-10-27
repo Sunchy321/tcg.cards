@@ -22,6 +22,9 @@ export type { RuntimeOverrides };
 export interface DesktopBridge {
   onOpenSettings(listener: () => void): () => void;
   external: { open(url: string): Promise<void> };
+  files: {
+    pickZipArchive(): Promise<string | null>;
+  };
   auth: {
     status(): Promise<RemoteAuthStatus>;
     login(baseUrl: string, username: string, password: string): Promise<RemoteAuthStatus>;
@@ -199,6 +202,7 @@ export const API_CANCEL_CHANNEL = 'desktop:api:cancel';
 export const API_STREAM_CHANNEL = 'desktop:api:stream';
 export const OPEN_SETTINGS = 'desktop:open-settings';
 export const EXTERNAL_OPEN_CHANNEL = 'desktop:external:open';
+export const FILE_DIALOG_CHANNEL = 'desktop:files:dialog';
 
 /** Settings requests admitted by the main-process gateway. */
 export type SettingsRequest
