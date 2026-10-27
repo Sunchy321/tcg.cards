@@ -39,9 +39,10 @@ const bridge: DesktopBridge = {
     };
   },
   auth: {
-    status: () => ipcRenderer.invoke(AUTH_CHANNEL, { action: 'status' }),
-    login:  (baseUrl, username, password) => ipcRenderer.invoke(AUTH_CHANNEL, { action: 'login', baseUrl, username, password }),
-    logout: () => ipcRenderer.invoke(AUTH_CHANNEL, { action: 'logout' }),
+    status:             () => ipcRenderer.invoke(AUTH_CHANNEL, { action: 'status' }),
+    login:              (baseUrl, username, password) => ipcRenderer.invoke(AUTH_CHANNEL, { action: 'login', baseUrl, username, password }),
+    logout:             () => ipcRenderer.invoke(AUTH_CHANNEL, { action: 'logout' }),
+    listMagicRuleFiles: () => ipcRenderer.invoke(AUTH_CHANNEL, { action: 'listMagicRuleFiles' }),
   },
   external: {
     open: url => ipcRenderer.invoke(EXTERNAL_OPEN_CHANNEL, url),

@@ -65,7 +65,7 @@ Capability should therefore be described at the runtime level, not only at the r
 
 For remote router exposure, the current intended ordering is `site-console` < `service-internal`.
 
-Desktop sits above that remote-router ordering because it also owns local-only capabilities and some direct remote-database operations that do not enter the remote router surface.
+Desktop sits above that remote-router ordering because it also owns local-only capabilities and some direct remote-database operations that do not enter the remote router surface. It may also use a narrowly scoped authenticated, read-only `site-console` call to list cloud Magic rule files; this does not create a general remote API client or change the direct-database publication path. See [ADR-0021](adr/0021-desktop-publish-authorization.md).
 
 `service-internal` may host the full desktop-oriented router surface internally, but that does not imply every app-shaped client should receive every exposed capability.
 

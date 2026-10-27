@@ -29,6 +29,7 @@ export interface DesktopBridge {
     status(): Promise<RemoteAuthStatus>;
     login(baseUrl: string, username: string, password: string): Promise<RemoteAuthStatus>;
     logout(): Promise<RemoteAuthStatus>;
+    listMagicRuleFiles(): Promise<RemoteMagicRuleFile[]>;
   };
   settings: {
     read(): Promise<SettingsSnapshot>;
@@ -230,9 +231,17 @@ export interface RemoteAuthStatus {
   loggedIn:  boolean;
 }
 
+/** Read-only files available in the authenticated Magic rule archive. */
+export interface RemoteMagicRuleFile {
+  id:       string;
+  dataFile: boolean;
+  files:    { txt: boolean, doc: boolean, pdf: boolean };
+}
+
 /** Remote-session requests admitted by the main-process gateway. */
 export type AuthRequest
   = | { action: 'status' }
+    | { action: 'listMagicRuleFiles' }
     | { action: 'login', baseUrl: string, username: string, password: string }
     | { action: 'logout' };
 

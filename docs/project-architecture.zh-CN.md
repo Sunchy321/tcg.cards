@@ -65,7 +65,7 @@
 
 在远端 router 暴露层面，当前目标顺序是 `site-console` < `service-internal`。
 
-desktop 的能力位于这个远端 router 顺序之上，因为它还包含本地独占能力，以及一部分不进入远端 router 的远端数据库直连能力。
+desktop 的能力位于这个远端 router 顺序之上，因为它还包含本地独占能力，以及一部分不进入远端 router 的远端数据库直连能力。它也可以通过范围受限且经过认证的 `site-console` 只读调用列出万智牌云端规则文件；这不会形成通用远端 API 客户端，也不改变直连数据库的发布路径。详见 [ADR-0021](adr/0021-desktop-publish-authorization.md)。
 
 `service-internal` 内部可以承载面向 desktop 的完整 router 面，但这并不意味着每一个 app 形态客户端都应获得其中全部能力。
 

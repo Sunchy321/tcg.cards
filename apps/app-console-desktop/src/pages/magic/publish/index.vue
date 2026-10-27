@@ -115,6 +115,13 @@ const RESULT_LABELS: Record<string, string> = {
   dryRun:            '仅预览',
   environment:       '发布环境',
   force:             '忽略版本检查',
+  announcementCount: '公告',
+  itemCount:         '公告条目',
+  documents:         '文章',
+  translations:      '译文',
+  revisions:         '保存版本',
+  nodes:             '文档条目',
+  releases:          '正式版本',
 };
 const displayResult = computed(() => {
   const result = taskResult.value;
@@ -162,14 +169,21 @@ async function loadPublishTargets() {
 const publishTypes = [
   { label: '赛制、系列与补充包', value: 'reference' },
   { label: '卡牌数据', value: 'data' },
+  { label: '公告发布', value: 'announcement' },
+  { label: '静态文档发布', value: 'document' },
 ];
 const PUBLISH_PAGE_STATE_KEY = 'console-desktop-magic-publish-page';
-const PUBLISH_TYPE_VALUES = ['data', 'reference'];
+const PUBLISH_TYPE_VALUES = ['data', 'reference', 'announcement', 'document'];
 const publishType = ref('data');
 let persistedTaskRunId: string | null = null;
+const route = useRoute();
 
 /** Restores the selected publication category and the task shown on this page. */
 function restorePublishType() {
+  if (route.query.type === 'document') {
+    publishType.value = 'document';
+    return;
+  }
   try {
     const saved = window.localStorage.getItem(PUBLISH_PAGE_STATE_KEY);
     if (!saved) return;
@@ -211,6 +225,21 @@ const operations: TaskOperation[] = [
       const target = selectedPublishTarget.value;
       if (!target) throw new Error('未配置发布目标');
       targetLocked.value = true;
+      if (publishType.value === 'announcement') {
+        return startDesktopTask('magic_announcement_publish', {
+          publishTarget: 'magic',
+          environment:   target.environment,
+          dryRun:        dryRun.value,
+        });
+      }
+      if (publishType.value === 'document') {
+        return startDesktopTask('magic_document_publish', {
+          publishTarget:     target.publishTarget,
+          environment:       target.environment,
+          targetFingerprint: target.targetFingerprint,
+          dryRun:            dryRun.value,
+        });
+      }
       if (publishType.value === 'reference') {
         return startDesktopTask('magic_reference_publish', {
           publishTarget: 'magic',
@@ -252,9 +281,16 @@ function onStatusChange(status: TaskRunStatus) {
 /** Restores a retried document publication's original destination in the visible controls. */
 function onSnapshot(snapshot: TaskPageSnapshot) {
   if (snapshot.pageTask.kind !== 'attached') return;
-  if (!['magic_publish', 'magic_reference_publish'].includes(snapshot.pageTask.taskType)) return;
+  const typeByTask: Record<string, string> = {
+    magic_publish:              'data',
+    magic_reference_publish:    'reference',
+    magic_announcement_publish: 'announcement',
+    magic_document_publish:     'document',
+  };
+  const restoredType = typeByTask[snapshot.pageTask.taskType];
+  if (!restoredType) return;
   persistedTaskRunId = snapshot.pageTask.taskRunId;
-  publishType.value = snapshot.pageTask.taskType === 'magic_reference_publish' ? 'reference' : 'data';
+  publishType.value = restoredType;
   const environment = snapshot.pageTask.taskScopeSnapshot?.environment;
   if (typeof environment === 'string') selectedEnvironment.value = environment;
   persistPublishPageState();

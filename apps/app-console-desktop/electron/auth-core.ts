@@ -1,5 +1,7 @@
-import type { RemoteAuthStatus } from './contract.ts';
+import type { RemoteAuthStatus, RemoteMagicRuleFile } from './contract.ts';
 import type { Settings } from './settings.ts';
+import { createConsoleApiClient } from '@tcg-cards/console-platform';
+import type { WebRouter } from '@tcg-cards/console-api';
 
 /** Encrypted shape persisted as the remote-session secret. */
 interface StoredSession {
@@ -90,6 +92,33 @@ export async function authStatus(settings: Settings): Promise<RemoteAuthStatus> 
 export async function authSessionEnvelope(settings: Settings): Promise<{ baseUrl: string, cookieHeader: string } | null> {
   const session = await stored(settings);
   return session ? { baseUrl: session.baseUrl, cookieHeader: session.cookieHeader } : null;
+}
+
+/** Reads only the existing cloud rule file catalog through the authenticated console API. */
+export async function authListMagicRuleFiles(settings: Settings): Promise<RemoteMagicRuleFile[]> {
+  const session = await authSessionEnvelope(settings);
+  if (!session) throw new Error('此操作需要先登录。');
+
+  let responseStatus: number | null = null;
+  const api = createConsoleApiClient<WebRouter>({
+    url:   new URL('rpc', session.baseUrl).toString(),
+    fetch: async (request, init) => {
+      const headers = new Headers(request instanceof Request ? request.headers : undefined);
+      headers.set('cookie', session.cookieHeader);
+      const response = await fetch(request, { ...init, headers });
+      responseStatus = response.status;
+      return response;
+    },
+  });
+
+  try {
+    return await api.magic.rule.listFiles() as RemoteMagicRuleFile[];
+  } catch (error) {
+    if (responseStatus === 401) throw new Error('登录已失效，请重新登录。', { cause: error });
+    if (responseStatus === 403) throw new Error('当前账号无权读取云端规则列表。', { cause: error });
+    if (responseStatus == null) throw new Error('无法连接服务读取云端规则列表，请检查地址和网络。', { cause: error });
+    throw error;
+  }
 }
 
 /** Signs in to the deployed console backend and keeps the session cookie encrypted. */

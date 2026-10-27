@@ -136,3 +136,51 @@ registerLegacyTask({
     };
   },
 }, async () => (await import('../runtime/lib/magic/task/reference-publish/definition')).referencePublishTaskDefinition);
+
+registerLegacyTask({
+  taskType:            'magic_announcement_publish',
+  label:               '公告发布',
+  version:             '2026-10-14:v1',
+  supportsResume:      false,
+  admission:           { game: 'magic' },
+  publishConfirmation: publishConfirmation('万智牌公告数据'),
+  scope:               params => {
+    const publishTarget = text(params, 'publishTarget');
+    const environment = text(params, 'environment');
+    return {
+      type:     'publish_stream',
+      key:      `${publishTarget}:${environment}:announcement_data`,
+      snapshot: { publishTarget, environment },
+    };
+  },
+}, async () => (await import('../runtime/lib/magic/task/announcement-publish/definition')).announcementPublishTaskDefinition);
+
+registerLegacyTask({
+  taskType:            'magic_document_publish',
+  label:               '规则与文档发布',
+  version:             '2026-10-19:v1',
+  supportsResume:      false,
+  admission:           { game: 'magic' },
+  publishConfirmation: publishConfirmation('万智牌规则与文档'),
+  scope:               params => {
+    const publishTarget = text(params, 'publishTarget');
+    const environment = text(params, 'environment');
+    const targetFingerprint = text(params, 'targetFingerprint');
+    return {
+      type:     'publish_stream',
+      key:      `${publishTarget}:${environment}:static_documents`,
+      snapshot: { publishTarget, environment, targetFingerprint },
+    };
+  },
+}, async () => (await import('../runtime/lib/magic/task/document-publish/definition')).documentPublishTaskDefinition);
+
+registerLegacyTask({
+  taskType:       'magic_document_relations',
+  label:          '规则版本关系计算',
+  version:        '2026-10-23:v1',
+  supportsResume: false,
+  scope:          params => {
+    const documentId = text(params, 'documentId') || 'magic-cr';
+    return { type: 'document_relations', key: documentId, snapshot: { documentId } };
+  },
+}, async () => (await import('../runtime/lib/magic/task/document-relations/definition')).documentRelationsTaskDefinition);

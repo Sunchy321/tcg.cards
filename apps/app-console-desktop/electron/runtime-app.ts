@@ -14,6 +14,8 @@ import { runtimeRouter } from './runtime/orpc/runtime';
 import './runtime/lib/game-path-definitions';
 import { requireHearthstoneImageBucketDir } from './runtime/lib/hearthstone/image-config';
 import { buildAiParseStreamResponse } from './runtime/lib/hearthstone/announcement/ai-parse-stream';
+import { buildMagicAiParseStreamResponse } from './runtime/lib/magic/announcement/ai-parse-stream';
+import { buildBanlistReportResponse } from './runtime/lib/magic/banlist-check/report-http';
 import { buildRenderAllStreamResponse } from './runtime/lib/hearthstone/announcement/render-all-stream';
 import { hasAiConfig } from './runtime/runtime-config';
 
@@ -83,6 +85,11 @@ const renderAllStreamInput = z.object({
   mode:        z.enum(['missing', 'all']),
 });
 
+const magicAiParseStreamInput = z.object({
+  name:  z.string().optional(),
+  links: z.array(z.object({ url: z.string().trim().min(1), label: z.string().optional() })).min(1),
+});
+
 const hono = new Hono();
 
 hono.use('*', cors({
@@ -91,6 +98,17 @@ hono.use('*', cors({
   allowHeaders:  ['content-type', 'authorization', 'x-tcg-editor-runtime', 'x-tcg-sync-mode', 'x-tcg-editor-identity', 'x-tcg-task-host'],
   exposeHeaders: ['content-type'],
 }));
+
+hono.post('/ai/magic/parse/stream', async c => {
+  if (!hasAiConfig()) return c.json({ error: '请先在设置中配置 AI。' }, 400);
+  const parsed = magicAiParseStreamInput.safeParse(await c.req.json());
+  if (!parsed.success || parsed.data.links.some(link => !/^https?:\/\//i.test(link.url))) {
+    return c.json({ error: '请输入有效的公告链接。' }, 400);
+  }
+  return buildMagicAiParseStreamResponse(parsed.data, c.req.raw.signal);
+});
+
+hono.get('/magic/banlist-report', c => buildBanlistReportResponse(c.req.query('download') === '1'));
 
 /** Serves an image by its validated render hash instead of an arbitrary local path. */
 hono.get('/images/:category/:zone/:template/:premium/:prefix/:file', async c => {

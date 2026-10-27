@@ -1,0 +1,80 @@
+<template>
+  <AnnouncementManager
+    game="magic"
+    :sources="sources"
+    :type-labels="typeLabels"
+    :status-labels="statusLabels"
+    :config="config"
+    :card-search="cardSearch"
+    :card-resolve="cardResolve"
+    apply
+    ai-parse
+  />
+</template>
+
+<script setup lang="ts">
+import { announcementSource, changeStatusByType, gameChangeType } from '#model/magic/schema/announcement';
+import { announcementSourceLabels } from '@tcg-cards/ui/i18n/announcement-sources';
+
+import { useDesktopRuntimeClient } from '~/composables/useDesktopRuntimeClient';
+import type { AnnouncementFormConfig } from '~/utils/announcement-form-yaml';
+
+definePageMeta({ layout: 'admin', title: '公告管理' });
+
+const client = useDesktopRuntimeClient() as any;
+
+const cardSearch = (query: string, format: string) =>
+  client.magic.announcement.searchCards({ q: query, format: format || undefined }) as Promise<{
+    cardId: string; nameEn: string | null; nameZh: string | null; set: string | null; type: string | null;
+  }[]>;
+
+const cardResolve = (cardIds: string[]) =>
+  client.magic.announcement.resolveCardNames({ cardIds }) as Promise<{
+    cardId: string; nameEn: string | null; nameZh: string | null;
+  }[]>;
+
+const sources = announcementSource.options.map(value => ({
+  label: announcementSourceLabels.zhs[value],
+  value,
+}));
+
+const typeLabels: Record<string, string> = {
+  card_change:  '合法性变更',
+  card_update:  '数值/属性变更',
+  set_change:   '系列事件',
+  rule_change:  '规则变更',
+  format_birth: '赛制上线',
+  format_death: '赛制下架',
+  card_split:   '卡牌分裂',
+  card_merge:   '卡牌合并',
+};
+
+const statusLabels: Record<string, string> = {
+  banned_as_commander: '指挥官禁用',
+  banned_as_companion: '行侣禁用',
+  banned_in_bo1:       'BO1 禁用',
+  banned:              '禁用',
+  game_changer:        '主宰牌',
+  legal:               '合法',
+  restricted:          '限制',
+  suspended:           '暂停',
+  unavailable:         '不可用',
+  score:               '计分',
+  extend:              '系列扩展',
+  buff:                '增强',
+  nerf:                '削弱',
+  tweak:               '小更新',
+  revert:              '退环境回调',
+  rework:              '重做',
+  text_fix:            '文本修复',
+  text_adjust:         '文本调整',
+  bugged:              '数据异常',
+  bugfix:              'Bug 修复',
+};
+
+const config: AnnouncementFormConfig = {
+  types:        [...gameChangeType.options],
+  statusByType: changeStatusByType,
+  fields:       { versionFields: false, prevVersion: true, platformDates: true, deltaGlow: false },
+};
+</script>

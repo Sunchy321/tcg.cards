@@ -16,6 +16,8 @@ import { magicCommitsRouter } from './magic-commits';
 import { magicImageImportRouter } from './magic-image-import';
 import { magicRubyRouter } from './magic-ruby';
 import { magicSetRouter } from './magic-set';
+import { magicAnnouncementRouter } from './magic-announcement';
+import { magicRuleRouter } from './magic-rule';
 
 const magicDataFile = z.strictObject({
   name: z.string(),
@@ -246,12 +248,14 @@ const reviewList = os.output(z.strictObject({ items: z.array(reviewItem) })).han
 
 export const magicRouter = {
   getDataState,
-  set:     magicSetRouter,
-  images:  magicImageImportRouter.images,
-  analyze: magicImageImportRouter.analyze,
-  ruby:    magicRubyRouter,
-  ambit:   magicAmbitRouter,
-  commits: magicCommitsRouter,
-  slug:    { listConflicts: listSlugConflicts, resolveConflict: resolveSlugConflict, member: slugMember },
-  review:  { list: reviewList },
+  set:          magicSetRouter,
+  announcement: magicAnnouncementRouter,
+  rule:         magicRuleRouter,
+  images:       magicImageImportRouter.images,
+  analyze:      magicImageImportRouter.analyze,
+  ruby:         magicRubyRouter,
+  ambit:        magicAmbitRouter,
+  commits:      magicCommitsRouter,
+  slug:         { listConflicts: listSlugConflicts, resolveConflict: resolveSlugConflict, member: slugMember },
+  review:       { list: reviewList },
 };
