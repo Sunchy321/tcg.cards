@@ -3,11 +3,13 @@
 </template>
 
 <script setup lang="ts">
-import { GAMES } from '@tcg-cards/base';
+import { useDesktopNavigationState } from '../composables/useDesktopNavigationState';
 
 definePageMeta({ layout: 'admin' });
-// Navigate after mounting so the page does not hold its own Suspense transition open.
+const desktopNavigation = useDesktopNavigationState();
+
+/** Restores the last destination instead of always starting at the first game. */
 onMounted(() => {
-  void navigateTo(`/${GAMES[0]}`, { replace: true });
+  void desktopNavigation.restoreLastRoute();
 });
 </script>

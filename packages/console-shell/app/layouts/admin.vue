@@ -1,14 +1,44 @@
 <template>
   <div class="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950">
     <aside class="flex w-60 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-      <div class="flex h-14 items-center gap-2 border-b border-gray-200 px-5 dark:border-gray-800">
-        <UIcon name="i-lucide-layout-dashboard" class="size-5 text-primary" />
-        <span class="text-base font-semibold">Console</span>
+      <div class="flex h-14 shrink-0 items-center border-b border-gray-200 dark:border-gray-800">
+        <UDropdownMenu
+          v-if="showBrandGameSwitcher"
+          :items="gameMenuItems"
+          :content="{ align: 'start' }"
+          :ui="{ content: 'min-w-56' }"
+          class="w-full"
+        >
+          <UButton
+            color="neutral"
+            variant="ghost"
+            class="h-14 w-full justify-start gap-2 rounded-none px-5 text-left text-sm font-semibold"
+          >
+            <UIcon :name="currentGameIcon" class="size-5 shrink-0" />
+            <span class="min-w-0 flex-1 truncate text-left">{{ currentGameLabel }}</span>
+            <UIcon name="i-lucide-chevron-down" class="size-4 shrink-0 text-muted" />
+          </UButton>
+          <template #item="{ item }">
+            <span class="flex w-full items-center gap-2">
+              <UIcon :name="item.icon" class="size-4 shrink-0" />
+              <span class="min-w-0 flex-1 truncate text-left">{{ item.label }}</span>
+              <UIcon
+                v-if="item.value === currentGame"
+                name="i-lucide-check"
+                class="size-4 text-primary"
+              />
+            </span>
+          </template>
+        </UDropdownMenu>
+        <div v-else class="flex h-full items-center gap-2 px-5">
+          <UIcon name="i-lucide-layout-dashboard" class="size-5 text-primary" />
+          <span class="text-base font-semibold">Console</span>
+        </div>
       </div>
 
       <nav class="flex flex-1 flex-col overflow-y-auto p-2">
         <template v-if="accessibleGames.length > 0">
-          <div class="px-2 py-2">
+          <div v-if="!showBrandGameSwitcher" class="px-2 py-2">
             <p class="mb-1.5 px-1 text-xs font-medium text-gray-400 dark:text-gray-500">游戏数据</p>
             <USelect
               :model-value="currentGame ?? undefined"
@@ -132,6 +162,7 @@
 
 <script setup lang="ts">
 import {
+  GAME_LABELS,
   canManageUsers,
   getAccessibleGames,
   getDevNavItems,
@@ -144,9 +175,9 @@ import {
 
 import { useConsolePlatform } from '@tcg-cards/console-platform';
 
-import { consoleAdminHostKey } from '../composables/admin-host';
+import { consoleAdminHostKey, consoleAdminStorageKeys } from '../composables/admin-host';
 
-import type { Game } from '@tcg-cards/base';
+import { GAMES, type Game } from '@tcg-cards/base';
 
 interface ConsoleSessionLike {
   user?: {
@@ -174,14 +205,76 @@ const sessionRole = computed(() => userRole.value ?? 'user');
 const accessibleGames = computed(() => host?.localGames ?? getAccessibleGames(userRole.value));
 const showUserManagement = computed(() => canManageUsers(userRole.value));
 const gameSelectItems = computed(() => getGameSelectItems(accessibleGames.value));
+const showBrandGameSwitcher = computed(() => host?.gameSwitcher?.placement === 'brand' && accessibleGames.value.length > 0);
 const userNavItems = getUserNavItems();
 const devNavItems = computed(() => {
   return getDevNavItems().filter(item => isRouteAccessible(item.to!));
 });
 
+/** Returns the last game stored by a host that enables game persistence. */
+function readSavedGame(): Game | null {
+  if (!host?.gameSwitcher?.persistSelection || typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const game = window.localStorage.getItem(consoleAdminStorageKeys.currentGame);
+    return game && GAMES.includes(game as Game) && accessibleGames.value.includes(game as Game)
+      ? game as Game
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 const currentGame = useState<Game | null>('console-admin-current-game', () =>
-  resolveGameFromPath(route.path) ?? accessibleGames.value[0] ?? null,
+  resolveGameFromPath(route.path) ?? readSavedGame() ?? accessibleGames.value[0] ?? null,
 );
+
+/** Icon for each game shown in the console switcher. */
+const gameIcons: Record<Game, string> = {
+  magic:       'i:magic-logo',
+  hearthstone: 'i:hearthstone-logo',
+  yugioh:      'i:yugioh-logo',
+  shadowverse: 'i-lucide-sparkles',
+};
+
+const simplifiedChineseGameLabels: Record<Game, string> = {
+  magic:       '万智牌',
+  hearthstone: '炉石传说',
+  yugioh:      '游戏王',
+  shadowverse: '影之诗',
+};
+const gameLocale = typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('zh')
+  ? 'zhs'
+  : 'en';
+
+/** Returns a game name in the renderer's detected language. */
+function getGameLabel(game: Game): string {
+  return gameLocale === 'zhs' ? simplifiedChineseGameLabels[game] : GAME_LABELS[game];
+}
+
+const gameMenuItems = computed(() => accessibleGames.value.map(game => ({
+  label:    getGameLabel(game),
+  value:    game,
+  icon:     gameIcons[game],
+  onSelect: () => { void handleGameSelect(game); },
+})));
+
+const currentGameLabel = computed(() => currentGame.value ? getGameLabel(currentGame.value) : '游戏数据');
+const currentGameIcon = computed(() => currentGame.value ? gameIcons[currentGame.value] : 'i-lucide-layout-dashboard');
+
+watch(currentGame, game => {
+  if (!host?.gameSwitcher?.persistSelection || !game || typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(consoleAdminStorageKeys.currentGame, game);
+  } catch {
+    // Keep game navigation usable when local storage is unavailable.
+  }
+}, { immediate: true });
 
 /** Drops links whose route is inaccessible; prunes groups that end up empty. */
 function filterAccessibleNav(items: ConsoleNavLink[]): ConsoleNavLink[] {
