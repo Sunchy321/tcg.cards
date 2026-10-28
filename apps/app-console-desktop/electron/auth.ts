@@ -2,12 +2,13 @@ import { ipcMain } from 'electron';
 import { z } from 'zod';
 
 import { AUTH_CHANNEL, type AuthRequest } from './contract.ts';
-import { authListMagicRuleFiles, authLogin, authLogout, authStatus } from './auth-core.ts';
+import { authListMagicRuleFiles, authLogin, authLogout, authProfile, authStatus } from './auth-core.ts';
 import type { Settings } from './settings.ts';
 import type { IpcMainInvokeEvent } from 'electron';
 
 const request = z.discriminatedUnion('action', [
   z.strictObject({ action: z.literal('status') }),
+  z.strictObject({ action: z.literal('profile') }),
   z.strictObject({ action: z.literal('listMagicRuleFiles') }),
   z.strictObject({
     action:   z.literal('login'),
@@ -31,6 +32,8 @@ export function registerAuth(
     switch (value.action) {
     case 'status':
       return authStatus(settings);
+    case 'profile':
+      return authProfile(settings);
     case 'listMagicRuleFiles':
       return authListMagicRuleFiles(settings);
     case 'login':

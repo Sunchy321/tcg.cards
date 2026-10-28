@@ -442,9 +442,15 @@ app
         const url = await settings.secret('database');
         if (!url) throw new Error('请先在设置中填写本地数据库连接。');
         if (parsed.action === 'control' && parsed.kind === 'resume') {
-          // Continuing a publish run relaunches its Worker, so it passes the same admission.
           const source = await runtime!.get(parsed.taskRunId, url);
-          const resumed = source ? await runtime!.describe(source.taskType) : null;
+          const resumed = source ? await runtime!.describeRetry(source.id, url) : null;
+          if (resumed?.publishConfirmation) {
+            if (!resumed.admission) throw new Error('发布任务缺少权限检查。');
+            const { environment, scope } = resumed.publishConfirmation;
+            if (!environment.trim() || !scope.trim()) throw new Error('无法确认发布目标和范围。');
+            if (!(await confirmPublish(resumed.admission.game, environment, scope))) return source;
+          }
+          // Continuing a publish run relaunches its Worker, so it passes the same admission and confirmation.
           if (resumed?.admission) await admitPublish(settings, resumed.admission.game);
         }
         return parsed.action === 'control'

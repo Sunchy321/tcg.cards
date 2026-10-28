@@ -41,7 +41,7 @@ export type PushPendingTagCommitsInput = {
   consumer:    string;
   limit?:      number;
   stream?:     string;
-  onProgress?: (event: { completed: number, total: number }) => void;
+  onProgress?: (event: { completed: number, total: number, appliedCount: number, duplicateCount: number }) => void | Promise<void>;
 };
 
 /** Summary returned after one cursor-backed desktop tag push run. */
@@ -191,11 +191,12 @@ export async function pushPendingTagCommits(
   const pushed: TagPushItem[] = [];
   let pushedSequence = lastPushedSequence;
 
-  input.onProgress?.({ completed: 0, total });
+  await input.onProgress?.({ completed: 0, total, appliedCount: 0, duplicateCount: 0 });
 
   for (const commit of commits) {
+    let result: ApplyTagCommitResult;
     try {
-      const result = await input.remoteDb.transaction(async tx => await applyTagCommit(
+      result = await input.remoteDb.transaction(async tx => await applyTagCommit(
         tx,
         toRemoteCommit(commit),
         {
@@ -215,7 +216,6 @@ export async function pushPendingTagCommits(
 
       pushed.push(toPushItem(commit, result));
       pushedSequence = commit.sequence;
-      input.onProgress?.({ completed: pushed.length, total });
     } catch (error) {
       // Write conflict to remote DB in a standalone transaction (the main one rolled back).
       const reason = toBlockedReason(error);
@@ -276,6 +276,13 @@ export async function pushPendingTagCommits(
         blockedMessage:     message,
       };
     }
+
+    await input.onProgress?.({
+      completed:      pushed.length,
+      total,
+      appliedCount:   pushed.filter(item => item.status === 'applied').length,
+      duplicateCount: pushed.filter(item => item.status === 'duplicate').length,
+    });
   }
 
   return {

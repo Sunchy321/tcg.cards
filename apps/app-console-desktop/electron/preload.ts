@@ -40,6 +40,7 @@ const bridge: DesktopBridge = {
   },
   auth: {
     status:             () => ipcRenderer.invoke(AUTH_CHANNEL, { action: 'status' }),
+    profile:            () => ipcRenderer.invoke(AUTH_CHANNEL, { action: 'profile' }),
     login:              (baseUrl, username, password) => ipcRenderer.invoke(AUTH_CHANNEL, { action: 'login', baseUrl, username, password }),
     logout:             () => ipcRenderer.invoke(AUTH_CHANNEL, { action: 'logout' }),
     listMagicRuleFiles: () => ipcRenderer.invoke(AUTH_CHANNEL, { action: 'listMagicRuleFiles' }),

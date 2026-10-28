@@ -1,4 +1,4 @@
-import type { RemoteAuthStatus, RemoteMagicRuleFile } from './contract.ts';
+import type { RemoteAuthProfile, RemoteAuthStatus, RemoteMagicRuleFile } from './contract.ts';
 import type { Settings } from './settings.ts';
 import { createConsoleApiClient } from '@tcg-cards/console-platform';
 import type { WebRouter } from '@tcg-cards/console-api';
@@ -86,6 +86,41 @@ function cookieHeaderOf(response: Response): string {
 /** Local session view without contacting the backend; unreadable state counts as logged out. */
 export async function authStatus(settings: Settings): Promise<RemoteAuthStatus> {
   return statusOf(await stored(settings));
+}
+
+/** Reads only the account fields needed by the desktop account page. */
+export async function authProfile(settings: Settings): Promise<RemoteAuthProfile | null> {
+  const session = await stored(settings);
+  if (!session || !statusOf(session).loggedIn) return null;
+
+  const response = await call(new URL('auth/get-session', session.baseUrl), {
+    method:  'GET',
+    headers: { cookie: session.cookieHeader },
+  });
+  if (response.status === 401 || response.status === 403) return null;
+  if (!response.ok) throw new Error(`读取账号信息失败（HTTP ${response.status}）。`);
+
+  const value = await response.json().catch(() => null) as {
+    session?: { expiresAt?: unknown } | null;
+    user?:    { name?: unknown, email?: unknown, username?: unknown, role?: unknown } | null;
+  } | null;
+  const expiresAt = value?.session?.expiresAt;
+  const user = value?.user;
+  if (
+    typeof expiresAt !== 'string'
+    || !Number.isFinite(new Date(expiresAt).getTime())
+    || new Date(expiresAt).getTime() <= Date.now()
+    || typeof user?.name !== 'string'
+    || typeof user.email !== 'string'
+  ) return null;
+
+  return {
+    name:     user.name,
+    email:    user.email,
+    username: typeof user.username === 'string' ? user.username : null,
+    role:     typeof user.role === 'string' ? user.role : null,
+    expiresAt,
+  };
 }
 
 /** Exposes the transport envelope of the stored session for trusted backend calls. */

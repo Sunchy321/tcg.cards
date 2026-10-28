@@ -3,6 +3,7 @@ import { pushPendingTagCommits } from '@tcg-cards/console-api/lib/hearthstone/ta
 import { createDb } from '@tcg-cards/db';
 import { desc, eq } from 'drizzle-orm';
 import { PushBatch } from '@tcg-cards/db/schema/local/hearthstone';
+import type { PushPendingTagCommitsResult } from '@tcg-cards/console-api/lib/hearthstone/tag-push';
 
 import { getLocalDb } from './hsdata-local-db';
 
@@ -158,67 +159,125 @@ export async function listPushBatches(limit = 20) {
 /** Status = completed | failed */
 type PushStatus = 'completed' | 'failed';
 
-/** Runs the actual push logic in background, updating progress and persisting result. */
-async function runPush(connectionString: string, limit?: number) {
+/** Runs one target-bound push and persists its batch history and progress checkpoints. */
+export async function runTagPushBatch(
+  connectionString: string,
+  onProgress?: (event: { batchId: string, completed: number, total: number, appliedCount: number, duplicateCount: number }) => Promise<void> | void,
+  limit?: number,
+  resume?: { batchId: string, completed: number, total: number | null },
+): Promise<PushPendingTagCommitsResult & { batchId: string, startedAt: string, finishedAt: string }> {
   const localDb = getLocalDb();
   const remoteDb = createDb(connectionString);
-  const startedAt = new Date();
-
-  // Persist 'pushing' state first, so incomplete batches are detectable after restart.
-  const batchId = crypto.randomUUID();
-  await localDb.insert(PushBatch).values({
-    id:             batchId,
-    stream:         'hearthstone.tag',
-    consumer:       'desktop',
-    status:         'pushing',
-    pushedCount:    0,
-    duplicateCount: 0,
-    startedAt,
-  });
+  let batchId = resume?.batchId ?? crypto.randomUUID();
+  let batch: typeof PushBatch.$inferSelect | undefined;
 
   try {
+    if (resume) {
+      batch = await localDb.select().from(PushBatch)
+        .where(eq(PushBatch.id, resume.batchId))
+        .then(rows => rows[0]);
+      if (batch?.status !== 'pushing' || batch.stream !== 'hearthstone.tag') batch = undefined;
+    }
+    if (!batch) {
+      batchId = crypto.randomUUID();
+      batch = undefined;
+      await localDb.insert(PushBatch).values({
+        id:             batchId,
+        stream:         'hearthstone.tag',
+        consumer:       'desktop',
+        status:         'pushing',
+        pushedCount:    0,
+        duplicateCount: 0,
+        startedAt:      new Date(),
+      });
+    }
+    const startedAt = batch?.startedAt ?? new Date();
+    const progressOffset = batch ? resume?.completed ?? 0 : 0;
+    const progressTotal = batch ? resume?.total ?? null : null;
+    const appliedOffset = batch?.pushedCount ?? 0;
+    const duplicateOffset = batch?.duplicateCount ?? 0;
+
     const result = await pushPendingTagCommits({
       localDb,
       remoteDb,
       consumer:   'desktop',
       limit,
-      onProgress: ({ completed, total }) => {
-        notify({
-          phase:           'pushing',
-          message:         `正在推送 ${completed}/${total}...`,
-          startedAt:       startedAt.toISOString(),
-          finishedAt:      null,
-          totalCount:      total,
-          completedCount:  completed,
-          pushed:          [],
-          blockedReason:   null,
-          blockedMessage:  null,
-          blockedSequence: null,
+      onProgress: async ({ completed, total, appliedCount, duplicateCount }) => {
+        await localDb.update(PushBatch)
+          .set({
+            pushedCount:    appliedOffset + appliedCount,
+            duplicateCount: duplicateOffset + duplicateCount,
+          })
+          .where(eq(PushBatch.id, batchId));
+        await onProgress?.({
+          batchId,
+          completed:      progressOffset + completed,
+          total:          Math.max(progressTotal ?? (progressOffset + total), progressOffset + completed),
+          appliedCount:   appliedOffset + appliedCount,
+          duplicateCount: duplicateOffset + duplicateCount,
         });
       },
     });
 
     const status: PushStatus = result.blockedReason ? 'failed' : 'completed';
+    const finishedAt = new Date();
     await localDb.update(PushBatch)
       .set({
         status:          status,
         stream:          result.stream,
-        pushedCount:     result.pushed.filter(p => p.status === 'applied').length,
-        duplicateCount:  result.pushed.filter(p => p.status === 'duplicate').length,
+        pushedCount:     (batch?.pushedCount ?? 0) + result.pushed.filter(p => p.status === 'applied').length,
+        duplicateCount:  (batch?.duplicateCount ?? 0) + result.pushed.filter(p => p.status === 'duplicate').length,
         blockedReason:   result.blockedReason,
         blockedMessage:  result.blockedMessage,
         blockedSequence: result.blockedSequence,
-        completedAt:     new Date(),
+        completedAt:     finishedAt,
       })
       .where(eq(PushBatch.id, batchId));
 
+    return {
+      ...result,
+      batchId,
+      startedAt:  (startedAt instanceof Date ? startedAt : new Date(startedAt)).toISOString(),
+      finishedAt: finishedAt.toISOString(),
+    };
+  } catch (error) {
+    if (error instanceof Error && error.name === 'TaskBoundarySignal') throw error;
+    const message = error instanceof Error ? error.message : String(error);
+    await localDb.update(PushBatch)
+      .set({ status: 'failed', blockedReason: 'error', blockedMessage: message, completedAt: new Date() })
+      .where(eq(PushBatch.id, batchId));
+    throw error;
+  } finally {
+    await remoteDb.$client.end({ timeout: 1 });
+  }
+}
+
+/** Runs the background push job used by the legacy stream adapter. */
+async function runPush(connectionString: string, limit?: number) {
+  const current = currentJob;
+  const startedAt = current?.startedAt ?? new Date().toISOString();
+  try {
+    const result = await runTagPushBatch(connectionString, ({ completed, total }) => {
+      notify({
+        phase:           'pushing',
+        message:         `正在推送 ${completed}/${total}...`,
+        startedAt,
+        finishedAt:      null,
+        totalCount:      total,
+        completedCount:  completed,
+        pushed:          [],
+        blockedReason:   null,
+        blockedMessage:  null,
+        blockedSequence: null,
+      });
+    }, limit);
     notify({
-      phase:   status,
+      phase:   result.blockedReason ? 'failed' : 'completed',
       message: result.blockedReason
         ? `推送被阻止于 ${result.blockedReason}: ${result.blockedMessage}`
         : `推送完成：${result.pushed.length} 条 commit`,
-      startedAt:       startedAt.toISOString(),
-      finishedAt:      new Date().toISOString(),
+      startedAt:       result.startedAt,
+      finishedAt:      result.finishedAt,
       totalCount:      result.pushed.length + (result.blockedSequence ? 1 : 0),
       completedCount:  result.pushed.length,
       pushed:          result.pushed,
@@ -228,21 +287,10 @@ async function runPush(connectionString: string, limit?: number) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    await localDb.update(PushBatch)
-      .set({
-        status:         'failed',
-        pushedCount:    0,
-        duplicateCount: 0,
-        blockedReason:  'error',
-        blockedMessage: message,
-        completedAt:    new Date(),
-      })
-      .where(eq(PushBatch.id, batchId));
-
     notify({
       phase:           'failed',
       message:         `推送失败: ${message}`,
-      startedAt:       startedAt.toISOString(),
+      startedAt,
       finishedAt:      new Date().toISOString(),
       totalCount:      null,
       completedCount:  null,
@@ -251,7 +299,5 @@ async function runPush(connectionString: string, limit?: number) {
       blockedMessage:  message,
       blockedSequence: null,
     });
-  } finally {
-    await remoteDb.$client.end({ timeout: 1 });
   }
 }

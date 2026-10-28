@@ -38,6 +38,27 @@ registerLegacyTask({
   scope:          params => ({ type: 'hearthstone_hsdata_projection', key: 'global', snapshot: { sourceTags: numbers(params, 'sourceTags') } }),
 }, async () => (await import('../runtime/lib/hearthstone/task/project/definition')).projectTaskDefinition);
 
+registerTask({
+  taskType:            'hearthstone_tag_push',
+  label:               '标签推送',
+  version:             '2026-10-28:v1',
+  supportsResume:      true,
+  admission:           { game: 'hearthstone' },
+  publishConfirmation: publishConfirmation('待推送的标签提交'),
+  scope:               params => {
+    const publishTarget = text(params, 'publishTarget') || 'hearthstone';
+    const environment = text(params, 'environment');
+    return {
+      type:     'publish_stream',
+      key:      `${publishTarget}:${environment}:tag_push`,
+      snapshot: { publishTarget, environment, publishType: 'tag_push' },
+    };
+  },
+  async load() {
+    return { default: (await import('../runtime/lib/hearthstone/task/tag-push/definition')).tagPushTaskDefinition };
+  },
+});
+
 registerLegacyTask({
   taskType:       'hearthstone_cards_project',
   label:          '卡牌收录范围',
