@@ -143,6 +143,17 @@ describe('localization authority', () => {
   });
 });
 
+describe('mana cost projection', () => {
+  test('preserves multiple generic symbols for display', () => {
+    const source = card();
+    const result = projectCard(card({
+      faces: [{ ...source.faces[0]!, manaCost: '{2}{C}{C}{C}{2}' }],
+    }));
+
+    expect(result.cardParts[0]?.cost).toEqual(['2', 'C', 'C', 'C', '2']);
+  });
+});
+
 describe('name ruby projection', () => {
   const printDraft = (overrides: Partial<NonNullable<AssembledCard['prints']>[number]> = {}): NonNullable<AssembledCard['prints']>[number] => ({
     lang:              'ja', set:               'tst', number:            '1', releasedAt:        '2020-01-01',

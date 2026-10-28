@@ -43,7 +43,7 @@ export const raw = cs
         magic.cost.call({
           column: table => table.cardPart.cost,
           args:   { value, operator: ':', qualifier: [] },
-          ctx:    { meta: { getManaValueCol: (otherTable: any) => (otherTable as typeof table).cardPart.manaValue }, table },
+          ctx:    { meta: {}, table },
         }),
       )!;
     } else {
@@ -220,9 +220,7 @@ export const lang = cs
 
 export const manaCost = cs
   .commands.manaCost
-  .apply(table => table.cardPart.cost, {
-    getManaValueCol: (table: any) => table.cardPart.manaValue,
-  });
+  .apply(table => table.cardPart.cost, {});
 
 export const manaValue = cs
   .commands.manaValue

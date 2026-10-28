@@ -266,7 +266,7 @@ export function convertMana(mana: string[]): string {
     .join('');
 }
 
-/** Split a mana cost like "{1}{W/U}" into its symbol parts. */
+/** Splits a mana cost into symbols while preserving its printed token sequence. */
 export function splitCost(cost: string): string[] {
   return cost.split(/\{([^}]+)\}/).filter(v => v !== '');
 }
