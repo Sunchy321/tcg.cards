@@ -30,9 +30,15 @@ export default defineNuxtConfig({
   modules:   ['nuxt-electron', '@nuxt/ui', '@nuxt/icon'],
   electron:  electronOptions,
   devServer: { port: 1420 },
-  css:       ['~/assets/css/main.css'],
-  router:    { options: { hashMode: true } },
-  nitro:     {
+  vite:      {
+    optimizeDeps: {
+      // Bundle the icon runtime before Electron loads the first page to avoid late discovery invalidating its module graph.
+      include: ['@iconify/vue'],
+    },
+  },
+  css:    ['~/assets/css/main.css'],
+  router: { options: { hashMode: true } },
+  nitro:  {
     devHandlers: [{
       route:   '/__desktop_identity',
       handler: event => {
