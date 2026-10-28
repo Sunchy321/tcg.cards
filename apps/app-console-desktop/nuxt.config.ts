@@ -1,6 +1,27 @@
 import { createHmac } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { GAMES } from '@tcg-cards/base';
+import {
+  getDevNavItems,
+  getGameNavItems,
+  getUserNavItems,
+  type ConsoleNavLink,
+} from '@tcg-cards/console-core';
 import { developmentIdentity, electronOptions } from './electron/options';
+
+/** Collects every icon used by a nested console navigation tree. */
+function collectNavigationIcons(items: readonly ConsoleNavLink[]): string[] {
+  return items.flatMap(item => [
+    item.icon,
+    ...(item.children ? collectNavigationIcons(item.children) : []),
+  ]);
+}
+
+const navigationIcons = [
+  ...GAMES.flatMap(game => collectNavigationIcons(getGameNavItems(game))),
+  ...collectNavigationIcons(getUserNavItems()),
+  ...collectNavigationIcons(getDevNavItems()),
+].map(icon => icon.replace(/^i-lucide-/, 'lucide:'));
 
 export default defineNuxtConfig({
   extends:   ['@tcg-cards/console-shell', '@tcg-cards/ui'],
@@ -34,7 +55,8 @@ export default defineNuxtConfig({
       icons: [
         'lucide:layout-dashboard', 'lucide:chevron-down', 'lucide:settings',
         'lucide:log-out', 'lucide:loader-circle', 'lucide:circle-alert',
-        'lucide:database', 'lucide:folder-tree', 'lucide:sparkles', 'lucide:upload',
+        'lucide:folder-tree', 'lucide:sparkles',
+        ...navigationIcons,
       ],
       scan: {
         // The local collection is already bundled in full; scanning its `i:` prefix
