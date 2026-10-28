@@ -3,6 +3,7 @@ import type { hearthstoneRouter } from '../../electron/runtime/orpc/hearthstone'
 import type { imageRouter } from '../../electron/runtime/orpc/image';
 import type { magicRouter } from '../../electron/runtime/orpc/magic';
 import type { runtimeRouter } from '../../electron/runtime/orpc/runtime';
+import type { yugiohRouter } from '../../electron/runtime/orpc/yugioh';
 import { desktopApiFetch } from '~/composables/useDesktopPlatform';
 import type { TaskPageSnapshot } from '@tcg-cards/model/task';
 
@@ -12,6 +13,7 @@ type DesktopRouter = {
   image:       typeof imageRouter;
   magic:       typeof magicRouter;
   runtime:     typeof runtimeRouter;
+  yugioh:      typeof yugiohRouter;
 };
 
 /** Typed service client routed through Electron's private main-process bridge. */

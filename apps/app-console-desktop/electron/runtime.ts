@@ -16,6 +16,7 @@ import type { TaskDescription,
   WorkerMessage } from './contract';
 import { recoverUnfinishedRuns } from './task/recover';
 import { TaskStore } from './task/store';
+import { resolveYugiohPublishTarget } from './runtime/lib/runtime/desktop-database';
 
 const stores = new Map<string, TaskStore>();
 const recovered = new Map<string, Promise<void>>();
@@ -249,6 +250,10 @@ async function handle(request: RuntimeRequest): Promise<RuntimeResponse> {
   if (request.method === 'api:cancel') {
     apiControllers.get(request.requestId)?.abort('renderer canceled request');
     return { id: request.id, result: null };
+  }
+  if (request.method === 'yugioh:resolve-publish-target') {
+    const target = await resolveYugiohPublishTarget(request);
+    return { id: request.id, result: { targetFingerprint: target.targetFingerprint } };
   }
   if (closing && ['task:start', 'task:retry', 'task:control'].includes(request.method)) {
     throw new Error('应用正在退出，不能操作任务。');

@@ -128,6 +128,7 @@ export class Settings {
         'games.hearthstone.image.rendererBaseUrl',
         'games.hearthstone.image.bucketDir',
         'games.yugioh.image.bucketDir',
+        'games.yugioh.publish',
         'publish',
       ];
       if (!allowed.includes(key)) throw new Error('不支持的配置项目。');

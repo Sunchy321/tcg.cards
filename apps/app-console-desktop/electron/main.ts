@@ -200,9 +200,10 @@ function nestPaths(paths: Partial<Record<string, string>>): PathOverrides {
 /** Builds the isolated runtime snapshot without exposing decrypted values to the renderer. */
 async function buildRuntimeSettings(settings: Settings): Promise<RuntimeOverrides> {
   const { config } = settings.snapshot();
-  const [localDatabaseUrl, aiApiKey, hearthstonePublishTargets, magicPublishTargets] = await Promise.all([
+  const [localDatabaseUrl, aiApiKey, yugiohPublishConnectionString, hearthstonePublishTargets, magicPublishTargets] = await Promise.all([
     settings.secret('database'),
     settings.secret('ai'),
+    settings.secret('yugioh-publish'),
     Promise.all(config.publish.filter(item => item.publishTarget === 'hearthstone').map(async item => ({
       publishTarget:     item.publishTarget,
       environment:       item.environment,
@@ -217,6 +218,8 @@ async function buildRuntimeSettings(settings: Settings): Promise<RuntimeOverride
     }))),
   ]);
   const image = config.games.hearthstone?.image;
+  const yugiohImage = config.games.yugioh?.image;
+  const yugiohPublish = config.games.yugioh?.publish;
 
   return {
     localDatabaseUrl,
@@ -227,6 +230,17 @@ async function buildRuntimeSettings(settings: Settings): Promise<RuntimeOverride
     },
     hearthstonePublishTargets,
     magicPublishTargets,
+    yugiohImage: {
+      bucketDir: yugiohImage?.bucketDir ?? null,
+    },
+    yugiohPublishTarget: yugiohPublish
+      ? {
+        publishTargetId:   yugiohPublish.publishTargetId,
+        environment:       yugiohPublish.environment,
+        targetFingerprint: yugiohPublish.targetFingerprint,
+        connectionString:  yugiohPublishConnectionString,
+      }
+      : null,
     aiConfig: {
       apiKey:  aiApiKey,
       baseUrl: config.ai.baseUrl ?? null,
@@ -234,6 +248,39 @@ async function buildRuntimeSettings(settings: Settings): Promise<RuntimeOverride
     },
     editorIdentity: null,
   };
+}
+
+/** Binds an unverified Yu-Gi-Oh! test target after confirmation and account admission. */
+async function verifyYugiohPublishTarget(settings: Settings): Promise<void> {
+  const target = settings.snapshot().config.games.yugioh?.publish;
+  const connectionString = await settings.secret('yugioh-publish');
+
+  if (!target || !target.publishTargetId.trim() || target.environment !== 'test' || !connectionString) {
+    throw new Error('请先填写完整的游戏王测试发布目标。');
+  }
+
+  let identity: Awaited<ReturnType<RuntimeClient['resolveYugiohPublishTarget']>>;
+  try {
+    identity = await runtime!.resolveYugiohPublishTarget({
+      publishTargetId: target.publishTargetId,
+      environment:     target.environment,
+      connectionString,
+    });
+  } catch {
+    throw new Error('无法确认游戏王测试目标，请检查连接信息和网络。');
+  }
+
+  if (target.targetFingerprint && target.targetFingerprint !== identity.targetFingerprint) {
+    throw new Error('当前连接指向的目标与已保存的发布目标不一致，请检查连接设置。');
+  }
+
+  if (!target.targetFingerprint) {
+    await settings.update('games.yugioh.publish', {
+      ...target,
+      targetFingerprint: identity.targetFingerprint,
+    });
+    await syncRuntimeSettings(settings);
+  }
 }
 
 /** Applies a new settings revision to the service process before its next operation. */
@@ -437,6 +484,9 @@ app
       const operatorUserId = description?.admission
         ? await admitPublish(settings, description.admission.game)
         : undefined;
+      if (description?.admission?.game === 'yugioh') {
+        await verifyYugiohPublishTarget(settings);
+      }
       const label = taskType;
       const taskRunId = randomUUID();
       const createdAt = new Date().toISOString();

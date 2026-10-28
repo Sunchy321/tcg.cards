@@ -11,6 +11,7 @@ import { hearthstoneRouter } from './runtime/orpc/hearthstone';
 import { imageRouter } from './runtime/orpc/image';
 import { magicRouter } from './runtime/orpc/magic';
 import { runtimeRouter } from './runtime/orpc/runtime';
+import { yugiohRouter } from './runtime/orpc/yugioh';
 import './runtime/lib/game-path-definitions';
 import { requireHearthstoneImageBucketDir } from './runtime/lib/hearthstone/image-config';
 import { buildAiParseStreamResponse } from './runtime/lib/hearthstone/announcement/ai-parse-stream';
@@ -47,6 +48,7 @@ const electronRouter = {
   hsdata:      withoutLegacyPublishBypass(hearthstoneRouter as Record<string, unknown>),
   image:       withoutArbitraryArchiveReads(imageRouter as Record<string, unknown>),
   magic:       magicRouter,
+  yugioh:      yugiohRouter,
 };
 
 const rpcHandler = new RPCHandler(electronRouter as any, {

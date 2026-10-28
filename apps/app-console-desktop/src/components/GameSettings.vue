@@ -51,15 +51,33 @@
         :save="value => update('games.yugioh.image.bucketDir', value)"
       />
     </UCard>
-    <UCard v-if="game === 'yugioh' && snapshot?.config.games.yugioh?.publish">
-      <template #header><h2 class="font-medium">已有发布连接</h2></template>
-      <SettingField
-        label="连接字符串"
-        secret
-        :configured="snapshot?.credentials['yugioh-publish']"
-        :save="value => secret('yugioh-publish', value)"
-      />
+    <UCard v-if="game === 'yugioh'">
+      <template #header><h2 class="font-medium">测试发布目标</h2></template>
+      <div class="space-y-5">
+        <div class="grid gap-4 sm:grid-cols-2">
+          <SettingField
+            label="目标标识"
+            :value="snapshot?.config.games.yugioh?.publish?.publishTargetId"
+            placeholder="例如 yugioh-test"
+            :save="saveYugiohTargetId"
+          />
+          <div>
+            <div class="text-sm font-medium">环境</div>
+            <div class="mt-1 text-sm text-muted">测试环境</div>
+          </div>
+        </div>
+        <p class="text-xs text-muted">
+          {{ snapshot?.config.games.yugioh?.publish?.targetFingerprint ? '目标身份已绑定。' : '首次发布前会核对并记录目标身份。' }}
+        </p>
+        <SettingField
+          label="连接字符串"
+          secret
+          :configured="snapshot?.credentials['yugioh-publish']"
+          :save="value => secret('yugioh-publish', value)"
+        />
+      </div>
     </UCard>
+    <YugiohYugiohManager v-if="game === 'yugioh'" />
   </SettingsFrame>
 </template>
 <script setup lang="ts">
@@ -87,6 +105,21 @@ async function refresh() {
 async function savePath(key: string, value: string | null) {
   await update(`paths.${key}`, value);
   await refresh();
+}
+/** Saves the fixed test target metadata, or removes its metadata and secret together. */
+async function saveYugiohTargetId(value: string | null) {
+  if (value == null) {
+    await update('games.yugioh.publish', null);
+    await secret('yugioh-publish', null);
+    return;
+  }
+
+  const existing = snapshot.value?.config.games.yugioh?.publish;
+  await update('games.yugioh.publish', {
+    publishTargetId:   value,
+    environment:       'test',
+    targetFingerprint: existing?.targetFingerprint ?? '',
+  });
 }
 watch(() => snapshot.value?.revision, refresh);
 onMounted(refresh);

@@ -13,6 +13,7 @@ import type {
   TaskDescription,
   TaskStartResult,
   TaskView,
+  YugiohPublishTargetIdentity,
 } from './contract';
 
 /** Pending business calls rejected when their process exits or times out. */
@@ -136,6 +137,11 @@ export class RuntimeClient {
   /** Forwards one control request to the Worker that owns a run. */
   control(taskRunId: string, kind: TaskControlKind, databaseUrl: string): Promise<TaskView> {
     return this.call<TaskView>({ id: ++this.nextId, method: 'task:control', taskRunId, kind, databaseUrl });
+  }
+
+  /** Resolves the live test-database identity through the isolated Node runtime. */
+  resolveYugiohPublishTarget(input: { publishTargetId: string, environment: string, connectionString: string }): Promise<YugiohPublishTargetIdentity> {
+    return this.call<YugiohPublishTargetIdentity>({ id: ++this.nextId, method: 'yugioh:resolve-publish-target', ...input });
   }
 
   /** Reads the unfinished run of one task type, whatever its scope is. */

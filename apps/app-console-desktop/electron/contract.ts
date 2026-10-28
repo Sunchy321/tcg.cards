@@ -15,6 +15,11 @@ export interface RuntimeHealth {
   version: string;
 }
 
+/** Target identity resolved by the isolated runtime before first publication. */
+export interface YugiohPublishTargetIdentity {
+  targetFingerprint: string;
+}
+
 /** Configuration snapshot passed from Electron to the isolated runtime process. */
 export type { RuntimeOverrides };
 
@@ -138,6 +143,7 @@ export type RuntimeRequest
     | { id: number, method: 'task:start', taskRunId: string, taskType: string, params: Record<string, unknown>, databaseUrl: string }
     | { id: number, method: 'task:retry', taskRunId: string, retryOfTaskRunId: string, databaseUrl: string, operatorUserId?: string }
     | { id: number, method: 'task:control', taskRunId: string, kind: TaskControlKind, databaseUrl: string }
+    | { id: number, method: 'yugioh:resolve-publish-target', publishTargetId: string, environment: string, connectionString: string }
     | { id: number, method: 'task:latest-by-types', taskTypes: string[], databaseUrl: string }
     | { id: number, method: 'task:list', databaseUrl?: string }
     | { id: number, method: 'task:get', taskRunId: string, databaseUrl?: string }
@@ -148,7 +154,7 @@ export type RuntimeRequest
 /** Response sent only between the local business and main processes. */
 export interface RuntimeResponse {
   id:      number;
-  result?: RuntimeHealth | TaskDescription | TaskView | TaskView[] | TaskStartResult | DesktopApiResponse | null;
+  result?: RuntimeHealth | TaskDescription | TaskView | TaskView[] | TaskStartResult | DesktopApiResponse | YugiohPublishTargetIdentity | null;
   error?:  string;
 }
 

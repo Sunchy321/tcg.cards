@@ -263,6 +263,8 @@ export interface RuntimeOverrides {
   hearthstoneImage:          HearthstoneImageOverride | null;
   hearthstonePublishTargets: HearthstonePublishTargetOverride[];
   magicPublishTargets:       MagicPublishTargetOverride[];
+  yugiohImage:               YugiohImageOverride | null;
+  yugiohPublishTarget:       YugiohPublishTargetOverride | null;
   aiConfig:                  AiConfig | null;
   editorIdentity:            string | null;
 }
@@ -275,6 +277,8 @@ export function collectRuntimeOverrides(): RuntimeOverrides {
     hearthstoneImage:          readHearthstoneImageOverride(),
     hearthstonePublishTargets: readHearthstonePublishTargetOverrides(),
     magicPublishTargets:       readMagicPublishTargetOverrides(),
+    yugiohImage:               readYugiohImageOverride(),
+    yugiohPublishTarget:       readYugiohPublishTargetOverride(),
     aiConfig:                  readAiConfig(),
     editorIdentity:            readEditorIdentity(),
   };
@@ -287,6 +291,8 @@ export function applyRuntimeOverrides(data: RuntimeOverrides): void {
   setHearthstoneImageOverride(data.hearthstoneImage);
   setHearthstonePublishTargetOverrides(data.hearthstonePublishTargets);
   setMagicPublishTargetOverrides(data.magicPublishTargets);
+  setYugiohImageOverride(data.yugiohImage);
+  setYugiohPublishTargetOverride(data.yugiohPublishTarget);
   setAiConfig(data.aiConfig);
   setEditorIdentity(data.editorIdentity);
 }
