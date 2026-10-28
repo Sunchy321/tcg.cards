@@ -50,6 +50,8 @@ export default defineNuxtConfig({
 
   fonts: {
     providers: {
+      bunny:       false,
+      fontshare:   false,
       google:      false,
       googleicons: false,
     },

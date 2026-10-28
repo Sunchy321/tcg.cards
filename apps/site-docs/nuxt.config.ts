@@ -3,7 +3,7 @@ import { fileURLToPath } from 'url';
 export default defineNuxtConfig({
   extends: ['@tcg-cards/ui'],
 
-  modules: ['nitro-cloudflare-dev', '@nuxt/eslint', '@nuxt/ui', '@nuxt/icon'],
+  modules: ['@nuxt/eslint', '@nuxt/ui', '@nuxt/icon'],
 
   devtools: { enabled: true },
 
@@ -91,6 +91,8 @@ export default defineNuxtConfig({
 
   fonts: {
     providers: {
+      bunny:       false,
+      fontshare:   false,
       google:      false,
       googleicons: false,
     },
