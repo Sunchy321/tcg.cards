@@ -1,17 +1,14 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { execSync } from 'node:child_process';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import canonicalize from 'canonicalize';
 
 import { getLocalDb, type LocalDb } from '../../hsdata-local-db';
 import { ExtractedCard, ExtractedCardTag, PatchState } from '@tcg-cards/db/schema/local/hearthstone';
 import { createDefinition } from '#task/definition';
-
-const WORKSPACE = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..', '..', '..', '..');
-const UNPACK_DIR = resolve(WORKSPACE, 'data', 'hearthstone', 'unpack');
+import { resolvePath } from '../../../game-paths';
 
 const EVENT_FIELDS = [
   'm_gameplayEvent',
@@ -144,8 +141,13 @@ function resolveEvent(eventId: number | undefined, eventMap: Map<number, string>
   return eventMap.get(eventId) ?? String(eventId);
 }
 
+/** Reads card records from the same configured archive directory as the build list. */
 function loadCardData(zipName: string, buildNumber: number) {
-  const zipPath = resolve(UNPACK_DIR, `${zipName}.zip`);
+  const directory = resolvePath('hearthstone.data.unpack');
+  if (directory == null) {
+    throw new Error('Unpack data directory is not configured or does not exist');
+  }
+  const zipPath = resolve(directory, `${zipName}.zip`);
   const cardJson = execSync(`unzip -p "${zipPath}" "CARD.json"`, {
     encoding:  'utf-8',
     maxBuffer: 512 * 1024 * 1024,

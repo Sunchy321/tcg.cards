@@ -1,15 +1,12 @@
 import { os } from '../index';
 import { z } from 'zod';
 import { readdirSync, statSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 import { inArray } from 'drizzle-orm';
 
 import { getLocalDb } from '../../lib/hearthstone/hsdata-local-db';
 import { PatchState } from '@tcg-cards/db/schema/local/hearthstone';
-
-const WORKSPACE = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..', '..');
-const UNPACK_DIR = resolve(WORKSPACE, 'data', 'hearthstone', 'unpack');
+import { resolvePath } from '../../lib/game-paths';
 
 const buildInfo = z.object({
   buildNumber: z.number(),
@@ -26,13 +23,17 @@ const listUnpackBuilds = os
   .output(z.array(buildInfo))
   .handler(async () => {
     const builds: Array<{ buildNumber: number, fileName: string, size: number }> = [];
+    const directory = resolvePath('hearthstone.data.unpack');
+    if (directory == null) {
+      return builds;
+    }
 
     try {
-      const files = readdirSync(UNPACK_DIR).filter(f => f.endsWith('.zip'));
+      const files = readdirSync(directory).filter(f => f.endsWith('.zip'));
       for (const file of files) {
         const num = Number(file.replace('.zip', ''));
         if (!Number.isSafeInteger(num) || num <= 0) continue;
-        const stats = statSync(resolve(UNPACK_DIR, file));
+        const stats = statSync(resolve(directory, file));
         builds.push({ buildNumber: num, fileName: file, size: stats.size });
       }
     } catch {
