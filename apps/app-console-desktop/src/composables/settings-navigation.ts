@@ -7,9 +7,10 @@ export const generalSettings = [
   { label: '远端登录', buttonLabel: '远端登录', icon: 'i-lucide-log-in', to: '/settings/remote' },
 ];
 
-/** Game configuration links use the same locally bundled logos as the old desktop app. */
+/** Game settings links retain the existing labels and icons. */
 export const gameSettings = [
   { label: 'Magic', buttonLabel: 'Magic 设置', icon: 'i:magic-logo', to: '/settings/games/magic' },
   { label: 'Hearthstone', buttonLabel: 'Hearthstone 设置', icon: 'i:hearthstone-logo', to: '/settings/games/hearthstone' },
   { label: 'Yu-Gi-Oh!', buttonLabel: 'Yu-Gi-Oh! 设置', icon: 'i:yugioh-logo', to: '/settings/games/yugioh' },
+  { label: 'Shadowverse', buttonLabel: 'Shadowverse 设置', icon: 'i-lucide-sparkles', to: '/settings/games/shadowverse' },
 ];
