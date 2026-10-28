@@ -25,6 +25,10 @@ const sourceIdInput = z.strictObject({
   id: z.string().trim().min(1),
 });
 
+const syncPatchesInput = z.strictObject({
+  mode: z.enum(['missing', 'all']).default('all'),
+});
+
 const publishStreamInput = z.strictObject({
   publishTarget: z.literal('hearthstone'),
   environment:   z.string().trim().min(1),
@@ -571,29 +575,45 @@ const resetProjectionStatus = os
 const syncPatches = os
   .route({
     method:      'POST',
-    description: 'Sync patch metadata from all hsdata git tags',
+    description: 'Sync patch metadata from hsdata git tags',
     tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
   })
+  .input(syncPatchesInput)
   .output(z.object({ count: z.number() }))
-  .handler(async () => {
-    const meta = await collectAllPatchMeta();
+  .handler(async ({ input }) => {
     const db = getLocalDb();
+    const existingBuildNumbers = input.mode === 'missing'
+      ? new Set((await db.select({ buildNumber: Patch.buildNumber }).from(Patch)).map(row => row.buildNumber))
+      : undefined;
+    const meta = await collectAllPatchMeta(existingBuildNumbers);
+    const syncedBuildNumbers = new Set<number>();
 
     for (const m of meta) {
       const shortName = computeShortName(m.name, m.buildNumber);
+      const values = {
+        buildNumber: m.buildNumber,
+        name:        m.name,
+        shortName,
+        hash:        m.hash,
+        releaseDate: m.releaseDate ?? null,
+      };
 
-      await db.insert(Patch)
-        .values({
-          buildNumber: m.buildNumber,
-          name:        m.name,
-          shortName,
-          hash:        m.hash,
-          releaseDate: m.releaseDate ?? null,
-        })
-        .onConflictDoUpdate({
-          target: [Patch.buildNumber],
-          set:    { name: m.name, shortName, hash: m.hash, releaseDate: m.releaseDate ?? null },
-        });
+      if (input.mode === 'missing') {
+        const inserted = await db.insert(Patch)
+          .values(values)
+          .onConflictDoNothing()
+          .returning({ buildNumber: Patch.buildNumber });
+        if (inserted.length === 0) continue;
+      } else {
+        await db.insert(Patch)
+          .values(values)
+          .onConflictDoUpdate({
+            target: [Patch.buildNumber],
+            set:    { name: m.name, shortName, hash: m.hash, releaseDate: m.releaseDate ?? null },
+          });
+      }
+
+      syncedBuildNumbers.add(m.buildNumber);
 
       // Ensure a patch_states row exists (don't overwrite existing import state).
       const existing = await db.select({ buildNumber: PatchState.buildNumber })
@@ -617,7 +637,7 @@ const syncPatches = os
       }
     }
 
-    // Fix shortName collisions.
+    // Fix shortName collisions without rewriting known patches in missing mode.
     const patches = await db.select({
       buildNumber: Patch.buildNumber,
       name:        Patch.name,
@@ -626,19 +646,37 @@ const syncPatches = os
       .from(Patch)
       .orderBy(Patch.buildNumber);
 
-    const seen = new Map<string, number>();
-    for (const p of patches) {
-      const existing = seen.get(p.shortName);
-      if (existing != null) {
-        await db.update(Patch)
-          .set({ shortName: p.name })
-          .where(eq(Patch.buildNumber, p.buildNumber));
-      } else {
-        seen.set(p.shortName, p.buildNumber);
+    if (input.mode === 'missing') {
+      const seen = new Set(patches
+        .filter(p => !syncedBuildNumbers.has(p.buildNumber))
+        .map(p => p.shortName));
+
+      for (const p of patches) {
+        if (!syncedBuildNumbers.has(p.buildNumber)) continue;
+        if (seen.has(p.shortName)) {
+          await db.update(Patch)
+            .set({ shortName: p.name })
+            .where(eq(Patch.buildNumber, p.buildNumber));
+          seen.add(p.name);
+        } else {
+          seen.add(p.shortName);
+        }
+      }
+    } else {
+      const seen = new Map<string, number>();
+      for (const p of patches) {
+        const existing = seen.get(p.shortName);
+        if (existing != null) {
+          await db.update(Patch)
+            .set({ shortName: p.name })
+            .where(eq(Patch.buildNumber, p.buildNumber));
+        } else {
+          seen.set(p.shortName, p.buildNumber);
+        }
       }
     }
 
-    return { count: meta.length };
+    return { count: input.mode === 'missing' ? syncedBuildNumbers.size : meta.length };
   });
 
 export const hsdataRouter = {

@@ -686,9 +686,8 @@ const mergeCardDefsXmlText = (base: string, extras: string[]) => {
   return merged;
 };
 
-/** Collects patch metadata (name, commit, CardDefs.xml SHA256) for all git tags
- *  without parsing the XML entities. Uses streaming to avoid buffer limits. */
-export const collectAllPatchMeta = async (): Promise<HsdataPatchMeta[]> => {
+/** Collects patch metadata while optionally skipping known builds before reading their CardDefs. */
+export const collectAllPatchMeta = async (skipBuildNumbers?: ReadonlySet<number>): Promise<HsdataPatchMeta[]> => {
   const repoPath = requireHsdataRepoRoot();
 
   const tagsOutput = runGit(repoPath, [
@@ -709,6 +708,8 @@ export const collectAllPatchMeta = async (): Promise<HsdataPatchMeta[]> => {
     const commit = trimToNull(peeledObject) ?? trimToNull(objectName) ?? '';
     const buildNumber = parseNumericTag(tag);
     if (buildNumber == null) continue;
+    // Known builds need no commit-message lookup or CardDefs blob hashing in missing-only mode.
+    if (skipBuildNumbers?.has(buildNumber)) continue;
 
     // Extract date-only part (YYYY-MM-DD) from ISO timestamp.
     const releaseDate = (date ?? '').slice(0, 10) || '';
@@ -746,6 +747,8 @@ export const collectAllPatchMeta = async (): Promise<HsdataPatchMeta[]> => {
 
   // Manually backfill commits that were never tagged.
   for (const { commit: extraCommit, buildNumber } of EXTRA_PATCH_COMMITS) {
+    if (skipBuildNumbers?.has(buildNumber)) continue;
+
     const existing = result.find(m => m.commit === extraCommit);
     if (existing) continue;
 

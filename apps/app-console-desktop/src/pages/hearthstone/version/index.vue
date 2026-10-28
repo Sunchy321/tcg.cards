@@ -24,7 +24,7 @@
           </div>
         </div>
         <div class="flex gap-2">
-          <UButton label="同步补丁" icon="i-lucide-cloud-sync" color="primary" variant="soft" :loading="syncing" @click="syncPatches" />
+          <UButton :label="syncPatchesLabel" icon="i-lucide-cloud-sync" :color="syncPatchesColor" variant="soft" :loading="syncing" @click="syncPatches" />
           <UButton label="刷新" icon="i-lucide-refresh-cw" color="neutral" variant="ghost" :loading="loading" @click="loadPatches" />
         </div>
       </div>
@@ -123,6 +123,10 @@ interface PatchRow {
 const toast = useToast();
 const loading = ref(false);
 const syncing = ref(false);
+/** Keeps the displayed mode aligned with the mode captured when synchronization starts. */
+const activeSyncMode = ref<'missing' | 'all' | null>(null);
+/** Whether the Option/Alt key is held to request a complete metadata update. */
+const altHeld = ref(false);
 const items = ref<PatchRow[]>([]);
 const selectedPatch = ref<PatchRow | null>(null);
 const filters = reactive({ q: '' });
@@ -139,6 +143,9 @@ const filteredItems = computed(() => {
 });
 const totalPages = computed(() => Math.max(1, Math.ceil(filteredItems.value.length / pageSize)));
 const pagedItems = computed(() => filteredItems.value.slice((page.value - 1) * pageSize, page.value * pageSize));
+const syncMode = computed(() => activeSyncMode.value ?? (altHeld.value ? 'all' : 'missing'));
+const syncPatchesLabel = computed(() => syncMode.value === 'all' ? '更新所有补丁' : '补充缺失补丁');
+const syncPatchesColor = computed(() => syncMode.value === 'all' ? 'error' : 'primary');
 
 /** Selects one patch row for the details panel. */
 function selectPatch(buildNumber: number) {
@@ -167,18 +174,36 @@ async function loadPatches() {
   }
 }
 
-/** Synchronizes patch metadata from the configured local data source. */
+/** Synchronizes missing patch metadata by default and all metadata while Option/Alt is held. */
 async function syncPatches() {
+  const mode = altHeld.value ? 'all' : 'missing';
+  activeSyncMode.value = mode;
   syncing.value = true;
   try {
-    const result = await syncPatchMetadata();
-    toast.add({ title: '同步完成', description: `已同步 ${result.count} 个补丁`, color: 'success' });
+    const result = await syncPatchMetadata(mode);
+    const description = mode === 'missing'
+      ? `已补充 ${result.count} 个缺失补丁`
+      : `已更新 ${result.count} 个补丁`;
+    toast.add({ title: '同步完成', description, color: 'success' });
     await loadPatches();
   } catch (error) {
     toast.add({ title: '同步失败', description: getHsdataErrorMessage(error), color: 'error' });
   } finally {
     syncing.value = false;
+    activeSyncMode.value = null;
   }
+}
+
+/** Tracks the Option/Alt modifier while it is held. */
+function onAltKey(event: KeyboardEvent) {
+  if (event.key === 'Alt') {
+    altHeld.value = event.type === 'keydown';
+  }
+}
+
+/** Clears the held modifier state when the window loses focus. */
+function onWindowBlur() {
+  altHeld.value = false;
 }
 
 /** Formats a patch release date for display. */
@@ -194,4 +219,14 @@ watch(totalPages, value => {
   if (page.value > value) page.value = value;
 });
 onMounted(loadPatches);
+onMounted(() => {
+  window.addEventListener('keydown', onAltKey);
+  window.addEventListener('keyup', onAltKey);
+  window.addEventListener('blur', onWindowBlur);
+});
+onUnmounted(() => {
+  window.removeEventListener('keydown', onAltKey);
+  window.removeEventListener('keyup', onAltKey);
+  window.removeEventListener('blur', onWindowBlur);
+});
 </script>

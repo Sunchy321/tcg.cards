@@ -299,8 +299,9 @@ export async function listHsdataSources() {
   return await useDesktopRuntimeClient().hsdata.listSources() as HsdataFile[];
 }
 
-export async function syncPatches() {
-  return await useDesktopRuntimeClient().hsdata.syncPatches() as { count: number };
+/** Synchronizes patch metadata using the requested mode. */
+export async function syncPatches(mode: 'missing' | 'all' = 'all') {
+  return await useDesktopRuntimeClient().hsdata.syncPatches({ mode }) as { count: number };
 }
 
 export async function readHsdataSource(id: string) {
