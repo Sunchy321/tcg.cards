@@ -12,16 +12,27 @@ const c = creator
 export const raw = c
   .none
   .regex(true)
+  .logical({
+    expansion: ['card-part.name', 'card-part-localization.name', 'card-part.text', 'card-part-localization.text', 'card-part.cost'],
+  })
   .done();
 
 export const stats = c
   .simple
   .pattern('{{power}}/{{toughness}}', true)
+  .logical({
+    valueClass: 'composite',
+    expansion:  ['power', 'toughness'],
+  })
   .done();
 
 export const hash = c
   .simple
   .pattern('#{{tag}}')
+  .logical({
+    valueClass: 'composite',
+    expansion:  ['card.tags', 'print.printTags'],
+  })
   .done();
 
 /** Print reference `set#number` or `set#number#lang`, matched on the whole raw text. */
@@ -29,6 +40,10 @@ export const print = c
   .simple
   .pattern('{{set}}#{{number}}', true)
   .id('print')
+  .logical({
+    valueClass: 'composite',
+    expansion:  ['print.set', 'print.number', 'print.lang', 'raw'],
+  })
   .done();
 
 export const set = c
@@ -105,23 +120,35 @@ export const name = c
   .text
   .alt('n')
   .mod({ oracle: 'on', localized: 'ln', printed: 'pn' })
+  .logical({
+    expansion: ['card-part.name', 'card-part-localization.name', 'print-part.name'],
+  })
   .done();
 
 export const type = c
   .text
   .alt('t')
   .mod({ oracle: 'ot', localized: 'lt', printed: 'pt' })
+  .logical({
+    expansion: ['card-part.typeline', 'card-part-localization.typeline', 'print-part.typeline'],
+  })
   .done();
 
 export const text = c
   .text
   .alt('x')
   .mod({ oracle: 'ox', localized: 'lx', printed: 'px' })
+  .logical({
+    expansion: ['card-part.text', 'card-part-localization.text', 'print-part.text'],
+  })
   .done();
 
 export const oracle = c
   .text
   .alt('o')
+  .logical({
+    expansion: ['card-part.text', 'card-part-localization.text'],
+  })
   .done();
 
 export const flavorText = c
@@ -177,6 +204,13 @@ export const multiverseId = c
 
 export const order = c
   .simple
+  .logical({
+    valueClass:          'sort',
+    nullSemantics:       'not-applicable',
+    textSemantics:       'not-applicable',
+    collectionSemantics: 'not-applicable',
+    witness:             [],
+  })
   .done();
 
 export { ambit } from '#search/index';

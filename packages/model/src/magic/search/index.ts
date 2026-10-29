@@ -4,5 +4,6 @@ import * as commands from './command-list';
 
 export const model = s
   .id('magic')
+  .logicalScope(['same-combination', 'same-print'])
   .command(commands)
   .done();

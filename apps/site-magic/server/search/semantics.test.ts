@@ -3,8 +3,11 @@ import { describe, expect, test } from 'bun:test';
 import { PgDialect } from 'drizzle-orm/pg-core';
 
 import Parser from '#search/parser';
+import type { Expression } from '#search/parser';
 import { simplify } from '#search/parser/simplify';
-import { translate } from '#search/server/translate';
+import { translate, translateLegacy } from '#search/server/translate';
+import { resolveQueryRequest } from '#search/server/logical';
+import { PgSearchAdapter } from '#search/server/adapter';
 
 import { CardPrintView } from '#schema/shared/magic/print';
 
@@ -19,6 +22,57 @@ function compile(q: string) {
   const { query } = translate(simplify(expr), Object.values(commands) as any, CardPrintView);
 
   return dialect.sqlToQuery(query!);
+}
+
+/** Compiles one public query using the preserved historical translator. */
+function compileLegacy(q: string) {
+  const expr = new Parser(q).parse();
+  const { query, post } = translateLegacy(simplify(expr), Object.values(commands) as any, CardPrintView);
+
+  return {
+    query: query == null ? undefined : dialect.sqlToQuery(query),
+    post:  post.map(action => action.action.map(fragment => dialect.sqlToQuery(fragment as any))),
+  };
+}
+
+/** Compiles one request through the PostgreSQL adapter and its planner. */
+async function compileWithAdapter(q: string) {
+  const expr = simplify(new Parser(q).parse());
+  const request = resolveQueryRequest(expr, Object.values(commands) as any, {
+    sort:     [{ kind: 'action-default' }],
+    group:    'card',
+    page:     1,
+    pageSize: 100,
+    total:    true,
+    ambit:    null,
+    lang:     'en',
+  });
+  const adapter = new PgSearchAdapter<any, undefined, typeof CardPrintView>(
+    Object.values(commands) as any,
+    CardPrintView,
+    async (query, post) => ({
+      query: dialect.sqlToQuery(query),
+      post:  post.map(action => action.action.map(fragment => dialect.sqlToQuery(fragment as any))),
+    }),
+  );
+
+  expect(adapter.plan(request)).toEqual({ type: 'exact' });
+  return adapter.execute(request, undefined);
+}
+
+/** Asserts that one query produces the same parameterized PG output on both paths. */
+async function expectLegacyEquivalent(q: string) {
+  try {
+    const current = await compileWithAdapter(q);
+    const legacy = compileLegacy(q);
+
+    if (JSON.stringify(current) !== JSON.stringify(legacy)) {
+      throw new Error(`New=${JSON.stringify(current)} Legacy=${JSON.stringify(legacy)}`);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? `${error.message} ${(error as any).type ?? ''}` : String(error);
+    throw new Error(`Compatibility query failed: ${q}; ${message}`, { cause: error });
+  }
 }
 
 describe('magic search semantics', () => {
@@ -51,7 +105,7 @@ describe('magic search semantics', () => {
 
   test('name order ends in deterministic tail keys', () => {
     const sorter = order.call({ value: 'name+', operator: ':', qualifier: [] }, {
-      meta: {},
+      meta:  {},
       table: CardPrintView,
     }) as any[];
 
@@ -60,5 +114,88 @@ describe('magic search semantics', () => {
     expect(compiled.at(-3)).toContain('card_id');
     expect(compiled.at(-2)).toContain('set');
     expect(compiled.at(-1)).toContain('number');
+  });
+
+  test('logical requests retain resolved modifiers and pattern captures', () => {
+    const modifierExpr: Expression = {
+      type:     'simple',
+      cmd:      'name.oracle',
+      op:       ':',
+      argType:  'id',
+      args:     'draw',
+      tokens:   [],
+      location: [0, 14],
+      topLevel: true,
+    };
+    const modifierRequest = resolveQueryRequest(
+      simplify(modifierExpr),
+      Object.values(commands) as any,
+    );
+
+    expect(modifierRequest.filter).toMatchObject({
+      kind:    'leaf',
+      command: {
+        commandId:  'name',
+        modifier:   'oracle',
+        descriptor: { field: 'name', modifiers: ['oracle', 'on', 'localized', 'ln', 'printed', 'pn'] },
+      },
+    });
+
+    const patternRequest = resolveQueryRequest(
+      simplify(new Parser('2/3').parse()),
+      Object.values(commands) as any,
+    );
+
+    expect(patternRequest.filter).toMatchObject({
+      kind:    'leaf',
+      command: {
+        commandId: 'stats',
+        pattern:   { power: '2', toughness: '3' },
+      },
+    });
+  });
+
+  test('the logical PG path preserves every public command family', async () => {
+    const queries = [
+      'draw',
+      '2/3',
+      '#flying',
+      'print:m20#123',
+      'set:khm',
+      'number:123',
+      'lang:en',
+      'cost:{W}',
+      'mana-value:3',
+      'color:U',
+      'color-identity:U',
+      'color-indicator:U',
+      'power:2',
+      'toughness:3',
+      '[3]',
+      'defense:3',
+      'name:draw',
+      'n:draw',
+      'type:creature',
+      'text:"draw a card"',
+      'oracle:/draw/',
+      'flavor-text:quote',
+      'flavor-name:quote',
+      'layout:normal',
+      'image-status:missing',
+      'rarity:r',
+      'release-date>=2020-01-01',
+      'format:modern',
+      'counter:charge',
+      'keyword:flying',
+      'multiverse-id:123',
+      'ambit:primary',
+      'name:draw order:name+',
+      'name:draw | text:gain',
+      '!(name:draw | text:gain)',
+    ];
+
+    for (const query of queries) {
+      await expectLegacyEquivalent(query);
+    }
   });
 });

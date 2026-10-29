@@ -4,7 +4,9 @@ import { PgDialect } from 'drizzle-orm/pg-core';
 
 import Parser from '#search/parser';
 import { simplify } from '#search/parser/simplify';
-import { translate } from '#search/server/translate';
+import { translate, translateLegacy } from '#search/server/translate';
+import { resolveQueryRequest } from '#search/server/logical';
+import { PgSearchAdapter } from '#search/server/adapter';
 
 import { LatestCardEntityView } from '#schema/shared/hearthstone/entity';
 
@@ -19,6 +21,57 @@ function compile(q: string) {
   const { query } = translate(simplify(expr), Object.values(commands) as any, LatestCardEntityView);
 
   return dialect.sqlToQuery(query!);
+}
+
+/** Compiles one public query using the preserved historical translator. */
+function compileLegacy(q: string) {
+  const expr = new Parser(q).parse();
+  const { query, post } = translateLegacy(simplify(expr), Object.values(commands) as any, LatestCardEntityView);
+
+  return {
+    query: query == null ? undefined : dialect.sqlToQuery(query),
+    post:  post.map(action => action.action.map(fragment => dialect.sqlToQuery(fragment as any))),
+  };
+}
+
+/** Compiles one request through the PostgreSQL adapter and its planner. */
+async function compileWithAdapter(q: string) {
+  const expr = simplify(new Parser(q).parse());
+  const request = resolveQueryRequest(expr, Object.values(commands) as any, {
+    sort:     [{ kind: 'action-default' }],
+    group:    null,
+    page:     1,
+    pageSize: 100,
+    total:    true,
+    ambit:    null,
+    lang:     'en',
+  });
+  const adapter = new PgSearchAdapter<any, undefined, typeof LatestCardEntityView>(
+    Object.values(commands) as any,
+    LatestCardEntityView,
+    async (query, post) => ({
+      query: dialect.sqlToQuery(query),
+      post:  post.map(action => action.action.map(fragment => dialect.sqlToQuery(fragment as any))),
+    }),
+  );
+
+  expect(adapter.plan(request)).toEqual({ type: 'exact' });
+  return adapter.execute(request, undefined);
+}
+
+/** Asserts that one query produces the same parameterized PG output on both paths. */
+async function expectLegacyEquivalent(q: string) {
+  try {
+    const current = await compileWithAdapter(q);
+    const legacy = compileLegacy(q);
+
+    if (JSON.stringify(current) !== JSON.stringify(legacy)) {
+      throw new Error(`New=${JSON.stringify(current)} Legacy=${JSON.stringify(legacy)}`);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? `${error.message} ${(error as any).type ?? ''}` : String(error);
+    throw new Error(`Compatibility query failed: ${q}; ${message}`, { cause: error });
+  }
 }
 
 /** Compiles one query and asserts that it throws (invalid for its command). */
@@ -59,7 +112,7 @@ describe('hearthstone search semantics', () => {
 
   test('name order ends in deterministic tail keys', () => {
     const sorter = order.call({ value: 'name+', operator: ':', qualifier: [] }, {
-      meta: {},
+      meta:  {},
       table: LatestCardEntityView as any,
     } as any) as any[];
 
@@ -68,5 +121,47 @@ describe('hearthstone search semantics', () => {
     expect(compiled.at(-3)).toContain('card_id');
     expect(compiled.at(-2)).toContain('revision_hash');
     expect(compiled.at(-1)).toContain('localization_hash');
+  });
+
+  test('the logical PG path preserves every public command family', async () => {
+    const queries = [
+      'draw',
+      '3/4/5',
+      '4/5',
+      '#taunt',
+      'lang:en',
+      'name:"Fireball"',
+      'text:deal',
+      'flavor-text:flavor',
+      'set:standard',
+      'class:mage',
+      'type:minion',
+      'cost:3',
+      'attack:4',
+      'health:5',
+      'durability:2',
+      'armor:1',
+      'rune:blood',
+      'race:dragon',
+      'spell-school:arcane',
+      'tech-level:3',
+      'race-bucket:beast',
+      'mercenary-role:caster',
+      'faction:human',
+      'mercenary-faction:human',
+      'rarity:common',
+      'artist:/alex/',
+      'collectible:true',
+      'ambit:primary',
+      'change:added',
+      'format:standard',
+      'name:fire order:name+',
+      'name:fire | text:deal',
+      '!(name:fire | text:deal)',
+    ];
+
+    for (const query of queries) {
+      await expectLegacyEquivalent(query);
+    }
   });
 });

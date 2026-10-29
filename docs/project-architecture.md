@@ -96,7 +96,7 @@ The `packages/` workspace contains shared building blocks used across multiple a
 - `model`
   Shared domain models, validation schemas, and typed contracts for game data and management APIs.
 - `search`
-  Shared search parsing, command modeling, translation, and execution helpers.
+  Shared DSL parsing and game-owned command semantics, resolved into a database-independent query tree with static target coverage planning. Storage adapters own execution; the PostgreSQL adapter retains the existing game command handlers as its exact compatibility path.
 - `shared`
   Small cross-workspace shared constants and utility-level definitions.
 - `tsconfig`

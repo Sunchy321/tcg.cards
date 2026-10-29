@@ -38,6 +38,42 @@ export type PatternInput<Pat extends string | undefined, Op extends Operator, Al
 /** How a query value was written in the search text: bare identifier, quoted string, or regular expression. */
 export type CommandArgType = 'id' | 'string' | 'regex';
 
+/** Classifies a command's parsed values without referring to a storage engine. */
+export type LogicalValueClass = 'text' | 'number' | 'string' | 'set' | 'number-set' | 'bitset' | 'raw' | 'custom' | 'scope' | 'sort' | 'composite';
+
+/** Describes how a command treats missing values. */
+export type LogicalNullSemantics = 'sql-unknown' | 'empty-matches-null-or-empty' | 'handler-defined' | 'not-applicable';
+
+/** Describes text matching behavior independently from SQL syntax. */
+export type LogicalTextSemantics = 'substring-exact-regex' | 'exact' | 'handler-defined' | 'not-applicable';
+
+/** Describes collection matching behavior independently from SQL syntax. */
+export type LogicalCollectionSemantics = 'any-of' | 'contains-all-or-equals' | 'any-element-comparison' | 'bitset-subset-or-count' | 'handler-defined' | 'not-applicable';
+
+/** Names the row identities that must remain shared while matching a query. */
+export type LogicalWitness = 'same-record' | 'same-combination' | 'same-print' | 'same-card-entity';
+
+/** Declares storage-independent command meaning in a game command definition. */
+export type LogicalCommandDescriptor = {
+  field:               string;
+  valueClass:          LogicalValueClass;
+  nullSemantics:       LogicalNullSemantics;
+  textSemantics:       LogicalTextSemantics;
+  collectionSemantics: LogicalCollectionSemantics;
+  witness:             LogicalWitness[];
+  operators:           Operator[];
+  qualifiers:          Qualifier[];
+  modifiers:           string[];
+  pattern:             string | null;
+  allowsRegex:         boolean;
+  expansion:           string[];
+};
+
+/** Overrides inferred generic semantics for a game-specific command. */
+export type LogicalCommandOverride = Partial<Omit<LogicalCommandDescriptor, 'field' | 'operators' | 'qualifiers' | 'modifiers' | 'pattern' | 'allowsRegex'>> & {
+  field?: string;
+};
+
 export type CommandInput<Input extends CommandInputOption> = {
   value:     Input['regex'] extends true ? (string | RegExp) : string;
   operator:  Input['operators'][0];
@@ -55,6 +91,7 @@ export type CommandOption<Type extends string, Input extends CommandInputOption,
   alternatives?: string[];
   input:         Input;
   meta:          MetaValue;
+  logical?:      LogicalCommandOverride;
 };
 
 type CommonCommandInputIntern = CommandInput<{

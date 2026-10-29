@@ -4,5 +4,6 @@ import * as commands from './command-list';
 
 export const model = s
   .id('hearthstone')
+  .logicalScope(['same-card-entity'])
   .command(commands)
   .done();

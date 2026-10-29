@@ -14,4 +14,11 @@ export const ambit = c
   .op([':', '=', '<', '<=', '>', '>='])
   .qual([])
   .id(ambitCommandName)
+  .logical({
+    valueClass:          'scope',
+    nullSemantics:       'not-applicable',
+    textSemantics:       'not-applicable',
+    collectionSemantics: 'not-applicable',
+    witness:             [],
+  })
   .done();

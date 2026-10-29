@@ -96,7 +96,7 @@ Electron 桌面界面经受控 preload 桥复用共享 Nuxt 管理端壳。主�
 - `model`
   共享领域模型、校验 schema，以及游戏数据和管理 API 的类型契约。
 - `search`
-  共享搜索解析、命令建模、翻译和执行辅助逻辑。
+  共享 DSL 解析与由游戏模块声明的命令语义，并将查询解析为数据库无关的逻辑树供静态覆盖规划使用。存储 adapter 负责执行；PostgreSQL adapter 保留现有游戏命令 handler 作为精确兼容路径。
 - `shared`
   工作区级的小型共享常量和通用定义。
 - `tsconfig`

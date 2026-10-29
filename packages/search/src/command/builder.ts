@@ -3,7 +3,7 @@ import type { MetaBase } from '#search/base/meta';
 
 import type { Merge } from '#search/util/merge';
 import { merge } from '#search/util/merge';
-import type { CommandInputOption, CommandOption, Operator, Qualifier } from './types';
+import type { CommandInputOption, CommandOption, LogicalCommandOverride, Operator, Qualifier } from './types';
 
 import { castArray, omit, uniq } from 'lodash-es';
 
@@ -11,7 +11,7 @@ export class CommandBuilder<
   Type extends string,
   Input extends CommandInputOption,
   MetaInput extends MetaBase,
-  MetaValue extends MetaBase,
+  MetaValue extends MetaBase
 > {
   options: CommandOption<Type, Input, MetaValue>;
 
@@ -69,6 +69,14 @@ export class CommandBuilder<
     return new CommandBuilder<Type, Input, MetaInput, MetaValue>({
       ...this.options,
       alternatives: uniq([...this.options.alternatives ?? [], ...castArray(alt)]),
+    });
+  }
+
+  /** Attaches game-specific storage-independent semantics to this command. */
+  logical(logical: LogicalCommandOverride) {
+    return new CommandBuilder<Type, Input, MetaInput, MetaValue>({
+      ...this.options,
+      logical,
     });
   }
 

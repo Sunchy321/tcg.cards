@@ -3,22 +3,37 @@ import { c } from './command';
 export const raw = c
   .none
   .regex(true)
+  .logical({
+    expansion: ['localization.name', 'localization.text', 'localization.displayText'],
+  })
   .done();
 
 export const fullStats = c
   .simple
   .id('full-stats')
   .pattern('{{cost}}/{{attack}}/{{health}}', true)
+  .logical({
+    valueClass: 'composite',
+    expansion:  ['cost', 'attack', 'health'],
+  })
   .done();
 
 export const stats = c
   .simple
   .pattern('{{attack}}/{{health}}', true)
+  .logical({
+    valueClass: 'composite',
+    expansion:  ['attack', 'health'],
+  })
   .done();
 
 export const hash = c
   .simple
   .pattern('#{{tag}}')
+  .logical({
+    valueClass: 'composite',
+    expansion:  ['mechanics', 'referencedTags'],
+  })
   .done();
 
 export const lang = c
@@ -34,6 +49,9 @@ export const name = c
 export const text = c
   .text
   .alt('x')
+  .logical({
+    expansion: ['localization.text', 'localization.displayText'],
+  })
   .done();
 
 export const flavorText = c
@@ -154,4 +172,11 @@ export const format = c
 
 export const order = c
   .simple
+  .logical({
+    valueClass:          'sort',
+    nullSemantics:       'not-applicable',
+    textSemantics:       'not-applicable',
+    collectionSemantics: 'not-applicable',
+    witness:             [],
+  })
   .done();
