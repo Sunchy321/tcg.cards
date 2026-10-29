@@ -867,21 +867,24 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
     if (batchId && batch) {
       const finalRange = range ?? { buildMin: batch.buildMin, buildMax: batch.buildMax };
       await localDb.transaction(async tx => {
-        await tx.insert(PublishBaseline).values({
-          publishTarget:         batch.publishTarget, environment:           batch.environment, publishType:           batch.publishType,
-          targetFingerprint:     batch.targetFingerprint, batchId,
-          buildMin:              finalRange.buildMin, buildMax:              finalRange.buildMax,
-          generationFingerprint: publishCardDataGeneration.fingerprint, generationOrder:       publishCardDataGeneration.order,
-          manifestHash:          batch.manifestHash, totalRowCount, publishedAt,
-          createdAt:             publishedAt, updatedAt:             publishedAt,
-        }).onConflictDoUpdate({
-          target: [PublishBaseline.publishTarget, PublishBaseline.environment, PublishBaseline.publishType],
-          set:    {
-            batchId, buildMin:              finalRange.buildMin, buildMax:              finalRange.buildMax,
+        // Keep the local baseline aligned with a remote ledger commit; empty scans do not create one.
+        if (ctx.remoteDb) {
+          await tx.insert(PublishBaseline).values({
+            publishTarget:         batch.publishTarget, environment:           batch.environment, publishType:           batch.publishType,
+            targetFingerprint:     batch.targetFingerprint, batchId,
+            buildMin:              finalRange.buildMin, buildMax:              finalRange.buildMax,
             generationFingerprint: publishCardDataGeneration.fingerprint, generationOrder:       publishCardDataGeneration.order,
-            manifestHash:          batch.manifestHash, totalRowCount, publishedAt, updatedAt:             publishedAt,
-          } as any,
-        });
+            manifestHash:          batch.manifestHash, totalRowCount, publishedAt,
+            createdAt:             publishedAt, updatedAt:             publishedAt,
+          }).onConflictDoUpdate({
+            target: [PublishBaseline.publishTarget, PublishBaseline.environment, PublishBaseline.publishType],
+            set:    {
+              batchId, buildMin:              finalRange.buildMin, buildMax:              finalRange.buildMax,
+              generationFingerprint: publishCardDataGeneration.fingerprint, generationOrder:       publishCardDataGeneration.order,
+              manifestHash:          batch.manifestHash, totalRowCount, publishedAt, updatedAt:             publishedAt,
+            } as any,
+          });
+        }
 
         const summary = {
           batchId:              batch.id, publishTarget:        batch.publishTarget, environment:          batch.environment,
