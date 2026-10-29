@@ -159,11 +159,18 @@ export interface RuntimeResponse {
   error?:  string;
 }
 
+/** Identifies the credential source independently of the game's publish scope. */
+export interface PublishAdmission {
+  game:        AdmissionGame;
+  /** Omitted by older account-gated registrations; direct tasks use configured database credentials. */
+  connection?: 'direct' | 'account';
+}
+
 /** Registration facts the main process needs before a run exists. */
 export interface TaskDescription {
   taskType:            string;
-  /** Present when starting this task type requires remote publish admission. */
-  admission:           { game: AdmissionGame } | null;
+  /** Describes whether a publish uses database credentials or Console account admission. */
+  admission:           PublishAdmission | null;
   /** Present when the task registration can describe its target and publish scope. */
   publishConfirmation: PublishConfirmation | null;
 }

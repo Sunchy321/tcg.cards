@@ -450,8 +450,8 @@ app
             if (!environment.trim() || !scope.trim()) throw new Error('无法确认发布目标和范围。');
             if (!(await confirmPublish(resumed.admission.game, environment, scope))) return source;
           }
-          // Continuing a publish run relaunches its Worker, so it passes the same admission and confirmation.
-          if (resumed?.admission) await admitPublish(settings, resumed.admission.game);
+          // Continuing a publish uses the registration's credential source and the same confirmation.
+          if (resumed?.admission) await admitPublish(settings, resumed.admission.game, resumed.admission.connection);
         }
         return parsed.action === 'control'
           ? runtime!.control(parsed.taskRunId, parsed.kind, url)
@@ -473,7 +473,7 @@ app
       const existing = await runtime!.findActiveByType(taskType, url);
       if (existing) {
         const existingDescription = await runtime!.describe(taskType);
-        if (existingDescription?.admission) await admitPublish(settings, existingDescription.admission.game);
+        if (existingDescription?.admission) await admitPublish(settings, existingDescription.admission.game, existingDescription.admission.connection);
         mainWindow?.webContents.send(TASK_CHANGED_CHANNEL, existing);
         return { taskRunId: existing.id, existing: true };
       }
@@ -486,9 +486,9 @@ app
         if (!environment.trim() || !scope.trim()) throw new Error('无法确认发布目标和范围。');
         if (!(await confirmPublish(description.admission.game, environment, scope))) return null;
       }
-      // Publish tasks pass fail-closed remote admission before anything is started or reused.
+      // Only account connections require Console admission; database gates still run inside direct tasks.
       const operatorUserId = description?.admission
-        ? await admitPublish(settings, description.admission.game)
+        ? await admitPublish(settings, description.admission.game, description.admission.connection)
         : undefined;
       if (description?.admission?.game === 'yugioh') {
         await verifyYugiohPublishTarget(settings);

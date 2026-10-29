@@ -43,7 +43,7 @@ registerTask({
   label:               '标签推送',
   version:             '2026-10-28:v1',
   supportsResume:      true,
-  admission:           { game: 'hearthstone' },
+  admission:           { game: 'hearthstone', connection: 'direct' },
   publishConfirmation: publishConfirmation('待推送的标签提交'),
   scope:               params => {
     const publishTarget = text(params, 'publishTarget') || 'hearthstone';
@@ -88,7 +88,7 @@ registerLegacyTask({
   label:               '卡牌数据发布',
   version:             '2026-06-22:v1',
   supportsResume:      false,
-  admission:           { game: 'hearthstone' },
+  admission:           { game: 'hearthstone', connection: 'direct' },
   publishConfirmation: publishConfirmation('卡牌数据'),
   scope:               params => {
     const publishTarget = text(params, 'publishTarget') || 'hearthstone';
@@ -103,7 +103,7 @@ registerLegacyTask({
   label:               '单卡发布',
   version:             '2026-10-25:v1',
   supportsResume:      false,
-  admission:           { game: 'hearthstone' },
+  admission:           { game: 'hearthstone', connection: 'direct' },
   publishConfirmation: publishConfirmation(params => `单张卡牌：${text(params, 'cardId')}`),
   scope:               params => {
     const publishTarget = text(params, 'publishTarget') || 'hearthstone';
@@ -118,7 +118,7 @@ registerLegacyTask({
   label:               '固定卡牌数据',
   version:             '2026-07-14:v1',
   supportsResume:      false,
-  admission:           { game: 'hearthstone' },
+  admission:           { game: 'hearthstone', connection: 'direct' },
   publishConfirmation: publishConfirmation('固定卡牌数据'),
   scope:               params => {
     const publishTarget = text(params, 'publishTarget') || 'hearthstone';
@@ -132,7 +132,7 @@ registerLegacyTask({
   label:               '参考数据发布',
   version:             '2026-08-25:v1',
   supportsResume:      false,
-  admission:           { game: 'hearthstone' },
+  admission:           { game: 'hearthstone', connection: 'direct' },
   publishConfirmation: publishConfirmation('参考数据'),
   scope:               params => {
     const publishTarget = text(params, 'publishTarget') || 'hearthstone';
@@ -146,7 +146,7 @@ registerLegacyTask({
   label:               '公告数据发布',
   version:             '2026-08-07:v1',
   supportsResume:      false,
-  admission:           { game: 'hearthstone' },
+  admission:           { game: 'hearthstone', connection: 'direct' },
   publishConfirmation: publishConfirmation('公告数据'),
   scope:               params => {
     const publishTarget = text(params, 'publishTarget') || 'hearthstone';

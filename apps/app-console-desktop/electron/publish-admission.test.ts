@@ -7,9 +7,10 @@ import { admitPublish } from './publish-admission.ts';
 
 /** Console-backend stub exposing only the admission endpoint. */
 function backend() {
-  const state = { status: 200 };
+  const state = { status: 200, requests: 0 };
   const server = createServer((request, response) => {
     if (request.url === '/publish/admission' && request.method === 'POST') {
+      state.requests += 1;
       response.statusCode = state.status;
       response.setHeader('content-type', 'application/json');
       response.end(state.status === 200 ? '{"allowed":true,"game":"magic","userId":"user-123"}' : '{"allowed":false}');
@@ -77,6 +78,29 @@ test('admission resolves when the backend authorizes the game', async () => {
 test('a missing session refuses before any request is made', async () => {
   const { service } = fixture('http://127.0.0.1:1');
   await assert.rejects(admitPublish(service, 'magic'), /需要先登录/);
+});
+
+test('direct database publishing works without a Console session or reachable backend for every game', async () => {
+  const { service } = fixture('http://127.0.0.1:1');
+  for (const game of ['magic', 'hearthstone', 'yugioh', 'shadowverse'] as const) {
+    assert.equal(await admitPublish(service, game, 'direct'), undefined);
+  }
+});
+
+test('direct publishing never requests account admission or attributes a signed-in account', async () => {
+  const server = backend();
+  const url = await server.start();
+  try {
+    const { service, signIn } = fixture(url);
+    await signIn();
+    server.state.status = 403;
+    assert.equal(await admitPublish(service, 'magic', 'direct'), undefined);
+    assert.equal(server.state.requests, 0);
+    await assert.rejects(admitPublish(service, 'magic', 'account'), /没有发布万智牌/);
+    assert.equal(server.state.requests, 1);
+  } finally {
+    await server.close();
+  }
 });
 
 test('an expired login, a denied account and server errors each refuse publishing', async () => {

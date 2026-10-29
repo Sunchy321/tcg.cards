@@ -1,4 +1,4 @@
-import type { AdmissionGame } from './contract.ts';
+import type { AdmissionGame, PublishAdmission } from './contract.ts';
 import { authSessionEnvelope } from './auth-core.ts';
 import type { Settings } from './settings.ts';
 
@@ -11,11 +11,19 @@ export const PUBLISH_GAME_LABELS: Record<AdmissionGame, string> = {
 };
 
 /**
- * Fail-closed publish admission: asks the deployed console backend whether the
- * stored session's account may publish one game's data. Refusal and unreachability
- * both stop the publish before any run exists.
+ * Direct connections use their database credentials without Console admission.
+ * Account connections fail closed unless the backend authorizes the stored session.
  */
-export async function admitPublish(settings: Settings, game: AdmissionGame): Promise<string> {
+export async function admitPublish(
+  settings: Settings,
+  game: AdmissionGame,
+  connection: PublishAdmission['connection'] = 'account',
+): Promise<string | undefined> {
+  // The host registration selects this path, never an environment name or renderer parameter.
+  if (connection === 'direct') {
+    return undefined;
+  }
+
   const session = await authSessionEnvelope(settings);
   if (!session) throw new Error('此操作需要先登录。');
   let response: Response;

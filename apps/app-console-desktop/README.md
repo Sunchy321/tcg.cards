@@ -16,9 +16,11 @@ Settings → 远端登录 signs in to the deployed web console (`/auth` endpoint
 
 ## Publish admission
 
-Task types that publish declare `admission: { game }` in their registration and provide a user-facing target and scope through `publishConfirmation`. Before a new start or retry, the main process confirms the game, environment and scope; canceling creates no task. An unfinished run follows the existing admission and reuse path without another confirmation. For a new run, the main process asks the deployed console backend (`POST /publish/admission`) whether the logged-in account holds that game's data permission (`owner` or `admin/<game>`). Refusal, an expired login and an unreachable backend all stop the publish with an explicit error — the check never fails open. The successful response's account ID is stored in the task parameters and written to the remote `publish_ledgers.operator_user_id` column; recovery keeps the original operator and retry uses the current account. The `/dev/auth` page starts an admission-gated development task end to end.
+Database publish tasks declare `admission: { game, connection: 'direct' }` because they use manually configured connection strings. The main process keeps the publish confirmation but skips Console login and account admission for these tasks on start, retry, resume and reuse. The connection source, rather than an environment name such as `dev`, selects this behavior. Database permissions and each task's existing target, stream, lease and consistency checks continue to apply. New direct runs have no authenticated Console operator ID; retries also remove an older account operator ID.
 
-Publish connection strings are the app's own least-privilege boundary ([ADR-0021](../../docs/adr/0021-desktop-publish-authorization.md)); short-lived server-issued credentials are deliberately not built, and credential resolution stays at the single seam of reading a publish target's secret. Create one dedicated role per remote environment instead of reusing an owner connection, e.g. for a Magic target:
+Registrations with `connection: 'account'`, or without a connection mode for compatibility, retain fail-closed Console admission through `POST /publish/admission`. The `/dev/auth` page remains an account-admission demonstration. Account-based temporary database credentials are still in design and are not implemented by this change.
+
+Direct connection strings determine database access ([ADR-0021](../../docs/adr/0021-desktop-publish-authorization.md)). Create one dedicated role per remote environment instead of reusing an owner connection, e.g. for a Magic target:
 
 ```sql
 CREATE ROLE console_publisher LOGIN PASSWORD '…';

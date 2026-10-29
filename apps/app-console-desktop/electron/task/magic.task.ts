@@ -114,7 +114,7 @@ registerLegacyTask({
   label:               '万智牌数据发布',
   version:             '2026-09-05:v1',
   supportsResume:      false,
-  admission:           { game: 'magic' },
+  admission:           { game: 'magic', connection: 'direct' },
   publishConfirmation: publishConfirmation('万智牌数据'),
   scope:               () => ({ type: 'magic_publish', key: 'global', snapshot: {} }),
 }, async () => (await import('../runtime/lib/magic/task/publish/definition')).magicPublishTaskDefinition);
@@ -124,7 +124,7 @@ registerLegacyTask({
   label:               '参考数据发布',
   version:             '2026-10-17:v1',
   supportsResume:      false,
-  admission:           { game: 'magic' },
+  admission:           { game: 'magic', connection: 'direct' },
   publishConfirmation: publishConfirmation('万智牌赛制、系列与补充包'),
   scope:               params => {
     const publishTarget = text(params, 'publishTarget');
@@ -142,7 +142,7 @@ registerLegacyTask({
   label:               '公告发布',
   version:             '2026-10-14:v1',
   supportsResume:      false,
-  admission:           { game: 'magic' },
+  admission:           { game: 'magic', connection: 'direct' },
   publishConfirmation: publishConfirmation('万智牌公告数据'),
   scope:               params => {
     const publishTarget = text(params, 'publishTarget');
@@ -160,7 +160,7 @@ registerLegacyTask({
   label:               '规则与文档发布',
   version:             '2026-10-19:v1',
   supportsResume:      false,
-  admission:           { game: 'magic' },
+  admission:           { game: 'magic', connection: 'direct' },
   publishConfirmation: publishConfirmation('万智牌规则与文档'),
   scope:               params => {
     const publishTarget = text(params, 'publishTarget');

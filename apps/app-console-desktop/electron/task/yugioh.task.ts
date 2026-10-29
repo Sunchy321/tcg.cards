@@ -128,7 +128,7 @@ registerSimpleTask({
   label:               '游戏王卡牌发布',
   version:             '2026-10-27:v1',
   supportsResume:      true,
-  admission:           { game: 'yugioh' },
+  admission:           { game: 'yugioh', connection: 'direct' },
   publishConfirmation: () => ({ environment: 'test', scope: '全部游戏王卡牌' }),
   scope:               () => sharedScope,
 }, publishDefinition);

@@ -17,3 +17,9 @@ The cloud rule file catalog uses the stored session only in the Electron main pr
 **Why:** The publish path bypasses every application server by design (bulk writes at a scale an API hop would not serve), so an API-side permission check alone would be advisory — the stored connection string would remain a key with no boundary. Reusing the account system's per-game data permission avoids a second permission model, fail-closed keeps the check meaningful whenever it cannot run, and the least-privilege role gives the database itself the final word on what publishing may touch. Attribution belongs in the remote ledger rather than local task records because the ledger survives machine changes and is already the reconciliation authority (ADR-0008).
 
 This resolves ADR-0019's remote-access design checkpoint. It does not change ADR-0008's single-writer or baseline-diffing rules.
+
+## Amendment: explicit direct database connections
+
+Manually configured database connections now publish without Console account admission. Real database publish tasks declare their direct credential source; the host applies it consistently to start, retry, resume and active-run reuse without interpreting environment names. Publication confirmation, database privileges and the existing per-workflow publication gates remain in place. Direct runs do not claim an authenticated Console operator. Account-gated registrations retain their existing admission behavior while account-based temporary database credential issuance is designed separately.
+
+The user chose two connection modes: user-supplied database credentials, and account login followed by server-issued restricted temporary credentials. Only the direct mode is implemented in this amendment. It supersedes the blanket account-admission requirement above for manually configured direct connections.

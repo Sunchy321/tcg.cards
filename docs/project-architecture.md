@@ -160,6 +160,8 @@ Capability intent should be read in three layers:
 - non-domain management workflows
   Management features that do not define or transform domain data, such as user-management style workflows, are not desktop-exclusive by default and may be shared across management runtimes.
 
+Desktop publication through manually configured database connection strings does not require Console login or account admission. The credential source selects this behavior independently of game and environment names; database privileges and existing publication checks still apply. Account-based temporary database credentials remain a separate design effort.
+
 ## Current Explicit Remote-Owned Scope
 
 The current project-level remote-owned scope is intentionally limited to categories whose primary runtime context lives in remote infrastructure:

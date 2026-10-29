@@ -301,11 +301,18 @@ async function handle(request: RuntimeRequest): Promise<RuntimeResponse> {
     if (!(await store.isRetryable(request.retryOfTaskRunId))) throw new Error('任务当前状态不支持重试。');
     const source = await store.parametersOf(request.retryOfTaskRunId);
     if (!source) throw new Error('任务不存在或已清除。');
+    const params = { ...source.params };
+    // A new direct run has no authenticated Console operator, even when retrying an older account-gated run.
+    if (getTask(source.taskType).admission?.connection === 'direct') {
+      Reflect.deleteProperty(params, 'operatorUserId');
+    } else if (request.operatorUserId != null) {
+      params.operatorUserId = request.operatorUserId;
+    }
     const result = await reuseOrCreate(
       store,
       request.taskRunId,
       source.taskType,
-      request.operatorUserId == null ? source.params : { ...source.params, operatorUserId: request.operatorUserId },
+      params,
       request.databaseUrl,
       request.retryOfTaskRunId,
     );
