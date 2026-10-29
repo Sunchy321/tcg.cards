@@ -164,10 +164,35 @@ async function runOnce(
   for (const [index, stage] of stages.entries()) {
     if (snapshot.stages[index]?.status === 'completed') continue;
     const stageResumeState = await store.resumeState(launch.taskRunId, stage.key);
-    if (!(await store.beginStage(launch.taskRunId, stage.key, index, stage.resumeMode ?? 'none'))) {
+    const priorStatus = snapshot.stages[index]?.status;
+    const resume = priorStatus === 'paused' || priorStatus === 'running'
+      ? stageResumeState ?? { done: 0, token: null }
+      : undefined;
+
+    try {
+      if (stage.prepare) {
+        const preparation = await stage.prepare({
+          taskRunId: launch.taskRunId,
+          params,
+          resume,
+        });
+        stage.total = preparation.total;
+      }
+    } catch (error) {
+      if (terminalStatuses.includes((await statusOf(store)) ?? '')) return 'canceled';
+      await store.fail(
+        launch.taskRunId,
+        error instanceof Error ? error.message : 'Task failed',
+        stage.key,
+      );
+      changed('finished');
+      return 'failed';
+    }
+
+    if (!(await store.beginStage(launch.taskRunId, stage.key, index, stage.resumeMode ?? 'none', stage.total))) {
       const status = await statusOf(store);
       if (status === 'pausing') {
-        await store.markPaused(launch.taskRunId, stage.key, stage.resumeMode ?? 'none');
+        await store.markPaused(launch.taskRunId, stage.key, stage.resumeMode ?? 'none', stage.total);
         settled();
         return 'paused';
       }
@@ -179,10 +204,6 @@ async function runOnce(
       return 'canceled';
     }
     changed('running');
-    const priorStatus = snapshot.stages[index]?.status;
-    const resume = priorStatus === 'paused' || priorStatus === 'running'
-      ? stageResumeState ?? { done: 0, token: null }
-      : undefined;
     try {
       await stage.run({
         taskRunId: launch.taskRunId,
@@ -220,7 +241,7 @@ async function runOnce(
         return settleBoundary(store, stage, error.control, definition, params);
       }
       if (terminalStatuses.includes((await statusOf(store)) ?? '')) return 'canceled';
-      await store.fail(launch.taskRunId, error instanceof Error ? error.message : 'Task failed');
+      await store.fail(launch.taskRunId, error instanceof Error ? error.message : 'Task failed', stage.key);
       changed('finished');
       return 'failed';
     }

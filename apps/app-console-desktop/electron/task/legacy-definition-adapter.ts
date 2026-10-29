@@ -8,10 +8,11 @@ import type {
   TaskExecuteStore,
   TaskRunInput,
   TaskScope,
+  TaskStageEntry,
   TaskStagePlan,
   TaskStageState,
 } from '../runtime/lib/task/definition';
-import type { TaskDefinition, TaskProgressUpdate, TaskStageDefinition } from './registry';
+import type { TaskDefinition, TaskProgressUpdate, TaskStageDefinition, TaskStagePrepareContext } from './registry';
 
 interface LegacyTaskRegistration {
   scope(params: Record<string, unknown>): { type: string, key: string, snapshot?: Record<string, unknown> };
@@ -67,98 +68,131 @@ export function adaptLegacyDefinition(
       };
       const plans = await definition.buildStagePlan(run);
 
-      return plans.map((plan, index): TaskStageDefinition => ({
-        key:          plan.stageKey,
-        label:        plan.label,
-        total:        null,
-        progressMode: plan.progressMode,
-        resumeMode:   plan.resumeMode,
-        async run(context) {
+      return plans.map((plan, index): TaskStageDefinition => {
+        /** Retains the prepared stage data until its execution block begins. */
+        interface PreparedStage {
+          taskRunId: string;
+          stage:     TaskStageState;
+          entry:     TaskStageEntry;
+        }
+
+        let prepared: PreparedStage | undefined;
+
+        /** Builds the legacy stage entry while keeping its per-run state for execution. */
+        const prepareEntry = async (context: TaskStagePrepareContext): Promise<PreparedStage> => {
           latestTaskRunId = context.taskRunId;
           const token = context.resume?.token ?? null;
-          const stageState: TaskStageState = {
+          const stage: TaskStageState = {
             ...plan,
             status:      context.resume ? 'paused' : 'pending',
             total:       typeof token?.total === 'number' ? token.total : null,
-            done:        context.resume?.done ?? 0,
+            done:        context.resume?.done ?? (plan.progressMode === 'simple' ? null : 0),
             startedAt:   null,
             finishedAt:  null,
             resumeToken: token,
           };
           const entry = await definition.prepareStageEntry({
             run,
-            stage:     stageState,
+            stage,
             resume:    context.resume != null,
             taskRunId: context.taskRunId,
           });
-          const liveStage: TaskStageState = { ...stageState, ...entry };
-          const typedState = getPerRunState(context.taskRunId);
-          if (typedState?.skipped) return;
+          prepared = { taskRunId: context.taskRunId, stage, entry };
+          return prepared;
+        };
 
-          let progressUpdate: TaskProgressUpdate | undefined;
-          let resumeToken = token;
-          let pending = Promise.resolve();
-          const queue = (operation: () => Promise<void>) => {
-            pending = pending.then(operation);
-            return pending;
+        /** Resolves progress bounds before the Worker persists its running state. */
+        const prepare = async (context: TaskStagePrepareContext) => {
+          const ready = await prepareEntry(context);
+          const skipped = getPerRunState(context.taskRunId)?.skipped === true;
+          return {
+            total: skipped && plan.progressMode === 'bounded' ? 0 : ready.entry.total,
           };
-          const store: TaskExecuteStore = {
-            async updateStage(_taskRunId, _stageKey, patch) {
-              if (typeof patch.done === 'number' || patch.done === null
-                || typeof patch.total === 'number' || patch.total === null
-                || Array.isArray(patch.segments)) {
-                progressUpdate = {
-                  done: typeof patch.done === 'number' || patch.done === null ? patch.done : liveStage.done ?? 0,
-                  ...(typeof patch.total === 'number' || patch.total === null ? { total: patch.total } : {}),
-                  ...(Array.isArray(patch.segments) ? { segments: patch.segments as NonNullable<TaskProgressUpdate['segments']> } : {}),
-                };
-                liveStage.done = progressUpdate.done;
-                if (progressUpdate.total !== undefined) liveStage.total = progressUpdate.total;
-                if (progressUpdate.segments) liveStage.segments = progressUpdate.segments;
+        };
+
+        return {
+          key:          plan.stageKey,
+          label:        plan.label,
+          total:        null,
+          progressMode: plan.progressMode,
+          resumeMode:   plan.resumeMode,
+          prepare,
+          async run(context) {
+            latestTaskRunId = context.taskRunId;
+            const ready = prepared?.taskRunId === context.taskRunId
+              ? prepared
+              : await prepareEntry(context);
+            const { stage: stageState, entry } = ready;
+            const token = stageState.resumeToken;
+            const liveStage: TaskStageState = { ...stageState, ...entry };
+            const typedState = getPerRunState(context.taskRunId);
+            if (typedState?.skipped) return;
+
+            let progressUpdate: TaskProgressUpdate | undefined;
+            let resumeToken = token;
+            let pending = Promise.resolve();
+            const queue = (operation: () => Promise<void>) => {
+              pending = pending.then(operation);
+              return pending;
+            };
+            const store: TaskExecuteStore = {
+              async updateStage(_taskRunId, _stageKey, patch) {
+                if (typeof patch.done === 'number' || patch.done === null
+                  || typeof patch.total === 'number' || patch.total === null
+                  || Array.isArray(patch.segments)) {
+                  progressUpdate = {
+                    done: typeof patch.done === 'number' || patch.done === null ? patch.done : liveStage.done ?? 0,
+                    ...(typeof patch.total === 'number' || patch.total === null ? { total: patch.total } : {}),
+                    ...(Array.isArray(patch.segments) ? { segments: patch.segments as NonNullable<TaskProgressUpdate['segments']> } : {}),
+                  };
+                  liveStage.done = progressUpdate.done;
+                  if (progressUpdate.total !== undefined) liveStage.total = progressUpdate.total;
+                  if (progressUpdate.segments) liveStage.segments = progressUpdate.segments;
+                }
+
+                if (patch.resumeToken != null && typeof patch.resumeToken === 'object' && !Array.isArray(patch.resumeToken)) {
+                  resumeToken = patch.resumeToken as Record<string, unknown>;
+                  const update = progressUpdate;
+                  progressUpdate = undefined;
+                  await queue(() => context.checkpoint(resumeToken!, update));
+                } else if (progressUpdate) {
+                  const update = progressUpdate;
+                  progressUpdate = undefined;
+                  await queue(() => context.progress(update));
+                }
+
+                return { ...liveStage, ...patch } as TaskStageState;
+              },
+              publishSnapshot: async () => {},
+            };
+
+            const blocks = definition.buildBlocks({ run, stage: liveStage, taskRunId: context.taskRunId });
+            let blockIndex = 0;
+            for await (const block of blocks) {
+              await definition.executeBlock({
+                run,
+                stage:     liveStage,
+                block,
+                store,
+                taskRunId: context.taskRunId,
+                signal:    context.signal,
+              });
+              await pending;
+              if (plan.resumeMode !== 'durable' || resumeToken == null) {
+                resumeToken = { stageKey: plan.stageKey, blockIndex };
               }
-
-              if (patch.resumeToken != null && typeof patch.resumeToken === 'object' && !Array.isArray(patch.resumeToken)) {
-                resumeToken = patch.resumeToken as Record<string, unknown>;
-                const update = progressUpdate;
-                progressUpdate = undefined;
-                await queue(() => context.checkpoint(resumeToken!, update));
-              } else if (progressUpdate) {
-                const update = progressUpdate;
-                progressUpdate = undefined;
-                await queue(() => context.progress(update));
-              }
-
-              return { ...liveStage, ...patch } as TaskStageState;
-            },
-            publishSnapshot: async () => {},
-          };
-
-          const blocks = definition.buildBlocks({ run, stage: liveStage, taskRunId: context.taskRunId });
-          let blockIndex = 0;
-          for await (const block of blocks) {
-            await definition.executeBlock({
-              run,
-              stage:     liveStage,
-              block,
-              store,
-              taskRunId: context.taskRunId,
-              signal:    context.signal,
-            });
-            await pending;
-            if (plan.resumeMode !== 'durable' || resumeToken == null) {
-              resumeToken = { stageKey: plan.stageKey, blockIndex };
+              await context.checkpoint(resumeToken, progressUpdate);
+              progressUpdate = undefined;
+              blockIndex++;
             }
-            await context.checkpoint(resumeToken, progressUpdate);
-            progressUpdate = undefined;
-            blockIndex++;
-          }
 
-          if (index === plans.length - 1) {
-            const savedResult = asResult(getTaskResult(context.taskRunId));
-            if (savedResult) await context.saveResult(savedResult);
-          }
-        },
-      }));
+            if (index === plans.length - 1) {
+              const savedResult = asResult(getTaskResult(context.taskRunId));
+              if (savedResult) await context.saveResult(savedResult);
+            }
+          },
+        };
+      });
     },
     result(_params, taskRunId) {
       return asResult(getTaskResult(taskRunId ?? latestTaskRunId ?? '')) ?? {};

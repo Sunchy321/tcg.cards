@@ -276,13 +276,21 @@ export class TaskStore {
   }
 
   /** Persists one Worker-side pause at a safe boundary inside the current stage. */
-  async markPaused(id: string, stageKey: string, resumeMode: TaskStageResumeMode): Promise<void> {
+  async markPaused(
+    id: string,
+    stageKey: string,
+    resumeMode: TaskStageResumeMode,
+    total?: number | null,
+  ): Promise<void> {
     const [stage] = await this.db.select({ stageIndex: TaskStageRow.stageIndex })
       .from(TaskStageRow)
       .where(and(eq(TaskStageRow.taskRunId, id), eq(TaskStageRow.stageKey, stageKey)))
       .limit(1);
     if (!stage) throw new Error('Task stage was not found');
-    await this.db.update(TaskStageRow).set({ status: 'paused' })
+    await this.db.update(TaskStageRow).set({
+      status: 'paused',
+      ...(total === undefined ? {} : { total }),
+    })
       .where(and(eq(TaskStageRow.taskRunId, id), eq(TaskStageRow.stageKey, stageKey)));
     await this.db.update(TaskRun).set({
       status:             'paused',
@@ -362,25 +370,37 @@ export class TaskStore {
       progressMode: stage.progressMode ?? 'bounded' as const,
       resumeMode:   stage.resumeMode ?? 'none' as const,
       total:        stage.total,
-      done:         0,
+      done:         stage.progressMode === 'simple' ? null : 0,
     })));
   }
 
   /** Starts a stage and records when actual execution begins; false when a control state outran it. */
-  async beginStage(id: string, key: string, index: number, resumeMode: TaskStageResumeMode): Promise<boolean> {
-    const rows = await this.db.update(TaskRun).set({
-      status:            'running',
-      startedAt:         sql`coalesce(${TaskRun.startedAt}, now())`,
-      currentStageKey:   key,
-      currentStageIndex: index,
-      currentResumeMode: resumeMode,
-      pausedResumeMode:  null,
-      runRevision:       sql`${TaskRun.runRevision} + 1`,
-    }).where(and(eq(TaskRun.id, id), inArray(TaskRun.status, ['pending', 'running', 'resuming']))).returning({ id: TaskRun.id });
-    if (rows.length === 0) return false;
-    await this.db.update(TaskStageRow).set({ status: 'running', startedAt: new Date() })
-      .where(and(eq(TaskStageRow.taskRunId, id), eq(TaskStageRow.stageKey, key)));
-    return true;
+  async beginStage(
+    id: string,
+    key: string,
+    index: number,
+    resumeMode: TaskStageResumeMode,
+    total?: number | null,
+  ): Promise<boolean> {
+    return await this.db.transaction(async tx => {
+      const rows = await tx.update(TaskRun).set({
+        status:            'running',
+        startedAt:         sql`coalesce(${TaskRun.startedAt}, now())`,
+        currentStageKey:   key,
+        currentStageIndex: index,
+        currentResumeMode: resumeMode,
+        pausedResumeMode:  null,
+        runRevision:       sql`${TaskRun.runRevision} + 1`,
+      }).where(and(eq(TaskRun.id, id), inArray(TaskRun.status, ['pending', 'running', 'resuming']))).returning({ id: TaskRun.id });
+      if (rows.length === 0) return false;
+      await tx.update(TaskStageRow).set({
+        status:    'running',
+        startedAt: new Date(),
+        ...(total === undefined ? {} : { total }),
+      })
+        .where(and(eq(TaskStageRow.taskRunId, id), eq(TaskStageRow.stageKey, key)));
+      return true;
+    });
   }
 
   /** Saves stage progress and optional visual segments. */
@@ -427,7 +447,7 @@ export class TaskStore {
   }
 
   /** Clears an unfinished run after a Worker or preparation failure. */
-  async fail(id: string, message: string): Promise<void> {
+  async fail(id: string, message: string, stageKey?: string): Promise<void> {
     await this.db.update(TaskRun).set({
       status:            'failed',
       terminalReason:    'execution_failed',
@@ -439,7 +459,14 @@ export class TaskStore {
       pausedResumeMode:  null,
       runRevision:       sql`${TaskRun.runRevision} + 1`,
     }).where(and(eq(TaskRun.id, id), inArray(TaskRun.status, [...activeStatuses])));
+    const stageCondition = stageKey == null
+      ? and(eq(TaskStageRow.taskRunId, id), eq(TaskStageRow.status, 'running'))
+      : and(
+        eq(TaskStageRow.taskRunId, id),
+        eq(TaskStageRow.stageKey, stageKey),
+        inArray(TaskStageRow.status, ['pending', 'running']),
+      );
     await this.db.update(TaskStageRow).set({ status: 'failed', finishedAt: new Date() })
-      .where(and(eq(TaskStageRow.taskRunId, id), eq(TaskStageRow.status, 'running')));
+      .where(stageCondition);
   }
 }

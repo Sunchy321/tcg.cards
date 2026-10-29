@@ -31,6 +31,18 @@ export interface TaskResumeState {
   token: Record<string, unknown> | null;
 }
 
+/** Carries the persisted run state needed to prepare a stage before it starts. */
+export interface TaskStagePrepareContext {
+  taskRunId: string;
+  params:    Record<string, unknown>;
+  resume?:   TaskResumeState;
+}
+
+/** Describes progress bounds resolved before a stage enters its running state. */
+export interface TaskStagePreparation {
+  total: number | null;
+}
+
 /** Thrown only after a task has persisted a safe checkpoint. */
 export class TaskBoundarySignal extends Error {
   constructor(readonly control: 'pause' | 'cancel' | 'shutdown') {
@@ -47,6 +59,7 @@ export interface TaskStageDefinition {
   progressMode?: TaskProgressMode;
   /** Whether persisted stage progress is a checkpoint that survives a restart; defaults to none. */
   resumeMode?:   TaskStageResumeMode;
+  prepare?(context: TaskStagePrepareContext): Promise<TaskStagePreparation> | TaskStagePreparation;
   run(context: TaskStageContext): Promise<void>;
 }
 
