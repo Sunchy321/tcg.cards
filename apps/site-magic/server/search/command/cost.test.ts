@@ -47,7 +47,7 @@ afterAll(async () => {
 /** Builds the adapter predicate for one mana-cost expression. */
 function predicate(value: string, operator: ':' | '=' | '<' | '<=' | '>' | '>=', qualifier: string[] = []) {
   return cost.call({
-    args:   { value, operator, qualifier } as any,
+    args:   { value, operator, qualifier, argType: 'id' } as any,
     column: () => costCases.cost,
     ctx:    { meta: {}, table: costCases } as any,
   });
@@ -119,5 +119,11 @@ describePostgres('mana cost PostgreSQL results', () => {
     expect(await matchingIds('W', '>', ['!'])).toEqual(['half', 'hybrid', 'legacy', 'null', 'u', 'w', 'zero']);
     expect(await matchingIds('null', ':')).toEqual(['null']);
     expect(await matchingIds('null', ':', ['!'])).toEqual(['half', 'hybrid', 'legacy', 'three-w', 'u', 'w', 'wu', 'ww', 'wx', 'zero']);
+  });
+
+  test('splits bare | into or and bare & into and across cost expressions', async () => {
+    expect(await matchingIds('{W}|{U}', ':')).toEqual(['three-w', 'u', 'w', 'wu', 'ww', 'wx']);
+    expect(await matchingIds('{W}&{U}', ':')).toEqual(['wu']);
+    expect(await matchingIds('{W}|{U}', ':', ['!'])).toEqual(['half', 'hybrid', 'legacy', 'null', 'zero']);
   });
 });

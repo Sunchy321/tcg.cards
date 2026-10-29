@@ -52,21 +52,21 @@ const matchStats = (
 
 export const raw = cs
   .commands.raw
-  .handler(({ value }, { table }) => {
+  .handler(({ value, argType }, { table }) => {
     return or(
       builtin.text.call({
         column: table => table.localization.name,
-        args:   { value, operator: ':', qualifier: [] },
+        args:   { value, operator: ':', qualifier: [], argType },
         ctx:    { meta: { multiline: false, caseSensitive: false }, table },
       }),
       builtin.text.call({
         column: table => table.localization.text,
-        args:   { value, operator: ':', qualifier: [] },
+        args:   { value, operator: ':', qualifier: [], argType },
         ctx:    { meta: { multiline: true, caseSensitive: false }, table },
       }),
       builtin.text.call({
         column: table => table.localization.displayText,
-        args:   { value, operator: ':', qualifier: [] },
+        args:   { value, operator: ':', qualifier: [], argType },
         ctx:    { meta: { multiline: true, caseSensitive: false }, table },
       }),
     )!;
@@ -148,17 +148,17 @@ export const name = cs
 
 export const text = cs
   .commands.text
-  .handler(({ value, operator, qualifier }, { table }) => {
+  .handler(({ value, operator, qualifier, argType }, { table }) => {
     return matchText(
       qualifier,
       builtin.text.call({
         column: table => table.localization.text,
-        args:   { value, operator, qualifier },
+        args:   { value, operator, qualifier, argType },
         ctx:    { meta: { multiline: true, caseSensitive: false }, table },
       }),
       builtin.text.call({
         column: table => table.localization.displayText,
-        args:   { value, operator, qualifier },
+        args:   { value, operator, qualifier, argType },
         ctx:    { meta: { multiline: true, caseSensitive: false }, table },
       }),
     );
@@ -418,6 +418,13 @@ export const order = cs
         throw new QueryError({ type: 'invalid-query' });
       }
     }
+
+    // Deterministic tail keys: tied sort values (e.g. identical names) get a
+    // stable total order, so pagination cannot shuffle rows between requests.
+    if (!parts.some(({ type }) => type === 'id')) {
+      sorter.push(asc(table.cardId));
+    }
+    sorter.push(asc(table.revisionHash), asc(table.localizationHash));
 
     return sorter;
   });

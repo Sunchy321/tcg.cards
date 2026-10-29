@@ -7,6 +7,8 @@ import { QueryError } from '#search/command/error';
 import type { Column, SQL } from 'drizzle-orm';
 import { and, isNotNull, isNull, not, or, sql } from 'drizzle-orm';
 
+import { matchValueGroups, splitValueGroups } from '#search/server/command/terms';
+
 /** Counts one exact mana symbol in a stored cost array. */
 function symbolCount(column: Column, symbol: string): SQL<number> {
   return sql<number>`COALESCE(cardinality(array_positions(${column}, ${symbol})), 0)`;
@@ -33,103 +35,106 @@ function hasExtraSymbols(column: Column, queriedSymbols: string[]): SQL<boolean>
 
 export const cost = ca
   .adapt(costSchema)
-  .handler(({ value, operator, qualifier }, { column }) => {
-    if (value.toLowerCase() === 'null') {
-      switch (operator) {
-      case ':':
-        if (!qualifier.includes('!')) {
+  .handler(({ value, operator, qualifier, argType }, { column }) => {
+    const matchTerm = (term: string) => {
+      if (term.toLowerCase() === 'null') {
+        switch (operator) {
+        case ':':
           return isNull(column);
-        } else {
-          return isNotNull(column);
+        default:
+          throw new QueryError({
+            type:    'unsupported-operator',
+            payload: { op: operator, qual: qualifier, param: term },
+          });
         }
-      default:
-        throw new QueryError({
-          type:    'unsupported-operator',
-          payload: { op: operator, qual: qualifier, param: value },
-        });
       }
-    }
 
-    const tokens = value
-      .toUpperCase()
-      .split(/\{([^{}]*)\}|(\d{2,})|(H[WR1])|(.(?:\/.)?)/)
-      .filter(token => token !== '' && token != null);
-    const symbolCounts = new Map<string, number>();
-    let genericCount = 0;
+      const tokens = term
+        .toUpperCase()
+        .split(/\{([^{}]*)\}|(\d{2,})|(H[WR1])|(.(?:\/.)?)/)
+        .filter(token => token !== '' && token != null);
+      const symbolCounts = new Map<string, number>();
+      let genericCount = 0;
 
-    for (const token of tokens) {
-      if (/^\d+$/.test(token)) {
-        genericCount += Number.parseInt(token, 10);
-      } else {
-        symbolCounts.set(token, (symbolCounts.get(token) ?? 0) + 1);
+      for (const token of tokens) {
+        if (/^\d+$/.test(token)) {
+          genericCount += Number.parseInt(token, 10);
+        } else {
+          symbolCounts.set(token, (symbolCounts.get(token) ?? 0) + 1);
+        }
       }
-    }
 
-    // Unknown tokens stay distinct dimensions instead of becoming parse errors.
-    const queriedSymbols = [...symbolCounts.keys()];
+      // Unknown tokens stay distinct dimensions instead of becoming parse errors.
+      const queriedSymbols = [...symbolCounts.keys()];
 
-    /** Compares one stored symbol count with the query count. */
-    const symbolCond = (symbol: string, count: number, op: '>=' | '=' | '<=' | '>' | '<'): SQL =>
-      sql`${symbolCount(column, symbol)} ${sql.raw(op)} ${count}`;
+      /** Compares one stored symbol count with the query count. */
+      const symbolCond = (symbol: string, count: number, op: '>=' | '=' | '<=' | '>' | '<'): SQL =>
+        sql`${symbolCount(column, symbol)} ${sql.raw(op)} ${count}`;
 
-    /** Compares the summed stored generic count with the query count. */
-    const genericCond = (count: number, op: '>=' | '=' | '<=' | '>' | '<'): SQL =>
-      sql`${genericSum(column)} ${sql.raw(op)} ${count}`;
+      /** Compares the summed stored generic count with the query count. */
+      const genericCond = (count: number, op: '>=' | '=' | '<=' | '>' | '<'): SQL =>
+        sql`${genericSum(column)} ${sql.raw(op)} ${count}`;
 
-    const atLeast = and(
-      genericCond(genericCount, '>='),
-      ...queriedSymbols.map(symbol => symbolCond(symbol, symbolCounts.get(symbol)!, '>=')),
-    )!;
+      const atLeast = and(
+        genericCond(genericCount, '>='),
+        ...queriedSymbols.map(symbol => symbolCond(symbol, symbolCounts.get(symbol)!, '>=')),
+      )!;
 
-    const atMost = and(
-      genericCond(genericCount, '<='),
-      ...queriedSymbols.map(symbol => symbolCond(symbol, symbolCounts.get(symbol)!, '<=')),
-      not(hasExtraSymbols(column, queriedSymbols)),
-    )!;
+      const atMost = and(
+        genericCond(genericCount, '<='),
+        ...queriedSymbols.map(symbol => symbolCond(symbol, symbolCounts.get(symbol)!, '<=')),
+        not(hasExtraSymbols(column, queriedSymbols)),
+      )!;
 
-    const exactly = and(
-      genericCond(genericCount, '='),
-      ...queriedSymbols.map(symbol => symbolCond(symbol, symbolCounts.get(symbol)!, '=')),
-      not(hasExtraSymbols(column, queriedSymbols)),
-    )!;
+      const exactly = and(
+        genericCond(genericCount, '='),
+        ...queriedSymbols.map(symbol => symbolCond(symbol, symbolCounts.get(symbol)!, '=')),
+        not(hasExtraSymbols(column, queriedSymbols)),
+      )!;
 
-    const greater = and(
-      atLeast,
-      or(
-        genericCond(genericCount, '>'),
-        ...queriedSymbols.map(symbol => symbolCond(symbol, symbolCounts.get(symbol)!, '>')),
-        hasExtraSymbols(column, queriedSymbols),
-      )!,
-    )!;
+      const greater = and(
+        atLeast,
+        or(
+          genericCond(genericCount, '>'),
+          ...queriedSymbols.map(symbol => symbolCond(symbol, symbolCounts.get(symbol)!, '>')),
+          hasExtraSymbols(column, queriedSymbols),
+        )!,
+      )!;
 
-    const less = and(
-      atMost,
-      or(
-        genericCond(genericCount, '<'),
-        ...queriedSymbols.map(symbol => symbolCond(symbol, symbolCounts.get(symbol)!, '<')),
-      )!,
-    )!;
+      const less = and(
+        atMost,
+        or(
+          genericCond(genericCount, '<'),
+          ...queriedSymbols.map(symbol => symbolCond(symbol, symbolCounts.get(symbol)!, '<')),
+        )!,
+      )!;
 
-    /** Maps each search operator to its vector-order predicate. */
-    const predicate = (() => {
-      switch (operator) {
-      case ':':
-      case '>=':
-        return atLeast;
-      case '=':
-        return exactly;
-      case '>':
-        return greater;
-      case '<=':
-        return atMost;
-      case '<':
-        return less;
-      default:
-        throw new QueryError({ type: 'invalid-query' });
-      }
-    })();
+      /** Maps each search operator to its vector-order predicate. */
+      const predicate = (() => {
+        switch (operator) {
+        case ':':
+        case '>=':
+          return atLeast;
+        case '=':
+          return exactly;
+        case '>':
+          return greater;
+        case '<=':
+          return atMost;
+        case '<':
+          return less;
+        default:
+          throw new QueryError({ type: 'invalid-query' });
+        }
+      })();
 
-    // Positive predicates exclude NULL; their SQL negation then includes it.
-    const positive = and(isNotNull(column), predicate)!;
-    return qualifier.includes('!') ? not(positive) : positive;
+      // Positive predicates exclude NULL; the `!` qualifier is the logical
+      // complement of the whole combined predicate, which then includes NULL.
+      return and(isNotNull(column), predicate)!;
+    };
+
+    const combined = argType === 'id'
+      ? matchValueGroups(splitValueGroups(value), matchTerm)
+      : matchTerm(value);
+    return qualifier.includes('!') ? not(combined) : combined;
   });

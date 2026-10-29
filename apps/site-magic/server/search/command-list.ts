@@ -26,23 +26,23 @@ const cs = create
 
 export const raw = cs
   .commands.raw
-  .handler(({ value }, { table }) => {
+  .handler(({ value, argType }, { table }) => {
     // search mana
     if (typeof value === 'string' && /^(\{[^}]+\})+$/.test(value)) {
       return or(
         builtin.text.call({
           column: table => table.cardPart.text,
-          args:   { value, operator: ':', qualifier: [] },
+          args:   { value, operator: ':', qualifier: [], argType },
           ctx:    { meta: { multiline: false }, table },
         }),
         builtin.text.call({
           column: table => table.cardPartLocalization.text,
-          args:   { value, operator: ':', qualifier: [] },
+          args:   { value, operator: ':', qualifier: [], argType },
           ctx:    { meta: { multiline: false }, table },
         }),
         magic.cost.call({
           column: table => table.cardPart.cost,
-          args:   { value, operator: ':', qualifier: [] },
+          args:   { value, operator: ':', qualifier: [], argType },
           ctx:    { meta: {}, table },
         }),
       )!;
@@ -50,12 +50,12 @@ export const raw = cs
       return or(
         builtin.text.call({
           column: table => table.cardPart.name,
-          args:   { value, operator: ':', qualifier: [] },
+          args:   { value, operator: ':', qualifier: [], argType },
           ctx:    { meta: { multiline: false }, table },
         }),
         builtin.text.call({
           column: table => table.cardPartLocalization.name,
-          args:   { value, operator: ':', qualifier: [] },
+          args:   { value, operator: ':', qualifier: [], argType },
           ctx:    { meta: { multiline: false }, table },
         }),
       )!;
@@ -188,17 +188,17 @@ export const number = cs
 
 export const lang = cs
   .commands.lang
-  .handler(({ value, operator, qualifier }, { table }) => {
+  .handler(({ value, operator, qualifier, argType }, { table }) => {
     if (!qualifier.includes('!')) {
       return or(
         builtin.simple.call({
           column: table => table.locale,
-          args:   { value, operator, qualifier },
+          args:   { value, operator, qualifier, argType },
           ctx:    { meta: {}, table },
         }),
         builtin.simple.call({
           column: table => table.lang,
-          args:   { value, operator, qualifier },
+          args:   { value, operator, qualifier, argType },
           ctx:    { meta: {}, table },
         }),
       )!;
@@ -206,12 +206,12 @@ export const lang = cs
       return and(
         builtin.simple.call({
           column: table => table.locale,
-          args:   { value, operator, qualifier },
+          args:   { value, operator, qualifier, argType },
           ctx:    { meta: {}, table },
         }),
         builtin.simple.call({
           column: table => table.lang,
-          args:   { value, operator, qualifier },
+          args:   { value, operator, qualifier, argType },
           ctx:    { meta: {}, table },
         }),
       )!;
@@ -276,36 +276,36 @@ export const defense = cs
 
 export const name = cs
   .commands.name
-  .handler(({ value, modifier, operator, qualifier }, { table }) => {
+  .handler(({ value, modifier, operator, qualifier, argType }, { table }) => {
     switch (modifier) {
     case 'oracle':
       return builtin.text.call({
         column: table => table.cardPart.name,
-        args:   { value, operator, qualifier },
+        args:   { value, operator, qualifier, argType },
         ctx:    { meta: { multiline: false }, table },
       });
     case 'localized':
       return builtin.text.call({
         column: table => table.cardPartLocalization.name,
-        args:   { value, operator, qualifier },
+        args:   { value, operator, qualifier, argType },
         ctx:    { meta: { multiline: false }, table },
       });
     case 'printed':
       return builtin.text.call({
         column: table => table.printPart.name,
-        args:   { value, operator, qualifier },
+        args:   { value, operator, qualifier, argType },
         ctx:    { meta: { multiline: false }, table },
       });
     default:
       return (!qualifier.includes('!') ? or : and)(
         builtin.text.call({
           column: table => table.cardPart.name,
-          args:   { value, operator, qualifier },
+          args:   { value, operator, qualifier, argType },
           ctx:    { meta: { multiline: false }, table },
         }),
         builtin.text.call({
           column: table => table.cardPartLocalization.name,
-          args:   { value, operator, qualifier },
+          args:   { value, operator, qualifier, argType },
           ctx:    { meta: { multiline: false }, table },
         }),
       )!;
@@ -333,7 +333,7 @@ export const type = cs
       const parts = columns.map(column =>
         builtin.text.call({
           column: () => column,
-          args:   { value: term, operator, qualifier: termQualifier },
+          args:   { value: term, operator, qualifier: termQualifier, argType },
           ctx:    { meta: { multiline: false }, table },
         }),
       );
@@ -380,36 +380,36 @@ export const type = cs
 
 export const text = cs
   .commands.text
-  .handler(({ value, modifier, operator, qualifier }, { table }) => {
+  .handler(({ value, modifier, operator, qualifier, argType }, { table }) => {
     switch (modifier) {
     case 'oracle':
       return builtin.text.call({
         column: table => table.cardPart.text,
-        args:   { value, operator, qualifier },
+        args:   { value, operator, qualifier, argType },
         ctx:    { meta: { multiline: true }, table },
       });
     case 'localized':
       return builtin.text.call({
         column: table => table.cardPartLocalization.text,
-        args:   { value, operator, qualifier },
+        args:   { value, operator, qualifier, argType },
         ctx:    { meta: { multiline: true }, table },
       });
     case 'printed':
       return builtin.text.call({
         column: table => table.printPart.text,
-        args:   { value, operator, qualifier },
+        args:   { value, operator, qualifier, argType },
         ctx:    { meta: { multiline: true }, table },
       });
     default:
       return (!qualifier.includes('!') ? or : and)(
         builtin.text.call({
           column: table => table.cardPart.text,
-          args:   { value, operator, qualifier },
+          args:   { value, operator, qualifier, argType },
           ctx:    { meta: { multiline: true }, table },
         }),
         builtin.text.call({
           column: table => table.cardPartLocalization.text,
-          args:   { value, operator, qualifier },
+          args:   { value, operator, qualifier, argType },
           ctx:    { meta: { multiline: true }, table },
         }),
       )!;
@@ -418,16 +418,16 @@ export const text = cs
 
 export const oracle = cs
   .commands.oracle
-  .handler(({ value, operator, qualifier }, { table }) => {
+  .handler(({ value, operator, qualifier, argType }, { table }) => {
     return (!qualifier.includes('!') ? or : and)(
       builtin.text.call({
         column: table => table.cardPart.text,
-        args:   { value, operator, qualifier },
+        args:   { value, operator, qualifier, argType },
         ctx:    { meta: { multiline: true }, table },
       }),
       builtin.text.call({
         column: table => table.cardPartLocalization.text,
-        args:   { value, operator, qualifier },
+        args:   { value, operator, qualifier, argType },
         ctx:    { meta: { multiline: true }, table },
       }),
     )!;
@@ -451,7 +451,7 @@ export const imageStatus = cs
 
 export const rarity = cs
   .commands.rarity
-  .handler(({ value, operator, qualifier }, { table }) => {
+  .handler(({ value, operator, qualifier, argType }, { table }) => {
     const rarities = (
       {
         c: 'common',
@@ -464,7 +464,7 @@ export const rarity = cs
 
     return builtin.simple.call({
       column: table => table.cardPart.text,
-      args:   { value: rarities, operator, qualifier },
+      args:   { value: rarities, operator, qualifier, argType },
       ctx:    { meta: { }, table },
     });
   });
@@ -636,6 +636,13 @@ export const order = cs
         throw new QueryError({ type: 'invalid-query' });
       }
     }
+
+    // Deterministic tail keys: tied sort values (e.g. identical names) get a
+    // stable total order, so pagination cannot shuffle rows between requests.
+    if (!parts.some(({ type }) => type === 'id')) {
+      sorter.push(asc(table.cardId));
+    }
+    sorter.push(asc(table.set), asc(table.number));
 
     return sorter;
   });

@@ -133,7 +133,6 @@ export const rarity = c
 export const artist = c
   .text
   .id('artist')
-  .alt('a')
   .done();
 
 export const collectible = c
