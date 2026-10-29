@@ -167,10 +167,16 @@ The remote per-stream record of the last successful publish: which batch, which 
 ## Import Pipeline (导入管线)
 
 ### hsdata
-The Hearthstone data pipeline that replaced the legacy CardDefs.xml import script: XML plus tag input is projected into the desktop local build database and published to the remote as a whole-snapshot, publish-owned fact set, rather than being edited or merged row by row.
+The Hearthstone data pipeline that replaced the legacy CardDefs.xml import script: CardDefs XML and tag input are imported as source-level snapshots, then hsdata projection normalizes those snapshots into local Hearthstone facts for whole-snapshot publishing to the remote.
+
+### import (导入)
+Stores external-source records under a common database shape while preserving their source-level meaning. Import may parse a source into its storage representation, but generally does not normalize it into domain facts; versioning and soft deletion are uncommon at this boundary.
+
+### data projection (数据投影)
+Combines multiple imported sources, normalizes them into the canonical domain shape, and writes the resulting facts to fact tables. Projection pipelines commonly use soft deletion to retire facts no longer present in rebuilt output.
 
 ### hsdata projection (hsdata 投影)
-The deterministic derivation that turns imported raw entity snapshots into local domain rows, driven entirely by tag configuration rows rather than hardcoded rules. It is not the announcement item's `projection` column, and it is not the act of publishing to the remote.
+The deterministic Hearthstone data projection that turns imported raw entity snapshots into local domain facts, driven by tag configuration rather than hardcoded rules. It is distinct from the announcement item's `projection` column and from publishing to the remote.
 
 ### field state (字段状态)
 How one normalized import record reports one candidate field: `provided`, `explicit_null`, `not_provided`, `not_applicable`, or `parse_failed`. Absence has no single representation in this system, and only `provided` plus an allowed `explicit_null` can become a change candidate.

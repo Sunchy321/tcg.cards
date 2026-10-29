@@ -5,9 +5,9 @@
         <div>
           <div class="flex items-center gap-2">
             <UIcon name="i-lucide-box" class="size-5 text-primary" />
-            <h1 class="text-xl font-semibold">卡牌数据整理</h1>
+            <h1 class="text-xl font-semibold">卡牌数据投影</h1>
           </div>
-          <p class="mt-1 text-sm text-muted">把选中版本的数据更新到卡牌资料和多语言内容中。</p>
+          <p class="mt-1 text-sm text-muted">将选中版本的已导入数据投影为卡牌资料和多语言内容。</p>
         </div>
         <div class="ml-auto hidden items-center gap-6 sm:flex">
           <div class="text-right">
@@ -37,7 +37,7 @@
         >
           <template #actions-before>
             <UButton
-              :label="`批量整理（${batchProjectSourceTags.length}）`"
+              :label="`批量投影（${batchProjectSourceTags.length}）`"
               icon="i-lucide-list-start"
               color="neutral"
               variant="soft"
@@ -49,8 +49,8 @@
             <div class="space-y-4 pt-4">
               <div class="flex items-center justify-between gap-3">
                 <div>
-                  <div class="font-medium">卡牌数据整理</div>
-                  <p class="mt-1 text-xs text-muted">对已导入的版本数据进行整理。</p>
+                  <div class="font-medium">卡牌数据投影</div>
+                  <p class="mt-1 text-xs text-muted">将已导入的版本数据投影为卡牌资料和多语言内容。</p>
                 </div>
               </div>
 
@@ -64,7 +64,7 @@
                   <div class="mt-1 truncate text-sm">{{ selectedItem.shortName }}</div>
                 </div>
                 <div class="rounded-lg border border-default p-3">
-                  <div class="text-xs text-muted">导入状态</div>
+                  <div class="text-xs text-muted">投影状态</div>
                   <div class="mt-1">
                     <UBadge
                       :label="selectedItem.projectionStatus === 'completed' ? '已投影' : '未投影'"
@@ -97,7 +97,7 @@
           <template #params>
             <div class="space-y-4 pt-4">
               <div class="font-medium">卡牌收录范围</div>
-              <p class="text-xs text-muted">根据已整理的数据计算每张卡的收录范围，可单独重新计算。</p>
+              <p class="text-xs text-muted">根据已投影的卡牌数据计算每张卡的收录范围，可单独重新计算。</p>
             </div>
           </template>
         </TaskController>
