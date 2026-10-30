@@ -116,6 +116,16 @@ export const defense = c
   .pattern('<{{defense}}>')
   .done();
 
+export const handModifier = c
+  .numeric
+  .id('hand-modifier')
+  .done();
+
+export const lifeModifier = c
+  .numeric
+  .id('life-modifier')
+  .done();
+
 export const name = c
   .text
   .alt('n')

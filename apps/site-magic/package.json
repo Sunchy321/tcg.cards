@@ -16,6 +16,7 @@
     "lint": "eslint .",
     "typecheck": "nuxt typecheck",
     "benchmark:search:pg": "bun --env-file=../../scripts/.env scripts/pg-search-benchmark.ts",
+    "benchmark:search:acceleration-prototype": "bun --env-file=../../scripts/.env scripts/search-acceleration-prototype.ts",
     "deploy": "wrangler deploy --env production"
   },
   "dependencies": {

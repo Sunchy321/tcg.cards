@@ -15,6 +15,11 @@ import { CardEditorView, CardPrintView } from '#schema/shared/magic/print';
 
 import { slugifyName } from '@tcg-cards/shared/magic/slug';
 
+type SearchAccelerationContext = {
+  typeSymbols: ReadonlySet<string>;
+  tagOwners:   Record<string, 'card-only' | 'print-only' | 'overlap'>;
+};
+
 // import internalData from '@/internal-data';
 
 // import { commaRegex, parenRegex } from '@static/magic/special';
@@ -104,6 +109,17 @@ export const hash = cs
   .commands.hash
   .handler(({ value, pattern, qualifier }, { table }) => {
     const tag = pattern?.tag ?? value;
+
+    const acceleration = (table as any).searchAcceleration as SearchAccelerationContext | undefined;
+    if (acceleration != null) {
+      if (acceleration.tagOwners[tag] !== 'card-only') {
+        throw new QueryError({ type: 'unsupported-search-acceleration' });
+      }
+
+      return !qualifier.includes('!')
+        ? arrayContains(table.card.tags, [tag])
+        : not(arrayContains(table.card.tags, [tag]));
+    }
 
     // if (tag === 'dev:paren') {
     //   const withParen = internalData<string[]>('magic.special.with-paren');
@@ -250,7 +266,7 @@ export const loyalty = cs
   .commands.loyalty
   .handler(({ pattern, value, operator, qualifier }, { table }) => {
     return magic.numeric.call({
-      column: table => table.cardPart.name,
+      column: table => table.cardPart.loyalty,
       args:   {
         value:    pattern?.loyalty ?? value,
         operator: operator === '' ? '=' : operator,
@@ -273,6 +289,14 @@ export const defense = cs
       ctx: { meta: { multiline: false }, table },
     });
   });
+
+export const handModifier = cs
+  .commands.handModifier
+  .apply(table => table.cardPart.handModifier, {});
+
+export const lifeModifier = cs
+  .commands.lifeModifier
+  .apply(table => table.cardPart.lifeModifier, {});
 
 export const name = cs
   .commands.name
@@ -315,6 +339,7 @@ export const name = cs
 export const type = cs
   .commands.type
   .handler(({ value, modifier, operator, qualifier, argType }, { table }) => {
+    const acceleration = (table as any).searchAcceleration as SearchAccelerationContext | undefined;
     const columns: Column[] = (() => {
       switch (modifier) {
       case 'oracle': return [table.cardPart.typeline];
@@ -330,6 +355,26 @@ export const type = cs
 
     /** One search term against every searched column: the term hits when any column hits. */
     const matchTerm = (term: string | RegExp) => {
+      if (
+        acceleration != null
+        && (modifier == null || modifier === 'oracle')
+        && typeof value === 'string'
+        && argType === 'id'
+        && typeof term === 'string'
+        && acceleration.typeSymbols.has(term.toLowerCase())
+      ) {
+        const hasType = (column: Column) => sql`COALESCE(
+          ${column} @> ARRAY[${term.toLowerCase()}]::text[],
+          FALSE
+        )`;
+
+        return or(
+          hasType(table.cardPart.typeSuper),
+          hasType(table.cardPart.typeMain),
+          hasType(table.cardPart.typeSub),
+        )!;
+      }
+
       const parts = columns.map(column =>
         builtin.text.call({
           column: () => column,

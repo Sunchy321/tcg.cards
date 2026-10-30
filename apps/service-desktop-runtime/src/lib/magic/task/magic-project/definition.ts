@@ -16,6 +16,7 @@ import { assembleUnits, loadReversibleRows, type ProjectDb, type ScryfallRow } f
 import { inconsistentMergedSlugs } from '../../project/consistency';
 import type { LoadedPrintCommit } from '../../project/print-commits';
 import { projectCard, type AssembledCard, type ProjectCardResult } from '../../project/project-card';
+import { rebuildMagicSearchData } from '../../project/search-data';
 import {
   loadAmbitOverrides,
   loadPrintCommits,
@@ -413,6 +414,7 @@ const definition = createDefinition(magicProjectTaskType, {
       for (const { table } of BASE_TABLES) {
         magic.counts.softDeleted += await softDeleteStale(getLocalDb(), table, table.cardId, target);
       }
+      await rebuildMagicSearchData(getLocalDb());
       return magic.counts;
     });
   })

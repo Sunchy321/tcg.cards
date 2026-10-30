@@ -5,7 +5,13 @@ import { runWithDb } from '@tcg-cards/db/db';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 
+import Parser from '#search/parser';
+import { simplify } from '#search/parser/simplify';
+import { resolveQueryRequest } from '#search/server/logical';
+import { translateLegacy } from '#search/server/translate';
+
 import { search } from '../server/search/index.ts';
+import * as magicCommands from '../server/search/command-list';
 
 // Bun's fetch honors HTTP(S)_PROXY from the environment, which would route the
 // loopback RPC traffic through the developer's proxy; loopback must bypass it.
@@ -44,6 +50,7 @@ type BenchmarkCase = {
 /** Records one diagnostic SQL round trip during preflight. */
 type SqlObservation = {
   caseId:         string;
+  path:           'legacy-pg' | 'search-action';
   phase:          'preflight';
   iteration:      number;
   statementIndex: number;
@@ -185,8 +192,8 @@ function assertSameResult(expected: ReturnType<typeof getIdentityRows>, actual: 
   }
 }
 
-/** Replays a fixed query with the diagnostic database client. */
-async function directSearch(database: ReturnType<typeof createInstrumentedDb>['db'], benchmarkCase: BenchmarkCase) {
+/** Replays the normal search action, which selects acceleration or PG fallback. */
+async function acceleratedSearch(database: ReturnType<typeof createInstrumentedDb>['db'], benchmarkCase: BenchmarkCase) {
   return runWithDb(database, () => search.search('search', benchmarkCase.q, {
     page:     benchmarkCase.page,
     pageSize: benchmarkCase.pageSize,
@@ -195,6 +202,46 @@ async function directSearch(database: ReturnType<typeof createInstrumentedDb>['d
     orderBy:  benchmarkCase.orderBy,
     dsl:      benchmarkCase.q,
   })) as Promise<SearchResult>;
+}
+
+/** Replays the preserved legacy translator and original PG action handler. */
+async function legacyPgSearch(database: ReturnType<typeof createInstrumentedDb>['db'], benchmarkCase: BenchmarkCase) {
+  return runWithDb(database, async () => {
+    const expression = simplify(new Parser(benchmarkCase.q).parse());
+    const { query, post } = translateLegacy(
+      expression,
+      Object.values(magicCommands) as any,
+      search.actions.search.table,
+    );
+    if (query == null) return { result: undefined } as SearchResult;
+
+    return {
+      result: await search.actions.search.handler(query, post, {
+        page:     benchmarkCase.page,
+        pageSize: benchmarkCase.pageSize,
+        lang:     benchmarkCase.lang,
+        groupBy:  benchmarkCase.groupBy,
+        orderBy:  benchmarkCase.orderBy,
+        dsl:      benchmarkCase.q,
+      }),
+    } as SearchResult;
+  });
+}
+
+/** Records whether the normal action should use the exact accelerated adapter. */
+function getAccelerationPlan(benchmarkCase: BenchmarkCase) {
+  const expression = simplify(new Parser(benchmarkCase.q).parse());
+  const request = resolveQueryRequest(expression, Object.values(magicCommands) as any, {
+    sort:     [{ kind: 'request', field: 'order', value: benchmarkCase.orderBy }],
+    group:    benchmarkCase.groupBy,
+    page:     benchmarkCase.page,
+    pageSize: benchmarkCase.pageSize,
+    total:    true,
+    ambit:    null,
+    lang:     benchmarkCase.lang,
+  });
+
+  return search.actions.search.acceleratedAdapter?.plan(request) ?? { type: 'not-configured' };
 }
 
 /** Checks that the configured site port is available. */
@@ -394,6 +441,7 @@ async function capturePlans(databaseUrl: string, observations: SqlObservation[])
         const result = await client.unsafe(`EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ${observation.sql}`, observation.params);
         plans.push({
           caseId:         observation.caseId,
+          path:           observation.path,
           statementIndex: observation.statementIndex,
           sql:            observation.sql,
           params:         observation.params,
@@ -402,6 +450,7 @@ async function capturePlans(databaseUrl: string, observations: SqlObservation[])
       } catch (error) {
         plans.push({
           caseId:         observation.caseId,
+          path:           observation.path,
           statementIndex: observation.statementIndex,
           sql:            observation.sql,
           params:         observation.params,
@@ -434,11 +483,16 @@ function caseMetrics(samples: Map<string, Array<{ iteration: number, durationMs:
 
 /** Validates cases, samples API latency, and writes diagnostic artifacts. */
 async function main() {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (databaseUrl == null) throw new Error('DATABASE_URL is missing; run through benchmark:search:pg so scripts/.env is loaded.');
-  if (describeConnection(databaseUrl).database !== 'local') {
+  const configuredDatabaseUrl = process.env.DATABASE_URL;
+  if (configuredDatabaseUrl == null) throw new Error('DATABASE_URL is missing; run through benchmark:search:pg so scripts/.env is loaded.');
+  if (describeConnection(configuredDatabaseUrl).database !== 'local') {
     throw new Error('This runner is locked to the confirmed local PostgreSQL database named local.');
   }
+  const parsedDatabaseUrl = new URL(configuredDatabaseUrl);
+  if (parsedDatabaseUrl.hostname === 'localhost' || parsedDatabaseUrl.hostname === '::1') {
+    parsedDatabaseUrl.hostname = '127.0.0.1';
+  }
+  const databaseUrl = parsedDatabaseUrl.toString();
 
   const repoRoot = resolve(import.meta.dirname, '../../..');
   const git = await readGitMetadata(repoRoot);
@@ -446,12 +500,20 @@ async function main() {
   const api = SKIP_API ? null : await startApi(databaseUrl);
   const instrumented = createInstrumentedDb(databaseUrl);
   const expectedResults = new Map<string, ReturnType<typeof getIdentityRows>>();
+  const acceleratedResults = new Map<string, ReturnType<typeof getIdentityRows>>();
+  const accelerationPlans = new Map<string, ReturnType<typeof getAccelerationPlan>>();
   const apiPreflight = new Map<string, ReturnType<typeof getIdentityRows>>();
   const apiSamples = new Map<string, Array<{ iteration: number, durationMs: number, result: ReturnType<typeof getIdentityRows> }>>();
   let plans: Array<Record<string, unknown>>;
 
-  const recordContext = async <T>(caseId: string, phase: SqlObservation['phase'], iteration: number, run: () => Promise<T>) => {
-    currentSqlContext = { caseId, phase, iteration };
+  const recordContext = async <T>(
+    caseId: string,
+    path: SqlObservation['path'],
+    phase: SqlObservation['phase'],
+    iteration: number,
+    run: () => Promise<T>,
+  ) => {
+    currentSqlContext = { caseId, path, phase, iteration };
     currentStatementIndex = 0;
     try {
       return await run();
@@ -468,16 +530,37 @@ async function main() {
     }
     for (const benchmarkCase of cases) {
       const apiResult = api == null ? null : await apiSearch(api.baseUrl, benchmarkCase);
-      const beforeCount = sqlObservations.length;
-      const directResult = await recordContext(benchmarkCase.id, 'preflight', 0, () => directSearch(instrumented.db, benchmarkCase));
-      if (sqlObservations.length === beforeCount) throw new Error(`${benchmarkCase.id} executed no SQL statements during preflight.`);
+      const beforeLegacyCount = sqlObservations.length;
+      const legacyResult = await recordContext(
+        benchmarkCase.id,
+        'legacy-pg',
+        'preflight',
+        0,
+        () => legacyPgSearch(instrumented.db, benchmarkCase),
+      );
+      if (sqlObservations.length === beforeLegacyCount) throw new Error(`${benchmarkCase.id} executed no legacy PG SQL statements during preflight.`);
+
+      const beforeAcceleratedCount = sqlObservations.length;
+      const directResult = await recordContext(
+        benchmarkCase.id,
+        'search-action',
+        'preflight',
+        0,
+        () => acceleratedSearch(instrumented.db, benchmarkCase),
+      );
+      if (sqlObservations.length === beforeAcceleratedCount) throw new Error(`${benchmarkCase.id} executed no search-action SQL statements during preflight.`);
+
+      const legacyIdentity = getIdentityRows(legacyResult, benchmarkCase.id);
       const directIdentity = getIdentityRows(directResult, benchmarkCase.id);
+      assertSameResult(legacyIdentity, directIdentity, benchmarkCase.id);
+      acceleratedResults.set(benchmarkCase.id, directIdentity);
+      accelerationPlans.set(benchmarkCase.id, getAccelerationPlan(benchmarkCase));
       if (apiResult != null) {
         const apiIdentity = getIdentityRows(apiResult.result, benchmarkCase.id);
         assertSameResult(apiIdentity, directIdentity, benchmarkCase.id);
         apiPreflight.set(benchmarkCase.id, apiIdentity);
       }
-      expectedResults.set(benchmarkCase.id, directIdentity);
+      expectedResults.set(benchmarkCase.id, legacyIdentity);
     }
 
     plans = await capturePlans(databaseUrl, sqlObservations);
@@ -524,15 +607,21 @@ async function main() {
           warmCache:         true,
           seed:              SEED,
           apiInterleaveSeed: SEED,
-          sqlCapture:        'one in-process preflight per case; diagnostic durations only, no repeated SQL latency sampling',
+          sqlCapture:        'one preflight per case for both legacy PG and current search action; diagnostic durations only, no repeated SQL latency sampling',
           percentileNote:    `P95 is exploratory with ${SAMPLES} samples per case; use raw samples and P50 for routine comparisons`,
           sqlTiming:         'benchmark-only Postgres.js unsafe query thenable to resolution, including client driver result decoding; excludes Drizzle response mapping',
           apiTiming:         'external fetch start through response JSON parsing completion',
         },
-        latestSemantics: 'Magic current PG search behavior; no new acceleration semantics are introduced.',
+        latestSemantics: 'Compares the original PG search handler with the current search action; the latter uses its exact accelerated plan or falls back to PG per request.',
       },
       cases,
-      preflight:    cases.map(benchmarkCase => ({ caseId: benchmarkCase.id, result: expectedResults.get(benchmarkCase.id), apiResult: apiPreflight.get(benchmarkCase.id) })),
+      preflight: cases.map(benchmarkCase => ({
+        caseId:           benchmarkCase.id,
+        legacyPgResult:   expectedResults.get(benchmarkCase.id),
+        searchAction:     acceleratedResults.get(benchmarkCase.id),
+        accelerationPlan: accelerationPlans.get(benchmarkCase.id),
+        apiResult:        apiPreflight.get(benchmarkCase.id),
+      })),
       measurements: {
         apiEndToEnd: apiResults,
         sqlObservations,

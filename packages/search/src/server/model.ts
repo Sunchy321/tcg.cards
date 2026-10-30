@@ -7,6 +7,7 @@ import type { ServerCommand } from './command';
 import type { ServerAction } from './action';
 import type { ServerActionOption, ServerActionResult } from './action/types';
 import { PgSearchAdapter } from './adapter';
+import { executeLocalExactOrRemote } from './router';
 import { resolveQueryRequest } from './logical';
 import type { QueryResultRequest, SortSpec } from '#search/logical';
 import { translateLegacy } from './translate';
@@ -132,23 +133,33 @@ export class ServerModel<
         return { text, errors: [] };
       }
 
-      const adapter = new PgSearchAdapter(
+      const executeOriginal = async () => {
+        const translated = translateLegacy(simplified, commands, action.table);
+
+        if (translated.query == null) {
+          return undefined;
+        }
+
+        return action.handler(translated.query, translated.post, options);
+      };
+
+      const remoteAdapter = new PgSearchAdapter(
         commands,
         action.table,
         (query, post, actionOptions: ServerActionOption<A[K]>) => action.handler(query, post, actionOptions),
       );
-      const plan = adapter.plan(request);
-      const result = plan.type === 'exact'
-        ? await adapter.execute(request, options)
-        : await (() => {
-          const translated = translateLegacy(simplified, commands, action.table);
-
-          if (translated.query == null) {
-            return undefined;
-          }
-
-          return action.handler(translated.query, translated.post, options);
-        })();
+      const remotePlan = remoteAdapter.plan(request);
+      const acceleratedPlan = action.acceleratedAdapter?.plan(request);
+      const result = await executeLocalExactOrRemote({
+        request,
+        options,
+        localAdapter: action.localAdapter,
+        remote: () => acceleratedPlan?.type === 'exact'
+          ? action.acceleratedAdapter!.execute(request, options)
+          : remotePlan.type === 'exact'
+            ? remoteAdapter.execute(request, options)
+            : executeOriginal(),
+      });
 
       if (result == null) {
         return { text, errors: [] };

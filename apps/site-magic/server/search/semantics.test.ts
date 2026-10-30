@@ -76,6 +76,21 @@ async function expectLegacyEquivalent(q: string) {
 }
 
 describe('magic search semantics', () => {
+  test('loyalty searches the part loyalty value', () => {
+    const query = compile('loyalty:3');
+
+    expect(query.sql).toContain('"card_print_view"."loyalty"');
+    expect(query.sql).not.toContain('"card_print_view"."part_name"');
+  });
+
+  test('hand-modifier searches the part hand modifier value', () => {
+    expect(compile('hand-modifier>=2').sql).toContain('"card_print_view"."hand_modifier"');
+  });
+
+  test('life-modifier searches the part life modifier value', () => {
+    expect(compile('life-modifier<=-1').sql).toContain('"card_print_view"."life_modifier"');
+  });
+
   test('bare | in a color value means or instead of the old color intersection', () => {
     expect(compile('c:U|B').sql).toBe(compile('(c:U | c:B)').sql);
     expect(compile('c:U|B').sql).not.toBe(compile('c:U c:B').sql);
@@ -173,6 +188,8 @@ describe('magic search semantics', () => {
       'toughness:3',
       '[3]',
       'defense:3',
+      'hand-modifier>=2',
+      'life-modifier<=-1',
       'name:draw',
       'n:draw',
       'type:creature',

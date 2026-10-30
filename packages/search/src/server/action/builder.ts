@@ -1,4 +1,5 @@
 import type { ServerAction, ServerActionHandler } from './types';
+import type { SearchAdapter } from '#search/logical';
 
 export class ServerActionBuilder {
   table<T>(table: T) {
@@ -13,10 +14,18 @@ export class ServerActionBuilderWithTable<Table> {
     this.table = table;
   }
 
-  handler<Option, Result>(handler: ServerActionHandler<Result, Option>): ServerAction<Table, Result, Option> {
+  handler<Option, Result>(
+    handler: ServerActionHandler<Result, Option>,
+    options: {
+      localAdapter?: SearchAdapter<Result, Option>;
+      acceleratedAdapter?: SearchAdapter<Result, Option>;
+    } = {},
+  ): ServerAction<Table, Result, Option> {
     return {
-      table: this.table,
+      table:        this.table,
       handler,
+      localAdapter: options.localAdapter,
+      acceleratedAdapter: options.acceleratedAdapter,
     };
   }
 }

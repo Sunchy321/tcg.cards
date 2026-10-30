@@ -13,6 +13,7 @@ import type { Ambit } from '#search/ambit';
 import { ambitCeiling, searchWithAmbitCeiling } from '#search/server/ambit';
 
 import { order } from './command-list';
+import { magicPgSearchAdapter } from './accelerated-adapter';
 
 const as = create;
 
@@ -106,7 +107,7 @@ export const search = as
       elapsed,
       ambit:  landing,
     };
-  });
+  }, { acceleratedAdapter: magicPgSearchAdapter });
 
 type DevSearchOption = {
   pageSize: number;

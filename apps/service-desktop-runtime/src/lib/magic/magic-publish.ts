@@ -10,6 +10,11 @@ import {
 } from '@tcg-cards/db/schema/shared/magic/card';
 import { Print, PrintPart } from '@tcg-cards/db/schema/shared/magic/print';
 import {
+  SearchCard,
+  SearchCardPart,
+  SearchCardPartLocalization,
+} from '@tcg-cards/db/schema/shared/magic/search';
+import {
   PublishBaseline,
   PublishBatch,
   PublishBatchRow,
@@ -28,7 +33,8 @@ const APPLY_CHUNK_SIZE = 1000;
 
 // ── Table registry ──
 
-/** The six magic fact tables published as one card_data surface. The
+/** The six magic fact tables and three derived search tables published as one
+ * card_data surface. The
  * localization authority is NOT published: it is projection-side annotation
  * recording where the published localization text came from, not a fact table
  * itself. */
@@ -39,6 +45,9 @@ export const PUBLISH_TABLES = [
   'card_part_localizations',
   'prints',
   'print_parts',
+  'search_cards',
+  'search_card_parts',
+  'search_card_part_localizations',
 ] as const;
 
 export type PublishTableName = (typeof PUBLISH_TABLES)[number];
@@ -52,12 +61,19 @@ interface PublishTableConfig {
 
 /** Per-table registry: drizzle table object (works against local and remote) + PK. */
 export const PUBLISH_TABLE_CONFIG: Record<PublishTableName, PublishTableConfig> = {
-  cards:                   { name: 'cards', table: Card, pk: ['cardId', 'version'] },
-  card_parts:              { name: 'card_parts', table: CardPart, pk: ['cardId', 'version', 'partIndex'] },
-  card_localizations:      { name: 'card_localizations', table: CardLocalization, pk: ['cardId', 'version', 'locale', 'source'] },
-  card_part_localizations: { name: 'card_part_localizations', table: CardPartLocalization, pk: ['cardId', 'version', 'locale', 'source', 'partIndex'] },
-  prints:                  { name: 'prints', table: Print, pk: ['cardId', 'version', 'set', 'number', 'lang', 'source'] },
-  print_parts:             { name: 'print_parts', table: PrintPart, pk: ['cardId', 'version', 'set', 'number', 'lang', 'source', 'partIndex'] },
+  cards:                          { name: 'cards', table: Card, pk: ['cardId', 'version'] },
+  card_parts:                     { name: 'card_parts', table: CardPart, pk: ['cardId', 'version', 'partIndex'] },
+  card_localizations:             { name: 'card_localizations', table: CardLocalization, pk: ['cardId', 'version', 'locale', 'source'] },
+  card_part_localizations:        { name: 'card_part_localizations', table: CardPartLocalization, pk: ['cardId', 'version', 'locale', 'source', 'partIndex'] },
+  prints:                         { name: 'prints', table: Print, pk: ['cardId', 'version', 'set', 'number', 'lang', 'source'] },
+  print_parts:                    { name: 'print_parts', table: PrintPart, pk: ['cardId', 'version', 'set', 'number', 'lang', 'source', 'partIndex'] },
+  search_cards:                   { name: 'search_cards', table: SearchCard, pk: ['cardId', 'version'] },
+  search_card_parts:              { name: 'search_card_parts', table: SearchCardPart, pk: ['cardId', 'version', 'partIndex'] },
+  search_card_part_localizations: {
+    name:  'search_card_part_localizations',
+    table: SearchCardPartLocalization,
+    pk:    ['cardId', 'version', 'locale', 'source', 'partIndex'],
+  },
 };
 
 /** Columns excluded from row hashes: bookkeeping that changes on every write. */

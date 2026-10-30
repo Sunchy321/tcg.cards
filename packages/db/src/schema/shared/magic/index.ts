@@ -9,3 +9,4 @@ export * from './format';
 export * from './print';
 export * from './ruling';
 export * from './set';
+export * from './search';
