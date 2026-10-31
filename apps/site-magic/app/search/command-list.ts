@@ -161,7 +161,18 @@ export const imageStatus = cc
 
 export const rarity = cc
   .commands.rarity
-  .apply({ id: 'rarity', mapValue: true });
+  // Custom operators clear the builtin type; SSR and browser initialization need an explicit explainer.
+  .explain((args, i18n) => {
+    return defaultTranslate({
+      ...args,
+      value: i18n(`$.parameter.rarity.${args.value}`),
+    }, i18n, 'rarity', {
+      ':':   'is',
+      '!:':  'is-not',
+      '~:':  'has-print',
+      '!~:': 'not-has-print',
+    });
+  });
 
 export const date = cc
   .commands.date
