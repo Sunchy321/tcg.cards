@@ -3,7 +3,7 @@ import { os } from '@orpc/server';
 import z from 'zod';
 
 import { locale } from '#model/hearthstone/schema/basic';
-import { searchResult } from '#model/hearthstone/schema/search';
+import { essentialSearchResult, searchResult } from '#model/hearthstone/schema/search';
 
 import { searchInput } from '#search/schema';
 
@@ -40,10 +40,29 @@ const basic = os
     });
   });
 
+/** Returns list fields through acceleration or the equivalent original PG fallback. */
+const essential = os
+  .route({
+    method:      'GET',
+    description: 'Search for cards with essential result fields',
+    tags:        ['Hearthstone', 'Search'],
+  })
+  .input(searchInput.extend({
+    lang:    locale.default('en'),
+    orderBy: z.string().default('name+'),
+  }))
+  .output(essentialSearchResult)
+  .handler(async ({ input }) => {
+    const { q, page, pageSize, lang, orderBy, ambit } = input;
+    return search.search('essential', q, { page, pageSize, lang, orderBy, dsl: q, ambit });
+  });
+
 export const searchTrpc = {
   basic,
+  essential,
 };
 
 export const searchApi = {
   '': basic,
+  essential,
 };

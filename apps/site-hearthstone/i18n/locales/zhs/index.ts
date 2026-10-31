@@ -295,6 +295,10 @@ export default {
       },
 
       'full-command': {
+        'elite-true':             '精英卡牌',
+        'elite-false':            '非精英卡牌',
+        'in-tavern-true':         '在酒馆随从池中',
+        'in-tavern-false':        '不在酒馆随从池中',
         'raw':                    '名称或卡牌文本包含 {value}',
         'full-stats':             '费用是{cost}、攻击力是{attack}且生命值是{health}',
         'stats':                  '攻击力是{attack}且生命值是{health}',
@@ -309,6 +313,9 @@ export default {
       },
 
       'command': {
+        'elite':             '精英',
+        'in-tavern':         '酒馆随从池',
+        'cooldown':          '冷却时间',
         'lang':              '语言',
         'name':              '名称',
         'text':              '文本',

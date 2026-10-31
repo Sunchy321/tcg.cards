@@ -27,7 +27,8 @@
     "lint": "eslint .",
     "start": "bun src/index.ts",
     "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "search:rebuild": "bun scripts/rebuild-search-data.ts"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.12",

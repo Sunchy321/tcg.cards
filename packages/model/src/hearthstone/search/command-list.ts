@@ -4,7 +4,7 @@ export const raw = c
   .none
   .regex(true)
   .logical({
-    expansion: ['localization.name', 'localization.text', 'localization.displayText'],
+    expansion: ['localization.name', 'localization.text'],
   })
   .done();
 
@@ -50,7 +50,7 @@ export const text = c
   .text
   .alt('x')
   .logical({
-    expansion: ['localization.text', 'localization.displayText'],
+    expansion: ['localization.text'],
   })
   .done();
 
@@ -157,6 +157,12 @@ export const collectible = c
   .op([':'])
   .qual([])
   .done();
+
+export const elite = c.op([':']).qual(['!']).done();
+
+export const inTavern = c.op([':']).qual(['!']).id('in-tavern').done();
+
+export const cooldown = c.number.done();
 
 export { ambit } from '#search/index';
 

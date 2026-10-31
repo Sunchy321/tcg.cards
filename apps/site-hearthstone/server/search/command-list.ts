@@ -12,6 +12,7 @@ import { classes as classSchema, types as typeSchema } from '#model/hearthstone/
 import { LatestCardEntityView } from '#schema/shared/hearthstone/entity';
 import { TAG_SLUG, TAG_ID } from '#model/hearthstone/constant/tag';
 
+/** Orders classes by their public model order. */
 function classOrderCase(column: ReturnType<typeof sql>) {
   const whenClauses = classSchema.options
     .map((c, i) => `WHEN '${c}' THEN ${i}`)
@@ -20,6 +21,7 @@ function classOrderCase(column: ReturnType<typeof sql>) {
   return sql`CASE ${column} ${sql.raw(whenClauses)} ELSE 99 END`;
 }
 
+/** Orders card types by their public model order. */
 function typeOrderCase(column: typeof LatestCardEntityView.type) {
   const whenClauses = typeSchema.options
     .flatMap((t, i) => t === 'null' ? [] : `WHEN '${t}' THEN ${i}`)
@@ -61,11 +63,6 @@ export const raw = cs
       }),
       builtin.text.call({
         column: table => table.localization.text,
-        args:   { value, operator: ':', qualifier: [], argType },
-        ctx:    { meta: { multiline: true, caseSensitive: false }, table },
-      }),
-      builtin.text.call({
-        column: table => table.localization.displayText,
         args:   { value, operator: ':', qualifier: [], argType },
         ctx:    { meta: { multiline: true, caseSensitive: false }, table },
       }),
@@ -153,11 +150,6 @@ export const text = cs
       qualifier,
       builtin.text.call({
         column: table => table.localization.text,
-        args:   { value, operator, qualifier, argType },
-        ctx:    { meta: { multiline: true, caseSensitive: false }, table },
-      }),
-      builtin.text.call({
-        column: table => table.localization.displayText,
         args:   { value, operator, qualifier, argType },
         ctx:    { meta: { multiline: true, caseSensitive: false }, table },
       }),
@@ -300,6 +292,27 @@ export const collectible = cs
     }
   });
 
+/** Validates explicit boolean values without adding collectible's all sentinel. */
+function booleanValue(value: string, qualifier: string[]): boolean {
+  switch (value.toLowerCase()) {
+  case 'true':
+    return !qualifier.includes('!');
+  case 'false':
+    return qualifier.includes('!');
+  default:
+    throw new QueryError({ type: 'invalid-query' });
+  }
+}
+
+export const elite = cs.commands.elite
+  .handler(({ value, qualifier }, { table }) => eq(table.elite, booleanValue(value, qualifier)));
+
+export const inTavern = cs.commands.inTavern
+  .handler(({ value, qualifier }, { table }) => eq(table.inBobsTavern, booleanValue(value, qualifier)));
+
+export const cooldown = cs.commands.cooldown
+  .apply(table => table.colddown, { allowFloat: false });
+
 export const ambit = cs
   .commands.ambit
   .handler(({ value, operator }, { table }) => {
@@ -424,7 +437,11 @@ export const order = cs
     if (!parts.some(({ type }) => type === 'id')) {
       sorter.push(asc(table.cardId));
     }
-    sorter.push(asc(table.revisionHash), asc(table.localizationHash));
+    sorter.push(asc(table.lang));
+    // Essential rows have one identity per language and do not store revision hashes.
+    if (table.revisionHash != null) {
+      sorter.push(asc(table.revisionHash), asc(table.localizationHash));
+    }
 
     return sorter;
   });

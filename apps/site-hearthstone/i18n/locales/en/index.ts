@@ -294,6 +294,10 @@ export default {
       },
 
       'full-command': {
+        'elite-true':             'elite cards',
+        'elite-false':            'non-elite cards',
+        'in-tavern-true':         'in the tavern minion pool',
+        'in-tavern-false':        'not in the tavern minion pool',
         'raw':                    'name or card text includes {value}',
         'full-stats':             'cost is {cost}, attack is {attack}, and health is {health}',
         'stats':                  'attack is {attack} and health is {health}',
@@ -308,6 +312,9 @@ export default {
       },
 
       'command': {
+        'elite':             'elite',
+        'in-tavern':         'tavern minion pool',
+        'cooldown':          'cooldown',
         'lang':              'language',
         'name':              'name',
         'text':              'text',

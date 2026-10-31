@@ -1,102 +1,32 @@
 import { as as create } from '#search/server/action';
 
 import type { Locale } from '#model/hearthstone/schema/basic';
-import type { NormalResult } from '#model/hearthstone/schema/search';
+import type { NormalResult, EssentialNormalResult } from '#model/hearthstone/schema/search';
 
-import { and, eq, inArray, ne, sql } from 'drizzle-orm';
+import { and, eq, ne, sql } from 'drizzle-orm';
 
 import { db } from '#db/db';
 import { LatestCardEntityView } from '#schema/shared/hearthstone/entity';
 
-import Parser from '#search/parser';
-import { simplify } from '#search/parser/simplify';
-import type { Expression } from '#search/parser';
+import { detectVariant, hasLanguageCommand } from './context';
 
 import { detectAmbit } from '#search/ambit';
 import type { Ambit } from '#search/ambit';
 import { ambitCeiling, searchWithAmbitCeiling } from '#search/server/ambit';
 
 import { order } from './command-list';
+import { essentialCardSearchItem } from '#model/hearthstone/schema/search';
+import { pickSimpleTags } from '#model/hearthstone/search/manifest';
+import { HearthstonePgEssentialSearchAdapter } from './accelerated-adapter';
+import { compileQueryRequest } from '#search/server/translate';
+import type { QueryRequest } from '#search/logical';
+import type { CommonServerCommand } from '#search/server/command';
+import * as commands from './command-list';
 
 const as = create;
 
-let hashTagToVariantPromise: Promise<Record<string, string>> | null = null;
-
-async function getHashTagToVariant(): Promise<Record<string, string>> {
-  if (hashTagToVariantPromise != null) return hashTagToVariantPromise;
-
-  hashTagToVariantPromise = (async () => {
-    const { Tag } = await import('#schema/shared/hearthstone/tag');
-    const rows = await db
-      .select({ slug: Tag.slug, enumId: Tag.enumId })
-      .from(Tag)
-      .where(inArray(Tag.slug, ['has-diamond', 'has-signature']));
-
-    const map: Record<string, string> = {};
-    for (const row of rows) {
-      const variant = row.slug === 'has-diamond' ? 'diamond' : 'signature';
-      map[row.slug] = variant;
-      map[String(row.enumId)] = variant;
-    }
-    return map;
-  })();
-
-  return hashTagToVariantPromise;
-}
-
-type VariantValue = 'normal' | 'golden' | 'diamond' | 'signature' | 'battlegrounds';
-
-const variantValues: readonly VariantValue[] = ['normal', 'golden', 'diamond', 'signature', 'battlegrounds'];
-
-async function detectVariant(dsl: string): Promise<VariantValue> {
-  try {
-    const expr = new Parser(dsl).parse();
-    const simplified = simplify(expr);
-
-    const tagToVariant = await getHashTagToVariant();
-    const variants = new Set<string>();
-
-    const walk = (node: Expression): void => {
-      if (node.type === 'not') return;
-
-      if (node.type === 'simple') {
-        if (node.qual?.includes('!')) return;
-
-        if (node.cmd === 'hash') {
-          const v = tagToVariant[node.args];
-          if (v != null) variants.add(v);
-        }
-
-        if (node.cmd === 'set') {
-          const val = node.args.toLowerCase();
-          if (val === 'bgs' || val === 'battlegrounds') variants.add('battlegrounds');
-        }
-      }
-
-      if (node.type === 'hash') {
-        const v = tagToVariant[node.args];
-        if (v != null) variants.add(v);
-      }
-
-      if (node.type === 'paren') {
-        walk(node.expr);
-      }
-
-      if (node.type === 'logic') {
-        for (const child of node.exprs) walk(child);
-      }
-    };
-
-    walk(simplified);
-
-    const detected = variants.size === 1 ? [...variants][0] : undefined;
-    return variantValues.find(v => v === detected) ?? 'normal';
-  } catch {
-    return 'normal';
-  }
-}
-
-type SearchOption = {
+/** Carries the public search paging, language, sorting, and scope inputs. */
+export type SearchOption = {
   page:     number;
   pageSize: number;
   lang:     Locale;
@@ -131,7 +61,7 @@ export const search = as
         meta:  {},
         table: LatestCardEntityView as any,
       });
-    const hasLangCommand = /\blang[:=]/.test(dsl);
+    const hasLangCommand = hasLanguageCommand(dsl);
     const { explicit, pinned } = detectAmbit(dsl);
 
     const executeSearch = async (ceiling: Ambit | null) => {
@@ -158,7 +88,7 @@ export const search = as
       const result = await resultQuery;
 
       const countQuery = db
-        .select({ count: sql`count(distinct card_id)`.as('count') })
+        .select({ count: sql`count(distinct (card_id, lang))`.as('count') })
         .from(LatestCardEntityView)
         .where(visibleQuery!);
 
@@ -189,3 +119,24 @@ export const search = as
       ambit:   landing,
     };
   });
+
+/** Preserves the complete basic endpoint while exposing a separate list-only action. */
+export const essential = as
+  .table(LatestCardEntityView)
+  .handler(async (query, post, options: SearchOption) => {
+    const result = await search.handler(query, post, options);
+    return {
+      ...result,
+      result: result.result.map(row => essentialCardSearchItem.strip().parse({
+        ...row,
+        localization: { name: row.localization.name, text: row.localization.text },
+        simpleTags:   pickSimpleTags(row.mechanics),
+      })),
+    };
+  }, { acceleratedAdapter: new HearthstonePgEssentialSearchAdapter(runOriginalEssential) });
+
+/** Recompiles the original essential path if its projected tables disappear after activation. */
+async function runOriginalEssential(request: QueryRequest, options: SearchOption): Promise<EssentialNormalResult> {
+  const compiled = compileQueryRequest(request, Object.values(commands) as CommonServerCommand[], LatestCardEntityView);
+  return essential.handler(compiled.query ?? sql`TRUE`, compiled.post, options);
+}

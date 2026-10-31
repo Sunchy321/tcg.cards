@@ -78,7 +78,18 @@ const cases: BenchmarkCase[] = [
 
 let currentSqlContext: Omit<SqlObservation, 'statementIndex' | 'sql' | 'params' | 'durationMs' | 'error'> | null = null;
 let currentStatementIndex = 0;
-const sqlObservations: SqlObservation[] = [];
+export const sqlObservations: SqlObservation[] = [];
+
+/** Captures one preflight query without turning diagnostics into repeated SQL sampling. */
+export async function observeSearchSql<T>(caseId: string, run: () => Promise<T>): Promise<T> {
+  currentSqlContext = { caseId, phase: 'preflight', iteration: 0 };
+  currentStatementIndex = 0;
+  try {
+    return await run();
+  } finally {
+    currentSqlContext = null;
+  }
+}
 
 /** Serializes artifacts including PostgreSQL bigint values. */
 function serialize(value: unknown): string {
@@ -135,14 +146,14 @@ function instrumentQuery<T extends object>(query: T, statement: string, params: 
 }
 
 /** Creates an isolated database client for preflight SQL capture. */
-function createInstrumentedDb(databaseUrl: string) {
-  const client = postgres(databaseUrl, { max: 1, application_name: 'search-acceleration-benchmark-hearthstone' });
+export function createInstrumentedDb(databaseUrl: string) {
+  const client = postgres(databaseUrl, { max: 1, connection: { application_name: 'search-acceleration-benchmark-hearthstone' } });
   const unsafe = client.unsafe.bind(client);
   const instrumentedClient = new Proxy(client, {
     get(target, property, receiver) {
       if (property === 'unsafe') {
         return (statement: string, params: unknown[] = [], options?: unknown) =>
-          instrumentQuery(unsafe(statement, params, options as any), statement, params);
+          instrumentQuery(unsafe(statement, params as never[], options as any), statement, params);
       }
       return Reflect.get(target, property, receiver);
     },
@@ -212,7 +223,8 @@ async function assertPortAvailable(port: number) {
   const probe = createServer();
   try {
     await new Promise<void>((resolveListen, reject) => {
-      probe.once('error', reject);
+      // Nuxt's ambient net shim omits EventEmitter methods from this Node-only script.
+      (probe as unknown as { once(event: 'error', listener: (error: Error) => void): void }).once('error', reject);
       probe.listen(port, '127.0.0.1', () => resolveListen());
     });
   } catch {
@@ -223,7 +235,7 @@ async function assertPortAvailable(port: number) {
 }
 
 /** Starts the local development API and waits for readiness. */
-async function startApi(databaseUrl: string) {
+export async function startApi(databaseUrl: string) {
   const appRoot = resolve(import.meta.dirname, '..');
   await assertPortAvailable(CONFIGURED_PORT);
   const port = CONFIGURED_PORT;
@@ -269,12 +281,13 @@ async function startApi(databaseUrl: string) {
 }
 
 /** Measures a public RPC request through response JSON parsing. */
-async function apiSearch(baseUrl: string, benchmarkCase: BenchmarkCase) {
+export async function apiSearch(baseUrl: string, benchmarkCase: BenchmarkCase, options: { endpoint?: 'basic' | 'essential', path?: 'original' | 'accelerated' } = {}) {
   const { id: _id, coverage: _coverage, ...input } = benchmarkCase;
   const startedAt = performance.now();
-  const response = await fetch(`${baseUrl}/rpc/hearthstone/search/basic`, {
+  const response = await fetch(`${baseUrl}/rpc/hearthstone/search/${options.endpoint ?? 'basic'}`, {
     method:  'POST',
-    headers: { 'content-type': 'application/json' },
+    signal:  AbortSignal.timeout(120_000),
+    headers: { 'content-type': 'application/json', ...(options.path == null ? {} : { 'x-search-benchmark-path': options.path }) },
     body:    JSON.stringify({ json: input }),
   });
   const body = await response.json() as any;
@@ -284,7 +297,7 @@ async function apiSearch(baseUrl: string, benchmarkCase: BenchmarkCase) {
 }
 
 /** Produces reproducible random values for case ordering. */
-function seededRandom(seed: number) {
+export function seededRandom(seed: number) {
   let value = seed >>> 0;
   return () => {
     value += 0x6d2b79f5;
@@ -321,7 +334,7 @@ function percentile(sorted: number[], probability: number) {
 }
 
 /** Summarizes API latency samples for routine comparisons. */
-function summarize(values: number[]) {
+export function summarize(values: number[]) {
   const sorted = [...values].sort((left, right) => left - right);
   const mean = sorted.reduce((sum, value) => sum + value, 0) / sorted.length;
   const variance = sorted.reduce((sum, value) => sum + ((value - mean) ** 2), 0) / sorted.length;
@@ -355,8 +368,8 @@ function describeConnection(databaseUrl: string) {
 }
 
 /** Collects database and measurement context for reproduction. */
-async function collectDatabaseMetadata(databaseUrl: string, apiPort: number) {
-  const client = postgres(databaseUrl, { max: 1, application_name: 'search-acceleration-benchmark-hearthstone-metadata' });
+export async function collectDatabaseMetadata(databaseUrl: string, apiPort: number) {
+  const client = postgres(databaseUrl, { max: 1, connection: { application_name: 'search-acceleration-benchmark-hearthstone-metadata' } });
   try {
     const [serverRows, counts, tables] = await Promise.all([
       client.unsafe(`SELECT current_database() AS database, version() AS version, current_setting('server_version') AS server_version, inet_server_addr()::text AS server_address, inet_server_port() AS server_port, current_setting('shared_preload_libraries') AS shared_preload_libraries, current_setting('track_io_timing') AS track_io_timing`),
@@ -395,13 +408,13 @@ async function capturePlans(databaseUrl: string, observations: SqlObservation[])
     selected = [...selected].sort((left, right) => right.durationMs - left.durationMs).slice(0, EXPLAIN_LIMIT);
   }
 
-  const client = postgres(databaseUrl, { max: 1, application_name: 'search-acceleration-benchmark-hearthstone-explain' });
+  const client = postgres(databaseUrl, { max: 1, connection: { application_name: 'search-acceleration-benchmark-hearthstone-explain' } });
   const plans: Array<Record<string, unknown>> = [];
   try {
     await client.unsafe('BEGIN READ ONLY');
     for (const observation of selected) {
       try {
-        const result = await client.unsafe(`EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ${observation.sql}`, observation.params);
+        const result = await client.unsafe(`EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ${observation.sql}`, observation.params as never[]);
         plans.push({
           caseId:         observation.caseId,
           statementIndex: observation.statementIndex,
@@ -577,4 +590,6 @@ async function main() {
   }
 }
 
-await main();
+if (import.meta.main) {
+  await main();
+}

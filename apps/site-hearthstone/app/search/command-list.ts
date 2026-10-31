@@ -1,4 +1,6 @@
 import { cc as create } from '#search/client/command/builder';
+import type { CommonCommandInput } from '#search/command';
+import type { I18N } from '#search/client/command';
 import { defaultTranslate } from '#search/client/translate';
 
 import * as builtin from '#search/client/command/builtin';
@@ -213,3 +215,19 @@ export const order = cc
 
     return items.join(', ');
   });
+
+/** Explains the explicit boolean value together with its logical negation. */
+function explainBoolean(args: CommonCommandInput, i18n: I18N, id: string): string {
+  const value = String(args.value).toLowerCase();
+  if (value !== 'true' && value !== 'false') {
+    return defaultTranslate(args, i18n, id, { ':': 'is', '!:': 'is-not' });
+  }
+  const enabled = (value === 'true') !== args.qualifier.includes('!');
+  return i18n(`$.full-command.${id}-${enabled}`);
+}
+
+export const elite = cc.commands.elite.explain((args, i18n) => explainBoolean(args, i18n, 'elite'));
+
+export const inTavern = cc.commands.inTavern.explain((args, i18n) => explainBoolean(args, i18n, 'in-tavern'));
+
+export const cooldown = cc.commands.cooldown.apply({ id: 'cooldown' });

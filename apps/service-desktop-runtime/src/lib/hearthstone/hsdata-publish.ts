@@ -4,6 +4,8 @@ import { z } from 'zod';
 import type { PublishStream } from '@tcg-cards/model/game-data-sync';
 import type { Locale } from '@tcg-cards/model/hearthstone/schema/basic';
 
+import { SearchCard, SearchCardLocalization } from '@tcg-cards/db/schema/shared/hearthstone/search';
+
 import { createDb } from '@tcg-cards/db';
 import {
   Card as LocalCard,
@@ -42,7 +44,7 @@ export type PublishDb = ReturnType<typeof createDb>;
 
 type PublishDbTx = Parameters<Parameters<PublishDb['transaction']>[0]>[0];
 
-export type TableName = 'cards' | 'entities' | 'entity_localizations' | 'entity_relations' | 'patches';
+export type TableName = 'cards' | 'entities' | 'entity_localizations' | 'entity_relations' | 'patches' | 'search_cards' | 'search_card_localizations';
 
 interface PublishRowState {
   tableName: TableName;
@@ -901,6 +903,14 @@ export async function deleteRemoteRow(
   rowKey: Record<string, string>,
 ): Promise<void> {
   switch (tableName) {
+  case 'search_cards':
+    await tx.update(SearchCard).set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(SearchCard.cardId, rowKey.cardId!));
+    return;
+  case 'search_card_localizations':
+    await tx.update(SearchCardLocalization).set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(SearchCardLocalization.cardId, rowKey.cardId!), eq(SearchCardLocalization.lang, rowKey.lang! as Locale)));
+    return;
   case 'cards':
     await tx.delete(RemoteBaseCard).where(eq(RemoteBaseCard.cardId, rowKey.cardId!));
     return;
@@ -939,6 +949,22 @@ export async function insertRemoteRow(
   row: unknown,
   action: 'insert' | 'update',
 ): Promise<void> {
+  if (tableName === 'search_cards') {
+    const searchRow = row as typeof SearchCard.$inferSelect;
+    await tx.insert(SearchCard).values(searchRow).onConflictDoUpdate({
+      target: SearchCard.cardId,
+      set:    { ...searchRow, deletedAt: null, updatedAt: new Date() },
+    });
+    return;
+  }
+  if (tableName === 'search_card_localizations') {
+    const localizationRow = row as typeof SearchCardLocalization.$inferSelect;
+    await tx.insert(SearchCardLocalization).values(localizationRow).onConflictDoUpdate({
+      target: [SearchCardLocalization.cardId, SearchCardLocalization.lang],
+      set:    { ...localizationRow, deletedAt: null, updatedAt: new Date() },
+    });
+    return;
+  }
   if (tableName === 'cards') {
     const cardRow = row as typeof LocalCard.$inferSelect;
 
@@ -1020,6 +1046,8 @@ export async function insertRemoteRow(
 /** Returns the partition key for one row based on its table type. */
 export function rowKeyOf(row: any, tableName: string): string {
   switch (tableName) {
+  case 'search_cards': return serializeRowKey({ cardId: row.cardId });
+  case 'search_card_localizations': return serializeRowKey({ cardId: row.cardId, lang: row.lang });
   case 'cards': return cardsRowKey(row);
   case 'entities': return entitiesRowKey(row);
   case 'entity_localizations': return localizationsRowKey(row);
@@ -1032,6 +1060,11 @@ export function rowKeyOf(row: any, tableName: string): string {
 /** Computes the row hash for one row based on its table type. */
 export function rowHashOf(row: any, tableName: string): string {
   switch (tableName) {
+  case 'search_cards':
+  case 'search_card_localizations': {
+    const { createdAt: _createdAt, updatedAt: _updatedAt, deletedAt: _deletedAt, ...content } = row;
+    return hashJson(content);
+  }
   case 'cards': return cardRowHash(row);
   case 'entities': return entityRowHash(row);
   case 'entity_localizations': return localizationRowHash(row);
@@ -1083,6 +1116,19 @@ export async function loadRowDataChunk(
   if (rowKeys.length === 0) return result;
 
   switch (tableName) {
+  case 'search_cards':
+  case 'search_card_localizations': {
+    const table = tableName === 'search_cards' ? SearchCard : SearchCardLocalization;
+    const ids = [...new Set(rowKeys.map(key => parseRowKey(key).cardId!))];
+    const rows = await db.select().from(table).where(and(inArray(table.cardId, ids), isNull(table.deletedAt)));
+    for (const row of rows) {
+      const key = rowKeyOf(row, tableName);
+      if (rowKeys.includes(key)) {
+        result.set(key, row);
+      }
+    }
+    break;
+  }
   case 'cards': {
     const cardIds = rowKeys.map(key => parseRowKey(key).cardId!);
     const rows = await db.select().from(LocalCard).where(inArray(LocalCard.cardId, cardIds));

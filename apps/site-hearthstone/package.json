@@ -16,7 +16,8 @@
     "lint": "eslint .",
     "typecheck": "nuxt typecheck",
     "benchmark:search:pg": "bun --env-file=../../scripts/.env scripts/pg-search-benchmark.ts",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "benchmark:search:essential": "bun --env-file=../../scripts/.env scripts/essential-search-benchmark.ts"
   },
   "dependencies": {
     "@iconify-json/lucide": "^1.2.104",

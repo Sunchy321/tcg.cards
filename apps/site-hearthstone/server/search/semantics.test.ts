@@ -94,11 +94,11 @@ describe('hearthstone search semantics', () => {
     expect(compile('class:mage|class:warlock').sql).toBe(compile('(class:mage | class:warlock)').sql);
     expect(compile('c:4|5').sql).toBe(compile('(c:4 | c:5)').sql);
 
-    // Multi-column text commands group per column; the disjunct set matches.
+    // Text search now matches only the normalized plain-text column.
     const grouped = compile('x:deal|restore');
     const spaced = compile('(x:deal | x:restore)');
-    expect(grouped.sql.toLowerCase().match(/ilike/g)).toHaveLength(4);
-    expect(spaced.sql.toLowerCase().match(/ilike/g)).toHaveLength(4);
+    expect(grouped.sql.toLowerCase().match(/ilike/g)).toHaveLength(2);
+    expect(spaced.sql.toLowerCase().match(/ilike/g)).toHaveLength(2);
     expect([...grouped.params].sort()).toEqual([...spaced.params].sort());
   });
 
@@ -118,7 +118,8 @@ describe('hearthstone search semantics', () => {
 
     const compiled = sorter.map(fragment => dialect.sqlToQuery(fragment).sql);
 
-    expect(compiled.at(-3)).toContain('card_id');
+    expect(compiled.at(-4)).toContain('card_id');
+    expect(compiled.at(-3)).toContain('lang');
     expect(compiled.at(-2)).toContain('revision_hash');
     expect(compiled.at(-1)).toContain('localization_hash');
   });

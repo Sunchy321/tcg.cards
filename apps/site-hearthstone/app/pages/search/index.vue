@@ -513,12 +513,12 @@
         >
           <CardImage
             :card-id="card.cardId"
-            :version="minVersion(card)"
+            :version="0"
             :lang="card.lang"
             :render-hash="card.renderHash"
             :type="card.type"
             :variant="resultVariantFor(card)"
-            :mechanics="card.mechanics"
+            :mechanics="card.simpleTags"
             class="w-50"
           />
         </NuxtLink>
@@ -542,12 +542,12 @@
               <div class="w-30 shrink-0 self-center sm:self-start">
                 <CardImage
                   :card-id="card.cardId"
-                  :version="minVersion(card)"
+                  :version="0"
                   :lang="card.lang"
                   :render-hash="card.renderHash"
                   :type="card.type"
                   :variant="resultVariantFor(card)"
-                  :mechanics="card.mechanics"
+                  :mechanics="card.simpleTags"
                 />
               </div>
 
@@ -661,13 +661,14 @@
                 >
                   <td class="px-3 py-2">
                     <CardAvatar
+                      :name="card.localization.name"
                       :card-id="card.cardId"
-                      :version="minVersion(card)"
+                      :version="0"
                       :lang="card.lang"
                       :render-hash="card.renderHash"
                       :type="card.type"
                       :variant="resultVariantFor(card)"
-                      :mechanics="card.mechanics"
+                      :mechanics="card.simpleTags"
                       no-link
                       class="no-underline"
                     />
@@ -725,8 +726,7 @@
 
 <script setup lang="ts">
 import type { HearthstoneConfig } from '@tcg-cards/model/user-config';
-import type { CardEntityView } from '#model/hearthstone/schema/entity';
-import type { NormalResult } from '#model/hearthstone/schema/search';
+import type { EssentialCardSearchItem, EssentialNormalResult as NormalResult } from '#model/hearthstone/schema/search';
 import { locale as localeSchema } from '#model/hearthstone/schema/basic';
 
 import { explain as model } from '~/search';
@@ -855,7 +855,7 @@ const dslExplained = computed(() => {
   return result.text;
 });
 
-const cards = computed<CardEntityView[]>(() => data.value?.result?.result ?? []);
+const cards = computed<EssentialCardSearchItem[]>(() => data.value?.result?.result ?? []);
 const total = computed(() => data.value?.result?.total ?? 0);
 const elapsed = computed(() => data.value?.result?.elapsed ?? 0);
 const pageCount = computed(() => data.value?.result?.totalPage ?? Math.ceil(total.value / pageSize.value));
@@ -882,11 +882,11 @@ const widened = computed(() =>
 
 /** A battlegrounds-only card has no normal-template art, so fall back to the
  * battlegrounds template; the premium mechanic decides normal vs golden. */
-const isBattlegroundsCard = (card: CardEntityView) =>
+const isBattlegroundsCard = (card: EssentialCardSearchItem) =>
   card.set === 'bgs' || card.type === 'trinket' || card.type === 'anomaly'
   || (card.techLevel != null && !card.collectible);
 
-const resultVariantFor = (card: CardEntityView): CardImageOption =>
+const resultVariantFor = (card: EssentialCardSearchItem): CardImageOption =>
   isBattlegroundsCard(card) ? 'battlegrounds' : resultVariant.value;
 
 const showResults = computed(() =>
@@ -913,7 +913,7 @@ const errorText = computed(() => {
   return null;
 });
 
-const cardLink = (card: CardEntityView) => ({
+const cardLink = (card: EssentialCardSearchItem) => ({
   path:  `/card/${card.cardId}`,
   query: { lang: card.lang },
 });
@@ -949,7 +949,7 @@ const setText = (value: string) => {
     : value;
 };
 
-const subtitle = (card: CardEntityView) => {
+const subtitle = (card: EssentialCardSearchItem) => {
   const parts = [
     typeText(card.type),
     ...card.classes.map(classText),
@@ -968,7 +968,7 @@ const subtitle = (card: CardEntityView) => {
   return parts.join(' · ');
 };
 
-const stats = (card: CardEntityView) => {
+const stats = (card: EssentialCardSearchItem) => {
   if (card.attack != null && card.health != null) {
     return `${card.attack}/${card.health}`;
   }
@@ -988,17 +988,13 @@ const stats = (card: CardEntityView) => {
   return null;
 };
 
-const minVersion = (card: CardEntityView) => {
-  return Math.min(...card.version);
-};
-
 const formatElapsed = (ms: number) => {
   if (ms < 1000) return `${ms}ms`;
   return `${(ms / 1000).toFixed(3)}s`;
 };
 
-const cleanCardText = (card: CardEntityView) => {
-  const text = card.localization.displayText ?? card.localization.text ?? '';
+const cleanCardText = (card: EssentialCardSearchItem) => {
+  const text = card.localization.text;
   return text
     .replace(/<[^>]+>/g, '')
     .replace(/\[\/?[bi]\]/gi, '')
@@ -1010,10 +1006,10 @@ const cleanCardText = (card: CardEntityView) => {
     .trim();
 };
 
-const previewText = (card: CardEntityView) =>
+const previewText = (card: EssentialCardSearchItem) =>
   cleanCardText(card).slice(0, 180);
 
-const fullText = (card: CardEntityView) =>
+const fullText = (card: EssentialCardSearchItem) =>
   cleanCardText(card);
 
 const doSearch = async () => {
@@ -1027,7 +1023,7 @@ const doSearch = async () => {
   fetchError.value = null;
 
   try {
-    const result = await $orpc.hearthstone.search.basic({
+    const result = await $orpc.hearthstone.search.essential({
       q:        q.value,
       lang:     searchLang.value,
       page:     page.value,
@@ -1113,7 +1109,7 @@ function toggleColumn(key: string) {
   }
 }
 
-function getCellValue(card: CardEntityView, key: string): string {
+function getCellValue(card: EssentialCardSearchItem, key: string): string {
   switch (key) {
   case 'name': return card.localization.name;
   case 'cost': return card.cost != null ? String(card.cost) : '';
