@@ -90,6 +90,11 @@ describe('hearthstone search semantics', () => {
     expect(compile('artist:"Alex Horley"').sql).toContain('ilike');
   });
 
+  test('print rarity existence is not inferred from Hearthstone card rarity', () => {
+    compileThrows('r~:c');
+    compileThrows('rarity~:common');
+  });
+
   test('bare | in a value means or', () => {
     expect(compile('class:mage|class:warlock').sql).toBe(compile('(class:mage | class:warlock)').sql);
     expect(compile('c:4|5').sql).toBe(compile('(c:4 | c:5)').sql);

@@ -394,7 +394,7 @@ export default class Parser {
         };
       }
 
-      if (op?.type === 'punc' && [':', '!:', '=', '!=', '>', '<', '>=', '<='].includes(op.text)) {
+      if (op?.type === 'punc' && [':', '~:', '!:', '=', '!=', '>', '<', '>=', '<='].includes(op.text)) {
         this.next();
 
         const arg = this.next({ text: true });

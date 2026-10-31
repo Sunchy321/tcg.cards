@@ -23,6 +23,7 @@ export const SearchCard = schema.table('search_cards', {
   manaValue:     doublePrecision('mana_value').notNull(),
   colorIdentity: color('color_identity', { dimensions: 16 }).notNull(),
   tags:          text('tags').array().notNull(),
+  rarities:      text('rarities').array().notNull(),
   legalities:    jsonb('legalities').$type<Record<string, string>>().notNull(),
 
   candidatePrintsByLocale: jsonb('candidate_prints_by_locale').$type<MagicSearchCandidatePrints>().notNull(),

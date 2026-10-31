@@ -11,7 +11,7 @@ import { and, arrayContains, asc, desc, eq, gt, gte, inArray, lt, lte, ne, not, 
 
 import { model } from '#model/magic/search';
 import type { Locale } from '#model/magic/schema/basic';
-import { CardEditorView, CardPrintView } from '#schema/shared/magic/print';
+import { CardEditorView, CardPrintView, Print } from '#schema/shared/magic/print';
 
 import { slugifyName } from '@tcg-cards/shared/magic/slug';
 
@@ -19,6 +19,17 @@ type SearchAccelerationContext = {
   typeSymbols: ReadonlySet<string>;
   tagOwners:   Record<string, 'card-only' | 'print-only' | 'overlap'>;
 };
+
+/** Maps the public single-letter rarity values to their stored print names. */
+function resolveRarity(value: string): string {
+  return ({
+    c: 'common',
+    u: 'uncommon',
+    r: 'rare',
+    m: 'mythic',
+    s: 'special',
+  } as Record<string, string>)[value] ?? value;
+}
 
 // import internalData from '@/internal-data';
 
@@ -497,19 +508,26 @@ export const imageStatus = cs
 export const rarity = cs
   .commands.rarity
   .handler(({ value, operator, qualifier, argType }, { table }) => {
-    const rarities = (
-      {
-        c: 'common',
-        u: 'uncommon',
-        r: 'rare',
-        m: 'mythic',
-        s: 'special',
-      } as Record<string, string>
-    )[value] ?? value;
+    const rarity = resolveRarity(value);
+    if (operator === '~:') {
+      const accelerated = (table as any).searchAcceleration != null;
+      const exists = accelerated
+        ? arrayContains((table as any).card.rarities, [rarity])
+        : sql`EXISTS (
+            SELECT 1
+            FROM ${Print}
+            WHERE ${Print.cardId} = ${(table as any).cardId}
+              AND ${Print.version} = ${(table as any).version}
+              AND ${Print.rarity} = ${rarity}
+              AND ${Print.deletedAt} IS NULL
+          )`;
+
+      return qualifier.includes('!') ? not(exists) : exists;
+    }
 
     return builtin.simple.call({
-      column: table => table.cardPart.text,
-      args:   { value: rarities, operator, qualifier, argType },
+      column: table => table.print.rarity,
+      args:   { value: rarity, operator, qualifier, argType },
       ctx:    { meta: { }, table },
     });
   });

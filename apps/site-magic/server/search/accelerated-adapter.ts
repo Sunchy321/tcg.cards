@@ -88,6 +88,7 @@ const supportedCommands = new Set([
   'type',
   'text',
   'oracle',
+  'rarity',
   'format',
   'ambit',
 ]);
@@ -107,10 +108,12 @@ export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, SearchO
 
     return {
       commands: supported.map(command => {
+        const id = command.options.id ?? '';
         const descriptor = describeLogicalCommand(
           command.options,
-          command.options.id ?? '',
+          id,
           command.options.logical?.witness ?? [],
+          id === 'rarity' ? '~:' : undefined,
         );
         if (['name', 'text'].includes(command.options.id ?? '')) {
           descriptor.modifiers = descriptor.modifiers.filter(modifier => !['printed', 'pn', 'px'].includes(modifier));
@@ -407,6 +410,9 @@ function findNodeGap(query: LogicalQuery, manifest: MagicSearchManifest | null):
   const unsupported = (detail: string): CapabilityGap => ({ kind: 'field', field: id, detail });
 
   if (!supportedCommands.has(id)) return unsupported('Field is not available in the accelerated projection.');
+  if (id === 'rarity' && command.operator !== '~:') {
+    return unsupported('Ordinary rarity searches are scoped to the selected print.');
+  }
   if (['name', 'type', 'text'].includes(id) && command.modifier === 'printed') {
     return unsupported('Printed values require the original Magic query path.');
   }

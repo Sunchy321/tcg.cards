@@ -2,7 +2,7 @@
 import type { PatternContext } from '#search/base/pattern';
 import type { MetaBase } from '#search/base/meta';
 
-export type Operator = ':' | '' | '<' | '<=' | '=' | '>' | '>=';
+export type Operator = ':' | '~:' | '' | '<' | '<=' | '=' | '>' | '>=';
 export type Qualifier = '!';
 
 export type CommandInputOption = {
@@ -67,11 +67,17 @@ export type LogicalCommandDescriptor = {
   pattern:             string | null;
   allowsRegex:         boolean;
   expansion:           string[];
+  operatorSemantics?:  Partial<Record<Operator, LogicalOperatorOverride>>;
 };
 
+/** Overrides command meaning for one specific operator. */
+export type LogicalOperatorOverride = Partial<Pick<LogicalCommandDescriptor,
+  'valueClass' | 'nullSemantics' | 'textSemantics' | 'collectionSemantics' | 'witness' | 'expansion'>>;
+
 /** Overrides inferred generic semantics for a game-specific command. */
-export type LogicalCommandOverride = Partial<Omit<LogicalCommandDescriptor, 'field' | 'operators' | 'qualifiers' | 'modifiers' | 'pattern' | 'allowsRegex'>> & {
-  field?: string;
+export type LogicalCommandOverride = Partial<Omit<LogicalCommandDescriptor, 'field' | 'operators' | 'qualifiers' | 'modifiers' | 'pattern' | 'allowsRegex' | 'operatorSemantics'>> & {
+  field?:             string;
+  operatorSemantics?: Partial<Record<Operator, LogicalOperatorOverride>>;
 };
 
 export type CommandInput<Input extends CommandInputOption> = {

@@ -91,6 +91,52 @@ describe('magic search semantics', () => {
     expect(compile('life-modifier<=-1').sql).toContain('"card_print_view"."life_modifier"');
   });
 
+  test('rarity searches the print rarity field', () => {
+    const query = compile('rarity:r');
+
+    expect(query.sql).toContain('"card_print_view"."rarity"');
+    expect(query.sql).not.toContain('"card_print_view"."part_text"');
+    expect(query.params).toContain('rare');
+  });
+
+  test('rarity existence is an operator on the rarity command', () => {
+    const parsed = new Parser('r~:c').parse();
+    const request = resolveQueryRequest(parsed, Object.values(commands) as any);
+    const resolved = request.filter?.kind === 'leaf' ? request.filter.command : undefined;
+    const literalTilde = new Parser('foo~bar').parse();
+
+    expect(parsed).toMatchObject({ type: 'simple', cmd: 'r', op: '~:', args: 'c' });
+    expect(resolved).toMatchObject({ commandId: 'rarity', operator: '~:' });
+    expect(resolved?.descriptor.witness).toEqual(['same-card-entity']);
+    expect(literalTilde).toMatchObject({ type: 'raw', args: 'foo~bar' });
+  });
+
+  test('rarity existence aliases preserve card-level independent predicates', () => {
+    const short = compile('r~:c');
+    const long = compile('rarity~:common');
+    const both = compile('r~:c r~:r');
+    const either = compile('r~:c | r~:r');
+    const negative = compile('-r~:c');
+
+    expect(short.sql.toLowerCase()).toContain('exists');
+    expect(short.params).toContain('common');
+    expect(long).toEqual(short);
+    expect(both.sql.toLowerCase().match(/exists/g)).toHaveLength(2);
+    expect(both.params).toEqual(expect.arrayContaining(['common', 'rare']));
+    expect(either.sql.toLowerCase()).toContain(' or ');
+    expect(either.sql.toLowerCase().match(/exists/g)).toHaveLength(2);
+    expect(negative.sql.toLowerCase()).toContain('not');
+  });
+
+  test('ordinary rarity uses a print witness and invalid rarity operators are rejected', () => {
+    const request = resolveQueryRequest(new Parser('rarity:common').parse(), Object.values(commands) as any);
+    const resolved = request.filter?.kind === 'leaf' ? request.filter.command : undefined;
+
+    expect(resolved).toMatchObject({ commandId: 'rarity', operator: ':' });
+    expect(resolved?.descriptor.witness).toContain('same-print');
+    expect(() => compile('r~=common')).toThrow();
+  });
+
   test('bare | in a color value means or instead of the old color intersection', () => {
     expect(compile('c:U|B').sql).toBe(compile('(c:U | c:B)').sql);
     expect(compile('c:U|B').sql).not.toBe(compile('c:U c:B').sql);

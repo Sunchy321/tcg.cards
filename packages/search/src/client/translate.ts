@@ -6,14 +6,16 @@ import { QueryError } from '#search/command/error';
 import { matchPattern } from '#search/command/match-pattern';
 
 const realOperatorMap: Record<`${Qualifier | ''}${Exclude<Operator, ''>}`, string> = {
-  ':':  'match',
-  '!:': 'not-match',
-  '=':  'equal',
-  '!=': 'not-equal',
-  '<':  'less-than',
-  '<=': 'less-equal',
-  '>':  'greater-than',
-  '>=': 'greater-equal',
+  ':':   'match',
+  '~:':  'has-print',
+  '!:':  'not-match',
+  '!~:': 'not-has-print',
+  '=':   'equal',
+  '!=':  'not-equal',
+  '<':   'less-than',
+  '<=':  'less-equal',
+  '>':   'greater-than',
+  '>=':  'greater-equal',
 
   // aliases
   '!>':  'less-equal',

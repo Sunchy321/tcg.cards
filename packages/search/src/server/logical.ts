@@ -94,6 +94,7 @@ function resolveNode(expr: Expression, commands: CommonServerCommand[]): Resolve
     options,
     options.id ?? matched.name,
     options.logical?.witness ?? [],
+    input.operator,
   );
   const resolved: ResolvedCommand = {
     commandId: options.id ?? descriptor.field,

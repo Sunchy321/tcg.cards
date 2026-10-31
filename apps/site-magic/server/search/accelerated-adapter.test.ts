@@ -98,6 +98,16 @@ describe('Magic PG accelerated search coverage', () => {
     expect(adapter.plan(request('cost:{W}')).type).toBe('original');
   });
 
+  test('accelerates the rarity existence operator while preserving ordinary print rarity on PG', () => {
+    expect(adapter.plan(request('r~:c')).type).toBe('exact');
+    expect(adapter.plan(request('rarity~:common -r~:u')).type).toBe('exact');
+    expect(adapter.plan(request('rarity:common')).type).toBe('original');
+
+    const rarity = adapter.descriptor().commands.find(command => command.field === 'rarity');
+    expect(rarity?.operators).toEqual(['~:']);
+    expect(rarity?.witness).toEqual(['same-card-entity']);
+  });
+
   test('uses the loaded manifest to decide whether tags and type symbols are covered', () => {
     expect(adapter.plan(request('#dev:card')).type).toBe('original');
     expect(adapter.plan(request('type:creature')).type).toBe('original');
@@ -139,6 +149,26 @@ describe('Magic PG accelerated search coverage', () => {
     const tagQuery = compile('#dev:card');
     expect(tagQuery.sql).toContain('"magic"."search_cards"."tags"');
     expect(tagQuery.sql).not.toContain('print_tags');
+  });
+
+  test('compiles rarity existence against the card-version summary', () => {
+    const table = {
+      card:                 SearchCard,
+      cardPart:             SearchCardPart,
+      cardPartLocalization: SearchCardPartLocalization,
+      searchAcceleration:   {
+        typeSymbols: new Set(manifest.typeSymbols),
+        tagOwners:   manifest.tagOwners,
+      },
+    };
+    const expr = simplify(new Parser('r~:c r~:r').parse());
+    const { query } = translate(expr, Object.values(commands) as any, table as any);
+    const compiled = dialect.sqlToQuery(query!);
+
+    expect(compiled.sql).toContain('"magic"."search_cards"."rarities"');
+    expect(compiled.sql).toContain('@>');
+    expect(JSON.stringify(compiled.params)).toContain('common');
+    expect(JSON.stringify(compiled.params)).toContain('rare');
   });
 
   test('falls back when result grouping or ordering needs uncached print details', () => {

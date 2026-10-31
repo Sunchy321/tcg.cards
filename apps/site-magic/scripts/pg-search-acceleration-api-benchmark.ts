@@ -1,3 +1,5 @@
+import { resolve } from 'node:path';
+
 import { getTableConfig } from 'drizzle-orm/pg-core';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
@@ -75,7 +77,57 @@ try {
 
   const buildStartedAt = performance.now();
   await rebuildMagicSearchData(database as any);
-  console.log(`Built temporary PG search projection in ${(performance.now() - buildStartedAt).toFixed(1)} ms.`);
+  const buildDurationMs = performance.now() - buildStartedAt;
+
+  const mismatches = await client.unsafe(`
+    SELECT count(*)::int AS mismatch_count
+    FROM magic.search_cards s
+    LEFT JOIN (
+      SELECT p.card_id, p.version,
+        array_agg(DISTINCT p.rarity ORDER BY p.rarity) AS rarities
+      FROM magic.prints p
+      WHERE p.deleted_at IS NULL
+      GROUP BY p.card_id, p.version
+    ) expected USING (card_id, version)
+    WHERE s.deleted_at IS NULL
+      AND s.rarities IS DISTINCT FROM COALESCE(expected.rarities, ARRAY[]::text[])
+  `);
+  const mismatchCount = Number(mismatches[0]?.mismatch_count ?? 0);
+  if (mismatchCount !== 0) {
+    throw new Error(`Rarity summary differs from active print data for ${mismatchCount} search cards.`);
+  }
+
+  const [projectionMetrics] = await client.unsafe(`
+    SELECT
+      count(*)::bigint AS active_search_cards,
+      COALESCE(sum(cardinality(rarities)), 0)::bigint AS distinct_rarity_entries,
+      COALESCE(sum(pg_column_size(rarities)), 0)::bigint AS rarity_array_bytes,
+      pg_total_relation_size('magic.search_cards')::bigint AS search_cards_total_bytes
+    FROM magic.search_cards
+    WHERE deleted_at IS NULL
+  `);
+  const summaryPlan = await client.unsafe(`
+    EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+    SELECT p.card_id, p.version, array_agg(DISTINCT p.rarity ORDER BY p.rarity) AS rarities
+    FROM magic.prints p
+    WHERE p.deleted_at IS NULL
+    GROUP BY p.card_id, p.version
+  `);
+  const evidencePath = resolve(
+    import.meta.dir,
+    '../../../.scratch/search-acceleration/benchmark-artifacts',
+    `magic-rarity-projection-${new Date().toISOString().replaceAll(':', '-')}.json`,
+  );
+  const evidence = {
+    generatedAt:            new Date().toISOString(),
+    buildDurationMs,
+    correctness:            { mismatchedCards: mismatchCount },
+    projectionMetrics,
+    summaryAggregationPlan: summaryPlan[0]?.['QUERY PLAN'] ?? summaryPlan,
+  };
+  await Bun.write(evidencePath, JSON.stringify(evidence, null, 2));
+  console.log(`Built temporary PG search projection in ${buildDurationMs.toFixed(1)} ms.`);
+  console.log(`Rarity projection verified; evidence: ${evidencePath}`);
 
   const child = Bun.spawn(['bun', '--env-file=../../scripts/.env', 'scripts/pg-search-benchmark.ts'], {
     cwd: appRoot,

@@ -48,6 +48,15 @@ export async function rebuildMagicSearchData(database: ProjectDb): Promise<void>
           p.set DESC,
           p.number DESC
       ),
+      rarity_summaries AS (
+        SELECT
+          p.card_id,
+          p.version,
+          array_agg(DISTINCT p.rarity ORDER BY p.rarity) AS rarities
+        FROM ${Print} p
+        WHERE p.deleted_at IS NULL
+        GROUP BY p.card_id, p.version
+      ),
       other_prints AS (
         SELECT DISTINCT ON (p.card_id, p.version)
           p.card_id,
@@ -124,7 +133,7 @@ export async function rebuildMagicSearchData(database: ProjectDb): Promise<void>
         GROUP BY card_id, version
       )
       INSERT INTO ${SearchCard} (
-        card_id, version, ambit, mana_value, color_identity, tags, legalities,
+        card_id, version, ambit, mana_value, color_identity, tags, rarities, legalities,
         candidate_prints_by_locale, updated_at, deleted_at
       )
       SELECT
@@ -134,18 +143,21 @@ export async function rebuildMagicSearchData(database: ProjectDb): Promise<void>
         c.mana_value,
         c.color_identity,
         c.tags,
+        COALESCE(rarity_summaries.rarities, ARRAY[]::text[]),
         c.legalities,
         candidate_maps.candidate_prints_by_locale,
         NOW(),
         NULL
       FROM ${Card} c
       JOIN candidate_maps USING (card_id, version)
+      LEFT JOIN rarity_summaries USING (card_id, version)
       WHERE c.deleted_at IS NULL
       ON CONFLICT (card_id, version) DO UPDATE SET
         ambit = EXCLUDED.ambit,
         mana_value = EXCLUDED.mana_value,
         color_identity = EXCLUDED.color_identity,
         tags = EXCLUDED.tags,
+        rarities = EXCLUDED.rarities,
         legalities = EXCLUDED.legalities,
         candidate_prints_by_locale = EXCLUDED.candidate_prints_by_locale,
         updated_at = NOW(),

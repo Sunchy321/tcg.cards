@@ -57,7 +57,9 @@ export default {
 
     operator: {
       'match':            '匹配',
+      'has-print':        '存在印刷为',
       'not-match':        '不匹配',
+      'not-has-print':    '不存在印刷为',
       'equal':            '等于',
       'not-equal':        '不等于',
       'less-than':        '小于',

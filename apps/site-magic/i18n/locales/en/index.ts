@@ -57,7 +57,9 @@ export default {
 
     operator: {
       'match':            ' matches ',
+      'has-print':        ' has a print of ',
       'not-match':        ' doesn\'t match',
+      'not-has-print':    ' has no print of ',
       'equal':            ' is equal to ',
       'not-equal':        ' isn\'t equal to ',
       'less-than':        ' is less than',

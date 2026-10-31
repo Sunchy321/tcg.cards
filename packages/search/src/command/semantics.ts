@@ -1,10 +1,11 @@
-import type { CommandOption, CommandInputOption, LogicalCommandDescriptor, LogicalCommandOverride, LogicalWitness } from './types';
+import type { CommandOption, CommandInputOption, LogicalCommandDescriptor, LogicalCommandOverride, LogicalWitness, Operator } from './types';
 
 /** Builds the database-independent semantics used by planning and command resolution. */
 export function describeLogicalCommand(
   option: CommandOption<string, CommandInputOption, any>,
   field: string,
   defaultWitness: LogicalWitness[],
+  operator?: Operator,
 ): LogicalCommandDescriptor {
   const defaults = (() => {
     switch (option.type) {
@@ -75,6 +76,8 @@ export function describeLogicalCommand(
   })();
 
   const logical = option.logical as LogicalCommandOverride | undefined;
+  const operatorSemantics = logical?.operatorSemantics;
+  const operatorOverride = operator == null ? undefined : operatorSemantics?.[operator];
   const modifiers = option.input.modifiers == null
     ? []
     : Array.isArray(option.input.modifiers)
@@ -84,13 +87,15 @@ export function describeLogicalCommand(
   return {
     ...defaults,
     ...logical,
+    ...operatorOverride,
     field:       logical?.field ?? field,
-    witness:     logical?.witness ?? defaultWitness,
-    operators:   [...option.input.operators],
+    witness:     operatorOverride?.witness ?? logical?.witness ?? defaultWitness,
+    operators:   operator == null ? [...option.input.operators] : [operator],
     qualifiers:  [...option.input.qualifiers],
     modifiers,
     pattern:     option.input.pattern ?? null,
     allowsRegex: option.input.regex,
-    expansion:   logical?.expansion ?? [],
+    expansion:   operatorOverride?.expansion ?? logical?.expansion ?? [],
+    ...(operatorSemantics == null ? {} : { operatorSemantics }),
   };
 }

@@ -184,7 +184,13 @@ export const imageStatus = c
 
 export const rarity = c
   .simple
+  .op([':', '~:'])
   .alt('r')
+  .logical({
+    operatorSemantics: {
+      '~:': { witness: ['same-card-entity'] },
+    },
+  })
   .done();
 
 export const date = c

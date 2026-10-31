@@ -49,6 +49,10 @@ export default class Lexer {
     return '-:()&|!>=<#'.includes(char);
   }
 
+  private isRarityExistenceOperator() {
+    return this.curr === '~' && this.peekChar() === ':';
+  }
+
   private isString(char = this.curr) {
     return '\'"'.includes(char);
   }
@@ -61,6 +65,7 @@ export default class Lexer {
     return !this.isWhitespace(char)
       && !this.isString(char)
       && !this.isRegex(char)
+      && !(char === this.curr && this.isRarityExistenceOperator())
       && !this.isPunctuator(char);
   }
 
@@ -95,6 +100,10 @@ export default class Lexer {
 
     if (this.isWhitespace()) {
       return this.parseWhitespace();
+    }
+
+    if (!option.text && this.isRarityExistenceOperator()) {
+      return this.parsePunctuator();
     }
 
     if (this.isPunctuator()) {
@@ -151,6 +160,10 @@ export default class Lexer {
     this.startToken();
 
     switch (this.curr) {
+    case '~':
+      this.nextChar();
+      this.nextChar();
+      break;
     case '!':
       this.nextChar();
 
