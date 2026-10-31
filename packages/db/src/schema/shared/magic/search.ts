@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   index,
   jsonb,
@@ -27,6 +28,10 @@ export const SearchCard = schema.table('search_cards', {
   legalities:    jsonb('legalities').$type<Record<string, string>>().notNull(),
 
   candidatePrintsByLocale: jsonb('candidate_prints_by_locale').$type<MagicSearchCandidatePrints>().notNull(),
+
+  /** Search-only forms derived from active zhs/zht card localizations. */
+  namePinyin:   text('name_pinyin').array().notNull().default(sql`ARRAY[]::text[]`),
+  nameInitials: text('name_initials').array().notNull().default(sql`ARRAY[]::text[]`),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at')

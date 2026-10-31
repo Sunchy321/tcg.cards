@@ -5,9 +5,10 @@ import * as magic from './command';
 
 import { QueryError } from '#search/command/error';
 import { parseAmbitValue } from '#search/server/ambit';
+import { matchValueGroups, splitValueGroups } from '#search/server/command/terms';
 
 import type { Column, SQL } from 'drizzle-orm';
-import { and, arrayContains, asc, desc, eq, gt, gte, inArray, lt, lte, ne, not, notInArray, or, sql } from 'drizzle-orm';
+import { and, arrayContains, asc, desc, eq, gt, gte, ilike, inArray, lt, lte, ne, not, notInArray, or, sql } from 'drizzle-orm';
 
 import { model } from '#model/magic/search';
 import type { Locale } from '#model/magic/schema/basic';
@@ -40,6 +41,38 @@ const cs = create
   .table([CardPrintView, CardEditorView])
   .use({ ...builtin, ...magic });
 
+/** Matches one raw-search term against each full-pinyin or initials value. */
+function pinyinTextMatch(column: Column, value: string, argType: string | undefined) {
+  const matchTerm = (term: string) => {
+    const escaped = term.replace(/%/g, '\\%').replace(/_/g, '\\_');
+    const pattern = `%${escaped}%`;
+
+    return sql`EXISTS (
+      SELECT 1
+      FROM unnest(${column}) AS pinyin(value)
+      WHERE ${ilike(sql`pinyin.value`, pattern)}
+    )`;
+  };
+
+  return argType === 'id'
+    ? matchValueGroups(splitValueGroups(value), matchTerm)
+    : matchTerm(value);
+}
+
+/** Adds card-level pinyin predicates when the active table exposes them. */
+function pinyinColumnMatches(table: unknown, value: string, argType: string | undefined): SQL[] {
+  const pinyinCard = (table as {
+    card?: {
+      namePinyin?:   Column;
+      nameInitials?: Column;
+    };
+  }).card;
+
+  return [pinyinCard?.namePinyin, pinyinCard?.nameInitials]
+    .filter((column): column is Column => column != null)
+    .map(column => pinyinTextMatch(column, value, argType));
+}
+
 export const raw = cs
   .commands.raw
   .handler(({ value, argType }, { table }) => {
@@ -63,6 +96,10 @@ export const raw = cs
         }),
       )!;
     } else {
+      const pinyinMatches = typeof value === 'string'
+        ? pinyinColumnMatches(table, value, argType)
+        : [];
+
       return or(
         builtin.text.call({
           column: table => table.cardPart.name,
@@ -74,6 +111,7 @@ export const raw = cs
           args:   { value, operator: ':', qualifier: [], argType },
           ctx:    { meta: { multiline: false }, table },
         }),
+        ...pinyinMatches,
       )!;
     }
   });

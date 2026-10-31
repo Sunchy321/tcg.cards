@@ -67,6 +67,7 @@ describe('Magic PG accelerated search coverage', () => {
     expect(essentialCardSearchItem.parse(item)).toEqual(item);
     expect(() => essentialCardSearchItem.parse({ ...item, card: {} })).toThrow();
     expect(() => essentialCardSearchItem.parse({ ...item, printSource: 'scryfall' })).toThrow();
+    expect(() => essentialCardSearchItem.parse({ ...item, namePinyin: ['heilianhua'] })).toThrow();
   });
 
   test('accelerates covered card and part filters without manifest metadata', () => {
@@ -126,6 +127,47 @@ describe('Magic PG accelerated search coverage', () => {
 
     expect(adapter.plan(request('px:draw')).type).toBe('original');
     expect(adapter.plan(request('flavor-text:quote')).type).toBe('original');
+  });
+
+  test('matches card pinyin through raw substring search without broadening name commands', () => {
+    /** Compiles a public DSL expression against the accelerated Magic tables. */
+    const compile = (dsl: string) => {
+      const expr = simplify(new Parser(dsl).parse());
+      const { query } = translate(expr, Object.values(commands) as any, {
+        card:                 SearchCard,
+        cardPart:             SearchCardPart,
+        cardPartLocalization: SearchCardPartLocalization,
+      } as any);
+
+      return dialect.sqlToQuery(query!);
+    };
+
+    const raw = compile('jace');
+    expect(adapter.plan(request('jace')).type).toBe('exact');
+    expect(raw.sql).toContain('"magic"."search_cards"."name_pinyin"');
+    expect(raw.sql).toContain('"magic"."search_cards"."name_initials"');
+    expect(raw.sql).toContain('unnest');
+    expect(raw.sql.toLowerCase().match(/ilike/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(raw.params).toContain('%jace%');
+
+    const groupedRaw = compile('jace|jcs');
+    expect(groupedRaw.params).toContain('%jace%');
+    expect(groupedRaw.params).toContain('%jcs%');
+
+    const escapedRaw = compile('"%_"');
+    expect(escapedRaw.params).toContain('%\\%\\_%');
+
+    const regexRaw = compile('/jace/');
+    expect(regexRaw.sql).not.toContain('name_pinyin');
+    expect(regexRaw.sql).not.toContain('name_initials');
+
+    const localizedName = compile('name:jace');
+    expect(localizedName.sql).not.toContain('name_pinyin');
+    expect(localizedName.sql).not.toContain('name_initials');
+
+    const rawDescriptor = adapter.descriptor().commands.find(command => command.field === 'raw');
+    expect(rawDescriptor?.expansion).toContain('card.name-pinyin');
+    expect(rawDescriptor?.expansion).toContain('card.name-initials');
   });
 
   test('keeps the essential adapter on the same exact and original boundaries', () => {

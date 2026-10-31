@@ -11,6 +11,9 @@ import {
   SearchCardPartLocalization,
 } from '@tcg-cards/db/schema/shared/magic/search';
 import type { ProjectDb } from './assemble';
+import { deriveMagicNamePinyin } from './pinyin';
+
+const pinyinBatchSize = 500;
 
 /** Rebuild the local search projection from the completed Magic fact rows. */
 export async function rebuildMagicSearchData(database: ProjectDb): Promise<void> {
@@ -160,8 +163,97 @@ export async function rebuildMagicSearchData(database: ProjectDb): Promise<void>
         rarities = EXCLUDED.rarities,
         legalities = EXCLUDED.legalities,
         candidate_prints_by_locale = EXCLUDED.candidate_prints_by_locale,
+        name_pinyin = ARRAY[]::text[],
+        name_initials = ARRAY[]::text[],
         updated_at = NOW(),
         deleted_at = NULL`);
+
+    const localizedNames = await tx.execute<{
+      cardId:  string;
+      version: string;
+      locale:  'zhs' | 'zht';
+      name:    string;
+    }>(sql`
+      SELECT
+        l.card_id AS "cardId",
+        l.version,
+        l.locale::text AS locale,
+        l.loc_name AS name
+      FROM ${CardLocalization} l
+      JOIN ${Card} c ON c.card_id = l.card_id AND c.version = l.version
+      WHERE l.deleted_at IS NULL
+        AND c.deleted_at IS NULL
+        AND l.locale IN ('zhs'::magic.locale, 'zht'::magic.locale)
+      ORDER BY l.card_id, l.version, l.locale, l.source`);
+
+    const formsByCard = new Map<string, {
+      cardId:       string;
+      version:      string;
+      namePinyin:   Set<string>;
+      nameInitials: Set<string>;
+    }>();
+
+    for (const localizedName of localizedNames) {
+      const key = JSON.stringify([localizedName.cardId, localizedName.version]);
+      let forms = formsByCard.get(key);
+
+      if (forms == null) {
+        forms = {
+          cardId:       localizedName.cardId,
+          version:      localizedName.version,
+          namePinyin:   new Set(),
+          nameInitials: new Set(),
+        };
+        formsByCard.set(key, forms);
+      }
+
+      const derived = deriveMagicNamePinyin(localizedName.name, localizedName.locale);
+      if (derived.full !== '') {
+        forms.namePinyin.add(derived.full);
+      }
+      if (derived.initials !== '') {
+        forms.nameInitials.add(derived.initials);
+      }
+    }
+
+    await tx.execute(sql`
+      UPDATE ${SearchCard}
+      SET name_pinyin = ARRAY[]::text[],
+          name_initials = ARRAY[]::text[]
+      WHERE deleted_at IS NULL`);
+
+    const pinyinRows = [...formsByCard.values()].map(forms => ({
+      cardId:       forms.cardId,
+      version:      forms.version,
+      namePinyin:   [...forms.namePinyin].sort(),
+      nameInitials: [...forms.nameInitials].sort(),
+    }));
+
+    for (let offset = 0; offset < pinyinRows.length; offset += pinyinBatchSize) {
+      const batch = pinyinRows.slice(offset, offset + pinyinBatchSize);
+      const values = sql.join(batch.map(row => sql`(
+        ${row.cardId},
+        ${row.version},
+        ${JSON.stringify(row.namePinyin)}::jsonb,
+        ${JSON.stringify(row.nameInitials)}::jsonb
+      )`), sql`, `);
+
+      await tx.execute(sql`
+        UPDATE ${SearchCard} AS s
+        SET name_pinyin = ARRAY(
+              SELECT value
+              FROM jsonb_array_elements_text(v.name_pinyin) AS pinyin(value)
+            ),
+            name_initials = ARRAY(
+              SELECT value
+              FROM jsonb_array_elements_text(v.name_initials) AS initials(value)
+            ),
+            updated_at = NOW()
+        FROM (VALUES ${values}) AS v(card_id, version, name_pinyin, name_initials)
+        WHERE s.card_id = v.card_id
+          AND s.version = v.version
+          AND s.deleted_at IS NULL`);
+    }
 
     await tx.execute(sql`
       INSERT INTO ${SearchCardPart} (

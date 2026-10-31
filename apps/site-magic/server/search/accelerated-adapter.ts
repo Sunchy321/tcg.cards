@@ -134,6 +134,8 @@ export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, SearchO
             'card-part-localization.name',
             'card-part.text',
             'card-part-localization.text',
+            'card.name-pinyin',
+            'card.name-initials',
           ];
         }
         if (command.options.id === 'hash') {

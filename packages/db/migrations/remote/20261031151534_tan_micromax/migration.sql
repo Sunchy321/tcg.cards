@@ -1,0 +1,2 @@
+ALTER TABLE "magic"."search_cards" ADD COLUMN "name_pinyin" text[] DEFAULT ARRAY[]::text[] NOT NULL;--> statement-breakpoint
+ALTER TABLE "magic"."search_cards" ADD COLUMN "name_initials" text[] DEFAULT ARRAY[]::text[] NOT NULL;
