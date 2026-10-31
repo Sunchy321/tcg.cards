@@ -80,6 +80,7 @@ export const SearchCardPartLocalization = schema.table('search_card_part_localiz
   partIndex: smallint('part_index').notNull(),
 
   name:     text('part_loc_name').notNull(),
+  rubyName: text('ruby_name'),
   typeline: text('part_loc_typeline').notNull(),
   text:     text('part_loc_text').notNull(),
 

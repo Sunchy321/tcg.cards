@@ -3,7 +3,7 @@ import { os } from '@orpc/server';
 import z from 'zod';
 
 import { locale } from '#model/magic/schema/basic';
-import { devSearchResult, searchResult } from '#model/magic/schema/search';
+import { devSearchResult, essentialSearchResult, searchResult } from '#model/magic/schema/search';
 
 import { searchInput } from '#search/schema';
 
@@ -38,6 +38,33 @@ const basic = os
   })
   .callable();
 
+const essential = os
+  .route({
+    method:      'GET',
+    description: 'Search for cards with essential result fields',
+    tags:        ['Magic', 'Search'],
+  })
+  .input(searchInput.extend({
+    lang:    locale.default('en'),
+    groupBy: z.enum(['card', 'print']).default('card'),
+    orderBy: z.string().default('id+'),
+  }))
+  .output(essentialSearchResult)
+  .handler(async ({ input }) => {
+    const { q, page, pageSize, lang, groupBy, orderBy, ambit } = input;
+
+    return search.search('essential', q, {
+      page,
+      pageSize,
+      lang,
+      groupBy,
+      orderBy,
+      dsl: q,
+      ambit,
+    });
+  })
+  .callable();
+
 const dev = os
   .input(searchInput.extend({
     sample:  z.number().min(1).max(100).default(50),
@@ -58,9 +85,11 @@ const dev = os
 
 export const searchTrpc = {
   basic,
+  essential,
   dev,
 };
 
 export const searchApi = {
   '': basic,
+  essential,
 };

@@ -53,7 +53,7 @@
           :number="card.number"
           :lang="imageLang(card)"
           :layout="card.print.layout"
-          :image-type="card.print.imageInfo?.[0]?.type ?? 'webp'"
+          :image-type="card.print.imageType"
           :image-status="card.print.imageStatus"
           :part="card.partIndex"
           class="w-50"
@@ -68,8 +68,7 @@
 </template>
 
 <script setup lang="ts">
-import type { CardPrintView } from '#model/magic/schema/print';
-import type { SearchResult } from '#model/magic/schema/search';
+import type { EssentialCardSearchItem, EssentialSearchResult } from '#model/magic/schema/search';
 
 import { explain as model } from '~/search';
 import { detectAmbit, AMBITS } from '#search/ambit';
@@ -88,7 +87,7 @@ const i18n = useI18n();
 const gameLocale = useGameLocale();
 useTitle(() => i18n.t('magic.$self'));
 
-const data = ref<SearchResult | null>(null);
+const data = ref<EssentialSearchResult | null>(null);
 const searching = ref(false);
 
 // ── Query params ──────────────────────────────────────────────────────────────
@@ -121,7 +120,7 @@ const explained = computed(() => model.explain(q.value ?? '', (key: string, name
   return named != null ? i18n.t(realKey, named) : i18n.t(realKey);
 }));
 
-const cards = computed<CardPrintView[]>(() => (data.value?.result?.result ?? []) as CardPrintView[]);
+const cards = computed<EssentialCardSearchItem[]>(() => data.value?.result?.result ?? []);
 const total = computed(() => data.value?.result?.total ?? 0);
 const pageCount = computed(() => data.value?.result?.totalPage ?? Math.ceil(total.value / pageSize.value));
 
@@ -152,14 +151,14 @@ const errorTexts = computed(() => (data.value?.errors ?? []).map((e: any) => {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const imageLang = (card: CardPrintView): string => {
+const imageLang = (card: EssentialCardSearchItem): string => {
   if (card.print.imageStatus !== 'placeholder') {
     return card.lang;
   }
   return 'en';
 };
 
-const cardLink = (card: CardPrintView) =>
+const cardLink = (card: EssentialCardSearchItem) =>
   `/card/${card.cardId}?set=${card.set}&number=${card.number}&locale=${card.locale}&part=${card.partIndex}`;
 
 const changePage = (newPage: number) => {
@@ -179,7 +178,7 @@ const doSearch = async () => {
   searching.value = true;
 
   try {
-    const value = await ($orpc as any).magic.search.basic({
+    const value = await ($orpc as any).magic.search.essential({
       q:        q.value,
       lang:     gameLocale.value,
       page:     page.value,

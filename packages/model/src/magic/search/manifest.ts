@@ -1,4 +1,5 @@
-import type { Locale } from '../schema/basic';
+import type { ImageType, Layout, Locale } from '../schema/basic';
+import type { ImageStatus } from '../schema/print';
 
 export interface MagicSearchCandidatePrint {
   set:         string;
@@ -6,6 +7,9 @@ export interface MagicSearchCandidatePrint {
   lang:        Locale;
   source:      string;
   releaseDate: string;
+  layout:      Layout;
+  imageType:   ImageType;
+  imageStatus: ImageStatus;
 }
 
 export type MagicSearchCandidatePrints = Partial<Record<Locale, MagicSearchCandidatePrint>>;

@@ -33,7 +33,10 @@ export async function rebuildMagicSearchData(database: ProjectDb): Promise<void>
           p.set,
           p.number,
           p.source,
-          p.release_date
+          p.release_date,
+          p.layout,
+          p.image_status,
+          COALESCE(p.image_info -> 0 ->> 'type', 'webp') AS image_type
         FROM ${Print} p
         JOIN ${Card} c ON c.card_id = p.card_id AND c.version = p.version
         WHERE p.deleted_at IS NULL AND c.deleted_at IS NULL
@@ -53,7 +56,10 @@ export async function rebuildMagicSearchData(database: ProjectDb): Promise<void>
           p.number,
           p.lang,
           p.source,
-          p.release_date
+          p.release_date,
+          p.layout,
+          p.image_status,
+          p.image_type
         FROM latest_prints p
         WHERE p.lang <> 'en'
         ORDER BY
@@ -73,7 +79,10 @@ export async function rebuildMagicSearchData(database: ProjectDb): Promise<void>
           COALESCE(requested.number, english.number, other.number) AS number,
           COALESCE(requested.lang, english.lang, other.lang) AS lang,
           COALESCE(requested.source, english.source, other.source) AS source,
-          COALESCE(requested.release_date, english.release_date, other.release_date) AS release_date
+          COALESCE(requested.release_date, english.release_date, other.release_date) AS release_date,
+          COALESCE(requested.layout, english.layout, other.layout) AS layout,
+          COALESCE(requested.image_status, english.image_status, other.image_status) AS image_status,
+          COALESCE(requested.image_type, english.image_type, other.image_type, 'webp') AS image_type
         FROM ${Card} c
         CROSS JOIN supported
         LEFT JOIN latest_prints requested
@@ -103,7 +112,10 @@ export async function rebuildMagicSearchData(database: ProjectDb): Promise<void>
                 'number', number,
                 'lang', lang::text,
                 'source', source,
-                'releaseDate', release_date
+                'releaseDate', release_date,
+                'layout', layout,
+                'imageType', image_type,
+                'imageStatus', image_status
               )
             ) FILTER (WHERE set IS NOT NULL),
             '{}'::jsonb
@@ -190,7 +202,7 @@ export async function rebuildMagicSearchData(database: ProjectDb): Promise<void>
     await tx.execute(sql`
       INSERT INTO ${SearchCardPartLocalization} (
         card_id, version, locale, source, part_index,
-        part_loc_name, part_loc_typeline, part_loc_text, updated_at, deleted_at
+        part_loc_name, ruby_name, part_loc_typeline, part_loc_text, updated_at, deleted_at
       )
       SELECT
         pl.card_id,
@@ -199,6 +211,7 @@ export async function rebuildMagicSearchData(database: ProjectDb): Promise<void>
         pl.source,
         pl.part_index,
         pl.part_loc_name,
+        pl.ruby_part_loc_name,
         pl.part_loc_typeline,
         pl.part_loc_text,
         NOW(),
@@ -220,6 +233,7 @@ export async function rebuildMagicSearchData(database: ProjectDb): Promise<void>
         AND c.deleted_at IS NULL
       ON CONFLICT (card_id, version, locale, source, part_index) DO UPDATE SET
         part_loc_name = EXCLUDED.part_loc_name,
+        ruby_name = EXCLUDED.ruby_name,
         part_loc_typeline = EXCLUDED.part_loc_typeline,
         part_loc_text = EXCLUDED.part_loc_text,
         updated_at = NOW(),

@@ -1,0 +1,1 @@
+ALTER TABLE "magic"."search_card_part_localizations" ADD COLUMN "ruby_name" text;

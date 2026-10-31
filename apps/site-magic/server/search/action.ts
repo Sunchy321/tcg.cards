@@ -13,7 +13,7 @@ import type { Ambit } from '#search/ambit';
 import { ambitCeiling, searchWithAmbitCeiling } from '#search/server/ambit';
 
 import { order } from './command-list';
-import { magicPgSearchAdapter } from './accelerated-adapter';
+import { magicPgEssentialSearchAdapter, magicPgSearchAdapter } from './accelerated-adapter';
 
 const as = create;
 
@@ -108,6 +108,35 @@ export const search = as
       ambit:  landing,
     };
   }, { acceleratedAdapter: magicPgSearchAdapter });
+
+export const essential = as
+  .table(CardPrintView)
+  .handler(async (query, post, options: SearchOption) => {
+    const result = await search.handler(query, post, options);
+
+    return {
+      ...result,
+      result: result.result.map(row => ({
+        cardId:               row.cardId,
+        version:              row.version,
+        locale:               row.locale,
+        source:               row.source,
+        set:                  row.set,
+        number:               row.number,
+        lang:                 row.lang,
+        partIndex:            row.partIndex,
+        cardPartLocalization: {
+          name:     row.cardPartLocalization.name,
+          rubyName: row.cardPartLocalization.rubyName ?? null,
+        },
+        print: {
+          layout:      row.print.layout,
+          imageType:   row.print.imageInfo?.[0]?.type ?? 'webp',
+          imageStatus: row.print.imageStatus,
+        },
+      })),
+    };
+  }, { acceleratedAdapter: magicPgEssentialSearchAdapter });
 
 type DevSearchOption = {
   pageSize: number;

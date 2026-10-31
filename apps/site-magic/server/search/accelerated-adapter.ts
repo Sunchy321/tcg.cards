@@ -3,7 +3,7 @@ import { omit } from 'lodash-es';
 
 import type { MagicSearchManifest, MagicSearchCandidatePrint } from '@tcg-cards/model/magic/search/manifest';
 import type { Locale } from '@tcg-cards/model/magic/schema/basic';
-import type { NormalResult } from '@tcg-cards/model/magic/schema/search';
+import type { EssentialCardSearchItem, EssentialNormalResult, NormalResult } from '@tcg-cards/model/magic/schema/search';
 import { Card, CardLocalization, CardPart, CardPartLocalization } from '@tcg-cards/db/schema/shared/magic/card';
 import { Print, PrintPart } from '@tcg-cards/db/schema/shared/magic/print';
 import { SearchCard, SearchCardPart, SearchCardPartLocalization } from '@tcg-cards/db/schema/shared/magic/search';
@@ -35,6 +35,8 @@ type Candidate = {
   partIndex:          number;
   locale:             Locale;
   localizationSource: string;
+  name:               string;
+  rubyName:           string | null;
   print:              MagicSearchCandidatePrint;
 };
 
@@ -163,6 +165,63 @@ export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, SearchO
   }
 
   async execute(request: QueryRequest, options: SearchOptions): Promise<NormalResult> {
+    const startedAt = performance.now();
+    const query = this.compileFilter(request);
+    const { landing, result } = await this.searchCandidates(query, options);
+
+    const details = await loadCandidateDetails(result.candidates, options.lang);
+    const detailsByCardId = new Map(details.map(row => [row.cardId, row]));
+    const rows = result.candidates.map(candidate => detailsByCardId.get(candidate.cardId));
+
+    if (rows.some(row => row == null)) {
+      throw new Error('A Magic search candidate has no matching detail row.');
+    }
+
+    return {
+      result:    rows as NonNullable<(typeof rows)[number]>[],
+      total:     result.total,
+      page:      options.page,
+      totalPage: Math.ceil(result.total / options.pageSize),
+      elapsed:   Math.round(performance.now() - startedAt),
+      ambit:     landing,
+    };
+  }
+
+  async executeEssential(request: QueryRequest, options: SearchOptions): Promise<EssentialNormalResult> {
+    const startedAt = performance.now();
+    const query = this.compileFilter(request);
+    const { landing, result } = await this.searchCandidates(query, options);
+    const rows: EssentialCardSearchItem[] = result.candidates.map(candidate => ({
+      cardId:               candidate.cardId,
+      version:              candidate.version,
+      locale:               candidate.locale,
+      source:               candidate.localizationSource,
+      set:                  candidate.print.set,
+      number:               candidate.print.number,
+      lang:                 candidate.print.lang,
+      partIndex:            candidate.partIndex,
+      cardPartLocalization: {
+        name:     candidate.name,
+        rubyName: candidate.rubyName,
+      },
+      print: {
+        layout:      candidate.print.layout,
+        imageType:   candidate.print.imageType,
+        imageStatus: candidate.print.imageStatus,
+      },
+    }));
+
+    return {
+      result:    rows,
+      total:     result.total,
+      page:      options.page,
+      totalPage: Math.ceil(result.total / options.pageSize),
+      elapsed:   Math.round(performance.now() - startedAt),
+      ambit:     landing,
+    };
+  }
+
+  private compileFilter(request: QueryRequest) {
     const manifest = getMagicSearchManifest();
     if (this.plan(request).type !== 'exact') {
       throw new Error('The Magic accelerated search plan is no longer exact.');
@@ -185,31 +244,17 @@ export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, SearchO
       throw new Error('A fully covered Magic accelerated request must compile to a filter only.');
     }
 
-    const startedAt = performance.now();
+    return compiled.query;
+  }
+
+  private async searchCandidates(query: import('drizzle-orm').SQL, options: SearchOptions) {
     const { explicit, pinned } = detectAmbit(options.dsl);
-    const { landing, result } = await searchWithAmbitCeiling({
+    return searchWithAmbitCeiling({
       pinned,
       explicit,
       start: options.ambit,
-      run:   ceiling => this.queryCandidates(compiled.query!, options, ceiling),
+      run:   ceiling => this.queryCandidates(query, options, ceiling),
     });
-
-    const details = await loadCandidateDetails(result.candidates, options.lang);
-    const detailsByCardId = new Map(details.map(row => [row.cardId, row]));
-    const rows = result.candidates.map(candidate => detailsByCardId.get(candidate.cardId));
-
-    if (rows.some(row => row == null)) {
-      throw new Error('A Magic search candidate has no matching detail row.');
-    }
-
-    return {
-      result:    rows as NonNullable<(typeof rows)[number]>[],
-      total:     result.total,
-      page:      options.page,
-      totalPage: Math.ceil(result.total / options.pageSize),
-      elapsed:   Math.round(performance.now() - startedAt),
-      ambit:     landing,
-    };
   }
 
   private async queryCandidates(query: import('drizzle-orm').SQL, options: SearchOptions, ceiling: Ambit | null): Promise<ProjectedPage> {
@@ -227,6 +272,8 @@ export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, SearchO
       partIndex:          SearchCardPart.partIndex,
       locale:             SearchCardPartLocalization.locale,
       localizationSource: SearchCardPartLocalization.source,
+      name:               sql<string>`${SearchCardPartLocalization.name}`.as('localization_name'),
+      rubyName:           sql<string | null>`${SearchCardPartLocalization.rubyName}`.as('localization_ruby_name'),
       candidate:          candidateJson.as('candidate'),
       ambit:              SearchCard.ambit,
       manaValue:          SearchCard.manaValue,
@@ -278,6 +325,8 @@ export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, SearchO
               'partIndex', page.part_index,
               'locale', page.locale,
               'localizationSource', page.source,
+              'name', page.localization_name,
+              'rubyName', page.localization_ruby_name,
               'print', page.candidate
             ) ORDER BY page.position
           ) FILTER (WHERE page.card_id IS NOT NULL),
@@ -296,6 +345,23 @@ export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, SearchO
 
 /** The ticket 13 loader will provide a version-matched manifest when available. */
 export const magicPgSearchAdapter = new MagicPgSearchAdapter();
+export class MagicPgEssentialSearchAdapter implements SearchAdapter<EssentialNormalResult, SearchOptions> {
+  constructor(private readonly fullAdapter = new MagicPgSearchAdapter()) {}
+
+  descriptor(): DatasetDescriptor {
+    return this.fullAdapter.descriptor();
+  }
+
+  plan(request: QueryRequest): CoveragePlan {
+    return this.fullAdapter.plan(request);
+  }
+
+  execute(request: QueryRequest, options: SearchOptions): Promise<EssentialNormalResult> {
+    return this.fullAdapter.executeEssential(request, options);
+  }
+}
+
+export const magicPgEssentialSearchAdapter = new MagicPgEssentialSearchAdapter(magicPgSearchAdapter);
 
 function findCoverageGap(request: QueryRequest, manifest: MagicSearchManifest | null): CapabilityGap | null {
   const filterGap = request.filter == null ? null : findNodeGap(request.filter, manifest);

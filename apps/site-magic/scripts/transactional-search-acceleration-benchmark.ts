@@ -29,6 +29,7 @@ const cases = [
   { id: 'pagination-first', q: 't:creature', page: 1 },
   { id: 'pagination-deep', q: 't:creature', page: 100 },
   { id: 'pagination-empty', q: 'n:"Black Lotus"', page: 2 },
+  { id: 'set-fallback', q: 'set:lea', page: 1 },
   { id: 'hard-regex', q: 'o:/draw.{0,24}card/', page: 1 },
   {
     id:                     'localized-name',
@@ -39,15 +40,15 @@ const cases = [
 ] as const;
 
 const secondaryIndexSql = [
-  'CREATE INDEX "search_cards_mana_value_idx" ON "magic"."search_cards" ("mana_value")',
-  'CREATE INDEX "search_cards_tags_gin_idx" ON "magic"."search_cards" USING gin ("tags")',
+  'CREATE INDEX IF NOT EXISTS "search_cards_mana_value_idx" ON "magic"."search_cards" ("mana_value")',
+  'CREATE INDEX IF NOT EXISTS "search_cards_tags_gin_idx" ON "magic"."search_cards" USING gin ("tags")',
 ] as const;
 
 const pageSize = 20;
 const language = 'en' as const;
 const rollback = new Error('ROLLBACK_TRANSACTIONAL_SEARCH_BENCHMARK');
 const sqlObservations: Array<{ caseId: string, path: string, sql: string, params: unknown[] }> = [];
-let activeContext: { caseId: string, path: 'legacy-pg' | 'search-action' } | null = null;
+let activeContext: { caseId: string, path: 'legacy-pg' | 'search-action' | 'essential-search-action' } | null = null;
 
 function quote(value: string) {
   return `"${value.replaceAll('"', '""')}"`;
@@ -93,6 +94,56 @@ function cardIdentity(normal: any) {
     ambit:     normal.ambit,
     rows:      normal.result.map((row: any) => [row.cardId, row.version]),
   };
+}
+
+function essentialDisplayRows(normal: any) {
+  return normal.result.map((row: any) => [
+    row.cardId,
+    row.version,
+    row.locale,
+    row.source,
+    row.partIndex,
+    row.lang,
+    row.set,
+    row.number,
+    row.cardPartLocalization.name,
+    row.cardPartLocalization.rubyName ?? null,
+    row.print.layout,
+    row.print.imageType,
+    row.print.imageStatus,
+  ]);
+}
+
+function fullDisplayRows(normal: any) {
+  return normal.result.map((row: any) => [
+    row.cardId,
+    row.version,
+    row.locale,
+    row.source,
+    row.partIndex,
+    row.lang,
+    row.set,
+    row.number,
+    row.cardPartLocalization.name,
+    row.cardPartLocalization.rubyName ?? null,
+    row.print.layout,
+    row.print.imageInfo?.[0]?.type ?? 'webp',
+    row.print.imageStatus,
+  ]);
+}
+
+function essentialSourceReads(statements: typeof sqlObservations) {
+  const sourceTables = [
+    '"magic"."cards"',
+    '"magic"."card_localizations"',
+    '"magic"."card_parts"',
+    '"magic"."card_part_localizations"',
+    '"magic"."prints"',
+    '"magic"."print_parts"',
+    '"magic"."card_print_view"',
+  ];
+
+  return statements.filter(statement => sourceTables.some(table => statement.sql.includes(table)));
 }
 
 function representativeDifferences(legacy: any, accelerated: any) {
@@ -168,8 +219,38 @@ try {
     if (previousReport != null) sqlObservations.push(...previousReport.sqlObservations);
     await database.transaction(async transaction => {
       try {
-        for (const table of [SearchCard, SearchCardPart, SearchCardPartLocalization]) {
-          await transaction.execute(sql.raw(createTableSql(table)));
+        const existingTables = (await transaction.execute(sql`
+          SELECT
+            to_regclass('magic.search_cards') AS search_cards,
+            to_regclass('magic.search_card_parts') AS search_card_parts,
+            to_regclass('magic.search_card_part_localizations') AS search_card_part_localizations`)) as any[];
+        const tableFlags = Object.values(existingTables[0] ?? {}).map(value => value != null);
+
+        if (tableFlags.every(exists => !exists)) {
+          for (const table of [SearchCard, SearchCardPart, SearchCardPartLocalization]) {
+            await transaction.execute(sql.raw(createTableSql(table)));
+          }
+        } else if (tableFlags.every(Boolean)) {
+          const existingCounts = (await transaction.execute(sql`
+            SELECT
+              (SELECT count(*) FROM ${SearchCard})::int AS cards,
+              (SELECT count(*) FROM ${SearchCardPart})::int AS parts,
+              (SELECT count(*) FROM ${SearchCardPartLocalization})::int AS localizations`)) as any[];
+          const counts = Object.values(existingCounts[0] ?? {}).map(Number);
+          if (counts.some(count => count !== 0)) {
+            throw new Error(`Refusing to rebuild non-empty search tables: ${JSON.stringify(existingCounts[0])}`);
+          }
+
+          const localizationColumns = (await transaction.execute(sql`
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'magic'
+              AND table_name = 'search_card_part_localizations'`)) as Array<{ column_name: string }>;
+          if (!localizationColumns.some(column => column.column_name === 'ruby_name')) {
+            await transaction.execute(sql.raw('ALTER TABLE "magic"."search_card_part_localizations" ADD COLUMN "ruby_name" text'));
+          }
+        } else {
+          throw new Error('Refusing to benchmark with only some Magic search tables present.');
         }
         for (const statement of secondaryIndexSql) await transaction.execute(sql.raw(statement));
 
@@ -222,14 +303,39 @@ try {
           const actionIdentity = identity(action.result);
           const legacyCardIdentity = cardIdentity(legacy);
           const actionCardIdentity = cardIdentity(action.result);
+          const accelerationPlan = planFor(benchmarkCase);
           if (JSON.stringify(legacyCardIdentity) !== JSON.stringify(actionCardIdentity)) {
             throw new Error(`${benchmarkCase.id}: card result mismatch: legacy=${JSON.stringify(legacyCardIdentity)} action=${JSON.stringify(actionCardIdentity)}`);
           }
           const representativeDiffs = representativeDifferences(legacy, action.result);
 
+          activeContext = { caseId: benchmarkCase.id, path: 'essential-search-action' };
+          const essentialStartedAt = performance.now();
+          const essentialAction = await runWithDb(transaction as any, () => search.search('essential', benchmarkCase.q, options));
+          const essentialMs = performance.now() - essentialStartedAt;
+          activeContext = null;
+          if (essentialAction.errors.length > 0 || essentialAction.result == null) {
+            throw new Error(`${benchmarkCase.id}: essential search action failed: ${JSON.stringify(essentialAction.errors)}`);
+          }
+
+          if (JSON.stringify(identity(action.result)) !== JSON.stringify(identity(essentialAction.result))) {
+            throw new Error(`${benchmarkCase.id}: essential result identity/order/page mismatch`);
+          }
+          if (JSON.stringify(fullDisplayRows(action.result)) !== JSON.stringify(essentialDisplayRows(essentialAction.result))) {
+            throw new Error(`${benchmarkCase.id}: essential display projection mismatch`);
+          }
+
+          const essentialStatements = sqlObservations.filter(row => row.caseId === benchmarkCase.id && row.path === 'essential-search-action');
+          const sourceReads = essentialSourceReads(essentialStatements);
+          if (accelerationPlan.type === 'exact' && sourceReads.length > 0) {
+            throw new Error(`${benchmarkCase.id}: essential exact path read source tables: ${JSON.stringify(sourceReads.map(row => row.sql))}`);
+          }
+          const basicPayloadBytes = new TextEncoder().encode(JSON.stringify(action)).byteLength;
+          const essentialPayloadBytes = new TextEncoder().encode(JSON.stringify(essentialAction)).byteLength;
+
           results.push({
             caseId:                           benchmarkCase.id,
-            accelerationPlan:                 planFor(benchmarkCase),
+            accelerationPlan,
             cardIdentity:                     legacyCardIdentity,
             legacyRepresentative:             legacyIdentity.rows,
             acceleratedRepresentative:        actionIdentity.rows,
@@ -237,9 +343,13 @@ try {
             representativeDifferenceExamples: representativeDiffs.slice(0, 3),
             legacyPg:                         { elapsedMs: legacyMs, actionElapsedMs: legacy.elapsed },
             searchAction:                     { elapsedMs: acceleratedMs, actionElapsedMs: action.result.elapsed },
+            essentialSearchAction:            { elapsedMs: essentialMs, actionElapsedMs: essentialAction.result.elapsed },
+            responseBytes:                    { basic: basicPayloadBytes, essential: essentialPayloadBytes },
+            essentialSourceReads:             sourceReads.length,
             sqlCounts:                        {
-              legacyPg:     sqlObservations.filter(row => row.caseId === benchmarkCase.id && row.path === 'legacy-pg').length,
-              searchAction: sqlObservations.filter(row => row.caseId === benchmarkCase.id && row.path === 'search-action').length,
+              legacyPg:              sqlObservations.filter(row => row.caseId === benchmarkCase.id && row.path === 'legacy-pg').length,
+              searchAction:          sqlObservations.filter(row => row.caseId === benchmarkCase.id && row.path === 'search-action').length,
+              essentialSearchAction: essentialStatements.length,
             },
           });
         }
@@ -285,7 +395,7 @@ try {
           representativeComparison:        'reported separately; the legacy DISTINCT ON ordering omits CardLocalization locale/source tie-breakers, so its representative detail row can be arbitrary among language-priority ties',
           cases:                           results,
           sqlObservations,
-          rollback:                        'all search tables and projection rows are inside a transaction that is deliberately rolled back',
+          rollback:                        'all DDL, indexes, and projection rows added by this run are inside a transaction that is deliberately rolled back; pre-existing tables are preserved',
         };
 
         await Bun.write(outputPath, JSON.stringify(report, (_key, value) => typeof value === 'bigint' ? value.toString() : value, 2));

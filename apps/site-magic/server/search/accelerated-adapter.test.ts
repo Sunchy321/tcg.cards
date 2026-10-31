@@ -7,11 +7,13 @@ import { resolveQueryRequest } from '#search/server/logical';
 import { translate } from '#search/server/translate';
 
 import type { MagicSearchManifest } from '@tcg-cards/model/magic/search/manifest';
+import { essentialCardSearchItem } from '@tcg-cards/model/magic/schema/search';
 import { SearchCard, SearchCardPart, SearchCardPartLocalization } from '@tcg-cards/db/schema/shared/magic/search';
 import * as commands from './command-list';
-import { MagicPgSearchAdapter, setMagicSearchManifest } from './accelerated-adapter';
+import { MagicPgEssentialSearchAdapter, MagicPgSearchAdapter, setMagicSearchManifest } from './accelerated-adapter';
 
 const adapter = new MagicPgSearchAdapter();
+const essentialAdapter = new MagicPgEssentialSearchAdapter();
 const dialect = new PgDialect();
 
 function request(q: string, options: { group?: string, orderBy?: string } = {}) {
@@ -41,6 +43,32 @@ const manifest: MagicSearchManifest = {
 afterEach(() => setMagicSearchManifest(null));
 
 describe('Magic PG accelerated search coverage', () => {
+  test('validates only the essential list payload and its candidate identity', () => {
+    const item = {
+      cardId:               'blacker-lotus',
+      version:              '',
+      locale:               'zhs',
+      source:               'mtgch',
+      set:                  'lea',
+      number:               '232',
+      lang:                 'en',
+      partIndex:            0,
+      cardPartLocalization: {
+        name:     '黑莲花',
+        rubyName: null,
+      },
+      print: {
+        layout:      'normal',
+        imageType:   'webp',
+        imageStatus: 'highres_scan',
+      },
+    } as const;
+
+    expect(essentialCardSearchItem.parse(item)).toEqual(item);
+    expect(() => essentialCardSearchItem.parse({ ...item, card: {} })).toThrow();
+    expect(() => essentialCardSearchItem.parse({ ...item, printSource: 'scryfall' })).toThrow();
+  });
+
   test('accelerates covered card and part filters without manifest metadata', () => {
     expect(adapter.plan(request('mv>=3')).type).toBe('exact');
     expect(adapter.plan(request('loyalty:3 hand-modifier>=1')).type).toBe('exact');
@@ -52,6 +80,17 @@ describe('Magic PG accelerated search coverage', () => {
     expect(fields).not.toContain('cost');
     expect(fields).not.toContain('hash');
     expect(fields).not.toContain('type');
+  });
+
+  test('keeps the essential adapter on the same exact and original boundaries', () => {
+    expect(essentialAdapter.plan(request('mv>=3')).type).toBe('exact');
+    expect(essentialAdapter.plan(request('name:lotus')).type).toBe('exact');
+    expect(essentialAdapter.plan(request('cost:{W}')).type).toBe('original');
+    expect(essentialAdapter.plan(request('mv:3', { group: 'print' })).type).toBe('original');
+
+    setMagicSearchManifest(manifest);
+    expect(essentialAdapter.plan(request('#dev:card')).type).toBe('exact');
+    expect(essentialAdapter.plan(request('#dev:print')).type).toBe('original');
   });
 
   test('keeps cost searches on the original PG path until its projection is designed', () => {
