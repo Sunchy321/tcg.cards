@@ -82,6 +82,52 @@ describe('Magic PG accelerated search coverage', () => {
     expect(fields).not.toContain('type');
   });
 
+  test('keeps accelerated body fields separate and preserves literal text operators', () => {
+    /** Compiles a public DSL expression against the accelerated Magic tables. */
+    const compile = (dsl: string) => {
+      const expr = simplify(new Parser(dsl).parse());
+      const { query } = translate(expr, Object.values(commands) as any, {
+        card:                 SearchCard,
+        cardPart:             SearchCardPart,
+        cardPartLocalization: SearchCardPartLocalization,
+      } as any);
+
+      return dialect.sqlToQuery(query!);
+    };
+
+    const contains = compile('x:"draw a card"');
+    expect(adapter.plan(request('x:"draw a card"')).type).toBe('exact');
+    expect(contains.sql).toContain('"magic"."search_card_parts"."part_text"');
+    expect(contains.sql).toContain('"magic"."search_card_part_localizations"."part_loc_text"');
+    expect(contains.sql.toLowerCase().match(/ilike/g)).toHaveLength(2);
+    expect(contains.sql).not.toContain(' || ');
+    expect(contains.params).toContain('%draw a card%');
+
+    const exact = compile('x="T07%_literal"');
+    expect(exact.params).toContain('T07\\%\\_literal');
+
+    const short = compile('x:of');
+    expect(adapter.plan(request('x:of')).type).toBe('exact');
+    expect(short.params).toContain('%of%');
+
+    const multiline = compile(`x:"alpha\nbeta"`);
+    expect(multiline.params).toContain('%alpha\nbeta%');
+
+    const localized = compile('lx:造成伤害');
+    expect(localized.sql).toContain('"magic"."search_card_part_localizations"."part_loc_text"');
+    expect(localized.sql).not.toContain('"magic"."search_card_parts"."part_text"');
+    expect(localized.params).toContain('%造成伤害%');
+
+    const bare = compile('draw');
+    expect(bare.sql).toContain('"magic"."search_card_parts"."part_name"');
+    expect(bare.sql).toContain('"magic"."search_card_part_localizations"."part_loc_name"');
+    expect(bare.sql).not.toContain('"magic"."search_card_parts"."part_text"');
+    expect(bare.sql).not.toContain('"magic"."search_card_part_localizations"."part_loc_text"');
+
+    expect(adapter.plan(request('px:draw')).type).toBe('original');
+    expect(adapter.plan(request('flavor-text:quote')).type).toBe('original');
+  });
+
   test('keeps the essential adapter on the same exact and original boundaries', () => {
     expect(essentialAdapter.plan(request('mv>=3')).type).toBe('exact');
     expect(essentialAdapter.plan(request('name:lotus')).type).toBe('exact');

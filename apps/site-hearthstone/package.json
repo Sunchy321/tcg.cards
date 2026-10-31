@@ -16,6 +16,7 @@
     "lint": "eslint .",
     "typecheck": "nuxt typecheck",
     "benchmark:search:pg": "bun --env-file=../../scripts/.env scripts/pg-search-benchmark.ts",
+    "benchmark:search:text-index": "bun --env-file=../../scripts/.env scripts/pg-text-index-benchmark.ts",
     "deploy": "wrangler deploy",
     "benchmark:search:essential": "bun --env-file=../../scripts/.env scripts/essential-search-benchmark.ts"
   },

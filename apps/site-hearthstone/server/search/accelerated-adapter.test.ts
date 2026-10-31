@@ -91,6 +91,39 @@ describe('Hearthstone essential acceleration', () => {
     expect(query.sql).not.toMatch(/latest_card_entity_view|entity_localizations|revision_hash|localization_hash|display_text/);
   });
 
+  test('keeps plain text matching separate from the bare name-or-text expansion', () => {
+    /** Compiles one public DSL expression against the Hearthstone search projection. */
+    const compile = (dsl: string) => dialect.sqlToQuery(adapter.compile(request(dsl), {
+      dsl,
+      lang:     'en',
+      page:     1,
+      pageSize: 20,
+      orderBy:  'name+',
+    }));
+
+    const text = compile('text:"deal 3 damage"');
+    expect(text.sql).toContain('"hearthstone"."search_card_localizations"."text"');
+    expect(text.sql).not.toContain('display_text');
+    expect(text.sql).not.toContain(' || ');
+    expect(text.params).toContain('%deal 3 damage%');
+
+    const exact = compile('text="T07%_literal"');
+    expect(exact.params).toContain('T07\\%\\_literal');
+
+    const short = compile('text:of');
+    expect(adapter.plan(request('text:of'))).toEqual({ type: 'exact' });
+    expect(short.params).toContain('%of%');
+
+    const multiline = compile(`text:"alpha\nbeta"`);
+    expect(multiline.params).toContain('%alpha\nbeta%');
+
+    const bare = compile('T07BodyToken');
+    expect(bare.sql).toContain('"hearthstone"."search_card_localizations"."name"');
+    expect(bare.sql).toContain('"hearthstone"."search_card_localizations"."text"');
+    expect(bare.sql.toLowerCase()).toContain(' or ');
+    expect(bare.sql).not.toContain(' || ');
+  });
+
   test('detects parsed language aliases without matching literal text', () => {
     expect(hasLanguageCommand('l:en')).toBe(true);
     expect(hasLanguageCommand('lang:en OR lang:zhs')).toBe(true);
