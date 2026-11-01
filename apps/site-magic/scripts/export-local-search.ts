@@ -2,7 +2,7 @@ import { mkdir, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { Database } from 'bun:sqlite';
 import postgres from 'postgres';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { eq, isNull } from 'drizzle-orm';
 import { drizzle as drizzlePostgres } from 'drizzle-orm/postgres-js';
 
 import {
@@ -186,11 +186,11 @@ async function main(): Promise<void> {
           .orderBy(SourceSearchCard.cardId, SourceSearchCard.version);
         const parts = await tx.select().from(SourceSearchCardPart).where(isNull(SourceSearchCardPart.deletedAt))
           .orderBy(SourceSearchCardPart.cardId, SourceSearchCardPart.version, SourceSearchCardPart.partIndex);
+        // The projection fingerprint must cover every localization so it can
+        // match the publication row regardless of the exported locale subset;
+        // locale packages filter their own rows when they are written.
         const localizations = await tx.select().from(SourceSearchCardPartLocalization)
-          .where(and(
-            isNull(SourceSearchCardPartLocalization.deletedAt),
-            inArray(SourceSearchCardPartLocalization.locale, locales as LocaleCode[]),
-          ))
+          .where(isNull(SourceSearchCardPartLocalization.deletedAt))
           .orderBy(
             SourceSearchCardPartLocalization.cardId,
             SourceSearchCardPartLocalization.version,

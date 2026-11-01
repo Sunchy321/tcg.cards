@@ -227,6 +227,16 @@ The shared text query language for card search (`cost>=3 class:mage`, `text:战�
 ### Magic type multi-value query (万智牌类别多值查询)
 Magic's `t:`, `ot:`, `lt:`, and `pt:` commands accept unquoted lists. In positive values, `,` and `&` combine required terms, while `|` combines alternatives, with the same AND/OR meanings as operators between commands. Quoted and regular-expression values remain literal. Exact-match lists (`=`) select alternatives. Negation applies to the list as a whole; comma lists mean none of the listed terms, while `&` keeps its all-terms meaning before negation. Mixing AND-style separators with `|`, or leaving an empty list item, is an error.
 
+### search projection (搜索投影)
+A per-game set of read-optimized tables derived from the game's own domain data for accelerated search (`{game}.search_*`), rebuilt from the facts by the desktop build authority and published as one activation unit with its routing reference data. It is domain data, never user data: it depends only on `{game}` tables and holds nothing the domain tables do not already imply.
+
+### coverage plan (覆盖计划)
+The static, database-free classification of one search request against a backend's declared capabilities: `exact` (the backend alone decides results, order, total, and ambit landing), `candidate` (the backend narrows a safe superset that the original path verifies before paging, counting, or widening ambit), or `original` (the unchanged original path runs the whole request). Classification follows capability, never boolean complexity; an unsupported feature anywhere sends the whole request to `original`.
+
+### original search path (原始搜索路径)
+Each game's domain-table PostgreSQL search that existed before acceleration. It is kept permanently as the fallback behind every accelerated or local backend and never changes because a planner exists; any request that is unsupported, unverified, or whose data version does not match lands here.
+_Avoid_: legacy path (it is not scheduled for removal)
+
 ## Card Ambit (收录范围)
 
 ### card ambit (收录范围)

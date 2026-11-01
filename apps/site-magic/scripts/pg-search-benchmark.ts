@@ -11,6 +11,7 @@ import { resolveQueryRequest } from '#search/server/logical';
 import { translateLegacy } from '#search/server/translate';
 
 import { search } from '../server/search/index.ts';
+import { refreshMagicSearchManifest } from '../server/search/accelerated-adapter';
 import * as magicCommands from '../server/search/command-list';
 
 // Bun's fetch honors HTTP(S)_PROXY from the environment, which would route the
@@ -29,6 +30,17 @@ const SKIP_API = process.env.BENCH_SKIP_API === '1';
 const EXPLAIN_LIMIT = Number(process.env.BENCH_EXPLAIN_LIMIT ?? 0);
 const SEED = 0x5eed;
 const PAGE_SIZE = 20;
+
+// The original-path wide sorts spill multi-GB temp files under the default 4MB
+// work_mem and the local container no longer has that disk; the user approved a
+// session-level override for this run so both compared paths run spill-free.
+const WORK_MEM = process.env.BENCH_WORK_MEM ?? '1GB';
+
+/** Appends a session work_mem startup option to a PostgreSQL connection URL. */
+function withWorkMem(databaseUrl: string): string {
+  const separator = databaseUrl.includes('?') ? '&' : '?';
+  return `${databaseUrl}${separator}options=${encodeURIComponent(`-c work_mem=${WORK_MEM}`)}`;
+}
 
 // The configured magic site dev port (nuxt.config devServer); the benchmark
 // measures the public RPC on that port and never picks another one.
@@ -150,7 +162,7 @@ function instrumentQuery<T extends object>(query: T, statement: string, params: 
 
 /** Creates an isolated database client for preflight SQL capture. */
 function createInstrumentedDb(databaseUrl: string) {
-  const client = postgres(databaseUrl, { max: 1, application_name: 'search-acceleration-benchmark-magic' });
+  const client = postgres(withWorkMem(databaseUrl), { max: 1, application_name: 'search-acceleration-benchmark-magic' });
   const unsafe = client.unsafe.bind(client);
   const instrumentedClient = new Proxy(client, {
     get(target, property, receiver) {
@@ -199,7 +211,15 @@ function assertSameResult(expected: ReturnType<typeof getIdentityRows>, actual: 
 }
 
 /** Replays the normal search action, which selects acceleration or PG fallback. */
-async function acceleratedSearch(database: ReturnType<typeof createInstrumentedDb>['db'], benchmarkCase: BenchmarkCase) {
+async function acceleratedSearch(
+  database: ReturnType<typeof createInstrumentedDb>['db'],
+  refreshDb: ReturnType<typeof drizzle>,
+  benchmarkCase: BenchmarkCase,
+) {
+  // The public RPC handler refreshes the publication manifest before every
+  // search; the runner mirrors that per-request behavior on a separate
+  // connection so diagnostic SQL capture stays limited to the search itself.
+  await runWithDb(refreshDb, () => refreshMagicSearchManifest());
   return runWithDb(database, () => search.search('search', benchmarkCase.q, {
     page:     benchmarkCase.page,
     pageSize: benchmarkCase.pageSize,
@@ -274,8 +294,8 @@ async function startApi(databaseUrl: string) {
     cwd: appRoot,
     env: {
       ...process.env,
-      DATABASE_URL:                                             databaseUrl,
-      CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE: databaseUrl,
+      DATABASE_URL:                                             withWorkMem(databaseUrl),
+      CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE: withWorkMem(databaseUrl),
     },
     stdout: 'pipe',
     stderr: 'pipe',
@@ -399,10 +419,10 @@ function describeConnection(databaseUrl: string) {
 
 /** Collects database and measurement context for reproduction. */
 async function collectDatabaseMetadata(databaseUrl: string, apiPort: number) {
-  const client = postgres(databaseUrl, { max: 1, application_name: 'search-acceleration-benchmark-magic-metadata' });
+  const client = postgres(withWorkMem(databaseUrl), { max: 1, application_name: 'search-acceleration-benchmark-magic-metadata' });
   try {
     const [serverRows, counts, tables] = await Promise.all([
-      client.unsafe(`SELECT current_database() AS database, version() AS version, current_setting('server_version') AS server_version, inet_server_addr()::text AS server_address, inet_server_port() AS server_port, current_setting('shared_preload_libraries') AS shared_preload_libraries, current_setting('track_io_timing') AS track_io_timing`),
+      client.unsafe(`SELECT current_database() AS database, version() AS version, current_setting('server_version') AS server_version, current_setting('work_mem') AS work_mem, inet_server_addr()::text AS server_address, inet_server_port() AS server_port, current_setting('shared_preload_libraries') AS shared_preload_libraries, current_setting('track_io_timing') AS track_io_timing`),
       client.unsafe(`SELECT MAX(build_number)::bigint AS latest_hearthstone_build, COUNT(*)::bigint AS patch_count FROM hearthstone.patches`),
       client.unsafe(`SELECT n.nspname AS schema, c.relname AS table, c.reltuples::bigint AS estimated_rows, pg_total_relation_size(c.oid)::bigint AS total_bytes FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind IN ('r', 'm', 'p') AND n.nspname IN ('magic', 'hearthstone') ORDER BY n.nspname, c.relname`),
     ]);
@@ -412,6 +432,7 @@ async function collectDatabaseMetadata(databaseUrl: string, apiPort: number) {
       latestHearthstoneBuild: counts[0],
       tableEstimatesAndSizes: tables,
       locality:               'local development server and benchmark client on the same host; PostgreSQL endpoint is local',
+      workMemNote:            `session work_mem=${WORK_MEM} approved by the user for this run because the default 4MB spills multi-GB temp files that exceed the remaining container disk; both compared paths use the same setting`,
       apiPort,
       concurrency:            1,
       cacheMode:              SKIP_API ? 'diagnostic preflight only; no API warmup or sampling' : `warm after EXPLAIN and ${WARMUPS} fixed API warmup rounds; no cache clearing`,
@@ -438,7 +459,7 @@ async function capturePlans(databaseUrl: string, observations: SqlObservation[])
     selected = [...selected].sort((left, right) => right.durationMs - left.durationMs).slice(0, EXPLAIN_LIMIT);
   }
 
-  const client = postgres(databaseUrl, { max: 1, application_name: 'search-acceleration-benchmark-magic-explain' });
+  const client = postgres(withWorkMem(databaseUrl), { max: 1, application_name: 'search-acceleration-benchmark-magic-explain' });
   const plans: Array<Record<string, unknown>> = [];
   try {
     await client.unsafe('BEGIN READ ONLY');
@@ -505,6 +526,8 @@ async function main() {
   const startedAt = new Date().toISOString();
   const api = SKIP_API ? null : await startApi(databaseUrl);
   const instrumented = createInstrumentedDb(databaseUrl);
+  const refreshClient = postgres(withWorkMem(databaseUrl), { max: 1, application_name: 'search-acceleration-benchmark-magic-refresh' });
+  const refreshDb = drizzle({ client: refreshClient });
   const expectedResults = new Map<string, ReturnType<typeof getIdentityRows>>();
   const acceleratedResults = new Map<string, ReturnType<typeof getIdentityRows>>();
   const accelerationPlans = new Map<string, ReturnType<typeof getAccelerationPlan>>();
@@ -552,7 +575,7 @@ async function main() {
         'search-action',
         'preflight',
         0,
-        () => acceleratedSearch(instrumented.db, benchmarkCase),
+        () => acceleratedSearch(instrumented.db, refreshDb, benchmarkCase),
       );
       if (sqlObservations.length === beforeAcceleratedCount) throw new Error(`${benchmarkCase.id} executed no search-action SQL statements during preflight.`);
 
@@ -652,6 +675,7 @@ async function main() {
     const planErrors = plans.filter(plan => plan.error != null);
     if (planErrors.length > 0) throw new Error(`${planErrors.length} EXPLAIN ANALYZE plan(s) failed; raw artifact preserved at ${outputPath}`);
   } finally {
+    await refreshClient.end();
     await instrumented.client.end();
     if (api != null) {
       api.child.kill('SIGTERM');
