@@ -1,6 +1,8 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
 import { Database } from 'bun:sqlite';
 import { file } from 'bun';
+import { runWithDb } from '@tcg-cards/db/db';
+import { PgDialect } from 'drizzle-orm/pg-core';
 import Parser from '#search/parser';
 import { simplify } from '#search/parser/simplify';
 import { resolveQueryRequest } from '#search/server/logical';
@@ -280,7 +282,6 @@ describe('Hearthstone D1 essential search', () => {
       '-(#taunt | cost:2)',
       'text:of',
       'of',
-      'text:/damage/',
       'name:Éclair',
       'artist:alex',
       'type:unknown-type',
@@ -294,6 +295,7 @@ describe('Hearthstone D1 essential search', () => {
     expect(reader.plan(request('cost:4', 'artist+')).type).toBe('original');
     expect(reader.plan(request('cost:4 order:artist+')).type).toBe('original');
     expect(reads).toBe(0);
+    expect(reader.plan({ ...request('cost:4', 'artist+'), filter: null }).type).toBe('original');
   });
   test('preserves PG enum language order for same-card pagination', async () => {
     load([card('A', { lang: 'de' }), card('A')]);
@@ -455,5 +457,63 @@ describe('Hearthstone D1 essential search', () => {
     expect(() =>
       createSnapshotSql(withRanks([card('A'), card('A', { lang: 'zhs', cost: 9 })]), manifest),
     ).toThrow('Inconsistent latest card');
+  });
+});
+
+describe('Hearthstone regex routes', () => {
+  test('executes literal branches, NOT, flags, empty pages and short literals exactly', async () => {
+    load([card('A'), card('B', { localization: { name: 'Draw', text: 'Draw a card.' } })]);
+    expect((await search('text:/damage|card/')).total).toBe(2);
+    expect((await search('text:/DAMAGE/')).result.map(item => item.cardId)).toEqual(['A']);
+    expect((await search('text:/3/')).total).toBe(1);
+    expect((await search('-text:/damage/')).result.map(item => item.cardId)).toEqual(['B']);
+    const empty = await search('text:/damage|card/', { page: 99, pageSize: 1 });
+    expect(empty.result).toEqual([]);
+    expect(empty.total).toBe(2);
+    expect(fallbacks).toBe(0);
+  });
+
+  test('plans candidates conservatively through NOT, OR, optionality and equality', () => {
+    expect(reader.plan(request('text:/draw.*card/')).type).toBe('candidate');
+    expect(reader.plan(request('text=/(draw|card)/')).type).toBe('candidate');
+    expect(reader.plan(request('text:/draw.*card/ | name:/fire/')).type).toBe('candidate');
+    expect(reader.plan(request('-text:/draw.*card/')).type).toBe('original');
+    expect(reader.plan(request('text!:/draw.*card/')).type).toBe('original');
+    expect(reader.plan(request('text:/draw.*card/ | text:/[a-z]+/')).type).toBe('original');
+  });
+
+  test('reads all candidates without paging, language or ambit pruning before PG verification', async () => {
+    load([
+      card('A', { localization: { name: 'A', text: 'card before draw' } }),
+      card('B', { ambit: 'additional', localization: { name: 'B', text: 'draw a card' } }),
+      card('C', { localization: { name: 'draw', text: 'card' } }),
+    ]);
+    let checked = 0;
+    const pg = {
+      execute: async (query: Parameters<PgDialect['sqlToQuery']>[0]) => {
+        checked++;
+        const compiled = new PgDialect().sqlToQuery(query);
+        // A is a false positive; B must survive despite the empty primary exact scope.
+        expect(compiled.params).toContain('["A","B"]');
+        expect(compiled.params).toContain('draw.*card');
+        expect(lastSql.toLowerCase()).not.toContain(' offset ');
+        expect(lastSql.toLowerCase()).not.toContain('row_number');
+        return [{ total: 1, ambit: 'additional', result: [card('B')] }];
+      },
+    } as unknown as Parameters<typeof runWithDb>[0];
+    const result = await runWithDb(pg, () => search('text:/draw.*card/', { pageSize: 1 }));
+    expect(checked).toBe(1);
+    expect(result.total).toBe(1);
+    expect(result.ambit).toBe('additional');
+    expect(fallbacks).toBe(0);
+  });
+
+  test('rejects unproven Unicode and stale candidate snapshots', async () => {
+    load([card('A', { localization: { name: 'A', text: 'draw K card' } })]);
+    expect((await search('text:/draw.*card/')).total).toBe(777);
+    expect((await search('text:/draw/')).total).toBe(777);
+    sqlite.exec('UPDATE hearthstone_search_meta SET value = \'old\' WHERE key = \'data_version\'');
+    expect((await search('text:/draw.*card/')).total).toBe(777);
+    expect(fallbacks).toBe(3);
   });
 });

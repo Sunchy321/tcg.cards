@@ -1,3 +1,4 @@
+import { candidateCards } from '#search/server/regex';
 import { and, eq, getColumns, isNull, ne, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 
@@ -116,7 +117,7 @@ export class HearthstonePgEssentialSearchAdapter implements SearchAdapter<Essent
   }
 
   /** Compiles an exact request into one statement including scope selection and empty-page totals. */
-  compile(request: QueryRequest, options: SearchOption): SQL {
+  compile(request: QueryRequest, options: SearchOption, cardIds?: string[]): SQL {
     if (this.plan(request).type !== 'exact') {
       throw new Error('The Hearthstone essential dataset or coverage is not exact.');
     }
@@ -125,6 +126,7 @@ export class HearthstonePgEssentialSearchAdapter implements SearchAdapter<Essent
       ?? commands.order.call({ value: options.orderBy, operator: ':', qualifier: [] }, { meta: {}, table: searchTable as never });
     const predicates = and(
       compiled.query,
+      candidateCards(SearchCard.cardId, cardIds),
       eq(SearchCard.cardId, SearchCardLocalization.cardId),
       isNull(SearchCard.deletedAt),
       isNull(SearchCardLocalization.deletedAt),
@@ -162,11 +164,11 @@ export class HearthstonePgEssentialSearchAdapter implements SearchAdapter<Essent
   }
 
   /** Returns only list fields after one accelerated database round trip. */
-  async execute(request: QueryRequest, options: SearchOption): Promise<EssentialNormalResult> {
+  async execute(request: QueryRequest, options: SearchOption, cardIds?: string[]): Promise<EssentialNormalResult> {
     const startedAt = performance.now();
     let rows;
     try {
-      rows = await db.execute<Pick<EssentialNormalResult, 'result' | 'total' | 'ambit'>>(this.compile(request, options));
+      rows = await db.execute<Pick<EssentialNormalResult, 'result' | 'total' | 'ambit'>>(this.compile(request, options, cardIds));
     } catch (error) {
       // A deployment can remove a projection after metadata was loaded. Only a
       // missing relation triggers this fallback; query or connection errors stay visible.

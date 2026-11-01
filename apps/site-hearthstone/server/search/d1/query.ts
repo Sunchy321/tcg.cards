@@ -1,3 +1,4 @@
+import { compileRegexCondition, nonAscii, regexCommands } from '#search/server/regex';
 import { and, eq, exists, gt, gte, inArray, lt, lte, ne, not, or, sql } from 'drizzle-orm';
 import type { SQL, SQLWrapper } from 'drizzle-orm';
 import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
@@ -218,6 +219,14 @@ function findNodeGap(query: LogicalQuery): CapabilityGap | null {
 
 /** Dispatches supported commands using the same value grouping as the PG handlers. */
 function compileCommand(command: ResolvedCommand, db: SearchDrizzle): SQL {
+  if (command.textCondition != null) {
+    const columns = command.commandId === 'name'
+      ? [SearchCardLocalization.name]
+      : command.commandId === 'text'
+        ? [SearchCardLocalization.text]
+        : [SearchCardLocalization.name, SearchCardLocalization.text];
+    return compileRegexCondition(command, columns);
+  }
   const value = String(command.value);
   const id = command.commandId;
   const negated = command.qualifier.includes('!');
@@ -432,4 +441,14 @@ export function textCaseFields(query: LogicalQuery | null): Array<'name' | 'text
         : id === 'set'
           ? ['set']
           : [];
+}
+
+/** Checks every regex source before relying on ASCII SQLite LIKE semantics. */
+export function hearthstoneRegexUnsafe(request: QueryRequest, allText = false): SQL {
+  const columns = regexCommands(request.filter, allText).flatMap<SQLWrapper>(command => command.commandId === 'set'
+    ? [SearchCard.set]
+    : command.commandId === 'raw'
+      ? [SearchCardLocalization.name, SearchCardLocalization.text]
+      : [command.commandId === 'name' ? SearchCardLocalization.name : SearchCardLocalization.text]);
+  return columns.length === 0 ? sql`0` : or(...columns.map(nonAscii))!;
 }

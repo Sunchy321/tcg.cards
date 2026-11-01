@@ -1,3 +1,5 @@
+import { pgRegexSource } from '#search/regex';
+
 import { ca } from '#search/server/command/adapter';
 
 import { text as textSchema } from '#search/command/builtin/text';
@@ -7,14 +9,6 @@ import { QueryError } from '#search/command/error';
 import { matchValueGroups, splitValueGroups } from '#search/server/command/terms';
 
 import { eq, ilike, like, ne, not, notLike, sql } from 'drizzle-orm';
-
-function convertJSRegexToPG(pattern: string): string {
-  return pattern
-  // 转换单词边界
-    .replace(/\\b/g, '\\y')
-  // 移除非贪婪标记(可能需要警告用户)
-    .replace(/([*+?])\?/g, '$1');
-}
 
 export const text = ca
   .adapt(textSchema)
@@ -76,7 +70,7 @@ export const text = ca
 
       return matchTerm(value);
     } else {
-      const pattern = convertJSRegexToPG(value.source);
+      const pattern = pgRegexSource(value.source);
 
       const flag = (multiline ? 'm' : '') + (caseSensitive ? '' : 'i');
 

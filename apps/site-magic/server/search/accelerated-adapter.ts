@@ -1,3 +1,5 @@
+import { candidateCards } from '#search/server/regex';
+
 import { and, eq, isNull, or, sql, getColumns } from 'drizzle-orm';
 import { omit } from 'lodash-es';
 
@@ -173,9 +175,9 @@ export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, MagicSe
       : { type: 'original', reason: [gap] };
   }
 
-  async execute(request: QueryRequest, options: MagicSearchOptions): Promise<NormalResult> {
+  async execute(request: QueryRequest, options: MagicSearchOptions, cardIds?: string[]): Promise<NormalResult> {
     const startedAt = performance.now();
-    const query = this.compileFilter(request);
+    const query = and(this.compileFilter(request), candidateCards(SearchCard.cardId, cardIds))!;
     const { landing, result } = await this.searchCandidates(query, options);
 
     const details = await loadMagicSearchDetails(result.candidates, options.lang);
@@ -196,9 +198,9 @@ export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, MagicSe
     };
   }
 
-  async executeEssential(request: QueryRequest, options: MagicSearchOptions): Promise<EssentialNormalResult> {
+  async executeEssential(request: QueryRequest, options: MagicSearchOptions, cardIds?: string[]): Promise<EssentialNormalResult> {
     const startedAt = performance.now();
-    const query = this.compileFilter(request);
+    const query = and(this.compileFilter(request), candidateCards(SearchCard.cardId, cardIds))!;
     const { landing, result } = await this.searchCandidates(query, options);
     const rows: EssentialCardSearchItem[] = result.candidates.map(candidate => ({
       cardId:               candidate.cardId,

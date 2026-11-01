@@ -1,3 +1,5 @@
+import type { TextCondition } from './regex';
+
 import type {
   CommandArgType,
   LogicalCommandDescriptor,
@@ -11,16 +13,18 @@ export type LogicalValue = string | { kind: 'regex', source: string, flags: stri
 
 /** Carries a resolved command without storing SQL or a database column. */
 export type ResolvedCommand = {
-  commandId:  string;
-  action:     'query' | 'order-by';
-  descriptor: LogicalCommandDescriptor;
-  operator:   Operator;
-  qualifier:  Qualifier[];
-  value:      LogicalValue;
-  argType?:   CommandArgType;
-  modifier?:  string;
-  pattern?:   Record<string, string>;
-  topLevel:   boolean;
+  commandId:      string;
+  action:         'query' | 'order-by';
+  descriptor:     LogicalCommandDescriptor;
+  operator:       Operator;
+  qualifier:      Qualifier[];
+  value:          LogicalValue;
+  argType?:       CommandArgType;
+  modifier?:      string;
+  pattern?:       Record<string, string>;
+  topLevel:       boolean;
+  /** Carries proven substring facts evaluated within each original text source. */
+  textCondition?: TextCondition;
 };
 
 /** Represents the logical boolean structure used by every search adapter. */
@@ -83,20 +87,26 @@ export interface SearchAdapter<Result = unknown, Options = unknown> {
   descriptor(): DatasetDescriptor;
   plan(request: QueryRequest): CoveragePlan;
   execute(request: QueryRequest, options: Options): Promise<Result>;
+  /** Verifies all safe candidates remotely before shaping the final result. */
+  executeCandidates?(request: QueryRequest, options: Options): Promise<Result>;
 }
 
 /** Carries the safe candidate and uncovered features for one filter subtree. */
-type NodePlan = {
+export type NodePlan = {
   candidate: LogicalQuery | null;
   exact:     boolean;
   gaps:      CapabilityGap[];
 };
 
 /** Plans coverage without making a database call or changing query meaning. */
-export function planCoverage(request: QueryRequest, dataset: DatasetDescriptor): CoveragePlan {
+export function planCoverage(
+  request: QueryRequest,
+  dataset: DatasetDescriptor,
+  planLeaf?: (command: ResolvedCommand) => NodePlan | undefined,
+): CoveragePlan {
   const filterPlan = request.filter == null
     ? { candidate: null, exact: true, gaps: [] } satisfies NodePlan
-    : planNode(request.filter, dataset.commands);
+    : planNode(request.filter, dataset.commands, planLeaf);
   const resultGaps = describeResultGaps(request.result, dataset.result);
   const gaps = uniqueGaps([...filterPlan.gaps, ...resultGaps]);
 
@@ -121,9 +131,17 @@ export function planCoverage(request: QueryRequest, dataset: DatasetDescriptor):
 }
 
 /** Finds a safe candidate expression for one boolean query node. */
-function planNode(query: LogicalQuery, supported: LogicalCommandDescriptor[]): NodePlan {
+function planNode(
+  query: LogicalQuery,
+  supported: LogicalCommandDescriptor[],
+  planLeaf?: (command: ResolvedCommand) => NodePlan | undefined,
+): NodePlan {
   switch (query.kind) {
   case 'leaf': {
+    const planned = planLeaf?.(query.command);
+    if (planned != null) {
+      return planned;
+    }
     const gaps = describeCommandGaps(query.command, supported);
 
     return {
@@ -133,14 +151,14 @@ function planNode(query: LogicalQuery, supported: LogicalCommandDescriptor[]): N
     };
   }
   case 'not': {
-    const child = planNode(query.expr, supported);
+    const child = planNode(query.expr, supported, planLeaf);
 
     return child.exact && child.candidate != null
       ? { candidate: { kind: 'not', expr: child.candidate }, exact: true, gaps: child.gaps }
       : { candidate: null, exact: false, gaps: child.gaps };
   }
   case 'and': {
-    const children = query.exprs.map(expr => planNode(expr, supported));
+    const children = query.exprs.map(expr => planNode(expr, supported, planLeaf));
     const candidates = children.flatMap(child => child.candidate == null ? [] : [child.candidate]);
     const candidate = combine('and', candidates);
 
@@ -151,7 +169,7 @@ function planNode(query: LogicalQuery, supported: LogicalCommandDescriptor[]): N
     };
   }
   case 'or': {
-    const children = query.exprs.map(expr => planNode(expr, supported));
+    const children = query.exprs.map(expr => planNode(expr, supported, planLeaf));
 
     if (children.some(child => child.candidate == null)) {
       return {

@@ -1,6 +1,6 @@
 import type { SearchAdapter, QueryRequest } from '#search/logical';
 
-/** Uses a local dataset only when it can answer the whole request exactly. */
+/** Uses exact local execution or an explicit candidate verifier before the remote fallback. */
 export async function executeLocalExactOrRemote<Result, Options>(input: {
   request:      QueryRequest;
   options:      Options;
@@ -12,6 +12,10 @@ export async function executeLocalExactOrRemote<Result, Options>(input: {
 
   if (localAdapter != null && plan?.type === 'exact') {
     return localAdapter.execute(request, options);
+  }
+
+  if (plan?.type === 'candidate' && localAdapter?.executeCandidates != null) {
+    return localAdapter.executeCandidates(request, options);
   }
 
   return remote();

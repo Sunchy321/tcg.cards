@@ -1,10 +1,10 @@
+import { compileRegexCondition, nonAscii, regexCommands } from '#search/server/regex';
 import {
   and,
   eq,
   exists,
   gt,
   gte,
-  isNotNull,
   isNull,
   lt,
   lte,
@@ -14,7 +14,7 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
-import type { SQL } from 'drizzle-orm';
+import type { SQL, SQLWrapper } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/sqlite-core';
 import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 
@@ -183,7 +183,7 @@ function compileNode(query: LogicalQuery, db: MagicSearchDrizzle): SQL {
 function compileCommand(command: ResolvedCommand, db: MagicSearchDrizzle): SQL {
   switch (command.commandId) {
   case 'name':
-    return compileTextCommand(command, ['part-name', 'localization-name'], db);
+    return compileTextCommand(command, nameSources(command), db);
   case 'text':
     return compileTextCommand(command, textSources(command), db);
   case 'oracle':
@@ -217,6 +217,9 @@ function textSources(command: ResolvedCommand): TextSource[] {
 
 /** Builds PG-compatible value groups independently for every projected text source. */
 function compileTextCommand(command: ResolvedCommand, sources: TextSource[], db: MagicSearchDrizzle): SQL {
+  if (command.textCondition != null) {
+    return compileRegexCondition(command, sources.map(source => regexSourceColumn(source, db)));
+  }
   if (typeof command.value !== 'string') {
     throw new Error('Regex values must be routed to PostgreSQL before D1 compilation.');
   }
@@ -243,16 +246,15 @@ function compileTextCommand(command: ResolvedCommand, sources: TextSource[], db:
 function compileNameMatch(command: ResolvedCommand, source: TextSource, term: string): SQL {
   const column = nameColumn(source);
   if (term === '') {
-    return command.qualifier.includes('!')
-      ? and(isNotNull(column), ne(column, ''))!
-      : or(isNull(column), eq(column, ''))!;
+    return or(isNull(column), eq(column, ''))!;
   }
 
   const escaped = escapeLike(term);
   const value = command.operator === '=' ? escaped : `%${escaped}%`;
   const match = sql`${column} LIKE ${value} ESCAPE '\\'`;
 
-  return command.qualifier.includes('!') ? not(match) : match;
+  // Source-level negation belongs to compileTextCommand, exactly once.
+  return match;
 }
 
 /** Maps a name source to the corresponding Drizzle column. */
@@ -446,4 +448,44 @@ function combine(operator: 'and' | 'or', predicates: SQL[]): SQL {
 /** Recognizes cased non-ASCII input that may differ under PostgreSQL ILIKE. */
 function hasCasedNonAscii(value: string): boolean {
   return [...value].some(character => character.codePointAt(0)! > 0x7f && /\p{Cased}/u.test(character));
+}
+
+/** Rejects non-ASCII regex sources until cross-engine case-folding has been proven. */
+export function magicRegexUnsafe(request: QueryRequest, db: MagicSearchDrizzle, allText = false): SQL {
+  const columns = regexCommands(request.filter, allText).flatMap(command => {
+    if (command.commandId === 'name') {
+      return nameSources(command).map(nameColumn);
+    }
+    return textSources(command).map(source => regexSourceColumn(source, db));
+  });
+  return columns.length === 0 ? sql`0` : or(...columns.map(nonAscii))!;
+}
+
+/** Resolves a body as a nullable scalar so missing text retains PG three-valued negation. */
+function regexSourceColumn(source: TextSource, db: MagicSearchDrizzle): SQLWrapper {
+  if (!source.endsWith('body')) {
+    return nameColumn(source);
+  }
+  const body = alias(SearchTextRow, 'regex_body');
+  return sql`(${db.select({ body: body.body }).from(body).where(and(
+    eq(body.cardId, SearchCard.cardId),
+    eq(body.version, SearchCard.version),
+    eq(body.partIndex, SearchCardPart.partIndex),
+    source === 'part-body'
+      ? eq(body.kind, 'part')
+      : and(
+        eq(body.kind, 'localization'),
+        eq(body.locale, SearchCardPartLocalization.locale),
+        eq(body.source, SearchCardPartLocalization.source),
+      ),
+  ))})`;
+}
+
+/** Selects original or localized names without broadening the PG command's source modifier. */
+function nameSources(command: ResolvedCommand): TextSource[] {
+  return command.modifier === 'oracle'
+    ? ['part-name']
+    : command.modifier === 'localized'
+      ? ['localization-name']
+      : ['part-name', 'localization-name'];
 }

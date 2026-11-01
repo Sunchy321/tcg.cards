@@ -1,3 +1,4 @@
+import { planRegexCoverage, regexRequest } from '#search/server/regex';
 import { and, asc, eq, getColumns, gte, inArray, ne, sql } from 'drizzle-orm';
 import type { SQL, SQLWrapper } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
@@ -14,17 +15,17 @@ import { classes, locale, types } from '@tcg-cards/model/hearthstone/schema/basi
 import { essentialCardSearchItem } from '@tcg-cards/model/hearthstone/schema/search';
 import type { EssentialNormalResult } from '@tcg-cards/model/hearthstone/schema/search';
 import type { CoveragePlan, DatasetDescriptor, QueryRequest, SearchAdapter } from '#search/logical';
-import { planCoverage } from '#search/logical';
 import { AMBITS, detectAmbit } from '#search/ambit';
 import type { SearchOption } from '../action';
 import { detectVariant, hasLanguageCommand } from '../context';
-import { getHearthstoneSearchDataset } from '../accelerated-adapter';
+import { getHearthstoneSearchDataset, HearthstonePgEssentialSearchAdapter } from '../accelerated-adapter';
 import {
   ambitRank,
   compileHearthstoneD1Filter,
   findHearthstoneD1Gap,
   hearthstoneD1Descriptor,
   textCaseFields,
+  hearthstoneRegexUnsafe,
 } from './query';
 import type { SearchDrizzle } from './types';
 import { compileOrder } from './order';
@@ -58,19 +59,14 @@ export class HearthstoneD1EssentialSearchAdapter implements SearchAdapter<
         ],
       };
     }
-    const coverage = planCoverage(request, this.descriptor());
-    if (coverage.type !== 'exact') {
-      return {
-        type:   'original',
-        reason: coverage.type === 'candidate' ? coverage.uncovered : coverage.reason,
-      };
-    }
-    const gap = findHearthstoneD1Gap(request);
-    return gap == null ? { type: 'exact' } : { type: 'original', reason: [gap] };
+    return planRegexCoverage(request, this.descriptor(), findHearthstoneD1Gap, ['raw', 'name', 'text']);
   }
 
   /** Validates the same snapshot before and after its one-statement list read. */
   async execute(request: QueryRequest, options: SearchOption): Promise<EssentialNormalResult> {
+    if (this.plan(request).type === 'candidate') {
+      return this.executeCandidates(request, options);
+    }
     const dataset = getHearthstoneSearchDataset();
     if (options.d1 == null || dataset == null || this.plan(request).type !== 'exact') {
       return this.original(request, options);
@@ -78,13 +74,14 @@ export class HearthstoneD1EssentialSearchAdapter implements SearchAdapter<
     const started = performance.now();
     try {
       const db = drizzle(options.d1, { schema });
-      const rows = await queryPage(db, request, options);
+      const rows = await queryPage(db, regexRequest(request), options);
       const metadata = rows[0];
       const current = getHearthstoneSearchDataset();
       if (
         metadata == null
         || metadata.ready !== '1'
         || metadata.caseSafe !== '1'
+        || Number(metadata.regexSafe) !== 1
         || metadata.sortVersion !== '1'
         || metadata.dataVersion !== dataset.dataVersion
         || Number(metadata.buildNumber) !== dataset.buildNumber
@@ -110,6 +107,47 @@ export class HearthstoneD1EssentialSearchAdapter implements SearchAdapter<
       console.warn('[search:d1] Hearthstone D1 search unavailable; using PostgreSQL.', error);
     }
     return this.original(request, options);
+  }
+
+  /** Reads the whole candidate set and delegates exact result shaping to PostgreSQL. */
+  async executeCandidates(request: QueryRequest, options: SearchOption): Promise<EssentialNormalResult> {
+    const plan = this.plan(request);
+    const dataset = getHearthstoneSearchDataset();
+    const pg = new HearthstonePgEssentialSearchAdapter(this.original);
+    if (plan.type !== 'candidate' || options.d1 == null || dataset == null || pg.plan(request).type !== 'exact') {
+      return this.original(request, options);
+    }
+    let ids: string[];
+    try {
+      const db = drizzle(options.d1, { schema });
+      const candidate = { ...request, filter: plan.candidate };
+      const selection = db.selectDistinct({ cardId: SearchCard.cardId }).from(SearchCard)
+        .innerJoin(SearchCardLocalization, eq(SearchCard.cardId, SearchCardLocalization.cardId));
+      const rows = await db.select({
+        dataVersion: sql<string>`(SELECT value FROM ${SearchMeta} WHERE key = 'data_version')`,
+        buildNumber: sql<string>`(SELECT value FROM ${SearchMeta} WHERE key = 'build_number')`,
+        ready:       sql<string>`(SELECT value FROM ${SearchMeta} WHERE key = 'ready')`,
+        safe:        sql<number>`NOT EXISTS ${selection.where(hearthstoneRegexUnsafe(candidate, true))}`,
+        ids:         sql<string>`(SELECT json_group_array(card_id) FROM (${db.selectDistinct({ cardId: SearchCard.cardId })
+          .from(SearchCard).innerJoin(SearchCardLocalization, eq(SearchCard.cardId, SearchCardLocalization.cardId))
+          .where(compileHearthstoneD1Filter(plan.candidate, db))}))`,
+      }).from(SearchMeta).limit(1);
+      const row = rows[0];
+      if (row?.dataVersion !== dataset.dataVersion || Number(row.buildNumber) !== dataset.buildNumber
+        || row.ready !== '1' || Number(row.safe) !== 1
+        || getHearthstoneSearchDataset()?.dataVersion !== dataset.dataVersion) {
+        return this.original(request, options);
+      }
+      ids = JSON.parse(row.ids) as string[];
+    } catch (error) {
+      console.warn('[search:d1] Hearthstone regex candidates unavailable; using PostgreSQL.', error);
+      return this.original(request, options);
+    }
+    const result = await pg.execute(request, options, ids);
+    const current = getHearthstoneSearchDataset();
+    return current?.dataVersion === dataset.dataVersion && current.buildNumber === dataset.buildNumber
+      ? result
+      : this.original(request, options);
   }
 }
 
@@ -190,6 +228,9 @@ function queryPage(db: SearchDrizzle, request: QueryRequest, options: SearchOpti
           sql<string>`coalesce(max(case when ${SearchMeta.key} = 'sort_version' then ${SearchMeta.value} end), '')`.as(
             'sort_version',
           ),
+        regexSafe: sql<number>`NOT EXISTS ${db.select({ id: SearchCard.cardId }).from(SearchCard)
+          .innerJoin(SearchCardLocalization, eq(SearchCard.cardId, SearchCardLocalization.cardId))
+          .where(hearthstoneRegexUnsafe(request))}`.as('regex_safe'),
         caseSafe: (caseKeys.length === 0
           ? sql<string>`'1'`
           : sql<string>`CASE WHEN count(CASE WHEN ${checkedKey} THEN 1 END) = ${caseKeys.length}
@@ -304,6 +345,7 @@ function queryPage(db: SearchDrizzle, request: QueryRequest, options: SearchOpti
         ready:       metadata.ready,
         sortVersion: metadata.sortVersion,
         caseSafe:    metadata.caseSafe,
+        regexSafe:   metadata.regexSafe,
         landing:     landing.level,
         total:       total.total,
         item:        sql<

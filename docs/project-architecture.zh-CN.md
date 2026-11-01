@@ -256,7 +256,9 @@ remote 表所属的 namespace 不会把静态行的维护权转交给远端工�
 
 ## 按游戏隔离的 SQLite 搜索 sidecar
 
-万智牌与炉石搜索投影使用不同的 D1 数据库和游戏级 binding（`MAGIC_SEARCH_DB` 与 `HEARTHSTONE_SEARCH_DB`）。它们是搜索投影，不是领域事实权威：只有精确覆盖且版本匹配的查询才从中选出候选。essential 列表端点直接从投影返回精简字段；万智牌完整搜索结果和独立卡牌详情页仍从 PostgreSQL 读取。不支持的条件、binding 不可用或就绪/版本信息不匹配时，使用现有 PostgreSQL 路径。普通关系表通过 Drizzle SQLite schema API 声明，使 D1 和本地 SQLite 导出复用相同表定义。Drizzle 不建模 SQLite 扩展，因此 FTS5 trigram 虚拟表保留为最小 SQLite SQL。发布与激活仍由独立的搜索发布生命周期负责。
+万智牌与炉石搜索投影使用不同的 D1 数据库和游戏级 binding（`MAGIC_SEARCH_DB` 与 `HEARTHSTONE_SEARCH_DB`）。它们是搜索投影，不是领域事实权威：版本匹配的查询可精确执行，或提供安全候选交 PostgreSQL 复核。完整覆盖的 essential 列表查询直接从投影返回精简字段；万智牌完整搜索结果和独立卡牌详情页仍从 PostgreSQL 读取。不支持的条件、binding 不可用或就绪/版本信息不匹配时，使用现有 PostgreSQL 路径。普通关系表通过 Drizzle SQLite schema API 声明，使 D1 和本地 SQLite 导出复用相同表定义。Drizzle 不建模 SQLite 扩展，因此 FTS5 trigram 虚拟表保留为最小 SQLite SQL。发布与激活仍由独立的搜索发布生命周期负责。
+
+正则搜索继续以现有 PostgreSQL 文本处理器为语义权威。共享结构分析器可以证明单一文本来源上的子串等价条件或必要条件。sidecar 精确执行必须取得所支持文本语义的运行时证据；未知语法或证据检查失败时走 PostgreSQL。候选路径从版本已校验的单一 sidecar 快照读取完整卡牌 ID 集合，再由 PostgreSQL 对这些卡牌执行未改写的完整查询，之后才选择代表结果、ambit、排序、分页和总数。候选 ID 不替代 PostgreSQL 复核，也不作为最终结果提前分页。只有显式实现该复核路径的 adapter 才会由 router 执行候选计划。
 
 ## 文档规则
 
