@@ -9,6 +9,7 @@ import { Print, PrintPart } from '@tcg-cards/db/schema/shared/magic/print';
 import { SearchCard, SearchCardPart, SearchCardPartLocalization } from '@tcg-cards/db/schema/shared/magic/search';
 
 import type { CapabilityGap, CoveragePlan, DatasetDescriptor, LogicalQuery, QueryRequest, SearchAdapter } from '#search/logical';
+import type { MagicSearchD1Database } from './d1/types';
 import { describeLogicalCommand } from '#search/command/semantics';
 import type { CommonServerCommand } from '#search/server/command';
 import { compileQueryRequest } from '#search/server/translate';
@@ -19,7 +20,8 @@ import { ambitCeiling, searchWithAmbitCeiling } from '#search/server/ambit';
 
 import * as commands from './command-list';
 
-type SearchOptions = {
+/** Carries result controls and the optional per-request D1 binding. */
+export type MagicSearchOptions = {
   page:     number;
   pageSize: number;
   lang:     Locale;
@@ -27,9 +29,11 @@ type SearchOptions = {
   orderBy:  string;
   dsl:      string;
   ambit?:   Ambit;
+  d1?:      MagicSearchD1Database;
 };
 
-type Candidate = {
+/** Identifies one localized candidate row returned by a search projection. */
+export type MagicSearchCandidate = {
   cardId:             string;
   version:            string;
   partIndex:          number;
@@ -42,7 +46,7 @@ type Candidate = {
 
 type ProjectedPage = {
   total:      number;
-  candidates: Candidate[];
+  candidates: MagicSearchCandidate[];
 };
 
 type SearchTable = {
@@ -97,7 +101,7 @@ const supportedSortFields = new Set(['id', 'set', 'number', 'date', 'cmc', 'mv',
 const pgCommands = Object.values(commands) as CommonServerCommand[];
 
 /** Uses the same public PG command handlers over the three accelerated tables. */
-export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, SearchOptions> {
+export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, MagicSearchOptions> {
   descriptor(): DatasetDescriptor {
     const manifest = getMagicSearchManifest();
     const supported = pgCommands.filter(command => {
@@ -169,12 +173,12 @@ export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, SearchO
       : { type: 'original', reason: [gap] };
   }
 
-  async execute(request: QueryRequest, options: SearchOptions): Promise<NormalResult> {
+  async execute(request: QueryRequest, options: MagicSearchOptions): Promise<NormalResult> {
     const startedAt = performance.now();
     const query = this.compileFilter(request);
     const { landing, result } = await this.searchCandidates(query, options);
 
-    const details = await loadCandidateDetails(result.candidates, options.lang);
+    const details = await loadMagicSearchDetails(result.candidates, options.lang);
     const detailsByCardId = new Map(details.map(row => [row.cardId, row]));
     const rows = result.candidates.map(candidate => detailsByCardId.get(candidate.cardId));
 
@@ -192,7 +196,7 @@ export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, SearchO
     };
   }
 
-  async executeEssential(request: QueryRequest, options: SearchOptions): Promise<EssentialNormalResult> {
+  async executeEssential(request: QueryRequest, options: MagicSearchOptions): Promise<EssentialNormalResult> {
     const startedAt = performance.now();
     const query = this.compileFilter(request);
     const { landing, result } = await this.searchCandidates(query, options);
@@ -252,7 +256,7 @@ export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, SearchO
     return compiled.query;
   }
 
-  private async searchCandidates(query: import('drizzle-orm').SQL, options: SearchOptions) {
+  private async searchCandidates(query: import('drizzle-orm').SQL, options: MagicSearchOptions) {
     const { explicit, pinned } = detectAmbit(options.dsl);
     return searchWithAmbitCeiling({
       pinned,
@@ -262,7 +266,7 @@ export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, SearchO
     });
   }
 
-  private async queryCandidates(query: import('drizzle-orm').SQL, options: SearchOptions, ceiling: Ambit | null): Promise<ProjectedPage> {
+  private async queryCandidates(query: import('drizzle-orm').SQL, options: MagicSearchOptions, ceiling: Ambit | null): Promise<ProjectedPage> {
     const locale = options.lang;
     const candidateJson = sql<MagicSearchCandidatePrint>`(${SearchCard.candidatePrintsByLocale} -> ${locale})`;
     const activeLocalization = and(
@@ -308,7 +312,7 @@ export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, SearchO
       );
 
     const orderBy = orderSql(options.orderBy);
-    const rows = await db.execute<{ total: number, candidates: Candidate[] }>(sql`
+    const rows = await db.execute<{ total: number, candidates: MagicSearchCandidate[] }>(sql`
       WITH filtered AS MATERIALIZED (${filtered}),
       totals AS (
         SELECT count(*)::int AS total FROM filtered
@@ -350,7 +354,7 @@ export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, SearchO
 
 /** The ticket 13 loader will provide a version-matched manifest when available. */
 export const magicPgSearchAdapter = new MagicPgSearchAdapter();
-export class MagicPgEssentialSearchAdapter implements SearchAdapter<EssentialNormalResult, SearchOptions> {
+export class MagicPgEssentialSearchAdapter implements SearchAdapter<EssentialNormalResult, MagicSearchOptions> {
   constructor(private readonly fullAdapter = new MagicPgSearchAdapter()) {}
 
   descriptor(): DatasetDescriptor {
@@ -361,7 +365,7 @@ export class MagicPgEssentialSearchAdapter implements SearchAdapter<EssentialNor
     return this.fullAdapter.plan(request);
   }
 
-  execute(request: QueryRequest, options: SearchOptions): Promise<EssentialNormalResult> {
+  execute(request: QueryRequest, options: MagicSearchOptions): Promise<EssentialNormalResult> {
     return this.fullAdapter.executeEssential(request, options);
   }
 }
@@ -478,7 +482,8 @@ function orderSql(value: string) {
   return sql.join(terms, sql`, `);
 }
 
-async function loadCandidateDetails(candidates: Candidate[], locale: Locale) {
+/** Loads PG domain details for candidates selected by any exact search adapter. */
+export async function loadMagicSearchDetails(candidates: MagicSearchCandidate[], locale: Locale) {
   if (candidates.length === 0) return [];
 
   const candidateFilters = candidates.map(candidate => and(

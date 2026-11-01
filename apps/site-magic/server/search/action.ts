@@ -14,6 +14,8 @@ import { ambitCeiling, searchWithAmbitCeiling } from '#search/server/ambit';
 
 import { order } from './command-list';
 import { magicPgEssentialSearchAdapter, magicPgSearchAdapter } from './accelerated-adapter';
+import { magicD1EssentialSearchAdapter, magicD1SearchAdapter } from './d1/adapter';
+import type { MagicSearchD1Database } from './d1/types';
 
 const as = create;
 
@@ -24,6 +26,7 @@ type SearchOption = {
   groupBy:  string;
   orderBy:  string;
   dsl:      string;
+  d1?:      MagicSearchD1Database;
 
   // The ambit URL param; an ambit command in the DSL overrides it, so it is
   // only the starting ceiling of the widening ladder.
@@ -107,7 +110,7 @@ export const search = as
       elapsed,
       ambit:  landing,
     };
-  }, { acceleratedAdapter: magicPgSearchAdapter });
+  }, { localAdapter: magicD1SearchAdapter, acceleratedAdapter: magicPgSearchAdapter });
 
 export const essential = as
   .table(CardPrintView)
@@ -136,7 +139,7 @@ export const essential = as
         },
       })),
     };
-  }, { acceleratedAdapter: magicPgEssentialSearchAdapter });
+  }, { localAdapter: magicD1EssentialSearchAdapter, acceleratedAdapter: magicPgEssentialSearchAdapter });
 
 type DevSearchOption = {
   pageSize: number;

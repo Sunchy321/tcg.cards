@@ -8,6 +8,7 @@ import { devSearchResult, essentialSearchResult, searchResult } from '#model/mag
 import { searchInput } from '#search/schema';
 
 import { search } from '~~/server/search';
+import type { HonoEnv } from '../hono-env';
 
 const basic = os
   .route({
@@ -21,7 +22,7 @@ const basic = os
     orderBy: z.string().default('id+'),
   }))
   .output(searchResult)
-  .handler(async ({ input }) => {
+  .handler(async ({ input, context }) => {
     const { q, page, pageSize, lang, groupBy, orderBy, ambit } = input;
 
     const result = await search.search('search', q, {
@@ -32,6 +33,7 @@ const basic = os
       orderBy,
       dsl: q,
       ambit,
+      d1:  (context as unknown as HonoEnv['Variables']).searchD1,
     });
 
     return result;
@@ -50,7 +52,7 @@ const essential = os
     orderBy: z.string().default('id+'),
   }))
   .output(essentialSearchResult)
-  .handler(async ({ input }) => {
+  .handler(async ({ input, context }) => {
     const { q, page, pageSize, lang, groupBy, orderBy, ambit } = input;
 
     return search.search('essential', q, {
@@ -61,6 +63,7 @@ const essential = os
       orderBy,
       dsl: q,
       ambit,
+      d1:  (context as unknown as HonoEnv['Variables']).searchD1,
     });
   })
   .callable();

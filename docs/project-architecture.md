@@ -254,6 +254,10 @@ Hearthstone search projections are exportable `hearthstone` domain data, defined
 
 The site's separate `essential` search endpoint returns list fields directly from a complete, version-matched projection, including localized plain text, render hashes, and a small mechanic map for images. It does not read full entity details after an exact accelerated search. The original `basic` endpoint retains its full result shape; detail pages read complete domain data independently. Uncovered requests, including hashtags and faction predicates, use the original PostgreSQL path and the essential endpoint still returns its compact contract. Missing or mismatched dataset metadata disables acceleration rather than serving an older build. Sidecar distribution and cross-storage activation are separate publication lifecycle responsibilities; the search adapter consumes explicitly loaded readiness and version metadata rather than assuming that a manifest proves the deployed tables are current.
 
+## Per-game SQLite Search Sidecars
+
+Magic and Hearthstone search projections use separate D1 databases and game-scoped bindings (`MAGIC_SEARCH_DB` and `HEARTHSTONE_SEARCH_DB`). They are search projections, not domain authorities: an exact, version-matched query may select candidates there, while card details continue to come from PostgreSQL. Unsupported predicates, an unavailable binding, or mismatched readiness/version metadata use the existing PostgreSQL path. The ordinary relational tables are declared with Drizzle's SQLite schema API so D1 and local SQLite exports share their table definitions. FTS5 trigram virtual tables remain minimal SQLite SQL because Drizzle does not model SQLite extensions. Publication and activation remain owned by the separate search publication lifecycle.
+
 ## Documentation Rule
 
 Architecture documents under `docs/` describe stable boundaries and authority rules.

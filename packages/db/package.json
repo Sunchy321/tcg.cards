@@ -29,12 +29,15 @@
     "./schema/shared/yugioh": "./src/schema/shared/yugioh/index.ts",
     "./schema/shared/yugioh/*": "./src/schema/shared/yugioh/*.ts",
     "./schema/shared/shadowverse": "./src/schema/shared/shadowverse/index.ts",
-    "./schema/shared/shadowverse/*": "./src/schema/shared/shadowverse/*.ts"
+    "./schema/shared/shadowverse/*": "./src/schema/shared/shadowverse/*.ts",
+    "./schema/sqlite/magic": "./src/schema/sqlite/magic/index.ts",
+    "./schema/sqlite/magic/*": "./src/schema/sqlite/magic/*.ts"
   },
   "scripts": {
     "build": "echo No build needed",
     "db:generate:local": "drizzle-kit generate --config=drizzle.local.config.ts",
     "db:generate:remote": "drizzle-kit generate --config=drizzle.remote.config.ts",
+    "db:generate:magic-search": "drizzle-kit generate --config=drizzle.magic-search.config.ts",
     "db:migrate:local:dev": "bun --env-file=.env.local-dev ./node_modules/drizzle-kit/bin.cjs migrate --config=drizzle.local.config.ts",
     "db:migrate:remote:dev": "bun --env-file=.env.remote-dev ./node_modules/drizzle-kit/bin.cjs migrate --config=drizzle.remote.config.ts",
     "db:migrate:remote:prod": "bun --env-file=.env.remote-prod ./node_modules/drizzle-kit/bin.cjs migrate --config=drizzle.remote.config.ts",

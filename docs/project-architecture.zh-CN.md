@@ -254,6 +254,10 @@ remote 表所属的 namespace 不会把静态行的维护权转交给远端工�
 
 站点独立的 `essential` 搜索端点，从完整且版本匹配的投影直接返回列表字段，包括本地化纯文本、render hash 与卡图所需的小型机制 map。精确加速搜索后不再读取完整实体详情。原 `basic` 端点保留完整结果结构；详情页独立读取完整领域数据。未覆盖请求，包括 hashtag 与 faction 条件，走原 PostgreSQL 路径，essential 仍返回相同精简契约。数据元信息缺失或版本不匹配时禁用加速，不返回较早构建。sidecar 分发与跨存储激活属于独立发布生命周期职责；adapter 使用显式装载的就绪状态和版本信息，不将一个 manifest 的存在等同于已部署表必然最新。
 
+## 按游戏隔离的 SQLite 搜索 sidecar
+
+万智牌与炉石搜索投影使用不同的 D1 数据库和游戏级 binding（`MAGIC_SEARCH_DB` 与 `HEARTHSTONE_SEARCH_DB`）。它们是搜索投影，不是领域事实权威：只有精确覆盖且版本匹配的查询才从中选出候选，卡牌详情仍从 PostgreSQL 读取。不支持的条件、binding 不可用或就绪/版本信息不匹配时，使用现有 PostgreSQL 路径。普通关系表通过 Drizzle SQLite schema API 声明，使 D1 和本地 SQLite 导出复用相同表定义。Drizzle 不建模 SQLite 扩展，因此 FTS5 trigram 虚拟表保留为最小 SQLite SQL。发布与激活仍由独立的搜索发布生命周期负责。
+
 ## 文档规则
 
 `docs/` 下的架构文档用于描述稳定边界和 authority 规则。

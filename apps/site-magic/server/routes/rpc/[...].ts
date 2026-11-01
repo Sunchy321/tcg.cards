@@ -4,6 +4,7 @@ import { DrizzleQueryError } from 'drizzle-orm';
 
 import { router } from '~~/server/orpc/service';
 import { auth } from '~~/server/lib/auth';
+import type { MagicSearchD1Database } from '~~/server/search/d1/types';
 
 const handler = new RPCHandler(router, {
   interceptors: [
@@ -35,6 +36,8 @@ const handler = new RPCHandler(router, {
 
 export default defineEventHandler(async event => {
   const request = toWebRequest(event);
+  const cloudflareEnv = event.context.cloudflare?.env as Record<string, unknown> | undefined;
+  const searchD1 = cloudflareEnv?.MAGIC_SEARCH_DB as MagicSearchD1Database | undefined;
 
   const session = await auth.api.getSession({ headers: request.headers });
 
@@ -43,6 +46,7 @@ export default defineEventHandler(async event => {
     context: {
       user:    session?.user ?? null,
       session: session?.session ?? null,
+      searchD1,
     },
   });
 
