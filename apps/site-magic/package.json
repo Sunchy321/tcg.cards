@@ -18,6 +18,8 @@
     "benchmark:search:pg": "bun --env-file=../../scripts/.env scripts/pg-search-benchmark.ts",
     "benchmark:search:text-index": "bun --env-file=../../scripts/.env scripts/pg-text-index-benchmark.ts",
     "benchmark:search:acceleration-prototype": "bun --env-file=../../scripts/.env scripts/search-acceleration-prototype.ts",
+    "export:search:local": "bun --env-file=../../scripts/.env scripts/export-local-search.ts",
+    "search:local": "bun build --target=node --outfile node_modules/.cache/search-local-magic.mjs scripts/search-local.ts && node node_modules/.cache/search-local-magic.mjs",
     "deploy": "wrangler deploy --env production"
   },
   "dependencies": {

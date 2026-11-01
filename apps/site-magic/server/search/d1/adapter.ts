@@ -1,4 +1,4 @@
-import { planRegexCoverage, regexRequest } from '#search/server/regex';
+import { planRegexCoverage, regexCommands, regexRequest } from '#search/server/regex';
 import { and, asc, desc, eq, lte, sql } from 'drizzle-orm';
 import type { SQL, SQLWrapper } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
@@ -13,6 +13,7 @@ import { searchWithAmbitCeiling } from '#search/server/ambit';
 import { getMagicSearchManifest, loadMagicSearchDetails, magicPgSearchAdapter } from '../accelerated-adapter';
 import type { MagicSearchCandidate, MagicSearchOptions } from '../accelerated-adapter';
 import { compileMagicD1Filter, findMagicD1Gap, magicD1Descriptor, magicRegexUnsafe } from './query';
+import type { MagicTextPackageSchemas } from './query';
 import type { MagicSearchDrizzle } from './types';
 
 /** Represents one D1 result row before nullable left-join fields are validated. */
@@ -146,6 +147,61 @@ export class MagicD1SearchAdapter implements SearchAdapter<NormalResult, MagicSe
     };
   }
 
+  /** Executes only against the supplied local SQLite snapshot and never falls back to PG. */
+  async executeEssentialLocal(
+    request: QueryRequest,
+    options: MagicSearchOptions,
+    textPackageSchemas: MagicTextPackageSchemas,
+  ): Promise<EssentialNormalResult> {
+    if (regexCommands(request.filter).length > 0) {
+      throw new Error('Local Magic regex search is not enabled until its text capability scope is approved.');
+    }
+    const plan = this.plan(request);
+    if (plan.type !== 'exact') {
+      const reason = plan.type === 'candidate' ? plan.uncovered : plan.reason;
+      throw new Error(`Local Magic search does not support this query: ${JSON.stringify(reason)}`);
+    }
+    const manifest = getMagicSearchManifest();
+    if (manifest == null || options.d1 == null) {
+      throw new Error('A matching local Magic search package is not open.');
+    }
+    const startedAt = performance.now();
+    const page = await this.searchD1(request, options, textPackageSchemas);
+    if (page == null || page.dataVersion !== manifest.dataVersion
+      || getMagicSearchManifest()?.dataVersion !== manifest.dataVersion) {
+      throw new Error('The local Magic search query could not read its matching package version.');
+    }
+
+    const result: EssentialCardSearchItem[] = page.candidates.map(candidate => ({
+      cardId:               candidate.cardId,
+      version:              candidate.version,
+      locale:               candidate.locale,
+      source:               candidate.localizationSource,
+      set:                  candidate.print.set,
+      number:               candidate.print.number,
+      lang:                 candidate.print.lang,
+      partIndex:            candidate.partIndex,
+      cardPartLocalization: {
+        name:     candidate.name,
+        rubyName: candidate.rubyName,
+      },
+      print: {
+        layout:      candidate.print.layout,
+        imageType:   candidate.print.imageType,
+        imageStatus: candidate.print.imageStatus,
+      },
+    }));
+
+    return {
+      result,
+      total:     page.total,
+      page:      options.page,
+      totalPage: Math.ceil(page.total / options.pageSize),
+      elapsed:   Math.round(performance.now() - startedAt),
+      ambit:     page.ambit,
+    };
+  }
+
   /** Reads all safe cards, then lets PG verify the untouched query before pagination and ambit. */
   async executeCandidates(request: QueryRequest, options: MagicSearchOptions): Promise<NormalResult> {
     const candidates = await this.candidateIds(request, options);
@@ -201,7 +257,11 @@ export class MagicD1SearchAdapter implements SearchAdapter<NormalResult, MagicSe
     }
   }
 
-  private async searchD1(request: QueryRequest, options: MagicSearchOptions): Promise<D1Page | null> {
+  private async searchD1(
+    request: QueryRequest,
+    options: MagicSearchOptions,
+    textPackageSchemas?: MagicTextPackageSchemas,
+  ): Promise<D1Page | null> {
     const database = options.d1;
     const manifest = getMagicSearchManifest();
     if (database == null || manifest == null || manifest.dataVersion === '') {
@@ -214,7 +274,7 @@ export class MagicD1SearchAdapter implements SearchAdapter<NormalResult, MagicSe
         return null;
       }
       const rewritten = regexRequest(request);
-      const filter = compileMagicD1Filter(rewritten.filter, db);
+      const filter = compileMagicD1Filter(rewritten.filter, db, textPackageSchemas);
       const { explicit, pinned } = detectAmbit(options.dsl);
       const searched = await searchWithAmbitCeiling({
         pinned,
@@ -235,7 +295,12 @@ export class MagicD1SearchAdapter implements SearchAdapter<NormalResult, MagicSe
 
       return { ...searched.result, ambit: searched.landing };
     } catch (error) {
-      console.warn('[search:d1] D1 search unavailable; using PostgreSQL.', error);
+      console.warn(
+        textPackageSchemas == null
+          ? '[search:d1] D1 search unavailable; using PostgreSQL.'
+          : '[search:local] Magic SQLite search failed.',
+        error,
+      );
       return null;
     }
   }

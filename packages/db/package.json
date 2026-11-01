@@ -32,6 +32,7 @@
     "./schema/shared/shadowverse/*": "./src/schema/shared/shadowverse/*.ts",
     "./schema/sqlite/magic": "./src/schema/sqlite/magic/index.ts",
     "./schema/sqlite/magic/*": "./src/schema/sqlite/magic/*.ts",
+    "./schema/sqlite/magic/search-fts.sql": "./src/schema/sqlite/magic/search-fts.sql",
     "./schema/sqlite/hearthstone": "./src/schema/sqlite/hearthstone/index.ts",
     "./schema/sqlite/hearthstone/*": "./src/schema/sqlite/hearthstone/*.ts",
     "./schema/sqlite/hearthstone/search-fts.sql": "./src/schema/sqlite/hearthstone/search-fts.sql"
@@ -53,7 +54,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "db:generate:hearthstone-search": "drizzle-kit generate --config=drizzle.hearthstone-search.config.ts",
-    "db:export:hearthstone-search": "drizzle-kit export --config=drizzle.hearthstone-search.config.ts"
+    "db:export:hearthstone-search": "drizzle-kit export --config=drizzle.hearthstone-search.config.ts",
+    "db:export:magic-search": "drizzle-kit export --config=drizzle.magic-search.config.ts"
   },
   "dependencies": {
     "@tcg-cards/model": "workspace:*",

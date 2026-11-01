@@ -99,12 +99,23 @@ export function magicD1Descriptor(): DatasetDescriptor {
 }
 
 /** Compiles the resolved filter into a parameterized Drizzle SQL expression. */
-export function compileMagicD1Filter(query: LogicalQuery | null, db: MagicSearchDrizzle): SQL {
+export type MagicTextPackageSchemas = {
+  /** Attached schema containing original, language-independent part text. */
+  base:   string;
+  /** Attached schema containing localized card text. */
+  locale: string;
+};
+
+export function compileMagicD1Filter(
+  query: LogicalQuery | null,
+  db: MagicSearchDrizzle,
+  textPackageSchemas?: MagicTextPackageSchemas,
+): SQL {
   if (query == null) {
     return sql`1 = 1`;
   }
 
-  return compileNode(query, db);
+  return compileNode(query, db, textPackageSchemas);
 }
 
 /** Finds value-level text cases whose Unicode behavior is not proven equivalent. */
@@ -167,27 +178,35 @@ function findNodeGap(query: LogicalQuery, supported: DatasetDescriptor['commands
 }
 
 /** Compiles boolean structure while preserving each logical operator. */
-function compileNode(query: LogicalQuery, db: MagicSearchDrizzle): SQL {
+function compileNode(
+  query: LogicalQuery,
+  db: MagicSearchDrizzle,
+  textPackageSchemas?: MagicTextPackageSchemas,
+): SQL {
   if (query.kind === 'leaf') {
-    return compileCommand(query.command, db);
+    return compileCommand(query.command, db, textPackageSchemas);
   }
 
   if (query.kind === 'not') {
-    return not(compileNode(query.expr, db));
+    return not(compileNode(query.expr, db, textPackageSchemas));
   }
 
-  return combine(query.kind, query.exprs.map(child => compileNode(child, db)));
+  return combine(query.kind, query.exprs.map(child => compileNode(child, db, textPackageSchemas)));
 }
 
 /** Compiles one supported command without embedding user values into SQL text. */
-function compileCommand(command: ResolvedCommand, db: MagicSearchDrizzle): SQL {
+function compileCommand(
+  command: ResolvedCommand,
+  db: MagicSearchDrizzle,
+  textPackageSchemas?: MagicTextPackageSchemas,
+): SQL {
   switch (command.commandId) {
   case 'name':
-    return compileTextCommand(command, nameSources(command), db);
+    return compileTextCommand(command, nameSources(command), db, textPackageSchemas);
   case 'text':
-    return compileTextCommand(command, textSources(command), db);
+    return compileTextCommand(command, textSources(command), db, textPackageSchemas);
   case 'oracle':
-    return compileTextCommand(command, ['part-body', 'localization-body'], db);
+    return compileTextCommand(command, ['part-body', 'localization-body'], db, textPackageSchemas);
   case 'mana-value':
     return compileNumber(command);
   case 'rarity':
@@ -216,7 +235,12 @@ function textSources(command: ResolvedCommand): TextSource[] {
 }
 
 /** Builds PG-compatible value groups independently for every projected text source. */
-function compileTextCommand(command: ResolvedCommand, sources: TextSource[], db: MagicSearchDrizzle): SQL {
+function compileTextCommand(
+  command: ResolvedCommand,
+  sources: TextSource[],
+  db: MagicSearchDrizzle,
+  textPackageSchemas?: MagicTextPackageSchemas,
+): SQL {
   if (command.textCondition != null) {
     return compileRegexCondition(command, sources.map(source => regexSourceColumn(source, db)));
   }
@@ -231,7 +255,7 @@ function compileTextCommand(command: ResolvedCommand, sources: TextSource[], db:
   const bySource = sources.map(source => {
     const byGroup = groups.map(group => combine('and', group.map(term => {
       const match = source.endsWith('body')
-        ? compileBodyMatch(command, source, term, db)
+        ? compileBodyMatch(command, source, term, db, textPackageSchemas)
         : compileNameMatch(command, source, term);
       return negated ? not(match) : match;
     })));
@@ -268,6 +292,7 @@ function compileBodyMatch(
   source: TextSource,
   term: string,
   db: MagicSearchDrizzle,
+  textPackageSchemas?: MagicTextPackageSchemas,
 ): SQL {
   const body = alias(SearchTextRow, 'body');
   const escaped = escapeLike(term);
@@ -280,11 +305,42 @@ function compileBodyMatch(
       eq(body.locale, SearchCardPartLocalization.locale),
       eq(body.source, SearchCardPartLocalization.source),
     );
+  const textSchema = source === 'part-body' ? textPackageSchemas?.base : textPackageSchemas?.locale;
+  if (textSchema != null && !/^[a-z_][a-z0-9_]*$/i.test(textSchema)) {
+    throw new Error('Invalid attached Magic text package schema.');
+  }
+  const ftsTable = textSchema == null
+    ? sql.raw('magic_search_text_fts')
+    : sql.raw(`"${textSchema}"."magic_search_text_fts"`);
   const fts = sql`${body.textId} IN (
-    SELECT rowid FROM ${sql.raw('magic_search_text_fts')}
+    SELECT rowid FROM ${ftsTable}
     WHERE ${sql.raw('magic_search_text_fts')} MATCH ${phrase}
   )`;
   const exactMatch = sql`${body.body} LIKE ${exact} ESCAPE '\\'`;
+
+  if (textSchema != null) {
+    const packageRows = sql.raw(`"${textSchema}"."magic_search_text_rows"`);
+    const partBody = source === 'part-body';
+    const outerIdentity = partBody
+      ? sql`(${SearchCard.cardId}, ${SearchCard.version}, ${SearchCardPart.partIndex})`
+      : sql`(${SearchCard.cardId}, ${SearchCard.version}, ${SearchCardPart.partIndex},
+          ${SearchCardPartLocalization.locale}, ${SearchCardPartLocalization.source})`;
+    const selectedIdentity = partBody
+      ? sql`body.card_id, body.version, body.part_index`
+      : sql`body.card_id, body.version, body.part_index, body.locale, body.source`;
+    const sourceIdentity = partBody
+      ? sql`body.kind = 'part' AND body.locale IS NULL AND body.source IS NULL`
+      : sql`body.kind = 'localization'`;
+    return sql`${outerIdentity} IN (
+      SELECT ${selectedIdentity} FROM ${packageRows} AS body
+      WHERE ${sourceIdentity}
+        AND body.text_id IN (
+          SELECT rowid FROM ${ftsTable}
+          WHERE ${sql.raw('magic_search_text_fts')} MATCH ${phrase}
+        )
+        AND body.body LIKE ${exact} ESCAPE '\\'
+    )`;
+  }
 
   return exists(db.select({ textId: body.textId })
     .from(body)
