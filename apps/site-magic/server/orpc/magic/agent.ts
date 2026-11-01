@@ -18,6 +18,7 @@ import { createDocumentStore } from '@tcg-cards/console-api/lib/magic/documents/
 import { readCrRelease } from '@tcg-cards/console-api/lib/magic/documents/cr-reader';
 
 import { search } from '~~/server/search';
+import { refreshMagicSearchManifest } from '~~/server/search/accelerated-adapter';
 
 // ---------------------------------------------------------------------------
 // search_cards — wraps existing search DSL
@@ -50,6 +51,7 @@ const searchCards = os
   }))
   .output(searchCardsOutput)
   .handler(async ({ input }) => {
+    await refreshMagicSearchManifest();
     const { q, page, pageSize, locale } = input;
 
     const result = await search.search('search', q, {

@@ -27,6 +27,7 @@ import type { TableName, PublishDb } from '../../hsdata-publish';
 import { requireHearthstonePublishTargetByIdentity } from '../../hsdata-publish-target';
 import { publishCardDataGeneration } from '../../publish-generation';
 import { getLocalDb } from '../../hsdata-local-db';
+import { activateSearchPublication, markSearchPublicationUnavailable } from '../../../search-publication';
 import { createDefinition } from '#task/definition';
 import type { ProgressFn, BlockDone } from '#task/definition';
 
@@ -364,6 +365,7 @@ async function applyingBlock(
       leaseHolderId:         batchId,
       force:                 ctx.force,
     });
+    await markSearchPublicationUnavailable(ctx.remoteDb as any, 'hearthstone');
     ctx.leaseHolderId = batchId;
     ctx.leaseStream = { publishTarget: batch.publishTarget, environment: batch.environment, publishType: batch.publishType };
   }
@@ -884,6 +886,7 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
             },
             manifestHash: batch.manifestHash, publishedAt,
           });
+          await activateSearchPublication(localDb, tx, 'hearthstone');
           if (ctx.leaseHolderId != null && ctx.leaseStream != null) {
             await tx.update(PublishStreamRegistration).set({
               leaseHolderId: null, leaseExpiresAt: null, updatedAt: new Date(),
@@ -895,6 +898,16 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
             ));
           }
         });
+      } else {
+        // A package-only identity change can leave every PG row unchanged; still refresh its release hash.
+        const activationDb = createDb(requireHearthstonePublishTargetByIdentity(batch.publishTarget, batch.environment).connectionString);
+        try {
+          await activationDb.transaction(async tx => {
+            await activateSearchPublication(localDb, tx, 'hearthstone');
+          });
+        } finally {
+          await activationDb.$client.end({ timeout: 1 });
+        }
       }
     }
 

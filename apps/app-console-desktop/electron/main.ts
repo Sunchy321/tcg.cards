@@ -200,10 +200,12 @@ function nestPaths(paths: Partial<Record<string, string>>): PathOverrides {
 /** Builds the isolated runtime snapshot without exposing decrypted values to the renderer. */
 async function buildRuntimeSettings(settings: Settings): Promise<RuntimeOverrides> {
   const { config } = settings.snapshot();
-  const [localDatabaseUrl, aiApiKey, yugiohPublishConnectionString, hearthstonePublishTargets, magicPublishTargets] = await Promise.all([
+  const [localDatabaseUrl, aiApiKey, yugiohPublishConnectionString, searchR2AccessKeyId, searchR2SecretAccessKey, hearthstonePublishTargets, magicPublishTargets] = await Promise.all([
     settings.secret('database'),
     settings.secret('ai'),
     settings.secret('yugioh-publish'),
+    settings.secret('search-r2-access-key-id'),
+    settings.secret('search-r2-secret-access-key'),
     Promise.all(config.publish.filter(item => item.publishTarget === 'hearthstone').map(async item => ({
       publishTarget:     item.publishTarget,
       environment:       item.environment,
@@ -230,6 +232,11 @@ async function buildRuntimeSettings(settings: Settings): Promise<RuntimeOverride
     },
     hearthstonePublishTargets,
     magicPublishTargets,
+    searchR2: {
+      accountId:       config.searchStorage.accountId ?? null,
+      accessKeyId:     searchR2AccessKeyId,
+      secretAccessKey: searchR2SecretAccessKey,
+    },
     yugiohImage: {
       bucketDir: yugiohImage?.bucketDir ?? null,
     },

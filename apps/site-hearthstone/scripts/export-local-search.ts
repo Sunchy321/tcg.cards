@@ -1,13 +1,14 @@
-import { randomUUID } from 'node:crypto';
 import { mkdir, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { Database } from 'bun:sqlite';
 import postgres from 'postgres';
-import { getColumns, sql } from 'drizzle-orm';
+import { eq, getColumns, isNull, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import type { SQLWrapper } from 'drizzle-orm';
 
-import { SearchCard } from '@tcg-cards/db/schema/shared/hearthstone/search';
+import { SearchCard, SearchCardLocalization } from '@tcg-cards/db/schema/shared/hearthstone/search';
+import { SearchPublicationMetadata } from '@tcg-cards/db/schema/remote';
+import { fingerprintSearchProjection } from '@tcg-cards/db/search-fingerprint';
 import { LatestCardEntityView } from '@tcg-cards/db/schema/shared/hearthstone/entity';
 import { Patch } from '@tcg-cards/db/schema/shared/hearthstone/patch';
 import { essentialCardSearchItem } from '@tcg-cards/model/hearthstone/schema/search';
@@ -36,6 +37,7 @@ async function main(): Promise<void> {
   const outputFiles = [
     `${outputDirectory}/hearthstone-base.sqlite`,
     ...locales.map(value => `${outputDirectory}/hearthstone-${value}.sqlite`),
+    `${outputDirectory}/search-publication-input.json`,
   ];
   for (const file of outputFiles) {
     if (await Bun.file(file).exists() || await Bun.file(`${file}.json`).exists()) {
@@ -66,6 +68,22 @@ async function main(): Promise<void> {
           ...columns
         } = getColumns(SearchCard);
         const projected = await projectedSearchQuery(tx);
+        const activeCards = await tx.select().from(SearchCard).where(isNull(SearchCard.deletedAt))
+          .orderBy(SearchCard.cardId);
+        const activeLocalizations = await tx.select().from(SearchCardLocalization)
+          .where(isNull(SearchCardLocalization.deletedAt))
+          .orderBy(SearchCardLocalization.cardId, SearchCardLocalization.lang);
+        const pgFingerprint = fingerprintSearchProjection([
+          ['cards', activeCards],
+          ['localizations', activeLocalizations],
+        ]);
+        const [publication] = await tx.select().from(SearchPublicationMetadata)
+          .where(eq(SearchPublicationMetadata.game, 'hearthstone'));
+        const planner = publication?.plannerMetadata as { buildNumber?: unknown } | undefined;
+        if (publication == null || !publication.ready || publication.dataVersion !== String(latest.buildNumber)
+          || publication.pgFingerprint !== pgFingerprint || planner?.buildNumber !== latest.buildNumber) {
+          throw new Error('The Hearthstone search projection has no matching completed publication metadata. Rebuild it in the desktop runtime first.');
+        }
         const sourceColumns = Object.fromEntries(
           Object.keys(columns)
             .filter(key => key !== 'simpleTags')
@@ -103,7 +121,8 @@ async function main(): Promise<void> {
         }
         return {
           rows,
-          manifest: { dataVersion: randomUUID(), buildNumber: latest.buildNumber },
+          manifest: { dataVersion: publication.dataVersion, buildNumber: latest.buildNumber },
+          pgFingerprint,
         };
       },
       { isolationLevel: 'repeatable read', accessMode: 'read only' },
@@ -153,6 +172,11 @@ async function main(): Promise<void> {
       });
       console.log(JSON.stringify({ phase: 'written', packageRole: 'locale', locale: value, output: outputPath, bytes: (await stat(outputPath)).size }));
     }
+    await Bun.write(`${outputDirectory}/search-publication-input.json`, `${JSON.stringify({
+      game:          'hearthstone',
+      pgFingerprint: snapshot.pgFingerprint,
+      buildNumber:   snapshot.manifest.buildNumber,
+    }, null, 2)}\n`);
   } finally {
     await client.end();
   }

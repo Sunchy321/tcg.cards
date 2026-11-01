@@ -8,6 +8,7 @@ import { devSearchResult, essentialSearchResult, searchResult } from '#model/mag
 import { searchInput } from '#search/schema';
 
 import { search } from '~~/server/search';
+import { refreshMagicSearchManifest } from '~~/server/search/accelerated-adapter';
 import type { HonoEnv } from '../hono-env';
 
 const basic = os
@@ -23,6 +24,7 @@ const basic = os
   }))
   .output(searchResult)
   .handler(async ({ input, context }) => {
+    await refreshMagicSearchManifest();
     const { q, page, pageSize, lang, groupBy, orderBy, ambit } = input;
 
     const result = await search.search('search', q, {
@@ -53,6 +55,7 @@ const essential = os
   }))
   .output(essentialSearchResult)
   .handler(async ({ input, context }) => {
+    await refreshMagicSearchManifest();
     const { q, page, pageSize, lang, groupBy, orderBy, ambit } = input;
 
     return search.search('essential', q, {
@@ -75,6 +78,7 @@ const dev = os
   }))
   .output(devSearchResult.extend({ q: z.string() }))
   .handler(async ({ input }) => {
+    await refreshMagicSearchManifest();
     const { q, pageSize, groupBy } = input;
 
     const result = await search.search('dev', q, {

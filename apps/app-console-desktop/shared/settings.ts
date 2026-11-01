@@ -64,6 +64,9 @@ export const configuration = z.strictObject({
     .array(publishTarget)
     .refine(rows => new Set(rows.map(row => row.credentialKey)).size === rows.length, '发布连接重复')
     .default([]),
+  searchStorage: z.strictObject({
+    accountId: z.string().trim().regex(/^[a-f0-9]{32}$/i).optional(),
+  }).default({}),
   games: z
     .strictObject({
       hearthstone: z
@@ -116,9 +119,11 @@ export function validationMessage(error: z.ZodError): string {
             : '模型配置'
         : path[0] === 'publish'
           ? `第 ${Number(path[1] ?? 0) + 1} 个发布连接`
-          : path[0] === 'games'
-            ? '游戏图片或发布设置'
-            : '配置';
+          : path[0] === 'searchStorage'
+            ? '搜索数据存储'
+            : path[0] === 'games'
+              ? '游戏图片或发布设置'
+              : '配置';
   if (issue?.code === 'unrecognized_keys') return `${category}包含不支持的项目，请检查后重试。`;
   return `${category}内容不正确，请检查必填项、类型和格式。`;
 }

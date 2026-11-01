@@ -124,7 +124,7 @@ function createSearchViews(database: DatabaseSync): void {
       SELECT key, value FROM search_base.magic_search_meta
       UNION ALL
       SELECT key, value FROM search_locale.magic_search_meta
-      WHERE key NOT IN ('data_version', 'ready', 'package_role');
+      WHERE key NOT IN ('data_version', 'schema_version', 'ready', 'package_role');
   `);
 }
 

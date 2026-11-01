@@ -7,6 +7,14 @@ import { planCoverage as planLogicalCoverage } from '#search/logical';
 
 import { compileQueryRequest } from './translate';
 
+/** Signals that an accelerated snapshot changed between planning and execution. */
+export class AcceleratedSearchFallbackError extends Error {
+  constructor() {
+    super('The accelerated search snapshot is not active.');
+    this.name = 'AcceleratedSearchFallbackError';
+  }
+}
+
 /** Runs one compiled PostgreSQL query through the configured search action. */
 export type PgActionRunner<Result, Options> = (
   query: SQL,

@@ -9,6 +9,8 @@ import type { EssentialCardSearchItem, EssentialNormalResult, NormalResult } fro
 import { Card, CardLocalization, CardPart, CardPartLocalization } from '@tcg-cards/db/schema/shared/magic/card';
 import { Print, PrintPart } from '@tcg-cards/db/schema/shared/magic/print';
 import { SearchCard, SearchCardPart, SearchCardPartLocalization } from '@tcg-cards/db/schema/shared/magic/search';
+import { SearchPublicationMetadata } from '#schema/shared/search-publication';
+import { LOCAL_SEARCH_SCHEMA_VERSIONS } from '@tcg-cards/model/search/publication';
 
 import type { CapabilityGap, CoveragePlan, DatasetDescriptor, LogicalQuery, QueryRequest, SearchAdapter } from '#search/logical';
 import type { MagicSearchD1Database } from './d1/types';
@@ -16,6 +18,7 @@ import { describeLogicalCommand } from '#search/command/semantics';
 import type { CommonServerCommand } from '#search/server/command';
 import { compileQueryRequest } from '#search/server/translate';
 import { db } from '#db/db';
+import { AcceleratedSearchFallbackError } from '#search/server/adapter';
 import { detectAmbit } from '#search/ambit';
 import type { Ambit } from '#search/ambit';
 import { ambitCeiling, searchWithAmbitCeiling } from '#search/server/ambit';
@@ -65,15 +68,56 @@ type SearchTable = {
 };
 
 let activeManifest: MagicSearchManifest | null = null;
+let activePublicationReady = false;
+let activePublicationChecked = false;
 
 /** Replaces planner metadata together with its matching accelerated-data version. */
 export function setMagicSearchManifest(manifest: MagicSearchManifest | null) {
   activeManifest = manifest;
+  activePublicationReady = true;
+  activePublicationChecked = false;
 }
 
-/** Static manifest activation is wired by the publication lifecycle in ticket 13. */
+/** Returns the currently active PG routing metadata and content identity. */
 export function getMagicSearchManifest() {
   return activeManifest;
+}
+
+/** Refreshes the active planner record before planning an incoming request. */
+export async function refreshMagicSearchManifest(): Promise<void> {
+  try {
+    const [publication] = await db.select().from(SearchPublicationMetadata)
+      .where(eq(SearchPublicationMetadata.game, 'magic'));
+    const metadata = publication?.plannerMetadata as { typeSymbols?: unknown, tagOwners?: unknown } | undefined;
+    if (publication == null || !publication.ready
+      || publication.schemaVersion !== LOCAL_SEARCH_SCHEMA_VERSIONS.magic
+      || !Array.isArray(metadata?.typeSymbols)
+      || metadata.typeSymbols.some(value => typeof value !== 'string')
+      || metadata.tagOwners == null || typeof metadata.tagOwners !== 'object' || Array.isArray(metadata.tagOwners)) {
+      activeManifest = null;
+      activePublicationReady = false;
+      activePublicationChecked = true;
+      return;
+    }
+    activeManifest = {
+      dataVersion:   publication.dataVersion,
+      pgFingerprint: publication.pgFingerprint,
+      releaseHash:   publication.releaseHash ?? undefined,
+      typeSymbols:   metadata.typeSymbols as string[],
+      tagOwners:     metadata.tagOwners as MagicSearchManifest['tagOwners'],
+    };
+    activePublicationReady = true;
+    activePublicationChecked = true;
+  } catch (error) {
+    const cause = error as { code?: string, cause?: { code?: string } };
+    if (cause.code === '42P01' || cause.cause?.code === '42P01') {
+      activeManifest = null;
+      activePublicationReady = false;
+      activePublicationChecked = true;
+      return;
+    }
+    throw error;
+  }
 }
 
 const supportedCommands = new Set([
@@ -167,6 +211,9 @@ export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, MagicSe
   }
 
   plan(request: QueryRequest): CoveragePlan {
+    if (activePublicationChecked && !activePublicationReady) {
+      return { type: 'original', reason: [{ kind: 'result', field: 'dataset', detail: 'The current Magic search projection is not ready.' }] };
+    }
     const manifest = getMagicSearchManifest();
     const gap = findCoverageGap(request, manifest);
 
@@ -314,7 +361,23 @@ export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, MagicSe
       );
 
     const orderBy = orderSql(options.orderBy);
-    const rows = await db.execute<{ total: number, candidates: MagicSearchCandidate[] }>(sql`
+    const manifest = getMagicSearchManifest();
+    const publicationReady = !activePublicationReady
+      ? sql`FALSE`
+      : manifest?.pgFingerprint == null
+        ? sql`TRUE`
+        : sql`EXISTS (
+        SELECT 1 FROM public.search_publication_metadata publication
+        WHERE publication.game = 'magic'
+          AND publication.ready
+          AND publication.data_version = ${manifest.dataVersion}
+          AND publication.pg_fingerprint = ${manifest.pgFingerprint}
+          AND COALESCE(publication.release_hash, '') = ${manifest.releaseHash ?? ''}
+          AND publication.schema_version = ${LOCAL_SEARCH_SCHEMA_VERSIONS.magic}
+      )`;
+    let rows: Array<{ total: number, candidates: MagicSearchCandidate[], publicationReady: boolean }>;
+    try {
+      rows = await db.execute<{ total: number, candidates: MagicSearchCandidate[], publicationReady: boolean }>(sql`
       WITH filtered AS MATERIALIZED (${filtered}),
       totals AS (
         SELECT count(*)::int AS total FROM filtered
@@ -327,6 +390,7 @@ export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, MagicSe
         OFFSET ${(options.page - 1) * options.pageSize}
       )
       SELECT
+        ${publicationReady} AS "publicationReady",
         totals.total,
         COALESCE(
           jsonb_agg(
@@ -346,6 +410,23 @@ export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, MagicSe
       FROM totals
       LEFT JOIN page ON TRUE
       GROUP BY totals.total`);
+    } catch (error) {
+      const cause = error as { code?: string, cause?: { code?: string } };
+      if (cause.code === '42P01' || cause.cause?.code === '42P01') {
+        activeManifest = null;
+        activePublicationReady = false;
+        activePublicationChecked = true;
+        throw new AcceleratedSearchFallbackError();
+      }
+      throw error;
+    }
+
+    if (rows[0]?.publicationReady !== true) {
+      setMagicSearchManifest(null);
+      activePublicationReady = false;
+      activePublicationChecked = true;
+      throw new AcceleratedSearchFallbackError();
+    }
 
     return {
       total:      Number(rows[0]?.total ?? 0),

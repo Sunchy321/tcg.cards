@@ -15,6 +15,25 @@ const hearthstoneImageOverride = {
   current: null as HearthstoneImageOverride | null,
 };
 
+/** R2 credentials injected by the desktop shell for search-package publication. */
+export interface SearchR2Override {
+  accountId:       string | null;
+  accessKeyId:     string | null;
+  secretAccessKey: string | null;
+}
+
+const searchR2Override = { current: null as SearchR2Override | null };
+
+/** Stores the search-object-storage settings in the task worker's runtime. */
+export function setSearchR2Override(value: SearchR2Override | null): void {
+  searchR2Override.current = value;
+}
+
+/** Reads the search-object-storage settings for a desktop publishing task. */
+export function readSearchR2Override(): SearchR2Override | null {
+  return searchR2Override.current;
+}
+
 /** Publish-target override payload injected by the desktop shell. */
 export interface HearthstonePublishTargetOverride {
   publishTarget:     string | null;
@@ -263,6 +282,7 @@ export interface RuntimeOverrides {
   hearthstoneImage:          HearthstoneImageOverride | null;
   hearthstonePublishTargets: HearthstonePublishTargetOverride[];
   magicPublishTargets:       MagicPublishTargetOverride[];
+  searchR2:                  SearchR2Override | null;
   yugiohImage:               YugiohImageOverride | null;
   yugiohPublishTarget:       YugiohPublishTargetOverride | null;
   aiConfig:                  AiConfig | null;
@@ -277,6 +297,7 @@ export function collectRuntimeOverrides(): RuntimeOverrides {
     hearthstoneImage:          readHearthstoneImageOverride(),
     hearthstonePublishTargets: readHearthstonePublishTargetOverrides(),
     magicPublishTargets:       readMagicPublishTargetOverrides(),
+    searchR2:                  readSearchR2Override(),
     yugiohImage:               readYugiohImageOverride(),
     yugiohPublishTarget:       readYugiohPublishTargetOverride(),
     aiConfig:                  readAiConfig(),
@@ -291,6 +312,7 @@ export function applyRuntimeOverrides(data: RuntimeOverrides): void {
   setHearthstoneImageOverride(data.hearthstoneImage);
   setHearthstonePublishTargetOverrides(data.hearthstonePublishTargets);
   setMagicPublishTargetOverrides(data.magicPublishTargets);
+  setSearchR2Override(data.searchR2);
   setYugiohImageOverride(data.yugiohImage);
   setYugiohPublishTargetOverride(data.yugiohPublishTarget);
   setAiConfig(data.aiConfig);

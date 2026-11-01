@@ -16,6 +16,7 @@
     "./orpc/hearthstone": "./src/orpc/hearthstone/index.ts",
     "./orpc/image": "./src/orpc/image.ts",
     "./orpc/runtime": "./src/orpc/runtime.ts",
+    "./lib/magic/project/search-data": "./src/lib/magic/project/search-data.ts",
     "./lib/hearthstone/*": "./src/lib/hearthstone/*.ts",
     "./lib/shadowverse/*": "./src/lib/shadowverse/*.ts",
     "./lib/shadowverse-evolve/*": "./src/lib/shadowverse-evolve/*.ts",

@@ -43,6 +43,7 @@ type D1CandidateRow = {
 /** Carries one D1 page and the data version used to produce it. */
 type D1QueryPage = {
   dataVersion: string;
+  releaseHash: string;
   total:       number;
   candidates:  MagicSearchCandidate[];
 };
@@ -82,7 +83,7 @@ export class MagicD1SearchAdapter implements SearchAdapter<NormalResult, MagicSe
     }
 
     const details = await loadMagicSearchDetails(page.candidates, options.lang);
-    if (getMagicSearchManifest()?.dataVersion !== page.dataVersion) {
+    if (!matchesCurrentMagicRelease(page)) {
       return magicPgSearchAdapter.execute(request, options);
     }
 
@@ -113,7 +114,7 @@ export class MagicD1SearchAdapter implements SearchAdapter<NormalResult, MagicSe
     if (page == null) {
       return magicPgSearchAdapter.executeEssential(request, options);
     }
-    if (getMagicSearchManifest()?.dataVersion !== page.dataVersion) {
+    if (!matchesCurrentMagicRelease(page)) {
       return magicPgSearchAdapter.executeEssential(request, options);
     }
 
@@ -168,7 +169,9 @@ export class MagicD1SearchAdapter implements SearchAdapter<NormalResult, MagicSe
     const startedAt = performance.now();
     const page = await this.searchD1(request, options, textPackageSchemas);
     if (page == null || page.dataVersion !== manifest.dataVersion
-      || getMagicSearchManifest()?.dataVersion !== manifest.dataVersion) {
+      || (manifest.releaseHash != null && page.releaseHash !== manifest.releaseHash)
+      || getMagicSearchManifest()?.dataVersion !== manifest.dataVersion
+      || getMagicSearchManifest()?.releaseHash !== manifest.releaseHash) {
       throw new Error('The local Magic search query could not read its matching package version.');
     }
 
@@ -205,12 +208,11 @@ export class MagicD1SearchAdapter implements SearchAdapter<NormalResult, MagicSe
   /** Reads all safe cards, then lets PG verify the untouched query before pagination and ambit. */
   async executeCandidates(request: QueryRequest, options: MagicSearchOptions): Promise<NormalResult> {
     const candidates = await this.candidateIds(request, options);
-    if (candidates == null || getMagicSearchManifest()?.dataVersion !== candidates.dataVersion) {
+    if (candidates == null || !matchesCurrentMagicRelease(candidates)) {
       return magicPgSearchAdapter.execute(request, options);
     }
-    const version = candidates.dataVersion;
     const result = await magicPgSearchAdapter.execute(request, options, candidates.cardIds);
-    return getMagicSearchManifest()?.dataVersion === version
+    return matchesCurrentMagicRelease(candidates)
       ? result
       : magicPgSearchAdapter.execute(request, options);
   }
@@ -218,18 +220,17 @@ export class MagicD1SearchAdapter implements SearchAdapter<NormalResult, MagicSe
   /** Preserves the compact result contract while PG verifies the entire candidate set. */
   async executeEssentialCandidates(request: QueryRequest, options: MagicSearchOptions): Promise<EssentialNormalResult> {
     const candidates = await this.candidateIds(request, options);
-    if (candidates == null || getMagicSearchManifest()?.dataVersion !== candidates.dataVersion) {
+    if (candidates == null || !matchesCurrentMagicRelease(candidates)) {
       return magicPgSearchAdapter.executeEssential(request, options);
     }
-    const version = candidates.dataVersion;
     const result = await magicPgSearchAdapter.executeEssential(request, options, candidates.cardIds);
-    return getMagicSearchManifest()?.dataVersion === version
+    return matchesCurrentMagicRelease(candidates)
       ? result
       : magicPgSearchAdapter.executeEssential(request, options);
   }
 
   /** Materializes unpaged IDs with version and source-safety evidence from the same D1 statement. */
-  private async candidateIds(request: QueryRequest, options: MagicSearchOptions): Promise<{ cardIds: string[], dataVersion: string } | null> {
+  private async candidateIds(request: QueryRequest, options: MagicSearchOptions): Promise<{ cardIds: string[], dataVersion: string, releaseHash: string } | null> {
     const plan = this.plan(request);
     const manifest = getMagicSearchManifest();
     if (plan.type !== 'candidate' || options.d1 == null || manifest == null
@@ -240,17 +241,20 @@ export class MagicD1SearchAdapter implements SearchAdapter<NormalResult, MagicSe
       const db = drizzle(options.d1, { schema: magicSearchSchema });
       const candidate = { ...request, filter: plan.candidate };
       const rows = await db.select({
-        version: sql<string>`(SELECT value FROM ${magicSearchSchema.SearchMeta} WHERE key = 'data_version')`,
-        safe:    sql<number>`NOT EXISTS ${magicSource(db).where(magicRegexUnsafe(candidate, db, true))}`,
-        ids:     sql<string>`(SELECT json_group_array(card_id) FROM (${magicSource(db, true)
+        version:     sql<string>`(SELECT value FROM ${magicSearchSchema.SearchMeta} WHERE key = 'data_version')`,
+        releaseHash: sql<string>`(SELECT value FROM ${magicSearchSchema.SearchMeta} WHERE key = 'release_hash')`,
+        safe:        sql<number>`NOT EXISTS ${magicSource(db).where(magicRegexUnsafe(candidate, db, true))}`,
+        ids:         sql<string>`(SELECT json_group_array(card_id) FROM (${magicSource(db, true)
           .where(compileMagicD1Filter(plan.candidate, db))}))`,
       }).from(magicSearchSchema.SearchMeta).limit(1);
       const row = rows[0];
       if (row?.version !== manifest.dataVersion || Number(row.safe) !== 1
-        || getMagicSearchManifest()?.dataVersion !== manifest.dataVersion) {
+        || (manifest.releaseHash != null && row.releaseHash !== manifest.releaseHash)
+        || getMagicSearchManifest()?.dataVersion !== manifest.dataVersion
+        || getMagicSearchManifest()?.releaseHash !== manifest.releaseHash) {
         return null;
       }
-      return { cardIds: JSON.parse(row.ids) as string[], dataVersion: manifest.dataVersion };
+      return { cardIds: JSON.parse(row.ids) as string[], dataVersion: manifest.dataVersion, releaseHash: row.releaseHash ?? '' };
     } catch (error) {
       console.warn('[search:d1] Magic regex candidates unavailable; using PostgreSQL.', error);
       return null;
@@ -289,7 +293,7 @@ export class MagicD1SearchAdapter implements SearchAdapter<NormalResult, MagicSe
         },
       });
 
-      if (getMagicSearchManifest()?.dataVersion !== manifest.dataVersion) {
+      if (!matchesCurrentMagicRelease(searched.result)) {
         return null;
       }
 
@@ -345,6 +349,7 @@ async function queryPage(
   } = magicSearchSchema;
   const metadata = db.$with('metadata').as(db.select({
     dataVersion: sql<string>`coalesce(max(case when ${SearchMeta.key} = 'data_version' then ${SearchMeta.value} end), '')`.as('data_version'),
+    releaseHash: sql<string>`coalesce(max(case when ${SearchMeta.key} = 'release_hash' then ${SearchMeta.value} end), '')`.as('release_hash'),
     regexSafe:   sql<number>`NOT EXISTS ${magicSource(db).where(regexUnsafe)}`.as('regex_safe'),
   }).from(SearchMeta));
   const ambitFilter = ceiling == null ? null : lte(ambitRankSql(SearchCard.ambit), ambitRank(ceiling));
@@ -420,6 +425,7 @@ async function queryPage(
     .select({
       regexSafe:          metadata.regexSafe,
       dataVersion:        metadata.dataVersion,
+      releaseHash:        metadata.releaseHash,
       total:              totals.total,
       cardId:             page.cardId,
       version:            page.version,
@@ -452,9 +458,20 @@ async function queryPage(
 
   return {
     dataVersion: first?.dataVersion ?? '',
+    releaseHash: first?.releaseHash ?? '',
     total:       Number(first?.total ?? 0),
     candidates,
   };
+}
+
+/** Requires the D1 result and the still-active PG manifest to identify the same release. */
+function matchesCurrentMagicRelease(result: Pick<D1QueryPage, 'dataVersion' | 'releaseHash'>): boolean {
+  const current = getMagicSearchManifest();
+  return current?.dataVersion === result.dataVersion
+    && current.releaseHash != null
+    && current.releaseHash === result.releaseHash
+    && getMagicSearchManifest()?.dataVersion === current.dataVersion
+    && getMagicSearchManifest()?.releaseHash === current.releaseHash;
 }
 
 /** Converts one D1 row to the shared PG-detail lookup key. */

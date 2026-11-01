@@ -1,9 +1,8 @@
-import { randomUUID } from 'node:crypto';
 import { mkdir, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { Database } from 'bun:sqlite';
 import postgres from 'postgres';
-import { and, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { drizzle as drizzlePostgres } from 'drizzle-orm/postgres-js';
 
 import {
@@ -11,8 +10,11 @@ import {
   SearchCardPart as SourceSearchCardPart,
   SearchCardPartLocalization as SourceSearchCardPartLocalization,
 } from '@tcg-cards/db/schema/shared/magic/search';
+import { SearchPublicationMetadata } from '@tcg-cards/db/schema/remote';
+import { fingerprintSearchProjection } from '@tcg-cards/db/search-fingerprint';
 import { locale } from '@tcg-cards/model/magic/schema/basic';
 import type { MagicSearchCandidatePrint } from '@tcg-cards/model/magic/search/manifest';
+import { LOCAL_SEARCH_SCHEMA_VERSIONS } from '@tcg-cards/model/search/publication';
 
 type LocaleCode = (typeof locale.options)[number];
 
@@ -140,6 +142,7 @@ function populateSnapshot(database: Database, input: SnapshotInput): void {
 
   const metadata = [
     ['data_version', input.dataVersion],
+    ['schema_version', String(LOCAL_SEARCH_SCHEMA_VERSIONS.magic)],
     ['ready', '1'],
     ['package_role', input.packageRole],
     ...(input.packageRole === 'locale' ? [['locale', input.locale!]] : []),
@@ -167,6 +170,7 @@ async function main(): Promise<void> {
   const outputFiles = [
     `${outputDirectory}/magic-base.sqlite`,
     ...locales.map(value => `${outputDirectory}/magic-${value}.sqlite`),
+    `${outputDirectory}/search-publication-input.json`,
   ];
   for (const file of outputFiles) {
     if (await Bun.file(file).exists() || await Bun.file(`${file}.json`).exists()) {
@@ -194,7 +198,35 @@ async function main(): Promise<void> {
             SourceSearchCardPartLocalization.locale,
             SourceSearchCardPartLocalization.source,
           );
-        return { cards, parts, localizations, dataVersion: randomUUID() };
+        const pgFingerprint = fingerprintSearchProjection([
+          ['cards', cards],
+          ['parts', parts],
+          ['localizations', localizations],
+        ]);
+        const [publication] = await tx.select().from(SearchPublicationMetadata)
+          .where(eq(SearchPublicationMetadata.game, 'magic'));
+        if (publication == null || !publication.ready || publication.pgFingerprint !== pgFingerprint) {
+          throw new Error('The Magic search projection has no matching completed publication metadata. Rebuild it in the desktop runtime first.');
+        }
+        const planner = publication.plannerMetadata as {
+          typeSymbols?: unknown;
+          tagOwners?:   unknown;
+        };
+        if (!Array.isArray(planner.typeSymbols) || planner.typeSymbols.some(value => typeof value !== 'string')
+          || planner.tagOwners == null || typeof planner.tagOwners !== 'object' || Array.isArray(planner.tagOwners)) {
+          throw new Error('The Magic search routing metadata is invalid. Rebuild it in the desktop runtime first.');
+        }
+        return {
+          cards,
+          parts,
+          localizations,
+          dataVersion: publication.dataVersion,
+          pgFingerprint,
+          planner:     {
+            typeSymbols: planner.typeSymbols as string[],
+            tagOwners:   planner.tagOwners as Record<string, 'card-only' | 'print-only' | 'overlap'>,
+          },
+        };
       },
       { isolationLevel: 'repeatable read', accessMode: 'read only' },
     );
@@ -239,6 +271,12 @@ async function main(): Promise<void> {
       });
       console.log(JSON.stringify({ packageRole: 'locale', locale: value, output: outputPath, bytes: (await stat(outputPath)).size }));
     }
+    await Bun.write(`${outputDirectory}/search-publication-input.json`, `${JSON.stringify({
+      game:          'magic',
+      pgFingerprint: snapshot.pgFingerprint,
+      typeSymbols:   snapshot.planner.typeSymbols,
+      tagOwners:     snapshot.planner.tagOwners,
+    }, null, 2)}\n`);
   } finally {
     await client.end();
   }

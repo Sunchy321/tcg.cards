@@ -162,3 +162,16 @@ registerLegacyTask({
   supportsResume: false,
   scope:          () => ({ type: 'purge', key: 'hearthstone:purge', snapshot: {} }),
 }, async () => (await import('../runtime/lib/hearthstone/task/purge/definition')).hearthstonePurgeTaskDefinition);
+
+registerTask({
+  taskType:            'hearthstone_search_package_publish',
+  label:               '炉石传说搜索数据发布',
+  version:             '2026-11-01:v1',
+  supportsResume:      false,
+  admission:           { game: 'hearthstone', connection: 'direct' },
+  publishConfirmation: () => ({ environment: 'production', scope: '搜索数据包' }),
+  scope:               () => ({ type: 'search_package_publish', key: 'hearthstone', snapshot: { game: 'hearthstone' } }),
+  async load() {
+    return { default: (await import('../runtime/lib/search-publication/task')).createSearchPublicationTask('hearthstone') };
+  },
+});

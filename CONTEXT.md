@@ -11,6 +11,14 @@ The CLI at `apps/service-desktop-runtime/scripts/generate-card-test.ts`. It read
 ### card projection pure entry (投影纯函数入口)
 `projectExtractedCard` (exported from `task/project/project.ts`) maps a card snapshot + tags + tag config + context to a complete `ProjectCardResult`. Both the generator script and `cards/runner.ts` call it directly, so generated fixtures stay valid offline as long as the pure projection is unchanged.
 
+## Search Publication (搜索发布)
+
+### logical data version (逻辑数据版本)
+A source-facing label for the logical search dataset. It may stay the same when the serialized search files change.
+
+### release hash (发布哈希)
+A content identity used to determine whether search data from separate stores belongs to the same release. It can change independently of the logical data version.
+
 ## Hearthstone Announcement (炉石公告)
 
 ### Announcement Item (公告条目)

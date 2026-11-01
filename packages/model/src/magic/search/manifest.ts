@@ -17,7 +17,9 @@ export type MagicSearchCandidatePrints = Partial<Record<Locale, MagicSearchCandi
 export type MagicSearchTagOwner = 'card-only' | 'print-only' | 'overlap';
 
 export interface MagicSearchManifest {
-  dataVersion: string;
-  typeSymbols: string[];
-  tagOwners:   Record<string, MagicSearchTagOwner>;
+  dataVersion:    string;
+  pgFingerprint?: string;
+  releaseHash?:   string;
+  typeSymbols:    string[];
+  tagOwners:      Record<string, MagicSearchTagOwner>;
 }

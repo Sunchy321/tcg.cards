@@ -3,11 +3,14 @@ import { and, eq, getColumns, isNull, ne, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 
 import { SearchCard, SearchCardLocalization } from '@tcg-cards/db/schema/shared/hearthstone/search';
+import { SearchPublicationMetadata } from '#schema/shared/search-publication';
+import { LOCAL_SEARCH_SCHEMA_VERSIONS } from '@tcg-cards/model/search/publication';
 import { hearthstoneSearchManifest } from '@tcg-cards/model/hearthstone/search/manifest';
 import type { HearthstoneSearchManifest } from '@tcg-cards/model/hearthstone/search/manifest';
 import type { EssentialNormalResult } from '@tcg-cards/model/hearthstone/schema/search';
 
 import { db } from '#db/db';
+import { AcceleratedSearchFallbackError } from '#search/server/adapter';
 import { AMBITS, detectAmbit } from '#search/ambit';
 import { planCoverage } from '#search/logical';
 import type { CoveragePlan, DatasetDescriptor, QueryRequest, SearchAdapter } from '#search/logical';
@@ -21,10 +24,11 @@ import * as commands from './command-list';
 
 /** Binds a manifest to independently known dataset readiness and version metadata. */
 export type HearthstoneSearchDataset = {
-  manifest:    HearthstoneSearchManifest;
-  dataVersion: string;
-  buildNumber: number;
-  ready:       boolean;
+  manifest:       HearthstoneSearchManifest;
+  dataVersion:    string;
+  buildNumber:    number;
+  pgFingerprint?: string;
+  ready:          boolean;
 };
 
 let activeDataset: HearthstoneSearchDataset | null = null;
@@ -50,6 +54,39 @@ function datasetReady(): boolean {
 /** Returns matching latest metadata without exposing mutable activation state. */
 export function getHearthstoneSearchDataset(): HearthstoneSearchDataset | null {
   return datasetReady() ? { ...activeDataset!, manifest: { ...activeDataset!.manifest } } : null;
+}
+
+/** Refreshes the active dataset identity before planning an incoming request. */
+export async function refreshHearthstoneSearchDataset(): Promise<void> {
+  try {
+    const [publication] = await db.select().from(SearchPublicationMetadata)
+      .where(eq(SearchPublicationMetadata.game, 'hearthstone'));
+    const planner = publication?.plannerMetadata as { buildNumber?: unknown } | undefined;
+    if (publication == null || !publication.ready
+      || publication.schemaVersion !== LOCAL_SEARCH_SCHEMA_VERSIONS.hearthstone
+      || typeof planner?.buildNumber !== 'number' || !Number.isInteger(planner.buildNumber)) {
+      activeDataset = null;
+      return;
+    }
+    setHearthstoneSearchDataset({
+      manifest: {
+        dataVersion: publication.dataVersion,
+        buildNumber: planner.buildNumber,
+        releaseHash: publication.releaseHash ?? undefined,
+      },
+      dataVersion:   publication.dataVersion,
+      buildNumber:   planner.buildNumber,
+      pgFingerprint: publication.pgFingerprint,
+      ready:         true,
+    });
+  } catch (error) {
+    const cause = error as { code?: string, cause?: { code?: string } };
+    if (cause.code === '42P01' || cause.cause?.code === '42P01') {
+      activeDataset = null;
+      return;
+    }
+    throw error;
+  }
 }
 
 const supportedCommands = new Set([
@@ -140,6 +177,18 @@ export class HearthstonePgEssentialSearchAdapter implements SearchAdapter<Essent
       ? sql`${AMBITS.indexOf(pinned)}::int`
       : explicit ? sql`0` : sql`COALESCE((SELECT min(GREATEST(level, ${start}::int)) FROM filtered), 2)`;
     // Rank before pagination, then choose the first nonempty ambit ceiling in this same statement.
+    const dataset = getHearthstoneSearchDataset();
+    const publicationReady = dataset?.pgFingerprint == null
+      ? sql`TRUE`
+      : sql`EXISTS (
+        SELECT 1 FROM public.search_publication_metadata publication
+        WHERE publication.game = 'hearthstone'
+          AND publication.ready
+          AND publication.data_version = ${dataset.dataVersion}
+          AND publication.pg_fingerprint = ${dataset.pgFingerprint}
+          AND COALESCE(publication.release_hash, '') = ${dataset.manifest.releaseHash ?? ''}
+          AND publication.schema_version = ${LOCAL_SEARCH_SCHEMA_VERSIONS.hearthstone}
+      )`;
     return sql`
       WITH filtered AS MATERIALIZED (
         SELECT ${itemSql()} AS item, ${level} AS level,
@@ -156,7 +205,8 @@ export class HearthstonePgEssentialSearchAdapter implements SearchAdapter<Essent
         SELECT item, position FROM visible ORDER BY position
         LIMIT ${options.pageSize} OFFSET ${(options.page - 1) * options.pageSize}
       )
-      SELECT totals.total,
+      SELECT ${publicationReady} AS "publicationReady",
+        totals.total,
         CASE landing.level WHEN 0 THEN 'primary' WHEN 1 THEN 'additional' ELSE 'full' END AS ambit,
         COALESCE(jsonb_agg(page.item ORDER BY page.position) FILTER (WHERE page.position IS NOT NULL), '[]'::jsonb) AS result
       FROM totals CROSS JOIN landing LEFT JOIN page ON TRUE
@@ -166,9 +216,10 @@ export class HearthstonePgEssentialSearchAdapter implements SearchAdapter<Essent
   /** Returns only list fields after one accelerated database round trip. */
   async execute(request: QueryRequest, options: SearchOption, cardIds?: string[]): Promise<EssentialNormalResult> {
     const startedAt = performance.now();
+    const enforcePublicationGate = getHearthstoneSearchDataset()?.pgFingerprint != null;
     let rows;
     try {
-      rows = await db.execute<Pick<EssentialNormalResult, 'result' | 'total' | 'ambit'>>(this.compile(request, options, cardIds));
+      rows = await db.execute<Pick<EssentialNormalResult, 'result' | 'total' | 'ambit'> & { publicationReady: boolean }>(this.compile(request, options, cardIds));
     } catch (error) {
       // A deployment can remove a projection after metadata was loaded. Only a
       // missing relation triggers this fallback; query or connection errors stay visible.
@@ -180,6 +231,11 @@ export class HearthstonePgEssentialSearchAdapter implements SearchAdapter<Essent
       throw error;
     }
     const row = rows[0]!;
+    if (enforcePublicationGate && row.publicationReady !== true) {
+      setHearthstoneSearchDataset(null);
+      if (this.original != null) return this.original(request, options);
+      throw new AcceleratedSearchFallbackError();
+    }
     return {
       result:    row.result,
       total:     Number(row.total),

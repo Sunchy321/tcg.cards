@@ -184,3 +184,16 @@ registerLegacyTask({
     return { type: 'document_relations', key: documentId, snapshot: { documentId } };
   },
 }, async () => (await import('../runtime/lib/magic/task/document-relations/definition')).documentRelationsTaskDefinition);
+
+registerTask({
+  taskType:            'magic_search_package_publish',
+  label:               '万智牌搜索数据发布',
+  version:             '2026-11-01:v1',
+  supportsResume:      false,
+  admission:           { game: 'magic', connection: 'direct' },
+  publishConfirmation: () => ({ environment: 'production', scope: '搜索数据包' }),
+  scope:               () => ({ type: 'search_package_publish', key: 'magic', snapshot: { game: 'magic' } }),
+  async load() {
+    return { default: (await import('../runtime/lib/search-publication/task')).createSearchPublicationTask('magic') };
+  },
+});

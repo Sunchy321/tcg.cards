@@ -3,6 +3,7 @@ import { z } from 'zod';
 /** Identifies the latest build represented by one complete search dataset. */
 export const hearthstoneSearchManifest = z.strictObject({
   dataVersion: z.string().min(1),
+  releaseHash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   buildNumber: z.int().positive(),
 });
 

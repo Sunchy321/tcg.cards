@@ -120,7 +120,7 @@ function createSearchViews(database: DatabaseSync): void {
       SELECT key, value FROM search_base.hearthstone_search_meta
       UNION ALL
       SELECT key, value FROM search_locale.hearthstone_search_meta
-      WHERE key NOT IN ('data_version', 'build_number', 'ready', 'sort_version', 'package_role');
+      WHERE key NOT IN ('data_version', 'schema_version', 'build_number', 'ready', 'sort_version', 'package_role');
   `);
 }
 

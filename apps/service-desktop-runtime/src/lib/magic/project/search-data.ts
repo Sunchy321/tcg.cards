@@ -1,15 +1,18 @@
-import { sql } from 'drizzle-orm';
+import { isNull, sql } from 'drizzle-orm';
 
 import type { MagicSearchManifest } from '@tcg-cards/model/magic/search/manifest';
 import * as basicModel from '@tcg-cards/model/magic/schema/basic';
 
 import { Card, CardPart, CardPartLocalization, CardLocalization } from '@tcg-cards/db/schema/shared/magic/card';
 import { Print } from '@tcg-cards/db/schema/shared/magic/print';
+import { SearchPublicationMetadata } from '@tcg-cards/db/schema/remote';
+import { fingerprintSearchProjection } from '@tcg-cards/db/search-fingerprint';
 import {
   SearchCard,
   SearchCardPart,
   SearchCardPartLocalization,
 } from '@tcg-cards/db/schema/shared/magic/search';
+import { LOCAL_SEARCH_SCHEMA_VERSIONS } from '@tcg-cards/model/search/publication';
 import type { ProjectDb } from './assemble';
 import { deriveMagicNamePinyin } from './pinyin';
 
@@ -392,10 +395,56 @@ export async function rebuildMagicSearchData(database: ProjectDb): Promise<void>
             AND l.deleted_at IS NULL
             AND c.deleted_at IS NULL
         )`);
+
+    const cards = await tx.select().from(SearchCard).where(isNull(SearchCard.deletedAt))
+      .orderBy(SearchCard.cardId, SearchCard.version);
+    const parts = await tx.select().from(SearchCardPart).where(isNull(SearchCardPart.deletedAt))
+      .orderBy(SearchCardPart.cardId, SearchCardPart.version, SearchCardPart.partIndex);
+    const localizations = await tx.select().from(SearchCardPartLocalization)
+      .where(isNull(SearchCardPartLocalization.deletedAt))
+      .orderBy(
+        SearchCardPartLocalization.cardId,
+        SearchCardPartLocalization.version,
+        SearchCardPartLocalization.partIndex,
+        SearchCardPartLocalization.locale,
+        SearchCardPartLocalization.source,
+      );
+    const pgFingerprint = fingerprintSearchProjection([
+      ['cards', cards],
+      ['parts', parts],
+      ['localizations', localizations],
+    ]);
+    const planner = await buildMagicSearchManifest(tx as unknown as ProjectDb, pgFingerprint);
+    await tx.insert(SearchPublicationMetadata).values({
+      game:            'magic',
+      dataVersion:     pgFingerprint,
+      pgFingerprint,
+      releaseHash:     null,
+      schemaVersion:   LOCAL_SEARCH_SCHEMA_VERSIONS.magic,
+      ready:           true,
+      plannerMetadata: {
+        typeSymbols: planner.typeSymbols,
+        tagOwners:   planner.tagOwners,
+      },
+    }).onConflictDoUpdate({
+      target: SearchPublicationMetadata.game,
+      set:    {
+        dataVersion:     pgFingerprint,
+        pgFingerprint,
+        releaseHash:     null,
+        schemaVersion:   LOCAL_SEARCH_SCHEMA_VERSIONS.magic,
+        ready:           true,
+        plannerMetadata: {
+          typeSymbols: planner.typeSymbols,
+          tagOwners:   planner.tagOwners,
+        },
+        updatedAt: new Date(),
+      },
+    });
   });
 }
 
-/** Build same-version planner metadata; ticket 13 owns the sidecar lifecycle. */
+/** Builds routing metadata from the same facts as the active Magic projection. */
 export async function buildMagicSearchManifest(
   database: ProjectDb,
   dataVersion: string,

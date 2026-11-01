@@ -8,6 +8,7 @@ import { essentialSearchResult, searchResult } from '#model/hearthstone/schema/s
 import { searchInput } from '#search/schema';
 
 import { search } from '~~/server/search';
+import { refreshHearthstoneSearchDataset } from '~~/server/search/accelerated-adapter';
 
 const basic = os
   .route({
@@ -21,6 +22,7 @@ const basic = os
   }))
   .output(searchResult)
   .handler(async ({ input }) => {
+    await refreshHearthstoneSearchDataset();
     const {
       q,
       page,
@@ -53,6 +55,7 @@ const essential = os
   }))
   .output(essentialSearchResult)
   .handler(async ({ input, context }) => {
+    await refreshHearthstoneSearchDataset();
     const { q, page, pageSize, lang, orderBy, ambit } = input;
     return search.search('essential', q, { page, pageSize, lang, orderBy, dsl: q, ambit, d1: context.searchD1 });
   });

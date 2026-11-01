@@ -1,4 +1,5 @@
-import { randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import postgres from 'postgres';
 import { getColumns, sql } from 'drizzle-orm';
@@ -10,16 +11,22 @@ import { LatestCardEntityView } from '@tcg-cards/db/schema/shared/hearthstone/en
 import { Patch } from '@tcg-cards/db/schema/shared/hearthstone/patch';
 import { essentialCardSearchItem } from '@tcg-cards/model/hearthstone/schema/search';
 import { pickSimpleTags } from '@tcg-cards/model/hearthstone/search/manifest';
-import { createSnapshotSql, snapshotDdl } from './d1-snapshot';
+import {
+  searchPublicationManifest,
+  searchReleaseIdentityJson,
+  validateSearchPublicationLocales,
+} from '@tcg-cards/model/search/publication';
+import { createSnapshotSql } from './d1-snapshot';
 import { projectedSearchQuery, snapshotRows } from './d1-source';
 
 /** Captures and verifies one latest projection before creating an immutable D1 import artifact. */
 async function main(): Promise<void> {
   const connection = process.env.DATABASE_URL;
   const output = process.argv[2];
-  if (connection == null || output == null) {
+  const releaseManifestPath = process.argv[3];
+  if (connection == null || output == null || releaseManifestPath == null) {
     throw new Error(
-      'Set DATABASE_URL and pass a new output .sql path. This command only exports; it does not publish.',
+      'Set DATABASE_URL and pass a new output .sql path followed by search-publication-manifest.json. This command only exports; it does not publish.',
     );
   }
   const outputPath = resolve(output);
@@ -86,19 +93,47 @@ async function main(): Promise<void> {
             'The PG search projection differs from the latest source facts; rebuild it with the desktop runtime first.',
           );
         }
-        return { rows, manifest: { dataVersion: randomUUID(), buildNumber: latest.buildNumber } };
+        const pgFingerprint = fingerprintProjection(rows);
+        const releaseManifest = validateSearchPublicationLocales(searchPublicationManifest.parse(JSON.parse(
+          await readFile(resolve(releaseManifestPath), 'utf8'),
+        )));
+        const releaseHash = createHash('sha256')
+          .update(searchReleaseIdentityJson(releaseManifest))
+          .digest('hex');
+        if (releaseManifest.game !== 'hearthstone'
+          || releaseManifest.pgFingerprint !== pgFingerprint
+          || releaseManifest.dataVersion !== String(latest.buildNumber)
+          || releaseManifest.buildNumber !== latest.buildNumber
+          || releaseHash !== releaseManifest.releaseHash) {
+          throw new Error('The search package manifest does not match the current Hearthstone projection.');
+        }
+        const manifest = {
+          dataVersion: String(latest.buildNumber),
+          buildNumber: latest.buildNumber,
+          releaseHash: releaseManifest.releaseHash,
+        };
+        return {
+          rows,
+          manifest,
+          pgFingerprint,
+        };
       },
       { isolationLevel: 'repeatable read', accessMode: 'read only' },
     );
     const fts = await Bun.file(
       new URL(import.meta.resolve('@tcg-cards/db/schema/sqlite/hearthstone/search-fts.sql')),
     ).text();
-    const sqlFile = `-- Load only into an empty Hearthstone search database. Activation is a separate publication step.\n${snapshotDdl()}\n${fts}\n${createSnapshotSql(snapshot.rows, snapshot.manifest)}`;
+    const sqlFile = `-- Apply this complete snapshot to an initialized Hearthstone search database.\n${fts}\n${createSnapshotSql(snapshot.rows, snapshot.manifest, { kind: 'combined', replace: true })}`;
     await Bun.write(outputPath, sqlFile);
     await Bun.write(
       `${outputPath}.json`,
       JSON.stringify(
-        { ...snapshot.manifest, rows: snapshot.rows.length, bytes: Buffer.byteLength(sqlFile) },
+        {
+          ...snapshot.manifest,
+          pgFingerprint: snapshot.pgFingerprint,
+          rows:          snapshot.rows.length,
+          bytes:         Buffer.byteLength(sqlFile),
+        },
         null,
         2,
       ) + '\n',
@@ -109,6 +144,17 @@ async function main(): Promise<void> {
   } finally {
     await client.end();
   }
+}
+
+/** Hashes stable projected rows so repeated exports of the same build keep one identity. */
+function fingerprintProjection(rows: object[]): string {
+  const hash = createHash('sha256');
+  for (const row of rows) {
+    const stable = Object.fromEntries(Object.entries(row).filter(([key]) =>
+      key !== 'createdAt' && key !== 'updatedAt' && key !== 'deletedAt'));
+    hash.update(JSON.stringify(stable)).update('\n');
+  }
+  return hash.digest('hex');
 }
 
 if (import.meta.main) {

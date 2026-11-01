@@ -6,7 +6,7 @@ import { simplify } from '#search/parser/simplify';
 import type { ServerCommand } from './command';
 import type { ServerAction } from './action';
 import type { ServerActionOption, ServerActionResult } from './action/types';
-import { PgSearchAdapter } from './adapter';
+import { AcceleratedSearchFallbackError, PgSearchAdapter } from './adapter';
 import { executeLocalExactOrRemote } from './router';
 import { resolveQueryRequest } from './logical';
 import type { QueryResultRequest, SortSpec } from '#search/logical';
@@ -150,16 +150,22 @@ export class ServerModel<
       );
       const remotePlan = remoteAdapter.plan(request);
       const acceleratedPlan = action.acceleratedAdapter?.plan(request);
-      const result = await executeLocalExactOrRemote({
-        request,
-        options,
-        localAdapter: action.localAdapter,
-        remote: () => acceleratedPlan?.type === 'exact'
-          ? action.acceleratedAdapter!.execute(request, options)
-          : remotePlan.type === 'exact'
-            ? remoteAdapter.execute(request, options)
-            : executeOriginal(),
-      });
+      let result;
+      try {
+        result = await executeLocalExactOrRemote({
+          request,
+          options,
+          localAdapter: action.localAdapter,
+          remote: () => acceleratedPlan?.type === 'exact'
+            ? action.acceleratedAdapter!.execute(request, options)
+            : remotePlan.type === 'exact'
+              ? remoteAdapter.execute(request, options)
+              : executeOriginal(),
+        });
+      } catch (error) {
+        if (!(error instanceof AcceleratedSearchFallbackError)) throw error;
+        result = await executeOriginal();
+      }
 
       if (result == null) {
         return { text, errors: [] };

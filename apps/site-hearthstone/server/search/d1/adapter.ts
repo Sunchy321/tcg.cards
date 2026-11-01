@@ -1,4 +1,5 @@
 import { planRegexCoverage, regexRequest } from '#search/server/regex';
+import { isNodeSqliteD1Binding } from '#search/server/node-sqlite-d1';
 import { and, asc, eq, getColumns, gte, inArray, ne, sql } from 'drizzle-orm';
 import type { SQL, SQLWrapper } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
@@ -71,6 +72,7 @@ export class HearthstoneD1EssentialSearchAdapter implements SearchAdapter<
     if (options.d1 == null || dataset == null || this.plan(request).type !== 'exact') {
       return this.original(request, options);
     }
+    const localDatabase = isNodeSqliteD1Binding(options.d1);
     const started = performance.now();
     try {
       const db = drizzle(options.d1, { schema });
@@ -84,8 +86,11 @@ export class HearthstoneD1EssentialSearchAdapter implements SearchAdapter<
         || Number(metadata.regexSafe) !== 1
         || metadata.sortVersion !== '1'
         || metadata.dataVersion !== dataset.dataVersion
+        || (!localDatabase && (dataset.manifest.releaseHash == null
+          || metadata.releaseHash !== dataset.manifest.releaseHash))
         || Number(metadata.buildNumber) !== dataset.buildNumber
         || current?.dataVersion !== dataset.dataVersion
+        || current?.manifest.releaseHash !== dataset.manifest.releaseHash
         || current.buildNumber !== dataset.buildNumber
       ) {
         return this.original(request, options);
@@ -117,6 +122,7 @@ export class HearthstoneD1EssentialSearchAdapter implements SearchAdapter<
     if (plan.type !== 'candidate' || options.d1 == null || dataset == null || pg.plan(request).type !== 'exact') {
       return this.original(request, options);
     }
+    const localDatabase = isNodeSqliteD1Binding(options.d1);
     let ids: string[];
     try {
       const db = drizzle(options.d1, { schema });
@@ -126,6 +132,7 @@ export class HearthstoneD1EssentialSearchAdapter implements SearchAdapter<
       const rows = await db.select({
         dataVersion: sql<string>`(SELECT value FROM ${SearchMeta} WHERE key = 'data_version')`,
         buildNumber: sql<string>`(SELECT value FROM ${SearchMeta} WHERE key = 'build_number')`,
+        releaseHash: sql<string>`(SELECT value FROM ${SearchMeta} WHERE key = 'release_hash')`,
         ready:       sql<string>`(SELECT value FROM ${SearchMeta} WHERE key = 'ready')`,
         safe:        sql<number>`NOT EXISTS ${selection.where(hearthstoneRegexUnsafe(candidate, true))}`,
         ids:         sql<string>`(SELECT json_group_array(card_id) FROM (${db.selectDistinct({ cardId: SearchCard.cardId })
@@ -134,8 +141,11 @@ export class HearthstoneD1EssentialSearchAdapter implements SearchAdapter<
       }).from(SearchMeta).limit(1);
       const row = rows[0];
       if (row?.dataVersion !== dataset.dataVersion || Number(row.buildNumber) !== dataset.buildNumber
+        || (!localDatabase && (dataset.manifest.releaseHash == null
+          || row.releaseHash !== dataset.manifest.releaseHash))
         || row.ready !== '1' || Number(row.safe) !== 1
-        || getHearthstoneSearchDataset()?.dataVersion !== dataset.dataVersion) {
+        || getHearthstoneSearchDataset()?.dataVersion !== dataset.dataVersion
+        || getHearthstoneSearchDataset()?.manifest.releaseHash !== dataset.manifest.releaseHash) {
         return this.original(request, options);
       }
       ids = JSON.parse(row.ids) as string[];
@@ -145,7 +155,9 @@ export class HearthstoneD1EssentialSearchAdapter implements SearchAdapter<
     }
     const result = await pg.execute(request, options, ids);
     const current = getHearthstoneSearchDataset();
-    return current?.dataVersion === dataset.dataVersion && current.buildNumber === dataset.buildNumber
+    return current?.dataVersion === dataset.dataVersion
+      && current.manifest.releaseHash === dataset.manifest.releaseHash
+      && current.buildNumber === dataset.buildNumber
       ? result
       : this.original(request, options);
   }
@@ -215,6 +227,10 @@ function queryPage(db: SearchDrizzle, request: QueryRequest, options: SearchOpti
         dataVersion:
           sql<string>`coalesce(max(case when ${SearchMeta.key} = 'data_version' then ${SearchMeta.value} end), '')`.as(
             'data_version',
+          ),
+        releaseHash:
+          sql<string>`coalesce(max(case when ${SearchMeta.key} = 'release_hash' then ${SearchMeta.value} end), '')`.as(
+            'release_hash',
           ),
         buildNumber:
           sql<string>`coalesce(max(case when ${SearchMeta.key} = 'build_number' then ${SearchMeta.value} end), '')`.as(
@@ -341,6 +357,7 @@ function queryPage(db: SearchDrizzle, request: QueryRequest, options: SearchOpti
       .with(metadata, filtered, landing, visible, page, total)
       .select({
         dataVersion: metadata.dataVersion,
+        releaseHash: metadata.releaseHash,
         buildNumber: metadata.buildNumber,
         ready:       metadata.ready,
         sortVersion: metadata.sortVersion,

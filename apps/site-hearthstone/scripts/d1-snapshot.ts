@@ -10,6 +10,7 @@ import {
 } from '@tcg-cards/db/schema/sqlite/hearthstone';
 import { hearthstoneSearchManifest } from '@tcg-cards/model/hearthstone/search/manifest';
 import type { HearthstoneSearchManifest } from '@tcg-cards/model/hearthstone/search/manifest';
+import { LOCAL_SEARCH_SCHEMA_VERSIONS } from '@tcg-cards/model/search/publication';
 import { essentialCardSearchItem } from '@tcg-cards/model/hearthstone/schema/search';
 import type { EssentialCardSearchItem } from '@tcg-cards/model/hearthstone/schema/search';
 
@@ -22,7 +23,7 @@ export type SnapshotItem = EssentialCardSearchItem & {
 
 /** Selects one complete snapshot or one side of the layered local package. */
 export type SnapshotTarget
-  = | { kind: 'combined' }
+  = | { kind: 'combined', replace?: boolean }
     | { kind: 'base' }
     | { kind: 'locale', locale: string };
 
@@ -51,7 +52,7 @@ function statement(query: { sql: string, params: unknown[] }): string {
   return `${result};`;
 }
 
-/** Builds independently executable inserts for one immutable, separately managed snapshot. */
+/** Builds inserts for one complete D1 snapshot or one local SQLite package. */
 export function createSnapshotStatements(
   input: SnapshotItem[],
   manifestInput: HearthstoneSearchManifest,
@@ -65,6 +66,16 @@ export function createSnapshotStatements(
   const cards = new Map<string, string>();
   const identities = new Set<string>();
   const inserts: string[] = [];
+  if (target.kind === 'combined' && target.replace === true) {
+    inserts.push(
+      'DELETE FROM hearthstone_search_meta;',
+      'DELETE FROM hearthstone_search_text_rows;',
+      'DELETE FROM hearthstone_search_card_legalities;',
+      'DELETE FROM hearthstone_search_card_values;',
+      'DELETE FROM hearthstone_search_card_localizations;',
+      'DELETE FROM hearthstone_search_cards;',
+    );
+  }
   const safety = new Map<string, boolean>();
   for (const lang of ['all', ...locale.options]) {
     for (const field of ['name', 'text']) {
@@ -196,10 +207,12 @@ export function createSnapshotStatements(
       'INSERT INTO hearthstone_search_text_fts(hearthstone_search_text_fts) VALUES (\'rebuild\');',
     );
   }
-  // Readiness is written last. Publishing or switching a live database remains T13's responsibility.
+  // Readiness is written last so the new snapshot becomes visible only after its rows are complete.
   const metadata = target.kind === 'combined'
     ? [
       { key: 'data_version', value: manifest.dataVersion },
+      ...(manifest.releaseHash == null ? [] : [{ key: 'release_hash', value: manifest.releaseHash }]),
+      { key: 'schema_version', value: String(LOCAL_SEARCH_SCHEMA_VERSIONS.hearthstone) },
       { key: 'build_number', value: String(manifest.buildNumber) },
       { key: 'ready', value: '1' },
       { key: 'sort_version', value: '1' },
@@ -208,6 +221,8 @@ export function createSnapshotStatements(
     : target.kind === 'base'
       ? [
         { key: 'data_version', value: manifest.dataVersion },
+        ...(manifest.releaseHash == null ? [] : [{ key: 'release_hash', value: manifest.releaseHash }]),
+        { key: 'schema_version', value: String(LOCAL_SEARCH_SCHEMA_VERSIONS.hearthstone) },
         { key: 'build_number', value: String(manifest.buildNumber) },
         { key: 'ready', value: '1' },
         { key: 'sort_version', value: '1' },
@@ -216,6 +231,8 @@ export function createSnapshotStatements(
       ]
       : [
         { key: 'data_version', value: manifest.dataVersion },
+        ...(manifest.releaseHash == null ? [] : [{ key: 'release_hash', value: manifest.releaseHash }]),
+        { key: 'schema_version', value: String(LOCAL_SEARCH_SCHEMA_VERSIONS.hearthstone) },
         { key: 'build_number', value: String(manifest.buildNumber) },
         { key: 'ready', value: '1' },
         { key: 'sort_version', value: '1' },
