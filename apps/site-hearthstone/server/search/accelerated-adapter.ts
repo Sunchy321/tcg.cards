@@ -46,6 +46,11 @@ function datasetReady(): boolean {
     && activeDataset.buildNumber === activeDataset.manifest.buildNumber;
 }
 
+/** Returns matching latest metadata without exposing mutable activation state. */
+export function getHearthstoneSearchDataset(): HearthstoneSearchDataset | null {
+  return datasetReady() ? { ...activeDataset!, manifest: { ...activeDataset!.manifest } } : null;
+}
+
 const supportedCommands = new Set([
   'raw', 'full-stats', 'stats', 'lang', 'name', 'text', 'set', 'class', 'type',
   'cost', 'attack', 'health', 'durability', 'armor', 'rune', 'race', 'spell-school',

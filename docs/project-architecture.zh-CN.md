@@ -256,7 +256,7 @@ remote 表所属的 namespace 不会把静态行的维护权转交给远端工�
 
 ## 按游戏隔离的 SQLite 搜索 sidecar
 
-万智牌与炉石搜索投影使用不同的 D1 数据库和游戏级 binding（`MAGIC_SEARCH_DB` 与 `HEARTHSTONE_SEARCH_DB`）。它们是搜索投影，不是领域事实权威：只有精确覆盖且版本匹配的查询才从中选出候选，卡牌详情仍从 PostgreSQL 读取。不支持的条件、binding 不可用或就绪/版本信息不匹配时，使用现有 PostgreSQL 路径。普通关系表通过 Drizzle SQLite schema API 声明，使 D1 和本地 SQLite 导出复用相同表定义。Drizzle 不建模 SQLite 扩展，因此 FTS5 trigram 虚拟表保留为最小 SQLite SQL。发布与激活仍由独立的搜索发布生命周期负责。
+万智牌与炉石搜索投影使用不同的 D1 数据库和游戏级 binding（`MAGIC_SEARCH_DB` 与 `HEARTHSTONE_SEARCH_DB`）。它们是搜索投影，不是领域事实权威：只有精确覆盖且版本匹配的查询才从中选出候选。essential 列表端点直接从投影返回精简字段；万智牌完整搜索结果和独立卡牌详情页仍从 PostgreSQL 读取。不支持的条件、binding 不可用或就绪/版本信息不匹配时，使用现有 PostgreSQL 路径。普通关系表通过 Drizzle SQLite schema API 声明，使 D1 和本地 SQLite 导出复用相同表定义。Drizzle 不建模 SQLite 扩展，因此 FTS5 trigram 虚拟表保留为最小 SQLite SQL。发布与激活仍由独立的搜索发布生命周期负责。
 
 ## 文档规则
 

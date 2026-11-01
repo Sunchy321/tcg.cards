@@ -18,7 +18,9 @@
     "benchmark:search:pg": "bun --env-file=../../scripts/.env scripts/pg-search-benchmark.ts",
     "benchmark:search:text-index": "bun --env-file=../../scripts/.env scripts/pg-text-index-benchmark.ts",
     "deploy": "wrangler deploy",
-    "benchmark:search:essential": "bun --env-file=../../scripts/.env scripts/essential-search-benchmark.ts"
+    "benchmark:search:essential": "bun --env-file=../../scripts/.env scripts/essential-search-benchmark.ts",
+    "export:search:d1": "bun scripts/export-d1-search.ts",
+    "verify:search:d1-sorting": "bun scripts/verify-d1-sorting.ts"
   },
   "dependencies": {
     "@iconify-json/lucide": "^1.2.104",

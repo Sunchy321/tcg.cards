@@ -1,0 +1,595 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "8e02aa3f-0457-4744-92da-f665ddf76b69",
+  "prevIds": [
+    "00000000-0000-0000-0000-000000000000"
+  ],
+  "ddl": [
+    {
+      "name": "hearthstone_search_cards",
+      "entityType": "tables"
+    },
+    {
+      "name": "hearthstone_search_card_legalities",
+      "entityType": "tables"
+    },
+    {
+      "name": "hearthstone_search_card_localizations",
+      "entityType": "tables"
+    },
+    {
+      "name": "hearthstone_search_card_values",
+      "entityType": "tables"
+    },
+    {
+      "name": "hearthstone_search_meta",
+      "entityType": "tables"
+    },
+    {
+      "name": "hearthstone_search_text_rows",
+      "entityType": "tables"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "card_id",
+      "entityType": "columns",
+      "table": "hearthstone_search_cards"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "set",
+      "entityType": "columns",
+      "table": "hearthstone_search_cards"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id_order",
+      "entityType": "columns",
+      "table": "hearthstone_search_cards"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "set_order",
+      "entityType": "columns",
+      "table": "hearthstone_search_cards"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "type",
+      "entityType": "columns",
+      "table": "hearthstone_search_cards"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "cost",
+      "entityType": "columns",
+      "table": "hearthstone_search_cards"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "attack",
+      "entityType": "columns",
+      "table": "hearthstone_search_cards"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "health",
+      "entityType": "columns",
+      "table": "hearthstone_search_cards"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "durability",
+      "entityType": "columns",
+      "table": "hearthstone_search_cards"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "armor",
+      "entityType": "columns",
+      "table": "hearthstone_search_cards"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "spell_school",
+      "entityType": "columns",
+      "table": "hearthstone_search_cards"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "collectible",
+      "entityType": "columns",
+      "table": "hearthstone_search_cards"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "elite",
+      "entityType": "columns",
+      "table": "hearthstone_search_cards"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "rarity",
+      "entityType": "columns",
+      "table": "hearthstone_search_cards"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "ambit",
+      "entityType": "columns",
+      "table": "hearthstone_search_cards"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "tech_level",
+      "entityType": "columns",
+      "table": "hearthstone_search_cards"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "in_bobs_tavern",
+      "entityType": "columns",
+      "table": "hearthstone_search_cards"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "mercenary_role",
+      "entityType": "columns",
+      "table": "hearthstone_search_cards"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "mercenary_faction",
+      "entityType": "columns",
+      "table": "hearthstone_search_cards"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "colddown",
+      "entityType": "columns",
+      "table": "hearthstone_search_cards"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "class_count",
+      "entityType": "columns",
+      "table": "hearthstone_search_cards"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "rune_count",
+      "entityType": "columns",
+      "table": "hearthstone_search_cards"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "race_count",
+      "entityType": "columns",
+      "table": "hearthstone_search_cards"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "race_bucket_count",
+      "entityType": "columns",
+      "table": "hearthstone_search_cards"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "simple_tags",
+      "entityType": "columns",
+      "table": "hearthstone_search_cards"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "card_id",
+      "entityType": "columns",
+      "table": "hearthstone_search_card_legalities"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "format",
+      "entityType": "columns",
+      "table": "hearthstone_search_card_legalities"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "status",
+      "entityType": "columns",
+      "table": "hearthstone_search_card_legalities"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "card_id",
+      "entityType": "columns",
+      "table": "hearthstone_search_card_localizations"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "lang",
+      "entityType": "columns",
+      "table": "hearthstone_search_card_localizations"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "name",
+      "entityType": "columns",
+      "table": "hearthstone_search_card_localizations"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "name_order",
+      "entityType": "columns",
+      "table": "hearthstone_search_card_localizations"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "text",
+      "entityType": "columns",
+      "table": "hearthstone_search_card_localizations"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "render_hash",
+      "entityType": "columns",
+      "table": "hearthstone_search_card_localizations"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "card_id",
+      "entityType": "columns",
+      "table": "hearthstone_search_card_values"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "field",
+      "entityType": "columns",
+      "table": "hearthstone_search_card_values"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "position",
+      "entityType": "columns",
+      "table": "hearthstone_search_card_values"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "value",
+      "entityType": "columns",
+      "table": "hearthstone_search_card_values"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "key",
+      "entityType": "columns",
+      "table": "hearthstone_search_meta"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "value",
+      "entityType": "columns",
+      "table": "hearthstone_search_meta"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "text_id",
+      "entityType": "columns",
+      "table": "hearthstone_search_text_rows"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "card_id",
+      "entityType": "columns",
+      "table": "hearthstone_search_text_rows"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "lang",
+      "entityType": "columns",
+      "table": "hearthstone_search_text_rows"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "body",
+      "entityType": "columns",
+      "table": "hearthstone_search_text_rows"
+    },
+    {
+      "columns": [
+        "card_id"
+      ],
+      "tableTo": "hearthstone_search_cards",
+      "columnsTo": [
+        "card_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_hearthstone_search_card_legalities_card_id_hearthstone_search_cards_card_id_fk",
+      "entityType": "fks",
+      "table": "hearthstone_search_card_legalities"
+    },
+    {
+      "columns": [
+        "card_id"
+      ],
+      "tableTo": "hearthstone_search_cards",
+      "columnsTo": [
+        "card_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_hearthstone_search_card_localizations_card_id_hearthstone_search_cards_card_id_fk",
+      "entityType": "fks",
+      "table": "hearthstone_search_card_localizations"
+    },
+    {
+      "columns": [
+        "card_id"
+      ],
+      "tableTo": "hearthstone_search_cards",
+      "columnsTo": [
+        "card_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_hearthstone_search_card_values_card_id_hearthstone_search_cards_card_id_fk",
+      "entityType": "fks",
+      "table": "hearthstone_search_card_values"
+    },
+    {
+      "columns": [
+        "card_id",
+        "lang"
+      ],
+      "tableTo": "hearthstone_search_card_localizations",
+      "columnsTo": [
+        "card_id",
+        "lang"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_hearthstone_search_text_rows_card_id_lang_hearthstone_search_card_localizations_card_id_lang_fk",
+      "entityType": "fks",
+      "table": "hearthstone_search_text_rows"
+    },
+    {
+      "columns": [
+        "card_id",
+        "format"
+      ],
+      "nameExplicit": false,
+      "name": "hearthstone_search_card_legalities_pk",
+      "entityType": "pks",
+      "table": "hearthstone_search_card_legalities"
+    },
+    {
+      "columns": [
+        "card_id",
+        "lang"
+      ],
+      "nameExplicit": false,
+      "name": "hearthstone_search_card_localizations_pk",
+      "entityType": "pks",
+      "table": "hearthstone_search_card_localizations"
+    },
+    {
+      "columns": [
+        "card_id",
+        "field",
+        "position"
+      ],
+      "nameExplicit": false,
+      "name": "hearthstone_search_card_values_pk",
+      "entityType": "pks",
+      "table": "hearthstone_search_card_values"
+    },
+    {
+      "columns": [
+        "key"
+      ],
+      "nameExplicit": false,
+      "name": "hearthstone_search_meta_pk",
+      "entityType": "pks",
+      "table": "hearthstone_search_meta"
+    },
+    {
+      "columns": [
+        "card_id"
+      ],
+      "nameExplicit": false,
+      "name": "hearthstone_search_cards_pk",
+      "table": "hearthstone_search_cards",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "text_id"
+      ],
+      "nameExplicit": false,
+      "name": "hearthstone_search_text_rows_pk",
+      "table": "hearthstone_search_text_rows",
+      "entityType": "pks"
+    }
+  ],
+  "renames": []
+}

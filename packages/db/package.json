@@ -31,7 +31,10 @@
     "./schema/shared/shadowverse": "./src/schema/shared/shadowverse/index.ts",
     "./schema/shared/shadowverse/*": "./src/schema/shared/shadowverse/*.ts",
     "./schema/sqlite/magic": "./src/schema/sqlite/magic/index.ts",
-    "./schema/sqlite/magic/*": "./src/schema/sqlite/magic/*.ts"
+    "./schema/sqlite/magic/*": "./src/schema/sqlite/magic/*.ts",
+    "./schema/sqlite/hearthstone": "./src/schema/sqlite/hearthstone/index.ts",
+    "./schema/sqlite/hearthstone/*": "./src/schema/sqlite/hearthstone/*.ts",
+    "./schema/sqlite/hearthstone/search-fts.sql": "./src/schema/sqlite/hearthstone/search-fts.sql"
   },
   "scripts": {
     "build": "echo No build needed",
@@ -48,7 +51,9 @@
     "db:check:remote": "drizzle-kit check --config=drizzle.remote.config.ts",
     "db:up:remote:prod": "bun --env-file=.env.remote-prod ./node_modules/drizzle-kit/bin.cjs up --config=drizzle.remote.config.ts",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:generate:hearthstone-search": "drizzle-kit generate --config=drizzle.hearthstone-search.config.ts",
+    "db:export:hearthstone-search": "drizzle-kit export --config=drizzle.hearthstone-search.config.ts"
   },
   "dependencies": {
     "@tcg-cards/model": "workspace:*",

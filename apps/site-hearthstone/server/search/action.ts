@@ -18,6 +18,8 @@ import { order } from './command-list';
 import { essentialCardSearchItem } from '#model/hearthstone/schema/search';
 import { pickSimpleTags } from '#model/hearthstone/search/manifest';
 import { HearthstonePgEssentialSearchAdapter } from './accelerated-adapter';
+import { HearthstoneD1EssentialSearchAdapter } from './d1/adapter';
+import type { HearthstoneSearchD1Database } from './d1/types';
 import { compileQueryRequest } from '#search/server/translate';
 import type { QueryRequest } from '#search/logical';
 import type { CommonServerCommand } from '#search/server/command';
@@ -32,6 +34,7 @@ export type SearchOption = {
   lang:     Locale;
   orderBy:  string;
   dsl:      string;
+  d1?:      HearthstoneSearchD1Database;
 
   // The ambit scope selector's URL param; an ambit command in the DSL
   // overrides it, so it is only the starting ceiling of the widening ladder.
@@ -133,10 +136,19 @@ export const essential = as
         simpleTags:   pickSimpleTags(row.mechanics),
       })),
     };
-  }, { acceleratedAdapter: new HearthstonePgEssentialSearchAdapter(runOriginalEssential) });
+  }, {
+    localAdapter:       new HearthstoneD1EssentialSearchAdapter(runPgEssential),
+    acceleratedAdapter: new HearthstonePgEssentialSearchAdapter(runOriginalEssential),
+  });
 
 /** Recompiles the original essential path if its projected tables disappear after activation. */
 async function runOriginalEssential(request: QueryRequest, options: SearchOption): Promise<EssentialNormalResult> {
   const compiled = compileQueryRequest(request, Object.values(commands) as CommonServerCommand[], LatestCardEntityView);
   return essential.handler(compiled.query ?? sql`TRUE`, compiled.post, options);
+}
+
+/** Reuses PG acceleration when available and otherwise preserves the original essential reader. */
+async function runPgEssential(request: QueryRequest, options: SearchOption): Promise<EssentialNormalResult> {
+  const adapter = new HearthstonePgEssentialSearchAdapter(runOriginalEssential);
+  return adapter.plan(request).type === 'exact' ? adapter.execute(request, options) : runOriginalEssential(request, options);
 }

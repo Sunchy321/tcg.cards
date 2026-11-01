@@ -1,4 +1,4 @@
-import { os } from '@orpc/server';
+import { os } from '../index';
 
 import z from 'zod';
 
@@ -52,9 +52,9 @@ const essential = os
     orderBy: z.string().default('name+'),
   }))
   .output(essentialSearchResult)
-  .handler(async ({ input }) => {
+  .handler(async ({ input, context }) => {
     const { q, page, pageSize, lang, orderBy, ambit } = input;
-    return search.search('essential', q, { page, pageSize, lang, orderBy, dsl: q, ambit });
+    return search.search('essential', q, { page, pageSize, lang, orderBy, dsl: q, ambit, d1: context.searchD1 });
   });
 
 export const searchTrpc = {
