@@ -54,10 +54,7 @@
       "name": "Witty Roastmaster",
       "typeline": "Creature — Devil Citizen",
       "text": "Alliance — Whenever another creature you control enters, this creature deals 1 damage to each opponent.",
-      "cost": [
-        "2",
-        "R"
-      ],
+      "cost": "{2}{R}",
       "manaValue": 3,
       "color": "R",
       "colorIndicator": null,

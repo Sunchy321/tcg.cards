@@ -2,7 +2,7 @@ import { eq, isNull } from 'drizzle-orm';
 
 import { createDb } from '@tcg-cards/db';
 import { SearchPublicationMetadata } from '@tcg-cards/db/schema/remote';
-import { SearchCard as MagicSearchCard, SearchCardPart as MagicSearchCardPart, SearchCardPartLocalization as MagicSearchCardPartLocalization } from '@tcg-cards/db/schema/shared/magic/search';
+import { SearchCard as MagicSearchCard, SearchCardPart as MagicSearchCardPart, SearchCardPartLocalization as MagicSearchCardPartLocalization, SearchCost as MagicSearchCost } from '@tcg-cards/db/schema/shared/magic/search';
 import { SearchCard as HearthstoneSearchCard, SearchCardLocalization as HearthstoneSearchCardLocalization } from '@tcg-cards/db/schema/shared/hearthstone/search';
 import { fingerprintSearchProjection } from '@tcg-cards/db/search-fingerprint';
 import { LOCAL_SEARCH_SCHEMA_VERSIONS } from '@tcg-cards/model/search/publication';
@@ -66,7 +66,9 @@ async function fingerprintRemoteProjection(database: SearchPublicationDb, game: 
         MagicSearchCardPartLocalization.locale,
         MagicSearchCardPartLocalization.source,
       );
-    return fingerprintSearchProjection([['cards', cards], ['parts', parts], ['localizations', localizations]]);
+    const costs = await database.select().from(MagicSearchCost).where(isNull(MagicSearchCost.deletedAt))
+      .orderBy(MagicSearchCost.cost);
+    return fingerprintSearchProjection([['cards', cards], ['parts', parts], ['localizations', localizations], ['costs', costs]]);
   }
   const cards = await database.select().from(HearthstoneSearchCard).where(isNull(HearthstoneSearchCard.deletedAt))
     .orderBy(HearthstoneSearchCard.cardId);

@@ -52,10 +52,7 @@
       "name": "Beluna's Gatekeeper",
       "typeline": "Creature — Giant Soldier",
       "text": "",
-      "cost": [
-        "5",
-        "U"
-      ],
+      "cost": "{5}{U}",
       "manaValue": null,
       "color": null,
       "colorIndicator": null,
@@ -81,10 +78,7 @@
       "name": "Entry Denied",
       "typeline": "Sorcery — Adventure",
       "text": "Return target creature you don't control with mana value 3 or less to its owner's hand. (Then exile this card. You may cast the creature later from exile.)",
-      "cost": [
-        "1",
-        "U"
-      ],
+      "cost": "{1}{U}",
       "manaValue": null,
       "color": null,
       "colorIndicator": null,

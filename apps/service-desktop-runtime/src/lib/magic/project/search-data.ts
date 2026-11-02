@@ -7,10 +7,13 @@ import { Card, CardPart, CardPartLocalization, CardLocalization } from '@tcg-car
 import { Print } from '@tcg-cards/db/schema/shared/magic/print';
 import { SearchPublicationMetadata } from '@tcg-cards/db/schema/remote';
 import { fingerprintSearchProjection } from '@tcg-cards/db/search-fingerprint';
+import { costDictionaryColumnsSql, costTokensSql } from '@tcg-cards/db/search-cost';
 import {
   SearchCard,
   SearchCardPart,
   SearchCardPartLocalization,
+  SearchCost,
+  searchCostFixedSymbols,
 } from '@tcg-cards/db/schema/shared/magic/search';
 import { LOCAL_SEARCH_SCHEMA_VERSIONS } from '@tcg-cards/model/search/publication';
 import type { ProjectDb } from './assemble';
@@ -258,12 +261,51 @@ export async function rebuildMagicSearchData(database: ProjectDb): Promise<void>
           AND s.deleted_at IS NULL`);
     }
 
+    // The dictionary is derived from the same active parts the key column
+    // references, so both are rebuilt in this transaction before stale keys
+    // are retired below.
+    const fixedColumns = sql.join(searchCostFixedSymbols.map(symbol => sql.raw(symbol.toLowerCase())), sql`, `);
+    const fixedUpdates = sql.join(
+      searchCostFixedSymbols.map(symbol => sql.raw(`${symbol.toLowerCase()} = EXCLUDED.${symbol.toLowerCase()}`)),
+      sql`, `,
+    );
+
+    // The stored braced text is the dictionary key itself; only the
+    // comparison columns are derived, from the same tokenizer the original
+    // query path uses.
+    await tx.execute(sql`
+      INSERT INTO ${SearchCost} (
+        cost, tokens, generic, ${fixedColumns}, specials, updated_at, deleted_at
+      )
+      SELECT
+        d.cost,
+        d.tokens,
+        ${costDictionaryColumnsSql(sql`d.tokens`)},
+        NOW(),
+        NULL
+      FROM (
+        SELECT distinct_costs.cost, ${costTokensSql(sql`distinct_costs.cost`)} AS tokens
+        FROM (
+          SELECT DISTINCT p.cost
+          FROM ${CardPart} p
+          JOIN ${Card} c ON c.card_id = p.card_id AND c.version = p.version
+          WHERE p.deleted_at IS NULL AND c.deleted_at IS NULL AND p.cost IS NOT NULL
+        ) distinct_costs
+      ) d
+      ON CONFLICT (cost) DO UPDATE SET
+        tokens = EXCLUDED.tokens,
+        generic = EXCLUDED.generic,
+        ${fixedUpdates},
+        specials = EXCLUDED.specials,
+        updated_at = NOW(),
+        deleted_at = NULL`);
+
     await tx.execute(sql`
       INSERT INTO ${SearchCardPart} (
         card_id, version, part_index, part_name, part_typeline, part_text,
         color, color_indicator, type_super, type_main, type_sub,
         power, toughness, loyalty, defense, hand_modifier, life_modifier,
-        updated_at, deleted_at
+        cost, updated_at, deleted_at
       )
       SELECT
         p.card_id,
@@ -283,6 +325,7 @@ export async function rebuildMagicSearchData(database: ProjectDb): Promise<void>
         p.defense,
         p.hand_modifier,
         p.life_modifier,
+        p.cost,
         NOW(),
         NULL
       FROM ${CardPart} p
@@ -303,6 +346,7 @@ export async function rebuildMagicSearchData(database: ProjectDb): Promise<void>
         defense = EXCLUDED.defense,
         hand_modifier = EXCLUDED.hand_modifier,
         life_modifier = EXCLUDED.life_modifier,
+        cost = EXCLUDED.cost,
         updated_at = NOW(),
         deleted_at = NULL`);
 
@@ -396,6 +440,17 @@ export async function rebuildMagicSearchData(database: ProjectDb): Promise<void>
             AND c.deleted_at IS NULL
         )`);
 
+    // Runs after the part retirement above so keys held only by retired parts
+    // are released in the same rebuild.
+    await tx.execute(sql`
+      UPDATE ${SearchCost} s
+      SET deleted_at = NOW(), updated_at = NOW()
+      WHERE s.deleted_at IS NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM ${SearchCardPart} p
+          WHERE p.cost = s.cost AND p.deleted_at IS NULL
+        )`);
+
     const cards = await tx.select().from(SearchCard).where(isNull(SearchCard.deletedAt))
       .orderBy(SearchCard.cardId, SearchCard.version);
     const parts = await tx.select().from(SearchCardPart).where(isNull(SearchCardPart.deletedAt))
@@ -409,10 +464,13 @@ export async function rebuildMagicSearchData(database: ProjectDb): Promise<void>
         SearchCardPartLocalization.locale,
         SearchCardPartLocalization.source,
       );
+    const costs = await tx.select().from(SearchCost).where(isNull(SearchCost.deletedAt))
+      .orderBy(SearchCost.cost);
     const pgFingerprint = fingerprintSearchProjection([
       ['cards', cards],
       ['parts', parts],
       ['localizations', localizations],
+      ['costs', costs],
     ]);
     const planner = await buildMagicSearchManifest(tx as unknown as ProjectDb, pgFingerprint);
     await tx.insert(SearchPublicationMetadata).values({
@@ -423,8 +481,9 @@ export async function rebuildMagicSearchData(database: ProjectDb): Promise<void>
       schemaVersion:   LOCAL_SEARCH_SCHEMA_VERSIONS.magic,
       ready:           true,
       plannerMetadata: {
-        typeSymbols: planner.typeSymbols,
-        tagOwners:   planner.tagOwners,
+        typeSymbols:    planner.typeSymbols,
+        tagOwners:      planner.tagOwners,
+        costProjection: planner.costProjection,
       },
     }).onConflictDoUpdate({
       target: SearchPublicationMetadata.game,
@@ -435,8 +494,9 @@ export async function rebuildMagicSearchData(database: ProjectDb): Promise<void>
         schemaVersion:   LOCAL_SEARCH_SCHEMA_VERSIONS.magic,
         ready:           true,
         plannerMetadata: {
-          typeSymbols: planner.typeSymbols,
-          tagOwners:   planner.tagOwners,
+          typeSymbols:    planner.typeSymbols,
+          tagOwners:      planner.tagOwners,
+          costProjection: planner.costProjection,
         },
         updatedAt: new Date(),
       },
@@ -488,7 +548,10 @@ export async function buildMagicSearchManifest(
 
   return {
     dataVersion,
-    typeSymbols: typeRows.map(row => row.symbol),
+    typeSymbols:    typeRows.map(row => row.symbol),
     tagOwners,
+    // The rebuild above always fills the cost dictionary, so every publication
+    // it produces can serve mana-cost conditions from the projection.
+    costProjection: true,
   };
 }

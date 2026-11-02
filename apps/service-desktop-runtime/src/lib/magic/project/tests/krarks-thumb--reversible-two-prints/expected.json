@@ -52,9 +52,7 @@
       "name": "Krark's Thumb",
       "typeline": "Legendary Artifact",
       "text": "If you would flip a coin, instead flip two coins and ignore one.",
-      "cost": [
-        "2"
-      ],
+      "cost": "{2}",
       "manaValue": 2,
       "color": "",
       "colorIndicator": null,

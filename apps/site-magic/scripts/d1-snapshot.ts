@@ -27,6 +27,8 @@ export async function writeMagicD1Snapshot(input: {
       'DELETE FROM magic_search_text_rows;',
       'DELETE FROM magic_search_candidates;',
       'DELETE FROM magic_search_card_part_localizations;',
+      'DELETE FROM magic_search_cost_specials;',
+      'DELETE FROM magic_search_costs;',
       'DELETE FROM magic_search_part_values;',
       'DELETE FROM magic_search_card_values;',
       'DELETE FROM magic_search_card_parts;',
@@ -41,6 +43,8 @@ export async function writeMagicD1Snapshot(input: {
       await copyTable(output, base, 'magic_search_cards');
       await copyTable(output, base, 'magic_search_card_parts');
       await copyTable(output, base, 'magic_search_card_values');
+      await copyTable(output, base, 'magic_search_costs');
+      await copyTable(output, base, 'magic_search_cost_specials');
       await copyTable(output, base, 'magic_search_part_values');
       nextTextId += await copyTable(output, base, 'magic_search_text_rows', {
         where: 'kind = \'part\'',

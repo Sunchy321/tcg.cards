@@ -30,9 +30,7 @@
       "name": "Lightning Bolt",
       "typeline": "Instant",
       "text": "Lightning Bolt deals 3 damage to any target.",
-      "cost": [
-        "R"
-      ],
+      "cost": "{R}",
       "manaValue": 1,
       "color": "R",
       "colorIndicator": null,

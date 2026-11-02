@@ -9,7 +9,7 @@ import type { Locale } from '@tcg-cards/model/magic/schema/basic';
 import type { EssentialCardSearchItem, EssentialNormalResult, NormalResult } from '@tcg-cards/model/magic/schema/search';
 import { Card, CardLocalization, CardPart, CardPartLocalization } from '@tcg-cards/db/schema/shared/magic/card';
 import { Print, PrintPart } from '@tcg-cards/db/schema/shared/magic/print';
-import { SearchCard, SearchCardPart, SearchCardPartLocalization } from '@tcg-cards/db/schema/shared/magic/search';
+import { SearchCard, SearchCardPart, SearchCardPartLocalization, SearchCost } from '@tcg-cards/db/schema/shared/magic/search';
 import { SearchPublicationMetadata } from '#schema/shared/search-publication';
 import { LOCAL_SEARCH_SCHEMA_VERSIONS } from '@tcg-cards/model/search/publication';
 
@@ -59,6 +59,8 @@ type SearchTable = {
   card:                 typeof SearchCard;
   cardPart:             typeof SearchCardPart;
   cardPartLocalization: typeof SearchCardPartLocalization;
+  /** Mana-cost dictionary the cost handler semi-joins through `cardPart.cost`. */
+  costDictionary:       typeof SearchCost;
   cardId:               typeof SearchCard.cardId;
   partIndex:            typeof SearchCardPart.partIndex;
   locale:               typeof SearchCardPartLocalization.locale;
@@ -88,13 +90,18 @@ const magicSearchTagOwnerSet = new Set<string>(magicSearchTagOwners);
 
 /** Validated planner metadata, or null when any entry fails the publication shape. */
 function readPlannerMetadata(metadata: unknown): {
-  typeSymbols: string[];
-  tagOwners:   MagicSearchManifest['tagOwners'];
+  typeSymbols:    string[];
+  tagOwners:      MagicSearchManifest['tagOwners'];
+  costProjection: boolean;
 } | null {
   if (metadata == null || typeof metadata !== 'object' || Array.isArray(metadata)) {
     return null;
   }
-  const { typeSymbols, tagOwners } = metadata as { typeSymbols?: unknown, tagOwners?: unknown };
+  const { typeSymbols, tagOwners, costProjection } = metadata as {
+    typeSymbols?:    unknown;
+    tagOwners?:      unknown;
+    costProjection?: unknown;
+  };
   if (!Array.isArray(typeSymbols) || typeSymbols.some(value => typeof value !== 'string')) {
     return null;
   }
@@ -107,7 +114,9 @@ function readPlannerMetadata(metadata: unknown): {
       return null;
     }
   }
-  return { typeSymbols, tagOwners: owners as MagicSearchManifest['tagOwners'] };
+  // Publications built before the cost dictionary carry no flag; only an
+  // explicit true lets the planner serve mana costs from the projection.
+  return { typeSymbols, tagOwners: owners as MagicSearchManifest['tagOwners'], costProjection: costProjection === true };
 }
 
 /** Refreshes the active planner record before planning an incoming request. */
@@ -126,11 +135,12 @@ export async function refreshMagicSearchManifest(): Promise<void> {
       return;
     }
     activeManifest = {
-      dataVersion:   publication.dataVersion,
-      pgFingerprint: publication.pgFingerprint,
-      releaseHash:   publication.releaseHash ?? undefined,
-      typeSymbols:   planner.typeSymbols,
-      tagOwners:     planner.tagOwners,
+      dataVersion:    publication.dataVersion,
+      pgFingerprint:  publication.pgFingerprint,
+      releaseHash:    publication.releaseHash ?? undefined,
+      typeSymbols:    planner.typeSymbols,
+      tagOwners:      planner.tagOwners,
+      costProjection: planner.costProjection,
     };
     activePublicationReady = true;
     activePublicationChecked = true;
@@ -150,6 +160,7 @@ const supportedCommands = new Set([
   'raw',
   'stats',
   'hash',
+  'cost',
   'mana-value',
   'color',
   'color-identity',
@@ -176,10 +187,12 @@ const pgCommands = Object.values(commands) as CommonServerCommand[];
 export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, MagicSearchOptions> {
   descriptor(): DatasetDescriptor {
     const manifest = getMagicSearchManifest();
+    const costProjection = manifest?.costProjection === true;
     const supported = pgCommands.filter(command => {
       const id = command.options.id ?? '';
       return supportedCommands.has(id)
-        && ((id !== 'type' && id !== 'hash') || manifest != null);
+        && ((id !== 'type' && id !== 'hash') || manifest != null)
+        && (id !== 'cost' || costProjection);
     });
 
     return {
@@ -212,6 +225,7 @@ export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, MagicSe
             'card-part-localization.text',
             'card.name-pinyin',
             'card.name-initials',
+            ...costProjection ? ['card-part.cost'] : [],
           ];
         }
         if (command.options.id === 'hash') {
@@ -315,6 +329,7 @@ export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, MagicSe
       card:                 SearchCard,
       cardPart:             SearchCardPart,
       cardPartLocalization: SearchCardPartLocalization,
+      costDictionary:       SearchCost,
       cardId:               SearchCard.cardId,
       partIndex:            SearchCardPart.partIndex,
       locale:               SearchCardPartLocalization.locale,
@@ -531,8 +546,14 @@ function findNodeGap(query: LogicalQuery, manifest: MagicSearchManifest | null):
   if (['name', 'type', 'text'].includes(id) && command.modifier === 'printed') {
     return unsupported('Printed values require the original Magic query path.');
   }
-  if (id === 'raw' && typeof command.value === 'string' && /^(\{[^}]+\})+$/.test(command.value)) {
-    return unsupported('Raw mana-cost searches require the original Magic query path.');
+  // Both the cost command and the raw mana pattern read the cost dictionary,
+  // which only publications built with it can serve.
+  const costProjection = manifest?.costProjection === true;
+  if (id === 'cost' && !costProjection) {
+    return unsupported('The current projection does not include mana costs.');
+  }
+  if (id === 'raw' && typeof command.value === 'string' && /^(\{[^}]+\})+$/.test(command.value) && !costProjection) {
+    return unsupported('Raw mana-cost searches require a projection with mana costs.');
   }
   if (id === 'type') {
     if (manifest == null) return unsupported('The matching type-symbol manifest is not loaded.');

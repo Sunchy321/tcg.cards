@@ -20,9 +20,11 @@ export const magicSearchTagOwners = ['card-only', 'print-only', 'overlap'] as co
 export type MagicSearchTagOwner = (typeof magicSearchTagOwners)[number];
 
 export interface MagicSearchManifest {
-  dataVersion:    string;
-  pgFingerprint?: string;
-  releaseHash?:   string;
-  typeSymbols:    string[];
-  tagOwners:      Record<string, MagicSearchTagOwner>;
+  dataVersion:     string;
+  pgFingerprint?:  string;
+  releaseHash?:    string;
+  typeSymbols:     string[];
+  tagOwners:       Record<string, MagicSearchTagOwner>;
+  /** True when the PG projection carries the mana-cost dictionary; absent on older publications. */
+  costProjection?: boolean;
 }

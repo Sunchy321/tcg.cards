@@ -57,13 +57,7 @@
       "name": "Invasion of Alara",
       "typeline": "Battle — Siege",
       "text": "When this Siege enters, exile cards from the top of your library until you exile two nonland cards with mana value 4 or less. You may cast one of those two cards without paying its mana cost. Put one of them into your hand. Then put the other cards exiled this way on the bottom of your library in a random order.",
-      "cost": [
-        "W",
-        "U",
-        "B",
-        "R",
-        "G"
-      ],
+      "cost": "{W}{U}{B}{R}{G}",
       "manaValue": null,
       "color": "WUBRG",
       "colorIndicator": null,

@@ -78,15 +78,42 @@ describe('Magic planner manifest loading', () => {
     await runWithDb(fakeDb(async () => [publicationRow()]), () => refreshMagicSearchManifest());
 
     expect(getMagicSearchManifest()).toEqual({
-      dataVersion:   'fingerprint-1',
-      pgFingerprint: 'fingerprint-1',
-      releaseHash:   undefined,
-      typeSymbols:   ['creature', 'Artifact'],
-      tagOwners:     plannerMetadata.tagOwners,
+      dataVersion:    'fingerprint-1',
+      pgFingerprint:  'fingerprint-1',
+      releaseHash:    undefined,
+      typeSymbols:    ['creature', 'Artifact'],
+      tagOwners:      plannerMetadata.tagOwners,
+      costProjection: false,
     });
     expect(adapter.plan(request('type:creature')).type).toBe('exact');
     expect(adapter.plan(request('#dev:card')).type).toBe('exact');
     expect(adapter.plan(request('#dev:print')).type).toBe('original');
+  });
+
+  test('serves mana costs only from a publication that carries the cost dictionary', async () => {
+    // A publication built before the dictionary has no flag and keeps cost on PG.
+    await runWithDb(fakeDb(async () => [publicationRow()]), () => refreshMagicSearchManifest());
+    expect(adapter.plan(request('cost:{W}')).type).toBe('original');
+    expect(adapter.plan(request('{W}{U}')).type).toBe('original');
+    expect(adapter.descriptor().commands.map(command => command.field)).not.toContain('cost');
+
+    // Only an explicit true counts; any other value is treated as absent.
+    await runWithDb(fakeDb(async () => [publicationRow({
+      plannerMetadata: { ...plannerMetadata, costProjection: 'yes' },
+    })]), () => refreshMagicSearchManifest());
+    expect(getMagicSearchManifest()?.costProjection).toBe(false);
+    expect(adapter.plan(request('cost:{W}')).type).toBe('original');
+
+    await runWithDb(fakeDb(async () => [publicationRow({
+      plannerMetadata: { ...plannerMetadata, costProjection: true },
+    })]), () => refreshMagicSearchManifest());
+    expect(getMagicSearchManifest()?.costProjection).toBe(true);
+    expect(adapter.plan(request('cost:{W}')).type).toBe('exact');
+    expect(adapter.plan(request('mana>=2W -m:null')).type).toBe('exact');
+    expect(adapter.plan(request('{W}{U}')).type).toBe('exact');
+    const descriptor = adapter.descriptor();
+    expect(descriptor.commands.map(command => command.field)).toContain('cost');
+    expect(descriptor.commands.find(command => command.field === 'raw')?.expansion).toContain('card-part.cost');
   });
 
   test('treats a missing, inactive, or stale publication as no manifest', async () => {

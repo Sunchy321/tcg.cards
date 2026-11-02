@@ -32,6 +32,8 @@ const packageTables: Record<LocalSearchGame, { base: string[], locale: string[] 
       'magic_search_card_parts',
       'magic_search_card_values',
       'magic_search_part_values',
+      'magic_search_costs',
+      'magic_search_cost_specials',
       'magic_search_text_rows',
       'magic_search_text_fts',
       'magic_search_meta',

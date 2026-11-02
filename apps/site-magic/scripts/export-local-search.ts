@@ -9,6 +9,7 @@ import {
   SearchCard as SourceSearchCard,
   SearchCardPart as SourceSearchCardPart,
   SearchCardPartLocalization as SourceSearchCardPartLocalization,
+  SearchCost as SourceSearchCost,
 } from '@tcg-cards/db/schema/shared/magic/search';
 import { SearchPublicationMetadata } from '@tcg-cards/db/schema/remote';
 import { fingerprintSearchProjection } from '@tcg-cards/db/search-fingerprint';
@@ -19,7 +20,7 @@ import { LOCAL_SEARCH_SCHEMA_VERSIONS } from '@tcg-cards/model/search/publicatio
 type LocaleCode = (typeof locale.options)[number];
 
 /** Holds one repeatable-read source snapshot for a base or locale package. */
-type SnapshotInput = {
+export type SnapshotInput = {
   cards:         Array<typeof SourceSearchCard.$inferSelect>;
   parts:         Array<typeof SourceSearchCardPart.$inferSelect>;
   localizations: Array<typeof SourceSearchCardPartLocalization.$inferSelect>;
@@ -36,11 +37,17 @@ function populateSnapshot(database: Database, input: SnapshotInput): void {
   const insertCardValue = database.prepare(
     'INSERT INTO magic_search_card_values (card_id, version, field, value) VALUES (?, ?, ?, ?)',
   );
+  const insertCost = database.prepare(`
+    INSERT INTO magic_search_costs (cost, generic, w, u, b, r, g, c, x)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  const insertCostSpecial = database.prepare(
+    'INSERT INTO magic_search_cost_specials (cost, symbol, count) VALUES (?, ?, ?)',
+  );
   const insertPart = database.prepare(`
     INSERT INTO magic_search_card_parts (
-      card_id, version, part_index, name, typeline, power, toughness, loyalty,
+      card_id, version, part_index, name, typeline, cost, power, toughness, loyalty,
       defense, hand_modifier, life_modifier
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const insertPartValue = database.prepare(
     'INSERT INTO magic_search_part_values (card_id, version, part_index, field, value) VALUES (?, ?, ?, ?, ?)',
   );
@@ -77,6 +84,19 @@ function populateSnapshot(database: Database, input: SnapshotInput): void {
       }
     }
 
+    for (const cost of input.costs) {
+      insertCost.run(cost.cost, cost.generic, cost.w, cost.u, cost.b, cost.r, cost.g, cost.c, cost.x);
+      // The PostgreSQL specials array keeps repetitions; SQLite aggregates them
+      // per symbol the way the query dimensions read them.
+      const counts = new Map<string, number>();
+      for (const symbol of cost.specials) {
+        counts.set(symbol, (counts.get(symbol) ?? 0) + 1);
+      }
+      for (const [symbol, count] of [...counts.entries()].sort(([left], [right]) => left < right ? -1 : 1)) {
+        insertCostSpecial.run(cost.cost, symbol, count);
+      }
+    }
+
     for (const part of input.parts) {
       insertPart.run(
         part.cardId,
@@ -84,6 +104,7 @@ function populateSnapshot(database: Database, input: SnapshotInput): void {
         part.partIndex,
         part.name,
         part.typeline,
+        part.cost,
         part.power,
         part.toughness,
         part.loyalty,
@@ -198,10 +219,15 @@ async function main(): Promise<void> {
             SourceSearchCardPartLocalization.locale,
             SourceSearchCardPartLocalization.source,
           );
+        // The cost dictionary is PG-only, but it is part of the published
+        // projection identity, so the exporter must hash it the same way.
+        const costs = await tx.select().from(SourceSearchCost).where(isNull(SourceSearchCost.deletedAt))
+          .orderBy(SourceSearchCost.cost);
         const pgFingerprint = fingerprintSearchProjection([
           ['cards', cards],
           ['parts', parts],
           ['localizations', localizations],
+          ['costs', costs],
         ]);
         const [publication] = await tx.select().from(SearchPublicationMetadata)
           .where(eq(SearchPublicationMetadata.game, 'magic'));
@@ -283,7 +309,7 @@ async function main(): Promise<void> {
 }
 
 /** Creates one SQLite file from the generated schema and the selected source rows. */
-async function writeDatabase(path: string, ddl: string, fts: string, input: SnapshotInput): Promise<void> {
+export async function writeDatabase(path: string, ddl: string, fts: string, input: SnapshotInput): Promise<void> {
   const database = new Database(path);
   try {
     database.exec('PRAGMA foreign_keys = OFF');
@@ -308,7 +334,7 @@ async function writeManifest(path: string, metadata: Record<string, unknown>): P
 }
 
 /** Exports the SQLite DDL from the Drizzle schema without creating a migration. */
-function magicSnapshotDdl(): string {
+export function magicSnapshotDdl(): string {
   const result = Bun.spawnSync(['bun', 'run', '--filter', '@tcg-cards/db', 'db:export:magic-search']);
   if (result.exitCode !== 0) {
     throw new Error(`Magic Drizzle schema export failed: ${result.stderr.toString()}`);

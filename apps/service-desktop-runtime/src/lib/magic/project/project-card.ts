@@ -1,3 +1,4 @@
+import { normalizeCost } from '@tcg-cards/shared/magic/cost';
 import { slugifyName } from '@tcg-cards/shared/magic/slug';
 import { resolveNameRuby, type NameRubyLookup } from '@tcg-cards/model/magic/name-ruby';
 import type { Ambit } from '@tcg-cards/model/ambit';
@@ -264,11 +265,6 @@ export function convertMana(mana: string[]): string {
     .filter(c => MANA_ORDER.includes(c))
     .sort((a, b) => MANA_ORDER.indexOf(a) - MANA_ORDER.indexOf(b))
     .join('');
-}
-
-/** Splits a mana cost into symbols while preserving its printed token sequence. */
-export function splitCost(cost: string): string[] {
-  return cost.split(/\{([^}]+)\}/).filter(v => v !== '');
 }
 
 /** Normalize the unicode dash/plus variants scryfall emits inside symbols. */
@@ -876,7 +872,7 @@ export function projectCard(assembled: AssembledCard, rubies?: NameRubyLookup, a
       name:           face.name,
       typeline:       face.typeLine ?? '',
       text:           purifyText(face.oracleText ?? ''),
-      cost:           face.manaCost != null && face.manaCost !== '' ? splitCost(face.manaCost) : null,
+      cost:           normalizeCost(face.manaCost),
       manaValue:      face.cmc ?? null,
       color:          face.colors != null ? convertColor(face.colors) : null,
       colorIndicator: face.colorIndicator != null ? convertColor(face.colorIndicator) : null,

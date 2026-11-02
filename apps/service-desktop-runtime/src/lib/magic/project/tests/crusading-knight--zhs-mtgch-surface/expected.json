@@ -54,11 +54,7 @@
       "name": "Crusading Knight",
       "typeline": "Creature — Human Knight",
       "text": "Protection from black\nThis creature gets +1/+1 for each Swamp your opponents control.",
-      "cost": [
-        "2",
-        "W",
-        "W"
-      ],
+      "cost": "{2}{W}{W}",
       "manaValue": 4,
       "color": "W",
       "colorIndicator": null,

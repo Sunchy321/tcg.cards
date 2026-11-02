@@ -55,11 +55,7 @@
       "name": "Bruna, the Fading Light",
       "typeline": "Legendary Creature — Angel Horror",
       "text": "When you cast this spell, you may return target Angel or Human creature card from your graveyard to the battlefield.\nFlying, vigilance\n(Melds with Gisela, the Broken Blade.)",
-      "cost": [
-        "5",
-        "W",
-        "W"
-      ],
+      "cost": "{5}{W}{W}",
       "manaValue": 7,
       "color": "W",
       "colorIndicator": null,

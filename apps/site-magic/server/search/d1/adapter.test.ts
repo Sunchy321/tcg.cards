@@ -9,6 +9,7 @@ import Parser from '#search/parser';
 import { simplify } from '#search/parser/simplify';
 import { resolveQueryRequest } from '#search/server/logical';
 import type { CommonServerCommand } from '#search/server/command';
+import { splitCost } from '@tcg-cards/shared/magic/cost';
 import * as commands from '../command-list';
 import { setMagicSearchManifest } from '../accelerated-adapter';
 import { MagicD1SearchAdapter } from './adapter';
@@ -63,6 +64,11 @@ function search(dsl: string, page = 1) {
   return adapter.executeEssential(request(dsl), { dsl, page, pageSize: 1, lang: 'en', groupBy: 'card', orderBy: 'id+', d1: binding() });
 }
 
+/** Executes one search whose page is large enough for multi-row assertions. */
+function searchAll(dsl: string) {
+  return adapter.executeEssential(request(dsl), { dsl, page: 1, pageSize: 20, lang: 'en', groupBy: 'card', orderBy: 'id+', d1: binding() });
+}
+
 beforeEach(() => {
   sqlite = new Database(':memory:');
   // Derive column declarations from the exported schema; these tests exercise reads, not constraints.
@@ -71,7 +77,8 @@ beforeEach(() => {
     sqlite.exec(`CREATE TABLE "${config.name}" (${config.columns.map(column => `"${column.name}" ${column.getSQLType()}${column.primary ? ' PRIMARY KEY' : ''}`).join(', ')})`);
   }
   sqlite.exec('INSERT INTO magic_search_meta VALUES (\'data_version\', \'test\')');
-  setMagicSearchManifest({ dataVersion: 'test', typeSymbols: [], tagOwners: {} });
+  // An unpublished package has no release hash; the empty hash is its identity.
+  setMagicSearchManifest({ dataVersion: 'test', releaseHash: '', typeSymbols: [], tagOwners: {} });
   reads = 0;
 });
 afterEach(() => {
@@ -124,6 +131,72 @@ describe('Magic regex routing', () => {
     for (const dsl of ['-text:/draw.*card/', 'text:/draw.*card/ | text:/[a-z]+/', 'text:/\\bdraw/']) {
       expect(adapter.plan(request(dsl)).type).toBe('original');
     }
+  });
+});
+
+describe('Magic cost searches on the SQLite dictionary', () => {
+  /** Stores one card whose part carries a braced cost, plus its dictionary rows. */
+  function costCard(id: string, cost: string | null): void {
+    card(id, 'Other', 'Other');
+    sqlite.exec('UPDATE magic_search_card_parts SET cost = ? WHERE card_id = ?', [cost, id]);
+    if (cost == null) {
+      return;
+    }
+
+    const tokens = splitCost(cost);
+    const fixed = new Set(['W', 'U', 'B', 'R', 'G', 'C', 'X']);
+    sqlite.exec('INSERT INTO magic_search_costs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [
+      cost,
+      tokens.filter(token => /^\d+$/.test(token)).reduce((sum, token) => sum + Number(token), 0),
+      ...['W', 'U', 'B', 'R', 'G', 'C', 'X'].map(symbol => tokens.filter(token => token === symbol).length),
+    ]);
+    const specials = new Map<string, number>();
+    for (const token of tokens) {
+      if (!fixed.has(token) && !/^\d+$/.test(token)) {
+        specials.set(token, (specials.get(token) ?? 0) + 1);
+      }
+    }
+    for (const [symbol, count] of specials) {
+      sqlite.exec('INSERT INTO magic_search_cost_specials VALUES (?, ?, ?)', [cost, symbol, count]);
+    }
+  }
+
+  test('evaluates strict order, equality, specials, NULL, and negation like PostgreSQL', async () => {
+    costCard('w', '{W}');
+    costCard('three-w', '{3}{W}');
+    costCard('wu', '{W}{U}');
+    costCard('legacy', '{2}{C}{C}{C}{2}');
+    costCard('merged', '{4}{C}{C}{C}');
+    costCard('hybrid', '{1}{G/W}{G/W}');
+    costCard('rare', '{2}{R}{D}');
+    costCard('malformed', '2R');
+    costCard('none', null);
+
+    expect((await searchAll('cost:{W}')).result.map(item => item.cardId).sort()).toEqual(['three-w', 'w', 'wu']);
+    expect((await search('cost=W')).result.map(item => item.cardId)).toEqual(['w']);
+    expect((await search('cost>=2W')).result.map(item => item.cardId)).toEqual(['three-w']);
+    expect((await searchAll('cost=4CCC')).result.map(item => item.cardId).sort()).toEqual(['legacy', 'merged']);
+    expect((await searchAll('cost:{2}{C}{C}{C}{2}')).result.map(item => item.cardId).sort()).toEqual(['legacy', 'merged']);
+    expect((await search('cost:{G/W}')).result.map(item => item.cardId)).toEqual(['hybrid']);
+    expect((await search('cost:{1}{G/W}{G/W}')).result.map(item => item.cardId)).toEqual(['hybrid']);
+    expect((await search('cost:{2}{R}{D}')).result.map(item => item.cardId)).toEqual(['rare']);
+    expect((await search('cost:{2R}')).result.map(item => item.cardId)).toEqual(['malformed']);
+    expect((await search('cost:{2}{R}')).result.map(item => item.cardId)).toEqual(['rare']);
+    // An unknown symbol is a virtual dimension: nothing stores V, so `cost>V` matches nothing
+    // while `cost<WV` still admits W, exactly as the PostgreSQL baseline.
+    expect((await searchAll('cost>V')).result.map(item => item.cardId)).toEqual([]);
+    expect((await searchAll('cost<WV')).result.map(item => item.cardId)).toEqual(['w']);
+    expect((await search('cost:null')).result.map(item => item.cardId)).toEqual(['none']);
+    expect((await searchAll('-cost:null')).result.map(item => item.cardId).sort())
+      .toEqual(['hybrid', 'legacy', 'malformed', 'merged', 'rare', 'three-w', 'w', 'wu']);
+    expect((await searchAll('cost:{W}|{U}')).result.map(item => item.cardId).sort()).toEqual(['three-w', 'w', 'wu']);
+    expect((await searchAll('-cost:{W}|{U}')).result.map(item => item.cardId).sort())
+      .toEqual(['hybrid', 'legacy', 'malformed', 'merged', 'none', 'rare']);
+  });
+
+  test('routes the shared operator error back to the original path', () => {
+    expect(adapter.plan(request('cost>null')).type).toBe('original');
+    expect(adapter.plan(request('cost:{W}')).type).toBe('exact');
   });
 });
 

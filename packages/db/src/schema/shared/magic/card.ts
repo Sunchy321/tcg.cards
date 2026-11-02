@@ -87,7 +87,8 @@ export const CardPart = schema.table('card_parts', {
   typeline: text('part_typeline').notNull(),
   text:     text('part_text').notNull(),
 
-  cost:      text('cost').array(),
+  /** Braced mana tokens in printed order (`{2}{C}{C}{C}{2}`); also the search dictionary key. */
+  cost:      text('cost'),
   manaValue: doublePrecision('part_mana_value'),
 
   color:          color('color', { dimensions: 16 }),

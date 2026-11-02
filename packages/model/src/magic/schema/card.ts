@@ -67,7 +67,8 @@ export const cardPart = z.strictObject({
   typeline: z.string(),
   text:     z.string(),
 
-  cost:           z.array(z.string()).nullable(),
+  /** Braced mana tokens in printed order (`{2}{C}{C}{C}{2}`). */
+  cost:           z.string().nullable(),
   manaValue:      z.number().nullable(),
   color:          color.nullable(),
   colorIndicator: color.nullable(),

@@ -104,7 +104,7 @@
             </div>
             <div v-if="data.cardPart.cost" class="flex items-center gap-0.5 shrink-0 text-2xl">
               <Symbol
-                v-for="(s, i) in data.cardPart.cost"
+                v-for="(s, i) in splitCost(data.cardPart.cost)"
                 :key="i"
                 :value="`{${s}}`"
                 :type="['cost']"
@@ -364,6 +364,7 @@
 
 <script setup lang="ts">
 import { locale as localeSchema, formats } from '#model/magic/schema/basic';
+import { splitCost } from '@tcg-cards/shared/magic/cost';
 
 import { groupBy, omitBy, sortBy, uniq, uniqBy } from 'lodash-es';
 

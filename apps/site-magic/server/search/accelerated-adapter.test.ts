@@ -8,7 +8,7 @@ import { translate } from '#search/server/translate';
 
 import type { MagicSearchManifest } from '@tcg-cards/model/magic/search/manifest';
 import { essentialCardSearchItem } from '@tcg-cards/model/magic/schema/search';
-import { SearchCard, SearchCardPart, SearchCardPartLocalization } from '@tcg-cards/db/schema/shared/magic/search';
+import { SearchCard, SearchCardPart, SearchCardPartLocalization, SearchCost } from '@tcg-cards/db/schema/shared/magic/search';
 import * as commands from './command-list';
 import { MagicPgEssentialSearchAdapter, MagicPgSearchAdapter, setMagicSearchManifest } from './accelerated-adapter';
 
@@ -181,9 +181,63 @@ describe('Magic PG accelerated search coverage', () => {
     expect(essentialAdapter.plan(request('#dev:print')).type).toBe('original');
   });
 
-  test('keeps cost searches on the original PG path until its projection is designed', () => {
+  test('keeps cost searches on the original PG path until a publication carries the cost dictionary', () => {
     expect(adapter.plan(request('mana:{W}')).type).toBe('original');
     expect(adapter.plan(request('cost:{W}')).type).toBe('original');
+    expect(adapter.plan(request('{W}{U}')).type).toBe('original');
+
+    setMagicSearchManifest({ ...manifest, costProjection: true });
+    expect(adapter.plan(request('mana:{W}')).type).toBe('exact');
+    expect(adapter.plan(request('cost:{W}')).type).toBe('exact');
+    expect(adapter.plan(request('cost>=2W c:u -cost:null')).type).toBe('exact');
+    expect(adapter.plan(request('{W}{U}')).type).toBe('exact');
+    expect(essentialAdapter.plan(request('cost:{W}')).type).toBe('exact');
+    expect(adapter.descriptor().commands.map(command => command.field)).toContain('cost');
+  });
+
+  test('compiles cost conditions as a dictionary semi-join on the part cost text', () => {
+    const table = {
+      card:                 SearchCard,
+      cardPart:             SearchCardPart,
+      cardPartLocalization: SearchCardPartLocalization,
+      costDictionary:       SearchCost,
+      searchAcceleration:   {
+        typeSymbols: new Set(manifest.typeSymbols),
+        tagOwners:   manifest.tagOwners,
+      },
+    };
+    const compile = (q: string) => {
+      const expr = simplify(new Parser(q).parse());
+      const { query } = translate(expr, Object.values(commands) as any, table as any);
+      return dialect.sqlToQuery(query!);
+    };
+
+    const fixed = compile('cost>=2W');
+    expect(fixed.sql).toContain('"magic"."search_card_parts"."cost"');
+    expect(fixed.sql).toContain('"magic"."search_costs"');
+    expect(fixed.sql).toContain('"magic"."search_costs"."generic"');
+    expect(fixed.sql).toContain('"magic"."search_costs"."w"');
+    expect(fixed.sql).toContain(' IN (');
+    expect(fixed.sql).not.toContain('unnest');
+    expect(fixed.sql).not.toContain('string_to_array');
+
+    const exact = compile('cost={G/W}');
+    expect(exact.sql).toContain('"magic"."search_costs"."specials"');
+    expect(exact.sql).toContain('array_positions');
+    expect(exact.sql).toContain('<@');
+    expect(exact.params).toContain('G/W');
+
+    const nullCost = compile('cost:null');
+    expect(nullCost.sql).toContain('"magic"."search_card_parts"."cost" is null');
+    expect(nullCost.sql).not.toContain('search_costs');
+
+    const negated = compile('-cost>=2W');
+    expect(negated.sql.toLowerCase()).toContain('not');
+
+    const rawMana = compile('{W}{U}');
+    expect(rawMana.sql).toContain('"magic"."search_card_parts"."part_text"');
+    expect(rawMana.sql).toContain('"magic"."search_card_part_localizations"."part_loc_text"');
+    expect(rawMana.sql).toContain('"magic"."search_costs"');
   });
 
   test('accelerates the rarity existence operator while preserving ordinary print rarity on PG', () => {

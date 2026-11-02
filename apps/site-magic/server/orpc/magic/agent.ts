@@ -80,7 +80,7 @@ const searchCards = os
         result: cards.map(r => ({
           cardId: r.cardId,
           name:   r.cardLocalization.name,
-          cost:   r.cardPart.cost?.join('') ?? null,
+          cost:   r.cardPart.cost ?? null,
         })),
         total: result.result?.total ?? 0,
         page:  result.result?.page ?? 1,

@@ -6,7 +6,7 @@ import postgres from 'postgres';
 
 import { runWithDb } from '@tcg-cards/db/db';
 import { fingerprintSearchProjection } from '@tcg-cards/db/search-fingerprint';
-import { SearchCard, SearchCardPart, SearchCardPartLocalization } from '@tcg-cards/db/schema/shared/magic/search';
+import { SearchCard, SearchCardPart, SearchCardPartLocalization, SearchCost } from '@tcg-cards/db/schema/shared/magic/search';
 import { SearchPublicationMetadata } from '#schema/shared/search-publication';
 import { LOCAL_SEARCH_SCHEMA_VERSIONS } from '@tcg-cards/model/search/publication';
 
@@ -175,10 +175,13 @@ try {
             SearchCardPartLocalization.locale,
             SearchCardPartLocalization.source,
           );
+        const costs = await transaction.select().from(SearchCost).where(isNull(SearchCost.deletedAt))
+          .orderBy(SearchCost.cost);
         const fingerprint = fingerprintSearchProjection([
           ['cards', cards],
           ['parts', parts],
           ['localizations', localizations],
+          ['costs', costs],
         ]);
         if (publication.dataVersion !== fingerprint || publication.pgFingerprint !== fingerprint) {
           throw new Error(`Publication identity is stale: row=${publication.dataVersion} projection=${fingerprint}`);

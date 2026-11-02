@@ -27,6 +27,39 @@ export const SearchCard = sqliteTable('magic_search_cards', {
   primaryKey({ columns: [table.cardId, table.version] }),
 ]);
 
+/**
+ * One row per distinct braced mana cost, mirroring the PostgreSQL
+ * `search_costs` comparison columns: generic tokens sum and every fixed
+ * symbol has its own count. Symbols outside the fixed columns live in
+ * `magic_search_cost_specials`.
+ */
+export const SearchCost = sqliteTable('magic_search_costs', {
+  cost:    text('cost').notNull(),
+  generic: integer('generic').notNull(),
+  w:       integer('w').notNull(),
+  u:       integer('u').notNull(),
+  b:       integer('b').notNull(),
+  r:       integer('r').notNull(),
+  g:       integer('g').notNull(),
+  c:       integer('c').notNull(),
+  x:       integer('x').notNull(),
+}, table => [
+  primaryKey({ columns: [table.cost] }),
+]);
+
+/** Stores each special symbol of one cost with its repetition count. */
+export const SearchCostSpecial = sqliteTable('magic_search_cost_specials', {
+  cost:   text('cost').notNull(),
+  symbol: text('symbol').notNull(),
+  count:  integer('count').notNull(),
+}, table => [
+  primaryKey({ columns: [table.cost, table.symbol] }),
+  foreignKey({
+    columns:        [table.cost],
+    foreignColumns: [SearchCost.cost],
+  }),
+]);
+
 /** Stores single-valued facts that belong to one card part. */
 export const SearchCardPart = sqliteTable('magic_search_card_parts', {
   cardId:       text('card_id').notNull(),
@@ -34,6 +67,8 @@ export const SearchCardPart = sqliteTable('magic_search_card_parts', {
   partIndex:    integer('part_index').notNull(),
   name:         text('name').notNull(),
   typeline:     text('typeline').notNull(),
+  /** Braced mana cost copied from the PostgreSQL part row; also the `magic_search_costs` key. */
+  cost:         text('cost'),
   power:        text('power'),
   toughness:    text('toughness'),
   loyalty:      text('loyalty'),

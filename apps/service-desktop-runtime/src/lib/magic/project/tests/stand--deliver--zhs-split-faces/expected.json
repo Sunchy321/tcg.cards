@@ -52,9 +52,7 @@
       "name": "Stand",
       "typeline": "Instant",
       "text": "Prevent the next 2 damage that would be dealt to target creature this turn.",
-      "cost": [
-        "W"
-      ],
+      "cost": "{W}",
       "manaValue": null,
       "color": null,
       "colorIndicator": null,
@@ -77,10 +75,7 @@
       "name": "Deliver",
       "typeline": "Instant",
       "text": "Return target permanent to its owner's hand.",
-      "cost": [
-        "2",
-        "U"
-      ],
+      "cost": "{2}{U}",
       "manaValue": null,
       "color": null,
       "colorIndicator": null,

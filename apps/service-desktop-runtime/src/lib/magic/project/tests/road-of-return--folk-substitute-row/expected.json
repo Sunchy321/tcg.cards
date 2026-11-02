@@ -54,10 +54,7 @@
       "name": "Road of Return",
       "typeline": "Sorcery",
       "text": "Choose one —\n• Return target permanent card from your graveyard to your hand.\n• Put your commander into your hand from the command zone.\nEntwine {2} (Choose both if you pay the entwine cost.)",
-      "cost": [
-        "G",
-        "G"
-      ],
+      "cost": "{G}{G}",
       "manaValue": 2,
       "color": "G",
       "colorIndicator": null,

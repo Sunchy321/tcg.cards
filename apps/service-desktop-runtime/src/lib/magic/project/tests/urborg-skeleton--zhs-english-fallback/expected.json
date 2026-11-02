@@ -57,9 +57,7 @@
       "name": "Urborg Skeleton",
       "typeline": "Creature — Skeleton",
       "text": "Kicker {3} (You may pay an additional {3} as you cast this spell.)\n{B}: Regenerate this creature.\nIf this creature was kicked, it enters with a +1/+1 counter on it.",
-      "cost": [
-        "B"
-      ],
+      "cost": "{B}",
       "manaValue": 1,
       "color": "B",
       "colorIndicator": null,

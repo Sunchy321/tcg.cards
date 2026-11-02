@@ -5,12 +5,14 @@ import {
   exists,
   gt,
   gte,
+  isNotNull,
   isNull,
   lt,
   lte,
   ne,
   not,
   notExists,
+  notInArray,
   or,
   sql,
 } from 'drizzle-orm';
@@ -23,8 +25,16 @@ import {
   SearchCardPart,
   SearchCardPartLocalization,
   SearchCardValue,
+  SearchCost,
+  SearchCostSpecial,
   SearchTextRow,
 } from '@tcg-cards/db/schema/sqlite/magic';
+import { searchCostFixedSymbols } from '@tcg-cards/db/schema/shared/magic/search';
+
+import { matchValueGroups, splitValueGroups } from '#search/server/command/terms';
+
+import type { CostDimensions } from '../command/cost-order';
+import { costComparison, parseCostTerm } from '../command/cost-order';
 import type { CapabilityGap, DatasetDescriptor, LogicalQuery, QueryRequest, ResolvedCommand } from '#search/logical';
 import { describeLogicalCommand } from '#search/command/semantics';
 import type { CommonServerCommand } from '#search/server/command';
@@ -61,7 +71,7 @@ export function findMagicD1Gap(request: QueryRequest, descriptor: DatasetDescrip
 
 /** Describes only command capabilities implemented by the D1 compiler. */
 export function magicD1Descriptor(): DatasetDescriptor {
-  const supportedCommands = new Set(['name', 'text', 'oracle', 'mana-value', 'rarity', 'ambit', 'format']);
+  const supportedCommands = new Set(['name', 'text', 'oracle', 'mana-value', 'rarity', 'ambit', 'format', 'cost']);
   const serverCommands = Object.values(commands) as CommonServerCommand[];
   const described = serverCommands.filter(command => supportedCommands.has(command.options.id ?? ''));
 
@@ -174,6 +184,10 @@ function findNodeGap(query: LogicalQuery, supported: DatasetDescriptor['commands
     return { kind: 'value-class', field: id, detail: 'D1 supports numeric mana values only.' };
   }
 
+  if (id === 'cost' && command.value === 'null' && command.operator !== ':') {
+    return { kind: 'operator', field: id, detail: 'NULL costs compare with the cost search operator only.' };
+  }
+
   return null;
 }
 
@@ -209,6 +223,8 @@ function compileCommand(
     return compileTextCommand(command, ['part-body', 'localization-body'], db, textPackageSchemas);
   case 'mana-value':
     return compileNumber(command);
+  case 'cost':
+    return compileCost(command, db);
   case 'rarity':
     return compileRarity(command, db);
   case 'ambit':
@@ -392,6 +408,77 @@ function compileNumber(command: ResolvedCommand): SQL {
   })));
 
   return combine('or', predicates);
+}
+
+/** The mana symbols that own a dedicated count column in the cost dictionary. */
+const fixedSymbolSet = new Set<string>(searchCostFixedSymbols);
+
+/** Compiles one mana-cost comparison against the SQLite cost dictionary. */
+function compileCost(command: ResolvedCommand, db: MagicSearchDrizzle): SQL {
+  /** The dictionary keys whose stored cost satisfies one query term. */
+  const matchTerm = (term: string): SQL => {
+    if (term.toLowerCase() === 'null') {
+      return isNull(SearchCardPart.cost);
+    }
+
+    const parsed = parseCostTerm(term);
+    const matching = db.select({ cost: SearchCost.cost })
+      .from(SearchCost)
+      .where(and(
+        eq(SearchCost.cost, SearchCardPart.cost),
+        costComparison(sqliteCostDimensions(db), command.operator, parsed),
+      ));
+
+    return and(isNotNull(SearchCardPart.cost), exists(matching))!;
+  };
+
+  // Negation wraps the whole group so NULL rows follow the shared logical
+  // complement rule, exactly as the PostgreSQL handler does.
+  const combined = matchValueGroups(splitValueGroups(String(command.value)), matchTerm);
+  return command.qualifier.includes('!') ? not(combined) : combined;
+}
+
+/** Dimensions read from one `magic_search_costs` row and its special symbols. */
+function sqliteCostDimensions(db: MagicSearchDrizzle): CostDimensions {
+  /** Dedicated count column of one fixed symbol. */
+  const fixedColumn = (symbol: string) =>
+    SearchCost[symbol.toLowerCase() as Lowercase<(typeof searchCostFixedSymbols)[number]>];
+
+  return {
+    symbolCount: symbol => fixedSymbolSet.has(symbol)
+      ? sql`${fixedColumn(symbol)}`
+      : sql`COALESCE((
+          SELECT ${SearchCostSpecial.count}
+          FROM ${SearchCostSpecial}
+          WHERE ${SearchCostSpecial.cost} = ${SearchCost.cost}
+            AND ${SearchCostSpecial.symbol} = ${symbol}
+        ), 0)`,
+    genericSum:      () => sql`${SearchCost.generic}`,
+    hasExtraSymbols: queriedSymbols => {
+      const queried = new Set(queriedSymbols);
+      // Fixed symbols outside the query show up as a non-zero count column;
+      // every other stored symbol must sit inside the queried set.
+      const unqueriedFixed = searchCostFixedSymbols
+        .filter(symbol => !queried.has(symbol))
+        .map(symbol => sql`${fixedColumn(symbol)} > 0`);
+      const queriedSpecials = queriedSymbols.filter(symbol => !fixedSymbolSet.has(symbol));
+      const specialOutside = specialOutsideQuery(db, queriedSpecials);
+
+      return sql`(${or(...unqueriedFixed, specialOutside)})`;
+    },
+  };
+}
+
+/** Correlated probe for a stored special symbol outside the queried set. */
+function specialOutsideQuery(db: MagicSearchDrizzle, queriedSpecials: string[]): SQL {
+  return exists(db.select({ one: sql`1` })
+    .from(SearchCostSpecial)
+    .where(and(
+      eq(SearchCostSpecial.cost, SearchCost.cost),
+      queriedSpecials.length === 0
+        ? undefined
+        : notInArray(SearchCostSpecial.symbol, queriedSpecials),
+    )));
 }
 
 /** Parses the finite decimal forms accepted by PostgreSQL numeric comparisons. */

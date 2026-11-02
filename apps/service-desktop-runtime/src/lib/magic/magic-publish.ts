@@ -13,6 +13,7 @@ import {
   SearchCard,
   SearchCardPart,
   SearchCardPartLocalization,
+  SearchCost,
 } from '@tcg-cards/db/schema/shared/magic/search';
 import {
   PublishBaseline,
@@ -33,7 +34,7 @@ const APPLY_CHUNK_SIZE = 1000;
 
 // ── Table registry ──
 
-/** The six magic fact tables and three derived search tables published as one
+/** The six magic fact tables and four derived search tables published as one
  * card_data surface. The
  * localization authority is NOT published: it is projection-side annotation
  * recording where the published localization text came from, not a fact table
@@ -48,6 +49,7 @@ export const PUBLISH_TABLES = [
   'search_cards',
   'search_card_parts',
   'search_card_part_localizations',
+  'search_costs',
 ] as const;
 
 export type PublishTableName = (typeof PUBLISH_TABLES)[number];
@@ -74,6 +76,7 @@ export const PUBLISH_TABLE_CONFIG: Record<PublishTableName, PublishTableConfig> 
     table: SearchCardPartLocalization,
     pk:    ['cardId', 'version', 'locale', 'source', 'partIndex'],
   },
+  search_costs: { name: 'search_costs', table: SearchCost, pk: ['cost'] },
 };
 
 /** Columns excluded from row hashes: bookkeeping that changes on every write. */

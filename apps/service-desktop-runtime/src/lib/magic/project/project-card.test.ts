@@ -150,7 +150,7 @@ describe('mana cost projection', () => {
       faces: [{ ...source.faces[0]!, manaCost: '{2}{C}{C}{C}{2}' }],
     }));
 
-    expect(result.cardParts[0]?.cost).toEqual(['2', 'C', 'C', 'C', '2']);
+    expect(result.cardParts[0]?.cost).toBe('{2}{C}{C}{C}{2}');
   });
 });
 
