@@ -46,3 +46,8 @@ BETTER_AUTH_URL = "https://hearthstone.tcg.cards"
 binding = "HYPERDRIVE"
 id = "34ff130776904528bff88fe51caea444"
 localConnectionString = "postgres://user:password@127.0.0.1:5432/tcg_cards"
+
+[[d1_databases]]
+binding = "HEARTHSTONE_SEARCH_DB"
+database_name = "hearthstone-search"
+database_id = "f9726943-d82c-44ae-9cc5-0595f9c06015"
