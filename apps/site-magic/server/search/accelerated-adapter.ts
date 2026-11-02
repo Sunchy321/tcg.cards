@@ -4,6 +4,7 @@ import { and, eq, isNull, or, sql, getColumns } from 'drizzle-orm';
 import { omit } from 'lodash-es';
 
 import type { MagicSearchManifest, MagicSearchCandidatePrint } from '@tcg-cards/model/magic/search/manifest';
+import { magicSearchTagOwners } from '@tcg-cards/model/magic/search/manifest';
 import type { Locale } from '@tcg-cards/model/magic/schema/basic';
 import type { EssentialCardSearchItem, EssentialNormalResult, NormalResult } from '@tcg-cards/model/magic/schema/search';
 import { Card, CardLocalization, CardPart, CardPartLocalization } from '@tcg-cards/db/schema/shared/magic/card';
@@ -83,17 +84,42 @@ export function getMagicSearchManifest() {
   return activeManifest;
 }
 
+const magicSearchTagOwnerSet = new Set<string>(magicSearchTagOwners);
+
+/** Validated planner metadata, or null when any entry fails the publication shape. */
+function readPlannerMetadata(metadata: unknown): {
+  typeSymbols: string[];
+  tagOwners:   MagicSearchManifest['tagOwners'];
+} | null {
+  if (metadata == null || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return null;
+  }
+  const { typeSymbols, tagOwners } = metadata as { typeSymbols?: unknown, tagOwners?: unknown };
+  if (!Array.isArray(typeSymbols) || typeSymbols.some(value => typeof value !== 'string')) {
+    return null;
+  }
+  if (tagOwners == null || typeof tagOwners !== 'object' || Array.isArray(tagOwners)) {
+    return null;
+  }
+  const owners = tagOwners as Record<string, unknown>;
+  for (const owner of Object.values(owners)) {
+    if (typeof owner !== 'string' || !magicSearchTagOwnerSet.has(owner)) {
+      return null;
+    }
+  }
+  return { typeSymbols, tagOwners: owners as MagicSearchManifest['tagOwners'] };
+}
+
 /** Refreshes the active planner record before planning an incoming request. */
 export async function refreshMagicSearchManifest(): Promise<void> {
   try {
     const [publication] = await db.select().from(SearchPublicationMetadata)
       .where(eq(SearchPublicationMetadata.game, 'magic'));
-    const metadata = publication?.plannerMetadata as { typeSymbols?: unknown, tagOwners?: unknown } | undefined;
+    const planner = publication == null ? null : readPlannerMetadata(publication.plannerMetadata);
     if (publication == null || !publication.ready
+      || publication.dataVersion === ''
       || publication.schemaVersion !== LOCAL_SEARCH_SCHEMA_VERSIONS.magic
-      || !Array.isArray(metadata?.typeSymbols)
-      || metadata.typeSymbols.some(value => typeof value !== 'string')
-      || metadata.tagOwners == null || typeof metadata.tagOwners !== 'object' || Array.isArray(metadata.tagOwners)) {
+      || planner == null) {
       activeManifest = null;
       activePublicationReady = false;
       activePublicationChecked = true;
@@ -103,8 +129,8 @@ export async function refreshMagicSearchManifest(): Promise<void> {
       dataVersion:   publication.dataVersion,
       pgFingerprint: publication.pgFingerprint,
       releaseHash:   publication.releaseHash ?? undefined,
-      typeSymbols:   metadata.typeSymbols as string[],
-      tagOwners:     metadata.tagOwners as MagicSearchManifest['tagOwners'],
+      typeSymbols:   planner.typeSymbols,
+      tagOwners:     planner.tagOwners,
     };
     activePublicationReady = true;
     activePublicationChecked = true;

@@ -14,7 +14,10 @@ export interface MagicSearchCandidatePrint {
 
 export type MagicSearchCandidatePrints = Partial<Record<Locale, MagicSearchCandidatePrint>>;
 
-export type MagicSearchTagOwner = 'card-only' | 'print-only' | 'overlap';
+/** The ownership classifications a card tag can have in the search manifest. */
+export const magicSearchTagOwners = ['card-only', 'print-only', 'overlap'] as const;
+
+export type MagicSearchTagOwner = (typeof magicSearchTagOwners)[number];
 
 export interface MagicSearchManifest {
   dataVersion:    string;
