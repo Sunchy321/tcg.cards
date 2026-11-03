@@ -1,5 +1,6 @@
 {
   "name": "tcg-cards-console-tauri",
+  "description": "DEPRECATED: former Tauri desktop admin console, replaced by app-console-desktop.",
   "private": true,
   "version": "0.1.0",
   "type": "module",

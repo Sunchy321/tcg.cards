@@ -27,8 +27,8 @@ The `apps/` workspace currently contains these project-level applications:
 
 - `app-console-desktop`
   Electron desktop admin console and the intended primary local runtime for heavy domain-data workflows. It is being built as an independent workspace that will completely replace the former Tauri implementation. Local management does not require a remote login; remote database access and publishing authentication are being designed together.
-- `app-console-tauri` (transitional)
-  The former desktop admin console, retained independently during migration. It still runs the existing workflows with the separate Bun desktop runtime. Its code is not a dependency of the Electron application.
+- `app-console-tauri` (deprecated)
+  The former desktop admin console. During migration it kept running the existing workflows with the separate Bun desktop runtime (`service-desktop-runtime`, also deprecated). Its code is not a dependency of the Electron application, which now carries the migrated workflows.
 - `app-console-mobile` (planned)
   Lightweight mobile management client. It is intended to cover a management tier similar to `site-console`, but run on mobile devices instead of the web. It may also support selected lightweight management capabilities that are not practical in a browser.
 - `app-desktop` (planned)
@@ -37,6 +37,8 @@ The `apps/` workspace currently contains these project-level applications:
   User-facing installable mobile app (iOS/Android), built on Capacitor. It shares its business code with `app-desktop` and is a query client for end users, not a management runtime.
 - `service-app` (planned)
   Backend query service for the user-facing apps: anonymous public card queries over the same remote game data the game sites serve, plus first-party authenticated user state such as user config sync. It is distinct from `service-api` (third-party, key-authenticated) and `service-internal` (management clients).
+- `service-desktop-runtime` (deprecated)
+  The former Bun desktop runtime behind `app-console-tauri`. No application depends on it any more: its search projection and publication workflows have moved into the Electron runtime of `app-console-desktop`. It receives no new features and will be removed entirely in a future version.
 - `service-internal`
   Backend API surface for app-shaped management clients. It provides the remote backend interface used by installable management applications.
 - `site-console`

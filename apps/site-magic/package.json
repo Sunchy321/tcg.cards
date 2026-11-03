@@ -56,7 +56,6 @@
     "nanoid": "^5.1.6",
     "nuxt": "4.3.1",
     "postgres": "^3.4.8",
-    "service-desktop-runtime": "workspace:*",
     "tailwindcss": "^4.2.2",
     "vue": "^3.5.29",
     "zod": "^4.3.6"

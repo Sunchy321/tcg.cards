@@ -1,3 +1,4 @@
+import { hasHearthstoneSearchTables, rebuildHearthstoneSearchData } from '../../search-data';
 import { z } from 'zod';
 
 import { and, asc, countDistinct, eq, gt, inArray, isNotNull, ne, sql } from 'drizzle-orm';
@@ -329,6 +330,11 @@ export const projectTaskDefinition = createDefinition(projectTaskType, {
   .stage('finalize', { label: '完成', progressMode: 'simple' })
   .handler(async ({ ctx, input }) => {
     if (!ctx.dryRun) {
+      const database = getLocalDb();
+      if (await hasHearthstoneSearchTables(database)) {
+        await rebuildHearthstoneSearchData(database);
+      }
+
       await getLocalDb().update(PatchState)
         .set({ projectionStatus: 'completed', projectionError: null, projectedAt: new Date() })
         .where(inArray(PatchState.buildNumber, ctx.sourceTags));

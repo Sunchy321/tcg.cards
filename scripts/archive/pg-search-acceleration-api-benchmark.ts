@@ -1,3 +1,9 @@
+// Archived: this ticket-04 benchmark imported the Magic search projection
+// rebuild from the deprecated `service-desktop-runtime` package, which no
+// workspace package depends on any more. It is kept for reference only and
+// no longer runs; its measurements are recorded in the search-acceleration
+// benchmark artifacts.
+
 import { resolve } from 'node:path';
 
 import { getTableConfig } from 'drizzle-orm/pg-core';

@@ -27,8 +27,8 @@
 
 - `app-console-desktop`
   Electron desktop 管理端，目标是领域数据重型工作流的主要本地运行时。它作为独立 workspace 构建，完成后将完全替代原 Tauri 实现。本地管理不强制登录；涉及远端数据库的鉴权与发布能力结合设计。
-- `app-console-tauri`（迁移过渡）
-  原 desktop 管理端，在迁移期间独立保留，仍通过单独的 Bun desktop runtime 执行现有工作流。新 Electron 应用不依赖它的代码。
+- `app-console-tauri`（已弃用）
+  原 desktop 管理端。迁移期间它仍通过单独的 Bun desktop runtime（`service-desktop-runtime`，同样已弃用）执行现有工作流。新 Electron 应用不依赖它的代码，已迁移的工作流现由 Electron 控制台承载。
 - `app-console-mobile`（规划中）
   轻量移动管理终端。它的管理层级整体上接近 `site-console`，但运行在移动设备上，而不是运行在 Web 上。它后续也可以承载一部分不适合在浏览器中实现的轻量管理能力。
 - `app-desktop`（规划中）
@@ -37,6 +37,8 @@
   面向终端用户的可安装移动应用（iOS/Android），基于 Capacitor 构建。它与 `app-desktop` 共享同一套业务代码，是面向最终用户的查询客户端，而不是管理运行时。
 - `service-app`（规划中）
   面向用户态 App 的后端查询服务：在与游戏站同源的远端游戏数据上提供匿名的公开卡牌查询，并承载要求登录的用户态状态（如用户配置同步）。它与 `service-api`（面向第三方、Key 鉴权）和 `service-internal`（管理客户端）彼此区分。
+- `service-desktop-runtime`（已弃用）
+  原 `app-console-tauri` 背后的 Bun desktop runtime。目前已没有任何应用依赖它：搜索投影与发布工作流已迁入 `app-console-desktop` 的 Electron runtime。它不再接收新功能，将在未来版本中整体移除。
 - `service-internal`
   面向 app 形态管理端的后端接口。它提供可安装管理应用所使用的远端后端 API。
 - `site-console`

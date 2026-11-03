@@ -2,7 +2,7 @@
 
 Desktop admin console built with Tauri, Nuxt, and TypeScript.
 
-This is the retained legacy application during the Electron migration. Its replacement is the independent `app-console-desktop` workspace. The legacy development server uses port 1421; the replacement keeps port 1420. Existing application data and credential identifiers are retained for configuration migration.
+**Deprecated.** This is the legacy application kept during the Electron migration; new features belong in its replacement, the independent `app-console-desktop` workspace. The legacy development server uses port 1421; the replacement keeps port 1420. Existing application data and credential identifiers are retained for configuration migration.
 
 Stable runtime and authority boundaries live in [../../docs/project-architecture.md](../../docs/project-architecture.md).
 

@@ -1,5 +1,6 @@
 {
   "name": "service-desktop-runtime",
+  "description": "DEPRECATED: former Bun desktop runtime. Its search projection and publication workflows now live in app-console-desktop; the package will be removed in a future version.",
   "private": true,
   "type": "module",
   "imports": {

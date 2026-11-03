@@ -1,3 +1,5 @@
+import { SearchCard, SearchCardLocalization } from '@tcg-cards/db/schema/shared/hearthstone/search';
+import { hasHearthstoneSearchTables } from '../../search-data';
 import { z } from 'zod';
 
 import { and, eq, ne, or, asc, desc, count, gt, inArray, isNull, sql } from 'drizzle-orm';
@@ -23,6 +25,7 @@ import type { TableName, PublishDb } from '../../hsdata-publish';
 import { requireHearthstonePublishTargetByIdentity } from '../../hsdata-publish-target';
 import { publishCardDataGeneration } from '../../publish-generation';
 import { getLocalDb } from '../../hsdata-local-db';
+import { activateSearchPublication, markSearchPublicationUnavailable } from '../../../search-publication';
 import { createDefinition } from '#task/definition';
 import type { ProgressFn, BlockDone } from '#task/definition';
 
@@ -30,7 +33,7 @@ import type { ProgressFn, BlockDone } from '#task/definition';
 
 const LOAD_CHUNK_SIZE = 2000;
 const REMOTE_CHUNK_SIZE = 1000;
-const FULL_SCAN_TABLES: TableName[] = ['entities', 'entity_localizations', 'entity_relations', 'cards'];
+const FULL_SCAN_TABLES: TableName[] = ['entities', 'entity_localizations', 'entity_relations', 'cards', 'search_cards', 'search_card_localizations'];
 
 // ── Types ──
 
@@ -214,6 +217,17 @@ async function processFullScanChunk(loader: LoaderState, plans: PlanEntry[]): Pr
       since ? or(and(isNull(tbl.deletedAt), or(gt(tbl.createdAt, since), gt(tbl.updatedAt, since))), gt(tbl.deletedAt, since)) : isNull(tbl.deletedAt),
       cursor == null ? undefined : sql`(${tbl.sourceId}, ${tbl.relation}, ${tbl.targetId}, ${tbl.sourceRevisionHash}) > (${cursor.sourceId}, ${cursor.relation}, ${cursor.targetId}, ${cursor.sourceRevisionHash})`,
     )).orderBy(asc(tbl.sourceId), asc(tbl.relation), asc(tbl.targetId), asc(tbl.sourceRevisionHash)).limit(LOAD_CHUNK_SIZE) as any[];
+  } else if (tableName === 'search_cards' || tableName === 'search_card_localizations') {
+    const tbl = tableName === 'search_cards' ? SearchCard : SearchCardLocalization;
+    const localized = tableName === 'search_card_localizations';
+    rawRows = await db.select().from(tbl).where(and(
+      since ? or(and(isNull(tbl.deletedAt), or(gt(tbl.createdAt, since), gt(tbl.updatedAt, since))), gt(tbl.deletedAt, since)) : isNull(tbl.deletedAt),
+      cursor == null
+        ? undefined
+        : localized
+          ? sql`(${tbl.cardId}, ${SearchCardLocalization.lang}) > (${cursor.cardId}, ${cursor.lang})`
+          : gt(tbl.cardId, cursor.cardId),
+    )).orderBy(asc(tbl.cardId), ...(localized ? [asc(SearchCardLocalization.lang)] : [])).limit(LOAD_CHUNK_SIZE);
   } else if (tableName === 'cards') {
     const tbl = LocalBaseCard;
     rawRows = await db.select().from(tbl).where(and(
@@ -290,7 +304,8 @@ async function loadingBlock(
   progress({
     done:     loader.processed, total:    loader.totalRows,
     segments: loader.tableTotals && loader.tableProcessed
-      ? Object.entries(loader.tableTotals).map(([name, total]) => ({
+      // Derived search tables are published too, but stay out of the per-table progress list.
+      ? Object.entries(loader.tableTotals).filter(([name]) => !name.startsWith('search_')).map(([name, total]) => ({
         name,
         done: loader.tableProcessed![name as TableName] ?? 0,
         total,
@@ -351,6 +366,7 @@ async function applyingBlock(
       leaseHolderId:         batchId,
       force:                 ctx.force,
     });
+    await markSearchPublicationUnavailable(ctx.remoteDb as any, 'hearthstone');
     ctx.leaseHolderId = batchId;
     ctx.leaseStream = { publishTarget: batch.publishTarget, environment: batch.environment, publishType: batch.publishType };
   }
@@ -668,19 +684,31 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
     const publishedAt = baseline?.publishedAt ?? null;
     const isIncremental = publishedAt != null;
     const since = publishedAt!;
-    type BaseTable = typeof LocalBaseEntity | typeof LocalBaseEntityLocalization | typeof LocalBaseEntityRelation | typeof LocalBaseCard;
+    type BaseTable = typeof SearchCard | typeof SearchCardLocalization | typeof LocalBaseEntity | typeof LocalBaseEntityLocalization | typeof LocalBaseEntityRelation | typeof LocalBaseCard;
     const incFilter = (tbl: BaseTable) => or(and(isNull(tbl.deletedAt), or(gt(tbl.createdAt, since), gt(tbl.updatedAt, since))), gt(tbl.deletedAt, since));
     const fullFilter = (tbl: BaseTable) => isNull(tbl.deletedAt);
-    const cnt = await Promise.all([
+    const searchTablesReady = await hasHearthstoneSearchTables(db);
+    const cnt: Array<Array<{ count: number }>> = await Promise.all([
       isIncremental ? db.select({ count: count() }).from(LocalBaseEntity).where(incFilter(LocalBaseEntity)) : db.select({ count: count() }).from(LocalBaseEntity).where(fullFilter(LocalBaseEntity)),
       isIncremental ? db.select({ count: count() }).from(LocalBaseEntityLocalization).where(incFilter(LocalBaseEntityLocalization)) : db.select({ count: count() }).from(LocalBaseEntityLocalization).where(fullFilter(LocalBaseEntityLocalization)),
       isIncremental ? db.select({ count: count() }).from(LocalBaseEntityRelation).where(incFilter(LocalBaseEntityRelation)) : db.select({ count: count() }).from(LocalBaseEntityRelation).where(fullFilter(LocalBaseEntityRelation)),
       isIncremental ? db.select({ count: count() }).from(LocalBaseCard).where(incFilter(LocalBaseCard)) : db.select({ count: count() }).from(LocalBaseCard).where(fullFilter(LocalBaseCard)),
     ]);
+    const searchCounts = searchTablesReady
+      ? await Promise.all([
+        db.select({ count: count() }).from(SearchCard).where(isIncremental ? incFilter(SearchCard) : fullFilter(SearchCard)),
+        db.select({ count: count() }).from(SearchCardLocalization).where(isIncremental ? incFilter(SearchCardLocalization) : fullFilter(SearchCardLocalization)),
+      ])
+      : [[{ count: 0 }], [{ count: 0 }]];
+    cnt.push(...searchCounts);
     const totalRows = cnt.reduce((s, r) => s + Number(r[0]!.count), 0);
     const tableTotals: Record<string, number> = {
-      entities:             Number(cnt[0]![0]!.count), entity_localizations: Number(cnt[1]![0]!.count),
-      entity_relations:     Number(cnt[2]![0]!.count), cards:                Number(cnt[3]![0]!.count),
+      entities:                  Number(cnt[0]![0]!.count),
+      entity_localizations:      Number(cnt[1]![0]!.count),
+      entity_relations:          Number(cnt[2]![0]!.count),
+      cards:                     Number(cnt[3]![0]!.count),
+      search_cards:              Number(cnt[4]![0]!.count),
+      search_card_localizations: Number(cnt[5]![0]!.count),
     };
 
     if (!ctx.dryRun) {
@@ -706,9 +734,9 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
       builds:               [],
       processed:            0,
       totalRows,
-      scanCursors:          new Map([['entities', null], ['entity_localizations', null], ['entity_relations', null], ['cards', null]]),
+      scanCursors:          new Map<TableName, any>(FULL_SCAN_TABLES.map(name => [name, name.startsWith('search_') && !searchTablesReady ? undefined : null])),
       tableTotals,
-      tableProcessed:       tableTotals ? { entities: 0, entity_localizations: 0, entity_relations: 0, cards: 0 } : undefined as any,
+      tableProcessed:       Object.fromEntries(FULL_SCAN_TABLES.map(name => [name, 0])),
     };
 
     return {
@@ -829,6 +857,15 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
             throw new Error(`Row count mismatch for ${tableName}: local=${localRow!.count} remote=${remoteRow!.count}`);
           }
         }
+        if (await hasHearthstoneSearchTables(localDb)) {
+          for (const table of [SearchCard, SearchCardLocalization]) {
+            const [localCount] = await localDb.select({ count: count() }).from(table).where(isNull(table.deletedAt));
+            const [remoteCount] = await remoteDb.select({ count: count() }).from(table).where(isNull(table.deletedAt));
+            if (Number(localCount!.count) !== Number(remoteCount!.count)) {
+              throw new Error('The published search data is incomplete.');
+            }
+          }
+        }
       } finally {
         if (!ctx.remoteDb) await remoteDb.$client.end({ timeout: 1 });
       }
@@ -850,6 +887,7 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
             },
             manifestHash: batch.manifestHash, publishedAt,
           });
+          await activateSearchPublication(localDb, tx, 'hearthstone');
           if (ctx.leaseHolderId != null && ctx.leaseStream != null) {
             await tx.update(PublishStreamRegistration).set({
               leaseHolderId: null, leaseExpiresAt: null, updatedAt: new Date(),
@@ -861,27 +899,40 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
             ));
           }
         });
+      } else {
+        // A package-only identity change can leave every PG row unchanged; still refresh its release hash.
+        const activationDb = createDb(requireHearthstonePublishTargetByIdentity(batch.publishTarget, batch.environment).connectionString);
+        try {
+          await activationDb.transaction(async tx => {
+            await activateSearchPublication(localDb, tx, 'hearthstone');
+          });
+        } finally {
+          await activationDb.$client.end({ timeout: 1 });
+        }
       }
     }
 
     if (batchId && batch) {
       const finalRange = range ?? { buildMin: batch.buildMin, buildMax: batch.buildMax };
       await localDb.transaction(async tx => {
-        await tx.insert(PublishBaseline).values({
-          publishTarget:         batch.publishTarget, environment:           batch.environment, publishType:           batch.publishType,
-          targetFingerprint:     batch.targetFingerprint, batchId,
-          buildMin:              finalRange.buildMin, buildMax:              finalRange.buildMax,
-          generationFingerprint: publishCardDataGeneration.fingerprint, generationOrder:       publishCardDataGeneration.order,
-          manifestHash:          batch.manifestHash, totalRowCount, publishedAt,
-          createdAt:             publishedAt, updatedAt:             publishedAt,
-        }).onConflictDoUpdate({
-          target: [PublishBaseline.publishTarget, PublishBaseline.environment, PublishBaseline.publishType],
-          set:    {
-            batchId, buildMin:              finalRange.buildMin, buildMax:              finalRange.buildMax,
+        // Keep the local baseline aligned with a remote ledger commit; empty scans do not create one.
+        if (ctx.remoteDb) {
+          await tx.insert(PublishBaseline).values({
+            publishTarget:         batch.publishTarget, environment:           batch.environment, publishType:           batch.publishType,
+            targetFingerprint:     batch.targetFingerprint, batchId,
+            buildMin:              finalRange.buildMin, buildMax:              finalRange.buildMax,
             generationFingerprint: publishCardDataGeneration.fingerprint, generationOrder:       publishCardDataGeneration.order,
-            manifestHash:          batch.manifestHash, totalRowCount, publishedAt, updatedAt:             publishedAt,
-          } as any,
-        });
+            manifestHash:          batch.manifestHash, totalRowCount, publishedAt,
+            createdAt:             publishedAt, updatedAt:             publishedAt,
+          }).onConflictDoUpdate({
+            target: [PublishBaseline.publishTarget, PublishBaseline.environment, PublishBaseline.publishType],
+            set:    {
+              batchId, buildMin:              finalRange.buildMin, buildMax:              finalRange.buildMax,
+              generationFingerprint: publishCardDataGeneration.fingerprint, generationOrder:       publishCardDataGeneration.order,
+              manifestHash:          batch.manifestHash, totalRowCount, publishedAt, updatedAt:             publishedAt,
+            } as any,
+          });
+        }
 
         const summary = {
           batchId:              batch.id, publishTarget:        batch.publishTarget, environment:          batch.environment,

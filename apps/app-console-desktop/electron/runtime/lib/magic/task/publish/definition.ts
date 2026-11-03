@@ -32,6 +32,7 @@ import {
   type PublishTableName,
 } from '../../magic-publish';
 import { requireMagicPublishTargetByIdentity } from '../../magic-publish-target';
+import { activateSearchPublication, markSearchPublicationUnavailable } from '../../../search-publication';
 
 /** Stable task type for publishing magic fact tables to a remote environment. */
 export const magicPublishTaskType = 'magic_publish';
@@ -366,6 +367,7 @@ const definition = createDefinition(magicPublishTaskType, {
       leaseHolderId:        batch.id,
       force:                c.force,
     });
+    await markSearchPublicationUnavailable(remoteDb, 'magic');
 
     const [pending] = await db.select({ n: count() }).from(PublishBatchRow)
       .where(and(eq(PublishBatchRow.batchId, c.batchId!), eq(PublishBatchRow.status, 'pending')));
@@ -507,6 +509,9 @@ const definition = createDefinition(magicPublishTaskType, {
         });
         await upsertRemotePublishLedger(remoteDb, batch, c.operatorUserId);
         await releaseRemotePublishLease(remoteDb, { ...stream, leaseHolderId: batch.id });
+        await remoteDb.transaction(async tx => {
+          await activateSearchPublication(db, tx as unknown as PublishDb, 'magic');
+        });
         await db.update(PublishBatch)
           .set({ status: 'completed', completedAt: new Date(), updatedAt: new Date() })
           .where(eq(PublishBatch.id, batch.id));
