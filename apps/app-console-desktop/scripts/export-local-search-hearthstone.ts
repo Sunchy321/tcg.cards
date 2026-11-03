@@ -1,11 +1,10 @@
 import { mkdir, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { Database } from 'bun:sqlite';
-import postgres from 'postgres';
 import { eq, getColumns, isNull, sql } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/postgres-js';
 import type { SQLWrapper } from 'drizzle-orm';
 
+import { createDb } from '@tcg-cards/db';
 import { SearchCard, SearchCardLocalization } from '@tcg-cards/db/schema/shared/hearthstone/search';
 import { SearchPublicationMetadata } from '@tcg-cards/db/schema/remote';
 import { fingerprintSearchProjection } from '@tcg-cards/db/search-fingerprint';
@@ -14,12 +13,17 @@ import { Patch } from '@tcg-cards/db/schema/shared/hearthstone/patch';
 import { essentialCardSearchItem } from '@tcg-cards/model/hearthstone/schema/search';
 import { locale } from '@tcg-cards/model/hearthstone/schema/basic';
 import { pickSimpleTags } from '@tcg-cards/model/hearthstone/search/manifest';
-import { snapshotDdl, createSnapshotStatements } from './d1-snapshot';
-import { projectedSearchQuery, snapshotRows } from './d1-source';
+import {
+  createSnapshotStatements,
+  hearthstoneSearchFtsSql,
+  projectedSearchQuery,
+  snapshotRows,
+} from '../electron/runtime/lib/search-publication/snapshot';
+import { hearthstoneSnapshotDdl } from './lib/search-database-ddl';
 
 /** Builds a version-matched base package and the requested locale deltas. */
 async function main(): Promise<void> {
-  const connection = process.env.DATABASE_URL;
+  const connection = process.env.DATABASE_URL ?? process.env.DESKTOP_LOCAL_DATABASE_URL;
   const output = process.argv[2];
   const requestedLocales = process.argv.slice(3);
   if (connection == null || output == null || requestedLocales.length === 0) {
@@ -45,9 +49,9 @@ async function main(): Promise<void> {
     }
   }
 
-  const client = postgres(connection, { max: 1 });
+  const database = createDb(connection);
   try {
-    const snapshot = await drizzle({ client }).transaction(
+    const snapshot = await database.transaction(
       async tx => {
         const [caseMapping] = await tx.execute<{ folded: string }>(
           sql`SELECT lower('ABCDEFGHIJKLMNOPQRSTUVWXYZ') AS folded`,
@@ -134,10 +138,8 @@ async function main(): Promise<void> {
       }
     }
 
-    const ddl = snapshotDdl();
-    const fts = await Bun.file(
-      new URL(import.meta.resolve('@tcg-cards/db/schema/sqlite/hearthstone/search-fts.sql')),
-    ).text();
+    const ddl = hearthstoneSnapshotDdl();
+    const fts = await hearthstoneSearchFtsSql();
     console.log(JSON.stringify({ phase: 'source-verified', rows: snapshot.rows.length, locales }));
     const basePath = outputFiles[0]!;
     console.log(JSON.stringify({ phase: 'writing', packageRole: 'base', output: basePath }));
@@ -178,7 +180,7 @@ async function main(): Promise<void> {
       buildNumber:   snapshot.manifest.buildNumber,
     }, null, 2)}\n`);
   } finally {
-    await client.end();
+    await database.$client.end({ timeout: 0 });
   }
 }
 

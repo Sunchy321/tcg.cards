@@ -58,7 +58,7 @@
       <template #header>
         <div class="space-y-1">
           <h2 class="font-medium">搜索数据存储</h2>
-          <p class="text-sm text-muted">设置用于发布搜索数据的 Cloudflare R2 连接。</p>
+          <p class="text-sm text-muted">设置用于发布搜索数据的 Cloudflare R2 连接和搜索数据导出目录。</p>
           <p class="text-sm text-muted">请使用仅能访问搜索数据存储的密钥。</p>
         </div>
       </template>
@@ -73,8 +73,24 @@
             :disabled="storageBusy"
             class="w-full"
           />
-          <UButton label="保存" :loading="storageBusy" @click="saveSearchR2Account" />
+          <UButton label="保存" :loading="storageBusy" @click="saveSearchStorage" />
         </div>
+      </div>
+      <div class="mb-4 space-y-2">
+        <label for="search-export-directory" class="block text-sm font-medium">搜索数据导出目录</label>
+        <div class="flex gap-2">
+          <UInput
+            id="search-export-directory"
+            v-model="searchExportDirectory"
+            autocomplete="off"
+            placeholder="选择包含基础包和语言包的导出目录"
+            :disabled="storageBusy"
+            class="w-full"
+          />
+          <UButton label="选择目录" icon="i-lucide-folder-open" variant="soft" :disabled="storageBusy" @click="pickSearchDirectory" />
+          <UButton label="保存" :loading="storageBusy" @click="saveSearchStorage" />
+        </div>
+        <p class="text-xs text-muted">游戏数据发布页与搜索数据发布都使用这个目录。</p>
       </div>
       <div class="grid gap-4 sm:grid-cols-2">
         <SettingField
@@ -95,8 +111,8 @@
     <UCard>
       <template #header>
         <div class="space-y-1">
-          <h2 class="font-medium">发布搜索数据</h2>
-          <p class="text-sm text-muted">选择包含该游戏基础包和语言包的导出目录。</p>
+          <h2 class="font-medium">发布搜索数据包</h2>
+          <p class="text-sm text-muted">把导出目录中的搜索数据包上传到搜索数据存储，供桌面端下载使用。</p>
         </div>
       </template>
       <UAlert v-if="publicationError" role="alert" color="error" :description="publicationError" class="mb-4" />
@@ -105,16 +121,13 @@
         <USelect v-model="searchGame" :items="searchGames" :disabled="publicationBusy" class="w-full" />
         </UFormField>
         <UFormField label="导出目录">
-          <div class="flex gap-2">
-            <UInput :model-value="searchDirectory" readonly class="w-full" placeholder="选择搜索数据导出目录" />
-            <UButton label="选择目录" icon="i-lucide-folder-open" variant="soft" :disabled="publicationBusy" @click="pickSearchDirectory" />
-          </div>
+          <UInput :model-value="searchDirectory" readonly class="w-full" placeholder="未配置，请在上方的搜索数据存储中设置" />
         </UFormField>
         <TaskItem v-if="selectedPublicationTask" :task="selectedPublicationTask" />
         <div class="flex flex-wrap gap-2">
           <UButton
             v-if="!selectedPublicationTask || isTaskTerminal(selectedPublicationTask)"
-            label="发布搜索数据"
+            label="发布搜索数据包"
             icon="i-lucide-cloud-upload"
             :loading="publicationBusy"
             :disabled="!canPublishSearchPackages || !searchDirectory.trim()"
@@ -137,6 +150,7 @@
           />
         </div>
         <p v-if="!canPublishSearchPackages" class="text-sm text-muted">请先填写账户 ID 和访问密钥。</p>
+        <p v-else-if="!searchDirectory.trim()" class="text-sm text-muted">请先在上方的搜索数据存储中配置导出目录。</p>
       </div>
     </UCard>
   </SettingsFrame>
@@ -164,10 +178,10 @@ const rows = ref<Row[]>([]);
 const busy = ref(false);
 const error = ref('');
 const searchR2AccountId = ref('');
+const searchExportDirectory = ref('');
 const storageBusy = ref(false);
 const storageError = ref('');
 const searchGame = ref<'magic' | 'hearthstone'>('magic');
-const searchDirectory = ref('');
 const searchGames = [
   { label: '万智牌', value: 'magic' },
   { label: '炉石传说', value: 'hearthstone' },
@@ -175,6 +189,7 @@ const searchGames = [
 const publicationTaskType = computed(() => `${searchGame.value}_search_package_publish`);
 const selectedPublicationTask = computed(() => publicationEntries.value
   .find(entry => entry.taskType === publicationTaskType.value)?.task ?? null);
+const searchDirectory = computed(() => snapshot.value?.config.searchStorage.exportDirectory?.trim() ?? '');
 const canPublishSearchPackages = computed(() => snapshot.value?.config.searchStorage.accountId != null
   && snapshot.value?.credentials['search-r2-access-key-id'] === true
   && snapshot.value?.credentials['search-r2-secret-access-key'] === true);
@@ -195,9 +210,10 @@ watch(
   { immediate: true },
 );
 watch(
-  () => snapshot.value?.config.searchStorage.accountId,
+  () => snapshot.value?.config.searchStorage,
   value => {
-    if (value != null) searchR2AccountId.value = value;
+    if (value?.accountId != null) searchR2AccountId.value = value.accountId;
+    searchExportDirectory.value = value?.exportDirectory ?? '';
   },
   { immediate: true },
 );
@@ -241,12 +257,15 @@ async function remove(key: string) {
   await persist();
   if (error.value) rows.value = before;
 }
-/** Saves the public account identifier separately from encrypted access keys. */
-async function saveSearchR2Account() {
+/** Saves the storage identity and export directory as one configuration replacement. */
+async function saveSearchStorage() {
   storageBusy.value = true;
   storageError.value = '';
   try {
-    await update('searchStorage', { accountId: searchR2AccountId.value.trim() || undefined });
+    await update('searchStorage', {
+      accountId:       searchR2AccountId.value.trim() || undefined,
+      exportDirectory: searchExportDirectory.value.trim() || undefined,
+    });
   } catch (cause) {
     storageError.value = settingsError(cause);
   } finally {
@@ -256,12 +275,12 @@ async function saveSearchR2Account() {
 /** Opens a native directory picker for the completed local search export. */
 async function pickSearchDirectory() {
   try {
-    searchDirectory.value = await window.desktop.settings.pickDirectory(searchDirectory.value || null) ?? searchDirectory.value;
+    searchExportDirectory.value = await window.desktop.settings.pickDirectory(searchExportDirectory.value || null) ?? searchExportDirectory.value;
   } catch (cause) {
-    publicationError.value = settingsError(cause);
+    storageError.value = settingsError(cause);
   }
 }
-/** Starts the selected game's publication task with the chosen completed export. */
+/** Starts the selected game's package publication with the configured export. */
 async function publishSearchPackages() {
   await launchPublication(publicationTaskType.value, {
     game:      searchGame.value,

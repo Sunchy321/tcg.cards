@@ -18,8 +18,6 @@
     "benchmark:search:pg": "bun --env-file=../../scripts/.env scripts/pg-search-benchmark.ts",
     "benchmark:search:text-index": "bun --env-file=../../scripts/.env scripts/pg-text-index-benchmark.ts",
     "benchmark:search:acceleration-prototype": "bun --env-file=../../scripts/.env scripts/search-acceleration-prototype.ts",
-    "export:search:local": "bun --env-file=../../scripts/.env scripts/export-local-search.ts",
-    "export:search:d1": "bun scripts/export-d1-search.ts",
     "search:local": "bun build --target=node --outfile node_modules/.cache/search-local-magic.mjs scripts/search-local.ts && node node_modules/.cache/search-local-magic.mjs",
     "benchmark:search:local": "bun build --target=node --outfile node_modules/.cache/search-local-benchmark-magic.mjs scripts/local-search-benchmark.ts && node node_modules/.cache/search-local-benchmark-magic.mjs",
     "benchmark:search:app-profile": "bun build --target=node --outfile node_modules/.cache/search-app-profile-magic.mjs scripts/app-search-profile.ts && node --env-file=../../scripts/.env --cpu-prof --cpu-prof-dir=../../.scratch/search-acceleration/benchmark-artifacts node_modules/.cache/search-app-profile-magic.mjs",

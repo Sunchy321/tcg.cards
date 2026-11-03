@@ -1,4 +1,5 @@
-import { drizzle } from 'drizzle-orm/bun-sqlite';
+import { BaseSQLiteDatabase, SQLiteSyncDialect } from 'drizzle-orm/sqlite-core';
+import type { SQLiteSession } from 'drizzle-orm/sqlite-core';
 import { locale } from '@tcg-cards/model/hearthstone/schema/basic';
 import {
   SearchCard,
@@ -14,6 +15,8 @@ import { LOCAL_SEARCH_SCHEMA_VERSIONS } from '@tcg-cards/model/search/publicatio
 import { essentialCardSearchItem } from '@tcg-cards/model/hearthstone/schema/search';
 import type { EssentialCardSearchItem } from '@tcg-cards/model/hearthstone/schema/search';
 
+import type { SearchSnapshotBatch } from './snapshot-batch';
+
 /** Carries approved latest card fields and one localized row for offline snapshot generation. */
 export type SnapshotItem = EssentialCardSearchItem & {
   idOrder:   number;
@@ -26,6 +29,23 @@ export type SnapshotTarget
   = | { kind: 'combined', replace?: boolean }
     | { kind: 'base' }
     | { kind: 'locale', locale: string };
+
+/** Tunable remote-call sizing; batches flush on either bound. */
+export type HearthstoneD1SnapshotSizing = {
+  maxStatements: number;
+  maxBytes:      number;
+};
+
+/** Bucket order is parents-first so remote foreign keys stay satisfied per segment. */
+const HEARTHSTONE_TABLE_ORDER = [
+  'hearthstone_search_cards',
+  'hearthstone_search_card_values',
+  'hearthstone_search_card_legalities',
+  'hearthstone_search_card_localizations',
+  'hearthstone_search_text_rows',
+] as const;
+
+const HEARTHSTONE_SIZING: HearthstoneD1SnapshotSizing = { maxStatements: 300, maxBytes: 512 * 1024 };
 
 /** Quotes bound SQLite values for a generated import file without touching a live database. */
 function literal(value: unknown): string {
@@ -52,22 +72,54 @@ function statement(query: { sql: string, params: unknown[] }): string {
   return `${result};`;
 }
 
+/**
+ * A driverless SQLite database used only for rendering insert SQL text, mirroring
+ * the driver modules' `mock()` helper so Node and Bun both build identical output.
+ */
+function renderDatabase(): BaseSQLiteDatabase<'sync', unknown> {
+  // Insert rendering never touches the session, so leaving it unset matches the driver mocks' behavior.
+  const session = undefined as unknown as SQLiteSession<'sync', unknown>;
+  return new BaseSQLiteDatabase('sync', new SQLiteSyncDialect(), session, {}, undefined);
+}
+
+/** Internal accumulation of one snapshot build: flat output plus per-table buckets. */
+type HearthstoneSnapshotBuild = {
+  flatStatements:      string[];
+  buckets:             Map<string, string[]>;
+  /** Actual table row counts, excluding incremental FTS companion statements. */
+  bucketRowCounts:     Map<string, number>;
+  clearStatements:     string[];
+  ftsRebuildStatement: string | null;
+  metaStatements:      string[];
+};
+
 /** Builds inserts for one complete D1 snapshot or one local SQLite package. */
-export function createSnapshotStatements(
+function buildHearthstoneSnapshot(
   input: SnapshotItem[],
   manifestInput: HearthstoneSearchManifest,
-  target: SnapshotTarget = { kind: 'combined' },
-): string[] {
+  target: SnapshotTarget,
+  options: { ftsMode: 'rebuild' | 'incremental' },
+): HearthstoneSnapshotBuild {
   const manifest = hearthstoneSearchManifest.parse(manifestInput);
   if (target.kind === 'locale' && !locale.options.includes(target.locale as (typeof locale.options)[number])) {
     throw new Error(`Unsupported Hearthstone snapshot locale: ${target.locale}`);
   }
-  const db = drizzle.mock();
+  const db = renderDatabase();
   const cards = new Map<string, string>();
   const identities = new Set<string>();
-  const inserts: string[] = [];
+  const flatStatements: string[] = [];
+  const buckets = new Map<string, string[]>();
+  const bucketRowCounts = new Map<string, number>();
+  const push = (table: string, text: string, isRow: boolean) => {
+    flatStatements.push(text);
+    const bucket = buckets.get(table);
+    if (bucket == null) buckets.set(table, [text]);
+    else bucket.push(text);
+    if (isRow) bucketRowCounts.set(table, (bucketRowCounts.get(table) ?? 0) + 1);
+  };
+  const clearStatements: string[] = [];
   if (target.kind === 'combined' && target.replace === true) {
-    inserts.push(
+    clearStatements.push(
       'DELETE FROM hearthstone_search_meta;',
       'DELETE FROM hearthstone_search_text_rows;',
       'DELETE FROM hearthstone_search_card_legalities;',
@@ -137,7 +189,8 @@ export function createSnapshotStatements(
     if (existing == null) {
       cards.set(card.cardId, signature);
       if (target.kind !== 'locale') {
-        inserts.push(
+        push(
+          'hearthstone_search_cards',
           statement(
             db
               .insert(SearchCard)
@@ -152,12 +205,14 @@ export function createSnapshotStatements(
               })
               .toSQL(),
           ),
+          true,
         );
       }
       for (const [field, values] of Object.entries({ classes, rune, race, raceBucket })) {
         for (const [position, value] of (values ?? []).entries()) {
           if (target.kind !== 'locale') {
-            inserts.push(
+            push(
+              'hearthstone_search_card_values',
               statement(
                 db
                   .insert(SearchCardValue)
@@ -169,43 +224,51 @@ export function createSnapshotStatements(
                   })
                   .toSQL(),
               ),
+              true,
             );
           }
         }
       }
       for (const [format, status] of Object.entries(legalities)) {
         if (target.kind !== 'locale') {
-          inserts.push(
-            statement(
-              db.insert(SearchCardLegality).values({ cardId: card.cardId, format, status }).toSQL(),
-            ),
+          push(
+            'hearthstone_search_card_legalities',
+            statement(db.insert(SearchCardLegality).values({ cardId: card.cardId, format, status }).toSQL()),
+            true,
           );
         }
       }
     }
     if (target.kind !== 'base' && (target.kind === 'combined' || target.locale === lang)) {
-      inserts.push(
+      push(
+        'hearthstone_search_card_localizations',
         statement(
           db
             .insert(SearchCardLocalization)
             .values({ cardId: card.cardId, lang, renderHash, nameOrder, ...localization })
             .toSQL(),
         ),
+        true,
       );
-      inserts.push(
+      const rowTextId = ++textId;
+      push(
+        'hearthstone_search_text_rows',
         statement(
           db
             .insert(SearchTextRow)
-            .values({ textId: ++textId, cardId: card.cardId, lang, body: localization.text })
+            .values({ textId: rowTextId, cardId: card.cardId, lang, body: localization.text })
             .toSQL(),
         ),
+        true,
       );
+      if (options.ftsMode === 'incremental') {
+        push(
+          'hearthstone_search_text_rows',
+          `INSERT INTO hearthstone_search_text_fts(rowid, body) VALUES (${rowTextId}, ${literal(localization.text)});`,
+          false,
+        );
+      }
     }
-  }
-  if (target.kind !== 'base') {
-    inserts.push(
-      'INSERT INTO hearthstone_search_text_fts(hearthstone_search_text_fts) VALUES (\'rebuild\');',
-    );
   }
   // Readiness is written last so the new snapshot becomes visible only after its rows are complete.
   const metadata = target.kind === 'combined'
@@ -246,15 +309,34 @@ export function createSnapshotStatements(
           ];
         }),
       ];
-  inserts.push(
+  const metaStatements = [
     statement(
       db
         .insert(SearchMeta)
         .values(metadata)
         .toSQL(),
     ),
-  );
-  return inserts;
+  ];
+  const ftsRebuildStatement = target.kind !== 'base'
+    ? 'INSERT INTO hearthstone_search_text_fts(hearthstone_search_text_fts) VALUES (\'rebuild\');'
+    : null;
+  return {
+    flatStatements: [...clearStatements, ...flatStatements, ...(ftsRebuildStatement == null ? [] : [ftsRebuildStatement]), ...metaStatements],
+    buckets,
+    bucketRowCounts,
+    clearStatements,
+    ftsRebuildStatement,
+    metaStatements,
+  };
+}
+
+/** Builds inserts for one complete D1 snapshot or one local SQLite package. */
+export function createSnapshotStatements(
+  input: SnapshotItem[],
+  manifestInput: HearthstoneSearchManifest,
+  target: SnapshotTarget = { kind: 'combined' },
+): string[] {
+  return buildHearthstoneSnapshot(input, manifestInput, target, { ftsMode: 'rebuild' }).flatStatements;
 }
 
 /** Serializes the same generated statements for an empty database's SQL import file. */
@@ -266,23 +348,75 @@ export function createSnapshotSql(
   return `${createSnapshotStatements(input, manifest, target).join('\n')}\n`;
 }
 
-/** Exports schema SQL directly from Drizzle definitions, without generating migration files. */
-export function snapshotDdl(): string {
-  const result = Bun.spawnSync([
-    'bun',
-    'run',
-    '--filter',
-    '@tcg-cards/db',
-    'db:export:hearthstone-search',
-  ]);
-  if (result.exitCode !== 0) {
-    throw new Error(`Drizzle schema export failed: ${result.stderr.toString()}`);
+/**
+ * Streams one complete Hearthstone D1 snapshot as remotely applicable batches.
+ * Readiness metadata is only written by the final batch so an interrupted load
+ * keeps the store unready and the sites fall back to PostgreSQL.
+ */
+export async function* generateHearthstoneD1SnapshotBatches(input: {
+  items:    SnapshotItem[];
+  manifest: HearthstoneSearchManifest;
+  ftsMode:  'rebuild' | 'incremental';
+  sizing?:  Partial<HearthstoneD1SnapshotSizing>;
+}): AsyncGenerator<SearchSnapshotBatch> {
+  const sizing = { ...HEARTHSTONE_SIZING, ...input.sizing };
+  const built = buildHearthstoneSnapshot(input.items, input.manifest, { kind: 'combined', replace: true }, {
+    ftsMode: input.ftsMode,
+  });
+
+  yield { role: 'meta-clear', table: null, final: true, statements: ['DELETE FROM hearthstone_search_meta;'] };
+  if (built.clearStatements.length > 0) {
+    yield {
+      role:       'clear',
+      table:      null,
+      final:      true,
+      statements: built.clearStatements.filter(text => text !== 'DELETE FROM hearthstone_search_meta;'),
+    };
   }
-  const prefix = '@tcg-cards/db db:export:hearthstone-search: ';
-  return result.stdout
-    .toString()
-    .split('\n')
-    .filter(line => line.startsWith(prefix) && line !== `${prefix}Exited with code 0`)
-    .map(line => line.slice(prefix.length))
-    .join('\n');
+  if (input.ftsMode === 'incremental') {
+    yield {
+      role:       'fts',
+      table:      null,
+      final:      true,
+      statements: ['INSERT INTO hearthstone_search_text_fts(hearthstone_search_text_fts) VALUES (\'delete-all\');'],
+    };
+  }
+
+  for (const table of HEARTHSTONE_TABLE_ORDER) {
+    const bucket = built.buckets.get(table) ?? [];
+    const expectedRows = built.bucketRowCounts.get(table) ?? 0;
+    const deleteStatements = [`DELETE FROM ${table};`];
+    let statements: string[] = [];
+    let bytes = 0;
+    let first = true;
+    for (const text of bucket) {
+      statements.push(text);
+      bytes += text.length;
+      if (statements.length >= sizing.maxStatements || bytes >= sizing.maxBytes) {
+        yield {
+          role:  'insert',
+          table,
+          final: false,
+          statements,
+          ...(first ? { deleteStatements } : {}),
+        };
+        first = false;
+        statements = [];
+        bytes = 0;
+      }
+    }
+    yield {
+      role:  'insert',
+      table,
+      final: true,
+      expectedRows,
+      statements,
+      ...(first ? { deleteStatements } : {}),
+    };
+  }
+
+  if (input.ftsMode === 'rebuild' && built.ftsRebuildStatement != null) {
+    yield { role: 'fts', table: null, final: true, statements: [built.ftsRebuildStatement] };
+  }
+  yield { role: 'meta', table: null, final: true, statements: built.metaStatements };
 }

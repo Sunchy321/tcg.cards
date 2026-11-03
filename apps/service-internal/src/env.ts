@@ -9,12 +9,17 @@ export interface R2Bucket {
   }>;
 }
 
+/** Bound Cloudflare D1 search database the publisher may address. */
+export type D1SearchDatabase = import('@cloudflare/workers-types').D1Database;
+
 export interface InternalServiceEnv {
   BETTER_AUTH_SECRET: string;
   HYPERDRIVE: {
     connectionString: string;
   };
-  R2_DATA:         R2Bucket;
-  R2_ASSET:        R2Bucket;
-  R2_ASSET_BUCKET: string;
+  R2_DATA:               R2Bucket;
+  R2_ASSET:              R2Bucket;
+  R2_ASSET_BUCKET:       string;
+  MAGIC_SEARCH_DB:       D1SearchDatabase;
+  HEARTHSTONE_SEARCH_DB: D1SearchDatabase;
 }

@@ -34,6 +34,24 @@ export function readSearchR2Override(): SearchR2Override | null {
   return searchR2Override.current;
 }
 
+/** Authenticated console-service session injected by the desktop shell for search D1 publication. */
+export interface SearchD1SessionOverride {
+  baseUrl:      string;
+  cookieHeader: string;
+}
+
+const searchD1SessionOverride = { current: null as SearchD1SessionOverride | null };
+
+/** Stores the console-service session in the task worker's runtime. */
+export function setSearchD1SessionOverride(value: SearchD1SessionOverride | null): void {
+  searchD1SessionOverride.current = value;
+}
+
+/** Reads the console-service session for a desktop search D1 publishing task. */
+export function readSearchD1SessionOverride(): SearchD1SessionOverride | null {
+  return searchD1SessionOverride.current;
+}
+
 /** Publish-target override payload injected by the desktop shell. */
 export interface HearthstonePublishTargetOverride {
   publishTarget:     string | null;
@@ -283,6 +301,7 @@ export interface RuntimeOverrides {
   hearthstonePublishTargets: HearthstonePublishTargetOverride[];
   magicPublishTargets:       MagicPublishTargetOverride[];
   searchR2:                  SearchR2Override | null;
+  searchD1Session:           SearchD1SessionOverride | null;
   yugiohImage:               YugiohImageOverride | null;
   yugiohPublishTarget:       YugiohPublishTargetOverride | null;
   aiConfig:                  AiConfig | null;
@@ -298,6 +317,7 @@ export function collectRuntimeOverrides(): RuntimeOverrides {
     hearthstonePublishTargets: readHearthstonePublishTargetOverrides(),
     magicPublishTargets:       readMagicPublishTargetOverrides(),
     searchR2:                  readSearchR2Override(),
+    searchD1Session:           readSearchD1SessionOverride(),
     yugiohImage:               readYugiohImageOverride(),
     yugiohPublishTarget:       readYugiohPublishTargetOverride(),
     aiConfig:                  readAiConfig(),
@@ -313,6 +333,7 @@ export function applyRuntimeOverrides(data: RuntimeOverrides): void {
   setHearthstonePublishTargetOverrides(data.hearthstonePublishTargets);
   setMagicPublishTargetOverrides(data.magicPublishTargets);
   setSearchR2Override(data.searchR2);
+  setSearchD1SessionOverride(data.searchD1Session);
   setYugiohImageOverride(data.yugiohImage);
   setYugiohPublishTargetOverride(data.yugiohPublishTarget);
   setAiConfig(data.aiConfig);

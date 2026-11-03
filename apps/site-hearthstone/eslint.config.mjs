@@ -5,7 +5,7 @@ import customConfig from 'eslint-config-custom/nuxt.mjs';
 export default withNuxt(
   customConfig,
   {
-    files:           ['tests/**/*.ts', 'scripts/**/*.ts'],
+    files:           ['tests/**/*.ts', 'scripts/**/*.ts', 'server/**/*.test.ts'],
     languageOptions: {
       globals: {
         Bun:         'readonly',

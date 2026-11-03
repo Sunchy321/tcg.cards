@@ -65,7 +65,9 @@ export const configuration = z.strictObject({
     .refine(rows => new Set(rows.map(row => row.credentialKey)).size === rows.length, '发布连接重复')
     .default([]),
   searchStorage: z.strictObject({
-    accountId: z.string().trim().regex(/^[a-f0-9]{32}$/i).optional(),
+    accountId:       z.string().trim().regex(/^[a-f0-9]{32}$/i).optional(),
+    // Directory holding the exported local search packages that publication consumes.
+    exportDirectory: z.string().trim().min(1).optional(),
   }).default({}),
   games: z
     .strictObject({

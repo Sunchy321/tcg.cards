@@ -175,3 +175,16 @@ registerTask({
     return { default: (await import('../runtime/lib/search-publication/task')).createSearchPublicationTask('hearthstone') };
   },
 });
+
+registerTask({
+  taskType:            'hearthstone_search_d1_publish',
+  label:               '炉石传说搜索数据发布（远程搜索库）',
+  version:             '2026-11-03:v1',
+  supportsResume:      true,
+  admission:           { game: 'hearthstone', connection: 'direct' },
+  publishConfirmation: () => ({ environment: 'production', scope: '搜索数据' }),
+  scope:               () => ({ type: 'search_d1_publish', key: 'hearthstone', snapshot: { game: 'hearthstone' } }),
+  async load() {
+    return { default: (await import('../runtime/lib/search-publication/d1-task')).createSearchD1PublicationTask('hearthstone') };
+  },
+});

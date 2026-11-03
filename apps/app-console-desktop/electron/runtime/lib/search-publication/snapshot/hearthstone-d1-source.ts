@@ -2,7 +2,8 @@ import { and, eq, getColumns, isNull, sql } from 'drizzle-orm';
 import type { createDb } from '@tcg-cards/db';
 import { SearchCard, SearchCardLocalization } from '@tcg-cards/db/schema/shared/hearthstone/search';
 import { essentialCardSearchItem } from '@tcg-cards/model/hearthstone/schema/search';
-import type { SnapshotItem } from './d1-snapshot';
+
+import type { SnapshotItem } from './hearthstone-d1-snapshot';
 
 /** Accepts the existing PostgreSQL database or one of its read-only transactions. */
 type SourceDb = Pick<ReturnType<typeof createDb>, 'select'>;

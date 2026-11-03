@@ -25,6 +25,7 @@ import { legacySources } from './legacy-sources';
 import { registerSettings } from './settings-ipc';
 import { registerFileDialogs } from './file-dialog-ipc';
 import { registerAuth } from './auth';
+import { authSessionEnvelope } from './auth-core';
 import { admitPublish, PUBLISH_GAME_LABELS } from './publish-admission';
 import { verifyDevelopment } from './development-trust';
 import type { IpcMainInvokeEvent, MessageBoxOptions } from 'electron';
@@ -200,12 +201,13 @@ function nestPaths(paths: Partial<Record<string, string>>): PathOverrides {
 /** Builds the isolated runtime snapshot without exposing decrypted values to the renderer. */
 async function buildRuntimeSettings(settings: Settings): Promise<RuntimeOverrides> {
   const { config } = settings.snapshot();
-  const [localDatabaseUrl, aiApiKey, yugiohPublishConnectionString, searchR2AccessKeyId, searchR2SecretAccessKey, hearthstonePublishTargets, magicPublishTargets] = await Promise.all([
+  const [localDatabaseUrl, aiApiKey, yugiohPublishConnectionString, searchR2AccessKeyId, searchR2SecretAccessKey, searchD1Session, hearthstonePublishTargets, magicPublishTargets] = await Promise.all([
     settings.secret('database'),
     settings.secret('ai'),
     settings.secret('yugioh-publish'),
     settings.secret('search-r2-access-key-id'),
     settings.secret('search-r2-secret-access-key'),
+    authSessionEnvelope(settings),
     Promise.all(config.publish.filter(item => item.publishTarget === 'hearthstone').map(async item => ({
       publishTarget:     item.publishTarget,
       environment:       item.environment,
@@ -237,6 +239,7 @@ async function buildRuntimeSettings(settings: Settings): Promise<RuntimeOverride
       accessKeyId:     searchR2AccessKeyId,
       secretAccessKey: searchR2SecretAccessKey,
     },
+    searchD1Session,
     yugiohImage: {
       bucketDir: yugiohImage?.bucketDir ?? null,
     },

@@ -5,7 +5,7 @@ import { createDb, runWithDb } from '@tcg-cards/db';
 import type { ConsoleApiRequestMeta } from '@tcg-cards/console-api/request-meta';
 
 import { getAuth } from './auth';
-import { router } from './orpc/service';
+import { router, searchD1Router } from './orpc/service';
 
 import type { InternalServiceEnv } from './env';
 
@@ -33,6 +33,14 @@ function readRequestMeta(request: Request): ConsoleApiRequestMeta {
 }
 
 const rpcHandler = new RPCHandler(router as any, {
+  interceptors: [
+    onError(error => {
+      console.error('[orpc] error:', error);
+    }),
+  ],
+});
+
+const searchD1Handler = new RPCHandler(searchD1Router as any, {
   interceptors: [
     onError(error => {
       console.error('[orpc] error:', error);
@@ -90,6 +98,32 @@ hono.all('/rpc/*', async c => {
     },
   }));
   return response ?? c.notFound();
+});
+
+/**
+ * Serves the search D1 publisher procedures. Every call requires a live console
+ * session because the procedures execute arbitrary statements on the bound
+ * search databases, unlike the general console RPC surface.
+ */
+hono.all('/search-d1/rpc/*', async c => {
+  installRuntimeBindings(c.env);
+  return await withRequestDb(c.env, async () => {
+    const auth = getAuth(c.env, { baseURL: new URL(c.req.raw.url).origin });
+    const session = await auth.api.getSession({ headers: c.req.raw.headers });
+    if (session?.session == null) {
+      return c.json({ message: '请先登录控制台服务。' }, { status: 401 });
+    }
+    const { response } = await searchD1Handler.handle(c.req.raw, {
+      prefix:  '/search-d1/rpc',
+      context: {
+        env: {
+          MAGIC_SEARCH_DB:       c.env.MAGIC_SEARCH_DB,
+          HEARTHSTONE_SEARCH_DB: c.env.HEARTHSTONE_SEARCH_DB,
+        },
+      },
+    });
+    return response ?? c.notFound();
+  });
 });
 
 export default hono;

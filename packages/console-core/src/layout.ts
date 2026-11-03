@@ -117,6 +117,7 @@ export function getGameNavItems(game: Game): ConsoleNavLink[] {
         icon:     'i-lucide-upload',
         children: [
           { label: '发布', icon: 'i-lucide-upload', to: `/${game}/publish` },
+          { label: '远程搜索库', icon: 'i-lucide-database', to: `/${game}/search-publish` },
           { label: '推送', icon: 'i-lucide-cloud-upload', to: `/${game}/push` },
           { label: '提交', icon: 'i-lucide-git-commit-horizontal', to: `/${game}/commit` },
           { label: '冲突', icon: 'i-lucide-git-compare-arrows', to: `/${game}/conflict` },
@@ -160,6 +161,8 @@ export function getGameNavItems(game: Game): ConsoleNavLink[] {
         icon:     'i-lucide-upload',
         children: [
           { label: '发布', icon: 'i-lucide-upload', to: `/${game}/publish` },
+          // Only hosts whose layer ships the search-publish page resolve this route.
+          { label: '远程搜索库', icon: 'i-lucide-database', to: `/${game}/search-publish` },
         ],
       },
     );

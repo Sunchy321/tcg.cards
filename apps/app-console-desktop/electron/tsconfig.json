@@ -4,8 +4,15 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "paths": {
-      "#model/*": ["../../../packages/model/src/*"],
-      "#task/*": ["./runtime/lib/task/*"]
+      "#model/*": [
+        "../../../packages/model/src/*"
+      ],
+      "#search/*": [
+        "../../../packages/search/src/*"
+      ],
+      "#task/*": [
+        "./runtime/lib/task/*"
+      ]
     },
     "strict": true,
     "noEmit": true,
@@ -20,5 +27,8 @@
   "include": [
     "**/*.ts",
     "../shared/*.ts"
+  ],
+  "exclude": [
+    "runtime/lib/search-publication/snapshot/*.test.ts"
   ]
 }

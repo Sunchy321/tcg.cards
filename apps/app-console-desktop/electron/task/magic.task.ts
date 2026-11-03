@@ -197,3 +197,16 @@ registerTask({
     return { default: (await import('../runtime/lib/search-publication/task')).createSearchPublicationTask('magic') };
   },
 });
+
+registerTask({
+  taskType:            'magic_search_d1_publish',
+  label:               '万智牌搜索数据发布（远程搜索库）',
+  version:             '2026-11-03:v1',
+  supportsResume:      true,
+  admission:           { game: 'magic', connection: 'direct' },
+  publishConfirmation: () => ({ environment: 'production', scope: '搜索数据' }),
+  scope:               () => ({ type: 'search_d1_publish', key: 'magic', snapshot: { game: 'magic' } }),
+  async load() {
+    return { default: (await import('../runtime/lib/search-publication/d1-task')).createSearchD1PublicationTask('magic') };
+  },
+});

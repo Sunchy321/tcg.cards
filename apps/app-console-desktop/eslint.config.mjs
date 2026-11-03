@@ -8,4 +8,12 @@ export default withNuxt(
     files: ['electron/**/*.ts', 'shared/**/*.ts'],
     rules: { 'no-undef': 'off' },
   },
+  {
+    files:           ['scripts/**/*.ts'],
+    languageOptions: {
+      globals: {
+        Bun: 'readonly',
+      },
+    },
+  },
 );

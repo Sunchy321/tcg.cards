@@ -1,10 +1,9 @@
 import { mkdir, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { Database } from 'bun:sqlite';
-import postgres from 'postgres';
 import { eq, isNull } from 'drizzle-orm';
-import { drizzle as drizzlePostgres } from 'drizzle-orm/postgres-js';
 
+import { createDb } from '@tcg-cards/db';
 import {
   SearchCard as SourceSearchCard,
   SearchCardPart as SourceSearchCardPart,
@@ -16,6 +15,8 @@ import { fingerprintSearchProjection } from '@tcg-cards/db/search-fingerprint';
 import { locale } from '@tcg-cards/model/magic/schema/basic';
 import type { MagicSearchCandidatePrint } from '@tcg-cards/model/magic/search/manifest';
 import { LOCAL_SEARCH_SCHEMA_VERSIONS } from '@tcg-cards/model/search/publication';
+import { magicSearchFtsSql } from '../electron/runtime/lib/search-publication/snapshot/magic-d1-snapshot';
+import { magicSnapshotDdl } from './lib/search-database-ddl';
 
 type LocaleCode = (typeof locale.options)[number];
 
@@ -24,6 +25,7 @@ export type SnapshotInput = {
   cards:         Array<typeof SourceSearchCard.$inferSelect>;
   parts:         Array<typeof SourceSearchCardPart.$inferSelect>;
   localizations: Array<typeof SourceSearchCardPartLocalization.$inferSelect>;
+  costs:         Array<typeof SourceSearchCost.$inferSelect>;
   dataVersion:   string;
   locale?:       LocaleCode;
   packageRole:   'base' | 'locale';
@@ -176,7 +178,7 @@ function populateSnapshot(database: Database, input: SnapshotInput): void {
 
 /** Generates a same-version base and the requested locale deltas from the PG projection. */
 async function main(): Promise<void> {
-  const connection = process.env.DATABASE_URL;
+  const connection = process.env.DATABASE_URL ?? process.env.DESKTOP_LOCAL_DATABASE_URL;
   const output = process.argv[2];
   const requestedLocales = process.argv.slice(3);
   if (connection == null || output == null || requestedLocales.length === 0) {
@@ -199,9 +201,9 @@ async function main(): Promise<void> {
     }
   }
 
-  const client = postgres(connection, { max: 1 });
+  const database = createDb(connection);
   try {
-    const snapshot = await drizzlePostgres({ client }).transaction(
+    const snapshot = await database.transaction(
       async tx => {
         const cards = await tx.select().from(SourceSearchCard).where(isNull(SourceSearchCard.deletedAt))
           .orderBy(SourceSearchCard.cardId, SourceSearchCard.version);
@@ -246,6 +248,7 @@ async function main(): Promise<void> {
           cards,
           parts,
           localizations,
+          costs,
           dataVersion: publication.dataVersion,
           pgFingerprint,
           planner:     {
@@ -265,9 +268,7 @@ async function main(): Promise<void> {
     }));
 
     const ddl = magicSnapshotDdl();
-    const fts = await Bun.file(
-      new URL(import.meta.resolve('@tcg-cards/db/schema/sqlite/magic/search-fts.sql')),
-    ).text();
+    const fts = await magicSearchFtsSql();
     const basePath = outputFiles[0]!;
     await writeDatabase(basePath, ddl, fts, {
       ...snapshot,
@@ -304,7 +305,7 @@ async function main(): Promise<void> {
       tagOwners:     snapshot.planner.tagOwners,
     }, null, 2)}\n`);
   } finally {
-    await client.end();
+    await database.$client.end({ timeout: 0 });
   }
 }
 
@@ -331,19 +332,6 @@ export async function writeDatabase(path: string, ddl: string, fts: string, inpu
 /** Writes package identity and file size next to the immutable SQLite database. */
 async function writeManifest(path: string, metadata: Record<string, unknown>): Promise<void> {
   await Bun.write(`${path}.json`, `${JSON.stringify({ ...metadata, bytes: (await stat(path)).size }, null, 2)}\n`);
-}
-
-/** Exports the SQLite DDL from the Drizzle schema without creating a migration. */
-export function magicSnapshotDdl(): string {
-  const result = Bun.spawnSync(['bun', 'run', '--filter', '@tcg-cards/db', 'db:export:magic-search']);
-  if (result.exitCode !== 0) {
-    throw new Error(`Magic Drizzle schema export failed: ${result.stderr.toString()}`);
-  }
-  const prefix = '@tcg-cards/db db:export:magic-search: ';
-  return result.stdout.toString().split('\n')
-    .filter(line => line.startsWith(prefix) && line !== `${prefix}Exited with code 0`)
-    .map(line => line.slice(prefix.length))
-    .join('\n');
 }
 
 if (import.meta.main) {

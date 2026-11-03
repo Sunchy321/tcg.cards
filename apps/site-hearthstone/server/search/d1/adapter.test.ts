@@ -8,8 +8,7 @@ import { simplify } from '#search/parser/simplify';
 import { resolveQueryRequest } from '#search/server/logical';
 import type { CommonServerCommand } from '#search/server/command';
 import type { EssentialCardSearchItem } from '@tcg-cards/model/hearthstone/schema/search';
-import { createSnapshotSql, snapshotDdl } from '../../../scripts/d1-snapshot';
-import type { SnapshotItem } from '../../../scripts/d1-snapshot';
+import { locale } from '@tcg-cards/model/hearthstone/schema/basic';
 import { setHearthstoneSearchDataset } from '../accelerated-adapter';
 import type { SearchOption } from '../action';
 import * as commands from '../command-list';
@@ -119,16 +118,120 @@ async function search(dsl: string, overrides: Partial<SearchOption> = {}) {
 /** Loads one independently generated latest snapshot. */
 function load(
   items: EssentialCardSearchItem[],
-  keys: Array<Partial<Pick<SnapshotItem, 'idOrder' | 'setOrder' | 'nameOrder'>>> = [],
+  keys: Array<Partial<Pick<FixtureItem, 'idOrder' | 'setOrder' | 'nameOrder'>>> = [],
 ): void {
-  sqlite.exec(createSnapshotSql(withRanks(items, keys), manifest));
+  insertFixture(sqlite, withRanks(items, keys), manifest);
 }
+
+/** Quotes one fixture value for the test's own insert statements. */
+function literal(value: unknown): string {
+  if (value == null) return 'NULL';
+  if (typeof value === 'number') return String(value);
+  if (typeof value === 'boolean') return value ? '1' : '0';
+  if (typeof value === 'string') return `CAST(X'${Buffer.from(value, 'utf8').toString('hex')}' AS TEXT)`;
+  return `CAST(X'${Buffer.from(JSON.stringify(value), 'utf8').toString('hex')}' AS TEXT)`;
+}
+
+/**
+ * Populates the fixture database directly. The test owns its rows instead of
+ * running the publisher, so a publisher change cannot mask an adapter regression.
+ */
+function insertFixture(
+  database: Database,
+  items: FixtureItem[],
+  fixtureManifest: { dataVersion: string, buildNumber: number },
+): void {
+  const safety = new Map<string, boolean>();
+  for (const lang of ['all', ...locale.options]) {
+    for (const field of ['name', 'text']) safety.set(`case_safe:${field}:${lang}`, true);
+  }
+  safety.set('case_safe:set:all', true);
+  const cards = new Set<string>();
+  const identities = new Set<string>();
+  let textId = 0;
+  for (const item of items) {
+    const { lang, localization, renderHash, classes, rune, race, raceBucket, legalities, ...card } = item;
+    const { idOrder, setOrder, nameOrder } = item;
+    if (!cards.has(card.cardId)) {
+      cards.add(card.cardId);
+      const columns: Array<[string, unknown]> = [
+        ['card_id', card.cardId], ['set', card.set], ['id_order', idOrder], ['set_order', setOrder],
+        ['type', card.type], ['cost', card.cost], ['attack', card.attack], ['health', card.health],
+        ['durability', card.durability], ['armor', card.armor], ['spell_school', card.spellSchool],
+        ['collectible', card.collectible], ['elite', card.elite], ['rarity', card.rarity],
+        ['ambit', card.ambit], ['tech_level', card.techLevel], ['in_bobs_tavern', card.inBobsTavern],
+        ['mercenary_role', card.mercenaryRole], ['mercenary_faction', card.mercenaryFaction],
+        ['colddown', card.colddown], ['class_count', classes.length],
+        ['rune_count', rune?.length ?? null], ['race_count', race?.length ?? null],
+        ['race_bucket_count', raceBucket?.length ?? null], ['simple_tags', card.simpleTags],
+      ];
+      database.exec(
+        `INSERT INTO hearthstone_search_cards (${columns.map(([name]) => `"${name}"`).join(', ')}) VALUES (${columns.map(([, value]) => literal(value)).join(', ')})`,
+      );
+      for (const [field, values] of Object.entries({ classes, rune, race, raceBucket })) {
+        for (const [position, value] of (values ?? []).entries()) {
+          database.exec(`INSERT INTO hearthstone_search_card_values VALUES (${literal(card.cardId)}, ${literal(field)}, ${position}, ${literal(value)})`);
+        }
+      }
+      for (const [format, status] of Object.entries(legalities)) {
+        database.exec(`INSERT INTO hearthstone_search_card_legalities VALUES (${literal(card.cardId)}, ${literal(format)}, ${literal(status)})`);
+      }
+    }
+    if (identities.has(`${card.cardId}:${lang}`)) {
+      throw new Error(`Duplicate latest localization: ${card.cardId}:${lang}`);
+    }
+    identities.add(`${card.cardId}:${lang}`);
+    for (const field of ['name', 'text'] as const) {
+      const safe = ![...localization[field]].some(char => char.codePointAt(0)! > 127 && /\p{Cased}/u.test(char));
+      for (const scope of ['all', lang]) {
+        const key = `case_safe:${field}:${scope}`;
+        safety.set(key, safety.get(key)! && safe);
+      }
+    }
+    database.exec(
+      `INSERT INTO hearthstone_search_card_localizations VALUES (${literal(card.cardId)}, ${literal(lang)}, ${literal(localization.name)}, ${nameOrder}, ${literal(localization.text)}, ${literal(renderHash)})`,
+    );
+    database.exec(
+      `INSERT INTO hearthstone_search_text_rows VALUES (${++textId}, ${literal(card.cardId)}, ${literal(lang)}, ${literal(localization.text)})`,
+    );
+  }
+  const metadata: Array<[string, string]> = [
+    ['data_version', fixtureManifest.dataVersion],
+    ['schema_version', '1'],
+    ['build_number', String(fixtureManifest.buildNumber)],
+    ['ready', '1'],
+    ['sort_version', '1'],
+    ...[...safety].map(([key, safe]) => [key, safe ? '1' : '0'] as [string, string]),
+  ];
+  database.exec('INSERT INTO hearthstone_search_text_fts(hearthstone_search_text_fts) VALUES (\'rebuild\');');
+  for (const [key, value] of metadata) {
+    database.exec(`INSERT INTO hearthstone_search_meta VALUES (${literal(key)}, ${literal(value)})`);
+  }
+}
+
+/** Exports the SQLite search schema from its Drizzle definitions for the fixture database. */
+function exportSearchDdl(): string {
+  const result = Bun.spawnSync(['bun', 'run', '--filter', '@tcg-cards/db', 'db:export:hearthstone-search']);
+  if (result.exitCode !== 0) throw new Error(result.stderr.toString());
+  const prefix = '@tcg-cards/db db:export:hearthstone-search: ';
+  return result.stdout.toString().split('\n')
+    .filter(line => line.startsWith(prefix) && line !== `${prefix}Exited with code 0`)
+    .map(line => line.slice(prefix.length))
+    .join('\n');
+}
+
+/** Carries one fixture row with the ranks the snapshot stores instead of SQL collation. */
+type FixtureItem = EssentialCardSearchItem & {
+  idOrder:   number;
+  setOrder:  number;
+  nameOrder: number;
+};
 
 /** Supplies fixture ranks independently of SQLite collation. */
 function withRanks(
   items: EssentialCardSearchItem[],
-  keys: Array<Partial<Pick<SnapshotItem, 'idOrder' | 'setOrder' | 'nameOrder'>>> = [],
-): SnapshotItem[] {
+  keys: Array<Partial<Pick<FixtureItem, 'idOrder' | 'setOrder' | 'nameOrder'>>> = [],
+): FixtureItem[] {
   const ids = [...new Set(items.map(item => item.cardId))];
   return items.map((item, index) => ({
     ...item,
@@ -141,7 +244,7 @@ function withRanks(
 
 beforeAll(async () => {
   ddl
-    = snapshotDdl()
+    = exportSearchDdl()
       + '\n'
       + (await file(
         new URL(import.meta.resolve('@tcg-cards/db/schema/sqlite/hearthstone/search-fts.sql')),
@@ -451,12 +554,7 @@ describe('Hearthstone D1 essential search', () => {
     ]);
     expect((await search('name:Updated')).result[0]?.renderHash).toBe('render-v2');
     expect((await search('name:Fireball')).total).toBe(0);
-    expect(() => createSnapshotSql(withRanks([card('A'), card('A')]), manifest)).toThrow(
-      'Duplicate latest localization',
-    );
-    expect(() =>
-      createSnapshotSql(withRanks([card('A'), card('A', { lang: 'zhs', cost: 9 })]), manifest),
-    ).toThrow('Inconsistent latest card');
+    // Duplicate-row rejection belongs to the publisher and is asserted there.
   });
 });
 
