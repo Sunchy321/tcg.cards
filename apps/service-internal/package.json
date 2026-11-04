@@ -12,6 +12,7 @@
   "dependencies": {
     "@orpc/server": "^1.14.0",
     "@tcg-cards/auth": "workspace:*",
+    "@tcg-cards/base": "workspace:*",
     "@tcg-cards/db": "workspace:*",
     "@tcg-cards/console-api": "workspace:*",
     "hono": "^4.10.5",

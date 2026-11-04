@@ -48,7 +48,9 @@
             @blur="persist"
           />
         </div>
-        <p v-else class="text-sm text-muted">账户目标需要远端登录，当前版本尚未启用。</p>
+        <p v-else class="text-sm text-muted">
+          {{ snapshot?.credentials['remote-session'] ? '已登录：发布时由服务校验权限并签发临时凭据。' : '账户目标需要先在「远端登录」中登录。' }}
+        </p>
         <UButton
           label="删除目标"
           icon="i-lucide-trash"
@@ -183,7 +185,7 @@ const busy = ref(false);
 const error = ref('');
 const targetKinds = [
   { label: '直连', value: 'direct' },
-  { label: '账户（尚未启用）', value: 'account' },
+  { label: '账户', value: 'account' },
 ];
 /** Persisted targets, safe while the main process is still on an older settings shape. */
 const savedTargets = computed(() => snapshot.value?.config.targets ?? []);

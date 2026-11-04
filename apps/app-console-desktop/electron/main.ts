@@ -27,7 +27,8 @@ import { registerFileDialogs } from './file-dialog-ipc';
 import { registerAuth } from './auth';
 import { authSessionEnvelope } from './auth-core';
 import { admitPublish, PUBLISH_GAME_LABELS } from './publish-admission';
-import { assertPublishTargetUsable, resolvePublishTarget as resolveSelectedPublishTarget, withResolvedPublishTarget } from './publish-targets';
+import { PublishCredentialCache, requestPublishCredential } from './publish-credentials';
+import { resolvePublishTarget as resolveSelectedPublishTarget, withResolvedPublishTarget, type PublishTargetConfig } from './publish-targets';
 import { verifyDevelopment } from './development-trust';
 import type { IpcMainInvokeEvent, MessageBoxOptions } from 'electron';
 import type { PathOverrides, RuntimeOverrides } from './runtime/runtime-config';
@@ -219,7 +220,9 @@ async function buildRuntimeSettings(settings: Settings): Promise<RuntimeOverride
     name:              target.name,
     kind:              target.kind,
     targetFingerprint: target.targetFingerprint ?? null,
-    connectionString:  target.kind === 'direct' ? (target.connectionString ?? null) : null,
+    connectionString:  target.kind === 'direct'
+      ? (target.connectionString ?? null)
+      : (issuedCredentials.get(target.id)?.connectionString ?? null),
   }));
   const image = config.games.hearthstone?.image;
   const yugiohImage = config.games.yugioh?.image;
@@ -253,16 +256,38 @@ async function buildRuntimeSettings(settings: Settings): Promise<RuntimeOverride
 /** Fixed operator recorded when a direct publish target writes its ledger. */
 const LOCAL_DIRECT_OPERATOR = 'local';
 
+/** Credentials issued by the console service, reused per target until they expire. */
+const issuedCredentials = new PublishCredentialCache();
+
+/** One resolved publish launch: task parameters plus the account that authorized it. */
+interface PublishLaunch {
+  params:          Record<string, unknown>;
+  operatorUserId?: string;
+}
+
+/** Persists the first identity observed for one destination. */
+async function recordTargetFingerprint(settings: Settings, targetId: string, fingerprint: string) {
+  await settings.update('targets', settings.snapshot().config.targets.map(item =>
+    item.id === targetId ? { ...item, targetFingerprint: fingerprint } : item));
+  await syncRuntimeSettings(settings);
+}
+
 /**
  * Resolves the target selected for one publish launch: fills the stream label,
- * verifies the destination fingerprint, and records it on the first successful connection.
+ * authorizes the destination, and records its identity on first use.
  */
-async function resolvePublishLaunchParams(settings: Settings, params: Record<string, unknown>) {
+async function resolvePublishLaunchParams(
+  settings: Settings,
+  params: Record<string, unknown>,
+): Promise<PublishLaunch> {
   const targetId = typeof params.targetId === 'string' ? params.targetId : '';
-  if (!targetId) return params;
+  if (!targetId) return { params };
+
   const target = settings.snapshot().config.targets.find(item => item.id === targetId);
   if (!target) throw new Error('发布目标不存在，请重新选择。');
-  assertPublishTargetUsable(target);
+
+  if (target.kind === 'account') return await resolveAccountPublishLaunch(settings, target, params);
+
   const connectionString = target.connectionString ?? null;
   if (!connectionString) throw new Error('请先填写该发布目标的连接字符串。');
 
@@ -273,13 +298,51 @@ async function resolvePublishLaunchParams(settings: Settings, params: Record<str
     throw new Error('无法连接发布目标，请检查连接信息和网络。');
   }
   const resolved = resolveSelectedPublishTarget(target, fingerprint);
-  if (resolved.capture) {
-    await settings.update('targets', settings.snapshot().config.targets.map(item =>
-      item.id === target.id ? { ...item, targetFingerprint: fingerprint } : item));
+  if (resolved.capture) await recordTargetFingerprint(settings, target.id, fingerprint);
+
+  return {
+    params:         withResolvedPublishTarget(params, resolved),
+    operatorUserId: LOCAL_DIRECT_OPERATOR,
+  };
+}
+
+/**
+ * Admits the account and obtains its short-lived credential before launching.
+ * A cached credential is reused until shortly before it expires; the run still
+ * writes to PostgreSQL directly, so only the credential is remote state.
+ */
+async function resolveAccountPublishLaunch(
+  settings: Settings,
+  target: PublishTargetConfig,
+  params: Record<string, unknown>,
+): Promise<PublishLaunch> {
+  const game = typeof params.game === 'string' ? params.game : '';
+  if (!isAdmissionGame(game)) throw new Error('无法确认要发布的游戏。');
+
+  const session = await authSessionEnvelope(settings);
+  if (!session) throw new Error('账户发布目标需要先登录控制台服务。');
+
+  let credential = issuedCredentials.get(target.id);
+  if (!credential) {
+    credential = await requestPublishCredential(session, game);
+    issuedCredentials.set(target.id, credential);
+    // The runtime needs the issued connection before the task resolves its target.
+    syncedRuntimeSettingsRevision = -1;
     await syncRuntimeSettings(settings);
   }
 
-  return withResolvedPublishTarget(params, resolved);
+  const resolved = resolveSelectedPublishTarget(target, credential.targetFingerprint);
+  if (resolved.capture) await recordTargetFingerprint(settings, target.id, credential.targetFingerprint);
+
+  return {
+    params:         withResolvedPublishTarget(params, resolved),
+    operatorUserId: credential.userId,
+  };
+}
+
+/** Reports whether one value names a game the admission system knows. */
+function isAdmissionGame(value: string): value is AdmissionGame {
+  return value === 'magic' || value === 'hearthstone' || value === 'yugioh' || value === 'shadowverse';
 }
 
 /** Applies a new settings revision to the service process before its next operation. */
@@ -476,11 +539,11 @@ app
         mainWindow?.webContents.send(TASK_CHANGED_CHANNEL, existing);
         return { taskRunId: existing.id, existing: true };
       }
-      const startParams = parsed.action === 'start'
+      const launch = parsed.action === 'start'
         ? await resolvePublishLaunchParams(settings, parsed.params)
         : null;
       const description = parsed.action === 'start'
-        ? await runtime!.describe(taskType, startParams ?? {})
+        ? await runtime!.describe(taskType, launch?.params ?? {})
         : await runtime!.describeRetry(parsed.taskRunId, url);
       if (description?.publishConfirmation) {
         if (!description.admission) throw new Error('发布任务缺少权限检查。');
@@ -488,10 +551,11 @@ app
         if (!target.trim() || !scope.trim()) throw new Error('无法确认发布目标和范围。');
         if (!(await confirmPublish(description.admission.game, target, scope))) return null;
       }
-      // Only account connections require Console admission; database gates still run inside direct tasks.
-      const admittedOperator = description?.admission
-        ? await admitPublish(settings, description.admission.game, description.admission.connection)
-        : undefined;
+      // Account targets are admitted while their credential is issued; direct targets never are.
+      const admittedOperator = launch?.operatorUserId
+        ?? (description?.admission
+          ? await admitPublish(settings, description.admission.game, description.admission.connection)
+          : undefined);
       const operatorUserId = description?.admission
         ? (admittedOperator ?? LOCAL_DIRECT_OPERATOR)
         : undefined;
@@ -513,8 +577,8 @@ app
         finishedAt:   null,
       };
       mainWindow?.webContents.send(TASK_CHANGED_CHANNEL, accepted);
-      const launchParams = startParams !== null
-        ? taskParamsWithOperator(startParams, operatorUserId)
+      const launchParams = launch !== null
+        ? taskParamsWithOperator(launch.params, operatorUserId)
         : null;
       const dispatch = (async () => {
         if (!url) throw new Error('请先在设置中填写本地数据库连接。');

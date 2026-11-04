@@ -17,9 +17,13 @@ export interface InternalServiceEnv {
   HYPERDRIVE: {
     connectionString: string;
   };
-  R2_DATA:               R2Bucket;
-  R2_ASSET:              R2Bucket;
-  R2_ASSET_BUCKET:       string;
-  MAGIC_SEARCH_DB:       D1SearchDatabase;
-  HEARTHSTONE_SEARCH_DB: D1SearchDatabase;
+  R2_DATA:                          R2Bucket;
+  R2_ASSET:                         R2Bucket;
+  R2_ASSET_BUCKET:                  string;
+  MAGIC_SEARCH_DB:                  D1SearchDatabase;
+  HEARTHSTONE_SEARCH_DB:            D1SearchDatabase;
+  /** Privileged direct database connection used only to issue publish credentials. */
+  PUBLISH_ADMIN_CONNECTION_STRING?: string;
+  /** Role whose granted privileges a publish account receives. Defaults to `publish_writer`. */
+  PUBLISH_WRITER_ROLE?:             string;
 }

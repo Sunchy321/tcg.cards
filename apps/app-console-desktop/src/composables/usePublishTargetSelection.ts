@@ -22,13 +22,16 @@ export function usePublishTargetSelection(game: PublishSelectionGame) {
   const { snapshot, load, update } = useDesktopSettings();
   const error = ref('');
 
-  const targets = computed<PublishTargetOption[]>(() => (snapshot.value?.config.targets ?? []).map(target => ({
-    id:          target.id,
-    name:        target.name,
-    kind:        target.kind,
-    fingerprint: target.targetFingerprint ?? null,
-    configured:  target.kind === 'direct' && Boolean(target.connectionString),
-  })));
+  const targets = computed<PublishTargetOption[]>(() => {
+    const signedIn = snapshot.value?.credentials['remote-session'] === true;
+    return (snapshot.value?.config.targets ?? []).map(target => ({
+      id:          target.id,
+      name:        target.name,
+      kind:        target.kind,
+      fingerprint: target.targetFingerprint ?? null,
+      configured:  target.kind === 'direct' ? Boolean(target.connectionString) : signedIn,
+    }));
+  });
 
   const remembered = computed(() => snapshot.value?.config.targetSelection?.[game] ?? '');
   const selected = computed<PublishTargetOption | null>(

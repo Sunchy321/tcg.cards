@@ -175,7 +175,7 @@ const { targets: publishTargets, selected: publishTarget, select: selectPublishT
 const publishTargetItems = computed(() => publishTargets.value.map(target => ({
   label:    target.name,
   value:    target.id,
-  disabled: !target.configured || target.kind !== 'direct',
+  disabled: !target.configured,
   onSelect: () => selectPublishTarget(target.id),
 })));
 

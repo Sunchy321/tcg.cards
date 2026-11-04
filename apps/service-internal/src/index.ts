@@ -1,11 +1,13 @@
 import { Hono } from 'hono';
 import { RPCHandler } from '@orpc/server/fetch';
 import { onError } from '@orpc/server';
+import { z } from 'zod';
 import { createDb, runWithDb } from '@tcg-cards/db';
 import type { ConsoleApiRequestMeta } from '@tcg-cards/console-api/request-meta';
 
 import { getAuth } from './auth';
 import { router, searchD1Router } from './orpc/service';
+import { grantPublishCredential, isPublishableGame } from './publish-credentials';
 
 import type { InternalServiceEnv } from './env';
 
@@ -98,6 +100,32 @@ hono.all('/rpc/*', async c => {
     },
   }));
   return response ?? c.notFound();
+});
+
+const publishCredentialRequest = z.strictObject({ game: z.string().trim().min(1) });
+
+/**
+ * Admits one publish account and issues its short-lived database credential.
+ * The desktop keeps writing to PostgreSQL directly; this endpoint only decides
+ * who may publish and hands out a time-limited login for that destination.
+ */
+hono.post('/publish/credential', async c => {
+  installRuntimeBindings(c.env);
+
+  const parsed = publishCredentialRequest.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ allowed: false, message: '发布请求无效。' }, 400);
+  const game = parsed.data.game;
+  if (!isPublishableGame(game)) return c.json({ allowed: false, message: '发布请求无效。' }, 400);
+
+  return await withRequestDb(c.env, async () => {
+    const result = await grantPublishCredential(
+      c.env,
+      c.req.raw.headers,
+      game,
+      new URL(c.req.raw.url).origin,
+    );
+    return c.json(result.body, result.status as 200);
+  });
 });
 
 /**

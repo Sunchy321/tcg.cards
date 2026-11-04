@@ -207,7 +207,7 @@ const pushResult = ref<TagPushReport | null>(null);
 const targetItems = computed(() => targets.value.map(target => ({
   label:    target.name,
   value:    target.id,
-  disabled: !target.configured || target.kind !== 'direct',
+  disabled: !target.configured,
   onSelect: () => select(target.id),
 })));
 const appliedCount = computed(() => pushResult.value?.pushed.filter(item => item.status === 'applied').length ?? 0);

@@ -34,21 +34,24 @@ test('a recorded identity that no longer matches refuses to publish', () => {
   );
 });
 
-test('an account target cannot publish from this desktop yet', () => {
-  assert.throws(
-    () => resolvePublishTarget({ id, name: '远端', kind: 'account' }, 'fingerprint-a'),
-    /尚未启用/,
+test('an account target uses the identity the service reported', () => {
+  const resolved = resolvePublishTarget(
+    { id, name: '远端', kind: 'account', targetFingerprint: 'service-identity' },
+    'service-identity',
   );
+
+  assert.equal(resolved.capture, false);
+  assert.equal(resolved.targetFingerprint, 'service-identity');
 });
 
 test('launch parameters carry the target name as the stream label without losing other values', () => {
   const params = withResolvedPublishTarget(
-    { publishTarget: 'magic', targetId: id, dryRun: true },
+    { game: 'magic', targetId: id, dryRun: true },
     { target: '本地', targetFingerprint: 'fingerprint-a', capture: true },
   );
 
   assert.deepEqual(params, {
-    publishTarget:     'magic',
+    game:              'magic',
     targetId:          id,
     dryRun:            true,
     target:            '本地',
