@@ -15,41 +15,22 @@ const hearthstoneImageOverride = {
   current: null as HearthstoneImageOverride | null,
 };
 
-/** R2 credentials injected by the desktop shell for search-package publication. */
-export interface SearchR2Override {
-  accountId:       string | null;
-  accessKeyId:     string | null;
-  secretAccessKey: string | null;
-}
-
-const searchR2Override = { current: null as SearchR2Override | null };
-
-/** Stores the search-object-storage settings in the task worker's runtime. */
-export function setSearchR2Override(value: SearchR2Override | null): void {
-  searchR2Override.current = value;
-}
-
-/** Reads the search-object-storage settings for a desktop publishing task. */
-export function readSearchR2Override(): SearchR2Override | null {
-  return searchR2Override.current;
-}
-
-/** Authenticated console-service session injected by the desktop shell for search D1 publication. */
-export interface SearchD1SessionOverride {
+/** Authenticated console-service session injected by the desktop shell for remote publish work. */
+export interface SearchServiceSessionOverride {
   baseUrl:      string;
   cookieHeader: string;
 }
 
-const searchD1SessionOverride = { current: null as SearchD1SessionOverride | null };
+const searchServiceSessionOverride = { current: null as SearchServiceSessionOverride | null };
 
 /** Stores the console-service session in the task worker's runtime. */
-export function setSearchD1SessionOverride(value: SearchD1SessionOverride | null): void {
-  searchD1SessionOverride.current = value;
+export function setSearchServiceSessionOverride(value: SearchServiceSessionOverride | null): void {
+  searchServiceSessionOverride.current = value;
 }
 
-/** Reads the console-service session for a desktop search D1 publishing task. */
-export function readSearchD1SessionOverride(): SearchD1SessionOverride | null {
-  return searchD1SessionOverride.current;
+/** Reads the console-service session for remote publish calls. */
+export function readSearchServiceSessionOverride(): SearchServiceSessionOverride | null {
+  return searchServiceSessionOverride.current;
 }
 
 /** One publish destination injected by the desktop shell; secrets stay in the main process. */
@@ -247,29 +228,27 @@ export function readEditorIdentity() {
 }
 
 export interface RuntimeOverrides {
-  localDatabaseUrl: string | null;
-  paths:            PathOverrides;
-  hearthstoneImage: HearthstoneImageOverride | null;
-  publishTargets:   PublishTargetOverride[];
-  searchR2:         SearchR2Override | null;
-  searchD1Session:  SearchD1SessionOverride | null;
-  yugiohImage:      YugiohImageOverride | null;
-  aiConfig:         AiConfig | null;
-  editorIdentity:   string | null;
+  localDatabaseUrl:     string | null;
+  paths:                PathOverrides;
+  hearthstoneImage:     HearthstoneImageOverride | null;
+  publishTargets:       PublishTargetOverride[];
+  searchServiceSession: SearchServiceSessionOverride | null;
+  yugiohImage:          YugiohImageOverride | null;
+  aiConfig:             AiConfig | null;
+  editorIdentity:       string | null;
 }
 
 /** Collects all current runtime overrides into a serializable object for Worker transfer. */
 export function collectRuntimeOverrides(): RuntimeOverrides {
   return {
-    localDatabaseUrl: readLocalDatabaseUrl(),
-    paths:            readAllPathOverrides(),
-    hearthstoneImage: readHearthstoneImageOverride(),
-    publishTargets:   readPublishTargets(),
-    searchR2:         readSearchR2Override(),
-    searchD1Session:  readSearchD1SessionOverride(),
-    yugiohImage:      readYugiohImageOverride(),
-    aiConfig:         readAiConfig(),
-    editorIdentity:   readEditorIdentity(),
+    localDatabaseUrl:     readLocalDatabaseUrl(),
+    paths:                readAllPathOverrides(),
+    hearthstoneImage:     readHearthstoneImageOverride(),
+    publishTargets:       readPublishTargets(),
+    searchServiceSession: readSearchServiceSessionOverride(),
+    yugiohImage:          readYugiohImageOverride(),
+    aiConfig:             readAiConfig(),
+    editorIdentity:       readEditorIdentity(),
   };
 }
 
@@ -279,8 +258,7 @@ export function applyRuntimeOverrides(data: RuntimeOverrides): void {
   applyPathOverrides(data.paths);
   setHearthstoneImageOverride(data.hearthstoneImage);
   setPublishTargets(data.publishTargets);
-  setSearchR2Override(data.searchR2);
-  setSearchD1SessionOverride(data.searchD1Session);
+  setSearchServiceSessionOverride(data.searchServiceSession);
   setYugiohImageOverride(data.yugiohImage);
   setAiConfig(data.aiConfig);
   setEditorIdentity(data.editorIdentity);

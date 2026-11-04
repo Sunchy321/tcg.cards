@@ -165,7 +165,7 @@ export class Settings {
   /** Encrypts one complete secret before any persistent write occurs. */
   setSecret(key: string, value: string | null) {
     return this.transact(async draft => {
-      if (!/^(ai|legacy-session|legacy-login|remote-session|search-r2-(access-key-id|secret-access-key))$/.test(key))
+      if (!/^(ai|legacy-session|legacy-login|remote-session)$/.test(key))
         throw new Error('不支持的凭据项目。');
       if (value === null || value === '') {
         Reflect.deleteProperty(draft.secrets, key);

@@ -18,7 +18,7 @@ const request = z.discriminatedUnion('action', [
   }),
   z.strictObject({
     action: z.literal('secret'),
-    key:    z.string().regex(/^(ai|remote-session|search-r2-(access-key-id|secret-access-key))$/),
+    key:    z.string().regex(/^(ai|remote-session)$/),
     value:  z.string().max(65_536).nullable(),
   }),
   z.strictObject({ action: z.literal('directory'), current: z.string().nullable() }),

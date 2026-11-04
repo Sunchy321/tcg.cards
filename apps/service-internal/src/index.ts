@@ -8,6 +8,7 @@ import type { ConsoleApiRequestMeta } from '@tcg-cards/console-api/request-meta'
 import { getAuth } from './auth';
 import { router, searchD1Router } from './orpc/service';
 import { grantPublishCredential, isPublishableGame } from './publish-credentials';
+import { searchPublishRequest, signSearchUploads, verifySearchObjects } from './search-publish';
 
 import type { InternalServiceEnv } from './env';
 
@@ -123,6 +124,48 @@ hono.post('/publish/credential', async c => {
       c.req.raw.headers,
       game,
       new URL(c.req.raw.url).origin,
+    );
+    return c.json(result.body, result.status as 200);
+  });
+});
+
+/**
+ * Admits one search publication and returns the direct upload URLs the desktop
+ * still needs. Large package bytes never pass through the Worker.
+ */
+hono.post('/search-publish/objects', async c => {
+  installRuntimeBindings(c.env);
+
+  const parsed = searchPublishRequest.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ allowed: false, message: '搜索数据发布请求无效。' }, 400);
+
+  return await withRequestDb(c.env, async () => {
+    const result = await signSearchUploads(
+      c.env,
+      c.req.raw.headers,
+      new URL(c.req.raw.url).origin,
+      parsed.data,
+    );
+    return c.json(result.body, result.status as 200);
+  });
+});
+
+/**
+ * Reports whether every object a publication needs is present at its expected
+ * size. The desktop writes the release pointer only after this confirms it.
+ */
+hono.post('/search-publish/verify', async c => {
+  installRuntimeBindings(c.env);
+
+  const parsed = searchPublishRequest.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ allowed: false, message: '搜索数据发布请求无效。' }, 400);
+
+  return await withRequestDb(c.env, async () => {
+    const result = await verifySearchObjects(
+      c.env,
+      c.req.raw.headers,
+      new URL(c.req.raw.url).origin,
+      parsed.data,
     );
     return c.json(result.body, result.status as 200);
   });

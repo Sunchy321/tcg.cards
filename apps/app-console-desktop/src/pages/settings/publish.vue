@@ -64,27 +64,13 @@
     <UCard>
       <template #header>
         <div class="space-y-1">
-          <h2 class="font-medium">搜索数据存储</h2>
-          <p class="text-sm text-muted">设置用于发布搜索数据的 Cloudflare R2 连接和搜索数据导出目录。</p>
-          <p class="text-sm text-muted">请使用仅能访问搜索数据存储的密钥。</p>
+          <h2 class="font-medium">搜索数据导出</h2>
+          <p class="text-sm text-muted">搜索数据发布读取这个目录中的基础包和语言包。</p>
         </div>
       </template>
       <UAlert v-if="storageError" role="alert" color="error" :description="storageError" class="mb-4" />
-      <div class="mb-4 space-y-2">
-        <label for="search-r2-account" class="block text-sm font-medium">Cloudflare 账户 ID</label>
-        <div class="flex gap-2">
-          <UInput
-            id="search-r2-account"
-            v-model="searchR2AccountId"
-            autocomplete="off"
-            :disabled="storageBusy"
-            class="w-full"
-          />
-          <UButton label="保存" :loading="storageBusy" @click="saveSearchStorage" />
-        </div>
-      </div>
-      <div class="mb-4 space-y-2">
-        <label for="search-export-directory" class="block text-sm font-medium">搜索数据导出目录</label>
+      <div class="space-y-2">
+        <label for="search-export-directory" class="block text-sm font-medium">导出目录</label>
         <div class="flex gap-2">
           <UInput
             id="search-export-directory"
@@ -97,23 +83,7 @@
           <UButton label="选择目录" icon="i-lucide-folder-open" variant="soft" :disabled="storageBusy" @click="pickSearchDirectory" />
           <UButton label="保存" :loading="storageBusy" @click="saveSearchStorage" />
         </div>
-        <p class="text-xs text-muted">游戏数据发布页与搜索数据发布都使用这个目录。</p>
       </div>
-      <div class="grid gap-4 sm:grid-cols-2">
-        <SettingField
-          label="访问密钥 ID"
-          secret
-          :configured="snapshot?.credentials['search-r2-access-key-id']"
-          :save="value => secret('search-r2-access-key-id', value)"
-        />
-        <SettingField
-          label="访问密钥"
-          secret
-          :configured="snapshot?.credentials['search-r2-secret-access-key']"
-          :save="value => secret('search-r2-secret-access-key', value)"
-        />
-      </div>
-      <p class="mt-3 text-xs text-muted">访问密钥由此设备的系统安全存储保护。</p>
     </UCard>
     <UCard>
       <template #header>
@@ -125,7 +95,10 @@
       <UAlert v-if="publicationError" role="alert" color="error" :description="publicationError" class="mb-4" />
       <div class="space-y-4">
         <UFormField label="游戏">
-        <USelect v-model="searchGame" :items="searchGames" :disabled="publicationBusy" class="w-full" />
+          <USelect v-model="searchGame" :items="searchGames" :disabled="publicationBusy" class="w-full" />
+        </UFormField>
+        <UFormField label="发布目标">
+          <USelect v-model="searchTargetId" :items="targetItems" :disabled="publicationBusy" class="w-full" />
         </UFormField>
         <UFormField label="导出目录">
           <UInput :model-value="searchDirectory" readonly class="w-full" placeholder="未配置，请在上方的搜索数据存储中设置" />
@@ -156,8 +129,8 @@
             @click="cancelPublication(selectedPublicationTask)"
           />
         </div>
-        <p v-if="!canPublishSearchPackages" class="text-sm text-muted">请先填写账户 ID 和访问密钥。</p>
-        <p v-else-if="!searchDirectory.trim()" class="text-sm text-muted">请先在上方的搜索数据存储中配置导出目录。</p>
+        <p v-if="!canPublishSearchPackages" class="text-sm text-muted">请先选择一个可用的发布目标。</p>
+        <p v-else-if="!searchDirectory.trim()" class="text-sm text-muted">请先在上方配置搜索数据导出目录。</p>
       </div>
     </UCard>
   </SettingsFrame>
@@ -168,7 +141,7 @@ import type { TaskView } from '../../../electron/contract';
 /** One editable destination row before its name is complete. */
 type TargetRow = { id: string, name: string, kind: 'direct' | 'account', connectionString: string };
 definePageMeta({ layout: 'admin', title: '发布配置' });
-const { snapshot, update, secret } = useDesktopSettings();
+const { snapshot, update } = useDesktopSettings();
 const {
   entries: publicationEntries,
   error:   publicationError,
@@ -189,7 +162,6 @@ const targetKinds = [
 ];
 /** Persisted targets, safe while the main process is still on an older settings shape. */
 const savedTargets = computed(() => snapshot.value?.config.targets ?? []);
-const searchR2AccountId = ref('');
 const searchExportDirectory = ref('');
 const storageBusy = ref(false);
 const storageError = ref('');
@@ -198,13 +170,27 @@ const searchGames = [
   { label: '万智牌', value: 'magic' },
   { label: '炉石传说', value: 'hearthstone' },
 ];
+/** Every configured target can publish; a direct one only generates local files. */
+const targetItems = computed(() => savedTargets.value.map(target => ({
+  label: target.kind === 'account' ? `${target.name}（账户）` : target.name,
+  value: target.id,
+})));
+const searchTargetId = computed({
+  get: () => {
+    const remembered = snapshot.value?.config.targetSelection?.[searchGame.value];
+    return remembered && savedTargets.value.some(target => target.id === remembered)
+      ? remembered
+      : savedTargets.value[0]?.id ?? '';
+  },
+  set: (value: string) => {
+    void update('targetSelection', { ...snapshot.value?.config.targetSelection, [searchGame.value]: value });
+  },
+});
 const publicationTaskType = computed(() => `${searchGame.value}_search_package_publish`);
 const selectedPublicationTask = computed(() => publicationEntries.value
   .find(entry => entry.taskType === publicationTaskType.value)?.task ?? null);
 const searchDirectory = computed(() => snapshot.value?.config.searchStorage.exportDirectory?.trim() ?? '');
-const canPublishSearchPackages = computed(() => snapshot.value?.config.searchStorage.accountId != null
-  && snapshot.value?.credentials['search-r2-access-key-id'] === true
-  && snapshot.value?.credentials['search-r2-secret-access-key'] === true);
+const canPublishSearchPackages = computed(() => searchTargetId.value.length > 0);
 watch(
   () => snapshot.value?.config.targets,
   value => {
@@ -222,7 +208,6 @@ watch(
 watch(
   () => snapshot.value?.config.searchStorage,
   value => {
-    if (value?.accountId != null) searchR2AccountId.value = value.accountId;
     searchExportDirectory.value = value?.exportDirectory ?? '';
   },
   { immediate: true },
@@ -289,7 +274,6 @@ async function saveSearchStorage() {
   storageError.value = '';
   try {
     await update('searchStorage', {
-      accountId:       searchR2AccountId.value.trim() || undefined,
       exportDirectory: searchExportDirectory.value.trim() || undefined,
     });
   } catch (cause) {
@@ -311,6 +295,7 @@ async function publishSearchPackages() {
   await launchPublication(publicationTaskType.value, {
     game:      searchGame.value,
     directory: searchDirectory.value,
+    targetId:  searchTargetId.value,
   });
 }
 /** Retries the selected game's last failed search publication. */

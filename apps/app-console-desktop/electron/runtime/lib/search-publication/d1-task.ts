@@ -18,7 +18,7 @@ import { z } from 'zod';
 
 import { TaskBoundarySignal } from '../../../task/registry';
 import type { TaskDefinition, TaskStageDefinition } from '../../../task/registry';
-import { readLocalDatabaseUrl, readSearchD1SessionOverride } from '../../runtime-config';
+import { readLocalDatabaseUrl, readSearchServiceSessionOverride } from '../../runtime-config';
 import { applySearchSnapshotBatches, SEARCH_D1_FTS_MODE } from './d1-apply';
 import { createSearchD1Remote, requireSearchD1Session } from './d1-remote';
 import { prepareSearchPublication } from './prepare';
@@ -122,7 +122,7 @@ export function createSearchD1PublicationTask(game: SearchPublicationGame): Task
       const input = taskInput.parse(params);
       if (input.game !== game) throw new Error('所选游戏与当前任务不一致，请重新选择游戏。');
       if (!isAbsolute(input.directory)) throw new Error('请选择有效的搜索数据导出目录。');
-      if (readSearchD1SessionOverride()?.cookieHeader == null) {
+      if (readSearchServiceSessionOverride()?.cookieHeader == null) {
         throw new Error('请先登录控制台服务，再发布搜索数据。');
       }
 

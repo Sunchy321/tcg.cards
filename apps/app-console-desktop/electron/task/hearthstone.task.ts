@@ -166,11 +166,11 @@ registerLegacyTask({
 registerTask({
   taskType:            'hearthstone_search_package_publish',
   label:               '炉石传说搜索数据发布',
-  version:             '2026-11-01:v1',
+  version:             '2026-11-04:v1',
   supportsResume:      false,
   admission:           { game: 'hearthstone', connection: 'direct' },
-  publishConfirmation: () => ({ target: 'production', scope: '搜索数据包' }),
-  scope:               () => ({ type: 'search_package_publish', key: 'hearthstone', snapshot: { game: 'hearthstone' } }),
+  publishConfirmation: params => ({ target: text(params, 'target'), scope: '搜索数据包' }),
+  scope:               params => ({ type: 'search_package_publish', key: `hearthstone:${text(params, 'target')}`, snapshot: { game: 'hearthstone', target: text(params, 'target') } }),
   async load() {
     return { default: (await import('../runtime/lib/search-publication/task')).createSearchPublicationTask('hearthstone') };
   },

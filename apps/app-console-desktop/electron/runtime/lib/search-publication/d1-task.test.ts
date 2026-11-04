@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
 import { locale as magicLocale } from '@tcg-cards/model/magic/schema/basic';
-import { setSearchD1SessionOverride } from '../../runtime-config';
+import { setSearchServiceSessionOverride } from '../../runtime-config';
 import { createSearchD1PublicationTask } from './d1-task';
 
 const PACKAGE_DDL = `
@@ -94,11 +94,11 @@ beforeEach(() => {
     typeSymbols:   ['W', 'U'],
     tagOwners:     {},
   }));
-  setSearchD1SessionOverride({ baseUrl: 'https://internal.tcg.cards/', cookieHeader: 'session=abc' });
+  setSearchServiceSessionOverride({ baseUrl: 'https://internal.tcg.cards/', cookieHeader: 'session=abc' });
 });
 
 afterEach(() => {
-  setSearchD1SessionOverride(null);
+  setSearchServiceSessionOverride(null);
   rmSync(directory, { recursive: true, force: true });
 });
 
@@ -106,7 +106,7 @@ const params = { game: 'magic' as const, directory: '' };
 
 describe('search D1 publication task stages', () => {
   test('requires a console session before planning any load', async () => {
-    setSearchD1SessionOverride(null);
+    setSearchServiceSessionOverride(null);
     const task = createSearchD1PublicationTask('magic');
     await expect(task.stages({ ...params, directory })).rejects.toThrow('请先登录控制台服务');
   });

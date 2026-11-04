@@ -1,8 +1,8 @@
 import type { SearchD1Router } from '@tcg-cards/console-api';
 import { createConsoleApiClient } from '@tcg-cards/console-platform';
 
-import { readSearchD1SessionOverride } from '../../runtime-config';
-import type { SearchD1SessionOverride } from '../../runtime-config';
+import { readSearchServiceSessionOverride } from '../../runtime-config';
+import type { SearchServiceSessionOverride } from '../../runtime-config';
 
 /** Per-statement outcome of one remote search D1 batch. */
 export type SearchD1StatementResult = {
@@ -24,7 +24,7 @@ export interface SearchD1Remote {
  * statements to the internal backend, mapping transport failures to
  * user-actionable messages the same way the desktop auth calls do.
  */
-export function createSearchD1Remote(session: SearchD1SessionOverride): SearchD1Remote {
+export function createSearchD1Remote(session: SearchServiceSessionOverride): SearchD1Remote {
   let responseStatus: number | null = null;
   const api = createConsoleApiClient<SearchD1Router>({
     url:   new URL('search-d1/rpc', session.baseUrl).toString(),
@@ -62,8 +62,8 @@ export function createSearchD1Remote(session: SearchD1SessionOverride): SearchD1
 }
 
 /** Reads the injected console-service session, failing with an actionable message. */
-export function requireSearchD1Session(): SearchD1SessionOverride {
-  const session = readSearchD1SessionOverride();
+export function requireSearchD1Session(): SearchServiceSessionOverride {
+  const session = readSearchServiceSessionOverride();
   if (session == null || !session.cookieHeader) {
     throw new Error('请先登录控制台服务，再发布搜索数据。');
   }

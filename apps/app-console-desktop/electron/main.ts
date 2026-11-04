@@ -208,10 +208,8 @@ function nestPaths(paths: Partial<Record<string, string>>): PathOverrides {
 /** Builds the isolated runtime snapshot without exposing decrypted values to the renderer. */
 async function buildRuntimeSettings(settings: Settings): Promise<RuntimeOverrides> {
   const { config } = settings.snapshot();
-  const [aiApiKey, searchR2AccessKeyId, searchR2SecretAccessKey, searchD1Session] = await Promise.all([
+  const [aiApiKey, searchServiceSession] = await Promise.all([
     settings.secret('ai'),
-    settings.secret('search-r2-access-key-id'),
-    settings.secret('search-r2-secret-access-key'),
     authSessionEnvelope(settings),
   ]);
   const localDatabaseUrl = config.database ?? null;
@@ -235,12 +233,9 @@ async function buildRuntimeSettings(settings: Settings): Promise<RuntimeOverride
       bucketDir:       image?.bucketDir ?? null,
     },
     publishTargets,
-    searchR2: {
-      accountId:       config.searchStorage.accountId ?? null,
-      accessKeyId:     searchR2AccessKeyId,
-      secretAccessKey: searchR2SecretAccessKey,
-    },
-    searchD1Session,
+    searchServiceSession: searchServiceSession
+      ? { baseUrl: searchServiceSession.baseUrl, cookieHeader: searchServiceSession.cookieHeader }
+      : null,
     yugiohImage: {
       bucketDir: yugiohImage?.bucketDir ?? null,
     },
@@ -275,16 +270,27 @@ async function recordTargetFingerprint(settings: Settings, targetId: string, fin
 /**
  * Resolves the target selected for one publish launch: fills the stream label,
  * authorizes the destination, and records its identity on first use.
+ *
+ * Search publication never writes to PostgreSQL: an account target only needs a
+ * live session there, and a direct target only labels the run.
  */
 async function resolvePublishLaunchParams(
   settings: Settings,
   params: Record<string, unknown>,
+  taskType: string,
 ): Promise<PublishLaunch> {
   const targetId = typeof params.targetId === 'string' ? params.targetId : '';
   if (!targetId) return { params };
 
   const target = settings.snapshot().config.targets.find(item => item.id === targetId);
   if (!target) throw new Error('发布目标不存在，请重新选择。');
+
+  if (taskType.endsWith('_search_package_publish')) {
+    if (target.kind === 'account' && !await authSessionEnvelope(settings)) {
+      throw new Error('账户发布目标需要先登录控制台服务。');
+    }
+    return { params: { ...params, target: target.name } };
+  }
 
   if (target.kind === 'account') return await resolveAccountPublishLaunch(settings, target, params);
 
@@ -540,7 +546,7 @@ app
         return { taskRunId: existing.id, existing: true };
       }
       const launch = parsed.action === 'start'
-        ? await resolvePublishLaunchParams(settings, parsed.params)
+        ? await resolvePublishLaunchParams(settings, parsed.params, taskType)
         : null;
       const description = parsed.action === 'start'
         ? await runtime!.describe(taskType, launch?.params ?? {})
