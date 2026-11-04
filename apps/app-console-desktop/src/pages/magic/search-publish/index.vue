@@ -7,6 +7,7 @@
           <h1 class="text-xl font-semibold">远程搜索库发布</h1>
         </div>
         <PublishTargetPicker
+          game-label="万智牌"
           :targets="targets"
           :selected="selected"
           :disabled="targetLocked"
@@ -51,6 +52,7 @@
   </div>
 </template>
 <script setup lang="ts">
+import PublishTargetPicker from '~/components/PublishTargetPicker.vue';
 import { useSearchD1Publish } from '~/composables/useSearchD1Publish';
 
 definePageMeta({ layout: 'admin', title: '远程搜索库发布' });

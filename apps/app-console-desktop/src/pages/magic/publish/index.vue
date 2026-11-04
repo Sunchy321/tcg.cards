@@ -71,6 +71,7 @@
 <script setup lang="ts">
 import type { TaskPageSnapshot, TaskRunStatus } from '@tcg-cards/model/task';
 import type { TaskOperation } from '~/components/task/TaskController.vue';
+import PublishTargetPicker from '~/components/PublishTargetPicker.vue';
 import { usePublishTargetSelection } from '~/composables/usePublishTargetSelection';
 import { getDesktopTaskSnapshot, startDesktopTask } from '~/lib/orpc';
 

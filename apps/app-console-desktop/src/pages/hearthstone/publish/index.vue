@@ -6,40 +6,13 @@
           <UIcon name="i-lucide-upload" class="size-5 text-primary-500" />
           <h1 class="text-xl font-semibold">发布</h1>
         </div>
-        <div class="flex items-center gap-3 text-xs">
-          <template v-if="selected">
-            <span class="text-muted">{{ game }}</span>
-            <span class="text-muted">·</span>
-            <UDropdownMenu
-              v-if="hasMultiplePublishTargets"
-              :items="targetItems"
-              :content="{ align: 'end' }"
-            >
-              <button
-                type="button"
-                class="inline-flex items-center gap-1 text-muted transition-colors hover:text-default disabled:cursor-default disabled:hover:text-muted"
-              >
-                {{ selected.name }}
-                <UIcon
-                  name="i-lucide-chevron-down"
-                  class="size-3 opacity-70"
-                />
-              </button>
-            </UDropdownMenu>
-            <span v-else class="text-muted">
-              {{ selected.name }}
-            </span>
-            <UBadge :label="formatPublishTargetFingerprint(selected.fingerprint)" color="neutral" variant="soft" size="xs" />
-          </template>
-          <span v-else class="text-muted">未配置</span>
-          <UButton
-            icon="i-lucide-refresh-cw"
-            color="neutral"
-            variant="ghost"
-            size="xs"
-            @click="reloadTargets"
-          />
-        </div>
+        <PublishTargetPicker
+          :game-label="game"
+          :targets="targets"
+          :selected="selected"
+          @select="select"
+          @reload="reloadTargets"
+        />
       </div>
 
       <UAlert
@@ -496,6 +469,7 @@
 
 <script setup lang="ts">
 import { useToast } from '@nuxt/ui/composables';
+import PublishTargetPicker from '~/components/PublishTargetPicker.vue';
 import { usePublishTargetSelection } from '~/composables/usePublishTargetSelection';
 import {
   cancelIncompleteHsdataPublishBatch,
@@ -583,17 +557,6 @@ const singleCardPublishing = ref(false);
 const singleCardResult = ref<HsdataSingleCardPublishReport | null>(null);
 const singleCardError = ref('');
 
-const targetItems = computed(() => {
-  return targets.value.map(target => ({
-    label:    target.name,
-    value:    target.id,
-    disabled: !target.configured,
-    onSelect: () => select(target.id),
-  }));
-});
-
-const hasMultiplePublishTargets = computed(() => targets.value.length > 1);
-
 const selectedPublishStream = computed<HsdataPublishStreamInput | null>(() => {
   if (selectedEnvironment.value.length === 0) {
     return null;
@@ -627,10 +590,6 @@ async function submitSingleCardPublish() {
 const hasPublishTarget = computed(() => {
   return selected.value?.configured === true;
 });
-
-function formatPublishTargetFingerprint(fingerprint: string | null) {
-  return fingerprint?.slice(0, 8) ?? '';
-}
 
 function formatPublishOperationKind(kind: string) {
   switch (kind) {
