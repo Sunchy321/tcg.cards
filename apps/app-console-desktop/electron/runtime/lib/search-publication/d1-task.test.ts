@@ -1,5 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { locale as magicLocale } from '@tcg-cards/model/magic/schema/basic';
 import { setSearchServiceSessionOverride } from '../../runtime-config';
 import { createSearchD1PublicationTask } from './d1-task';
+import { createSearchExportTask } from './export-task';
 
 const PACKAGE_DDL = `
 CREATE TABLE magic_search_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -132,4 +133,58 @@ describe('search D1 publication task stages', () => {
     const preparation = await stage!.prepare!({ taskRunId: 'run-1', params });
     expect(preparation.total).toBeGreaterThan(4);
   });
+});
+
+test('the account task prepares D1 from the original run directory when resuming', async () => {
+  const taskRunId = 'resumed-run';
+  const outputRoot = mkdtempSync(join(tmpdir(), 'search-export-resume-'));
+  try {
+    const exportParams = { ...params, directory: outputRoot, exportFromLocal: true };
+    let loadedFts = false;
+    const task = createSearchExportTask('magic', true, async () => {
+      loadedFts = true;
+      return 'SELECT 1;';
+    });
+    const [exportStage, publishStage] = await task.stages(exportParams);
+    expect(exportStage?.key).toBe('export_search_sqlite');
+    expect(publishStage?.resumeMode).toBe('durable');
+
+    // Simulate the output of the completed first stage before a fresh Worker resumes D1.
+    cpSync(directory, join(outputRoot, taskRunId), { recursive: true });
+    const result = await publishStage!.prepare!({ taskRunId, params: exportParams });
+    expect(result.total).toBeGreaterThan(4);
+    expect(loadedFts).toBe(true);
+  } finally {
+    rmSync(outputRoot, { recursive: true, force: true });
+  }
+});
+
+test('new account releases upload the same run files after D1', async () => {
+  const taskRunId = 'r2-run';
+  const outputRoot = mkdtempSync(join(tmpdir(), 'search-export-r2-'));
+  try {
+    const input = { ...params, target: 'prod', directory: outputRoot, exportFromLocal: true, uploadToR2: true };
+    const stages = await createSearchExportTask('magic', true).stages(input);
+    expect(stages.map(stage => stage.key)).toEqual([
+      'export_search_sqlite',
+      'publish_search_d1',
+      'publish_search_packages',
+    ]);
+    expect(stages.slice(1).map(stage => stage.label)).toEqual([
+      '更新远程搜索库（D1）',
+      '上传搜索数据包（R2）',
+    ]);
+    cpSync(directory, join(outputRoot, taskRunId), { recursive: true });
+    const upload = await stages[2]!.prepare!({ taskRunId, params: input });
+    expect(upload.total).toBe(magicLocale.options.length + 3);
+
+    const r2Only = await createSearchExportTask('magic', true).stages({ ...input, updateD1: false });
+    expect(r2Only.map(stage => stage.key)).toEqual(['export_search_sqlite', 'publish_search_packages']);
+    expect((await r2Only[1]!.prepare!({ taskRunId, params: input })).total).toBe(upload.total);
+
+    const direct = await createSearchExportTask('magic', false).stages(input);
+    expect(direct.map(stage => stage.key)).toEqual(['export_search_sqlite']);
+  } finally {
+    rmSync(outputRoot, { recursive: true, force: true });
+  }
 });

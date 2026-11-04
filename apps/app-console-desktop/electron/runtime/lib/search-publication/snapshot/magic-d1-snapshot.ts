@@ -28,6 +28,7 @@ export type MagicD1SnapshotInput = {
   /** `rebuild` regenerates the FTS index in one closing statement; `incremental` writes it row by row. */
   ftsMode:  'rebuild' | 'incremental';
   sizing:   MagicD1SnapshotSizing;
+  ftsSql?:  string;
 };
 
 /** Insert order is parents-first so remote foreign keys stay satisfied per segment. */
@@ -71,7 +72,7 @@ export async function* generateMagicD1SnapshotBatches(
     assertPackageMetadata(reader, input.manifest, 'locale', descriptor.locale);
   }
 
-  yield { role: 'ddl', table: null, final: true, statements: [await magicSearchFtsSql()] };
+  yield { role: 'ddl', table: null, final: true, statements: [input.ftsSql ?? await magicSearchFtsSql()] };
   yield { role: 'meta-clear', table: null, final: true, statements: ['DELETE FROM magic_search_meta;'] };
   yield {
     role:       'clear',

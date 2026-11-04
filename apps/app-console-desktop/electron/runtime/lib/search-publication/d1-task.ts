@@ -21,6 +21,7 @@ import type { TaskDefinition, TaskStageDefinition } from '../../../task/registry
 import { readLocalDatabaseUrl, readSearchServiceSessionOverride } from '../../runtime-config';
 import { applySearchSnapshotBatches, SEARCH_D1_FTS_MODE } from './d1-apply';
 import { createSearchD1Remote, requireSearchD1Session, SearchD1AccessError } from './d1-remote';
+import { HEARTHSTONE_PUBLISH_ROWS } from './export-files';
 import { prepareSearchPublication } from './prepare';
 import { persistPreparedReleaseHash } from './release-hash';
 
@@ -40,9 +41,10 @@ const publicationInput = z.discriminatedUnion('game', [
 ]);
 
 const taskInput = z.strictObject({
-  game:      z.enum(['magic', 'hearthstone']),
-  directory: z.string().trim().min(1),
-  target:    z.string().trim().min(1).optional(),
+  game:            z.enum(['magic', 'hearthstone']),
+  directory:       z.string().trim().min(1),
+  target:          z.string().trim().min(1).optional(),
+  exportFromLocal: z.boolean().optional(),
 });
 
 type PreparedTask = Awaited<ReturnType<typeof prepareSearchPublication>>;
@@ -55,7 +57,7 @@ const FTS_PROBE = {
 } as const;
 
 /** Builds a separately schedulable publisher that loads one game's search snapshot into remote D1. */
-export function createSearchD1PublicationTask(game: SearchPublicationGame): TaskDefinition {
+export function createSearchD1PublicationTask(game: SearchPublicationGame, loadMagicFtsSql?: () => Promise<string>): TaskDefinition {
   let prepared: PreparedTask | null = null;
   let items: SnapshotItem[] | null = null;
   let latestResult: Record<string, unknown> | null = null;
@@ -91,6 +93,7 @@ export function createSearchD1PublicationTask(game: SearchPublicationGame): Task
           packages,
           ftsMode:  SEARCH_D1_FTS_MODE,
           sizing:   SIZING,
+          ftsSql:   await loadMagicFtsSql?.(),
         });
       } finally {
         packages.base.close();
@@ -152,7 +155,10 @@ export function createSearchD1PublicationTask(game: SearchPublicationGame): Task
       }
 
       items = null;
-      if (game === 'hearthstone') {
+      if (game === 'hearthstone' && input.exportFromLocal) {
+        const rows = JSON.parse(await readFile(resolve(input.directory, HEARTHSTONE_PUBLISH_ROWS), 'utf8')) as SnapshotItem[];
+        items = snapshotRows(rows.map(item => ({ item })));
+      } else if (game === 'hearthstone') {
         const connection = readLocalDatabaseUrl();
         if (connection == null) throw new Error('请先在桌面发布配置中连接本地数据库，再发布搜索数据。');
         const database = createDb(connection);
@@ -210,6 +216,7 @@ export function createSearchD1PublicationTask(game: SearchPublicationGame): Task
             });
             latestResult = {
               game,
+              directory:   input.directory,
               releaseHash: manifest.releaseHash,
               batches:     batchesApplied,
               tables:      Object.fromEntries(tableCounts),

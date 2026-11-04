@@ -81,6 +81,7 @@ export const configuration = z.strictObject({
   targetSelection: z.partialRecord(publishGames, z.uuid()).default({}),
   searchStorage:   z.strictObject({
     accountId:       z.string().trim().regex(/^[a-f0-9]{32}$/i).optional(),
+    updateD1:        z.boolean().optional(),
     // Directory holding the exported local search packages that publication consumes.
     exportDirectory: z.string().trim().min(1).optional(),
   }).default({}),

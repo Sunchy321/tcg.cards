@@ -140,6 +140,8 @@ export class Settings {
         'targets',
         'targetSelection',
         'searchStorage',
+        'searchStorage.exportDirectory',
+        'searchStorage.updateD1',
       ];
       if (!allowed.includes(key)) throw new Error('不支持的配置项目。');
       const parts = key.split('.');

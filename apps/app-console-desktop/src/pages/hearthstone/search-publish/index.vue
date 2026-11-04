@@ -16,12 +16,20 @@
         />
       </div>
       <p class="mt-2 text-sm text-muted">
-        把已导出的搜索数据装载到网站使用的远程搜索库。装载分段进行，中断后可从断点继续；装载期间网站搜索自动改用原有数据库。
+        从本地数据库导出搜索数据。选择账户目标时，可以更新远程搜索库，导出的搜索数据包会上传供桌面端下载。
       </p>
     </UCard>
 
     <UAlert
-      v-if="!loggedIn"
+      v-if="!databaseConfigured"
+      color="warning"
+      variant="soft"
+      icon="i-lucide-database"
+      title="未配置本地数据库"
+      description="请在 设置 → 数据库 中填写连接字符串。"
+    />
+    <UAlert
+      v-else-if="!direct && !loggedIn"
       color="warning"
       variant="soft"
       icon="i-lucide-log-in"
@@ -33,8 +41,8 @@
       color="warning"
       variant="soft"
       icon="i-lucide-triangle-alert"
-      title="未配置账户发布目标"
-      description="请在 设置 → 发布配置 中添加一个账户发布目标。"
+      title="未配置发布目标"
+      description="请在 设置 → 发布配置 中添加一个发布目标。"
     />
     <UAlert
       v-else-if="exportDirectory === ''"
@@ -45,8 +53,17 @@
       description="请在 设置 → 发布配置 的搜索数据存储中先配置导出目录。"
     />
 
-    <TaskController ref="controller" title="装载搜索数据" :operations="operations">
-      <p class="text-sm text-muted">导出目录：{{ exportDirectory === '' ? '未配置' : exportDirectory }}</p>
+    <TaskController ref="controller" title="搜索数据" :operations="operations">
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <UCheckbox
+          v-if="selected?.kind === 'account'"
+          v-model="updateD1"
+          :disabled="targetLocked"
+          label="更新远程搜索库（D1）"
+        />
+        <p class="text-sm text-muted">导出目录：{{ exportDirectory === '' ? '未配置' : exportDirectory }}</p>
+      </div>
+      <p v-if="outputDirectory" class="text-sm text-muted">文件位置：{{ outputDirectory }}</p>
       <UAlert v-if="error" role="alert" color="error" :description="error" class="mt-4" />
     </TaskController>
   </div>
@@ -57,5 +74,5 @@ import { useSearchD1Publish } from '~/composables/useSearchD1Publish';
 
 definePageMeta({ layout: 'admin', title: '远程搜索库发布' });
 
-const { controller, error, loggedIn, exportDirectory, operations, targets, selected, select, reload, targetLocked } = useSearchD1Publish('hearthstone');
+const { controller, error, direct, databaseConfigured, loggedIn, exportDirectory, outputDirectory, operations, targets, selected, select, reload, targetLocked, updateD1 } = useSearchD1Publish('hearthstone');
 </script>

@@ -65,7 +65,7 @@
       <template #header>
         <div class="space-y-1">
           <h2 class="font-medium">搜索数据导出</h2>
-          <p class="text-sm text-muted">搜索数据发布读取这个目录中的基础包和语言包。</p>
+          <p class="text-sm text-muted">导出的搜索数据会保存在此目录下。</p>
         </div>
       </template>
       <UAlert v-if="storageError" role="alert" color="error" :description="storageError" class="mb-4" />
@@ -76,7 +76,7 @@
             id="search-export-directory"
             v-model="searchExportDirectory"
             autocomplete="off"
-            placeholder="选择包含基础包和语言包的导出目录"
+            placeholder="选择保存搜索数据的目录"
             :disabled="storageBusy"
             class="w-full"
           />
@@ -85,74 +85,14 @@
         </div>
       </div>
     </UCard>
-    <UCard>
-      <template #header>
-        <div class="space-y-1">
-          <h2 class="font-medium">发布搜索数据包</h2>
-          <p class="text-sm text-muted">把导出目录中的搜索数据包上传到搜索数据存储，供桌面端下载使用。</p>
-        </div>
-      </template>
-      <UAlert v-if="publicationError" role="alert" color="error" :description="publicationError" class="mb-4" />
-      <div class="space-y-4">
-        <UFormField label="游戏">
-          <USelect v-model="searchGame" :items="searchGames" :disabled="publicationBusy" class="w-full" />
-        </UFormField>
-        <UFormField label="发布目标">
-          <USelect v-model="searchTargetId" :items="targetItems" :disabled="publicationBusy" class="w-full" />
-        </UFormField>
-        <UFormField label="导出目录">
-          <UInput :model-value="searchDirectory" readonly class="w-full" placeholder="未配置，请在上方的搜索数据存储中设置" />
-        </UFormField>
-        <TaskItem v-if="selectedPublicationTask" :task="selectedPublicationTask" />
-        <div class="flex flex-wrap gap-2">
-          <UButton
-            v-if="!selectedPublicationTask || isTaskTerminal(selectedPublicationTask)"
-            label="发布搜索数据包"
-            icon="i-lucide-cloud-upload"
-            :loading="publicationBusy"
-            :disabled="!canPublishSearchPackages || !searchDirectory.trim()"
-            @click="publishSearchPackages"
-          />
-          <UButton
-            v-if="selectedPublicationTask && ['failed', 'canceled', 'abandoned'].includes(selectedPublicationTask.status)"
-            label="重试"
-            variant="soft"
-            :loading="publicationBusy"
-            @click="retryPublication(selectedPublicationTask)"
-          />
-          <UButton
-            v-if="selectedPublicationTask && ['pending', 'running', 'pausing', 'paused', 'resuming', 'interrupted'].includes(selectedPublicationTask.status)"
-            label="取消"
-            color="error"
-            variant="soft"
-            :loading="publicationBusy"
-            @click="cancelPublication(selectedPublicationTask)"
-          />
-        </div>
-        <p v-if="!canPublishSearchPackages" class="text-sm text-muted">请先选择一个可用的发布目标。</p>
-        <p v-else-if="!searchDirectory.trim()" class="text-sm text-muted">请先在上方配置搜索数据导出目录。</p>
-      </div>
-    </UCard>
   </SettingsFrame>
 </template>
 <script setup lang="ts">
 import { useDesktopSettings, settingsError } from '~/composables/useDesktopSettings';
-import type { TaskView } from '../../../electron/contract';
 /** One editable destination row before its name is complete. */
 type TargetRow = { id: string, name: string, kind: 'direct' | 'account', connectionString: string };
 definePageMeta({ layout: 'admin', title: '发布配置' });
 const { snapshot, update } = useDesktopSettings();
-const {
-  entries: publicationEntries,
-  error:   publicationError,
-  busy:    publicationBusy,
-  launch:  launchPublication,
-  retry:   retrySearchPublication,
-  control: controlPublication,
-} = useTaskControl([
-  { taskType: 'magic_search_package_publish', label: '万智牌搜索数据发布' },
-  { taskType: 'hearthstone_search_package_publish', label: '炉石传说搜索数据发布' },
-]);
 const rows = ref<TargetRow[]>([]);
 const busy = ref(false);
 const error = ref('');
@@ -165,32 +105,6 @@ const savedTargets = computed(() => snapshot.value?.config.targets ?? []);
 const searchExportDirectory = ref('');
 const storageBusy = ref(false);
 const storageError = ref('');
-const searchGame = ref<'magic' | 'hearthstone'>('magic');
-const searchGames = [
-  { label: '万智牌', value: 'magic' },
-  { label: '炉石传说', value: 'hearthstone' },
-];
-/** Every configured target can publish; a direct one only generates local files. */
-const targetItems = computed(() => savedTargets.value.map(target => ({
-  label: target.kind === 'account' ? `${target.name}（账户）` : target.name,
-  value: target.id,
-})));
-const searchTargetId = computed({
-  get: () => {
-    const remembered = snapshot.value?.config.targetSelection?.[searchGame.value];
-    return remembered && savedTargets.value.some(target => target.id === remembered)
-      ? remembered
-      : savedTargets.value[0]?.id ?? '';
-  },
-  set: (value: string) => {
-    void update('targetSelection', { ...snapshot.value?.config.targetSelection, [searchGame.value]: value });
-  },
-});
-const publicationTaskType = computed(() => `${searchGame.value}_search_package_publish`);
-const selectedPublicationTask = computed(() => publicationEntries.value
-  .find(entry => entry.taskType === publicationTaskType.value)?.task ?? null);
-const searchDirectory = computed(() => snapshot.value?.config.searchStorage.exportDirectory?.trim() ?? '');
-const canPublishSearchPackages = computed(() => searchTargetId.value.length > 0);
 watch(
   () => snapshot.value?.config.targets,
   value => {
@@ -268,14 +182,12 @@ async function remove(id: string) {
     error.value = settingsError(cause);
   }
 }
-/** Saves the storage identity and export directory as one configuration replacement. */
+/** Saves the export directory independently of the other search settings. */
 async function saveSearchStorage() {
   storageBusy.value = true;
   storageError.value = '';
   try {
-    await update('searchStorage', {
-      exportDirectory: searchExportDirectory.value.trim() || undefined,
-    });
+    await update('searchStorage.exportDirectory', searchExportDirectory.value.trim());
   } catch (cause) {
     storageError.value = settingsError(cause);
   } finally {
@@ -289,25 +201,5 @@ async function pickSearchDirectory() {
   } catch (cause) {
     storageError.value = settingsError(cause);
   }
-}
-/** Starts the selected game's package publication with the configured export. */
-async function publishSearchPackages() {
-  await launchPublication(publicationTaskType.value, {
-    game:      searchGame.value,
-    directory: searchDirectory.value,
-    targetId:  searchTargetId.value,
-  });
-}
-/** Retries the selected game's last failed search publication. */
-async function retryPublication(task: TaskView) {
-  await retrySearchPublication(task);
-}
-/** Stops a package publication between safe transfer boundaries. */
-async function cancelPublication(task: TaskView) {
-  await controlPublication(task, 'cancel');
-}
-/** Keeps completed runs available for inspection while allowing another release. */
-function isTaskTerminal(task: TaskView) {
-  return ['completed', 'failed', 'canceled', 'abandoned'].includes(task.status);
 }
 </script>

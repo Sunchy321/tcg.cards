@@ -71,7 +71,7 @@ async function uploadBuffer(
 }
 
 /** Builds a separately schedulable publisher for one game's complete search package group. */
-export function createSearchPublicationTask(game: SearchPublicationGame): TaskDefinition {
+export function createSearchPublicationTask(game: SearchPublicationGame, accountOnly = false): TaskDefinition {
   let prepared: PreparedTask | null = null;
   let latestResult: Record<string, unknown> | null = null;
 
@@ -82,9 +82,9 @@ export function createSearchPublicationTask(game: SearchPublicationGame): TaskDe
       if (!isAbsolute(input.directory)) throw new Error('请选择有效的搜索数据导出目录。');
 
       // The selected destination decides whether this run uploads anything at all.
-      const destination = findPublishTargetByName(input.target);
-      if (!destination) throw new Error('发布目标不存在，请重新选择。');
-      const isAccountTarget = destination.kind === 'account';
+      const destination = accountOnly ? null : findPublishTargetByName(input.target);
+      if (!accountOnly && !destination) throw new Error('发布目标不存在，请重新选择。');
+      const isAccountTarget = accountOnly || destination?.kind === 'account';
       if (isAccountTarget && !readSearchServiceSessionOverride()) {
         throw new Error('账户发布目标需要先登录控制台服务。');
       }
@@ -120,6 +120,7 @@ export function createSearchPublicationTask(game: SearchPublicationGame): TaskDe
         label:        isAccountTarget ? '发布搜索数据' : '生成搜索数据',
         total:        isAccountTarget ? current.manifest.packages.length + 2 : 1,
         progressMode: 'bounded',
+        resumeMode:   accountOnly ? 'durable' : 'none',
         async run(context) {
           await persistPreparedReleaseHash(current.manifest);
 
@@ -152,13 +153,18 @@ export function createSearchPublicationTask(game: SearchPublicationGame): TaskDe
             },
             writeLocalManifest,
             progress: async done => {
-              await context.progress({ done, total: null });
+              if (accountOnly) {
+                await context.checkpoint({}, { done });
+              } else {
+                await context.progress({ done, total: null });
+              }
             },
             signal: context.signal,
           });
 
           latestResult = {
             game:            current.manifest.game,
+            directory:       input.directory,
             releaseHash:     current.manifest.releaseHash,
             manifestPath,
             mode:            outcome.mode,

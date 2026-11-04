@@ -1,6 +1,9 @@
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import type { ElectronOptions as NuxtElectronOptions } from 'nuxt-electron';
+import { hearthstoneSnapshotDdl, magicSnapshotDdl } from '../scripts/lib/search-database-ddl';
 import type { ElectronOptions } from 'vite-plugin-electron';
 
 /** Lifecycle callbacks supplied by the community Electron build plugin. */
@@ -10,6 +13,7 @@ type BuildLifecycle = Parameters<NonNullable<ElectronOptions['onstart']>>[0];
 export const developmentIdentity = randomBytes(32).toString('hex');
 process.env.CONSOLE_DEV_IDENTITY = developmentIdentity;
 
+const resolveBuildImport = createRequire(import.meta.url).resolve;
 const ready = new Set<'main' | 'preload'>();
 let started = false;
 
@@ -35,6 +39,24 @@ export const electronOptions: NuxtElectronOptions = {
     {
       // Shared Nuxt tsconfig references may not exist during the first dev build.
       vite: {
+        plugins: [{
+          name: 'desktop-search-export-ddl',
+          resolveId(id) {
+            if (id === 'virtual:desktop-search-export-ddl') return '\0' + id;
+          },
+          load(id) {
+            if (id !== '\0virtual:desktop-search-export-ddl') return;
+            const fts = Object.fromEntries(['magic', 'hearthstone'].map(game => {
+              const path = resolveBuildImport(`@tcg-cards/db/schema/sqlite/${game}/search-fts.sql`);
+              return [game, readFileSync(path, 'utf8')];
+            }));
+            const schemas = {
+              magic:       `${magicSnapshotDdl()}\n${fts.magic}`,
+              hearthstone: `${hearthstoneSnapshotDdl()}\n${fts.hearthstone}`,
+            };
+            return `export const magicFtsSql = ${JSON.stringify(fts.magic)}; export default ${JSON.stringify(schemas)};`;
+          },
+        }],
         esbuild: { tsconfigRaw: '{"compilerOptions":{"target":"ES2022"}}' },
         build:   {
           rollupOptions: { external: ['sharp'] },

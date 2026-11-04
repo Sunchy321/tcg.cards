@@ -185,6 +185,17 @@ registerTask({
   publishConfirmation: params => ({ target: text(params, 'target') || 'production', scope: '搜索数据' }),
   scope:               () => ({ type: 'search_d1_publish', key: 'hearthstone', snapshot: { game: 'hearthstone' } }),
   async load() {
-    return { default: (await import('../runtime/lib/search-publication/d1-task')).createSearchD1PublicationTask('hearthstone') };
+    return { default: (await import('../runtime/lib/search-publication/export-task')).createSearchExportTask('hearthstone', true) };
+  },
+});
+
+registerTask({
+  taskType:       'hearthstone_search_sqlite_export',
+  label:          '炉石传说搜索数据导出',
+  version:        '2026-11-04:v1',
+  supportsResume: false,
+  scope:          () => ({ type: 'search_sqlite_export', key: 'hearthstone', snapshot: { game: 'hearthstone' } }),
+  async load() {
+    return { default: (await import('../runtime/lib/search-publication/export-task')).createSearchExportTask('hearthstone', false) };
   },
 });

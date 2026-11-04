@@ -287,6 +287,12 @@ async function resolvePublishLaunchParams(
     }
     await syncRuntimeSettings(settings);
     const { game, directory } = params;
+    return { params: { game, directory, target: target.name, exportFromLocal: true, uploadToR2: true, updateD1: params.updateD1 !== false } };
+  }
+  if (taskType.endsWith('_search_sqlite_export')) {
+    const target = settings.snapshot().config.targets.find(item => item.id === targetId);
+    if (target?.kind !== 'direct') throw new Error('请选择直连目标。');
+    const { game, directory } = params;
     return { params: { game, directory, target: target.name } };
   }
   if (!targetId) return { params };
