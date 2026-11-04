@@ -6,6 +6,9 @@ import { importYugiohCards } from '../runtime/lib/yugioh/cards-import';
 import { publishYugiohCards } from '../runtime/lib/yugioh/cards-publish';
 import { importYugiohImages } from '../runtime/lib/yugioh/image-import';
 
+/** Reads one string launch parameter without exposing the rest of the task payload. */
+const text = (params: Record<string, unknown>, key: string): string => typeof params[key] === 'string' ? params[key] as string : '';
+
 /** Progress reporter serialized across image workers and checkpointed at safe units. */
 function progressReporter(
   context: TaskStageContext,
@@ -72,7 +75,7 @@ function imageImportDefinition(): TaskDefinition {
   };
 }
 
-/** Task definition for publishing one verified test-target snapshot. */
+/** Task definition for publishing one verified target snapshot. */
 function publishDefinition(): TaskDefinition {
   return {
     stages: () => [{
@@ -84,6 +87,7 @@ function publishDefinition(): TaskDefinition {
       async run(context) {
         const report = await publishYugiohCards({
           operatorUserId: typeof context.params.operatorUserId === 'string' ? context.params.operatorUserId : undefined,
+          environment:    text(context.params, 'environment') || undefined,
           onProgress:     progressReporter(context, { updateEvery: 1, checkpointEvery: 1 }),
         });
         await context.saveResult(report as unknown as Record<string, unknown>);
@@ -129,8 +133,12 @@ registerSimpleTask({
   version:             '2026-10-27:v1',
   supportsResume:      true,
   admission:           { game: 'yugioh', connection: 'direct' },
-  publishConfirmation: () => ({ environment: 'test', scope: '全部游戏王卡牌' }),
-  scope:               () => sharedScope,
+  publishConfirmation: params => ({ environment: text(params, 'environment'), scope: '全部游戏王卡牌' }),
+  scope:               params => ({
+    type:     'publish_stream',
+    key:      `yugioh:${text(params, 'environment')}`,
+    snapshot: { publishTarget: 'yugioh', environment: text(params, 'environment') },
+  }),
 }, publishDefinition);
 
 /** Registers a legacy crawl definition through the Electron task lifecycle. */

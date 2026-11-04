@@ -46,11 +46,10 @@ test('inherits plaintext and Keychain secrets once without overwriting new setti
     },
   };
   await inheritSettings(service, sources);
-  assert.equal(await service.secret('database'), 'postgres://me:oldpass@localhost/old');
-  assert.equal(await service.secret(`publish:${key}`), 'postgres://me:remote@localhost/publish');
-  assert.equal(service.snapshot().config.publish[0]?.targetFingerprint, 'verified-old-target');
+  assert.equal(service.snapshot().config.database, 'postgres://me:oldpass@localhost/old');
+  assert.deepEqual(service.snapshot().config.targets, []);
   assert.equal(service.snapshot().config.paths['magic.data.scryfall'], '/tmp/cards');
-  assert.equal(JSON.stringify(data).includes('oldpass'), false);
+  // Database connections are ordinary configuration now; other credentials stay encrypted.
   assert.equal(JSON.stringify(service.snapshot()).includes('old-key'), false);
   await service.update('ai.model', 'new-model');
   await inheritSettings(service, sources);
@@ -183,7 +182,7 @@ test('malformed legacy sections report their category instead of silently inheri
       return null;
     },
   });
-  for (const label of ['模型配置', '数据目录', '发布连接设置', '游戏设置']) {
+  for (const label of ['模型配置', '数据目录', '游戏设置']) {
     assert.ok(service.snapshot().migration.some(item => item.label === label && item.status === 'failed'));
   }
 });

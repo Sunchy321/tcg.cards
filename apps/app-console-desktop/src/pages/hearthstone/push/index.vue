@@ -11,10 +11,10 @@
         </div>
         <div class="flex items-center gap-3 text-sm text-muted">
           <span>hearthstone</span>
-          <UDropdownMenu v-if="publishTargets.length > 1" :items="environmentItems" :content="{ align: 'end' }">
-            <UButton :label="selectedTarget?.environment ?? '选择目标'" icon="i-lucide-chevron-down" color="neutral" variant="ghost" />
+          <UDropdownMenu v-if="targets.length > 1" :items="targetItems" :content="{ align: 'end' }">
+            <UButton :label="selectedTarget?.name ?? '选择目标'" icon="i-lucide-chevron-down" color="neutral" variant="ghost" />
           </UDropdownMenu>
-          <UBadge v-else-if="selectedTarget" :label="selectedTarget.environment" color="neutral" variant="soft" />
+          <UBadge v-else-if="selectedTarget" :label="selectedTarget.name" color="neutral" variant="soft" />
           <UButton label="刷新" icon="i-lucide-refresh-cw" color="neutral" variant="ghost" :loading="historyLoading" @click="refreshData" />
         </div>
       </div>
@@ -57,8 +57,8 @@
           <div class="font-medium">推送标签变更</div>
           <p class="text-xs text-muted">推送开始前会验证账号权限并确认目标环境。</p>
           <div v-if="selectedTarget" class="rounded-lg border border-default p-3">
-            <div class="text-xs text-muted">目标环境</div>
-            <div class="mt-1 text-sm font-medium">{{ selectedTarget.environment }}</div>
+            <div class="text-xs text-muted">发布目标</div>
+            <div class="mt-1 text-sm font-medium">{{ selectedTarget.name }}</div>
           </div>
         </div>
       </template>
@@ -160,14 +160,13 @@
 import { useToast } from '@nuxt/ui/composables';
 import type { TaskPageSnapshot } from '@tcg-cards/model/task';
 import type { TaskOperation } from '~/components/task/TaskController.vue';
-import { getDesktopPublishTargets, type DesktopPublishTarget } from '~/composables/useDesktopSettings';
 import { getHsdataErrorMessage } from '~/composables/useHsdataRepo';
+import { usePublishTargetSelection } from '~/composables/usePublishTargetSelection';
 import { startDesktopTask, orpc } from '~/lib/orpc';
 
 definePageMeta({ layout: 'admin', title: '推送' });
 
 const TASK_TYPE = 'hearthstone_tag_push';
-const TARGET_KEY = 'console-desktop-hearthstone-tag-push-environment';
 const toast = useToast();
 
 interface PushBatchRow {
@@ -199,19 +198,17 @@ interface TagPushReport {
 }
 
 const controller = ref<{ attach(snapshot: TaskPageSnapshot): void, currentTaskRunId: string | null }>();
-const publishTargets = ref<DesktopPublishTarget[]>([]);
-const selectedEnvironment = ref('');
-const targetError = ref('');
+const { targets, selected: selectedTarget, select, error: targetError } = usePublishTargetSelection('hearthstone');
 const history = ref<PushBatchRow[]>([]);
 const incompleteBatch = ref<{ id: string, stream: string, startedAt: string } | null>(null);
 const historyLoading = ref(false);
 const pushResult = ref<TagPushReport | null>(null);
 
-const selectedTarget = computed(() => publishTargets.value.find(target => target.environment === selectedEnvironment.value) ?? null);
-const environmentItems = computed(() => publishTargets.value.map(target => ({
-  label:    target.environment,
-  value:    target.environment,
-  onSelect: () => { selectedEnvironment.value = target.environment; },
+const targetItems = computed(() => targets.value.map(target => ({
+  label:    target.name,
+  value:    target.id,
+  disabled: !target.configured || target.kind !== 'direct',
+  onSelect: () => select(target.id),
 })));
 const appliedCount = computed(() => pushResult.value?.pushed.filter(item => item.status === 'applied').length ?? 0);
 const duplicateCount = computed(() => pushResult.value?.pushed.filter(item => item.status === 'duplicate').length ?? 0);
@@ -221,31 +218,15 @@ const pushOperation = computed<TaskOperation>(() => ({
   key:      'push',
   label:    '开始推送',
   icon:     'i-lucide-cloud-upload',
-  disabled: selectedTarget.value == null,
+  disabled: selectedTarget.value?.configured !== true,
   create:   async () => {
     pushResult.value = null;
     return await startDesktopTask(TASK_TYPE, {
       publishTarget: 'hearthstone',
-      environment:   selectedEnvironment.value,
+      targetId:      selectedTarget.value?.id ?? '',
     });
   },
 }));
-
-/** Loads target identities without exposing credentials to the renderer. */
-async function loadTarget() {
-  targetError.value = '';
-  try {
-    publishTargets.value = (await getDesktopPublishTargets()).filter(target => target.publishTarget === 'hearthstone');
-    const saved = window.localStorage.getItem(TARGET_KEY) ?? '';
-    selectedEnvironment.value = publishTargets.value.some(target => target.environment === saved)
-      ? saved
-      : publishTargets.value[0]?.environment ?? '';
-  } catch (error) {
-    targetError.value = getHsdataErrorMessage(error);
-    publishTargets.value = [];
-    selectedEnvironment.value = '';
-  }
-}
 
 /** Refreshes the recent history and any batch left incomplete by a restart. */
 async function refreshData() {
@@ -313,12 +294,8 @@ function batchStatusColor(status: string): 'success' | 'warning' | 'error' {
   return 'error';
 }
 
-watch(selectedEnvironment, value => {
-  if (value) window.localStorage.setItem(TARGET_KEY, value);
-});
-
 onMounted(async () => {
-  await Promise.all([loadTarget(), refreshData()]);
+  await refreshData();
   await restoreTask();
 });
 </script>

@@ -3,54 +3,59 @@
     <UCard>
       <template #header>
         <div class="flex items-center justify-between gap-3">
-          <h2 class="font-medium">发布连接</h2>
-          <UButton label="添加连接" icon="i-lucide-plus" variant="soft" @click="add" />
+          <div class="space-y-1">
+            <h2 class="font-medium">发布目标</h2>
+            <p class="text-sm text-muted">每次发布时在发布页右上角选择一个目标。</p>
+          </div>
+          <UButton label="添加目标" icon="i-lucide-plus" variant="soft" @click="add" />
         </div>
       </template>
       <UAlert v-if="error" role="alert" color="error" :description="error" class="mb-4" />
-      <p v-if="!rows.length" class="text-sm text-muted">暂无发布连接。</p>
-      <div v-for="row in rows" :key="row.credentialKey" class="mb-5 space-y-4 rounded-lg border border-default p-4">
+      <p v-if="!rows.length" class="text-sm text-muted">暂无发布目标。</p>
+      <div v-for="row in rows" :key="row.id" class="mb-5 space-y-4 rounded-lg border border-default p-4">
         <div class="grid gap-4 sm:grid-cols-2">
           <div class="space-y-2">
-            <label :for="`game-${row.credentialKey}`" class="block text-sm font-medium">游戏</label>
-            <USelect
-              :id="`game-${row.credentialKey}`"
-              v-model="row.publishTarget"
-              :items="games"
-              placeholder="选择游戏"
+            <label :for="`target-name-${row.id}`" class="block text-sm font-medium">名称</label>
+            <UInput
+              :id="`target-name-${row.id}`"
+              v-model="row.name"
+              placeholder="例如：本地、线上"
               :disabled="busy"
               class="w-full"
-              @update:model-value="persist"
+              @blur="persist"
             />
           </div>
           <div class="space-y-2">
-            <label :for="`environment-${row.credentialKey}`" class="block text-sm font-medium">环境</label>
+            <label :for="`target-kind-${row.id}`" class="block text-sm font-medium">类型</label>
             <USelect
-              :id="`environment-${row.credentialKey}`"
-              v-model="row.environment"
-              :items="environments"
-              placeholder="选择环境"
+              :id="`target-kind-${row.id}`"
+              v-model="row.kind"
+              :items="targetKinds"
               :disabled="busy"
               class="w-full"
               @update:model-value="persist"
             />
           </div>
         </div>
-        <SettingField
-          v-if="isSaved(row.credentialKey)"
-          label="连接字符串"
-          secret
-          :configured="snapshot?.credentials[`publish:${row.credentialKey}`]"
-          :save="value => secret(`publish:${row.credentialKey}`, value)"
-        />
-        <p v-else class="text-sm text-muted">选择游戏和环境后，即可填写连接字符串。</p>
+        <div v-if="row.kind === 'direct'" class="space-y-2">
+          <label :for="`target-connection-${row.id}`" class="block text-sm font-medium">连接字符串</label>
+          <UInput
+            :id="`target-connection-${row.id}`"
+            v-model="row.connectionString"
+            placeholder="postgres://user:password@localhost/database"
+            :disabled="busy"
+            class="w-full"
+            @blur="persist"
+          />
+        </div>
+        <p v-else class="text-sm text-muted">账户目标需要远端登录，当前版本尚未启用。</p>
         <UButton
-          label="删除连接"
+          label="删除目标"
           icon="i-lucide-trash"
           color="error"
           variant="ghost"
           :disabled="busy"
-          @click="remove(row.credentialKey)"
+          @click="remove(row.id)"
         />
       </div>
     </UCard>
@@ -158,9 +163,8 @@
 <script setup lang="ts">
 import { useDesktopSettings, settingsError } from '~/composables/useDesktopSettings';
 import type { TaskView } from '../../../electron/contract';
-import type { Configuration } from '../../../shared/settings';
-/** Incomplete new rows remain local until their required selections are complete. */
-type Row = Omit<Configuration['publish'][number], 'publishTarget'> & { publishTarget: string };
+/** One editable destination row before its name is complete. */
+type TargetRow = { id: string, name: string, kind: 'direct' | 'account', connectionString: string };
 definePageMeta({ layout: 'admin', title: '发布配置' });
 const { snapshot, update, secret } = useDesktopSettings();
 const {
@@ -174,9 +178,15 @@ const {
   { taskType: 'magic_search_package_publish', label: '万智牌搜索数据发布' },
   { taskType: 'hearthstone_search_package_publish', label: '炉石传说搜索数据发布' },
 ]);
-const rows = ref<Row[]>([]);
+const rows = ref<TargetRow[]>([]);
 const busy = ref(false);
 const error = ref('');
+const targetKinds = [
+  { label: '直连', value: 'direct' },
+  { label: '账户（尚未启用）', value: 'account' },
+];
+/** Persisted targets, safe while the main process is still on an older settings shape. */
+const savedTargets = computed(() => snapshot.value?.config.targets ?? []);
 const searchR2AccountId = ref('');
 const searchExportDirectory = ref('');
 const storageBusy = ref(false);
@@ -193,19 +203,17 @@ const searchDirectory = computed(() => snapshot.value?.config.searchStorage.expo
 const canPublishSearchPackages = computed(() => snapshot.value?.config.searchStorage.accountId != null
   && snapshot.value?.credentials['search-r2-access-key-id'] === true
   && snapshot.value?.credentials['search-r2-secret-access-key'] === true);
-const games = [
-  { label: '炉石传说', value: 'hearthstone' },
-  { label: '万智牌', value: 'magic' },
-  { label: '游戏王', value: 'yugioh' },
-];
-const environments = [
-  { label: '开发环境', value: 'dev' },
-  { label: '生产环境', value: 'prod' },
-];
 watch(
-  () => snapshot.value?.config.publish,
+  () => snapshot.value?.config.targets,
   value => {
-    if (!rows.value.length && value?.length) rows.value = structuredClone(toRaw(value));
+    if (!rows.value.length && value?.length) {
+      rows.value = value.map(target => ({
+        id:               target.id,
+        name:             target.name,
+        kind:             target.kind,
+        connectionString: target.connectionString ?? '',
+      }));
+    }
   },
   { immediate: true },
 );
@@ -217,31 +225,35 @@ watch(
   },
   { immediate: true },
 );
-/** Identifies persisted rows before allowing their credentials to be edited. */
-function isSaved(key: string) {
-  return snapshot.value?.config.publish.some(row => row.credentialKey === key) ?? false;
-}
 /** Creates an empty local row without writing invalid settings. */
 function add() {
-  rows.value.push({ credentialKey: crypto.randomUUID(), publishTarget: '', environment: '' });
+  rows.value.push({ id: crypto.randomUUID(), name: '', kind: 'direct', connectionString: '' });
 }
-/** Applies complete selections immediately without dropping another incomplete draft row. */
+/** Applies complete names immediately without dropping another incomplete draft row. */
 async function persist() {
   busy.value = true;
   error.value = '';
   try {
     await update(
-      'publish',
+      'targets',
       rows.value
-        .filter(row => row.publishTarget && row.environment)
+        .filter(row => row.name.trim())
         .map(row => {
-          const saved = snapshot.value?.config.publish.find(item => item.credentialKey === row.credentialKey);
-          // A credential edit can invalidate verification while this page retains its row drafts.
-          const targetFingerprint
-            = saved?.publishTarget === row.publishTarget && saved?.environment === row.environment
-              ? saved.targetFingerprint
-              : undefined;
-          return { ...row, targetFingerprint };
+          const saved = savedTargets.value.find(item => item.id === row.id);
+          const connectionString = row.connectionString.trim();
+          // A different name, kind or connection is a different destination and cannot keep its verification.
+          const verified = saved?.name === row.name.trim()
+            && saved.kind === row.kind
+            && saved.connectionString === (connectionString || undefined)
+            ? saved?.targetFingerprint
+            : undefined;
+          return {
+            id:   row.id,
+            name: row.name.trim(),
+            kind: row.kind,
+            ...(connectionString ? { connectionString } : {}),
+            ...(verified ? { targetFingerprint: verified } : {}),
+          };
         }),
     );
   } catch (cause) {
@@ -250,12 +262,24 @@ async function persist() {
     busy.value = false;
   }
 }
-/** Removes a local profile while JSON and credential persistence remain separate. */
-async function remove(key: string) {
+/** Removes a local target while JSON and credential persistence remain separate. */
+async function remove(id: string) {
   const before = [...rows.value];
-  rows.value = rows.value.filter(row => row.credentialKey !== key);
+  rows.value = rows.value.filter(row => row.id !== id);
   await persist();
-  if (error.value) rows.value = before;
+  if (error.value) {
+    rows.value = before;
+    return;
+  }
+  try {
+    const selection = { ...snapshot.value?.config.targetSelection };
+    for (const game of Object.keys(selection) as Array<keyof typeof selection>) {
+      if (selection[game] === id) Reflect.deleteProperty(selection, game);
+    }
+    await update('targetSelection', selection);
+  } catch (cause) {
+    error.value = settingsError(cause);
+  }
 }
 /** Saves the storage identity and export directory as one configuration replacement. */
 async function saveSearchStorage() {

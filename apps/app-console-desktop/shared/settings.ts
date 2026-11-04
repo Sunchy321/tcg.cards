@@ -39,6 +39,15 @@ const directory = z
   .trim()
   .min(1)
   .refine(value => value.startsWith('/') && !value.includes('\0'), '请输入完整目录路径');
+/** PostgreSQL connection string kept as ordinary configuration, never as a credential. */
+const postgresUrl = z.string().trim().min(1).refine(value => {
+  try {
+    const url = new URL(value);
+    return ['postgres:', 'postgresql:'].includes(url.protocol) && Boolean(url.hostname);
+  } catch {
+    return false;
+  }
+}, '请输入有效的 PostgreSQL 连接字符串');
 /** HTTP service address that never embeds credentials. */
 const httpUrl = z.url({ protocol: /^https?$/ }).refine(value => {
   try {
@@ -48,23 +57,29 @@ const httpUrl = z.url({ protocol: /^https?$/ }).refine(value => {
     return false;
   }
 }, '服务地址不能包含密码或查询参数');
-/** Ordinary publication metadata; the connection string lives in encrypted storage. */
+/** One publish destination the user names; a direct target carries its database connection. */
 export const publishTarget = z.strictObject({
-  credentialKey:     z.uuid(),
-  publishTarget:     z.enum(['magic', 'hearthstone', 'yugioh']),
-  environment:       z.string().trim().min(1),
+  id:                z.uuid(),
+  name:              z.string().trim().min(1),
+  kind:              z.enum(['direct', 'account']),
+  connectionString:  postgresUrl.optional(),
   targetFingerprint: z.string().optional(),
 });
+/** Games whose publish target selection is remembered between publishes. */
+export const publishGames = z.enum(['magic', 'hearthstone', 'yugioh']);
 /** Public configuration accepted identically by forms, JSON and the main process. */
 export const configuration = z.strictObject({
-  version: z.literal(1),
-  paths:   z.partialRecord(z.enum(pathKeys), directory).default({}),
-  ai:      z.strictObject({ baseUrl: httpUrl.optional(), model: z.string().trim().min(1).optional() }).default({}),
-  publish: z
+  version:  z.literal(1),
+  database: postgresUrl.optional(),
+  paths:    z.partialRecord(z.enum(pathKeys), directory).default({}),
+  ai:       z.strictObject({ baseUrl: httpUrl.optional(), model: z.string().trim().min(1).optional() }).default({}),
+  targets:  z
     .array(publishTarget)
-    .refine(rows => new Set(rows.map(row => row.credentialKey)).size === rows.length, '发布连接重复')
+    .refine(rows => new Set(rows.map(row => row.id)).size === rows.length, '发布目标重复')
+    .refine(rows => new Set(rows.map(row => row.name)).size === rows.length, '发布目标名称重复')
     .default([]),
-  searchStorage: z.strictObject({
+  targetSelection: z.partialRecord(publishGames, z.uuid()).default({}),
+  searchStorage:   z.strictObject({
     accountId:       z.string().trim().regex(/^[a-f0-9]{32}$/i).optional(),
     // Directory holding the exported local search packages that publication consumes.
     exportDirectory: z.string().trim().min(1).optional(),
@@ -78,14 +93,7 @@ export const configuration = z.strictObject({
         .optional(),
       yugioh: z
         .strictObject({
-          image:   z.strictObject({ bucketDir: directory.optional() }).optional(),
-          publish: z
-            .strictObject({
-              publishTargetId:   z.string().min(1),
-              environment:       z.string().min(1),
-              targetFingerprint: z.string(),
-            })
-            .optional(),
+          image: z.strictObject({ bucketDir: directory.optional() }).optional(),
         })
         .optional(),
     })
@@ -111,21 +119,25 @@ export function validationMessage(error: z.ZodError): string {
   const issue = error.issues[0];
   const path = issue?.path.map(String) ?? [];
   const category
-    = path[0] === 'paths'
-      ? '目录设置'
-      : path[0] === 'ai'
-        ? path[1] === 'baseUrl'
-          ? '模型服务地址'
-          : path[1] === 'model'
-            ? '模型名称'
-            : '模型配置'
-        : path[0] === 'publish'
-          ? `第 ${Number(path[1] ?? 0) + 1} 个发布连接`
-          : path[0] === 'searchStorage'
-            ? '搜索数据存储'
-            : path[0] === 'games'
-              ? '游戏图片或发布设置'
-              : '配置';
+    = path[0] === 'database'
+      ? '数据库连接'
+      : path[0] === 'paths'
+        ? '目录设置'
+        : path[0] === 'ai'
+          ? path[1] === 'baseUrl'
+            ? '模型服务地址'
+            : path[1] === 'model'
+              ? '模型名称'
+              : '模型配置'
+          : path[0] === 'targets'
+            ? `第 ${Number(path[1] ?? 0) + 1} 个发布目标`
+            : path[0] === 'targetSelection'
+              ? '发布目标选择'
+              : path[0] === 'searchStorage'
+                ? '搜索数据存储'
+                : path[0] === 'games'
+                  ? '游戏图片设置'
+                  : '配置';
   if (issue?.code === 'unrecognized_keys') return `${category}包含不支持的项目，请检查后重试。`;
   return `${category}内容不正确，请检查必填项、类型和格式。`;
 }

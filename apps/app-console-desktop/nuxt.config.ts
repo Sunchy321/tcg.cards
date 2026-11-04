@@ -30,7 +30,11 @@ export default defineNuxtConfig({
   modules:   ['nuxt-electron', '@nuxt/ui', '@nuxt/icon'],
   electron:  electronOptions,
   devServer: { port: 1420 },
-  vite:      {
+  alias:     {
+    '#model':  fileURLToPath(new URL('./node_modules/@tcg-cards/model/src', import.meta.url)),
+    '#search': fileURLToPath(new URL('./node_modules/@tcg-cards/search/src', import.meta.url)),
+  },
+  vite: {
     optimizeDeps: {
       // Bundle the icon runtime before Electron loads the first page to avoid late discovery invalidating its module graph.
       include: ['@iconify/vue'],

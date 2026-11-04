@@ -7,52 +7,54 @@ import {
   applyPathOverrides,
   hasAiConfig,
   hasHearthstoneImageOverride,
-  hasHearthstonePublishTargetOverride,
   hasLocalDatabaseUrl,
   hasYugiohImageOverride,
-  hasYugiohPublishTargetOverride,
   readAllPathOverrides,
+  readPublishTargets,
   setAiConfig,
   setEditorIdentity,
   setHearthstoneImageOverride,
-  setHearthstonePublishTargetOverrides,
-  setMagicPublishTargetOverrides,
   setLocalDatabaseUrlOverride,
   setPathOverride,
+  setPublishTargets,
   setYugiohImageOverride,
-  setYugiohPublishTargetOverride,
   type PathOverrides,
 } from '../runtime-config';
 
 /** Runtime status returned by desktop runtime health procedures. */
 const runtimeStatus = z.object({
-  service:                       z.string(),
-  runtime:                       z.string(),
-  status:                        z.literal('ok'),
-  localDatabaseConfigured:       z.boolean(),
-  pathsConfigured:               z.boolean(),
-  imageConfigured:               z.boolean(),
-  publishTargetConfigured:       z.boolean(),
-  yugiohPublishTargetConfigured: z.boolean(),
-  yugiohImageConfigured:         z.boolean(),
-  aiConfigured:                  z.boolean(),
-  time:                          z.string(),
+  service:                 z.string(),
+  runtime:                 z.string(),
+  status:                  z.literal('ok'),
+  localDatabaseConfigured: z.boolean(),
+  pathsConfigured:         z.boolean(),
+  imageConfigured:         z.boolean(),
+  publishTargetConfigured: z.boolean(),
+  yugiohImageConfigured:   z.boolean(),
+  aiConfigured:            z.boolean(),
+  time:                    z.string(),
 });
+
+/** Reports whether at least one publish destination has completed configuration. */
+function hasCompletePublishTarget() {
+  return readPublishTargets().some(target => target.name != null
+    && target.targetFingerprint != null
+    && target.connectionString != null);
+}
 
 /** Standard desktop runtime health payload shared across HTTP and RPC surfaces. */
 function buildStatus() {
   return {
-    service:                       'tcg-cards-console-desktop',
-    runtime:                       'node',
-    status:                        'ok' as const,
-    localDatabaseConfigured:       hasLocalDatabaseUrl(),
-    pathsConfigured:               Object.keys(readAllPathOverrides()).length > 0,
-    imageConfigured:               hasHearthstoneImageOverride(),
-    publishTargetConfigured:       hasHearthstonePublishTargetOverride(),
-    yugiohPublishTargetConfigured: hasYugiohPublishTargetOverride(),
-    yugiohImageConfigured:         hasYugiohImageOverride(),
-    aiConfigured:                  hasAiConfig(),
-    time:                          new Date().toISOString(),
+    service:                 'tcg-cards-console-desktop',
+    runtime:                 'node',
+    status:                  'ok' as const,
+    localDatabaseConfigured: hasLocalDatabaseUrl(),
+    pathsConfigured:         Object.keys(readAllPathOverrides()).length > 0,
+    imageConfigured:         hasHearthstoneImageOverride(),
+    publishTargetConfigured: hasCompletePublishTarget(),
+    yugiohImageConfigured:   hasYugiohImageOverride(),
+    aiConfigured:            hasAiConfig(),
+    time:                    new Date().toISOString(),
   };
 }
 
@@ -73,37 +75,24 @@ const configureDesktopStateInput = z.strictObject({
   localDatabase: z.strictObject({
     connectionString: z.string().trim().min(1).nullable(),
   }),
-  paths: z.record(z.string(), pathNodeSchema),
+  paths:          z.record(z.string(), pathNodeSchema),
+  publishTargets: z.array(z.strictObject({
+    id:                z.string().trim().min(1).nullable(),
+    name:              z.string().trim().min(1).nullable(),
+    kind:              z.enum(['direct', 'account']),
+    targetFingerprint: z.string().trim().min(1).nullable(),
+    connectionString:  z.string().trim().min(1).nullable(),
+  })),
   games: z.strictObject({
-    magic: z.strictObject({
-      publish: z.array(z.strictObject({
-        publishTarget:     z.string().trim().min(1).nullable(),
-        environment:       z.string().trim().min(1).nullable(),
-        targetFingerprint: z.string().trim().min(1).nullable(),
-        connectionString:  z.string().trim().min(1).nullable(),
-      })),
-    }),
     hearthstone: z.strictObject({
       image: z.strictObject({
         rendererBaseUrl: z.string().trim().min(1).nullable(),
         bucketDir:       z.string().trim().min(1).nullable(),
       }),
-      publish: z.array(z.strictObject({
-        publishTarget:     z.string().trim().min(1).nullable(),
-        environment:       z.string().trim().min(1).nullable(),
-        targetFingerprint: z.string().trim().min(1).nullable(),
-        connectionString:  z.string().trim().min(1).nullable(),
-      })),
     }),
     yugioh: z.strictObject({
       image: z.strictObject({
         bucketDir: z.string().trim().min(1).nullable(),
-      }),
-      publish: z.strictObject({
-        publishTargetId:   z.string().trim().min(1).nullable(),
-        environment:       z.string().trim().min(1).nullable(),
-        targetFingerprint: z.string().trim().min(1).nullable(),
-        connectionString:  z.string().trim().min(1).nullable(),
       }),
     }),
   }),
@@ -121,10 +110,8 @@ function applyDesktopState(
   setLocalDatabaseUrlOverride(input.localDatabase.connectionString);
   applyPathOverrides(input.paths as PathOverrides);
   setHearthstoneImageOverride(input.games.hearthstone.image);
-  setHearthstonePublishTargetOverrides(input.games.hearthstone.publish);
+  setPublishTargets(input.publishTargets);
   setYugiohImageOverride(input.games.yugioh.image);
-  setYugiohPublishTargetOverride(input.games.yugioh.publish);
-  setMagicPublishTargetOverrides(input.games.magic.publish);
   if (input.ai) {
     setAiConfig({
       apiKey:  input.ai.apiKey,

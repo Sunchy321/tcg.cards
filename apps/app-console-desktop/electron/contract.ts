@@ -16,7 +16,7 @@ export interface RuntimeHealth {
 }
 
 /** Target identity resolved by the isolated runtime before first publication. */
-export interface YugiohPublishTargetIdentity {
+export interface PublishTargetIdentity {
   targetFingerprint: string;
 }
 
@@ -144,7 +144,7 @@ export type RuntimeRequest
     | { id: number, method: 'task:start', taskRunId: string, taskType: string, params: Record<string, unknown>, databaseUrl: string }
     | { id: number, method: 'task:retry', taskRunId: string, retryOfTaskRunId: string, databaseUrl: string, operatorUserId?: string }
     | { id: number, method: 'task:control', taskRunId: string, kind: TaskControlKind, databaseUrl: string }
-    | { id: number, method: 'yugioh:resolve-publish-target', publishTargetId: string, environment: string, connectionString: string }
+    | { id: number, method: 'publish:resolve-target', connectionString: string }
     | { id: number, method: 'task:latest-by-types', taskTypes: string[], databaseUrl: string }
     | { id: number, method: 'task:list', databaseUrl?: string }
     | { id: number, method: 'task:get', taskRunId: string, databaseUrl?: string }
@@ -155,7 +155,7 @@ export type RuntimeRequest
 /** Response sent only between the local business and main processes. */
 export interface RuntimeResponse {
   id:      number;
-  result?: RuntimeHealth | TaskDescription | TaskView | TaskView[] | TaskStartResult | DesktopApiResponse | YugiohPublishTargetIdentity | null;
+  result?: RuntimeHealth | TaskDescription | TaskView | TaskView[] | TaskStartResult | DesktopApiResponse | PublishTargetIdentity | null;
   error?:  string;
 }
 

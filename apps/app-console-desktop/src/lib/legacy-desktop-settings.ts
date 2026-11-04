@@ -2,10 +2,12 @@
 import type { SettingsSnapshot } from '../../shared/settings';
 
 export interface DesktopPublishTarget {
-  publishTarget:     string;
-  environment:       string;
+  id:                string;
+  name:              string;
+  kind:              'direct' | 'account';
   targetFingerprint: string | null;
-  credentialKey:     string | null;
+  /** True when the destination has everything a publish needs. */
+  configured:        boolean;
   connectionString?: never;
 }
 
@@ -37,12 +39,11 @@ export async function getDesktopHearthstoneImageSettings(): Promise<DesktopHeart
 /** Returns only public target metadata and never reads a decrypted connection string. */
 export async function getDesktopPublishTargets(): Promise<DesktopPublishTarget[]> {
   const snapshot = await readSettings();
-  return snapshot.config.publish
-    .filter(target => snapshot.credentials[`publish:${target.credentialKey}`] === true)
-    .map(target => ({
-      publishTarget:     target.publishTarget,
-      environment:       target.environment,
-      targetFingerprint: target.targetFingerprint ?? null,
-      credentialKey:     target.credentialKey,
-    }));
+  return snapshot.config.targets.map(target => ({
+    id:                target.id,
+    name:              target.name,
+    kind:              target.kind,
+    targetFingerprint: target.targetFingerprint ?? null,
+    configured:        target.kind === 'direct' && Boolean(target.connectionString),
+  }));
 }

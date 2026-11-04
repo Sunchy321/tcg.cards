@@ -534,8 +534,8 @@ async function loadPreviousHashes(
 }
 
 /** One complete local card snapshot planned and persisted before remote writes. */
-export async function createYugiohPublishPlan() {
-  const target = requireYugiohPublishTarget();
+export async function createYugiohPublishPlan(environment?: string) {
+  const target = requireYugiohPublishTarget(environment);
   const db = getYugiohLocalDb();
   const cards = await loadLocalPublishCards(db);
   const { baseline, hashes } = await loadPreviousHashes(db, target.publishTargetId);
@@ -597,12 +597,11 @@ async function calibrateRemoteIdentity(
   `);
 }
 
-/** Planned local rows applied to the verified test remote with resumable chunks. */
+/** Planned local rows applied to the verified remote with resumable chunks. */
 export async function executeYugiohPublishBatch(
   batchId: string,
-  options?: { operatorUserId?: string, onProgress?: (progress: YugiohPublishProgress) => unknown },
+  options?: { operatorUserId?: string, environment?: string, onProgress?: (progress: YugiohPublishProgress) => unknown },
 ) {
-  const target = requireYugiohPublishTarget();
   const localDb = getYugiohLocalDb();
   const batch = await localDb.select()
     .from(PublishBatch)
@@ -613,6 +612,8 @@ export async function executeYugiohPublishBatch(
   if (batch == null) {
     throw new Error(`Publish batch ${batchId} does not exist.`);
   }
+
+  const target = requireYugiohPublishTarget(options?.environment ?? batch.environment);
 
   if (batch.status === 'completed') {
     return buildPublishReport(batch);
@@ -864,24 +865,28 @@ export async function executeYugiohPublishBatch(
 /** Existing incomplete batch resumed before any new publish plan is created. */
 export async function publishYugiohCards(options?: {
   operatorUserId?: string;
+  environment?:    string;
   onProgress?:     (progress: YugiohPublishProgress) => unknown;
 }) {
-  const incomplete = await getIncompleteYugiohPublishBatch();
+  const incomplete = await getIncompleteYugiohPublishBatch(options?.environment);
 
   if (incomplete != null) {
     return await executeYugiohPublishBatch(incomplete.batchId, options);
   }
 
-  const plan = await createYugiohPublishPlan();
+  const plan = await createYugiohPublishPlan(options?.environment);
   return await executeYugiohPublishBatch(plan.batchId, options);
 }
 
-/** Recent local publish batches for the currently configured test target. */
-export async function listYugiohPublishBatches(limit = 20) {
-  const target = requireYugiohPublishTarget();
+/** Recent local publish batches for one configured target. */
+export async function listYugiohPublishBatches(limit = 20, environment?: string) {
+  const target = requireYugiohPublishTarget(environment);
   const rows = await getYugiohLocalDb().select()
     .from(PublishBatch)
-    .where(eq(PublishBatch.publishTargetId, target.publishTargetId))
+    .where(and(
+      eq(PublishBatch.publishTargetId, target.publishTargetId),
+      eq(PublishBatch.environment, target.environment),
+    ))
     .orderBy(desc(PublishBatch.createdAt))
     .limit(limit);
 
@@ -889,12 +894,13 @@ export async function listYugiohPublishBatches(limit = 20) {
 }
 
 /** Oldest resumable planning or applying batch for the configured target. */
-export async function getIncompleteYugiohPublishBatch() {
-  const target = requireYugiohPublishTarget();
+export async function getIncompleteYugiohPublishBatch(environment?: string) {
+  const target = requireYugiohPublishTarget(environment);
   const batch = await getYugiohLocalDb().select()
     .from(PublishBatch)
     .where(and(
       eq(PublishBatch.publishTargetId, target.publishTargetId),
+      eq(PublishBatch.environment, target.environment),
       sql`${PublishBatch.status} in ('planning', 'applying')`,
     ))
     .orderBy(asc(PublishBatch.createdAt))

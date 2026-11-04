@@ -16,7 +16,7 @@ import type { TaskDescription,
   WorkerMessage } from './contract';
 import { recoverUnfinishedRuns } from './task/recover';
 import { TaskStore } from './task/store';
-import { resolveYugiohPublishTarget } from './runtime/lib/runtime/desktop-database';
+import { resolveHearthstonePublishTarget } from './runtime/lib/runtime/desktop-database';
 
 const stores = new Map<string, TaskStore>();
 const recovered = new Map<string, Promise<void>>();
@@ -251,8 +251,12 @@ async function handle(request: RuntimeRequest): Promise<RuntimeResponse> {
     apiControllers.get(request.requestId)?.abort('renderer canceled request');
     return { id: request.id, result: null };
   }
-  if (request.method === 'yugioh:resolve-publish-target') {
-    const target = await resolveYugiohPublishTarget(request);
+  if (request.method === 'publish:resolve-target') {
+    const target = await resolveHearthstonePublishTarget({
+      publishTarget:    'publish',
+      environment:      'publish',
+      connectionString: request.connectionString,
+    });
     return { id: request.id, result: { targetFingerprint: target.targetFingerprint } };
   }
   if (closing && ['task:start', 'task:retry', 'task:control'].includes(request.method)) {

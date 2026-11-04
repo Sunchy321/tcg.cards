@@ -7,43 +7,43 @@
           <h1 class="text-xl font-semibold">万智牌发布</h1>
         </div>
         <div class="flex items-center gap-3 text-xs">
-          <template v-if="selectedPublishTarget">
+          <template v-if="selected">
             <span class="text-muted">万智牌</span>
             <span class="text-muted">·</span>
             <UDropdownMenu
-              v-if="publishTargets.length > 1"
-              :items="environmentItems"
+              v-if="targetItems.length > 1"
+              :items="targetItems"
               :content="{ align: 'end' }"
             >
               <button type="button" :disabled="targetLocked" class="inline-flex items-center gap-1 text-muted transition-colors hover:text-default disabled:cursor-not-allowed">
-                {{ selectedPublishTarget.environment }}
+                {{ selected.name }}
                 <UIcon name="i-lucide-chevron-down" class="size-3 opacity-70" />
               </button>
             </UDropdownMenu>
-            <span v-else class="text-muted">{{ selectedPublishTarget.environment }}</span>
-            <UBadge :label="shortFingerprint(selectedPublishTarget.targetFingerprint)" color="neutral" variant="soft" size="xs" />
+            <span v-else class="text-muted">{{ selected.name }}</span>
+            <UBadge :label="shortFingerprint(selected.fingerprint)" color="neutral" variant="soft" size="xs" />
           </template>
           <span v-else class="text-muted">未配置</span>
-          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="ghost" size="xs" :disabled="targetLocked" @click="loadPublishTargets" />
+          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="ghost" size="xs" :disabled="targetLocked" @click="reloadTargets" />
         </div>
       </div>
 
       <UAlert
-        v-if="!hasPublishTarget && publishTargetError.length === 0"
+        v-if="!hasPublishTarget && targetError.length === 0"
         color="warning"
         variant="soft"
         icon="i-lucide-triangle-alert"
         title="未配置发布目标"
-        description="请在 设置 → 发布配置 中为万智牌添加发布环境。"
+        description="请在 设置 → 发布配置 中添加一个发布目标。"
         class="mt-2"
       />
       <UAlert
-        v-if="publishTargetError.length > 0"
+        v-if="targetError.length > 0"
         color="error"
         variant="soft"
         icon="i-lucide-circle-alert"
         title="加载发布目标失败"
-        :description="publishTargetError"
+        :description="targetError"
         class="mt-2"
       />
     </UCard>
@@ -83,7 +83,7 @@
 <script setup lang="ts">
 import type { TaskPageSnapshot, TaskRunStatus } from '@tcg-cards/model/task';
 import type { TaskOperation } from '~/components/task/TaskController.vue';
-import { getDesktopPublishTargets, type DesktopPublishTarget } from '~/composables/useDesktopSettings';
+import { usePublishTargetSelection } from '~/composables/usePublishTargetSelection';
 import { getDesktopTaskSnapshot, startDesktopTask } from '~/lib/orpc';
 
 definePageMeta({
@@ -91,9 +91,7 @@ definePageMeta({
   title:  '万智牌发布',
 });
 
-const publishTargets = ref<DesktopPublishTarget[]>([]);
-const selectedEnvironment = ref('');
-const publishTargetError = ref('');
+const { targets, selected, select, reload: reloadTargets, error: targetError } = usePublishTargetSelection('magic');
 const dryRun = ref(false);
 const force = ref(false);
 const taskResult = ref<Record<string, unknown> | null>(null);
@@ -133,37 +131,19 @@ const displayResult = computed(() => {
 
 const controller = ref<{ attach(snapshot: TaskPageSnapshot): void, currentTaskRunId: string | null }>();
 
-const environmentItems = computed(() =>
-  publishTargets.value.map(target => ({
-    label:    target.environment,
-    value:    target.environment,
-    onSelect: () => {
-      selectedEnvironment.value = target.environment;
-    },
+const targetItems = computed(() =>
+  targets.value.map(target => ({
+    label:    target.name,
+    value:    target.id,
+    disabled: !target.configured || target.kind !== 'direct',
+    onSelect: () => select(target.id),
   })));
 
-const selectedPublishTarget = computed<DesktopPublishTarget | null>(() =>
-  publishTargets.value.find(target => target.environment === selectedEnvironment.value) ?? null);
-
-const hasPublishTarget = computed(() => selectedPublishTarget.value != null);
+const hasPublishTarget = computed(() => selected.value?.configured === true);
 
 /** Abbreviates the configured target identity in the existing destination header. */
 function shortFingerprint(fingerprint: string | null) {
   return fingerprint ? fingerprint.slice(0, 8) : '';
-}
-
-/** Loads configured Magic destinations without selecting another game's environment. */
-async function loadPublishTargets() {
-  publishTargetError.value = '';
-  try {
-    const targets = await getDesktopPublishTargets();
-    publishTargets.value = targets.filter(t => t.publishTarget === 'magic');
-    if (!publishTargets.value.some(t => t.environment === selectedEnvironment.value)) {
-      selectedEnvironment.value = publishTargets.value[0]?.environment ?? '';
-    }
-  } catch (error) {
-    publishTargetError.value = error instanceof Error ? error.message : String(error);
-  }
 }
 
 const publishTypes = [
@@ -187,9 +167,8 @@ function restorePublishType() {
   try {
     const saved = window.localStorage.getItem(PUBLISH_PAGE_STATE_KEY);
     if (!saved) return;
-    const state = JSON.parse(saved) as { publishType?: string, environment?: string, dryRun?: boolean, force?: boolean, taskRunId?: string };
+    const state = JSON.parse(saved) as { publishType?: string, dryRun?: boolean, force?: boolean, taskRunId?: string };
     if (state.publishType && PUBLISH_TYPE_VALUES.includes(state.publishType)) publishType.value = state.publishType;
-    if (typeof state.environment === 'string') selectedEnvironment.value = state.environment;
     if (typeof state.dryRun === 'boolean') dryRun.value = state.dryRun;
     if (typeof state.force === 'boolean') force.value = state.force;
     persistedTaskRunId = typeof state.taskRunId === 'string' ? state.taskRunId : null;
@@ -202,7 +181,6 @@ function persistPublishPageState() {
   try {
     window.localStorage.setItem(PUBLISH_PAGE_STATE_KEY, JSON.stringify({
       publishType: publishType.value,
-      environment: selectedEnvironment.value,
       dryRun:      dryRun.value,
       force:       force.value,
       taskRunId:   persistedTaskRunId,
@@ -212,7 +190,7 @@ function persistPublishPageState() {
   }
 }
 
-watch([publishType, selectedEnvironment, dryRun, force], persistPublishPageState);
+watch([publishType, dryRun, force], persistPublishPageState);
 
 const operations: TaskOperation[] = [
   {
@@ -222,34 +200,33 @@ const operations: TaskOperation[] = [
     create: async () => {
       taskResult.value = null;
       publishError.value = '';
-      const target = selectedPublishTarget.value;
-      if (!target) throw new Error('未配置发布目标');
+      const target = selected.value;
+      if (!target || !target.configured) throw new Error('未配置发布目标');
       targetLocked.value = true;
       if (publishType.value === 'announcement') {
         return startDesktopTask('magic_announcement_publish', {
           publishTarget: 'magic',
-          environment:   target.environment,
+          targetId:      target.id,
           dryRun:        dryRun.value,
         });
       }
       if (publishType.value === 'document') {
         return startDesktopTask('magic_document_publish', {
-          publishTarget:     target.publishTarget,
-          environment:       target.environment,
-          targetFingerprint: target.targetFingerprint,
-          dryRun:            dryRun.value,
+          publishTarget: 'magic',
+          targetId:      target.id,
+          dryRun:        dryRun.value,
         });
       }
       if (publishType.value === 'reference') {
         return startDesktopTask('magic_reference_publish', {
           publishTarget: 'magic',
-          environment:   target.environment,
+          targetId:      target.id,
           dryRun:        dryRun.value,
         });
       }
       return startDesktopTask('magic_publish', {
         publishTarget: 'magic',
-        environment:   target.environment,
+        targetId:      target.id,
         dryRun:        dryRun.value,
         force:         force.value,
       });
@@ -292,7 +269,10 @@ function onSnapshot(snapshot: TaskPageSnapshot) {
   persistedTaskRunId = snapshot.pageTask.taskRunId;
   publishType.value = restoredType;
   const environment = snapshot.pageTask.taskScopeSnapshot?.environment;
-  if (typeof environment === 'string') selectedEnvironment.value = environment;
+  if (typeof environment === 'string') {
+    const restoredTarget = targets.value.find(target => target.name === environment);
+    if (restoredTarget) void select(restoredTarget.id);
+  }
   persistPublishPageState();
   onStatusChange(snapshot.pageTask.status);
   if (targetLocked.value) {
@@ -303,7 +283,7 @@ function onSnapshot(snapshot: TaskPageSnapshot) {
 
 onMounted(async () => {
   restorePublishType();
-  await loadPublishTargets();
+  await reloadTargets();
   if (persistedTaskRunId) {
     try {
       const snapshot = await getDesktopTaskSnapshot(persistedTaskRunId);

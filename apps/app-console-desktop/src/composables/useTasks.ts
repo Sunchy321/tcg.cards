@@ -43,7 +43,7 @@ export function useTasks() {
       ));
       for (const task of [...latest, ...typed]) next[task.id] = task;
       tasks.value = next;
-      listError.value = settings.credentials.database ? '' : '请先在设置中填写本地数据库连接。';
+      listError.value = settings.config.database ? '' : '请先在设置中填写本地数据库连接。';
     } catch (error) {
       listError.value = error instanceof Error ? error.message : '无法读取任务';
     }

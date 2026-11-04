@@ -82,24 +82,27 @@
       <template #header>
         <div class="flex items-center justify-between gap-3">
           <div>
-            <h2 class="font-medium">测试环境发布</h2>
+            <h2 class="font-medium">发布</h2>
             <p class="mt-1 text-xs text-muted">发布前会确认目标与范围，并检查当前账号的发布权限。</p>
           </div>
           <UButton icon="i-lucide-refresh-cw" color="neutral" variant="ghost" :loading="loading" @click="load" />
         </div>
       </template>
       <div class="space-y-4">
-        <div v-if="publishTarget" class="rounded-lg border border-default bg-elevated/40 p-3 text-sm">
-          <span class="text-muted">发布目标：</span>{{ publishTarget.publishTargetId }}
-          <span class="mx-2 text-muted">·</span>
-          <span>测试环境</span>
+        <div v-if="publishTarget" class="flex flex-wrap items-center gap-2 rounded-lg border border-default bg-elevated/40 p-3 text-sm">
+          <span class="text-muted">发布目标：</span>
+          <UDropdownMenu v-if="publishTargetItems.length > 1" :items="publishTargetItems" :content="{ align: 'start' }">
+            <UButton :label="publishTarget.name" icon="i-lucide-chevron-down" color="neutral" variant="ghost" size="xs" />
+          </UDropdownMenu>
+          <span v-else class="font-medium">{{ publishTarget.name }}</span>
+          <UBadge v-if="!publishTarget.configured" label="未完成配置" color="warning" variant="soft" size="xs" />
         </div>
         <UAlert
           v-else
           color="warning"
           variant="soft"
-          title="尚未配置测试发布目标"
-          description="请先配置游戏王发布连接，再开始发布。"
+          title="尚未配置发布目标"
+          description="请先在 设置 → 发布配置 中添加一个直连目标。"
         />
         <TaskController
           ref="publishController"
@@ -141,6 +144,7 @@ import type { TaskPageSnapshot } from '@tcg-cards/model/task';
 import type { TaskOperation } from '~/components/task/TaskController.vue';
 import type { TaskView } from '../../../electron/contract';
 import { useDesktopSettings } from '~/composables/useDesktopSettings';
+import { usePublishTargetSelection } from '~/composables/usePublishTargetSelection';
 import { useTasks } from '~/composables/useTasks';
 import { getDesktopTaskSnapshot, startDesktopTask, orpc } from '~/lib/orpc';
 
@@ -167,11 +171,13 @@ const latestImport = computed(() => importState.value?.latest ?? null);
 const latestImageImport = computed(() => imageState.value?.latest ?? null);
 const latestPublish = computed(() => publishState.value?.batches[0] ?? null);
 const hasImageBucket = computed(() => Boolean(settingsSnapshot.value?.config.games.yugioh?.image?.bucketDir));
-const publishTarget = computed(() => {
-  const target = settingsSnapshot.value?.config.games.yugioh?.publish;
-  const configured = settingsSnapshot.value?.credentials['yugioh-publish'] ?? false;
-  return target && target.environment === 'test' && configured ? target : null;
-});
+const { targets: publishTargets, selected: publishTarget, select: selectPublishTarget, reload: reloadPublishTargets } = usePublishTargetSelection('yugioh');
+const publishTargetItems = computed(() => publishTargets.value.map(target => ({
+  label:    target.name,
+  value:    target.id,
+  disabled: !target.configured || target.kind !== 'direct',
+  onSelect: () => selectPublishTarget(target.id),
+})));
 
 function isBlockedByOtherTask(taskType: string) {
   return taskStore.active.value.some((task: TaskView) => workflowTaskTypes.includes(task.taskType) && task.taskType !== taskType);
@@ -198,10 +204,13 @@ const imageOperation = computed<TaskOperation>(() => ({
 const publishOperation = computed<TaskOperation>(() => ({
   key:      'publish',
   taskType: publishTaskType,
-  label:    '发布到测试目标',
+  label:    '发布卡牌数据',
   icon:     'i-lucide-upload',
-  disabled: !publishTarget.value || isBlockedByOtherTask(publishTaskType),
-  create:   () => startDesktopTask(publishTaskType, {}),
+  disabled: publishTarget.value?.configured !== true || isBlockedByOtherTask(publishTaskType),
+  create:   () => startDesktopTask(publishTaskType, {
+    publishTarget: 'yugioh',
+    targetId:      publishTarget.value?.id ?? '',
+  }),
 }));
 
 const importStats = computed(() => [
@@ -269,7 +278,7 @@ async function load() {
       orpc.yugioh.imageSourceInfo(),
       orpc.yugioh.getImportState(),
       orpc.yugioh.getImageImportState(),
-      orpc.yugioh.getPublishState(),
+      orpc.yugioh.getPublishState(publishTarget.value ? { target: publishTarget.value.name } : {}),
       window.desktop.settings.read(),
     ]);
     sourceInfo.value = source;
@@ -278,6 +287,7 @@ async function load() {
     imageState.value = images;
     publishState.value = publishes;
     settingsSnapshot.value = settings;
+    await reloadPublishTargets();
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : '无法读取游戏王资料。';
   } finally {

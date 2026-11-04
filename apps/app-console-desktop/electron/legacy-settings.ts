@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { pathKeys } from '../shared/settings.ts';
 import type { MigrationItem } from '../shared/settings.ts';
 import type { Settings } from './settings.ts';
@@ -41,7 +40,7 @@ export async function inheritSettings(settings: Settings, source: LegacySources)
   });
   if (legacy.externalDatabaseConnectionString !== undefined) {
     await attempt('数据库连接', () =>
-      settings.setSecret('database', legacy.externalDatabaseConnectionString as string, { inherited: true }),
+      settings.update('database', legacy.externalDatabaseConnectionString),
     );
   }
   // Missing sections are normal; malformed present sections must remain visible in the report.
@@ -54,11 +53,9 @@ export async function inheritSettings(settings: Settings, source: LegacySources)
       report.push({ label, status: 'failed' });
     }
   }
-  if (legacy.publish !== undefined && !Array.isArray(legacy.publish))
-    report.push({ label: '发布连接设置', status: 'failed' });
   const ai = object(legacy.ai);
   if (ai.apiKey !== undefined)
-    await attempt('模型密钥', () => settings.setSecret('ai', ai.apiKey as string, { inherited: true }));
+    await attempt('模型密钥', () => settings.setSecret('ai', ai.apiKey as string));
   for (const key of ['baseUrl', 'model']) {
     if (ai[key] !== undefined)
       await attempt(key === 'model' ? '模型名称' : '模型地址', () => settings.update(`ai.${key}`, ai[key]));
@@ -97,44 +94,7 @@ export async function inheritSettings(settings: Settings, source: LegacySources)
         await attempt('游戏图片设置', () => settings.update(`games.${game}.image.${key}`, image[key]));
     }
   }
-  const rows: unknown[] = Array.isArray(legacy.publish) ? legacy.publish : [];
-  for (const row of rows) {
-    const target = object(row);
-    await attempt('发布连接设置', async () => {
-      const key = typeof target.credentialKey === 'string' ? target.credentialKey : randomUUID();
-      const profile = {
-        credentialKey: key,
-        publishTarget: target.publishTarget,
-        environment:   target.environment,
-        ...(target.targetFingerprint ? { targetFingerprint: target.targetFingerprint } : {}),
-      };
-      await settings.update('publish', [...settings.snapshot().config.publish, profile]);
-      await attempt('发布连接凭据', async () => {
-        const secret = await source.credential(`publish-target:${key}`);
-        if (secret === null) return null;
-        await settings.setSecret(`publish:${key}`, secret, { inherited: true });
-      });
-    });
-  }
-  const oldYugioh = object(games.yugioh).publish;
-  const yugioh = object(oldYugioh);
-  if (oldYugioh !== undefined && Object.keys(yugioh).length === 0)
-    report.push({ label: '游戏王发布设置', status: 'failed' });
-  if (Object.keys(yugioh).length) {
-    await attempt('游戏王发布设置', async () => {
-      const config = settings.snapshot();
-      config.config.games.yugioh ??= {};
-      config.config.games.yugioh.publish = yugioh as NonNullable<
-        NonNullable<typeof config.config.games.yugioh>['publish']
-      >;
-      await settings.saveJson(JSON.stringify(config.config), config.revision);
-    });
-    await attempt('游戏王发布凭据', async () => {
-      const secret = await source.credential('yugioh-publish-target');
-      if (secret === null) return null;
-      await settings.setSecret('yugioh-publish', secret, { inherited: true });
-    });
-  }
+  // Legacy publish connections are intentionally not inherited: publish targets are re-created.
   // Archive old login material encrypted; never activate its session or gate local work.
   await attempt('登录会话', async () => {
     const value = await source.session();

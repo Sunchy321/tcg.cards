@@ -1,9 +1,6 @@
 import { ORPCError } from '@orpc/server';
 
-import {
-  readHearthstonePublishTargetOverride,
-  readHearthstonePublishTargetOverrides,
-} from '../../runtime-config';
+import { findPublishTargetByName, readPublishTargets } from '../../runtime-config';
 
 /** Complete Hearthstone publish target state required by desktop publishing. */
 export interface HsdataPublishTarget {
@@ -19,94 +16,54 @@ const trimToNull = (value: string | null | undefined) => {
   return trimmed ? trimmed : null;
 };
 
-/** One runtime-injected publish target normalized only when every required field is present. */
-const normalizePublishTarget = (
-  target: ReturnType<typeof readHearthstonePublishTargetOverride>,
-) => {
-  const publishTarget = trimToNull(target?.publishTarget);
-  const environment = trimToNull(target?.environment);
+/** Builds a complete publish target from one runtime-injected destination. */
+function completeTarget(publishTarget: string, name: string | null | undefined) {
+  const target = findPublishTargetByName(name);
+  const resolvedName = trimToNull(target?.name);
   const targetFingerprint = trimToNull(target?.targetFingerprint);
   const connectionString = trimToNull(target?.connectionString);
 
-  if (publishTarget == null || environment == null || targetFingerprint == null || connectionString == null) {
+  if (resolvedName == null || targetFingerprint == null || connectionString == null) {
     return null;
   }
 
   return {
     publishTarget,
-    environment,
+    environment: resolvedName,
     targetFingerprint,
     connectionString,
   } satisfies HsdataPublishTarget;
-};
+}
 
-/** Lists the missing target fields required before a desktop publish can run. */
-const listMissingFields = (
-  target: ReturnType<typeof readHearthstonePublishTargetOverride>,
-) => {
-  const missing: string[] = [];
-
-  if (trimToNull(target?.publishTarget) == null) {
-    missing.push('publishTarget');
-  }
-
-  if (trimToNull(target?.environment) == null) {
-    missing.push('environment');
-  }
-
-  if (trimToNull(target?.targetFingerprint) == null) {
-    missing.push('targetFingerprint');
-  }
-
-  if (trimToNull(target?.connectionString) == null) {
-    missing.push('connectionString');
-  }
-
-  return missing;
-};
+/** Resolves the only configured target when a caller did not name one. */
+function singleTargetName(): string | null {
+  const names = readPublishTargets()
+    .map(target => trimToNull(target.name))
+    .filter((name): name is string => name != null);
+  return names.length === 1 ? names[0]! : null;
+}
 
 /** Reads the current runtime-injected publish target when all required fields are present. */
-export const getHearthstonePublishTarget = () => {
-  return normalizePublishTarget(readHearthstonePublishTargetOverride());
-};
-
-/** Lists every runtime-injected publish target that is fully configured. */
-export const listHearthstonePublishTargets = () => {
-  return readHearthstonePublishTargetOverrides()
-    .map(target => normalizePublishTarget(target))
-    .filter((target): target is HsdataPublishTarget => target != null);
+export const getHearthstonePublishTarget = (publishTarget = 'hearthstone') => {
+  return completeTarget(publishTarget, singleTargetName());
 };
 
 /** Reads one configured publish target that matches the requested identity. */
 export const getHearthstonePublishTargetByIdentity = (
   publishTarget: string,
   environment: string,
-) => {
-  const expectedPublishTarget = trimToNull(publishTarget);
-  const expectedEnvironment = trimToNull(environment);
-
-  if (expectedPublishTarget == null || expectedEnvironment == null) {
-    return null;
-  }
-
-  return listHearthstonePublishTargets().find(target => {
-    return target.publishTarget === expectedPublishTarget
-      && target.environment === expectedEnvironment;
-  }) ?? null;
-};
+) => completeTarget(publishTarget, environment);
 
 /** Resolves the runtime-injected publish target or raises one RPC error with the missing fields. */
-export const requireHearthstonePublishTarget = () => {
-  const target = getHearthstonePublishTarget();
+export const requireHearthstonePublishTarget = (publishTarget = 'hearthstone') => {
+  const target = getHearthstonePublishTarget(publishTarget);
 
   if (target != null) {
     return target;
   }
 
-  const missing = listMissingFields(readHearthstonePublishTargetOverride());
-
   throw new ORPCError('INTERNAL_SERVER_ERROR', {
-    message: `Hearthstone publish target is not configured: missing ${missing.join(', ')}`,
+    message: 'Hearthstone publish target is not configured. Select one publish target before publishing.',
   });
 };
 
@@ -122,6 +79,6 @@ export const requireHearthstonePublishTargetByIdentity = (
   }
 
   throw new ORPCError('INTERNAL_SERVER_ERROR', {
-    message: `Hearthstone publish target is not configured for ${publishTarget}/${environment}.`,
+    message: `Hearthstone publish target ${environment} is not configured for ${publishTarget}.`,
   });
 };

@@ -52,61 +52,48 @@ export function readSearchD1SessionOverride(): SearchD1SessionOverride | null {
   return searchD1SessionOverride.current;
 }
 
-/** Publish-target override payload injected by the desktop shell. */
-export interface HearthstonePublishTargetOverride {
-  publishTarget:     string | null;
-  environment:       string | null;
-  targetFingerprint: string | null;
+/** One publish destination injected by the desktop shell; secrets stay in the main process. */
+export interface PublishTargetOverride {
+  id:                string | null;
+  name:              string | null;
+  kind:              'direct' | 'account';
   connectionString:  string | null;
+  targetFingerprint: string | null;
 }
 
-const hearthstonePublishTargetOverrides = {
-  current: [] as HearthstonePublishTargetOverride[],
+const publishTargetOverrides = {
+  current: [] as PublishTargetOverride[],
 };
 
-/** Publish-target override payload injected for the Yu-Gi-Oh! desktop workflow. */
-export interface YugiohPublishTargetOverride {
-  publishTargetId:   string | null;
-  environment:       string | null;
-  targetFingerprint: string | null;
-  connectionString:  string | null;
+/** Stores the runtime-local publish destinations provided by the desktop shell. */
+export function setPublishTargets(value: PublishTargetOverride[]) {
+  publishTargetOverrides.current = value.map(target => ({
+    id:                target.id?.trim() ?? null,
+    name:              target.name?.trim() ?? null,
+    kind:              target.kind,
+    connectionString:  target.connectionString?.trim() ?? null,
+    targetFingerprint: target.targetFingerprint?.trim() ?? null,
+  }));
 }
 
-/** Publish-target override payload injected for the magic desktop workflow. */
-export interface MagicPublishTargetOverride {
-  publishTarget:     string | null;
-  environment:       string | null;
-  targetFingerprint: string | null;
-  connectionString:  string | null;
+/** Lists every runtime-local publish destination. */
+export function readPublishTargets() {
+  return publishTargetOverrides.current;
 }
 
-const magicPublishTargetOverrides = {
-  current: [] as MagicPublishTargetOverride[],
-};
-
-/** Stores runtime-local magic publish target overrides provided by the desktop shell. */
-export function setMagicPublishTargetOverrides(value: MagicPublishTargetOverride[]) {
-  magicPublishTargetOverrides.current = value;
+/** Resolves one publish destination by its user-visible name. */
+export function findPublishTargetByName(name: string | null | undefined) {
+  const expected = name?.trim();
+  if (!expected) return null;
+  return readPublishTargets().find(target => target.name === expected) ?? null;
 }
 
-/** Lists runtime-local magic publish target overrides. */
-export function readMagicPublishTargetOverrides() {
-  return magicPublishTargetOverrides.current;
+/** Resolves one publish destination by its stable identifier. */
+export function findPublishTargetById(id: string | null | undefined) {
+  const expected = id?.trim();
+  if (!expected) return null;
+  return readPublishTargets().find(target => target.id === expected) ?? null;
 }
-
-/** Reports whether the runtime has any complete magic publish target override. */
-export function hasMagicPublishTargetOverride() {
-  return readMagicPublishTargetOverrides().some(target => {
-    return target.publishTarget != null
-      && target.environment != null
-      && target.targetFingerprint != null
-      && target.connectionString != null;
-  });
-}
-
-const yugiohPublishTargetOverride = {
-  current: null as YugiohPublishTargetOverride | null,
-};
 
 /** Local bucket override injected for the Yu-Gi-Oh! primary-image workflow. */
 export interface YugiohImageOverride {
@@ -219,41 +206,6 @@ export function hasHearthstoneImageOverride() {
   return image?.rendererBaseUrl != null || image?.bucketDir != null;
 }
 
-/** Stores one runtime-local Hearthstone publish target override provided by the desktop shell. */
-export function setHearthstonePublishTargetOverride(value: HearthstonePublishTargetOverride | null) {
-  setHearthstonePublishTargetOverrides(value == null ? [] : [value]);
-}
-
-/** Stores runtime-local Hearthstone publish target overrides provided by the desktop shell. */
-export function setHearthstonePublishTargetOverrides(value: HearthstonePublishTargetOverride[]) {
-  hearthstonePublishTargetOverrides.current = value.map(item => ({
-    publishTarget:     item.publishTarget?.trim() ?? null,
-    environment:       item.environment?.trim() ?? null,
-    targetFingerprint: item.targetFingerprint?.trim() ?? null,
-    connectionString:  item.connectionString?.trim() ?? null,
-  }));
-}
-
-/** Resolves runtime-local Hearthstone publish target overrides from runtime memory. */
-export function readHearthstonePublishTargetOverrides() {
-  return hearthstonePublishTargetOverrides.current;
-}
-
-/** Resolves the primary Hearthstone publish target override from runtime memory. */
-export function readHearthstonePublishTargetOverride() {
-  return hearthstonePublishTargetOverrides.current[0] ?? null;
-}
-
-/** Reports whether the runtime currently has any complete Hearthstone publish target override. */
-export function hasHearthstonePublishTargetOverride() {
-  return readHearthstonePublishTargetOverrides().some(target => {
-    return target.publishTarget != null
-      && target.environment != null
-      && target.targetFingerprint != null
-      && target.connectionString != null;
-  });
-}
-
 export interface AiConfig {
   apiKey:  string | null;
   baseUrl: string | null;
@@ -295,33 +247,29 @@ export function readEditorIdentity() {
 }
 
 export interface RuntimeOverrides {
-  localDatabaseUrl:          string | null;
-  paths:                     PathOverrides;
-  hearthstoneImage:          HearthstoneImageOverride | null;
-  hearthstonePublishTargets: HearthstonePublishTargetOverride[];
-  magicPublishTargets:       MagicPublishTargetOverride[];
-  searchR2:                  SearchR2Override | null;
-  searchD1Session:           SearchD1SessionOverride | null;
-  yugiohImage:               YugiohImageOverride | null;
-  yugiohPublishTarget:       YugiohPublishTargetOverride | null;
-  aiConfig:                  AiConfig | null;
-  editorIdentity:            string | null;
+  localDatabaseUrl: string | null;
+  paths:            PathOverrides;
+  hearthstoneImage: HearthstoneImageOverride | null;
+  publishTargets:   PublishTargetOverride[];
+  searchR2:         SearchR2Override | null;
+  searchD1Session:  SearchD1SessionOverride | null;
+  yugiohImage:      YugiohImageOverride | null;
+  aiConfig:         AiConfig | null;
+  editorIdentity:   string | null;
 }
 
 /** Collects all current runtime overrides into a serializable object for Worker transfer. */
 export function collectRuntimeOverrides(): RuntimeOverrides {
   return {
-    localDatabaseUrl:          readLocalDatabaseUrl(),
-    paths:                     readAllPathOverrides(),
-    hearthstoneImage:          readHearthstoneImageOverride(),
-    hearthstonePublishTargets: readHearthstonePublishTargetOverrides(),
-    magicPublishTargets:       readMagicPublishTargetOverrides(),
-    searchR2:                  readSearchR2Override(),
-    searchD1Session:           readSearchD1SessionOverride(),
-    yugiohImage:               readYugiohImageOverride(),
-    yugiohPublishTarget:       readYugiohPublishTargetOverride(),
-    aiConfig:                  readAiConfig(),
-    editorIdentity:            readEditorIdentity(),
+    localDatabaseUrl: readLocalDatabaseUrl(),
+    paths:            readAllPathOverrides(),
+    hearthstoneImage: readHearthstoneImageOverride(),
+    publishTargets:   readPublishTargets(),
+    searchR2:         readSearchR2Override(),
+    searchD1Session:  readSearchD1SessionOverride(),
+    yugiohImage:      readYugiohImageOverride(),
+    aiConfig:         readAiConfig(),
+    editorIdentity:   readEditorIdentity(),
   };
 }
 
@@ -330,44 +278,12 @@ export function applyRuntimeOverrides(data: RuntimeOverrides): void {
   setLocalDatabaseUrlOverride(data.localDatabaseUrl);
   applyPathOverrides(data.paths);
   setHearthstoneImageOverride(data.hearthstoneImage);
-  setHearthstonePublishTargetOverrides(data.hearthstonePublishTargets);
-  setMagicPublishTargetOverrides(data.magicPublishTargets);
+  setPublishTargets(data.publishTargets);
   setSearchR2Override(data.searchR2);
   setSearchD1SessionOverride(data.searchD1Session);
   setYugiohImageOverride(data.yugiohImage);
-  setYugiohPublishTargetOverride(data.yugiohPublishTarget);
   setAiConfig(data.aiConfig);
   setEditorIdentity(data.editorIdentity);
-}
-
-/** Stores one runtime-local Yu-Gi-Oh! publish target injected by the desktop shell. */
-export function setYugiohPublishTargetOverride(value: YugiohPublishTargetOverride | null) {
-  if (value == null) {
-    yugiohPublishTargetOverride.current = null;
-    return;
-  }
-
-  yugiohPublishTargetOverride.current = {
-    publishTargetId:   value.publishTargetId?.trim() ?? null,
-    environment:       value.environment?.trim() ?? null,
-    targetFingerprint: value.targetFingerprint?.trim() ?? null,
-    connectionString:  value.connectionString?.trim() ?? null,
-  };
-}
-
-/** Resolves the current runtime-local Yu-Gi-Oh! publish target override. */
-export function readYugiohPublishTargetOverride() {
-  return yugiohPublishTargetOverride.current;
-}
-
-/** Reports whether all Yu-Gi-Oh! publish target fields are currently configured. */
-export function hasYugiohPublishTargetOverride() {
-  const target = readYugiohPublishTargetOverride();
-
-  return target?.publishTargetId != null
-    && target.environment != null
-    && target.targetFingerprint != null
-    && target.connectionString != null;
 }
 
 /** Stores one runtime-local Yu-Gi-Oh! image bucket injected by desktop. */

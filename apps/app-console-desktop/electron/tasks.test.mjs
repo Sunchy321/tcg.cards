@@ -22,7 +22,7 @@ async function launchConsole() {
   await patchQuitDialog(app, 1);
   const page = await app.firstWindow();
   await page.getByText('最近活动', { exact: true }).waitFor();
-  await page.evaluate(url => window.desktop.settings.setSecret('database', url), databaseUrl());
+  await page.evaluate(url => window.desktop.settings.update('database', url), databaseUrl());
   return { app, page, profile };
 }
 
@@ -633,7 +633,7 @@ test('keeps executing on the startup database snapshot while the live setting is
 
     // Saving settings during a run never consults the running task's connection.
     await page.evaluate(
-      url => window.desktop.settings.setSecret('database', url),
+      url => window.desktop.settings.update('database', url),
       'postgresql://snapshot-check@localhost:5432/unrelated',
     );
 
@@ -659,7 +659,7 @@ test('keeps executing on the startup database snapshot while the live setting is
     assert.equal(finishedOnSnapshot.done, 12);
   } finally {
     // The original connection comes back only after the run ended on its startup snapshot.
-    await page.evaluate(url => window.desktop.settings.setSecret('database', url), databaseUrl()).catch(() => {});
+    await page.evaluate(url => window.desktop.settings.update('database', url), databaseUrl()).catch(() => {});
     await app?.close();
     await rm(profile, { recursive: true, force: true });
   }

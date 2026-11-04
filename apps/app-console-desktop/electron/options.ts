@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import type { ElectronOptions as NuxtElectronOptions } from 'nuxt-electron';
 import type { ElectronOptions } from 'vite-plugin-electron';
 
@@ -39,8 +40,11 @@ export const electronOptions: NuxtElectronOptions = {
           rollupOptions: { external: ['sharp'] },
         },
         resolve: {
-          // Resolve workspace model imports consistently across package boundaries.
-          alias: [{ find: /^#model\/(.*)$/, replacement: '@tcg-cards/model/$1' }],
+          // Workspace packages address their own sources through these prefixes.
+          alias: {
+            '#model':  fileURLToPath(new URL('../node_modules/@tcg-cards/model/src', import.meta.url)),
+            '#search': fileURLToPath(new URL('../node_modules/@tcg-cards/search/src', import.meta.url)),
+          },
         },
       },
       entry:   { 'main': 'electron/main.ts', 'runtime': 'electron/runtime.ts', 'task-worker': 'electron/task-worker.ts' },

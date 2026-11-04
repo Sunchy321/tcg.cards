@@ -27,6 +27,7 @@ import { registerFileDialogs } from './file-dialog-ipc';
 import { registerAuth } from './auth';
 import { authSessionEnvelope } from './auth-core';
 import { admitPublish, PUBLISH_GAME_LABELS } from './publish-admission';
+import { assertPublishTargetUsable, resolvePublishTarget as resolveSelectedPublishTarget, withResolvedPublishTarget } from './publish-targets';
 import { verifyDevelopment } from './development-trust';
 import type { IpcMainInvokeEvent, MessageBoxOptions } from 'electron';
 import type { PathOverrides, RuntimeOverrides } from './runtime/runtime-config';
@@ -173,6 +174,11 @@ async function confirmPublish(game: AdmissionGame, environment: string, scope: s
   return result.response === 1;
 }
 
+/** Reads the configured local database URL from ordinary settings. */
+function localDatabaseUrl(settings: Settings) {
+  return settings.snapshot().config.database ?? null;
+}
+
 /** Prevents renderer-supplied operator IDs from entering persisted task parameters. */
 function taskParamsWithOperator(params: Record<string, unknown>, operatorUserId?: string): Record<string, unknown> {
   const value = { ...params };
@@ -201,29 +207,22 @@ function nestPaths(paths: Partial<Record<string, string>>): PathOverrides {
 /** Builds the isolated runtime snapshot without exposing decrypted values to the renderer. */
 async function buildRuntimeSettings(settings: Settings): Promise<RuntimeOverrides> {
   const { config } = settings.snapshot();
-  const [localDatabaseUrl, aiApiKey, yugiohPublishConnectionString, searchR2AccessKeyId, searchR2SecretAccessKey, searchD1Session, hearthstonePublishTargets, magicPublishTargets] = await Promise.all([
-    settings.secret('database'),
+  const [aiApiKey, searchR2AccessKeyId, searchR2SecretAccessKey, searchD1Session] = await Promise.all([
     settings.secret('ai'),
-    settings.secret('yugioh-publish'),
     settings.secret('search-r2-access-key-id'),
     settings.secret('search-r2-secret-access-key'),
     authSessionEnvelope(settings),
-    Promise.all(config.publish.filter(item => item.publishTarget === 'hearthstone').map(async item => ({
-      publishTarget:     item.publishTarget,
-      environment:       item.environment,
-      targetFingerprint: item.targetFingerprint ?? null,
-      connectionString:  await settings.secret(`publish:${item.credentialKey}`),
-    }))),
-    Promise.all(config.publish.filter(item => item.publishTarget === 'magic').map(async item => ({
-      publishTarget:     item.publishTarget,
-      environment:       item.environment,
-      targetFingerprint: item.targetFingerprint ?? null,
-      connectionString:  await settings.secret(`publish:${item.credentialKey}`),
-    }))),
   ]);
+  const localDatabaseUrl = config.database ?? null;
+  const publishTargets = config.targets.map(target => ({
+    id:                target.id,
+    name:              target.name,
+    kind:              target.kind,
+    targetFingerprint: target.targetFingerprint ?? null,
+    connectionString:  target.kind === 'direct' ? (target.connectionString ?? null) : null,
+  }));
   const image = config.games.hearthstone?.image;
   const yugiohImage = config.games.yugioh?.image;
-  const yugiohPublish = config.games.yugioh?.publish;
 
   return {
     localDatabaseUrl,
@@ -232,8 +231,7 @@ async function buildRuntimeSettings(settings: Settings): Promise<RuntimeOverride
       rendererBaseUrl: image?.rendererBaseUrl ?? null,
       bucketDir:       image?.bucketDir ?? null,
     },
-    hearthstonePublishTargets,
-    magicPublishTargets,
+    publishTargets,
     searchR2: {
       accountId:       config.searchStorage.accountId ?? null,
       accessKeyId:     searchR2AccessKeyId,
@@ -243,14 +241,6 @@ async function buildRuntimeSettings(settings: Settings): Promise<RuntimeOverride
     yugiohImage: {
       bucketDir: yugiohImage?.bucketDir ?? null,
     },
-    yugiohPublishTarget: yugiohPublish
-      ? {
-        publishTargetId:   yugiohPublish.publishTargetId,
-        environment:       yugiohPublish.environment,
-        targetFingerprint: yugiohPublish.targetFingerprint,
-        connectionString:  yugiohPublishConnectionString,
-      }
-      : null,
     aiConfig: {
       apiKey:  aiApiKey,
       baseUrl: config.ai.baseUrl ?? null,
@@ -260,37 +250,36 @@ async function buildRuntimeSettings(settings: Settings): Promise<RuntimeOverride
   };
 }
 
-/** Binds an unverified Yu-Gi-Oh! test target after confirmation and account admission. */
-async function verifyYugiohPublishTarget(settings: Settings): Promise<void> {
-  const target = settings.snapshot().config.games.yugioh?.publish;
-  const connectionString = await settings.secret('yugioh-publish');
+/** Fixed operator recorded when a direct publish target writes its ledger. */
+const LOCAL_DIRECT_OPERATOR = 'local';
 
-  if (!target || !target.publishTargetId.trim() || target.environment !== 'test' || !connectionString) {
-    throw new Error('请先填写完整的游戏王测试发布目标。');
-  }
+/**
+ * Resolves the target selected for one publish launch: fills the stream label,
+ * verifies the destination fingerprint, and records it on the first successful connection.
+ */
+async function resolvePublishLaunchParams(settings: Settings, params: Record<string, unknown>) {
+  const targetId = typeof params.targetId === 'string' ? params.targetId : '';
+  if (!targetId) return params;
+  const target = settings.snapshot().config.targets.find(item => item.id === targetId);
+  if (!target) throw new Error('发布目标不存在，请重新选择。');
+  assertPublishTargetUsable(target);
+  const connectionString = target.connectionString ?? null;
+  if (!connectionString) throw new Error('请先填写该发布目标的连接字符串。');
 
-  let identity: Awaited<ReturnType<RuntimeClient['resolveYugiohPublishTarget']>>;
+  let fingerprint: string;
   try {
-    identity = await runtime!.resolveYugiohPublishTarget({
-      publishTargetId: target.publishTargetId,
-      environment:     target.environment,
-      connectionString,
-    });
+    fingerprint = (await runtime!.resolvePublishTarget({ connectionString })).targetFingerprint;
   } catch {
-    throw new Error('无法确认游戏王测试目标，请检查连接信息和网络。');
+    throw new Error('无法连接发布目标，请检查连接信息和网络。');
   }
-
-  if (target.targetFingerprint && target.targetFingerprint !== identity.targetFingerprint) {
-    throw new Error('当前连接指向的目标与已保存的发布目标不一致，请检查连接设置。');
-  }
-
-  if (!target.targetFingerprint) {
-    await settings.update('games.yugioh.publish', {
-      ...target,
-      targetFingerprint: identity.targetFingerprint,
-    });
+  const resolved = resolveSelectedPublishTarget(target, fingerprint);
+  if (resolved.capture) {
+    await settings.update('targets', settings.snapshot().config.targets.map(item =>
+      item.id === target.id ? { ...item, targetFingerprint: fingerprint } : item));
     await syncRuntimeSettings(settings);
   }
+
+  return withResolvedPublishTarget(params, resolved);
 }
 
 /** Applies a new settings revision to the service process before its next operation. */
@@ -363,7 +352,7 @@ app
       if (taskShutdown) return;
       // Reopening the configured database reruns the recovery scan so crashed runs stop looking alive.
       void syncRuntimeSettings(settings)
-        .then(() => settings.secret('database'))
+        .then(() => localDatabaseUrl(settings))
         .then(url => (url ? runtime?.list(url) : undefined))
         .catch(() => {});
     });
@@ -446,10 +435,10 @@ app
       if ((parsed.action === 'start' || parsed.action === 'retry') && taskShutdown) {
         throw new Error('应用正在退出，不能启动新任务。');
       }
-      if (parsed.action === 'list') return runtime!.list(await settings.secret('database') ?? undefined);
-      if (parsed.action === 'get') return runtime!.get(parsed.taskRunId, await settings.secret('database') ?? undefined);
+      if (parsed.action === 'list') return runtime!.list(localDatabaseUrl(settings) ?? undefined);
+      if (parsed.action === 'get') return runtime!.get(parsed.taskRunId, localDatabaseUrl(settings) ?? undefined);
       if (parsed.action === 'control' || parsed.action === 'latestByTypes') {
-        const url = await settings.secret('database');
+        const url = localDatabaseUrl(settings);
         if (!url) throw new Error('请先在设置中填写本地数据库连接。');
         if (parsed.action === 'control' && parsed.kind === 'resume') {
           const source = await runtime!.get(parsed.taskRunId, url);
@@ -467,7 +456,7 @@ app
           ? runtime!.control(parsed.taskRunId, parsed.kind, url)
           : runtime!.latestByTypes(parsed.taskTypes, url);
       }
-      const url = await settings.secret('database');
+      const url = localDatabaseUrl(settings);
       let taskType: string;
       let retryOfTaskRunId: string | null = null;
       if (parsed.action === 'start') {
@@ -487,8 +476,11 @@ app
         mainWindow?.webContents.send(TASK_CHANGED_CHANNEL, existing);
         return { taskRunId: existing.id, existing: true };
       }
+      const startParams = parsed.action === 'start'
+        ? await resolvePublishLaunchParams(settings, parsed.params)
+        : null;
       const description = parsed.action === 'start'
-        ? await runtime!.describe(taskType, parsed.params)
+        ? await runtime!.describe(taskType, startParams ?? {})
         : await runtime!.describeRetry(parsed.taskRunId, url);
       if (description?.publishConfirmation) {
         if (!description.admission) throw new Error('发布任务缺少权限检查。');
@@ -497,12 +489,12 @@ app
         if (!(await confirmPublish(description.admission.game, environment, scope))) return null;
       }
       // Only account connections require Console admission; database gates still run inside direct tasks.
-      const operatorUserId = description?.admission
+      const admittedOperator = description?.admission
         ? await admitPublish(settings, description.admission.game, description.admission.connection)
         : undefined;
-      if (description?.admission?.game === 'yugioh') {
-        await verifyYugiohPublishTarget(settings);
-      }
+      const operatorUserId = description?.admission
+        ? (admittedOperator ?? LOCAL_DIRECT_OPERATOR)
+        : undefined;
       const label = taskType;
       const taskRunId = randomUUID();
       const createdAt = new Date().toISOString();
@@ -521,8 +513,8 @@ app
         finishedAt:   null,
       };
       mainWindow?.webContents.send(TASK_CHANGED_CHANNEL, accepted);
-      const launchParams = parsed.action === 'start'
-        ? taskParamsWithOperator(parsed.params, operatorUserId)
+      const launchParams = startParams !== null
+        ? taskParamsWithOperator(startParams, operatorUserId)
         : null;
       const dispatch = (async () => {
         if (!url) throw new Error('请先在设置中填写本地数据库连接。');

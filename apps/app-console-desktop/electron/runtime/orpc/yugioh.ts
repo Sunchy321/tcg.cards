@@ -91,13 +91,16 @@ const getImageImportState = os.output(z.strictObject({ latest: imageImportReport
 }));
 
 /** Recent test publications for the configured target, without opening a remote connection. */
-const getPublishState = os.output(z.strictObject({ incomplete: publishReport.nullable(), batches: publishReport.array() })).handler(async () => {
-  if (getYugiohPublishTarget() == null) return { incomplete: null, batches: [] };
-  return {
-    incomplete: await getIncompleteYugiohPublishBatch(),
-    batches:    await listYugiohPublishBatches(),
-  };
-});
+const getPublishState = os
+  .input(z.strictObject({ target: z.string().trim().min(1).optional() }))
+  .output(z.strictObject({ incomplete: publishReport.nullable(), batches: publishReport.array() }))
+  .handler(async ({ input }) => {
+    if (getYugiohPublishTarget(input.target) == null) return { incomplete: null, batches: [] };
+    return {
+      incomplete: await getIncompleteYugiohPublishBatch(input.target),
+      batches:    await listYugiohPublishBatches(20, input.target),
+    };
+  });
 
 /** Read-only Yu-Gi-Oh! runtime procedures; writes start through the Electron task host. */
 export const yugiohRouter = {

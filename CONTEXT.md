@@ -161,7 +161,7 @@ One of the two orthogonal axes of the database layout: `local` (the desktop loca
 The second, orthogonal axis of the database layout: `dev` or `prod`. Because it is orthogonal to the schema track, a target like `remote-dev` is expressible; a single conjoined `local/remote ↔ dev/prod` mapping is not.
 
 ### publish target (发布目标)
-A configured remote database identity that a publish is bound to: label, environment, connection, and capability fingerprint. A batch records the target identity when it is created and re-checks the fingerprint before applying, so a later settings change cannot silently publish to a different environment.
+A destination the maintainer creates and names, chosen per publish rather than bound to a game. A direct target carries its own database connection; an account target is the remote itself, reached through the console account and a short-lived database credential issued by the service. The target's name is the stream label, and a batch re-checks the destination's fingerprint before applying, so a later settings change cannot silently publish to a different database. _Avoid_: publish source, publish environment
 
 ### publish baseline (发布基线)
 The last successfully published state per publish target, kept on the build-authoritative side. It is what the next publish's manifest is diffed against, which is what makes publishing resumable and auditable.

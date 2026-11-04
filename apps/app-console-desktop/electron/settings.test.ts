@@ -22,19 +22,46 @@ function fixture() {
   return { service: new Settings(storage, cipher), storage, cipher };
 }
 
+test('a configuration from the retired per-game publish model still loads with those keys ignored', () => {
+  const cipher = {
+    async encrypt(value: string) { return value; },
+    async decrypt(value: string) { return value; },
+  };
+  const service = new Settings({
+    read: () => ({
+      config: {
+        version: 1,
+        publish: [{ credentialKey: 'ae313789-9cfb-4d20-abde-41fefbd92814', publishTarget: 'magic', environment: 'prod' }],
+        games:   { yugioh: { publish: { publishTargetId: 'yugioh-test', environment: 'test', targetFingerprint: 'x' } } },
+      },
+      secrets:   { 'publish:ae313789-9cfb-4d20-abde-41fefbd92814': 'sealed' },
+      migration: [],
+      inherited: false,
+      revision:  3,
+    }),
+    write: () => {},
+  }, cipher);
+
+  assert.deepEqual(service.snapshot().config.targets, []);
+  assert.equal((service.snapshot().config.games.yugioh as Record<string, unknown> | undefined)?.publish, undefined);
+  assert.equal(service.snapshot().revision, 3);
+});
+
 test('ordinary edits persist while rejected JSON leaves settings and credentials intact', async () => {
   const { service, storage, cipher } = fixture();
-  await service.setSecret('database', 'postgres://user:secret@localhost/cards');
+  await service.update('database', 'postgres://user:secret@localhost/cards');
+  await service.setSecret('ai', 'private-api-key');
   await service.update('ai.model', 'example-model');
   const before = service.snapshot();
-  assert.equal(JSON.stringify(before).includes('secret@'), false);
+  assert.equal(JSON.stringify(before).includes('private-api-key'), false);
   await assert.rejects(service.saveJson('{"unexpected":true}', before.revision), /配置/);
   assert.deepEqual(service.snapshot(), before);
   const publicConfig = { ...before.config, ai: { model: 'another-model' } };
   await service.saveJson(JSON.stringify(publicConfig), before.revision);
   const reopened = new Settings(storage, cipher);
   assert.equal(reopened.snapshot().config.ai?.model, 'another-model');
-  assert.equal(await reopened.secret('database'), 'postgres://user:secret@localhost/cards');
+  assert.equal(reopened.snapshot().config.database, 'postgres://user:secret@localhost/cards');
+  assert.equal(await reopened.secret('ai'), 'private-api-key');
 });
 
 test('running tasks retain a snapshot and failed encryption cannot persist plaintext', async () => {
@@ -79,16 +106,19 @@ test('strict JSON rejects unknown nested fields, credentials, invalid URLs and p
   await assert.rejects(service.saveJson('{"version":1}', 0), /变化/);
 });
 
-test('editing a publish connection invalidates its previously verified destination', async () => {
+test('editing a publish target invalidates its previously verified destination', async () => {
   const { service } = fixture();
-  const credentialKey = 'ae313789-9cfb-4d20-abde-41fefbd92814';
-  await service.update('publish', [
-    { credentialKey, publishTarget: 'magic', environment: 'dev', targetFingerprint: 'old-destination' },
+  const id = 'ae313789-9cfb-4d20-abde-41fefbd92814';
+  await service.update('targets', [
+    { id, name: '本地', kind: 'direct', connectionString: 'postgres://me:old@localhost/old', targetFingerprint: 'old-destination' },
   ]);
-  await service.setSecret(`publish:${credentialKey}`, 'postgres://me:new-password@localhost/new-target');
-  assert.equal(service.snapshot().config.publish[0]?.targetFingerprint, undefined);
-  await service.update('publish', [
-    { credentialKey, publishTarget: 'magic', environment: 'prod', targetFingerprint: 'old-destination' },
+  assert.equal(service.snapshot().config.targets[0]?.targetFingerprint, 'old-destination');
+  await service.update('targets', [
+    { id, name: '本地', kind: 'direct', connectionString: 'postgres://me:new-password@localhost/new-target', targetFingerprint: 'old-destination' },
   ]);
-  assert.equal(service.snapshot().config.publish[0]?.targetFingerprint, undefined);
+  assert.equal(service.snapshot().config.targets[0]?.targetFingerprint, undefined);
+  await service.update('targets', [
+    { id, name: '线上', kind: 'direct', connectionString: 'postgres://me:new-password@localhost/new-target', targetFingerprint: 'old-destination' },
+  ]);
+  assert.equal(service.snapshot().config.targets[0]?.targetFingerprint, undefined);
 });

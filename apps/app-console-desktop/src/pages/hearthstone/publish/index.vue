@@ -7,20 +7,19 @@
           <h1 class="text-xl font-semibold">发布</h1>
         </div>
         <div class="flex items-center gap-3 text-xs">
-          <template v-if="hasPublishTarget">
+          <template v-if="selected">
             <span class="text-muted">{{ publishTarget }}</span>
             <span class="text-muted">·</span>
             <UDropdownMenu
               v-if="hasMultiplePublishTargets"
-              :items="environmentItems"
-              :disabled="publishTargets.length === 0"
+              :items="targetItems"
               :content="{ align: 'end' }"
             >
               <button
                 type="button"
                 class="inline-flex items-center gap-1 text-muted transition-colors hover:text-default disabled:cursor-default disabled:hover:text-muted"
               >
-                {{ selectedPublishTarget?.environment ?? '' }}
+                {{ selected.name }}
                 <UIcon
                   name="i-lucide-chevron-down"
                   class="size-3 opacity-70"
@@ -28,9 +27,9 @@
               </button>
             </UDropdownMenu>
             <span v-else class="text-muted">
-              {{ selectedPublishTarget?.environment ?? '' }}
+              {{ selected.name }}
             </span>
-            <UBadge :label="formatPublishTargetFingerprint(selectedPublishTarget?.targetFingerprint ?? null)" color="neutral" variant="soft" size="xs" />
+            <UBadge :label="formatPublishTargetFingerprint(selected.fingerprint)" color="neutral" variant="soft" size="xs" />
           </template>
           <span v-else class="text-muted">未配置</span>
           <UButton
@@ -38,7 +37,7 @@
             color="neutral"
             variant="ghost"
             size="xs"
-            @click="loadPublishTarget"
+            @click="reloadTargets"
           />
         </div>
       </div>
@@ -497,10 +496,7 @@
 
 <script setup lang="ts">
 import { useToast } from '@nuxt/ui/composables';
-import {
-  getDesktopPublishTargets,
-  type DesktopPublishTarget,
-} from '~/composables/useDesktopSettings';
+import { usePublishTargetSelection } from '~/composables/usePublishTargetSelection';
 import {
   cancelIncompleteHsdataPublishBatch,
   deletePublishHistory,
@@ -529,9 +525,8 @@ const publishTypes = [
 const publishTarget = 'hearthstone' as const;
 
 const toast = useToast();
-const publishTargets = ref<DesktopPublishTarget[]>([]);
-const selectedEnvironment = ref('');
-const publishTargetError = ref('');
+const { targets, selected, select, reload: reloadTargets, error: publishTargetError } = usePublishTargetSelection('hearthstone');
+const selectedEnvironment = computed(() => selected.value?.name ?? '');
 const taskResult = ref<Record<string, unknown> | null>(null);
 /** Whether the last result came from the announcement publish task (different output shape). */
 const isAnnouncementPublishResult = computed(() => taskResult.value != null && taskResult.value.announcementCount != null);
@@ -588,21 +583,16 @@ const singleCardPublishing = ref(false);
 const singleCardResult = ref<HsdataSingleCardPublishReport | null>(null);
 const singleCardError = ref('');
 
-const environmentItems = computed(() => {
-  return publishTargets.value.map(target => ({
-    label:    target.environment,
-    value:    target.environment,
-    onSelect: () => {
-      selectedEnvironment.value = target.environment;
-    },
+const targetItems = computed(() => {
+  return targets.value.map(target => ({
+    label:    target.name,
+    value:    target.id,
+    disabled: !target.configured || target.kind !== 'direct',
+    onSelect: () => select(target.id),
   }));
 });
 
-const hasMultiplePublishTargets = computed(() => publishTargets.value.length > 1);
-
-const selectedPublishTarget = computed(() => {
-  return publishTargets.value.find(target => target.environment === selectedEnvironment.value) ?? null;
-});
+const hasMultiplePublishTargets = computed(() => targets.value.length > 1);
 
 const selectedPublishStream = computed<HsdataPublishStreamInput | null>(() => {
   if (selectedEnvironment.value.length === 0) {
@@ -635,7 +625,7 @@ async function submitSingleCardPublish() {
 }
 
 const hasPublishTarget = computed(() => {
-  return selectedPublishTarget.value != null;
+  return selected.value?.configured === true;
 });
 
 function formatPublishTargetFingerprint(fingerprint: string | null) {
@@ -714,7 +704,8 @@ const singleCardOperation: TaskOperation = {
 
     const snapshot = await startDesktopTask('hearthstone_single_card_publish', {
       cardId,
-      ...stream,
+      publishTarget: stream.publishTarget,
+      targetId:      selected.value?.id ?? '',
     });
     if (!snapshot) {
       singleCardPublishing.value = false;
@@ -731,7 +722,7 @@ function confirmPin() {
   showPinConfirm.value = false;
   startDesktopTask('hsdata_pin', {
     publishTarget: 'hearthstone',
-    environment:   selectedEnvironment.value,
+    targetId:      selected.value?.id ?? '',
   }).then(result => {
     resolvePinCreate?.(result);
   }).catch((error: unknown) => {
@@ -750,23 +741,24 @@ const operations: TaskOperation[] = [
     label:  '发布',
     icon:   'i-lucide-upload',
     create: async () => {
+      const targetId = selected.value?.id ?? '';
       if (publishType.value === 'announcement_data') {
         return startDesktopTask('hearthstone_announcement_publish', {
           publishTarget: 'hearthstone',
-          environment:   selectedEnvironment.value,
+          targetId,
           dryRun:        dryRun.value,
         });
       }
       if (publishType.value === 'reference_data') {
         return startDesktopTask('hearthstone_reference_publish', {
           publishTarget: 'hearthstone',
-          environment:   selectedEnvironment.value,
+          targetId,
           dryRun:        dryRun.value,
         });
       }
       return startDesktopTask('hearthstone_publish', {
         publishTarget: 'hearthstone',
-        environment:   selectedEnvironment.value,
+        targetId,
         publishType:   'card_data',
         dryRun:        dryRun.value,
         force:         force.value,
@@ -861,26 +853,7 @@ watch(
 );
 
 async function loadPublishTarget() {
-  publishTargetError.value = '';
-
-  try {
-    const targets = await getDesktopPublishTargets();
-    publishTargets.value = targets.filter(target => target.publishTarget === publishTarget);
-
-    if (publishTargets.value.length === 0) {
-      selectedEnvironment.value = '';
-      return;
-    }
-
-    if (!publishTargets.value.some(target => target.environment === selectedEnvironment.value)) {
-      selectedEnvironment.value = publishTargets.value[0]!.environment;
-    }
-  } catch (error) {
-    console.error('Failed to load publish target:', error);
-    publishTargetError.value = getHsdataErrorMessage(error);
-    publishTargets.value = [];
-    selectedEnvironment.value = '';
-  }
+  await reloadTargets();
 }
 
 /** Cancels one incomplete batch row when it is no longer backed by a live runtime job. */
@@ -1029,7 +1002,6 @@ const PUBLISH_PAGE_STATE_KEY = 'console-desktop-hearthstone-publish-page';
 interface PublishPageState {
   dryRun:      boolean;
   force:       boolean;
-  environment: string;
   publishType: string;
   taskRunId?:  string | null;
 }
@@ -1042,7 +1014,6 @@ function persistPublishPageState() {
   const state: PublishPageState = {
     dryRun:      dryRun.value,
     force:       force.value,
-    environment: selectedEnvironment.value,
     publishType: publishType.value,
     taskRunId:   persistedTaskRunId,
   };
@@ -1053,7 +1024,6 @@ function normalizePublishPageState(raw: Partial<PublishPageState>): PublishPageS
   return {
     dryRun:      typeof raw.dryRun === 'boolean' ? raw.dryRun : false,
     force:       typeof raw.force === 'boolean' ? raw.force : false,
-    environment: typeof raw.environment === 'string' ? raw.environment : '',
     publishType: typeof raw.publishType === 'string' && PUBLISH_TYPES.includes(raw.publishType) ? raw.publishType : 'reference_data',
     taskRunId:   typeof raw.taskRunId === 'string' ? raw.taskRunId : null,
   };
@@ -1067,7 +1037,6 @@ function restorePublishPageState() {
     const state = normalizePublishPageState(parsed);
     dryRun.value = state.dryRun;
     force.value = state.force ?? false;
-    selectedEnvironment.value = state.environment;
     publishType.value = state.publishType;
     persistedTaskRunId = state.taskRunId ?? null;
   } catch {
@@ -1075,7 +1044,7 @@ function restorePublishPageState() {
   }
 }
 
-watch([dryRun, force, selectedEnvironment, publishType], () => {
+watch([dryRun, force, publishType], () => {
   persistPublishPageState();
 });
 

@@ -229,7 +229,7 @@ test('admission refusals stop the publish task before it starts', {
   const session = await launchConsole(profile);
   try {
     await session.page.evaluate(
-      url => window.desktop.settings.setSecret('database', url),
+      url => window.desktop.settings.update('database', url),
       databaseUrl(),
     );
     // Without a session the gate refuses before any request leaves the app.
@@ -285,7 +285,7 @@ test('an admitted publish task runs to completion', {
   const profile = await mkdtemp(join(tmpdir(), 'console-auth-'));
   const session = await launchConsole(profile);
   try {
-    await session.page.evaluate(url => window.desktop.settings.setSecret('database', url), databaseUrl());
+    await session.page.evaluate(url => window.desktop.settings.update('database', url), databaseUrl());
     await loginThroughSettings(session.page, backend.baseUrl);
     const started = await session.page.evaluate(() => window.desktop.tasks.start('dev_publish', { steps: 4 }));
     assert.equal(started.existing, false);

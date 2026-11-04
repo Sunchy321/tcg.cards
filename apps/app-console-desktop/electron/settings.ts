@@ -20,6 +20,21 @@ interface Document {
   revision:  number;
 }
 
+/** Drops settings keys from the retired per-game publish model instead of failing to load. */
+function withoutRetiredPublishConfig(input: unknown): unknown {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return input;
+  const { publish: _publish, ...rest } = input as Record<string, unknown>;
+  const games = rest.games;
+  if (games && typeof games === 'object' && !Array.isArray(games)) {
+    const yugioh = (games as Record<string, unknown>).yugioh;
+    if (yugioh && typeof yugioh === 'object' && !Array.isArray(yugioh)) {
+      const { publish: _yugiohPublish, ...keptYugioh } = yugioh as Record<string, unknown>;
+      rest.games = { ...(games as Record<string, unknown>), yugioh: keptYugioh };
+    }
+  }
+  return rest;
+}
+
 /** Owns validated settings, encrypted credentials and independent task snapshots. */
 export class Settings {
   private storage:  Storage;
@@ -41,7 +56,7 @@ export class Settings {
       };
     } else {
       // Never clear or silently replace a corrupt configuration with defaults.
-      const config = configuration.safeParse(stored.config);
+      const config = configuration.safeParse(withoutRetiredPublishConfig(stored.config));
       if (
         !config.success
         || typeof stored.secrets !== 'object'
@@ -82,23 +97,16 @@ export class Settings {
       const result = configuration.safeParse(draft.config);
       if (!result.success) throw new Error(validationMessage(result.error));
       draft.config = result.data;
-      // A changed binding cannot retain verification from its previous destination.
-      for (const target of draft.config.publish) {
-        const previous = this.document.config.publish.find(item => item.credentialKey === target.credentialKey);
-        if (
-          previous
-          && (previous.publishTarget !== target.publishTarget || previous.environment !== target.environment)
-        )
+      // A changed destination cannot retain verification from its previous database.
+      for (const target of draft.config.targets) {
+        const previous = this.document.config.targets.find(item => item.id === target.id);
+        if (previous && (
+          previous.name !== target.name
+          || previous.kind !== target.kind
+          || previous.connectionString !== target.connectionString
+        ))
           Reflect.deleteProperty(target, 'targetFingerprint');
       }
-      const oldYugioh = this.document.config.games.yugioh?.publish;
-      const newYugioh = draft.config.games.yugioh?.publish;
-      if (
-        oldYugioh
-        && newYugioh
-        && (oldYugioh.publishTargetId !== newYugioh.publishTargetId || oldYugioh.environment !== newYugioh.environment)
-      )
-        newYugioh.targetFingerprint = '';
       draft.revision++;
       try {
         this.storage.write(draft as unknown as Record<string, unknown>);
@@ -123,13 +131,14 @@ export class Settings {
         return;
       }
       const allowed = [
+        'database',
         'ai.baseUrl',
         'ai.model',
         'games.hearthstone.image.rendererBaseUrl',
         'games.hearthstone.image.bucketDir',
         'games.yugioh.image.bucketDir',
-        'games.yugioh.publish',
-        'publish',
+        'targets',
+        'targetSelection',
         'searchStorage',
       ];
       if (!allowed.includes(key)) throw new Error('不支持的配置项目。');
@@ -154,27 +163,13 @@ export class Settings {
   }
 
   /** Encrypts one complete secret before any persistent write occurs. */
-  setSecret(key: string, value: string | null, options: { inherited?: boolean } = {}) {
+  setSecret(key: string, value: string | null) {
     return this.transact(async draft => {
-      if (!/^(database|ai|legacy-session|legacy-login|remote-session|yugioh-publish|publish:[\w-]+|search-r2-(access-key-id|secret-access-key))$/.test(key))
+      if (!/^(ai|legacy-session|legacy-login|remote-session|search-r2-(access-key-id|secret-access-key))$/.test(key))
         throw new Error('不支持的凭据项目。');
-      if (!options.inherited) {
-        const target = draft.config.publish.find(item => `publish:${item.credentialKey}` === key);
-        if (target) delete target.targetFingerprint;
-        if (key === 'yugioh-publish' && draft.config.games.yugioh?.publish)
-          draft.config.games.yugioh.publish.targetFingerprint = '';
-      }
       if (value === null || value === '') {
         Reflect.deleteProperty(draft.secrets, key);
         return;
-      }
-      if (key === 'database' || key === 'yugioh-publish' || key.startsWith('publish:')) {
-        try {
-          const url = new URL(value);
-          if (!['postgres:', 'postgresql:'].includes(url.protocol) || !url.hostname) throw new Error();
-        } catch {
-          throw new Error('请输入有效的 PostgreSQL 连接字符串。');
-        }
       }
       try {
         draft.secrets[key] = await this.cipher.encrypt(value);
