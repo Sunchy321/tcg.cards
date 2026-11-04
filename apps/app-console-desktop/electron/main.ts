@@ -28,7 +28,7 @@ import { registerAuth } from './auth';
 import { authSessionEnvelope, authStatus } from './auth-core';
 import { admitPublish, PUBLISH_GAME_LABELS } from './publish-admission';
 import { PublishCredentialCache, requestPublishCredential } from './publish-credentials';
-import { resolvePublishTarget as resolveSelectedPublishTarget, withResolvedPublishTarget, type PublishTargetConfig } from './publish-targets';
+import { resolvePublishTarget as resolveSelectedPublishTarget, resolveSearchD1Target, withResolvedPublishTarget, type PublishTargetConfig } from './publish-targets';
 import { verifyDevelopment } from './development-trust';
 import type { IpcMainInvokeEvent, MessageBoxOptions } from 'electron';
 import type { PathOverrides, RuntimeOverrides } from './runtime/runtime-config';
@@ -280,6 +280,15 @@ async function resolvePublishLaunchParams(
   taskType: string,
 ): Promise<PublishLaunch> {
   const targetId = typeof params.targetId === 'string' ? params.targetId : '';
+  if (taskType.endsWith('_search_d1_publish')) {
+    const target = resolveSearchD1Target(settings.snapshot().config.targets, targetId);
+    if (!await authSessionEnvelope(settings)) {
+      throw new Error('账户发布目标需要先登录控制台服务。');
+    }
+    await syncRuntimeSettings(settings);
+    const { game, directory } = params;
+    return { params: { game, directory, target: target.name } };
+  }
   if (!targetId) return { params };
 
   const target = settings.snapshot().config.targets.find(item => item.id === targetId);

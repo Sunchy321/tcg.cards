@@ -20,7 +20,7 @@ import { TaskBoundarySignal } from '../../../task/registry';
 import type { TaskDefinition, TaskStageDefinition } from '../../../task/registry';
 import { readLocalDatabaseUrl, readSearchServiceSessionOverride } from '../../runtime-config';
 import { applySearchSnapshotBatches, SEARCH_D1_FTS_MODE } from './d1-apply';
-import { createSearchD1Remote, requireSearchD1Session } from './d1-remote';
+import { createSearchD1Remote, requireSearchD1Session, SearchD1AccessError } from './d1-remote';
 import { prepareSearchPublication } from './prepare';
 import { persistPreparedReleaseHash } from './release-hash';
 
@@ -42,6 +42,7 @@ const publicationInput = z.discriminatedUnion('game', [
 const taskInput = z.strictObject({
   game:      z.enum(['magic', 'hearthstone']),
   directory: z.string().trim().min(1),
+  target:    z.string().trim().min(1).optional(),
 });
 
 type PreparedTask = Awaited<ReturnType<typeof prepareSearchPublication>>;
@@ -201,6 +202,12 @@ export function createSearchD1PublicationTask(game: SearchPublicationGame): Task
               throw new Error('远程搜索库装载完成但版本标识不符，请重新发布。');
             }
             await remote.execute(game, [FTS_PROBE[game]]);
+            await remote.recordPublication(game, {
+              taskRunId:     context.taskRunId,
+              dataVersion:   manifest.dataVersion,
+              releaseHash:   manifest.releaseHash,
+              schemaVersion: String(manifest.schemaVersion),
+            });
             latestResult = {
               game,
               releaseHash: manifest.releaseHash,
@@ -210,7 +217,7 @@ export function createSearchD1PublicationTask(game: SearchPublicationGame): Task
             };
             await context.saveResult(latestResult);
           } catch (error) {
-            if (error instanceof TaskBoundarySignal) throw error;
+            if (error instanceof TaskBoundarySignal || error instanceof SearchD1AccessError) throw error;
             console.error('[search-d1-publication] The search snapshot could not be applied.', error);
             throw new Error('搜索数据装载未完成，请检查控制台服务连接后从断点重试。', { cause: error });
           }

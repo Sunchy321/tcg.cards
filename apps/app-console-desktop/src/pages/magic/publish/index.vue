@@ -6,26 +6,14 @@
           <UIcon name="i-lucide-upload" class="size-5 text-primary" />
           <h1 class="text-xl font-semibold">万智牌发布</h1>
         </div>
-        <div class="flex items-center gap-3 text-xs">
-          <template v-if="selected">
-            <span class="text-muted">万智牌</span>
-            <span class="text-muted">·</span>
-            <UDropdownMenu
-              v-if="targetItems.length > 1"
-              :items="targetItems"
-              :content="{ align: 'end' }"
-            >
-              <button type="button" :disabled="targetLocked" class="inline-flex items-center gap-1 text-muted transition-colors hover:text-default disabled:cursor-not-allowed">
-                {{ selected.name }}
-                <UIcon name="i-lucide-chevron-down" class="size-3 opacity-70" />
-              </button>
-            </UDropdownMenu>
-            <span v-else class="text-muted">{{ selected.name }}</span>
-            <UBadge :label="shortFingerprint(selected.fingerprint)" color="neutral" variant="soft" size="xs" />
-          </template>
-          <span v-else class="text-muted">未配置</span>
-          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="ghost" size="xs" :disabled="targetLocked" @click="reloadTargets" />
-        </div>
+        <PublishTargetPicker
+          game-label="万智牌"
+          :targets="targets"
+          :selected="selected"
+          :disabled="targetLocked"
+          @select="select"
+          @reload="reloadTargets"
+        />
       </div>
 
       <UAlert
@@ -131,20 +119,7 @@ const displayResult = computed(() => {
 
 const controller = ref<{ attach(snapshot: TaskPageSnapshot): void, currentTaskRunId: string | null }>();
 
-const targetItems = computed(() =>
-  targets.value.map(target => ({
-    label:    target.name,
-    value:    target.id,
-    disabled: !target.configured,
-    onSelect: () => select(target.id),
-  })));
-
 const hasPublishTarget = computed(() => selected.value?.configured === true);
-
-/** Abbreviates the configured target identity in the existing destination header. */
-function shortFingerprint(fingerprint: string | null) {
-  return fingerprint ? fingerprint.slice(0, 8) : '';
-}
 
 const publishTypes = [
   { label: '赛制、系列与补充包', value: 'reference' },

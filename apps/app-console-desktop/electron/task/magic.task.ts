@@ -204,7 +204,7 @@ registerTask({
   version:             '2026-11-03:v1',
   supportsResume:      true,
   admission:           { game: 'magic', connection: 'direct' },
-  publishConfirmation: () => ({ target: 'production', scope: '搜索数据' }),
+  publishConfirmation: params => ({ target: text(params, 'target') || 'production', scope: '搜索数据' }),
   scope:               () => ({ type: 'search_d1_publish', key: 'magic', snapshot: { game: 'magic' } }),
   async load() {
     return { default: (await import('../runtime/lib/search-publication/d1-task')).createSearchD1PublicationTask('magic') };

@@ -2,7 +2,8 @@ import { Hono } from 'hono';
 import { RPCHandler } from '@orpc/server/fetch';
 import { onError } from '@orpc/server';
 import { z } from 'zod';
-import { createDb, runWithDb } from '@tcg-cards/db';
+import { createDb, db, runWithDb } from '@tcg-cards/db';
+import { SearchD1PublicationAudit } from '@tcg-cards/db/schema/remote/search-d1-audit';
 import type { ConsoleApiRequestMeta } from '@tcg-cards/console-api/request-meta';
 
 import { getAuth } from './auth';
@@ -187,6 +188,10 @@ hono.all('/search-d1/rpc/*', async c => {
     const { response } = await searchD1Handler.handle(c.req.raw, {
       prefix:  '/search-d1/rpc',
       context: {
+        account: session.user,
+        async recordAudit(audit: import('@tcg-cards/console-api').SearchD1PublicationAudit) {
+          await db.insert(SearchD1PublicationAudit).values(audit).onConflictDoNothing();
+        },
         env: {
           MAGIC_SEARCH_DB:       c.env.MAGIC_SEARCH_DB,
           HEARTHSTONE_SEARCH_DB: c.env.HEARTHSTONE_SEARCH_DB,

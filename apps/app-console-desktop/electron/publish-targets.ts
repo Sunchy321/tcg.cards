@@ -43,3 +43,12 @@ export function withResolvedPublishTarget(
     targetFingerprint: resolved.targetFingerprint,
   };
 }
+
+/** Resolves a D1 publication destination without accepting direct database connections. */
+export function resolveSearchD1Target(targets: PublishTargetConfig[], id: string): PublishTargetConfig {
+  const target = targets.find(candidate => candidate.id === id);
+  if (target?.kind !== 'account') {
+    throw new Error('请选择账户发布目标后再发布远程搜索库。');
+  }
+  return target;
+}

@@ -17,7 +17,16 @@ export type SearchD1StatementResult = {
 export interface SearchD1Remote {
   execute(game: 'magic' | 'hearthstone', statements: string[]): Promise<SearchD1StatementResult[]>;
   meta(game: 'magic' | 'hearthstone'): Promise<Record<string, string>>;
+  recordPublication(game: 'magic' | 'hearthstone', release: {
+    taskRunId:     string;
+    dataVersion:   string;
+    releaseHash:   string;
+    schemaVersion: string;
+  }): Promise<void>;
 }
+
+/** Reports a rejected console session or missing publish permission. */
+export class SearchD1AccessError extends Error {}
 
 /**
  * Builds the authenticated console-service client that carries search D1
@@ -42,8 +51,8 @@ export function createSearchD1Remote(session: SearchServiceSessionOverride): Sea
     try {
       return await call();
     } catch (error) {
-      if (responseStatus === 401) throw new Error('登录已失效，请重新登录控制台服务。', { cause: error });
-      if (responseStatus === 403) throw new Error('当前账号无权发布搜索数据。', { cause: error });
+      if (responseStatus === 401) throw new SearchD1AccessError('登录已失效，请重新登录控制台服务。', { cause: error });
+      if (responseStatus === 403) throw new SearchD1AccessError('当前账号无权发布搜索数据。', { cause: error });
       if (responseStatus == null) throw new Error('无法连接控制台服务，请检查地址和网络。', { cause: error });
       throw error;
     }
@@ -57,6 +66,9 @@ export function createSearchD1Remote(session: SearchServiceSessionOverride): Sea
     async meta(game) {
       const result = await wrap(() => api.searchD1.meta({ game }));
       return result.values;
+    },
+    async recordPublication(game, release) {
+      await wrap(() => api.searchD1.recordPublication({ game, ...release }));
     },
   };
 }

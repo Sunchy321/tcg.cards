@@ -48,4 +48,16 @@ describe('search D1 remote client', () => {
     await remote.execute('magic', ['SELECT 1;']).catch(() => {});
     expect(urls[0]).toBe('https://console-api.tcg.cards/search-d1/rpc/searchD1/execute');
   });
+
+  test('reports completion to the service with the verified release identity', async () => {
+    const { urls } = stubFetch(200, { json: { recorded: true } });
+    const remote = createSearchD1Remote({ baseUrl: 'https://console-api.tcg.cards/', cookieHeader: 'session=abc' });
+    await remote.recordPublication('magic', {
+      taskRunId:     'ae313789-9cfb-4d20-abde-41fefbd92814',
+      dataVersion:   'release-1',
+      releaseHash:   'a'.repeat(64),
+      schemaVersion: '3',
+    });
+    expect(urls).toEqual(['https://console-api.tcg.cards/search-d1/rpc/searchD1/recordPublication']);
+  });
 });

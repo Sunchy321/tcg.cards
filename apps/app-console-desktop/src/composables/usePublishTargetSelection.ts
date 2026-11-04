@@ -18,13 +18,13 @@ export interface PublishTargetOption {
  * Exposes the user's publish destinations and the target remembered for one game.
  * Pages only select a destination; resolving its connection stays in the main process.
  */
-export function usePublishTargetSelection(game: PublishSelectionGame) {
+export function usePublishTargetSelection(game: PublishSelectionGame, kind?: PublishTargetOption['kind']) {
   const { snapshot, load, update } = useDesktopSettings();
   const error = ref('');
 
   const targets = computed<PublishTargetOption[]>(() => {
     const signedIn = snapshot.value?.credentials['remote-session'] === true;
-    return (snapshot.value?.config.targets ?? []).map(target => ({
+    return (snapshot.value?.config.targets ?? []).filter(target => kind === undefined || target.kind === kind).map(target => ({
       id:          target.id,
       name:        target.name,
       kind:        target.kind,
@@ -35,7 +35,7 @@ export function usePublishTargetSelection(game: PublishSelectionGame) {
 
   const remembered = computed(() => snapshot.value?.config.targetSelection?.[game] ?? '');
   const selected = computed<PublishTargetOption | null>(
-    () => targets.value.find(target => target.id === remembered.value) ?? targets.value.find(target => target.configured) ?? null,
+    () => targets.value.find(target => target.id === remembered.value) ?? targets.value.find(target => target.configured) ?? (kind ? targets.value[0] : null) ?? null,
   );
 
   /** Selects one destination and remembers it for this game. */
