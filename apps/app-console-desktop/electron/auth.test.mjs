@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import { _electron as electron } from 'playwright';
 
 const USERNAME = 'operator';
+const EMAIL = 'operator@example.test';
 const PASSWORD = 'e2e-secret-password-xyz';
 const TOKEN = 'e2e-session-token-xyz';
 const databaseUrl = () => process.env.DATABASE_URL;
@@ -15,12 +16,12 @@ const databaseUrl = () => process.env.DATABASE_URL;
 async function consoleBackend() {
   const state = { session: null, admissionStatus: 200 };
   const server = createServer((request, response) => {
-    if (request.url === '/auth/sign-in/username' && request.method === 'POST') {
+    if (request.url === '/auth/sign-in/email' && request.method === 'POST') {
       let body = '';
       request.on('data', chunk => body += chunk);
       request.on('end', () => {
         const credentials = JSON.parse(body);
-        if (credentials.username !== USERNAME || credentials.password !== PASSWORD) {
+        if (credentials.email !== EMAIL || credentials.password !== PASSWORD) {
           response.statusCode = 401;
           response.end('{}');
           return;
@@ -28,8 +29,13 @@ async function consoleBackend() {
         state.session = { token: TOKEN, expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
         response.setHeader('set-cookie', [`better-auth.session_token=${TOKEN}; Path=/; HttpOnly`]);
         response.setHeader('content-type', 'application/json');
-        response.end(JSON.stringify({ session: { expiresAt: state.session.expiresAt }, user: { username: USERNAME } }));
+        response.end(JSON.stringify({ token: TOKEN, user: { username: USERNAME } }));
       });
+      return;
+    }
+    if (request.url === '/auth/get-session' && request.method === 'GET') {
+      const valid = state.session && request.headers.cookie === `better-auth.session_token=${TOKEN}`;
+      response.end(JSON.stringify(valid ? { session: { expiresAt: state.session.expiresAt } } : null));
       return;
     }
     if (request.url === '/auth/sign-out' && request.method === 'POST') {
@@ -79,7 +85,7 @@ async function loginThroughSettings(page, baseUrl) {
   });
   await page.getByText('控制台账号', { exact: true }).waitFor();
   await page.getByLabel('服务地址', { exact: true }).fill(baseUrl);
-  await page.getByLabel('用户名', { exact: true }).fill(USERNAME);
+  await page.getByLabel('邮箱', { exact: true }).fill(EMAIL);
   await page.getByLabel('密码', { exact: true }).fill(PASSWORD);
   await page.getByRole('button', { name: '登录', exact: true }).click();
   await page.getByText(`已登录：${USERNAME}`).waitFor();
@@ -121,10 +127,10 @@ test('wrong credentials show a clear error without leaking the password', {
     });
     await session.page.getByText('控制台账号', { exact: true }).waitFor();
     await session.page.getByLabel('服务地址', { exact: true }).fill(backend.baseUrl);
-    await session.page.getByLabel('用户名', { exact: true }).fill(USERNAME);
+    await session.page.getByLabel('邮箱', { exact: true }).fill(EMAIL);
     await session.page.getByLabel('密码', { exact: true }).fill('totally-wrong');
     await session.page.getByRole('button', { name: '登录', exact: true }).click();
-    await session.page.getByText('用户名或密码不正确。').waitFor();
+    await session.page.getByText('邮箱或密码不正确。').waitFor();
 
     const stderr = session.stderr.join('');
     assert.equal(stderr.includes('totally-wrong'), false);
@@ -158,7 +164,7 @@ test('a gated operation guides to login and returns to the operation afterwards'
     assert.match(session.page.url(), /#\/settings\/remote\?return=/);
 
     await session.page.getByLabel('服务地址', { exact: true }).fill(backend.baseUrl);
-    await session.page.getByLabel('用户名', { exact: true }).fill(USERNAME);
+    await session.page.getByLabel('邮箱', { exact: true }).fill(EMAIL);
     await session.page.getByLabel('密码', { exact: true }).fill(PASSWORD);
     await session.page.getByRole('button', { name: '登录', exact: true }).click();
     await session.page.getByRole('heading', { name: '登录与会话测试', level: 2 }).waitFor();

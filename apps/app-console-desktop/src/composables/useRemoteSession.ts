@@ -2,7 +2,7 @@ import type { RemoteAuthStatus } from '../../electron/contract';
 
 const status = ref<RemoteAuthStatus | null>(null);
 
-/** Refreshes the local session view; expiry is judged without contacting the backend. */
+/** Refreshes the session view from the desktop host. */
 async function refresh(): Promise<RemoteAuthStatus> {
   status.value = await window.desktop.auth.status();
   return status.value;

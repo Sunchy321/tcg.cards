@@ -25,7 +25,7 @@ import { legacySources } from './legacy-sources';
 import { registerSettings } from './settings-ipc';
 import { registerFileDialogs } from './file-dialog-ipc';
 import { registerAuth } from './auth';
-import { authSessionEnvelope } from './auth-core';
+import { authSessionEnvelope, authStatus } from './auth-core';
 import { admitPublish, PUBLISH_GAME_LABELS } from './publish-admission';
 import { PublishCredentialCache, requestPublishCredential } from './publish-credentials';
 import { resolvePublishTarget as resolveSelectedPublishTarget, withResolvedPublishTarget, type PublishTargetConfig } from './publish-targets';
@@ -210,7 +210,7 @@ async function buildRuntimeSettings(settings: Settings): Promise<RuntimeOverride
   const { config } = settings.snapshot();
   const [aiApiKey, searchServiceSession] = await Promise.all([
     settings.secret('ai'),
-    authSessionEnvelope(settings),
+    authSessionEnvelope(settings, { refresh: false }),
   ]);
   const localDatabaseUrl = config.database ?? null;
   const publishTargets = config.targets.map(target => ({
@@ -289,6 +289,7 @@ async function resolvePublishLaunchParams(
     if (target.kind === 'account' && !await authSessionEnvelope(settings)) {
       throw new Error('账户发布目标需要先登录控制台服务。');
     }
+    if (target.kind === 'account') await syncRuntimeSettings(settings);
     return { params: { ...params, target: target.name } };
   }
 
@@ -416,6 +417,7 @@ app
     );
     registerFileDialogs(() => mainWindow, authorize);
     registerAuth(settings, authorize);
+    void authStatus(settings).catch(() => {});
     runtime = new RuntimeClient(resolve(__dirname, 'runtime.js'), () => {
       syncedRuntimeSettingsRevision = -1;
       if (taskShutdown) return;

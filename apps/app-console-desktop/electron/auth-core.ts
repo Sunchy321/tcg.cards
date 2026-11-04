@@ -12,6 +12,8 @@ interface StoredSession {
 }
 
 const SESSION_KEY = 'remote-session';
+const sessionRevisions = new WeakMap<Settings, number>();
+const pendingRefreshes = new WeakMap<Settings, Promise<StoredSession | null>>();
 
 /** Accepts only plain console service addresses, never credential-bearing URLs. */
 function serviceBase(value: string): string {
@@ -74,6 +76,7 @@ function statusOf(session: StoredSession | null): RemoteAuthStatus {
 
 /** Encrypts the whole session into the secret store and returns its public view. */
 async function persist(settings: Settings, session: StoredSession | null): Promise<RemoteAuthStatus> {
+  sessionRevisions.set(settings, (sessionRevisions.get(settings) ?? 0) + 1);
   await settings.setSecret(SESSION_KEY, session ? JSON.stringify(session) : null);
   return statusOf(session);
 }
@@ -83,9 +86,57 @@ function cookieHeaderOf(response: Response): string {
   return response.headers.getSetCookie().map(cookie => cookie.split(';')[0]).filter(Boolean).join('; ');
 }
 
-/** Local session view without contacting the backend; unreadable state counts as logged out. */
+/** Synchronizes session expiry and cookies while preserving the local session on transient failures. */
+async function refreshStoredSession(settings: Settings): Promise<StoredSession | null> {
+  const revision = sessionRevisions.get(settings);
+  const session = await stored(settings);
+  if (!session) return null;
+
+  const response = await call(new URL('auth/get-session', session.baseUrl), {
+    method:   'GET',
+    headers:  { cookie: session.cookieHeader },
+    redirect: 'error',
+    signal:   AbortSignal.timeout(5_000),
+  }).catch(() => null);
+
+  if (response?.status === 401) {
+    return saveRefreshedSession(settings, revision, null);
+  }
+  if (response?.ok) {
+    const body = await response.json().catch(() => undefined) as { session?: { expiresAt?: unknown } | null } | null | undefined;
+    if (body === null || body?.session === null) {
+      return saveRefreshedSession(settings, revision, null);
+    }
+    const expiresAt = body?.session?.expiresAt;
+    if (typeof expiresAt === 'string' && Number.isFinite(Date.parse(expiresAt))) {
+      const cookieHeader = cookieHeaderOf(response) || session.cookieHeader;
+      if (expiresAt !== session.expiresAt || cookieHeader !== session.cookieHeader) {
+        return saveRefreshedSession(settings, revision, { ...session, expiresAt, cookieHeader });
+      }
+    }
+  }
+  return sessionRevisions.get(settings) === revision ? session : stored(settings);
+}
+
+/** Applies a refresh only while the session it queried is still current. */
+async function saveRefreshedSession(settings: Settings, revision: number | undefined, session: StoredSession | null) {
+  if (sessionRevisions.get(settings) !== revision) return stored(settings);
+  await persist(settings, session);
+  return stored(settings);
+}
+
+/** Shares an in-flight session query across startup, settings and remote operations. */
+function refreshSession(settings: Settings): Promise<StoredSession | null> {
+  const pending = pendingRefreshes.get(settings);
+  if (pending) return pending;
+  const refresh = refreshStoredSession(settings).finally(() => pendingRefreshes.delete(settings));
+  pendingRefreshes.set(settings, refresh);
+  return refresh;
+}
+
+/** Checks the remote session and reports its current local status. */
 export async function authStatus(settings: Settings): Promise<RemoteAuthStatus> {
-  return statusOf(await stored(settings));
+  return statusOf(await refreshSession(settings));
 }
 
 /** Reads only the account fields needed by the desktop account page. */
@@ -123,10 +174,10 @@ export async function authProfile(settings: Settings): Promise<RemoteAuthProfile
   };
 }
 
-/** Exposes the transport envelope of the stored session for trusted backend calls. */
-export async function authSessionEnvelope(settings: Settings): Promise<{ baseUrl: string, cookieHeader: string } | null> {
-  const session = await stored(settings);
-  return session ? { baseUrl: session.baseUrl, cookieHeader: session.cookieHeader } : null;
+/** Exposes the active session for trusted backend calls and refreshes it by default. */
+export async function authSessionEnvelope(settings: Settings, options = { refresh: true }): Promise<{ baseUrl: string, cookieHeader: string } | null> {
+  const session = await (options.refresh ? refreshSession(settings) : stored(settings));
+  return session && statusOf(session).loggedIn ? { baseUrl: session.baseUrl, cookieHeader: session.cookieHeader } : null;
 }
 
 /** Reads only the existing cloud rule file catalog through the authenticated console API. */
@@ -157,28 +208,60 @@ export async function authListMagicRuleFiles(settings: Settings): Promise<Remote
 }
 
 /** Signs in to the deployed console backend and keeps the session cookie encrypted. */
-export async function authLogin(settings: Settings, baseUrl: string, username: string, password: string): Promise<RemoteAuthStatus> {
+export async function authLogin(settings: Settings, baseUrl: string, email: string, password: string): Promise<RemoteAuthStatus> {
   const base = serviceBase(baseUrl);
-  const response = await call(new URL('auth/sign-in/username', base), {
+  const endpoint = new URL('auth/sign-in/email', base);
+  const response = await call(endpoint, {
     method:  'POST',
-    headers: { 'content-type': 'application/json' },
-    body:    JSON.stringify({ username, password }),
+    // Node fetch sends Fetch Metadata, so Better Auth requires a trusted Origin.
+    headers: {
+      'content-type': 'application/json',
+      'origin':       endpoint.origin,
+    },
+    body: JSON.stringify({ email, password }),
   });
   if (!response.ok) {
-    if (response.status === 400 || response.status === 401) throw new Error('用户名或密码不正确。');
+    if (response.status === 400 || response.status === 401) throw new Error('邮箱或密码不正确。');
+    if (response.status === 403) {
+      const error = await response.json().catch(() => null) as { code?: unknown } | null;
+      switch (error?.code) {
+      case 'BANNED_USER':
+        throw new Error('此账号已被停用。');
+      case 'EMAIL_NOT_VERIFIED':
+        throw new Error('请先验证邮箱，再登录。');
+      case 'INVALID_ORIGIN':
+      case 'MISSING_OR_NULL_ORIGIN':
+      case 'CROSS_SITE_NAVIGATION_LOGIN_BLOCKED':
+        throw new Error('控制台服务拒绝了此登录请求。');
+      }
+    }
     throw new Error(`登录失败（HTTP ${response.status}）。`);
   }
   const cookieHeader = cookieHeaderOf(response);
+  if (!cookieHeader) throw new Error('登录成功但服务未返回会话，请检查服务配置。');
   const body = await response.json().catch(() => null) as {
     session?: { expiresAt?: string };
     user?:    { username?: string, name?: string };
   } | null;
-  const expiresAt = body?.session?.expiresAt;
-  if (!cookieHeader || !expiresAt) throw new Error('登录成功但服务未返回会话，请检查服务配置。');
+  let expiresAt = body?.session?.expiresAt;
+  // Better Auth's email sign-in sets the cookie but omits the session expiration.
+  if (!expiresAt) {
+    const sessionResponse = await call(new URL('auth/get-session', base), {
+      method:  'GET',
+      headers: { cookie: cookieHeader },
+    });
+    if (sessionResponse.ok) {
+      const session = await sessionResponse.json().catch(() => null) as { session?: { expiresAt?: string } } | null;
+      expiresAt = session?.session?.expiresAt;
+    }
+  }
+  if (typeof expiresAt !== 'string' || !Number.isFinite(Date.parse(expiresAt))) {
+    throw new Error('登录成功但服务未返回会话，请检查服务配置。');
+  }
   return persist(settings, {
     baseUrl:  base,
     cookieHeader,
-    username: body.user?.username || body.user?.name || username,
+    username: body?.user?.username || body?.user?.name || email,
     expiresAt,
   });
 }

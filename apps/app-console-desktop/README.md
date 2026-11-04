@@ -12,7 +12,7 @@ The shell opens local management without signing in. Settings and the initial ta
 
 ## Remote session
 
-Settings → 远端登录 signs in to the deployed web console (`/auth` endpoints, better-auth) with the console service address, username and password. The session cookie is encrypted as the `remote-session` secret and persists across restarts until logout or expiry; local features never require it. Operations gated on a remote session guide to that page and return afterwards — the `/dev/auth` page exercises the flow, and `bun run test:auth` verifies the login, guidance, restart persistence and secret handling against a stub console backend. Admission checks for publishing are separate migration work ([ADR-0021](../../docs/adr/0021-desktop-publish-authorization.md)).
+Settings → 远端登录 signs in to the deployed web console (`/auth` endpoints, better-auth) with the console service address, email and password. The session cookie is encrypted as the `remote-session` secret and persists across restarts until logout or expiry; local features never require it. Operations gated on a remote session guide to that page and return afterwards — the `/dev/auth` page exercises the flow, and `bun run test:auth` verifies the login, guidance, restart persistence and secret handling against a stub console backend. Admission checks for publishing are separate migration work ([ADR-0021](../../docs/adr/0021-desktop-publish-authorization.md)).
 
 ## Publish admission
 

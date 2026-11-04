@@ -33,7 +33,7 @@ export interface DesktopBridge {
   auth: {
     status(): Promise<RemoteAuthStatus>;
     profile(): Promise<RemoteAuthProfile | null>;
-    login(baseUrl: string, username: string, password: string): Promise<RemoteAuthStatus>;
+    login(baseUrl: string, email: string, password: string): Promise<RemoteAuthStatus>;
     logout(): Promise<RemoteAuthStatus>;
     listMagicRuleFiles(): Promise<RemoteMagicRuleFile[]>;
   };
@@ -266,7 +266,7 @@ export type AuthRequest
   = | { action: 'status' }
     | { action: 'profile' }
     | { action: 'listMagicRuleFiles' }
-    | { action: 'login', baseUrl: string, username: string, password: string }
+    | { action: 'login', baseUrl: string, email: string, password: string }
     | { action: 'logout' };
 
 export const AUTH_CHANNEL = 'desktop:auth';

@@ -3,32 +3,54 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
 import { Settings } from './settings.ts';
-import { authLogin, authLogout, authStatus } from './auth-core.ts';
+import { authLogin, authLogout, authSessionEnvelope, authStatus } from './auth-core.ts';
 
 /** Console-backend stub speaking the small better-auth surface the app depends on. */
 function backend() {
   const state = {
-    session:      null as string | null,
-    expiresAt:    new Date(Date.now() + 3_600_000).toISOString(),
-    setCookie:    true,
-    signOutFails: false,
+    session:       null as string | null,
+    expiresAt:     new Date(Date.now() + 3_600_000).toISOString(),
+    setCookie:     true,
+    signOutFails:  false,
+    forbiddenCode: null as string | null,
+    renewedToken:  null as string | null,
   };
   const server = createServer((request, response) => {
-    if (request.url === '/auth/sign-in/username' && request.method === 'POST') {
+    if (request.url === '/auth/sign-in/email' && request.method === 'POST') {
+      if (request.headers.origin !== `http://${request.headers.host}`) {
+        response.statusCode = 403;
+        response.end(JSON.stringify({ code: 'MISSING_OR_NULL_ORIGIN' }));
+        return;
+      }
       let body = '';
       request.on('data', chunk => body += chunk);
       request.on('end', () => {
-        const credentials = JSON.parse(body) as { username: string, password: string };
-        if (credentials.username !== 'operator' || credentials.password !== 'correct-password') {
+        const credentials = JSON.parse(body) as { email: string, password: string };
+        if (credentials.email !== 'operator@example.test' || credentials.password !== 'correct-password') {
           response.statusCode = 401;
           response.end(JSON.stringify({ error: { message: 'Invalid credentials' } }));
+          return;
+        }
+        if (state.forbiddenCode) {
+          response.statusCode = 403;
+          response.end(JSON.stringify({ code: state.forbiddenCode, message: credentials.password }));
           return;
         }
         state.session = 'session-token-1';
         if (state.setCookie) response.setHeader('set-cookie', ['better-auth.session_token=session-token-1; Path=/; HttpOnly']);
         response.setHeader('content-type', 'application/json');
-        response.end(JSON.stringify({ session: { expiresAt: state.expiresAt }, user: { username: 'operator' } }));
+        response.end(JSON.stringify({ token: state.session, user: { username: 'operator' } }));
       });
+      return;
+    }
+    if (request.url === '/auth/get-session' && request.method === 'GET') {
+      const valid = state.session && request.headers.cookie === `better-auth.session_token=${state.session}`;
+      if (valid && state.renewedToken) {
+        state.session = state.renewedToken;
+        response.setHeader('set-cookie', [`better-auth.session_token=${state.session}; Path=/; HttpOnly`]);
+        state.renewedToken = null;
+      }
+      response.end(JSON.stringify(valid ? { session: { expiresAt: state.expiresAt } } : null));
       return;
     }
     if (request.url === '/auth/sign-out' && request.method === 'POST') {
@@ -81,7 +103,7 @@ test('login keeps an encrypted session that survives service reconstruction', as
   const url = await server.start();
   try {
     const { service, storage, cipher } = fixture();
-    const status = await authLogin(service, url, 'operator', 'correct-password');
+    const status = await authLogin(service, url, 'operator@example.test', 'correct-password');
     assert.equal(status.loggedIn, true);
     assert.equal(status.username, 'operator');
     assert.equal(status.baseUrl, `${url}/`);
@@ -100,9 +122,29 @@ test('rejected sign-ins explain themselves without echoing the password', async 
   try {
     const { service } = fixture();
     await assert.rejects(
-      authLogin(service, url, 'operator', 'wrong-password'),
-      error => error instanceof Error && error.message.includes('用户名或密码不正确') && !error.message.includes('wrong-password'),
+      authLogin(service, url, 'operator@example.test', 'wrong-password'),
+      error => error instanceof Error && error.message.includes('邮箱或密码不正确') && !error.message.includes('wrong-password'),
     );
+    assert.equal((await authStatus(service)).loggedIn, false);
+  } finally {
+    await server.close();
+  }
+});
+
+test('forbidden sign-ins show the account restriction without exposing the response body', async () => {
+  const server = backend();
+  const url = await server.start();
+  try {
+    const { service } = fixture();
+    for (const [code, message] of [
+      ['BANNED_USER', '此账号已被停用。'],
+      ['EMAIL_NOT_VERIFIED', '请先验证邮箱，再登录。'],
+      ['INVALID_ORIGIN', '控制台服务拒绝了此登录请求。'],
+      ['UNKNOWN', '登录失败（HTTP 403）。'],
+    ]) {
+      server.state.forbiddenCode = code;
+      await assert.rejects(authLogin(service, url, 'operator@example.test', 'correct-password'), { message });
+    }
     assert.equal((await authStatus(service)).loggedIn, false);
   } finally {
     await server.close();
@@ -112,7 +154,7 @@ test('rejected sign-ins explain themselves without echoing the password', async 
 test('service addresses must be plain http(s) origins', async () => {
   const { service } = fixture();
   for (const value of ['ftp://example.com', 'https://user:pass@example.com', 'not-a-url', 'https://example.com/?x=1']) {
-    await assert.rejects(authLogin(service, value, 'operator', 'correct-password'), /服务地址/);
+    await assert.rejects(authLogin(service, value, 'operator@example.test', 'correct-password'), /服务地址/);
   }
 });
 
@@ -122,16 +164,38 @@ test('a successful response without a session cookie is refused', async () => {
   const url = await server.start();
   try {
     const { service } = fixture();
-    await assert.rejects(authLogin(service, url, 'operator', 'correct-password'), /未返回会话/);
+    await assert.rejects(authLogin(service, url, 'operator@example.test', 'correct-password'), /未返回会话/);
   } finally {
     await server.close();
   }
 });
 
-test('an expired stored session reports logged out without contacting the backend', async () => {
+test('refresh saves the renewed expiry and cookie for subsequent remote operations', async () => {
+  const server = backend();
+  const url = await server.start();
+  try {
+    const { service, storage, cipher } = fixture();
+    await authLogin(service, url, 'operator@example.test', 'correct-password');
+    server.state.expiresAt = new Date(Date.now() + 7 * 86_400_000).toISOString();
+    server.state.renewedToken = 'renewed-token';
+    const [first, second] = await Promise.all([authStatus(service), authStatus(service)]);
+    assert.equal(first.expiresAt, server.state.expiresAt);
+    assert.deepEqual(second, first);
+    const reopened = new Settings(storage, cipher);
+    assert.equal((await authSessionEnvelope(reopened))?.cookieHeader, 'better-auth.session_token=renewed-token');
+
+    server.state.session = null;
+    assert.equal((await authStatus(reopened)).loggedIn, false);
+    assert.equal(await reopened.secret('remote-session'), null);
+  } finally {
+    await server.close();
+  }
+});
+
+test('an expired stored session reports logged out when the backend is unreachable', async () => {
   const { service } = fixture();
   await service.setSecret('remote-session', JSON.stringify({
-    baseUrl:      'https://console.example.com/',
+    baseUrl:      'http://127.0.0.1:1/',
     cookieHeader: 'better-auth.session_token=stale',
     username:     'operator',
     expiresAt:    new Date(Date.now() - 1_000).toISOString(),
@@ -153,7 +217,7 @@ test('logout drops the stored session even when the backend refuses sign-out', a
   const url = await server.start();
   try {
     const { service, storage, cipher } = fixture();
-    await authLogin(service, url, 'operator', 'correct-password');
+    await authLogin(service, url, 'operator@example.test', 'correct-password');
     assert.equal((await authLogout(service)).loggedIn, false);
     const reopened = new Settings(storage, cipher);
     assert.equal((await authStatus(reopened)).loggedIn, false);

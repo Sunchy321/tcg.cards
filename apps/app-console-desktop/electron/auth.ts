@@ -13,7 +13,7 @@ const request = z.discriminatedUnion('action', [
   z.strictObject({
     action:   z.literal('login'),
     baseUrl:  z.string().trim().min(1).max(2_048),
-    username: z.string().min(1).max(256),
+    email:    z.email().max(256),
     password: z.string().min(1).max(256),
   }),
   z.strictObject({ action: z.literal('logout') }),
@@ -37,7 +37,7 @@ export function registerAuth(
     case 'listMagicRuleFiles':
       return authListMagicRuleFiles(settings);
     case 'login':
-      return authLogin(settings, value.baseUrl, value.username, value.password);
+      return authLogin(settings, value.baseUrl, value.email, value.password);
     case 'logout':
       return authLogout(settings);
     }
