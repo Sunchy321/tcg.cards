@@ -20,6 +20,7 @@ interface LegacyTaskRegistration {
 
 type LegacyDefinition = LegacyTaskDefinition & {
   definitionVersion: string;
+  onFailed?(taskRunId: string, message: string): Promise<void> | void;
   buildStagePlan(input: TaskRunInput): Promise<TaskStagePlan[]> | TaskStagePlan[];
   prepareStageEntry(input: {
     run:       TaskRunInput;
@@ -206,6 +207,7 @@ export function adaptLegacyDefinition(
         params,
       });
     },
+    onFailed: definition.onFailed,
     cleanup(taskRunId) {
       definition.cleanup?.(taskRunId);
       if (latestTaskRunId === taskRunId) latestTaskRunId = undefined;

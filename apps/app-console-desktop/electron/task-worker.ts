@@ -85,6 +85,18 @@ async function statusOf(store: TaskStore): Promise<string | null> {
   return view?.status ?? null;
 }
 
+/** Gives the task a chance to clean up before releasing its run slot. */
+async function failRun(store: TaskStore, error: unknown, stageKey?: string): Promise<void> {
+  const message = error instanceof Error ? error.message : 'Task failed';
+  try {
+    await activeDefinition?.onFailed?.(launch.taskRunId, message);
+  } catch (cleanupError) {
+    console.error('[task failure cleanup]', launch.taskRunId, cleanupError instanceof Error ? cleanupError.name : 'Error');
+  }
+  await store.fail(launch.taskRunId, message, stageKey);
+  changed('finished');
+}
+
 /** Stops one stage attempt after its last durable or transaction-safe operation. */
 async function settleBoundary(
   store: TaskStore,
@@ -180,12 +192,7 @@ async function runOnce(
       }
     } catch (error) {
       if (terminalStatuses.includes((await statusOf(store)) ?? '')) return 'canceled';
-      await store.fail(
-        launch.taskRunId,
-        error instanceof Error ? error.message : 'Task failed',
-        stage.key,
-      );
-      changed('finished');
+      await failRun(store, error, stage.key);
       return 'failed';
     }
 
@@ -241,8 +248,7 @@ async function runOnce(
         return settleBoundary(store, stage, error.control, definition, params);
       }
       if (terminalStatuses.includes((await statusOf(store)) ?? '')) return 'canceled';
-      await store.fail(launch.taskRunId, error instanceof Error ? error.message : 'Task failed', stage.key);
-      changed('finished');
+      await failRun(store, error, stage.key);
       return 'failed';
     }
 
@@ -315,9 +321,16 @@ async function execute(): Promise<void> {
       if (stopping) return;
     }
   } catch (error) {
-    if (terminalStatuses.includes((await statusOf(store)) ?? '')) return;
-    await store.fail(launch.taskRunId, error instanceof Error ? error.message : 'Task failed');
-    changed('finished');
+    const status = await statusOf(store);
+    if (status === 'failed') {
+      // The run error can already be saved when writing the failed stage throws.
+      changed('finished');
+      return;
+    }
+    if (terminalStatuses.includes(status ?? '')) {
+      return;
+    }
+    await failRun(store, error);
   }
 }
 

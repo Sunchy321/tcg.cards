@@ -82,6 +82,7 @@ export interface TaskDefinition {
   stages(params: Record<string, unknown>): Promise<TaskStageDefinition[]> | TaskStageDefinition[];
   result?(params: Record<string, unknown>, taskRunId: string): Record<string, unknown>;
   onCanceled?(params: Record<string, unknown>, taskRunId: string): Promise<void> | void;
+  onFailed?(taskRunId: string, message: string): Promise<void> | void;
   cleanup?(taskRunId: string): void;
 }
 

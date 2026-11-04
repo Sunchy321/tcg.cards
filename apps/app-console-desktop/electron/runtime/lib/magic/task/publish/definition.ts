@@ -10,7 +10,7 @@ import {
   PublishRowBaseline,
 } from '@tcg-cards/db/schema/local/magic';
 
-import { createDefinition } from '#task/definition';
+import { createDefinition, getPerRunState } from '#task/definition';
 import { getLocalDb } from '../../../hearthstone/hsdata-local-db';
 import {
   applyPlanChunk,
@@ -557,4 +557,21 @@ const definition = createDefinition(magicPublishTaskType, {
   })
   .build();
 
-export const magicPublishTaskDefinition = definition;
+export const magicPublishTaskDefinition = {
+  ...definition,
+  /** Discards the failed run's diff rows while retaining the batch record. */
+  async onFailed(taskRunId: string, message: string) {
+    const ctx = getPerRunState(taskRunId)?.ctx as TaskCtx | undefined;
+    const batchId = ctx?.batchId;
+    if (batchId == null) {
+      return;
+    }
+
+    await getLocalDb().transaction(async tx => {
+      await tx.delete(PublishBatchRow).where(eq(PublishBatchRow.batchId, batchId));
+      await tx.update(PublishBatch)
+        .set({ status: 'failed', error: message, completedAt: new Date(), updatedAt: new Date() })
+        .where(and(eq(PublishBatch.id, batchId), inArray(PublishBatch.status, ['planning', 'applying'])));
+    });
+  },
+};
