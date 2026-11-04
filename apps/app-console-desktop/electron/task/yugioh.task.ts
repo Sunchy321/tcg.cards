@@ -87,7 +87,7 @@ function publishDefinition(): TaskDefinition {
       async run(context) {
         const report = await publishYugiohCards({
           operatorUserId: typeof context.params.operatorUserId === 'string' ? context.params.operatorUserId : undefined,
-          environment:    text(context.params, 'environment') || undefined,
+          target:         text(context.params, 'target') || undefined,
           onProgress:     progressReporter(context, { updateEvery: 1, checkpointEvery: 1 }),
         });
         await context.saveResult(report as unknown as Record<string, unknown>);
@@ -133,11 +133,11 @@ registerSimpleTask({
   version:             '2026-10-27:v1',
   supportsResume:      true,
   admission:           { game: 'yugioh', connection: 'direct' },
-  publishConfirmation: params => ({ environment: text(params, 'environment'), scope: '全部游戏王卡牌' }),
+  publishConfirmation: params => ({ target: text(params, 'target'), scope: '全部游戏王卡牌' }),
   scope:               params => ({
     type:     'publish_stream',
-    key:      `yugioh:${text(params, 'environment')}`,
-    snapshot: { publishTarget: 'yugioh', environment: text(params, 'environment') },
+    key:      `yugioh:${text(params, 'target')}`,
+    snapshot: { game: 'yugioh', target: text(params, 'target') },
   }),
 }, publishDefinition);
 

@@ -35,7 +35,7 @@
         <UIcon name="lucide:alert-triangle" class="size-4" />
         <span>
           被
-          <strong>{{ blockingTask.taskScopeSnapshot?.publishTarget ?? blockingTask.taskScopeType }} / {{ blockingTask.taskScopeSnapshot?.environment ?? blockingTask.taskScopeKey }}</strong>
+          <strong>{{ blockingTask.taskScopeSnapshot?.game ?? blockingTask.taskScopeType }} / {{ blockingTask.taskScopeSnapshot?.target ?? blockingTask.taskScopeKey }}</strong>
           阻塞（{{ blockingTask.status }}）
         </span>
       </div>

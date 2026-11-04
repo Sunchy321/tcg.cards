@@ -15,9 +15,9 @@ import { sql } from 'drizzle-orm';
 // the ordinary publish flow, which target fingerprint they must match, and
 // the short-lived ordinary publish lease state for equivalent local writers.
 export const PublishStreamRegistration = pgTable('publish_stream_registrations', {
-  publishTarget: text('publish_target').notNull(),
-  environment:   text('environment').notNull(),
-  publishType:   text('publish_type').notNull().default('card_data'),
+  game:        text('game').notNull(),
+  target:      text('target').notNull(),
+  publishType: text('publish_type').notNull().default('card_data'),
 
   targetFingerprint:    text('target_fingerprint').notNull(),
   normalPublishEnabled: boolean('normal_publish_enabled').notNull().default(false),
@@ -30,10 +30,10 @@ export const PublishStreamRegistration = pgTable('publish_stream_registrations',
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
 }, table => [
-  primaryKey({ columns: [table.publishTarget, table.environment, table.publishType] }),
+  primaryKey({ columns: [table.game, table.target, table.publishType] }),
   index('publish_stream_registrations_stream_idx').on(
-    table.publishTarget,
-    table.environment,
+    table.game,
+    table.target,
     table.publishType,
   ),
   index('publish_stream_registrations_publish_enabled_idx').on(table.normalPublishEnabled),
@@ -41,11 +41,11 @@ export const PublishStreamRegistration = pgTable('publish_stream_registrations',
 ]);
 
 // Remote publish ledger keeps the last successful batch per publish stream so serving-side
-// environments can be reconciled without treating the remote database as a build authority.
+// targets can be reconciled without treating the remote database as a build authority.
 export const PublishLedger = pgTable('publish_ledgers', {
-  publishTarget: text('publish_target').notNull(),
-  environment:   text('environment').notNull(),
-  publishType:   text('publish_type').notNull().default('card_data'),
+  game:        text('game').notNull(),
+  target:      text('target').notNull(),
+  publishType: text('publish_type').notNull().default('card_data'),
 
   targetFingerprint: text('target_fingerprint').notNull(),
   batchId:           uuid('batch_id').notNull(),
@@ -67,9 +67,9 @@ export const PublishLedger = pgTable('publish_ledgers', {
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
 }, table => [
-  primaryKey({ columns: [table.publishTarget, table.environment, table.publishType] }),
-  index('publish_ledgers_environment_idx').on(table.environment),
-  index('publish_ledgers_stream_idx').on(table.publishTarget, table.environment, table.publishType),
+  primaryKey({ columns: [table.game, table.target, table.publishType] }),
+  index('publish_ledgers_target_idx').on(table.target),
+  index('publish_ledgers_stream_idx').on(table.game, table.target, table.publishType),
   index('publish_ledgers_published_at_idx').on(table.publishedAt),
   check('publish_ledgers_build_range_chk', sql`${table.buildMin} <= ${table.buildMax}`),
   check('publish_ledgers_build_min_positive_chk', sql`${table.buildMin} > 0`),

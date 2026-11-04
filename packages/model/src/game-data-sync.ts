@@ -11,9 +11,9 @@ export const publishOperationKind = z.enum(['publish', 'repair', 'rollback', 'pi
 
 /** Describes one stable publish stream identity shared by local and remote publish state. */
 export const publishStream = z.strictObject({
-  publishTarget: z.string().trim().min(1),
-  environment:   z.string().trim().min(1),
-  publishType:   z.string().trim().min(1),
+  game:        z.string().trim().min(1),
+  target:      z.string().trim().min(1),
+  publishType: z.string().trim().min(1),
 });
 
 /** Describes one minimal row baseline entry stored for one publish stream. */
@@ -34,7 +34,7 @@ export const gameDataFieldPolicy = z.strictObject({
 
 /** Builds one deterministic string key from a publish stream identity. */
 export function publishStreamKey(stream: PublishStream): string {
-  return `${stream.publishTarget}:${stream.environment}:${stream.publishType}`;
+  return `${stream.game}:${stream.target}:${stream.publishType}`;
 }
 
 /** Describes the shared track name used by one game-data field policy. */

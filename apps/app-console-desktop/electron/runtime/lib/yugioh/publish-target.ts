@@ -2,10 +2,10 @@ import { ORPCError } from '@orpc/server';
 
 import { findPublishTargetByName, readPublishTargets } from '../../runtime-config';
 
-/** Complete remote target required by the Yu-Gi-Oh! publisher. */
+/** Complete remote destination required by the Yu-Gi-Oh! publisher. */
 export interface YugiohPublishTarget {
-  publishTargetId:   string;
-  environment:       string;
+  game:              string;
+  target:            string;
   targetFingerprint: string;
   connectionString:  string;
 }
@@ -25,8 +25,8 @@ function singleTargetName(): string | null {
 }
 
 /** Complete target returned only when every injected field is valid. */
-export function getYugiohPublishTarget(environment?: string) {
-  const target = findPublishTargetByName(environment ?? singleTargetName());
+export function getYugiohPublishTarget(targetName?: string) {
+  const target = findPublishTargetByName(targetName ?? singleTargetName());
   const name = trimToNull(target?.name);
   const targetFingerprint = trimToNull(target?.targetFingerprint);
   const connectionString = trimToNull(target?.connectionString);
@@ -36,16 +36,16 @@ export function getYugiohPublishTarget(environment?: string) {
   }
 
   return {
-    publishTargetId: 'yugioh',
-    environment:     name,
+    game:   'yugioh',
+    target: name,
     targetFingerprint,
     connectionString,
   } satisfies YugiohPublishTarget;
 }
 
 /** Configured target returned or one safe configuration error raised. */
-export function requireYugiohPublishTarget(environment?: string) {
-  const target = getYugiohPublishTarget(environment);
+export function requireYugiohPublishTarget(targetName?: string) {
+  const target = getYugiohPublishTarget(targetName);
 
   if (target != null) {
     return target;

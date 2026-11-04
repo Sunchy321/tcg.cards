@@ -4,8 +4,8 @@ import type { RuntimeOverrides } from './runtime/runtime-config';
 
 /** User-facing target and scope shown before one publish task is accepted. */
 export interface PublishConfirmation {
-  environment: string;
-  scope:       string;
+  target: string;
+  scope:  string;
 }
 
 /** Health information returned by the isolated local business process. */

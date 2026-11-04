@@ -8,7 +8,7 @@ test('a direct target labels the stream with its name and captures the first ver
   const resolved = resolvePublishTarget({ id, name: '本地', kind: 'direct' }, 'fingerprint-a');
 
   assert.deepEqual(resolved, {
-    environment:       '本地',
+    target:            '本地',
     targetFingerprint: 'fingerprint-a',
     capture:           true,
   });
@@ -21,7 +21,7 @@ test('a recorded identity that still matches is not captured again', () => {
   );
 
   assert.equal(resolved.capture, false);
-  assert.equal(resolved.environment, '线上');
+  assert.equal(resolved.target, '线上');
 });
 
 test('a recorded identity that no longer matches refuses to publish', () => {
@@ -44,14 +44,14 @@ test('an account target cannot publish from this desktop yet', () => {
 test('launch parameters carry the target name as the stream label without losing other values', () => {
   const params = withResolvedPublishTarget(
     { publishTarget: 'magic', targetId: id, dryRun: true },
-    { environment: '本地', targetFingerprint: 'fingerprint-a', capture: true },
+    { target: '本地', targetFingerprint: 'fingerprint-a', capture: true },
   );
 
   assert.deepEqual(params, {
     publishTarget:     'magic',
     targetId:          id,
     dryRun:            true,
-    environment:       '本地',
+    target:            '本地',
     targetFingerprint: 'fingerprint-a',
   });
 });

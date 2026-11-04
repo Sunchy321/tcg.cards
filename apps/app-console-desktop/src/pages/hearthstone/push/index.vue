@@ -222,8 +222,8 @@ const pushOperation = computed<TaskOperation>(() => ({
   create:   async () => {
     pushResult.value = null;
     return await startDesktopTask(TASK_TYPE, {
-      publishTarget: 'hearthstone',
-      targetId:      selectedTarget.value?.id ?? '',
+      game:     'hearthstone',
+      targetId: selectedTarget.value?.id ?? '',
     });
   },
 }));

@@ -34,12 +34,12 @@ import {
 import { requireMagicPublishTargetByIdentity } from '../../magic-publish-target';
 import { activateSearchPublication, markSearchPublicationUnavailable } from '../../../search-publication';
 
-/** Stable task type for publishing magic fact tables to a remote environment. */
+/** Stable task type for publishing magic fact tables to a remote target. */
 export const magicPublishTaskType = 'magic_publish';
 
 const input = z.object({
-  publishTarget:  z.string().trim().min(1),
-  environment:    z.string().trim().min(1),
+  game:           z.string().trim().min(1),
+  target:         z.string().trim().min(1),
   operatorUserId: z.string().trim().min(1).optional(),
   dryRun:         z.boolean().optional().default(false),
   force:          z.boolean().optional().default(false),
@@ -56,8 +56,8 @@ const countsSchema = z.object({
 
 const output = z.object({
   batchId:              z.string().nullable(),
-  publishTarget:        z.string(),
-  environment:          z.string(),
+  game:                 z.string(),
+  target:               z.string(),
   dryRun:               z.boolean(),
   force:                z.boolean(),
   manifestHash:         z.string(),
@@ -108,8 +108,8 @@ interface PlanRow {
 interface TaskCtx {
   dryRun:               boolean;
   force:                boolean;
-  publishTarget:        string;
-  environment:          string;
+  game:                 string;
+  target:               string;
   operatorUserId:       string | null;
   targetFingerprint:    string;
   connectionString:     string;
@@ -122,7 +122,7 @@ interface TaskCtx {
   remoteDb:             PublishDb | null;
 }
 
-const streamOf = (c: TaskCtx) => ({ publishTarget: c.publishTarget, environment: c.environment, publishType: 'card_data' as const });
+const streamOf = (c: TaskCtx) => ({ game: c.game, target: c.target, publishType: 'card_data' as const });
 
 const definition = createDefinition(magicPublishTaskType, {
   version:     '2026-09-05:v1',
@@ -138,8 +138,8 @@ const definition = createDefinition(magicPublishTaskType, {
     init: values => ({
       dryRun:               values.dryRun ?? false,
       force:                values.force ?? false,
-      publishTarget:        values.publishTarget,
-      environment:          values.environment,
+      game:                 values.game,
+      target:               values.target,
       operatorUserId:       values.operatorUserId ?? null,
       targetFingerprint:    '',
       connectionString:     '',
@@ -158,7 +158,7 @@ const definition = createDefinition(magicPublishTaskType, {
   .stage('loading_snapshots', { label: '扫描与差分', progressMode: 'bounded' })
   .entry(async ({ ctx }) => {
     const c = ctx as unknown as TaskCtx;
-    const target = requireMagicPublishTargetByIdentity(c.publishTarget, c.environment);
+    const target = requireMagicPublishTargetByIdentity(c.game, c.target);
     c.targetFingerprint = target.targetFingerprint;
     c.connectionString = target.connectionString;
     c.counts = emptyCounts();
@@ -178,8 +178,8 @@ const definition = createDefinition(magicPublishTaskType, {
 
     const baseline = await db.select().from(PublishBaseline)
       .where(and(
-        eq(PublishBaseline.publishTarget, stream.publishTarget),
-        eq(PublishBaseline.environment, stream.environment),
+        eq(PublishBaseline.game, stream.game),
+        eq(PublishBaseline.target, stream.target),
         eq(PublishBaseline.publishType, stream.publishType),
       )).then(rows => rows[0] ?? null);
     c.previousManifestHash = baseline?.manifestHash ?? null;
@@ -357,8 +357,8 @@ const definition = createDefinition(magicPublishTaskType, {
     const remoteDb = createDb(c.connectionString);
     c.remoteDb = remoteDb;
     await assertRemotePublishGate(remoteDb, {
-      publishTarget:        stream.publishTarget,
-      environment:          stream.environment,
+      game:                 stream.game,
+      target:               stream.target,
       publishType:          stream.publishType,
       targetFingerprint:    batch.targetFingerprint,
       manifestHash:         batch.manifestHash,
@@ -424,16 +424,16 @@ const definition = createDefinition(magicPublishTaskType, {
       for (const row of batch) {
         if (row.action === 'delete') {
           await db.delete(PublishRowBaseline).where(and(
-            eq(PublishRowBaseline.publishTarget, stream.publishTarget),
-            eq(PublishRowBaseline.environment, stream.environment),
+            eq(PublishRowBaseline.game, stream.game),
+            eq(PublishRowBaseline.target, stream.target),
             eq(PublishRowBaseline.publishType, stream.publishType),
             eq(PublishRowBaseline.tableName, row.tableName),
             eq(PublishRowBaseline.rowKey, row.rowKey),
           ));
         } else {
           await db.insert(PublishRowBaseline).values({
-            publishTarget: stream.publishTarget,
-            environment:   stream.environment,
+            game:          stream.game,
+            target:        stream.target,
             publishType:   stream.publishType,
             tableName:     row.tableName,
             rowKey:        row.rowKey,
@@ -442,8 +442,8 @@ const definition = createDefinition(magicPublishTaskType, {
             publishedAt:   new Date(),
           }).onConflictDoUpdate({
             target: [
-              PublishRowBaseline.publishTarget,
-              PublishRowBaseline.environment,
+              PublishRowBaseline.game,
+              PublishRowBaseline.target,
               PublishRowBaseline.publishType,
               PublishRowBaseline.tableName,
               PublishRowBaseline.rowKey,
@@ -480,8 +480,8 @@ const definition = createDefinition(magicPublishTaskType, {
       const remoteDb = createDb(c.connectionString);
       try {
         await db.insert(PublishBaseline).values({
-          publishTarget:         stream.publishTarget,
-          environment:           stream.environment,
+          game:                  stream.game,
+          target:                stream.target,
           publishType:           stream.publishType,
           targetFingerprint:     batch.targetFingerprint,
           batchId:               batch.id,
@@ -492,8 +492,8 @@ const definition = createDefinition(magicPublishTaskType, {
           publishedAt:           new Date(),
         }).onConflictDoUpdate({
           target: [
-            PublishBaseline.publishTarget,
-            PublishBaseline.environment,
+            PublishBaseline.game,
+            PublishBaseline.target,
             PublishBaseline.publishType,
           ],
           set: {
@@ -522,8 +522,8 @@ const definition = createDefinition(magicPublishTaskType, {
         // by one full diff per publish.
         const completedIds = await db.select({ id: PublishBatch.id }).from(PublishBatch)
           .where(and(
-            eq(PublishBatch.publishTarget, stream.publishTarget),
-            eq(PublishBatch.environment, stream.environment),
+            eq(PublishBatch.game, stream.game),
+            eq(PublishBatch.target, stream.target),
             eq(PublishBatch.publishType, stream.publishType),
             eq(PublishBatch.status, 'completed'),
           )).then(rows => rows.map(row => row.id));
@@ -537,8 +537,8 @@ const definition = createDefinition(magicPublishTaskType, {
 
     return {
       batchId:              batch?.id ?? null,
-      publishTarget:        c.publishTarget,
-      environment:          c.environment,
+      game:                 c.game,
+      target:               c.target,
       dryRun:               c.dryRun,
       force:                c.force,
       manifestHash:         batch?.manifestHash ?? '',

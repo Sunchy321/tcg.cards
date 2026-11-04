@@ -157,12 +157,12 @@ async function authorize(event: IpcMainInvokeEvent) {
 }
 
 /** Confirms one publish target and scope before remote admission or task creation. */
-async function confirmPublish(game: AdmissionGame, environment: string, scope: string): Promise<boolean> {
+async function confirmPublish(game: AdmissionGame, target: string, scope: string): Promise<boolean> {
   const parent = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
   const options: MessageBoxOptions = {
     type:      'warning',
     title:     '确认发布',
-    message:   `将发布${PUBLISH_GAME_LABELS[game]}数据到“${environment}”。`,
+    message:   `将发布${PUBLISH_GAME_LABELS[game]}数据到“${target}”。`,
     detail:    `发布范围：${scope}`,
     buttons:   ['取消', '确认发布'],
     defaultId: 0,
@@ -445,9 +445,9 @@ app
           const resumed = source ? await runtime!.describeRetry(source.id, url) : null;
           if (resumed?.publishConfirmation) {
             if (!resumed.admission) throw new Error('发布任务缺少权限检查。');
-            const { environment, scope } = resumed.publishConfirmation;
-            if (!environment.trim() || !scope.trim()) throw new Error('无法确认发布目标和范围。');
-            if (!(await confirmPublish(resumed.admission.game, environment, scope))) return source;
+            const { target, scope } = resumed.publishConfirmation;
+            if (!target.trim() || !scope.trim()) throw new Error('无法确认发布目标和范围。');
+            if (!(await confirmPublish(resumed.admission.game, target, scope))) return source;
           }
           // Continuing a publish uses the registration's credential source and the same confirmation.
           if (resumed?.admission) await admitPublish(settings, resumed.admission.game, resumed.admission.connection);
@@ -484,9 +484,9 @@ app
         : await runtime!.describeRetry(parsed.taskRunId, url);
       if (description?.publishConfirmation) {
         if (!description.admission) throw new Error('发布任务缺少权限检查。');
-        const { environment, scope } = description.publishConfirmation;
-        if (!environment.trim() || !scope.trim()) throw new Error('无法确认发布目标和范围。');
-        if (!(await confirmPublish(description.admission.game, environment, scope))) return null;
+        const { target, scope } = description.publishConfirmation;
+        if (!target.trim() || !scope.trim()) throw new Error('无法确认发布目标和范围。');
+        if (!(await confirmPublish(description.admission.game, target, scope))) return null;
       }
       // Only account connections require Console admission; database gates still run inside direct tasks.
       const admittedOperator = description?.admission

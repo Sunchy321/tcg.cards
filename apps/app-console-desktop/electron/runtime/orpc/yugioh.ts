@@ -49,8 +49,8 @@ const imageImportReport = z.object({
 
 const publishReport = z.object({
   batchId:              z.string(),
-  publishTargetId:      z.string(),
-  environment:          z.string(),
+  game:                 z.string(),
+  target:               z.string(),
   targetFingerprint:    z.string(),
   manifestHash:         z.string(),
   previousManifestHash: z.string().nullable(),

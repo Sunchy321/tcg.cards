@@ -32,7 +32,7 @@ const runtimeStatus = z.object({
   localDatabaseConfigured:       z.boolean(),
   pathsConfigured:               z.boolean(),
   imageConfigured:               z.boolean(),
-  publishTargetConfigured:       z.boolean(),
+  gameConfigured:                z.boolean(),
   yugiohPublishTargetConfigured: z.boolean(),
   yugiohImageConfigured:         z.boolean(),
   aiConfigured:                  z.boolean(),
@@ -48,7 +48,7 @@ function buildStatus() {
     localDatabaseConfigured:       hasLocalDatabaseUrl(),
     pathsConfigured:               Object.keys(readAllPathOverrides()).length > 0,
     imageConfigured:               hasHearthstoneImageOverride(),
-    publishTargetConfigured:       hasHearthstonePublishTargetOverride(),
+    gameConfigured:                hasHearthstonePublishTargetOverride(),
     yugiohPublishTargetConfigured: hasYugiohPublishTargetOverride(),
     yugiohImageConfigured:         hasYugiohImageOverride(),
     aiConfigured:                  hasAiConfig(),
@@ -77,8 +77,8 @@ const configureDesktopStateInput = z.strictObject({
   games: z.strictObject({
     magic: z.strictObject({
       publish: z.array(z.strictObject({
-        publishTarget:     z.string().trim().min(1).nullable(),
-        environment:       z.string().trim().min(1).nullable(),
+        game:              z.string().trim().min(1).nullable(),
+        target:            z.string().trim().min(1).nullable(),
         targetFingerprint: z.string().trim().min(1).nullable(),
         connectionString:  z.string().trim().min(1).nullable(),
       })),
@@ -89,8 +89,8 @@ const configureDesktopStateInput = z.strictObject({
         bucketDir:       z.string().trim().min(1).nullable(),
       }),
       publish: z.array(z.strictObject({
-        publishTarget:     z.string().trim().min(1).nullable(),
-        environment:       z.string().trim().min(1).nullable(),
+        game:              z.string().trim().min(1).nullable(),
+        target:            z.string().trim().min(1).nullable(),
         targetFingerprint: z.string().trim().min(1).nullable(),
         connectionString:  z.string().trim().min(1).nullable(),
       })),
@@ -100,8 +100,8 @@ const configureDesktopStateInput = z.strictObject({
         bucketDir: z.string().trim().min(1).nullable(),
       }),
       publish: z.strictObject({
-        publishTargetId:   z.string().trim().min(1).nullable(),
-        environment:       z.string().trim().min(1).nullable(),
+        game:              z.string().trim().min(1).nullable(),
+        target:            z.string().trim().min(1).nullable(),
         targetFingerprint: z.string().trim().min(1).nullable(),
         connectionString:  z.string().trim().min(1).nullable(),
       }),

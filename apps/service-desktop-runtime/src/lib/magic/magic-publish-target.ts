@@ -6,8 +6,8 @@ import {
 
 /** Complete magic publish target state required by the publish workflow. */
 export interface MagicPublishTarget {
-  publishTarget:     string;
-  environment:       string;
+  game:              string;
+  target:            string;
   targetFingerprint: string;
   connectionString:  string;
 }
@@ -20,20 +20,20 @@ const trimToNull = (value: string | null | undefined) => {
 
 /** One runtime-injected publish target normalized only when every required field is present. */
 const normalizePublishTarget = (
-  target: ReturnType<typeof readMagicPublishTargetOverrides>[number],
+  override: ReturnType<typeof readMagicPublishTargetOverrides>[number],
 ) => {
-  const publishTarget = trimToNull(target?.publishTarget);
-  const environment = trimToNull(target?.environment);
-  const targetFingerprint = trimToNull(target?.targetFingerprint);
-  const connectionString = trimToNull(target?.connectionString);
+  const game = trimToNull(override?.game);
+  const target = trimToNull(override?.target);
+  const targetFingerprint = trimToNull(override?.targetFingerprint);
+  const connectionString = trimToNull(override?.connectionString);
 
-  if (publishTarget == null || environment == null || targetFingerprint == null || connectionString == null) {
+  if (game == null || target == null || targetFingerprint == null || connectionString == null) {
     return null;
   }
 
   return {
-    publishTarget,
-    environment,
+    game,
+    target,
     targetFingerprint,
     connectionString,
   } satisfies MagicPublishTarget;
@@ -43,23 +43,23 @@ const normalizePublishTarget = (
 const listMissingFields = () => {
   const missing: string[] = [];
   if (!readMagicPublishTargetOverrides().some(target => normalizePublishTarget(target) != null)) {
-    missing.push('publishTarget', 'environment', 'targetFingerprint', 'connectionString');
+    missing.push('game', 'target', 'targetFingerprint', 'connectionString');
   }
   return missing;
 };
 
 /** Requires one magic publish target for the given stream identity, or fails with a 400. */
 export function requireMagicPublishTargetByIdentity(
-  publishTarget: string,
-  environment: string,
+  game: string,
+  target: string,
 ): MagicPublishTarget {
   const match = readMagicPublishTargetOverrides()
     .map(normalizePublishTarget)
-    .find(target => target?.publishTarget === publishTarget && target?.environment === environment);
+    .find(candidate => candidate?.game === game && candidate?.target === target);
 
   if (match == null) {
     throw new ORPCError('BAD_REQUEST', {
-      message: `magic publish target ${publishTarget}/${environment} is not configured (missing: ${listMissingFields().join(', ')})`,
+      message: `magic publish target ${game}/${target} is not configured (missing: ${listMissingFields().join(', ')})`,
     });
   }
   return match;

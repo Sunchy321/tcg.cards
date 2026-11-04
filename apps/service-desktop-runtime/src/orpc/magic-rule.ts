@@ -153,8 +153,8 @@ const releases = os.input(z.object({ slug: z.string().default('magic-cr'), versi
 /** Publishes one static document into the configured remote serving target. */
 const publish = os.input(z.object({
   documentId:        z.string().default('magic-cr'),
-  publishTarget:     z.string(),
-  environment:       z.string(),
+  game:              z.string(),
+  target:            z.string(),
   targetFingerprint: z.string().optional(),
   dryRun:            z.boolean().default(false),
 }))

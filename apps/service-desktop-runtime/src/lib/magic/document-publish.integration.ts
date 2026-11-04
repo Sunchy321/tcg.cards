@@ -31,9 +31,9 @@ async function finished(snapshot: TaskPageSnapshot) {
 test.skipIf(!process.env.DOCUMENT_TEST_LOCAL_URL || !process.env.DOCUMENT_TEST_REMOTE_URL)('publishes through real tasks, verifies destinations, previews and retries without replacing active tasks', async () => {
   const local = createDb(process.env.DOCUMENT_TEST_LOCAL_URL!);
   const remote = createDb(process.env.DOCUMENT_TEST_REMOTE_URL!);
-  const identity = await resolvePublishTarget({ publishTarget: 'magic', environment: 'test', connectionString: process.env.DOCUMENT_TEST_REMOTE_URL! });
-  const target = { publishTarget: 'magic', environment: 'test', targetFingerprint: identity.targetFingerprint, connectionString: process.env.DOCUMENT_TEST_REMOTE_URL! };
-  const input = { publishTarget: 'magic', environment: 'test', targetFingerprint: identity.targetFingerprint, dryRun: false };
+  const identity = await resolvePublishTarget({ game: 'magic', target: 'test', connectionString: process.env.DOCUMENT_TEST_REMOTE_URL! });
+  const target = { game: 'magic', target: 'test', targetFingerprint: identity.targetFingerprint, connectionString: process.env.DOCUMENT_TEST_REMOTE_URL! };
+  const input = { game: 'magic', target: 'test', targetFingerprint: identity.targetFingerprint, dryRun: false };
   setLocalDatabaseUrlOverride(process.env.DOCUMENT_TEST_LOCAL_URL!);
   setMagicPublishTargetOverrides([target]);
   try {

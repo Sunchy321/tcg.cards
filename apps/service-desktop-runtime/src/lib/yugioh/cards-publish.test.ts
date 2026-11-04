@@ -206,7 +206,7 @@ describe('remote publish safeguards', () => {
       remoteRowCount:            1,
       allowIntermediateManifest: false,
       ledger:                    {
-        environment:       'test',
+        target:            'test',
         targetFingerprint: 'fingerprint',
         manifestHash:      'baseline-hash',
         totalRowCount:     1,

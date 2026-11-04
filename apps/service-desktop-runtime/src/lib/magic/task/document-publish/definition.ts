@@ -7,8 +7,8 @@ import { publishDocuments } from '../../document-publish';
 export const documentPublishTaskType = 'magic_document_publish';
 
 const scope = z.object({
-  publishTarget:     z.string().trim().min(1),
-  environment:       z.string().trim().min(1),
+  game:              z.string().trim().min(1),
+  target:            z.string().trim().min(1),
   targetFingerprint: z.string().trim().min(1),
 });
 
@@ -21,7 +21,7 @@ const output = z.object({
 export const documentPublishTaskDefinition = createDefinition(documentPublishTaskType, { version: '2026-10-19:v1' })
   .scope(scope, {
     type:    'publish_stream',
-    resolve: value => ({ key: `${value.publishTarget}:${value.environment}:static_documents`, snapshot: value }),
+    resolve: value => ({ key: `${value.game}:${value.target}:static_documents`, snapshot: value }),
   })
   .input(z.object({ dryRun: z.boolean().default(false) }))
   .output(output)

@@ -413,10 +413,10 @@ const reviewList = os
 
 const publishTask = os
   .input(z.strictObject({
-    publishTarget: z.string().trim().min(1),
-    environment:   z.string().trim().min(1),
-    dryRun:        z.boolean().optional().default(false),
-    force:         z.boolean().optional().default(false),
+    game:   z.string().trim().min(1),
+    target: z.string().trim().min(1),
+    dryRun: z.boolean().optional().default(false),
+    force:  z.boolean().optional().default(false),
   }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
@@ -424,19 +424,19 @@ const publishTask = os
       taskType:          magicPublishTaskDefinition.taskType,
       definitionVersion: magicPublishTaskDefinition.definitionVersion,
       scope:             { type: magicPublishTaskDefinition.scopeType, key: 'global', snapshot: {} },
-      params:            { publishTarget: input.publishTarget, environment: input.environment, dryRun: input.dryRun, force: input.force },
+      params:            { game: input.game, target: input.target, dryRun: input.dryRun, force: input.force },
     });
   });
 
 const announcementPublishTask = os
   .input(z.strictObject({
-    publishTarget: z.string().trim().min(1),
-    environment:   z.string().trim().min(1),
-    dryRun:        z.boolean().optional().default(false),
+    game:   z.string().trim().min(1),
+    target: z.string().trim().min(1),
+    dryRun: z.boolean().optional().default(false),
   }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
-    const scope = { publishTarget: input.publishTarget, environment: input.environment };
+    const scope = { game: input.game, target: input.target };
     const resolved = announcementPublishTaskDefinition.resolveScope(scope);
     // If there's an active task on this scope from a previous boot, abandon it.
     const stale = await getStore().getActiveTaskRun(announcementPublishTaskDefinition.taskType, announcementPublishTaskDefinition.scopeType, resolved.key);
@@ -466,8 +466,8 @@ const announcementPublishTask = os
 /** Creates a static collection publication without replacing an active publication task. */
 const documentPublishTask = os
   .input(z.strictObject({
-    publishTarget:     z.string().trim().min(1),
-    environment:       z.string().trim().min(1),
+    game:              z.string().trim().min(1),
+    target:            z.string().trim().min(1),
     targetFingerprint: z.string().trim().min(1),
     dryRun:            z.boolean().default(false),
   }))
@@ -485,13 +485,13 @@ const documentPublishTask = os
 
 const referencePublishTask = os
   .input(z.strictObject({
-    publishTarget: z.string().trim().min(1),
-    environment:   z.string().trim().min(1),
-    dryRun:        z.boolean().optional().default(false),
+    game:   z.string().trim().min(1),
+    target: z.string().trim().min(1),
+    dryRun: z.boolean().optional().default(false),
   }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
-    const scope = { publishTarget: input.publishTarget, environment: input.environment };
+    const scope = { game: input.game, target: input.target };
     const resolved = referencePublishTaskDefinition.resolveScope(scope);
     const stale = await getStore().getActiveTaskRun(referencePublishTaskDefinition.taskType, referencePublishTaskDefinition.scopeType, resolved.key);
     if (stale) {

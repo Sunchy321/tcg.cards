@@ -19,7 +19,7 @@ import {
 
 const originalLocalDatabaseUrl = process.env.DESKTOP_LOCAL_DATABASE_URL;
 
-/** Database URL the current environment resolves to; tests must not assume it is unset. */
+/** Database URL the current target resolves to; tests must not assume it is unset. */
 const envLocalDatabaseUrl = () => process.env.DESKTOP_LOCAL_DATABASE_URL?.trim() || null;
 
 afterEach(() => {
@@ -36,7 +36,7 @@ afterEach(() => {
 });
 
 describe('runtime-config', () => {
-  test('prefers the runtime-local database override over the environment fallback', () => {
+  test('prefers the runtime-local database override over the target fallback', () => {
     process.env.DESKTOP_LOCAL_DATABASE_URL = 'postgres://env-user:env-pass@127.0.0.1:5432/env_db';
 
     expect(readLocalDatabaseUrl()).toBe('postgres://env-user:env-pass@127.0.0.1:5432/env_db');

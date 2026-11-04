@@ -35,14 +35,14 @@ const testLocalDatabaseInput = z.strictObject({
 });
 
 const testHearthstonePublishTargetInput = z.strictObject({
-  publishTarget:    z.string().trim().min(1),
-  environment:      z.string().trim().min(1),
+  game:             z.string().trim().min(1),
+  target:           z.string().trim().min(1),
   connectionString: z.string().trim().min(1),
 });
 
 const testYugiohPublishTargetInput = z.strictObject({
-  publishTargetId:  z.string().trim().min(1),
-  environment:      z.literal('test'),
+  game:             z.string().trim().min(1),
+  target:           z.literal('test'),
   connectionString: z.string().trim().min(1),
 });
 
@@ -183,7 +183,7 @@ hono.post('/desktop/test-hearthstone-publish-target', async c => {
 
   if (!parsed.success) {
     return c.json({
-      message: 'Publish target, environment, and connection string are required.',
+      message: 'Publish target, target, and connection string are required.',
     }, 400);
   }
 
@@ -201,7 +201,7 @@ hono.post('/desktop/test-yugioh-publish-target', async c => {
 
   if (!parsed.success) {
     return c.json({
-      message: 'Yu-Gi-Oh! publish target id, test environment, and connection string are required.',
+      message: 'Yu-Gi-Oh! publish target id, test target, and connection string are required.',
     }, 400);
   }
 

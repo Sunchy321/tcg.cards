@@ -111,7 +111,7 @@ const RESULT_LABELS: Record<string, string> = {
   totalRowCount:     '数据总数',
   changedRowCount:   '本次发布数量',
   dryRun:            '仅预览',
-  environment:       '发布环境',
+  target:            '发布目标',
   force:             '忽略版本检查',
   announcementCount: '公告',
   itemCount:         '公告条目',
@@ -205,30 +205,30 @@ const operations: TaskOperation[] = [
       targetLocked.value = true;
       if (publishType.value === 'announcement') {
         return startDesktopTask('magic_announcement_publish', {
-          publishTarget: 'magic',
-          targetId:      target.id,
-          dryRun:        dryRun.value,
+          game:     'magic',
+          targetId: target.id,
+          dryRun:   dryRun.value,
         });
       }
       if (publishType.value === 'document') {
         return startDesktopTask('magic_document_publish', {
-          publishTarget: 'magic',
-          targetId:      target.id,
-          dryRun:        dryRun.value,
+          game:     'magic',
+          targetId: target.id,
+          dryRun:   dryRun.value,
         });
       }
       if (publishType.value === 'reference') {
         return startDesktopTask('magic_reference_publish', {
-          publishTarget: 'magic',
-          targetId:      target.id,
-          dryRun:        dryRun.value,
+          game:     'magic',
+          targetId: target.id,
+          dryRun:   dryRun.value,
         });
       }
       return startDesktopTask('magic_publish', {
-        publishTarget: 'magic',
-        targetId:      target.id,
-        dryRun:        dryRun.value,
-        force:         force.value,
+        game:     'magic',
+        targetId: target.id,
+        dryRun:   dryRun.value,
+        force:    force.value,
       });
     },
   },
@@ -268,9 +268,9 @@ function onSnapshot(snapshot: TaskPageSnapshot) {
   if (!restoredType) return;
   persistedTaskRunId = snapshot.pageTask.taskRunId;
   publishType.value = restoredType;
-  const environment = snapshot.pageTask.taskScopeSnapshot?.environment;
-  if (typeof environment === 'string') {
-    const restoredTarget = targets.value.find(target => target.name === environment);
+  const restoredName = snapshot.pageTask.taskScopeSnapshot?.target;
+  if (typeof restoredName === 'string') {
+    const restoredTarget = targets.value.find(target => target.name === restoredName);
     if (restoredTarget) void select(restoredTarget.id);
   }
   persistPublishPageState();

@@ -24,8 +24,8 @@ const output = z.object({
 });
 
 const publishStreamScope = z.object({
-  publishTarget: z.string(),
-  environment:   z.string(),
+  game:   z.string(),
+  target: z.string(),
 });
 
 /** Publishes formats, series, translated names and complete boosters as one remote transaction. */
@@ -33,7 +33,7 @@ export const referencePublishTaskDefinition = createDefinition(referencePublishT
   .scope(publishStreamScope, {
     type:    'publish_stream' as const,
     resolve: scope => ({
-      key:      `${scope.publishTarget}:${scope.environment}:reference_data`,
+      key:      `${scope.game}:${scope.target}:reference_data`,
       snapshot: scope,
     }),
   })
@@ -41,7 +41,7 @@ export const referencePublishTaskDefinition = createDefinition(referencePublishT
   .output(output)
   .context({
     init: (input, scope) => ({
-      target: requireMagicPublishTargetByIdentity(scope.publishTarget, scope.environment),
+      target: requireMagicPublishTargetByIdentity(scope.game, scope.target),
       dryRun: input.dryRun ?? false,
     }),
   })

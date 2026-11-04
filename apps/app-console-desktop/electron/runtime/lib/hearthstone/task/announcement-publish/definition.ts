@@ -30,8 +30,8 @@ const output = z.object({
 });
 
 const publishStreamScope = z.object({
-  publishTarget: z.string(),
-  environment:   z.string(),
+  game:   z.string(),
+  target: z.string(),
 });
 
 /** Mirrors the local announcement tables to the publish target as a full replace. */
@@ -39,7 +39,7 @@ export const announcementPublishTaskDefinition = createDefinition(announcementPu
   .scope(publishStreamScope, {
     type:    'publish_stream' as const,
     resolve: scope => ({
-      key:      `${scope.publishTarget}:${scope.environment}:announcement_data`,
+      key:      `${scope.game}:${scope.target}:announcement_data`,
       snapshot: scope,
     }),
   })
@@ -47,7 +47,7 @@ export const announcementPublishTaskDefinition = createDefinition(announcementPu
   .output(output)
   .context({
     init: (input, scope) => {
-      const target = requireHearthstonePublishTargetByIdentity(scope.publishTarget, scope.environment);
+      const target = requireHearthstonePublishTargetByIdentity(scope.game, scope.target);
       return {
         target,
         dryRun: input.dryRun ?? false,

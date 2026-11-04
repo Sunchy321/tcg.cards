@@ -4,7 +4,7 @@ import { getLocalDb } from './lib/hearthstone/hsdata-local-db';
 import { runtimeApp } from './app';
 import './lib/task/task-definitions';
 
-/** Resolves the local listen port from the current process environment. */
+/** Resolves the local listen port from the current process target. */
 function readPort() {
   const raw = process.env.PORT;
   if (raw == null || raw.trim() === '') {

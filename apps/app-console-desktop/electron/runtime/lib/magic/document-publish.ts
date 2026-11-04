@@ -5,12 +5,12 @@ import { createDocumentStore } from '@tcg-cards/console-api/lib/magic/documents/
 import { publishDocument, publishStaticDocuments } from '@tcg-cards/console-api/lib/magic/documents/publish';
 import { getLocalDb, requireLocalDatabaseUrl } from '../hearthstone/hsdata-local-db';
 import { resolveHearthstonePublishTarget as resolvePublishTarget } from '../runtime/desktop-database';
-import { requireMagicPublishTargetByIdentity } from './magic-publish-target';
+import { requireMagicPublishTarget } from './magic-publish-target';
 
 /** Pins the selected destination independently of the current desktop configuration. */
 export interface DocumentPublication {
-  publishTarget:      string;
-  environment:        string;
+  game:               string;
+  target:             string;
   targetFingerprint?: string;
   dryRun?:            boolean;
 }
@@ -19,7 +19,7 @@ export interface DocumentPublication {
 export async function publishDocuments(input: DocumentPublication, documentId?: string) {
   let target;
   try {
-    target = requireMagicPublishTargetByIdentity(input.publishTarget, input.environment);
+    target = requireMagicPublishTarget(input.game, input.target);
   } catch (error) {
     throw new ORPCError('BAD_REQUEST', { message: '未配置所选发布环境，请检查发布配置。', cause: error });
   }

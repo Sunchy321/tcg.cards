@@ -77,8 +77,8 @@ export type GenerationFingerprint = PublishGeneration['fingerprint'];
 export type GenerationOrder = PublishGeneration['order'];
 
 interface PublishTargetSelector {
-  publishTarget?: string;
-  environment?:   string;
+  game?:   string;
+  target?: string;
 }
 
 /** Reads whether one caller has requested a cooperative stop for the current publish flow. */
@@ -88,10 +88,10 @@ export interface PublishStopSignal {
 
 /** Publish target resolved from one explicit stream identity when provided. */
 function resolvePublishTargetSelector(selector?: PublishTargetSelector) {
-  if (selector?.publishTarget != null && selector.environment != null) {
+  if (selector?.game != null && selector.target != null) {
     return requireHearthstonePublishTargetByIdentity(
-      selector.publishTarget,
-      selector.environment,
+      selector.game,
+      selector.target,
     );
   }
 
@@ -118,8 +118,8 @@ export interface PublishBatchCounts {
 
 export const publishReport = z.object({
   batchId:              z.string(),
-  publishTarget:        z.string(),
-  environment:          z.string(),
+  game:                 z.string(),
+  target:               z.string(),
   targetFingerprint:    z.string(),
   publishType:          z.string(),
   operationKind:        z.string(),
@@ -163,13 +163,13 @@ const remotePublishLeaseTtlMs = 5 * 60 * 1000;
 /** Returns one active local batch for the same publish stream, regardless of operation kind. */
 export async function findActiveStreamBatch(
   db: PublishDb,
-  stream: Pick<PublishStreamIdentity, 'publishTarget' | 'environment' | 'publishType'>,
+  stream: Pick<PublishStreamIdentity, 'game' | 'target' | 'publishType'>,
 ): Promise<typeof PublishBatch.$inferSelect | null> {
   return await db.select()
     .from(PublishBatch)
     .where(and(
-      eq(PublishBatch.publishTarget, stream.publishTarget),
-      eq(PublishBatch.environment, stream.environment),
+      eq(PublishBatch.game, stream.game),
+      eq(PublishBatch.target, stream.target),
       eq(PublishBatch.publishType, stream.publishType),
       inArray(PublishBatch.status, ['planning', 'applying']),
     ))
@@ -218,8 +218,8 @@ export function buildManifestLine(state: PublishRowState): string {
 export async function assertRemotePublishGate(
   remoteDb: PublishDb,
   input: {
-    publishTarget:         string;
-    environment:           string;
+    game:                  string;
+    target:                string;
     publishType:           string;
     targetFingerprint:     string;
     manifestHash:          string;
@@ -234,27 +234,27 @@ export async function assertRemotePublishGate(
   const registration = await remoteDb.select()
     .from(PublishStreamRegistration)
     .where(and(
-      eq(PublishStreamRegistration.publishTarget, input.publishTarget),
-      eq(PublishStreamRegistration.environment, input.environment),
+      eq(PublishStreamRegistration.game, input.game),
+      eq(PublishStreamRegistration.target, input.target),
       eq(PublishStreamRegistration.publishType, input.publishType),
     ))
     .then(rows => rows[0] ?? null);
 
   if (registration == null) {
     throw new Error(
-      `Remote publish stream ${input.publishTarget}/${input.environment}/${input.publishType} is not registered for normal publish.`,
+      `Remote publish stream ${input.game}/${input.target}/${input.publishType} is not registered for normal publish.`,
     );
   }
 
   if (!registration.normalPublishEnabled) {
     throw new Error(
-      `Remote publish stream ${input.publishTarget}/${input.environment}/${input.publishType} does not allow normal publish.`,
+      `Remote publish stream ${input.game}/${input.target}/${input.publishType} does not allow normal publish.`,
     );
   }
 
   if (registration.targetFingerprint !== input.targetFingerprint) {
     throw new Error(
-      `Remote publish stream ${input.publishTarget}/${input.environment}/${input.publishType} rejected target fingerprint ${input.targetFingerprint}.`,
+      `Remote publish stream ${input.game}/${input.target}/${input.publishType} rejected target fingerprint ${input.targetFingerprint}.`,
     );
   }
 
@@ -268,8 +268,8 @@ export async function assertRemotePublishGate(
       updatedAt:     now,
     })
     .where(and(
-      eq(PublishStreamRegistration.publishTarget, input.publishTarget),
-      eq(PublishStreamRegistration.environment, input.environment),
+      eq(PublishStreamRegistration.game, input.game),
+      eq(PublishStreamRegistration.target, input.target),
       eq(PublishStreamRegistration.publishType, input.publishType),
       or(
         isNull(PublishStreamRegistration.leaseHolderId),
@@ -283,15 +283,15 @@ export async function assertRemotePublishGate(
 
   if (leased == null) {
     throw new Error(
-      `Remote publish stream ${input.publishTarget}/${input.environment}/${input.publishType} is already leased by another publish batch.`,
+      `Remote publish stream ${input.game}/${input.target}/${input.publishType} is already leased by another publish batch.`,
     );
   }
 
   const ledger = await remoteDb.select()
     .from(PublishLedger)
     .where(and(
-      eq(PublishLedger.publishTarget, input.publishTarget),
-      eq(PublishLedger.environment, input.environment),
+      eq(PublishLedger.game, input.game),
+      eq(PublishLedger.target, input.target),
       eq(PublishLedger.publishType, input.publishType),
     ))
     .then(rows => rows[0] ?? null);
@@ -300,19 +300,19 @@ export async function assertRemotePublishGate(
 
   if (remoteManifestHash != null && remoteManifestHash !== input.previousManifestHash && !input.force) {
     throw new Error(
-      `Remote publish stream ${input.publishTarget}/${input.environment}/${input.publishType} baseline changed: expected ${input.previousManifestHash}, got ${remoteManifestHash}.`,
+      `Remote publish stream ${input.game}/${input.target}/${input.publishType} baseline changed: expected ${input.previousManifestHash}, got ${remoteManifestHash}.`,
     );
   }
 
   if (ledger != null && ledger.buildMax > input.buildMax) {
     throw new Error(
-      `Remote publish stream ${input.publishTarget}/${input.environment}/${input.publishType} buildMax regressed: incoming ${input.buildMax}, remote ${ledger.buildMax}.`,
+      `Remote publish stream ${input.game}/${input.target}/${input.publishType} buildMax regressed: incoming ${input.buildMax}, remote ${ledger.buildMax}.`,
     );
   }
 
   if (ledger != null && ledger.generationOrder > input.generationOrder) {
     throw new Error(
-      `Remote publish stream ${input.publishTarget}/${input.environment}/${input.publishType} generationOrder regressed: incoming ${input.generationOrder}, remote ${ledger.generationOrder}.`,
+      `Remote publish stream ${input.game}/${input.target}/${input.publishType} generationOrder regressed: incoming ${input.generationOrder}, remote ${ledger.generationOrder}.`,
     );
   }
 
@@ -325,7 +325,7 @@ export async function assertRemotePublishGate(
     && !input.force
   ) {
     throw new Error(
-      `Remote publish stream ${input.publishTarget}/${input.environment}/${input.publishType} manifest diverged on the same lineage: incoming ${input.manifestHash}, remote ${ledger.manifestHash}.`,
+      `Remote publish stream ${input.game}/${input.target}/${input.publishType} manifest diverged on the same lineage: incoming ${input.manifestHash}, remote ${ledger.manifestHash}.`,
     );
   }
 
@@ -336,8 +336,8 @@ export async function assertRemotePublishGate(
 export async function releaseRemotePublishLease(
   remoteDb: PublishDb,
   input: {
-    publishTarget: string;
-    environment:   string;
+    game:          string;
+    target:        string;
     publishType:   string;
     leaseHolderId: string;
   },
@@ -349,8 +349,8 @@ export async function releaseRemotePublishLease(
       updatedAt:      new Date(),
     })
     .where(and(
-      eq(PublishStreamRegistration.publishTarget, input.publishTarget),
-      eq(PublishStreamRegistration.environment, input.environment),
+      eq(PublishStreamRegistration.game, input.game),
+      eq(PublishStreamRegistration.target, input.target),
       eq(PublishStreamRegistration.publishType, input.publishType),
       eq(PublishStreamRegistration.leaseHolderId, input.leaseHolderId),
     ));
@@ -360,8 +360,8 @@ export async function releaseRemotePublishLease(
 export async function ensureRemotePublishRegistration(
   connectionString: string,
   input: {
-    publishTarget:     string;
-    environment:       string;
+    game:              string;
+    target:            string;
     publishType:       string;
     targetFingerprint: string;
   },
@@ -370,16 +370,16 @@ export async function ensureRemotePublishRegistration(
 
   try {
     await remoteDb.insert(PublishStreamRegistration).values({
-      publishTarget:        input.publishTarget,
-      environment:          input.environment,
+      game:                 input.game,
+      target:               input.target,
       publishType:          input.publishType,
       targetFingerprint:    input.targetFingerprint,
       normalPublishEnabled: true,
     })
       .onConflictDoUpdate({
         target: [
-          PublishStreamRegistration.publishTarget,
-          PublishStreamRegistration.environment,
+          PublishStreamRegistration.game,
+          PublishStreamRegistration.target,
           PublishStreamRegistration.publishType,
         ],
         set: {
@@ -397,8 +397,8 @@ export async function ensureRemotePublishRegistration(
 export async function renewRemotePublishLease(
   remoteDb: PublishDb,
   input: {
-    publishTarget: string;
-    environment:   string;
+    game:          string;
+    target:        string;
     publishType:   string;
     leaseHolderId: string;
   },
@@ -412,8 +412,8 @@ export async function renewRemotePublishLease(
       updatedAt: now,
     })
     .where(and(
-      eq(PublishStreamRegistration.publishTarget, input.publishTarget),
-      eq(PublishStreamRegistration.environment, input.environment),
+      eq(PublishStreamRegistration.game, input.game),
+      eq(PublishStreamRegistration.target, input.target),
       eq(PublishStreamRegistration.publishType, input.publishType),
       eq(PublishStreamRegistration.leaseHolderId, input.leaseHolderId),
       isNotNull(PublishStreamRegistration.leaseExpiresAt),
@@ -424,7 +424,7 @@ export async function renewRemotePublishLease(
 
   if (renewed == null) {
     throw new Error(
-      `Remote publish stream ${input.publishTarget}/${input.environment}/${input.publishType} lease could not be renewed for batch ${input.leaseHolderId}.`,
+      `Remote publish stream ${input.game}/${input.target}/${input.publishType} lease could not be renewed for batch ${input.leaseHolderId}.`,
     );
   }
 }
@@ -617,8 +617,8 @@ export async function loadBaselineRowHashes(
   const rowBaselines = await db.select()
     .from(PublishRowBaseline)
     .where(and(
-      eq(PublishRowBaseline.publishTarget, stream.publishTarget),
-      eq(PublishRowBaseline.environment, stream.environment),
+      eq(PublishRowBaseline.game, stream.game),
+      eq(PublishRowBaseline.target, stream.target),
       eq(PublishRowBaseline.publishType, stream.publishType),
     ));
 
@@ -637,8 +637,8 @@ export async function loadBaselineRowHashes(
   const baseline = await db.select()
     .from(PublishBaseline)
     .where(and(
-      eq(PublishBaseline.publishTarget, stream.publishTarget),
-      eq(PublishBaseline.environment, stream.environment),
+      eq(PublishBaseline.game, stream.game),
+      eq(PublishBaseline.target, stream.target),
       eq(PublishBaseline.publishType, stream.publishType),
     ))
     .then(rows => rows[0] ?? null);
@@ -790,9 +790,9 @@ async function finalizePublishBatchStopped(
 
 /** Cancels one residual local batch when no in-memory publish job is still executing it. */
 export async function cancelIncompletePublishBatch(input: {
-  batchId:        string;
-  publishTarget?: string;
-  environment?:   string;
+  batchId: string;
+  game?:   string;
+  target?: string;
 }): Promise<PublishReport> {
   const target = resolvePublishTargetSelector(input);
   const localDb = getLocalDb();
@@ -800,13 +800,13 @@ export async function cancelIncompletePublishBatch(input: {
     .from(PublishBatch)
     .where(and(
       eq(PublishBatch.id, input.batchId),
-      eq(PublishBatch.publishTarget, target.publishTarget),
-      eq(PublishBatch.environment, target.environment),
+      eq(PublishBatch.game, target.game),
+      eq(PublishBatch.target, target.target),
     ))
     .then(rows => rows[0] ?? null);
 
   if (!batch) {
-    throw new Error(`Publish batch ${input.batchId} not found for ${target.publishTarget}/${target.environment}.`);
+    throw new Error(`Publish batch ${input.batchId} not found for ${target.game}/${target.target}.`);
   }
 
   if (batch.status !== 'planning' && batch.status !== 'applying') {
@@ -840,8 +840,8 @@ export async function upsertRemotePublishLedger(
   tx: PublishDbTx,
   input: {
     batchId:               string;
-    publishTarget:         string;
-    environment:           string;
+    game:                  string;
+    target:                string;
     targetFingerprint:     string;
     publishType:           string;
     operatorUserId:        string | null;
@@ -854,8 +854,8 @@ export async function upsertRemotePublishLedger(
   },
 ): Promise<void> {
   await tx.insert(PublishLedger).values({
-    publishTarget:         input.publishTarget,
-    environment:           input.environment,
+    game:                  input.game,
+    target:                input.target,
     publishType:           input.publishType,
     targetFingerprint:     input.targetFingerprint,
     batchId:               input.batchId,
@@ -873,12 +873,12 @@ export async function upsertRemotePublishLedger(
   })
     .onConflictDoUpdate({
       target: [
-        PublishLedger.publishTarget,
-        PublishLedger.environment,
+        PublishLedger.game,
+        PublishLedger.target,
         PublishLedger.publishType,
       ],
       set: {
-        environment:           input.environment,
+        target:                input.target,
         publishType:           input.publishType,
         targetFingerprint:     input.targetFingerprint,
         batchId:               input.batchId,
@@ -1230,8 +1230,8 @@ function buildPublishReport(
 
   return {
     batchId:              batch.id,
-    publishTarget:        batch.publishTarget,
-    environment:          batch.environment,
+    game:                 batch.game,
+    target:               batch.target,
     targetFingerprint:    batch.targetFingerprint,
     publishType:          batch.publishType,
     operationKind:        batch.operationKind,
@@ -1264,8 +1264,8 @@ function buildPublishReport(
 
 /** Lists all publish batches for the current target, newest first. */
 export async function listPublishBatches(options?: {
-  publishTarget?: string;
-  environment?:   string;
+  game?:   string;
+  target?: string;
 }): Promise<PublishReport[]> {
   const target = resolvePublishTargetSelector(options);
   const localDb = getLocalDb();
@@ -1273,8 +1273,8 @@ export async function listPublishBatches(options?: {
   const batches = await localDb.select()
     .from(PublishBatch)
     .where(and(
-      eq(PublishBatch.publishTarget, target.publishTarget),
-      eq(PublishBatch.environment, target.environment),
+      eq(PublishBatch.game, target.game),
+      eq(PublishBatch.target, target.target),
     ))
     .orderBy(desc(PublishBatch.createdAt))
     .limit(50);
@@ -1284,8 +1284,8 @@ export async function listPublishBatches(options?: {
 
 /** Checks whether a publish job is currently running in this server process. */
 export async function getIncompletePublishBatch(options?: {
-  publishTarget?: string;
-  environment?:   string;
+  game?:   string;
+  target?: string;
 }): Promise<PublishReport | null> {
   const job = getCurrentPublishJob();
 
@@ -1301,7 +1301,7 @@ export async function getIncompletePublishBatch(options?: {
 
   const target = resolvePublishTargetSelector(options);
 
-  if (batch.publishTarget !== target.publishTarget || batch.environment !== target.environment) {
+  if (batch.game !== target.game || batch.target !== target.target) {
     return null;
   }
 
@@ -1351,8 +1351,8 @@ export type SingleCardPublishReport = z.infer<typeof singleCardPublishReport>;
 export async function publishSingleCard(
   cardId: string,
   options?: {
-    publishTarget?: string;
-    environment?:   string;
+    game?:   string;
+    target?: string;
   },
 ): Promise<SingleCardPublishReport> {
   const target = resolvePublishTargetSelector(options);

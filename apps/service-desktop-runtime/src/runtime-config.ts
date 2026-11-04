@@ -36,8 +36,8 @@ export function readSearchR2Override(): SearchR2Override | null {
 
 /** Publish-target override payload injected by the desktop shell. */
 export interface HearthstonePublishTargetOverride {
-  publishTarget:     string | null;
-  environment:       string | null;
+  game:              string | null;
+  target:            string | null;
   targetFingerprint: string | null;
   connectionString:  string | null;
 }
@@ -48,16 +48,16 @@ const hearthstonePublishTargetOverrides = {
 
 /** Publish-target override payload injected for the Yu-Gi-Oh! desktop workflow. */
 export interface YugiohPublishTargetOverride {
-  publishTargetId:   string | null;
-  environment:       string | null;
+  game:              string | null;
+  target:            string | null;
   targetFingerprint: string | null;
   connectionString:  string | null;
 }
 
 /** Publish-target override payload injected for the magic desktop workflow. */
 export interface MagicPublishTargetOverride {
-  publishTarget:     string | null;
-  environment:       string | null;
+  game:              string | null;
+  target:            string | null;
   targetFingerprint: string | null;
   connectionString:  string | null;
 }
@@ -79,8 +79,8 @@ export function readMagicPublishTargetOverrides() {
 /** Reports whether the runtime has any complete magic publish target override. */
 export function hasMagicPublishTargetOverride() {
   return readMagicPublishTargetOverrides().some(target => {
-    return target.publishTarget != null
-      && target.environment != null
+    return target.game != null
+      && target.target != null
       && target.targetFingerprint != null
       && target.connectionString != null;
   });
@@ -104,7 +104,7 @@ export function setLocalDatabaseUrlOverride(value: string | null) {
   localDatabaseUrlOverride.current = value?.trim() || null;
 }
 
-/** Resolves the active local database URL from runtime override first, then environment fallback. */
+/** Resolves the active local database URL from runtime override first, then target fallback. */
 export function readLocalDatabaseUrl() {
   return localDatabaseUrlOverride.current ?? (process.env.DESKTOP_LOCAL_DATABASE_URL?.trim() || null);
 }
@@ -209,8 +209,8 @@ export function setHearthstonePublishTargetOverride(value: HearthstonePublishTar
 /** Stores runtime-local Hearthstone publish target overrides provided by the desktop shell. */
 export function setHearthstonePublishTargetOverrides(value: HearthstonePublishTargetOverride[]) {
   hearthstonePublishTargetOverrides.current = value.map(item => ({
-    publishTarget:     item.publishTarget?.trim() ?? null,
-    environment:       item.environment?.trim() ?? null,
+    game:              item.game?.trim() ?? null,
+    target:            item.target?.trim() ?? null,
     targetFingerprint: item.targetFingerprint?.trim() ?? null,
     connectionString:  item.connectionString?.trim() ?? null,
   }));
@@ -229,8 +229,8 @@ export function readHearthstonePublishTargetOverride() {
 /** Reports whether the runtime currently has any complete Hearthstone publish target override. */
 export function hasHearthstonePublishTargetOverride() {
   return readHearthstonePublishTargetOverrides().some(target => {
-    return target.publishTarget != null
-      && target.environment != null
+    return target.game != null
+      && target.target != null
       && target.targetFingerprint != null
       && target.connectionString != null;
   });
@@ -321,8 +321,8 @@ export function setYugiohPublishTargetOverride(value: YugiohPublishTargetOverrid
   }
 
   yugiohPublishTargetOverride.current = {
-    publishTargetId:   value.publishTargetId?.trim() ?? null,
-    environment:       value.environment?.trim() ?? null,
+    game:              value.game?.trim() ?? null,
+    target:            value.target?.trim() ?? null,
     targetFingerprint: value.targetFingerprint?.trim() ?? null,
     connectionString:  value.connectionString?.trim() ?? null,
   };
@@ -337,8 +337,8 @@ export function readYugiohPublishTargetOverride() {
 export function hasYugiohPublishTargetOverride() {
   const target = readYugiohPublishTargetOverride();
 
-  return target?.publishTargetId != null
-    && target.environment != null
+  return target?.game != null
+    && target.target != null
     && target.targetFingerprint != null
     && target.connectionString != null;
 }

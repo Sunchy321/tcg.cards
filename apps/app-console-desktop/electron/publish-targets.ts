@@ -6,7 +6,7 @@ export type PublishTargetConfig = Configuration['targets'][number];
 /** Launch facts derived from a selected destination and its live database identity. */
 export interface ResolvedPublishTarget {
   /** The stream label written to the remote registration and ledger. */
-  environment:       string;
+  target:            string;
   targetFingerprint: string;
   /** True when this launch recorded the destination identity for the first time. */
   capture:           boolean;
@@ -32,7 +32,7 @@ export function resolvePublishTarget(
     throw new Error('当前连接指向的数据库与已保存的发布目标不一致，请检查连接设置。');
   }
   return {
-    environment:       target.name,
+    target:            target.name,
     targetFingerprint: liveFingerprint,
     capture:           !target.targetFingerprint,
   };
@@ -45,7 +45,7 @@ export function withResolvedPublishTarget(
 ) {
   return {
     ...params,
-    environment:       resolved.environment,
+    target:            resolved.target,
     targetFingerprint: resolved.targetFingerprint,
   };
 }

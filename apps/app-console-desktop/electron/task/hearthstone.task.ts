@@ -6,8 +6,8 @@ const text = (params: Record<string, unknown>, key: string): string => typeof pa
 const strings = (params: Record<string, unknown>, key: string): string[] => Array.isArray(params[key]) ? (params[key] as unknown[]).filter((value): value is string => typeof value === 'string') : [];
 const numbers = (params: Record<string, unknown>, key: string): number[] => Array.isArray(params[key]) ? (params[key] as unknown[]).filter((value): value is number => typeof value === 'number') : [];
 const publishConfirmation = (scope: string | ((params: Record<string, unknown>) => string)) => (params: Record<string, unknown>) => ({
-  environment: text(params, 'environment'),
-  scope:       typeof scope === 'string' ? scope : scope(params),
+  target: text(params, 'target'),
+  scope:  typeof scope === 'string' ? scope : scope(params),
 });
 
 function registerLegacyTask(
@@ -46,12 +46,12 @@ registerTask({
   admission:           { game: 'hearthstone', connection: 'direct' },
   publishConfirmation: publishConfirmation('待推送的标签提交'),
   scope:               params => {
-    const publishTarget = text(params, 'publishTarget') || 'hearthstone';
-    const environment = text(params, 'environment');
+    const game = text(params, 'game') || 'hearthstone';
+    const target = text(params, 'target');
     return {
       type:     'publish_stream',
-      key:      `${publishTarget}:${environment}:tag_push`,
-      snapshot: { publishTarget, environment, publishType: 'tag_push' },
+      key:      `${game}:${target}:tag_push`,
+      snapshot: { game, target, publishType: 'tag_push' },
     };
   },
   async load() {
@@ -91,10 +91,10 @@ registerLegacyTask({
   admission:           { game: 'hearthstone', connection: 'direct' },
   publishConfirmation: publishConfirmation('卡牌数据'),
   scope:               params => {
-    const publishTarget = text(params, 'publishTarget') || 'hearthstone';
-    const environment = text(params, 'environment');
+    const game = text(params, 'game') || 'hearthstone';
+    const target = text(params, 'target');
     const publishType = text(params, 'publishType') || 'card_data';
-    return { type: 'publish_stream', key: `${publishTarget}:${environment}:${publishType}`, snapshot: { publishTarget, environment, publishType } };
+    return { type: 'publish_stream', key: `${game}:${target}:${publishType}`, snapshot: { game, target, publishType } };
   },
 }, async () => (await import('../runtime/lib/hearthstone/task/publish/definition')).publishTaskDefinition);
 
@@ -106,10 +106,10 @@ registerLegacyTask({
   admission:           { game: 'hearthstone', connection: 'direct' },
   publishConfirmation: publishConfirmation(params => `单张卡牌：${text(params, 'cardId')}`),
   scope:               params => {
-    const publishTarget = text(params, 'publishTarget') || 'hearthstone';
-    const environment = text(params, 'environment');
+    const game = text(params, 'game') || 'hearthstone';
+    const target = text(params, 'target');
     const cardId = text(params, 'cardId');
-    return { type: 'publish_stream', key: `${publishTarget}:${environment}:card_data:${cardId}`, snapshot: { publishTarget, environment, publishType: 'card_data', cardId } };
+    return { type: 'publish_stream', key: `${game}:${target}:card_data:${cardId}`, snapshot: { game, target, publishType: 'card_data', cardId } };
   },
 }, async () => (await import('../runtime/lib/hearthstone/task/single-card-publish/definition')).singleCardPublishTaskDefinition);
 
@@ -121,9 +121,9 @@ registerLegacyTask({
   admission:           { game: 'hearthstone', connection: 'direct' },
   publishConfirmation: publishConfirmation('固定卡牌数据'),
   scope:               params => {
-    const publishTarget = text(params, 'publishTarget') || 'hearthstone';
-    const environment = text(params, 'environment');
-    return { type: 'publish_stream', key: `${publishTarget}:${environment}:pin`, snapshot: { publishTarget, environment } };
+    const game = text(params, 'game') || 'hearthstone';
+    const target = text(params, 'target');
+    return { type: 'publish_stream', key: `${game}:${target}:pin`, snapshot: { game, target } };
   },
 }, async () => (await import('../runtime/lib/hearthstone/task/pin/definition')).pinTaskDefinition);
 
@@ -135,9 +135,9 @@ registerLegacyTask({
   admission:           { game: 'hearthstone', connection: 'direct' },
   publishConfirmation: publishConfirmation('参考数据'),
   scope:               params => {
-    const publishTarget = text(params, 'publishTarget') || 'hearthstone';
-    const environment = text(params, 'environment');
-    return { type: 'publish_stream', key: `${publishTarget}:${environment}:reference_data`, snapshot: { publishTarget, environment } };
+    const game = text(params, 'game') || 'hearthstone';
+    const target = text(params, 'target');
+    return { type: 'publish_stream', key: `${game}:${target}:reference_data`, snapshot: { game, target } };
   },
 }, async () => (await import('../runtime/lib/hearthstone/task/reference-publish/definition')).referencePublishTaskDefinition);
 
@@ -149,9 +149,9 @@ registerLegacyTask({
   admission:           { game: 'hearthstone', connection: 'direct' },
   publishConfirmation: publishConfirmation('公告数据'),
   scope:               params => {
-    const publishTarget = text(params, 'publishTarget') || 'hearthstone';
-    const environment = text(params, 'environment');
-    return { type: 'publish_stream', key: `${publishTarget}:${environment}:announcement_data`, snapshot: { publishTarget, environment } };
+    const game = text(params, 'game') || 'hearthstone';
+    const target = text(params, 'target');
+    return { type: 'publish_stream', key: `${game}:${target}:announcement_data`, snapshot: { game, target } };
   },
 }, async () => (await import('../runtime/lib/hearthstone/task/announcement-publish/definition')).announcementPublishTaskDefinition);
 
@@ -169,7 +169,7 @@ registerTask({
   version:             '2026-11-01:v1',
   supportsResume:      false,
   admission:           { game: 'hearthstone', connection: 'direct' },
-  publishConfirmation: () => ({ environment: 'production', scope: '搜索数据包' }),
+  publishConfirmation: () => ({ target: 'production', scope: '搜索数据包' }),
   scope:               () => ({ type: 'search_package_publish', key: 'hearthstone', snapshot: { game: 'hearthstone' } }),
   async load() {
     return { default: (await import('../runtime/lib/search-publication/task')).createSearchPublicationTask('hearthstone') };
@@ -182,7 +182,7 @@ registerTask({
   version:             '2026-11-03:v1',
   supportsResume:      true,
   admission:           { game: 'hearthstone', connection: 'direct' },
-  publishConfirmation: () => ({ environment: 'production', scope: '搜索数据' }),
+  publishConfirmation: () => ({ target: 'production', scope: '搜索数据' }),
   scope:               () => ({ type: 'search_d1_publish', key: 'hearthstone', snapshot: { game: 'hearthstone' } }),
   async load() {
     return { default: (await import('../runtime/lib/search-publication/d1-task')).createSearchD1PublicationTask('hearthstone') };

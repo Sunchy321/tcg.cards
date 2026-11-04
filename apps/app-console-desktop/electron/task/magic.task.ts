@@ -5,7 +5,7 @@ import type { TaskRegistration } from './registry';
 const text = (params: Record<string, unknown>, key: string): string => typeof params[key] === 'string' ? params[key] as string : '';
 
 const publishConfirmation = (scope: string) => (params: Record<string, unknown>) => ({
-  environment: text(params, 'environment'),
+  target: text(params, 'target'),
   scope,
 });
 
@@ -127,12 +127,12 @@ registerLegacyTask({
   admission:           { game: 'magic', connection: 'direct' },
   publishConfirmation: publishConfirmation('万智牌赛制、系列与补充包'),
   scope:               params => {
-    const publishTarget = text(params, 'publishTarget');
-    const environment = text(params, 'environment');
+    const game = text(params, 'game');
+    const target = text(params, 'target');
     return {
       type:     'publish_stream',
-      key:      `${publishTarget}:${environment}:reference_data`,
-      snapshot: { publishTarget, environment },
+      key:      `${game}:${target}:reference_data`,
+      snapshot: { game, target },
     };
   },
 }, async () => (await import('../runtime/lib/magic/task/reference-publish/definition')).referencePublishTaskDefinition);
@@ -145,12 +145,12 @@ registerLegacyTask({
   admission:           { game: 'magic', connection: 'direct' },
   publishConfirmation: publishConfirmation('万智牌公告数据'),
   scope:               params => {
-    const publishTarget = text(params, 'publishTarget');
-    const environment = text(params, 'environment');
+    const game = text(params, 'game');
+    const target = text(params, 'target');
     return {
       type:     'publish_stream',
-      key:      `${publishTarget}:${environment}:announcement_data`,
-      snapshot: { publishTarget, environment },
+      key:      `${game}:${target}:announcement_data`,
+      snapshot: { game, target },
     };
   },
 }, async () => (await import('../runtime/lib/magic/task/announcement-publish/definition')).announcementPublishTaskDefinition);
@@ -163,13 +163,13 @@ registerLegacyTask({
   admission:           { game: 'magic', connection: 'direct' },
   publishConfirmation: publishConfirmation('万智牌规则与文档'),
   scope:               params => {
-    const publishTarget = text(params, 'publishTarget');
-    const environment = text(params, 'environment');
+    const game = text(params, 'game');
+    const target = text(params, 'target');
     const targetFingerprint = text(params, 'targetFingerprint');
     return {
       type:     'publish_stream',
-      key:      `${publishTarget}:${environment}:static_documents`,
-      snapshot: { publishTarget, environment, targetFingerprint },
+      key:      `${game}:${target}:static_documents`,
+      snapshot: { game, target, targetFingerprint },
     };
   },
 }, async () => (await import('../runtime/lib/magic/task/document-publish/definition')).documentPublishTaskDefinition);
@@ -191,7 +191,7 @@ registerTask({
   version:             '2026-11-01:v1',
   supportsResume:      false,
   admission:           { game: 'magic', connection: 'direct' },
-  publishConfirmation: () => ({ environment: 'production', scope: '搜索数据包' }),
+  publishConfirmation: () => ({ target: 'production', scope: '搜索数据包' }),
   scope:               () => ({ type: 'search_package_publish', key: 'magic', snapshot: { game: 'magic' } }),
   async load() {
     return { default: (await import('../runtime/lib/search-publication/task')).createSearchPublicationTask('magic') };
@@ -204,7 +204,7 @@ registerTask({
   version:             '2026-11-03:v1',
   supportsResume:      true,
   admission:           { game: 'magic', connection: 'direct' },
-  publishConfirmation: () => ({ environment: 'production', scope: '搜索数据' }),
+  publishConfirmation: () => ({ target: 'production', scope: '搜索数据' }),
   scope:               () => ({ type: 'search_d1_publish', key: 'magic', snapshot: { game: 'magic' } }),
   async load() {
     return { default: (await import('../runtime/lib/search-publication/d1-task')).createSearchD1PublicationTask('magic') };

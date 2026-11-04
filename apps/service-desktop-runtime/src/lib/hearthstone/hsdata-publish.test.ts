@@ -192,8 +192,8 @@ describe('hsdata publish remote gate', () => {
     } as any;
 
     await expect(hsdataPublishTestUtils.assertRemotePublishGate(remoteDb, {
-      publishTarget:         'target-dev',
-      environment:           'dev',
+      game:                  'target-dev',
+      target:                'dev',
       publishType:           'card_data',
       targetFingerprint:     'fp-1',
       manifestHash:          'incoming-manifest',
@@ -208,8 +208,8 @@ describe('hsdata publish remote gate', () => {
   test('rejects fingerprint mismatch before any remote write', async () => {
     const rows = [
       {
-        publishTarget:        'target-dev',
-        environment:          'dev',
+        game:                 'target-dev',
+        target:               'dev',
         publishType:          'card_data',
         targetFingerprint:    'fp-remote',
         normalPublishEnabled: true,
@@ -237,8 +237,8 @@ describe('hsdata publish remote gate', () => {
     } as any;
 
     await expect(hsdataPublishTestUtils.assertRemotePublishGate(remoteDb, {
-      publishTarget:         'target-dev',
-      environment:           'dev',
+      game:                  'target-dev',
+      target:                'dev',
       publishType:           'card_data',
       targetFingerprint:     'fp-local',
       manifestHash:          'incoming-manifest',
@@ -253,8 +253,8 @@ describe('hsdata publish remote gate', () => {
   test('rejects stale previous manifest hash', async () => {
     const registrationRows = [
       {
-        publishTarget:        'target-dev',
-        environment:          'dev',
+        game:                 'target-dev',
+        target:               'dev',
         publishType:          'card_data',
         targetFingerprint:    'fp-1',
         normalPublishEnabled: true,
@@ -292,8 +292,8 @@ describe('hsdata publish remote gate', () => {
     } as any;
 
     await expect(hsdataPublishTestUtils.assertRemotePublishGate(remoteDb, {
-      publishTarget:         'target-dev',
-      environment:           'dev',
+      game:                  'target-dev',
+      target:                'dev',
       publishType:           'card_data',
       targetFingerprint:     'fp-1',
       manifestHash:          'incoming-manifest',
@@ -308,8 +308,8 @@ describe('hsdata publish remote gate', () => {
   test('rejects publish when another batch still holds the stream lease', async () => {
     const registrationRows = [
       {
-        publishTarget:        'target-dev',
-        environment:          'dev',
+        game:                 'target-dev',
+        target:               'dev',
         publishType:          'card_data',
         targetFingerprint:    'fp-1',
         normalPublishEnabled: true,
@@ -339,8 +339,8 @@ describe('hsdata publish remote gate', () => {
     } as any;
 
     await expect(hsdataPublishTestUtils.assertRemotePublishGate(remoteDb, {
-      publishTarget:         'target-dev',
-      environment:           'dev',
+      game:                  'target-dev',
+      target:                'dev',
       publishType:           'card_data',
       targetFingerprint:     'fp-1',
       manifestHash:          'incoming-manifest',
@@ -355,8 +355,8 @@ describe('hsdata publish remote gate', () => {
   test('rejects publish when incoming buildMax regresses behind remote ledger', async () => {
     const registrationRows = [
       {
-        publishTarget:        'target-dev',
-        environment:          'dev',
+        game:                 'target-dev',
+        target:               'dev',
         publishType:          'card_data',
         targetFingerprint:    'fp-1',
         normalPublishEnabled: true,
@@ -396,8 +396,8 @@ describe('hsdata publish remote gate', () => {
     } as any;
 
     await expect(hsdataPublishTestUtils.assertRemotePublishGate(remoteDb, {
-      publishTarget:         'target-dev',
-      environment:           'dev',
+      game:                  'target-dev',
+      target:                'dev',
       publishType:           'card_data',
       targetFingerprint:     'fp-1',
       manifestHash:          'incoming-manifest',
@@ -412,8 +412,8 @@ describe('hsdata publish remote gate', () => {
   test('rejects publish when generationOrder regresses behind remote ledger', async () => {
     const registrationRows = [
       {
-        publishTarget:        'target-dev',
-        environment:          'dev',
+        game:                 'target-dev',
+        target:               'dev',
         publishType:          'card_data',
         targetFingerprint:    'fp-1',
         normalPublishEnabled: true,
@@ -453,8 +453,8 @@ describe('hsdata publish remote gate', () => {
     } as any;
 
     await expect(hsdataPublishTestUtils.assertRemotePublishGate(remoteDb, {
-      publishTarget:         'target-dev',
-      environment:           'dev',
+      game:                  'target-dev',
+      target:                'dev',
       publishType:           'card_data',
       targetFingerprint:     'fp-1',
       manifestHash:          'incoming-manifest',
@@ -469,8 +469,8 @@ describe('hsdata publish remote gate', () => {
   test('rejects publish when manifest hash diverges on the same generation lineage', async () => {
     const registrationRows = [
       {
-        publishTarget:        'target-dev',
-        environment:          'dev',
+        game:                 'target-dev',
+        target:               'dev',
         publishType:          'card_data',
         targetFingerprint:    'fp-1',
         normalPublishEnabled: true,
@@ -510,8 +510,8 @@ describe('hsdata publish remote gate', () => {
     } as any;
 
     await expect(hsdataPublishTestUtils.assertRemotePublishGate(remoteDb, {
-      publishTarget:         'target-dev',
-      environment:           'dev',
+      game:                  'target-dev',
+      target:                'dev',
       publishType:           'card_data',
       targetFingerprint:     'fp-1',
       manifestHash:          'incoming-manifest',
@@ -535,8 +535,8 @@ describe('hsdata publish remote gate', () => {
     } as any;
 
     await expect(hsdataPublishTestUtils.renewRemotePublishLease(remoteDb, {
-      publishTarget: 'target-dev',
-      environment:   'dev',
+      game:          'target-dev',
+      target:        'dev',
       publishType:   'card_data',
       leaseHolderId: 'batch-1',
     })).rejects.toThrow('lease could not be renewed');

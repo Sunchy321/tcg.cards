@@ -4,8 +4,8 @@ import { readYugiohPublishTargetOverride } from '../../runtime-config';
 
 /** Complete test remote target required by the Yu-Gi-Oh! publisher. */
 export interface YugiohPublishTarget {
-  publishTargetId:   string;
-  environment:       'test';
+  game:              string;
+  target:            string;
   targetFingerprint: string;
   connectionString:  string;
 }
@@ -18,25 +18,19 @@ function trimToNull(value: string | null | undefined) {
 
 /** Complete test target returned only when every injected field is valid. */
 export function getYugiohPublishTarget() {
-  const target = readYugiohPublishTargetOverride();
-  const publishTargetId = trimToNull(target?.publishTargetId);
-  const environment = trimToNull(target?.environment);
-  const targetFingerprint = trimToNull(target?.targetFingerprint);
-  const connectionString = trimToNull(target?.connectionString);
+  const override = readYugiohPublishTargetOverride();
+  const game = trimToNull(override?.game);
+  const target = trimToNull(override?.target);
+  const targetFingerprint = trimToNull(override?.targetFingerprint);
+  const connectionString = trimToNull(override?.connectionString);
 
-  if (publishTargetId == null || environment == null || targetFingerprint == null || connectionString == null) {
+  if (game == null || target == null || targetFingerprint == null || connectionString == null) {
     return null;
   }
 
-  if (environment !== 'test') {
-    throw new ORPCError('BAD_REQUEST', {
-      message: 'Yu-Gi-Oh! publication is restricted to the test environment.',
-    });
-  }
-
   return {
-    publishTargetId,
-    environment,
+    game,
+    target,
     targetFingerprint,
     connectionString,
   } satisfies YugiohPublishTarget;

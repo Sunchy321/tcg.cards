@@ -208,8 +208,8 @@ const publishOperation = computed<TaskOperation>(() => ({
   icon:     'i-lucide-upload',
   disabled: publishTarget.value?.configured !== true || isBlockedByOtherTask(publishTaskType),
   create:   () => startDesktopTask(publishTaskType, {
-    publishTarget: 'yugioh',
-    targetId:      publishTarget.value?.id ?? '',
+    game:     'yugioh',
+    targetId: publishTarget.value?.id ?? '',
   }),
 }));
 

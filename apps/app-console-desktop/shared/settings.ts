@@ -58,7 +58,7 @@ const httpUrl = z.url({ protocol: /^https?$/ }).refine(value => {
   }
 }, '服务地址不能包含密码或查询参数');
 /** One publish destination the user names; a direct target carries its database connection. */
-export const publishTarget = z.strictObject({
+export const publishTargetConfig = z.strictObject({
   id:                z.uuid(),
   name:              z.string().trim().min(1),
   kind:              z.enum(['direct', 'account']),
@@ -74,7 +74,7 @@ export const configuration = z.strictObject({
   paths:    z.partialRecord(z.enum(pathKeys), directory).default({}),
   ai:       z.strictObject({ baseUrl: httpUrl.optional(), model: z.string().trim().min(1).optional() }).default({}),
   targets:  z
-    .array(publishTarget)
+    .array(publishTargetConfig)
     .refine(rows => new Set(rows.map(row => row.id)).size === rows.length, '发布目标重复')
     .refine(rows => new Set(rows.map(row => row.name)).size === rows.length, '发布目标名称重复')
     .default([]),

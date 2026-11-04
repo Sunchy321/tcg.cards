@@ -36,14 +36,14 @@ async function abandonStaleTask(taskType: string, scopeType: string, scopeKey: s
 
 const publish = os
   .input(z.strictObject({
-    publishTarget: z.literal('hearthstone'),
-    environment:   z.string().trim().min(1),
-    dryRun:        z.boolean().optional(),
-    force:         z.boolean().optional(),
+    game:   z.literal('hearthstone'),
+    target: z.string().trim().min(1),
+    dryRun: z.boolean().optional(),
+    force:  z.boolean().optional(),
   }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
-    const scope = { publishTarget: input.publishTarget, environment: input.environment, publishType: 'card_data' as const };
+    const scope = { game: input.game, target: input.target, publishType: 'card_data' as const };
     const resolved = publishTaskDefinition.resolveScope(scope);
     await abandonStaleTask(publishTaskDefinition.taskType, publishTaskDefinition.scopeType, resolved.key);
     const active = await getStore().getActiveTaskRun(publishTaskDefinition.taskType, publishTaskDefinition.scopeType, resolved.key);
@@ -59,12 +59,12 @@ const publish = os
 
 const pin = os
   .input(z.strictObject({
-    publishTarget: z.literal('hearthstone'),
-    environment:   z.string().trim().min(1),
+    game:   z.literal('hearthstone'),
+    target: z.string().trim().min(1),
   }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
-    const scope = { publishTarget: input.publishTarget, environment: input.environment };
+    const scope = { game: input.game, target: input.target };
     const resolved = pinTaskDefinition.resolveScope(scope);
     await abandonStaleTask(pinTaskDefinition.taskType, pinTaskDefinition.scopeType, resolved.key);
     const active = await getStore().getActiveTaskRun(pinTaskDefinition.taskType, pinTaskDefinition.scopeType, resolved.key);
@@ -74,7 +74,7 @@ const pin = os
       taskType:          pinTaskDefinition.taskType,
       definitionVersion: pinTaskDefinition.definitionVersion,
       scope:             { type: pinTaskDefinition.scopeType, key: resolved.key, snapshot: resolved.snapshot as Record<string, unknown> },
-      params:            { publishTarget: input.publishTarget, environment: input.environment },
+      params:            { game: input.game, target: input.target },
     });
   });
 
@@ -176,13 +176,13 @@ const unpackImport = os
 /** Mirrors the local announcement tables to the publish target as a full replace. */
 const announcementPublish = os
   .input(z.strictObject({
-    publishTarget: z.literal('hearthstone'),
-    environment:   z.string().trim().min(1),
-    dryRun:        z.boolean().optional(),
+    game:   z.literal('hearthstone'),
+    target: z.string().trim().min(1),
+    dryRun: z.boolean().optional(),
   }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
-    const scope = { publishTarget: input.publishTarget, environment: input.environment };
+    const scope = { game: input.game, target: input.target };
     const resolved = announcementPublishTaskDefinition.resolveScope(scope);
     await abandonStaleTask(announcementPublishTaskDefinition.taskType, announcementPublishTaskDefinition.scopeType, resolved.key);
     const active = await getStore().getActiveTaskRun(announcementPublishTaskDefinition.taskType, announcementPublishTaskDefinition.scopeType, resolved.key);
@@ -199,13 +199,13 @@ const announcementPublish = os
 /** Mirrors the local small reference tables (sets/formats/patches/tags) to the publish target as a full replace. */
 const referencePublish = os
   .input(z.strictObject({
-    publishTarget: z.literal('hearthstone'),
-    environment:   z.string().trim().min(1),
-    dryRun:        z.boolean().optional(),
+    game:   z.literal('hearthstone'),
+    target: z.string().trim().min(1),
+    dryRun: z.boolean().optional(),
   }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
-    const scope = { publishTarget: input.publishTarget, environment: input.environment };
+    const scope = { game: input.game, target: input.target };
     const resolved = referencePublishTaskDefinition.resolveScope(scope);
     await abandonStaleTask(referencePublishTaskDefinition.taskType, referencePublishTaskDefinition.scopeType, resolved.key);
     const active = await getStore().getActiveTaskRun(referencePublishTaskDefinition.taskType, referencePublishTaskDefinition.scopeType, resolved.key);

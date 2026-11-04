@@ -6,15 +6,15 @@ import { publishSingleCard, singleCardPublishReport } from '../../hsdata-publish
 export const singleCardPublishTaskType = 'hearthstone_single_card_publish';
 
 const scope = z.strictObject({
-  cardId:        z.string().trim().min(1),
-  publishTarget: z.literal('hearthstone'),
-  environment:   z.string().trim().min(1),
+  cardId: z.string().trim().min(1),
+  game:   z.literal('hearthstone'),
+  target: z.string().trim().min(1),
 });
 
 const input = z.strictObject({
   cardId:         z.string().trim().min(1),
-  publishTarget:  z.literal('hearthstone'),
-  environment:    z.string().trim().min(1),
+  game:           z.literal('hearthstone'),
+  target:         z.string().trim().min(1),
   operatorUserId: z.string().trim().min(1).optional(),
 });
 
@@ -25,7 +25,7 @@ export const singleCardPublishTaskDefinition = createDefinition(singleCardPublis
   .scope(scope, {
     type:    'publish_stream',
     resolve: value => ({
-      key:      `${value.publishTarget}:${value.environment}:card_data:${value.cardId}`,
+      key:      `${value.game}:${value.target}:card_data:${value.cardId}`,
       snapshot: { ...value, publishType: 'card_data' },
     }),
   })
@@ -36,7 +36,7 @@ export const singleCardPublishTaskDefinition = createDefinition(singleCardPublis
   })
   .stage('publish-card', { label: '发布单张卡牌', progressMode: 'simple' })
   .handler(async ({ ctx }) => publishSingleCard(ctx.cardId, {
-    publishTarget: ctx.publishTarget,
-    environment:   ctx.environment,
+    game:   ctx.game,
+    target: ctx.target,
   }))
   .build();

@@ -2,6 +2,7 @@ import {
   check,
   index,
   integer,
+  primaryKey,
   text,
   timestamp,
   uuid,
@@ -12,8 +13,8 @@ import { dataSchema } from '../../shared/yugioh/schema';
 
 /** Last successful desktop-led card publication accepted by one remote target. */
 export const PublishLedger = dataSchema.table('publish_ledgers', {
-  publishTargetId:   text('publish_target_id').primaryKey(),
-  environment:       text('environment').notNull(),
+  game:              text('game').notNull(),
+  target:            text('target').notNull(),
   targetFingerprint: text('target_fingerprint').notNull(),
   batchId:           uuid('batch_id').notNull(),
   operatorUserId:    text('operator_user_id'),
@@ -27,7 +28,8 @@ export const PublishLedger = dataSchema.table('publish_ledgers', {
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
 }, table => [
-  index('publish_ledgers_environment_idx').on(table.environment),
+  primaryKey({ columns: [table.game, table.target] }),
+  index('publish_ledgers_target_idx').on(table.target),
   index('publish_ledgers_published_at_idx').on(table.publishedAt),
   check('publish_ledgers_total_row_count_nonnegative_chk', sql`${table.totalRowCount} >= 0`),
   check('publish_ledgers_changed_row_count_nonnegative_chk', sql`${table.changedRowCount} >= 0`),

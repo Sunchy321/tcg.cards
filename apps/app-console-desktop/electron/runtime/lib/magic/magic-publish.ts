@@ -173,7 +173,7 @@ export async function countLocalRows(database: PublishDb): Promise<Record<Publis
 /** Baseline row hashes for one stream: Map<rowKey, rowHash> per table. */
 export async function loadBaselineHashes(
   database: PublishDb,
-  stream: { publishTarget: string, environment: string, publishType: string },
+  stream: { game: string, target: string, publishType: string },
 ): Promise<Map<PublishTableName, Map<string, string>>> {
   const out = new Map<PublishTableName, Map<string, string>>();
   for (const name of PUBLISH_TABLES) out.set(name, new Map());
@@ -187,8 +187,8 @@ export async function loadBaselineHashes(
     })
       .from(PublishRowBaseline)
       .where(and(
-        eq(PublishRowBaseline.publishTarget, stream.publishTarget),
-        eq(PublishRowBaseline.environment, stream.environment),
+        eq(PublishRowBaseline.game, stream.game),
+        eq(PublishRowBaseline.target, stream.target),
         eq(PublishRowBaseline.publishType, stream.publishType),
       ))
       .orderBy(asc(PublishRowBaseline.tableName), asc(PublishRowBaseline.rowKey))
@@ -207,13 +207,13 @@ export async function loadBaselineHashes(
 
 export async function findActivePublishBatch(
   database: PublishDb,
-  stream: { publishTarget: string, environment: string, publishType: string },
+  stream: { game: string, target: string, publishType: string },
 ): Promise<typeof PublishBatch.$inferSelect | null> {
   return await database.select()
     .from(PublishBatch)
     .where(and(
-      eq(PublishBatch.publishTarget, stream.publishTarget),
-      eq(PublishBatch.environment, stream.environment),
+      eq(PublishBatch.game, stream.game),
+      eq(PublishBatch.target, stream.target),
       eq(PublishBatch.publishType, stream.publishType),
       inArray(PublishBatch.status, ['planning', 'applying']),
     ))
@@ -224,7 +224,7 @@ export async function findActivePublishBatch(
 export async function createPublishBatch(
   database: PublishDb,
   input: {
-    stream:               { publishTarget: string, environment: string, publishType: string };
+    stream:               { game: string, target: string, publishType: string };
     targetFingerprint:    string;
     operationKind:        typeof PublishBatch.$inferInsert['operationKind'];
     manifestHash:         string;
@@ -233,8 +233,8 @@ export async function createPublishBatch(
   },
 ): Promise<typeof PublishBatch.$inferSelect> {
   const rows = await database.insert(PublishBatch).values({
-    publishTarget:         input.stream.publishTarget,
-    environment:           input.stream.environment,
+    game:                  input.stream.game,
+    target:                input.stream.target,
     targetFingerprint:     input.targetFingerprint,
     publishType:           input.stream.publishType,
     operationKind:         input.operationKind,
@@ -274,21 +274,21 @@ export async function insertBatchRows(
 /** Ensures one remote publish stream registration exists (no-op when registered). */
 export async function ensureRemotePublishRegistration(
   connectionString: string,
-  input: { publishTarget: string, environment: string, publishType: string, targetFingerprint: string },
+  input: { game: string, target: string, publishType: string, targetFingerprint: string },
 ): Promise<void> {
   const remoteDb = createDb(connectionString);
   try {
     await remoteDb.insert(PublishStreamRegistration).values({
-      publishTarget:        input.publishTarget,
-      environment:          input.environment,
+      game:                 input.game,
+      target:               input.target,
       publishType:          input.publishType,
       targetFingerprint:    input.targetFingerprint,
       normalPublishEnabled: true,
     })
       .onConflictDoUpdate({
         target: [
-          PublishStreamRegistration.publishTarget,
-          PublishStreamRegistration.environment,
+          PublishStreamRegistration.game,
+          PublishStreamRegistration.target,
           PublishStreamRegistration.publishType,
         ],
         set: {
@@ -306,8 +306,8 @@ export async function ensureRemotePublishRegistration(
 export async function assertRemotePublishGate(
   remoteDb: PublishDb,
   input: {
-    publishTarget:        string;
-    environment:          string;
+    game:                 string;
+    target:               string;
     publishType:          string;
     targetFingerprint:    string;
     manifestHash:         string;
@@ -320,20 +320,20 @@ export async function assertRemotePublishGate(
   const registration = await remoteDb.select()
     .from(PublishStreamRegistration)
     .where(and(
-      eq(PublishStreamRegistration.publishTarget, input.publishTarget),
-      eq(PublishStreamRegistration.environment, input.environment),
+      eq(PublishStreamRegistration.game, input.game),
+      eq(PublishStreamRegistration.target, input.target),
       eq(PublishStreamRegistration.publishType, input.publishType),
     ))
     .then(rows => rows[0] ?? null);
 
   if (registration == null) {
-    throw new Error(`Remote publish stream ${input.publishTarget}/${input.environment} is not registered.`);
+    throw new Error(`Remote publish stream ${input.game}/${input.target} is not registered.`);
   }
   if (!registration.normalPublishEnabled) {
-    throw new Error(`Remote publish stream ${input.publishTarget}/${input.environment} does not allow normal publish.`);
+    throw new Error(`Remote publish stream ${input.game}/${input.target} does not allow normal publish.`);
   }
   if (registration.targetFingerprint !== input.targetFingerprint) {
-    throw new Error(`Remote publish stream ${input.publishTarget}/${input.environment} rejected target fingerprint ${input.targetFingerprint}.`);
+    throw new Error(`Remote publish stream ${input.game}/${input.target} rejected target fingerprint ${input.targetFingerprint}.`);
   }
 
   const now = new Date();
@@ -341,8 +341,8 @@ export async function assertRemotePublishGate(
   const leased = await remoteDb.update(PublishStreamRegistration)
     .set({ leaseHolderId: input.leaseHolderId, leaseExpiresAt, updatedAt: now })
     .where(and(
-      eq(PublishStreamRegistration.publishTarget, input.publishTarget),
-      eq(PublishStreamRegistration.environment, input.environment),
+      eq(PublishStreamRegistration.game, input.game),
+      eq(PublishStreamRegistration.target, input.target),
       eq(PublishStreamRegistration.publishType, input.publishType),
       or(
         isNull(PublishStreamRegistration.leaseHolderId),
@@ -354,14 +354,14 @@ export async function assertRemotePublishGate(
     .returning()
     .then(rows => rows[0] ?? null);
   if (leased == null) {
-    throw new Error(`Remote publish stream ${input.publishTarget}/${input.environment} is already leased by another publish batch.`);
+    throw new Error(`Remote publish stream ${input.game}/${input.target} is already leased by another publish batch.`);
   }
 
   const ledger = await remoteDb.select()
     .from(PublishLedger)
     .where(and(
-      eq(PublishLedger.publishTarget, input.publishTarget),
-      eq(PublishLedger.environment, input.environment),
+      eq(PublishLedger.game, input.game),
+      eq(PublishLedger.target, input.target),
       eq(PublishLedger.publishType, input.publishType),
     ))
     .then(rows => rows[0] ?? null);
@@ -386,14 +386,14 @@ export async function assertRemotePublishGate(
 /** Extends the lease while the same batch keeps making progress. */
 export async function renewRemotePublishLease(
   remoteDb: PublishDb,
-  input: { publishTarget: string, environment: string, publishType: string, leaseHolderId: string },
+  input: { game: string, target: string, publishType: string, leaseHolderId: string },
 ): Promise<void> {
   const now = new Date();
   const renewed = await remoteDb.update(PublishStreamRegistration)
     .set({ leaseExpiresAt: new Date(now.getTime() + REMOTE_PUBLISH_LEASE_TTL_MS), updatedAt: now })
     .where(and(
-      eq(PublishStreamRegistration.publishTarget, input.publishTarget),
-      eq(PublishStreamRegistration.environment, input.environment),
+      eq(PublishStreamRegistration.game, input.game),
+      eq(PublishStreamRegistration.target, input.target),
       eq(PublishStreamRegistration.publishType, input.publishType),
       eq(PublishStreamRegistration.leaseHolderId, input.leaseHolderId),
       isNotNull(PublishStreamRegistration.leaseExpiresAt),
@@ -409,13 +409,13 @@ export async function renewRemotePublishLease(
 /** Releases the lease after the batch reaches a terminal state. */
 export async function releaseRemotePublishLease(
   remoteDb: PublishDb,
-  input: { publishTarget: string, environment: string, publishType: string, leaseHolderId: string },
+  input: { game: string, target: string, publishType: string, leaseHolderId: string },
 ): Promise<void> {
   await remoteDb.update(PublishStreamRegistration)
     .set({ leaseHolderId: null, leaseExpiresAt: null, updatedAt: new Date() })
     .where(and(
-      eq(PublishStreamRegistration.publishTarget, input.publishTarget),
-      eq(PublishStreamRegistration.environment, input.environment),
+      eq(PublishStreamRegistration.game, input.game),
+      eq(PublishStreamRegistration.target, input.target),
       eq(PublishStreamRegistration.publishType, input.publishType),
       eq(PublishStreamRegistration.leaseHolderId, input.leaseHolderId),
     ));
@@ -491,7 +491,7 @@ async function loadRowsForPlan(
 export async function applyPlanChunk(
   database: PublishDb,
   remoteDb: PublishDb,
-  stream: { publishTarget: string, environment: string, publishType: string },
+  stream: { game: string, target: string, publishType: string },
   batchId: string,
   leaseHolderId: string,
 ): Promise<number> {
@@ -543,7 +543,7 @@ export async function applyPlanChunk(
 /** Rolls the applied plan into the local row baseline and stream baseline. */
 export async function updateBaseline(
   database: PublishDb,
-  stream: { publishTarget: string, environment: string, publishType: string },
+  stream: { game: string, target: string, publishType: string },
   batch: typeof PublishBatch.$inferSelect,
   plan: { tableName: string, rowKey: string, rowHash: string, action: string }[],
 ): Promise<void> {
@@ -552,16 +552,16 @@ export async function updateBaseline(
     for (const p of chunk) {
       if (p.action === 'delete') {
         await database.delete(PublishRowBaseline).where(and(
-          eq(PublishRowBaseline.publishTarget, stream.publishTarget),
-          eq(PublishRowBaseline.environment, stream.environment),
+          eq(PublishRowBaseline.game, stream.game),
+          eq(PublishRowBaseline.target, stream.target),
           eq(PublishRowBaseline.publishType, stream.publishType),
           eq(PublishRowBaseline.tableName, p.tableName),
           eq(PublishRowBaseline.rowKey, p.rowKey),
         ));
       } else {
         await database.insert(PublishRowBaseline).values({
-          publishTarget: stream.publishTarget,
-          environment:   stream.environment,
+          game:          stream.game,
+          target:        stream.target,
           publishType:   stream.publishType,
           tableName:     p.tableName,
           rowKey:        p.rowKey,
@@ -570,8 +570,8 @@ export async function updateBaseline(
           publishedAt:   new Date(),
         }).onConflictDoUpdate({
           target: [
-            PublishRowBaseline.publishTarget,
-            PublishRowBaseline.environment,
+            PublishRowBaseline.game,
+            PublishRowBaseline.target,
             PublishRowBaseline.publishType,
             PublishRowBaseline.tableName,
             PublishRowBaseline.rowKey,
@@ -588,8 +588,8 @@ export async function updateBaseline(
   }
 
   await database.insert(PublishBaseline).values({
-    publishTarget:         stream.publishTarget,
-    environment:           stream.environment,
+    game:                  stream.game,
+    target:                stream.target,
     publishType:           stream.publishType,
     targetFingerprint:     batch.targetFingerprint,
     batchId:               batch.id,
@@ -600,8 +600,8 @@ export async function updateBaseline(
     publishedAt:           new Date(),
   }).onConflictDoUpdate({
     target: [
-      PublishBaseline.publishTarget,
-      PublishBaseline.environment,
+      PublishBaseline.game,
+      PublishBaseline.target,
       PublishBaseline.publishType,
     ],
     set: {
@@ -624,8 +624,8 @@ export async function upsertRemotePublishLedger(
   operatorUserId: string | null = null,
 ): Promise<void> {
   await remoteDb.insert(PublishLedger).values({
-    publishTarget:         batch.publishTarget,
-    environment:           batch.environment,
+    game:                  batch.game,
+    target:                batch.target,
     publishType:           batch.publishType,
     targetFingerprint:     batch.targetFingerprint,
     batchId:               batch.id,
@@ -642,8 +642,8 @@ export async function upsertRemotePublishLedger(
     publishedAt:           new Date(),
   }).onConflictDoUpdate({
     target: [
-      PublishLedger.publishTarget,
-      PublishLedger.environment,
+      PublishLedger.game,
+      PublishLedger.target,
       PublishLedger.publishType,
     ],
     set: {

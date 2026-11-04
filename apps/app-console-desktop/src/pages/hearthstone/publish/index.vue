@@ -8,7 +8,7 @@
         </div>
         <div class="flex items-center gap-3 text-xs">
           <template v-if="selected">
-            <span class="text-muted">{{ publishTarget }}</span>
+            <span class="text-muted">{{ game }}</span>
             <span class="text-muted">·</span>
             <UDropdownMenu
               v-if="hasMultiplePublishTargets"
@@ -48,7 +48,7 @@
         variant="soft"
         icon="i-lucide-triangle-alert"
         title="未配置发布目标"
-        description="请在 设置 → 发布配置 中配置 Hearthstone 的发布环境。"
+        description="请在 设置 → 发布配置 中添加发布目标。"
         class="mt-2"
       />
 
@@ -469,7 +469,7 @@
       </template>
       <template #body>
         <p class="text-sm">
-          即将对 <strong>{{ selectedEnvironment }}</strong> 环境执行 Pin 操作。
+          即将对发布目标 <strong>{{ selectedEnvironment }}</strong> 执行 Pin 操作。
         </p>
         <p class="mt-2 text-sm text-muted">
           Pin 会将当前本地投影标记为已同步状态，更新本地 baseline 和远程 ledger，不会传输任何数据。Pin 之后执行 Publish 应为空操作。
@@ -522,7 +522,7 @@ const publishTypes = [
   { label: '卡牌数据', value: 'card_data' },
   { label: '公告数据', value: 'announcement_data' },
 ];
-const publishTarget = 'hearthstone' as const;
+const game = 'hearthstone' as const;
 
 const toast = useToast();
 const { targets, selected, select, reload: reloadTargets, error: publishTargetError } = usePublishTargetSelection('hearthstone');
@@ -600,8 +600,8 @@ const selectedPublishStream = computed<HsdataPublishStreamInput | null>(() => {
   }
 
   return {
-    publishTarget,
-    environment: selectedEnvironment.value,
+    game,
+    target: selectedEnvironment.value,
   };
 });
 
@@ -704,8 +704,8 @@ const singleCardOperation: TaskOperation = {
 
     const snapshot = await startDesktopTask('hearthstone_single_card_publish', {
       cardId,
-      publishTarget: stream.publishTarget,
-      targetId:      selected.value?.id ?? '',
+      game:     stream.game,
+      targetId: selected.value?.id ?? '',
     });
     if (!snapshot) {
       singleCardPublishing.value = false;
@@ -721,8 +721,8 @@ let rejectPinCreate: ((reason: Error) => void) | null = null;
 function confirmPin() {
   showPinConfirm.value = false;
   startDesktopTask('hsdata_pin', {
-    publishTarget: 'hearthstone',
-    targetId:      selected.value?.id ?? '',
+    game:     'hearthstone',
+    targetId: selected.value?.id ?? '',
   }).then(result => {
     resolvePinCreate?.(result);
   }).catch((error: unknown) => {
@@ -744,20 +744,20 @@ const operations: TaskOperation[] = [
       const targetId = selected.value?.id ?? '';
       if (publishType.value === 'announcement_data') {
         return startDesktopTask('hearthstone_announcement_publish', {
-          publishTarget: 'hearthstone',
+          game:   'hearthstone',
           targetId,
-          dryRun:        dryRun.value,
+          dryRun: dryRun.value,
         });
       }
       if (publishType.value === 'reference_data') {
         return startDesktopTask('hearthstone_reference_publish', {
-          publishTarget: 'hearthstone',
+          game:   'hearthstone',
           targetId,
-          dryRun:        dryRun.value,
+          dryRun: dryRun.value,
         });
       }
       return startDesktopTask('hearthstone_publish', {
-        publishTarget: 'hearthstone',
+        game:          'hearthstone',
         targetId,
         publishType:   'card_data',
         dryRun:        dryRun.value,
@@ -872,7 +872,7 @@ async function cancelBatch(batch: HsdataPublishReport) {
       const pageTask = task.pageSnapshot?.pageTask;
       if (pageTask?.kind !== 'attached') return false;
       const scope = pageTask.taskScopeSnapshot;
-      return scope?.publishTarget === stream.publishTarget && scope.environment === stream.environment;
+      return scope?.game === stream.game && scope.target === stream.target;
     });
 
     if (activeTask) {

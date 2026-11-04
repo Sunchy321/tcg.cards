@@ -63,8 +63,8 @@ export interface CardPublishPlan {
 /** Publish batch summary returned to desktop clients. */
 export interface YugiohPublishReport extends CardPublishCounts {
   batchId:              string;
-  publishTargetId:      string;
-  environment:          string;
+  game:                 string;
+  target:               string;
   targetFingerprint:    string;
   manifestHash:         string;
   previousManifestHash: string | null;
@@ -231,7 +231,7 @@ export function assertRemoteLedgerCompatible(input: {
   allowIntermediateManifest: boolean;
   ledger: Pick<
     typeof PublishLedger.$inferSelect,
-    'environment' | 'targetFingerprint' | 'manifestHash' | 'totalRowCount'
+    'target' | 'targetFingerprint' | 'manifestHash' | 'totalRowCount'
   > | null;
 }) {
   if (input.expectedManifestHash == null) {
@@ -246,7 +246,7 @@ export function assertRemoteLedgerCompatible(input: {
     throw new RemoteIdentityDriftError('Remote publish ledger is missing for the local baseline.');
   }
 
-  if (input.ledger.environment !== input.targetEnvironment
+  if (input.ledger.target !== input.targetEnvironment
     || input.ledger.targetFingerprint !== input.targetFingerprint) {
     throw new RemoteIdentityDriftError('Remote publish ledger belongs to a different target identity.');
   }
@@ -349,8 +349,8 @@ export function assertPublishedManifest(
 function buildPublishReport(batch: typeof PublishBatch.$inferSelect): YugiohPublishReport {
   return {
     batchId:              batch.id,
-    publishTargetId:      batch.publishTargetId,
-    environment:          batch.environment,
+    game:                 batch.game,
+    target:               batch.target,
     targetFingerprint:    batch.targetFingerprint,
     manifestHash:         batch.manifestHash,
     previousManifestHash: batch.previousManifestHash,
@@ -508,11 +508,11 @@ async function loadRemotePublishCards(db: ReturnType<typeof createDb>) {
 /** Previous completed per-card hashes loaded for one publish target. */
 async function loadPreviousHashes(
   db: ReturnType<typeof getYugiohLocalDb>,
-  publishTargetId: string,
+  game: string,
 ) {
   const baseline = await db.select()
     .from(PublishBaseline)
-    .where(eq(PublishBaseline.publishTargetId, publishTargetId))
+    .where(eq(PublishBaseline.game, game))
     .limit(1)
     .then(rows => rows[0] ?? null);
 
@@ -538,11 +538,11 @@ export async function createYugiohPublishPlan() {
   const target = requireYugiohPublishTarget();
   const db = getYugiohLocalDb();
   const cards = await loadLocalPublishCards(db);
-  const { baseline, hashes } = await loadPreviousHashes(db, target.publishTargetId);
+  const { baseline, hashes } = await loadPreviousHashes(db, target.game);
   const plan = buildCardPublishPlan(cards, hashes);
   const batch = await db.insert(PublishBatch).values({
-    publishTargetId:      target.publishTargetId,
-    environment:          target.environment,
+    game:                 target.game,
+    target:               target.target,
     targetFingerprint:    target.targetFingerprint,
     manifestHash:         plan.manifestHash,
     previousManifestHash: baseline?.manifestHash ?? null,
@@ -618,8 +618,8 @@ export async function executeYugiohPublishBatch(
     return buildPublishReport(batch);
   }
 
-  if (batch.publishTargetId !== target.publishTargetId
-    || batch.environment !== target.environment
+  if (batch.game !== target.game
+    || batch.target !== target.target
     || batch.targetFingerprint !== target.targetFingerprint) {
     const error = new RemoteIdentityDriftError('Configured publish target no longer matches the planned batch.');
     await failPublishBatch(localDb, batch.id, error);
@@ -627,8 +627,8 @@ export async function executeYugiohPublishBatch(
   }
 
   const liveTarget = await resolveYugiohPublishTarget({
-    publishTargetId:  target.publishTargetId,
-    environment:      target.environment,
+    game:             target.game,
+    target:           target.target,
     connectionString: target.connectionString,
   });
 
@@ -658,7 +658,7 @@ export async function executeYugiohPublishBatch(
     const remoteCards = await loadRemotePublishCards(remoteDb);
     const remoteLedger = await remoteDb.select()
       .from(PublishLedger)
-      .where(eq(PublishLedger.publishTargetId, target.publishTargetId))
+      .where(eq(PublishLedger.game, target.game))
       .limit(1)
       .then(rows => rows[0] ?? null);
     const remotePlan = buildCardPublishPlan(remoteCards, new Map());
@@ -667,7 +667,7 @@ export async function executeYugiohPublishBatch(
       assertRemoteIdentityCompatible(localCards, remoteCards);
       assertRemoteLedgerCompatible({
         expectedManifestHash:      batch.previousManifestHash,
-        targetEnvironment:         target.environment,
+        targetEnvironment:         target.target,
         targetFingerprint:         target.targetFingerprint,
         remoteManifestHash:        remotePlan.manifestHash,
         remoteRowCount:            remotePlan.counts.totalRowCount,
@@ -798,8 +798,8 @@ export async function executeYugiohPublishBatch(
     await remoteDb.transaction(async tx => {
       await calibrateRemoteIdentity(tx, finalRemoteCards.map(card => card.card.id));
       await tx.insert(PublishLedger).values({
-        publishTargetId:   target.publishTargetId,
-        environment:       target.environment,
+        game:              target.game,
+        target:            target.target,
         targetFingerprint: target.targetFingerprint,
         batchId:           batch.id,
         operatorUserId:    options?.operatorUserId ?? null,
@@ -808,9 +808,9 @@ export async function executeYugiohPublishBatch(
         changedRowCount:   batch.changedRowCount,
         publishedAt,
       }).onConflictDoUpdate({
-        target: PublishLedger.publishTargetId,
+        target: PublishLedger.game,
         set:    {
-          environment:       target.environment,
+          target:            target.target,
           targetFingerprint: target.targetFingerprint,
           batchId:           batch.id,
           operatorUserId:    options?.operatorUserId ?? null,
@@ -824,17 +824,17 @@ export async function executeYugiohPublishBatch(
     });
 
     await localDb.insert(PublishBaseline).values({
-      publishTargetId:   target.publishTargetId,
-      environment:       target.environment,
+      game:              target.game,
+      target:            target.target,
       targetFingerprint: target.targetFingerprint,
       batchId:           batch.id,
       manifestHash:      batch.manifestHash,
       totalRowCount:     batch.totalRowCount,
       publishedAt,
     }).onConflictDoUpdate({
-      target: PublishBaseline.publishTargetId,
+      target: PublishBaseline.game,
       set:    {
-        environment:       target.environment,
+        target:            target.target,
         targetFingerprint: target.targetFingerprint,
         batchId:           batch.id,
         manifestHash:      batch.manifestHash,
@@ -881,7 +881,7 @@ export async function listYugiohPublishBatches(limit = 20) {
   const target = requireYugiohPublishTarget();
   const rows = await getYugiohLocalDb().select()
     .from(PublishBatch)
-    .where(eq(PublishBatch.publishTargetId, target.publishTargetId))
+    .where(eq(PublishBatch.game, target.game))
     .orderBy(desc(PublishBatch.createdAt))
     .limit(limit);
 
@@ -894,7 +894,7 @@ export async function getIncompleteYugiohPublishBatch() {
   const batch = await getYugiohLocalDb().select()
     .from(PublishBatch)
     .where(and(
-      eq(PublishBatch.publishTargetId, target.publishTargetId),
+      eq(PublishBatch.game, target.game),
       sql`${PublishBatch.status} in ('planning', 'applying')`,
     ))
     .orderBy(asc(PublishBatch.createdAt))

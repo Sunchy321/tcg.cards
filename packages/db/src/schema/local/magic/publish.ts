@@ -21,8 +21,8 @@ import {
 export const PublishBatch = dataSchema.table('publish_batches', {
   id: uuid('id').primaryKey().defaultRandom(),
 
-  publishTarget:     text('publish_target').notNull(),
-  environment:       text('environment').notNull(),
+  game:        text('game').notNull(),
+  target:      text('target').notNull(),
   targetFingerprint: text('target_fingerprint').notNull(),
   publishType:       text('publish_type').notNull().default('card_data'),
   operationKind:     publishOperationKind('operation_kind').notNull().default('publish'),
@@ -52,8 +52,8 @@ export const PublishBatch = dataSchema.table('publish_batches', {
   completedAt: timestamp('completed_at'),
 }, table => [
   index('publish_batches_stream_status_idx').on(
-    table.publishTarget,
-    table.environment,
+    table.game,
+    table.target,
     table.publishType,
     table.status,
   ),
@@ -96,8 +96,8 @@ export const PublishBatchRow = dataSchema.table('publish_batch_rows', {
 ]);
 
 export const PublishBaseline = dataSchema.table('publish_baselines', {
-  publishTarget: text('publish_target').notNull(),
-  environment:   text('environment').notNull(),
+  game:        text('game').notNull(),
+  target:      text('target').notNull(),
   publishType:   text('publish_type').notNull().default('card_data'),
 
   targetFingerprint: text('target_fingerprint').notNull(),
@@ -117,15 +117,15 @@ export const PublishBaseline = dataSchema.table('publish_baselines', {
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
 }, table => [
-  primaryKey({ columns: [table.publishTarget, table.environment, table.publishType] }),
+  primaryKey({ columns: [table.game, table.target, table.publishType] }),
   index('publish_baselines_batch_id_idx').on(table.batchId),
   check('publish_baselines_generation_order_positive_chk', sql`${table.generationOrder} > 0`),
   check('publish_baselines_total_row_count_nonnegative_chk', sql`${table.totalRowCount} >= 0`),
 ]);
 
 export const PublishRowBaseline = dataSchema.table('publish_row_baselines', {
-  publishTarget: text('publish_target').notNull(),
-  environment:   text('environment').notNull(),
+  game:        text('game').notNull(),
+  target:      text('target').notNull(),
   publishType:   text('publish_type').notNull().default('card_data'),
 
   tableName: text('table_name').notNull(),
@@ -143,16 +143,16 @@ export const PublishRowBaseline = dataSchema.table('publish_row_baselines', {
 }, table => [
   primaryKey({
     columns: [
-      table.publishTarget,
-      table.environment,
+      table.game,
+      table.target,
       table.publishType,
       table.tableName,
       table.rowKey,
     ],
   }),
   index('publish_row_baselines_stream_idx').on(
-    table.publishTarget,
-    table.environment,
+    table.game,
+    table.target,
     table.publishType,
   ),
   index('publish_row_baselines_source_batch_idx').on(table.sourceBatchId),

@@ -2,10 +2,10 @@ import { ORPCError } from '@orpc/server';
 
 import { findPublishTargetByName, readPublishTargets } from '../../runtime-config';
 
-/** Complete Hearthstone publish target state required by desktop publishing. */
+/** Complete Hearthstone publish destination required by desktop publishing. */
 export interface HsdataPublishTarget {
-  publishTarget:     string;
-  environment:       string;
+  game:              string;
+  target:            string;
   targetFingerprint: string;
   connectionString:  string;
 }
@@ -16,8 +16,8 @@ const trimToNull = (value: string | null | undefined) => {
   return trimmed ? trimmed : null;
 };
 
-/** Builds a complete publish target from one runtime-injected destination. */
-function completeTarget(publishTarget: string, name: string | null | undefined) {
+/** Builds a complete publish destination from one runtime-injected target name. */
+function completeTarget(game: string, name: string | null | undefined) {
   const target = findPublishTargetByName(name);
   const resolvedName = trimToNull(target?.name);
   const targetFingerprint = trimToNull(target?.targetFingerprint);
@@ -28,8 +28,8 @@ function completeTarget(publishTarget: string, name: string | null | undefined) 
   }
 
   return {
-    publishTarget,
-    environment: resolvedName,
+    game,
+    target: resolvedName,
     targetFingerprint,
     connectionString,
   } satisfies HsdataPublishTarget;
@@ -43,20 +43,20 @@ function singleTargetName(): string | null {
   return names.length === 1 ? names[0]! : null;
 }
 
-/** Reads the current runtime-injected publish target when all required fields are present. */
-export const getHearthstonePublishTarget = (publishTarget = 'hearthstone') => {
-  return completeTarget(publishTarget, singleTargetName());
+/** Reads the current runtime-injected publish destination when all required fields are present. */
+export const getHearthstonePublishTarget = (game = 'hearthstone') => {
+  return completeTarget(game, singleTargetName());
 };
 
-/** Reads one configured publish target that matches the requested identity. */
+/** Reads one configured publish destination that matches the requested identity. */
 export const getHearthstonePublishTargetByIdentity = (
-  publishTarget: string,
-  environment: string,
-) => completeTarget(publishTarget, environment);
+  game: string,
+  target: string,
+) => completeTarget(game, target);
 
-/** Resolves the runtime-injected publish target or raises one RPC error with the missing fields. */
-export const requireHearthstonePublishTarget = (publishTarget = 'hearthstone') => {
-  const target = getHearthstonePublishTarget(publishTarget);
+/** Resolves the runtime-injected publish destination or raises one RPC error. */
+export const requireHearthstonePublishTarget = (game = 'hearthstone') => {
+  const target = getHearthstonePublishTarget(game);
 
   if (target != null) {
     return target;
@@ -67,18 +67,18 @@ export const requireHearthstonePublishTarget = (publishTarget = 'hearthstone') =
   });
 };
 
-/** Resolves one matching publish target or raises one RPC error describing the missing identity. */
+/** Resolves one matching publish destination or raises one RPC error describing the missing identity. */
 export const requireHearthstonePublishTargetByIdentity = (
-  publishTarget: string,
-  environment: string,
+  game: string,
+  target: string,
 ) => {
-  const target = getHearthstonePublishTargetByIdentity(publishTarget, environment);
+  const resolved = getHearthstonePublishTargetByIdentity(game, target);
 
-  if (target != null) {
-    return target;
+  if (resolved != null) {
+    return resolved;
   }
 
   throw new ORPCError('INTERNAL_SERVER_ERROR', {
-    message: `Hearthstone publish target ${environment} is not configured for ${publishTarget}.`,
+    message: `Hearthstone publish target ${target} is not configured for ${game}.`,
   });
 };

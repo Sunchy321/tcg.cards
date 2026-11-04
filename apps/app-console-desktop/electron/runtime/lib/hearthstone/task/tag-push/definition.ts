@@ -5,8 +5,8 @@ import type { TaskDefinition } from '../../../../../task/registry';
 /** Creates the resumable, target-bound Tag commit push task used by Electron. */
 export const tagPushTaskDefinition: TaskDefinition = {
   stages(params) {
-    const environment = typeof params.environment === 'string' ? params.environment.trim() : '';
-    if (!environment) throw new Error('请选择发布目标。');
+    const target = typeof params.target === 'string' ? params.target.trim() : '';
+    if (!target) throw new Error('请选择发布目标。');
 
     return [{
       key:          'push_tag_commits',
@@ -15,7 +15,7 @@ export const tagPushTaskDefinition: TaskDefinition = {
       progressMode: 'unbound',
       resumeMode:   'durable',
       async run(context) {
-        const target = requireHearthstonePublishTargetByIdentity('hearthstone', environment);
+        const destination = requireHearthstonePublishTargetByIdentity('hearthstone', target);
         const resumeToken = context.resume?.token;
         const batchId = typeof resumeToken?.batchId === 'string' ? resumeToken.batchId : null;
         const resume = batchId == null
@@ -25,7 +25,7 @@ export const tagPushTaskDefinition: TaskDefinition = {
             completed: context.resume?.done ?? 0,
             total:     typeof resumeToken?.total === 'number' ? resumeToken.total : null,
           };
-        const report = await runTagPushBatch(target.connectionString, async ({ batchId: activeBatchId, completed, total }) => {
+        const report = await runTagPushBatch(destination.connectionString, async ({ batchId: activeBatchId, completed, total }) => {
           await context.checkpoint({ batchId: activeBatchId, total }, { done: completed, total });
         }, undefined, resume);
         await context.saveResult(report as unknown as Record<string, unknown>);

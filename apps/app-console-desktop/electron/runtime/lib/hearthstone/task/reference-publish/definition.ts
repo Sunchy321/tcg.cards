@@ -36,8 +36,8 @@ const output = z.object({
 });
 
 const publishStreamScope = z.object({
-  publishTarget: z.string(),
-  environment:   z.string(),
+  game:   z.string(),
+  target: z.string(),
 });
 
 /** Mirrors the local small reference tables (sets/formats/patches/tags) to the publish target as a full replace. */
@@ -45,7 +45,7 @@ export const referencePublishTaskDefinition = createDefinition(referencePublishT
   .scope(publishStreamScope, {
     type:    'publish_stream' as const,
     resolve: scope => ({
-      key:      `${scope.publishTarget}:${scope.environment}:reference_data`,
+      key:      `${scope.game}:${scope.target}:reference_data`,
       snapshot: scope,
     }),
   })
@@ -53,7 +53,7 @@ export const referencePublishTaskDefinition = createDefinition(referencePublishT
   .output(output)
   .context({
     init: (input, scope) => {
-      const target = requireHearthstonePublishTargetByIdentity(scope.publishTarget, scope.environment);
+      const target = requireHearthstonePublishTargetByIdentity(scope.game, scope.target);
       return { target, dryRun: input.dryRun ?? false };
     },
   })

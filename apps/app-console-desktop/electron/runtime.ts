@@ -253,8 +253,8 @@ async function handle(request: RuntimeRequest): Promise<RuntimeResponse> {
   }
   if (request.method === 'publish:resolve-target') {
     const target = await resolveHearthstonePublishTarget({
-      publishTarget:    'publish',
-      environment:      'publish',
+      game:             'console',
+      target:           'console',
       connectionString: request.connectionString,
     });
     return { id: request.id, result: { targetFingerprint: target.targetFingerprint } };

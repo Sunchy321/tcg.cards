@@ -317,9 +317,9 @@ export interface HsdataProjectOptions {
 
 /** Explicit publish stream selector used by the Hearthstone publish page. */
 export interface HsdataPublishStreamInput {
-  publishTarget: 'hearthstone';
-  environment:   string;
-  publishType?:  string;
+  game:         'hearthstone';
+  target:       string;
+  publishType?: string;
 }
 
 /** Publish job control result returned after a cooperative pause or stop request. */

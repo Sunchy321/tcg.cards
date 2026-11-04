@@ -34,8 +34,8 @@ export const pinTaskType = 'hsdata_pin';
 
 const pinOutput = z.object({
   batchId:              z.string(),
-  publishTarget:        z.string(),
-  environment:          z.string(),
+  game:                 z.string(),
+  target:               z.string(),
   manifestHash:         z.string(),
   publishedAt:          z.string(),
   buildMin:             z.number(),
@@ -68,8 +68,8 @@ interface PinScanState {
 
 interface PinCtx {
   batchId:              string;
-  publishTarget:        string;
-  environment:          string;
+  game:                 string;
+  target:               string;
   targetFingerprint:    string;
   publishType:          string;
   operatorUserId:       string | null;
@@ -128,7 +128,7 @@ async function scanOneChunk(
     scan.manifest.update(buildManifestLine({ tableName: tableName!, rowKey: rk, rowHash: rh }));
     if (tableName === 'entities' && row.version) (row.version as number[]).forEach(v => scan.builds.add(v));
     return {
-      publishTarget: ctx.publishTarget, environment:   ctx.environment, publishType:   ctx.publishType,
+      game:          ctx.game, target:        ctx.target, publishType:   ctx.publishType,
       tableName:     tableName!, rowKey:        rk, rowHash:       rh,
       sourceBatchId: ctx.batchId,
       publishedAt:   ctx.publishedAt, createdAt:     new Date(), updatedAt:     new Date(),
@@ -150,8 +150,8 @@ async function insertDraftPinBatch(
   db: PublishDb,
   input: {
     batchId:               string;
-    publishTarget:         string;
-    environment:           string;
+    game:                  string;
+    target:                string;
     targetFingerprint:     string;
     publishType:           string;
     previousRange:         PublishDatasetRange | null;
@@ -165,8 +165,8 @@ async function insertDraftPinBatch(
 
   await db.insert(PublishBatch).values({
     id:                    input.batchId,
-    publishTarget:         input.publishTarget,
-    environment:           input.environment,
+    game:                  input.game,
+    target:                input.target,
     targetFingerprint:     input.targetFingerprint,
     publishType:           input.publishType,
     operationKind:         'pin' as any,
@@ -194,8 +194,8 @@ async function finalizePinBatchSuccess(
   db: PublishDb,
   input: {
     batchId:               string;
-    publishTarget:         string;
-    environment:           string;
+    game:                  string;
+    target:                string;
     targetFingerprint:     string;
     publishType:           string;
     range:                 PublishDatasetRange;
@@ -207,7 +207,7 @@ async function finalizePinBatchSuccess(
   },
 ): Promise<void> {
   const summary = {
-    batchId:              input.batchId, publishTarget:        input.publishTarget, environment:          input.environment,
+    batchId:              input.batchId, game:                 input.game, target:               input.target,
     operationKind:        'pin',
     totalRowCount:        input.counts.totalRowCount, changedRowCount:      input.counts.changedRowCount,
     insertedRowCount:     input.counts.insertedRowCount, updatedRowCount:      input.counts.updatedRowCount,
@@ -218,14 +218,14 @@ async function finalizePinBatchSuccess(
   };
 
   await db.insert(PublishBaseline).values({
-    publishTarget:         input.publishTarget, environment:           input.environment, publishType:           input.publishType,
+    game:                  input.game, target:                input.target, publishType:           input.publishType,
     targetFingerprint:     input.targetFingerprint, batchId:               input.batchId,
     buildMin:              input.range.buildMin, buildMax:              input.range.buildMax,
     generationFingerprint: input.generationFingerprint, generationOrder:       input.generationOrder,
     manifestHash:          input.manifestHash, totalRowCount:         input.counts.totalRowCount,
     publishedAt:           input.publishedAt, createdAt:             input.publishedAt, updatedAt:             input.publishedAt,
   }).onConflictDoUpdate({
-    target: [PublishBaseline.publishTarget, PublishBaseline.environment, PublishBaseline.publishType],
+    target: [PublishBaseline.game, PublishBaseline.target, PublishBaseline.publishType],
     set:    {
       targetFingerprint:     input.targetFingerprint, batchId:               input.batchId,
       buildMin:              input.range.buildMin, buildMax:              input.range.buildMax,
@@ -242,21 +242,21 @@ async function finalizePinBatchSuccess(
 
 export const pinTaskDefinition = createDefinition(pinTaskType, { version: '2026-07-14:v1' })
   .scope(
-    z.object({ publishTarget: z.string(), environment: z.string() }),
+    z.object({ game: z.string(), target: z.string() }),
     {
       type:    'publish_stream' as const,
-      resolve: scope => ({ key: `${scope.publishTarget}:${scope.environment}:pin`, snapshot: scope }),
+      resolve: scope => ({ key: `${scope.game}:${scope.target}:pin`, snapshot: scope }),
     },
   )
   .input(z.strictObject({
-    publishTarget:  z.literal('hearthstone'),
-    environment:    z.string().trim().min(1),
+    game:           z.literal('hearthstone'),
+    target:         z.string().trim().min(1),
     operatorUserId: z.string().trim().min(1).optional(),
   }))
   .output(pinOutput)
   .context({
     init: (input): PinCtx => ({
-      batchId:              '', publishTarget:        '', environment:          '', targetFingerprint:    '',
+      batchId:              '', game:                 '', target:               '', targetFingerprint:    '',
       publishType:          'card_data', operatorUserId:       input.operatorUserId ?? null,
       previousRange:        null, previousManifestHash: null, publishedAt:          new Date(),
     }),
@@ -266,10 +266,10 @@ export const pinTaskDefinition = createDefinition(pinTaskType, { version: '2026-
   .stage('validate', { label: 'Validate', progressMode: 'simple' })
   .handler(async ({ ctx, input }) => {
     const publishType = 'card_data';
-    const target = requireHearthstonePublishTargetByIdentity(input.publishTarget, input.environment);
+    const target = requireHearthstonePublishTargetByIdentity(input.game, input.target);
     const localDb = getLocalDb();
     const stream = {
-      publishTarget:     target.publishTarget, environment:       target.environment,
+      game:              target.game, target:            target.target,
       publishType, targetFingerprint: target.targetFingerprint,
     };
 
@@ -303,7 +303,7 @@ export const pinTaskDefinition = createDefinition(pinTaskType, { version: '2026-
     const publishedAt = new Date();
 
     await insertDraftPinBatch(localDb, {
-      batchId, publishTarget:         target.publishTarget, environment:           target.environment,
+      batchId, game:                  target.game, target:                target.target,
       targetFingerprint:     target.targetFingerprint, publishType,
       previousRange, previousManifestHash:  baseline?.manifestHash ?? null,
       generationFingerprint: publishCardDataGeneration.fingerprint,
@@ -313,7 +313,7 @@ export const pinTaskDefinition = createDefinition(pinTaskType, { version: '2026-
     await markPublishBatchApplying(localDb, batchId);
 
     Object.assign(ctx, {
-      batchId, publishTarget:        target.publishTarget, environment:          target.environment,
+      batchId, game:                 target.game, target:               target.target,
       targetFingerprint:    target.targetFingerprint, publishType,
       previousRange, previousManifestHash: baseline?.manifestHash ?? null, publishedAt,
     });
@@ -326,8 +326,8 @@ export const pinTaskDefinition = createDefinition(pinTaskType, { version: '2026-
     const db = getLocalDb();
 
     await db.delete(PublishRowBaseline).where(and(
-      eq(PublishRowBaseline.publishTarget, ctx.publishTarget),
-      eq(PublishRowBaseline.environment, ctx.environment),
+      eq(PublishRowBaseline.game, ctx.game),
+      eq(PublishRowBaseline.target, ctx.target),
       eq(PublishRowBaseline.publishType, ctx.publishType),
     ));
 
@@ -376,7 +376,7 @@ export const pinTaskDefinition = createDefinition(pinTaskType, { version: '2026-
     };
 
     await finalizePinBatchSuccess(localDb, {
-      batchId:               ctx.batchId, publishTarget:         ctx.publishTarget, environment:           ctx.environment,
+      batchId:               ctx.batchId, game:                  ctx.game, target:                ctx.target,
       targetFingerprint:     ctx.targetFingerprint, publishType:           ctx.publishType,
       range, generationFingerprint: publishCardDataGeneration.fingerprint,
       generationOrder:       publishCardDataGeneration.order, counts, manifestHash,
@@ -384,12 +384,12 @@ export const pinTaskDefinition = createDefinition(pinTaskType, { version: '2026-
     });
 
     // Write remote ledger
-    const target = requireHearthstonePublishTargetByIdentity(ctx.publishTarget, ctx.environment);
+    const target = requireHearthstonePublishTargetByIdentity(ctx.game, ctx.target);
     const ledgerDb = createDb(target.connectionString);
     try {
       await ledgerDb.transaction(async (tx: any) => {
         await upsertRemotePublishLedger(tx, {
-          batchId:               ctx.batchId, publishTarget:         ctx.publishTarget, environment:           ctx.environment,
+          batchId:               ctx.batchId, game:                  ctx.game, target:                ctx.target,
           targetFingerprint:     ctx.targetFingerprint, publishType:           ctx.publishType,
           operatorUserId:        ctx.operatorUserId,
           range, generationFingerprint: publishCardDataGeneration.fingerprint,
@@ -409,8 +409,8 @@ export const pinTaskDefinition = createDefinition(pinTaskType, { version: '2026-
 
     return {
       batchId:              ctx.batchId,
-      publishTarget:        ctx.publishTarget,
-      environment:          ctx.environment,
+      game:                 ctx.game,
+      target:               ctx.target,
       manifestHash,
       publishedAt:          ctx.publishedAt.toISOString(),
       buildMin:             range.buildMin,

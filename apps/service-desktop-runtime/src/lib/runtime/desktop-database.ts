@@ -22,8 +22,8 @@ export interface DesktopDatabaseConnectionTestResult {
 
 /** Publish target resolution result returned from one live PostgreSQL session. */
 export interface ResolvedHearthstonePublishTarget {
-  publishTarget:     string;
-  environment:       string;
+  game:              string;
+  target:            string;
   targetFingerprint: string;
   databaseName:      string;
   userName:          string;
@@ -191,16 +191,16 @@ export async function testDesktopDatabaseConnection(connectionString: string): P
 
 /** Publish target identity and fingerprint resolved from one explicit connection string. */
 export async function resolveHearthstonePublishTarget(input: {
-  publishTarget:    string;
-  environment:      string;
+  game:             string;
+  target:           string;
   connectionString: string;
 }): Promise<ResolvedHearthstonePublishTarget> {
   const identity = await readDesktopDatabaseIdentity(input.connectionString);
   const endpoint = resolveTargetEndpoint(identity, input.connectionString);
 
   return {
-    publishTarget:     input.publishTarget,
-    environment:       input.environment,
+    game:              input.game,
+    target:            input.target,
     targetFingerprint: computeTargetFingerprint(endpoint, identity),
     databaseName:      identity.databaseName,
     userName:          identity.userName,
@@ -211,13 +211,13 @@ export async function resolveHearthstonePublishTarget(input: {
 
 /** Yu-Gi-Oh! publish target identity resolved from one explicit connection string. */
 export async function resolveYugiohPublishTarget(input: {
-  publishTargetId:  string;
-  environment:      string;
+  game:             string;
+  target:           string;
   connectionString: string;
 }): Promise<ResolvedHearthstonePublishTarget> {
   return await resolveHearthstonePublishTarget({
-    publishTarget:    input.publishTargetId,
-    environment:      input.environment,
+    game:             input.game,
+    target:           input.target,
     connectionString: input.connectionString,
   });
 }
