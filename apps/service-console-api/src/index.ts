@@ -10,16 +10,16 @@ import { router, searchD1Router } from './orpc/service';
 import { grantPublishCredential, isPublishableGame } from './publish-credentials';
 import { searchPublishRequest, signSearchUploads, verifySearchObjects } from './search-publish';
 
-import type { InternalServiceEnv } from './env';
+import type { ConsoleApiEnv } from './env';
 
 const hono = new Hono<{
-  Bindings: InternalServiceEnv;
+  Bindings: ConsoleApiEnv;
 }>();
 
-function installRuntimeBindings(env: InternalServiceEnv) {
+function installRuntimeBindings(env: ConsoleApiEnv) {
   const runtimeGlobal = globalThis as typeof globalThis & {
-    __env__?:    InternalServiceEnv;
-    HYPERDRIVE?: InternalServiceEnv['HYPERDRIVE'];
+    __env__?:    ConsoleApiEnv;
+    HYPERDRIVE?: ConsoleApiEnv['HYPERDRIVE'];
   };
 
   runtimeGlobal.__env__ = env;
@@ -52,18 +52,18 @@ const searchD1Handler = new RPCHandler(searchD1Router as any, {
 });
 
 hono.get('/', c => c.json({
-  service: 'service-internal',
+  service: 'service-console-api',
   status:  'ok',
   auth:    'better-auth',
 }));
 
 hono.get('/health', c => c.json({
-  service: 'service-internal',
+  service: 'service-console-api',
   status:  'ok',
   time:    new Date().toISOString(),
 }));
 
-async function handleAuthRequest(request: Request, env: InternalServiceEnv) {
+async function handleAuthRequest(request: Request, env: ConsoleApiEnv) {
   // Recreate the request inside the current handler context to avoid
   // Cloudflare Worker I/O ownership issues when downstream code reads the body.
   const authRequest = new Request(request);
@@ -76,7 +76,7 @@ type ClosableDb = ReturnType<typeof createDb> & {
   };
 };
 
-async function withRequestDb<T>(env: InternalServiceEnv, handler: () => Promise<T>): Promise<T> {
+async function withRequestDb<T>(env: ConsoleApiEnv, handler: () => Promise<T>): Promise<T> {
   const database = createDb(env.HYPERDRIVE.connectionString) as ClosableDb;
 
   try {

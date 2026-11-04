@@ -5,7 +5,7 @@ import { sql } from 'drizzle-orm';
 
 import { getAuth } from './auth';
 
-import type { InternalServiceEnv } from './env';
+import type { ConsoleApiEnv } from './env';
 
 /** Lifetime of one issued database credential in hours. */
 const CREDENTIAL_TTL_HOURS = 4;
@@ -100,7 +100,7 @@ export function isPublishableGame(game: string): game is Game {
  * privileged connection, never the request-scoped business connection.
  */
 export async function grantPublishCredential(
-  env: InternalServiceEnv,
+  env: ConsoleApiEnv,
   headers: Headers,
   game: Game,
   origin: string,
@@ -134,7 +134,7 @@ export async function grantPublishCredential(
  * database-scoped, so the admin connection already names the publish database.
  */
 async function issueCredential(
-  env: InternalServiceEnv,
+  env: ConsoleApiEnv,
   userId: string,
 ): Promise<IssuedPublishCredential> {
   const databaseUrl = env.PUBLISH_ADMIN_CONNECTION_STRING!;

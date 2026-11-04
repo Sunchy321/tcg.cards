@@ -12,7 +12,7 @@ export interface R2Bucket {
 /** Bound Cloudflare D1 search database the publisher may address. */
 export type D1SearchDatabase = import('@cloudflare/workers-types').D1Database;
 
-export interface InternalServiceEnv {
+export interface ConsoleApiEnv {
   BETTER_AUTH_SECRET: string;
   HYPERDRIVE: {
     connectionString: string;

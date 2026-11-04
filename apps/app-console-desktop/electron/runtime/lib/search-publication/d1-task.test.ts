@@ -94,7 +94,7 @@ beforeEach(() => {
     typeSymbols:   ['W', 'U'],
     tagOwners:     {},
   }));
-  setSearchServiceSessionOverride({ baseUrl: 'https://internal.tcg.cards/', cookieHeader: 'session=abc' });
+  setSearchServiceSessionOverride({ baseUrl: 'https://console-api.tcg.cards/', cookieHeader: 'session=abc' });
 });
 
 afterEach(() => {

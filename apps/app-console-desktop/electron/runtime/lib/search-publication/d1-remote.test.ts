@@ -24,13 +24,13 @@ function stubFetch(status: number, body: unknown): { urls: string[] } {
 describe('search D1 remote client', () => {
   test('maps an expired session to an actionable login message', async () => {
     stubFetch(401, { message: '请先登录控制台服务。' });
-    const remote = createSearchD1Remote({ baseUrl: 'https://internal.tcg.cards/', cookieHeader: 'session=abc' });
+    const remote = createSearchD1Remote({ baseUrl: 'https://console-api.tcg.cards/', cookieHeader: 'session=abc' });
     await expect(remote.execute('magic', ['SELECT 1;'])).rejects.toThrow('登录已失效，请重新登录控制台服务。');
   });
 
   test('maps a forbidden account to a permission message', async () => {
     stubFetch(403, { message: 'forbidden' });
-    const remote = createSearchD1Remote({ baseUrl: 'https://internal.tcg.cards/', cookieHeader: 'session=abc' });
+    const remote = createSearchD1Remote({ baseUrl: 'https://console-api.tcg.cards/', cookieHeader: 'session=abc' });
     await expect(remote.meta('hearthstone')).rejects.toThrow('当前账号无权发布搜索数据。');
   });
 
@@ -38,14 +38,14 @@ describe('search D1 remote client', () => {
     globalThis.fetch = (async () => {
       throw new TypeError('failed to fetch');
     }) as unknown as typeof fetch;
-    const remote = createSearchD1Remote({ baseUrl: 'https://internal.tcg.cards/', cookieHeader: 'session=abc' });
+    const remote = createSearchD1Remote({ baseUrl: 'https://console-api.tcg.cards/', cookieHeader: 'session=abc' });
     await expect(remote.execute('magic', ['SELECT 1;'])).rejects.toThrow('无法连接控制台服务，请检查地址和网络。');
   });
 
   test('addresses the search D1 route below the console service base', async () => {
     const { urls } = stubFetch(200, { json: { results: [] } });
-    const remote = createSearchD1Remote({ baseUrl: 'https://internal.tcg.cards/', cookieHeader: 'session=abc' });
+    const remote = createSearchD1Remote({ baseUrl: 'https://console-api.tcg.cards/', cookieHeader: 'session=abc' });
     await remote.execute('magic', ['SELECT 1;']).catch(() => {});
-    expect(urls[0]).toBe('https://internal.tcg.cards/search-d1/rpc/searchD1/execute');
+    expect(urls[0]).toBe('https://console-api.tcg.cards/search-d1/rpc/searchD1/execute');
   });
 });

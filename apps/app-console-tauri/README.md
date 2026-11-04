@@ -44,6 +44,6 @@ Current hsdata capabilities in the desktop app:
 ## Notes
 
 - site-console does not read local git.
-- service-internal does not read local git.
+- service-console-api does not read local git.
 - In the current development shape, `service-desktop-runtime` still runs as an independent local process.
 - Real end-to-end validation still requires a local hsdata checkout and a reachable backend auth/API environment.

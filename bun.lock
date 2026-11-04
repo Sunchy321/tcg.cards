@@ -185,8 +185,8 @@
         "typescript": "^5.9.3",
       },
     },
-    "apps/service-internal": {
-      "name": "service-internal",
+    "apps/service-console-api": {
+      "name": "service-console-api",
       "dependencies": {
         "@orpc/server": "^1.14.0",
         "@tcg-cards/auth": "workspace:*",
@@ -3512,7 +3512,7 @@
 
     "service-desktop-runtime": ["service-desktop-runtime@workspace:apps/service-desktop-runtime"],
 
-    "service-internal": ["service-internal@workspace:apps/service-internal"],
+    "service-console-api": ["service-console-api@workspace:apps/service-console-api"],
 
     "service-watcher": ["service-watcher@workspace:apps/service-watcher"],
 

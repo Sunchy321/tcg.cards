@@ -36,10 +36,10 @@ The `apps/` workspace currently contains these project-level applications:
 - `app-mobile` (planned)
   User-facing installable mobile app (iOS/Android), built on Capacitor. It shares its business code with `app-desktop` and is a query client for end users, not a management runtime.
 - `service-app` (planned)
-  Backend query service for the user-facing apps: anonymous public card queries over the same remote game data the game sites serve, plus first-party authenticated user state such as user config sync. It is distinct from `service-api` (third-party, key-authenticated) and `service-internal` (management clients).
+  Backend query service for the user-facing apps: anonymous public card queries over the same remote game data the game sites serve, plus first-party authenticated user state such as user config sync. It is distinct from `service-api` (third-party, key-authenticated) and `service-console-api` (management clients).
 - `service-desktop-runtime` (deprecated)
   The former Bun desktop runtime behind `app-console-tauri`. No application depends on it any more: its search projection and publication workflows have moved into the Electron runtime of `app-console-desktop`. It receives no new features and will be removed entirely in a future version.
-- `service-internal`
+- `service-console-api`
   Backend API surface for app-shaped management clients. It provides the remote backend interface used by installable management applications.
 - `site-console`
   Web-based admin console. It is a restricted remote management surface and should not be treated as the execution authority for heavy domain-data workflows or as a substitute for desktop-only local capabilities.
@@ -57,19 +57,19 @@ The management-facing runtimes do not share the same authority level, but they m
 - `site-console`
   Web-based remote management surface. It should stay within the restricted web capability tier and expose its lower-capability remote router in-process, because the website deployment should avoid cross-service requests for its own management traffic.
 - `app-console-mobile` (planned)
-  Mobile management client intended to sit above `site-console` and below desktop in overall capability. Its final exposed capability does not need to equal the full router currently hosted by `service-internal`.
-- `service-internal`
+  Mobile management client intended to sit above `site-console` and below desktop in overall capability. Its final exposed capability does not need to equal the full router currently hosted by `service-console-api`.
+- `service-console-api`
   Remote backend API surface for app-shaped management clients. It reuses the same management backend code layers where appropriate, exposes a higher-capability remote router than `site-console`, and exists as a separate service because app-shaped clients cannot avoid remote service requests in the same way that `site-console` can.
 - `app-console-desktop`
-  Full management runtime. Its capability is not defined only by remote routers because it also owns desktop-local capabilities such as local repositories, local PostgreSQL, and full local data workflows. Some desktop operations may also read or write remote databases through direct connections instead of going through `service-internal`.
+  Full management runtime. Its capability is not defined only by remote routers because it also owns desktop-local capabilities such as local repositories, local PostgreSQL, and full local data workflows. Some desktop operations may also read or write remote databases through direct connections instead of going through `service-console-api`.
 
 Capability should therefore be described at the runtime level, not only at the router level.
 
-For remote router exposure, the current intended ordering is `site-console` < `service-internal`.
+For remote router exposure, the current intended ordering is `site-console` < `service-console-api`.
 
 Desktop sits above that remote-router ordering because it also owns local-only capabilities and some direct remote-database operations that do not enter the remote router surface. It may also use a narrowly scoped authenticated, read-only `site-console` call to list cloud Magic rule files; this does not create a general remote API client or change the direct-database publication path. See [ADR-0021](adr/0021-desktop-publish-authorization.md).
 
-`service-internal` may host the full desktop-oriented router surface internally, but that does not imply every app-shaped client should receive every exposed capability.
+`service-console-api` may host the full desktop-oriented router surface internally, but that does not imply every app-shaped client should receive every exposed capability.
 
 ## Packages
 

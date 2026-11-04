@@ -36,10 +36,10 @@
 - `app-mobile`（规划中）
   面向终端用户的可安装移动应用（iOS/Android），基于 Capacitor 构建。它与 `app-desktop` 共享同一套业务代码，是面向最终用户的查询客户端，而不是管理运行时。
 - `service-app`（规划中）
-  面向用户态 App 的后端查询服务：在与游戏站同源的远端游戏数据上提供匿名的公开卡牌查询，并承载要求登录的用户态状态（如用户配置同步）。它与 `service-api`（面向第三方、Key 鉴权）和 `service-internal`（管理客户端）彼此区分。
+  面向用户态 App 的后端查询服务：在与游戏站同源的远端游戏数据上提供匿名的公开卡牌查询，并承载要求登录的用户态状态（如用户配置同步）。它与 `service-api`（面向第三方、Key 鉴权）和 `service-console-api`（管理客户端）彼此区分。
 - `service-desktop-runtime`（已弃用）
   原 `app-console-tauri` 背后的 Bun desktop runtime。目前已没有任何应用依赖它：搜索投影与发布工作流已迁入 `app-console-desktop` 的 Electron runtime。它不再接收新功能，将在未来版本中整体移除。
-- `service-internal`
+- `service-console-api`
   面向 app 形态管理端的后端接口。它提供可安装管理应用所使用的远端后端 API。
 - `site-console`
   Web 管理端。它是受限的远端管理界面，不应被视为领域数据重型工作流的执行权威端，也不能替代 desktop 独占的本地能力。
@@ -57,19 +57,19 @@
 - `site-console`
   Web 形态的远端管理界面。它应保持在受限的 Web 能力层级，并以内嵌方式暴露较低能力的远端 router，因为网站部署应尽量避免为了自身管理流量再发起跨服务请求。
 - `app-console-mobile`（规划中）
-  移动管理客户端，整体能力预期高于 `site-console`、低于 desktop。它最终对外获得的能力，不必等于 `service-internal` 当前承载的完整 router 面。
-- `service-internal`
+  移动管理客户端，整体能力预期高于 `site-console`、低于 desktop。它最终对外获得的能力，不必等于 `service-console-api` 当前承载的完整 router 面。
+- `service-console-api`
   面向 app 形态管理端的远端后端 API 面。它在合适的地方复用同一套管理后端代码分层，对外暴露的远端 router 能力高于 `site-console`，但之所以以独立服务存在，是因为 app 形态客户端无法像 `site-console` 那样避免远端服务请求。
 - `app-console-desktop`
-  完整的管理运行时。它的能力不能只由远端 router 定义，因为它还拥有本地仓库、本地 PostgreSQL 和完整本地数据工作流等 desktop 本地能力。某些 desktop 操作还会通过直连远端数据库完成，而不是经过 `service-internal`。
+  完整的管理运行时。它的能力不能只由远端 router 定义，因为它还拥有本地仓库、本地 PostgreSQL 和完整本地数据工作流等 desktop 本地能力。某些 desktop 操作还会通过直连远端数据库完成，而不是经过 `service-console-api`。
 
 因此，能力分层应优先从运行时角度描述，而不应只从 router 角度描述。
 
-在远端 router 暴露层面，当前目标顺序是 `site-console` < `service-internal`。
+在远端 router 暴露层面，当前目标顺序是 `site-console` < `service-console-api`。
 
 desktop 的能力位于这个远端 router 顺序之上，因为它还包含本地独占能力，以及一部分不进入远端 router 的远端数据库直连能力。它也可以通过范围受限且经过认证的 `site-console` 只读调用列出万智牌云端规则文件；这不会形成通用远端 API 客户端，也不改变直连数据库的发布路径。详见 [ADR-0021](adr/0021-desktop-publish-authorization.md)。
 
-`service-internal` 内部可以承载面向 desktop 的完整 router 面，但这并不意味着每一个 app 形态客户端都应获得其中全部能力。
+`service-console-api` 内部可以承载面向 desktop 的完整 router 面，但这并不意味着每一个 app 形态客户端都应获得其中全部能力。
 
 ## 包列表
 

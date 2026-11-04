@@ -4,7 +4,7 @@ import { gameDataPermission } from '@tcg-cards/auth';
 
 import { getAuth } from './auth';
 
-import type { InternalServiceEnv } from './env';
+import type { ConsoleApiEnv } from './env';
 
 /** Lifetime of one signed upload URL. */
 const UPLOAD_URL_TTL_SECONDS = 15 * 60;
@@ -67,7 +67,7 @@ export function isWithinLimits(objects: SearchPublishObject[]): boolean {
 
 /** Signs one direct upload URL with the service's bucket credentials. */
 async function signUpload(
-  env: InternalServiceEnv,
+  env: ConsoleApiEnv,
   key: string,
   bytes: number,
 ): Promise<SignedUpload> {
@@ -96,7 +96,7 @@ async function signUpload(
 
 /** Admits the caller and confirms its per-game data permission. */
 async function admission(
-  env: InternalServiceEnv,
+  env: ConsoleApiEnv,
   headers: Headers,
   game: 'magic' | 'hearthstone',
   origin: string,
@@ -113,7 +113,7 @@ async function admission(
  * the desktop can skip re-uploading identical content-addressed packages.
  */
 export async function signSearchUploads(
-  env: InternalServiceEnv,
+  env: ConsoleApiEnv,
   headers: Headers,
   origin: string,
   input: SearchPublishRequest,
@@ -149,7 +149,7 @@ export async function signSearchUploads(
  * downloading client checks hashes before activating a release.
  */
 export async function verifySearchObjects(
-  env: InternalServiceEnv,
+  env: ConsoleApiEnv,
   headers: Headers,
   origin: string,
   input: SearchPublishRequest,

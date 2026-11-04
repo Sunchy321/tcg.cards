@@ -3,9 +3,9 @@ import { createServerAuth } from '@tcg-cards/auth';
 import { db } from '@tcg-cards/db';
 import { accounts, apikeys, sessions, users, verifications } from '@tcg-cards/db/schema/remote/auth';
 
-import type { InternalServiceEnv } from './env';
+import type { ConsoleApiEnv } from './env';
 
-export function getAuth(env: InternalServiceEnv, options?: { baseURL?: string }) {
+export function getAuth(env: ConsoleApiEnv, options?: { baseURL?: string }) {
   return createServerAuth({
     baseURL:  options?.baseURL,
     database: db,

@@ -1,4 +1,4 @@
-name = "service-internal"
+name = "service-console-api"
 main = "src/index.ts"
 compatibility_date = "2026-02-19"
 compatibility_flags = ["nodejs_compat"]
@@ -6,7 +6,7 @@ compatibility_flags = ["nodejs_compat"]
 workers_dev = false
 
 [[routes]]
-pattern = "internal.tcg.cards"
+pattern = "console-api.tcg.cards"
 custom_domain = true
 
 [observability]
