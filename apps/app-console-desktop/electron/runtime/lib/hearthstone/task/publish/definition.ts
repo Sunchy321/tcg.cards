@@ -2,11 +2,15 @@ import { SearchCard, SearchCardLocalization } from '@tcg-cards/db/schema/shared/
 import { hasHearthstoneSearchTables } from '../../search-data';
 import { z } from 'zod';
 
-import { and, eq, ne, or, asc, desc, count, gt, inArray, isNull, sql } from 'drizzle-orm';
+import { and, eq, ne, or, asc, desc, count, getColumns, gt, inArray, isNull, sql } from 'drizzle-orm';
 
 import { createDb } from '@tcg-cards/db';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
+import { applyPublishCopy } from '../../../publish-copy';
+import type { PublishTransaction } from '../../../publish-copy';
 import {
   PublishBaseline, PublishRowBaseline, PublishBatchRow, PublishBatch,
+  Patch as LocalPatch,
   BaseEntity as LocalBaseEntity, BaseEntityLocalization as LocalBaseEntityLocalization,
   BaseEntityRelation as LocalBaseEntityRelation, BaseCard as LocalBaseCard,
   Entity as LocalEntity, EntityLocalization as LocalEntityLocalization,
@@ -16,7 +20,7 @@ import { Entity as RemoteEntity, EntityLocalization as RemoteEntityLocalization,
   EntityRelation as RemoteEntityRelation, Card as RemoteCard } from '@tcg-cards/db/schema/remote/hearthstone';
 import { PublishStreamRegistration } from '@tcg-cards/db/schema/remote/publish';
 import {
-  loadRowDataChunk, insertRemoteRow, deleteRemoteRow, parseRowKey,
+  parseRowKey,
   upsertRemotePublishLedger, assertRemotePublishGate, renewRemotePublishLease,
   findActiveStreamBatch, hashJson, derivePublishDatasetRange, rowKeyOf, rowHashOf,
   loadBaselineRowHashes, chunkValues,
@@ -330,6 +334,64 @@ function dryRunSegments(counts: LoadingCounts) {
 
 // ── applying_remote block ──
 
+const COPY_TABLES = {
+  cards:                     { table: LocalBaseCard, keys: ['cardId'] },
+  entities:                  { table: LocalBaseEntity, keys: ['cardId', 'revisionHash'] },
+  entity_localizations:      { table: LocalBaseEntityLocalization, keys: ['cardId', 'lang', 'revisionHash', 'localizationHash'] },
+  entity_relations:          { table: LocalBaseEntityRelation, keys: ['sourceId', 'sourceRevisionHash', 'relation', 'targetId'] },
+  patches:                   { table: LocalPatch, keys: ['buildNumber'] },
+  search_cards:              { table: SearchCard, keys: ['cardId'] },
+  search_card_localizations: { table: SearchCardLocalization, keys: ['cardId', 'lang'] },
+};
+
+/** Loads active source rows in their PostgreSQL representation and applies one table's changes. */
+async function applyHearthstoneRows(
+  db: PublishDb,
+  tx: PublishTransaction,
+  tableName: TableName,
+  plans: { action: PlanAction, rowKey: string }[],
+): Promise<void> {
+  const { table, keys } = COPY_TABLES[tableName];
+  const columns = getColumns(table) as Record<string, AnyPgColumn>;
+  const upserts = plans.filter(plan => plan.action === 'insert' || plan.action === 'update');
+  const rows: string[] = [];
+  const payload = sql`to_jsonb(${sql.identifier(tableName)})`;
+  const refreshInsertTimestamp = tableName === 'entities' || tableName === 'entity_localizations' || tableName === 'entity_relations';
+  const sourcePayload = refreshInsertTimestamp
+    ? sql`${payload} || jsonb_build_object('updated_at', ${new Date().toISOString()}::timestamp)`
+    : payload;
+
+  for (const chunk of chunkValues(upserts, 200)) {
+    const matches = chunk.map(({ rowKey }) => {
+      const key = parseRowKey(rowKey);
+      return and(...keys.map(name => eq(columns[name]!, key[name]!)));
+    });
+    const source = await db.select({ payload: sql<string>`(${sourcePayload})::text` }).from(table)
+      .where(and(or(...matches), columns.deletedAt && isNull(columns.deletedAt)));
+    if (source.length !== chunk.length) {
+      throw new Error(`A local ${tableName} row disappeared before publishing`);
+    }
+    rows.push(...source.map(row => row.payload));
+  }
+
+  const deletes = plans.filter(plan => plan.action === 'delete').map(({ rowKey }) => {
+    const key = parseRowKey(rowKey);
+    return JSON.stringify(Object.fromEntries(keys.map(name => [columns[name]!.name, key[name]])));
+  });
+  if (rows.length === 0 && deletes.length === 0) {
+    return;
+  }
+
+  await applyPublishCopy(tx, {
+    schema:     'hearthstone',
+    table:      tableName,
+    columns:    tableName === 'cards' ? ['card_id', 'ambit', 'legalities', 'deleted_at'] : Object.values(columns).map(column => column.name),
+    keys:       keys.map(name => columns[name]!.name),
+    timestamps: tableName !== 'patches',
+  }, rows, deletes);
+}
+
+/** Applies one remote transaction and advances progress after recording the committed rows. */
 async function applyingBlock(
   ctx: PublishCtx, batchId: string, blockInput: ApplyBlockInput, progress: ProgressFn<'bounded'>,
   done: (finalBlockInput: any) => BlockDone,
@@ -376,66 +438,13 @@ async function applyingBlock(
     if (!byTable.has(row.tableName)) byTable.set(row.tableName, []);
     byTable.get(row.tableName)!.push(row);
   }
-  const rowDataMap = new Map<string, unknown>();
-  for (const [tableName, rows] of byTable) {
-    const keySet = [...new Set(rows.map(r => r.rowKey))];
-    const data = await loadRowDataChunk(ctx.db, tableName as TableName, keySet);
-    for (const [pk, d] of data) rowDataMap.set(`${tableName}:${pk}`, d);
-  }
-
-  const remoteDb = ctx.remoteDb as any;
+  const remoteDb = ctx.remoteDb as PublishDb;
   try {
     const t0 = Date.now();
-    await remoteDb.transaction(async (tx: any) => {
-      const tConn = Date.now();
-
-      // Group rows by table and action for batch execution.
-      type GroupedRow = { rowKey: string, data?: unknown };
-      const inserts = new Map<TableName, GroupedRow[]>();
-      const deletes = new Map<TableName, string[]>();
-
-      for (const row of chunk) {
-        try {
-          const tn = row.tableName as TableName;
-          if (row.action === 'insert') {
-            const rd = rowDataMap.get(`${tn}:${row.rowKey}`);
-            if (rd == null) throw new Error('Row data not found');
-            if (!inserts.has(tn)) inserts.set(tn, []);
-            inserts.get(tn)!.push({ rowKey: row.rowKey, data: rd });
-          } else if (row.action === 'update') {
-            if (tn !== 'cards') {
-              if (!deletes.has(tn)) deletes.set(tn, []);
-              deletes.get(tn)!.push(row.rowKey);
-            }
-            const rd = rowDataMap.get(`${tn}:${row.rowKey}`);
-            if (rd == null) throw new Error('Row data not found');
-            if (!inserts.has(tn)) inserts.set(tn, []);
-            inserts.get(tn)!.push({ rowKey: row.rowKey, data: rd });
-          } else if (row.action === 'delete') {
-            if (!deletes.has(tn)) deletes.set(tn, []);
-            deletes.get(tn)!.push(row.rowKey);
-          }
-        } catch (error) {
-          const msg = error instanceof Error ? error.message : String(error);
-          throw new Error(`Row apply failed: ${row.tableName} ${row.rowKey} — ${msg}`, { cause: error });
-        }
+    await remoteDb.$client.begin(async tx => {
+      for (const [tableName, plans] of byTable) {
+        await applyHearthstoneRows(ctx.db, tx, tableName as TableName, plans);
       }
-
-      // Batch deletes first.
-      for (const [tn, rowKeys] of deletes) {
-        for (const rk of rowKeys) {
-          await deleteRemoteRow(tx, tn, parseRowKey(rk));
-        }
-      }
-
-      // Batch inserts per table.
-      for (const [tn, rows] of inserts) {
-        for (const r of rows) {
-          await insertRemoteRow(tx, tn, r.data, 'insert');
-        }
-      }
-
-      console.log(`[publish] chunk applied: ${chunk.length} rows in ${Date.now() - tConn}ms (tx connect: ${tConn - t0}ms)`);
     });
 
     console.log(`[publish] transaction done in ${Date.now() - t0}ms`);

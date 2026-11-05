@@ -1,5 +1,6 @@
-import { and, asc, eq, gt, inArray, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, eq, getColumns, gt, inArray, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
+import { applyPublishCopy } from '../publish-copy';
 
 import { createDb } from '@tcg-cards/db';
 import {
@@ -423,47 +424,13 @@ export async function releaseRemotePublishLease(
 
 // ── Remote apply ──
 
-/** Applies one plan row to the remote database inside the caller's transaction. */
-async function applyPlanRow(
-  tx: Parameters<Parameters<PublishDb['transaction']>[0]>[0],
-  config: PublishTableConfig,
-  plan: { action: string, rowKey: string },
-  row: Record<string, unknown> | null,
-): Promise<void> {
-  if (plan.action === 'delete') {
-    const pk = parseRowKey(config, plan.rowKey);
-    await tx.delete(config.table).where(and(...config.pk.map(name => eq((config.table as any)[name], pk[name]!))));
-    return;
-  }
-  if (row == null) throw new Error(`Local row for ${config.name}/${plan.rowKey} disappeared before apply`);
-  await tx.insert(config.table)
-    .values(row as never)
-    .onConflictDoUpdate({
-      target: config.pk.map(name => (config.table as any)[name]),
-      set:    buildExcludedSet(config.table, row),
-    });
-}
-
-/** Builds an on-conflict update set from a row, excluding PK columns, via EXCLUDED. */
-function buildExcludedSet(table: any, row: Record<string, unknown>): Record<string, unknown> {
-  const set: Record<string, unknown> = {};
-  for (const key of Object.keys(row)) {
-    const col = (table as any)[key];
-    if (col && col.name) {
-      set[key] = sql`excluded.${sql.raw(col.name)}`;
-    }
-  }
-  set.updatedAt = new Date();
-  return set;
-}
-
 /** Loads local rows for plan keys of one table (re-read before apply). */
 async function loadRowsForPlan(
   database: PublishDb,
   config: PublishTableConfig,
   rowKeys: string[],
-): Promise<Map<string, Record<string, unknown>>> {
-  const out = new Map<string, Record<string, unknown>>();
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
   if (rowKeys.length === 0) return out;
 
   // Match on the full PK tuple set via OR of AND-ed PK equality — chunked to
@@ -474,11 +441,12 @@ async function loadRowsForPlan(
       const pk = parseRowKey(config, key);
       return and(...config.pk.map(name => eq((config.table as any)[name], pk[name]!)));
     });
-    const rows = await database.select()
-      .from(config.table)
-      .where(or(...conditions)) as Record<string, unknown>[];
+    const rows = await database.select({
+      ...Object.fromEntries(config.pk.map(key => [key, config.table[key]])),
+      payload: sql<string>`to_jsonb(${sql.identifier(config.name)})::text`,
+    }).from(config.table).where(or(...conditions));
     for (const row of rows) {
-      out.set(rowKeyOf(config, row), row);
+      out.set(rowKeyOf(config, row), row.payload);
     }
   }
   return out;
@@ -512,27 +480,44 @@ export async function applyPlanChunk(
     byTable.set(row.tableName as PublishTableName, list);
   }
 
-  await remoteDb.transaction(async tx => {
+  await remoteDb.$client.begin(async tx => {
     for (const [tableName, planRows] of byTable) {
       const config = PUBLISH_TABLE_CONFIG[tableName];
-      const upsertKeys = planRows.filter(r => r.action !== 'delete').map(r => r.rowKey);
+      const upsertKeys = planRows.filter(row => row.action !== 'delete').map(row => row.rowKey);
       const localRows = await loadRowsForPlan(database, config, upsertKeys);
-      for (const plan of planRows) {
-        await applyPlanRow(tx, config, plan, localRows.get(plan.rowKey) ?? null);
-      }
+      const rows = upsertKeys.map(key => {
+        const row = localRows.get(key);
+        if (row == null) {
+          throw new Error(`Local row for ${tableName}/${key} disappeared before apply`);
+        }
+        return row;
+      });
+      const deletes = planRows.filter(row => row.action === 'delete').map(row => {
+        const pk = parseRowKey(config, row.rowKey);
+        return JSON.stringify(Object.fromEntries(config.pk.map(key => [config.table[key].name, pk[key]])));
+      });
+
+      const columns = getColumns(config.table) as Record<string, { name: string }>;
+      await applyPublishCopy(tx, {
+        schema:  'magic',
+        table:   tableName,
+        columns: Object.values(columns).map(column => column.name),
+        keys:    config.pk.map(key => columns[key]!.name),
+      }, rows, deletes);
     }
   });
 
   const now = new Date();
-  for (const plan of pending) {
-    await database.update(PublishBatchRow)
-      .set({ status: 'applied', appliedAt: now, updatedAt: now })
-      .where(and(
-        eq(PublishBatchRow.batchId, batchId),
-        eq(PublishBatchRow.tableName, plan.tableName),
-        eq(PublishBatchRow.rowKey, plan.rowKey),
-      ));
-  }
+  await database.update(PublishBatchRow)
+    .set({ status: 'applied', appliedAt: now, updatedAt: now })
+    .where(and(
+      eq(PublishBatchRow.batchId, batchId),
+      eq(PublishBatchRow.status, 'pending'),
+      or(...Array.from(byTable, ([tableName, rows]) => and(
+        eq(PublishBatchRow.tableName, tableName),
+        inArray(PublishBatchRow.rowKey, rows.map(row => row.rowKey)),
+      ))),
+    ));
 
   await renewRemotePublishLease(remoteDb, { ...stream, leaseHolderId });
   return pending.length;
