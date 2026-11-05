@@ -515,15 +515,17 @@ const rendererStatusText = computed(() => {
 
 // ── TaskController ──
 
+/** Builds cloneable image options for the renderer's Electron IPC requests. */
 function buildTaskInput() {
   const versionRaw = form.version.trim();
+  // Reactive arrays are proxies and cannot cross Electron's structured-clone boundary.
   return {
     lang:      form.lang,
     ...(versionRaw.length > 0 && versionRaw !== 'latest' && versionRaw !== 'all' ? { version: Number.parseInt(versionRaw, 10) } : {}),
     ...(versionRaw === 'all' ? { allVersions: true } : {}),
-    zones:     form.zones,
-    templates: form.templates,
-    premiums:  form.premiums,
+    zones:     [...form.zones],
+    templates: [...form.templates],
+    premiums:  [...form.premiums],
     limit:     Math.min(Number.parseInt(form.limit, 10) || 500, 500),
   };
 }

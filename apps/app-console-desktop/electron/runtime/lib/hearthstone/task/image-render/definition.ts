@@ -122,7 +122,7 @@ export async function executeImageRenderBlock(input: {
       ctx.planKeys = plan.keys;
       ctx.totalMissing = plan.keys.length;
     }
-    store.updateStage(taskRunId, 'counting', { done: 1, total: 1 }).catch(() => {});
+    // Simple stages omit counters; the task host marks completion after this block returns.
     return;
   }
 
