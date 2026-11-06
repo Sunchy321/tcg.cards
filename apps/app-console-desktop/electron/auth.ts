@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron';
+import { ipcMain, net } from 'electron';
 import { z } from 'zod';
 
 import { AUTH_CHANNEL, type AuthRequest } from './contract.ts';
@@ -35,7 +35,8 @@ export function registerAuth(
     case 'profile':
       return authProfile(settings);
     case 'listMagicRuleFiles':
-      return authListMagicRuleFiles(settings);
+      // Chromium honors system proxies and address fallback, unlike Node fetch.
+      return authListMagicRuleFiles(settings, (request, init) => net.fetch(request, init));
     case 'login':
       return authLogin(settings, value.baseUrl, value.email, value.password);
     case 'logout':

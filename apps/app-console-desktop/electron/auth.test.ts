@@ -3,7 +3,7 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
 import { Settings } from './settings.ts';
-import { authLogin, authLogout, authSessionEnvelope, authStatus } from './auth-core.ts';
+import { authListMagicRuleFiles, authLogin, authLogout, authSessionEnvelope, authStatus } from './auth-core.ts';
 
 /** Console-backend stub speaking the small better-auth surface the app depends on. */
 function backend() {
@@ -97,6 +97,29 @@ function fixture() {
   };
   return { service: new Settings(storage, cipher), storage, cipher };
 }
+
+test('cloud rules use the supplied transport with the refreshed explicit session cookie', async () => {
+  const server = backend();
+  const url = await server.start();
+  try {
+    const { service } = fixture();
+    await authLogin(service, url, 'operator@example.test', 'correct-password');
+    server.state.renewedToken = 'renewed-token';
+    const files = [{ id: '2026-11-06', dataFile: true, files: { txt: true, doc: false, pdf: true } }];
+    let requests = 0;
+    const result = await authListMagicRuleFiles(service, async (request, init) => {
+      requests++;
+      assert.equal(request.url, `${url}/rpc/magic/rule/listFiles`);
+      assert.equal(new Headers(init?.headers).get('cookie'), 'better-auth.session_token=renewed-token');
+      assert.equal(init?.credentials, 'omit');
+      return Response.json({ json: files });
+    });
+    assert.equal(requests, 1);
+    assert.deepEqual(result, files);
+  } finally {
+    await server.close();
+  }
+});
 
 test('login keeps an encrypted session that survives service reconstruction', async () => {
   const server = backend();

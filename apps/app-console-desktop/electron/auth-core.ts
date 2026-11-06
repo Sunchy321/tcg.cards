@@ -181,7 +181,10 @@ export async function authSessionEnvelope(settings: Settings, options = { refres
 }
 
 /** Reads only the existing cloud rule file catalog through the authenticated console API. */
-export async function authListMagicRuleFiles(settings: Settings): Promise<RemoteMagicRuleFile[]> {
+export async function authListMagicRuleFiles(
+  settings: Settings,
+  send: (request: Request, init?: RequestInit) => Promise<Response> = fetch,
+): Promise<RemoteMagicRuleFile[]> {
   const session = await authSessionEnvelope(settings);
   if (!session) throw new Error('此操作需要先登录。');
 
@@ -191,7 +194,8 @@ export async function authListMagicRuleFiles(settings: Settings): Promise<Remote
     fetch: async (request, init) => {
       const headers = new Headers(request instanceof Request ? request.headers : undefined);
       headers.set('cookie', session.cookieHeader);
-      const response = await fetch(request, { ...init, headers });
+      // Use only the encrypted session cookie, never the transport's ambient cookies.
+      const response = await send(request, { ...init, headers, credentials: 'omit' });
       responseStatus = response.status;
       return response;
     },
