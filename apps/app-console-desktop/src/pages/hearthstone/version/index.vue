@@ -24,8 +24,9 @@
           </div>
         </div>
         <div class="flex gap-2">
-          <UButton :label="syncPatchesLabel" icon="i-lucide-cloud-sync" :color="syncPatchesColor" variant="soft" :loading="syncing" @click="syncPatches" />
-          <UButton label="刷新" icon="i-lucide-refresh-cw" color="neutral" variant="ghost" :loading="loading" @click="loadPatches" />
+          <UButton label="更新 hsdata" icon="i-lucide-cloud-download" color="primary" variant="soft" :loading="updatingHsdata" :disabled="syncing" @click="updateHsdata" />
+          <UButton :label="syncPatchesLabel" icon="i-lucide-cloud-sync" :color="syncPatchesColor" variant="soft" :loading="syncing" :disabled="updatingHsdata" @click="syncPatches" />
+          <UButton label="刷新" icon="i-lucide-refresh-cw" color="neutral" variant="ghost" :loading="loading" :disabled="syncing || updatingHsdata" @click="loadPatches" />
         </div>
       </div>
     </div>
@@ -107,7 +108,7 @@
 
 <script setup lang="ts">
 import { useToast } from '@nuxt/ui/composables';
-import { getHsdataErrorMessage, syncPatches as syncPatchMetadata } from '~/composables/useHsdataRepo';
+import { getHsdataErrorMessage, syncHsdataRemoteVersions, syncPatches as syncPatchMetadata } from '~/composables/useHsdataRepo';
 import { orpc } from '~/lib/orpc';
 
 definePageMeta({ layout: 'admin', title: '版本管理' });
@@ -123,6 +124,7 @@ interface PatchRow {
 const toast = useToast();
 const loading = ref(false);
 const syncing = ref(false);
+const updatingHsdata = ref(false);
 /** Keeps the displayed mode aligned with the mode captured when synchronization starts. */
 const activeSyncMode = ref<'missing' | 'all' | null>(null);
 /** Whether the Option/Alt key is held to request a complete metadata update. */
@@ -191,6 +193,36 @@ async function syncPatches() {
   } finally {
     syncing.value = false;
     activeSyncMode.value = null;
+  }
+}
+
+/** Fetches hsdata tags, syncs their patch metadata, and reloads the visible list. */
+async function updateHsdata() {
+  if (syncing.value || updatingHsdata.value) {
+    return;
+  }
+
+  updatingHsdata.value = true;
+  try {
+    try {
+      await syncHsdataRemoteVersions();
+    } catch (error) {
+      toast.add({ title: '更新 hsdata 失败', description: getHsdataErrorMessage(error), color: 'error' });
+      return;
+    }
+
+    try {
+      await syncPatchMetadata('missing');
+    } catch (error) {
+      toast.add({ title: 'hsdata 已更新，补丁信息同步失败', description: getHsdataErrorMessage(error), color: 'error' });
+      await loadPatches();
+      return;
+    }
+
+    toast.add({ title: 'hsdata 更新完成', description: '本地补丁版本信息已同步', color: 'success' });
+    await loadPatches();
+  } finally {
+    updatingHsdata.value = false;
   }
 }
 
