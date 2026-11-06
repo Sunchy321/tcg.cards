@@ -5,7 +5,7 @@ import { createDocumentStore } from '@tcg-cards/console-api/lib/magic/documents/
 import { publishDocument, publishStaticDocuments } from '@tcg-cards/console-api/lib/magic/documents/publish';
 import { getLocalDb, requireLocalDatabaseUrl } from '../hearthstone/hsdata-local-db';
 import { resolveHearthstonePublishTarget as resolvePublishTarget } from '../runtime/desktop-database';
-import { requireMagicPublishTarget } from './magic-publish-target';
+import { requireMagicPublishTarget, verifyMagicPublishTargetFingerprint } from './magic-publish-target';
 
 /** Pins the selected destination independently of the current desktop configuration. */
 export interface DocumentPublication {
@@ -32,9 +32,7 @@ export async function publishDocuments(input: DocumentPublication, documentId?: 
   } catch (error) {
     throw new ORPCError('BAD_REQUEST', { message: '无法连接发布目标，请检查发布配置后重试。', cause: error });
   }
-  if (live.targetFingerprint !== target.targetFingerprint) {
-    throw new ORPCError('BAD_REQUEST', { message: '发布目标与保存的配置不一致，请重新确认发布配置。' });
-  }
+  verifyMagicPublishTargetFingerprint(target, live.targetFingerprint);
   let local;
   try {
     local = await resolvePublishTarget({ ...target, connectionString: requireLocalDatabaseUrl() });

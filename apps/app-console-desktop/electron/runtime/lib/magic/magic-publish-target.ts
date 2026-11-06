@@ -6,6 +6,7 @@ import { findPublishTargetByName } from '../../runtime-config';
 export interface MagicPublishTarget {
   game:              string;
   target:            string;
+  kind:              'direct' | 'account';
   targetFingerprint: string;
   connectionString:  string;
 }
@@ -26,7 +27,7 @@ export function requireMagicPublishTarget(
   const targetFingerprint = trimToNull(configured?.targetFingerprint);
   const connectionString = trimToNull(configured?.connectionString);
 
-  if (name == null || targetFingerprint == null || connectionString == null) {
+  if (configured == null || name == null || targetFingerprint == null || connectionString == null) {
     throw new ORPCError('BAD_REQUEST', {
       message: `magic publish target ${target} is not configured or has not completed its first connection.`,
     });
@@ -35,7 +36,20 @@ export function requireMagicPublishTarget(
   return {
     game,
     target: name,
+    kind:   configured.kind,
     targetFingerprint,
     connectionString,
   };
+}
+
+/** Verifies the live identity for direct destinations while retaining account-issued fingerprints. */
+export function verifyMagicPublishTargetFingerprint(target: MagicPublishTarget, liveFingerprint: string): void {
+  // Account fingerprints come from the issuer and exclude the temporary login used by the runtime.
+  if (target.kind === 'account') {
+    return;
+  }
+
+  if (liveFingerprint !== target.targetFingerprint) {
+    throw new ORPCError('BAD_REQUEST', { message: '发布目标与保存的配置不一致，请重新确认发布配置。' });
+  }
 }
