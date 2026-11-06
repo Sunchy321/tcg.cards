@@ -22,12 +22,14 @@ import { PublishStreamRegistration } from '@tcg-cards/db/schema/remote/publish';
 import {
   parseRowKey,
   upsertRemotePublishLedger, assertRemotePublishGate, renewRemotePublishLease,
-  findActiveStreamBatch, hashJson, derivePublishDatasetRange, rowKeyOf, rowHashOf,
+  findActiveStreamBatch, derivePublishDatasetRange, rowKeyOf, rowHashOf,
   loadBaselineRowHashes, chunkValues,
 } from '../../hsdata-publish';
 import type { TableName, PublishDb } from '../../hsdata-publish';
 import { requireHearthstonePublishTargetByIdentity } from '../../hsdata-publish-target';
 import { publishCardDataGeneration } from '../../publish-generation';
+import { hashManifest } from '../../publish-manifest';
+import { loadingSegments } from '../../hsdata-publish-progress';
 import { getLocalDb } from '../../hsdata-local-db';
 import { activateSearchPublication, markSearchPublicationUnavailable } from '../../../search-publication';
 import { createDefinition } from '#task/definition';
@@ -171,15 +173,6 @@ async function flushPlans(db: PublishDb, batchId: string, plans: PlanEntry[]): P
   plans.length = 0;
 }
 
-function loadingSegments(counts: LoadingCounts) {
-  return [
-    { name: 'cards', done: counts.cardRowCount, total: Math.max(counts.cardRowCount, 1) },
-    { name: 'entities', done: counts.entityRowCount, total: Math.max(counts.entityRowCount, 1) },
-    { name: 'localizations', done: counts.localizationRowCount, total: Math.max(counts.localizationRowCount, 1) },
-    { name: 'relations', done: counts.relationRowCount, total: Math.max(counts.relationRowCount, 1) },
-  ];
-}
-
 function isLoadingScanComplete(loader: LoaderState): boolean {
   return FULL_SCAN_TABLES.every(tn => loader.scanCursors.get(tn) === undefined);
 }
@@ -282,7 +275,7 @@ async function loadingBlock(
       }).from(PublishBatchRow).where(and(eq(PublishBatchRow.batchId, loader.batchId), ne(PublishBatchRow.action, 'delete')))
         .orderBy(asc(PublishBatchRow.tableName), asc(PublishBatchRow.rowKey));
 
-      const manifestHash = hashJson(manifestRows.map(r => ({ tableName: r.tableName, rowKey: r.rowKey, rowHash: r.rowHash }))
+      const manifestHash = hashManifest(manifestRows.map(r => ({ tableName: r.tableName, rowKey: r.rowKey, rowHash: r.rowHash }))
         .sort((a, b) => a.tableName.localeCompare(b.tableName) || a.rowKey.localeCompare(b.rowKey)));
 
       const range = await derivePublishDatasetRange(db, [loader.builds], loader.previousRange);
@@ -300,21 +293,18 @@ async function loadingBlock(
         .where(and(eq(PublishBatchRow.batchId, loader.batchId), eq(PublishBatchRow.status, 'pending')));
       ctx.pendingRowCount = Number(pendingRow!.count);
 
-      progress({ done: loader.processed, total: loader.totalRows, segments: loadingSegments(loader.counts) });
+      progress({
+        done:     loader.processed,
+        total:    loader.totalRows,
+        segments: loadingSegments(loader.tableTotals, loader.tableProcessed),
+      });
     }
     return done(blockInput);
   }
 
   progress({
     done:     loader.processed, total:    loader.totalRows,
-    segments: loader.tableTotals && loader.tableProcessed
-      // Derived search tables are published too, but stay out of the per-table progress list.
-      ? Object.entries(loader.tableTotals).filter(([name]) => !name.startsWith('search_')).map(([name, total]) => ({
-        name,
-        done: loader.tableProcessed![name as TableName] ?? 0,
-        total,
-      }))
-      : loadingSegments(loader.counts),
+    segments: loadingSegments(loader.tableTotals, loader.tableProcessed),
   });
 
   return { cursor: null, processed: loader.processed };

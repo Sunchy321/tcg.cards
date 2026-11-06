@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { hashManifest } from './publish-manifest';
 import { and, count, desc, eq, gt, inArray, isNotNull, lte, or, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import type { PublishStream } from '@tcg-cards/model/game-data-sync';
@@ -759,7 +760,7 @@ function buildBatchRowPlans(
     return cmp !== 0 ? cmp : a.rowKey.localeCompare(b.rowKey);
   });
 
-  const manifestHash = hashJson(plans
+  const manifestHash = hashManifest(plans
     .filter(p => p.action !== 'delete')
     .map(p => ({
       tableName: p.tableName,

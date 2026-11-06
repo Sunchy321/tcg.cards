@@ -36,3 +36,12 @@ export function startPublishJob(input: { batchId: string }): void {
   currentJob = { batchId: input.batchId };
   currentJobController = new PublishJobController();
 }
+
+/** Includes every scanned table in the publication progress breakdown. */
+export function loadingSegments(totals: Record<string, number>, processed: Partial<Record<string, number>>) {
+  return Object.entries(totals).map(([name, total]) => ({
+    name: name === 'search_cards' ? '搜索卡片' : name === 'search_card_localizations' ? '搜索文本' : name,
+    done: processed[name] ?? 0,
+    total,
+  }));
+}

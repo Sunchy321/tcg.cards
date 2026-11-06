@@ -1,5 +1,5 @@
 <template>
-  <div class="px-4 py-2">
+  <div class="min-w-0 max-w-full px-4 py-2">
     <div v-if="timeLabel || leftText" class="flex items-center justify-between">
       <span class="text-xs text-muted truncate">{{ leftText }}</span>
       <span v-if="timeLabel" class="text-xs text-muted tabular-nums ml-2 shrink-0">{{ timeLabel }}</span>
@@ -60,7 +60,7 @@
     </div>
     <!-- Counters row -->
     <div v-if="rightText || stage?.segments || stageTimeText" class="flex items-center justify-between mt-1 flex-wrap gap-x-4">
-      <div v-if="rightText || stage?.segments" class="flex items-center gap-3 text-xs text-muted">
+      <div v-if="rightText || stage?.segments" class="flex min-w-0 max-w-full flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
         <span v-if="rightText" class="tabular-nums">{{ rightText }}</span>
         <template v-if="stage?.segments">
           <span
