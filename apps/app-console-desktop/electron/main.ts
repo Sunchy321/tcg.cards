@@ -346,7 +346,12 @@ async function resolveAccountPublishLaunch(
 
   let credential = issuedCredentials.get(target.id);
   if (!credential) {
-    credential = await requestPublishCredential(session, game);
+    // Chromium handles system proxies and address fallback when IPv6 is unreachable.
+    // Keep the encrypted session's explicit Cookie header as the account authority.
+    credential = await requestPublishCredential(session, game, (url, init) => net.fetch(url.toString(), {
+      ...init,
+      credentials: 'omit',
+    }));
     issuedCredentials.set(target.id, credential);
     // The runtime needs the issued connection before the task resolves its target.
     syncedRuntimeSettingsRevision = -1;

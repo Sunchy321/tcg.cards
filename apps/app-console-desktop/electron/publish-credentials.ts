@@ -61,10 +61,11 @@ export interface PublishSessionEnvelope {
 export async function requestPublishCredential(
   session: PublishSessionEnvelope,
   game: AdmissionGame,
+  request: (url: URL, init: RequestInit) => Promise<Response> = fetch,
 ): Promise<PublishCredentialGrant> {
   let response: Response;
   try {
-    response = await fetch(new URL('publish/credential', session.baseUrl), {
+    response = await request(new URL('publish/credential', session.baseUrl), {
       method:  'POST',
       headers: { 'content-type': 'application/json', 'cookie': session.cookieHeader },
       body:    JSON.stringify({ game }),

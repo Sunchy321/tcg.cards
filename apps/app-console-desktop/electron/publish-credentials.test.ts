@@ -81,6 +81,42 @@ test('a forbidden admission surfaces the service message', async () => {
   }
 });
 
+test('credential requests use the supplied desktop transport and preserve the session', async () => {
+  const stub = service();
+  const baseUrl = await stub.start();
+  let requests = 0;
+  try {
+    const grant = await requestPublishCredential(
+      { baseUrl, cookieHeader: 'better-auth.session_token=token' },
+      'hearthstone',
+      async (url, init) => {
+        requests += 1;
+        assert.equal(url.toString(), `${baseUrl}/publish/credential`);
+        assert.equal(new Headers(init.headers).get('cookie'), 'better-auth.session_token=token');
+        assert.equal(init.method, 'POST');
+        assert.equal(init.body, JSON.stringify({ game: 'hearthstone' }));
+        return fetch(url, init);
+      },
+    );
+
+    assert.equal(requests, 1);
+    assert.equal(grant.userId, 'user-123');
+  } finally {
+    await stub.close();
+  }
+});
+
+test('a desktop transport failure cancels publication', async () => {
+  await assert.rejects(
+    requestPublishCredential(
+      { baseUrl: 'https://console.example.com/', cookieHeader: 'cookie' },
+      'hearthstone',
+      async () => { throw new Error('net::ERR_CONNECTION_TIMED_OUT'); },
+    ),
+    /无法连接服务获取发布凭据，已取消发布/,
+  );
+});
+
 test('an expired session is reported instead of publishing', async () => {
   const stub = service();
   const baseUrl = await stub.start();
