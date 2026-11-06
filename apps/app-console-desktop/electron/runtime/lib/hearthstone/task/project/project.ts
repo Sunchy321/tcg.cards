@@ -164,7 +164,8 @@ function createEntityDraft(card: ExtractedCardRow): EntityRow {
 
 function finalizeEntityDraft(draft: EntityRow): LocalizationlessEntityRow {
   draft.classes = uniqueStrings(draft.classes);
-  draft.rune = draft.rune != null && draft.rune.length > 0 ? uniqueStrings(draft.rune) : null;
+  // Repeated runes encode the required quantity, unlike class and race membership.
+  draft.rune = draft.rune != null && draft.rune.length > 0 ? draft.rune : null;
   draft.race = draft.race != null && draft.race.length > 0 ? uniqueStrings(draft.race) : null;
   draft.raceBucket = draft.raceBucket != null && draft.raceBucket.length > 0 ? uniqueStrings(draft.raceBucket) : null;
 
