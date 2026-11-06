@@ -31,9 +31,11 @@ import type {
 import { hashCanonicalJson, buildRevisionHashPayload, buildLocalizationHashPayload, buildRenderModel, renderMechanicKeys } from './hash';
 import { entityKey, localizationKey, relationKey, reconcileEntities, reconcileLocalizations, reconcileRelations } from './reconcile';
 import { copyCardsIntoTable, copyEntitiesIntoTable, copyLocalizationsIntoTable, copyRelationsIntoTable, softDeleteEntities, softDeleteLocalizations, softDeleteRelations } from './write';
-import { normalizeExtractedTagValue, isNormalizedMechanicValue, asNumberArray, resolveEnumMap } from './normalize';
+import { normalizeExtractedTagValue, isNormalizedMechanicValue, asNumberArray } from './normalize';
 import { getDisplayText, textFromDisplayText } from './display';
 import type { DisplayContext } from './display';
+import { LOCALIZATION_HINTS } from './constant';
+import { computeLocalizationHints } from './localization-hints';
 
 export const localeMap: Record<string, Locale> = {
   deDE: 'de',
@@ -264,7 +266,7 @@ function finalizeLocalizationRows(
   tags: Map<number, number>,
   build: number,
   relationMechanics: Record<string, boolean | number>,
-  context: Omit<DisplayContext, 'locale' | 'classes' | 'tags' | 'nameByDbfId' | 'richTextByDbfId'> & {
+  context: Omit<DisplayContext, 'craftableText' | 'locale' | 'classes' | 'tags' | 'nameByDbfId' | 'richTextByDbfId'> & {
     nameByDbfIdByLocale:     ReadonlyMap<Locale, ReadonlyMap<number, string>>;
     richTextByDbfIdByLocale: ReadonlyMap<Locale, ReadonlyMap<number, string>>;
   },
@@ -273,8 +275,10 @@ function finalizeLocalizationRows(
 
   for (const [lang, localization] of localizationMap.entries()) {
     const richText = localization.richText;
+    const localizationHints = computeLocalizationHints(localization, build);
     const displayContext: DisplayContext = {
       ...context,
+      craftableText:   !localizationHints.includes(LOCALIZATION_HINTS.LEGACY_TEXT_AMPERSAND),
       locale:          lang,
       classes:         entity.classes,
       tags,
@@ -305,7 +309,7 @@ function finalizeLocalizationRows(
       locChangeType:      localization.locChangeType,
     };
 
-    const localizationHash = hashCanonicalJson(buildLocalizationHashPayload(row));
+    const localizationHash = hashCanonicalJson(buildLocalizationHashPayload(row, localizationHints));
     const renderModel = buildRenderModel(entity, row, build, relationMechanics);
     const renderHash = hashCanonicalJson(renderModel);
 
@@ -673,6 +677,8 @@ export async function projectExtracted(
     localizationHash: r.localizationHash,
     renderHash:       r.renderHash,
     renderModel:      r.renderModel,
+    displayText:      r.displayText,
+    text:             r.text,
   }));
 
   // Load existing relations
@@ -695,6 +701,8 @@ export async function projectExtracted(
   const targetLocStates = projectedLocalizations.map(r => ({
     cardId:           r.cardId, version:          r.version, lang:             r.lang, revisionHash:     r.revisionHash,
     localizationHash: r.localizationHash, renderHash:       r.renderHash, renderModel:      r.renderModel,
+    displayText:      r.displayText,
+    text:             r.text,
   }));
   console.log(`[projection] reconciling: ${existingEntityStates.length} existing entities, ${targetEntityStates.length} targets`);
   const t1 = Date.now();
@@ -855,7 +863,8 @@ function normalizeHsdataScalarValue(row: { boolValue: boolean | null, intValue: 
   return row.jsonValue == null ? null : row.jsonValue;
 }
 
-function normalizeHsdataTagValue(
+/** Normalizes archived hsdata tags using the same integer rules as extracted snapshots. */
+export function normalizeHsdataTagValue(
   row: { intValue: number | null, boolValue: boolean | null, stringValue: string | null, locStringValue: Record<string, string> | null, cardValue: string | null, jsonValue: unknown },
   tag: TagRow | undefined,
   context: { cardIdByDbfId: Map<number, string>, setIdByDbfId: Map<number, string> },
@@ -887,26 +896,9 @@ function normalizeHsdataTagValue(
   }
 
   if (normalizeKind === 'enum_from_int') {
-    const config = tag?.normalizeConfig ?? {};
-    const enumMap = resolveEnumMap(config.enumMap);
     const value = row.intValue;
     if (value == null) return null;
-
-    // CARD_SET (tag 183) resolves through the DB Set table; accept both the
-    // DB row's current slug ("set") and the legacy one ("card_set").
-    if (tag?.slug === 'card_set' || tag?.slug === 'set') {
-      return context.setIdByDbfId.get(value) ?? null;
-    }
-
-    const mapped = enumMap[String(value)];
-    if (typeof mapped === 'string') return mapped;
-    if (Array.isArray(mapped)) return mapped.filter(item => typeof item === 'string') as string[];
-
-    // Same policy as the extracted path: INVALID stays unset, opted-in tags
-    // keep the raw int, everything else fails the projection loudly.
-    if (value === 0) return null;
-    if (config.allowUnknownEnumValue === true) return String(value);
-    throw new Error(`[hearthstone][extracted-project] unknown enum value tag=${tag?.enumId} (${tag?.slug}) value=${value}`);
+    return normalizeExtractedTagValue(value, tag, context);
   }
 
   if (normalizeKind === 'card_ref_from_int') {
@@ -1161,6 +1153,8 @@ export async function projectHsdataFallback(build: number, cardIds: string[], dr
     cardId:           r.cardId, version:          r.version, lang:             r.lang,
     revisionHash:     r.revisionHash, localizationHash: r.localizationHash,
     renderHash:       r.renderHash, renderModel:      r.renderModel,
+    displayText:      r.displayText,
+    text:             r.text,
   }));
 
   const existingRelations = await localDb.select().from(EntityRelation).where(inArray(EntityRelation.sourceId, entityCardIds));
@@ -1177,6 +1171,8 @@ export async function projectHsdataFallback(build: number, cardIds: string[], dr
   const targetLocStates = projectedLocalizations.map(r => ({
     cardId:           r.cardId, version:          r.version, lang:             r.lang, revisionHash:     r.revisionHash,
     localizationHash: r.localizationHash, renderHash:       r.renderHash, renderModel:      r.renderModel,
+    displayText:      r.displayText,
+    text:             r.text,
   }));
   const entityResult = await reconcileEntities(existingEntityStates, targetEntityStates, build, globalLatest);
   const localizationResult = await reconcileLocalizations(existingLocStates as any, targetLocStates as any, build, globalLatest);

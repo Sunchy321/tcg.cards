@@ -59,12 +59,14 @@ function entityState(row: Pick<EntityRow, 'revisionHash' | 'version'>): string {
   return `${row.revisionHash}\x00${row.version.join(',')}`;
 }
 
-function localizationState(row: Pick<LocalizationRow, 'revisionHash' | 'localizationHash' | 'renderHash' | 'version'>): string {
+function localizationState(row: Pick<LocalizationRow, 'revisionHash' | 'localizationHash' | 'renderHash' | 'version' | 'displayText' | 'text'>): string {
   return [
     row.revisionHash,
     row.localizationHash,
     row.renderHash ?? '',
     row.version.join(','),
+    // Derived text can change without changing the source localization or image.
+    JSON.stringify([row.displayText, row.text]),
   ].join('\x00');
 }
 
@@ -202,7 +204,7 @@ export async function reconcileRows<T extends { version: number[] }>(
 }
 
 type EntityStateRow = Pick<EntityRow, 'cardId' | 'version' | 'revisionHash'>;
-type LocalizationStateRow = Pick<LocalizationRow, 'cardId' | 'version' | 'lang' | 'revisionHash' | 'localizationHash' | 'renderHash'> & { renderModel?: unknown };
+type LocalizationStateRow = Pick<LocalizationRow, 'cardId' | 'version' | 'lang' | 'revisionHash' | 'localizationHash' | 'renderHash' | 'displayText' | 'text'> & { renderModel?: unknown };
 
 export async function reconcileEntities(
   existing: EntityStateRow[],

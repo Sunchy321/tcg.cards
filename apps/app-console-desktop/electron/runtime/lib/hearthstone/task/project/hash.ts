@@ -59,7 +59,8 @@ export function buildRevisionHashPayload(row: LocalizationlessEntityRow): JsonMa
   };
 }
 
-export function buildLocalizationHashPayload(row: LocalizationlessLocalizationRow): JsonMap {
+/** Builds localization identity, including nonempty text compatibility hints without storing them. */
+export function buildLocalizationHashPayload(row: LocalizationlessLocalizationRow, localizationHints: readonly string[] = []): JsonMap {
   return {
     cardId:             row.cardId,
     lang:               row.lang,
@@ -72,6 +73,8 @@ export function buildLocalizationHashPayload(row: LocalizationlessLocalizationRo
     howToEarnSignature: row.howToEarnSignature,
     howToEarnDiamond:   row.howToEarnDiamond,
     flavorText:         row.flavorText,
+    // Empty hints preserve existing identities; nonempty hints distinguish parsing rules.
+    ...(localizationHints.length > 0 ? { localizationHints: [...new Set(localizationHints)].sort() } : {}),
   };
 }
 
@@ -112,7 +115,7 @@ export function buildRenderModel(
     ...relationMechanics,
   };
 
-  const renderHints = computeRenderHints(entity, build);
+  const renderHints = computeRenderHints(entity, localization, build);
 
   const payload = {
     cardId: entity.cardId,

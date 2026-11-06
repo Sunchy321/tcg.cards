@@ -5,6 +5,7 @@ import { classNames, gameplayBuilderStrings, gameplayStrings, heraldNames, keywo
 
 /** Static data available while projecting a collection card definition. */
 export interface DisplayContext {
+  craftableText:   boolean;
   cardId:          string;
   dbfId:           number;
   locale:          Locale;
@@ -486,7 +487,19 @@ function applyTextBuilder(context: DisplayContext, rawText: string, builderType:
 
 /** Builds the static formatted text that collection UI sends to UberText. */
 export function getDisplayText(context: DisplayContext, richText: string, builderType: string): string {
-  return applyLanguageRules(transformCardText(applyTextBuilder(context, richText, builderType)));
+  const transformed = transformCardText(applyTextBuilder(context, richText, builderType));
+  return applyLanguageRules(context.craftableText ? parseCraftableSplit(transformed) : transformed);
+}
+
+/** Matches TextUtils.ParseTextForCraftableSplit with no assembled card parts. */
+function parseCraftableSplit(text: string): string {
+  // The client unescapes literals first and skips splitting when any are present.
+  if (text.includes('\\&')) {
+    return text.replace(/\\&/g, '&');
+  }
+
+  const parts = text.split('&');
+  return parts.length === 2 ? parts.join('') : text;
 }
 
 /** Identifies locales where card-layout line breaks must not become word spaces. */

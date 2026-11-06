@@ -1,3 +1,16 @@
+/** First extracted build using craftable text separators and escaped literal ampersands. */
+export const CRAFTABLE_TEXT_BUILD = 254477;
+
+/** Text interpretation hints that participate in localization identity. */
+export const LOCALIZATION_HINTS = {
+  LEGACY_TEXT_AMPERSAND: 'legacy-text-ampersand',
+} as const;
+
+/** Semantic compatibility hints understood by the card renderer. */
+export const RENDER_HINTS = {
+  LEGACY_TEXT_AMPERSAND: 'legacy-text-ampersand',
+} as const;
+
 /** GAME_TAG IDs used exclusively by the collection display projection. */
 export const DISPLAY_TAG_ID = {
   TAG_SCRIPT_DATA_NUM_1:         2,

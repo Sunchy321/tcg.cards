@@ -1,23 +1,19 @@
-import type { LocalizationlessEntityRow } from './types';
+import { CRAFTABLE_TEXT_BUILD, RENDER_HINTS } from './constant';
+import type { LocalizationlessEntityRow, LocalizationlessLocalizationRow } from './types';
 
-/**
- * Compute semantic render hints for a card at a given build.
- *
- * Each hint follows the format `{scope}-{aspect}-v{n}` where:
- * - scope:   the affected card range (e.g. "hunter", "dual-class")
- * - aspect:  what changed (e.g. "template-color", "class-order")
- * - v{n}:    behaviour version (v1 = baseline, omitted; v2+ = deviation)
- *
- * No hint = baseline behaviour for all aspects.
- */
-export function computeRenderHints(_entity: LocalizationlessEntityRow, _build: number): string[] {
+/** Computes semantic compatibility hints; absent hints use the renderer's baseline behavior. */
+export function computeRenderHints(
+  _entity: LocalizationlessEntityRow,
+  localization: Pick<LocalizationlessLocalizationRow, 'richText'>,
+  build: number,
+): string[] {
   const hints: string[] = [];
 
-  // TODO: add hint rules here as renderer behaviour changes are discovered.
-  // Example:
-  //   if (entity.classes.includes('hunter') && build >= XXXXXX) {
-  //     hints.push('hunter-template-color-v2');
-  //   }
+  // The current client treats unescaped ampersands as craftable separators.
+  // Old text used literal ampersands; mark only affected locales to preserve image reuse.
+  if (build < CRAFTABLE_TEXT_BUILD && localization.richText.includes('&')) {
+    hints.push(RENDER_HINTS.LEGACY_TEXT_AMPERSAND);
+  }
 
   return hints;
 }

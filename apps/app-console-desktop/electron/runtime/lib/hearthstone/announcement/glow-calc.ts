@@ -2,6 +2,7 @@ import { sortGlow } from '@tcg-cards/shared/hearthstone/glow';
 import type { GlowEntry } from '@tcg-cards/model/hearthstone/schema/announcement';
 import type { RenderModel } from '@tcg-cards/model/hearthstone/schema/entity';
 import { getDisplayText, type DisplayContext } from '../task/project/display';
+import { RENDER_HINTS } from '../task/project/constant';
 
 /** Compares two values; arrays are treated as order-insensitive sets. */
 function same(a: unknown, b: unknown): boolean {
@@ -20,12 +21,14 @@ function same(a: unknown, b: unknown): boolean {
  */
 function renderModelDisplayContext(model: RenderModel): DisplayContext {
   return {
-    cardId:  model.cardId,
-    dbfId:   0,
-    locale:  model.lang,
-    classes: model.classes,
+    // Render models carry text-format compatibility in hints rather than source builds.
+    craftableText: !model.renderHints?.includes(RENDER_HINTS.LEGACY_TEXT_AMPERSAND),
+    cardId:        model.cardId,
+    dbfId:         0,
+    locale:        model.lang,
+    classes:       model.classes,
     // The render model carries the render-relevant mechanic tags; keep the rest empty.
-    tags:    new Map(
+    tags:          new Map(
       Object.entries(model.renderMechanics ?? {}).map(([id, value]) => [
         Number(id),
         typeof value === 'boolean' ? Number(value) : (value ?? 0),
