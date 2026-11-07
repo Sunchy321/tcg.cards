@@ -35,6 +35,9 @@ export default defineNuxtConfig({
     '#search': fileURLToPath(new URL('./node_modules/@tcg-cards/search/src', import.meta.url)),
   },
   vite: {
+    define: {
+      __HEARTHSTONE_GAME_TAG_IMPORT__: JSON.stringify(true),
+    },
     optimizeDeps: {
       // Bundle the icon runtime before Electron loads the first page to avoid late discovery invalidating its module graph.
       include: ['@iconify/vue'],

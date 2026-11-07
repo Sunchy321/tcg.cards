@@ -43,6 +43,9 @@ export default defineNuxtConfig({
   },
 
   vite: {
+    define: {
+      __HEARTHSTONE_GAME_TAG_IMPORT__: JSON.stringify(false),
+    },
     server: {
       warmup: {
         clientFiles: ['./app/**/*.vue'],

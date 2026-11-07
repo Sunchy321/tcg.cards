@@ -1,4 +1,6 @@
 import { listTags, getTag, saveTagEdit } from '@tcg-cards/console-api/lib/hearthstone/tag-commit';
+import { importGameTagMembers, previewGameTagImport } from '../../lib/hearthstone/game-tag-import';
+import { readGameTagSource } from '../../lib/hearthstone/game-tag-source';
 import {
   tagGetInput,
   tagListInput,
@@ -11,6 +13,63 @@ import { getLocalDb } from '../../lib/hearthstone/hsdata-local-db';
 import { getIncompletePushBatch, listPushBatches } from '../../lib/hearthstone/tag-push-progress';
 import { os } from '../index';
 import { z } from 'zod';
+
+const gameTagMember = z.strictObject({
+  enumId:           z.int().min(-2147483648).max(2147483647),
+  rawName:          z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/),
+  declarationIndex: z.int().nonnegative(),
+});
+
+const gameTagImportPreviewResult = z.strictObject({
+  members:             z.array(gameTagMember),
+  sourceMemberCount:   z.int().nonnegative(),
+  uniqueIdCount:       z.int().nonnegative(),
+  addedCount:          z.int().nonnegative(),
+  mainNameChangeCount: z.int().nonnegative(),
+  aliasUpdateCount:    z.int().nonnegative(),
+  unchangedCount:      z.int().nonnegative(),
+  retainedDbCount:     z.int().nonnegative(),
+  nameChanges:         z.array(z.strictObject({
+    enumId:       z.int(),
+    currentName:  z.string().nullable(),
+    incomingName: z.string(),
+  })),
+  aliasUpdates: z.array(z.strictObject({
+    enumId:       z.int(),
+    names:        z.array(z.string()),
+    deduplicated: z.boolean(),
+  })),
+  duplicateGroups: z.array(z.strictObject({
+    enumId: z.int(),
+    names:  z.array(z.string()),
+  })),
+});
+
+const gameTagImportResult = z.strictObject({
+  addedCount:          z.int().nonnegative(),
+  updatedCount:        z.int().nonnegative(),
+  unchangedCount:      z.int().nonnegative(),
+  mainNameChangeCount: z.int().nonnegative(),
+  aliasUpdateCount:    z.int().nonnegative(),
+});
+
+const previewGameTagImportRoute = os
+  .output(gameTagImportPreviewResult)
+  .handler(async () => {
+    const members = await readGameTagSource();
+    return await previewGameTagImport(getLocalDb(), members);
+  });
+
+const applyGameTagImportRoute = os
+  .input(z.strictObject({ members: z.array(gameTagMember).min(1).max(10000) }))
+  .output(gameTagImportResult)
+  .handler(async ({ input }) => await getLocalDb().transaction(async tx => await importGameTagMembers(tx, input.members, {
+    syncStatus:     'pending_push',
+    editorRuntime:  'desktop',
+    editorIdentity: 'unknown',
+    editorSource:   'game_tag',
+    conflictTarget: { processingSide: 'local', processingStage: 'apply' },
+  })));
 
 const list = os
   .route({
@@ -103,6 +162,8 @@ export const tagRouter = {
   list,
   get,
   manualUpdate,
+  previewGameTagImport:   previewGameTagImportRoute,
+  applyGameTagImport:     applyGameTagImportRoute,
   getIncompletePushBatch: incompletePushBatch,
   listPushBatches:        pushHistory,
 };

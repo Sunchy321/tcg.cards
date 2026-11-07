@@ -13,6 +13,9 @@ export default defineNuxtConfig({
   },
 
   vite: {
+    define: {
+      __HEARTHSTONE_GAME_TAG_IMPORT__: JSON.stringify(false),
+    },
     optimizeDeps: {
       include: [
         // Tauri cold starts are more sensitive to Vite's late dependency discovery.

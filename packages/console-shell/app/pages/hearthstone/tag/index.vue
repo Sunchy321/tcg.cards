@@ -9,7 +9,14 @@
           </div>
           <p class="mt-1 text-sm text-slate-500">查询和编辑 hearthstone.tags 中的解析、规范化与字段投影配置。</p>
         </div>
-        <UButton label="刷新" icon="i-lucide-refresh-cw" color="neutral" variant="ghost" :loading="loading" @click="loadTags" />
+        <div class="flex items-center gap-2">
+          <component
+            :is="conditionalPanel"
+            v-if="conditionalPanel"
+            @completed="loadTags"
+          />
+          <UButton label="刷新" icon="i-lucide-refresh-cw" color="neutral" variant="ghost" :loading="loading" @click="loadTags" />
+        </div>
       </div>
     </div>
 
@@ -204,8 +211,10 @@
 
 <script setup lang="ts">
 
+/* global __HEARTHSTONE_GAME_TAG_IMPORT__: readonly */
+
 import { useConsolePlatform } from '@tcg-cards/console-platform';
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, defineAsyncComponent, onMounted, reactive, ref } from 'vue';
 
 import type { TagProfile } from '@tcg-cards/model/hearthstone/schema/tag';
 definePageMeta({
@@ -215,6 +224,9 @@ definePageMeta({
 
 const platform = useConsolePlatform();
 const orpc: any = platform.api.createClient();
+const conditionalPanel = __HEARTHSTONE_GAME_TAG_IMPORT__
+  ? defineAsyncComponent(() => import('../../../features/hearthstone/GameTagImport.vue'))
+  : null;
 
 const limit = 50;
 const loading = ref(false);
