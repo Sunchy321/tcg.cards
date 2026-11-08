@@ -8,6 +8,13 @@
         <UIcon name="lucide:sliders-horizontal" class="text-md shrink-0" />
         <span>{{ $t('hearthstone.search.advanced.$self') }}</span>
       </NuxtLink>
+      <NuxtLink
+        to="/tags"
+        class="flex flex-row items-center gap-3 px-1 py-1 w-full rounded-lg ring-1 ring-white/10 text-white bg-white/10 hover:bg-white/20 transition"
+      >
+        <UIcon name="lucide:tags" class="text-md shrink-0" />
+        <span>{{ $t('hearthstone.tagCatalog.title') }}</span>
+      </NuxtLink>
     </div>
     <div class="flex flex-col gap-2 justify-start items-center">
       <button
