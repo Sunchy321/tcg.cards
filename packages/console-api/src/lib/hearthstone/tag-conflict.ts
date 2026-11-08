@@ -16,13 +16,13 @@ import {
   applyTagCommit,
   buildTagRowRevision,
   buildWinnerRevision,
+  getTagCommitField,
   toTagEntityKey,
   type ApplyTagCommitOptions,
   type DbTx,
   type FieldCommitInsert,
   type FieldWinnerRow,
   type TagRow,
-  type TagWrite,
 } from './tag-commit';
 
 /** Database handles accepted by tag conflict helpers. */
@@ -43,7 +43,7 @@ export type ResolveTagConflictOptions = {
   conflictTarget?: ApplyTagCommitOptions['conflictTarget'];
 };
 
-const autoBaseFields = new Set<keyof TagWrite>([
+const autoBaseFields = new Set<string>([
   'rawName',
   'rawType',
   'rawNames',
@@ -65,34 +65,6 @@ function enumIdFromEntityKey(entityKey: unknown) {
   }
 
   return enumId;
-}
-
-/** Resolves one editable tag field from its persisted field path. */
-function fieldFromPath(fieldPath: string): keyof TagWrite {
-  const field = fieldPath.replace(/^tag\./, '') as keyof TagWrite;
-
-  if (!([
-    'slug',
-    'slugAliases',
-    'name',
-    'rawName',
-    'rawType',
-    'rawNames',
-    'normalizeKind',
-    'normalizeConfig',
-    'projectTargetType',
-    'projectTargetPath',
-    'projectKind',
-    'projectConfig',
-    'status',
-    'description',
-  ] as Array<keyof TagWrite>).includes(field)) {
-    throw new ORPCError('BAD_REQUEST', {
-      message: `Unsupported tag conflict fieldPath: ${fieldPath}`,
-    });
-  }
-
-  return field;
 }
 
 /** Builds one client mutation id for follow-up conflict-resolution commits. */
@@ -189,7 +161,7 @@ async function loadConflictContext(
     enumId,
     row,
     winner,
-    field: fieldFromPath(conflict.fieldPath),
+    field: getTagCommitField(conflict.fieldPath),
   };
 }
 

@@ -7,7 +7,7 @@
             <UIcon name="i-lucide-tags" class="size-5 text-primary-500" />
             <h1 class="text-xl font-semibold">Tag 配置</h1>
           </div>
-          <p class="mt-1 text-sm text-slate-500">查询和编辑 hearthstone.tags 中的解析、规范化与字段投影配置。</p>
+          <p class="mt-1 text-sm text-slate-500">维护标签名称、作用说明和值类型。</p>
         </div>
         <div class="flex items-center gap-2">
           <component
@@ -65,16 +65,13 @@
                     <span class="font-mono text-xs text-slate-400">#{{ tag.enumId }}</span>
                     <span class="truncate font-medium">{{ tag.slug }}</span>
                   </div>
-                  <div class="mt-1 truncate text-xs text-slate-400">{{ tag.name ?? tag.rawName ?? '未命名' }}</div>
+                  <div class="mt-1 truncate text-xs text-slate-400">{{ tag.localization?.zhs?.name ?? tag.localization?.en?.name ?? tag.rawName ?? '未命名' }}</div>
                 </div>
                 <UBadge :label="tag.status" :color="statusColor(tag.status)" variant="soft" size="xs" />
               </div>
               <div class="mt-2 flex flex-wrap gap-1">
                 <UBadge :label="tag.normalizeKind" color="neutral" variant="soft" size="xs" />
-                <UBadge v-if="tag.projectKind" :label="tag.projectKind" color="primary" variant="soft" size="xs" />
-              </div>
-              <div v-if="tag.projectTargetPath" class="mt-2 font-mono text-xs text-slate-400">
-                {{ tag.projectTargetType ?? '-' }}.{{ tag.projectTargetPath }}
+                <UBadge :label="projectKindLabel(tag.projectKind)" color="primary" variant="soft" size="xs" />
               </div>
             </button>
           </div>
@@ -123,8 +120,8 @@
           </div>
           <div class="grid gap-3 md:grid-cols-2">
             <div class="space-y-1">
-              <div class="text-xs text-slate-400">name</div>
-              <UInput v-model="form.name" placeholder="展示名，可留空" class="w-full" />
+              <div class="text-xs text-slate-400">值类型</div>
+              <USelect v-model="form.valueType" :items="valueTypeItems" class="w-full" />
             </div>
             <div class="space-y-1">
               <div class="text-xs text-slate-400">status</div>
@@ -157,17 +154,13 @@
               <USelect v-model="form.normalizeKind" :items="normalizeKindItems" class="w-full" />
             </div>
             <div class="space-y-1">
-              <div class="text-xs text-slate-400">projectKind</div>
+              <div class="text-xs text-slate-400">投影方式</div>
               <USelect v-model="form.projectKind" :items="projectKindItems" class="w-full" />
             </div>
           </div>
-          <div class="grid gap-3 md:grid-cols-2">
+          <div v-if="form.projectKind !== 'none'" class="grid gap-3 md:grid-cols-2">
             <div class="space-y-1">
-              <div class="text-xs text-slate-400">projectTargetType</div>
-              <USelect v-model="form.projectTargetType" :items="projectTargetTypeItems" class="w-full" />
-            </div>
-            <div class="space-y-1">
-              <div class="text-xs text-slate-400">projectTargetPath</div>
+              <div class="text-xs text-slate-400">目标字段</div>
               <UInput v-model="form.projectTargetPath" placeholder="例如 classes / richText / mechanics" class="w-full" />
             </div>
           </div>
@@ -180,7 +173,7 @@
               <UTextarea v-model="form.normalizeConfigText" :rows="14" class="w-full font-mono text-xs" spellcheck="false" />
               <div v-if="normalizeConfigIssue" class="text-xs text-red-500">{{ normalizeConfigIssue }}</div>
             </div>
-            <div class="space-y-1">
+            <div v-if="form.projectKind !== 'none'" class="space-y-1">
               <div class="flex items-center justify-between gap-3">
                 <div class="text-xs text-slate-400">projectConfig JSON</div>
                 <UButton label="格式化" size="xs" color="neutral" variant="ghost" @click="formatJsonField('projectConfigText')" />
@@ -189,9 +182,18 @@
               <div v-if="projectConfigIssue" class="text-xs text-red-500">{{ projectConfigIssue }}</div>
             </div>
           </div>
-          <div class="space-y-1">
-            <div class="text-xs text-slate-400">description</div>
-            <UTextarea v-model="form.description" :rows="3" placeholder="说明这个 Tag 的含义和投影注意事项" class="w-full" />
+          <div class="grid gap-3 md:grid-cols-2">
+            <fieldset v-for="language in copyLanguages" :key="language.code" class="space-y-2">
+              <legend class="text-sm font-medium">{{ language.label }}</legend>
+              <label class="block space-y-1">
+                <span class="text-xs text-slate-400">标签名称</span>
+                <UInput v-model="form.copy[language.code].name" class="w-full" />
+              </label>
+              <label class="block space-y-1">
+                <span class="text-xs text-slate-400">作用说明</span>
+                <UTextarea v-model="form.copy[language.code].description" :rows="4" class="w-full" />
+              </label>
+            </fieldset>
           </div>
           <div class="grid gap-3 md:grid-cols-2">
             <div class="rounded-lg border border-slate-200 p-3">
@@ -216,7 +218,7 @@
 import { useConsolePlatform } from '@tcg-cards/console-platform';
 import { computed, defineAsyncComponent, onMounted, reactive, ref } from 'vue';
 
-import type { TagProfile } from '@tcg-cards/model/hearthstone/schema/tag';
+import type { TagLocalization, TagProfile, TagSemanticValueKind } from '@tcg-cards/model/hearthstone/schema/tag';
 definePageMeta({
   layout: 'admin',
   title:  'Tag 配置',
@@ -243,22 +245,44 @@ const noneValue = '__none__';
 
 const filters = reactive({ q: '', status: allValue, projectKind: allValue });
 
+const copyLanguages = [
+  { code: 'zhs', label: '简体中文' },
+  { code: 'en', label: 'English' },
+] as const;
+
+const valueTypeItems = [
+  { label: '未标注', value: noneValue },
+  { label: '布尔型', value: 'boolean' },
+  { label: '数字型', value: 'number' },
+  { label: '卡牌 DBF ID', value: 'card_dbf_id' },
+  { label: '卡牌 ID', value: 'card_id' },
+  { label: 'Subset ID', value: 'subset_id' },
+  { label: '系列 ID', value: 'set_id' },
+  { label: '套牌 ID', value: 'deck_id' },
+  { label: '对局实体 ID', value: 'entity_id' },
+  { label: '标签 ID', value: 'tag_id' },
+  { label: '枚举', value: 'enum' },
+  { label: '位掩码', value: 'bitmask' },
+  { label: '文本', value: 'text' },
+  { label: '多语言文本', value: 'localized_text' },
+  { label: '多功能值', value: 'multipurpose' },
+] satisfies Array<{ label: string, value: TagSemanticValueKind | typeof noneValue }>;
+
 const form = reactive({
   enumId:              0,
   slug:                '',
   slugAliasesText:     '',
-  name:                '',
+  valueType:           noneValue as TagSemanticValueKind | typeof noneValue,
+  copy:                { zhs: { name: '', description: '' }, en: { name: '', description: '' } },
   rawName:             '',
   rawType:             '',
   rawNamesText:        '',
   normalizeKind:       'identity',
   normalizeConfigText: '{}',
-  projectTargetType:   noneValue,
   projectTargetPath:   '',
   projectKind:         noneValue,
   projectConfigText:   '{}',
   status:              'discovered',
-  description:         '',
 });
 
 const statusItems = [
@@ -281,24 +305,22 @@ const normalizeKindItems = [
 ];
 
 const projectKindItems = [
-  { label: '无', value: noneValue },
-  { label: 'assign_value', value: 'assign_value' },
-  { label: 'append_string_array', value: 'append_string_array' },
-  { label: 'assign_card_ref', value: 'assign_card_ref' },
-  { label: 'assign_localized_text', value: 'assign_localized_text' },
-  { label: 'assign_mechanic', value: 'assign_mechanic' },
-  { label: 'assign_referenced_tag', value: 'assign_referenced_tag' },
-  { label: 'assign_legacy', value: 'assign_legacy' },
-  { label: 'emit_relation', value: 'emit_relation' },
+  { label: '未配置', value: noneValue },
+  { label: '不进入卡牌数据', value: 'none' },
+  { label: '写入卡牌字段', value: 'assign_value' },
+  { label: '加入卡牌属性列表', value: 'append_string_array' },
+  { label: '写入关联卡牌字段', value: 'assign_card_ref' },
+  { label: '写入多语言字段', value: 'assign_localized_text' },
+  { label: '写入卡牌机制', value: 'assign_mechanic' },
+  { label: '保留兼容属性', value: 'assign_legacy' },
+  { label: '生成卡牌关系', value: 'emit_relation' },
 ];
 const projectKindFilterItems = [{ label: '全部投影', value: allValue }, ...projectKindItems];
 
-const projectTargetTypeItems = [
-  { label: '无', value: noneValue },
-  { label: 'entity', value: 'entity' },
-  { label: 'entity_localization', value: 'entity_localization' },
-  { label: 'entity_relation', value: 'entity_relation' },
-];
+/** Names the configured projection in the tag list. */
+function projectKindLabel(kind: string | null): string {
+  return projectKindItems.find(item => item.value === (kind ?? noneValue))?.label ?? '其他投影';
+}
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / limit)));
 const canSave = computed(() => form.enumId > 0 && form.slug.trim().length > 0 && !saving.value && !detailLoading.value);
@@ -337,28 +359,51 @@ function applyTag(tag: TagProfile) {
   form.enumId = tag.enumId;
   form.slug = tag.slug;
   form.slugAliasesText = tag.slugAliases.join('\n');
-  form.name = tag.name ?? '';
+  form.valueType = tag.valueType ?? noneValue;
+  for (const { code } of copyLanguages) {
+    form.copy[code].name = tag.localization?.[code]?.name ?? '';
+    form.copy[code].description = tag.localization?.[code]?.description ?? '';
+  }
   form.rawName = tag.rawName ?? '';
   form.rawType = tag.rawType ?? '';
   form.rawNamesText = tag.rawNames.join('\n');
   form.normalizeKind = tag.normalizeKind;
   form.normalizeConfigText = JSON.stringify(tag.normalizeConfig ?? {}, null, 2);
-  form.projectTargetType = tag.projectTargetType ?? noneValue;
   form.projectTargetPath = tag.projectTargetPath ?? '';
   form.projectKind = tag.projectKind ?? noneValue;
   form.projectConfigText = JSON.stringify(tag.projectConfig ?? {}, null, 2);
   form.status = tag.status;
-  form.description = tag.description ?? '';
   formError.value = '';
+}
+
+/** Builds edited copy while preserving any languages outside the editor. */
+function buildLocalization(): TagLocalization {
+  const localization = Object.fromEntries(
+    Object.entries(selectedTag.value?.localization ?? {})
+      .filter(([lang]) => !copyLanguages.some(({ code }) => code === lang)),
+  );
+  for (const { code } of copyLanguages) {
+    const name = form.copy[code].name.trim();
+    const description = form.copy[code].description.trim();
+    if (name || description) {
+      localization[code] = {
+        ...(name ? { name } : {}),
+        ...(description ? { description } : {}),
+      };
+    }
+  }
+
+  return localization;
 }
 
 async function loadTags() {
   loading.value = true;
+  const projectKind = filters.projectKind === noneValue ? null : filters.projectKind;
   try {
     const result = await orpc.hearthstone.tag.list({
       q:           filters.q.trim() || undefined,
       status:      filters.status === allValue ? undefined : filters.status,
-      projectKind: filters.projectKind === allValue ? undefined : filters.projectKind,
+      projectKind: projectKind === allValue ? undefined : projectKind,
       page:        page.value,
       limit,
     });
@@ -427,7 +472,7 @@ function formatJsonField(field: 'normalizeConfigText' | 'projectConfigText') {
 
 async function saveTag() {
   if (!canSave.value) return;
-  if (normalizeConfigIssue.value || projectConfigIssue.value) {
+  if (normalizeConfigIssue.value || (form.projectKind !== 'none' && projectConfigIssue.value)) {
     formError.value = '请先修正 JSON 配置';
     return;
   }
@@ -436,21 +481,21 @@ async function saveTag() {
   formError.value = '';
   try {
     await orpc.hearthstone.tag.manualUpdate({
-      enumId:            form.enumId,
-      slug:              form.slug.trim(),
-      slugAliases:       parseLines(form.slugAliasesText),
-      name:              form.name.trim() || null,
-      rawName:           form.rawName.trim() || null,
-      rawType:           form.rawType.trim() || null,
-      rawNames:          parseLines(form.rawNamesText),
-      normalizeKind:     form.normalizeKind,
-      normalizeConfig:   parseNullableJson(form.normalizeConfigText),
-      projectTargetType: form.projectTargetType === noneValue ? null : form.projectTargetType,
-      projectTargetPath: form.projectTargetPath.trim() || null,
-      projectKind:       form.projectKind === noneValue ? null : form.projectKind,
-      projectConfig:     parseNullableJson(form.projectConfigText),
-      status:            form.status,
-      description:       form.description.trim() || null,
+      enumId:               form.enumId,
+      slug:                 form.slug.trim(),
+      slugAliases:          parseLines(form.slugAliasesText),
+      valueType:            form.valueType === noneValue ? null : form.valueType,
+      localization:         buildLocalization(),
+      expectedLocalization: selectedTag.value?.localization ?? {},
+      rawName:              form.rawName.trim() || null,
+      rawType:              form.rawType.trim() || null,
+      rawNames:             parseLines(form.rawNamesText),
+      normalizeKind:        form.normalizeKind,
+      normalizeConfig:      parseNullableJson(form.normalizeConfigText),
+      projectTargetPath:    form.projectKind === 'none' ? null : form.projectTargetPath.trim() || null,
+      projectKind:          form.projectKind === noneValue ? null : form.projectKind,
+      projectConfig:        form.projectKind === 'none' ? {} : parseNullableJson(form.projectConfigText),
+      status:               form.status,
     });
     showToast({ title: '保存成功', color: 'success' });
     await loadTags();

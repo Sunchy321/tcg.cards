@@ -6,6 +6,7 @@ import { FieldSyncCursor } from '@tcg-cards/db/schema/local/hearthstone';
 import { FieldCommit, FieldConflict, FieldWinner, Tag as TagTable } from '@tcg-cards/db/schema/shared/hearthstone';
 import {
   applyTagCommit,
+  getTagFieldValue,
   type ApplyTagCommitResult,
   type FieldCommitInsert,
   type FieldCommitRow,
@@ -239,7 +240,7 @@ export async function pushPendingTagCommits(
             .then(rows => rows[0] ?? null),
         ]);
 
-        const field = commit.fieldPath.replace(/^tag\./, '') as string;
+        const localValue = getTagFieldValue(remoteTag, commit.fieldPath);
 
         await input.remoteDb.insert(FieldConflict).values({
           processingSide:  'remote',
@@ -254,10 +255,10 @@ export async function pushPendingTagCommits(
             operation:        commit.operation,
             editorRuntime:    commit.editorRuntime,
           },
-          localValue:     (remoteTag as Record<string, unknown> | null)?.[field] ?? null,
+          localValue,
           incomingValue:  commit.value,
           winnerValue:    remoteWinner?.winnerValue ?? null,
-          effectiveValue: (remoteTag as Record<string, unknown> | null)?.[field] ?? null,
+          effectiveValue: localValue,
           baseRevision:   commit.baseRevision,
           status:         'open',
           reason:         message,

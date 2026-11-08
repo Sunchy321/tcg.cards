@@ -143,7 +143,7 @@ export const TagValueView = dataSchema.view('tag_value_view').as(qb => {
       sourceTags:     RawEntitySnapshot.sourceTags,
       enumId:         RawEntitySnapshotTag.enumId,
       tagSlug:        sql<string>`${Tag.slug}`.as('tag_slug'),
-      tagName:        sql<string | null>`${Tag.name}`.as('tag_name'),
+      tagName:        sql<string | null>`${Tag.rawName}`.as('tag_name'),
       valueKind:      RawEntitySnapshotTag.valueKind,
       boolValue:      RawEntitySnapshotTag.boolValue,
       intValue:       RawEntitySnapshotTag.intValue,

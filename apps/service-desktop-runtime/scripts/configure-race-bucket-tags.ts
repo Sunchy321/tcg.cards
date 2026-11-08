@@ -107,7 +107,6 @@ function rowToTagWrite(row: TagRow) {
   return {
     slug:              row.slug,
     slugAliases:       row.slugAliases,
-    name:              row.name,
     rawName:           row.rawName,
     rawType:           row.rawType,
     rawNames:          row.rawNames,
@@ -118,7 +117,8 @@ function rowToTagWrite(row: TagRow) {
     projectKind:       row.projectKind,
     projectConfig:     row.projectConfig,
     status:            row.status,
-    description:       row.description,
+    valueType:         row.valueType,
+    localization:      row.localization,
   };
 }
 
@@ -163,7 +163,6 @@ async function createTagRow(spec: RaceBucketSpec, target: TagUpdateInput) {
       enumId:             spec.enumId,
       slug:               target.slug,
       slugAliases:        target.slugAliases,
-      name:               target.name,
       rawName:            target.rawName,
       rawType:            target.rawType,
       rawNames:           target.rawNames,
@@ -174,7 +173,6 @@ async function createTagRow(spec: RaceBucketSpec, target: TagUpdateInput) {
       projectKind:        target.projectKind,
       projectConfig:      target.projectConfig,
       status:             target.status,
-      description:        target.description,
       firstSeenSourceTag: null,
       lastSeenSourceTag:  null,
     }).returning().then(rows => rows[0]);
@@ -209,7 +207,6 @@ function buildTarget(spec: RaceBucketSpec, existing?: TagRow): TagUpdateInput {
     enumId:            spec.enumId,
     slug:              `bacon-subset-${spec.race}`,
     slugAliases:       existing?.slugAliases ?? [],
-    name:              spec.rawName,
     rawName:           spec.rawName,
     rawType:           existing?.rawType ?? 'Int',
     rawNames:          [spec.rawName],
@@ -220,7 +217,6 @@ function buildTarget(spec: RaceBucketSpec, existing?: TagRow): TagUpdateInput {
     projectKind:       'append_string_array',
     projectConfig:     { value: spec.race },
     status:            'configured',
-    description:       existing?.description ?? null,
   };
 }
 

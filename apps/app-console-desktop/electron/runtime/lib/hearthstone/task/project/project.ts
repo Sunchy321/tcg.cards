@@ -346,6 +346,16 @@ export interface ProjectCardContext {
   richTextByDbfIdByLocale: ReadonlyMap<Locale, ReadonlyMap<number, string>>;
 }
 
+/** Carries a complete user-facing error for a tag excluded from card data. */
+class ExcludedCardTagError extends Error {}
+
+/** Rejects a card source that contains a tag classified as absent from card data. */
+function assertTagCanProject(tag: TagRow | undefined, cardId: string, build: number): void {
+  if (tag?.projectKind === 'none') {
+    throw new ExcludedCardTagError(`Card ${cardId} (build ${build}) contains tag ${tag.enumId} (${tag.slug}), which is marked as absent from card data.`);
+  }
+}
+
 export function projectExtractedCard(
   card: ExtractedCardRow,
   tags: ExtractedCardTagRow[],
@@ -376,8 +386,9 @@ export function projectExtractedCard(
   // Process tags
   const displayTags = new Map<number, number>();
   for (const tag of tags) {
-    displayTags.set(tag.tagId, tag.tagValue);
     const tagRow = tagMap.get(tag.tagId);
+    assertTagCanProject(tagRow, card.cardId, build);
+    displayTags.set(tag.tagId, tag.tagValue);
     const normalized = normalizeExtractedTagValue(tag.tagValue, tagRow, context);
     if (normalized == null) continue;
 
@@ -631,6 +642,10 @@ export async function projectExtracted(
     try {
       result = projectExtractedCard(card as ExtractedCardRow, tags, tagMap, build, { cardIdByDbfId, setIdByDbfId, hsdataSetByDbfId: chunkHsdataSet, nameByDbfIdByLocale, richTextByDbfIdByLocale });
     } catch (error) {
+      if (error instanceof ExcludedCardTagError) {
+        throw error;
+      }
+
       throw new Error(`[hearthstone][extracted-project] card ${card.cardId} (build ${build}): ${error instanceof Error ? error.message : String(error)}`, { cause: error });
     }
     collectRows?.(result);
@@ -956,9 +971,20 @@ export async function projectHsdataFallback(build: number, cardIds: string[], dr
     tagsBySnapshotId.set(t.snapshotId, list);
   }
 
-  // Load Tag table rules
-  const enumIds = [...new Set(rawTags.map(t => t.enumId))].sort((a, b) => a - b);
-  const tagRows = await localDb.select().from(Tag).where(inArray(Tag.enumId, enumIds));
+  // Reference-only tags can be present solely in the fallback snapshot metadata.
+  const enumIds = new Set(rawTags.map(t => t.enumId));
+  for (const snapshot of snapshots) {
+    const extraRefs = (snapshot.extraPayload as Record<string, unknown>).referencedTags;
+    if (extraRefs && typeof extraRefs === 'object') {
+      for (const key of Object.keys(extraRefs)) {
+        const enumId = Number(key);
+        if (Number.isInteger(enumId) && enumId >= -2147483648 && enumId <= 2147483647) {
+          enumIds.add(enumId);
+        }
+      }
+    }
+  }
+  const tagRows = await localDb.select().from(Tag).where(inArray(Tag.enumId, [...enumIds]));
   const tagMap = new Map(tagRows.map(r => [r.enumId, r]));
 
   // Build context
@@ -986,6 +1012,7 @@ export async function projectHsdataFallback(build: number, cardIds: string[], dr
     const extraRefs = (snapshot.extraPayload as Record<string, unknown>).referencedTags;
     if (extraRefs && typeof extraRefs === 'object') {
       for (const [key, value] of Object.entries(extraRefs)) {
+        assertTagCanProject(tagMap.get(Number(key)), snapshot.cardId, build);
         if (typeof value === 'boolean' || (typeof value === 'number' && Number.isSafeInteger(value))) {
           entityDraft.referencedTags[key] = value;
         }
@@ -999,8 +1026,9 @@ export async function projectHsdataFallback(build: number, cardIds: string[], dr
     const displayTags = new Map<number, number>();
 
     for (const row of sortedTags) {
-      if (row.intValue != null) displayTags.set(row.enumId, row.intValue);
       const tag = tagMap.get(row.enumId);
+      assertTagCanProject(tag, snapshot.cardId, build);
+      if (row.intValue != null) displayTags.set(row.enumId, row.intValue);
       let normalized: unknown;
       try {
         normalized = normalizeHsdataTagValue(row, tag, { cardIdByDbfId, setIdByDbfId });

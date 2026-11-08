@@ -8,6 +8,7 @@ import {
 } from 'drizzle-orm/pg-core';
 
 import { schema } from './schema';
+import type { TagLocalization, TagSemanticValueKind } from '#model/hearthstone/schema/tag';
 
 type JsonMap = Record<string, unknown>;
 
@@ -17,7 +18,6 @@ export const Tag = schema.table('tags', {
   slug:        text('slug').notNull(),
   slugAliases: text('slug_aliases').array().notNull().default([]),
 
-  name:     text('name'),
   rawName:  text('raw_name'),
   rawType:  text('raw_type'),
   rawNames: text('raw_names').array().notNull().default([]),
@@ -36,8 +36,9 @@ export const Tag = schema.table('tags', {
     .notNull()
     .default({}),
 
-  status:      text('status').notNull().default('discovered'),
-  description: text('description'),
+  status:       text('status').notNull().default('discovered'),
+  valueType:    text('value_type').$type<TagSemanticValueKind>(),
+  localization: jsonb('localization').$type<TagLocalization>().notNull().default({}),
 
   firstSeenSourceTag: integer('first_seen_source_tag'),
   lastSeenSourceTag:  integer('last_seen_source_tag'),

@@ -138,7 +138,6 @@ function buildNewTagWrite(group: GameTagGroup, slug: string): TagWrite {
   return {
     slug,
     slugAliases:       [],
-    name:              group.rawName,
     rawName:           group.rawName,
     rawType:           null,
     rawNames:          [...new Set(group.names)],
@@ -149,7 +148,8 @@ function buildNewTagWrite(group: GameTagGroup, slug: string): TagWrite {
     projectKind:       'assign_mechanic',
     projectConfig:     {},
     status:            'discovered',
-    description:       null,
+    valueType:         null,
+    localization:      {},
   };
 }
 
