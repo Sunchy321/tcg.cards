@@ -8,7 +8,7 @@ import { defineConfig } from "eslint/config";
 
 export default defineConfig([
   {
-    ignores: ['node_modules/', 'dist/', '.eslintrc.cjs']
+    ignores: ['node_modules/', 'dist/', '**/.wrangler/**', '.eslintrc.cjs']
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,

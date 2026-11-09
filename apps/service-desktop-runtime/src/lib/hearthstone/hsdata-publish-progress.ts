@@ -1,5 +1,3 @@
-import type { PublishReport } from './hsdata-publish';
-
 /** Cooperative interrupt raised inside the running publish coroutine after a stop request. */
 export class PublishJobInterruptedError extends Error {
   phase: 'stopped';

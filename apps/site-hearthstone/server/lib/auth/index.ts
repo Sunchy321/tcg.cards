@@ -1,7 +1,7 @@
 import { createServerAuth } from '@tcg-cards/auth';
 
 import { db } from '#db/db';
-import { accounts, sessions, users, verifications } from '#schema/remote/auth';
+import { accounts, apikeys, sessions, users, verifications } from '#schema/remote/auth';
 
 export const auth = createServerAuth({
   database: db,
@@ -10,5 +10,6 @@ export const auth = createServerAuth({
     accounts,
     sessions,
     verifications,
+    apikeys,
   },
 });

@@ -11,12 +11,15 @@
               :number="data.number"
               :part="partIndex"
               :layout="data.print.layout"
-              :full-image-type="data.print.fullImageType"
+              :image-type="data.print.imageInfo?.[0]?.type ?? 'webp'"
               :image-status="data.print.imageStatus"
               :rotate="rotate"
               @update:part="partIndex = $event"
               @update:rotate="rotate = $event"
             />
+            <div v-if="imageSource" class="mt-2 text-center text-xs text-gray-400">
+              {{ $t('magic.cardImageSource.label') }}：{{ $te(imageSource.key) ? $t(imageSource.key) : imageSource.id }}
+            </div>
             <div class="mt-4 space-y-2">
               <UButton
                 v-if="scryfallLink"
@@ -94,13 +97,14 @@
                 <img :src="partIcon.src" class="w-6 h-6">
               </button>
               <img v-if="isArenaVariant" src="/arena.svg" class="w-5 h-5 shrink-0">
-              <h1 class="text-3xl font-bold" :class="data.printPart.flavorName != null ? 'text-gray-500 dark:text-gray-400 italic' : ''">
-                {{ data.printPart.flavorName ?? displayPart.name }}
+              <h1 class="text-3xl font-bold" :lang="titleLang" :class="data.printPart.flavorName != null ? 'text-gray-500 dark:text-gray-400 italic' : ''">
+                <NameRuby v-if="data.printPart.flavorName != null" :name="data.printPart.flavorName" :ruby="data.printPart.rubyFlavorName" />
+                <NameRuby v-else :name="displayPart.name" :ruby="displayPart.ruby" />
               </h1>
             </div>
             <div v-if="data.cardPart.cost" class="flex items-center gap-0.5 shrink-0 text-2xl">
               <Symbol
-                v-for="(s, i) in data.cardPart.cost"
+                v-for="(s, i) in splitCost(data.cardPart.cost)"
                 :key="i"
                 :value="`{${s}}`"
                 :type="['cost']"
@@ -109,7 +113,9 @@
           </div>
           <div class="flex items-center justify-between gap-2 mb-4" :style="effectStyle">
             <p class="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-              <span v-if="data.printPart.flavorName != null">{{ displayPart.name }}</span>
+              <span v-if="data.printPart.flavorName != null" :lang="displayLang">
+                <NameRuby :name="displayPart.name" :ruby="displayPart.ruby" />
+              </span>
               <span
                 v-if="textMode !== 'oracle'"
                 class="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded px-1"
@@ -126,11 +132,11 @@
               </UButton>
               <UButton
                 size="xs"
-                :variant="textMode === 'unified' ? 'solid' : 'outline'"
+                :variant="textMode === 'localized' ? 'solid' : 'outline'"
                 class="rounded-none border-x-0"
-                @click="textMode = 'unified'"
+                @click="textMode = 'localized'"
               >
-                Unified
+                Localized
               </UButton>
               <UButton
                 size="xs"
@@ -148,12 +154,12 @@
               v-if="data.cardPart.colorIndicator"
               :value="data.cardPart.colorIndicator"
             />
-            <span class="font-medium flex-1">{{ displayPart.typeline }}</span>
+            <span class="font-medium flex-1" :lang="displayLang">{{ displayPart.typeline }}</span>
             <span v-if="stats != null" class="font-medium shrink-0">{{ stats }}</span>
           </div>
 
           <div class="border-l-2 border-primary bg-gray-50 dark:bg-gray-800 rounded-r-lg p-4 mb-6 leading-relaxed space-y-2" :style="effectStyle">
-            <RichText>
+            <RichText :lang="displayLang">
               {{ displayPart.text }}
             </RichText>
           </div>
@@ -170,7 +176,7 @@
           </div>
 
           <div v-if="data.printPart.flavorText" class="border-l-2 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 italic text-gray-500 dark:text-gray-400 rounded-r-lg p-4 mb-6" :style="effectStyle">
-            <RichText detect-emph>
+            <RichText detect-emph :lang="printLang">
               {{ data.printPart.flavorText }}
             </RichText>
           </div>
@@ -273,10 +279,30 @@
                     class="mb-1 flex cursor-pointer items-center gap-2 hover:opacity-70"
                     @click="navigateToSet(group.set)"
                   >
+                    <div
+                      v-if="group.set === 'v17'"
+                      class="relative h-4 w-4 shrink-0 transform-3d [transition:transform_0.5s]"
+                      :class="partIndex === 1 ? 'transform-[rotateY(-180deg)]' : ''"
+                    >
+                      <img
+                        :src="setIconUrl('v17', groupRarity(group))"
+                        class="absolute inset-0 h-full w-full object-contain backface-hidden dark:invert"
+                        :alt="group.set"
+                        @error="fallIconBack"
+                      >
+                      <img
+                        :src="setIconUrl('v17-back', groupRarity(group))"
+                        class="absolute inset-0 h-full w-full object-contain backface-hidden transform-[rotateY(180deg)] dark:invert"
+                        :alt="group.set"
+                        @error="fallIconBack"
+                      >
+                    </div>
                     <img
+                      v-else
                       :src="getSetIconUrl(group.set, groupRarity(group))"
                       class="w-4 h-4 shrink-0 object-contain dark:invert"
                       :alt="group.set"
+                      @error="fallIconBack"
                     >
                     <UTooltip :text="getSetName(group.set)" class="min-w-0 flex-1 truncate">
                       <div class="truncate" :class="group.set === data.set ? 'text-primary' : 'text-gray-500 dark:text-gray-400'">
@@ -338,6 +364,7 @@
 
 <script setup lang="ts">
 import { locale as localeSchema, formats } from '#model/magic/schema/basic';
+import { splitCost } from '@tcg-cards/shared/magic/cost';
 
 import { groupBy, omitBy, sortBy, uniq, uniqBy } from 'lodash-es';
 
@@ -385,18 +412,24 @@ const { data } = await useAsyncData(
   { watch: [query] },
 );
 
+/** Script-font locales: the tab title bar cannot render their fonts, so use the English name */
+const SCRIPT_FONT_LANGS = ['ph', 'qya'];
+
 useTitle(() => {
   if (!data.value) return '';
-  const unifiedName = data.value.cardPartLocalization.name;
+  const localizedName = data.value.cardPartLocalization.name;
   const oracleName = data.value.cardPart.name;
-  return unifiedName === oracleName
-    ? unifiedName
-    : `${unifiedName} (${oracleName})`;
+  if (SCRIPT_FONT_LANGS.includes(data.value.locale)) {
+    return oracleName;
+  }
+  return localizedName === oracleName
+    ? localizedName
+    : `${localizedName} (${oracleName})`;
 });
 
-type TextMode = 'oracle' | 'unified' | 'printed';
+type TextMode = 'oracle' | 'localized' | 'printed';
 
-const textMode = ref<TextMode>('unified');
+const textMode = ref<TextMode>('localized');
 
 // ─── Part switching ───────────────────────────────────────────────────────────
 
@@ -452,12 +485,13 @@ const stripArena = (name: string) => name.startsWith('A-') ? name.slice(2) : nam
 const isArenaVariant = computed(() => data.value?.cardPart.name.startsWith('A-') ?? false);
 
 const displayPart = computed(() => {
-  if (!data.value) return { name: '', typeline: '', text: '' };
+  if (!data.value) return { name: '', typeline: '', text: '', ruby: null as string | null };
   if (textMode.value === 'oracle') {
     return {
       name:     stripArena(data.value.cardPart.name),
       typeline: data.value.cardPart.typeline,
       text:     data.value.cardPart.text,
+      ruby:     null,
     };
   }
   if (textMode.value === 'printed') {
@@ -465,15 +499,30 @@ const displayPart = computed(() => {
       name:     stripArena(data.value.printPart.name),
       typeline: data.value.printPart.typeline,
       text:     data.value.printPart.text,
+      ruby:     data.value.printPart.rubyName ?? null,
     };
   }
-  // unified (default)
+  // localized (default)
   return {
     name:     stripArena(data.value.cardPartLocalization.name),
     typeline: data.value.cardPartLocalization.typeline,
     text:     data.value.cardPartLocalization.text,
+    ruby:     data.value.cardPartLocalization.rubyName ?? null,
   };
 });
+
+/** Font language of the section shown by the current text mode */
+const displayLang = computed(() => {
+  if (!data.value || textMode.value === 'oracle') return undefined;
+  return textMode.value === 'printed' ? data.value.lang : data.value.locale;
+});
+
+/** Language of print-physical content (printed names, flavor text) */
+const printLang = computed(() => data.value?.lang);
+
+const titleLang = computed(() =>
+  data.value?.printPart.flavorName != null ? printLang.value : displayLang.value,
+);
 
 const stats = computed(() => {
   if (!data.value) return null;
@@ -577,12 +626,27 @@ const getSetName = (setId: string) => {
 
 const AUX_SET_TYPES = ['promo', 'token', 'memorabilia', 'funny', 'masters', 'planechase', 'box', 'archenemy'];
 
+/** Direct asset-store icon URL, without the card-page resolution rules. */
+const setIconUrl = (iconSet: string, rarity: string) => `${assetBaseUrl}/magic/set/icon/${iconSet}/${rarity}.svg`;
+
 const getSetIconUrl = (setId: string, rarity: string) => {
+  // Pristine Talisman is the one PnPH card bearing the Mirrodin Pure symbol.
+  if (setId === 'pnph' && data.value?.cardId === 'pristine-talisman') {
+    return `${assetBaseUrl}/magic/set/icon/nph/common-pure.svg`;
+  }
   const profile = setProfiles.value?.[setId];
   const iconSet = (profile && AUX_SET_TYPES.includes(profile.type) && profile.parent)
     ? profile.parent
     : setId;
-  return `${assetBaseUrl}/magic/set/icon/${iconSet}/${rarity}.svg`;
+  return setIconUrl(iconSet, rarity);
+};
+
+/** Falls a set icon missing from the asset store back to the shared default symbol. */
+const fallIconBack = (event: Event) => {
+  const img = event.target as HTMLImageElement;
+  if (img.dataset.iconFallback !== undefined) return;
+  img.dataset.iconFallback = '';
+  img.src = `${assetBaseUrl}/magic/set/icon/default.svg`;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -698,6 +762,17 @@ const imageLang = computed(() => {
   return fallback?.lang ?? 'en';
 });
 
+// ─── Image source caption ────────────────────────────────────────────────────
+
+/** Where the shown card image came from, as the asset ledger recorded it. */
+const imageSource = computed<{ id: string, key: string } | null>(() => {
+  const info = data.value?.print.imageInfo;
+  if (!info || info.length === 0) return null;
+  const source = (info[partIndex.value] ?? info[0])?.source;
+  if (!source) return null;
+  return { id: source, key: `magic.cardImageSource.sources.${source}` };
+});
+
 // ─── Special effects ─────────────────────────────────────────────────────────
 
 /** Lift rotate state to parent so it can be controlled externally during navigation */
@@ -758,7 +833,7 @@ const jsonCardLink = computed(() => {
     locale:    data.value.locale,
     partIndex: partIndex.value.toString(),
   });
-  return `/rpc/magic/card?${params.toString()}`;
+  return `/api/magic/card?${params.toString()}`;
 });
 
 const jsonPrintLink = computed(() => {
@@ -770,6 +845,6 @@ const jsonPrintLink = computed(() => {
     lang:      data.value.lang,
     partIndex: partIndex.value.toString(),
   });
-  return `/rpc/magic/print?${params.toString()}`;
+  return `/api/magic/print?${params.toString()}`;
 });
 </script>

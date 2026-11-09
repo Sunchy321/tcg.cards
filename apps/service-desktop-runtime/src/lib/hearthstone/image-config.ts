@@ -5,7 +5,7 @@ import { readHearthstoneImageOverride } from '../../runtime-config';
 /** Complete Hearthstone image settings required by local import workflows. */
 export interface HearthstoneImageSettings {
   rendererBaseUrl: string | null;
-  bucketDir: string | null;
+  bucketDir:       string | null;
 }
 
 /** Trims one optional image-setting field into a nullable non-empty string. */

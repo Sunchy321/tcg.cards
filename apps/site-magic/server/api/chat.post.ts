@@ -1,9 +1,12 @@
 import { streamText, tool, convertToModelMessages, stepCountIs } from 'ai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { z } from 'zod';
+import { and, asc, eq } from 'drizzle-orm';
 
 import { mainLocale } from '#model/magic/schema/basic';
 import { agentTrpc } from '~~/server/orpc/magic/agent';
+import { db } from '#db/db';
+import { CardPart, CardPartLocalization } from '#schema/shared/magic/card';
 
 const SYSTEM_PROMPT = `You are a Magic: The Gathering knowledge assistant. You help users with questions about cards, rules, and game mechanics.
 
@@ -67,6 +70,31 @@ export default defineEventHandler(async event => {
           const result = await agentTrpc.getCardSummary({ cardId, locale, partIndex: 0 }, { context: {} as any });
           const view = result.data;
 
+          // The fact tables no longer store an assembled card-level body text;
+          // assemble the localized rules text on demand from the per-face rows
+          // (falling back to the oracle text for any face without a localization).
+          const parts = await db.select({
+            partIndex: CardPart.partIndex,
+            localized: CardPartLocalization.text,
+            oracle:    CardPart.text,
+          }).from(CardPart)
+            .leftJoin(CardPartLocalization, and(
+              eq(CardPartLocalization.cardId, CardPart.cardId),
+              eq(CardPartLocalization.version, CardPart.version),
+              eq(CardPartLocalization.partIndex, CardPart.partIndex),
+              eq(CardPartLocalization.locale, view.locale),
+              eq(CardPartLocalization.source, view.source),
+            ))
+            .where(and(
+              eq(CardPart.cardId, cardId),
+              eq(CardPart.version, view.version),
+            ))
+            .orderBy(asc(CardPart.partIndex));
+          const text = parts
+            .map(p => p.localized ?? p.oracle)
+            .filter(Boolean)
+            .join('\n--------------------\n');
+
           const rulingsResult = await agentTrpc.getRulings({ cardId }, { context: {} as any });
 
           return {
@@ -74,7 +102,7 @@ export default defineEventHandler(async event => {
             name:          view.localization.name,
             englishName:   view.card.name,
             typeline:      view.localization.typeline,
-            text:          view.localization.text,
+            text,
             cost:          view.part.cost,
             manaValue:     view.part.manaValue,
             color:         view.part.color,

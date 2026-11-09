@@ -9,7 +9,10 @@ export const useGameLocale = () => {
     throw new Error('useGameLocale requires `gameId` in app.config.ts');
   }
 
-  const defaultLocale = appConfig.defaultLocale ?? appConfig.locales?.[0] ?? 'en';
+  // The site-level app.config augmentation is not visible in every consuming
+  // tsconfig, so read the field through an explicit shape.
+  const locales = (appConfig as { locales?: string[] }).locales;
+  const defaultLocale = locales?.[0] ?? 'en';
   const { config: globalConfig } = useGlobalConfig();
   const legacyCookie = useCookie<string>(`${appConfig.gameId}_locale`);
 

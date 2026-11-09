@@ -1,490 +1,141 @@
 import { ORPCError, os } from '@orpc/server';
-
 import z from 'zod';
-import { omit } from 'lodash-es';
-import { and, desc, eq, gte, lte, or } from 'drizzle-orm';
 import { diffArrays } from 'diff';
 
-import type { RuleDiff, RuleDiffItem, TextDiff } from '#model/magic/schema/rule';
-import { rule, ruleDiff, ruleHistory, ruleItem, ruleSummary } from '#model/magic/schema/rule';
-
+import type { RuleDiffItem, RuleItem } from '#model/magic/schema/rule';
+import { ruleDiff, ruleHistory, ruleItem, ruleSummary } from '#model/magic/schema/rule';
+import { listCrReleases, readCrRelease } from '@tcg-cards/console-api/lib/magic/documents/cr-reader';
+import { createDocumentStore } from '@tcg-cards/console-api/lib/magic/documents/database';
 import { db } from '#db/db';
-import { Rule, RuleItem } from '#schema/shared/magic/rule';
-
 import { diffString, diffThreeString } from '#server/lib/diff';
 
-// import CardNameExtrator from '@/magic/extract-name';
+/** Converts a compact imported release tag into the rule API's date format. */
+function toDate(value: string): string {
+  return /^\d{8}$/.test(value) ? `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}` : value;
+}
 
-// import { readdirSync } from 'fs';
-// import { join } from 'path';
+/** Reads a public edition and adapts its ordered nodes to the existing rule contract. */
+async function readRules(date?: string, lang = 'en') {
+  try {
+    const store = createDocumentStore(db, 'remote');
+    const { page } = await readCrRelease(store, date, lang);
+    const contents: RuleItem[] = page.sections.map((node, index) => ({
+      itemId:   node.entityId,
+      index,
+      depth:    node.level,
+      serial:   node.serial,
+      text:     node.text ?? '',
+      richText: node.text ?? '',
+    }));
+    return { date: toDate(page.version.versionTag), lang, contents, compareEnabled: page.document.settings.compare };
+  } catch (error) {
+    if (error instanceof Error && /not found|missing/.test(error.message)) throw new ORPCError('NOT_FOUND');
+    throw error;
+  }
+}
 
-// import { diffThreeString } from '@common/util/diff';
-// import { intoRichText } from '@/magic/util';
-import { getRuleDiff } from '#server/lib/magic/rule/diff';
-// import { parse as parseDetail, reparse as reparseDetail } from '@/magic/rule/parse';
-
-// import { dataPath } from '@/config';
-
-// function parseCard(extractor: CardNameExtrator, item: IRuleItem, data: IRule) {
-//   const blacklist = [];
-
-//   // Keywords are not treated as card name in its clause
-//   if (/^70[12]/.test(item.serial ?? '') && item.depth > 2) {
-//     const parent = data.contents.find(co => co.depth === 2
-//       && (item.serial ?? '').slice(0, -1) === (co.serial ?? '').slice(0, -1)
-//       && /\w$/.test(co.text));
-
-//     if (parent != null) {
-//       blacklist.push(parent.text);
-//     }
-//   }
-
-//   const cards = extractor.extract(item.text, blacklist);
-
-//   item.richText = intoRichText(item.text, cards);
-// }
+/** Keeps game symbols and rule references atomic when highlighting text changes. */
+function encodeReferences(text: string, map: Record<string, string>): string {
+  return text.replaceAll(/(\{[^}]+\}|\d+(?:\.\d+[a-z]?))/g, value => {
+    map[value] ??= String.fromCodePoint(Object.keys(map).length + 0xF0000);
+    return map[value];
+  });
+}
 
 const list = os
-  .route({
-    method:      'GET',
-    description: 'List all rule dates',
-    tags:        ['Magic', 'Rule'],
-  })
+  .route({ method: 'GET', description: 'List all rule dates', tags: ['Magic', 'Rule'] })
   .input(z.any())
   .output(z.string().array())
-  .handler(async () => {
-    return await db.select({ date: Rule.date })
-      .from(Rule)
-      .orderBy(desc(Rule.date))
-      .then(rules => rules.map(r => r.date));
-  })
+  .handler(async () => (await listCrReleases(createDocumentStore(db, 'remote')))
+    .map(release => toDate(release.versionTag)))
   .callable();
 
-// const files = os
-//   .input(z.void())
-//   .output(z.string().array())
-//   .handler(async () => {
-//     const dir = join(dataPath, 'magic', 'rule');
-
-//     const files = readdirSync(dir)
-//       .filter(t => t.endsWith('txt'))
-//       .map(t => t.slice(0, -4))
-//       .sort((a, b) => a.localeCompare(b));
-
-//     return files;
-//   });
-
 const summary = os
-  .route({
-    method:      'GET',
-    description: 'Get rule summary',
-    tags:        ['Magic', 'Rule'],
-  })
-  .input(z.object({
-    date: z.iso.date(),
-    lang: z.string().default('en'),
-  }))
+  .route({ method: 'GET', description: 'Get rule summary', tags: ['Magic', 'Rule'] })
+  .input(z.object({ date: z.iso.date(), lang: z.string().default('en') }))
   .output(ruleSummary)
   .handler(async ({ input }) => {
-    const { date, lang } = input;
-
-    const rule = await db.select()
-      .from(Rule)
-      .where(and(
-        eq(Rule.date, date),
-        or(eq(Rule.lang, 'en'), eq(Rule.lang, lang)),
-      ))
-      .then(rows => rows[0]);
-
-    if (rule == null) {
-      throw new ORPCError('NOT_FOUND');
-    }
-
-    const items = await db.select({
-      itemId: RuleItem.itemId,
-      index:  RuleItem.index,
-      depth:  RuleItem.depth,
-      serial: RuleItem.serial,
-      text:   RuleItem.text,
-    }).from(RuleItem)
-      .where(and(
-        eq(RuleItem.date, rule.date),
-        eq(RuleItem.lang, rule.lang),
-      ))
-      .orderBy(RuleItem.index);
-
-    const contents = items.map(item => {
-      return omit(item, /[a-z!]$/.test(item.text) ? [] : ['text']);
-    });
-
+    const page = await readRules(input.date, input.lang);
     return {
-      date,
-      lang,
-      contents,
+      date:     page.date, lang:     input.lang,
+      contents: page.contents.map(({ itemId, index, depth, serial, text }) => ({
+        itemId, index, depth, serial, ...(/[a-z!]$/.test(text) ? { text } : {}),
+      })),
     };
   })
   .callable();
 
 const chapter = os
-  .route({
-    method:      'GET',
-    description: 'Get rule chapter',
-    tags:        ['Magic', 'Rule'],
-  })
-  .input(z.object({
-    date: z.iso.date(),
-    lang: z.string().default('en'),
-    from: z.int().min(0),
-    to:   z.int().min(0),
-  }))
+  .route({ method: 'GET', description: 'Get rule chapter', tags: ['Magic', 'Rule'] })
+  .input(z.object({ date: z.iso.date(), lang: z.string().default('en'), from: z.int().min(0), to: z.int().min(0) }))
   .output(ruleItem.array())
-  .handler(async ({ input }) => {
-    const { date, lang, from, to } = input;
-
-    const rule = await db.select()
-      .from(Rule)
-      .where(and(
-        eq(Rule.date, date),
-        or(eq(Rule.lang, 'en'), eq(Rule.lang, lang)),
-      ))
-      .then(rows => rows[0]);
-
-    if (rule == null) {
-      throw new ORPCError('NOT_FOUND');
-    }
-
-    const items = await db.select({
-      itemId:   RuleItem.itemId,
-      index:    RuleItem.index,
-      depth:    RuleItem.depth,
-      serial:   RuleItem.serial,
-      text:     RuleItem.text,
-      richText: RuleItem.richText,
-    }).from(RuleItem)
-      .where(and(
-        eq(RuleItem.date, rule.date),
-        eq(RuleItem.lang, rule.lang),
-        gte(RuleItem.index, from),
-        lte(RuleItem.index, to),
-      ))
-      .orderBy(RuleItem.index);
-
-    return items;
-  })
+  .handler(async ({ input }) => (await readRules(input.date, input.lang)).contents
+    .filter(item => item.index >= input.from && item.index <= input.to))
   .callable();
 
 const diff = os
-  .route({
-    method:      'GET',
-    description: 'Get rule difference',
-    tags:        ['Magic', 'Rule'],
-  })
-  .input(z.object({
-    from: z.iso.date(),
-    to:   z.iso.date(),
-    lang: z.string().default('en'),
-  }))
+  .route({ method: 'GET', description: 'Get rule difference', tags: ['Magic', 'Rule'] })
+  .input(z.object({ from: z.iso.date(), to: z.iso.date(), lang: z.string().default('en') }))
   .output(ruleDiff)
   .handler(async ({ input }) => {
-    const { from, to, lang } = input;
-
-    const diff = await getRuleDiff(from, to, lang);
-
-    if (diff == null) {
-      throw new ORPCError('NOT_FOUND');
+    const [from, to] = await Promise.all([readRules(input.from, input.lang), readRules(input.to, input.lang)]);
+    if (!to.compareEnabled) throw new ORPCError('FORBIDDEN');
+    const oldItems = new Map(from.contents.map(item => [item.itemId, item]));
+    const newItems = new Map(to.contents.map(item => [item.itemId, item]));
+    const sequence = diffArrays([...oldItems.keys()], [...newItems.keys()]);
+    const added = new Set(sequence.filter(part => part.added).flatMap(part => part.value));
+    const removed = new Set(sequence.filter(part => part.removed).flatMap(part => part.value));
+    const rows: RuleDiffItem[] = [];
+    for (const part of sequence) {
+      for (const itemId of part.value) {
+        if (part.removed && added.has(itemId)) continue;
+        const before = oldItems.get(itemId);
+        const after = newItems.get(itemId);
+        const type = part.added
+          ? removed.has(itemId) ? 'move' : 'add'
+          : part.removed
+            ? 'remove'
+            : before?.depth !== after?.depth ? 'move' : undefined;
+        if (type == null && before?.text === after?.text && before?.serial === after?.serial) continue;
+        rows.push({
+          itemId, type, serial: [before?.serial ?? null, after?.serial ?? null], depth:  [before?.depth, after?.depth],
+          text:   diffString(before?.text ?? '', after?.text ?? '', encodeReferences).map(value => {
+            if (typeof value === 'string') return { type: 'common' as const, value };
+            const oldReference = from.contents.find(item => item.serial?.replace(/\.$/, '') === value[0].replace(/[.,;–]$/, ''));
+            const newReference = to.contents.find(item => item.serial?.replace(/\.$/, '') === value[1].replace(/[.,;–]$/, ''));
+            return { type: 'diff' as const, isMinor: oldReference != null && oldReference.itemId === newReference?.itemId, value };
+          }),
+        });
+      }
     }
-
-    return diff;
+    return { from: input.from, to: input.to, diff: rows };
   })
   .callable();
 
 const history = os
-  .route({
-    method:      'GET',
-    description: 'Get rule item history',
-    tags:        ['Magic', 'Rule'],
-  })
-  .input(z.object({
-    itemId: z.string(),
-    lang:   z.string().default('en'),
-  }))
+  .route({ method: 'GET', description: 'Get rule item history', tags: ['Magic', 'Rule'] })
+  .input(z.object({ itemId: z.string(), lang: z.string().default('en') }))
   .output(ruleHistory)
   .handler(async ({ input }) => {
-    const { itemId } = input;
-
-    const items = await db.select()
-      .from(RuleItem)
-      .where(eq(RuleItem.itemId, itemId))
-      .orderBy(RuleItem.date);
-
-    if (items.length === 0) {
-      throw new ORPCError('NOT_FOUND');
+    const releases = (await listCrReleases(createDocumentStore(db, 'remote'))).reverse();
+    const groups: { dates: string[], text: string }[] = [];
+    for (const release of releases) {
+      const page = await readRules(release.versionTag, input.lang);
+      const item = page.contents.find(row => row.itemId === input.itemId);
+      if (!item) continue;
+      const last = groups.at(-1);
+      if (last?.text === item.text) last.dates.push(page.date);
+      else groups.push({ dates: [page.date], text: item.text });
     }
-
-    const groups = [];
-
-    for (const item of items) {
-      if (groups.length === 0 || groups[groups.length - 1]!.text !== item.text) {
-        groups.push({ dates: [item.date], text: item.text });
-      } else {
-        groups[groups.length - 1]!.dates.push(item.date);
-      }
-    }
-
-    const result = groups.map((curr, i, arr) => {
-      const prev = arr[i - 1];
-      const next = arr[i + 1];
-
-      return {
-        dates: curr.dates,
-        text:  diffThreeString(prev?.text ?? curr.text, curr.text, next?.text ?? curr.text),
-      };
-    });
-
+    if (groups.length === 0) throw new ORPCError('NOT_FOUND');
     return {
-      itemId,
-      diff: result,
+      itemId: input.itemId,
+      diff:   groups.map((group, index) => ({ dates: group.dates,
+        text:  diffThreeString(groups[index - 1]?.text ?? group.text, group.text, groups[index + 1]?.text ?? group.text),
+      })),
     };
   })
   .callable();
 
-const full = os
-  .input(z.string())
-  .output(rule)
-  .handler(async ({ input }) => {
-    const date = input;
-
-    const ruleEntry = await db.select()
-      .from(Rule)
-      .where(eq(Rule.date, date))
-      .then(rows => rows[0]);
-
-    if (ruleEntry == null) {
-      throw new ORPCError('NOT_FOUND');
-    }
-
-    const contents = await db.select({
-      itemId: RuleItem.itemId,
-
-      index: RuleItem.index,
-      depth: RuleItem.depth,
-
-      serial:   RuleItem.serial,
-      text:     RuleItem.text,
-      richText: RuleItem.richText,
-    })
-      .from(RuleItem)
-      .where(and(
-        eq(RuleItem.date, ruleEntry.date),
-        eq(RuleItem.lang, ruleEntry.lang),
-      ))
-      .orderBy(RuleItem.index);
-
-    return {
-      date,
-      lang: 'en',
-      contents,
-    };
-  });
-
-// const parse = os
-//   .input(z.string())
-//   .output(rule)
-//   .handler(async ({ input }) => {
-//     const date = input;
-
-//     return await parseDetail(date);
-//   });
-
-// const save = os
-//   .input(rule)
-//   .output(z.void())
-//   .handler(async ({ input }) => {
-//     const { date, lang, contents } = input;
-
-//     await db.transaction(async tx => {
-//       await tx.insert(Rule).values({
-//         date,
-//         lang,
-//       }).onConflictDoNothing();
-
-//       const oldItems = await tx.select()
-//         .from(RuleItem)
-//         .where(and(
-//           eq(RuleItem.date, date),
-//           eq(RuleItem.lang, lang),
-//         ));
-
-//       const cardNames = await CardNameExtrator.names();
-
-//       const extractor = new CardNameExtrator({ cardNames });
-
-//       for (const c of contents) {
-//         const oldItem = oldItems.find(co => co.text === c.text);
-
-//         if (oldItem != null) {
-//           // continue; no-op
-//         }
-
-//         parseCard(extractor, c, input);
-//       }
-
-//       await tx.delete(RuleItem)
-//         .where(and(
-//           eq(RuleItem.date, date),
-//           eq(RuleItem.lang, lang),
-//         ));
-
-//       await tx.insert(RuleItem).values(
-//         contents.map(item => ({
-//           itemId: item.itemId,
-
-//           date,
-//           lang,
-
-//           index: item.index,
-//           depth: item.depth,
-
-//           serial:   item.serial,
-//           text:     item.text,
-//           richText: item.richText,
-//         })),
-//       );
-//     });
-//   })
-//   .callable();
-
-// const reparse = os
-//   .input(z.string())
-//   .output(rule)
-//   .handler(async ({ input }) => {
-//     const date = input;
-
-//     const data = await reparseDetail(date);
-
-//     const oldItems = await db.select()
-//       .from(RuleItem)
-//       .where(and(
-//         eq(RuleItem.date, date),
-//         eq(RuleItem.lang, 'en'),
-//       ));
-
-//     const cardNames = await CardNameExtrator.names();
-
-//     const extractor = new CardNameExtrator({ cardNames });
-
-//     for (const c of data.contents) {
-//       const oldItem = oldItems.find(co => co.itemId == c.itemId);
-
-//       if (oldItem == null || oldItem.text != c.text) {
-//         parseCard(extractor, c, data);
-//       }
-//     }
-
-//     return data;
-//   })
-//   .callable();
-
-// const allReparse = os
-//   .input(z.void())
-//   .output(z.void())
-//   .handler(async () => {
-//     const rules = await db.select()
-//       .from(Rule)
-//       .where(eq(Rule.lang, 'en'))
-//       .orderBy(Rule.date);
-
-//     for (const r of rules) {
-//       try {
-//         const result = await reparse(r.date);
-
-//         await save(result);
-
-//         console.log(r.date);
-//       } catch (e) {
-//         console.error(e);
-//       }
-//     }
-//   });
-
-// const extractCard = os
-//   .input(z.object({
-//     date:   z.string(),
-//     itemId: z.string(),
-//   }))
-//   .output(z.string())
-//   .handler(async ({ input }) => {
-//     const { date, itemId } = input;
-
-//     const items = await db.select()
-//       .from(RuleItem)
-//       .where(and(
-//         eq(RuleItem.date, date),
-//         eq(RuleItem.lang, 'en'),
-//       ));
-
-//     const item = items.find(i => i.itemId === itemId);
-
-//     if (item == null) {
-//       return '';
-//     }
-
-//     const cardNames = await CardNameExtrator.names();
-
-//     const extractor = new CardNameExtrator({ cardNames });
-
-//     parseCard(extractor, item, {
-//       date, lang: 'en', contents: items,
-//     });
-
-//     await db.update(RuleItem)
-//       .set({ richText: item.richText })
-//       .where(and(
-//         eq(RuleItem.date, date),
-//         eq(RuleItem.lang, 'en'),
-//         eq(RuleItem.itemId, itemId),
-//       ));
-
-//     console.log(`Extracted card name for ${date} - ${itemId}`);
-//     console.log(`Rich text: ${item.richText}`);
-
-//     return item.richText;
-//   });
-
-// const renameAll = os
-//   .input(z.object({
-//     old: z.string(),
-//     new: z.string(),
-//   }))
-//   .output(z.void())
-//   .handler(async ({ input }) => {
-//     const { old: oldValue, new: newValue } = input;
-
-//     if (oldValue == null || oldValue === '') {
-//       return;
-//     }
-
-//     if (newValue == null || newValue === '') {
-//       return;
-//     }
-
-//     await db.update(RuleItem)
-//       .set({ itemId: newValue })
-//       .where(eq(RuleItem.itemId, oldValue));
-//   });
-
-export const ruleTrpc = {
-  list,
-  summary,
-  chapter,
-  diff,
-  history,
-};
-
-export const ruleApi = {
-  list,
-  summary,
-  chapter,
-  diff,
-  history,
-};
+export const ruleTrpc = { list, summary, chapter, diff, history };
+export const ruleApi = { list, summary, chapter, diff, history };

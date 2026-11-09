@@ -98,26 +98,26 @@ import type { HearthstoneConfig } from '@tcg-cards/model/user-config';
 import { transformUpdate, type UpdateEntity, type UpdateSourceItem } from '~/utils/update-entity';
 
 interface TimelineItem {
-  id:                 string;
-  announcementId:     string;
-  type:               string;
-  format:             string | null;
-  group:              string | null;
-  status:             string | null;
-  version:            number | null;
-  cardId:             string | null;
-  setId:              string | null;
-  ruleId:             string | null;
-  relatedCards:       string[];
-  relatedCardNames:   string[];
-  relatedCardHashes:  (string | null)[];
-  images:             Array<{ side: string, hash: string, category: string, template: string }>;
-  cardName:           string | null;
-  setName:            string | null;
-  name:               string | null;
-  date:               string | null;
-  source:             string | null;
-  link:               { url: string, label?: string }[] | null;
+  id:                string;
+  announcementId:    string;
+  type:              string;
+  format:            string | null;
+  group:             string | null;
+  status:            string | null;
+  version:           number | null;
+  cardId:            string | null;
+  setId:             string | null;
+  ruleId:            string | null;
+  relatedCards:      string[];
+  relatedCardNames:  string[];
+  relatedCardHashes: (string | null)[];
+  images:            Array<{ side: string, hash: string, category: string, template: string }>;
+  cardName:          string | null;
+  setName:           string | null;
+  name:              string | null;
+  date:              string | null;
+  source:            string | null;
+  link:              { url: string, label?: string }[] | null;
 }
 
 interface TimelineCell {

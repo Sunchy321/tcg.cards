@@ -1,4 +1,4 @@
-
+import { createHash } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 
 import { createDb } from '@tcg-cards/db';
@@ -9,26 +9,26 @@ type RuntimeDb = ReturnType<typeof createDb>;
 /** Identity row loaded from one PostgreSQL session. */
 interface DesktopDatabaseIdentity {
   databaseName: string;
-  userName: string;
-  serverHost: string | null;
-  serverPort: number | null;
+  userName:     string;
+  serverHost:   string | null;
+  serverPort:   number | null;
 }
 
 /** Frontend local database test result resolved through the Bun runtime. */
 export interface DesktopDatabaseConnectionTestResult {
   databaseName: string;
-  userName: string;
+  userName:     string;
 }
 
 /** Publish target resolution result returned from one live PostgreSQL session. */
 export interface ResolvedHearthstonePublishTarget {
-  publishTarget: string;
-  environment: string;
+  game:              string;
+  target:            string;
   targetFingerprint: string;
-  databaseName: string;
-  userName: string;
-  serverHost: string;
-  serverPort: number;
+  databaseName:      string;
+  userName:          string;
+  serverHost:        string;
+  serverPort:        number;
 }
 
 /** Normalized network endpoint extracted for one PostgreSQL target. */
@@ -40,22 +40,14 @@ interface PostgresTargetEndpoint {
 /** Raw identity query row loaded through Drizzle. */
 type DatabaseIdentityRow = Record<string, unknown> & {
   databaseName: string;
-  userName: string;
-  serverHost: string | null;
-  serverPort: number | null;
+  userName:     string;
+  serverHost:   string | null;
+  serverPort:   number | null;
 };
-
-function toHex(hash: Uint8Array): string {
-  let hex = '';
-  for (let i = 0; i < hash.length; i++) {
-    hex += hash[i]!.toString(16).padStart(2, '0');
-  }
-  return hex;
-}
 
 /** Lowercase hexadecimal SHA-256 digest computed from one text input. */
 function sha256Hex(input: string) {
-  return toHex(Bun.SHA256.hash(input) as Uint8Array);
+  return createHash('sha256').update(input).digest('hex');
 }
 
 /** Leading and trailing single or double quotes removed from one parsed connection value. */
@@ -180,9 +172,9 @@ async function readDesktopDatabaseIdentity(connectionString: string): Promise<De
 
     return {
       databaseName: row.databaseName,
-      userName: row.userName,
-      serverHost: row.serverHost,
-      serverPort: row.serverPort,
+      userName:     row.userName,
+      serverHost:   row.serverHost,
+      serverPort:   row.serverPort,
     };
   });
 }
@@ -193,35 +185,39 @@ export async function testDesktopDatabaseConnection(connectionString: string): P
 
   return {
     databaseName: identity.databaseName,
-    userName: identity.userName,
+    userName:     identity.userName,
   };
 }
 
 /** Publish target identity and fingerprint resolved from one explicit connection string. */
 export async function resolveHearthstonePublishTarget(input: {
-  publishTarget: string;
-  environment: string;
+  game:             string;
+  target:           string;
   connectionString: string;
 }): Promise<ResolvedHearthstonePublishTarget> {
   const identity = await readDesktopDatabaseIdentity(input.connectionString);
   const endpoint = resolveTargetEndpoint(identity, input.connectionString);
 
   return {
-    publishTarget: input.publishTarget,
-    environment: input.environment,
+    game:              input.game,
+    target:            input.target,
     targetFingerprint: computeTargetFingerprint(endpoint, identity),
-    databaseName: identity.databaseName,
-    userName: identity.userName,
-    serverHost: endpoint.host,
-    serverPort: endpoint.port,
+    databaseName:      identity.databaseName,
+    userName:          identity.userName,
+    serverHost:        endpoint.host,
+    serverPort:        endpoint.port,
   };
 }
 
 /** Yu-Gi-Oh! publish target identity resolved from one explicit connection string. */
 export async function resolveYugiohPublishTarget(input: {
-  publishTargetId: string;
-  environment: string;
+  game:             string;
+  target:           string;
   connectionString: string;
 }): Promise<ResolvedHearthstonePublishTarget> {
-  return await resolveHearthstonePublishTarget(input);
+  return await resolveHearthstonePublishTarget({
+    game:             input.game,
+    target:           input.target,
+    connectionString: input.connectionString,
+  });
 }

@@ -1,0 +1,169 @@
+import { listTags, getTag, saveTagEdit } from '@tcg-cards/console-api/lib/hearthstone/tag-commit';
+import { importGameTagMembers, previewGameTagImport } from '../../lib/hearthstone/game-tag-import';
+import { readGameTagSource } from '../../lib/hearthstone/game-tag-source';
+import {
+  tagGetInput,
+  tagListInput,
+  tagListResult,
+  tagProfile,
+  tagUpdateInput,
+} from '@tcg-cards/model/hearthstone/schema/tag';
+
+import { getLocalDb } from '../../lib/hearthstone/hsdata-local-db';
+import { getIncompletePushBatch, listPushBatches } from '../../lib/hearthstone/tag-push-progress';
+import { os } from '../index';
+import { z } from 'zod';
+
+const gameTagMember = z.strictObject({
+  enumId:           z.int().min(-2147483648).max(2147483647),
+  rawName:          z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/),
+  declarationIndex: z.int().nonnegative(),
+});
+
+const gameTagImportPreviewResult = z.strictObject({
+  members:             z.array(gameTagMember),
+  sourceMemberCount:   z.int().nonnegative(),
+  uniqueIdCount:       z.int().nonnegative(),
+  addedCount:          z.int().nonnegative(),
+  mainNameChangeCount: z.int().nonnegative(),
+  aliasUpdateCount:    z.int().nonnegative(),
+  unchangedCount:      z.int().nonnegative(),
+  retainedDbCount:     z.int().nonnegative(),
+  nameChanges:         z.array(z.strictObject({
+    enumId:       z.int(),
+    currentName:  z.string().nullable(),
+    incomingName: z.string(),
+  })),
+  aliasUpdates: z.array(z.strictObject({
+    enumId:       z.int(),
+    names:        z.array(z.string()),
+    deduplicated: z.boolean(),
+  })),
+  duplicateGroups: z.array(z.strictObject({
+    enumId: z.int(),
+    names:  z.array(z.string()),
+  })),
+});
+
+const gameTagImportResult = z.strictObject({
+  addedCount:          z.int().nonnegative(),
+  updatedCount:        z.int().nonnegative(),
+  unchangedCount:      z.int().nonnegative(),
+  mainNameChangeCount: z.int().nonnegative(),
+  aliasUpdateCount:    z.int().nonnegative(),
+});
+
+const previewGameTagImportRoute = os
+  .output(gameTagImportPreviewResult)
+  .handler(async () => {
+    const members = await readGameTagSource();
+    return await previewGameTagImport(getLocalDb(), members);
+  });
+
+const applyGameTagImportRoute = os
+  .input(z.strictObject({ members: z.array(gameTagMember).min(1).max(10000) }))
+  .output(gameTagImportResult)
+  .handler(async ({ input }) => await getLocalDb().transaction(async tx => await importGameTagMembers(tx, input.members, {
+    syncStatus:     'pending_push',
+    editorRuntime:  'desktop',
+    editorIdentity: 'unknown',
+    editorSource:   'game_tag',
+    conflictTarget: { processingSide: 'local', processingStage: 'apply' },
+  })));
+
+const list = os
+  .route({
+    method:      'GET',
+    description: 'List local Hearthstone tag configurations',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Tag'],
+  })
+  .input(tagListInput)
+  .output(tagListResult)
+  .handler(async ({ input }) => await listTags(getLocalDb(), input));
+
+const get = os
+  .route({
+    method:      'GET',
+    description: 'Get one local Hearthstone tag configuration',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Tag'],
+  })
+  .input(tagGetInput)
+  .output(tagProfile)
+  .handler(async ({ input }) => await getTag(getLocalDb(), input.enumId));
+
+const manualUpdate = os
+  .route({
+    method:      'PUT',
+    description: 'Save one local Hearthstone tag edit',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Tag'],
+  })
+  .input(tagUpdateInput)
+  .output(tagProfile)
+  .handler(async ({ input }) => await getLocalDb().transaction(async tx => await saveTagEdit(tx, input, {
+    syncStatus:     'pending_push',
+    editorRuntime:  'desktop',
+    editorIdentity: 'unknown',
+    editorSource:   'manual',
+    conflictTarget: { processingSide: 'local', processingStage: 'apply' },
+  })));
+
+const pushBatchProfile = z.strictObject({
+  id:              z.string(),
+  stream:          z.string(),
+  consumer:        z.string(),
+  status:          z.string(),
+  pushedCount:     z.number(),
+  duplicateCount:  z.number(),
+  blockedReason:   z.string().nullable(),
+  blockedMessage:  z.string().nullable(),
+  blockedSequence: z.number().nullable(),
+  startedAt:       z.string(),
+  completedAt:     z.string().nullable(),
+  createdAt:       z.string(),
+});
+
+/** Reads the latest saved push batch that did not reach a terminal state. */
+const incompletePushBatch = os
+  .route({
+    method:      'GET',
+    description: 'Read the latest incomplete local tag push batch',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Tag'],
+  })
+  .output(z.object({ id: z.string(), stream: z.string(), startedAt: z.string() }).nullable())
+  .handler(async () => await getIncompletePushBatch());
+
+/** Lists recent local push batches without opening a remote connection. */
+const pushHistory = os
+  .route({
+    method:      'GET',
+    description: 'List recent local tag push batches',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Tag'],
+  })
+  .output(z.array(pushBatchProfile))
+  .handler(async () => {
+    const rows = await listPushBatches(20);
+    return rows.map(row => ({
+      id:              row.id,
+      stream:          row.stream,
+      consumer:        row.consumer,
+      status:          row.status,
+      pushedCount:     row.pushedCount,
+      duplicateCount:  row.duplicateCount,
+      blockedReason:   row.blockedReason ?? null,
+      blockedMessage:  row.blockedMessage ?? null,
+      blockedSequence: row.blockedSequence ?? null,
+      startedAt:       row.startedAt instanceof Date ? row.startedAt.toISOString() : String(row.startedAt),
+      completedAt:     row.completedAt == null ? null : row.completedAt instanceof Date ? row.completedAt.toISOString() : String(row.completedAt),
+      createdAt:       row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
+    }));
+  });
+
+export const tagRouter = {
+  list,
+  get,
+  manualUpdate,
+  previewGameTagImport:   previewGameTagImportRoute,
+  applyGameTagImport:     applyGameTagImportRoute,
+  getIncompletePushBatch: incompletePushBatch,
+  listPushBatches:        pushHistory,
+};

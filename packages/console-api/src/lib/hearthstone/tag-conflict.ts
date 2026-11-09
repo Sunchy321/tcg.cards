@@ -16,13 +16,13 @@ import {
   applyTagCommit,
   buildTagRowRevision,
   buildWinnerRevision,
+  getTagCommitField,
   toTagEntityKey,
   type ApplyTagCommitOptions,
   type DbTx,
   type FieldCommitInsert,
   type FieldWinnerRow,
   type TagRow,
-  type TagWrite,
 } from './tag-commit';
 
 /** Database handles accepted by tag conflict helpers. */
@@ -36,18 +36,17 @@ type FieldConflictRow = typeof FieldConflict.$inferSelect;
 
 /** Conflict resolution metadata forwarded into follow-up commits. */
 export type ResolveTagConflictOptions = {
-  editorRuntime: string;
-  editorIdentity: string;
-  editorSource: string;
-  syncStatus: string;
+  editorRuntime:   string;
+  editorIdentity:  string;
+  editorSource:    string;
+  syncStatus:      string;
   conflictTarget?: ApplyTagCommitOptions['conflictTarget'];
 };
 
-const autoBaseFields = new Set<keyof TagWrite>([
+const autoBaseFields = new Set<string>([
   'rawName',
   'rawType',
   'rawNames',
-  'valueKind',
 ]);
 
 /** Reads the tag enum id from one structured entity key payload. */
@@ -66,35 +65,6 @@ function enumIdFromEntityKey(entityKey: unknown) {
   }
 
   return enumId;
-}
-
-/** Resolves one editable tag field from its persisted field path. */
-function fieldFromPath(fieldPath: string): keyof TagWrite {
-  const field = fieldPath.replace(/^tag\./, '') as keyof TagWrite;
-
-  if (!([
-    'slug',
-    'slugAliases',
-    'name',
-    'rawName',
-    'rawType',
-    'rawNames',
-    'valueKind',
-    'normalizeKind',
-    'normalizeConfig',
-    'projectTargetType',
-    'projectTargetPath',
-    'projectKind',
-    'projectConfig',
-    'status',
-    'description',
-  ] as Array<keyof TagWrite>).includes(field)) {
-    throw new ORPCError('BAD_REQUEST', {
-      message: `Unsupported tag conflict fieldPath: ${fieldPath}`,
-    });
-  }
-
-  return field;
 }
 
 /** Builds one client mutation id for follow-up conflict-resolution commits. */
@@ -191,7 +161,7 @@ async function loadConflictContext(
     enumId,
     row,
     winner,
-    field: fieldFromPath(conflict.fieldPath),
+    field: getTagCommitField(conflict.fieldPath),
   };
 }
 
@@ -242,63 +212,63 @@ export async function resolveTagConflict(
     const resolvedAt = new Date();
 
     switch (input.resolution) {
-      case 'accept_incoming': {
-        if (conflict.incomingValue === undefined) {
-          throw new ORPCError('BAD_REQUEST', {
-            message: 'accept_incoming requires an incoming conflict value',
-          });
-        }
-
-        await applyTagCommit(tx, buildResolutionCommit(
-          conflict,
-          context.row,
-          context.winner,
-          conflict.incomingValue,
-          'conflict_resolution',
-          input.resolution,
-          options,
-        ), {
-          conflictTarget: options.conflictTarget,
-        });
-        break;
-      }
-      case 'winner_clear': {
-        if (!autoBaseFields.has(context.field)) {
-          throw new ORPCError('BAD_REQUEST', {
-            message: 'winner_clear only supports auto-base tag fields',
-          });
-        }
-
-        await applyTagCommit(tx, buildResolutionCommit(
-          conflict,
-          context.row,
-          context.winner,
-          conflict.candidateBaseValue ?? null,
-          'winner_clear',
-          input.resolution,
-          options,
-        ), {
-          conflictTarget: options.conflictTarget,
-        });
-        break;
-      }
-      case 'keep_current_winner': {
-        if (conflict.conflictKind === 'base_drift' && context.winner) {
-          await tx.update(FieldWinner)
-            .set({
-              baseRevision: conflict.baseRevision,
-              updatedAt:    resolvedAt,
-            })
-            .where(eq(FieldWinner.id, context.winner.id));
-        }
-        break;
-      }
-      case 'require_followup_commit':
-        break;
-      default:
+    case 'accept_incoming': {
+      if (conflict.incomingValue === undefined) {
         throw new ORPCError('BAD_REQUEST', {
-          message: `Unsupported conflict resolution: ${String(input.resolution)}`,
+          message: 'accept_incoming requires an incoming conflict value',
         });
+      }
+
+      await applyTagCommit(tx, buildResolutionCommit(
+        conflict,
+        context.row,
+        context.winner,
+        conflict.incomingValue,
+        'conflict_resolution',
+        input.resolution,
+        options,
+      ), {
+        conflictTarget: options.conflictTarget,
+      });
+      break;
+    }
+    case 'winner_clear': {
+      if (!autoBaseFields.has(context.field)) {
+        throw new ORPCError('BAD_REQUEST', {
+          message: 'winner_clear only supports auto-base tag fields',
+        });
+      }
+
+      await applyTagCommit(tx, buildResolutionCommit(
+        conflict,
+        context.row,
+        context.winner,
+        conflict.candidateBaseValue ?? null,
+        'winner_clear',
+        input.resolution,
+        options,
+      ), {
+        conflictTarget: options.conflictTarget,
+      });
+      break;
+    }
+    case 'keep_current_winner': {
+      if (conflict.conflictKind === 'base_drift' && context.winner) {
+        await tx.update(FieldWinner)
+          .set({
+            baseRevision: conflict.baseRevision,
+            updatedAt:    resolvedAt,
+          })
+          .where(eq(FieldWinner.id, context.winner.id));
+      }
+      break;
+    }
+    case 'require_followup_commit':
+      break;
+    default:
+      throw new ORPCError('BAD_REQUEST', {
+        message: `Unsupported conflict resolution: ${String(input.resolution)}`,
+      });
     }
 
     const updated = await tx.update(FieldConflict)

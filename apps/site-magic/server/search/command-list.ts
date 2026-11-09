@@ -4,14 +4,33 @@ import * as builtin from '#search/server/command/builtin';
 import * as magic from './command';
 
 import { QueryError } from '#search/command/error';
+import { parseAmbitValue } from '#search/server/ambit';
+import { matchValueGroups, splitValueGroups } from '#search/server/command/terms';
 
-import type { SQL } from 'drizzle-orm';
-import { and, arrayContains, asc, desc, eq, gt, gte, inArray, lt, lte, ne, not, notInArray, or, sql } from 'drizzle-orm';
+import type { Column, SQL } from 'drizzle-orm';
+import { and, arrayContains, asc, desc, eq, gt, gte, ilike, inArray, lt, lte, ne, not, notInArray, or, sql } from 'drizzle-orm';
 
 import { model } from '#model/magic/search';
-import { CardEditorView, CardPrintView } from '#schema/shared/magic/print';
+import type { Locale } from '#model/magic/schema/basic';
+import { CardEditorView, CardPrintView, Print } from '#schema/shared/magic/print';
 
-import { toIdentifier } from '@tcg-cards/shared/magic/string';
+import { slugifyName } from '@tcg-cards/shared/magic/slug';
+
+type SearchAccelerationContext = {
+  typeSymbols: ReadonlySet<string>;
+  tagOwners:   Record<string, 'card-only' | 'print-only' | 'overlap'>;
+};
+
+/** Maps the public single-letter rarity values to their stored print names. */
+function resolveRarity(value: string): string {
+  return ({
+    c: 'common',
+    u: 'uncommon',
+    r: 'rare',
+    m: 'mythic',
+    s: 'special',
+  } as Record<string, string>)[value] ?? value;
+}
 
 // import internalData from '@/internal-data';
 
@@ -22,40 +41,77 @@ const cs = create
   .table([CardPrintView, CardEditorView])
   .use({ ...builtin, ...magic });
 
+/** Matches one raw-search term against each full-pinyin or initials value. */
+function pinyinTextMatch(column: Column, value: string, argType: string | undefined) {
+  const matchTerm = (term: string) => {
+    const escaped = term.replace(/%/g, '\\%').replace(/_/g, '\\_');
+    const pattern = `%${escaped}%`;
+
+    return sql`EXISTS (
+      SELECT 1
+      FROM unnest(${column}) AS pinyin(value)
+      WHERE ${ilike(sql`pinyin.value`, pattern)}
+    )`;
+  };
+
+  return argType === 'id'
+    ? matchValueGroups(splitValueGroups(value), matchTerm)
+    : matchTerm(value);
+}
+
+/** Adds card-level pinyin predicates when the active table exposes them. */
+function pinyinColumnMatches(table: unknown, value: string, argType: string | undefined): SQL[] {
+  const pinyinCard = (table as {
+    card?: {
+      namePinyin?:   Column;
+      nameInitials?: Column;
+    };
+  }).card;
+
+  return [pinyinCard?.namePinyin, pinyinCard?.nameInitials]
+    .filter((column): column is Column => column != null)
+    .map(column => pinyinTextMatch(column, value, argType));
+}
+
 export const raw = cs
   .commands.raw
-  .handler(({ value }, { table }) => {
+  .handler(({ value, argType }, { table }) => {
     // search mana
     if (typeof value === 'string' && /^(\{[^}]+\})+$/.test(value)) {
       return or(
         builtin.text.call({
           column: table => table.cardPart.text,
-          args:   { value, operator: ':', qualifier: [] },
+          args:   { value, operator: ':', qualifier: [], argType },
           ctx:    { meta: { multiline: false }, table },
         }),
         builtin.text.call({
           column: table => table.cardPartLocalization.text,
-          args:   { value, operator: ':', qualifier: [] },
+          args:   { value, operator: ':', qualifier: [], argType },
           ctx:    { meta: { multiline: false }, table },
         }),
         magic.cost.call({
           column: table => table.cardPart.cost,
-          args:   { value, operator: ':', qualifier: [] },
-          ctx:    { meta: { getManaValueCol: (otherTable: any) => (otherTable as typeof table).cardPart.manaValue }, table },
+          args:   { value, operator: ':', qualifier: [], argType },
+          ctx:    { meta: {}, table },
         }),
       )!;
     } else {
+      const pinyinMatches = typeof value === 'string'
+        ? pinyinColumnMatches(table, value, argType)
+        : [];
+
       return or(
         builtin.text.call({
           column: table => table.cardPart.name,
-          args:   { value, operator: ':', qualifier: [] },
+          args:   { value, operator: ':', qualifier: [], argType },
           ctx:    { meta: { multiline: false }, table },
         }),
         builtin.text.call({
           column: table => table.cardPartLocalization.name,
-          args:   { value, operator: ':', qualifier: [] },
+          args:   { value, operator: ':', qualifier: [], argType },
           ctx:    { meta: { multiline: false }, table },
         }),
+        ...pinyinMatches,
       )!;
     }
   });
@@ -102,6 +158,17 @@ export const hash = cs
   .commands.hash
   .handler(({ value, pattern, qualifier }, { table }) => {
     const tag = pattern?.tag ?? value;
+
+    const acceleration = (table as any).searchAcceleration as SearchAccelerationContext | undefined;
+    if (acceleration != null) {
+      if (acceleration.tagOwners[tag] !== 'card-only') {
+        throw new QueryError({ type: 'unsupported-search-acceleration' });
+      }
+
+      return !qualifier.includes('!')
+        ? arrayContains(table.card.tags, [tag])
+        : not(arrayContains(table.card.tags, [tag]));
+    }
 
     // if (tag === 'dev:paren') {
     //   const withParen = internalData<string[]>('magic.special.with-paren');
@@ -156,23 +223,47 @@ export const set = cs
   .commands.set
   .apply(table => table.set, {});
 
+export const print = cs
+  .commands.print
+  .handler(({ value, qualifier }, { table }) => {
+    const parts = String(value).split('#');
+    const wellFormed = (parts.length === 2 || parts.length === 3)
+      && /^[a-z0-9]+$/.test(parts[0]!.toLowerCase())
+      && parts[1] !== ''
+      && (parts.length === 2 || /^[a-z]+$/.test(parts[2]!.toLowerCase()));
+
+    // Anything that does not read as a print reference stays a plain text search.
+    // raw accepts no qualifiers, so negation is applied around the call.
+    if (!wellFormed) {
+      const query = raw.call({ value: String(value), operator: '', qualifier: [] }, { meta: {}, table });
+      return qualifier.includes('!') ? not(query!) : query!;
+    }
+
+    const [set, number, lang] = parts as [string, string, string?];
+    return and(
+      eq(table.set, set.toLowerCase()),
+      eq(table.number, number),
+      lang != null ? eq(table.lang, lang.toLowerCase() as Locale) : undefined,
+    )!;
+  });
+
 export const number = cs
   .commands.number
   .apply(table => table.number, {});
 
 export const lang = cs
   .commands.lang
-  .handler(({ value, operator, qualifier }, { table }) => {
+  .handler(({ value, operator, qualifier, argType }, { table }) => {
     if (!qualifier.includes('!')) {
       return or(
         builtin.simple.call({
           column: table => table.locale,
-          args:   { value, operator, qualifier },
+          args:   { value, operator, qualifier, argType },
           ctx:    { meta: {}, table },
         }),
         builtin.simple.call({
           column: table => table.lang,
-          args:   { value, operator, qualifier },
+          args:   { value, operator, qualifier, argType },
           ctx:    { meta: {}, table },
         }),
       )!;
@@ -180,12 +271,12 @@ export const lang = cs
       return and(
         builtin.simple.call({
           column: table => table.locale,
-          args:   { value, operator, qualifier },
+          args:   { value, operator, qualifier, argType },
           ctx:    { meta: {}, table },
         }),
         builtin.simple.call({
           column: table => table.lang,
-          args:   { value, operator, qualifier },
+          args:   { value, operator, qualifier, argType },
           ctx:    { meta: {}, table },
         }),
       )!;
@@ -194,9 +285,7 @@ export const lang = cs
 
 export const manaCost = cs
   .commands.manaCost
-  .apply(table => table.cardPart.cost, {
-    getManaValueCol: (table: any) => table.cardPart.manaValue,
-  });
+  .apply(table => table.cardPart.cost, {});
 
 export const manaValue = cs
   .commands.manaValue
@@ -226,7 +315,7 @@ export const loyalty = cs
   .commands.loyalty
   .handler(({ pattern, value, operator, qualifier }, { table }) => {
     return magic.numeric.call({
-      column: table => table.cardPart.name,
+      column: table => table.cardPart.loyalty,
       args:   {
         value:    pattern?.loyalty ?? value,
         operator: operator === '' ? '=' : operator,
@@ -250,38 +339,46 @@ export const defense = cs
     });
   });
 
+export const handModifier = cs
+  .commands.handModifier
+  .apply(table => table.cardPart.handModifier, {});
+
+export const lifeModifier = cs
+  .commands.lifeModifier
+  .apply(table => table.cardPart.lifeModifier, {});
+
 export const name = cs
   .commands.name
-  .handler(({ value, modifier, operator, qualifier }, { table }) => {
+  .handler(({ value, modifier, operator, qualifier, argType }, { table }) => {
     switch (modifier) {
     case 'oracle':
       return builtin.text.call({
         column: table => table.cardPart.name,
-        args:   { value, operator, qualifier },
+        args:   { value, operator, qualifier, argType },
         ctx:    { meta: { multiline: false }, table },
       });
-    case 'unified':
+    case 'localized':
       return builtin.text.call({
         column: table => table.cardPartLocalization.name,
-        args:   { value, operator, qualifier },
+        args:   { value, operator, qualifier, argType },
         ctx:    { meta: { multiline: false }, table },
       });
     case 'printed':
       return builtin.text.call({
         column: table => table.printPart.name,
-        args:   { value, operator, qualifier },
+        args:   { value, operator, qualifier, argType },
         ctx:    { meta: { multiline: false }, table },
       });
     default:
       return (!qualifier.includes('!') ? or : and)(
         builtin.text.call({
           column: table => table.cardPart.name,
-          args:   { value, operator, qualifier },
+          args:   { value, operator, qualifier, argType },
           ctx:    { meta: { multiline: false }, table },
         }),
         builtin.text.call({
           column: table => table.cardPartLocalization.name,
-          args:   { value, operator, qualifier },
+          args:   { value, operator, qualifier, argType },
           ctx:    { meta: { multiline: false }, table },
         }),
       )!;
@@ -290,74 +387,123 @@ export const name = cs
 
 export const type = cs
   .commands.type
-  .handler(({ value, modifier, operator, qualifier }, { table }) => {
-    switch (modifier) {
-    case 'oracle':
-      return builtin.text.call({
-        column: table => table.cardPart.typeline,
-        args:   { value, operator, qualifier },
-        ctx:    { meta: { multiline: false }, table },
-      });
-    case 'unified':
-      return builtin.text.call({
-        column: table => table.cardPartLocalization.typeline,
-        args:   { value, operator, qualifier },
-        ctx:    { meta: { multiline: false }, table },
-      });
-    case 'printed':
-      return builtin.text.call({
-        column: table => table.printPart.typeline,
-        args:   { value, operator, qualifier },
-        ctx:    { meta: { multiline: false }, table },
-      });
-    default:
-      return (!qualifier.includes('!') ? or : and)(
+  .handler(({ value, modifier, operator, qualifier, argType }, { table }) => {
+    const acceleration = (table as any).searchAcceleration as SearchAccelerationContext | undefined;
+    const columns: Column[] = (() => {
+      switch (modifier) {
+      case 'oracle': return [table.cardPart.typeline];
+      case 'localized': return [table.cardPartLocalization.typeline];
+      case 'printed': return [table.printPart.typeline];
+      default: return [table.cardPart.typeline, table.cardPartLocalization.typeline];
+      }
+    })();
+
+    // Negation wraps the combined group (De Morgan), so terms always match positively.
+    const negated = qualifier.includes('!');
+    const termQualifier = qualifier.filter(q => q !== '!');
+
+    /** One search term against every searched column: the term hits when any column hits. */
+    const matchTerm = (term: string | RegExp) => {
+      if (
+        acceleration != null
+        && (modifier == null || modifier === 'oracle')
+        && typeof value === 'string'
+        && argType === 'id'
+        && typeof term === 'string'
+        && acceleration.typeSymbols.has(term.toLowerCase())
+      ) {
+        const hasType = (column: Column) => sql`COALESCE(
+          ${column} @> ARRAY[${term.toLowerCase()}]::text[],
+          FALSE
+        )`;
+
+        return or(
+          hasType(table.cardPart.typeSuper),
+          hasType(table.cardPart.typeMain),
+          hasType(table.cardPart.typeSub),
+        )!;
+      }
+
+      const parts = columns.map(column =>
         builtin.text.call({
-          column: table => table.cardPart.typeline,
-          args:   { value, operator, qualifier },
+          column: () => column,
+          args:   { value: term, operator, qualifier: termQualifier, argType },
           ctx:    { meta: { multiline: false }, table },
         }),
-        builtin.text.call({
-          column: table => table.cardPartLocalization.typeline,
-          args:   { value, operator, qualifier },
-          ctx:    { meta: { multiline: false }, table },
-        }),
-      )!;
+      );
+
+      return parts.length === 1 ? parts[0]! : or(...parts)!;
+    };
+
+    const finish = (query: SQL) => negated ? not(query) : query;
+
+    // Quoted strings and regular expressions keep the literal single-value behavior.
+    if (typeof value !== 'string' || argType !== 'id') {
+      return finish(matchTerm(value));
     }
+
+    const hasPipe = value.includes('|');
+    const hasComma = value.includes(',');
+    const hasAmpersand = value.includes('&');
+
+    if (!hasPipe && !hasComma && !hasAmpersand) {
+      return finish(matchTerm(value));
+    }
+
+    if (hasPipe && (hasComma || hasAmpersand)) {
+      throw new QueryError({ type: 'mixed-separator', payload: { value } });
+    }
+
+    const terms = hasPipe ? value.split('|') : value.split(/[,&]/);
+
+    if (terms.some(term => term === '')) {
+      throw new QueryError({ type: 'empty-term', payload: { value } });
+    }
+
+    // Exact match accepts alternatives only: one type line cannot equal two different values.
+    // A comma reads as & in a positive match, but as | under negation, so a negated
+    // comma list excludes cards matching any of the items.
+    const union = hasPipe || (negated && hasComma);
+
+    if (operator === '=' || union) {
+      return finish(or(...terms.map(matchTerm))!);
+    }
+
+    return finish(terms.length === 1 ? matchTerm(terms[0]!) : and(...terms.map(matchTerm))!);
   });
 
 export const text = cs
   .commands.text
-  .handler(({ value, modifier, operator, qualifier }, { table }) => {
+  .handler(({ value, modifier, operator, qualifier, argType }, { table }) => {
     switch (modifier) {
     case 'oracle':
       return builtin.text.call({
         column: table => table.cardPart.text,
-        args:   { value, operator, qualifier },
+        args:   { value, operator, qualifier, argType },
         ctx:    { meta: { multiline: true }, table },
       });
-    case 'unified':
+    case 'localized':
       return builtin.text.call({
         column: table => table.cardPartLocalization.text,
-        args:   { value, operator, qualifier },
+        args:   { value, operator, qualifier, argType },
         ctx:    { meta: { multiline: true }, table },
       });
     case 'printed':
       return builtin.text.call({
         column: table => table.printPart.text,
-        args:   { value, operator, qualifier },
+        args:   { value, operator, qualifier, argType },
         ctx:    { meta: { multiline: true }, table },
       });
     default:
       return (!qualifier.includes('!') ? or : and)(
         builtin.text.call({
           column: table => table.cardPart.text,
-          args:   { value, operator, qualifier },
+          args:   { value, operator, qualifier, argType },
           ctx:    { meta: { multiline: true }, table },
         }),
         builtin.text.call({
           column: table => table.cardPartLocalization.text,
-          args:   { value, operator, qualifier },
+          args:   { value, operator, qualifier, argType },
           ctx:    { meta: { multiline: true }, table },
         }),
       )!;
@@ -366,16 +512,16 @@ export const text = cs
 
 export const oracle = cs
   .commands.oracle
-  .handler(({ value, operator, qualifier }, { table }) => {
+  .handler(({ value, operator, qualifier, argType }, { table }) => {
     return (!qualifier.includes('!') ? or : and)(
       builtin.text.call({
         column: table => table.cardPart.text,
-        args:   { value, operator, qualifier },
+        args:   { value, operator, qualifier, argType },
         ctx:    { meta: { multiline: true }, table },
       }),
       builtin.text.call({
         column: table => table.cardPartLocalization.text,
-        args:   { value, operator, qualifier },
+        args:   { value, operator, qualifier, argType },
         ctx:    { meta: { multiline: true }, table },
       }),
     )!;
@@ -397,26 +543,29 @@ export const imageStatus = cs
   .commands.imageStatus
   .apply(table => table.print.imageStatus, {});
 
-export const imageType = cs
-  .commands.imageType
-  .apply(table => table.print.fullImageType, {});
-
 export const rarity = cs
   .commands.rarity
-  .handler(({ value, operator, qualifier }, { table }) => {
-    const rarities = (
-      {
-        c: 'common',
-        u: 'uncommon',
-        r: 'rare',
-        m: 'mythic',
-        s: 'special',
-      } as Record<string, string>
-    )[value] ?? value;
+  .handler(({ value, operator, qualifier, argType }, { table }) => {
+    const rarity = resolveRarity(value);
+    if (operator === '~:') {
+      const accelerated = (table as any).searchAcceleration != null;
+      const exists = accelerated
+        ? arrayContains((table as any).card.rarities, [rarity])
+        : sql`EXISTS (
+            SELECT 1
+            FROM ${Print}
+            WHERE ${Print.cardId} = ${(table as any).cardId}
+              AND ${Print.version} = ${(table as any).version}
+              AND ${Print.rarity} = ${rarity}
+              AND ${Print.deletedAt} IS NULL
+          )`;
+
+      return qualifier.includes('!') ? not(exists) : exists;
+    }
 
     return builtin.simple.call({
-      column: table => table.cardPart.text,
-      args:   { value: rarities, operator, qualifier },
+      column: table => table.print.rarity,
+      args:   { value: rarity, operator, qualifier, argType },
       ctx:    { meta: { }, table },
     });
   });
@@ -468,7 +617,7 @@ export const format = cs
 export const counter = cs
   .commands.counter
   .handler(({ value, qualifier }, { table }) => {
-    value = toIdentifier(value);
+    value = slugifyName(value);
 
     if (!qualifier.includes('!')) {
       return arrayContains(table.card.counters, [value]);
@@ -480,7 +629,7 @@ export const counter = cs
 export const keyword = cs
   .commands.keyword
   .handler(({ value, qualifier }, { table }) => {
-    value = toIdentifier(value);
+    value = slugifyName(value);
 
     if (!qualifier.includes('!')) {
       return arrayContains(table.card.keywords, [value]);
@@ -492,6 +641,19 @@ export const keyword = cs
 export const multiverseId = cs
   .commands.multiverseId
   .apply(table => table.print.multiverseId, {});
+
+export const ambit = cs
+  .commands.ambit
+  .handler(({ value, operator }, { table }) => {
+    // `:` is the ceiling, a legacy alias of `<=` (ADR 0015).
+    const comparison = ({ ':': '<=', '<=': '<=', '<': '<', '=': '=', '>': '>', '>=': '>=' } as Record<string, string>)[operator];
+
+    if (comparison == null) {
+      throw new QueryError({ type: 'invalid-operator', payload: { operator } });
+    }
+
+    return sql`${table.card.ambit} ${sql.raw(comparison)} ${parseAmbitValue(value)}`;
+  });
 
 export const order = cs
   .commands.order
@@ -575,6 +737,13 @@ export const order = cs
         throw new QueryError({ type: 'invalid-query' });
       }
     }
+
+    // Deterministic tail keys: tied sort values (e.g. identical names) get a
+    // stable total order, so pagination cannot shuffle rows between requests.
+    if (!parts.some(({ type }) => type === 'id')) {
+      sorter.push(asc(table.cardId));
+    }
+    sorter.push(asc(table.set), asc(table.number));
 
     return sorter;
   });

@@ -209,39 +209,39 @@
 
 <script setup lang="ts">
 
-definePageMeta({
-  layout: 'admin',
-  title:  '公告管理',
-});
 import { useConsolePlatform } from '@tcg-cards/console-platform';
 import { computed, onMounted, reactive, ref } from 'vue';
 import YAML from 'yaml';
 
 import YamlEditor from '../../../components/YamlEditor.vue';
 import type { AnnouncementProfile } from '@tcg-cards/model/hearthstone/schema/announcement';
+definePageMeta({
+  layout: 'admin',
+  title:  '公告管理',
+});
 
-interface LinkEntry { url: string; label?: string }
+interface LinkEntry { url: string, label?: string }
 interface ItemForm {
-  id?: string;
-  type: string;
-  name: string;
-  effectiveDate: string;
-  format: string;
-  status: string;
-  score?: number;
-  group: string;
-  version?: number;
-  lastVersion?: number;
-  patchId?: number;
-  cardId: string;
-  setId: string;
-  ruleId: string;
-  deltaStr: string;
-  glowStr: string;
+  id?:             string;
+  type:            string;
+  name:            string;
+  effectiveDate:   string;
+  format:          string;
+  status:          string;
+  score?:          number;
+  group:           string;
+  version?:        number;
+  lastVersion?:    number;
+  patchId?:        number;
+  cardId:          string;
+  setId:           string;
+  ruleId:          string;
+  deltaStr:        string;
+  glowStr:         string;
   relatedCardsStr: string;
-  showPreview: boolean;
-  formats: string[];
-  cardIds: string[];
+  showPreview:     boolean;
+  formats:         string[];
+  cardIds:         string[];
 }
 
 const platform = useConsolePlatform();
@@ -261,37 +261,37 @@ const yamlContent = ref('');
 const yamlError = ref('');
 
 const emptyItem = (): ItemForm => ({
-  type: 'card_update',
-  name: '',
-  effectiveDate: '',
-  format: '',
-  status: '',
-  score: undefined,
-  group: '',
-  version: undefined,
-  lastVersion: undefined,
-  patchId: undefined,
-  cardId: '',
-  setId: '',
-  ruleId: '',
-  deltaStr: '',
-  glowStr: '',
+  type:            'card_update',
+  name:            '',
+  effectiveDate:   '',
+  format:          '',
+  status:          '',
+  score:           undefined,
+  group:           '',
+  version:         undefined,
+  lastVersion:     undefined,
+  patchId:         undefined,
+  cardId:          '',
+  setId:           '',
+  ruleId:          '',
+  deltaStr:        '',
+  glowStr:         '',
   relatedCardsStr: '',
-  showPreview: false,
-  formats: [],
-  cardIds: [],
+  showPreview:     false,
+  formats:         [],
+  cardIds:         [],
 });
 
 const form = reactive({
-  id: '',
-  source: 'blizzard',
-  date: new Date().toISOString().split('T')[0]!,
+  id:            '',
+  source:        'blizzard',
+  date:          new Date().toISOString().split('T')[0]!,
   effectiveDate: '',
-  version: 1,
-  lastVersion: undefined,
-  name: '',
-  link: [] as LinkEntry[],
-  items: [] as ItemForm[],
+  version:       1,
+  lastVersion:   undefined,
+  name:          '',
+  link:          [] as LinkEntry[],
+  items:         [] as ItemForm[],
 });
 
 const selectedAnnouncement = computed(() => announcements.value.find(a => a.id === selectedId.value) ?? null);
@@ -339,7 +339,7 @@ const filteredAnnouncements = computed(() =>
   selectedSource.value === 'all' ? announcements.value : announcements.value.filter(a => a.source === selectedSource.value),
 );
 
-function showToast(input: { title: string; description?: string; color?: 'error' | 'success' }) {
+function showToast(input: { title: string, description?: string, color?: 'error' | 'success' }) {
   platform.toast.show(input);
 }
 
@@ -349,39 +349,43 @@ function parseRelatedCards(s: string): string[] {
 
 function toYaml() {
   return YAML.stringify({
-    source: form.source,
-    date: form.date,
+    source:        form.source,
+    date:          form.date,
     effectiveDate: form.effectiveDate || null,
-    version: form.version,
-    lastVersion: form.lastVersion,
-    name: form.name,
-    link: form.link,
-    items: form.items.map(item => ({
-      type: item.type,
-      name: item.name || null,
+    version:       form.version,
+    lastVersion:   form.lastVersion,
+    name:          form.name,
+    link:          form.link,
+    items:         form.items.map(item => ({
+      type:          item.type,
+      name:          item.name || null,
       effectiveDate: item.effectiveDate || null,
-      format: item.format || null,
-      status: item.status || null,
-      score: item.score ?? null,
-      group: item.group || null,
-      version: item.version ?? null,
-      lastVersion: item.lastVersion ?? null,
-      patchId: item.patchId ?? null,
-      cardId: item.cardId || null,
-      setId: item.setId || null,
-      ruleId: item.ruleId || null,
-      delta: parseJsonSafe(item.deltaStr),
-      glow: parseJsonSafe(item.glowStr),
-      relatedCards: parseRelatedCards(item.relatedCardsStr) || null,
-      formats: item.formats,
-      cardIds: item.cardIds,
+      format:        item.format || null,
+      status:        item.status || null,
+      score:         item.score ?? null,
+      group:         item.group || null,
+      version:       item.version ?? null,
+      lastVersion:   item.lastVersion ?? null,
+      patchId:       item.patchId ?? null,
+      cardId:        item.cardId || null,
+      setId:         item.setId || null,
+      ruleId:        item.ruleId || null,
+      delta:         parseJsonSafe(item.deltaStr),
+      glow:          parseJsonSafe(item.glowStr),
+      relatedCards:  parseRelatedCards(item.relatedCardsStr) || null,
+      formats:       item.formats,
+      cardIds:       item.cardIds,
     })),
   }, { indent: 2 });
 }
 
 function parseJsonSafe(s: string): unknown | null {
   if (!s.trim()) return null;
-  try { return JSON.parse(s); } catch { return null; }
+  try {
+    return JSON.parse(s);
+  } catch {
+    return null;
+  }
 }
 
 function fromYaml(content: string): boolean {
@@ -395,28 +399,30 @@ function fromYaml(content: string): boolean {
     if (data.name !== undefined) form.name = data.name;
     if (data.link !== undefined) form.link = Array.isArray(data.link) ? data.link : [];
     if (data.items !== undefined) {
-      form.items = Array.isArray(data.items) ? data.items.map((i: any) => ({
-        id: i.id,
-        type: i.type ?? 'card_update',
-        name: i.name ?? '',
-        effectiveDate: i.effectiveDate ?? '',
-        format: i.format ?? '',
-        status: i.status ?? '',
-        score: i.score ?? undefined,
-        group: i.group ?? '',
-        version: i.version,
-        lastVersion: i.lastVersion,
-        patchId: i.patchId,
-        cardId: i.cardId ?? '',
-        setId: i.setId ?? '',
-        ruleId: i.ruleId ?? '',
-        deltaStr: i.delta ? JSON.stringify(i.delta, null, 2) : '',
-        glowStr: i.glow ? JSON.stringify(i.glow, null, 2) : '',
-        relatedCardsStr: Array.isArray(i.relatedCards) ? i.relatedCards.join(', ') : '',
-        showPreview: false,
-        formats: i.formats ?? [],
-        cardIds: i.cardIds ?? [],
-      })) : [];
+      form.items = Array.isArray(data.items)
+        ? data.items.map((i: any) => ({
+          id:              i.id,
+          type:            i.type ?? 'card_update',
+          name:            i.name ?? '',
+          effectiveDate:   i.effectiveDate ?? '',
+          format:          i.format ?? '',
+          status:          i.status ?? '',
+          score:           i.score ?? undefined,
+          group:           i.group ?? '',
+          version:         i.version,
+          lastVersion:     i.lastVersion,
+          patchId:         i.patchId,
+          cardId:          i.cardId ?? '',
+          setId:           i.setId ?? '',
+          ruleId:          i.ruleId ?? '',
+          deltaStr:        i.delta ? JSON.stringify(i.delta, null, 2) : '',
+          glowStr:         i.glow ? JSON.stringify(i.glow, null, 2) : '',
+          relatedCardsStr: Array.isArray(i.relatedCards) ? i.relatedCards.join(', ') : '',
+          showPreview:     false,
+          formats:         i.formats ?? [],
+          cardIds:         i.cardIds ?? [],
+        }))
+        : [];
     }
     yamlError.value = '';
     return true;
@@ -469,26 +475,26 @@ function fillForm(row: any) {
   form.name = row.name;
   form.link = Array.isArray(row.link) ? row.link : [];
   form.items = (row.items ?? []).map((i: any) => ({
-    id: i.id,
-    type: i.type ?? 'card_update',
-    name: i.name ?? '',
-    effectiveDate: i.effectiveDate ?? '',
-    format: i.format ?? '',
-    status: i.status ?? '',
-    score: i.score ?? undefined,
-    group: i.group ?? '',
-    version: i.version,
-    lastVersion: i.lastVersion,
-    patchId: i.patchId,
-    cardId: i.cardId ?? '',
-    setId: i.setId ?? '',
-    ruleId: i.ruleId ?? '',
-    deltaStr: i.delta ? JSON.stringify(i.delta) : '',
-    glowStr: i.glow ? JSON.stringify(i.glow) : '',
+    id:              i.id,
+    type:            i.type ?? 'card_update',
+    name:            i.name ?? '',
+    effectiveDate:   i.effectiveDate ?? '',
+    format:          i.format ?? '',
+    status:          i.status ?? '',
+    score:           i.score ?? undefined,
+    group:           i.group ?? '',
+    version:         i.version,
+    lastVersion:     i.lastVersion,
+    patchId:         i.patchId,
+    cardId:          i.cardId ?? '',
+    setId:           i.setId ?? '',
+    ruleId:          i.ruleId ?? '',
+    deltaStr:        i.delta ? JSON.stringify(i.delta) : '',
+    glowStr:         i.glow ? JSON.stringify(i.glow) : '',
     relatedCardsStr: Array.isArray(i.relatedCards) ? i.relatedCards.join(', ') : '',
-    showPreview: false,
-    formats: i.formats ?? [],
-    cardIds: i.cardIds ?? [],
+    showPreview:     false,
+    formats:         i.formats ?? [],
+    cardIds:         i.cardIds ?? [],
   }));
   isCreating.value = false;
   isYamlMode.value = false;
@@ -539,32 +545,32 @@ function moveItem(from: number, direction: -1 | 1) {
 
 function normalizePayload() {
   return {
-    source: form.source,
-    date: form.date,
+    source:        form.source,
+    date:          form.date,
     effectiveDate: form.effectiveDate || null,
-    version: form.version,
-    lastVersion: form.lastVersion,
-    name: form.name.trim(),
-    link: form.link.filter(l => l.url),
-    items: form.items.map(item => ({
-      type: item.type,
-      name: item.name || null,
+    version:       form.version,
+    lastVersion:   form.lastVersion,
+    name:          form.name.trim(),
+    link:          form.link.filter(l => l.url),
+    items:         form.items.map(item => ({
+      type:          item.type,
+      name:          item.name || null,
       effectiveDate: item.effectiveDate || null,
-      format: item.format || null,
-      status: item.status || null,
-      score: item.score ?? null,
-      group: item.group || null,
-      version: item.version ?? null,
-      lastVersion: item.lastVersion ?? null,
-      patchId: item.patchId ?? null,
-      cardId: item.cardId || null,
-      setId: item.setId || null,
-      ruleId: item.ruleId || null,
-      delta: parseJsonSafe(item.deltaStr),
-      glow: parseJsonSafe(item.glowStr),
-      relatedCards: parseRelatedCards(item.relatedCardsStr),
-      formats: item.formats,
-      cardIds: item.cardIds,
+      format:        item.format || null,
+      status:        item.status || null,
+      score:         item.score ?? null,
+      group:         item.group || null,
+      version:       item.version ?? null,
+      lastVersion:   item.lastVersion ?? null,
+      patchId:       item.patchId ?? null,
+      cardId:        item.cardId || null,
+      setId:         item.setId || null,
+      ruleId:        item.ruleId || null,
+      delta:         parseJsonSafe(item.deltaStr),
+      glow:          parseJsonSafe(item.glowStr),
+      relatedCards:  parseRelatedCards(item.relatedCardsStr),
+      formats:       item.formats,
+      cardIds:       item.cardIds,
     })),
   };
 }

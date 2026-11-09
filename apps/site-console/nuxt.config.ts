@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 export default defineNuxtConfig({
   extends: ['@tcg-cards/console-shell'],
 
-  modules: ['nitro-cloudflare-dev', '@nuxt/eslint', '@nuxt/ui', '@nuxt/icon'],
+  modules: ['@nuxt/eslint', '@nuxt/ui', '@nuxt/icon'],
 
   devtools: { enabled: true },
 
@@ -24,7 +24,7 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
 
   alias: {
-    '#base': fileURLToPath(new URL('./node_modules/@tcg-cards/base/src', import.meta.url)),
+    '#base':   fileURLToPath(new URL('./node_modules/@tcg-cards/base/src', import.meta.url)),
     '#model':  fileURLToPath(new URL('./node_modules/@tcg-cards/model/src', import.meta.url)),
     '#search': fileURLToPath(new URL('./node_modules/@tcg-cards/search/src', import.meta.url)),
     '#db':     fileURLToPath(new URL('./node_modules/@tcg-cards/db/src', import.meta.url)),
@@ -43,6 +43,9 @@ export default defineNuxtConfig({
   },
 
   vite: {
+    define: {
+      __HEARTHSTONE_GAME_TAG_IMPORT__: JSON.stringify(false),
+    },
     server: {
       warmup: {
         clientFiles: ['./app/**/*.vue'],
@@ -62,6 +65,8 @@ export default defineNuxtConfig({
 
   fonts: {
     providers: {
+      bunny:       false,
+      fontshare:   false,
       google:      false,
       googleicons: false,
     },

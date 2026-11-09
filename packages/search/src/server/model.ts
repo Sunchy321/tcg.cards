@@ -6,7 +6,11 @@ import { simplify } from '#search/parser/simplify';
 import type { ServerCommand } from './command';
 import type { ServerAction } from './action';
 import type { ServerActionOption, ServerActionResult } from './action/types';
-import { translate } from './translate';
+import { AcceleratedSearchFallbackError, PgSearchAdapter } from './adapter';
+import { executeLocalExactOrRemote } from './router';
+import { resolveQueryRequest } from './logical';
+import type { QueryResultRequest, SortSpec } from '#search/logical';
+import { translateLegacy } from './translate';
 
 export type ServerCommandMapBase<Table> = Record<string, ServerCommand<any, any, any, any, Table>>;
 
@@ -17,7 +21,7 @@ export class ServerModelBuilder {
 }
 
 export class ServerModelBuilderWithSchema<
-  M extends ModelOptions<CommandMapBase>,
+  M extends ModelOptions<CommandMapBase>
 > {
   model: M;
 
@@ -32,7 +36,7 @@ export class ServerModelBuilderWithSchema<
 
 export class ServerModelBuilderWithTable<
   M extends ModelOptions<CommandMapBase>,
-  Table,
+  Table
 > {
   model:  M;
   tables: Table[];
@@ -79,7 +83,7 @@ export class ServerModel<
   M extends ModelOptions<CommandMapBase>,
   Table,
   C extends Record<keyof M['commands'], ServerCommand<any, any, any, any, Table>>,
-  A extends Record<string, ServerAction<Table, any, any>>,
+  A extends Record<string, ServerAction<Table, any, any>>
 > {
   model:    M;
   tables:   Table[];
@@ -123,13 +127,49 @@ export class ServerModel<
 
       const commands = Object.values(this.commands);
 
-      const { query, post } = translate(simplified, commands, action.table);
+      const request = resolveQueryRequest(simplified, commands, resultOptions(options));
 
-      if (query == null) {
+      if (request.filter == null) {
         return { text, errors: [] };
       }
 
-      const result = await action.handler(query, post, options);
+      const executeOriginal = async () => {
+        const translated = translateLegacy(simplified, commands, action.table);
+
+        if (translated.query == null) {
+          return undefined;
+        }
+
+        return action.handler(translated.query, translated.post, options);
+      };
+
+      const remoteAdapter = new PgSearchAdapter(
+        commands,
+        action.table,
+        (query, post, actionOptions: ServerActionOption<A[K]>) => action.handler(query, post, actionOptions),
+      );
+      const remotePlan = remoteAdapter.plan(request);
+      const acceleratedPlan = action.acceleratedAdapter?.plan(request);
+      let result;
+      try {
+        result = await executeLocalExactOrRemote({
+          request,
+          options,
+          localAdapter: action.localAdapter,
+          remote: () => acceleratedPlan?.type === 'exact'
+            ? action.acceleratedAdapter!.execute(request, options)
+            : remotePlan.type === 'exact'
+              ? remoteAdapter.execute(request, options)
+              : executeOriginal(),
+        });
+      } catch (error) {
+        if (!(error instanceof AcceleratedSearchFallbackError)) throw error;
+        result = await executeOriginal();
+      }
+
+      if (result == null) {
+        return { text, errors: [] };
+      }
 
       return { text, errors: [], result };
     } catch (e) {
@@ -138,6 +178,26 @@ export class ServerModel<
       return { text, errors: [e] };
     }
   }
+}
+
+/** Extracts the generic result inputs used by the static query planner. */
+function resultOptions(options: unknown): Partial<Omit<QueryResultRequest, 'sort'>> & { sort: SortSpec[] } {
+  const values = options != null && typeof options === 'object'
+    ? options as Record<string, unknown>
+    : {};
+  const sort: SortSpec[] = typeof values.orderBy === 'string'
+    ? [{ kind: 'request', field: 'order', value: values.orderBy }]
+    : [{ kind: 'action-default' }];
+
+  return {
+    sort,
+    group:    typeof values.groupBy === 'string' ? values.groupBy : null,
+    page:     typeof values.page === 'number' ? values.page : null,
+    pageSize: typeof values.pageSize === 'number' ? values.pageSize : null,
+    total:    values.total !== false,
+    ambit:    typeof values.ambit === 'string' ? values.ambit : null,
+    lang:     typeof values.lang === 'string' ? values.lang : null,
+  };
 }
 
 export const ss = new ServerModelBuilder();

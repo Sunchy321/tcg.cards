@@ -26,10 +26,20 @@ New application names under `apps/` should follow these prefixes when they fit o
 The `apps/` workspace currently contains these project-level applications:
 
 - `app-console-desktop`
-  Desktop admin console and the primary local runtime for heavy domain-data workflows. This app owns the most complete local operational capability, including access to local repositories, local PostgreSQL, and desktop-only workflows.
+  Electron desktop admin console and the intended primary local runtime for heavy domain-data workflows. It is being built as an independent workspace that will completely replace the former Tauri implementation. Local management does not require a remote login; remote database access and publishing authentication are being designed together.
+- `app-console-tauri` (deprecated)
+  The former desktop admin console. During migration it kept running the existing workflows with the separate Bun desktop runtime (`service-desktop-runtime`, also deprecated). Its code is not a dependency of the Electron application, which now carries the migrated workflows.
 - `app-console-mobile` (planned)
   Lightweight mobile management client. It is intended to cover a management tier similar to `site-console`, but run on mobile devices instead of the web. It may also support selected lightweight management capabilities that are not practical in a browser.
-- `service-internal`
+- `app-desktop` (planned)
+  User-facing installable desktop app (Windows/macOS), built on Electron. It shares its business code with `app-mobile` and is a query client for end users, not a management runtime.
+- `app-mobile` (planned)
+  User-facing installable mobile app (iOS/Android), built on Capacitor. It shares its business code with `app-desktop` and is a query client for end users, not a management runtime.
+- `service-app` (planned)
+  Backend query service for the user-facing apps: anonymous public card queries over the same remote game data the game sites serve, plus first-party authenticated user state such as user config sync. It is distinct from `service-api` (third-party, key-authenticated) and `service-console-api` (management clients).
+- `service-desktop-runtime` (deprecated)
+  The former Bun desktop runtime behind `app-console-tauri`. No application depends on it any more: its search projection and publication workflows have moved into the Electron runtime of `app-console-desktop`. It receives no new features and will be removed entirely in a future version.
+- `service-console-api`
   Backend API surface for app-shaped management clients. It provides the remote backend interface used by installable management applications.
 - `site-console`
   Web-based admin console. It is a restricted remote management surface and should not be treated as the execution authority for heavy domain-data workflows or as a substitute for desktop-only local capabilities.
@@ -47,21 +57,27 @@ The management-facing runtimes do not share the same authority level, but they m
 - `site-console`
   Web-based remote management surface. It should stay within the restricted web capability tier and expose its lower-capability remote router in-process, because the website deployment should avoid cross-service requests for its own management traffic.
 - `app-console-mobile` (planned)
-  Mobile management client intended to sit above `site-console` and below desktop in overall capability. Its final exposed capability does not need to equal the full router currently hosted by `service-internal`.
-- `service-internal`
+  Mobile management client intended to sit above `site-console` and below desktop in overall capability. Its final exposed capability does not need to equal the full router currently hosted by `service-console-api`.
+- `service-console-api`
   Remote backend API surface for app-shaped management clients. It reuses the same management backend code layers where appropriate, exposes a higher-capability remote router than `site-console`, and exists as a separate service because app-shaped clients cannot avoid remote service requests in the same way that `site-console` can.
 - `app-console-desktop`
-  Full management runtime. Its capability is not defined only by remote routers because it also owns desktop-local capabilities such as local repositories, local PostgreSQL, and full local data workflows. Some desktop operations may also read or write remote databases through direct connections instead of going through `service-internal`.
+  Full management runtime. Its capability is not defined only by remote routers because it also owns desktop-local capabilities such as local repositories, local PostgreSQL, and full local data workflows. Some desktop operations may also read or write remote databases through direct connections instead of going through `service-console-api`.
 
 Capability should therefore be described at the runtime level, not only at the router level.
 
-For remote router exposure, the current intended ordering is `site-console` < `service-internal`.
+For remote router exposure, the current intended ordering is `site-console` < `service-console-api`.
 
-Desktop sits above that remote-router ordering because it also owns local-only capabilities and some direct remote-database operations that do not enter the remote router surface.
+Desktop sits above that remote-router ordering because it also owns local-only capabilities and some direct remote-database operations that do not enter the remote router surface. It may also use a narrowly scoped authenticated, read-only `site-console` call to list cloud Magic rule files; this does not create a general remote API client or change the direct-database publication path. See [ADR-0021](adr/0021-desktop-publish-authorization.md).
 
-`service-internal` may host the full desktop-oriented router surface internally, but that does not imply every app-shaped client should receive every exposed capability.
+`service-console-api` may host the full desktop-oriented router surface internally, but that does not imply every app-shaped client should receive every exposed capability.
 
 ## Packages
+
+Desktop settings are owned by the main process and persisted with `electron-store`; credentials use Electron `safeStorage`. The renderer accesses validated settings through the restricted preload bridge. Advanced JSON exposes ordinary configuration only. Running tasks retain their startup configuration snapshot.
+
+Desktop development and Electron entry builds are integrated through the community `nuxt-electron` module, based on its generated quick-start template. Nuxt owns the renderer build and Forge packages the application; application-specific process and IPC responsibilities remain explicit.
+
+The Electron desktop renderer reuses the shared Nuxt console shell through a restricted preload bridge. Its main process owns windows and application lifecycle. One long-lived Electron `utilityProcess` owns local task scheduling and task state; it runs task definitions in Node.js Worker threads. The persistent local PostgreSQL task tables are the source of task identity and history, while renderer pages query and subscribe to the task host. Production desktop execution must not depend on a separately started Bun HTTP service. PostgreSQL, Git, data repositories, and existing external tools remain externally managed. The existing Bun workspace package manager and tests are outside this runtime replacement. See [ADR-0019](adr/0019-electron-replaces-tauri-console.md) and [ADR-0020](adr/0020-electron-task-host.md).
 
 The `packages/` workspace contains shared building blocks used across multiple applications:
 
@@ -82,7 +98,7 @@ The `packages/` workspace contains shared building blocks used across multiple a
 - `model`
   Shared domain models, validation schemas, and typed contracts for game data and management APIs.
 - `search`
-  Shared search parsing, command modeling, translation, and execution helpers.
+  Shared DSL parsing and game-owned command semantics, resolved into a database-independent query tree with static target coverage planning. Storage adapters own execution; the PostgreSQL adapter retains the existing game command handlers as its exact compatibility path.
 - `shared`
   Small cross-workspace shared constants and utility-level definitions.
 - `tsconfig`
@@ -145,6 +161,8 @@ Capability intent should be read in three layers:
   Web, mobile, and desktop management runtimes may all expose lightweight editing capability, subject to their intended remote-interface tier and runtime workflow constraints.
 - non-domain management workflows
   Management features that do not define or transform domain data, such as user-management style workflows, are not desktop-exclusive by default and may be shared across management runtimes.
+
+Desktop publication through manually configured database connection strings does not require Console login or account admission. The credential source selects this behavior independently of game and environment names; database privileges and existing publication checks still apply. Account-based temporary database credentials remain a separate design effort.
 
 ## Current Explicit Remote-Owned Scope
 
@@ -210,8 +228,48 @@ When a game workflow depends on local repositories, local files, or local Postgr
 
 When a table mixes manually maintained fields with build-generated or import-generated fields, split the responsibilities instead of relying on ambiguous merge ownership.
 
+## Series Display Choices and Publishing
+
+Data-maintenance records belong in `{game}_data`, including manually maintained shared choices; manual editing alone does not make a record application-user state.
+
+Magic series metadata and booster composition are built locally and published as static domain data. Each booster product occupies one row identified by series and booster code, with its complete pack and sheet composition stored as typed JSONB. Imports replace all booster products of a series atomically; publishing and read interfaces use that same complete structure. Shared series display choices are maintenance data in `magic_data`; imports preserve that authority and materialize the chosen values into the exportable series rows. Only those derived display values are published, alongside series names and complete booster composition. Remote sites do not read the local choice table, and the domain schema has no dependency on it.
+
+## Static and User Content Serving
+
+Within each game, static documents and decks are built in local `{game}` tables and explicitly published into remote `{game}_app` serving tables that also contain user-created content. Local contains no user data, user foreign keys, or user-operation records. Import configuration, execution state, and build metadata remain local `{game}_data`; public reads do not depend on those records. Common rendering does not introduce cross-game content storage.
+
+The remote table namespace does not transfer ownership of static-origin rows to remote workflows. Explicit origin and stable publication identity delimit the publisher's write set; user-origin content and user operations remain remote-owned. The content contracts are shared, but physical local and remote schemas need not be identical. No second remote static content table is required. This serving pattern is specific to these content workflows, not a change to unrelated domain-table publication.
+
+Documents distinguish saved revisions from public releases. Translations reference exact source revision nodes and follow the source release sequence. Node text is authoritative for full-text search; typed markers carry formatting and references, and game symbols remain literal text. The accepted target model and its implementation boundaries are recorded in [ADR-0018](adr/0018-documents-unify-remote-content-with-node-based-translations.md).
+
+A manual CR reimport can repair parsing of the same retained source file directly in its public source revision, without adding an editing revision. The static publication path supports the same transactional node replacement. Existing translation or comparison dependencies block replacement, and the retained original bytes, revision identity and authored metadata remain unchanged.
+
+Rule content statistics are derived revision metadata and travel through the same publication path as content. Metadata-only backfills do not replace immutable text or alter translation and comparison references. Each language's statistics describe its own saved text. service-api reads published rule identities, releases, and metadata from the remote serving tables, without depending on local import state or source files on the desktop.
+
+Published original-file descriptors contain R2 object keys and byte integrity information, not deployment-specific download URLs. Sites and service-api resolve each key against their own asset base URL at read time. The existing asset store owns file delivery; document publication carries descriptors without uploading or rewriting the original bytes. Source URLs describe provenance separately from the download addresses generated by each application.
+
+Adjacent formal document relations are derived data: local `magic_data` prepares static-source relations explicitly, and owners prepare user-article relations in remote `magic_app`. After static content commits, publishing transports the relations already stored locally to remote `magic_app` in a separate best-effort transaction. Publishing neither computes nor validates relation readiness, so unavailable relations never prevent the body from publishing. Preparation remains separate from import and reader requests. Item history validates the formal publication sequence, source content/structure fingerprints, and matching algorithm version before selecting related nodes. Unprepared or outdated relations fail the dependent history read; ordinary reading has no relation-readiness gate. These derived relations are separate from retained comparison and review evidence.
+
+## Latest Hearthstone Search Serving
+
+Hearthstone search projections are exportable `hearthstone` domain data, defined in the shared schema source for local and remote. Desktop derives the latest-only card and localization layers from the global maximum patch build; the existing publisher transports those rows through its baseline and batch workflow. Search projections never depend on import or application schemas. Full rebuilds update both local layers in one transaction; the matching manifest carries the build number rather than repeating historical membership arrays in search rows.
+
+The site's separate `essential` search endpoint returns list fields directly from a complete, version-matched projection, including localized plain text, render hashes, and a small mechanic map for images. It does not read full entity details after an exact accelerated search. The original `basic` endpoint retains its full result shape; detail pages read complete domain data independently. Uncovered requests, including hashtags and faction predicates, use the original PostgreSQL path and the essential endpoint still returns its compact contract. Missing or mismatched dataset metadata disables acceleration rather than serving an older build. Sidecar distribution and cross-storage activation are separate publication lifecycle responsibilities; the search adapter consumes explicitly loaded readiness and version metadata rather than assuming that a manifest proves the deployed tables are current.
+
+## Per-game SQLite Search Sidecars
+
+Magic and Hearthstone search projections use separate D1 databases and game-scoped bindings (`MAGIC_SEARCH_DB` and `HEARTHSTONE_SEARCH_DB`). They are search projections, not domain authorities: version-matched queries may execute exactly or provide safe candidates for PostgreSQL verification. Fully covered essential list queries return their compact fields directly from the projection; Magic full search results and independent card detail pages continue to read PostgreSQL. Unsupported predicates, an unavailable binding, or mismatched readiness/version metadata use the existing PostgreSQL path. The ordinary relational tables are declared with Drizzle's SQLite schema API so D1 and local SQLite exports share their table definitions. FTS5 trigram virtual tables remain minimal SQLite SQL because Drizzle does not model SQLite extensions. Publication and activation remain owned by the separate search publication lifecycle.
+
+Local search packages are a separate, read-only export of those projections, not a new data authority. Each game distributes one shared base SQLite database and locale-specific SQLite deltas. The desktop Node runtime keeps these files separate and opens the selected delta with `node:sqlite` `ATTACH`; matching data-version metadata is required before querying. It does not merge the package into a second active database. This lets locale packages reuse shared card and part data while keeping local query access responsible for attached-table and FTS routing.
+
+Search data has three independent activation units per game: the PostgreSQL search projection with its Magic query-routing reference data, one D1 snapshot, and the R2 package group containing the base plus every locale delta. Each unit activates atomically within its own store; there is no cross-store release barrier. A D1 snapshot is eligible only when its logical data version and content release hash match the active PostgreSQL search data, otherwise the whole request uses PostgreSQL. The fixed public manifest lives at `https://data.tcg.cards/search/{game}/manifest.json`; immutable SQLite objects are addressed by SHA-256. A release hash covers the PostgreSQL projection fingerprint, every package hash, schema version, and game-specific routing metadata, while the logical data version may remain unchanged when only package content changes. Local results open current online details by stable card identity and may show the neutral notice that detail and search data can come from different updates.
+
+The active PostgreSQL search identity is stored in one shared `public.search_publication_metadata` row per game, including Magic routing metadata. A game is marked unavailable while its projection is being applied in chunks; search requests then use the original PostgreSQL query until the completed projection fingerprint and metadata are activated together.
+
+Regex search preserves the existing PostgreSQL text handler as its semantic authority. A shared structural analyzer can prove per-source substring equivalence or necessary conditions. Exact sidecar evaluation requires runtime evidence for the supported text semantics; unsupported syntax or failed evidence uses PostgreSQL. A sidecar candidate route reads the complete set of matching card IDs from one version-checked snapshot. PostgreSQL then evaluates the unchanged full query over those cards before selecting representatives, ambit, ordering, pagination, and totals. Candidate IDs do not replace PostgreSQL verification and are never paginated as final results. The router invokes candidate execution only when an adapter explicitly implements that verification path.
+
 ## Documentation Rule
 
 Architecture documents under `docs/` describe stable boundaries and authority rules.
 
-Proposal documents under `proposals/`, `specs/`, and `archive/` describe requirement-specific design work.
+Requirement-specific design work lives in the issue tracker under `.scratch/`, which is git-ignored. The decisions that outlive it live in `CONTEXT.md` and `docs/adr/`.

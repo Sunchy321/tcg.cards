@@ -8,6 +8,12 @@
           class="animate-spin text-white/80 shrink-0"
         />
 
+        <SearchAmbitLanding
+          v-if="data != null"
+          :ambit="landingAmbit"
+          :widened="widened"
+        />
+
         <span class="text-sm text-white/90 truncate">
           {{ explainText }}
         </span>
@@ -184,7 +190,7 @@
               <div class="rounded-2xl overflow-hidden backdrop-blur-sm shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)] border border-[rgba(180,120,50,0.25)] bg-[rgba(50,28,8,0.75)] break-inside-avoid mb-4">
                 <div class="px-5 pt-4">
                   <div class="flex items-center gap-2 text-sm font-medium text-amber-300/80 mb-2">
-                    <img :src="classIconUrl('neutral')" alt="" class="w-5 h-5" />
+                    <img :src="classIconUrl('neutral')" alt="" class="w-5 h-5" >
                     <span>{{ $t('hearthstone.search.command.class') }}</span>
                   </div>
                   <div class="panel-divider"/>
@@ -198,7 +204,7 @@
                       :class="{ active: state.classes.includes(item.value) }"
                       @click="toggleMulti(state.classes, item.value)"
                     >
-                      <img :src="classIconUrl(item.value)" alt="" class="chip-icon" />
+                      <img :src="classIconUrl(item.value)" alt="" class="chip-icon" >
                       <span class="whitespace-nowrap">{{ item.label }}</span>
                     </button>
                   </div>
@@ -507,12 +513,12 @@
         >
           <CardImage
             :card-id="card.cardId"
-            :version="minVersion(card)"
+            :version="0"
             :lang="card.lang"
             :render-hash="card.renderHash"
             :type="card.type"
             :variant="resultVariantFor(card)"
-            :mechanics="card.mechanics"
+            :mechanics="card.simpleTags"
             class="w-50"
           />
         </NuxtLink>
@@ -536,12 +542,12 @@
               <div class="w-30 shrink-0 self-center sm:self-start">
                 <CardImage
                   :card-id="card.cardId"
-                  :version="minVersion(card)"
+                  :version="0"
                   :lang="card.lang"
                   :render-hash="card.renderHash"
                   :type="card.type"
                   :variant="resultVariantFor(card)"
-                  :mechanics="card.mechanics"
+                  :mechanics="card.simpleTags"
                 />
               </div>
 
@@ -655,13 +661,14 @@
                 >
                   <td class="px-3 py-2">
                     <CardAvatar
+                      :name="card.localization.name"
                       :card-id="card.cardId"
-                      :version="minVersion(card)"
+                      :version="0"
                       :lang="card.lang"
                       :render-hash="card.renderHash"
                       :type="card.type"
                       :variant="resultVariantFor(card)"
-                      :mechanics="card.mechanics"
+                      :mechanics="card.simpleTags"
                       no-link
                       class="no-underline"
                     />
@@ -719,11 +726,12 @@
 
 <script setup lang="ts">
 import type { HearthstoneConfig } from '@tcg-cards/model/user-config';
-import type { CardEntityView } from '#model/hearthstone/schema/entity';
-import type { NormalResult } from '#model/hearthstone/schema/search';
+import type { EssentialCardSearchItem, EssentialNormalResult as NormalResult } from '#model/hearthstone/schema/search';
 import { locale as localeSchema } from '#model/hearthstone/schema/basic';
 
 import { explain as model } from '~/search';
+import { detectAmbit, AMBITS } from '#search/ambit';
+import type { Ambit } from '#search/ambit';
 import type { NumericOperator } from '~/composables/advanced-search';
 import { useAdvancedSearch, parseIntoState } from '~/composables/advanced-search';
 
@@ -847,19 +855,38 @@ const dslExplained = computed(() => {
   return result.text;
 });
 
-const cards = computed<CardEntityView[]>(() => data.value?.result?.result ?? []);
+const cards = computed<EssentialCardSearchItem[]>(() => data.value?.result?.result ?? []);
 const total = computed(() => data.value?.result?.total ?? 0);
 const elapsed = computed(() => data.value?.result?.elapsed ?? 0);
 const pageCount = computed(() => data.value?.result?.totalPage ?? Math.ceil(total.value / pageSize.value));
 const resultVariant = computed(() => data.value?.result?.variant ?? 'normal');
 
+/** The ambit scope selector's URL param as its ladder level; null when absent. */
+const ambitLevel = useAmbitParam();
+
+/** The ceiling the query asked for: an ambit command in the DSL overrides the
+ * URL param, and an explicit command that pins nothing falls back to the
+ * default primary ambit (still without widening). */
+const requestedAmbit = computed<Ambit>(() => {
+  const dsl = detectAmbit(q.value ?? '');
+  return dsl.pinned ?? (dsl.explicit ? 'primary' : ambitLevel.value ?? 'primary');
+});
+
+/** The ambit the search actually landed on, as reported by the response. */
+const landingAmbit = computed<Ambit>(() => data.value?.result?.ambit ?? 'primary');
+
+/** True when stepwise widening moved the results past the requested ceiling —
+ * the only situation where the landing needs to be called out. */
+const widened = computed(() =>
+  AMBITS.indexOf(landingAmbit.value) > AMBITS.indexOf(requestedAmbit.value));
+
 /** A battlegrounds-only card has no normal-template art, so fall back to the
  * battlegrounds template; the premium mechanic decides normal vs golden. */
-const isBattlegroundsCard = (card: CardEntityView) =>
+const isBattlegroundsCard = (card: EssentialCardSearchItem) =>
   card.set === 'bgs' || card.type === 'trinket' || card.type === 'anomaly'
   || (card.techLevel != null && !card.collectible);
 
-const resultVariantFor = (card: CardEntityView): CardImageOption =>
+const resultVariantFor = (card: EssentialCardSearchItem): CardImageOption =>
   isBattlegroundsCard(card) ? 'battlegrounds' : resultVariant.value;
 
 const showResults = computed(() =>
@@ -886,7 +913,7 @@ const errorText = computed(() => {
   return null;
 });
 
-const cardLink = (card: CardEntityView) => ({
+const cardLink = (card: EssentialCardSearchItem) => ({
   path:  `/card/${card.cardId}`,
   query: { lang: card.lang },
 });
@@ -922,7 +949,7 @@ const setText = (value: string) => {
     : value;
 };
 
-const subtitle = (card: CardEntityView) => {
+const subtitle = (card: EssentialCardSearchItem) => {
   const parts = [
     typeText(card.type),
     ...card.classes.map(classText),
@@ -941,7 +968,7 @@ const subtitle = (card: CardEntityView) => {
   return parts.join(' · ');
 };
 
-const stats = (card: CardEntityView) => {
+const stats = (card: EssentialCardSearchItem) => {
   if (card.attack != null && card.health != null) {
     return `${card.attack}/${card.health}`;
   }
@@ -961,17 +988,13 @@ const stats = (card: CardEntityView) => {
   return null;
 };
 
-const minVersion = (card: CardEntityView) => {
-  return Math.min(...card.version);
-};
-
 const formatElapsed = (ms: number) => {
   if (ms < 1000) return `${ms}ms`;
   return `${(ms / 1000).toFixed(3)}s`;
 };
 
-const cleanCardText = (card: CardEntityView) => {
-  const text = card.localization.displayText ?? card.localization.text ?? '';
+const cleanCardText = (card: EssentialCardSearchItem) => {
+  const text = card.localization.text;
   return text
     .replace(/<[^>]+>/g, '')
     .replace(/\[\/?[bi]\]/gi, '')
@@ -983,10 +1006,10 @@ const cleanCardText = (card: CardEntityView) => {
     .trim();
 };
 
-const previewText = (card: CardEntityView) =>
+const previewText = (card: EssentialCardSearchItem) =>
   cleanCardText(card).slice(0, 180);
 
-const fullText = (card: CardEntityView) =>
+const fullText = (card: EssentialCardSearchItem) =>
   cleanCardText(card);
 
 const doSearch = async () => {
@@ -1000,11 +1023,12 @@ const doSearch = async () => {
   fetchError.value = null;
 
   try {
-    const result = await $orpc.hearthstone.search.basic({
+    const result = await $orpc.hearthstone.search.essential({
       q:        q.value,
       lang:     searchLang.value,
       page:     page.value,
       pageSize: pageSize.value,
+      ambit:    ambitLevel.value ?? undefined,
     });
 
     if (q.value === route.query.q) {
@@ -1085,7 +1109,7 @@ function toggleColumn(key: string) {
   }
 }
 
-function getCellValue(card: CardEntityView, key: string): string {
+function getCellValue(card: EssentialCardSearchItem, key: string): string {
   switch (key) {
   case 'name': return card.localization.name;
   case 'cost': return card.cost != null ? String(card.cost) : '';
@@ -1142,7 +1166,7 @@ function exportTableData() {
   URL.revokeObjectURL(url);
 }
 
-watch([q, page, pageSize, searchLang], doSearch, { immediate: true });
+watch([q, page, pageSize, searchLang, ambitLevel], doSearch, { immediate: true });
 
 const isAdvancedOpen = computed(() => route.query.advanced !== undefined);
 
@@ -1243,7 +1267,7 @@ const validateNumericInput = (event: Event) => {
 };
 
 /** Returns the public URL of the Hearthstone class icon image for a search filter. */
-const classIconUrl = (value: string) => `/icons/hearthstone/classes/${value.replaceAll('_', '-')}.png`;
+const classIconUrl = (value: string) => `/icons/hearthstone/classes/${value.replaceAll('_', '-')}.webp`;
 </script>
 
 <style lang="scss" scoped>
@@ -1371,7 +1395,7 @@ const classIconUrl = (value: string) => `/icons/hearthstone/classes/${value.repl
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
-    background-image: url(/icons/mana-crystal.png);
+    background-image: url(/icons/mana-crystal.webp);
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;

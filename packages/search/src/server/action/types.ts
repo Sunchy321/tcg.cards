@@ -1,13 +1,16 @@
 import type { PostAction } from '../command';
 
 import type { SQL } from 'drizzle-orm';
+import type { SearchAdapter } from '#search/logical';
 
 export type ServerActionHandler<Result, Option> = (query: SQL, post: PostAction[], options: Option) =>
 Promise<Result>;
 
 export interface ServerAction<Table, Result, Option> {
-  table:   Table;
-  handler: ServerActionHandler<Result, Option>;
+  table:        Table;
+  handler:      ServerActionHandler<Result, Option>;
+  localAdapter?: SearchAdapter<Result, Option>;
+  acceleratedAdapter?: SearchAdapter<Result, Option>;
 }
 
 export type ServerActionOption<A extends ServerAction<any, any, any>> = A extends ServerAction<infer _1, infer _2, infer Option>

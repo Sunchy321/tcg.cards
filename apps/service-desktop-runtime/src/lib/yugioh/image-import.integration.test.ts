@@ -114,7 +114,7 @@ integrationTest('isolates failures and recovers idempotently without deleting ca
 
       if (url === yugiohImageMetadataUrl) {
         return new Response(`${metadataLines.join('\n')}\n`, {
-          status: 200,
+          status:  200,
           headers: { 'content-type': 'application/octet-stream' },
         });
       }
@@ -129,7 +129,7 @@ integrationTest('isolates failures and recovers idempotently without deleting ca
 
       if (sourceRecordId === '46986414' && failDark) {
         return new Response('<html>temporary failure</html>', {
-          status: 200,
+          status:  200,
           headers: { 'content-type': 'text/html' },
         });
       }
@@ -140,7 +140,7 @@ integrationTest('isolates failures and recovers idempotently without deleting ca
           ? changedDark
           : dark;
       return new Response(bytes, {
-        status: 200,
+        status:  200,
         headers: { 'content-type': 'image/webp' },
       });
     };
@@ -151,9 +151,9 @@ integrationTest('isolates failures and recovers idempotently without deleting ca
 
     const first = await importYugiohImages({ fetcher, concurrency: 2 });
     expect(first).toMatchObject({
-      status: 'completed_with_errors',
-      addedCount: 1,
-      failedCount: 1,
+      status:               'completed_with_errors',
+      addedCount:           1,
+      failedCount:          1,
       unavailableCardCount: 1,
     });
 

@@ -7,10 +7,10 @@ import {
 
 /** Complete Hearthstone publish target state required by the Bun publish workflow. */
 export interface HsdataPublishTarget {
-  publishTarget: string;
-  environment: string;
+  game:              string;
+  target:            string;
   targetFingerprint: string;
-  connectionString: string;
+  connectionString:  string;
 }
 
 /** Trims one optional publish-target field into a nullable non-empty string. */
@@ -21,20 +21,20 @@ const trimToNull = (value: string | null | undefined) => {
 
 /** One runtime-injected publish target normalized only when every required field is present. */
 const normalizePublishTarget = (
-  target: ReturnType<typeof readHearthstonePublishTargetOverride>,
+  override: ReturnType<typeof readHearthstonePublishTargetOverride>,
 ) => {
-  const publishTarget = trimToNull(target?.publishTarget);
-  const environment = trimToNull(target?.environment);
-  const targetFingerprint = trimToNull(target?.targetFingerprint);
-  const connectionString = trimToNull(target?.connectionString);
+  const game = trimToNull(override?.game);
+  const target = trimToNull(override?.target);
+  const targetFingerprint = trimToNull(override?.targetFingerprint);
+  const connectionString = trimToNull(override?.connectionString);
 
-  if (publishTarget == null || environment == null || targetFingerprint == null || connectionString == null) {
+  if (game == null || target == null || targetFingerprint == null || connectionString == null) {
     return null;
   }
 
   return {
-    publishTarget,
-    environment,
+    game,
+    target,
     targetFingerprint,
     connectionString,
   } satisfies HsdataPublishTarget;
@@ -46,12 +46,12 @@ const listMissingFields = (
 ) => {
   const missing: string[] = [];
 
-  if (trimToNull(target?.publishTarget) == null) {
-    missing.push('publishTarget');
+  if (trimToNull(target?.game) == null) {
+    missing.push('game');
   }
 
-  if (trimToNull(target?.environment) == null) {
-    missing.push('environment');
+  if (trimToNull(target?.target) == null) {
+    missing.push('target');
   }
 
   if (trimToNull(target?.targetFingerprint) == null) {
@@ -79,19 +79,19 @@ export const listHearthstonePublishTargets = () => {
 
 /** Reads one configured publish target that matches the requested identity. */
 export const getHearthstonePublishTargetByIdentity = (
-  publishTarget: string,
-  environment: string,
+  game: string,
+  target: string,
 ) => {
-  const expectedPublishTarget = trimToNull(publishTarget);
-  const expectedEnvironment = trimToNull(environment);
+  const expectedPublishTarget = trimToNull(game);
+  const expectedEnvironment = trimToNull(target);
 
   if (expectedPublishTarget == null || expectedEnvironment == null) {
     return null;
   }
 
   return listHearthstonePublishTargets().find(target => {
-    return target.publishTarget === expectedPublishTarget
-      && target.environment === expectedEnvironment;
+    return target.game === expectedPublishTarget
+      && target.target === expectedEnvironment;
   }) ?? null;
 };
 
@@ -112,16 +112,16 @@ export const requireHearthstonePublishTarget = () => {
 
 /** Resolves one matching publish target or raises one RPC error describing the missing identity. */
 export const requireHearthstonePublishTargetByIdentity = (
-  publishTarget: string,
-  environment: string,
+  game: string,
+  target: string,
 ) => {
-  const target = getHearthstonePublishTargetByIdentity(publishTarget, environment);
+  const resolved = getHearthstonePublishTargetByIdentity(game, target);
 
-  if (target != null) {
-    return target;
+  if (resolved != null) {
+    return resolved;
   }
 
   throw new ORPCError('INTERNAL_SERVER_ERROR', {
-    message: `Hearthstone publish target is not configured for ${publishTarget}/${environment}.`,
+    message: `Hearthstone publish target is not configured for ${game}/${target}.`,
   });
 };

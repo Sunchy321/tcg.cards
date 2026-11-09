@@ -1,10 +1,12 @@
 import { fileURLToPath } from 'url';
+import { IconUsageScanner } from '@nuxt/icon/utils';
+import { useNuxt } from 'nuxt/kit';
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   extends: ['@tcg-cards/ui'],
 
-  modules: ['nitro-cloudflare-dev', '@nuxt/eslint', '@nuxt/ui', '@nuxt/icon'],
+  modules: ['@nuxt/eslint', '@nuxt/ui', '@nuxt/icon'],
 
   devtools: { enabled: true },
 
@@ -24,7 +26,8 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
-      assetBaseUrl: process.env.ASSET_BASE_URL ?? 'https://asset.tcg.cards',
+      assetBaseUrl:       process.env.ASSET_BASE_URL ?? 'https://asset.tcg.cards',
+      hasDataSourcesPage: true,
     },
   },
 
@@ -43,7 +46,8 @@ export default defineNuxtConfig({
   ],
 
   routeRules: {
-    '/': { prerender: true },
+    '/':             { prerender: true },
+    '/data-sources': { prerender: true },
   },
 
   compatibilityDate: '2025-07-15',
@@ -72,7 +76,31 @@ export default defineNuxtConfig({
   },
 
   icon: {
-    provider: 'server',
+    provider:      'none',
+    serverBundle:  false,
+    fallbackToApi: false,
+    // Hyphenated names still need collection prefixes when the server bundle is disabled.
+    collections:   ['lucide', 'simple-icons', 'i'],
+    clientBundle:  {
+      scan: {
+        // Action definitions and app configuration also contain icon names.
+        globInclude:       ['app/**/*.{vue,ts,js,jsx,tsx}'],
+        // The complete custom collection below also covers constructed names.
+        ignoreCollections: ['i'],
+      },
+      includeCustomCollections: true,
+    },
+  },
+
+  hooks: {
+    'modules:done'() {
+      const nuxt = useNuxt();
+      nuxt.hook('icon:clientBundleIcons', icons => {
+        // Nuxt UI resolves its built-in icon names from app configuration at runtime.
+        const scanner = new IconUsageScanner({ ignoreCollections: ['i'] });
+        scanner.extractFromCode(JSON.stringify(nuxt.options.appConfig), icons);
+      });
+    },
   },
 
   i18n: {
@@ -90,6 +118,8 @@ export default defineNuxtConfig({
 
   fonts: {
     providers: {
+      bunny:       false,
+      fontshare:   false,
       google:      false,
       googleicons: false,
     },

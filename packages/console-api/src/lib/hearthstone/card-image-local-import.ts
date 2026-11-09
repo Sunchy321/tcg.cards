@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 
 import {
@@ -25,46 +26,46 @@ const pngSignature = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]);
 /** Local bucket import file backed by an existing PNG path or in-memory bytes. */
 export interface CardImageLocalImportFile {
   fileName: string;
-  path?: string;
-  bytes?: Uint8Array;
+  path?:    string;
+  bytes?:   Uint8Array;
 }
 
 /** Input payload required to validate PNG files and write WebP assets locally. */
 export interface CardImageLocalImportInput {
   requirementContent: string;
-  requirementName: string;
-  files: CardImageLocalImportFile[];
-  bucketDir: string;
-  force: boolean;
-  dryRun: boolean;
+  requirementName:    string;
+  files:              CardImageLocalImportFile[];
+  bucketDir:          string;
+  force:              boolean;
+  dryRun:             boolean;
 }
 
 /** Rejected local import file paired with one readable error message. */
 export interface CardImageLocalImportProblem {
   fileName: string;
-  message: string;
+  message:  string;
 }
 
 /** Summary returned after one local bucket import finishes. */
 export interface CardImageLocalImportSummary {
   requirementName: string;
-  expectedCount: number;
-  writtenCount: number;
-  skippedCount: number;
-  missingCount: number;
-  rejectedCount: number;
-  dryRun: boolean;
+  expectedCount:   number;
+  writtenCount:    number;
+  skippedCount:    number;
+  missingCount:    number;
+  rejectedCount:   number;
+  dryRun:          boolean;
 }
 
 /** Complete local import result including the summary and every rejected file. */
 export interface CardImageLocalImportResult {
-  summary: CardImageLocalImportSummary;
+  summary:  CardImageLocalImportSummary;
   problems: CardImageLocalImportProblem[];
 }
 
 /** PNG width and height decoded from the IHDR chunk. */
 export interface PngMetadata {
-  width: number;
+  width:  number;
   height: number;
 }
 
@@ -96,7 +97,7 @@ async function ensurePngPath(tempDir: string, file: CardImageLocalImportFile) {
   }
 
   const targetPath = join(tempDir, file.fileName);
-  await Bun.write(targetPath, bytes);
+  await writeFile(targetPath, bytes);
   return targetPath;
 }
 
@@ -115,37 +116,45 @@ async function loadPngBytes(file: CardImageLocalImportFile) {
 
 /** Verifies that `cwebp` is installed before conversion starts. */
 function ensureCwebp() {
-  const result = Bun.spawnSync(['cwebp', '-version'], {
-    stdout: 'pipe',
-    stderr: 'pipe',
-  });
-
-  if (result.exitCode !== 0) {
+  try {
+    execFileSync('cwebp', ['-version'], { stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (error) {
     fail([
       'cwebp was not found or failed to run.',
       'Install libwebp first, for example: brew install webp',
-      decodeOutput(result.stderr),
+      readCommandError(error),
     ].filter(Boolean).join('\n'));
   }
 }
 
 /** Converts one PNG file into one temporary WebP file with the shared preset. */
 async function convertPngToWebp(inputPath: string, outputPath: string) {
-  const result = Bun.spawnSync([
-    'cwebp',
-    '-quiet',
-    ...cwebpPresetArgs,
-    inputPath,
-    '-o',
-    outputPath,
-  ], {
-    stdout: 'pipe',
-    stderr: 'pipe',
-  });
-
-  if (result.exitCode !== 0) {
-    fail(`cwebp failed for ${inputPath}:\n${decodeOutput(result.stderr)}`);
+  try {
+    execFileSync('cwebp', [
+      '-quiet',
+      ...cwebpPresetArgs,
+      inputPath,
+      '-o',
+      outputPath,
+    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (error) {
+    fail(`cwebp failed for ${inputPath}:\n${readCommandError(error)}`);
   }
+}
+
+/** Extracts stderr from a failed Node child-process command. */
+function readCommandError(error: unknown) {
+  if (typeof error !== 'object' || error === null || !('stderr' in error)) {
+    return '';
+  }
+
+  const stderr = error.stderr;
+
+  if (stderr instanceof Uint8Array) {
+    return decodeOutput(stderr);
+  }
+
+  return typeof stderr === 'string' ? stderr.trim() : '';
 }
 
 /** Builds one file-name map and rejects duplicate local PNG names up front. */
@@ -274,7 +283,7 @@ export async function importCardImageFilesToLocalBucket(
         if (pngMeta.width !== request.output.width || pngMeta.height !== request.output.height) {
           problems.push({
             fileName: request.output.fileName,
-            message: `PNG dimensions ${pngMeta.width}x${pngMeta.height} do not match expected ${request.output.width}x${request.output.height}`,
+            message:  `PNG dimensions ${pngMeta.width}x${pngMeta.height} do not match expected ${request.output.width}x${request.output.height}`,
           });
           continue;
         }
@@ -298,7 +307,7 @@ export async function importCardImageFilesToLocalBucket(
           if (!input.force) {
             problems.push({
               fileName: request.output.fileName,
-              message: `Output already exists with different content: ${outputPath}`,
+              message:  `Output already exists with different content: ${outputPath}`,
             });
             continue;
           }
@@ -306,14 +315,14 @@ export async function importCardImageFilesToLocalBucket(
 
         if (!input.dryRun) {
           await mkdir(dirname(outputPath), { recursive: true });
-          await Bun.write(outputPath, webpBytes);
+          await writeFile(outputPath, webpBytes);
         }
 
         writtenCount += 1;
       } catch (error) {
         problems.push({
           fileName: request.output.fileName,
-          message: error instanceof Error ? error.message : 'Unexpected import error',
+          message:  error instanceof Error ? error.message : 'Unexpected import error',
         });
       }
     }
@@ -321,12 +330,12 @@ export async function importCardImageFilesToLocalBucket(
     return {
       summary: {
         requirementName: input.requirementName,
-        expectedCount: requirementFile.requests.length,
+        expectedCount:   requirementFile.requests.length,
         writtenCount,
         skippedCount,
         missingCount,
-        rejectedCount: problems.length,
-        dryRun: input.dryRun,
+        rejectedCount:   problems.length,
+        dryRun:          input.dryRun,
       },
       problems,
     };

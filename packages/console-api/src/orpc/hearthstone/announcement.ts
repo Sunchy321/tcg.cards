@@ -86,10 +86,10 @@ const get = os
 
     return {
       ...row,
-      link:       row.link as { url: string; label?: string }[],
-      createdAt:  row.createdAt.toISOString(),
-      updatedAt:  row.updatedAt.toISOString(),
-      items:      items.map(item => ({
+      link:      row.link as { url: string, label?: string }[],
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+      items:     items.map(item => ({
         ...item,
         glow:      item.glow,
         delta:     item.delta,

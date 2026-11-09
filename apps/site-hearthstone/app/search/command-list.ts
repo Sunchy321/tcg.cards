@@ -1,4 +1,6 @@
 import { cc as create } from '#search/client/command/builder';
+import type { CommonCommandInput } from '#search/command';
+import type { I18N } from '#search/client/command';
 import { defaultTranslate } from '#search/client/translate';
 
 import * as builtin from '#search/client/command/builtin';
@@ -114,7 +116,7 @@ export const techLevel = cc
 
 export const raceBucket = cc
   .commands.raceBucket
-  .apply({ id: 'race-bucket', mapValue: true });
+  .apply({ id: 'race-bucket', map: true });
 
 export const mercenaryRole = cc
   .commands.mercenaryRole
@@ -135,6 +137,30 @@ export const rarity = cc
 export const artist = cc
   .commands.artist
   .apply({ id: 'artist' });
+
+export const collectible = cc
+  .commands.collectible
+  .explain((args, i18n) => {
+    const value = String(args.value).toLowerCase();
+    const valueText = ['true', 'false', 'all'].includes(value)
+      ? i18n(`$.parameter.collectible.${value}`)
+      : value;
+
+    return i18n('$.full-command.collectible', { value: valueText });
+  });
+
+export const ambit = cc
+  .commands.ambit
+  .explain((args, i18n) => {
+    return defaultTranslate(args, i18n, 'ambit', {
+      ':':  'is',
+      '=':  'equal',
+      '<':  'less-than',
+      '<=': 'less-equal',
+      '>':  'greater-than',
+      '>=': 'greater-equal',
+    });
+  });
 
 export const change = cc
   .commands.change
@@ -189,3 +215,19 @@ export const order = cc
 
     return items.join(', ');
   });
+
+/** Explains the explicit boolean value together with its logical negation. */
+function explainBoolean(args: CommonCommandInput, i18n: I18N, id: string): string {
+  const value = String(args.value).toLowerCase();
+  if (value !== 'true' && value !== 'false') {
+    return defaultTranslate(args, i18n, id, { ':': 'is', '!:': 'is-not' });
+  }
+  const enabled = (value === 'true') !== args.qualifier.includes('!');
+  return i18n(`$.full-command.${id}-${enabled}`);
+}
+
+export const elite = cc.commands.elite.explain((args, i18n) => explainBoolean(args, i18n, 'elite'));
+
+export const inTavern = cc.commands.inTavern.explain((args, i18n) => explainBoolean(args, i18n, 'in-tavern'));
+
+export const cooldown = cc.commands.cooldown.apply({ id: 'cooldown' });

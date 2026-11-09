@@ -1,6 +1,8 @@
+import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { execSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import canonicalize from 'canonicalize';
 
@@ -8,7 +10,7 @@ import { getLocalDb, type LocalDb } from '../../hsdata-local-db';
 import { ExtractedCard, ExtractedCardTag, PatchState } from '@tcg-cards/db/schema/local/hearthstone';
 import { createDefinition } from '#task/definition';
 
-const WORKSPACE = resolve(import.meta.dir, '..', '..', '..', '..', '..', '..', '..', '..');
+const WORKSPACE = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..', '..', '..', '..');
 const UNPACK_DIR = resolve(WORKSPACE, 'data', 'hearthstone', 'unpack');
 
 const EVENT_FIELDS = [
@@ -36,7 +38,14 @@ function loadEventMap(zipPath: string): Map<number, string> {
   const em = JSON.parse(json) as EventMap;
   const map = new Map<number, string>();
   for (let i = 0; i < em.m_Keys.length; i++) {
-    map.set(em.m_Values[i], em.m_Keys[i]);
+    const key = em.m_Keys[i];
+    const value = em.m_Values[i];
+
+    if (key == null || value == null) {
+      throw new Error('EventMap key/value arrays are misaligned');
+    }
+
+    map.set(value, key);
   }
   return map;
 }
@@ -83,7 +92,7 @@ interface CardTagRecord {
 const orNull = <T>(v: T) => (v === '' || v === undefined ? null : v);
 
 function hashPayload(value: unknown): string {
-  return Bun.SHA256.hash(canonicalize(value)!, 'hex') as string;
+  return createHash('sha256').update(canonicalize(value)!).digest('hex');
 }
 
 function computeSnapshotHash(card: unknown, tags: CardTagRecord[]): string {

@@ -3,6 +3,8 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'MagicSymbol' });
+
 const props = defineProps<{
   value: string;
   type?: string[];

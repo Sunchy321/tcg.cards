@@ -44,15 +44,15 @@ describe('parseHsdataXml', () => {
     });
     expect(entity.extraPayload).toEqual({
       referencedTags: {
-        '190': true,
-        '999': 2,
+        190: true,
+        999: 2,
       },
       powers: [{
         definition:       'MAIN',
         playRequirements: [{ reqId: 1, param: 3 }],
       }],
-      entourageCards: [{ cardId: 'CARD_002' }],
-      masterPowers: ['HERO_POWER'],
+      entourageCards:            [{ cardId: 'CARD_002' }],
+      masterPowers:              ['HERO_POWER'],
       triggeredPowerHistoryInfo: [{ effectIndex: 7, showInHistory: true }],
     });
   });

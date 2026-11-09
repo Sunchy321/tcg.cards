@@ -1,11 +1,191 @@
 import search from './search';
+import { announcementSourceLabels } from '@tcg-cards/ui/i18n/announcement-sources';
 
 export default {
   $self: 'Magic',
   $full: 'Magic: The Gathering',
 
+  changeStatus: {
+    banned_as_commander: 'Banned as Commander',
+    banned_as_companion: 'Banned as Companion',
+    banned_in_bo1:       'Banned in BO1',
+    banned:              'Banned',
+    game_changer:        'Game changer',
+    legal:               'Legal',
+    restricted:          'Restricted',
+    suspended:           'Suspended',
+    unavailable:         'Unavailable',
+    score:               'Score',
+    extend:              'Set addition',
+    buff:                'Buff',
+    nerf:                'Nerf',
+    tweak:               'Tweak',
+    revert:              'Reverted',
+    rework:              'Reworked',
+    text_fix:            'Text fix',
+    text_adjust:         'Text adjustment',
+    bugged:              'Bugged',
+    bugfix:              'Bug fix',
+  },
+
+  announcement: {
+    $self:        'Announcements',
+    notFound:     'Announcement not found',
+    noItems:      'This announcement has no entries',
+    sourceAll:    'All sources',
+    sourceOther:  'Other sources',
+    backToList:   'Back to announcements',
+    readOriginal: 'Read original',
+    loading:      'Loading announcement',
+    changes:      'Changes',
+    copiedFrom:   'Copied from {format}',
+    types:        {
+      card_change:  'Legality changes',
+      card_update:  'Card updates',
+      set_change:   'Set changes',
+      rule_change:  'Rule changes',
+      format_birth: 'New formats',
+      format_death: 'Retired formats',
+      card_split:   'Card splits',
+      card_merge:   'Card merges',
+    },
+    sourceAnnouncement: '{source} announcement',
+    sources:            announcementSourceLabels.en,
+    global:             'Global',
+    effectiveDate:      'Effective date',
+    sentinel:           'Affected cards',
+    type:               'Type',
+    status:             'Status',
+    format:             'Format',
+  },
+
+  cardImageSource: {
+    label:   'Image source',
+    sources: {
+      scryfall: 'Scryfall',
+      gatherer: 'Gatherer',
+      mtgch:    'mtgch',
+      mtgflame: 'mtgflame',
+      hunterer: 'Hunterer',
+      manual:   'Hand-made',
+    },
+  },
+
+  dataSources: {
+    $self: 'Data Sources',
+
+    intro: 'This site is an unofficial fan project. Card data, text, and images all come from the public sources below — many of them maintained by volunteer communities. We are grateful to every project and contributor.',
+
+    sections: {
+      cardData: {
+        title: 'Card Data',
+
+        groups: {
+          prints: {
+            body: 'The card database is built on data published by Scryfall: sets and prints, collector numbers, rarities, mana costs, colors, and most of what a card page shows.',
+          },
+          text: {
+            title: 'Text & Translations',
+            body:  'A card can be read three ways on this site: the translated text (the standard text this site prepares for your language), the oracle text (the authoritative English text), and the printed text (the wording actually printed on one specific print, in that print\'s language). Standard translations are assembled per language from the sources below, and the printed text comes from Scryfall\'s per-language print data. Where a card has no official translation in a language, a community translation stands in — the only place community text appears in the data.',
+          },
+        },
+      },
+      cardImages: {
+        title: 'Card Images',
+
+        groups: {
+          main: {
+            body: 'Card images come in two kinds: images downloaded from public image sources, and images produced by hand or contributed by the community. Images that already come from a hand-made or community source are never overwritten by batch downloads.',
+          },
+        },
+      },
+      setData: {
+        title: 'Set Data',
+
+        groups: {
+          main: {},
+        },
+      },
+      otherData: {
+        title: 'Other Data',
+
+        groups: {
+          freshness: {
+            title: 'Data Freshness',
+            body:  'Updates are applied by the site maintainers after new sets are released or upstream sources publish changes. This site can therefore briefly lag behind the source websites; real-time sync is not promised.',
+          },
+          attribution: {
+            title:     'Attribution & Legal',
+            fanPolicy: 'This site is unofficial Fan Content permitted under the Wizards of the Coast Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©WIZARDS OF THE COAST LLC.',
+            credits:   'Scryfall, Gatherer, MTGCH, and MTGJSON are credited above. Card data and images remain the property of their respective rights holders; this site uses them under the terms described in the documents below.',
+          },
+        },
+      },
+    },
+
+    sources: {
+      scryfall: {
+        name: 'Scryfall',
+        desc: 'Provides the backbone of the database — sets, prints, print metadata, rulings, and card text in most languages.',
+      },
+      mtgch: {
+        name: 'MTGCH',
+        desc: 'A community-maintained Simplified Chinese card database. It translates the oracle text in the official style, so its text serves as this site\'s standard Simplified Chinese; it also supplies community names and text for cards that never received an official Chinese name.',
+      },
+      scryfallImages: {
+        name: 'Scryfall',
+        desc: 'The primary download source for print images in every language.',
+      },
+      gatherer: {
+        name: 'Gatherer',
+        desc: 'Wizards of the Coast\'s official card database, and the image source for some older prints.',
+      },
+      community: {
+        name: 'Hand-made & community images',
+        desc: 'Images produced by hand or contributed by the community, including Chinese card scans. They are preserved as-is.',
+      },
+      mtgjson: {
+        name: 'MTGJSON',
+        desc: 'Supplementary set-level information, layered on top of the Scryfall backbone.',
+      },
+    },
+
+    legal: {
+      legal:   'Legal Notice',
+      terms:   'Terms of Service',
+      privacy: 'Privacy Policy',
+    },
+  },
+
   set: {
     $self: 'Sets',
+
+    types: {
+      core:             'Core sets',
+      expansion:        'Expansions',
+      masters:          'Masters / Remastered',
+      commander:        'Commander',
+      promo:            'Promos',
+      token:            'Tokens',
+      funny:            'Un-sets',
+      memorabilia:      'Memorabilia',
+      alchemy:          'Alchemy',
+      arsenal:          'Arsenal',
+      box:              'Box sets',
+      draft_innovation: 'Special draft sets',
+      duel_deck:        'Duel Decks',
+      from_the_vault:   'From the Vault',
+      masterpiece:      'Masterpieces',
+      minigame:         'Minigames',
+      planechase:       'Planechase',
+      premium_deck:     'Premium Decks',
+      spellbook:        'Spellbooks',
+      starter:          'Starter sets',
+      treasure_chest:   'Treasure Chests',
+      vanguard:         'Vanguard',
+      art_series:       'Art series',
+      other:            'Other',
+    },
 
     booster: {
       name: {
@@ -933,25 +1113,32 @@ export default {
 
     'commander':           'Commander',
     'duelcommander':       'Duel Commander',
-    'duelcommander_docfx': 'Duel Commander (DocFX Fork)',
-    'leviathan_commander': 'Leviathan Commander',
+    'leviathan-commander': 'Leviathan Commander',
     'commander1v1':        'Commander 1v1',
     'brawl':               'Brawl',
-    'standard_brawl':      'Standard Brawl',
+    'standard-brawl':      'Standard Brawl',
 
     'pauper':               'Pauper',
     'oathbreaker':          'Oathbreaker',
     'penny':                'Penny Dreadful',
-    'canadian_highlander':  'Canadian Highlander',
-    'pauper_commander':     'Pauper Commander',
-    'pauper_duelcommander': 'Pauper Duel Commander',
+    'canadian-highlander':  'Canadian Highlander',
+    'pauper-commander':     'Pauper Commander',
+    'pauper-duelcommander': 'Pauper Duel Commander',
+    'conquest':             'Conquest',
 
-    'two_head_giant': 'Two Head Giant',
+    'tiny-leader-reborn': 'Tiny Leaders: Reborn',
+    'predh':              'PreDH',
+    'gladiator':          'Gladiator',
+    'old-school':         'Old School',
+    'premodern':          'Premodern',
+    'competitive-brawl':  'Competitive Brawl',
 
-    '100_card_singleton': '100 Card Singleton',
+    'two-head-giant': 'Two Head Giant',
+
+    '100-card-singleton': '100 Card Singleton',
     'kaleidoscope':       'Kaleidoscope',
-    'online_classic':     'Online Classic',
-    'online_commander':   'Online Commander',
+    'online-classic':     'Online Classic',
+    'online-commander':   'Online Commander',
     'prismatic':          'Prismatic',
     'singleton':          'Singleton',
     'tribal':             'Tribal',
@@ -1028,31 +1215,49 @@ export default {
   },
 
   document: {
+    compute_relations: 'Compute version relations',
+    relations_ready:   'Version relations calculated',
+    relations_failed:  'Could not calculate version relations. Please try again.',
+
     $self: 'Document',
     names: {
       cr: 'Comprehensive Rules',
     },
-    compare_versions:   'Compare Versions',
-    back_to_document:   'Back to Document',
-    outline:            'Outline',
-    copy_text:          'Copy Text',
-    copy_link:          'Copy Link',
-    example:            'Example',
-    load_failed:        'Failed to load document reader data.',
+    reading_options:     'Version and language',
+    close_options:       'Close reading options',
+    download_original:   'Download original',
+    version:             'Rule version',
+    language:            'Reading language',
+    compare_versions:    'Compare Versions',
+    back_to_document:    'Back to Document',
+    outline:             'Outline',
+    hide_outline:        'Hide outline',
+    loading:             'Loading…',
+    retry:               'Try again',
+    copy_text:           'Copy Text',
+    copy_link:           'Copy Link',
+    link_to_section:     'Link to this rule',
+    example:             'Example',
+    translation_missing: 'Translation unavailable; showing the English source',
+    load_failed:         'Failed to load document reader data.',
 
     diff: {
-      $self:          'Version Diff',
-      from_version:   'From Version',
-      to_version:     'To Version',
-      old_content:    'Old',
-      new_content:    'New',
-      total_changes:  '{count} changes',
-      no_changes:     'No changes match the current filter.',
-      load_failed:    'Failed to load version comparison data.',
-      filter_all:     'All Types',
-      other:          'Other',
-      omitted:        '{count} sections omitted',
-      type: {
+      reference_updates:      'References',
+      reference_only:         'Reference numbering only',
+      hide_reference_updates: 'Hide reference numbering updates',
+
+      $self:         'Version Diff',
+      from_version:  'From Version',
+      to_version:    'To Version',
+      old_content:   'Old',
+      new_content:   'New',
+      total_changes: '{count} changes',
+      no_changes:    'No changes match the current filter.',
+      load_failed:   'Failed to load version comparison data.',
+      filter_all:    'All Types',
+      other:         'Other',
+      omitted:       '{count} sections omitted',
+      type:          {
         added:            'Added',
         removed:          'Removed',
         modified:         'Modified',
@@ -1060,7 +1265,31 @@ export default {
         renamed:          'Renamed',
         renamed_modified: 'Renamed & Modified',
         split:            'Split',
+        moved_modified:   'Moved and edited',
         merged:           'Merged',
+      },
+    },
+
+    history: {
+      $self:        'Entry History',
+      title:        'History of {serial}',
+      split:        'Split',
+      merged:       'Merged',
+      compare:      'Full comparison',
+      period:       '{count} periods',
+      lineage:      '{count} related rules',
+      added:        'Added',
+      removed:      'Removed',
+      renamed_from: 'Renumbered · was {serial}',
+      fallback:     'English original',
+      latest:       'Latest edition',
+      end:          'End of recorded history',
+      not_found:    'History for this entry is not available.',
+      load_failed:  'Failed to load entry history data.',
+      legend:       {
+        add:    'Added this period',
+        remove: 'Removed next period',
+        both:   'Added this period, removed next',
       },
     },
   },

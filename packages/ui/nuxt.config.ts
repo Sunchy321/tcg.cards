@@ -21,6 +21,13 @@ export default defineNuxtConfig({
     },
   },
 
+  runtimeConfig: {
+    public: {
+      // Game sites that serve a /data-sources page override this to opt into the footer link.
+      hasDataSourcesPage: false,
+    },
+  },
+
   css: ['~/assets/css/main.css'],
 
   alias: {

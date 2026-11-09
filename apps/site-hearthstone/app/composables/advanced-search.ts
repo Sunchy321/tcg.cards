@@ -1,6 +1,6 @@
 import Parser from '#search/parser';
 import { simplify } from '#search/parser/simplify';
-import type { Expression, SimpleExpr } from '#search/parser';
+import type { Expression } from '#search/parser';
 
 export type NumericOperator = '=' | '>' | '>=' | '<' | '<=';
 
@@ -53,28 +53,6 @@ const createDefaultState = (): AdvancedSearchState => ({
   format:       '',
 });
 
-const quoteValue = (value: string) => {
-  if (value === '') {
-    return '""';
-  }
-
-  if (/[\s"()]/.test(value)) {
-    return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
-  }
-
-  return value;
-};
-
-const buildText = (command: string, value: string) => {
-  const trimmed = value.trim();
-
-  if (trimmed === '') {
-    return null;
-  }
-
-  return `${command}:${quoteValue(trimmed)}`;
-};
-
 const buildNumeric = (command: string, state: NumericFieldState) => {
   if (state.value.trim() === '') {
     return null;
@@ -109,14 +87,6 @@ const buildNumericChips = (command: string, values: string[]) => {
   return `(${queries.join(' | ')})`;
 };
 
-const buildOrder = (state: OrderFieldState) => {
-  if (state.value === '') {
-    return null;
-  }
-
-  return `order:${state.value}${state.direction}`;
-};
-
 export const buildAdvancedSearchDSL = (state: AdvancedSearchState) => {
   const parts = [
     state.keyword.trim() || null,
@@ -143,7 +113,7 @@ export const buildAdvancedSearchDSL = (state: AdvancedSearchState) => {
 
 // ── Reverse parsing (DSL → State) ──────────────────────────────────────────
 
-function applySimpleExpr(expr: SimpleExpr, state: AdvancedSearchState): void {
+function applySimpleExpr(expr: Extract<Expression, { type: 'simple' }>, state: AdvancedSearchState): void {
   // Skip negated expressions — the visual panel has no way to represent exclusion
   if (expr.qual?.includes('!')) return;
 

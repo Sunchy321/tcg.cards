@@ -18,7 +18,7 @@
             :set="imageVersion.set"
             :number="imageVersion.number"
             :layout="imageVersion.layout"
-            :full-image-type="imageVersion.fullImageType"
+            :image-type="imageVersion.imageType"
             :part="part"
           />
         </div>

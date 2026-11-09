@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import canonicalize from 'canonicalize';
 
 import { and, eq, inArray, sql } from 'drizzle-orm';
@@ -175,7 +176,7 @@ export interface ImportParsedHsdataInput {
 }
 
 function hashCanonicalJson(value: unknown): string {
-  return Bun.SHA256.hash(canonicalize(value)!, 'hex') as string;
+  return createHash('sha256').update(canonicalize(value)!).digest('hex');
 }
 
 // Snapshot hash payload reduced from one normalized entity.
@@ -498,7 +499,6 @@ async function insertPlaceholderSets(dbfIds: number[]): Promise<number> {
         chunk.map(dbfId => ({
           setId:         buildHsdataPlaceholderSetId(dbfId),
           dbfId,
-          slug:          null,
           rawName:       null,
           type:          'unknown',
           releaseDate:   '',
@@ -1219,9 +1219,9 @@ export async function importParsedHsdata(input: ImportParsedHsdataInput): Promis
         .onConflictDoUpdate({
           target: [Patch.buildNumber],
           set:    {
-            name:      input.name,
+            name: input.name,
             shortName,
-            hash:      input.hash,
+            hash: input.hash,
           },
         });
 

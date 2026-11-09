@@ -1,384 +1,205 @@
 <template>
-  <div class="desktop-page">
-    <div class="space-y-6">
-      <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 class="desktop-section-title">
-            发布配置
-          </h1>
-          <p class="mt-2 text-sm text-muted">
-            配置远端发布目标与环境。当前 `publishTarget` 收束为游戏 ID。
-          </p>
-        </div>
-
-        <DesktopConfigHeaderActions />
-      </div>
-
-      <div class="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
-        <DesktopSettingsSidebar />
-
-        <UCard>
-          <template #header>
-            <div>
-              <div class="font-medium">发布目标</div>
-              <div class="mt-1 text-xs text-muted">维护远端发布目标与环境草稿。当前 `publishTarget` 请填写游戏 ID。</div>
-            </div>
-          </template>
-
-          <div class="space-y-4">
-            <div class="flex flex-wrap justify-end gap-2">
-              <UButton
-                label="新增行"
-                icon="i-lucide-plus"
-                color="primary"
-                variant="soft"
-                @click="addDraftTarget"
-              />
-              <UButton
-                label="保存"
-                icon="i-lucide-save"
-                color="primary"
-                :loading="savingTargets"
-                :disabled="loadingTargets"
-                @click="saveTargets"
-              />
-              <UButton
-                label="刷新"
-                icon="i-lucide-refresh-cw"
-                color="neutral"
-                variant="ghost"
-                :loading="loadingTargets"
-                @click="loadTargets"
-              />
-            </div>
-
-            <UAlert
-              v-if="targetsError.length > 0"
-              color="error"
-              variant="soft"
-              icon="i-lucide-circle-alert"
-              :description="targetsError"
-            />
-
-            <div
-              v-else-if="loadingTargets && targets.length === 0"
-              class="flex justify-center py-8"
-            >
-              <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
-            </div>
-
-            <div
-              v-else-if="draftTargets.length === 0"
-              class="py-6 text-center text-sm text-muted"
-            >
-              暂无发布配置
-            </div>
-
-            <div v-else class="overflow-x-auto">
-              <table class="w-full table-fixed text-sm">
-                <colgroup>
-                  <col class="w-44">
-                  <col class="w-36">
-                  <col class="w-md">
-                  <col class="w-36">
-                  <col class="w-48">
-                </colgroup>
-                <thead>
-                  <tr class="border-b border-default text-left text-xs text-muted">
-                    <th class="px-3 py-2 font-medium">Publish Target</th>
-                    <th class="px-3 py-2 font-medium">Environment</th>
-                    <th class="px-3 py-2 font-medium">Connection String</th>
-                    <th class="px-3 py-2 font-medium">Fingerprint</th>
-                    <th class="px-3 py-2 font-medium">操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr
-                    v-for="target in draftTargets"
-                    :key="target.id"
-                    class="border-b border-default/60 last:border-b-0"
-                  >
-                    <td class="px-3 py-3">
-                      <USelect
-                        v-model="target.publishTarget"
-                        :items="publishTargetItems"
-                        class="w-full"
-                        @update:model-value="handleDraftTargetChange(target)"
-                      />
-                    </td>
-                    <td class="px-3 py-3">
-                      <USelect
-                        v-model="target.environment"
-                        :items="environmentItems"
-                        class="w-full"
-                        @update:model-value="handleDraftTargetChange(target)"
-                      />
-                    </td>
-                    <td class="px-3 py-3">
-                      <input
-                        v-model="target.connectionString"
-                        class="w-full rounded-lg border border-default bg-default px-3 py-2 font-mono text-xs text-default"
-                        placeholder="postgres://user:password@127.0.0.1:5432/database"
-                        @input="handleDraftTargetChange(target)"
-                      >
-                    </td>
-                    <td class="px-3 py-3">
-                      <div
-                        class="truncate font-mono text-xs"
-                        :class="target.targetFingerprint.length > 0 ? 'text-success' : 'text-muted'"
-                      >
-                        {{ formatFingerprintStatus(target.targetFingerprint) }}
-                      </div>
-                    </td>
-                    <td class="px-3 py-3">
-                      <div class="flex flex-nowrap gap-2">
-                        <UButton
-                          label="注册"
-                          icon="i-lucide-bookmark-plus"
-                          color="primary"
-                          variant="soft"
-                          :loading="target.registering"
-                          @click="registerDraftTarget(target.id)"
-                        />
-                        <UButton
-                          label="测试"
-                          icon="i-lucide-plug"
-                          color="neutral"
-                          variant="soft"
-                          :loading="target.testing"
-                          @click="testDraftTarget(target.id)"
-                        />
-                        <UButton
-                          label="删除"
-                          icon="i-lucide-trash"
-                          color="error"
-                          variant="ghost"
-                          @click="removeDraftTarget(target.id)"
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+  <SettingsFrame title="发布配置">
+    <UCard>
+      <template #header>
+        <div class="flex items-center justify-between gap-3">
+          <div class="space-y-1">
+            <h2 class="font-medium">发布目标</h2>
+            <p class="text-sm text-muted">每次发布时在发布页右上角选择一个目标。</p>
           </div>
-        </UCard>
+          <UButton label="添加目标" icon="i-lucide-plus" variant="soft" @click="add" />
+        </div>
+      </template>
+      <UAlert v-if="error" role="alert" color="error" :description="error" class="mb-4" />
+      <p v-if="!rows.length" class="text-sm text-muted">暂无发布目标。</p>
+      <div v-for="row in rows" :key="row.id" class="mb-5 space-y-4 rounded-lg border border-default p-4">
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div class="space-y-2">
+            <label :for="`target-name-${row.id}`" class="block text-sm font-medium">名称</label>
+            <UInput
+              :id="`target-name-${row.id}`"
+              v-model="row.name"
+              placeholder="例如：本地、线上"
+              :disabled="busy"
+              class="w-full"
+              @blur="persist"
+            />
+          </div>
+          <div class="space-y-2">
+            <label :for="`target-kind-${row.id}`" class="block text-sm font-medium">类型</label>
+            <USelect
+              :id="`target-kind-${row.id}`"
+              v-model="row.kind"
+              :items="targetKinds"
+              :disabled="busy"
+              class="w-full"
+              @update:model-value="persist"
+            />
+          </div>
+        </div>
+        <div v-if="row.kind === 'direct'" class="space-y-2">
+          <label :for="`target-connection-${row.id}`" class="block text-sm font-medium">连接字符串</label>
+          <UInput
+            :id="`target-connection-${row.id}`"
+            v-model="row.connectionString"
+            placeholder="postgres://user:password@localhost/database"
+            :disabled="busy"
+            class="w-full"
+            @blur="persist"
+          />
+        </div>
+        <p v-else class="text-sm text-muted">
+          {{ snapshot?.credentials['remote-session'] ? '已登录：发布时由服务校验权限并签发临时凭据。' : '账户目标需要先在「远端登录」中登录。' }}
+        </p>
+        <UButton
+          label="删除目标"
+          icon="i-lucide-trash"
+          color="error"
+          variant="ghost"
+          :disabled="busy"
+          @click="remove(row.id)"
+        />
       </div>
-    </div>
-  </div>
+    </UCard>
+    <UCard>
+      <template #header>
+        <div class="space-y-1">
+          <h2 class="font-medium">搜索数据导出</h2>
+          <p class="text-sm text-muted">导出的搜索数据会保存在此目录下。</p>
+        </div>
+      </template>
+      <UAlert v-if="storageError" role="alert" color="error" :description="storageError" class="mb-4" />
+      <div class="space-y-2">
+        <label for="search-export-directory" class="block text-sm font-medium">导出目录</label>
+        <div class="flex gap-2">
+          <UInput
+            id="search-export-directory"
+            v-model="searchExportDirectory"
+            autocomplete="off"
+            placeholder="选择保存搜索数据的目录"
+            :disabled="storageBusy"
+            class="w-full"
+          />
+          <UButton label="选择目录" icon="i-lucide-folder-open" variant="soft" :disabled="storageBusy" @click="pickSearchDirectory" />
+          <UButton label="保存" :loading="storageBusy" @click="saveSearchStorage" />
+        </div>
+      </div>
+    </UCard>
+  </SettingsFrame>
 </template>
-
 <script setup lang="ts">
-import { getConsoleErrorMessage } from '@tcg-cards/console-core';
-import { useToast } from '@nuxt/ui/composables';
-
-import {
-  getDesktopPublishTargets,
-  setDesktopPublishTargets,
-  testDesktopPublishTarget,
-  type DesktopPublishTarget,
-} from '~/composables/useDesktopSettings';
-
-definePageMeta({
-  layout: 'admin',
-  title:  '发布配置',
-});
-
-const toast = useToast();
-const loadingTargets = ref(false);
-const savingTargets = ref(false);
-const targetsError = ref('');
-const targets = ref<DesktopPublishTarget[]>([]);
-const draftTargets = ref<PublishTargetDraft[]>([]);
-const publishTargetItems = [
-  { label: 'Hearthstone', value: 'hearthstone' },
-  { label: 'Magic', value: 'magic' },
-  { label: 'Yu-Gi-Oh!', value: 'yugioh' },
+import { useDesktopSettings, settingsError } from '~/composables/useDesktopSettings';
+/** One editable destination row before its name is complete. */
+type TargetRow = { id: string, name: string, kind: 'direct' | 'account', connectionString: string };
+definePageMeta({ layout: 'admin', title: '发布配置' });
+const { snapshot, update } = useDesktopSettings();
+const rows = ref<TargetRow[]>([]);
+const busy = ref(false);
+const error = ref('');
+const targetKinds = [
+  { label: '直连', value: 'direct' },
+  { label: '账户', value: 'account' },
 ];
-const environmentItems = [
-  { label: 'Development', value: 'dev' },
-  { label: 'Production', value: 'prod' },
-];
-
-/** Editable publish target row kept only in page-local state. */
-type PublishTargetDraft = {
-  id:                string;
-  publishTarget:     string;
-  environment:       string;
-  credentialKey:     string | null;
-  connectionString:  string;
-  targetFingerprint: string;
-  testing:           boolean;
-  registering:       boolean;
-  testError:         string;
-};
-
-/** Draft row created from one persisted publish target row. */
-function createDraftTarget(target?: DesktopPublishTarget): PublishTargetDraft {
-  return {
-    id:                crypto.randomUUID(),
-    publishTarget:     target?.publishTarget ?? '',
-    environment:       target?.environment ?? '',
-    credentialKey:     target?.credentialKey ?? null,
-    connectionString:  target?.connectionString ?? '',
-    targetFingerprint: target?.targetFingerprint ?? '',
-    testing:           false,
-    registering:       false,
-    testError:         '',
-  };
+/** Persisted targets, safe while the main process is still on an older settings shape. */
+const savedTargets = computed(() => snapshot.value?.config.targets ?? []);
+const searchExportDirectory = ref('');
+const storageBusy = ref(false);
+const storageError = ref('');
+watch(
+  () => snapshot.value?.config.targets,
+  value => {
+    if (!rows.value.length && value?.length) {
+      rows.value = value.map(target => ({
+        id:               target.id,
+        name:             target.name,
+        kind:             target.kind,
+        connectionString: target.connectionString ?? '',
+      }));
+    }
+  },
+  { immediate: true },
+);
+watch(
+  () => snapshot.value?.config.searchStorage,
+  value => {
+    searchExportDirectory.value = value?.exportDirectory ?? '';
+  },
+  { immediate: true },
+);
+/** Creates an empty local row without writing invalid settings. */
+function add() {
+  rows.value.push({ id: crypto.randomUUID(), name: '', kind: 'direct', connectionString: '' });
 }
-
-/** Appends one empty draft row to the local publish target table. */
-function addDraftTarget() {
-  draftTargets.value.push(createDraftTarget());
-}
-
-/** Removes one draft row from the local publish target table. */
-function removeDraftTarget(id: string) {
-  draftTargets.value = draftTargets.value.filter(target => target.id !== id);
-}
-
-/** Clears one resolved fingerprint after the draft identity changes. */
-function handleDraftTargetChange(target: PublishTargetDraft) {
-  target.targetFingerprint = '';
-}
-
-/** Short fingerprint status label derived from one resolved fingerprint. */
-function formatFingerprintStatus(fingerprint: string) {
-  if (!fingerprint) return '未获取';
-  return fingerprint.slice(0, 8);
-}
-
-/** Resolves one draft row fingerprint from the current target fields. */
-async function testDraftTarget(id: string) {
-  const target = draftTargets.value.find(item => item.id === id);
-
-  if (!target) return;
-
-  target.testing = true;
-  target.testError = '';
-
+/** Applies complete names immediately without dropping another incomplete draft row. */
+async function persist() {
+  busy.value = true;
+  error.value = '';
   try {
-    const result = await testDesktopPublishTarget(
-      target.publishTarget.trim() || null,
-      target.environment.trim() || null,
-      target.connectionString.trim() || null,
+    await update(
+      'targets',
+      rows.value
+        .filter(row => row.name.trim())
+        .map(row => {
+          const saved = savedTargets.value.find(item => item.id === row.id);
+          const connectionString = row.connectionString.trim();
+          // A different name, kind or connection is a different destination and cannot keep its verification.
+          const verified = saved?.name === row.name.trim()
+            && saved.kind === row.kind
+            && saved.connectionString === (connectionString || undefined)
+            ? saved?.targetFingerprint
+            : undefined;
+          return {
+            id:   row.id,
+            name: row.name.trim(),
+            kind: row.kind,
+            ...(connectionString ? { connectionString } : {}),
+            ...(verified ? { targetFingerprint: verified } : {}),
+          };
+        }),
     );
-
-    target.targetFingerprint = result.targetFingerprint;
-  } catch (error) {
-    console.error('Failed to test desktop publish target:', error);
-    target.targetFingerprint = '';
-    target.testError = getConsoleErrorMessage(error, '发布目标测试失败');
-    toast.add({
-      title: '发布目标测试失败',
-      description: target.testError,
-      color: 'error',
-    });
+  } catch (cause) {
+    error.value = settingsError(cause);
   } finally {
-    target.testing = false;
+    busy.value = false;
   }
 }
-
-/** Registers one remote publish stream so the gate check does not reject it. */
-async function registerDraftTarget(id: string) {
-  const target = draftTargets.value.find(item => item.id === id);
-
-  if (!target) return;
-
-  target.registering = true;
-
-  try {
-    const { registerRemotePublishStream } = await import('~/composables/useHsdataRepo');
-    await registerRemotePublishStream({
-      connectionString: target.connectionString.trim(),
-      publishTarget: target.publishTarget.trim(),
-      environment: target.environment.trim(),
-      targetFingerprint: target.targetFingerprint,
-    });
-
-    toast.add({
-      title: '注册成功',
-      color: 'success',
-    });
-  } catch (error) {
-    console.error('Failed to register remote publish stream:', error);
-    toast.add({
-      title: '注册失败',
-      description: getConsoleErrorMessage(error, '注册远程发布目标失败'),
-      color: 'error',
-    });
-  } finally {
-    target.registering = false;
-  }
-}
-
-/** Persists the current publish target table after all rows have valid fingerprints. */
-async function saveTargets() {
-  const rows = draftTargets.value.map(target => ({
-    credentialKey: target.credentialKey,
-    publishTarget: target.publishTarget.trim(),
-    environment: target.environment.trim(),
-    connectionString: target.connectionString.trim(),
-    targetFingerprint: target.targetFingerprint.trim(),
-  }));
-
-  if (rows.some(row => !row.publishTarget || !row.environment || !row.connectionString)) {
-    toast.add({
-      title: '发布配置保存失败',
-      description: '存在未填写完整的发布配置。',
-      color: 'error',
-    });
+/** Removes a local target while JSON and credential persistence remain separate. */
+async function remove(id: string) {
+  const before = [...rows.value];
+  rows.value = rows.value.filter(row => row.id !== id);
+  await persist();
+  if (error.value) {
+    rows.value = before;
     return;
   }
-
-  if (rows.some(row => !row.targetFingerprint)) {
-    toast.add({
-      title: '发布配置保存失败',
-      description: '存在未测试或已失效的 fingerprint，请先逐行测试。',
-      color: 'error',
-    });
-    return;
-  }
-
-  savingTargets.value = true;
-
   try {
-    targets.value = await setDesktopPublishTargets(rows);
-    draftTargets.value = targets.value.map(target => createDraftTarget(target));
-    toast.add({
-      title: '发布配置已保存',
-      color: 'success',
-    });
-  } catch (error) {
-    console.error('Failed to save desktop publish targets:', error);
-    toast.add({
-      title: '发布配置保存失败',
-      description: getConsoleErrorMessage(error, '发布配置保存失败'),
-      color: 'error',
-    });
-  } finally {
-    savingTargets.value = false;
+    const selection = { ...snapshot.value?.config.targetSelection };
+    for (const game of Object.keys(selection) as Array<keyof typeof selection>) {
+      if (selection[game] === id) Reflect.deleteProperty(selection, game);
+    }
+    await update('targetSelection', selection);
+  } catch (cause) {
+    error.value = settingsError(cause);
   }
 }
-
-/** Loads the current publish target rows from the desktop runtime. */
-async function loadTargets() {
-  loadingTargets.value = true;
-  targetsError.value = '';
-
+/** Saves the export directory independently of the other search settings. */
+async function saveSearchStorage() {
+  storageBusy.value = true;
+  storageError.value = '';
   try {
-    targets.value = await getDesktopPublishTargets();
-    draftTargets.value = targets.value.map(target => createDraftTarget(target));
-  } catch (error) {
-    console.error('Failed to load desktop publish targets:', error);
-    targetsError.value = getConsoleErrorMessage(error, '发布配置读取失败');
+    await update('searchStorage.exportDirectory', searchExportDirectory.value.trim());
+  } catch (cause) {
+    storageError.value = settingsError(cause);
   } finally {
-    loadingTargets.value = false;
+    storageBusy.value = false;
   }
 }
-
-onMounted(() => {
-  void loadTargets();
-});
+/** Opens a native directory picker for the completed local search export. */
+async function pickSearchDirectory() {
+  try {
+    searchExportDirectory.value = await window.desktop.settings.pickDirectory(searchExportDirectory.value || null) ?? searchExportDirectory.value;
+  } catch (cause) {
+    storageError.value = settingsError(cause);
+  }
+}
 </script>

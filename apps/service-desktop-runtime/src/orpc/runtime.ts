@@ -1,45 +1,58 @@
+import { spawn } from 'node:child_process';
 import { z } from 'zod';
 
 import { os } from './index';
+import { getGamePathState, isExplicitPath, resolvePath } from '../lib/game-paths';
 import {
+  applyPathOverrides,
   hasAiConfig,
   hasHearthstoneImageOverride,
   hasHearthstonePublishTargetOverride,
-  hasHsdataRepoPath,
   hasLocalDatabaseUrl,
+  hasYugiohImageOverride,
+  hasYugiohPublishTargetOverride,
+  readAllPathOverrides,
   setAiConfig,
   setEditorIdentity,
   setHearthstoneImageOverride,
   setHearthstonePublishTargetOverrides,
-  setHsdataRepoPathOverride,
+  setMagicPublishTargetOverrides,
   setLocalDatabaseUrlOverride,
+  setPathOverride,
+  setYugiohImageOverride,
+  setYugiohPublishTargetOverride,
+  type PathOverrides,
 } from '../runtime-config';
 
 /** Runtime status returned by desktop runtime health procedures. */
 const runtimeStatus = z.object({
-  service:                 z.string(),
-  runtime:                 z.string(),
-  status:                  z.literal('ok'),
-  localDatabaseConfigured: z.boolean(),
-  hsdataRepoConfigured:    z.boolean(),
-  imageConfigured:         z.boolean(),
-  publishTargetConfigured: z.boolean(),
-  aiConfigured:            z.boolean(),
-  time:                    z.string(),
+  service:                       z.string(),
+  runtime:                       z.string(),
+  status:                        z.literal('ok'),
+  localDatabaseConfigured:       z.boolean(),
+  pathsConfigured:               z.boolean(),
+  imageConfigured:               z.boolean(),
+  gameConfigured:                z.boolean(),
+  yugiohPublishTargetConfigured: z.boolean(),
+  yugiohImageConfigured:         z.boolean(),
+  aiConfigured:                  z.boolean(),
+  time:                          z.string(),
 });
 
 /** Standard desktop runtime health payload shared across HTTP and RPC surfaces. */
 function buildStatus() {
   return {
-    service:                 'service-desktop-runtime',
-    runtime:                 'bun',
-    status:                  'ok' as const,
-    localDatabaseConfigured: hasLocalDatabaseUrl(),
-    hsdataRepoConfigured:    hasHsdataRepoPath(),
-    imageConfigured:         hasHearthstoneImageOverride(),
-    publishTargetConfigured: hasHearthstonePublishTargetOverride(),
-    aiConfigured:            hasAiConfig(),
-    time:                    new Date().toISOString(),
+    service:                       'service-desktop-runtime',
+    runtime:                       'bun' in process.versions ? 'bun' : 'node',
+    status:                        'ok' as const,
+    localDatabaseConfigured:       hasLocalDatabaseUrl(),
+    pathsConfigured:               Object.keys(readAllPathOverrides()).length > 0,
+    imageConfigured:               hasHearthstoneImageOverride(),
+    gameConfigured:                hasHearthstonePublishTargetOverride(),
+    yugiohPublishTargetConfigured: hasYugiohPublishTargetOverride(),
+    yugiohImageConfigured:         hasYugiohImageOverride(),
+    aiConfigured:                  hasAiConfig(),
+    time:                          new Date().toISOString(),
   };
 }
 
@@ -47,29 +60,51 @@ const configureLocalDatabaseInput = z.strictObject({
   connectionString: z.string().trim().min(1).nullable(),
 });
 
-const configureHsdataRepoInput = z.strictObject({
-  repoPath: z.string().trim().min(1).nullable(),
+const configurePathInput = z.strictObject({
+  key:   z.string().trim().min(1),
+  value: z.string().trim().min(1).nullable(),
 });
+
+const pathNodeSchema: z.ZodType<string | Record<string, unknown>> = z.lazy(() =>
+  z.union([z.string(), z.record(z.string(), pathNodeSchema)]),
+);
 
 const configureDesktopStateInput = z.strictObject({
   localDatabase: z.strictObject({
     connectionString: z.string().trim().min(1).nullable(),
   }),
+  paths: z.record(z.string(), pathNodeSchema),
   games: z.strictObject({
+    magic: z.strictObject({
+      publish: z.array(z.strictObject({
+        game:              z.string().trim().min(1).nullable(),
+        target:            z.string().trim().min(1).nullable(),
+        targetFingerprint: z.string().trim().min(1).nullable(),
+        connectionString:  z.string().trim().min(1).nullable(),
+      })),
+    }),
     hearthstone: z.strictObject({
-      hsdata: z.strictObject({
-        repoPath: z.string().trim().min(1).nullable(),
-      }),
       image: z.strictObject({
         rendererBaseUrl: z.string().trim().min(1).nullable(),
-        bucketDir: z.string().trim().min(1).nullable(),
+        bucketDir:       z.string().trim().min(1).nullable(),
       }),
       publish: z.array(z.strictObject({
-        publishTarget: z.string().trim().min(1).nullable(),
-        environment: z.string().trim().min(1).nullable(),
+        game:              z.string().trim().min(1).nullable(),
+        target:            z.string().trim().min(1).nullable(),
         targetFingerprint: z.string().trim().min(1).nullable(),
-        connectionString: z.string().trim().min(1).nullable(),
+        connectionString:  z.string().trim().min(1).nullable(),
       })),
+    }),
+    yugioh: z.strictObject({
+      image: z.strictObject({
+        bucketDir: z.string().trim().min(1).nullable(),
+      }),
+      publish: z.strictObject({
+        game:              z.string().trim().min(1).nullable(),
+        target:            z.string().trim().min(1).nullable(),
+        targetFingerprint: z.string().trim().min(1).nullable(),
+        connectionString:  z.string().trim().min(1).nullable(),
+      }),
     }),
   }),
   ai: z.strictObject({
@@ -84,9 +119,12 @@ function applyDesktopState(
   input: z.infer<typeof configureDesktopStateInput>,
 ) {
   setLocalDatabaseUrlOverride(input.localDatabase.connectionString);
-  setHsdataRepoPathOverride(input.games.hearthstone.hsdata.repoPath);
+  applyPathOverrides(input.paths as PathOverrides);
   setHearthstoneImageOverride(input.games.hearthstone.image);
   setHearthstonePublishTargetOverrides(input.games.hearthstone.publish);
+  setYugiohImageOverride(input.games.yugioh.image);
+  setYugiohPublishTargetOverride(input.games.yugioh.publish);
+  setMagicPublishTargetOverrides(input.games.magic.publish);
   if (input.ai) {
     setAiConfig({
       apiKey:  input.ai.apiKey,
@@ -118,16 +156,16 @@ const configureLocalDatabase = os
     return buildStatus();
   });
 
-const configureHsdataRepo = os
+const configurePath = os
   .route({
     method:      'POST',
-    description: 'Configure the local hsdata repository path used by runtime-backed procedures',
+    description: 'Configure one runtime-local path override for a dotted `{game}.{ns}.{leaf}` key',
     tags:        ['Desktop Runtime'],
   })
-  .input(configureHsdataRepoInput)
+  .input(configurePathInput)
   .output(runtimeStatus)
   .handler(async ({ input }) => {
-    setHsdataRepoPathOverride(input.repoPath);
+    setPathOverride(input.key, input.value);
     return buildStatus();
   });
 
@@ -169,12 +207,12 @@ const openPath = os
   .output(openPathResult)
   .handler(async ({ input }) => {
     const cmd = getOpenCommand();
-    const proc = Bun.spawn([cmd, input.path], {
-      stdout: 'pipe',
-      stderr: 'pipe',
+    const proc = spawn(cmd, [input.path], { stdio: 'ignore' });
+    const exitCode = await new Promise<number | null>((resolve, reject) => {
+      proc.once('error', reject);
+      proc.once('close', resolve);
     });
-    await proc.exited;
-    return { ok: proc.exitCode === 0 };
+    return { ok: exitCode === 0 };
   });
 
 const configureEditorIdentityInput = z.strictObject({
@@ -194,12 +232,65 @@ const configureEditorIdentity = os
     return { ok: true };
   });
 
+const gamePathLeafState = z.strictObject({
+  name:     z.string(),
+  label:    z.string(),
+  path:     z.string().nullable(),
+  explicit: z.boolean(),
+});
+
+const gamePathState = z.strictObject({
+  game:  z.string(),
+  data:  z.strictObject({ root: z.string().nullable(), rootExplicit: z.boolean(), leaves: z.array(gamePathLeafState) }),
+  image: z.strictObject({ root: z.string().nullable(), rootExplicit: z.boolean(), leaves: z.array(gamePathLeafState) }),
+});
+
+const getGamePathStateInput = z.strictObject({
+  game: z.string().trim().min(1),
+});
+
+const getGamePathStateProcedure = os
+  .route({
+    method:      'GET',
+    description: 'Read one game’s declared data/image leaves with their effective paths',
+    tags:        ['Desktop Runtime'],
+  })
+  .input(getGamePathStateInput)
+  .output(gamePathState)
+  .handler(async ({ input }) => getGamePathState(input.game));
+
+const getPathInput = z.strictObject({
+  key: z.string().trim().min(1),
+});
+
+const getPathResult = z.strictObject({
+  key:      z.string(),
+  path:     z.string().nullable(),
+  explicit: z.boolean(),
+});
+
+const getPath = os
+  .route({
+    method:      'GET',
+    description: 'Read the effective path for one dotted `{game}.{ns}.{leaf}` key',
+    tags:        ['Desktop Runtime'],
+  })
+  .input(getPathInput)
+  .output(getPathResult)
+  .handler(async ({ input }) => ({
+    key:      input.key,
+    path:     resolvePath(input.key),
+    explicit: isExplicitPath(input.key),
+  }));
+
 /** Desktop runtime procedures exposed over the local RPC transport. */
 export const runtimeRouter = {
   health,
   configureDesktopState,
   configureEditorIdentity,
   configureLocalDatabase,
-  configureHsdataRepo,
+  configurePath,
   openPath,
+  getGamePathState: getGamePathStateProcedure,
+  getPath,
 };

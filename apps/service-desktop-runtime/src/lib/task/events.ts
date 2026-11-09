@@ -26,7 +26,7 @@ export function createTaskEventPublisher(): TaskEventPublisher {
       notify(snapshot);
     },
 
-    async * watch(taskRunId: string) {
+    async* watch(taskRunId: string) {
       const queue: TaskPageEvent[] = [];
       let wake: (() => void) | null = null;
       let stopped = false;
@@ -36,7 +36,11 @@ export function createTaskEventPublisher(): TaskEventPublisher {
         // Only enqueue events matching the requested task run
         if (event.pageTask.kind !== 'attached' || event.pageTask.taskRunId !== taskRunId) return;
         queue.push(event);
-        if (wake) { const resolve = wake; wake = null; resolve(); }
+        if (wake) {
+          const resolve = wake;
+          wake = null;
+          resolve();
+        }
       };
 
       const subscriber: TaskEventSubscriber = { push };
@@ -45,7 +49,9 @@ export function createTaskEventPublisher(): TaskEventPublisher {
       try {
         while (!stopped) {
           if (queue.length === 0) {
-            await new Promise<void>(resolve => { wake = resolve; });
+            await new Promise<void>(resolve => {
+              wake = resolve;
+            });
           }
           while (queue.length > 0) {
             const event = queue.shift()!;
@@ -54,7 +60,10 @@ export function createTaskEventPublisher(): TaskEventPublisher {
         }
       } finally {
         stopped = true;
-        if (wake) wake();
+        // `wake` is reassigned inside the push closure, so control-flow
+        // analysis sees only the null initializer here.
+        const pending = wake as (() => void) | null;
+        pending?.();
         subscribers.delete(subscriber);
       }
     },

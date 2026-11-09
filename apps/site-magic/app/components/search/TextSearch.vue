@@ -69,7 +69,7 @@ const currentModifier = computed(() =>
 const MODIFIERS = computed(() => [
   { value: 'default' as TextModifier, label: t('magic.search.advanced.modifier-default') },
   { value: 'oracle' as TextModifier, label: t('magic.search.advanced.modifier-oracle') },
-  { value: 'unified' as TextModifier, label: t('magic.search.advanced.modifier-unified') },
+  { value: 'localized' as TextModifier, label: t('magic.search.advanced.modifier-localized') },
   { value: 'printed' as TextModifier, label: t('magic.search.advanced.modifier-printed') },
 ]);
 

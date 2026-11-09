@@ -41,37 +41,37 @@ const os = create.$context<{ meta?: ConsoleApiRequestMeta }>();
 type FieldCommitRow = typeof FieldCommit.$inferSelect;
 
 /** Converts one write-mode hint into the persisted sync state. */
-function toSyncStatus(mode: ConsoleApiRequestMeta['syncMode']) {
+function toSyncStatus(mode: ConsoleApiRequestMeta['syncMode']): 'pending_push' | 'synced' | 'pulled' {
   switch (mode) {
-    case 'remote_edit':
-      return 'synced';
-    case 'pull':
-      return 'pulled';
-    case 'local_edit':
-    default:
-      return 'pending_push';
+  case 'remote_edit':
+    return 'synced';
+  case 'pull':
+    return 'pulled';
+  case 'local_edit':
+  default:
+    return 'pending_push';
   }
 }
 
 /** Maps one request runtime mode to the side and stage that process the commit. */
 function toConflictTarget(mode: ConsoleApiRequestMeta['syncMode']) {
   switch (mode) {
-    case 'remote_edit':
-      return {
-        processingSide:  'remote',
-        processingStage: 'apply',
-      } as const;
-    case 'pull':
-      return {
-        processingSide:  'local',
-        processingStage: 'replay',
-      } as const;
-    case 'local_edit':
-    default:
-      return {
-        processingSide:  'local',
-        processingStage: 'apply',
-      } as const;
+  case 'remote_edit':
+    return {
+      processingSide:  'remote',
+      processingStage: 'apply',
+    } as const;
+  case 'pull':
+    return {
+      processingSide:  'local',
+      processingStage: 'replay',
+    } as const;
+  case 'local_edit':
+  default:
+    return {
+      processingSide:  'local',
+      processingStage: 'apply',
+    } as const;
   }
 }
 
@@ -273,6 +273,7 @@ const manualUpdate = os
       syncStatus:     meta.syncStatus,
       editorRuntime:  meta.editorRuntime,
       editorIdentity: meta.editorIdentity,
+      editorSource:   meta.editorSource,
       conflictTarget: meta.conflictTarget,
     }));
   });

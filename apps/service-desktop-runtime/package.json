@@ -1,38 +1,59 @@
 {
   "name": "service-desktop-runtime",
+  "description": "DEPRECATED: former Bun desktop runtime. Its search projection and publication workflows now live in app-console-desktop; the package will be removed in a future version.",
   "private": true,
   "type": "module",
+  "imports": {
+    "#model/*": "@tcg-cards/model/*",
+    "#task/*": "./src/lib/task/*.ts"
+  },
   "exports": {
     ".": "./src/index.ts",
+    "./app": "./src/app.ts",
+    "./electron-app": "./src/electron-app.ts",
+    "./runtime-config": "./src/runtime-config.ts",
+    "./task-runtime": "./src/task-runtime.ts",
     "./orpc": "./src/orpc/service.ts",
+    "./orpc/hearthstone": "./src/orpc/hearthstone/index.ts",
+    "./orpc/image": "./src/orpc/image.ts",
+    "./orpc/runtime": "./src/orpc/runtime.ts",
+    "./lib/magic/project/search-data": "./src/lib/magic/project/search-data.ts",
     "./lib/hearthstone/*": "./src/lib/hearthstone/*.ts",
+    "./lib/shadowverse/*": "./src/lib/shadowverse/*.ts",
+    "./lib/shadowverse-evolve/*": "./src/lib/shadowverse-evolve/*.ts",
     "./lib/yugioh/*": "./src/lib/yugioh/*.ts"
   },
   "scripts": {
     "build": "echo No build needed",
-    "dev": "bun --watch src/index.ts",
+    "dev": "bun --hot src/index.ts",
     "lint": "eslint .",
     "start": "bun src/index.ts",
     "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "search:rebuild": "bun scripts/rebuild-search-data.ts",
+    "magic:search:rebuild": "bun scripts/rebuild-magic-search-data.ts",
+    "magic:search:benchmark:pinyin": "bun --env-file=../../scripts/.env scripts/benchmark-magic-search-pinyin.ts"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.12",
     "@orpc/server": "^1.14.0",
+    "@pinyin-pro/data": "^1.3.1",
     "@tcg-cards/console-api": "workspace:*",
     "@tcg-cards/db": "workspace:*",
     "@tcg-cards/model": "workspace:*",
     "@tcg-cards/shared": "workspace:*",
+    "@zip.js/zip.js": "^2.11.2",
     "ai": "^7.0.31",
     "canonicalize": "^3.0.0",
     "cheerio": "^1.2.0",
     "hono": "^4.10.5",
     "lodash-es": "^4.18.1",
+    "pinyin-pro": "^3.28.0",
     "saxes": "^6.0.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/bun": "^1.3.13",
+    "@types/bun": "^1.4.1",
     "@types/lodash-es": "^4.17.12",
     "eslint": "^10.2.1",
     "eslint-config-custom": "workspace:*",

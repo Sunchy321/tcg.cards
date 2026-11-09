@@ -35,7 +35,7 @@
           @failed="onFailed"
           @create-error="onCreateError"
         >
-          <template #actions-before="{ activeOp }">
+          <template #actions-before>
             <UButton
               :label="`批量导入（${batchSourceTags.length}）`"
               icon="i-lucide-list-start"
@@ -53,7 +53,7 @@
                   <p class="mt-1 text-xs text-muted">选择一个版本后执行导入。</p>
                 </div>
                 <UBadge
-                  :label="dryRun ? 'Dry run' : 'Write mode'"
+                  :label="dryRun ? '仅预览' : '写入模式'"
                   :color="dryRun ? 'neutral' : 'warning'"
                   variant="soft"
                 />
@@ -81,7 +81,7 @@
                 </div>
               </div>
 
-              <UCheckbox v-model="dryRun" label="Dry Run" :disabled="disabled" />
+              <UCheckbox v-model="dryRun" label="仅预览，不写入" :disabled="disabled" />
             </div>
           </template>
         </TaskController>
@@ -90,12 +90,12 @@
           <template #header>
             <div class="flex items-center gap-2">
               <span class="font-medium">导入报告</span>
-              <UBadge label="Success" color="success" variant="soft" />
+              <UBadge label="成功" color="success" variant="soft" />
             </div>
           </template>
           <div class="grid gap-3 sm:grid-cols-2">
             <div class="rounded-lg border border-default p-3">
-              <div class="text-xs text-muted">Build Number</div>
+              <div class="text-xs text-muted">构建号</div>
               <div class="mt-1 font-mono text-sm">{{ taskResult.buildNumber }}</div>
             </div>
             <div class="rounded-lg border border-default p-3">
@@ -140,7 +140,7 @@
 import { useToast } from '@nuxt/ui/composables';
 import type { TaskPageSnapshot } from '@tcg-cards/model/task';
 import type { TaskOperation } from '~/components/task/TaskController.vue';
-import { orpc } from '~/lib/orpc';
+import { orpc, startDesktopTask } from '~/lib/orpc';
 import { getConsoleErrorMessage } from '@tcg-cards/console-core';
 import { listLocalHsdataSourceVersions } from '~/composables/useHsdataRepo';
 
@@ -251,10 +251,10 @@ const importOperation = computed<TaskOperation>(() => ({
   label:    '执行导入',
   icon:     'i-lucide-play',
   disabled: !selectedKey.value,
-  create:   async () => orpc.hearthstone.createTask.unpackImport({
+  create:   async () => startDesktopTask('hearthstone_unpack_import', {
     zipName: String(selectedKey.value!),
     dryRun:  dryRun.value,
-  }) as Promise<TaskPageSnapshot>,
+  }),
 }));
 
 const controller = ref<{ attach(snapshot: TaskPageSnapshot): void, currentTaskRunId: string | null }>();
@@ -274,11 +274,11 @@ function onFailed() {
 async function nextBatch() {
   if (batchQueue.value.length === 0) return;
   const tag = batchQueue.value.shift()!;
-  const snapshot = await orpc.hearthstone.createTask.unpackImport({
+  const snapshot = await startDesktopTask('hearthstone_unpack_import', {
     zipName: String(tag),
     dryRun:  dryRun.value,
-  }) as TaskPageSnapshot;
-  controller.value?.attach(snapshot);
+  });
+  if (snapshot) controller.value?.attach(snapshot);
 }
 
 function onCreateError() {}
@@ -294,11 +294,11 @@ async function startBatchImport() {
   if (batchQueue.value.length === 0) return;
 
   const tag = batchQueue.value.shift()!;
-  const snapshot = await orpc.hearthstone.createTask.unpackImport({
+  const snapshot = await startDesktopTask('hearthstone_unpack_import', {
     zipName: String(tag),
     dryRun:  dryRun.value,
-  }) as TaskPageSnapshot;
-  controller.value?.attach(snapshot);
+  });
+  if (snapshot) controller.value?.attach(snapshot);
 }
 
 onMounted(async () => {

@@ -44,7 +44,7 @@
 //       .update(Print)
 //       .set({
 //         imageStatus:   'highres_scan',
-//         fullImageType: 'webp',
+//         imageType: 'webp',
 //       })
 //       .where(and(
 //         eq(Print.set, set),

@@ -1,7 +1,7 @@
 import { usernameClient } from 'better-auth/client/plugins';
 import { createAuthClient } from 'better-auth/vue';
 
-export { ac, roles } from './permissions';
+export { ac, gameDataPermission, roles } from './permissions';
 export { createServerAuth } from './server';
 
 export interface CreateConsoleAuthClientOptions {
@@ -11,8 +11,8 @@ export interface CreateConsoleAuthClientOptions {
 export function createConsoleAuthClient(options: CreateConsoleAuthClientOptions) {
   return createAuthClient({
     basePath: '/auth',
-    baseURL: options.baseURL,
-    plugins: [usernameClient()],
+    baseURL:  options.baseURL,
+    plugins:  [usernameClient()],
   });
 }
 

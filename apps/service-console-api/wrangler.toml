@@ -1,0 +1,39 @@
+name = "service-console-api"
+main = "src/index.ts"
+compatibility_date = "2026-02-19"
+compatibility_flags = ["nodejs_compat"]
+
+workers_dev = false
+
+[[routes]]
+pattern = "console-api.tcg.cards"
+custom_domain = true
+
+[observability]
+enabled = true
+
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "34ff130776904528bff88fe51caea444"
+
+[[r2_buckets]]
+binding = "R2_DATA"
+bucket_name = "data"
+
+[[r2_buckets]]
+binding = "R2_ASSET"
+bucket_name = "asset"
+
+[[d1_databases]]
+binding = "MAGIC_SEARCH_DB"
+database_name = "magic-search"
+database_id = "6f8c972f-cacf-4976-836c-b15ef9e4835d"
+
+[[d1_databases]]
+binding = "HEARTHSTONE_SEARCH_DB"
+database_name = "hearthstone-search"
+database_id = "f9726943-d82c-44ae-9cc5-0595f9c06015"
+
+[vars]
+R2_ASSET_BUCKET = "asset"
+R2_DATA_BUCKET = "data"

@@ -3,6 +3,7 @@ import { cs as create } from '#search/server/command';
 import * as builtin from '#search/server/command/builtin';
 
 import { QueryError } from '#search/command/error';
+import { parseAmbitValue } from '#search/server/ambit';
 
 import { and, asc, desc, eq, inArray, not, notInArray, or, sql } from 'drizzle-orm';
 
@@ -11,6 +12,7 @@ import { classes as classSchema, types as typeSchema } from '#model/hearthstone/
 import { LatestCardEntityView } from '#schema/shared/hearthstone/entity';
 import { TAG_SLUG, TAG_ID } from '#model/hearthstone/constant/tag';
 
+/** Orders classes by their public model order. */
 function classOrderCase(column: ReturnType<typeof sql>) {
   const whenClauses = classSchema.options
     .map((c, i) => `WHEN '${c}' THEN ${i}`)
@@ -19,6 +21,7 @@ function classOrderCase(column: ReturnType<typeof sql>) {
   return sql`CASE ${column} ${sql.raw(whenClauses)} ELSE 99 END`;
 }
 
+/** Orders card types by their public model order. */
 function typeOrderCase(column: typeof LatestCardEntityView.type) {
   const whenClauses = typeSchema.options
     .flatMap((t, i) => t === 'null' ? [] : `WHEN '${t}' THEN ${i}`)
@@ -51,21 +54,16 @@ const matchStats = (
 
 export const raw = cs
   .commands.raw
-  .handler(({ value }, { table }) => {
+  .handler(({ value, argType }, { table }) => {
     return or(
       builtin.text.call({
         column: table => table.localization.name,
-        args:   { value, operator: ':', qualifier: [] },
+        args:   { value, operator: ':', qualifier: [], argType },
         ctx:    { meta: { multiline: false, caseSensitive: false }, table },
       }),
       builtin.text.call({
         column: table => table.localization.text,
-        args:   { value, operator: ':', qualifier: [] },
-        ctx:    { meta: { multiline: true, caseSensitive: false }, table },
-      }),
-      builtin.text.call({
-        column: table => table.localization.displayText,
-        args:   { value, operator: ':', qualifier: [] },
+        args:   { value, operator: ':', qualifier: [], argType },
         ctx:    { meta: { multiline: true, caseSensitive: false }, table },
       }),
     )!;
@@ -147,17 +145,12 @@ export const name = cs
 
 export const text = cs
   .commands.text
-  .handler(({ value, operator, qualifier }, { table }) => {
+  .handler(({ value, operator, qualifier, argType }, { table }) => {
     return matchText(
       qualifier,
       builtin.text.call({
         column: table => table.localization.text,
-        args:   { value, operator, qualifier },
-        ctx:    { meta: { multiline: true, caseSensitive: false }, table },
-      }),
-      builtin.text.call({
-        column: table => table.localization.displayText,
-        args:   { value, operator, qualifier },
+        args:   { value, operator, qualifier, argType },
         ctx:    { meta: { multiline: true, caseSensitive: false }, table },
       }),
     );
@@ -284,6 +277,55 @@ export const artist = cs
     caseSensitive: false,
   });
 
+export const collectible = cs
+  .commands.collectible
+  .handler(({ value }, { table }) => {
+    switch (value.toLowerCase()) {
+    case 'true':
+      return eq(table.collectible, true);
+    case 'false':
+      return eq(table.collectible, false);
+    case 'all':
+      return sql`true`;
+    default:
+      throw new QueryError({ type: 'invalid-query' });
+    }
+  });
+
+/** Validates explicit boolean values without adding collectible's all sentinel. */
+function booleanValue(value: string, qualifier: string[]): boolean {
+  switch (value.toLowerCase()) {
+  case 'true':
+    return !qualifier.includes('!');
+  case 'false':
+    return qualifier.includes('!');
+  default:
+    throw new QueryError({ type: 'invalid-query' });
+  }
+}
+
+export const elite = cs.commands.elite
+  .handler(({ value, qualifier }, { table }) => eq(table.elite, booleanValue(value, qualifier)));
+
+export const inTavern = cs.commands.inTavern
+  .handler(({ value, qualifier }, { table }) => eq(table.inBobsTavern, booleanValue(value, qualifier)));
+
+export const cooldown = cs.commands.cooldown
+  .apply(table => table.colddown, { allowFloat: false });
+
+export const ambit = cs
+  .commands.ambit
+  .handler(({ value, operator }, { table }) => {
+    // `:` is the ceiling, a legacy alias of `<=` (ADR 0015).
+    const comparison = ({ ':': '<=', '<=': '<=', '<': '<', '=': '=', '>': '>', '>=': '>=' } as Record<string, string>)[operator];
+
+    if (comparison == null) {
+      throw new QueryError({ type: 'invalid-operator', payload: { operator } });
+    }
+
+    return sql`${table.ambit} ${sql.raw(comparison)} ${parseAmbitValue(value)}`;
+  });
+
 export const change = cs
   .commands.change
   .handler(({ value }, { table }) => {
@@ -388,6 +430,17 @@ export const order = cs
       default:
         throw new QueryError({ type: 'invalid-query' });
       }
+    }
+
+    // Deterministic tail keys: tied sort values (e.g. identical names) get a
+    // stable total order, so pagination cannot shuffle rows between requests.
+    if (!parts.some(({ type }) => type === 'id')) {
+      sorter.push(asc(table.cardId));
+    }
+    sorter.push(asc(table.lang));
+    // Essential rows have one identity per language and do not store revision hashes.
+    if (table.revisionHash != null) {
+      sorter.push(asc(table.revisionHash), asc(table.localizationHash));
     }
 
     return sorter;

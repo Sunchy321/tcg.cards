@@ -6,9 +6,8 @@ import { set as setSchema } from '@tcg-cards/model/hearthstone/schema/set';
 
 const detail = oc
   .route({
-    method:      'GET',
-    description: 'Get a set by id',
-    tags:        ['Hearthstone', 'Set'],
+    method: 'GET',
+    tags:   ['Hearthstone', 'Set'],
   })
   .input(z.object({ setId: z.string() }))
   .output(setSchema);

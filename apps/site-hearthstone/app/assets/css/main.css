@@ -227,10 +227,6 @@
     drop-shadow(0 1px 1px rgb(0 0 0 / 0.44));
 }
 
-.hs-set-icon-image--color {
-  filter: drop-shadow(0 1px 1px rgb(70 32 8 / 0.32));
-}
-
 .hs-set-name {
   color: #7a3b00;
   font-size: 1.05rem;

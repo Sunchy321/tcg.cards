@@ -1,8 +1,11 @@
 import { Hono } from 'hono';
 import { OpenAPIHandler } from '@orpc/openapi/fetch';
 import { OpenAPIGenerator } from '@orpc/openapi';
+import type { SchemaConverter } from '@orpc/openapi';
 import { createDb, runWithDb } from '@tcg-cards/db';
+import z from 'zod';
 
+import { authenticate, isConstantEndpoint, pathSegments } from './auth-middleware';
 import { registry } from './registry';
 import type { ApiServiceEnv } from './env';
 
@@ -27,6 +30,36 @@ async function withRequestDb<T>(env: ApiServiceEnv, handler: () => Promise<T>): 
   return runWithDb(database, handler);
 }
 
+/** CORS: open to any origin, allows the Authorization header, no credentials. */
+function corsHeaders(): Record<string, string> {
+  return {
+    'access-control-allow-origin':  '*',
+    'access-control-allow-headers': 'authorization, content-type',
+    'access-control-allow-methods': 'GET, OPTIONS',
+  };
+}
+
+/** Constant endpoints are static and CDN-cacheable; make them publicly cacheable. */
+function cacheHeaders(pathname: string): Record<string, string> {
+  if (isConstantEndpoint(pathSegments(pathname))) {
+    return { 'cache-control': 'public, max-age=3600' };
+  }
+
+  return {};
+}
+
+/** Applies CORS (+ constant-endpoint caching) headers to every response. */
+hono.use('*', async (c, next) => {
+  await next();
+
+  for (const [key, value] of Object.entries({
+    ...corsHeaders(),
+    ...cacheHeaders(c.req.path),
+  })) {
+    c.res.headers.set(key, value);
+  }
+});
+
 hono.get('/health', c => c.json({
   service: 'service-api',
   status:  'ok',
@@ -34,7 +67,18 @@ hono.get('/health', c => c.json({
 }));
 
 hono.get('/openapi.json', async c => {
-  const generator = new OpenAPIGenerator();
+  const generator = new OpenAPIGenerator({
+    schemaConverters: [{
+      condition: schema => schema instanceof z.ZodType,
+      /** Converts shared Zod contracts so response media types match the actual transport. */
+      convert(schema, options) {
+        if (!(schema instanceof z.ZodType)) return [false, {}];
+        // The libraries disagree on the unused $vocabulary keyword's TypeScript type.
+        const json = z.toJSONSchema(schema, { io: options.strategy, unrepresentable: 'any' }) as Awaited<ReturnType<SchemaConverter['convert']>>[1];
+        return [!schema.isOptional(), json];
+      },
+    }],
+  });
   const spec = await generator.generate(registry, {
     info: { title: 'TCG Cards API', version: 'v1' },
   });
@@ -42,24 +86,36 @@ hono.get('/openapi.json', async c => {
   return c.json(spec);
 });
 
+hono.options('/v1/*', () => {
+  return new Response(null, { status: 204, headers: corsHeaders() });
+});
+
 async function handleApiRequest(request: Request, env: ApiServiceEnv) {
   installRuntimeBindings(env);
 
-  return withRequestDb(env, async () => {
-    const { response } = await openapiHandler.handle(request, { prefix: '/v1' });
+  const authError = await authenticate(request, env);
 
-    if (response) {
-      return response;
-    }
+  if (authError) {
+    return authError;
+  }
 
-    return new Response(JSON.stringify({ code: 'NOT_FOUND', message: 'Not found' }), {
-      status:  404,
-      headers: { 'content-type': 'application/json' },
-    });
+  const { response } = await openapiHandler.handle(request, {
+    prefix: '/v1', context: { assetBaseUrl: env.ASSET_BASE_URL ?? 'https://asset.tcg.cards' },
+  });
+
+  if (response) {
+    return response;
+  }
+
+  return new Response(JSON.stringify({ code: 'NOT_FOUND', message: 'Not found' }), {
+    status:  404,
+    headers: { 'content-type': 'application/json' },
   });
 }
 
-hono.all('/v1/*', c => handleApiRequest(c.req.raw, c.env));
+hono.all('/v1/*', c => {
+  return withRequestDb(c.env, async () => handleApiRequest(c.req.raw, c.env));
+});
 
 // Unversioned paths hit the latest version directly (no redirect).
 hono.all('/:game/*', c => {
@@ -67,7 +123,7 @@ hono.all('/:game/*', c => {
   url.pathname = `/v1${url.pathname}`;
   const request = new Request(url, c.req.raw);
 
-  return handleApiRequest(request, c.env);
+  return withRequestDb(c.env, async () => handleApiRequest(request, c.env));
 });
 
 export default hono;

@@ -23,8 +23,8 @@ function readRequestMeta(request: Request): ConsoleApiRequestMeta {
   return {
     editorRuntime:  request.headers.get('x-tcg-editor-runtime') as ConsoleApiRequestMeta['editorRuntime'] ?? undefined,
     syncMode:       request.headers.get('x-tcg-sync-mode') as ConsoleApiRequestMeta['syncMode'] ?? undefined,
-    editorIdentity: request.headers.get('x-tcg-editor-identity'),
-    editorSource:   request.headers.get('x-tcg-editor-source'),
+    editorIdentity: request.headers.get('x-tcg-editor-identity') ?? undefined,
+    editorSource:   request.headers.get('x-tcg-editor-source') ?? undefined,
   };
 }
 
@@ -33,10 +33,12 @@ export default defineEventHandler(async event => {
 
   const { response } = await handler.handle(request, {
     prefix:  '/rpc',
+    // Per-procedure contexts (rule env, tag commit meta) are invisible to the
+    // merged router type, so the supplied context is wider than the inferred one.
     context: {
       env:  event.context.cloudflare?.env as HonoEnv['Bindings'],
       meta: readRequestMeta(request),
-    },
+    } as any,
   });
 
   if (response) {

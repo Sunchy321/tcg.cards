@@ -31,10 +31,10 @@ const { config: globalConfig, setConfig: setGlobalConfig } = useGlobalConfig();
 
 const appLocale = computed({
   get: () => globalConfig.value.lang,
-  set: (val) => setGlobalConfig('lang', val),
+  set: val => setGlobalConfig('lang', val),
 });
 
-watch(globalConfig, (cfg) => {
+watch(globalConfig, cfg => {
   if (cfg.lang !== locale.value) {
     setLocale(cfg.lang);
   }
@@ -43,12 +43,12 @@ watch(globalConfig, (cfg) => {
 const colorMode = useColorMode();
 const themeValue = computed({
   get: () => colorMode.preference === 'system' ? 'auto' : colorMode.preference,
-  set: (val) => {
+  set: val => {
     colorMode.preference = val === 'auto' ? 'system' : val;
     setGlobalConfig('theme', val);
   },
 });
-watch(() => globalConfig.value.theme, (val) => {
+watch(() => globalConfig.value.theme, val => {
   themeValue.value = val;
 }, { immediate: true });
 

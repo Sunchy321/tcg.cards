@@ -1,5 +1,5 @@
 export type Token = {
-  type:     'id' | 'punc' | 'regex' | 'string' | 'ws';
+  type:     'id' | 'punc' | 'regex' | 'string' | 'ws' | 'bracket';
   text:     string;
   location: [number, number];
 };
@@ -49,6 +49,10 @@ export default class Lexer {
     return '-:()&|!>=<#'.includes(char);
   }
 
+  private isRarityExistenceOperator() {
+    return this.curr === '~' && this.peekChar() === ':';
+  }
+
   private isString(char = this.curr) {
     return '\'"'.includes(char);
   }
@@ -61,6 +65,7 @@ export default class Lexer {
     return !this.isWhitespace(char)
       && !this.isString(char)
       && !this.isRegex(char)
+      && !(char === this.curr && this.isRarityExistenceOperator())
       && !this.isPunctuator(char);
   }
 
@@ -97,6 +102,10 @@ export default class Lexer {
       return this.parseWhitespace();
     }
 
+    if (!option.text && this.isRarityExistenceOperator()) {
+      return this.parsePunctuator();
+    }
+
     if (this.isPunctuator()) {
       if (option.text) {
         return this.parseIdentifier(option);
@@ -111,6 +120,10 @@ export default class Lexer {
 
     if (this.isRegex()) {
       return this.parseRegex();
+    }
+
+    if (this.curr === '[' && this.peekChar() === '[') {
+      return this.parseBracket();
     }
 
     if (this.isIdentifierStart()) {
@@ -147,6 +160,10 @@ export default class Lexer {
     this.startToken();
 
     switch (this.curr) {
+    case '~':
+      this.nextChar();
+      this.nextChar();
+      break;
     case '!':
       this.nextChar();
 
@@ -284,6 +301,30 @@ export default class Lexer {
     }
 
     return this.returnToken('regex');
+  }
+
+  // Double-bracket scope token: `[[…]]` content is matched verbatim up to the
+  // closing `]]`; an unclosed run is a lex error.
+  private parseBracket(): Token {
+    this.startToken();
+
+    this.nextChar();
+    this.nextChar();
+
+    while (this.curr != null) {
+      if (this.curr === ']' && this.peekChar() === ']') {
+        this.nextChar();
+        this.nextChar();
+
+        return this.returnToken('bracket');
+      }
+
+      this.nextChar();
+    }
+
+    this.newError('unterminated-bracket', [this.savedIndex!, this.index]);
+
+    return this.returnToken('bracket');
   }
 
   private parseIdentifier(option = defaultOption): Token {

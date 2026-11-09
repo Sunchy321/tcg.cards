@@ -1,0 +1,1 @@
+ALTER TABLE "magic_data"."card_unified_localizations" ADD COLUMN "source" text DEFAULT '' NOT NULL;

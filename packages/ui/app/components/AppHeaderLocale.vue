@@ -23,7 +23,7 @@ import { useI18n } from 'vue-i18n';
 
 const appConfig = useAppConfig();
 const gameLocale = useGameLocale();
-const gameLocales = appConfig.locales ?? [];
+const gameLocales = (appConfig as { locales?: string[] }).locales ?? [];
 const { config: gameConfig, setConfig: setGameConfig } = useUserConfig();
 const { t } = useI18n();
 

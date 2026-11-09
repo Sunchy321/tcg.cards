@@ -5,9 +5,10 @@ import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { announcementItem } from '#model/hearthstone/schema/announcement';
 import type { GlowEntry } from '#model/hearthstone/schema/announcement';
 import { locale, type Locale } from '#model/hearthstone/schema/basic';
+import type { SetLocalization } from '#model/hearthstone/schema/set';
 
 import { db } from '#db/db';
-import { Announcement, AnnouncementItem, EntityLocalization, SetLocalization } from '#schema/shared/hearthstone';
+import { Announcement, AnnouncementItem, EntityLocalization, Set as HearthstoneSet } from '#schema/shared/hearthstone';
 
 import { resolveAnnouncementItemImages, type AnnouncementImageItem } from './announcement-image';
 
@@ -223,11 +224,11 @@ const cardHistory = os
   });
 
 type AnnouncementContext = {
-  date:   string | null;
-  name:   string | null;
-  source: string | null;
-  link:   { url: string, label?: string }[] | null;
-  version: number;
+  date:        string | null;
+  name:        string | null;
+  source:      string | null;
+  link:        { url: string, label?: string }[] | null;
+  version:     number;
   lastVersion: number | null;
 };
 
@@ -238,12 +239,12 @@ async function announcementContexts(
   const ids = [...new Set(rows.map(row => row.item.announcementId))];
   const annRows = await db
     .select({
-      id:         Announcement.id,
-      date:       Announcement.date,
-      name:       Announcement.name,
-      source:     Announcement.source,
-      link:       Announcement.link,
-      version:    Announcement.version,
+      id:          Announcement.id,
+      date:        Announcement.date,
+      name:        Announcement.name,
+      source:      Announcement.source,
+      link:        Announcement.link,
+      version:     Announcement.version,
       lastVersion: Announcement.lastVersion,
     })
     .from(Announcement)
@@ -305,10 +306,10 @@ async function resolveItemNames(
         .orderBy(desc(EntityLocalization.version))
       : Promise.resolve([] as Array<{ cardId: string, name: string, renderHash: string, version: number[] }>),
     setIds.length > 0
-      ? db.select({ setId: SetLocalization.setId, name: SetLocalization.name })
-        .from(SetLocalization)
-        .where(and(inArray(SetLocalization.setId, setIds), eq(SetLocalization.lang, lang)))
-      : Promise.resolve([] as Array<{ setId: string, name: string }>),
+      ? db.select({ setId: HearthstoneSet.setId, localization: HearthstoneSet.localization })
+        .from(HearthstoneSet)
+        .where(inArray(HearthstoneSet.setId, setIds))
+      : Promise.resolve([] as Array<{ setId: string, localization: SetLocalization }>),
   ]);
 
   const cardName = new Map<string, string>();
@@ -320,7 +321,7 @@ async function resolveItemNames(
     }
   }
   const setName = new Map<string, string>();
-  for (const r of setRows) if (!setName.has(r.setId)) setName.set(r.setId, r.name);
+  for (const r of setRows) if (!setName.has(r.setId)) setName.set(r.setId, r.localization[lang]?.full ?? '');
 
   return new Map(items.map(item => [
     item.id,

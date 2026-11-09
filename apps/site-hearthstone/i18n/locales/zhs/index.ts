@@ -162,6 +162,82 @@ export default {
     $self: '炉石传说',
     $full: '炉石传说',
 
+    dataSources: {
+      $self: '数据来源',
+
+      intro: '本站是一个非官方的粉丝项目。卡牌数据、文本与卡图均提取自游戏自带数据；感谢让这一切成为可能的社区项目。',
+
+      sections: {
+        cardData: {
+          title: '卡牌数据',
+
+          groups: {
+            cards: {
+              body: '卡牌数据提取自《炉石传说》游戏客户端自带的卡牌定义数据，按游戏补丁版本组织。每张卡牌页面都对应游戏的一个具体补丁。',
+            },
+            text: {
+              title: '文本与语言',
+              body:  '卡牌文本即游戏内自带文本，覆盖游戏支持的全部语言。简体中文文本直接来自官方游戏数据，与游戏内措辞一致。',
+            },
+          },
+        },
+        cardImages: {
+          title: '卡牌图片',
+
+          groups: {
+            main: {
+              body: '本站所有卡图均由本站依据游戏数据自行渲染生成，不取用任何第三方图站；每张卡图与它所伴随的数据出自同一补丁。',
+            },
+          },
+        },
+        setData: {
+          title: '系列数据',
+
+          groups: {
+            main: {
+              body: '系列与补丁信息和卡牌数据同源，按补丁版本组织。',
+            },
+          },
+        },
+        otherData: {
+          title: '其他数据',
+
+          groups: {
+            announcements: {
+              title: '官方公告',
+              body:  '平衡调整与玩法公告整理自暴雪官方公告。',
+            },
+            freshness: {
+              title: '数据新鲜度',
+              body:  '数据由本站维护者在游戏新补丁上线后手动更新；公告会尽快跟进，但不承诺实时同步。',
+            },
+            attribution: {
+              title:      '归属与声明',
+              disclaimer: '本站与暴雪娱乐无隶属关系，亦未获其认可。《炉石传说》（Hearthstone）与暴雪娱乐的名称和商标为暴雪娱乐公司在美国及/或其他国家/地区的商标或注册商标。',
+              credits:    '感谢上文列出的 HearthSim hsdata 项目。游戏数据与图像为暴雪娱乐财产；本站依下列文档所述方式使用这些内容。',
+            },
+          },
+        },
+      },
+
+      sources: {
+        hsdata: {
+          name: 'HearthSim hsdata',
+          desc: '社区维护的游戏数据提取仓库，本站按补丁从中导入卡牌定义数据。',
+        },
+        blizzardNews: {
+          name: '暴雪',
+          desc: '暴雪官方公告发布渠道，本站公告页面的来源。',
+        },
+      },
+
+      legal: {
+        legal:   '法律声明',
+        terms:   '服务条款',
+        privacy: '隐私政策',
+      },
+    },
+
     home: {
       randomCard:       '随机卡牌',
       randomCardHint:   '点击随机打开一张卡牌详情',
@@ -219,6 +295,10 @@ export default {
       },
 
       'full-command': {
+        'elite-true':             '精英卡牌',
+        'elite-false':            '非精英卡牌',
+        'in-tavern-true':         '在酒馆随从池中',
+        'in-tavern-false':        '不在酒馆随从池中',
         'raw':                    '名称或卡牌文本包含 {value}',
         'full-stats':             '费用是{cost}、攻击力是{attack}且生命值是{health}',
         'stats':                  '攻击力是{attack}且生命值是{health}',
@@ -229,9 +309,13 @@ export default {
         'format-available':       '在{format}模式中可用',
         'format-with-status':     '在{format}模式中的状态为{status}',
         'format-with-status-not': '在{format}模式中的状态不为{status}',
+        'collectible':            '显示{value}卡牌',
       },
 
       'command': {
+        'elite':             '精英',
+        'in-tavern':         '酒馆随从池',
+        'cooldown':          '冷却时间',
         'lang':              '语言',
         'name':              '名称',
         'text':              '文本',
@@ -254,6 +338,8 @@ export default {
         'mercenary-faction': '佣兵阵营',
         'rarity':            '稀有度',
         'artist':            '画师',
+        'collectible':       '可收藏',
+        'ambit':             '收录范围',
         'change':            '变更类型',
         'format':            '赛制',
         'order':             '排序',
@@ -444,6 +530,12 @@ export default {
           legendary: '传说',
         },
 
+        'collectible': {
+          true:  '可收藏',
+          false: '不可收藏',
+          all:   '全部',
+        },
+
         'order': {
           name:   '名称',
           cost:   '费用',
@@ -496,11 +588,19 @@ export default {
 
     group: {
       core_rotation:   '核心系列轮换',
-      bg_hero:         '酒馆战棋英雄',
-      bg_minion:       '酒馆战棋随从',
-      bg_trinket:      '酒馆战棋饰品',
-      bg_tavern_spell: '酒馆战棋法术',
-      bg_anomaly:      '酒馆战棋异常',
+      bg_hero:         '战棋英雄',
+      bg_minion:       '战棋随从',
+      bg_trinket:      '战棋饰品',
+      bg_tavern_spell: '战棋法术',
+      bg_anomaly:      '战棋畸变',
+      bg_buddy:        '战棋伙伴',
+      bg_timewarped:   '战棋时空扭曲',
+      bg_dm_prize:     '战棋暗月奖品',
+      quest:           '任务牌',
+      c_thun:          '克苏恩',
+      hero:            '英雄牌',
+      invoke:          '祈求牌',
+      odd_even:        '奇偶牌',
     },
 
     changeType: {
@@ -660,6 +760,64 @@ export default {
     },
 
     tag: {},
+
+    tagCatalog: {
+      title:            '卡牌标签',
+      total:            '目录共 {count} 条',
+      search:           '搜索 ID、Slug 或名称',
+      filterProjection: '按投影方式筛选',
+      filterValue:      '按值类型筛选',
+      allProjections:   '全部投影方式',
+      allValues:        '全部值类型',
+      pageSize:         '每页标签数',
+      perPage:          '每页 {count} 条',
+      id:               'ID',
+      slug:             'Slug / 名称',
+      projection:       '投影方式',
+      valueType:        '值类型',
+      purpose:          '作用',
+      unclassified:     '未标注',
+      noDescription:    '暂无简介',
+      viewCards:        '查看卡牌',
+      expand:           '展开说明',
+      collapse:         '收起说明',
+      loading:          '正在加载标签…',
+      loadError:        '卡牌标签加载失败。',
+      retry:            '重试',
+      empty:            '没有找到匹配的标签',
+      clear:            '清除筛选',
+      range:            '{first}–{last} / {count} 条标签',
+      rangeSingle:      '{first} / {count} 条标签',
+      pagination:       '标签分页',
+      page:             '页码',
+      pageCount:        '/ {count} 页',
+      jump:             '前往',
+
+      projections: {
+        field:     '实体字段',
+        mechanic:  '机制',
+        relation:  '卡牌关系',
+        localized: '多语言字段',
+        none:      '无',
+      },
+
+      valueTypes: {
+        boolean:        '布尔型',
+        number:         '数字型',
+        card_dbf_id:    '卡牌 DBF ID',
+        card_id:        '卡牌 ID',
+        subset_id:      'Subset ID',
+        set_id:         '系列 ID',
+        deck_id:        '套牌 ID',
+        entity_id:      '对局实体 ID',
+        tag_id:         '标签 ID',
+        enum:           '枚举',
+        bitmask:        '位掩码',
+        text:           '文本',
+        localized_text: '多语言文本',
+        multipurpose:   '多功能值',
+      },
+    },
 
     legality: {
       banned_in_card_pool: '牌池禁用',

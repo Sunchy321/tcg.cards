@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "paths": {
+      "#model/*": [
+        "../../../packages/model/src/*"
+      ],
+      "#search/*": [
+        "../../../packages/search/src/*"
+      ],
+      "#task/*": [
+        "./runtime/lib/task/*"
+      ]
+    },
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": [
+      "node",
+      "electron",
+      "vite/client"
+    ],
+    "allowImportingTsExtensions": true
+  },
+  "include": [
+    "**/*.ts",
+    "../shared/*.ts"
+  ],
+  "exclude": [
+    "runtime/lib/search-publication/snapshot/*.test.ts"
+  ]
+}

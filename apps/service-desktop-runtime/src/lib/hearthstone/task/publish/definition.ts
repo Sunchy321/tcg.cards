@@ -1,3 +1,5 @@
+import { SearchCard, SearchCardLocalization } from '@tcg-cards/db/schema/shared/hearthstone/search';
+import { hasHearthstoneSearchTables } from '../../search-data';
 import { z } from 'zod';
 
 import { and, eq, ne, or, asc, desc, count, gt, inArray, isNull, sql } from 'drizzle-orm';
@@ -11,10 +13,9 @@ import {
   BaseEntityRelation as LocalBaseEntityRelation, BaseCard as LocalBaseCard,
   Entity as LocalEntity, EntityLocalization as LocalEntityLocalization,
   EntityRelation as LocalEntityRelation, Card as LocalCard,
-  Patch as LocalPatch,
 } from '@tcg-cards/db/schema/local/hearthstone';
 import { Entity as RemoteEntity, EntityLocalization as RemoteEntityLocalization,
-  EntityRelation as RemoteEntityRelation, Card as RemoteCard, Patch as RemotePatch } from '@tcg-cards/db/schema/remote/hearthstone';
+  EntityRelation as RemoteEntityRelation, Card as RemoteCard } from '@tcg-cards/db/schema/remote/hearthstone';
 import { PublishStreamRegistration } from '@tcg-cards/db/schema/remote/publish';
 import {
   loadRowDataChunk, insertRemoteRow, deleteRemoteRow, parseRowKey,
@@ -26,6 +27,7 @@ import type { TableName, PublishDb } from '../../hsdata-publish';
 import { requireHearthstonePublishTargetByIdentity } from '../../hsdata-publish-target';
 import { publishCardDataGeneration } from '../../publish-generation';
 import { getLocalDb } from '../../hsdata-local-db';
+import { activateSearchPublication, markSearchPublicationUnavailable } from '../../../search-publication';
 import { createDefinition } from '#task/definition';
 import type { ProgressFn, BlockDone } from '#task/definition';
 
@@ -33,7 +35,7 @@ import type { ProgressFn, BlockDone } from '#task/definition';
 
 const LOAD_CHUNK_SIZE = 2000;
 const REMOTE_CHUNK_SIZE = 1000;
-const FULL_SCAN_TABLES: TableName[] = ['entities', 'entity_localizations', 'entity_relations', 'cards', 'patches'];
+const FULL_SCAN_TABLES: TableName[] = ['entities', 'entity_localizations', 'entity_relations', 'cards', 'search_cards', 'search_card_localizations'];
 
 // ── Types ──
 
@@ -89,14 +91,15 @@ interface PublishCtx {
   db:              PublishDb;
   dryRun:          boolean;
   force:           boolean;
+  operatorUserId:  string | null;
   operationKind:   string;
-  stream:          { publishTarget: string, environment: string, publishType: string, targetFingerprint: string };
+  stream:          { game: string, target: string, publishType: string, targetFingerprint: string };
   batchId?:        string;
   pendingRowCount: number;
   appliedCount?:   number;
   remoteDb?:       any;
   leaseHolderId?:  string;
-  leaseStream?:    { publishTarget: string, environment: string, publishType: string };
+  leaseStream?:    { game: string, target: string, publishType: string };
   /** Mutable state for loading_snapshots block loop. */
   loader?:         LoaderState;
   /** Mutable state for update_baseline block loop. */
@@ -115,7 +118,7 @@ interface LoaderState {
   totalRows:            number;
   scanCursors:          Map<TableName, any>;
   tableTotals:          Record<TableName, number>;
-  tableProcessed:       Record<TableName, number>;
+  tableProcessed:       Partial<Record<TableName, number>>;
 }
 
 // ── Utility ──
@@ -216,17 +219,23 @@ async function processFullScanChunk(loader: LoaderState, plans: PlanEntry[]): Pr
       since ? or(and(isNull(tbl.deletedAt), or(gt(tbl.createdAt, since), gt(tbl.updatedAt, since))), gt(tbl.deletedAt, since)) : isNull(tbl.deletedAt),
       cursor == null ? undefined : sql`(${tbl.sourceId}, ${tbl.relation}, ${tbl.targetId}, ${tbl.sourceRevisionHash}) > (${cursor.sourceId}, ${cursor.relation}, ${cursor.targetId}, ${cursor.sourceRevisionHash})`,
     )).orderBy(asc(tbl.sourceId), asc(tbl.relation), asc(tbl.targetId), asc(tbl.sourceRevisionHash)).limit(LOAD_CHUNK_SIZE) as any[];
+  } else if (tableName === 'search_cards' || tableName === 'search_card_localizations') {
+    const tbl = tableName === 'search_cards' ? SearchCard : SearchCardLocalization;
+    const localized = tableName === 'search_card_localizations';
+    rawRows = await db.select().from(tbl).where(and(
+      since ? or(and(isNull(tbl.deletedAt), or(gt(tbl.createdAt, since), gt(tbl.updatedAt, since))), gt(tbl.deletedAt, since)) : isNull(tbl.deletedAt),
+      cursor == null
+        ? undefined
+        : localized
+          ? sql`(${tbl.cardId}, ${SearchCardLocalization.lang}) > (${cursor.cardId}, ${cursor.lang})`
+          : gt(tbl.cardId, cursor.cardId),
+    )).orderBy(asc(tbl.cardId), ...(localized ? [asc(SearchCardLocalization.lang)] : [])).limit(LOAD_CHUNK_SIZE);
   } else if (tableName === 'cards') {
     const tbl = LocalBaseCard;
     rawRows = await db.select().from(tbl).where(and(
       since ? or(and(isNull(tbl.deletedAt), or(gt(tbl.createdAt, since), gt(tbl.updatedAt, since))), gt(tbl.deletedAt, since)) : isNull(tbl.deletedAt),
       cursor == null ? undefined : sql`(${tbl.cardId}) > (${cursor.cardId ?? cursor})`,
     )).orderBy(asc(tbl.cardId)).limit(LOAD_CHUNK_SIZE) as any[];
-  } else if (tableName === 'patches') {
-    const tbl = LocalPatch;
-    rawRows = await db.select().from(tbl).where(
-      cursor == null ? undefined : sql`(${tbl.buildNumber}) > (${cursor.buildNumber ?? cursor})`,
-    ).orderBy(asc(tbl.buildNumber)).limit(LOAD_CHUNK_SIZE) as any[];
   }
 
   if (rawRows.length === 0) {
@@ -297,7 +306,7 @@ async function loadingBlock(
   progress({
     done:     loader.processed, total:    loader.totalRows,
     segments: loader.tableTotals && loader.tableProcessed
-      ? Object.entries(loader.tableTotals).map(([name, total]) => ({
+      ? Object.entries(loader.tableTotals).filter(([name]) => !name.startsWith('search_')).map(([name, total]) => ({
         name, done: loader.tableProcessed![name as TableName]! ?? 0, total,
       }))
       : loadingSegments(loader.counts),
@@ -343,21 +352,22 @@ async function applyingBlock(
 
   // Lazy init remote
   if (!ctx.remoteDb) {
-    ctx.remoteDb = createDb(requireHearthstonePublishTargetByIdentity(ctx.stream.publishTarget, ctx.stream.environment).connectionString);
+    ctx.remoteDb = createDb(requireHearthstonePublishTargetByIdentity(ctx.stream.game, ctx.stream.target).connectionString);
     progress({ done: 0, total: ctx.pendingRowCount });
 
     const batch = await ctx.db.select().from(PublishBatch).where(eq(PublishBatch.id, batchId)).then(r => r[0] ?? null);
     if (!batch) throw new Error(`Publish batch ${batchId} not found`);
     await assertRemotePublishGate(ctx.remoteDb as any, {
-      publishTarget:         batch.publishTarget, environment:           batch.environment, publishType:           batch.publishType,
+      game:                  batch.game, target:                batch.target, publishType:           batch.publishType,
       targetFingerprint:     batch.targetFingerprint, manifestHash:          batch.manifestHash,
       previousManifestHash:  batch.previousManifestHash ?? null, buildMax:              batch.buildMax,
       generationFingerprint: batch.generationFingerprint, generationOrder:       batch.generationOrder,
       leaseHolderId:         batchId,
       force:                 ctx.force,
     });
+    await markSearchPublicationUnavailable(ctx.remoteDb as any, 'hearthstone');
     ctx.leaseHolderId = batchId;
-    ctx.leaseStream = { publishTarget: batch.publishTarget, environment: batch.environment, publishType: batch.publishType };
+    ctx.leaseStream = { game: batch.game, target: batch.target, publishType: batch.publishType };
   }
 
   const byTable = new Map<string, typeof chunk>();
@@ -432,7 +442,7 @@ async function applyingBlock(
     if (ctx.leaseHolderId != null && ctx.leaseStream != null) {
       const tLease = Date.now();
       await renewRemotePublishLease(ctx.remoteDb as any, {
-        publishTarget: ctx.leaseStream.publishTarget, environment:   ctx.leaseStream.environment,
+        game:          ctx.leaseStream.game, target:        ctx.leaseStream.target,
         publishType:   ctx.leaseStream.publishType, leaseHolderId: ctx.leaseHolderId,
       });
       console.log(`[publish] lease renewed in ${Date.now() - tLease}ms`);
@@ -509,9 +519,9 @@ async function baselineBlock(
       deletes.push({ tableName: row.tableName, rowKey: row.rowKey });
     } else {
       upserts.push({
-        publishTarget: ctx.stream.publishTarget, environment:   ctx.stream.environment, publishType:   ctx.stream.publishType,
-        tableName:     row.tableName, rowKey:        row.rowKey, rowHash:       row.rowHash,
-        publishedAt, createdAt:     publishedAt, updatedAt:     publishedAt,
+        game:        ctx.stream.game, target:      ctx.stream.target, publishType: ctx.stream.publishType,
+        tableName:   row.tableName, rowKey:      row.rowKey, rowHash:     row.rowHash,
+        publishedAt, createdAt:   publishedAt, updatedAt:   publishedAt,
       });
     }
   }
@@ -521,8 +531,8 @@ async function baselineBlock(
   for (const tn of deleteTables) {
     const keys = deletes.filter(d => d.tableName === tn).map(d => d.rowKey);
     await db.delete(PublishRowBaseline).where(and(
-      eq(PublishRowBaseline.publishTarget, ctx.stream.publishTarget),
-      eq(PublishRowBaseline.environment, ctx.stream.environment),
+      eq(PublishRowBaseline.game, ctx.stream.game),
+      eq(PublishRowBaseline.target, ctx.stream.target),
       eq(PublishRowBaseline.publishType, ctx.stream.publishType),
       eq(PublishRowBaseline.tableName, tn),
       inArray(PublishRowBaseline.rowKey, keys),
@@ -532,7 +542,7 @@ async function baselineBlock(
   if (upserts.length > 0) {
     await db.insert(PublishRowBaseline).values(upserts as any)
       .onConflictDoUpdate({
-        target: [PublishRowBaseline.publishTarget, PublishRowBaseline.environment, PublishRowBaseline.publishType, PublishRowBaseline.tableName, PublishRowBaseline.rowKey],
+        target: [PublishRowBaseline.game, PublishRowBaseline.target, PublishRowBaseline.publishType, PublishRowBaseline.tableName, PublishRowBaseline.rowKey],
         set:    {
           rowHash:     sql`excluded.row_hash`,
           publishedAt: sql`excluded.published_at`,
@@ -552,22 +562,23 @@ async function baselineBlock(
 export const publishTaskDefinition = createDefinition('hearthstone_publish', { version: '2026-06-22:v1' })
   .scope(
     z.object({
-      publishTarget: z.string(),
-      environment:   z.string(),
-      publishType:   z.string(),
+      game:        z.string(),
+      target:      z.string(),
+      publishType: z.string(),
     }),
     {
       type:    'publish_stream' as const,
       resolve: scope => ({
-        key:      `${scope.publishTarget}:${scope.environment}:${scope.publishType}`,
+        key:      `${scope.game}:${scope.target}:${scope.publishType}`,
         snapshot: scope,
       }),
     },
   )
   .input(z.object({
-    dryRun:        z.boolean().optional(),
-    operationKind: z.enum(['publish', 'revert']),
-    force:         z.boolean().optional(),
+    dryRun:         z.boolean().optional(),
+    operationKind:  z.enum(['publish', 'revert']),
+    force:          z.boolean().optional(),
+    operatorUserId: z.string().trim().min(1).optional(),
   }))
   .output(z.object({
     manifestHash:         z.string(),
@@ -575,8 +586,8 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
     buildMin:             z.number(),
     buildMax:             z.number(),
     batchId:              z.string(),
-    publishTarget:        z.string(),
-    environment:          z.string(),
+    game:                 z.string(),
+    target:               z.string(),
     totalRowCount:        z.number(),
     changedRowCount:      z.number(),
     insertedRowCount:     z.number(),
@@ -594,13 +605,14 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
   }))
   .context({
     init: (input, scope): PublishCtx => {
-      const target = requireHearthstonePublishTargetByIdentity(scope.publishTarget, scope.environment);
+      const target = requireHearthstonePublishTargetByIdentity(scope.game, scope.target);
       return {
         db:              getLocalDb() as unknown as PublishDb,
         dryRun:          input.dryRun ?? false,
         force:           input.force ?? false,
+        operatorUserId:  input.operatorUserId ?? null,
         operationKind:   input.operationKind,
-        stream:          { publishTarget: target.publishTarget, environment: target.environment, publishType: 'card_data', targetFingerprint: target.targetFingerprint },
+        stream:          { game: target.game, target: target.target, publishType: 'card_data', targetFingerprint: target.targetFingerprint },
         pendingRowCount: 0,
       };
     },
@@ -618,8 +630,8 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
     if (!ctx.dryRun) {
       const incomplete = await db.select().from(PublishBatch)
         .where(and(
-          eq(PublishBatch.status, 'applying'), eq(PublishBatch.publishTarget, stream.publishTarget),
-          eq(PublishBatch.environment, stream.environment), eq(PublishBatch.publishType, stream.publishType),
+          eq(PublishBatch.status, 'applying'), eq(PublishBatch.game, stream.game),
+          eq(PublishBatch.target, stream.target), eq(PublishBatch.publishType, stream.publishType),
           eq(PublishBatch.operationKind, 'publish'),
         )).orderBy(desc(PublishBatch.createdAt)).then(r => r[0] ?? null);
 
@@ -640,9 +652,9 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
             builds:               [],
             processed:            0,
             totalRows:            pendingCount,
-            scanCursors:          new Map([['entities', undefined], ['entity_localizations', undefined], ['entity_relations', undefined], ['cards', undefined], ['patches', undefined]]),
+            scanCursors:          new Map([['entities', undefined], ['entity_localizations', undefined], ['entity_relations', undefined], ['cards', undefined]]),
             tableTotals:          {} as Record<TableName, number>,
-            tableProcessed:       {} as Record<TableName, number>,
+            tableProcessed:       {},
           };
           return {
             total:      pendingCount,
@@ -671,25 +683,36 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
     const publishedAt = baseline?.publishedAt ?? null;
     const isIncremental = publishedAt != null;
     const since = publishedAt!;
-    type BaseTable = typeof LocalBaseEntity | typeof LocalBaseEntityLocalization | typeof LocalBaseEntityRelation | typeof LocalBaseCard;
+    type BaseTable = typeof SearchCard | typeof SearchCardLocalization | typeof LocalBaseEntity | typeof LocalBaseEntityLocalization | typeof LocalBaseEntityRelation | typeof LocalBaseCard;
     const incFilter = (tbl: BaseTable) => or(and(isNull(tbl.deletedAt), or(gt(tbl.createdAt, since), gt(tbl.updatedAt, since))), gt(tbl.deletedAt, since));
     const fullFilter = (tbl: BaseTable) => isNull(tbl.deletedAt);
-    const cnt = await Promise.all([
+    const searchTablesReady = await hasHearthstoneSearchTables(db);
+    const cnt: Array<Array<{ count: number }>> = await Promise.all([
       isIncremental ? db.select({ count: count() }).from(LocalBaseEntity).where(incFilter(LocalBaseEntity)) : db.select({ count: count() }).from(LocalBaseEntity).where(fullFilter(LocalBaseEntity)),
       isIncremental ? db.select({ count: count() }).from(LocalBaseEntityLocalization).where(incFilter(LocalBaseEntityLocalization)) : db.select({ count: count() }).from(LocalBaseEntityLocalization).where(fullFilter(LocalBaseEntityLocalization)),
       isIncremental ? db.select({ count: count() }).from(LocalBaseEntityRelation).where(incFilter(LocalBaseEntityRelation)) : db.select({ count: count() }).from(LocalBaseEntityRelation).where(fullFilter(LocalBaseEntityRelation)),
       isIncremental ? db.select({ count: count() }).from(LocalBaseCard).where(incFilter(LocalBaseCard)) : db.select({ count: count() }).from(LocalBaseCard).where(fullFilter(LocalBaseCard)),
-      db.select({ count: count() }).from(LocalPatch),
     ]);
+    const searchCounts = searchTablesReady
+      ? await Promise.all([
+        db.select({ count: count() }).from(SearchCard).where(isIncremental ? incFilter(SearchCard) : fullFilter(SearchCard)),
+        db.select({ count: count() }).from(SearchCardLocalization).where(isIncremental ? incFilter(SearchCardLocalization) : fullFilter(SearchCardLocalization)),
+      ])
+      : [[{ count: 0 }], [{ count: 0 }]];
+    cnt.push(...searchCounts);
     const totalRows = cnt.reduce((s, r) => s + Number(r[0]!.count), 0);
     const tableTotals: Record<string, number> = {
-      entities:             Number(cnt[0]![0]!.count), entity_localizations: Number(cnt[1]![0]!.count),
-      entity_relations:     Number(cnt[2]![0]!.count), cards:                Number(cnt[3]![0]!.count), patches:              Number(cnt[4]![0]!.count),
+      entities:                  Number(cnt[0]![0]!.count),
+      entity_localizations:      Number(cnt[1]![0]!.count),
+      entity_relations:          Number(cnt[2]![0]!.count),
+      cards:                     Number(cnt[3]![0]!.count),
+      search_cards:              Number(cnt[4]![0]!.count),
+      search_card_localizations: Number(cnt[5]![0]!.count),
     };
 
     if (!ctx.dryRun) {
       const [created] = await db.insert(PublishBatch).values({
-        publishTarget:         stream.publishTarget, environment:           stream.environment,
+        game:                  stream.game, target:                stream.target,
         targetFingerprint:     stream.targetFingerprint, publishType:           'card_data', operationKind:         'publish',
         buildMin:              1, buildMax:              1,
         generationFingerprint: publishCardDataGeneration.fingerprint, generationOrder:       publishCardDataGeneration.order,
@@ -710,9 +733,9 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
       builds:               [],
       processed:            0,
       totalRows,
-      scanCursors:          new Map([['entities', null], ['entity_localizations', null], ['entity_relations', null], ['cards', null], ['patches', null]]),
+      scanCursors:          new Map<TableName, any>(FULL_SCAN_TABLES.map(name => [name, name.startsWith('search_') && !searchTablesReady ? undefined : null])),
       tableTotals,
-      tableProcessed:       tableTotals ? { entities: 0, entity_localizations: 0, entity_relations: 0, cards: 0, patches: 0 } : undefined as any,
+      tableProcessed:       Object.fromEntries(FULL_SCAN_TABLES.map(name => [name, 0])),
     };
 
     return {
@@ -819,19 +842,27 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
     const totalRowCount = counts.totalRowCount ?? batch?.totalRowCount ?? 0;
 
     if (batchId && batch) {
-      const remoteDb = ctx.remoteDb ?? createDb(requireHearthstonePublishTargetByIdentity(batch.publishTarget, batch.environment).connectionString) as any;
+      const remoteDb = ctx.remoteDb ?? createDb(requireHearthstonePublishTargetByIdentity(batch.game, batch.target).connectionString) as any;
       try {
         for (const [tableName, localTbl, remoteTbl] of [
           ['entities', LocalEntity, RemoteEntity],
           ['entity_localizations', LocalEntityLocalization, RemoteEntityLocalization],
           ['entity_relations', LocalEntityRelation, RemoteEntityRelation],
           ['cards', LocalCard, RemoteCard],
-          ['patches', LocalPatch, RemotePatch],
         ] as const) {
           const [localRow] = await localDb.select({ count: count() }).from(localTbl);
           const [remoteRow] = await remoteDb.select({ count: count() }).from(remoteTbl);
           if (Number(localRow!.count) !== Number(remoteRow!.count)) {
             throw new Error(`Row count mismatch for ${tableName}: local=${localRow!.count} remote=${remoteRow!.count}`);
+          }
+        }
+        if (await hasHearthstoneSearchTables(localDb)) {
+          for (const table of [SearchCard, SearchCardLocalization]) {
+            const [localCount] = await localDb.select({ count: count() }).from(table).where(isNull(table.deletedAt));
+            const [remoteCount] = await remoteDb.select({ count: count() }).from(table).where(isNull(table.deletedAt));
+            if (Number(localCount!.count) !== Number(remoteCount!.count)) {
+              throw new Error('The published search data is incomplete.');
+            }
           }
         }
       } finally {
@@ -841,8 +872,9 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
       if (ctx.remoteDb) {
         await (ctx.remoteDb as any).transaction(async (tx: any) => {
           await upsertRemotePublishLedger(tx, {
-            batchId:               batch.id, publishTarget:         batch.publishTarget, environment:           batch.environment,
+            batchId:               batch.id, game:                  batch.game, target:                batch.target,
             targetFingerprint:     batch.targetFingerprint, publishType:           batch.publishType,
+            operatorUserId:        ctx.operatorUserId,
             range:                 { buildMin: batch.buildMin, buildMax: batch.buildMax },
             generationFingerprint: batch.generationFingerprint, generationOrder:       batch.generationOrder,
             counts:                {
@@ -854,41 +886,55 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
             },
             manifestHash: batch.manifestHash, publishedAt,
           });
+          await activateSearchPublication(localDb, tx, 'hearthstone');
           if (ctx.leaseHolderId != null && ctx.leaseStream != null) {
             await tx.update(PublishStreamRegistration).set({
               leaseHolderId: null, leaseExpiresAt: null, updatedAt: new Date(),
             }).where(and(
-              eq(PublishStreamRegistration.publishTarget, ctx.leaseStream.publishTarget),
-              eq(PublishStreamRegistration.environment, ctx.leaseStream.environment),
+              eq(PublishStreamRegistration.game, ctx.leaseStream.game),
+              eq(PublishStreamRegistration.target, ctx.leaseStream.target),
               eq(PublishStreamRegistration.publishType, ctx.leaseStream.publishType),
               eq(PublishStreamRegistration.leaseHolderId, ctx.leaseHolderId),
             ));
           }
         });
+      } else {
+        // A package-only identity change can leave every PG row unchanged; still refresh its release hash.
+        const activationDb = createDb(requireHearthstonePublishTargetByIdentity(batch.game, batch.target).connectionString);
+        try {
+          await activationDb.transaction(async tx => {
+            await activateSearchPublication(localDb, tx, 'hearthstone');
+          });
+        } finally {
+          await activationDb.$client.end({ timeout: 1 });
+        }
       }
     }
 
     if (batchId && batch) {
       const finalRange = range ?? { buildMin: batch.buildMin, buildMax: batch.buildMax };
       await localDb.transaction(async tx => {
-        await tx.insert(PublishBaseline).values({
-          publishTarget:         batch.publishTarget, environment:           batch.environment, publishType:           batch.publishType,
-          targetFingerprint:     batch.targetFingerprint, batchId,
-          buildMin:              finalRange.buildMin, buildMax:              finalRange.buildMax,
-          generationFingerprint: publishCardDataGeneration.fingerprint, generationOrder:       publishCardDataGeneration.order,
-          manifestHash:          batch.manifestHash, totalRowCount, publishedAt,
-          createdAt:             publishedAt, updatedAt:             publishedAt,
-        }).onConflictDoUpdate({
-          target: [PublishBaseline.publishTarget, PublishBaseline.environment, PublishBaseline.publishType],
-          set:    {
-            batchId, buildMin:              finalRange.buildMin, buildMax:              finalRange.buildMax,
+        // Keep the local baseline aligned with a remote ledger commit; empty scans do not create one.
+        if (ctx.remoteDb) {
+          await tx.insert(PublishBaseline).values({
+            game:                  batch.game, target:                batch.target, publishType:           batch.publishType,
+            targetFingerprint:     batch.targetFingerprint, batchId,
+            buildMin:              finalRange.buildMin, buildMax:              finalRange.buildMax,
             generationFingerprint: publishCardDataGeneration.fingerprint, generationOrder:       publishCardDataGeneration.order,
-            manifestHash:          batch.manifestHash, totalRowCount, publishedAt, updatedAt:             publishedAt,
-          } as any,
-        });
+            manifestHash:          batch.manifestHash, totalRowCount, publishedAt,
+            createdAt:             publishedAt, updatedAt:             publishedAt,
+          }).onConflictDoUpdate({
+            target: [PublishBaseline.game, PublishBaseline.target, PublishBaseline.publishType],
+            set:    {
+              batchId, buildMin:              finalRange.buildMin, buildMax:              finalRange.buildMax,
+              generationFingerprint: publishCardDataGeneration.fingerprint, generationOrder:       publishCardDataGeneration.order,
+              manifestHash:          batch.manifestHash, totalRowCount, publishedAt, updatedAt:             publishedAt,
+            } as any,
+          });
+        }
 
         const summary = {
-          batchId:              batch.id, publishTarget:        batch.publishTarget, environment:          batch.environment,
+          batchId:              batch.id, game:                 batch.game, target:               batch.target,
           totalRowCount:        batch.totalRowCount, changedRowCount:      batch.changedRowCount,
           insertedRowCount:     batch.insertedRowCount, updatedRowCount:      batch.updatedRowCount,
           deletedRowCount:      batch.deletedRowCount, unchangedRowCount:    batch.unchangedRowCount,
@@ -904,7 +950,7 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
       // Clean up publish_batch_rows for all completed batches including this one
       const completedIds = await localDb.select({ id: PublishBatch.id }).from(PublishBatch)
         .where(and(
-          eq(PublishBatch.publishTarget, batch.publishTarget), eq(PublishBatch.environment, batch.environment),
+          eq(PublishBatch.game, batch.game), eq(PublishBatch.target, batch.target),
           eq(PublishBatch.publishType, batch.publishType), eq(PublishBatch.status, 'completed'),
         )).then(r => r.map(x => x.id));
       if (completedIds.length > 0) await localDb.delete(PublishBatchRow).where(inArray(PublishBatchRow.batchId, completedIds));
@@ -918,8 +964,8 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
       buildMin:             range?.buildMin ?? 0,
       buildMax:             range?.buildMax ?? 0,
       batchId:              batch?.id ?? batchId ?? '',
-      publishTarget:        batch?.publishTarget ?? ctx.stream.publishTarget,
-      environment:          batch?.environment ?? ctx.stream.environment,
+      game:                 batch?.game ?? ctx.stream.game,
+      target:               batch?.target ?? ctx.stream.target,
       totalRowCount:        batch?.totalRowCount ?? counts.totalRowCount,
       changedRowCount:      batch?.changedRowCount ?? counts.changedRowCount,
       insertedRowCount:     batch?.insertedRowCount ?? counts.insertedRowCount,
@@ -937,15 +983,15 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
     };
   })
   .onCanceled(async run => {
-    const scope = run.scope.snapshot as { publishTarget: string, environment: string, publishType: string } | undefined;
+    const scope = run.scope.snapshot as { game: string, target: string, publishType: string } | undefined;
     if (!scope) return;
     const db = getLocalDb();
 
     // Mark in-flight batch as stopped so auto-resume won't pick it up
     const activeBatch = await db.select().from(PublishBatch)
       .where(and(
-        eq(PublishBatch.publishTarget, scope.publishTarget),
-        eq(PublishBatch.environment, scope.environment),
+        eq(PublishBatch.game, scope.game),
+        eq(PublishBatch.target, scope.target),
         eq(PublishBatch.publishType, scope.publishType),
         eq(PublishBatch.status, 'applying'),
       ))
@@ -964,14 +1010,14 @@ export const publishTaskDefinition = createDefinition('hearthstone_publish', { v
 
     // Release publish stream lease
     try {
-      const target = requireHearthstonePublishTargetByIdentity(scope.publishTarget, scope.environment);
+      const target = requireHearthstonePublishTargetByIdentity(scope.game, scope.target);
       const remoteDb = createDb(target.connectionString) as any;
       await remoteDb.transaction(async (tx: any) => {
         await tx.update(PublishStreamRegistration).set({
           leaseHolderId: null, leaseExpiresAt: null, updatedAt: new Date(),
         }).where(and(
-          eq(PublishStreamRegistration.publishTarget, scope.publishTarget),
-          eq(PublishStreamRegistration.environment, scope.environment),
+          eq(PublishStreamRegistration.game, scope.game),
+          eq(PublishStreamRegistration.target, scope.target),
           eq(PublishStreamRegistration.publishType, scope.publishType),
         ));
       });

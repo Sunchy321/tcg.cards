@@ -4,6 +4,8 @@ import { cardTrpc } from './card';
 import { formatTrpc } from './format';
 import { patchTrpc } from './patch';
 import { searchTrpc } from './search';
+import { setTrpc } from './set';
+import { tagTrpc } from './tag';
 
 export const hearthstoneTrpc = {
   announcement: announcementTrpc,
@@ -11,5 +13,7 @@ export const hearthstoneTrpc = {
   format:       formatTrpc,
   patch:        patchTrpc,
   search:       searchTrpc,
+  set:          setTrpc,
+  tag:          tagTrpc,
   userConfig:   userConfigTrpc,
 };

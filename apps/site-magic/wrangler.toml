@@ -45,3 +45,8 @@ BETTER_AUTH_URL = "https://magic.tcg.cards"
 [[hyperdrive]]
 binding = "HYPERDRIVE"
 id = "34ff130776904528bff88fe51caea444"
+
+[[d1_databases]]
+binding = "MAGIC_SEARCH_DB"
+database_name = "magic-search"
+database_id = "6f8c972f-cacf-4976-836c-b15ef9e4835d"

@@ -6,6 +6,7 @@ import { FieldSyncCursor } from '@tcg-cards/db/schema/local/hearthstone';
 import { FieldCommit, FieldConflict, FieldWinner, Tag as TagTable } from '@tcg-cards/db/schema/shared/hearthstone';
 import {
   applyTagCommit,
+  getTagFieldValue,
   type ApplyTagCommitResult,
   type FieldCommitInsert,
   type FieldCommitRow,
@@ -20,9 +21,6 @@ type SyncTx = Parameters<Parameters<SyncDb['transaction']>[0]>[0];
 /** Push direction shared by cursor-backed desktop tag sync. */
 const tagCommitStream = 'hearthstone.tag';
 
-/** Cursor rows persisted for one local desktop sync consumer. */
-type FieldSyncCursorRow = typeof FieldSyncCursor.$inferSelect;
-
 /** Result status returned after one local tag commit push attempt. */
 export type TagPushStatus = 'applied' | 'duplicate' | 'blocked';
 
@@ -31,31 +29,31 @@ export type TagPushStopReason = 'conflict' | 'error';
 
 /** One pushed local tag commit and the remote outcome observed for it. */
 export type TagPushItem = {
-  localCommitId: string;
-  localSequence: number;
+  localCommitId:    string;
+  localSequence:    number;
   clientMutationId: string;
-  status: Exclude<TagPushStatus, 'blocked'>;
+  status:           Exclude<TagPushStatus, 'blocked'>;
 };
 
 /** Inputs required for one cursor-backed desktop tag push run. */
 export type PushPendingTagCommitsInput = {
-  localDb: SyncDb;
-  remoteDb: SyncDb;
-  consumer: string;
-  limit?: number;
-  stream?: string;
-  onProgress?: (event: { completed: number; total: number }) => void;
+  localDb:     SyncDb;
+  remoteDb:    SyncDb;
+  consumer:    string;
+  limit?:      number;
+  stream?:     string;
+  onProgress?: (event: { completed: number, total: number, appliedCount: number, duplicateCount: number }) => void | Promise<void>;
 };
 
 /** Summary returned after one cursor-backed desktop tag push run. */
 export type PushPendingTagCommitsResult = {
-  stream: string;
-  consumer: string;
-  pushed: TagPushItem[];
+  stream:             string;
+  consumer:           string;
+  pushed:             TagPushItem[];
   lastPushedSequence: number;
-  blockedSequence: number | null;
-  blockedReason: TagPushStopReason | null;
-  blockedMessage: string | null;
+  blockedSequence:    number | null;
+  blockedReason:      TagPushStopReason | null;
+  blockedMessage:     string | null;
 };
 
 /** Loads the current local cursor row for one desktop sync consumer. */
@@ -109,7 +107,7 @@ async function markLocalCommitSynced(
   input: {
     commitId: string;
     consumer: string;
-    stream: string;
+    stream:   string;
     sequence: number;
   },
 ) {
@@ -138,10 +136,10 @@ async function markLocalCommitSynced(
 /** Translates one remote apply outcome into the local push item recorded for this run. */
 function toPushItem(commit: FieldCommitRow, result: ApplyTagCommitResult): TagPushItem {
   return {
-    localCommitId:     commit.id,
-    localSequence:     commit.sequence,
-    clientMutationId:  commit.clientMutationId,
-    status:            result.status === 'duplicate' ? 'duplicate' : 'applied',
+    localCommitId:    commit.id,
+    localSequence:    commit.sequence,
+    clientMutationId: commit.clientMutationId,
+    status:           result.status === 'duplicate' ? 'duplicate' : 'applied',
   };
 }
 
@@ -194,11 +192,12 @@ export async function pushPendingTagCommits(
   const pushed: TagPushItem[] = [];
   let pushedSequence = lastPushedSequence;
 
-  input.onProgress?.({ completed: 0, total });
+  await input.onProgress?.({ completed: 0, total, appliedCount: 0, duplicateCount: 0 });
 
   for (const commit of commits) {
+    let result: ApplyTagCommitResult;
     try {
-      const result = await input.remoteDb.transaction(async tx => await applyTagCommit(
+      result = await input.remoteDb.transaction(async tx => await applyTagCommit(
         tx,
         toRemoteCommit(commit),
         {
@@ -210,15 +209,14 @@ export async function pushPendingTagCommits(
       ));
 
       await input.localDb.transaction(async tx => await markLocalCommitSynced(tx, {
-        commitId:  commit.id,
-        consumer:  input.consumer,
+        commitId: commit.id,
+        consumer: input.consumer,
         stream,
-        sequence:  commit.sequence,
+        sequence: commit.sequence,
       }));
 
       pushed.push(toPushItem(commit, result));
       pushedSequence = commit.sequence;
-      input.onProgress?.({ completed: pushed.length, total });
     } catch (error) {
       // Write conflict to remote DB in a standalone transaction (the main one rolled back).
       const reason = toBlockedReason(error);
@@ -242,7 +240,7 @@ export async function pushPendingTagCommits(
             .then(rows => rows[0] ?? null),
         ]);
 
-        const field = commit.fieldPath.replace(/^tag\./, '') as string;
+        const localValue = getTagFieldValue(remoteTag, commit.fieldPath);
 
         await input.remoteDb.insert(FieldConflict).values({
           processingSide:  'remote',
@@ -257,13 +255,13 @@ export async function pushPendingTagCommits(
             operation:        commit.operation,
             editorRuntime:    commit.editorRuntime,
           },
-          localValue:       (remoteTag as Record<string, unknown> | null)?.[field] ?? null,
-          incomingValue:    commit.value,
-          winnerValue:      remoteWinner?.winnerValue ?? null,
-          effectiveValue:   (remoteTag as Record<string, unknown> | null)?.[field] ?? null,
-          baseRevision:     commit.baseRevision,
-          status:           'open',
-          reason:           message,
+          localValue,
+          incomingValue:  commit.value,
+          winnerValue:    remoteWinner?.winnerValue ?? null,
+          effectiveValue: localValue,
+          baseRevision:   commit.baseRevision,
+          status:         'open',
+          reason:         message,
         });
       } catch {
         // Best-effort conflict write.
@@ -279,6 +277,13 @@ export async function pushPendingTagCommits(
         blockedMessage:     message,
       };
     }
+
+    await input.onProgress?.({
+      completed:      pushed.length,
+      total,
+      appliedCount:   pushed.filter(item => item.status === 'applied').length,
+      duplicateCount: pushed.filter(item => item.status === 'duplicate').length,
+    });
   }
 
   return {

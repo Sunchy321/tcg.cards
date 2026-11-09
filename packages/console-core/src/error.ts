@@ -1,14 +1,14 @@
-export type ConsoleErrorKind =
-  | 'auth'
-  | 'permission'
-  | 'request'
-  | 'capability'
-  | 'unknown';
+export type ConsoleErrorKind
+  = | 'auth'
+    | 'permission'
+    | 'request'
+    | 'capability'
+    | 'unknown';
 
 export interface ConsoleError {
-  kind: ConsoleErrorKind;
+  kind:    ConsoleErrorKind;
   message: string;
-  cause?: unknown;
+  cause?:  unknown;
 }
 
 export function getConsoleErrorMessage(
@@ -51,31 +51,31 @@ export function toConsoleError(
 
   if (code === 'UNAUTHORIZED') {
     return {
-      kind: 'auth',
+      kind:    'auth',
       message: getConsoleErrorMessage(error, fallback),
-      cause: error,
+      cause:   error,
     };
   }
 
   if (code === 'FORBIDDEN') {
     return {
-      kind: 'permission',
+      kind:    'permission',
       message: getConsoleErrorMessage(error, fallback),
-      cause: error,
+      cause:   error,
     };
   }
 
   if (code != null) {
     return {
-      kind: 'request',
+      kind:    'request',
       message: getConsoleErrorMessage(error, fallback),
-      cause: error,
+      cause:   error,
     };
   }
 
   return {
-    kind: 'unknown',
+    kind:    'unknown',
     message: getConsoleErrorMessage(error, fallback),
-    cause: error,
+    cause:   error,
   };
 }

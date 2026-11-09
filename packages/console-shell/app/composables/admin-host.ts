@@ -1,7 +1,19 @@
 import type { InjectionKey } from 'vue';
 import { inject, provide } from '#imports';
+import type { Game } from '@tcg-cards/base';
 
+/** Persistent browser storage keys shared by the desktop shell and its host. */
+export const consoleAdminStorageKeys = {
+  currentGame: 'console-admin-current-game',
+} as const;
+
+/** Management lifecycle and optional local game access supplied by a host. */
 export interface ConsoleAdminHost {
+  localGames?:   readonly Game[];
+  gameSwitcher?: {
+    placement?:        'section' | 'brand';
+    persistSelection?: boolean;
+  };
   initialize?(): Promise<void> | void;
   signOut(): Promise<void> | void;
 }

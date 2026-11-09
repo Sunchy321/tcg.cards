@@ -86,8 +86,8 @@
                   <UFormField label="语言" orientation="horizontal" :ui="{ root: '!justify-start' }"><USelect v-model="form.lang" :items="langItems" class="w-40" :disabled="disabled" /></UFormField>
                   <UFormField label="版本" orientation="horizontal" :ui="{ root: '!justify-start' }"><USelect v-model="form.version" :items="versionItems" class="w-40" :disabled="disabled" /></UFormField>
                   <UFormField orientation="horizontal" :ui="{ root: '!justify-start' }">
-                    <template #label><span class="cursor-pointer select-none" @click="singleCardMode = singleCardMode === 'cardId' ? 'renderHash' : 'cardId'">{{ singleCardMode === 'cardId' ? 'Card ID' : 'Render Hash' }}</span></template>
-                    <UInput v-model="singleCardInput" :placeholder="singleCardMode === 'cardId' ? '输入 cardId...' : '输入 renderHash...'" :disabled="disabled || scale !== 'single'" class="flex-1" />
+                    <template #label><span class="cursor-pointer select-none" @click="singleCardMode = singleCardMode === 'cardId' ? 'renderHash' : 'cardId'">{{ singleCardMode === 'cardId' ? '卡牌编号' : '图片标识' }}</span></template>
+                    <UInput v-model="singleCardInput" :placeholder="singleCardMode === 'cardId' ? '输入卡牌编号…' : '输入图片标识…'" :disabled="disabled || scale !== 'single'" class="flex-1" />
                   </UFormField>
                 </div>
                 <div class="grid gap-4 md:grid-cols-3">
@@ -135,7 +135,10 @@
             <div v-for="(req, index) in debugRequestResult.requests" :key="req.requestId" class="space-y-1">
               <div class="flex items-center justify-between">
                 <div class="text-xs font-medium">{{ req.variant.zone }}.{{ req.variant.template }}.{{ req.variant.premium }}</div>
-                <UButton :label="copiedIndex === index ? '已复制' : '复制'" :icon="copiedIndex === index ? 'i-lucide-check' : 'i-lucide-copy'" :color="copiedIndex === index ? 'success' : 'neutral'" variant="ghost" size="xs" @click="copyDebugRequest(index)" />
+                <div class="flex items-center gap-1">
+                  <UButton label="下载" icon="i-lucide-image-down" color="neutral" variant="ghost" size="xs" :loading="downloadingIndex === index" :disabled="actionLoading !== null || (downloadingIndex !== null && downloadingIndex !== index)" @click="downloadDebugRequestImage(index)" />
+                  <UButton :label="copiedIndex === index ? '已复制' : '复制'" :icon="copiedIndex === index ? 'i-lucide-check' : 'i-lucide-copy'" :color="copiedIndex === index ? 'success' : 'neutral'" variant="ghost" size="xs" @click="copyDebugRequest(index)" />
+                </div>
               </div>
               <pre class="max-h-48 overflow-auto rounded-lg border border-default bg-muted p-2 text-xs"><code>{{ formatDebugRequestJson(req) }}</code></pre>
             </div>
@@ -263,7 +266,7 @@ import type { TaskOperation } from '~/components/task/TaskController.vue';
 
 import { useToast } from '@nuxt/ui/composables';
 import { getConsoleErrorMessage } from '@tcg-cards/console-core';
-import { orpc } from '~/lib/orpc';
+import { orpc, startDesktopTask } from '~/lib/orpc';
 
 import { listLocalHsdataSourceVersions, type HsdataSourceVersionStatus } from '~/composables/useHsdataRepo';
 import { getDesktopHearthstoneImageSettings } from '~/composables/useDesktopSettings';
@@ -512,15 +515,17 @@ const rendererStatusText = computed(() => {
 
 // ── TaskController ──
 
+/** Builds cloneable image options for the renderer's Electron IPC requests. */
 function buildTaskInput() {
   const versionRaw = form.version.trim();
+  // Reactive arrays are proxies and cannot cross Electron's structured-clone boundary.
   return {
     lang:      form.lang,
     ...(versionRaw.length > 0 && versionRaw !== 'latest' && versionRaw !== 'all' ? { version: Number.parseInt(versionRaw, 10) } : {}),
     ...(versionRaw === 'all' ? { allVersions: true } : {}),
-    zones:     form.zones,
-    templates: form.templates,
-    premiums:  form.premiums,
+    zones:     [...form.zones],
+    templates: [...form.templates],
+    premiums:  [...form.premiums],
     limit:     Math.min(Number.parseInt(form.limit, 10) || 500, 500),
   };
 }
@@ -536,32 +541,31 @@ const operations: TaskOperation[] = [
     key:    'render',
     label:  '渲染写入存储',
     icon:   'i-lucide-download',
-    create: () => orpc.hearthstone.createTask.imageRender({
+    create: () => startDesktopTask('hearthstone_image_render', {
       ...buildTaskInput(),
       ...(scale.value === 'single' ? buildSingleCardInput() : {}),
       scanAll: scale.value === 'full',
-    }) as Promise<TaskPageSnapshot>,
+    }),
   },
   {
     key:    'download',
     label:  '打包下载',
     icon:   'i-lucide-archive',
     color:  'warning',
-    create: () => orpc.hearthstone.createTask.imageDownload({
+    create: () => startDesktopTask('hearthstone_image_render', {
       ...buildTaskInput(),
       ...(scale.value === 'single' ? buildSingleCardInput() : {}),
-      scanAll: scale.value === 'full',
-    }) as Promise<TaskPageSnapshot>,
+      scanAll:    scale.value === 'full',
+      outputMode: 'download',
+    }),
   },
 ];
 
 async function onTaskCompleted(snap: TaskPageSnapshot) {
-  if (snap.pageTask.kind === 'attached') {
-    // Check if this was a download task — try to get the archive
+  if (snap.pageTask.kind === 'attached' && snap.pageTask.taskScopeSnapshot?.outputMode === 'download') {
     try {
-      const { archivePath, archiveName } = await orpc.image.getTaskArchive({ taskRunId: snap.pageTask.taskRunId });
-      if (archivePath && archiveName) {
-        const result = await orpc.image.getArchive({ filePath: archivePath });
+      const result = await orpc.image.downloadTaskArchive({ taskRunId: snap.pageTask.taskRunId });
+      if (result.base64Zip) {
         triggerDownload(result.base64Zip, result.fileName);
         toast.add({ title: '下载完成', description: result.fileName, color: 'success' });
         return;
@@ -833,6 +837,38 @@ async function copyDebugRequest(index: number) {
     }, 2000);
   } catch {
     // no-op
+  }
+}
+
+const downloadingIndex = ref<number | null>(null);
+
+function triggerPngDownload(base64Png: string, fileName: string) {
+  const bytes = Uint8Array.from(atob(base64Png), c => c.charCodeAt(0));
+  const blob = new Blob([bytes], { type: 'image/png' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+async function downloadDebugRequestImage(index: number) {
+  const request = debugRequestResult.value?.requests[index];
+  if (!request) return;
+  downloadingIndex.value = index;
+  try {
+    const result = await orpc.image.renderOne({ request });
+    const fileName = `${debugRequestResult.value?.cardId ?? request.card.cardId}.png`;
+    triggerPngDownload(result.base64Png, fileName);
+    toast.add({ title: '下载完成', description: fileName, color: 'success' });
+  } catch (error) {
+    console.error('Failed to download rendered image:', error);
+    toast.add({ title: '下载失败', description: getConsoleErrorMessage(error, '图片渲染失败'), color: 'error' });
+  } finally {
+    downloadingIndex.value = null;
   }
 }
 

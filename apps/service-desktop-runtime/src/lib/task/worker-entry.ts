@@ -1,6 +1,6 @@
 import './task-definitions';
 import { applyRuntimeOverrides, type RuntimeOverrides } from '../../runtime-config';
-import { getLocalDb } from '../hearthstone/hsdata-local-db';
+import { closeLocalDb, getLocalDb } from '../hearthstone/hsdata-local-db';
 import { createTaskStore } from './store';
 import { createTaskExecutor } from './executor';
 
@@ -45,6 +45,10 @@ self.onmessage = async e => {
       console.error(`[task] Failed to mark task ${taskRunId} as failed:`, storeErr);
     }
   } finally {
+    // A worker handles exactly one task run: release its pool before reporting done,
+    // so connections do not accumulate across task runs and the parent can safely
+    // terminate the thread as soon as it sees done.
+    await closeLocalDb();
     self.postMessage({ done: true, taskRunId });
   }
 };

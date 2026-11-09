@@ -3,6 +3,7 @@ type AnySchema = unknown;
 export type SchemaNode = {
   kind:          string;
   description?:  string;
+  name?:         string;
   optional?:     boolean;
   nullable?:     boolean;
   defaultValue?: unknown;
@@ -66,7 +67,12 @@ export function describeSchema(schema: AnySchema | undefined): SchemaNode {
   case 'discriminatedUnion':
     return { ...base, kind: 'union', options: (def.options ?? []).map(describeSchema) };
   case 'enum':
-    return { ...base, kind: 'enum', values: Object.values(def.entries ?? {}).map(String) };
+    return {
+      ...base,
+      kind:   'enum',
+      name:   description,
+      values: Object.values(def.entries ?? {}).map(String),
+    };
   case 'literal': {
     const value = def.values?.[0] ?? def.value;
     return { ...base, kind: 'literal', value: value as SchemaNode['value'] };

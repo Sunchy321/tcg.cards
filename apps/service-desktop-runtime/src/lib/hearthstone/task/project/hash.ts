@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import canonicalize from 'canonicalize';
 
 import { RENDER_MECHANIC_IDS } from '@tcg-cards/model/hearthstone/constant/tag';
@@ -6,10 +7,10 @@ import { renderModel as renderModelSchema, type RenderModel } from '@tcg-cards/m
 import type { JsonMap, LocalizationlessEntityRow, LocalizationlessLocalizationRow, MechanicValue } from './types';
 import { computeRenderHints } from './render-hints';
 
-const renderMechanicKeys: Set<string> = new Set(RENDER_MECHANIC_IDS);
+export const renderMechanicKeys: ReadonlySet<string> = new Set(RENDER_MECHANIC_IDS);
 
 export function hashCanonicalJson(value: unknown): string {
-  return Bun.SHA256.hash(canonicalize(value)!, 'hex') as string;
+  return createHash('sha256').update(canonicalize(value)!).digest('hex');
 }
 
 export function mergeVersion(...inputs: Array<number[] | number>): number[] {
@@ -96,15 +97,20 @@ function formatIssuePath(path: PropertyKey[]): string {
   return path.map(value => String(value)).join('.');
 }
 
+/** Render mechanics derived from emitted card relations (same projection run), merged over tag-derived mechanics. */
 export function buildRenderModel(
   entity: LocalizationlessEntityRow,
   localization: LocalizationlessLocalizationRow,
   build: number,
+  relationMechanics: Record<string, boolean | number> = {},
 ): RenderModel {
-  const renderMechanics = Object.fromEntries(
-    Object.entries(entity.mechanics)
-      .filter(([enumId, value]) => renderMechanicKeys.has(enumId) && isMechanicValue(value)),
-  );
+  const renderMechanics = {
+    ...Object.fromEntries(
+      Object.entries(entity.mechanics)
+        .filter(([enumId, value]) => renderMechanicKeys.has(enumId) && isMechanicValue(value)),
+    ),
+    ...relationMechanics,
+  };
 
   const renderHints = computeRenderHints(entity, build);
 

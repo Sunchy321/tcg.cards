@@ -4,9 +4,9 @@ export const id = 'magic';
 
 export const birthday = '1993-08-05';
 
-export const mainLocale = z.enum(['en', 'zhs', 'zht', 'de', 'fr', 'it', 'ja', 'ko', 'pt', 'ru', 'es']);
+export const mainLocale = z.enum(['en', 'zhs', 'zht', 'de', 'fr', 'it', 'ja', 'ko', 'pt', 'ru', 'es']).describe('mainLocale');
 
-export const locale = z.enum([...mainLocale.options, 'ph', 'he', 'ar', 'sa', 'grc', 'la', 'qya']);
+export const locale = z.enum([...mainLocale.options, 'ph', 'he', 'ar', 'sa', 'grc', 'la', 'qya', 'dw']).describe('locale');
 
 export const specificManaSymbols = [
   'W', 'U', 'B', 'R', 'G', 'C', 'X', 'Y', 'Z',
@@ -27,51 +27,37 @@ export const manaSymbols = [
 
 export const symbols = [...manaSymbols, 'T', 'Q', 'H', 'E', 'A', 'P', 'PW', 'CHAOS', 'TK'];
 
-export const formats = [
-  'standard',
-  'pioneer',
-  'modern',
-  'extended',
-  'legacy',
-  'vintage',
-  'alchemy',
-  'historic',
-  'timeless',
-  'explorer',
-  'commander',
-  'duelcommander',
-  'duelcommander_docfx',
-  'leviathan_commander',
-  'commander1v1',
-  'brawl',
-  'standard_brawl',
-  'pauper',
-  'oathbreaker',
-  'penny',
-  'canadian_highlander',
-  'pauper_commander',
-  'pauper_duelcommander',
+/** Format choices ordered by paper, online, community adoption, and historical use. */
+export const formatGroups = [
+  ['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'pauper', 'commander'],
+  ['historic', 'timeless', 'alchemy', 'brawl', 'competitive-brawl', 'standard-brawl'],
+  ['duelcommander', 'premodern', 'old-school', 'canadian-highlander', 'pauper-commander'],
+  ['oathbreaker', 'penny', 'gladiator', 'predh', 'tiny-leader-reborn', 'pauper-duelcommander', 'conquest'],
+  ['extended', 'explorer', 'commander1v1', 'leviathan-commander'],
 ];
+
+export const formats = formatGroups.flat();
 
 export const colors = ['W', 'U', 'B', 'R', 'G', 'O', 'P'];
 
 export const color = z.string();
 
-export const rarity = z.enum(['bonus', 'common', 'mythic', 'rare', 'special', 'uncommon']);
+export const rarity = z.enum(['bonus', 'common', 'mythic', 'rare', 'special', 'uncommon']).describe('Rarity');
 
 export const layout = z.enum([
-  'adventure', 'aftermath', 'augment', 'battle', 'case', 'class',
-  'double_faced', 'emblem', 'flip', 'flip_token_bottom', 'flip_token_top',
-  'host', 'leveler', 'meld', 'modal_dfc', 'multipart', 'mutate', 'normal',
-  'planar', 'prototype', 'reversible_card', 'saga', 'scheme', 'split',
-  'split_arena', 'token', 'transform', 'transform_token', 'vanguard',
-]);
+  'adventure', 'aftermath', 'art_back_token', 'augment', 'battle', 'case',
+  'class', 'combined', 'double_faced', 'emblem', 'flip', 'flip_token_bottom',
+  'flip_token_top', 'host', 'leveler', 'meld', 'modal_dfc', 'multipart',
+  'mutate', 'normal', 'planar', 'prepare', 'prototype', 'reversible_card',
+  'saga', 'scheme', 'split', 'split_arena', 'token', 'transform',
+  'transform_token', 'vanguard',
+]).describe('Layout');
 
-export const fullImageType = z.enum(['webp', 'jpg', 'png']);
+export const imageType = z.enum(['webp', 'jpg', 'png']).describe('ImageType');
 
 export type MainLocale = z.infer<typeof mainLocale>;
 export type Locale = z.infer<typeof locale>;
 export type Color = z.infer<typeof color>;
 export type Rarity = z.infer<typeof rarity>;
 export type Layout = z.infer<typeof layout>;
-export type FullImageType = z.infer<typeof fullImageType>;
+export type ImageType = z.infer<typeof imageType>;

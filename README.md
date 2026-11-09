@@ -38,7 +38,7 @@ apps/
   site-main/        Main tcg.cards site
   site-{game}/      Game-specific public site (for example `site-magic`, `site-hearthstone`)
   site-console/     Lower-capability web management surface
-  service-internal/ Higher-capability remote management backend for app-shaped clients
+  service-console-api/ Higher-capability remote management backend for app-shaped clients
   watcher/          Scheduled operational Worker runtime
 
 packages/
@@ -51,7 +51,6 @@ packages/
   eslint-config-custom/
                    Shared ESLint configuration
 
-specs/              Approved design specs, reviews, and implementation plans
 references/         Local/reference source material used for modeling
 scripts/            Utility scripts
 turbo/              Turborepo generators and templates
@@ -64,7 +63,7 @@ turbo/              Turborepo generators and templates
 | `site-main` | Main public entry site | `3000` |
 | `site-{game}` | Game-specific public sites. Current examples: `site-magic` (`3001`), `site-hearthstone` (`3002`) | per app |
 | `site-console` | Lower-capability web management surface | `2999` |
-| `service-internal` | Higher-capability remote management backend for app-shaped clients | `2998` |
+| `service-console-api` | Higher-capability remote management backend for app-shaped clients | `2998` |
 | `service-watcher` | Scheduled Cloudflare Worker | Wrangler default |
 
 ## Getting Started
@@ -90,7 +89,7 @@ Copy the example files for the workspaces you plan to run:
 cp apps/site-magic/.env.example apps/site-magic/.env
 cp apps/site-hearthstone/.env.example apps/site-hearthstone/.env
 cp apps/site-console/.env.example apps/site-console/.env
-cp apps/service-internal/.env.example apps/service-internal/.env
+cp apps/service-console-api/.env.example apps/service-console-api/.env
 cp apps/service-watcher/.dev.vars.example apps/service-watcher/.dev.vars
 cp packages/db/.env.example packages/db/.env
 ```
@@ -112,7 +111,7 @@ cd apps/site-magic
 bun run dev
 ```
 
-Use the same pattern for `site-main`, `site-hearthstone`, `site-console`, and `service-internal`.
+Use the same pattern for `site-main`, `site-hearthstone`, `site-console`, and `service-console-api`.
 
 ## Common Commands
 
@@ -176,11 +175,9 @@ Cloudflare bindings used across the apps include:
 
 ## Design Specs
 
-Approved design artifacts live under `specs/<topic>/` and use standard filenames:
+Requirement-specific design work lives in the issue tracker: a spec at `.scratch/<feature>/spec.md`, and one file per ticket under `.scratch/<feature>/issues/`. `.scratch/` is git-ignored, so these are working artifacts rather than committed documents.
 
-- `design.md`
-- `review.md`
-- `plan.md`
+What outlives a feature is committed instead: `CONTEXT.md` holds the domain glossary, and `docs/adr/` holds the decisions that were hard to reverse.
 
 ## References
 

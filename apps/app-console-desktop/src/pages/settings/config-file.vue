@@ -1,284 +1,170 @@
 <template>
-  <div class="desktop-page">
-    <div class="space-y-6">
-      <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 class="desktop-section-title">
-            原始配置
-          </h1>
-          <p class="mt-2 text-sm text-muted">
-            直接查看和修改 desktop-config.json。
-          </p>
-        </div>
-
-        <div class="flex flex-wrap gap-2">
+  <SettingsFrame title="高级 JSON">
+    <UCard>
+      <div class="space-y-4">
+        <div class="flex gap-2">
           <UButton
-            label="返回数据库设置"
-            icon="i-lucide-arrow-left"
-            color="neutral"
-            variant="soft"
-            to="/settings/database"
-          />
-          <UButton
-            label="打开配置目录"
-            icon="i-lucide-folder-open"
-            color="neutral"
-            variant="soft"
-            :loading="openingConfigDirectory"
-            @click="openConfigDirectory"
-          />
-          <UButton
-            label="复制配置路径"
-            icon="i-lucide-copy"
-            color="neutral"
-            variant="soft"
-            :disabled="loadingRawConfig || rawConfigFilePath === '—'"
-            @click="copyConfigFilePath"
+            label="保存"
+            icon="i-lucide-save"
+            :loading="saving"
+            :disabled="!dirty || saving"
+            @click="void save()"
           />
           <UButton
             label="格式化"
             icon="i-lucide-braces"
             color="neutral"
             variant="soft"
-            :disabled="loadingRawConfig || savingRawConfig"
-            @click="formatRawConfig"
+            :disabled="saving"
+            @click="format"
           />
-        </div>
-      </div>
-
-      <UCard>
-        <template #header>
-          <div>
-            <div class="font-medium">desktop-config.json</div>
-            <div class="mt-1 text-xs text-muted">原始 JSON 编辑入口会覆盖按项配置页面，不显示左侧设置边栏。</div>
-          </div>
-        </template>
-
-        <div class="space-y-4">
-          <div class="grid gap-3 rounded-lg border border-default/60 bg-elevated/30 p-3 text-sm sm:grid-cols-2">
-            <div class="space-y-1">
-              <div class="text-xs text-muted">配置文件</div>
-              <code class="block break-all text-xs text-default">{{ rawConfigFilePath }}</code>
-            </div>
-
-            <div class="space-y-1">
-              <div class="text-xs text-muted">配置目录</div>
-              <code class="block break-all text-xs text-default">{{ rawConfigDirectoryPath }}</code>
-            </div>
-          </div>
-
-          <div class="flex flex-wrap gap-2">
-            <UButton
-              label="重新加载"
-              icon="i-lucide-rotate-ccw"
-              color="neutral"
-              variant="soft"
-              :loading="loadingRawConfig"
-              :disabled="savingRawConfig"
-              @click="loadRawConfig"
-            />
-            <UButton
-              label="保存原始配置"
-              icon="i-lucide-save"
-              color="primary"
-              :loading="savingRawConfig"
-              :disabled="loadingRawConfig || rawConfigHasValidationErrors"
-              @click="saveRawConfig"
-            />
-          </div>
-
-          <UAlert
+          <UButton
+            label="重新加载"
+            icon="i-lucide-rotate-ccw"
             color="neutral"
-            variant="soft"
-            icon="i-lucide-info"
-            description="该 JSON 文件只包含配置文件内的字段，不包含 publish target 连接字符串和登录凭据。"
+            variant="ghost"
+            :disabled="saving"
+            @click="reload"
           />
-
-          <div class="space-y-2">
-            <label for="desktop-raw-config" class="text-sm font-medium text-default">配置内容</label>
-            <ClientOnly fallback-tag="div">
-              <MonacoJsonEditor
-                ref="editor"
-                v-model="rawConfigText"
-                :schema="desktopConfigSchema"
-                :disabled="loadingRawConfig || savingRawConfig"
-                @validation-change="handleValidationChange"
-              />
-
-              <template #fallback>
-                <div class="rounded-lg border border-default bg-default px-4 py-8 text-sm text-muted">
-                  正在加载编辑器…
-                </div>
-              </template>
-            </ClientOnly>
-          </div>
-
-          <UAlert
-            v-if="configDirectoryError.length > 0"
-            color="error"
-            variant="soft"
-            icon="i-lucide-folder-open"
-            :description="configDirectoryError"
-          />
-          <UAlert
-            v-if="copyPathMessage.length > 0"
-            color="success"
-            variant="soft"
-            icon="i-lucide-copy"
-            :description="copyPathMessage"
-          />
-          <UAlert
-            v-if="rawConfigError.length > 0"
-            color="error"
-            variant="soft"
-            icon="i-lucide-circle-alert"
-            :description="rawConfigError"
-          />
-          <UAlert
-            v-else-if="rawConfigValidationMessage.length > 0"
-            color="warning"
-            variant="soft"
-            icon="i-lucide-triangle-alert"
-            :description="rawConfigValidationMessage"
-          />
-          <UAlert
-            v-else-if="rawConfigSaved"
-            color="success"
-            variant="soft"
-            icon="i-lucide-circle-check-big"
-            description="原始配置已保存。"
-          />
+          <span v-if="dirty" class="self-center text-xs text-muted">有未保存的修改</span>
         </div>
-      </UCard>
-    </div>
-  </div>
+        <UAlert v-if="error" role="alert" color="error" :description="error" />
+        <p v-if="saved" role="status" class="text-sm text-success">已保存。</p>
+        <MonacoJsonEditor v-if="loaded" v-model="text" :schema="jsonSchema" :disabled="saving" />
+      </div>
+    </UCard>
+    <UModal v-model:open="confirmOpen" title="保存修改？" description="还有未保存的配置修改。" :dismissible="false">
+      <template #body><UAlert v-if="error" role="alert" color="error" :description="error" /></template>
+      <template #footer>
+        <div class="flex w-full flex-wrap justify-end gap-2">
+          <UButton label="继续编辑" color="neutral" variant="ghost" :disabled="saving" @click="choose('cancel')" />
+          <UButton label="放弃修改" color="neutral" variant="soft" :disabled="saving" @click="choose('discard')" />
+          <UButton label="保存并离开" :loading="saving" @click="choose('save')" />
+        </div>
+      </template>
+    </UModal>
+  </SettingsFrame>
 </template>
-
 <script setup lang="ts">
-import { getConsoleErrorMessage } from '@tcg-cards/console-core';
-
-import { desktopConfigSchema } from '~/utils/desktopConfigSchema';
-import {
-  getDesktopRawConfig,
-  openDesktopConfigDirectory,
-  setDesktopRawConfig,
-  type DesktopRawConfig,
-} from '~/composables/useDesktopSettings';
-import type {
-  MonacoJsonEditorRef,
-  MonacoJsonEditorValidation,
-} from '~/types/monaco-json-editor';
-
-definePageMeta({
-  layout: 'admin',
-  title:  '原始配置',
+import { z } from 'zod';
+import { configuration, parseConfiguration } from '../../../shared/settings';
+import { useDesktopSettings, settingsError } from '~/composables/useDesktopSettings';
+definePageMeta({ layout: 'admin', title: '高级 JSON' });
+const { snapshot, bridge } = useDesktopSettings();
+const jsonSchema = z.toJSONSchema(configuration);
+const text = ref('');
+const baseline = ref('');
+const revision = ref(0);
+const loaded = ref(false);
+const saving = ref(false);
+const saved = ref(false);
+const error = ref('');
+const confirmOpen = ref(false);
+const dirty = computed(() => text.value !== baseline.value);
+let pending: ((choice: 'save' | 'discard' | 'cancel') => void) | undefined;
+let allowUnload = false;
+let unsubscribe: (() => void) | undefined;
+/** Reads the whole ordinary document without exposing encrypted storage or secrets. */
+async function load() {
+  try {
+    snapshot.value = await bridge.read();
+    text.value = JSON.stringify(snapshot.value.config, null, 2);
+    baseline.value = text.value;
+    revision.value = snapshot.value.revision;
+    loaded.value = true;
+    error.value = '';
+  } catch (cause) {
+    error.value = settingsError(cause);
+  }
+}
+/** Persists only a completely valid document and retains text when persistence fails. */
+async function save() {
+  saving.value = true;
+  error.value = '';
+  saved.value = false;
+  try {
+    parseConfiguration(text.value);
+    snapshot.value = await bridge.saveJson(text.value, revision.value);
+    text.value = JSON.stringify(snapshot.value.config, null, 2);
+    baseline.value = text.value;
+    revision.value = snapshot.value.revision;
+    await bridge.setDirty(false);
+    saved.value = true;
+    return true;
+  } catch (cause) {
+    error.value = settingsError(cause);
+    return false;
+  } finally {
+    saving.value = false;
+  }
+}
+/** Formats a valid draft without saving it. */
+function format() {
+  try {
+    text.value = JSON.stringify(parseConfiguration(text.value), null, 2);
+    error.value = '';
+  } catch (cause) {
+    error.value = settingsError(cause);
+  }
+}
+/** Opens one shared three-choice prompt for navigation, reload and native close. */
+function confirm(): Promise<'save' | 'discard' | 'cancel'> {
+  if (pending) return Promise.resolve('cancel');
+  confirmOpen.value = true;
+  return new Promise(resolve => {
+    pending = resolve;
+  });
+}
+/** Leaves the prompt open on failed validation so the draft is never silently discarded. */
+async function choose(choice: 'save' | 'discard' | 'cancel') {
+  if (choice === 'save' && !(await save())) return;
+  confirmOpen.value = false;
+  const resolve = pending;
+  pending = undefined;
+  resolve?.(choice);
+}
+/** Confirms before a reload can discard a draft. */
+async function reload() {
+  if (dirty.value && (await confirm()) === 'cancel') return;
+  await load();
+}
+watch(
+  dirty,
+  value => {
+    void bridge.setDirty(value).catch(cause => {
+      error.value = settingsError(cause);
+    });
+  },
+  { flush: 'sync' },
+);
+watch(text, () => {
+  saved.value = false;
 });
-
-const rawConfigText = ref('');
-const loadingRawConfig = ref(false);
-const savingRawConfig = ref(false);
-const openingConfigDirectory = ref(false);
-const rawConfigError = ref('');
-const configDirectoryError = ref('');
-const copyPathMessage = ref('');
-const rawConfigSaved = ref(false);
-const rawConfigFilePath = ref('—');
-const rawConfigDirectoryPath = ref('—');
-const rawConfigHasValidationErrors = ref(false);
-const rawConfigValidationMessages = ref<string[]>([]);
-const editor = ref<MonacoJsonEditorRef | null>(null);
-const rawConfigValidationMessage = computed(() => rawConfigValidationMessages.value[0] ?? '');
-
-/** Applies one raw-config payload to the local page state. */
-function applyRawConfig(payload: DesktopRawConfig) {
-  rawConfigText.value = payload.text;
-  rawConfigFilePath.value = payload.file.configFilePath;
-  rawConfigDirectoryPath.value = payload.file.configDirectoryPath;
-}
-
-/** Monaco validation state synchronized into the page-level save controls. */
-function handleValidationChange(payload: MonacoJsonEditorValidation) {
-  rawConfigHasValidationErrors.value = payload.hasErrors;
-  rawConfigValidationMessages.value = payload.messages;
-}
-
-/** Loads the raw desktop config text from the desktop runtime. */
-async function loadRawConfig() {
-  loadingRawConfig.value = true;
-  rawConfigError.value = '';
-  rawConfigSaved.value = false;
-  copyPathMessage.value = '';
-
-  try {
-    applyRawConfig(await getDesktopRawConfig());
-  } catch (error) {
-    console.error('Failed to load desktop raw config:', error);
-    rawConfigError.value = getConsoleErrorMessage(error, '原始配置读取失败');
-  } finally {
-    loadingRawConfig.value = false;
-  }
-}
-
-/** Persists the raw desktop config text into the desktop runtime. */
-async function saveRawConfig() {
-  savingRawConfig.value = true;
-  rawConfigError.value = '';
-  rawConfigSaved.value = false;
-  copyPathMessage.value = '';
-
-  try {
-    const payload = await setDesktopRawConfig(rawConfigText.value);
-    applyRawConfig(payload);
-    rawConfigSaved.value = true;
-  } catch (error) {
-    console.error('Failed to save desktop raw config:', error);
-    rawConfigError.value = getConsoleErrorMessage(error, '原始配置保存失败');
-  } finally {
-    savingRawConfig.value = false;
-  }
-}
-
-/** Desktop config directory opened in the system file manager. */
-async function openConfigDirectory() {
-  openingConfigDirectory.value = true;
-  configDirectoryError.value = '';
-  copyPathMessage.value = '';
-
-  try {
-    await openDesktopConfigDirectory();
-  } catch (error) {
-    console.error('Failed to open desktop config directory:', error);
-    configDirectoryError.value = getConsoleErrorMessage(error, '配置目录打开失败');
-  } finally {
-    openingConfigDirectory.value = false;
-  }
-}
-
-/** Config file path copied into the system clipboard. */
-async function copyConfigFilePath() {
-  copyPathMessage.value = '';
-
-  try {
-    await navigator.clipboard.writeText(rawConfigFilePath.value);
-    copyPathMessage.value = '配置文件路径已复制。';
-  } catch (error) {
-    console.error('Failed to copy desktop config file path:', error);
-    rawConfigError.value = getConsoleErrorMessage(error, '配置文件路径复制失败');
-  }
-}
-
-/** Editor document formatted before an optional save. */
-async function formatRawConfig() {
-  await editor.value?.formatDocument();
-}
-
-onMounted(() => {
-  void loadRawConfig();
+onBeforeRouteLeave(async () => {
+  if (!dirty.value) return true;
+  const choice = await confirm();
+  if (choice === 'cancel') return false;
+  await bridge.setDirty(false);
+  return true;
 });
-
-watch(rawConfigText, () => {
-  rawConfigError.value = '';
-  rawConfigSaved.value = false;
-  copyPathMessage.value = '';
+/** Covers native reloads and the narrow interval before the dirty IPC reaches main. */
+function beforeUnload(event: BeforeUnloadEvent) {
+  if (!dirty.value || allowUnload) return;
+  event.preventDefault();
+  event.returnValue = 'unsaved';
+}
+onMounted(async () => {
+  window.addEventListener('beforeunload', beforeUnload);
+  unsubscribe = bridge.onCloseRequested(async () => {
+    const choice = dirty.value ? await confirm() : 'discard';
+    if (choice !== 'cancel') allowUnload = true;
+    await bridge.resolveClose(choice);
+  });
+  await load();
+});
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', beforeUnload);
+  unsubscribe?.();
+  pending?.('cancel');
 });
 </script>

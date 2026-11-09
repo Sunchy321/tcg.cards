@@ -1,4 +1,5 @@
 import z from 'zod';
+import { documentOrigin, documentSettings, textMarker, sourceFile, translationMethod, reviewStatus } from './document-content';
 
 import {
   nodeChangeReviewStateCache,
@@ -16,19 +17,22 @@ const versionSummary = z.strictObject({
 });
 
 const documentSummary = z.strictObject({
-  id:   z.string(),
-  slug: z.string(),
-  name: z.string(),
+  id:        z.string(),
+  slug:      z.string(),
+  name:      z.string(),
+  origin:    documentOrigin.optional(),
+  settings:  documentSettings.optional(),
+  canManage: z.boolean().optional(),
 });
 
 export interface DocumentOutlineItem {
-  key: string;
-  nodeId: string;
-  entityId: string;
-  label: string;
-  serial: string | null;
-  level: number;
-  kind: NodeKind;
+  key:       string;
+  nodeId:    string;
+  entityId:  string;
+  label:     string;
+  serial:    string | null;
+  level:     number;
+  kind:      NodeKind;
   children?: DocumentOutlineItem[];
 }
 
@@ -56,19 +60,22 @@ export const documentLatestChange = z.strictObject({
 });
 
 export const documentReaderSection = z.strictObject({
-  nodeId:        z.string(),
-  entityId:      z.string(),
-  kind:          nodeKind,
-  serial:        z.string().nullable(),
-  text:          z.string().nullable(),
-  navText:       z.string().nullable(),
-  path:          z.string(),
-  level:         z.number(),
-  parentNodeId:  z.string().nullable(),
-  siblingOrder:  z.number(),
-  latestChange:  documentLatestChange.nullable(),
-  historyCount:  z.number(),
-  localeState:   documentSectionLocaleState,
+  nodeId:            z.string(),
+  entityId:          z.string(),
+  kind:              nodeKind,
+  serial:            z.string().nullable(),
+  text:              z.string().nullable(),
+  markers:           textMarker.array().optional(),
+  translationMethod: translationMethod.nullable().optional(),
+  reviewStatus:      reviewStatus.nullable().optional(),
+  navText:           z.string().nullable(),
+  path:              z.string(),
+  level:             z.number(),
+  parentNodeId:      z.string().nullable(),
+  siblingOrder:      z.number(),
+  latestChange:      documentLatestChange.nullable(),
+  historyCount:      z.number(),
+  localeState:       documentSectionLocaleState,
 });
 
 export const documentReaderPage = z.strictObject({
@@ -79,6 +86,7 @@ export const documentReaderPage = z.strictObject({
   versions: versionSummary.array(),
   outline:  documentOutlineItem.array(),
   sections: documentReaderSection.array(),
+  files:    sourceFile.array().optional(),
 });
 
 export const documentReaderSummary = documentReaderPage.omit({
@@ -137,52 +145,12 @@ export const documentCompareGroup = z.strictObject({
 });
 
 export const documentComparePage = z.strictObject({
-  document:      documentSummary,
-  fromVersion:   versionSummary,
-  toVersion:     versionSummary,
-  mode:          z.enum(['snapshot', 'reviewed']),
+  document:       documentSummary,
+  fromVersion:    versionSummary,
+  toVersion:      versionSummary,
+  mode:           z.enum(['snapshot', 'reviewed']),
   reviewRevision: z.number(),
-  stats:         z.strictObject({
-    added:            z.number(),
-    removed:          z.number(),
-    modified:         z.number(),
-    moved:            z.number(),
-    renamed:          z.number(),
-    renamedModified:  z.number(),
-    split:            z.number(),
-    merged:           z.number(),
-    pendingReview:    z.number(),
-  }),
-  groups: documentCompareGroup.array(),
-});
-
-export const documentDiffSection = z.strictObject({
-  nodeId: z.string(),
-  kind:   nodeKind,
-  serial: z.string().nullable(),
-  text:   z.string().nullable(),
-  level:  z.number(),
-});
-
-export const documentDiffRow = z.discriminatedUnion('kind', [
-  z.strictObject({
-    kind:  z.literal('omitted'),
-    count: z.number(),
-  }),
-  z.strictObject({
-    kind:     z.literal('change'),
-    type:     nodeChangeType,
-    from:     documentDiffSection.nullable(),
-    to:       documentDiffSection.nullable(),
-    textDiff: documentChangeTextDiff.nullable(),
-  }),
-]);
-
-export const documentDiffPage = z.strictObject({
-  document:    documentSummary,
-  fromVersion: versionSummary,
-  toVersion:   versionSummary,
-  stats: z.strictObject({
+  stats:          z.strictObject({
     added:           z.number(),
     removed:         z.number(),
     modified:        z.number(),
@@ -191,19 +159,66 @@ export const documentDiffPage = z.strictObject({
     renamedModified: z.number(),
     split:           z.number(),
     merged:          z.number(),
+    pendingReview:   z.number(),
+  }),
+  groups: documentCompareGroup.array(),
+});
+
+export const documentDiffSection = z.strictObject({
+  localeState: documentSectionLocaleState,
+  nodeId:      z.string(),
+  kind:        nodeKind,
+  serial:      z.string().nullable(),
+  text:        z.string().nullable(),
+  level:       z.number(),
+});
+
+export const documentDiffRow = z.discriminatedUnion('kind', [
+  z.strictObject({
+    kind:  z.literal('omitted'),
+    count: z.number(),
+  }),
+  z.strictObject({
+    kind:             z.literal('change'),
+    type:             nodeChangeType,
+    from:             documentDiffSection.nullable(),
+    to:               documentDiffSection.nullable(),
+    textDiff:         documentChangeTextDiff.nullable(),
+    translationOnly:  z.boolean(),
+    referenceOnly:    z.boolean(),
+    referenceUpdates: z.strictObject({ from: z.string(), to: z.string() }).array(),
+    fromNodes:        documentDiffSection.array().optional(),
+    toNodes:          documentDiffSection.array().optional(),
+  }),
+]);
+
+export const documentDiffPage = z.strictObject({
+  document:    documentSummary,
+  fromVersion: versionSummary,
+  toVersion:   versionSummary,
+  stats:       z.strictObject({
+    added:            z.number(),
+    removed:          z.number(),
+    modified:         z.number(),
+    referenceUpdated: z.number(),
+    moved:            z.number(),
+    renamed:          z.number(),
+    renamedModified:  z.number(),
+    split:            z.number(),
+    merged:           z.number(),
   }),
   rows: documentDiffRow.array(),
 });
 
 export const documentEntityHistoryEntry = z.strictObject({
-  versionId:      z.string(),
-  versionTag:     z.string(),
-  effectiveDate:  z.iso.date(),
-  nodeId:         z.string().nullable(),
-  title:          z.string().nullable(),
-  content:        z.string().nullable(),
-  state:          z.enum(['present', 'removed', 'split', 'merged']),
-  change:         z.strictObject({
+  versionId:     z.string(),
+  versionTag:    z.string(),
+  effectiveDate: z.iso.date(),
+  nodeId:        z.string().nullable(),
+  title:         z.string().nullable(),
+  content:       z.string().nullable(),
+  state:         z.enum(['present', 'removed', 'split', 'merged']),
+  change:        z.strictObject({
     changeId:    z.string(),
     type:        nodeChangeType,
     reviewState: nodeChangeReviewStateCache,
@@ -214,14 +229,77 @@ export const documentEntityHistoryEntry = z.strictObject({
 export const documentEntityHistoryPage = z.strictObject({
   document: documentSummary,
   entity:   z.strictObject({
-    id:               z.string(),
-    originNodeId:     z.string(),
-    originVersionTag: z.string(),
-    currentNodeId:    z.string().nullable(),
-    currentVersionTag:z.string().nullable(),
-    totalRevisions:   z.number(),
+    id:                z.string(),
+    originNodeId:      z.string(),
+    originVersionTag:  z.string(),
+    currentNodeId:     z.string().nullable(),
+    currentVersionTag: z.string().nullable(),
+    totalRevisions:    z.number(),
   }),
   timeline: documentEntityHistoryEntry.array(),
+});
+
+export const documentItemHistoryDiffSpan = z.strictObject({
+  type:  z.enum(['common', 'add', 'remove', 'dual']),
+  value: z.string(),
+});
+
+export const documentItemHistoryParty = z.strictObject({
+  itemId: z.string(),
+  serial: z.string().nullable(),
+});
+
+export const documentItemHistoryEvent = z.strictObject({
+  kind:        z.enum(['added', 'removed', 'split', 'merged']),
+  date:        z.iso.date(),
+  from:        documentItemHistoryParty.array(),
+  to:          documentItemHistoryParty.array(),
+  versionFrom: z.string().optional(),
+  versionTo:   z.string().optional(),
+});
+
+export const documentItemHistoryCell = z.strictObject({
+  itemId:      z.string(),
+  nodeId:      z.string().optional(),
+  serial:      z.string().nullable(),
+  renamedFrom: z.string().nullable(),
+  lang:        z.string(),
+  isFallback:  z.boolean(),
+  text:        z.string(),
+  diff:        documentItemHistoryDiffSpan.array().nullable(),
+  changed:     z.boolean(),
+  state:       z.enum(['added', 'split', 'merged']).nullable(),
+  isSnapshot:  z.boolean().optional(),
+});
+
+export const documentItemHistoryRow = z.discriminatedUnion('kind', [
+  z.strictObject({
+    kind:        z.literal('period'),
+    dateFrom:    z.iso.date(),
+    dateTo:      z.iso.date().nullable(),
+    versionFrom: z.string(),
+    versionTo:   z.string(),
+    cells:       documentItemHistoryCell.array(),
+  }),
+  z.strictObject({
+    kind:  z.literal('event'),
+    event: documentItemHistoryEvent,
+  }),
+]);
+
+export const documentItemHistoryPage = z.strictObject({
+  document: documentSummary,
+  entry:    z.strictObject({
+    itemId:       z.string(),
+    serial:       z.string().nullable(),
+    excerpt:      z.string(),
+    versionTag:   z.string().optional(),
+    firstDate:    z.iso.date(),
+    lastDate:     z.iso.date().nullable(),
+    lineageCount: z.number(),
+    periodCount:  z.number(),
+  }),
+  rows: documentItemHistoryRow.array(),
 });
 
 export const documentReviewQueueItem = z.strictObject({
@@ -236,7 +314,7 @@ export const documentReviewQueueItem = z.strictObject({
 });
 
 export const documentReviewQueuePage = z.strictObject({
-  document: documentSummary,
+  document:    documentSummary,
   versionPair: z.strictObject({
     fromVersionTag: z.string(),
     toVersionTag:   z.string(),
@@ -290,6 +368,12 @@ export type DocumentDiffRow = z.infer<typeof documentDiffRow>;
 export type DocumentDiffPage = z.infer<typeof documentDiffPage>;
 export type DocumentEntityHistoryEntry = z.infer<typeof documentEntityHistoryEntry>;
 export type DocumentEntityHistoryPage = z.infer<typeof documentEntityHistoryPage>;
+export type DocumentItemHistoryDiffSpan = z.infer<typeof documentItemHistoryDiffSpan>;
+export type DocumentItemHistoryParty = z.infer<typeof documentItemHistoryParty>;
+export type DocumentItemHistoryEvent = z.infer<typeof documentItemHistoryEvent>;
+export type DocumentItemHistoryCell = z.infer<typeof documentItemHistoryCell>;
+export type DocumentItemHistoryRow = z.infer<typeof documentItemHistoryRow>;
+export type DocumentItemHistoryPage = z.infer<typeof documentItemHistoryPage>;
 export type DocumentReviewQueueItem = z.infer<typeof documentReviewQueueItem>;
 export type DocumentReviewQueuePage = z.infer<typeof documentReviewQueuePage>;
 export type DocumentReviewDetail = z.infer<typeof documentReviewDetail>;

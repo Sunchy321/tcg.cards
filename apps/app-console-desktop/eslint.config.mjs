@@ -5,15 +5,15 @@ import customConfig from 'eslint-config-custom/nuxt.mjs';
 export default withNuxt(
   customConfig,
   {
+    files: ['electron/**/*.ts', 'shared/**/*.ts'],
+    rules: { 'no-undef': 'off' },
+  },
+  {
     files:           ['scripts/**/*.ts'],
     languageOptions: {
       globals: {
-        Bun:     'readonly',
-        process: 'readonly',
+        Bun: 'readonly',
       },
     },
-  },
-  {
-    ignores: ['src-tauri/', 'dist/', 'node_modules/'],
   },
 );

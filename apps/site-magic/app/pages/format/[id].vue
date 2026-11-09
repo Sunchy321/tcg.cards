@@ -90,41 +90,40 @@
       <UCard v-for="n in nodes" :key="n.date" class="mb-4">
         <div class="flex items-center gap-2 mb-3">
           <span class="text-lg font-semibold font-mono">{{ n.date }}</span>
-          <a
-            v-for="l in n.link"
-            :key="l"
-            :href="l"
-            target="_blank"
-            class="text-gray-400 hover:text-gray-600"
+          <NuxtLink
+            v-for="announcement in n.announcements"
+            :key="announcement.id"
+            :to="`/announcement/${announcement.id}`"
+            :title="announcement.name"
+            class="inline-flex items-center text-gray-400 hover:text-gray-600"
           >
-            <UIcon name="lucide:link" class="w-4 h-4" />
-          </a>
+            <UIcon name="lucide:link" class="block size-4" />
+          </NuxtLink>
         </div>
 
         <div v-if="n.sets.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-3">
-          <div
+          <EntryWithStatus
             v-for="{ setId: id, status } in n.sets"
             :key="id"
-            class="flex items-center gap-2"
+            :status="status"
+            :date="n.date"
           >
-            <UIcon
-              :name="status === 'legal' ? 'lucide:plus' : 'lucide:minus'"
-              :class="status === 'legal' ? 'text-green-500' : 'text-red-500'"
-            />
             <SetAvatar :set-id="id" />
-          </div>
+          </EntryWithStatus>
         </div>
 
         <div v-if="n.banlist.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-          <div
-            v-for="{ cardId: id, status, score, group } in n.banlist"
+          <EntryWithStatus
+            v-for="{ cardId: id, status, score, group, copiedFrom } in n.banlist"
             :key="`${id}-${status}`"
-            class="flex items-center gap-2"
+            :status="status"
+            :score="score"
+            :date="n.date"
           >
-            <BanlistStatus :status="statusKey(status, score)" />
             <CardAvatar :id="id" />
-            <span v-if="group != null" class="text-xs text-gray-400 font-variant-small-caps">{{ groupShort(group) }}</span>
-          </div>
+            <span v-if="group != null" class="text-xs text-gray-500 dark:text-gray-400 font-variant-small-caps">{{ groupShort(group) }}</span>
+            <span v-if="copiedFrom" class="text-xs text-gray-500 dark:text-gray-400">{{ $t('magic.announcement.copiedFrom', { format: formatNames(copiedFrom) }) }}</span>
+          </EntryWithStatus>
         </div>
       </UCard>
     </div>
@@ -167,34 +166,31 @@
             :key="item._type === 'item' ? `${item.cardId}-${item.status}` : `group-${item.group}`"
           >
             <!-- Individual card entry -->
-            <div v-if="item._type === 'item'" class="flex items-center gap-2">
-              <BanlistStatus :status="statusKey(item.status, item.score)" />
-              <a
-                v-if="item.link.length > 0"
-                class="text-xs text-gray-400 shrink-0 font-mono"
-                :href="item.link[0]"
-                target="_blank"
-              >{{ item.date }}</a>
-              <span v-else class="text-xs text-gray-400 shrink-0 font-mono">{{ item.date }}</span>
+            <EntryWithStatus
+              v-if="item._type === 'item'"
+              :status="item.status"
+              :score="item.score"
+              :date="item.date"
+              :date-link="`/announcement/${item.announcementId}`"
+            >
               <CardAvatar :id="item.cardId" />
-              <span v-if="item.group != null" class="text-xs text-gray-400 font-variant-small-caps">{{ groupShort(item.group) }}</span>
-            </div>
+              <span v-if="item.group != null" class="text-xs text-gray-500 dark:text-gray-400 font-variant-small-caps">{{ groupShort(item.group) }}</span>
+            </EntryWithStatus>
 
             <!-- Collapsed group entry -->
-            <div v-else class="flex items-center gap-2">
-              <BanlistStatus :status="item.status" />
-              <span class="text-xs text-gray-400 shrink-0 font-mono">{{ item.date }}</span>
+            <EntryWithStatus v-else :status="item.status" :date="item.date">
+              <span class="text-sm font-semibold font-variant-small-caps">{{ groupName(item.group) }}</span>
               <UBadge :label="String(item.count)" size="sm" variant="subtle" />
-              <span class="text-sm font-semibold font-variant-small-caps text-gray-300">{{ groupName(item.group) }}</span>
-              <UButton
-                icon="lucide:list"
-                size="xs"
-                variant="ghost"
-                color="neutral"
-                class="ml-auto"
-                @click="selectedGroup = item.group"
-              />
-            </div>
+              <template #actions>
+                <UButton
+                  icon="lucide:list"
+                  size="xs"
+                  variant="ghost"
+                  color="neutral"
+                  @click="selectedGroup = item.group"
+                />
+              </template>
+            </EntryWithStatus>
           </template>
         </div>
       </UCard>
@@ -217,21 +213,16 @@
     >
       <template #body>
         <div class="flex flex-col gap-2">
-          <div
+          <EntryWithStatus
             v-for="card in selectedGroupItems"
             :key="card.cardId"
-            class="flex items-center gap-2"
+            :status="card.status"
+            :score="card.score"
+            :date="card.date"
+            :date-link="`/announcement/${card.announcementId}`"
           >
-            <BanlistStatus :status="statusKey(card.status, card.score)" />
-            <a
-              v-if="card.link.length > 0"
-              class="text-xs text-gray-400 shrink-0 font-mono"
-              :href="card.link[0]"
-              target="_blank"
-            >{{ card.date }}</a>
-            <span v-else class="text-xs text-gray-400 shrink-0 font-mono">{{ card.date }}</span>
             <CardAvatar :id="card.cardId" />
-          </div>
+          </EntryWithStatus>
         </div>
       </template>
     </UModal>
@@ -239,22 +230,23 @@
 </template>
 
 <script setup lang="ts">
-import { uniq, last } from 'lodash-es';
+import { last } from 'lodash-es';
 
 import type { Format } from '#model/magic/schema/format';
-import type { FormatChange, Legality } from '#model/magic/schema/game-change';
+import type { Legality } from '#model/magic/schema/announcement';
 
-import { birthday as magicBirthday, formats as magicFormats } from '#model/magic/schema/basic';
+import { birthday as magicBirthday, formatGroups as magicFormatGroups } from '#model/magic/schema/basic';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 interface BanlistItem {
-  date:   string;
-  link:   string[];
-  cardId: string;
-  status: Legality;
-  score?: number;
-  group?: string;
+  date:           string;
+  announcementId: string;
+  cardId:         string;
+  status:         Legality;
+  score?:         number;
+  group?:         string;
+  copiedFrom?:    string[];
 }
 
 interface DisplayBanlistItem extends BanlistItem {
@@ -272,10 +264,10 @@ interface DisplayBanlistGroup {
 type DisplayBanlistEntry = DisplayBanlistItem | DisplayBanlistGroup;
 
 interface TimelineNode {
-  date:    string;
-  link:    string[];
-  sets:    { setId: string, status: 'legal' | 'unavailable' }[];
-  banlist: { cardId: string, status: Legality, score?: number, group?: string }[];
+  date:          string;
+  announcements: { id: string, name: string }[];
+  sets:          { setId: string, status: 'legal' | 'unavailable' }[];
+  banlist:       { cardId: string, status: Legality, score?: number, group?: string, copiedFrom?: string[] }[];
 }
 
 // ── Static constants ──────────────────────────────────────────────────────────
@@ -333,22 +325,21 @@ const expandGroups = computed(() => route.query.expand !== undefined);
 const formatList = ref<string[]>([]);
 
 onMounted(async () => {
-  const list = await $orpc.magic.format.list();
-  formatList.value = [...list].sort((a, b) => {
-    const ai = magicFormats.indexOf(a);
-    const bi = magicFormats.indexOf(b);
-    if (ai === -1 && bi === -1) return a < b ? -1 : 1;
-    if (ai === -1) return 1;
-    if (bi === -1) return -1;
-    return ai - bi;
-  });
+  formatList.value = await $orpc.magic.format.list();
 });
 
-// Reactive items ref for the format select — auto-updates when formatList or
-// locale changes, keeping the AppHeader dropdown in sync without a manual watch.
-const formatItems = computed(() =>
-  formatList.value.map(f => ({ value: f, label: i18n.t(`magic.format.${f}`) })),
-);
+// Nested choice arrays render separators while keeping translations reactive.
+const formatItems = computed(() => {
+  const remaining = new Set(formatList.value);
+  const groups = magicFormatGroups.map(group => group.filter(id => remaining.delete(id)));
+
+  // Preserve database-only formats at the end instead of hiding their pages.
+  groups[groups.length - 1]!.push(...[...remaining].sort());
+
+  return groups.filter(group => group.length > 0).map(group =>
+    group.map(id => ({ value: id, label: i18n.t(`magic.format.${id}`) })),
+  );
+});
 
 // Register dynamic param state once.  We pass computed refs so the composable
 // can read the latest items/value reactively without extra watchers.
@@ -404,7 +395,7 @@ const groupModalOpen = computed({
 const selectedGroupItems = computed<BanlistItem[]>(() =>
   selectedGroup.value == null
     ? []
-    : banlist.value.filter(b => b.group === selectedGroup.value),
+    : banlist.value.filter(b => b.group === selectedGroup.value && b.copiedFrom == null),
 );
 
 const groupName = (group: string) => {
@@ -413,13 +404,18 @@ const groupName = (group: string) => {
   return result !== key ? result : group;
 };
 
-/** Produce the status key expected by BanlistStatus (e.g. 'score-3' for scored entries) */
-const statusKey = (status: Legality, score?: number | null) => {
-  if (score != null) return `score-${score}`;
-  return status;
+/** Shows a copied card's actual source by its localized format name. */
+const formatName = (id: string) => {
+  const key = `magic.format.${id}`;
+  return i18n.te(key) ? i18n.t(key) : id;
 };
 
+const formatNames = (ids: string[]) => ids.map(formatName).join(i18n.locale.value === 'zhs' ? '、' : ', ');
+
 // ── Data loading ──────────────────────────────────────────────────────────────
+
+/** One format change event, typed from the ORPC client output schema. */
+type FormatChange = Awaited<ReturnType<typeof $orpc.magic.format.changes>>[number];
 
 const data = ref<Format | null>(null);
 const changes = ref<FormatChange[]>([]);
@@ -459,26 +455,29 @@ const nodes = computed<TimelineNode[]>(() => {
     const node = (() => {
       const existing = result.find(r => r.date === c.date);
       if (existing) return existing;
-      const n: TimelineNode = { date: c.date, link: c.link ?? [], sets: [], banlist: [] };
+      const n: TimelineNode = { date: c.date, announcements: [], sets: [], banlist: [] };
       result.push(n);
       return last(result)!;
     })();
+
+    if (!node.announcements.some(announcement => announcement.id === c.announcementId)) {
+      node.announcements.push({ id: c.announcementId, name: c.name });
+    }
 
     if (c.type === 'set_change') {
       node.sets.push({ setId: c.setId!, status: c.status as 'legal' | 'unavailable' });
     } else if (c.type === 'card_change') {
       node.banlist.push({
-        cardId: c.cardId!,
-        status: c.status as Legality,
-        score:  c.score ?? undefined,
-        group:  c.group ?? undefined,
+        cardId:     c.cardId!,
+        status:     c.status as Legality,
+        score:      c.score ?? undefined,
+        group:      c.group ?? undefined,
+        copiedFrom: c.copiedFrom,
       });
     }
   }
 
   for (const v of result) {
-    v.link = uniq(v.link);
-
     v.sets.sort((a, b) => {
       if (a.status !== b.status) return a.status === 'legal' ? -1 : 1;
       return a.setId < b.setId ? -1 : 1;
@@ -531,12 +530,13 @@ const banlist = computed<BanlistItem[]>(() => {
       } else {
         const idx = result.findIndex(b => b.cardId === c.cardId);
         const value: BanlistItem = {
-          date:   c.date,
-          link:   c.link ?? [],
-          cardId: c.cardId!,
-          status: c.status as Legality,
-          score:  c.score ?? undefined,
-          group:  c.group ?? undefined,
+          date:           c.date,
+          announcementId: c.announcementId,
+          cardId:         c.cardId!,
+          status:         c.status as Legality,
+          score:          c.score ?? undefined,
+          group:          c.group ?? undefined,
+          copiedFrom:     c.copiedFrom,
         };
         if (idx === -1) result.push(value);
         else result.splice(idx, 1, value);
@@ -547,7 +547,7 @@ const banlist = computed<BanlistItem[]>(() => {
   return result;
 });
 
-const hasGroups = computed(() => banlist.value.some(b => b.group != null));
+const hasGroups = computed(() => banlist.value.some(b => b.group != null && b.copiedFrom == null));
 
 const displayBanlist = computed<DisplayBanlistEntry[]>(() => {
   if (expandGroups.value) {
@@ -574,8 +574,8 @@ const displayBanlist = computed<DisplayBanlistEntry[]>(() => {
   // Build group summaries
   const groupMap = new Map<string, DisplayBanlistGroup>();
   for (const item of banlist.value) {
-    if (item.group == null || groupMap.has(item.group)) continue;
-    const groupItems = banlist.value.filter(b => b.group === item.group);
+    if (item.group == null || item.copiedFrom != null || groupMap.has(item.group)) continue;
+    const groupItems = banlist.value.filter(b => b.group === item.group && b.copiedFrom == null);
     const count = groupItems.length;
     const status = groupItems.reduce<Legality>((best, cur) => {
       const bi = banlistStatusOrder.indexOf(best);
@@ -587,7 +587,7 @@ const displayBanlist = computed<DisplayBanlistEntry[]>(() => {
   }
 
   const noGroupItems: DisplayBanlistItem[] = banlist.value
-    .filter(b => b.group == null)
+    .filter(b => b.group == null || b.copiedFrom != null)
     .map(item => ({ _type: 'item' as const, ...item }));
   const groupEntries = [...groupMap.values()];
 
@@ -657,7 +657,7 @@ const statusColor = (s: Legality | string) => {
   case 'banned_as_commander': return '#ef5350';
   case 'banned_as_companion': return '#d81b60';
   case 'restricted': return '#fbc02d';
-  case 'suspended': return '#7e57c2';
+  case 'suspended': return '#e64a19';
   case 'unavailable': return '#9e9e9e';
   case 'legal': return '#66bb6a';
   default: return '#bdbdbd';

@@ -19,7 +19,7 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false,
 
-    "types": ["@cloudflare/workers-types", "node"],
+    "types": ["@cloudflare/workers-types", "node", "bun"],
 
     "paths": {
       "#model/*":   ["./node_modules/@tcg-cards/model/src/*"],

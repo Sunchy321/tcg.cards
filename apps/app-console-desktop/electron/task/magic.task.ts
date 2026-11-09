@@ -1,0 +1,223 @@
+import { adaptLegacyDefinition } from './legacy-definition-adapter';
+import { registerTask } from './registry';
+import type { TaskRegistration } from './registry';
+
+const text = (params: Record<string, unknown>, key: string): string => typeof params[key] === 'string' ? params[key] as string : '';
+
+const publishConfirmation = (scope: string) => (params: Record<string, unknown>) => ({
+  target: text(params, 'target'),
+  scope,
+});
+
+function registerLegacyTask(
+  registration: Omit<TaskRegistration, 'load'>,
+  loadDefinition: () => Promise<Parameters<typeof adaptLegacyDefinition>[0]>,
+): void {
+  registerTask({
+    ...registration,
+    async load() {
+      return { default: adaptLegacyDefinition(await loadDefinition(), registration) };
+    },
+  });
+}
+
+registerLegacyTask({
+  taskType:       'magic_scryfall_import',
+  label:          'Scryfall 导入',
+  version:        '2026-08-25:v1',
+  supportsResume: true,
+  scope:          () => ({ type: 'magic_scryfall_import', key: 'global', snapshot: {} }),
+}, async () => (await import('../runtime/lib/magic/task/scryfall-import/definition')).magicScryfallImportTaskDefinition);
+
+registerLegacyTask({
+  taskType:       'magic_mtgch_import',
+  label:          'MTGCH 导入',
+  version:        '2026-09-20:v1',
+  supportsResume: true,
+  scope:          () => ({ type: 'magic_mtgch_import', key: 'global', snapshot: {} }),
+}, async () => (await import('../runtime/lib/magic/task/mtgch-import/definition')).magicMtgchImportTaskDefinition);
+
+registerLegacyTask({
+  taskType:       'magic_mtgjson_import',
+  label:          'MTGJSON 导入',
+  version:        '2026-08-25:v1',
+  supportsResume: true,
+  scope:          () => ({ type: 'magic_mtgjson_import', key: 'global', snapshot: {} }),
+}, async () => (await import('../runtime/lib/magic/task/mtgjson-import/definition')).magicMtgjsonImportTaskDefinition);
+
+registerLegacyTask({
+  taskType:       'magic_gatherer_import',
+  label:          'Gatherer 导入',
+  version:        '2026-08-25:v1',
+  supportsResume: true,
+  scope:          () => ({ type: 'magic_gatherer_import', key: 'global', snapshot: {} }),
+}, async () => (await import('../runtime/lib/magic/task/gatherer-import/definition')).magicGathererImportTaskDefinition);
+
+registerLegacyTask({
+  taskType:       'magic_ruby_import',
+  label:          'MTGA 注音导入',
+  version:        '2026-09-21:v1',
+  supportsResume: false,
+  scope:          () => ({ type: 'magic_ruby_import', key: 'global', snapshot: {} }),
+}, async () => (await import('../runtime/lib/magic/task/magic-ruby-import/definition')).magicRubyImportTaskDefinition);
+
+registerLegacyTask({
+  taskType:       'magic_project',
+  label:          '万智牌数据整理',
+  version:        '2026-09-23:v2',
+  supportsResume: true,
+  scope:          () => ({ type: 'magic_project', key: 'global', snapshot: {} }),
+}, async () => (await import('../runtime/lib/magic/task/magic-project/definition')).magicProjectTaskDefinition);
+
+registerLegacyTask({
+  taskType:       'magic_project_commits',
+  label:          '卡牌补全应用',
+  version:        '2026-09-25:v1',
+  supportsResume: true,
+  scope:          () => ({ type: 'magic_project_commits', key: 'global', snapshot: {} }),
+}, async () => (await import('../runtime/lib/magic/task/magic-project-commits/definition')).magicProjectCommitsTaskDefinition);
+
+registerLegacyTask({
+  taskType:       'magic_set_import',
+  label:          '系列资料导入',
+  version:        '2026-10-18:v4',
+  supportsResume: false,
+  scope:          () => ({ type: 'magic_set_import', key: 'global', snapshot: {} }),
+}, async () => (await import('../runtime/lib/magic/task/set-import/definition')).magicSetImportTaskDefinition);
+
+registerLegacyTask({
+  taskType:       'magic_image_import_remote',
+  label:          '卡图批量导入',
+  version:        '2026-09-28:v3',
+  supportsResume: true,
+  scope:          () => ({ type: 'magic_image_import_remote', key: 'global', snapshot: {} }),
+}, async () => (await import('../runtime/lib/magic/task/image-import-remote/definition')).magicImageImportRemoteTaskDefinition);
+
+registerLegacyTask({
+  taskType:       'magic_image_import_local',
+  label:          '卡图压缩包导入',
+  version:        '2026-09-09:v1',
+  supportsResume: true,
+  scope:          () => ({ type: 'magic_image_import_local', key: 'global', snapshot: {} }),
+}, async () => (await import('../runtime/lib/magic/task/image-import-local/definition')).magicImageImportLocalTaskDefinition);
+
+registerLegacyTask({
+  taskType:       'magic_image_import_single',
+  label:          '单张卡图导入',
+  version:        '2026-09-28:v3',
+  supportsResume: true,
+  scope:          () => ({ type: 'magic_image_import_single', key: 'global', snapshot: {} }),
+}, async () => (await import('../runtime/lib/magic/task/image-import-single/definition')).magicImageImportSingleTaskDefinition);
+
+registerLegacyTask({
+  taskType:            'magic_publish',
+  label:               '万智牌数据发布',
+  version:             '2026-09-05:v1',
+  supportsResume:      false,
+  admission:           { game: 'magic', connection: 'direct' },
+  publishConfirmation: publishConfirmation('万智牌数据'),
+  scope:               () => ({ type: 'magic_publish', key: 'global', snapshot: {} }),
+}, async () => (await import('../runtime/lib/magic/task/publish/definition')).magicPublishTaskDefinition);
+
+registerLegacyTask({
+  taskType:            'magic_reference_publish',
+  label:               '参考数据发布',
+  version:             '2026-10-17:v1',
+  supportsResume:      false,
+  admission:           { game: 'magic', connection: 'direct' },
+  publishConfirmation: publishConfirmation('万智牌赛制、系列与补充包'),
+  scope:               params => {
+    const game = text(params, 'game');
+    const target = text(params, 'target');
+    return {
+      type:     'publish_stream',
+      key:      `${game}:${target}:reference_data`,
+      snapshot: { game, target },
+    };
+  },
+}, async () => (await import('../runtime/lib/magic/task/reference-publish/definition')).referencePublishTaskDefinition);
+
+registerLegacyTask({
+  taskType:            'magic_announcement_publish',
+  label:               '公告发布',
+  version:             '2026-10-14:v1',
+  supportsResume:      false,
+  admission:           { game: 'magic', connection: 'direct' },
+  publishConfirmation: publishConfirmation('万智牌公告数据'),
+  scope:               params => {
+    const game = text(params, 'game');
+    const target = text(params, 'target');
+    return {
+      type:     'publish_stream',
+      key:      `${game}:${target}:announcement_data`,
+      snapshot: { game, target },
+    };
+  },
+}, async () => (await import('../runtime/lib/magic/task/announcement-publish/definition')).announcementPublishTaskDefinition);
+
+registerLegacyTask({
+  taskType:            'magic_document_publish',
+  label:               '规则与文档发布',
+  version:             '2026-10-19:v1',
+  supportsResume:      false,
+  admission:           { game: 'magic', connection: 'direct' },
+  publishConfirmation: publishConfirmation('万智牌规则与文档'),
+  scope:               params => {
+    const game = text(params, 'game');
+    const target = text(params, 'target');
+    const targetFingerprint = text(params, 'targetFingerprint');
+    return {
+      type:     'publish_stream',
+      key:      `${game}:${target}:static_documents`,
+      snapshot: { game, target, targetFingerprint },
+    };
+  },
+}, async () => (await import('../runtime/lib/magic/task/document-publish/definition')).documentPublishTaskDefinition);
+
+registerLegacyTask({
+  taskType:       'magic_document_relations',
+  label:          '规则版本关系计算',
+  version:        '2026-10-23:v1',
+  supportsResume: false,
+  scope:          params => {
+    const documentId = text(params, 'documentId') || 'magic-cr';
+    return { type: 'document_relations', key: documentId, snapshot: { documentId } };
+  },
+}, async () => (await import('../runtime/lib/magic/task/document-relations/definition')).documentRelationsTaskDefinition);
+
+registerTask({
+  taskType:            'magic_search_package_publish',
+  label:               '万智牌搜索数据发布',
+  version:             '2026-11-04:v1',
+  supportsResume:      false,
+  admission:           { game: 'magic', connection: 'direct' },
+  publishConfirmation: params => ({ target: text(params, 'target'), scope: '搜索数据包' }),
+  scope:               params => ({ type: 'search_package_publish', key: `magic:${text(params, 'target')}`, snapshot: { game: 'magic', target: text(params, 'target') } }),
+  async load() {
+    return { default: (await import('../runtime/lib/search-publication/task')).createSearchPublicationTask('magic') };
+  },
+});
+
+registerTask({
+  taskType:            'magic_search_d1_publish',
+  label:               '万智牌搜索数据发布（远程搜索库）',
+  version:             '2026-11-03:v1',
+  supportsResume:      true,
+  admission:           { game: 'magic', connection: 'direct' },
+  publishConfirmation: params => ({ target: text(params, 'target') || 'production', scope: '搜索数据' }),
+  scope:               () => ({ type: 'search_d1_publish', key: 'magic', snapshot: { game: 'magic' } }),
+  async load() {
+    return { default: (await import('../runtime/lib/search-publication/export-task')).createSearchExportTask('magic', true) };
+  },
+});
+
+registerTask({
+  taskType:       'magic_search_sqlite_export',
+  label:          '万智牌搜索数据导出',
+  version:        '2026-11-04:v1',
+  supportsResume: false,
+  scope:          () => ({ type: 'search_sqlite_export', key: 'magic', snapshot: { game: 'magic' } }),
+  async load() {
+    return { default: (await import('../runtime/lib/search-publication/export-task')).createSearchExportTask('magic', false) };
+  },
+});

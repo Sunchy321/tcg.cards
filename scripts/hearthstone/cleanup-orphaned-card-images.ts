@@ -13,10 +13,8 @@
  *   bun --env-file=scripts/.env run scripts/hearthstone/cleanup-orphaned-card-images.ts --write
  */
 
-import { createHash } from 'node:crypto';
 import { readdir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
-import canonicalize from 'canonicalize';
 
 import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 
@@ -24,9 +22,11 @@ import { Entity, EntityLocalization } from '@tcg-cards/db/schema/shared/hearthst
 import { Announcement, AnnouncementItem } from '@tcg-cards/db/schema/shared/hearthstone/announcement';
 import { CardImageAsset } from '@tcg-cards/db/schema/shared/hearthstone/card-image';
 import type { RenderModel } from '@tcg-cards/model/hearthstone/schema/entity';
-import { glowPart, type GlowEntry } from '@tcg-cards/model/hearthstone/schema/announcement';
+import type { GlowEntry } from '@tcg-cards/model/hearthstone/schema/announcement';
 import { locale, type Locale } from '@tcg-cards/model/hearthstone/schema/basic';
 import { isCardImageVariantAllowed } from '@tcg-cards/shared/hearthstone/card-image-variant';
+import { sortGlow } from '@tcg-cards/shared/hearthstone/glow';
+import { computeRenderHash } from '@tcg-cards/shared/hearthstone/render-hash';
 import { loadVariantMechanicIds } from '@tcg-cards/console-api/lib/hearthstone/card-image';
 import type { ImageCategory, ImagePremium, ImageTemplate, ImageZone } from '@tcg-cards/model/hearthstone/schema/data/image';
 
@@ -39,22 +39,11 @@ if (!bucketDir) {
   throw new Error('Missing image bucket directory: set BUCKET_DIR or pass --bucket-dir=');
 }
 
-// ── inline hash helpers (mirror @tcg-cards/shared/hearthstone) ──
-
-function computeRenderHash(model: RenderModel): string {
-  return createHash('sha256').update(canonicalize(model)!).digest('hex');
-}
-
-const GLOW_PART_ORDER = new Map(glowPart.options.map((part, index) => [part, index]));
-
-function sortGlow(glow: GlowEntry[]): GlowEntry[] {
-  return [...glow].sort(
-    (a, b) => (GLOW_PART_ORDER.get(a.part) ?? Number.MAX_SAFE_INTEGER) - (GLOW_PART_ORDER.get(b.part) ?? Number.MAX_SAFE_INTEGER),
-  );
-}
-
 function mergeDelta(model: RenderModel, delta?: Partial<RenderModel>): RenderModel {
-  return delta ? { ...model, ...delta } : model;
+  if (!delta) return model;
+  // The render pipeline routes delta.override to the request, not the render model.
+  const { override: _override, ...rest } = delta as Partial<RenderModel> & { override?: unknown };
+  return { ...model, ...rest };
 }
 
 function applyGlow(model: RenderModel, glow?: GlowEntry[] | null): RenderModel {
@@ -156,7 +145,8 @@ for (const item of items) {
     for (const lang of ALL_LANGS) {
       const model = resolveModel(item.cardId!, version, lang);
       if (!model) continue;
-      protectedHashes.add(computeRenderHash(mergeDelta(model, delta?.curr)));
+      // A delta.curr.cardId override is ignored; the curr card is item.cardId.
+      protectedHashes.add(computeRenderHash({ ...mergeDelta(model, delta?.curr), cardId: item.cardId! }));
       announcementHashCount += 1;
     }
   }
@@ -165,14 +155,16 @@ for (const item of items) {
     const version = resolveVersion(item.version, undefined, announcement.version);
     const lastVersion = resolveVersion(item.lastVersion, announcement.lastVersion, announcement.version);
     for (const lang of ALL_LANGS) {
-      const prevModel = resolveModel(item.cardId!, lastVersion, lang);
+      // A delta.prev.cardId overrides the "before" card for a different-card comparison.
+      const prevCardId = delta?.prev?.cardId ?? item.cardId!;
+      const prevModel = resolveModel(prevCardId, lastVersion, lang);
       if (prevModel) {
-        protectedHashes.add(computeRenderHash(mergeDelta(prevModel, delta?.prev)));
+        protectedHashes.add(computeRenderHash({ ...mergeDelta(prevModel, delta?.prev), cardId: prevCardId }));
         announcementHashCount += 1;
       }
       const currModel = resolveModel(item.cardId!, version, lang);
       if (currModel) {
-        protectedHashes.add(computeRenderHash(applyGlow(mergeDelta(currModel, delta?.curr), item.glow)));
+        protectedHashes.add(computeRenderHash(applyGlow({ ...mergeDelta(currModel, delta?.curr), cardId: item.cardId! }, item.glow)));
         announcementHashCount += 1;
       }
     }

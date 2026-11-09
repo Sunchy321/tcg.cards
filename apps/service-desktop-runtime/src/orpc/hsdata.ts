@@ -1,4 +1,4 @@
-import { ORPCError, eventIterator } from '@orpc/server';
+import { ORPCError } from '@orpc/server';
 import { runWithDb } from '@tcg-cards/db';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
@@ -27,9 +27,9 @@ const sourceIdInput = z.strictObject({
 });
 
 const publishStreamInput = z.strictObject({
-  publishTarget: z.literal('hearthstone'),
-  environment:   z.string().trim().min(1),
-  publishType:   z.string().optional().default('card_data'),
+  game:        z.literal('hearthstone'),
+  target:      z.string().trim().min(1),
+  publishType: z.string().optional().default('card_data'),
 });
 
 const sourceFile = z.object({
@@ -290,8 +290,8 @@ const cancelIncompletePublishBatchRoute = os
       if (error instanceof Error && error.message.includes('still running in the desktop runtime')) {
         return {
           batchId:              input.batchId,
-          publishTarget:        input.publishTarget ?? '',
-          environment:          input.environment ?? '',
+          game:                 input.game ?? '',
+          target:               input.target ?? '',
           targetFingerprint:    '',
           publishType:          'card_data',
           operationKind:        'publish',
@@ -345,14 +345,19 @@ const listPublishHistoryRoute = os
   .output(z.array(publishReport))
   .handler(async ({ input }) => {
     const db = getLocalDb();
-    const isAnnouncement = input.publishType === 'announcement_data';
-    const taskType = isAnnouncement ? 'hearthstone_announcement_publish' : 'hearthstone_publish';
+    const publishType = input.publishType;
+    const taskTypeByPublishType: Record<string, string> = {
+      card_data:         'hearthstone_publish',
+      announcement_data: 'hearthstone_announcement_publish',
+      reference_data:    'hearthstone_reference_publish',
+    };
+    const taskType = taskTypeByPublishType[publishType] ?? 'hearthstone_publish';
     const rows = await db.select()
       .from(TaskRun)
       .where(and(
         eq(TaskRun.taskType, taskType),
-        sql`${TaskRun.taskScopeSnapshot} ->> 'publishTarget' = ${input.publishTarget}`,
-        sql`${TaskRun.taskScopeSnapshot} ->> 'environment' = ${input.environment}`,
+        sql`${TaskRun.taskScopeSnapshot} ->> 'game' = ${input.game}`,
+        sql`${TaskRun.taskScopeSnapshot} ->> 'target' = ${input.target}`,
       ))
       .orderBy(desc(TaskRun.createdAt))
       .limit(50);
@@ -364,10 +369,10 @@ const listPublishHistoryRoute = os
 
       return {
         batchId:              r.id,
-        publishTarget:        String(scope.publishTarget ?? ''),
-        environment:          String(scope.environment ?? ''),
+        game:                 String(scope.game ?? ''),
+        target:               String(scope.target ?? ''),
         targetFingerprint:    '',
-        publishType:          isAnnouncement ? 'announcement_data' : String(scope.publishType ?? 'card_data'),
+        publishType,
         operationKind:        String(params.operationKind ?? 'publish'),
         status:               r.status,
         manifestHash:         String(res.manifestHash ?? ''),
@@ -437,9 +442,9 @@ const publishSingleCardRoute = os
     tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
   })
   .input(z.strictObject({
-    cardId:        z.string().trim().min(1),
-    publishTarget: z.literal('hearthstone'),
-    environment:   z.string().trim().min(1),
+    cardId: z.string().trim().min(1),
+    game:   z.literal('hearthstone'),
+    target: z.string().trim().min(1),
   }))
   .output(singleCardPublishReport)
   .handler(async ({ input }) => {
@@ -452,8 +457,8 @@ const publishSingleCardRoute = os
 
 const registerPublishStreamInput = z.strictObject({
   connectionString:  z.string().trim().min(1),
-  publishTarget:     z.string().trim().min(1),
-  environment:       z.string().trim().min(1),
+  game:              z.string().trim().min(1),
+  target:            z.string().trim().min(1),
   targetFingerprint: z.string().trim().min(1),
 });
 
@@ -472,8 +477,8 @@ const registerPublishStreamRoute = os
   .handler(async ({ input }) => {
     try {
       await ensureRemotePublishRegistration(input.connectionString, {
-        publishTarget:     input.publishTarget,
-        environment:       input.environment,
+        game:              input.game,
+        target:            input.target,
         publishType:       'card_data',
         targetFingerprint: input.targetFingerprint,
       });

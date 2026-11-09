@@ -11,7 +11,7 @@ import type { Hide, HiddenKeys } from '#search/util/hide';
 import type { Column, SQL } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
 
-export type Operator = ':' | '' | '<' | '<=' | '=' | '>' | '>=';
+export type Operator = ':' | '~:' | '' | '<' | '<=' | '=' | '>' | '>=';
 export type Qualifier = '!';
 
 export type AdapterBase = ServerCommandAdapterHandler<any, any, any, any, any>;
@@ -19,7 +19,7 @@ export type AdapterMapBase = Record<string, any>;
 
 export type SelectAdapter<
   Adapters extends AdapterMapBase,
-  Type extends string,
+  Type extends string
 > = {
   [K in keyof Adapters]: Adapters[K] extends ServerCommandAdapterHandler<infer T, infer _K, infer _I, infer _MI, infer _MV>
     ? Type extends T
@@ -47,7 +47,7 @@ export type ServerCommandMaps<CommandMap extends CommandMapBase, Table, Adapters
 export interface ServerCommandBaseOption<
   CommandMap extends CommandMapBase,
   Table,
-  Adapters extends AdapterMapBase,
+  Adapters extends AdapterMapBase
 > {
   commands: CommandMap;
   tables:   Table[];
@@ -58,7 +58,7 @@ export class ServerCommandBase<
   Called extends HiddenKeys<ServerCommandBase<any, any, any, any>>,
   Command extends CommandMapBase,
   Table,
-  Adapters extends AdapterMapBase,
+  Adapters extends AdapterMapBase
 > {
   options: ServerCommandBaseOption<Command, Table, Adapters>;
 
@@ -122,7 +122,7 @@ export type ServerHandlerCtx<Table, MetaValue> = {
 
 export type ServerCommandContext<
   MetaValue extends MetaBase,
-  Table,
+  Table
 > = MetaValue extends never ? {
   table: Table;
 } : {
@@ -139,7 +139,7 @@ export type ServerCommandHandler<
   Kind extends ServerKind,
   Input extends CommandInputOption,
   MetaValue extends MetaBase,
-  Table,
+  Table
 > = (
   args: CommandInput<Input>,
   ctx: ServerCommandContext<MetaValue, Table>,
@@ -149,7 +149,7 @@ export class ServerCommandBuilder<
   Type extends string,
   Input extends CommandInputOption,
   MetaValue extends MetaBase,
-  Table,
+  Table
 > {
   options: ServerCommandBuilderOption<Type, Input, MetaValue, Table>;
 
@@ -179,7 +179,7 @@ export class ServerCommandBuilderWithAdapter<
   Input extends CommandInputOption,
   MetaValue extends MetaBase,
   Table,
-  Adapter extends AdapterBase,
+  Adapter extends AdapterBase
 > extends ServerCommandBuilder<Type, Input, MetaValue, Table> {
   adapter: Adapter;
 

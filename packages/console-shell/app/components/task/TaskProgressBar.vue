@@ -1,12 +1,25 @@
 <template>
-  <div class="px-4 py-2">
+  <div class="min-w-0 max-w-full px-4 py-2">
     <div v-if="timeLabel || leftText" class="flex items-center justify-between">
       <span class="text-xs text-muted truncate">{{ leftText }}</span>
       <span v-if="timeLabel" class="text-xs text-muted tabular-nums ml-2 shrink-0">{{ timeLabel }}</span>
     </div>
-    <!-- Multi-segment progress bar -->
+    <!-- Status distribution bar: segments carry a color, stacked over the stage total -->
     <div
-      v-if="stage?.segments && stage.segments.length > 0"
+      v-if="isDistribution && stage?.segments && stage.segments.length > 0"
+      class="h-1.5 mt-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex"
+    >
+      <div
+        v-for="(seg, segIdx) in stage.segments"
+        :key="seg.name"
+        class="h-full transition-all duration-500 ease-out first:rounded-l-full last:rounded-r-full"
+        :class="seg.color ?? segmentColor(segIdx)"
+        :style="{ width: distTotal > 0 ? `${Math.min(seg.done / distTotal * 100, 100)}%` : '0%' }"
+      />
+    </div>
+    <!-- Partitioned sub-range bar: segments without a color, each filling to its own total -->
+    <div
+      v-else-if="stage?.segments && stage.segments.length > 0"
       class="h-1.5 mt-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex"
     >
       <div
@@ -47,7 +60,7 @@
     </div>
     <!-- Counters row -->
     <div v-if="rightText || stage?.segments || stageTimeText" class="flex items-center justify-between mt-1 flex-wrap gap-x-4">
-      <div v-if="rightText || stage?.segments" class="flex items-center gap-3 text-xs text-muted">
+      <div v-if="rightText || stage?.segments" class="flex min-w-0 max-w-full flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
         <span v-if="rightText" class="tabular-nums">{{ rightText }}</span>
         <template v-if="stage?.segments">
           <span
@@ -55,7 +68,7 @@
             :key="seg.name"
             class="inline-flex items-center gap-1"
           >
-            <span class="size-2 rounded-full" :class="segmentColor(segIdx)" />
+            <span class="size-2 rounded-full" :class="seg.color ?? segmentColor(segIdx)" />
             {{ seg.name }} {{ seg.done }}/{{ seg.total }}
           </span>
         </template>
@@ -109,20 +122,28 @@ const rightText = computed(() => {
   if (!props.stage || props.stage.progressMode !== 'bounded' || !props.stage.total) return '';
   if (props.status === 'paused') return `${props.stage.done ?? 0} / ${props.stage.total}`;
   if (props.status === 'completed') return `${props.stage.total} / ${props.stage.total}  100%`;
-  if (props.status === 'failed' || props.status === 'canceled') return `${props.stage.done ?? 0} / ${props.stage.total}  ${Math.round((props.stage.done ?? 0) / props.stage.total * 100)}%`;
+  if (props.status === 'failed' || props.status === 'canceled') {
+    return `${props.stage.done ?? 0} / ${props.stage.total}  ${Math.round((props.stage.done ?? 0) / props.stage.total * 100)}%`;
+  }
   if (props.status === 'running') {
     const pct = progress.value;
-    if (pct != null) return `${props.stage.done ?? 0} / ${props.stage.total}  ${pct}%`;
+    if (pct != null) {
+      return `${props.stage.done ?? 0} / ${props.stage.total}  ${pct}%`;
+    }
     return `${props.stage.done ?? 0} / ${props.stage.total}`;
   }
   return `${props.stage.done ?? 0} / ${props.stage.total}`;
 });
 
 const stageTimeText = computed(() => {
-  clock.value; // reactive tick
-  if (!props.stage?.startedAt) return '';
+  const _clock = clock.value;
+  if (!props.stage?.startedAt) {
+    return '';
+  }
   const startedMs = new Date(props.stage.startedAt).getTime();
-  if (!Number.isFinite(startedMs)) return '';
+  if (!Number.isFinite(startedMs)) {
+    return '';
+  }
   const nowMs = props.stage.finishedAt ? new Date(props.stage.finishedAt).getTime() : Date.now();
   const elapsed = Math.max(0, Math.floor((nowMs - startedMs) / 1000));
   const elapsedStr = formatTime(elapsed);
@@ -156,6 +177,16 @@ function formatTime(s: number): string {
 const segmentsTotal = computed(() => {
   if (!props.stage?.segments) return 0;
   return props.stage.segments.reduce((s, seg) => s + seg.total, 0);
+});
+
+/** True when segments carry colors → render a stacked status distribution. */
+const isDistribution = computed(() => !!props.stage?.segments?.some(seg => seg.color));
+
+/** Overall denominator for a stacked status distribution: the stage total, else the sum of done. */
+const distTotal = computed(() => {
+  const t = props.stage?.total;
+  if (t && t > 0) return t;
+  return props.stage?.segments?.reduce((s, seg) => s + seg.done, 0) ?? 0;
 });
 
 const segmentColors = [

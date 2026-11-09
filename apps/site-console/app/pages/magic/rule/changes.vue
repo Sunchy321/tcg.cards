@@ -245,6 +245,9 @@ definePageMeta({
 
 const route = useRoute();
 const { $orpc } = useNuxtApp();
+// Version comparison and review procedures ride the medium console tier,
+// beyond the light web router.
+const ruleApi = $orpc.magic.rule as any;
 
 // Version list
 const { data: versions } = await useAsyncData('rule-versions-for-changes',
@@ -316,7 +319,7 @@ async function compare() {
   if (!fromVersionTag.value || !toVersionTag.value) return;
   comparing.value = true;
   try {
-    const result = await $orpc.magic.rule.compareVersions({
+    const result = await ruleApi.compareVersions({
       documentId:    'magic-cr',
       fromVersionId: `magic-cr:${fromVersionTag.value}`,
       toVersionId:   `magic-cr:${toVersionTag.value}`,
@@ -333,7 +336,7 @@ async function compare() {
 async function runRematch() {
   rematching.value = true;
   try {
-    await $orpc.magic.rule.rematch({ documentId: 'magic-cr' });
+    await ruleApi.rematch({ documentId: 'magic-cr' });
     if (changeResult.value) {
       await compare();
     }
@@ -436,10 +439,10 @@ async function toggleExpand(change: ChangeRecord) {
 
   loadingContent.value.add(key);
   try {
-    const result = await $orpc.magic.rule.nodeContent({ nodeIds });
+    const result = await ruleApi.nodeContent({ nodeIds });
     for (const [id, content] of Object.entries(result)) {
       if (content != null) {
-        contentCache.value.set(id, content);
+        contentCache.value.set(id, content as string);
       }
     }
   } catch (error) {
@@ -454,7 +457,7 @@ async function submitChangeReview(change: ChangeRecord, status: 'confirmed' | 'r
   if (!change.id) return;
   reviewingId.value = change.id;
   try {
-    const result = await $orpc.magic.rule.review({
+    const result = await ruleApi.review({
       changeId: change.id,
       status,
     });

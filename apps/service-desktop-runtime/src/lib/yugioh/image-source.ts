@@ -14,37 +14,37 @@ const maxImageDimension = 16_384;
 
 /** One normalized image entry from the provider metadata snapshot. */
 export interface YugiohImageMetadataRecord {
-  sourceRecordId: string;
-  fileName: string;
-  sourceUrl: string;
-  byteSize: number;
-  modifiedAt: Date;
+  sourceRecordId:      string;
+  fileName:            string;
+  sourceUrl:           string;
+  byteSize:            number;
+  modifiedAt:          Date;
   modifiedUnixSeconds: number;
-  md5: string;
+  md5:                 string;
 }
 
 /** Complete normalized provider metadata snapshot with stable aggregate values. */
 export interface YugiohImageMetadataSnapshot {
-  records: YugiohImageMetadataRecord[];
-  metadataHash: string;
+  records:        YugiohImageMetadataRecord[];
+  metadataHash:   string;
   totalByteCount: number;
 }
 
 /** Downloaded and cryptographically verified WebP ready for local bucket storage. */
 export interface VerifiedYugiohImage {
-  record: YugiohImageMetadataRecord;
-  bytes: Uint8Array;
+  record:   YugiohImageMetadataRecord;
+  bytes:    Uint8Array;
   byteSize: number;
-  width: number;
-  height: number;
-  md5: string;
-  sha256: string;
-  r2Key: string;
+  width:    number;
+  height:   number;
+  md5:      string;
+  sha256:   string;
+  r2Key:    string;
 }
 
 /** Provider fetch result plus HTTP metadata retained by import state. */
 export interface DownloadedYugiohImageMetadata extends YugiohImageMetadataSnapshot {
-  etag: string | null;
+  etag:         string | null;
   lastModified: string | null;
 }
 
@@ -145,7 +145,7 @@ export function parseYugiohImageMetadata(text: string): YugiohImageMetadataSnaps
     sourceIds.add(sourceRecordId);
     records.push({
       sourceRecordId,
-      fileName: `${rawId}.webp`,
+      fileName:  `${rawId}.webp`,
       sourceUrl: new URL(`${rawId}.webp`, yugiohImageBaseUrl).toString(),
       byteSize,
       modifiedAt,
@@ -164,7 +164,7 @@ export function parseYugiohImageMetadata(text: string): YugiohImageMetadataSnaps
 
   return {
     records,
-    metadataHash: digest('sha256', JSON.stringify(canonical)),
+    metadataHash:   digest('sha256', JSON.stringify(canonical)),
     totalByteCount: records.reduce((total, record) => total + record.byteSize, 0),
   };
 }
@@ -285,7 +285,7 @@ export async function downloadYugiohImage(
     height,
     md5,
     sha256,
-    r2Key: buildYugiohImageR2Key(sha256),
+    r2Key:    buildYugiohImageR2Key(sha256),
   };
 }
 
@@ -311,7 +311,7 @@ export async function downloadYugiohImageMetadata(
 
   return {
     ...parseYugiohImageMetadata(text),
-    etag: response.headers.get('etag'),
+    etag:         response.headers.get('etag'),
     lastModified: response.headers.get('last-modified'),
   };
 }

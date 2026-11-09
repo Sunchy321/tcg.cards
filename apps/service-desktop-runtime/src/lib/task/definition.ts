@@ -96,6 +96,7 @@ export interface TaskDefinition {
     block:     TaskBlock;
     store:     TaskExecuteStore;
     taskRunId: string;
+    signal?:   AbortSignal;
   }): Promise<void> | void;
   cleanup?(taskRunId: string): void;
   onCanceled?(run: TaskRunInput): Promise<void> | void;
@@ -135,7 +136,7 @@ export interface ContextDeclaration<TCtx, TInput, TScope> {
 /** Typed progress callback, varies by progress mode. */
 export type ProgressFn<TMode extends TaskProgressMode>
   = TMode extends 'bounded'
-    ? (update: { done: number, total: number, segments?: { name: string, done: number, total: number }[] }) => void
+    ? (update: { done: number, total: number, segments?: { name: string, done: number, total: number, color?: string }[] }) => void
     : TMode extends 'unbound'
       ? (update: { done: number }) => void
       : () => void;
@@ -175,6 +176,7 @@ export interface AnyTaskDefinition {
     block:     TaskBlock;
     store:     TaskExecuteStore;
     taskRunId: string;
+    signal?:   AbortSignal;
   }): Promise<void>;
 }
 
@@ -251,7 +253,7 @@ export class DefinitionBuilderOutput<TScope, TInput, TOutput> {
 }
 
 export class DefinitionBuilder<TScope, TInput, TOutput, TCtx, TPrevOutput> {
-  readonly stages: { key: string, meta: StageMeta, kind: 'simple' | 'chunked', hooks: Record<string, any> }[];
+  readonly stages:       { key: string, meta: StageMeta, kind: 'simple' | 'chunked', hooks: Record<string, any> }[];
   readonly onCanceledFn: ((run: TaskRunInput) => Promise<void> | void) | undefined;
 
   constructor(
@@ -359,7 +361,7 @@ export class ChunkedStageBuilder<TScope, TInput, TOutput, TCtx, TPrevOutput, TSt
     readonly stageMeta: StageMeta,
     readonly entryFn: (args: { scope: TScope, ctx: TCtx, input: TPrevOutput, checkpoint: TaskCheckpoint | null }) => { total?: number, blockInput: TBlockInput } | Promise<{ total?: number, blockInput: TBlockInput }>,
     enableConfig?: { when: (input: TInput) => boolean, otherwise: (input: TInput) => unknown },
-    readonly blockFn?: (args: { scope: TScope, ctx: TCtx, blockInput: TBlockInput, progress: ProgressFn<any>, checkpoint: (blockInput: TBlockInput) => Promise<void>, done: (finalBlockInput: TBlockInput) => BlockDone }) => TBlockInput | BlockDone | Promise<TBlockInput | BlockDone>,
+    readonly blockFn?: (args: { scope: TScope, ctx: TCtx, blockInput: TBlockInput, progress: ProgressFn<any>, checkpoint: (blockInput: TBlockInput) => Promise<void>, done: (finalBlockInput: TBlockInput) => BlockDone, signal?: AbortSignal }) => TBlockInput | BlockDone | Promise<TBlockInput | BlockDone>,
   ) {
     this.enableConfig = enableConfig;
   }
@@ -374,7 +376,7 @@ export class ChunkedStageBuilder<TScope, TInput, TOutput, TCtx, TPrevOutput, TSt
     );
   }
 
-  block(fn: (args: { scope: TScope, ctx: TCtx, blockInput: TBlockInput, progress: ProgressFn<any>, checkpoint: (blockInput: TBlockInput) => Promise<void>, done: (finalBlockInput: TBlockInput) => BlockDone }) => TBlockInput | BlockDone | Promise<TBlockInput | BlockDone>): ChunkedStageBuilder<TScope, TInput, TOutput, TCtx, TPrevOutput, TStageKey, TBlockInput> {
+  block(fn: (args: { scope: TScope, ctx: TCtx, blockInput: TBlockInput, progress: ProgressFn<any>, checkpoint: (blockInput: TBlockInput) => Promise<void>, done: (finalBlockInput: TBlockInput) => BlockDone, signal?: AbortSignal }) => TBlockInput | BlockDone | Promise<TBlockInput | BlockDone>): ChunkedStageBuilder<TScope, TInput, TOutput, TCtx, TPrevOutput, TStageKey, TBlockInput> {
     return new ChunkedStageBuilder<TScope, TInput, TOutput, TCtx, TPrevOutput, TStageKey, TBlockInput>(
       this.taskType, this.version, this.effectModel,
       this.scopeSchema, this.scopeConfig,
@@ -403,7 +405,7 @@ interface PerRunState {
   isSimple:            boolean;
   skipped:             boolean;
   handlerFn:           ((args: { scope: unknown, ctx: unknown, input: unknown }) => unknown | Promise<unknown>) | null;
-  blockFn:             ((args: { scope: unknown, ctx: unknown, blockInput: unknown, progress: (...args: any[]) => void, checkpoint: (blockInput: unknown) => Promise<void>, done: (finalBlockInput: unknown) => BlockDone }) => unknown | BlockDone | Promise<unknown | BlockDone>) | null;
+  blockFn:             ((args: { scope: unknown, ctx: unknown, blockInput: unknown, progress: (...args: any[]) => void, checkpoint: (blockInput: unknown) => Promise<void>, done: (finalBlockInput: unknown) => BlockDone, signal?: AbortSignal }) => unknown | BlockDone | Promise<unknown | BlockDone>) | null;
   exitFn:              ((args: { ctx: unknown, blockInput: unknown, input: unknown }) => unknown | Promise<unknown>) | null;
   blockDone:           boolean;
   /** Captured by done(finalBlockInput) — forwarded to exit. */
@@ -627,7 +629,7 @@ function buildAnyTaskDefinition(builder: DefinitionBuilder<any, any, any, any, a
         return mkDone();
       };
 
-      const result = await state.blockFn!({ scope: undefined, ctx: state.ctx, blockInput, progress, checkpoint, done });
+      const result = await state.blockFn!({ scope: undefined, ctx: state.ctx, blockInput, progress, checkpoint, done, signal: args.signal });
 
       if (result && typeof result === 'object' && blockDoneSymbol in result) {
         state.blockDone = true;

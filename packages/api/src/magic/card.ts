@@ -8,9 +8,8 @@ import { locale } from '@tcg-cards/model/magic/schema/basic';
 import { cardView } from '@tcg-cards/model/magic/schema/card';
 
 const summary = defineFactTableContract({
-  description: 'Get a card view by ID, locale and part index',
-  tags:        ['Magic', 'Card'],
-  pk:          {
+  tags: ['Magic', 'Card'],
+  pk:   {
     cardId:    { schema: z.string() },
     locale:    { schema: locale.default('en') },
     partIndex: { schema: z.int().min(0).default(0) },
@@ -20,17 +19,15 @@ const summary = defineFactTableContract({
 
 const random = oc
   .route({
-    method:      'GET',
-    description: 'Get a random card ID',
-    tags:        ['Magic', 'Card'],
+    method: 'GET',
+    tags:   ['Magic', 'Card'],
   })
   .output(z.string());
 
 const named = oc
   .route({
-    method:      'GET',
-    description: 'Get a card ID by exact localized name',
-    tags:        ['Magic', 'Card'],
+    method: 'GET',
+    tags:   ['Magic', 'Card'],
   })
   .input(z.object({
     name:   z.string(),

@@ -1,0 +1,13 @@
+{
+  "extends": "../electron/tsconfig.json",
+  "compilerOptions": {
+    "types": [
+      "bun-types",
+      "node"
+    ]
+  },
+  "include": [
+    "**/*.ts",
+    "../electron/runtime/lib/search-publication/snapshot/*.test.ts"
+  ]
+}

@@ -20,67 +20,67 @@ afterEach(() => {
 describe('hsdata publish target', () => {
   test('returns one trimmed publish target when all required fields are present', () => {
     setHearthstonePublishTargetOverride({
-      publishTarget: '  target-dev  ',
-      environment: '  dev  ',
+      game:              '  target-dev  ',
+      target:            '  dev  ',
       targetFingerprint: '  fp-123  ',
-      connectionString: '  postgres://user:pass@127.0.0.1:5432/cards  ',
+      connectionString:  '  postgres://user:pass@127.0.0.1:5432/cards  ',
     });
 
     expect(getHearthstonePublishTarget()).toEqual({
-      publishTarget: 'target-dev',
-      environment: 'dev',
+      game:              'target-dev',
+      target:            'dev',
       targetFingerprint: 'fp-123',
-      connectionString: 'postgres://user:pass@127.0.0.1:5432/cards',
+      connectionString:  'postgres://user:pass@127.0.0.1:5432/cards',
     });
   });
 
   test('reports every missing field when the runtime target is incomplete', () => {
     setHearthstonePublishTargetOverride({
-      publishTarget: 'target-dev',
-      environment: null,
+      game:              'target-dev',
+      target:            null,
       targetFingerprint: '   ',
-      connectionString: null,
+      connectionString:  null,
     });
 
     expect(() => requireHearthstonePublishTarget()).toThrow(
-      'Hearthstone publish target is not configured: missing environment, targetFingerprint, connectionString',
+      'Hearthstone publish target is not configured: missing target, targetFingerprint, connectionString',
     );
   });
 
   test('lists only fully configured publish targets from the runtime override list', () => {
     setHearthstonePublishTargetOverrides([
       {
-        publishTarget: ' hearthstone ',
-        environment: ' dev ',
+        game:              ' hearthstone ',
+        target:            ' dev ',
         targetFingerprint: ' fp-dev ',
-        connectionString: ' postgres://dev ',
+        connectionString:  ' postgres://dev ',
       },
       {
-        publishTarget: 'magic',
-        environment: 'prod',
+        game:              'magic',
+        target:            'prod',
         targetFingerprint: null,
-        connectionString: 'postgres://prod',
+        connectionString:  'postgres://prod',
       },
       {
-        publishTarget: ' hearthstone ',
-        environment: ' prod ',
+        game:              ' hearthstone ',
+        target:            ' prod ',
         targetFingerprint: ' fp-prod ',
-        connectionString: ' postgres://prod ',
+        connectionString:  ' postgres://prod ',
       },
     ]);
 
     expect(listHearthstonePublishTargets()).toEqual([
       {
-        publishTarget: 'hearthstone',
-        environment: 'dev',
+        game:              'hearthstone',
+        target:            'dev',
         targetFingerprint: 'fp-dev',
-        connectionString: 'postgres://dev',
+        connectionString:  'postgres://dev',
       },
       {
-        publishTarget: 'hearthstone',
-        environment: 'prod',
+        game:              'hearthstone',
+        target:            'prod',
         targetFingerprint: 'fp-prod',
-        connectionString: 'postgres://prod',
+        connectionString:  'postgres://prod',
       },
     ]);
   });
@@ -88,34 +88,34 @@ describe('hsdata publish target', () => {
   test('returns one matching publish target by identity', () => {
     setHearthstonePublishTargetOverrides([
       {
-        publishTarget: 'hearthstone',
-        environment: 'dev',
+        game:              'hearthstone',
+        target:            'dev',
         targetFingerprint: 'fp-dev',
-        connectionString: 'postgres://dev',
+        connectionString:  'postgres://dev',
       },
       {
-        publishTarget: 'hearthstone',
-        environment: 'prod',
+        game:              'hearthstone',
+        target:            'prod',
         targetFingerprint: 'fp-prod',
-        connectionString: 'postgres://prod',
+        connectionString:  'postgres://prod',
       },
     ]);
 
     expect(getHearthstonePublishTargetByIdentity('hearthstone', 'prod')).toEqual({
-      publishTarget: 'hearthstone',
-      environment: 'prod',
+      game:              'hearthstone',
+      target:            'prod',
       targetFingerprint: 'fp-prod',
-      connectionString: 'postgres://prod',
+      connectionString:  'postgres://prod',
     });
   });
 
   test('reports one missing identity when no matching publish target exists', () => {
     setHearthstonePublishTargetOverrides([
       {
-        publishTarget: 'hearthstone',
-        environment: 'dev',
+        game:              'hearthstone',
+        target:            'dev',
         targetFingerprint: 'fp-dev',
-        connectionString: 'postgres://dev',
+        connectionString:  'postgres://dev',
       },
     ]);
 

@@ -10,9 +10,13 @@ import {
   FieldWinner,
   Tag,
 } from '@tcg-cards/db/schema/shared/hearthstone';
+import { getDefaultTagCopy, getTagProjectTargetType, tagProjectKind } from '@tcg-cards/model/hearthstone/schema/tag';
 
 /** Transaction type used by shared tag commit application helpers. */
 export type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** Read contexts accepted by top-level tag reads: plain db or transaction. */
+export type TagQueryDb = typeof db | DbTx;
 
 /** Tag rows loaded from the shared main table. */
 export type TagRow = typeof Tag.$inferSelect;
@@ -31,43 +35,46 @@ type FieldConflictInsert = typeof FieldConflict.$inferInsert;
 
 /** Editable tag fields projected through the shared field-commit pipeline. */
 export type TagWrite = {
-  slug: string;
-  slugAliases: string[];
-  name: string | null;
-  rawName: string | null;
-  rawType: string | null;
-  rawNames: string[];
-  normalizeKind: string;
-  normalizeConfig: Record<string, unknown>;
+  slug:              string;
+  slugAliases:       string[];
+  rawName:           string | null;
+  rawType:           string | null;
+  rawNames:          string[];
+  normalizeKind:     string;
+  normalizeConfig:   Record<string, unknown>;
   projectTargetType: string | null;
   projectTargetPath: string | null;
-  projectKind: string | null;
-  projectConfig: Record<string, unknown>;
-  status: string;
-  description: string | null;
+  projectKind:       string | null;
+  projectConfig:     Record<string, unknown>;
+  status:            string;
+  valueType:         TagRow['valueType'];
+  localization:      TagRow['localization'];
 };
+
+/** Names fields preserved in old tag commits after their columns were removed. */
+type RetiredTagCopyField = 'name' | 'description';
 
 /** Apply outcomes returned after one incoming tag commit is processed. */
 export type ApplyTagCommitResult = {
   status: 'applied' | 'duplicate' | 'accepted_without_projection';
-  row: TagRow;
+  row:    TagRow;
   commit: FieldCommitRow;
 };
 
 /** Conflict context emitted when one incoming tag commit cannot be merged. */
 export type ApplyTagCommitConflictInput = {
-  commit: FieldCommitInsert;
-  current: TagRow;
-  winner: FieldWinnerRow | undefined;
-  processingSide: 'local' | 'remote';
+  commit:          FieldCommitInsert;
+  current:         TagRow;
+  winner:          FieldWinnerRow | undefined;
+  processingSide:  'local' | 'remote';
   processingStage: 'apply' | 'replay';
-  reason: string;
+  reason:          string;
 };
 
 /** Optional hooks that customize conflict persistence for one apply attempt. */
 export type ApplyTagCommitOptions = {
   conflictTarget?: {
-    processingSide: 'local' | 'remote';
+    processingSide:  'local' | 'remote';
     processingStage: 'apply' | 'replay';
   };
   onConflict?: (tx: DbTx, input: ApplyTagCommitConflictInput) => Promise<void>;
@@ -76,7 +83,6 @@ export type ApplyTagCommitOptions = {
 const editableFields: Array<keyof TagWrite> = [
   'slug',
   'slugAliases',
-  'name',
   'rawName',
   'rawType',
   'rawNames',
@@ -87,10 +93,11 @@ const editableFields: Array<keyof TagWrite> = [
   'projectKind',
   'projectConfig',
   'status',
-  'description',
+  'valueType',
+  'localization',
 ];
 
-const autoBaseFields = new Set<keyof TagWrite>([
+const autoBaseFields = new Set<string>([
   'rawName',
   'rawType',
   'rawNames',
@@ -129,7 +136,6 @@ function rowToTagWrite(row: TagRow): TagWrite {
   return {
     slug:              row.slug,
     slugAliases:       row.slugAliases,
-    name:              row.name,
     rawName:           row.rawName,
     rawType:           row.rawType,
     rawNames:          row.rawNames,
@@ -140,7 +146,8 @@ function rowToTagWrite(row: TagRow): TagWrite {
     projectKind:       row.projectKind,
     projectConfig:     row.projectConfig,
     status:            row.status,
-    description:       row.description,
+    valueType:         row.valueType,
+    localization:      row.localization,
   };
 }
 
@@ -154,13 +161,12 @@ export function toTagFieldPath(field: keyof TagWrite) {
   return `tag.${field}`;
 }
 
-/** Builds one deterministic row revision from the current effective tag row. */
-export function buildTagRowRevision(row: TagRow) {
-  return hashRevision({
+/** Collects the persisted fields covered by a row revision. */
+function tagRowRevisionPayload(row: TagRow) {
+  return {
     enumId:             row.enumId,
     slug:               row.slug,
     slugAliases:        row.slugAliases,
-    name:               row.name,
     rawName:            row.rawName,
     rawType:            row.rawType,
     rawNames:           row.rawNames,
@@ -171,9 +177,102 @@ export function buildTagRowRevision(row: TagRow) {
     projectKind:        row.projectKind,
     projectConfig:      row.projectConfig,
     status:             row.status,
-    description:        row.description,
+    // Empty new fields leave existing pending commit revisions valid.
+    ...(row.valueType != null ? { valueType: row.valueType } : {}),
+    ...(Object.keys(row.localization).length > 0 ? { localization: row.localization } : {}),
     firstSeenSourceTag: row.firstSeenSourceTag,
     lastSeenSourceTag:  row.lastSeenSourceTag,
+  };
+}
+
+/** Builds a deterministic revision from the current tag row. */
+export function buildTagRowRevision(row: TagRow) {
+  return hashRevision(tagRowRevisionPayload(row));
+}
+
+/** Matches a current revision or an old revision whose retired fields can be recovered. */
+export function matchesTagRowRevision(row: TagRow, revision: string, allowMigratedCopy = false): boolean {
+  const payload = tagRowRevisionPayload(row);
+  if (revision === hashRevision(payload)) {
+    return true;
+  }
+
+  const copy = Object.values(row.localization);
+  const names = new Set([null, row.rawName, row.slug, ...row.rawNames, ...copy.map(value => value?.name ?? null)]);
+  const descriptions = new Set([null, ...copy.map(value => value?.description ?? null)]);
+  for (const name of names) {
+    for (const description of descriptions) {
+      if (revision === hashRevision({ ...payload, name, description })) {
+        return true;
+      }
+    }
+  }
+
+  const { localization, ...legacyPayload } = payload;
+  if (!allowMigratedCopy || localization == null) {
+    return false;
+  }
+
+  // The old revision had one value per field. Match the migrated values exactly.
+  const migratedNames = copy.flatMap(value => value?.name == null ? [] : [value.name]);
+  const migratedDescriptions = copy.flatMap(value => value?.description == null ? [] : [value.description]);
+  if (migratedNames.length > 1 || migratedDescriptions.length > 1 || migratedNames.length + migratedDescriptions.length === 0) {
+    return false;
+  }
+
+  const description = migratedDescriptions[0] ?? null;
+  for (const name of migratedNames.length === 0 ? names : migratedNames) {
+    if (revision === hashRevision({ ...legacyPayload, name, description })) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/** Recognizes backfilled copy only if the tag has no projected localization edits. */
+async function matchesPendingTagRowRevision(tx: DbTx, row: TagRow, revision: string): Promise<boolean> {
+  if (matchesTagRowRevision(row, revision)) {
+    return true;
+  }
+
+  if (!matchesTagRowRevision(row, revision, true)) {
+    return false;
+  }
+
+  const edits = await tx.select({ id: FieldCommit.id })
+    .from(FieldCommit)
+    .where(and(
+      eq(FieldCommit.entityType, 'tag'),
+      eq(FieldCommit.entityKey, toTagEntityKey(row.enumId)),
+      eq(FieldCommit.fieldPath, toTagFieldPath('localization')),
+      eq(FieldCommit.projectionStatus, 'projected'),
+    ))
+    .limit(1);
+
+  return edits.length === 0;
+}
+
+/** Rejects unlocalized legacy copy unless the same content is already retained. */
+function assertRetiredCopy(
+  tag: Pick<TagWrite, 'localization' | 'rawName' | 'rawNames' | 'slug'>,
+  field: RetiredTagCopyField,
+  value: unknown,
+): void {
+  if (value == null || value === '') {
+    return;
+  }
+
+  if (field === 'name' && (value === tag.rawName || value === tag.slug || tag.rawNames.some(name => name === value))) {
+    return;
+  }
+
+  if (Object.values(tag.localization).some(copy => copy?.[field] === value)) {
+    return;
+  }
+
+  throw new ORPCError('BAD_REQUEST', {
+    message: 'Save the tag name or description in its language before replaying this edit.',
   });
 }
 
@@ -225,7 +324,14 @@ export function buildFallbackBaseRevision(row: TagRow, field: keyof TagWrite) {
 }
 
 /** Resolves one editable tag field from its shared field path. */
-function fieldFromPath(fieldPath: string): keyof TagWrite {
+export function getTagCommitField(fieldPath: string): keyof TagWrite | RetiredTagCopyField {
+  if (fieldPath === 'tag.name') {
+    return 'name';
+  }
+  if (fieldPath === 'tag.description') {
+    return 'description';
+  }
+
   const field = fieldPath.replace(/^tag\./, '') as keyof TagWrite;
 
   if (!editableFields.includes(field)) {
@@ -235,6 +341,20 @@ function fieldFromPath(fieldPath: string): keyof TagWrite {
   }
 
   return field;
+}
+
+/** Reads effective conflict values, including retired fields exposed by compatibility reads. */
+export function getTagFieldValue(row: TagRow | null, fieldPath: string): unknown {
+  if (!row) {
+    return null;
+  }
+
+  const field = fieldPath.replace(/^tag\./, '');
+  if (field === 'name' || field === 'description') {
+    return getDefaultTagCopy(row.localization, row.rawName)[field];
+  }
+
+  return Object.hasOwn(row, field) ? row[field as keyof TagRow] ?? null : null;
 }
 
 /** Reads the tag enum id from one structured tag entity key. */
@@ -271,7 +391,7 @@ function canProjectCommit(commit: Pick<FieldCommitInsert, 'reviewStatus'>) {
 /** Derives the winner source label for current tag manual edit commits. */
 function toWinnerSource(
   commit: Pick<FieldCommitInsert, 'commitKind' | 'editorRuntime'>,
-  field: keyof TagWrite,
+  field: keyof TagWrite | RetiredTagCopyField,
 ) {
   if (commit.commitKind === 'winner_clear' && autoBaseFields.has(field)) {
     return 'auto:hsdata';
@@ -289,6 +409,8 @@ async function insertConflict(
   tx: DbTx,
   input: ApplyTagCommitConflictInput,
 ) {
+  const localValue = getTagFieldValue(input.current, input.commit.fieldPath);
+
   await tx.insert(FieldConflict).values({
     processingSide:  input.processingSide,
     processingStage: input.processingStage,
@@ -296,16 +418,16 @@ async function insertConflict(
     entityType:      'tag',
     entityKey:       input.commit.entityKey,
     fieldPath:       input.commit.fieldPath,
-    sourceSummary:      {
+    sourceSummary:   {
       clientMutationId: input.commit.clientMutationId,
       commitKind:       input.commit.commitKind,
       operation:        input.commit.operation,
       editorRuntime:    input.commit.editorRuntime,
     },
     candidateBaseValue: null,
-    localValue:         rowToTagWrite(input.current)[fieldFromPath(input.commit.fieldPath)],
+    localValue,
     incomingValue:      input.commit.value,
-    effectiveValue:     rowToTagWrite(input.current)[fieldFromPath(input.commit.fieldPath)],
+    effectiveValue:     localValue,
     winnerValue:        input.winner?.winnerValue,
     baseRevision:       input.commit.baseRevision,
     status:             'open',
@@ -327,16 +449,18 @@ async function createRowFromCommit(
   tx: DbTx,
   commit: FieldCommitInsert,
   enumId: number,
-  rowState: TagWrite,
+  rowState: TagWrite & Partial<Record<RetiredTagCopyField, unknown>>,
 ): Promise<ApplyTagCommitResult> {
   const entityKey = toTagEntityKey(enumId);
   const now = new Date();
+  const localization = rowState.localization ?? {};
+  assertRetiredCopy({ ...rowState, localization }, 'name', rowState.name);
+  assertRetiredCopy({ ...rowState, localization }, 'description', rowState.description);
 
   const inserted = await tx.insert(Tag).values({
     enumId,
     slug:               rowState.slug,
     slugAliases:        rowState.slugAliases,
-    name:               rowState.name,
     rawName:            rowState.rawName,
     rawType:            rowState.rawType,
     rawNames:           rowState.rawNames,
@@ -347,7 +471,8 @@ async function createRowFromCommit(
     projectKind:        rowState.projectKind,
     projectConfig:      rowState.projectConfig,
     status:             rowState.status,
-    description:        rowState.description,
+    valueType:          rowState.valueType ?? null,
+    localization,
     firstSeenSourceTag: null,
     lastSeenSourceTag:  null,
   }).onConflictDoNothing().returning().then(rows => rows[0]);
@@ -442,15 +567,16 @@ export async function applyTagCommit(
   // row_create uses 'tag' as the entity-level fieldPath; other commits must resolve a real field.
   const field = isRowCreate && commit.fieldPath === 'tag'
     ? 'slug' // dummy, not used for projection
-    : fieldFromPath(commit.fieldPath);
+    : getTagCommitField(commit.fieldPath);
   const current = await tx.select()
     .from(Tag)
     .where(eq(Tag.enumId, enumId))
+    .for('update')
     .then(rows => rows[0]);
 
   // row_create creates the row on the target DB if it doesn't exist yet (push to remote).
   if (isRowCreate && !current) {
-    const rowState = commit.value as TagWrite;
+    const rowState = commit.value as TagWrite & Partial<Record<RetiredTagCopyField, unknown>>;
     return await createRowFromCommit(tx, commit, enumId, rowState);
   }
 
@@ -468,7 +594,6 @@ export async function applyTagCommit(
     ))
     .then(rows => rows[0]);
 
-  const expectedRowRevision = buildTagRowRevision(current);
   const expectedWinnerRevision = buildWinnerRevision(winner);
   const conflictTarget = options?.conflictTarget ?? {
     processingSide:  'local',
@@ -477,14 +602,14 @@ export async function applyTagCommit(
   const onConflict = options?.onConflict ?? insertConflict;
 
   // row_create commits skip revision checks — they establish the initial baseline.
-  if (!isRowCreate && commit.expectedRowRevision !== expectedRowRevision) {
+  if (!isRowCreate && !await matchesPendingTagRowRevision(tx, current, commit.expectedRowRevision)) {
     await onConflict(tx, {
       commit,
       current,
       winner,
-      processingSide: conflictTarget.processingSide,
+      processingSide:  conflictTarget.processingSide,
       processingStage: conflictTarget.processingStage,
-      reason: 'expected_row_revision_mismatch',
+      reason:          'expected_row_revision_mismatch',
     });
 
     throw new ORPCError('CONFLICT', {
@@ -497,9 +622,9 @@ export async function applyTagCommit(
       commit,
       current,
       winner,
-      processingSide: conflictTarget.processingSide,
+      processingSide:  conflictTarget.processingSide,
       processingStage: conflictTarget.processingStage,
-      reason: 'expected_winner_revision_mismatch',
+      reason:          'expected_winner_revision_mismatch',
     });
 
     throw new ORPCError('CONFLICT', {
@@ -556,14 +681,21 @@ export async function applyTagCommit(
     };
   }
 
-  const updated = await tx.update(Tag)
-    .set(nextTagWrite(current, field, commit.value))
-    .where(eq(Tag.enumId, enumId))
-    .returning()
-    .then(rows => rows[0]);
+  let updated = current;
+  if (field === 'name' || field === 'description') {
+    // Keep historical winners for replay without writing retired columns.
+    assertRetiredCopy(current, field, commit.value);
+  } else {
+    const changed = await tx.update(Tag)
+      .set(nextTagWrite(current, field, commit.value))
+      .where(eq(Tag.enumId, enumId))
+      .returning()
+      .then(rows => rows[0]);
 
-  if (!updated) {
-    throw new ORPCError('NOT_FOUND', { message: 'Tag not found' });
+    if (!changed) {
+      throw new ORPCError('NOT_FOUND', { message: 'Tag not found' });
+    }
+    updated = changed;
   }
 
   if (winner) {
@@ -631,43 +763,15 @@ import type {
 
 /** Options that control how one tag edit commit is persisted and synced. */
 export interface TagServiceOptions {
-  syncStatus: 'pending_push' | 'synced' | 'pulled';
-  editorRuntime: string;
+  syncStatus:     'pending_push' | 'synced' | 'pulled';
+  editorRuntime:  string;
   editorIdentity: string;
-  editorSource: string;
+  editorSource:   string;
   conflictTarget: {
-    processingSide: 'local' | 'remote';
+    processingSide:  'local' | 'remote';
     processingStage: 'apply' | 'replay';
   };
 }
-
-/** Serializable tag field write shape accepted by shared tag service helpers. */
-type TagWriteInput = {
-  slug: string;
-  slugAliases: string[];
-  name: string | null;
-  rawName: string | null;
-  rawType: string | null;
-  rawNames: string[];
-  normalizeKind: string;
-  normalizeConfig: Record<string, unknown>;
-  projectTargetType: string | null;
-  projectTargetPath: string | null;
-  projectKind: string | null;
-  projectConfig: Record<string, unknown>;
-  status: string;
-  description: string | null;
-};
-
-const projectKindSet = new Set([
-  'assign_value',
-  'append_string_array',
-  'assign_card_ref',
-  'assign_localized_text',
-  'assign_mechanic',
-  'assign_legacy',
-  'emit_relation',
-]);
 
 const projectTargetTypeSet = new Set([
   'entity',
@@ -716,18 +820,19 @@ export function toTagProfile(row: TagRow): TagProfile {
     enumId:             row.enumId,
     slug:               row.slug,
     slugAliases:        row.slugAliases,
-    name:               row.name,
+    ...getDefaultTagCopy(row.localization, row.rawName),
     rawName:            row.rawName,
     rawType:            row.rawType,
     rawNames:           row.rawNames,
     normalizeKind:      row.normalizeKind,
     normalizeConfig:    row.normalizeConfig,
-    projectTargetType:  row.projectTargetType,
+    projectTargetType:  getTagProjectTargetType(row.projectKind),
     projectTargetPath:  row.projectTargetPath,
     projectKind:        row.projectKind,
     projectConfig:      row.projectConfig,
     status:             row.status,
-    description:        row.description,
+    valueType:          row.valueType,
+    localization:       row.localization,
     firstSeenSourceTag: row.firstSeenSourceTag,
     lastSeenSourceTag:  row.lastSeenSourceTag,
     createdAt:          row.createdAt instanceof Date ? row.createdAt.toISOString() : new Date(row.createdAt).toISOString(),
@@ -743,6 +848,10 @@ export function matchesTagSearch(tag: TagProfile, input: TagListInput) {
   }
 
   const projectKind = input.projectKind?.trim();
+  if (input.projectKind === null && tag.projectKind !== null) {
+    return false;
+  }
+
   if (projectKind && tag.projectKind !== projectKind) {
     return false;
   }
@@ -766,6 +875,7 @@ export function matchesTagSearch(tag: TagProfile, input: TagListInput) {
     tag.description,
     ...tag.slugAliases,
     ...tag.rawNames,
+    ...Object.values(tag.localization).flatMap(copy => [copy?.name, copy?.description]),
   ];
 
   return values.some(value => value?.toLowerCase().includes(q));
@@ -773,7 +883,7 @@ export function matchesTagSearch(tag: TagProfile, input: TagListInput) {
 
 /** Lists tag configurations with pagination and filtering. */
 export async function listTags(
-  db: DbTx,
+  db: TagQueryDb,
   input: TagListInput,
 ): Promise<TagListResult> {
   const rows = await db.select()
@@ -793,7 +903,7 @@ export async function listTags(
 
 /** Reads one tag by enum id. */
 export async function getTag(
-  db: DbTx,
+  db: TagQueryDb,
   enumId: number,
 ): Promise<TagProfile> {
   const row = await db.select()
@@ -808,24 +918,59 @@ export async function getTag(
   return toTagProfile(row);
 }
 
+/** Preserves concurrent copy when unchanged and rejects stale changes to the same object. */
+function resolveTagLocalizationEdit(input: TagUpdateInput, current: TagRow): TagRow['localization'] {
+  if (input.localization === undefined) {
+    return current.localization;
+  }
+
+  if (input.expectedLocalization === undefined) {
+    throw new ORPCError('BAD_REQUEST', { message: 'Reload the tag before changing its name or description.' });
+  }
+
+  const expected = stableJson(input.expectedLocalization);
+  const requested = stableJson(input.localization);
+  if (requested === expected) {
+    return current.localization;
+  }
+
+  const actual = stableJson(current.localization);
+  if (actual !== expected && actual !== requested) {
+    throw new ORPCError('CONFLICT', { message: 'The tag name or description has changed. Reload the tag and try again.' });
+  }
+
+  return input.localization;
+}
+
 /** Normalizes one incoming tag update payload into the write shape. */
-export function normalizeTagWrite(input: TagUpdateInput): TagWrite {
-  return {
+export function normalizeTagWrite(input: TagUpdateInput, current: TagRow): TagWrite {
+  const projectKind = trimToNull(input.projectKind);
+  let projectTargetType = current.projectTargetType;
+  if (input.projectTargetType !== undefined) {
+    projectTargetType = trimToNull(input.projectTargetType);
+  } else if (projectKind !== current.projectKind) {
+    projectTargetType = getTagProjectTargetType(projectKind);
+  }
+
+  const next: TagWrite = {
     slug:              input.slug.trim(),
     slugAliases:       uniqueTrimmed(input.slugAliases),
-    name:              trimToNull(input.name),
     rawName:           trimToNull(input.rawName),
     rawType:           trimToNull(input.rawType),
     rawNames:          uniqueTrimmed(input.rawNames),
     normalizeKind:     input.normalizeKind.trim(),
     normalizeConfig:   input.normalizeConfig,
-    projectTargetType: trimToNull(input.projectTargetType),
-    projectTargetPath: trimToNull(input.projectTargetPath),
-    projectKind:       trimToNull(input.projectKind),
-    projectConfig:     input.projectConfig,
+    projectTargetType: projectKind === 'none' ? null : projectTargetType,
+    projectTargetPath: projectKind === 'none' ? null : trimToNull(input.projectTargetPath),
+    projectKind,
+    projectConfig:     projectKind === 'none' ? {} : input.projectConfig,
     status:            input.status.trim(),
-    description:       trimToNull(input.description),
+    valueType:         input.valueType === undefined ? current.valueType : input.valueType,
+    localization:      resolveTagLocalizationEdit(input, current),
   };
+  assertRetiredCopy(next, 'name', trimToNull(input.name));
+  assertRetiredCopy(next, 'description', trimToNull(input.description));
+  return next;
 }
 
 /** Validates one tag update payload against supported business rules. */
@@ -852,7 +997,7 @@ export function assertTagUpdate(input: TagUpdateInput) {
     }
   }
 
-  if (input.projectKind != null && !projectKindSet.has(input.projectKind)) {
+  if (input.projectKind != null && !tagProjectKind.safeParse(input.projectKind).success) {
     throw new ORPCError('BAD_REQUEST', {
       message: `Unsupported projectKind: ${input.projectKind}`,
     });
@@ -864,13 +1009,13 @@ export function assertTagUpdate(input: TagUpdateInput) {
     });
   }
 
-  if (input.projectKind === 'assign_localized_text' && input.projectTargetType !== 'entity_localization') {
+  if (input.projectKind === 'assign_localized_text' && input.projectTargetType !== undefined && input.projectTargetType !== 'entity_localization') {
     throw new ORPCError('BAD_REQUEST', {
       message: 'assign_localized_text requires projectTargetType=entity_localization',
     });
   }
 
-  if (input.projectKind === 'emit_relation' && input.projectTargetType !== 'entity_relation') {
+  if (input.projectKind === 'emit_relation' && input.projectTargetType !== undefined && input.projectTargetType !== 'entity_relation') {
     throw new ORPCError('BAD_REQUEST', {
       message: 'emit_relation requires projectTargetType=entity_relation',
     });
@@ -890,7 +1035,7 @@ function collectTagDiffsShared(current: TagRow, next: TagWrite, winners: FieldWi
       return {
         field,
         fieldPath,
-        value: next[field],
+        value:          next[field],
         previousWinner: winnerByField.get(fieldPath),
       };
     });
@@ -918,13 +1063,14 @@ export async function saveTagEdit(
   const current = await db.select()
     .from(Tag)
     .where(eq(Tag.enumId, input.enumId))
+    .for('update')
     .then(rows => rows[0]);
 
   if (!current) {
     throw new ORPCError('NOT_FOUND', { message: 'Tag not found' });
   }
 
-  const next = normalizeTagWrite(input);
+  const next = normalizeTagWrite(input, current);
   const fieldPaths = editableFields.map(toTagFieldPath);
   const entityKey = toTagEntityKey(input.enumId);
   const existingWinners = await db.select()
@@ -982,27 +1128,25 @@ export async function saveTagEdit(
 
 /** One raw tag discovered during hsdata import. */
 export interface DiscoveredTagInput {
-  enumId: number;
+  enumId:  number;
   rawName: string | null;
   rawType: string | null;
 }
 
 /** Snapshot of an existing tag before import discovery writes. */
 export interface ExistingTagSnapshot {
-  enumId: number;
-  slug: string;
-  rawName: string | null;
-  rawType: string | null;
-  rawNames: string[];
-  normalizeKind: string;
-  projectTargetType: string | null;
-  projectTargetPath: string | null;
-  projectKind: string | null;
+  enumId:             number;
+  slug:               string;
+  rawName:            string | null;
+  rawType:            string | null;
+  rawNames:           string[];
+  normalizeKind:      string;
+  projectTargetType:  string | null;
+  projectTargetPath:  string | null;
+  projectKind:        string | null;
   firstSeenSourceTag: number | null;
-  lastSeenSourceTag: number | null;
+  lastSeenSourceTag:  number | null;
 }
-
-
 
 /** Slugifies one raw tag name into a stable identifier, avoiding duplicates. */
 function slugify(rawName: string | null, enumId: number, conflicts: ReadonlySet<string>) {
@@ -1046,14 +1190,14 @@ function buildRowCreateCommit(
       resolutionMode:        'rule_auto',
       resolutionFingerprint: 'hearthstone-tag-hsdata-discovery:v1',
     }),
-    reviewStatus:       'auto_approved',
-    reviewedBy:         null,
-    reviewedAt:         null,
-    reviewReason:       null,
-    projectionStatus:   'pending',
-    syncStatus:         options.syncStatus,
-    createdAt:          new Date(),
-    projectedAt:        null,
+    reviewStatus:     'auto_approved',
+    reviewedBy:       null,
+    reviewedAt:       null,
+    reviewReason:     null,
+    projectionStatus: 'pending',
+    syncStatus:       options.syncStatus,
+    createdAt:        new Date(),
+    projectedAt:      null,
   };
 }
 
@@ -1068,7 +1212,7 @@ export async function importDiscoveredTags(
   sourceTag: number,
   tags: DiscoveredTagInput[],
   options: TagServiceOptions & { dryRun?: boolean },
-): Promise<{ existing: Map<number, ExistingTagSnapshot>; discovered: number[]; updated: number }> {
+): Promise<{ existing: Map<number, ExistingTagSnapshot>, discovered: number[], updated: number }> {
   const dryRun = options.dryRun ?? false;
   const enumIds = [...new Set(tags.map(tag => tag.enumId))].sort((a, b) => a - b);
   const existingRows = await tx.select()
@@ -1078,7 +1222,11 @@ export async function importDiscoveredTags(
   const discovered: number[] = [];
   let updated = 0;
 
-  const slugConflicts = new Set(existingRows.map(row => row.slug));
+  // Collect every existing slug so a newly discovered tag never collides with a
+  // tag outside this import batch (degenerate raw names like "1" are shared by
+  // many distinct tags).
+  const slugRows = await tx.select({ slug: Tag.slug }).from(Tag);
+  const slugConflicts = new Set(slugRows.map(row => row.slug));
 
   const firstSeenByEnum = new Map<number, DiscoveredTagInput>();
   for (const tag of tags) {
@@ -1101,7 +1249,6 @@ export async function importDiscoveredTags(
         const inserted = await tx.insert(Tag).values({
           enumId,
           slug,
-          name:               input.rawName || null,
           rawName:            input.rawName || null,
           rawType:            input.rawType || null,
           rawNames:           input.rawName ? [input.rawName] : [],
@@ -1112,7 +1259,6 @@ export async function importDiscoveredTags(
           projectKind:        'assign_mechanic',
           projectConfig:      {},
           status:             'discovered',
-          description:        null,
           firstSeenSourceTag: sourceTag,
           lastSeenSourceTag:  sourceTag,
         }).returning().then(rows => rows[0]);
@@ -1249,13 +1395,13 @@ function fieldEditCommit(
       resolutionMode:        'rule_auto',
       resolutionFingerprint: 'hearthstone-tag-hsdata-discovery:v1',
     }),
-    reviewStatus:       'auto_approved',
-    reviewedBy:         null,
-    reviewedAt:         null,
-    reviewReason:       null,
-    projectionStatus:   'pending',
-    syncStatus:         options.syncStatus,
-    createdAt:          new Date(),
-    projectedAt:        null,
+    reviewStatus:     'auto_approved',
+    reviewedBy:       null,
+    reviewedAt:       null,
+    reviewReason:     null,
+    projectionStatus: 'pending',
+    syncStatus:       options.syncStatus,
+    createdAt:        new Date(),
+    projectedAt:      null,
   };
 }

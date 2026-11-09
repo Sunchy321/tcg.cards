@@ -25,7 +25,7 @@ const map: Record<string, string> = {
   banned_in_card_pool: 'lucide:shield-x',
   banned_in_deck:      'lucide:shield-x',
   legal:               'lucide:check',
-  unavailable:         'lucide:x',
+  unavailable:         'lucide:slash',
   minor:               'lucide:minus',
   score:               'lucide:hash',
   extend:              'lucide:plus',

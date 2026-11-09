@@ -53,10 +53,10 @@ const props = defineProps<{
 
 const expanded = ref(false);
 
-type Item =
-  | { kind: 'stage'; stage: TaskStage }
-  | { kind: 'ellipsis'; count: number }
-  | { kind: 'collapse' };
+type Item
+  = | { kind: 'stage', stage: TaskStage }
+    | { kind: 'ellipsis', count: number }
+    | { kind: 'collapse' };
 
 const visibleItems = computed<Item[]>(() => {
   const { stages, currentStageKey } = props;

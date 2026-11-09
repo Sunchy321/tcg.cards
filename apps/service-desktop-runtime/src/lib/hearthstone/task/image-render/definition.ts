@@ -1,3 +1,5 @@
+import { execFile as execFileCallback } from 'node:child_process';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import type {
   TaskBlock,
   TaskDefinition,
@@ -8,18 +10,20 @@ import type {
   TaskStageState,
 } from '#task/definition';
 import type { CardImageRequirementExportInput } from '@tcg-cards/model/hearthstone/schema/data/image';
-import { imageRequirementFile } from '@tcg-cards/model/hearthstone/schema/data/image';
 import { CardImageAsset } from '@tcg-cards/db/schema/shared/hearthstone/card-image';
 import { TaskRun } from '@tcg-cards/db/schema/local/task';
 import { eq } from 'drizzle-orm';
-import { exportCardImageRequirements } from '@tcg-cards/console-api/lib/hearthstone/card-image';
+import { buildCardImageMissingPlan, buildCardImageRequirementExportFile, buildCardImageRequestsForPlanKeys, recordCardImageExport, type CardImageMissingPlanKey } from '@tcg-cards/console-api/lib/hearthstone/card-image';
 import { importCardImageFilesToLocalBucket } from '@tcg-cards/console-api/lib/hearthstone/card-image-local-import';
 import { buildDebugRenderRequests, buildCardIdRenderRequests } from '../../image-debug';
 import { getLocalDb } from '../../hsdata-local-db';
 import { requireHearthstoneImageBucketDir, requireHearthstoneImageRendererBaseUrl } from '../../image-config';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { promisify } from 'node:util';
 import { omit } from 'lodash-es';
+
+const execFile = promisify(execFileCallback);
 
 export const imageRenderTaskType = 'hearthstone_image_render';
 export const imageRenderDefinitionVersion = '2026-06-27:v1';
@@ -38,28 +42,30 @@ function buildScope(input: CardImageRequirementExportInput): TaskScope {
 
 export function buildImageRenderRunInput(input: CardImageRequirementExportInput): TaskRunInput {
   return {
-    taskType: imageRenderTaskType,
+    taskType:          imageRenderTaskType,
     definitionVersion: imageRenderDefinitionVersion,
-    scope: buildScope(input),
-    params: input as unknown as Record<string, unknown>,
+    scope:             buildScope(input),
+    params:            input as unknown as Record<string, unknown>,
   };
 }
 
 type ImageOutputMode = 'import' | 'download';
 
 interface RenderCtx {
-  filters: CardImageRequirementExportInput;
-  totalMissing: number;
-  cursor: string | null;
-  batchIndex: number;
-  overallWritten: number;
-  overallSkipped: number;
-  overallRejected: number;
-  rendererBaseUrl: string;
-  bucketDir: string;
-  outputMode: ImageOutputMode;
+  filters:           CardImageRequirementExportInput;
+  totalMissing:      number;
+  cursor:            string | null;
+  batchIndex:        number;
+  /** Missing render plan built once during counting; each batch slices it in memory. */
+  planKeys:          CardImageMissingPlanKey[];
+  overallWritten:    number;
+  overallSkipped:    number;
+  overallRejected:   number;
+  rendererBaseUrl:   string;
+  bucketDir:         string;
+  outputMode:        ImageOutputMode;
   /** ZIP archive path (download mode only). */
-  archivePath?: string;
+  archivePath?:      string;
   /** Accumulated PNG file paths (download mode only). */
   archiveFilePaths?: string[];
 }
@@ -81,17 +87,17 @@ export function buildImageRenderBlocks(stage: TaskStageState, taskRunId: string)
   const n = ctx ? Math.ceil(ctx.totalMissing / chunkSize) : 1;
   if (n <= 1) return [{ blockKey: 'proc:run', effectModel: 'reconcilable', payload: { stageKey: 'processing' } }];
   return Array.from({ length: n }, (_, i) => ({
-    blockKey: `proc:chunk_${i + 1}`,
+    blockKey:    `proc:chunk_${i + 1}`,
     effectModel: 'reconcilable' as const,
-    payload: { stageKey: 'processing', chunkIndex: i },
+    payload:     { stageKey: 'processing', chunkIndex: i },
   }));
 }
 
 export async function executeImageRenderBlock(input: {
-  run: TaskRunInput;
-  stage: TaskStageState;
-  block: TaskBlock;
-  store: TaskExecuteStore;
+  run:       TaskRunInput;
+  stage:     TaskStageState;
+  block:     TaskBlock;
+  store:     TaskExecuteStore;
   taskRunId: string;
 }): Promise<void> {
   const { store, taskRunId } = input;
@@ -109,13 +115,12 @@ export async function executeImageRenderBlock(input: {
       });
       ctx.totalMissing = new Map(result.requests.map(r => [r.output.fileName, r])).size;
     } else {
-      const countResult = await exportCardImageRequirements(
-        { ...omit(ctx.filters, 'renderHash'), scanAll: ctx.filters.scanAll ?? false, cursor: null, limit: ctx.filters.limit ?? 50 },
+      const plan = await buildCardImageMissingPlan(
+        { ...omit(ctx.filters, 'renderHash') },
         { db: getLocalDb() },
       );
-      ctx.totalMissing = ctx.filters.scanAll
-        ? countResult.requestCount + countResult.remainingEstimate
-        : countResult.requestCount;
+      ctx.planKeys = plan.keys;
+      ctx.totalMissing = plan.keys.length;
     }
     store.updateStage(taskRunId, 'counting', { done: 1, total: 1 }).catch(() => {});
     return;
@@ -123,16 +128,21 @@ export async function executeImageRenderBlock(input: {
 
   if (stageKey === 'finalizing') {
     if (ctx.outputMode === 'download' && ctx.archiveFilePaths && ctx.archiveFilePaths.length > 0 && !ctx.archivePath) {
-      const archiveName = `hearthstone-renders-v${Date.now()}.zip`;
-      const archivePath = join(tmpdir(), archiveName);
-      await Bun.spawn(['zip', '-j', archivePath, ...ctx.archiveFilePaths]).exited;
+      const archivePath = join(tmpdir(), `hearthstone-renders-${taskRunId}.zip`);
+      await execFile('zip', ['-j', archivePath, ...ctx.archiveFilePaths]);
       ctx.archivePath = archivePath;
-      for (const fp of ctx.archiveFilePaths) { try { await Bun.spawnSync(['rm', '-f', fp]); } catch {} }
+      for (const fp of ctx.archiveFilePaths) {
+        try {
+          await rm(fp, { force: true });
+        } catch {
+          // The archive is already complete; temporary-file cleanup is best effort.
+        }
+      }
     }
     return;
   }
 
-  const { filters, rendererBaseUrl, bucketDir, cursor } = ctx;
+  const { filters, rendererBaseUrl, bucketDir } = ctx;
 
   let requirementsFile: any;
   let exportResult: any;
@@ -146,23 +156,41 @@ export async function executeImageRenderBlock(input: {
     const uniqueReqs = [...new Map(result.requests.map(r => [r.output.fileName, r])).values()];
     const exportId = crypto.randomUUID();
     const fileObj = {
-      schema: 'tcg.cards.hearthstone.card-image-requirements.v1',
+      schema:           'tcg.cards.hearthstone.card-image-requirements.v1',
       exportId, imageSpecVersion: 'v1',
-      generatedAt: new Date().toISOString(),
-      toolContract: { inputFormat: 'json', outputArchiveFormat: 'zip', outputImageFormat: 'png', fileNamePolicy: 'exact' },
-      limits: { defaultMaxRequests: 500, hardMaxRequests: 500, maxRequests: 500, requestCount: uniqueReqs.length, remainingEstimate: 0 },
-      batch: { index: 1, cursor: null, hasMore: false },
-      defaults: { png: { color: 'rgba', transparentBackground: false }, target: { contentType: 'image/webp', webpPreset: 'q86-m4-fast' } },
-      requests: uniqueReqs,
+      generatedAt:      new Date().toISOString(),
+      toolContract:     { inputFormat: 'json', outputArchiveFormat: 'zip', outputImageFormat: 'png', fileNamePolicy: 'exact' },
+      limits:           { defaultMaxRequests: 500, hardMaxRequests: 500, maxRequests: 500, requestCount: uniqueReqs.length, remainingEstimate: 0 },
+      batch:            { index: 1, cursor: null, hasMore: false },
+      defaults:         { png: { color: 'rgba', transparentBackground: false }, target: { contentType: 'image/webp', webpPreset: 'q86-m4-fast' } },
+      requests:         uniqueReqs,
     };
     requirementsFile = fileObj;
     exportResult = { exportId, fileName: `${exportId}.json`, content: JSON.stringify(fileObj), hasMore: false, nextCursor: null };
   } else {
-    exportResult = await exportCardImageRequirements(
-      { ...omit(filters, 'renderHash'), scanAll: filters.scanAll ?? false, cursor, limit: filters.limit ?? CHUNK_SIZE },
+    const chunkSize = filters.limit ?? CHUNK_SIZE;
+    const chunkIndex = typeof input.block.payload?.chunkIndex === 'number' ? input.block.payload.chunkIndex : 0;
+    const planSlice = ctx.planKeys.slice(chunkIndex * chunkSize, (chunkIndex + 1) * chunkSize);
+
+    if (planSlice.length === 0) return;
+
+    const requests = await buildCardImageRequestsForPlanKeys(
+      { ...omit(filters, 'renderHash') },
+      planSlice,
       { db: getLocalDb() },
     );
-    requirementsFile = imageRequirementFile.parse(JSON.parse(exportResult.content));
+    if (requests.length === 0) return;
+
+    const built = buildCardImageRequirementExportFile(requests);
+    await recordCardImageExport(getLocalDb(), {
+      filters,
+      exportId:     built.exportId,
+      fileName:     built.fileName,
+      content:      built.content,
+      requestCount: requests.length,
+    });
+    requirementsFile = built.file;
+    exportResult = { exportId: built.exportId, fileName: built.fileName, content: built.content, hasMore: false, nextCursor: null };
   }
 
   const batchCount = requirementsFile.requests.length;
@@ -171,16 +199,16 @@ export async function executeImageRenderBlock(input: {
 
   ctx.batchIndex++;
 
-  const renderedFiles: Array<{ requestId: string; fileName: string; bytes: Uint8Array }> = [];
-  const failedFiles: Array<{ requestId: string; cardId: string; renderHash: string; fileName: string; message: string }> = [];
+  const renderedFiles: Array<{ requestId: string, fileName: string, bytes: Uint8Array }> = [];
+  const failedFiles: Array<{ requestId: string, cardId: string, renderHash: string, fileName: string, message: string }> = [];
 
   for (let i = 0; i < requirementsFile.requests.length; i++) {
     const request = requirementsFile.requests[i]!;
     try {
       const response = await fetch(`${rendererBaseUrl}/render`, {
-        method: 'POST',
+        method:  'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(request),
+        body:    JSON.stringify(request),
       });
       if (response.ok) {
         renderedFiles.push({ requestId: request.requestId, fileName: request.output.fileName, bytes: new Uint8Array(await response.arrayBuffer()) });
@@ -207,9 +235,9 @@ export async function executeImageRenderBlock(input: {
     if (ctx.outputMode === 'import') {
       await importCardImageFilesToLocalBucket({
         requirementContent: exportResult.content ?? '{}',
-        requirementName: exportResult.fileName ?? '',
-        files: renderedFiles.map(f => ({ fileName: f.fileName, bytes: f.bytes })),
-        bucketDir, force: false, dryRun: false,
+        requirementName:    exportResult.fileName ?? '',
+        files:              renderedFiles.map(f => ({ fileName: f.fileName, bytes: f.bytes })),
+        bucketDir, force:              false, dryRun:             false,
       });
       const fileByName = new Map(renderedFiles.map(f => [f.fileName, f]));
       const db = getLocalDb();
@@ -218,31 +246,31 @@ export async function executeImageRenderBlock(input: {
         if (!rendered) continue;
         try {
           await db.insert(CardImageAsset).values({
-            renderHash: request.card.renderHash,
-            category: request.variant.category,
-            lang: request.card.lang,
-            zone: request.variant.zone,
-            template: request.variant.template,
-            premium: request.variant.premium,
-            r2Bucket: request.target.r2Bucket,
-            r2Key: request.target.r2Key,
-            contentType: request.target.contentType,
-            width: request.output.width,
-            height: request.output.height,
+            renderHash:     request.card.renderHash,
+            category:       request.variant.category,
+            lang:           request.card.lang,
+            zone:           request.variant.zone,
+            template:       request.variant.template,
+            premium:        request.variant.premium,
+            r2Bucket:       request.target.r2Bucket,
+            r2Key:          request.target.r2Key,
+            contentType:    request.target.contentType,
+            width:          request.output.width,
+            height:         request.output.height,
             sourceExportId: exportResult.exportId,
-            status: 'ready' as const,
-            verifiedAt: new Date(),
+            status:         'ready' as const,
+            verifiedAt:     new Date(),
           }).onConflictDoUpdate({
             target: [CardImageAsset.renderHash, CardImageAsset.category, CardImageAsset.zone, CardImageAsset.template, CardImageAsset.premium],
-            set: { status: 'ready' as const, verifiedAt: new Date() },
+            set:    { status: 'ready' as const, verifiedAt: new Date() },
           });
         } catch { /* best-effort */ }
       }
     } else {
       const tempDir = join(tmpdir(), 'hearthstone-image-render');
-      await Bun.write(join(tempDir, 'dummy'), '').catch(() => Bun.spawnSync(['mkdir', '-p', tempDir]));
+      await mkdir(tempDir, { recursive: true });
       for (const f of renderedFiles) {
-        await Bun.write(join(tempDir, f.fileName), f.bytes);
+        await writeFile(join(tempDir, f.fileName), f.bytes);
       }
       ctx.archiveFilePaths = renderedFiles.map(f => join(tempDir, f.fileName));
     }
@@ -260,10 +288,10 @@ export async function executeImageRenderBlock(input: {
 }
 
 export const imageRenderTaskDefinition: TaskDefinition = {
-  taskType: imageRenderTaskType,
+  taskType:          imageRenderTaskType,
   definitionVersion: imageRenderDefinitionVersion,
-  supportsResume: false,
-  effectModel: 'reconcilable',
+  supportsResume:    false,
+  effectModel:       'reconcilable',
   buildStagePlan(input) {
     const stages = imageRenderStagePlans.map(s => ({ ...s }));
     if ((input.params as any)?.outputMode !== 'download') {
@@ -275,16 +303,17 @@ export const imageRenderTaskDefinition: TaskDefinition = {
     if (stage.stageKey === 'counting') {
       const params = run.params as unknown as CardImageRequirementExportInput;
       ctxMap.set(taskRunId, {
-        filters: params,
-        totalMissing: 0,
-        cursor: null,
-        batchIndex: 0,
-        overallWritten: 0,
-        overallSkipped: 0,
+        filters:         params,
+        totalMissing:    0,
+        cursor:          null,
+        batchIndex:      0,
+        planKeys:        [],
+        overallWritten:  0,
+        overallSkipped:  0,
         overallRejected: 0,
         rendererBaseUrl: requireHearthstoneImageRendererBaseUrl(),
-        bucketDir: requireHearthstoneImageBucketDir(),
-        outputMode: (params as any).outputMode ?? 'import',
+        bucketDir:       requireHearthstoneImageBucketDir(),
+        outputMode:      (params as any).outputMode ?? 'import',
       });
 
       return { stageKey: stage.stageKey, stageIndex: stage.stageIndex, progressMode: 'simple', resumeMode: 'none', total: null };

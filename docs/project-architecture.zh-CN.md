@@ -26,10 +26,20 @@
 当前 `apps/` 工作区包含以下项目级应用：
 
 - `app-console-desktop`
-  desktop 管理端，也是领域数据重型工作流的主要本地运行时。这个应用拥有最完整的本地操作能力，包括访问本地仓库、本地 PostgreSQL 和 desktop 专属工作流。
+  Electron desktop 管理端，目标是领域数据重型工作流的主要本地运行时。它作为独立 workspace 构建，完成后将完全替代原 Tauri 实现。本地管理不强制登录；涉及远端数据库的鉴权与发布能力结合设计。
+- `app-console-tauri`（已弃用）
+  原 desktop 管理端。迁移期间它仍通过单独的 Bun desktop runtime（`service-desktop-runtime`，同样已弃用）执行现有工作流。新 Electron 应用不依赖它的代码，已迁移的工作流现由 Electron 控制台承载。
 - `app-console-mobile`（规划中）
   轻量移动管理终端。它的管理层级整体上接近 `site-console`，但运行在移动设备上，而不是运行在 Web 上。它后续也可以承载一部分不适合在浏览器中实现的轻量管理能力。
-- `service-internal`
+- `app-desktop`（规划中）
+  面向终端用户的可安装桌面应用（Windows/macOS），基于 Electron 构建。它与 `app-mobile` 共享同一套业务代码，是面向最终用户的查询客户端，而不是管理运行时。
+- `app-mobile`（规划中）
+  面向终端用户的可安装移动应用（iOS/Android），基于 Capacitor 构建。它与 `app-desktop` 共享同一套业务代码，是面向最终用户的查询客户端，而不是管理运行时。
+- `service-app`（规划中）
+  面向用户态 App 的后端查询服务：在与游戏站同源的远端游戏数据上提供匿名的公开卡牌查询，并承载要求登录的用户态状态（如用户配置同步）。它与 `service-api`（面向第三方、Key 鉴权）和 `service-console-api`（管理客户端）彼此区分。
+- `service-desktop-runtime`（已弃用）
+  原 `app-console-tauri` 背后的 Bun desktop runtime。目前已没有任何应用依赖它：搜索投影与发布工作流已迁入 `app-console-desktop` 的 Electron runtime。它不再接收新功能，将在未来版本中整体移除。
+- `service-console-api`
   面向 app 形态管理端的后端接口。它提供可安装管理应用所使用的远端后端 API。
 - `site-console`
   Web 管理端。它是受限的远端管理界面，不应被视为领域数据重型工作流的执行权威端，也不能替代 desktop 独占的本地能力。
@@ -47,21 +57,27 @@
 - `site-console`
   Web 形态的远端管理界面。它应保持在受限的 Web 能力层级，并以内嵌方式暴露较低能力的远端 router，因为网站部署应尽量避免为了自身管理流量再发起跨服务请求。
 - `app-console-mobile`（规划中）
-  移动管理客户端，整体能力预期高于 `site-console`、低于 desktop。它最终对外获得的能力，不必等于 `service-internal` 当前承载的完整 router 面。
-- `service-internal`
+  移动管理客户端，整体能力预期高于 `site-console`、低于 desktop。它最终对外获得的能力，不必等于 `service-console-api` 当前承载的完整 router 面。
+- `service-console-api`
   面向 app 形态管理端的远端后端 API 面。它在合适的地方复用同一套管理后端代码分层，对外暴露的远端 router 能力高于 `site-console`，但之所以以独立服务存在，是因为 app 形态客户端无法像 `site-console` 那样避免远端服务请求。
 - `app-console-desktop`
-  完整的管理运行时。它的能力不能只由远端 router 定义，因为它还拥有本地仓库、本地 PostgreSQL 和完整本地数据工作流等 desktop 本地能力。某些 desktop 操作还会通过直连远端数据库完成，而不是经过 `service-internal`。
+  完整的管理运行时。它的能力不能只由远端 router 定义，因为它还拥有本地仓库、本地 PostgreSQL 和完整本地数据工作流等 desktop 本地能力。某些 desktop 操作还会通过直连远端数据库完成，而不是经过 `service-console-api`。
 
 因此，能力分层应优先从运行时角度描述，而不应只从 router 角度描述。
 
-在远端 router 暴露层面，当前目标顺序是 `site-console` < `service-internal`。
+在远端 router 暴露层面，当前目标顺序是 `site-console` < `service-console-api`。
 
-desktop 的能力位于这个远端 router 顺序之上，因为它还包含本地独占能力，以及一部分不进入远端 router 的远端数据库直连能力。
+desktop 的能力位于这个远端 router 顺序之上，因为它还包含本地独占能力，以及一部分不进入远端 router 的远端数据库直连能力。它也可以通过范围受限且经过认证的 `site-console` 只读调用列出万智牌云端规则文件；这不会形成通用远端 API 客户端，也不改变直连数据库的发布路径。详见 [ADR-0021](adr/0021-desktop-publish-authorization.md)。
 
-`service-internal` 内部可以承载面向 desktop 的完整 router 面，但这并不意味着每一个 app 形态客户端都应获得其中全部能力。
+`service-console-api` 内部可以承载面向 desktop 的完整 router 面，但这并不意味着每一个 app 形态客户端都应获得其中全部能力。
 
 ## 包列表
+
+桌面配置由主进程管理，并使用 `electron-store` 持久化；凭据使用 Electron `safeStorage` 加密。界面经受限 preload 桥访问经过校验的设置，高级 JSON 仅包含普通配置。运行中任务保留启动时的配置快照。
+
+桌面开发启动与 Electron 入口构建使用社区 `nuxt-electron` 模块集成，以其生成的 quick-start 模板为起点。Nuxt 负责界面构建，Forge 负责应用打包；应用自身的进程与 IPC 职责仍保持明确。
+
+Electron 桌面界面经受控 preload 桥复用共享 Nuxt 管理端壳。主进程负责窗口和应用生命周期。一个常驻 Electron `utilityProcess` 管理本地任务调度和状态，并通过 Node.js Worker 线程运行任务定义。本地 PostgreSQL 任务表是任务身份与历史的持久来源，界面向任务宿主查询和订阅。生产桌面运行不依赖单独启动的 Bun HTTP 服务。PostgreSQL、Git、数据仓库及既有外部工具仍由外部管理。Bun workspace 包管理与测试不属于本次运行时替换范围。参见 [ADR-0019](adr/0019-electron-replaces-tauri-console.md) 和 [ADR-0020](adr/0020-electron-task-host.md)。
 
 `packages/` 工作区包含供多个应用复用的共享基础模块：
 
@@ -82,7 +98,7 @@ desktop 的能力位于这个远端 router 顺序之上，因为它还包含本�
 - `model`
   共享领域模型、校验 schema，以及游戏数据和管理 API 的类型契约。
 - `search`
-  共享搜索解析、命令建模、翻译和执行辅助逻辑。
+  共享 DSL 解析与由游戏模块声明的命令语义，并将查询解析为数据库无关的逻辑树供静态覆盖规划使用。存储 adapter 负责执行；PostgreSQL adapter 保留现有游戏命令 handler 作为精确兼容路径。
 - `shared`
   工作区级的小型共享常量和通用定义。
 - `tsconfig`
@@ -145,6 +161,8 @@ remote 运行时是受限副本、发布目标或受限管理界面。
   Web、mobile 和 desktop 三类管理运行时都可以提供轻量编辑能力，但仍需服从各自预期的远端接口层级和运行时工作流约束。
 - 非领域数据管理工作流
   对于不定义也不变换领域数据的管理功能，例如用户管理一类的工作流，默认不由 desktop 独占，可以在多个管理运行时之间共享。
+
+桌面端使用手动配置的数据库连接字符串发布时，不要求 Console 登录或账号准入。该行为由凭据来源决定，与游戏和环境名称无关；数据库权限和现有发布检查继续生效。通过账号取得临时数据库凭据仍是独立的设计工作。
 
 ## 当前已定义的 Remote-Owned 范围
 
@@ -210,8 +228,48 @@ local 和 remote 是两个独立数据库，因此多端修改的核心矛盾是
 
 当一张表同时混合人工维护字段与构建生成字段或导入生成字段时，应拆分责任，而不是依赖模糊的合并归属。
 
+## 系列展示配置与发布
+
+所有数据维护记录都属于 `{game}_data`，包括手动维护的全站统一选择；不能仅因记录由人工编辑，就将其归为应用用户状态。
+
+万智牌系列资料与补充包组成在本地构建，并作为静态领域数据发布。每种补充包以系列与补充包代码标识一行，完整的配包与卡池组成使用有类型的 JSONB 保存。导入按系列原子替换全部补充包，发布与读取使用相同的完整结构。全站统一的系列展示选择属于数据维护记录，保存在 `magic_data`；导入保留这份权威记录，并把选择生成到可导出的系列数据中。远程只接收生成后的展示值、系列译名及完整补充包组成，不读取本地手动配置表，领域 schema 也不依赖该表。
+
+## 静态内容与用户内容的服务存储
+
+在各游戏内部，静态文章与卡组在 local 的 `{game}` 表中构建，并通过明确的发布映射写入 remote 的 `{game}_app` 统一服务表，与用户创建内容共同提供读取。local 不包含用户数据、用户外键或用户操作记录。导入配置、执行状态和构建元数据保留在 local 的 `{game}_data`，公开读取不依赖这些记录。共用渲染能力不意味着引入跨游戏内容存储。
+
+remote 表所属的 namespace 不会把静态行的维护权转交给远端工作流。显式来源与稳定发布标识限定发布器的写入范围；用户内容及用户操作仍由 remote 拥有。两端共用内容契约，但物理 schema 不必完全相同，也不要求在 remote 另外保存一套静态内容表。此服务存储方式仅适用于这些内容工作流，不改变其他领域表的发布规则。
+
+文章区分保存修订与正式发布版本。翻译引用具体原文修订中的节点，并跟随原文的正式版本序列。节点纯文本是全文搜索的正文权威，格式及引用由有类型的标记表达，游戏符号保留为原始文本。已接受的目标模型及实施边界见 [ADR-0018](adr/0018-documents-unify-remote-content-with-node-based-translations.md)。
+
+手动再次导入 CR 时，可以在同一原始文件对应的公开原文修订中直接修复解析节点，不新增编辑修订。静态发布支持同样的事务性节点替换。已有译文或比较记录引用时阻止替换，保留的原始文件字节、修订身份与创作元数据保持不变。
+
+规则正文统计属于派生的修订元数据，随正文走相同的发布流程。只补全元数据不会替换不可变正文，也不会改变翻译或对比引用；各语言的统计只描述自身已保存的正文。service-api 从远端服务表读取已发布的规则身份、正式版本和元数据，不依赖本地导入状态或桌面上的源文件。
+
+已发布的原文件描述保存 R2 对象 key 与字节校验信息，不保存随部署变化的完整下载 URL。站点和 service-api 在读取时使用各自的 asset URL 解析 key。现有资产存储负责文件交付；文档发布只携带文件描述，不上传或改写原始字节。来源 URL 单独表达出处，与各应用生成的下载地址区分。
+
+文章相邻正式版本关系属于派生数据：静态原文关系由 local `magic_data` 显式计算，用户文章关系由用户在 remote `magic_app` 显式计算。静态正文提交后，发布通过独立的尽力运输事务，将本地已有关系复制到 remote `magic_app`。发布不计算也不校验关系是否就绪，因此关系不可用不会阻止正文发布。计算与导入及读者请求相互独立。条目历史先校验正式版本序列、原文内容与结构指纹及匹配算法版本，再选择相关节点；关系未准备或已失效时，依赖它的历史读取失败，普通正文读取不增加关系就绪门禁。这些派生关系与保留的比较及审核依据分开存储。
+
+## 炉石最新搜索的服务边界
+
+炉石搜索投影属于可独立导出的 `hearthstone` 领域数据，schema 定义放在 shared source，供 local 和 remote 使用。desktop 按全局最大 patch build 生成只包含最新成员的卡牌层与本地化层；现有发布器通过 baseline 和 batch 流程运输这些行。搜索投影不依赖导入或应用 schema。本地全量重建在一个事务内更新两层；对应 manifest 保存构建号，搜索行不重复保存历史成员数组。
+
+站点独立的 `essential` 搜索端点，从完整且版本匹配的投影直接返回列表字段，包括本地化纯文本、render hash 与卡图所需的小型机制 map。精确加速搜索后不再读取完整实体详情。原 `basic` 端点保留完整结果结构；详情页独立读取完整领域数据。未覆盖请求，包括 hashtag 与 faction 条件，走原 PostgreSQL 路径，essential 仍返回相同精简契约。数据元信息缺失或版本不匹配时禁用加速，不返回较早构建。sidecar 分发与跨存储激活属于独立发布生命周期职责；adapter 使用显式装载的就绪状态和版本信息，不将一个 manifest 的存在等同于已部署表必然最新。
+
+## 按游戏隔离的 SQLite 搜索 sidecar
+
+万智牌与炉石搜索投影使用不同的 D1 数据库和游戏级 binding（`MAGIC_SEARCH_DB` 与 `HEARTHSTONE_SEARCH_DB`）。它们是搜索投影，不是领域事实权威：版本匹配的查询可精确执行，或提供安全候选交 PostgreSQL 复核。完整覆盖的 essential 列表查询直接从投影返回精简字段；万智牌完整搜索结果和独立卡牌详情页仍从 PostgreSQL 读取。不支持的条件、binding 不可用或就绪/版本信息不匹配时，使用现有 PostgreSQL 路径。普通关系表通过 Drizzle SQLite schema API 声明，使 D1 和本地 SQLite 导出复用相同表定义。Drizzle 不建模 SQLite 扩展，因此 FTS5 trigram 虚拟表保留为最小 SQLite SQL。发布与激活仍由独立的搜索发布生命周期负责。
+
+本地搜索包是这些投影的独立只读导出，不是新的领域权威。每款游戏分发一份共享基础 SQLite 库和按语言区分的 SQLite 增量库。桌面 Node 运行时保持文件分离，通过 `node:sqlite` 的 `ATTACH` 打开选中的增量库；查询前必须校验两者的数据版本一致，不再合并生成第二份活动库。这样不同语言包可以复用共享卡牌和部件数据，本地查询入口负责跨附加库的表与 FTS 路由。
+
+每款游戏的搜索数据有三个独立生效单元：PostgreSQL 搜索投影及其万智牌查询路由参考数据、一份 D1 快照，以及由基础包和全部语言增量包组成的 R2 包组。每个单元只在自己的存储内原子生效，存储之间没有共同发布屏障。只有当 D1 的逻辑数据版本和内容发布哈希都匹配当前 PostgreSQL 搜索数据时，才会使用 D1；否则整条请求回退到 PostgreSQL。固定公开清单位于 `https://data.tcg.cards/search/{game}/manifest.json`，不可变 SQLite 对象按 SHA-256 寻址。发布哈希覆盖 PostgreSQL 投影指纹、全部包的哈希、schema 版本和游戏专属路由参考数据；如果只有包内容变化，逻辑数据版本可以保持不变。本地搜索结果按稳定卡牌身份打开当前在线详情，并可提示详情与搜索数据可能来自不同更新。
+
+PostgreSQL 当前搜索版本保存在一张共享的 `public.search_publication_metadata` 表中，每款游戏一行，其中包含万智牌路由参考数据。某款游戏的投影分批写入期间会标记为不可用；搜索请求暂时使用原 PostgreSQL 查询，直到完整投影指纹和对应元数据一起启用。
+
+正则搜索继续以现有 PostgreSQL 文本处理器为语义权威。共享结构分析器可以证明单一文本来源上的子串等价条件或必要条件。sidecar 精确执行必须取得所支持文本语义的运行时证据；未知语法或证据检查失败时走 PostgreSQL。候选路径从版本已校验的单一 sidecar 快照读取完整卡牌 ID 集合，再由 PostgreSQL 对这些卡牌执行未改写的完整查询，之后才选择代表结果、ambit、排序、分页和总数。候选 ID 不替代 PostgreSQL 复核，也不作为最终结果提前分页。只有显式实现该复核路径的 adapter 才会由 router 执行候选计划。
+
 ## 文档规则
 
 `docs/` 下的架构文档用于描述稳定边界和 authority 规则。
 
-`proposals/`、`specs/` 和 `archive/` 下的文档用于描述具体需求的设计过程。
+具体需求的设计工作放在 `.scratch/` 下的 issue tracker 中（该目录已被 git 忽略）；长期留存的决策放在 `CONTEXT.md` 与 `docs/adr/` 中。

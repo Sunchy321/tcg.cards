@@ -107,11 +107,11 @@ console.log(`buildCards cache: ${buildCards.length}`);
 // hsdata TAG 183 fallback (same cache the projection task loads)
 const hsdataSetTags = useExtracted
   ? await db.select({
-      dbfId:    RawEntitySnapshot.dbfId,
-      intValue: RawEntitySnapshotTag.intValue,
-    }).from(RawEntitySnapshotTag)
-      .innerJoin(RawEntitySnapshot, eq(RawEntitySnapshotTag.snapshotId, RawEntitySnapshot.id))
-      .where(and(eq(RawEntitySnapshotTag.enumId, 183), isNotNull(RawEntitySnapshotTag.intValue)))
+    dbfId:    RawEntitySnapshot.dbfId,
+    intValue: RawEntitySnapshotTag.intValue,
+  }).from(RawEntitySnapshotTag)
+    .innerJoin(RawEntitySnapshot, eq(RawEntitySnapshotTag.snapshotId, RawEntitySnapshot.id))
+    .where(and(eq(RawEntitySnapshotTag.enumId, 183), isNotNull(RawEntitySnapshotTag.intValue)))
   : [];
 const hsdataSetByDbfId = new Map(hsdataSetTags.map(r => [r.dbfId, r.intValue!]));
 console.log(`hsdata set cache: ${hsdataSetByDbfId.size}`);
@@ -119,7 +119,9 @@ console.log(`hsdata set cache: ${hsdataSetByDbfId.size}`);
 let projected: ProjectCardResult | null = null;
 let report;
 if (useExtracted) {
-  report = await projectExtracted(build, [cardId], true, buildCards, hsdataSetByDbfId, rows => { projected = rows; });
+  report = await projectExtracted(build, [cardId], true, buildCards, hsdataSetByDbfId, rows => {
+    projected = rows;
+  });
 } else {
   report = await projectHsdataFallback(build, [cardId], true);
 }

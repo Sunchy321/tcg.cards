@@ -13,6 +13,7 @@ export default defineConfig({
     './src/schema/remote/hearthstone/index.ts',
     './src/schema/remote/magic/index.ts',
     './src/schema/remote/yugioh/index.ts',
+    './src/schema/shared/ambit.ts',
   ],
   casing: 'snake_case',
 

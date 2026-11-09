@@ -6,41 +6,13 @@
           <UIcon name="i-lucide-upload" class="size-5 text-primary-500" />
           <h1 class="text-xl font-semibold">发布</h1>
         </div>
-        <div class="flex items-center gap-3 text-xs">
-          <template v-if="hasPublishTarget">
-            <span class="text-muted">{{ publishTarget }}</span>
-            <span class="text-muted">·</span>
-            <UDropdownMenu
-              v-if="hasMultiplePublishTargets"
-              :items="environmentItems"
-              :disabled="publishTargets.length === 0"
-              :content="{ align: 'end' }"
-            >
-              <button
-                type="button"
-                class="inline-flex items-center gap-1 text-muted transition-colors hover:text-default disabled:cursor-default disabled:hover:text-muted"
-              >
-                {{ selectedPublishTarget?.environment ?? '' }}
-                <UIcon
-                  name="i-lucide-chevron-down"
-                  class="size-3 opacity-70"
-                />
-              </button>
-            </UDropdownMenu>
-            <span v-else class="text-muted">
-              {{ selectedPublishTarget?.environment ?? '' }}
-            </span>
-            <UBadge :label="formatPublishTargetFingerprint(selectedPublishTarget?.targetFingerprint ?? null)" color="neutral" variant="soft" size="xs" />
-          </template>
-          <span v-else class="text-muted">未配置</span>
-          <UButton
-            icon="i-lucide-refresh-cw"
-            color="neutral"
-            variant="ghost"
-            size="xs"
-            @click="loadPublishTarget"
-          />
-        </div>
+        <PublishTargetPicker
+          :game-label="game"
+          :targets="targets"
+          :selected="selected"
+          @select="select"
+          @reload="reloadTargets"
+        />
       </div>
 
       <UAlert
@@ -49,7 +21,7 @@
         variant="soft"
         icon="i-lucide-triangle-alert"
         title="未配置发布目标"
-        description="请在 设置 → 发布配置 中配置 Hearthstone 的发布环境。"
+        description="请在 设置 → 发布配置 中添加发布目标。"
         class="mt-2"
       />
 
@@ -81,6 +53,7 @@
       @completed="onCompleted"
       @failed="onFailed"
       @create-error="onCreateError"
+      @snapshot="onTaskSnapshot"
     >
       <template #params="{ disabled }">
         <div class="flex items-center gap-6">
@@ -93,8 +66,8 @@
               class="w-64"
             />
           </UFormField>
-          <UCheckbox v-model="dryRun" label="Dry Run" :disabled="disabled" />
-          <UCheckbox v-model="force" label="Force" :disabled="disabled" />
+          <UCheckbox v-model="dryRun" label="仅预览，不发布" :disabled="disabled" />
+          <UCheckbox v-model="force" label="忽略远端版本检查" :disabled="disabled" />
         </div>
       </template>
     </TaskController>
@@ -104,7 +77,7 @@
         <div class="flex items-center gap-2">
           <span class="font-medium">{{ isPurgeResult ? '清理报告' : taskResult.operationKind === 'pin' ? 'Pin 报告' : '发布报告' }}</span>
           <UBadge
-            :label="isPurgeResult ? '清理' : taskResult.operationKind === 'pin' ? 'Pin' : taskResult.dryRun ? 'Dry Run' : 'Success'"
+            :label="isPurgeResult ? '清理' : taskResult.operationKind === 'pin' ? 'Pin' : taskResult.dryRun ? '仅预览' : '成功'"
             :color="isPurgeResult ? 'error' : taskResult.operationKind === 'pin' ? 'warning' : taskResult.dryRun ? 'warning' : 'success'"
             variant="soft"
           />
@@ -116,7 +89,7 @@
           <div class="text-xs text-muted">状态</div>
           <div class="mt-1 flex items-center">
             <UBadge
-              :label="purgeReport.dryRun ? 'Dry Run' : 'Success'"
+              :label="purgeReport.dryRun ? '仅预览' : '成功'"
               :color="purgeReport.dryRun ? 'warning' : 'success'"
               variant="soft"
               size="xs"
@@ -132,22 +105,22 @@
           </div>
         </div>
         <div class="rounded-lg border border-default p-3">
-          <div class="text-xs text-muted">孤立 renderHash</div>
+          <div class="text-xs text-muted">无关联图片标识</div>
           <div class="mt-1 font-mono text-sm">{{ purgeReport.orphanRenderHashes }}</div>
         </div>
         <div class="rounded-lg border border-default p-3 sm:col-span-2">
           <div class="text-xs text-muted">清理行数</div>
           <div class="mt-1 grid grid-cols-3 gap-2 text-sm">
             <div>
-              <span class="text-muted">Entities</span>
+              <span class="text-muted">卡牌数据</span>
               <span class="ml-1 font-mono">{{ purgeReport.entities }}</span>
             </div>
             <div>
-              <span class="text-muted">Localizations</span>
+              <span class="text-muted">多语言内容</span>
               <span class="ml-1 font-mono">{{ purgeReport.localizations }}</span>
             </div>
             <div>
-              <span class="text-muted">Relations</span>
+              <span class="text-muted">关联数据</span>
               <span class="ml-1 font-mono">{{ purgeReport.relations }}</span>
             </div>
           </div>
@@ -156,18 +129,18 @@
           <div class="text-xs text-muted">清理图片</div>
           <div class="mt-1 grid grid-cols-2 gap-2 text-sm">
             <div>
-              <span class="text-muted">Assets</span>
+              <span class="text-muted">图片记录</span>
               <span class="ml-1 font-mono">{{ purgeReport.images.assets }}</span>
             </div>
             <div>
-              <span class="text-muted">Files</span>
+              <span class="text-muted">图片文件</span>
               <span class="ml-1 font-mono">{{ purgeReport.images.files }}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <div v-else-if="!isAnnouncementPublishResult" class="grid gap-3 sm:grid-cols-2">
+      <div v-else-if="!isAnnouncementPublishResult && !isReferencePublishResult" class="grid gap-3 sm:grid-cols-2">
         <div class="rounded-lg border border-default p-3">
           <div class="text-xs text-muted">批次</div>
           <div class="mt-1 break-all font-mono text-sm">
@@ -222,25 +195,59 @@
           </div>
         </div>
         <div class="rounded-lg border border-default p-3 sm:col-span-2">
-          <div class="text-xs text-muted">分表统计</div>
+          <div class="text-xs text-muted">数据统计</div>
           <div class="mt-1 grid grid-cols-4 gap-2 text-sm">
             <div>
-              <span class="text-muted">Cards</span>
+              <span class="text-muted">卡牌</span>
               <span class="ml-1 font-mono">{{ taskResult.cardRowCount }}</span>
             </div>
             <div>
-              <span class="text-muted">Entities</span>
+              <span class="text-muted">卡牌数据</span>
               <span class="ml-1 font-mono">{{ taskResult.entityRowCount }}</span>
             </div>
             <div>
-              <span class="text-muted">Localizations</span>
+              <span class="text-muted">多语言内容</span>
               <span class="ml-1 font-mono">{{ taskResult.localizationRowCount }}</span>
             </div>
             <div>
-              <span class="text-muted">Relations</span>
+              <span class="text-muted">关联数据</span>
               <span class="ml-1 font-mono">{{ taskResult.relationRowCount }}</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div v-else-if="isReferencePublishResult" class="grid gap-3 sm:grid-cols-2">
+        <div class="rounded-lg border border-default p-3">
+          <div class="text-xs text-muted">发布类型</div>
+          <div class="mt-1 font-mono text-sm">信息表数据</div>
+        </div>
+        <div class="rounded-lg border border-default p-3">
+          <div class="text-xs text-muted">状态</div>
+          <div class="mt-1 flex items-center">
+            <UBadge
+              :label="taskResult.dryRun ? '仅预览' : '成功'"
+              :color="taskResult.dryRun ? 'warning' : 'success'"
+              variant="soft"
+              size="xs"
+            />
+          </div>
+        </div>
+        <div class="rounded-lg border border-default p-3">
+            <div class="text-xs text-muted">系列</div>
+          <div class="mt-1 font-mono text-sm">{{ taskResult.setsCount }}</div>
+        </div>
+        <div class="rounded-lg border border-default p-3">
+            <div class="text-xs text-muted">模式</div>
+          <div class="mt-1 font-mono text-sm">{{ taskResult.formatsCount }}</div>
+        </div>
+        <div class="rounded-lg border border-default p-3">
+            <div class="text-xs text-muted">补丁</div>
+          <div class="mt-1 font-mono text-sm">{{ taskResult.patchesCount }}</div>
+        </div>
+        <div class="rounded-lg border border-default p-3">
+            <div class="text-xs text-muted">标签</div>
+          <div class="mt-1 font-mono text-sm">{{ taskResult.tagsCount }}</div>
         </div>
       </div>
 
@@ -253,7 +260,7 @@
           <div class="text-xs text-muted">状态</div>
           <div class="mt-1 flex items-center">
             <UBadge
-              :label="taskResult.dryRun ? 'Dry Run' : 'Success'"
+              :label="taskResult.dryRun ? '仅预览' : '成功'"
               :color="taskResult.dryRun ? 'warning' : 'success'"
               variant="soft"
               size="xs"
@@ -372,7 +379,7 @@
       <template #header>
         <div class="flex items-center gap-2">
           <UIcon name="i-lucide-wrench" class="size-4 text-warning-500" />
-          <span class="font-medium">Dev: 单卡发布</span>
+          <span class="font-medium">单卡发布</span>
         </div>
       </template>
 
@@ -380,15 +387,15 @@
         <div class="flex items-center gap-2">
           <UInput
             v-model="singleCardId"
-            placeholder="输入 cardId"
-            :disabled="singleCardPublishing"
+            placeholder="输入卡牌编号"
+            :disabled="singleCardPublishing || controller?.currentTaskRunId != null"
             class="max-w-xs"
           />
           <UButton
             label="发布单张卡牌"
             icon="i-lucide-send"
             :loading="singleCardPublishing"
-            :disabled="!hasPublishTarget || !singleCardId.trim()"
+            :disabled="!hasPublishTarget || !singleCardId.trim() || singleCardPublishing || controller?.currentTaskRunId != null"
             @click="submitSingleCardPublish"
           />
         </div>
@@ -406,19 +413,19 @@
           class="grid gap-2 sm:grid-cols-4"
         >
           <div class="rounded border border-default p-2 text-center">
-            <div class="text-xs text-muted">Entities</div>
+            <div class="text-xs text-muted">卡牌数据</div>
             <div class="font-mono text-lg">{{ singleCardResult.entityCount }}</div>
           </div>
           <div class="rounded border border-default p-2 text-center">
-            <div class="text-xs text-muted">Localizations</div>
+            <div class="text-xs text-muted">多语言内容</div>
             <div class="font-mono text-lg">{{ singleCardResult.localizationCount }}</div>
           </div>
           <div class="rounded border border-default p-2 text-center">
-            <div class="text-xs text-muted">Relations</div>
+            <div class="text-xs text-muted">关联数据</div>
             <div class="font-mono text-lg">{{ singleCardResult.relationCount }}</div>
           </div>
           <div class="rounded border border-default p-2 text-center">
-            <div class="text-xs text-muted">Cards</div>
+            <div class="text-xs text-muted">卡牌</div>
             <div class="font-mono text-lg">{{ singleCardResult.cardCount }}</div>
           </div>
         </div>
@@ -435,7 +442,7 @@
       </template>
       <template #body>
         <p class="text-sm">
-          即将对 <strong>{{ selectedEnvironment }}</strong> 环境执行 Pin 操作。
+          即将对发布目标 <strong>{{ selectedEnvironment }}</strong> 执行 Pin 操作。
         </p>
         <p class="mt-2 text-sm text-muted">
           Pin 会将当前本地投影标记为已同步状态，更新本地 baseline 和远程 ledger，不会传输任何数据。Pin 之后执行 Publish 应为空操作。
@@ -449,7 +456,7 @@
       </template>
     </UModal>
 
-    <UModal v-model:open="purgeOpen" title="确认清理" description="将硬删除 entities / entity_localizations / entity_relations 中所有已标记删除的行，并删除对应的孤立图片。此操作不可撤销。">
+    <UModal v-model:open="purgeOpen" title="确认清理" description="将永久清理已标记删除的数据及其无关联图片。此操作不可撤销。">
       <template #footer>
         <div class="flex justify-end gap-2">
           <UButton label="取消" color="neutral" variant="ghost" @click="cancelPurge" />
@@ -462,10 +469,8 @@
 
 <script setup lang="ts">
 import { useToast } from '@nuxt/ui/composables';
-import {
-  getDesktopPublishTargets,
-  type DesktopPublishTarget,
-} from '~/composables/useDesktopSettings';
+import PublishTargetPicker from '~/components/PublishTargetPicker.vue';
+import { usePublishTargetSelection } from '~/composables/usePublishTargetSelection';
 import {
   cancelIncompleteHsdataPublishBatch,
   deletePublishHistory,
@@ -473,14 +478,13 @@ import {
   getHsdataErrorMessage,
   getIncompletePublishBatch,
   listPublishHistory,
-  publishSingleCard,
   type HsdataPublishReport,
   type HsdataPublishStreamInput,
   type HsdataSingleCardPublishReport,
 } from '~/composables/useHsdataRepo';
 import type { TaskPageSnapshot } from '@tcg-cards/model/task';
 import type { TaskOperation } from '~/components/task/TaskController.vue';
-import { orpc } from '~/lib/orpc';
+import { getDesktopTaskSnapshot, startDesktopTask } from '~/lib/orpc';
 
 definePageMeta({
   layout: 'admin',
@@ -488,18 +492,20 @@ definePageMeta({
 });
 
 const publishTypes = [
-  { label: 'card_data', value: 'card_data' },
-  { label: 'announcement_data', value: 'announcement_data' },
+  { label: '信息表数据', value: 'reference_data' },
+  { label: '卡牌数据', value: 'card_data' },
+  { label: '公告数据', value: 'announcement_data' },
 ];
-const publishTarget = 'hearthstone' as const;
+const game = 'hearthstone' as const;
 
 const toast = useToast();
-const publishTargets = ref<DesktopPublishTarget[]>([]);
-const selectedEnvironment = ref('');
-const publishTargetError = ref('');
+const { targets, selected, select, reload: reloadTargets, error: publishTargetError } = usePublishTargetSelection('hearthstone');
+const selectedEnvironment = computed(() => selected.value?.name ?? '');
 const taskResult = ref<Record<string, unknown> | null>(null);
 /** Whether the last result came from the announcement publish task (different output shape). */
 const isAnnouncementPublishResult = computed(() => taskResult.value != null && taskResult.value.announcementCount != null);
+/** Whether the last result came from the reference publish task (different output shape). */
+const isReferencePublishResult = computed(() => taskResult.value != null && taskResult.value.setsCount != null);
 
 interface PurgeReport {
   dryRun:             boolean;
@@ -522,20 +528,20 @@ const batchListLoading = ref(false);
 const batchList = ref<HsdataPublishReport[]>([]);
 const cancelingBatchId = ref('');
 const deletingBatchId = ref('');
-const publishType = ref('card_data');
+const publishType = ref('reference_data');
 const dryRun = ref(false);
 const force = ref(false);
 
 // Purge confirmation flow — the create promise resolves once the user confirms the modal.
 const purgeOpen = ref(false);
-let resolvePurgeCreate: ((value: TaskPageSnapshot) => void) | null = null;
+let resolvePurgeCreate: ((value: TaskPageSnapshot | null) => void) | null = null;
 let rejectPurgeCreate: ((reason: Error) => void) | null = null;
 
 async function executePurge() {
   purgeOpen.value = false;
   try {
-    const result = await orpc.hearthstone.createTask.purge({ dryRun: dryRun.value });
-    resolvePurgeCreate?.(result as TaskPageSnapshot);
+    const result = await startDesktopTask('hearthstone_purge', { dryRun: dryRun.value });
+    resolvePurgeCreate?.(result);
   } catch (error) {
     rejectPurgeCreate?.(error instanceof Error ? error : new Error(getHsdataErrorMessage(error)));
   }
@@ -551,30 +557,14 @@ const singleCardPublishing = ref(false);
 const singleCardResult = ref<HsdataSingleCardPublishReport | null>(null);
 const singleCardError = ref('');
 
-const environmentItems = computed(() => {
-  return publishTargets.value.map(target => ({
-    label:    target.environment,
-    value:    target.environment,
-    onSelect: () => {
-      selectedEnvironment.value = target.environment;
-    },
-  }));
-});
-
-const hasMultiplePublishTargets = computed(() => publishTargets.value.length > 1);
-
-const selectedPublishTarget = computed(() => {
-  return publishTargets.value.find(target => target.environment === selectedEnvironment.value) ?? null;
-});
-
 const selectedPublishStream = computed<HsdataPublishStreamInput | null>(() => {
   if (selectedEnvironment.value.length === 0) {
     return null;
   }
 
   return {
-    publishTarget,
-    environment: selectedEnvironment.value,
+    game,
+    target: selectedEnvironment.value,
   };
 });
 
@@ -587,25 +577,19 @@ async function submitSingleCardPublish() {
   singleCardPublishing.value = true;
   singleCardError.value = '';
   singleCardResult.value = null;
-
-  try {
-    const result = await publishSingleCard(cardId, stream);
-    singleCardResult.value = result;
-  } catch (error) {
-    console.error('Failed to publish single card:', error);
-    singleCardError.value = getHsdataErrorMessage(error);
-  } finally {
+  const taskController = controller.value;
+  if (!taskController) {
     singleCardPublishing.value = false;
+    singleCardError.value = '暂时无法启动发布，请重试';
+    return;
   }
+
+  await taskController.execute(singleCardOperation);
 }
 
 const hasPublishTarget = computed(() => {
-  return selectedPublishTarget.value != null;
+  return selected.value?.configured === true;
 });
-
-function formatPublishTargetFingerprint(fingerprint: string | null) {
-  return fingerprint?.slice(0, 8) ?? '';
-}
 
 function formatPublishOperationKind(kind: string) {
   switch (kind) {
@@ -621,6 +605,7 @@ function formatPublishType(type: string) {
   switch (type) {
   case 'card_data': return '卡牌数据';
   case 'announcement_data': return '公告数据';
+  case 'reference_data': return '信息表数据';
   default: return type;
   }
 }
@@ -657,21 +642,50 @@ function isCancelableBatch(batch: HsdataPublishReport) {
   return batch.status === 'planning' || batch.status === 'applying';
 }
 
-const controller = ref<{ attach(snapshot: TaskPageSnapshot): void, currentTaskRunId: string | null }>();
+const controller = ref<{
+  attach(snapshot: TaskPageSnapshot): void;
+  execute(operation: TaskOperation): Promise<void>;
+  currentTaskRunId: string | null;
+}>();
+let singleCardTaskRunId: string | null = null;
+
+const singleCardOperation: TaskOperation = {
+  key:    'single-card-publish',
+  label:  '发布单张卡牌',
+  icon:   'i-lucide-send',
+  create: async () => {
+    const cardId = singleCardId.value.trim();
+    const stream = selectedPublishStream.value;
+    if (!cardId || !stream) {
+      singleCardPublishing.value = false;
+      return null;
+    }
+
+    const snapshot = await startDesktopTask('hearthstone_single_card_publish', {
+      cardId,
+      game:     stream.game,
+      targetId: selected.value?.id ?? '',
+    });
+    if (!snapshot) {
+      singleCardPublishing.value = false;
+    }
+    return snapshot;
+  },
+};
 
 const showPinConfirm = ref(false);
-let resolvePinCreate: ((value: TaskPageSnapshot) => void) | null = null;
+let resolvePinCreate: ((value: TaskPageSnapshot | null) => void) | null = null;
 let rejectPinCreate: ((reason: Error) => void) | null = null;
 
 function confirmPin() {
   showPinConfirm.value = false;
-  orpc.hearthstone.createTask.pin({
-    publishTarget: 'hearthstone',
-    environment:   selectedEnvironment.value,
+  startDesktopTask('hsdata_pin', {
+    game:     'hearthstone',
+    targetId: selected.value?.id ?? '',
   }).then(result => {
-    resolvePinCreate?.(result as TaskPageSnapshot);
-  }).catch(e => {
-    rejectPinCreate?.(e as Error);
+    resolvePinCreate?.(result);
+  }).catch((error: unknown) => {
+    rejectPinCreate?.(error instanceof Error ? error : new Error(getHsdataErrorMessage(error)));
   });
 }
 
@@ -686,19 +700,29 @@ const operations: TaskOperation[] = [
     label:  '发布',
     icon:   'i-lucide-upload',
     create: async () => {
+      const targetId = selected.value?.id ?? '';
       if (publishType.value === 'announcement_data') {
-        return orpc.hearthstone.createTask.announcementPublish({
-          publishTarget: 'hearthstone',
-          environment:   selectedEnvironment.value,
-          dryRun:        dryRun.value,
-        }) as Promise<TaskPageSnapshot>;
+        return startDesktopTask('hearthstone_announcement_publish', {
+          game:   'hearthstone',
+          targetId,
+          dryRun: dryRun.value,
+        });
       }
-      return orpc.hearthstone.createTask.publish({
-        publishTarget: 'hearthstone',
-        environment:   selectedEnvironment.value,
+      if (publishType.value === 'reference_data') {
+        return startDesktopTask('hearthstone_reference_publish', {
+          game:   'hearthstone',
+          targetId,
+          dryRun: dryRun.value,
+        });
+      }
+      return startDesktopTask('hearthstone_publish', {
+        game:          'hearthstone',
+        targetId,
+        publishType:   'card_data',
         dryRun:        dryRun.value,
         force:         force.value,
-      }) as Promise<TaskPageSnapshot>;
+        operationKind: 'publish',
+      });
     },
   },
   {
@@ -707,7 +731,7 @@ const operations: TaskOperation[] = [
     icon:   'i-lucide-pin',
     color:  'warning',
     create: async () => {
-      return new Promise<TaskPageSnapshot>((resolve, reject) => {
+      return new Promise<TaskPageSnapshot | null>((resolve, reject) => {
         resolvePinCreate = resolve;
         rejectPinCreate = reject;
         showPinConfirm.value = true;
@@ -720,7 +744,7 @@ const operations: TaskOperation[] = [
     icon:   'i-lucide-trash-2',
     color:  'error',
     create: async () => {
-      return new Promise<TaskPageSnapshot>((resolve, reject) => {
+      return new Promise<TaskPageSnapshot | null>((resolve, reject) => {
         resolvePurgeCreate = resolve;
         rejectPurgeCreate = reject;
         purgeOpen.value = true;
@@ -732,16 +756,50 @@ const operations: TaskOperation[] = [
 function onCompleted(snap: TaskPageSnapshot) {
   persistedTaskRunId = null;
   persistPublishPageState();
-  taskResult.value = snap.result ?? null;
+  if (snap.pageTask.kind === 'attached' && snap.pageTask.taskType === 'hearthstone_single_card_publish') {
+    singleCardResult.value = snap.result as unknown as HsdataSingleCardPublishReport;
+    singleCardPublishing.value = false;
+    singleCardTaskRunId = null;
+  } else {
+    taskResult.value = snap.result ?? null;
+  }
   refreshPublishState();
 }
 
-function onFailed(_taskRunId: string, _errorCode: string | null, _errorMessage: string | null) {
+function onFailed(taskRunId: string, _errorCode: string | null, errorMessage: string | null) {
   persistedTaskRunId = null;
   persistPublishPageState();
+  if (taskRunId === singleCardTaskRunId) {
+    singleCardError.value = errorMessage ?? '单卡发布失败';
+    singleCardPublishing.value = false;
+    singleCardTaskRunId = null;
+  }
 }
 
-function onCreateError(_opKey: string, _message: string) {
+function onCreateError(opKey: string, message: string) {
+  if (opKey === singleCardOperation.key) {
+    singleCardError.value = message;
+    singleCardPublishing.value = false;
+  }
+}
+
+function onTaskSnapshot(snapshot: TaskPageSnapshot) {
+  const task = snapshot.pageTask;
+  if (task.kind !== 'attached' || task.taskType !== 'hearthstone_single_card_publish') {
+    return;
+  }
+
+  singleCardTaskRunId = task.taskRunId;
+  singleCardPublishing.value = !['completed', 'failed', 'canceled', 'abandoned'].includes(task.status);
+  if (task.status === 'completed') {
+    singleCardResult.value = snapshot.result as unknown as HsdataSingleCardPublishReport;
+    singleCardTaskRunId = null;
+  } else if (task.status === 'failed') {
+    singleCardError.value = task.errorMessage ?? '单卡发布失败';
+    singleCardTaskRunId = null;
+  } else if (task.status === 'canceled' || task.status === 'abandoned') {
+    singleCardTaskRunId = null;
+  }
 }
 
 // Save taskRunId whenever the controller starts/restores a task
@@ -754,26 +812,7 @@ watch(
 );
 
 async function loadPublishTarget() {
-  publishTargetError.value = '';
-
-  try {
-    const targets = await getDesktopPublishTargets();
-    publishTargets.value = targets.filter(target => target.publishTarget === publishTarget);
-
-    if (publishTargets.value.length === 0) {
-      selectedEnvironment.value = '';
-      return;
-    }
-
-    if (!publishTargets.value.some(target => target.environment === selectedEnvironment.value)) {
-      selectedEnvironment.value = publishTargets.value[0]!.environment;
-    }
-  } catch (error) {
-    console.error('Failed to load publish target:', error);
-    publishTargetError.value = getHsdataErrorMessage(error);
-    publishTargets.value = [];
-    selectedEnvironment.value = '';
-  }
+  await reloadTargets();
 }
 
 /** Cancels one incomplete batch row when it is no longer backed by a live runtime job. */
@@ -787,10 +826,54 @@ async function cancelBatch(batch: HsdataPublishReport) {
   cancelingBatchId.value = batch.batchId;
 
   try {
+    const activeTask = (await window.desktop.tasks.list()).find(task => {
+      if (task.taskType !== 'hearthstone_publish') return false;
+      const pageTask = task.pageSnapshot?.pageTask;
+      if (pageTask?.kind !== 'attached') return false;
+      const scope = pageTask.taskScopeSnapshot;
+      return scope?.game === stream.game && scope.target === stream.target;
+    });
+
+    if (activeTask) {
+      if (activeTask.status !== 'canceling') {
+        const updated = await window.desktop.tasks.control(activeTask.id, 'cancel');
+        if (updated.status === 'canceled') {
+          const result = await cancelIncompleteHsdataPublishBatch({
+            ...stream,
+            batchId: batch.batchId,
+          });
+          if (incompleteBatch.value?.batchId === batch.batchId) incompleteBatch.value = null;
+          await refreshPublishState();
+          toast.add({
+            title:       '批次已取消',
+            description: `${result.batchId} 已标记为已停止`,
+            color:       'success',
+          });
+          return;
+        }
+      }
+
+      toast.add({
+        title:       '正在停止发布',
+        description: '当前操作完成后会停止。发布停止后，再次选择取消即可清理未完成批次。',
+        color:       'warning',
+      });
+      return;
+    }
+
     const result = await cancelIncompleteHsdataPublishBatch({
       ...stream,
       batchId: batch.batchId,
     });
+
+    if (result.status === 'canceling') {
+      toast.add({
+        title:       '发布任务仍在运行',
+        description: '请先在任务面板中取消该任务，再取消未完成批次。',
+        color:       'warning',
+      });
+      return;
+    }
 
     if (incompleteBatch.value?.batchId === batch.batchId) {
       incompleteBatch.value = null;
@@ -878,12 +961,11 @@ const PUBLISH_PAGE_STATE_KEY = 'console-desktop-hearthstone-publish-page';
 interface PublishPageState {
   dryRun:      boolean;
   force:       boolean;
-  environment: string;
   publishType: string;
   taskRunId?:  string | null;
 }
 
-const PUBLISH_TYPES = ['card_data', 'announcement_data'];
+const PUBLISH_TYPES = ['card_data', 'announcement_data', 'reference_data'];
 
 let persistedTaskRunId: string | null = null;
 
@@ -891,7 +973,6 @@ function persistPublishPageState() {
   const state: PublishPageState = {
     dryRun:      dryRun.value,
     force:       force.value,
-    environment: selectedEnvironment.value,
     publishType: publishType.value,
     taskRunId:   persistedTaskRunId,
   };
@@ -902,8 +983,7 @@ function normalizePublishPageState(raw: Partial<PublishPageState>): PublishPageS
   return {
     dryRun:      typeof raw.dryRun === 'boolean' ? raw.dryRun : false,
     force:       typeof raw.force === 'boolean' ? raw.force : false,
-    environment: typeof raw.environment === 'string' ? raw.environment : '',
-    publishType: typeof raw.publishType === 'string' && PUBLISH_TYPES.includes(raw.publishType) ? raw.publishType : 'card_data',
+    publishType: typeof raw.publishType === 'string' && PUBLISH_TYPES.includes(raw.publishType) ? raw.publishType : 'reference_data',
     taskRunId:   typeof raw.taskRunId === 'string' ? raw.taskRunId : null,
   };
 }
@@ -916,7 +996,6 @@ function restorePublishPageState() {
     const state = normalizePublishPageState(parsed);
     dryRun.value = state.dryRun;
     force.value = state.force ?? false;
-    selectedEnvironment.value = state.environment;
     publishType.value = state.publishType;
     persistedTaskRunId = state.taskRunId ?? null;
   } catch {
@@ -924,7 +1003,7 @@ function restorePublishPageState() {
   }
 }
 
-watch([dryRun, force, selectedEnvironment, publishType], () => {
+watch([dryRun, force, publishType], () => {
   persistPublishPageState();
 });
 
@@ -947,8 +1026,8 @@ onMounted(async () => {
   // Restore active task from persisted taskRunId
   if (persistedTaskRunId) {
     try {
-      const snap = await orpc.task.snapshot({ taskRunId: persistedTaskRunId });
-      if (snap.pageTask.kind !== 'idle') {
+      const snap = await getDesktopTaskSnapshot(persistedTaskRunId);
+      if (snap && snap.pageTask.kind !== 'idle') {
         controller.value?.attach(snap);
       }
     } catch {

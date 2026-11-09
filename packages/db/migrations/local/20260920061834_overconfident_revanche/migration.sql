@@ -1,0 +1,22 @@
+CREATE TABLE "magic_data"."mtgch_scryfall_card" (
+	"card_id" text PRIMARY KEY,
+	"scryfall_id" text,
+	"face_index" integer,
+	"lang" text,
+	"oracle_id" text,
+	"face_oracle_id" text,
+	"set_code" text,
+	"set_id" text,
+	"collector_number" text,
+	"multiverse_id" integer,
+	"name" text,
+	"face_name" text,
+	"printed_name" text,
+	"printed_type_line" text,
+	"printed_text" text,
+	"layout" text,
+	"released_at" text,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"deleted_at" timestamp
+);

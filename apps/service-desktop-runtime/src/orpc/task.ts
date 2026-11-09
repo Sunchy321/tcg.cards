@@ -1,7 +1,8 @@
-import { eventIterator } from '@orpc/server';
+import { eventIterator, ORPCError } from '@orpc/server';
 import { z } from 'zod';
 
-import { taskPageEvent, TaskPageSnapshot, taskPageSnapshot } from '@tcg-cards/model/task';
+import { taskPageEvent, taskPageSnapshot } from '@tcg-cards/model/task';
+import type { TaskPageSnapshot } from '@tcg-cards/model/task';
 
 import { os } from './index';
 import type { TaskRunInput, TaskRunSnapshot } from '#task/index';
@@ -11,10 +12,12 @@ import { buildTaskPageSnapshot } from '#task/snapshot';
 import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
 
 let _store: ReturnType<typeof createTaskStore>;
+/** Reuses the task store for the active desktop database. */
 function getStore() {
   if (!_store) _store = createTaskStore(getLocalDb());
   return _store;
 }
+/** Binds task controls to the shared store and scheduler. */
 function getController() {
   const s = getStore();
   return createTaskController(s, createTaskScheduler(s));
@@ -27,16 +30,30 @@ export { getStore };
 export async function createAndRunTask(
   taskType: string,
   runInput: TaskRunInput,
+  options: { abandonStale?: boolean } = {},
 ): Promise<TaskPageSnapshot> {
   // Abandon any stale active task of the same type left from a previous boot
   const activeRuns = await getStore().listActiveTaskRuns();
   const stale = activeRuns.find(r => r.taskType === taskType);
   if (stale) {
+    if (options.abandonStale === false) {
+      throw new ORPCError('CONFLICT', { message: '已有同类任务正在执行，请等待完成后再发布。' });
+    }
     await getController().abandonTask(stale.id, 'abandoned_stale_run');
   }
 
   const definition = getTaskDefinition(taskType);
-  const controlResult = await getController().createTask(runInput, definition);
+  let controlResult;
+  try {
+    controlResult = await getController().createTask(runInput, definition);
+  } catch (error) {
+    // The database uniqueness guard also closes races between simultaneous requests.
+    const cause = error instanceof Error ? error.cause : undefined;
+    if (options.abandonStale === false && cause != null && typeof cause === 'object' && 'code' in cause && cause.code === '23505') {
+      throw new ORPCError('CONFLICT', { message: '已有同类任务正在执行，请等待完成后再发布。', cause: error });
+    }
+    throw error;
+  }
   const snap = await getStore().getTaskRun(controlResult.taskRunId);
   if (!snap) throw new Error(`Task ${controlResult.taskRunId} was not created`);
 

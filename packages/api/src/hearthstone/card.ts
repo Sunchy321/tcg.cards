@@ -7,30 +7,27 @@ import { cardEntityView } from '@tcg-cards/model/hearthstone/schema/entity';
 
 const summary = oc
   .route({
-    method:      'GET',
-    description: 'Get a card by ID and language at its latest (or a given) version',
-    tags:        ['Hearthstone', 'Card'],
+    method: 'GET',
+    tags:   ['Hearthstone', 'Card'],
   })
   .input(z.object({
-    cardId:  z.string().describe('Card ID'),
-    lang:    locale.default('en').describe('Card language'),
-    version: z.int().min(0).optional().describe('Explicit version to resolve'),
+    cardId:  z.string(),
+    lang:    locale.default('en'),
+    version: z.int().min(0).optional(),
   }))
   .output(cardEntityView);
 
 const random = oc
   .route({
-    method:      'GET',
-    description: 'Get a random card ID',
-    tags:        ['Hearthstone', 'Card'],
+    method: 'GET',
+    tags:   ['Hearthstone', 'Card'],
   })
   .output(z.string());
 
 const named = oc
   .route({
-    method:      'GET',
-    description: 'Get a card ID by exact localized name',
-    tags:        ['Hearthstone', 'Card'],
+    method: 'GET',
+    tags:   ['Hearthstone', 'Card'],
   })
   .input(z.object({
     name: z.string(),

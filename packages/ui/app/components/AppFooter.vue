@@ -7,6 +7,15 @@
       >
         &copy; {{ currentYear }} All rights reserved.
       </NuxtLink>
+      <template v-if="hasDataSourcesPage">
+        <span class="text-gray-400" aria-hidden="true">&middot;</span>
+        <NuxtLink
+          to="/data-sources"
+          class="hover:text-gray-900 transition-colors"
+        >
+          {{ $t('footer.dataSources') }}
+        </NuxtLink>
+      </template>
       <span class="text-gray-400" aria-hidden="true">&middot;</span>
       <NuxtLink
         :to="githubUrl"
@@ -25,6 +34,9 @@
 const currentYear = new Date().getFullYear();
 
 const githubUrl = 'https://github.com/Sunchy321/tcg.cards';
+
+// Only deployments that serve a /data-sources page (game sites) opt into the footer link.
+const { hasDataSourcesPage } = useRuntimeConfig().public;
 
 const url = useRequestURL();
 

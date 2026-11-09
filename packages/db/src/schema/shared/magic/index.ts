@@ -4,10 +4,9 @@ export * from './deck';
 export * from './card';
 export * from './card-relation';
 export * from './cycle';
-export * from './document';
 export * from './format';
 
 export * from './print';
-export * from './rule';
 export * from './ruling';
 export * from './set';
+export * from './search';

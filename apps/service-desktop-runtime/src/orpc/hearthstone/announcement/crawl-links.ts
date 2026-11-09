@@ -25,7 +25,7 @@ export const crawlLinks = os
 
     if (!en) throw new ORPCError('INTERNAL_SERVER_ERROR', { message: 'Failed to extract EN patch note.' });
 
-    const links: Array<{ url: string; label: string }> = [
+    const links: Array<{ url: string, label: string }> = [
       { url: en.url, label: 'blizzard' },
     ];
     if (zh) {
@@ -35,7 +35,7 @@ export const crawlLinks = os
     return { name: en.title, date: en.date, links };
   });
 
-interface PageInfo { title: string; url: string; date: string }
+interface PageInfo { title: string, url: string, date: string }
 
 async function extractLatest(
   pageUrl: string,
@@ -87,7 +87,7 @@ async function fetchPage(url: string): Promise<string | null> {
   const timeout = setTimeout(() => controller.abort(), 15000);
   try {
     const res = await fetch(url, {
-      signal: controller.signal,
+      signal:  controller.signal,
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TCG-Cards/1.0)' },
     });
     if (!res.ok) return null;
@@ -101,5 +101,9 @@ async function fetchPage(url: string): Promise<string | null> {
 
 function resolveUrl(href: string, baseUrl: string): string {
   if (href.startsWith('http')) return href;
-  try { return new URL(href, baseUrl).href; } catch { return href; }
+  try {
+    return new URL(href, baseUrl).href;
+  } catch {
+    return href;
+  }
 }

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 export default defineNuxtConfig({
   extends: ['@tcg-cards/ui'],
 
-  modules: ['nitro-cloudflare-dev', '@nuxt/eslint', '@nuxt/ui', '@nuxt/icon'],
+  modules: ['@nuxt/eslint', '@nuxt/ui', '@nuxt/icon'],
 
   devtools: { enabled: true },
 
@@ -27,9 +27,8 @@ export default defineNuxtConfig({
     },
   },
 
-
   alias: {
-    '#base': fileURLToPath(new URL('../../packages/base/src', import.meta.url)),
+    '#base':   fileURLToPath(new URL('../../packages/base/src', import.meta.url)),
     '#app-ui': fileURLToPath(new URL('../../packages/ui/app', import.meta.url)),
   },
 
@@ -83,6 +82,8 @@ export default defineNuxtConfig({
 
   fonts: {
     providers: {
+      bunny:       false,
+      fontshare:   false,
       google:      false,
       googleicons: false,
     },

@@ -73,7 +73,7 @@ export interface TaskStageUpdatePatch {
   total?:       number | null;
   done?:        number | null;
   resumeToken?: Record<string, unknown> | null;
-  segments?:    { name: string, done: number, total: number }[] | null;
+  segments?:    { name: string, done: number, total: number, color?: string }[] | null;
   startedAt?:   Date | string | null;
   finishedAt?:  Date | string | null;
 }
@@ -99,6 +99,7 @@ export interface TaskRunStorePatch {
 /** Defines the persistence contract consumed by the task framework. */
 export interface TaskStore {
   createTaskRun(input: TaskRunCreateInput): Promise<TaskRunSnapshot>;
+  ensureTaskStages(taskRunId: string, stages: TaskStagePlan[]): Promise<void>;
   getTaskRun(taskRunId: string): Promise<TaskRunSnapshot | null>;
   getActiveTaskRun(
     taskType: string,
@@ -191,6 +192,30 @@ export function createTaskStore(db: {
   delete: Function;
 }): TaskStore {
   return {
+    async ensureTaskStages(taskRunId, stages): Promise<void> {
+      if (stages.length === 0) return;
+      const existing = await db
+        .select({ stageKey: TaskStage.stageKey })
+        .from(TaskStage)
+        .where(eq(TaskStage.taskRunId, taskRunId))
+        .limit(1);
+      if (existing.length > 0) return;
+      await db.insert(TaskStage).values(stages.map(stage => ({
+        taskRunId,
+        stageKey:     stage.stageKey,
+        stageIndex:   stage.stageIndex,
+        status:       'pending' as const,
+        label:        stage.label,
+        progressMode: stage.progressMode,
+        resumeMode:   stage.resumeMode,
+        total:        null,
+        done:         stage.progressMode === 'unbound' ? 0 : null,
+        resumeToken:  null,
+        startedAt:    null,
+        finishedAt:   null,
+      })));
+    },
+
     async createTaskRun(input): Promise<TaskRunSnapshot> {
       const [run] = await db
         .insert(TaskRun)
@@ -244,7 +269,8 @@ export function createTaskStore(db: {
               progressMode: stage.progressMode,
               resumeMode:   stage.resumeMode,
               total:        null,
-              done:         null,
+              // unbound stages require a non-null done counter per the schema check.
+              done:         stage.progressMode === 'unbound' ? 0 : null,
               resumeToken:  null,
               startedAt:    null,
               finishedAt:   null,

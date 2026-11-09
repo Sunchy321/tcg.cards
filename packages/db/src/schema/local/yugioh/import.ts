@@ -31,9 +31,9 @@ export const ImportBatch = dataSchema.table('import_batches', {
   source:    text('source').notNull(),
   sourceUrl: text('source_url').notNull(),
 
-  archiveHash: text('archive_hash'),
-  etag:        text('etag'),
-  lastModified: text('last_modified'),
+  archiveHash:   text('archive_hash'),
+  etag:          text('etag'),
+  lastModified:  text('last_modified'),
   unknownFields: text('unknown_fields').array().notNull().default([]),
 
   sourceRecordCount: integer('source_record_count').notNull().default(0),
@@ -119,8 +119,8 @@ export const ImportState = dataSchema.table('import_states', {
 
   lastSuccessfulBatchId: uuid('last_successful_batch_id')
     .references(() => ImportBatch.id),
-  archiveHash: text('archive_hash'),
-  etag:        text('etag'),
+  archiveHash:  text('archive_hash'),
+  etag:         text('etag'),
   lastModified: text('last_modified'),
 
   updatedAt: timestamp('updated_at', { withTimezone: true })

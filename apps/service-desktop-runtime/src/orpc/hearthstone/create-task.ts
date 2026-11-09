@@ -12,8 +12,10 @@ import {
 } from '../../lib/hearthstone/task/image-render';
 import { hsdataImportTaskDefinition } from '../../lib/hearthstone/task/import';
 import { projectTaskDefinition } from '../../lib/hearthstone/task/project';
+import { cardsProjectTaskDefinition } from '../../lib/hearthstone/task/cards-project/definition';
 import { unpackImportTaskDefinition } from '../../lib/hearthstone/task/unpack-import';
 import { announcementPublishTaskDefinition } from '../../lib/hearthstone/task/announcement-publish/definition';
+import { referencePublishTaskDefinition } from '../../lib/hearthstone/task/reference-publish/definition';
 import { hearthstonePurgeTaskDefinition } from '../../lib/hearthstone/task/purge';
 
 /** If there's an active task on this scope from a previous boot, abandon it. */
@@ -34,14 +36,14 @@ async function abandonStaleTask(taskType: string, scopeType: string, scopeKey: s
 
 const publish = os
   .input(z.strictObject({
-    publishTarget: z.literal('hearthstone'),
-    environment:   z.string().trim().min(1),
-    dryRun:        z.boolean().optional(),
-    force:         z.boolean().optional(),
+    game:   z.literal('hearthstone'),
+    target: z.string().trim().min(1),
+    dryRun: z.boolean().optional(),
+    force:  z.boolean().optional(),
   }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
-    const scope = { publishTarget: input.publishTarget, environment: input.environment, publishType: 'card_data' as const };
+    const scope = { game: input.game, target: input.target, publishType: 'card_data' as const };
     const resolved = publishTaskDefinition.resolveScope(scope);
     await abandonStaleTask(publishTaskDefinition.taskType, publishTaskDefinition.scopeType, resolved.key);
     const active = await getStore().getActiveTaskRun(publishTaskDefinition.taskType, publishTaskDefinition.scopeType, resolved.key);
@@ -57,12 +59,12 @@ const publish = os
 
 const pin = os
   .input(z.strictObject({
-    publishTarget: z.literal('hearthstone'),
-    environment:   z.string().trim().min(1),
+    game:   z.literal('hearthstone'),
+    target: z.string().trim().min(1),
   }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
-    const scope = { publishTarget: input.publishTarget, environment: input.environment };
+    const scope = { game: input.game, target: input.target };
     const resolved = pinTaskDefinition.resolveScope(scope);
     await abandonStaleTask(pinTaskDefinition.taskType, pinTaskDefinition.scopeType, resolved.key);
     const active = await getStore().getActiveTaskRun(pinTaskDefinition.taskType, pinTaskDefinition.scopeType, resolved.key);
@@ -72,7 +74,7 @@ const pin = os
       taskType:          pinTaskDefinition.taskType,
       definitionVersion: pinTaskDefinition.definitionVersion,
       scope:             { type: pinTaskDefinition.scopeType, key: resolved.key, snapshot: resolved.snapshot as Record<string, unknown> },
-      params:            { publishTarget: input.publishTarget, environment: input.environment },
+      params:            { game: input.game, target: input.target },
     });
   });
 
@@ -174,13 +176,13 @@ const unpackImport = os
 /** Mirrors the local announcement tables to the publish target as a full replace. */
 const announcementPublish = os
   .input(z.strictObject({
-    publishTarget: z.literal('hearthstone'),
-    environment:   z.string().trim().min(1),
-    dryRun:        z.boolean().optional(),
+    game:   z.literal('hearthstone'),
+    target: z.string().trim().min(1),
+    dryRun: z.boolean().optional(),
   }))
   .output(taskPageSnapshot)
   .handler(async ({ input }) => {
-    const scope = { publishTarget: input.publishTarget, environment: input.environment };
+    const scope = { game: input.game, target: input.target };
     const resolved = announcementPublishTaskDefinition.resolveScope(scope);
     await abandonStaleTask(announcementPublishTaskDefinition.taskType, announcementPublishTaskDefinition.scopeType, resolved.key);
     const active = await getStore().getActiveTaskRun(announcementPublishTaskDefinition.taskType, announcementPublishTaskDefinition.scopeType, resolved.key);
@@ -190,6 +192,29 @@ const announcementPublish = os
       taskType:          announcementPublishTaskDefinition.taskType,
       definitionVersion: announcementPublishTaskDefinition.definitionVersion,
       scope:             { type: announcementPublishTaskDefinition.scopeType, key: resolved.key, snapshot: resolved.snapshot as Record<string, unknown> },
+      params:            { dryRun: input.dryRun },
+    });
+  });
+
+/** Mirrors the local small reference tables (sets/formats/patches/tags) to the publish target as a full replace. */
+const referencePublish = os
+  .input(z.strictObject({
+    game:   z.literal('hearthstone'),
+    target: z.string().trim().min(1),
+    dryRun: z.boolean().optional(),
+  }))
+  .output(taskPageSnapshot)
+  .handler(async ({ input }) => {
+    const scope = { game: input.game, target: input.target };
+    const resolved = referencePublishTaskDefinition.resolveScope(scope);
+    await abandonStaleTask(referencePublishTaskDefinition.taskType, referencePublishTaskDefinition.scopeType, resolved.key);
+    const active = await getStore().getActiveTaskRun(referencePublishTaskDefinition.taskType, referencePublishTaskDefinition.scopeType, resolved.key);
+    if (active) throw new Error(`Reference publish task already exists for stream ${resolved.key}`);
+
+    return createAndRunTask(referencePublishTaskDefinition.taskType, {
+      taskType:          referencePublishTaskDefinition.taskType,
+      definitionVersion: referencePublishTaskDefinition.definitionVersion,
+      scope:             { type: referencePublishTaskDefinition.scopeType, key: resolved.key, snapshot: resolved.snapshot as Record<string, unknown> },
       params:            { dryRun: input.dryRun },
     });
   });
@@ -212,4 +237,22 @@ const purge = os
     });
   });
 
-export const createTask = { publish, pin, imageRender, imageDownload, hsdataImport, hsdataProjection, unpackImport, announcementPublish, purge };
+/** Derives every live card's ambit onto the cards table as a standalone run. */
+const cardsProject = os
+  .input(z.strictObject({}))
+  .output(taskPageSnapshot)
+  .handler(async () => {
+    const resolved = cardsProjectTaskDefinition.resolveScope({});
+    await abandonStaleTask(cardsProjectTaskDefinition.taskType, cardsProjectTaskDefinition.scopeType, resolved.key);
+    const active = await getStore().getActiveTaskRun(cardsProjectTaskDefinition.taskType, cardsProjectTaskDefinition.scopeType, resolved.key);
+    if (active) throw new Error('Cards projection task is already running');
+
+    return createAndRunTask(cardsProjectTaskDefinition.taskType, {
+      taskType:          cardsProjectTaskDefinition.taskType,
+      definitionVersion: cardsProjectTaskDefinition.definitionVersion,
+      scope:             { type: cardsProjectTaskDefinition.scopeType, key: resolved.key, snapshot: resolved.snapshot as Record<string, unknown> },
+      params:            {},
+    });
+  });
+
+export const createTask = { publish, pin, imageRender, imageDownload, hsdataImport, hsdataProjection, cardsProject, unpackImport, announcementPublish, referencePublish, purge };

@@ -294,7 +294,7 @@ const render = () => {
 
   const vnodes = tokensToVNodes(tokens);
   const tag = props.inline ? 'span' : 'div';
-  return h(tag, attrs, vnodes);
+  return h(tag, props.lang != null ? { ...attrs, lang: props.lang } : attrs, vnodes);
 };
 
 // expose lang so consumers can reference it (e.g. for [lang] attr on parent)

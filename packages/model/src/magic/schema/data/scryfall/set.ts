@@ -4,6 +4,7 @@ export interface RawSet {
   id:               UUID;
   code:             string;
   mtgo_code?:       string;
+  arena_code?:      string;
   tcgplayer_id?:    number;
   name:             string;
   set_type:         string;

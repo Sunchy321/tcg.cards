@@ -1,8 +1,8 @@
-import type { PublishReport, SingleCardPublishReport } from 'service-desktop-runtime/lib/hearthstone/hsdata-publish';
+import type { PublishReport, SingleCardPublishReport } from '../../electron/runtime/lib/hearthstone/hsdata-publish';
 import { getConsoleErrorMessage } from '@tcg-cards/console-core';
 
 import { useDesktopRuntimeClient } from './useDesktopRuntimeClient';
-import { getDesktopGameRepo, setDesktopGameRepo } from './useDesktopSettings';
+import { getDesktopPath, setDesktopPath } from './useDesktopSettings';
 
 export interface HsdataRepoState {
   repoPath?: string;
@@ -280,11 +280,11 @@ export interface ReportMetric {
 }
 
 export function getHsdataRepoPath() {
-  return getDesktopGameRepo('hearthstone', 'hsdata');
+  return getDesktopPath('hearthstone.data.hsdata');
 }
 
 export function setHsdataRepoPath(repoPath: string | null) {
-  return setDesktopGameRepo('hearthstone', 'hsdata', repoPath);
+  return setDesktopPath('hearthstone.data.hsdata', repoPath);
 }
 
 export async function getHsdataRepoState() {
@@ -299,8 +299,9 @@ export async function listHsdataSources() {
   return await useDesktopRuntimeClient().hsdata.listSources() as HsdataFile[];
 }
 
-export async function syncPatches() {
-  return await useDesktopRuntimeClient().hsdata.syncPatches() as { count: number };
+/** Synchronizes patch metadata using the requested mode. */
+export async function syncPatches(mode: 'missing' | 'all' = 'all') {
+  return await useDesktopRuntimeClient().hsdata.syncPatches({ mode }) as { count: number };
 }
 
 export async function readHsdataSource(id: string) {
@@ -316,9 +317,9 @@ export interface HsdataProjectOptions {
 
 /** Explicit publish stream selector used by the Hearthstone publish page. */
 export interface HsdataPublishStreamInput {
-  publishTarget: 'hearthstone';
-  environment:   string;
-  publishType?:  string;
+  game:         'hearthstone';
+  target:       string;
+  publishType?: string;
 }
 
 /** Publish job control result returned after a cooperative pause or stop request. */
@@ -361,32 +362,6 @@ export function cancelIncompleteHsdataPublishBatch(
   })();
 }
 
-/** Publishes a single card to the remote target (dev tool). */
-export function publishSingleCard(
-  cardId: string,
-  input: HsdataPublishStreamInput,
-) {
-  return (async () => {
-    return await useDesktopRuntimeClient().hsdata.publishSingleCard({
-      cardId,
-      ...input,
-    });
-  })();
-}
-
-/** Registers one remote publish stream so the gate check does not reject it. */
-export function registerRemotePublishStream(input: {
-  connectionString:  string;
-  publishTarget:     string;
-  environment:       string;
-  targetFingerprint: string;
-}) {
-  return (async () => {
-    return await useDesktopRuntimeClient().hsdata.registerPublishStream(input);
-  })();
-}
-
-/** Requests a cooperative stop of the current publish or pin job. */
 /** Local hsdata source version rows loaded from the configured desktop database. */
 export function listLocalHsdataSourceVersions() {
   return (async () => {

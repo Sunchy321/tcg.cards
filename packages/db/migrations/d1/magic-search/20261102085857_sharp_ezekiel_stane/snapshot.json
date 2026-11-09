@@ -1,0 +1,953 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "bea081d6-1c35-4bca-b054-01052ae25429",
+  "prevIds": [
+    "a141172d-c2cb-4ef1-8e95-2271e02719c8"
+  ],
+  "ddl": [
+    {
+      "name": "magic_search_cards",
+      "entityType": "tables"
+    },
+    {
+      "name": "magic_search_candidates",
+      "entityType": "tables"
+    },
+    {
+      "name": "magic_search_card_parts",
+      "entityType": "tables"
+    },
+    {
+      "name": "magic_search_card_part_localizations",
+      "entityType": "tables"
+    },
+    {
+      "name": "magic_search_part_values",
+      "entityType": "tables"
+    },
+    {
+      "name": "magic_search_card_values",
+      "entityType": "tables"
+    },
+    {
+      "name": "magic_search_costs",
+      "entityType": "tables"
+    },
+    {
+      "name": "magic_search_cost_specials",
+      "entityType": "tables"
+    },
+    {
+      "name": "magic_search_meta",
+      "entityType": "tables"
+    },
+    {
+      "name": "magic_search_text_rows",
+      "entityType": "tables"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "card_id",
+      "entityType": "columns",
+      "table": "magic_search_cards"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "version",
+      "entityType": "columns",
+      "table": "magic_search_cards"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "ambit",
+      "entityType": "columns",
+      "table": "magic_search_cards"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "mana_value",
+      "entityType": "columns",
+      "table": "magic_search_cards"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "card_id",
+      "entityType": "columns",
+      "table": "magic_search_candidates"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "version",
+      "entityType": "columns",
+      "table": "magic_search_candidates"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "request_locale",
+      "entityType": "columns",
+      "table": "magic_search_candidates"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "set_code",
+      "entityType": "columns",
+      "table": "magic_search_candidates"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "number",
+      "entityType": "columns",
+      "table": "magic_search_candidates"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "print_lang",
+      "entityType": "columns",
+      "table": "magic_search_candidates"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "print_source",
+      "entityType": "columns",
+      "table": "magic_search_candidates"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "release_date",
+      "entityType": "columns",
+      "table": "magic_search_candidates"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "layout",
+      "entityType": "columns",
+      "table": "magic_search_candidates"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "image_type",
+      "entityType": "columns",
+      "table": "magic_search_candidates"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "image_status",
+      "entityType": "columns",
+      "table": "magic_search_candidates"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "card_id",
+      "entityType": "columns",
+      "table": "magic_search_card_parts"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "version",
+      "entityType": "columns",
+      "table": "magic_search_card_parts"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "part_index",
+      "entityType": "columns",
+      "table": "magic_search_card_parts"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "name",
+      "entityType": "columns",
+      "table": "magic_search_card_parts"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "typeline",
+      "entityType": "columns",
+      "table": "magic_search_card_parts"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "cost",
+      "entityType": "columns",
+      "table": "magic_search_card_parts"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "power",
+      "entityType": "columns",
+      "table": "magic_search_card_parts"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "toughness",
+      "entityType": "columns",
+      "table": "magic_search_card_parts"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "loyalty",
+      "entityType": "columns",
+      "table": "magic_search_card_parts"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "defense",
+      "entityType": "columns",
+      "table": "magic_search_card_parts"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "hand_modifier",
+      "entityType": "columns",
+      "table": "magic_search_card_parts"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "life_modifier",
+      "entityType": "columns",
+      "table": "magic_search_card_parts"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "card_id",
+      "entityType": "columns",
+      "table": "magic_search_card_part_localizations"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "version",
+      "entityType": "columns",
+      "table": "magic_search_card_part_localizations"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "locale",
+      "entityType": "columns",
+      "table": "magic_search_card_part_localizations"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "source",
+      "entityType": "columns",
+      "table": "magic_search_card_part_localizations"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "part_index",
+      "entityType": "columns",
+      "table": "magic_search_card_part_localizations"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "name",
+      "entityType": "columns",
+      "table": "magic_search_card_part_localizations"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "ruby_name",
+      "entityType": "columns",
+      "table": "magic_search_card_part_localizations"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "typeline",
+      "entityType": "columns",
+      "table": "magic_search_card_part_localizations"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "card_id",
+      "entityType": "columns",
+      "table": "magic_search_part_values"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "version",
+      "entityType": "columns",
+      "table": "magic_search_part_values"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "part_index",
+      "entityType": "columns",
+      "table": "magic_search_part_values"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "field",
+      "entityType": "columns",
+      "table": "magic_search_part_values"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "value",
+      "entityType": "columns",
+      "table": "magic_search_part_values"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "card_id",
+      "entityType": "columns",
+      "table": "magic_search_card_values"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "version",
+      "entityType": "columns",
+      "table": "magic_search_card_values"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "field",
+      "entityType": "columns",
+      "table": "magic_search_card_values"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "value",
+      "entityType": "columns",
+      "table": "magic_search_card_values"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "cost",
+      "entityType": "columns",
+      "table": "magic_search_costs"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "generic",
+      "entityType": "columns",
+      "table": "magic_search_costs"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "w",
+      "entityType": "columns",
+      "table": "magic_search_costs"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "u",
+      "entityType": "columns",
+      "table": "magic_search_costs"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "b",
+      "entityType": "columns",
+      "table": "magic_search_costs"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "r",
+      "entityType": "columns",
+      "table": "magic_search_costs"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "g",
+      "entityType": "columns",
+      "table": "magic_search_costs"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "c",
+      "entityType": "columns",
+      "table": "magic_search_costs"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "x",
+      "entityType": "columns",
+      "table": "magic_search_costs"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "cost",
+      "entityType": "columns",
+      "table": "magic_search_cost_specials"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "symbol",
+      "entityType": "columns",
+      "table": "magic_search_cost_specials"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "count",
+      "entityType": "columns",
+      "table": "magic_search_cost_specials"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "key",
+      "entityType": "columns",
+      "table": "magic_search_meta"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "value",
+      "entityType": "columns",
+      "table": "magic_search_meta"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "text_id",
+      "entityType": "columns",
+      "table": "magic_search_text_rows"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "kind",
+      "entityType": "columns",
+      "table": "magic_search_text_rows"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "card_id",
+      "entityType": "columns",
+      "table": "magic_search_text_rows"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "version",
+      "entityType": "columns",
+      "table": "magic_search_text_rows"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "part_index",
+      "entityType": "columns",
+      "table": "magic_search_text_rows"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "locale",
+      "entityType": "columns",
+      "table": "magic_search_text_rows"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "source",
+      "entityType": "columns",
+      "table": "magic_search_text_rows"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "body",
+      "entityType": "columns",
+      "table": "magic_search_text_rows"
+    },
+    {
+      "columns": [
+        "card_id",
+        "version"
+      ],
+      "tableTo": "magic_search_cards",
+      "columnsTo": [
+        "card_id",
+        "version"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_magic_search_candidates_card_id_version_magic_search_cards_card_id_version_fk",
+      "entityType": "fks",
+      "table": "magic_search_candidates"
+    },
+    {
+      "columns": [
+        "card_id",
+        "version"
+      ],
+      "tableTo": "magic_search_cards",
+      "columnsTo": [
+        "card_id",
+        "version"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_magic_search_card_parts_card_id_version_magic_search_cards_card_id_version_fk",
+      "entityType": "fks",
+      "table": "magic_search_card_parts"
+    },
+    {
+      "columns": [
+        "card_id",
+        "version",
+        "part_index"
+      ],
+      "tableTo": "magic_search_card_parts",
+      "columnsTo": [
+        "card_id",
+        "version",
+        "part_index"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_magic_search_card_part_localizations_card_id_version_part_index_magic_search_card_parts_card_id_version_part_index_fk",
+      "entityType": "fks",
+      "table": "magic_search_card_part_localizations"
+    },
+    {
+      "columns": [
+        "card_id",
+        "version",
+        "part_index"
+      ],
+      "tableTo": "magic_search_card_parts",
+      "columnsTo": [
+        "card_id",
+        "version",
+        "part_index"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_magic_search_part_values_card_id_version_part_index_magic_search_card_parts_card_id_version_part_index_fk",
+      "entityType": "fks",
+      "table": "magic_search_part_values"
+    },
+    {
+      "columns": [
+        "card_id",
+        "version"
+      ],
+      "tableTo": "magic_search_cards",
+      "columnsTo": [
+        "card_id",
+        "version"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_magic_search_card_values_card_id_version_magic_search_cards_card_id_version_fk",
+      "entityType": "fks",
+      "table": "magic_search_card_values"
+    },
+    {
+      "columns": [
+        "cost"
+      ],
+      "tableTo": "magic_search_costs",
+      "columnsTo": [
+        "cost"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_magic_search_cost_specials_cost_magic_search_costs_cost_fk",
+      "entityType": "fks",
+      "table": "magic_search_cost_specials"
+    },
+    {
+      "columns": [
+        "card_id",
+        "version",
+        "part_index"
+      ],
+      "tableTo": "magic_search_card_parts",
+      "columnsTo": [
+        "card_id",
+        "version",
+        "part_index"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_magic_search_text_rows_card_id_version_part_index_magic_search_card_parts_card_id_version_part_index_fk",
+      "entityType": "fks",
+      "table": "magic_search_text_rows"
+    },
+    {
+      "columns": [
+        "card_id",
+        "version"
+      ],
+      "nameExplicit": false,
+      "name": "magic_search_cards_pk",
+      "entityType": "pks",
+      "table": "magic_search_cards"
+    },
+    {
+      "columns": [
+        "card_id",
+        "version",
+        "request_locale"
+      ],
+      "nameExplicit": false,
+      "name": "magic_search_candidates_pk",
+      "entityType": "pks",
+      "table": "magic_search_candidates"
+    },
+    {
+      "columns": [
+        "card_id",
+        "version",
+        "part_index"
+      ],
+      "nameExplicit": false,
+      "name": "magic_search_card_parts_pk",
+      "entityType": "pks",
+      "table": "magic_search_card_parts"
+    },
+    {
+      "columns": [
+        "card_id",
+        "version",
+        "locale",
+        "source",
+        "part_index"
+      ],
+      "nameExplicit": false,
+      "name": "magic_search_card_part_localizations_pk",
+      "entityType": "pks",
+      "table": "magic_search_card_part_localizations"
+    },
+    {
+      "columns": [
+        "card_id",
+        "version",
+        "part_index",
+        "field",
+        "value"
+      ],
+      "nameExplicit": false,
+      "name": "magic_search_part_values_pk",
+      "entityType": "pks",
+      "table": "magic_search_part_values"
+    },
+    {
+      "columns": [
+        "card_id",
+        "version",
+        "field",
+        "value"
+      ],
+      "nameExplicit": false,
+      "name": "magic_search_card_values_pk",
+      "entityType": "pks",
+      "table": "magic_search_card_values"
+    },
+    {
+      "columns": [
+        "cost"
+      ],
+      "nameExplicit": false,
+      "name": "magic_search_costs_pk",
+      "entityType": "pks",
+      "table": "magic_search_costs"
+    },
+    {
+      "columns": [
+        "cost",
+        "symbol"
+      ],
+      "nameExplicit": false,
+      "name": "magic_search_cost_specials_pk",
+      "entityType": "pks",
+      "table": "magic_search_cost_specials"
+    },
+    {
+      "columns": [
+        "key"
+      ],
+      "nameExplicit": false,
+      "name": "magic_search_meta_pk",
+      "entityType": "pks",
+      "table": "magic_search_meta"
+    },
+    {
+      "columns": [
+        "text_id"
+      ],
+      "nameExplicit": false,
+      "name": "magic_search_text_rows_pk",
+      "table": "magic_search_text_rows",
+      "entityType": "pks"
+    },
+    {
+      "value": "\"kind\" IN ('part', 'localization')",
+      "name": "magic_search_text_rows_kind_check",
+      "entityType": "checks",
+      "table": "magic_search_text_rows"
+    },
+    {
+      "value": "(\"kind\" = 'part' AND \"locale\" IS NULL AND \"source\" IS NULL)\n      OR (\"kind\" = 'localization' AND \"locale\" IS NOT NULL AND \"source\" IS NOT NULL)",
+      "name": "magic_search_text_rows_identity_check",
+      "entityType": "checks",
+      "table": "magic_search_text_rows"
+    }
+  ],
+  "renames": []
+}

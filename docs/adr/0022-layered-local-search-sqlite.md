@@ -1,0 +1,3 @@
+# 0022: Layer local SQLite search packages and attach them at runtime
+
+Local Magic and Hearthstone search exports use one shared base SQLite database plus locale-specific SQLite delta databases. The desktop Node runtime keeps the files separate and reads the selected delta with `node:sqlite` `ATTACH`, after validating matching data-version metadata, instead of merging the delta into a second active database. This reuses shared card and part data across locales and avoids a duplicate working copy at install time; the consequence is that local query code must route table and FTS reads across attached databases. The choice was made after comparing ATTACH with merge and confirming attached FTS5 queries under the repository's Node runtime.

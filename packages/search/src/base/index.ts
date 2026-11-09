@@ -2,7 +2,7 @@ import type { PatternContext, ResultPattern } from './pattern';
 
 import { castArray } from 'lodash-es';
 
-export type Operator = ':' | '' | '<' | '<=' | '=' | '>' | '>=';
+export type Operator = ':' | '~:' | '' | '<' | '<=' | '=' | '>' | '>=';
 export type Qualifier = '!';
 
 export const defaultOperator = [':', '='] as const;
@@ -27,7 +27,7 @@ export type Argument<
   Q extends Qualifier,
   AR extends boolean,
   P,
-  X,
+  X
 > = OmitNever<{
   modifier?: M;
   parameter: Select<AR, (RegExp | string), string>;
@@ -52,7 +52,7 @@ export type Command<
   Q extends Qualifier,
   AR extends boolean,
   P,
-  X,
+  X
 > = {
   id:         string;
   alt?:       string[];
@@ -85,7 +85,7 @@ export type CommandOption<
   Q extends Qualifier,
   AR extends boolean,
   P,
-  X,
+  X
 > = {
   id:          string;
   alt?:        string[] | string;
@@ -103,7 +103,7 @@ export function defineCommand<
   Q extends Qualifier,
   AR extends boolean,
   P,
-  X,
+  X
 >(
   options: CommandOption<M, O, Q, AR, P, X>,
 ): Command<M, O, Q, boolean extends AR ? false : AR, ResultPattern<P>, X extends unknown ? never : X> {

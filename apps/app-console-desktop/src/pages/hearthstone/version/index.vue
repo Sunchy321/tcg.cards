@@ -1,96 +1,3 @@
-<script setup lang="ts">
-import { useToast } from '@nuxt/ui/composables';
-import { useDesktopRuntimeClient } from '~/composables/useDesktopRuntimeClient';
-import { getConsoleErrorMessage } from '@tcg-cards/console-core';
-
-definePageMeta({
-  layout: 'admin',
-  title: '版本管理',
-});
-
-interface PatchRow {
-  buildNumber: number;
-  name: string;
-  shortName: string;
-  hash: string;
-  releaseDate: string | null;
-}
-
-const toast = useToast();
-const client = useDesktopRuntimeClient();
-
-const loading = ref(false);
-const syncing = ref(false);
-const items = ref<PatchRow[]>([]);
-const selectedPatch = ref<PatchRow | null>(null);
-const filters = reactive({ q: '' });
-const page = ref(1);
-const pageSize = 50;
-
-const total = computed(() => items.value.length);
-const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)));
-
-const pagedItems = computed(() => {
-  let filtered = items.value;
-  if (filters.q) {
-    const q = filters.q.toLowerCase();
-    filtered = filtered.filter(p =>
-      String(p.buildNumber).includes(q) ||
-      p.name.toLowerCase().includes(q) ||
-      p.shortName.toLowerCase().includes(q),
-    );
-  }
-  const start = (page.value - 1) * pageSize;
-  return filtered.slice(start, start + pageSize);
-});
-
-function selectPatch(buildNumber: number) {
-  selectedPatch.value = items.value.find(p => p.buildNumber === buildNumber) ?? null;
-}
-
-function resetFilters() {
-  filters.q = '';
-  page.value = 1;
-}
-
-async function loadPatches() {
-  loading.value = true;
-  try {
-    const data = await (client.hearthstone as any).announcement.patches() as PatchRow[];
-    items.value = (data ?? []).sort((a, b) => b.buildNumber - a.buildNumber);
-    if (selectedPatch.value && !items.value.find(p => p.buildNumber === selectedPatch.value!.buildNumber)) {
-      selectedPatch.value = null;
-    }
-  } catch (error) {
-    toast.add({ title: '加载失败', description: getConsoleErrorMessage(error), color: 'error' });
-  } finally {
-    loading.value = false;
-  }
-}
-
-async function syncPatches() {
-  syncing.value = true;
-  try {
-    const result = await client.hsdata.syncPatches() as { count: number };
-    toast.add({ title: '同步完成', description: `已同步 ${result.count} 个 patch`, color: 'success' });
-    await loadPatches();
-  } catch (error) {
-    toast.add({ title: '同步失败', description: getConsoleErrorMessage(error), color: 'error' });
-  } finally {
-    syncing.value = false;
-  }
-}
-
-function formatBuildDate(date: string | null): string {
-  if (!date) return '—';
-  return new Date(date).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
-}
-
-onMounted(() => {
-  loadPatches();
-});
-</script>
-
 <template>
   <div class="desktop-page h-full space-y-4 overflow-y-auto">
     <div class="rounded-xl border border-slate-200 bg-white p-4">
@@ -100,7 +7,7 @@ onMounted(() => {
             <UIcon name="i-lucide-git-branch" class="size-5 text-primary" />
             <h1 class="text-xl font-semibold">版本管理</h1>
           </div>
-          <p class="mt-1 text-sm text-muted">管理 Hearthstone 补丁版本信息，同步远端 patches 元数据。</p>
+          <p class="mt-1 text-sm text-muted">查看 Hearthstone 补丁版本信息，并从本地数据源同步版本。</p>
         </div>
         <div class="ml-auto hidden items-center gap-6 sm:flex">
           <div class="text-right">
@@ -117,22 +24,9 @@ onMounted(() => {
           </div>
         </div>
         <div class="flex gap-2">
-          <UButton
-            label="同步 Patches"
-            icon="i-lucide-cloud-sync"
-            color="primary"
-            variant="soft"
-            :loading="syncing"
-            @click="syncPatches"
-          />
-          <UButton
-            label="刷新"
-            icon="i-lucide-refresh-cw"
-            color="neutral"
-            variant="ghost"
-            :loading="loading"
-            @click="loadPatches"
-          />
+          <UButton label="更新 hsdata" icon="i-lucide-cloud-download" color="primary" variant="soft" :loading="updatingHsdata" :disabled="syncing" @click="updateHsdata" />
+          <UButton :label="syncPatchesLabel" icon="i-lucide-cloud-sync" :color="syncPatchesColor" variant="soft" :loading="syncing" :disabled="updatingHsdata" @click="syncPatches" />
+          <UButton label="刷新" icon="i-lucide-refresh-cw" color="neutral" variant="ghost" :loading="loading" :disabled="syncing || updatingHsdata" @click="loadPatches" />
         </div>
       </div>
     </div>
@@ -142,12 +36,7 @@ onMounted(() => {
         <div class="rounded-xl border border-slate-200 bg-white p-4">
           <div class="mb-3 font-medium text-slate-700">筛选</div>
           <div class="space-y-3">
-            <UInput
-              v-model="filters.q"
-              icon="i-lucide-search"
-              placeholder="搜索 buildNumber / name / shortName"
-              class="w-full"
-            />
+            <UInput v-model="filters.q" icon="i-lucide-search" placeholder="搜索 buildNumber / name / shortName" class="w-full" />
             <div class="flex justify-end gap-2">
               <UButton label="清空" color="neutral" variant="ghost" @click="resetFilters" />
             </div>
@@ -157,8 +46,8 @@ onMounted(() => {
         <div class="rounded-xl border border-slate-200 bg-white">
           <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
             <div>
-              <div class="font-medium text-slate-700">Patch 列表</div>
-              <p class="text-xs text-slate-400">共 {{ total }} 条，第 {{ page }} / {{ totalPages }} 页</p>
+              <div class="font-medium text-slate-700">补丁列表</div>
+              <p class="text-xs text-slate-400">共 {{ filteredItems.length }} 条，第 {{ page }} / {{ totalPages }} 页</p>
             </div>
             <div class="flex items-center gap-2">
               <UButton icon="i-lucide-chevron-left" color="neutral" variant="ghost" size="xs" :disabled="page <= 1" @click="page -= 1" />
@@ -170,7 +59,7 @@ onMounted(() => {
           <div v-if="loading && items.length === 0" class="flex justify-center py-10">
             <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-slate-400" />
           </div>
-          <div v-else-if="pagedItems.length === 0" class="py-10 text-center text-sm text-slate-400">没有匹配的 Patch</div>
+          <div v-else-if="pagedItems.length === 0" class="py-10 text-center text-sm text-slate-400">没有匹配的补丁</div>
           <div v-else class="max-h-144 space-y-2 overflow-y-auto p-2">
             <button
               v-for="patch in pagedItems"
@@ -200,29 +89,176 @@ onMounted(() => {
       <div v-if="selectedPatch" class="rounded-xl border border-slate-200 bg-white p-6">
         <div class="mb-4 flex items-center gap-2">
           <UIcon name="i-lucide-git-branch" class="size-5 text-primary" />
-          <h2 class="text-lg font-semibold">Patch 详情</h2>
+          <h2 class="text-lg font-semibold">补丁详情</h2>
         </div>
         <div class="space-y-4">
-          <UFormField label="Build Number">
-            <p class="font-mono text-lg">{{ selectedPatch.buildNumber }}</p>
-          </UFormField>
-          <UFormField label="名称">
-            <p class="font-mono text-sm">{{ selectedPatch.name }}</p>
-          </UFormField>
-          <UFormField label="短名">
-            <p class="font-mono text-sm">{{ selectedPatch.shortName }}</p>
-          </UFormField>
-          <UFormField label="发布日期">
-            <p class="text-sm">{{ formatBuildDate(selectedPatch.releaseDate) }}</p>
-          </UFormField>
-          <UFormField label="Hash">
-            <p class="break-all font-mono text-xs text-slate-500">{{ selectedPatch.hash }}</p>
-          </UFormField>
+          <UFormField label="Build Number"><p class="font-mono text-lg">{{ selectedPatch.buildNumber }}</p></UFormField>
+          <UFormField label="名称"><p class="font-mono text-sm">{{ selectedPatch.name }}</p></UFormField>
+          <UFormField label="短名"><p class="font-mono text-sm">{{ selectedPatch.shortName }}</p></UFormField>
+          <UFormField label="发布日期"><p class="text-sm">{{ formatBuildDate(selectedPatch.releaseDate) }}</p></UFormField>
+          <UFormField label="Hash"><p class="break-all font-mono text-xs text-slate-500">{{ selectedPatch.hash }}</p></UFormField>
         </div>
       </div>
       <div v-else class="flex items-center justify-center rounded-xl border border-slate-200 bg-white p-6">
-        <p class="text-sm text-slate-400">选择左侧 Patch 查看详情</p>
+        <p class="text-sm text-slate-400">选择左侧补丁查看详情</p>
       </div>
     </div>
   </div>
 </template>
+
+<script setup lang="ts">
+import { useToast } from '@nuxt/ui/composables';
+import { getHsdataErrorMessage, syncHsdataRemoteVersions, syncPatches as syncPatchMetadata } from '~/composables/useHsdataRepo';
+import { orpc } from '~/lib/orpc';
+
+definePageMeta({ layout: 'admin', title: '版本管理' });
+
+interface PatchRow {
+  buildNumber: number;
+  name:        string;
+  shortName:   string;
+  hash:        string;
+  releaseDate: string | null;
+}
+
+const toast = useToast();
+const loading = ref(false);
+const syncing = ref(false);
+const updatingHsdata = ref(false);
+/** Keeps the displayed mode aligned with the mode captured when synchronization starts. */
+const activeSyncMode = ref<'missing' | 'all' | null>(null);
+/** Whether the Option/Alt key is held to request a complete metadata update. */
+const altHeld = ref(false);
+const items = ref<PatchRow[]>([]);
+const selectedPatch = ref<PatchRow | null>(null);
+const filters = reactive({ q: '' });
+const page = ref(1);
+const pageSize = 50;
+
+const total = computed(() => items.value.length);
+const filteredItems = computed(() => {
+  const query = filters.q.trim().toLowerCase();
+  if (!query) return items.value;
+  return items.value.filter(patch => String(patch.buildNumber).includes(query)
+    || patch.name.toLowerCase().includes(query)
+    || patch.shortName.toLowerCase().includes(query));
+});
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredItems.value.length / pageSize)));
+const pagedItems = computed(() => filteredItems.value.slice((page.value - 1) * pageSize, page.value * pageSize));
+const syncMode = computed(() => activeSyncMode.value ?? (altHeld.value ? 'all' : 'missing'));
+const syncPatchesLabel = computed(() => syncMode.value === 'all' ? '更新所有补丁' : '补充缺失补丁');
+const syncPatchesColor = computed(() => syncMode.value === 'all' ? 'error' : 'primary');
+
+/** Selects one patch row for the details panel. */
+function selectPatch(buildNumber: number) {
+  selectedPatch.value = items.value.find(patch => patch.buildNumber === buildNumber) ?? null;
+}
+
+/** Clears the search and returns to the first page. */
+function resetFilters() {
+  filters.q = '';
+  page.value = 1;
+}
+
+/** Loads local patch metadata and keeps the selected row in sync. */
+async function loadPatches() {
+  loading.value = true;
+  try {
+    const data = await orpc.hearthstone.announcement.patches();
+    items.value = (data as PatchRow[]).toSorted((a, b) => b.buildNumber - a.buildNumber);
+    if (selectedPatch.value) {
+      selectedPatch.value = items.value.find(patch => patch.buildNumber === selectedPatch.value?.buildNumber) ?? null;
+    }
+  } catch (error) {
+    toast.add({ title: '加载失败', description: getHsdataErrorMessage(error), color: 'error' });
+  } finally {
+    loading.value = false;
+  }
+}
+
+/** Synchronizes missing patch metadata by default and all metadata while Option/Alt is held. */
+async function syncPatches() {
+  const mode = altHeld.value ? 'all' : 'missing';
+  activeSyncMode.value = mode;
+  syncing.value = true;
+  try {
+    const result = await syncPatchMetadata(mode);
+    const description = mode === 'missing'
+      ? `已补充 ${result.count} 个缺失补丁`
+      : `已更新 ${result.count} 个补丁`;
+    toast.add({ title: '同步完成', description, color: 'success' });
+    await loadPatches();
+  } catch (error) {
+    toast.add({ title: '同步失败', description: getHsdataErrorMessage(error), color: 'error' });
+  } finally {
+    syncing.value = false;
+    activeSyncMode.value = null;
+  }
+}
+
+/** Fetches hsdata tags, syncs their patch metadata, and reloads the visible list. */
+async function updateHsdata() {
+  if (syncing.value || updatingHsdata.value) {
+    return;
+  }
+
+  updatingHsdata.value = true;
+  try {
+    try {
+      await syncHsdataRemoteVersions();
+    } catch (error) {
+      toast.add({ title: '更新 hsdata 失败', description: getHsdataErrorMessage(error), color: 'error' });
+      return;
+    }
+
+    try {
+      await syncPatchMetadata('missing');
+    } catch (error) {
+      toast.add({ title: 'hsdata 已更新，补丁信息同步失败', description: getHsdataErrorMessage(error), color: 'error' });
+      await loadPatches();
+      return;
+    }
+
+    toast.add({ title: 'hsdata 更新完成', description: '本地补丁版本信息已同步', color: 'success' });
+    await loadPatches();
+  } finally {
+    updatingHsdata.value = false;
+  }
+}
+
+/** Tracks the Option/Alt modifier while it is held. */
+function onAltKey(event: KeyboardEvent) {
+  if (event.key === 'Alt') {
+    altHeld.value = event.type === 'keydown';
+  }
+}
+
+/** Clears the held modifier state when the window loses focus. */
+function onWindowBlur() {
+  altHeld.value = false;
+}
+
+/** Formats a patch release date for display. */
+function formatBuildDate(date: string | null): string {
+  if (!date) return '—';
+  return new Date(date).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
+}
+
+watch(() => filters.q, () => {
+  page.value = 1;
+});
+watch(totalPages, value => {
+  if (page.value > value) page.value = value;
+});
+onMounted(loadPatches);
+onMounted(() => {
+  window.addEventListener('keydown', onAltKey);
+  window.addEventListener('keyup', onAltKey);
+  window.addEventListener('blur', onWindowBlur);
+});
+onUnmounted(() => {
+  window.removeEventListener('keydown', onAltKey);
+  window.removeEventListener('keyup', onAltKey);
+  window.removeEventListener('blur', onWindowBlur);
+});
+</script>

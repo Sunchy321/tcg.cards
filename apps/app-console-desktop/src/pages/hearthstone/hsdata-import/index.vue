@@ -66,7 +66,7 @@
                   <div class="font-medium">数据导入</div>
                   <p class="mt-1 text-xs text-muted">选择一个可用版本后执行导入。</p>
                 </div>
-                <UBadge :label="importForm.dryRun ? 'Dry run' : 'Write mode'" :color="importForm.dryRun ? 'neutral' : 'warning'" variant="soft" />
+                <UBadge :label="importForm.dryRun ? '仅预览' : '写入模式'" :color="importForm.dryRun ? 'neutral' : 'warning'" variant="soft" />
               </div>
 
               <div v-if="selectedItem" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -75,7 +75,7 @@
                   <div class="mt-1 truncate text-sm">{{ selectedItem.fileName }}</div>
                 </div>
                 <div class="rounded-lg border border-default p-3">
-                  <div class="text-xs text-muted">sourceTag</div>
+                  <div class="text-xs text-muted">构建号</div>
                   <div class="mt-1 font-mono text-sm font-semibold">{{ selectedItem.buildNumber }}</div>
                 </div>
                 <div class="rounded-lg border border-default p-3">
@@ -93,8 +93,8 @@
               </div>
 
               <div class="flex flex-wrap gap-4">
-                <UCheckbox v-model="importForm.dryRun" label="Dry Run" :disabled="disabled" />
-                <UCheckbox v-model="importForm.force" label="Force" :disabled="disabled" />
+                <UCheckbox v-model="importForm.dryRun" label="仅预览，不写入" :disabled="disabled" />
+                <UCheckbox v-model="importForm.force" label="强制导入" :disabled="disabled" />
               </div>
             </div>
           </template>
@@ -104,29 +104,29 @@
           <template #header>
             <div class="flex items-center gap-2">
               <span class="font-medium">导入报告</span>
-              <UBadge v-if="taskResult?.reports?.[0]?.dryRun" label="Dry Run" color="neutral" variant="soft" />
-              <UBadge v-else label="Success" color="success" variant="soft" />
+              <UBadge v-if="taskResult?.reports?.[0]?.dryRun" label="仅预览" color="neutral" variant="soft" />
+              <UBadge v-else label="成功" color="success" variant="soft" />
             </div>
           </template>
           <div class="grid gap-3 sm:grid-cols-5">
             <div class="rounded-lg border border-default p-3">
-              <div class="text-xs text-muted">实体总数</div>
+              <div class="text-xs text-muted">卡牌数据总数</div>
               <div class="mt-1 font-mono text-sm">{{ taskResult?.reports?.[0]?.entityCount ?? '—' }}</div>
             </div>
             <div class="rounded-lg border border-default p-3">
-              <div class="text-xs text-muted">新增快照</div>
+              <div class="text-xs text-muted">新增来源记录</div>
               <div class="mt-1 font-mono text-sm">+{{ taskResult?.reports?.[0]?.insertedSnapshots ?? 0 }}</div>
             </div>
             <div class="rounded-lg border border-default p-3">
-              <div class="text-xs text-muted">复用快照</div>
+              <div class="text-xs text-muted">复用来源记录</div>
               <div class="mt-1 font-mono text-sm">~{{ taskResult?.reports?.[0]?.reusedSnapshots ?? 0 }}</div>
             </div>
             <div class="rounded-lg border border-default p-3">
-              <div class="text-xs text-muted">新增标签行</div>
+              <div class="text-xs text-muted">新增标签记录</div>
               <div class="mt-1 font-mono text-sm">+{{ taskResult?.reports?.[0]?.insertedTagRows ?? 0 }}</div>
             </div>
             <div class="rounded-lg border border-default p-3">
-              <div class="text-xs text-muted">发现标签数</div>
+              <div class="text-xs text-muted">发现的标签数</div>
               <div class="mt-1 font-mono text-sm">{{ taskResult?.reports?.[0]?.discoveredTagCount ?? '—' }}</div>
             </div>
           </div>
@@ -168,7 +168,7 @@
 import { useToast } from '@nuxt/ui/composables';
 import type { TaskPageSnapshot } from '@tcg-cards/model/task';
 import type { TaskOperation } from '~/components/task/TaskController.vue';
-import { orpc } from '~/lib/orpc';
+import { orpc, startDesktopTask } from '~/lib/orpc';
 import {
   formatHsdataBytes,
   formatHsdataDate,
@@ -212,41 +212,57 @@ const syncingPatches = ref(false);
 const syncPatchesProgress = ref<{ current: number, total: number } | null>(null);
 const syncingPatchesLabel = computed(() => {
   const p = syncPatchesProgress.value;
-  return p != null ? `同步 Patches (${p.current}/${p.total})` : '同步 Patches';
+  return p != null ? `同步补丁信息（${p.current}/${p.total}）` : '同步补丁信息';
 });
 
 const items = ref<ImportItem[]>([]);
 const selectedKey = ref<number | null>(null);
 const selectedItem = computed(() => items.value.find(i => i.buildNumber === selectedKey.value) ?? null);
-const hideImported = ref(loadState().hideImported);
-const importForm = reactive({ dryRun: true, force: false });
+const pageState = loadState();
+const hideImported = ref(pageState.hideImported);
+const importForm = reactive({ dryRun: pageState.dryRun, force: false });
 
 interface ImportReport {
-  dryRun:            boolean;
-  entityCount:       number;
-  insertedSnapshots: number;
-  reusedSnapshots:   number;
-  insertedTagRows:   number;
+  dryRun:             boolean;
+  entityCount:        number;
+  insertedSnapshots:  number;
+  reusedSnapshots:    number;
+  insertedTagRows:    number;
   discoveredTagCount: number;
 }
 interface ImportTaskResult { reports: ImportReport[] }
 const taskResult = ref<ImportTaskResult | null>(null);
 
 // ── Persistence ──
-function loadState() {
+/** Restored page state, defaulting to dry run so a missing value never writes to the database. */
+interface ImportPageState {
+  hideImported: boolean;
+  dryRun:       boolean;
+}
+/** Reads the persisted page state and falls back to the page defaults. */
+function loadState(): ImportPageState {
   try {
     const r = localStorage.getItem(STATE_KEY);
-    if (r)
-      return JSON.parse(r) as { hideImported: boolean };
+    if (r) {
+      const parsed = JSON.parse(r) as Partial<ImportPageState>;
+      return {
+        hideImported: typeof parsed.hideImported === 'boolean' ? parsed.hideImported : false,
+        dryRun:       typeof parsed.dryRun === 'boolean' ? parsed.dryRun : true,
+      };
+    }
   } catch { /* */ }
 
-  return { hideImported: false };
+  return { hideImported: false, dryRun: true };
 }
+/** Writes the current page state so the next visit reuses it. */
 function saveState() {
-  localStorage.setItem(STATE_KEY, JSON.stringify({ hideImported: hideImported.value }));
+  localStorage.setItem(STATE_KEY, JSON.stringify({
+    hideImported: hideImported.value,
+    dryRun:       importForm.dryRun,
+  }));
 }
 
-watch(hideImported, saveState);
+watch([hideImported, () => importForm.dryRun], saveState);
 
 // ── Status helpers ──
 function statusBadge(s: string) {
@@ -315,9 +331,9 @@ async function syncPatches() {
   try {
     const result = await syncPatchesApi();
     syncPatchesProgress.value = { current: result.count, total: result.count };
-    toast.add({ title: 'Patches 同步完成', description: `已同步 ${result.count} 个 patch`, color: 'success' });
+    toast.add({ title: '补丁信息同步完成', description: `已同步 ${result.count} 个版本信息`, color: 'success' });
   } catch (error) {
-    toast.add({ title: 'Patches 同步失败', description: getHsdataErrorMessage(error), color: 'error' });
+    toast.add({ title: '补丁信息同步失败', description: getHsdataErrorMessage(error), color: 'error' });
   } finally {
     syncingPatches.value = false;
   }
@@ -345,11 +361,11 @@ const importOperation = computed<TaskOperation>(() => ({
   label:    '执行导入',
   icon:     'i-lucide-play',
   disabled: !selectedItem.value || !selectedItem.value.fileId,
-  create:   async () => orpc.hearthstone.createTask.hsdataImport({
+  create:   async () => startDesktopTask('hearthstone_hsdata_import', {
     sourceIds: [selectedItem.value!.fileId],
     dryRun:    importForm.dryRun,
     force:     importForm.force,
-  }) as Promise<TaskPageSnapshot>,
+  }),
 }));
 
 function onCompleted(snap: TaskPageSnapshot) {
@@ -367,12 +383,12 @@ const batchSourceIds = computed(() =>
 async function startBatchImport() {
   const ids = batchSourceIds.value;
   if (ids.length === 0) return;
-  const snapshot = await orpc.hearthstone.createTask.hsdataImport({
+  const snapshot = await startDesktopTask('hearthstone_hsdata_import', {
     sourceIds: ids,
     dryRun:    importForm.dryRun,
     force:     importForm.force,
-  }) as TaskPageSnapshot;
-  controller.value?.attach(snapshot);
+  });
+  if (snapshot) controller.value?.attach(snapshot);
 }
 
 function onFailed() {}

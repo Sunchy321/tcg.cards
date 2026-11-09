@@ -1,84 +1,81 @@
-import { fileURLToPath } from 'url';
+import { createHmac } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+import { GAMES } from '@tcg-cards/base';
+import {
+  getDevNavItems,
+  getGameNavItems,
+  getUserNavItems,
+  type ConsoleNavLink,
+} from '@tcg-cards/console-core';
+import { developmentIdentity, electronOptions } from './electron/options';
+
+/** Collects every icon used by a nested console navigation tree. */
+function collectNavigationIcons(items: readonly ConsoleNavLink[]): string[] {
+  return items.flatMap(item => [
+    item.icon,
+    ...(item.children ? collectNavigationIcons(item.children) : []),
+  ]);
+}
+
+const navigationIcons = [
+  ...GAMES.flatMap(game => collectNavigationIcons(getGameNavItems(game))),
+  ...collectNavigationIcons(getUserNavItems()),
+  ...collectNavigationIcons(getDevNavItems()),
+].map(icon => icon.replace(/^i-lucide-/, 'lucide:'));
 
 export default defineNuxtConfig({
-  extends: ['@tcg-cards/console-shell', '@tcg-cards/ui'],
-
-  ssr:    false,
-  srcDir: 'src',
-
-  modules: ['@nuxt/eslint', '@nuxt/ui', '@nuxt/icon'],
-
-  devServer: {
-    port: 1420,
+  extends:   ['@tcg-cards/console-shell', '@tcg-cards/ui'],
+  ssr:       false,
+  srcDir:    'src',
+  modules:   ['nuxt-electron', '@nuxt/ui', '@nuxt/icon'],
+  electron:  electronOptions,
+  devServer: { port: 1420 },
+  alias:     {
+    '#model':  fileURLToPath(new URL('./node_modules/@tcg-cards/model/src', import.meta.url)),
+    '#search': fileURLToPath(new URL('./node_modules/@tcg-cards/search/src', import.meta.url)),
   },
-
   vite: {
+    define: {
+      __HEARTHSTONE_GAME_TAG_IMPORT__: JSON.stringify(true),
+    },
     optimizeDeps: {
-      include: [
-        // Tauri cold starts are more sensitive to Vite's late dependency discovery.
-        // Pre-bundle the desktop app's first-screen client deps to avoid a dev-time full reload.
-        '@tauri-apps/api/core',
-        '@tauri-apps/api/window',
-        '@tauri-apps/api/webviewWindow',
-        '@orpc/client',
-        '@orpc/client/fetch',
-        'better-auth',
-        'better-auth/client/plugins',
-        'better-auth/vue',
-        'better-auth/adapters/drizzle',
-        'better-auth/plugins',
-        'better-auth/plugins/access',
-        'better-auth/plugins/admin/access',
-        '@iconify/vue',
-        '@iconify/utils/lib/css/icon',
-        'monaco-editor/esm/vs/editor/editor.api',
-      ],
+      // Bundle the icon runtime before Electron loads the first page to avoid late discovery invalidating its module graph.
+      include: ['@iconify/vue'],
     },
   },
-
-  css: ['~/assets/css/main.css'],
-
-  components: [
-    { path: '~/components', pathPrefix: false },
-  ],
-
-  // The ui layer's public dir is not copied into the build output when consumed
-  // through a custom srcDir, so mount it explicitly for /placeholder assets.
-  nitro: {
+  css:    ['~/assets/css/main.css'],
+  router: { options: { hashMode: true } },
+  nitro:  {
+    devHandlers: [{
+      route:   '/__desktop_identity',
+      handler: event => {
+        const challenge = new URL(event.node.req.url ?? '/', 'http://localhost').searchParams.get('challenge') ?? '';
+        event.node.res.setHeader('Cache-Control', 'no-store');
+        event.node.res.end(/^[a-f0-9]{64}$/.test(challenge) ? createHmac('sha256', developmentIdentity).update(challenge).digest('hex') : '');
+      },
+    }],
     publicAssets: [
       { dir: fileURLToPath(new URL('./node_modules/@tcg-cards/ui/public', import.meta.url)), baseURL: '/' },
     ],
   },
-
-  router: {
-    options: {
-      hashMode: true,
-    },
-  },
-
   fonts: {
-    providers: {
-      google:      false,
-      googleicons: false,
-      bunny:       false,
-      fontshare:   false,
-      fontsource:  false,
-    },
+    providers: { google: false, googleicons: false, bunny: false, fontshare: false, fontsource: false },
   },
-
   icon: {
-    provider:          'none',
-    customCollections: [
-      {
-        prefix:    'i',
-        dir:       fileURLToPath(new URL('./node_modules/@tcg-cards/ui/app/assets/icons', import.meta.url)),
-        recursive: true,
-      },
-    ],
+    provider:     'none',
     clientBundle: {
+      // Layout icons are selected dynamically, so template scanning cannot discover them.
+      icons: [
+        'lucide:layout-dashboard', 'lucide:chevron-down', 'lucide:settings',
+        'lucide:log-out', 'lucide:loader-circle', 'lucide:circle-alert',
+        'lucide:folder-tree', 'lucide:sparkles',
+        ...navigationIcons,
+      ],
       scan: {
-        globExclude: ['dist', 'build', 'coverage', 'test', 'tests', '.*'],
-        globInclude: [
+        // The local collection is already bundled in full; scanning its `i:` prefix
+        // would confuse it with Nuxt Icon's optional icon-name prefix.
+        ignoreCollections: ['i'],
+        globInclude:       [
           'src/**/*.{vue,ts}',
           'node_modules/@tcg-cards/console-core/src/**/*.{vue,ts}',
           'node_modules/@tcg-cards/console-shell/app/**/*.{vue,ts}',
@@ -87,10 +84,5 @@ export default defineNuxtConfig({
       },
     },
   },
-
   compatibilityDate: '2026-05-01',
-
-  alias: {
-    '#model': fileURLToPath(new URL('./node_modules/@tcg-cards/model/src', import.meta.url)),
-  },
 });

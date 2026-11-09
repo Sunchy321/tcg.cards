@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { nullableText } from '../../common';
+import { mainLocale } from './basic';
 
 const jsonConfig = z.record(z.string(), z.unknown());
 
@@ -12,6 +13,36 @@ export const tagValueKind = z.enum([
   'loc_string',
   'string',
 ]);
+
+export const tagSemanticValueKind = z.enum([
+  'boolean',
+  'number',
+  'card_dbf_id',
+  'card_id',
+  'subset_id',
+  'set_id',
+  'deck_id',
+  'entity_id',
+  'tag_id',
+  'enum',
+  'bitmask',
+  'text',
+  'localized_text',
+  'multipurpose',
+]);
+
+export const tagLocalization = z.partialRecord(mainLocale, z.strictObject({
+  name:        z.string().trim().min(1).optional(),
+  description: z.string().trim().min(1).optional(),
+}));
+
+/** Resolves copy for consumers of the language-neutral tag profile. */
+export function getDefaultTagCopy(localization: TagLocalization, rawName: string | null) {
+  return {
+    name:        localization.en?.name ?? rawName,
+    description: localization.en?.description ?? null,
+  };
+}
 
 export const tagNormalizeKind = z.enum([
   'identity',
@@ -25,6 +56,7 @@ export const tagNormalizeKind = z.enum([
 ]);
 
 export const tagProjectKind = z.enum([
+  'none',
   'assign_value',
   'append_string_array',
   'assign_card_ref',
@@ -39,6 +71,23 @@ export const tagProjectTargetType = z.enum([
   'entity_localization',
   'entity_relation',
 ]);
+
+/** Derives the target of a configured tag projection. */
+export function getTagProjectTargetType(kind: string | null): TagProjectTargetType | null {
+  if (kind === 'assign_localized_text') {
+    return 'entity_localization';
+  }
+
+  if (kind === 'emit_relation') {
+    return 'entity_relation';
+  }
+
+  if (kind == null || kind === 'none') {
+    return null;
+  }
+
+  return tagProjectKind.safeParse(kind).success ? 'entity' : null;
+}
 
 export const tagStatus = z.enum([
   'discovered',
@@ -63,6 +112,8 @@ export const tagProfile = z.strictObject({
   projectConfig:      jsonConfig,
   status:             z.string(),
   description:        nullableText,
+  valueType:          tagSemanticValueKind.nullable(),
+  localization:       tagLocalization,
   firstSeenSourceTag: z.int().nullable(),
   lastSeenSourceTag:  z.int().nullable(),
   createdAt:          z.string(),
@@ -72,7 +123,7 @@ export const tagProfile = z.strictObject({
 export const tagListInput = z.strictObject({
   q:           z.string().trim().max(200).optional(),
   status:      z.string().trim().max(64).optional(),
-  projectKind: z.string().trim().max(64).optional(),
+  projectKind: z.string().trim().max(64).nullable().optional(),
   page:        z.int().positive().default(1),
   limit:       z.int().positive().max(200).default(50),
 });
@@ -148,24 +199,30 @@ export const tagConflictResolveInput = tagConflictGetInput.extend({
 });
 
 export const tagUpdateInput = tagGetInput.extend({
-  slug:              z.string().trim().min(1).max(160),
-  slugAliases:       z.array(z.string().trim().min(1).max(160)).default([]),
-  name:              nullableText,
-  rawName:           nullableText,
-  rawType:           nullableText,
-  rawNames:          z.array(z.string().trim().min(1).max(200)).default([]),
-  valueKind:         z.string().trim().min(1).max(64),
-  normalizeKind:     z.string().trim().min(1).max(64),
-  normalizeConfig:   jsonConfig.default({}),
-  projectTargetType: nullableText,
-  projectTargetPath: nullableText,
-  projectKind:       nullableText,
-  projectConfig:     jsonConfig.default({}),
-  status:            z.string().trim().min(1).max(64),
-  description:       nullableText,
+  slug:                 z.string().trim().min(1).max(160),
+  slugAliases:          z.array(z.string().trim().min(1).max(160)).default([]),
+  name:                 nullableText.optional(),
+  rawName:              nullableText,
+  rawType:              nullableText,
+  rawNames:             z.array(z.string().trim().min(1).max(200)).default([]),
+  normalizeKind:        z.string().trim().min(1).max(64),
+  normalizeConfig:      jsonConfig.default({}),
+  projectTargetType:    nullableText.optional(),
+  projectTargetPath:    nullableText,
+  projectKind:          nullableText,
+  projectConfig:        jsonConfig.default({}),
+  status:               z.string().trim().min(1).max(64),
+  description:          nullableText.optional(),
+  valueType:            tagSemanticValueKind.nullable().optional(),
+  localization:         tagLocalization.optional(),
+  expectedLocalization: tagLocalization.optional(),
 });
 
 export type TagValueKind = z.infer<typeof tagValueKind>;
+/** Classifies a tag value by its game meaning. */
+export type TagSemanticValueKind = z.infer<typeof tagSemanticValueKind>;
+/** Stores a tag's reader-facing copy by language. */
+export type TagLocalization = z.infer<typeof tagLocalization>;
 export type TagNormalizeKind = z.infer<typeof tagNormalizeKind>;
 export type TagProjectKind = z.infer<typeof tagProjectKind>;
 export type TagProjectTargetType = z.infer<typeof tagProjectTargetType>;

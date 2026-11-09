@@ -2,9 +2,9 @@ import { ORPCError, os } from '@orpc/server';
 
 import z from 'zod';
 import { random as randomInt, omit } from 'lodash-es';
-import { and, asc, desc, eq, getTableColumns, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, getColumns, sql } from 'drizzle-orm';
 
-import { formats as formatList, locale } from '#model/magic/schema/basic';
+import { locale } from '#model/magic/schema/basic';
 import { cardProfile, cardView } from '#model/magic/schema/card';
 import type {
   CardPrintView as ICardPrintView } from '#model/magic/schema/print';
@@ -12,7 +12,6 @@ import {
   cardEditorView,
   cardFullView,
 } from '#model/magic/schema/print';
-import { legality } from '#model/magic/schema/game-change';
 
 // import CardNameExtractor from '../extract-name';
 
@@ -21,7 +20,6 @@ import { Card, CardLocalization, CardPart, CardPartLocalization, CardView } from
 import { CardEditorView, Print, PrintPart, CardPrintView } from '#schema/shared/magic/print';
 import { Ruling } from '#schema/shared/magic/ruling';
 import { CardRelation } from '#schema/shared/magic/card-relation';
-import { Format } from '#schema/shared/magic/format';
 
 // import { generateText, Output } from 'ai';
 // import { createQwen } from 'qwen-ai-provider-v5';
@@ -174,7 +172,7 @@ const fuzzy = os
     }).from(CardPrintView).where(eq(CardPrintView.cardId, cardId)).orderBy(desc(CardPrintView.print.releaseDate));
 
     const rulings = await db.select({
-      ...omit(getTableColumns(Ruling), 'id'),
+      ...omit(getColumns(Ruling), 'id'),
     }).from(Ruling).where(eq(Ruling.cardId, cardId));
 
     const sourceRelation = await db.select({
@@ -219,19 +217,27 @@ const profile = os
     }
 
     const versions = await db.select({
-      lang:          Print.lang,
-      set:           Print.set,
-      number:        Print.number,
-      rarity:        Print.rarity,
-      layout:        Print.layout,
-      fullImageType: Print.fullImageType,
-      releaseDate:   Print.releaseDate,
+      lang:        Print.lang,
+      set:         Print.set,
+      number:      Print.number,
+      rarity:      Print.rarity,
+      layout:      Print.layout,
+      imageInfo:   Print.imageInfo,
+      releaseDate: Print.releaseDate,
     }).from(Print).where(eq(Print.cardId, cardId));
 
     return {
       cardId,
       localization: cardLocalizations,
-      versions,
+      versions:     versions.map(v => ({
+        lang:        v.lang,
+        set:         v.set,
+        number:      v.number,
+        rarity:      v.rarity,
+        layout:      v.layout,
+        imageType:   v.imageInfo?.[0]?.type ?? 'webp',
+        releaseDate: v.releaseDate,
+      })),
     };
   });
 
@@ -468,7 +474,7 @@ const update = os
 //     const { set, number, lang, layout, partIndex } = input;
 
 //     const print = await db.select({
-//       fullImageType: Print.fullImageType,
+//       imageType: Print.imageType,
 //     })
 //       .from(Print)
 //       .where(and(
@@ -482,7 +488,7 @@ const update = os
 //       throw new ORPCError('NOT_FOUND');
 //     }
 
-//     const ext = print.fullImageType;
+//     const ext = print.imageType;
 
 //     const urls = (() => {
 //       if ([

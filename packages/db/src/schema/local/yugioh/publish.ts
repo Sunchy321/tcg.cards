@@ -39,10 +39,10 @@ export const publishBatchRowStatus = dataSchema.enum('publish_batch_row_status',
 export const PublishBatch = dataSchema.table('publish_batches', {
   id: uuid('id').primaryKey().defaultRandom(),
 
-  publishTargetId:   text('publish_target_id').notNull(),
-  environment:       text('environment').notNull(),
-  targetFingerprint: text('target_fingerprint').notNull(),
-  manifestHash:      text('manifest_hash').notNull(),
+  game:              text('game').notNull(),
+  target:            text('target').notNull(),
+  targetFingerprint:    text('target_fingerprint').notNull(),
+  manifestHash:         text('manifest_hash').notNull(),
   previousManifestHash: text('previous_manifest_hash'),
 
   totalRowCount:     integer('total_row_count').notNull().default(0),
@@ -62,7 +62,7 @@ export const PublishBatch = dataSchema.table('publish_batches', {
   startedAt:   timestamp('started_at', { withTimezone: true }),
   completedAt: timestamp('completed_at', { withTimezone: true }),
 }, table => [
-  index('publish_batches_target_status_idx').on(table.publishTargetId, table.status),
+  index('publish_batches_target_status_idx').on(table.game, table.status),
   index('publish_batches_created_at_idx').on(table.createdAt),
   index('publish_batches_manifest_hash_idx').on(table.manifestHash),
   check('publish_batches_total_row_count_nonnegative_chk', sql`${table.totalRowCount} >= 0`),
@@ -99,17 +99,17 @@ export const PublishBatchRow = dataSchema.table('publish_batch_rows', {
 
 /** Last successful local manifest retained for one remote target. */
 export const PublishBaseline = dataSchema.table('publish_baselines', {
-  publishTargetId: text('publish_target_id').primaryKey(),
-  environment:     text('environment').notNull(),
+  game:              text('game').primaryKey(),
+  target:            text('target').notNull(),
   targetFingerprint: text('target_fingerprint').notNull(),
-  batchId: uuid('batch_id')
+  batchId:           uuid('batch_id')
     .notNull()
     .references(() => PublishBatch.id),
   manifestHash:  text('manifest_hash').notNull(),
   totalRowCount: integer('total_row_count').notNull(),
-  publishedAt: timestamp('published_at', { withTimezone: true }).notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true })
+  publishedAt:   timestamp('published_at', { withTimezone: true }).notNull(),
+  createdAt:     timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt:     timestamp('updated_at', { withTimezone: true })
     .defaultNow()
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),

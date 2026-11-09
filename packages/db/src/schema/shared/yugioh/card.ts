@@ -3,6 +3,7 @@ import {
   check,
   index,
   integer,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -10,7 +11,19 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
+import { ambit } from '../ambit';
 import { schema } from './schema';
+
+/** Locales with normalized card names supplied by the current import source. */
+export const locale = schema.enum('locale', ['zhs', 'ja', 'en']);
+
+/** Named Chinese card-name variants supplied by the current import source. */
+export const cardNameVariantKind = schema.enum('card_name_variant_kind', [
+  'official',
+  'master_duel',
+  'nwbbs',
+  'cnocg',
+]);
 
 /** Exportable Yu-Gi-Oh! card facts produced by the desktop import workflow. */
 export const Card = schema.table('cards', {
@@ -21,21 +34,7 @@ export const Card = schema.table('cards', {
   cid:      bigint('cid', { mode: 'number' }),
   password: varchar('password', { length: 8 }),
 
-  cnName:      text('cn_name'),
-  scName:      text('sc_name'),
-  mdName:      text('md_name'),
-  nwbbsName:   text('nwbbs_name'),
-  cnocgName:   text('cnocg_name'),
-  jpRuby:      text('jp_ruby'),
-  jpName:      text('jp_name'),
-  enName:      text('en_name'),
-  mdEnName:    text('md_en_name'),
-  wikiEnName:  text('wiki_en_name'),
-  setExt:      text('set_ext'),
-
-  typesText:            text('types_text'),
-  pendulumDescription:  text('pendulum_description'),
-  description:          text('description'),
+  ambit: ambit('ambit').notNull().default('full'),
 
   ot:        integer('ot'),
   setcode:   bigint('setcode', { mode: 'bigint' }),
@@ -46,14 +45,14 @@ export const Card = schema.table('cards', {
   race:      bigint('race', { mode: 'number' }),
   attribute: bigint('attribute', { mode: 'number' }),
 
-  primaryImageR2Bucket:   text('primary_image_r2_bucket'),
-  primaryImageR2Key:      text('primary_image_r2_key'),
+  primaryImageR2Bucket:    text('primary_image_r2_bucket'),
+  primaryImageR2Key:       text('primary_image_r2_key'),
   primaryImageContentType: text('primary_image_content_type'),
-  primaryImageByteSize:   integer('primary_image_byte_size'),
-  primaryImageWidth:      integer('primary_image_width'),
-  primaryImageHeight:     integer('primary_image_height'),
-  primaryImageSha256:     varchar('primary_image_sha256', { length: 64 }),
-  primaryImageDeletedAt:  timestamp('primary_image_deleted_at', { withTimezone: true }),
+  primaryImageByteSize:    integer('primary_image_byte_size'),
+  primaryImageWidth:       integer('primary_image_width'),
+  primaryImageHeight:      integer('primary_image_height'),
+  primaryImageSha256:      varchar('primary_image_sha256', { length: 64 }),
+  primaryImageDeletedAt:   timestamp('primary_image_deleted_at', { withTimezone: true }),
 
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true })
@@ -90,4 +89,51 @@ export const Card = schema.table('cards', {
       and ${table.primaryImageHeight} is not null
       and ${table.primaryImageSha256} is not null)
   `),
+]);
+
+/** One card's normalized content in one source-supported locale. */
+export const CardLocalization = schema.table('card_localizations', {
+  cardId: bigint('card_id', { mode: 'number' })
+    .notNull()
+    .references(() => Card.id, { onDelete: 'cascade' }),
+  locale: locale('locale').notNull(),
+
+  name:                text('name'),
+  nameRuby:            text('name_ruby'),
+  typesText:           text('types_text'),
+  pendulumDescription: text('pendulum_description'),
+  description:         text('description'),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+}, table => [
+  primaryKey({ columns: [table.cardId, table.locale] }),
+  index('card_localizations_locale_name_idx').on(table.locale, table.name),
+  index('card_localizations_deleted_at_idx').on(table.deletedAt),
+]);
+
+/** One named alternative card name that must remain searchable in its locale. */
+export const CardNameVariant = schema.table('card_name_variants', {
+  cardId: bigint('card_id', { mode: 'number' })
+    .notNull()
+    .references(() => Card.id, { onDelete: 'cascade' }),
+  locale: locale('locale').notNull(),
+  kind:   cardNameVariantKind('kind').notNull(),
+  name:   text('name').notNull(),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+}, table => [
+  primaryKey({ columns: [table.cardId, table.locale, table.kind] }),
+  index('card_name_variants_locale_name_idx').on(table.locale, table.name),
+  index('card_name_variants_deleted_at_idx').on(table.deletedAt),
+  check('card_name_variants_name_nonempty_chk', sql`length(${table.name}) > 0`),
 ]);

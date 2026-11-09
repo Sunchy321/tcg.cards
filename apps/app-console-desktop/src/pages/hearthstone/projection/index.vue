@@ -5,9 +5,9 @@
         <div>
           <div class="flex items-center gap-2">
             <UIcon name="i-lucide-box" class="size-5 text-primary" />
-            <h1 class="text-xl font-semibold">数据投影</h1>
+            <h1 class="text-xl font-semibold">卡牌数据投影</h1>
           </div>
-          <p class="mt-1 text-sm text-muted">将 hsdata 原始数据投影到实体和本地化表中。</p>
+          <p class="mt-1 text-sm text-muted">将选中版本的已导入数据投影为卡牌资料和多语言内容。</p>
         </div>
         <div class="ml-auto hidden items-center gap-6 sm:flex">
           <div class="text-right">
@@ -49,14 +49,14 @@
             <div class="space-y-4 pt-4">
               <div class="flex items-center justify-between gap-3">
                 <div>
-                  <div class="font-medium">领域数据投影</div>
-                  <p class="mt-1 text-xs text-muted">针对已完成导入的 sourceTag 手动触发领域投影。</p>
+                  <div class="font-medium">卡牌数据投影</div>
+                  <p class="mt-1 text-xs text-muted">将已导入的版本数据投影为卡牌资料和多语言内容。</p>
                 </div>
               </div>
 
               <div v-if="selectedItem" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <div class="rounded-lg border border-default p-3">
-                  <div class="text-xs text-muted">sourceTag</div>
+                  <div class="text-xs text-muted">构建号</div>
                   <div class="mt-1 font-mono text-sm font-semibold">{{ selectedItem.buildNumber }}</div>
                 </div>
                 <div class="rounded-lg border border-default p-3">
@@ -64,7 +64,7 @@
                   <div class="mt-1 truncate text-sm">{{ selectedItem.shortName }}</div>
                 </div>
                 <div class="rounded-lg border border-default p-3">
-                  <div class="text-xs text-muted">导入状态</div>
+                  <div class="text-xs text-muted">投影状态</div>
                   <div class="mt-1">
                     <UBadge
                       :label="selectedItem.projectionStatus === 'completed' ? '已投影' : '未投影'"
@@ -77,38 +77,72 @@
               </div>
 
               <div class="flex flex-wrap gap-4">
-                <UCheckbox v-model="dryRun" label="Dry Run" :disabled="disabled" />
-                <UCheckbox v-model="force" label="Force" :disabled="disabled" />
-                <UCheckbox v-model="sampleDiff" label="Sample Diff" :disabled="disabled" />
+                <UCheckbox v-model="dryRun" label="仅预览，不写入" :disabled="disabled" />
+                <UCheckbox v-model="force" label="重新处理已完成数据" :disabled="disabled" />
+                <UCheckbox v-model="sampleDiff" label="生成差异示例" :disabled="disabled" />
               </div>
 
             </div>
           </template>
         </TaskController>
 
+        <TaskController
+          ref="cardsController"
+          title="卡牌收录范围"
+          :operations="[cardsOperation]"
+          @completed="onCardsCompleted"
+          @failed="onCardsFailed"
+          @create-error="onCreateError"
+        >
+          <template #params>
+            <div class="space-y-4 pt-4">
+              <div class="font-medium">卡牌收录范围</div>
+              <p class="text-xs text-muted">根据已投影的卡牌数据计算每张卡的收录范围，可单独重新计算。</p>
+            </div>
+          </template>
+        </TaskController>
+
+        <UCard v-if="cardsResult">
+          <template #header>
+            <div class="flex items-center gap-2">
+              <span class="font-medium">收录范围报告</span>
+            </div>
+          </template>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <div class="rounded-lg border border-default p-3">
+              <div class="text-xs text-muted">派生卡牌</div>
+              <div class="mt-1 font-mono text-sm">{{ cardsResult.cards }}</div>
+            </div>
+            <div class="rounded-lg border border-default p-3">
+              <div class="text-xs text-muted">更新行数</div>
+              <div class="mt-1 font-mono text-sm">{{ cardsResult.staleCards }}</div>
+            </div>
+          </div>
+        </UCard>
+
         <UCard v-if="taskResult">
           <template #header>
             <div class="flex items-center gap-2">
               <span class="font-medium">投影报告</span>
-              <UBadge :label="taskResult.dryRun ? 'Dry Run' : 'Success'" :color="taskResult.dryRun ? 'warning' : 'success'" variant="soft" />
+              <UBadge :label="taskResult.dryRun ? '仅预览' : '成功'" :color="taskResult.dryRun ? 'warning' : 'success'" variant="soft" />
             </div>
           </template>
           <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div class="rounded-lg border border-default p-3">
-              <div class="text-xs text-muted">快照</div>
+              <div class="text-xs text-muted">来源记录数</div>
               <div class="mt-1 font-mono text-sm">{{ taskResult.snapshotCount }}</div>
             </div>
             <div class="rounded-lg border border-default p-3">
-              <div class="text-xs text-muted">Entities +/~/=/&minus;</div>
-              <div class="mt-1 font-mono text-sm">+{{ taskResult.insertedEntities }} ~{{ taskResult.updatedEntities }} ={{ taskResult.reusedEntities }} &minus;{{ taskResult.entityPlan.delete }}</div>
+              <div class="text-xs text-muted">卡牌数据变化</div>
+              <div class="mt-1 text-sm">新增 {{ taskResult.insertedEntities }} · 更新 {{ taskResult.updatedEntities }} · 未变 {{ taskResult.reusedEntities }} · 删除 {{ taskResult.entityPlan.delete }}</div>
             </div>
             <div class="rounded-lg border border-default p-3">
-              <div class="text-xs text-muted">Locals +/~/=/&minus;</div>
-              <div class="mt-1 font-mono text-sm">+{{ taskResult.insertedLocalizations }} ~{{ taskResult.updatedLocalizations }} ={{ taskResult.reusedLocalizations }} &minus;{{ taskResult.localizationPlan.delete }}</div>
+              <div class="text-xs text-muted">多语言内容变化</div>
+              <div class="mt-1 text-sm">新增 {{ taskResult.insertedLocalizations }} · 更新 {{ taskResult.updatedLocalizations }} · 未变 {{ taskResult.reusedLocalizations }} · 删除 {{ taskResult.localizationPlan.delete }}</div>
             </div>
             <div class="rounded-lg border border-default p-3">
-              <div class="text-xs text-muted">Relations +/~/=/&minus;</div>
-              <div class="mt-1 font-mono text-sm">+{{ taskResult.insertedRelations }} ~{{ taskResult.updatedRelations }} ={{ taskResult.reusedRelations }} &minus;{{ taskResult.relationPlan.delete }}</div>
+              <div class="text-xs text-muted">卡牌关联变化</div>
+              <div class="mt-1 text-sm">新增 {{ taskResult.insertedRelations }} · 更新 {{ taskResult.updatedRelations }} · 未变 {{ taskResult.reusedRelations }} · 删除 {{ taskResult.relationPlan.delete }}</div>
             </div>
           </div>
         </UCard>
@@ -162,7 +196,7 @@
 import { useToast } from '@nuxt/ui/composables';
 import type { TaskPageSnapshot } from '@tcg-cards/model/task';
 import type { TaskOperation } from '~/components/task/TaskController.vue';
-import { orpc } from '~/lib/orpc';
+import { orpc, startDesktopTask } from '~/lib/orpc';
 import { getConsoleErrorMessage } from '@tcg-cards/console-core';
 import { listLocalHsdataSourceVersions, resetHsdataProjectionStatus } from '~/composables/useHsdataRepo';
 
@@ -337,13 +371,29 @@ const projectionOperation = computed<TaskOperation>(() => ({
   label:    '执行投影',
   icon:     'i-lucide-waypoints',
   disabled: !selectedKey.value || !selectedItem.value || selectedItem.value.projectionStatus === 'processing',
-  create:   async () => orpc.hearthstone.createTask.hsdataProjection({
+  create:   async () => startDesktopTask('hearthstone_project', {
     sourceTags: [selectedKey.value!],
     dryRun:     dryRun.value,
     force:      force.value,
     sampleDiff: sampleDiff.value,
-  }) as Promise<TaskPageSnapshot>,
+  }),
 }));
+
+const cardsController = ref<{ attach(snapshot: TaskPageSnapshot): void, currentTaskRunId: string | null }>();
+const cardsResult = ref<{ cards: number, staleCards: number } | null>(null);
+
+const cardsOperation = computed<TaskOperation>(() => ({
+  key:    'derive',
+  label:  '执行派生',
+  icon:   'i-lucide-layers',
+  create: async () => startDesktopTask('hearthstone_cards_project', {}),
+}));
+
+function onCardsCompleted(snap: TaskPageSnapshot) {
+  cardsResult.value = (snap.result as any) ?? null;
+}
+
+function onCardsFailed() {}
 
 function onCompleted(snap: TaskPageSnapshot) {
   const result = snap.result as any;
@@ -363,13 +413,13 @@ const batchProjectSourceTags = computed(() =>
 async function startBatchProject() {
   const sourceTags = batchProjectSourceTags.value;
   if (sourceTags.length === 0) return;
-  const snapshot = await orpc.hearthstone.createTask.hsdataProjection({
+  const snapshot = await startDesktopTask('hearthstone_project', {
     sourceTags,
     dryRun:     dryRun.value,
     force:      force.value,
     sampleDiff: sampleDiff.value,
-  }) as TaskPageSnapshot;
-  controller.value?.attach(snapshot);
+  });
+  if (snapshot) controller.value?.attach(snapshot);
 }
 
 onMounted(async () => {

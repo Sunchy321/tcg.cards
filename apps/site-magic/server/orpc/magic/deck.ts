@@ -304,8 +304,7 @@ const list = os
     if (input.userId) {
       if (user && user.id === input.userId) {
         conditions.push(eq(Deck.userId, input.userId));
-      }
-      else {
+      } else {
         conditions.push(
           and(
             eq(Deck.userId, input.userId),
@@ -313,16 +312,14 @@ const list = os
           ),
         );
       }
-    }
-    else if (user) {
+    } else if (user) {
       conditions.push(
         or(
           eq(Deck.userId, user.id),
           eq(Deck.visibility, 'public'),
         ),
       );
-    }
-    else {
+    } else {
       conditions.push(eq(Deck.visibility, 'public'));
     }
 
@@ -407,8 +404,7 @@ const like = os
       await db.delete(DeckLike)
         .where(and(eq(DeckLike.userId, user.id), eq(DeckLike.deckId, input.deckId)));
       await db.update(Deck).set({ likes: sql`${Deck.likes} - 1` }).where(eq(Deck.deckId, input.deckId));
-    }
-    else {
+    } else {
       // Like
       await db.insert(DeckLike).values({ userId: user.id, deckId: input.deckId });
       await db.update(Deck).set({ likes: sql`${Deck.likes} + 1` }).where(eq(Deck.deckId, input.deckId));
@@ -448,8 +444,7 @@ const favorite = os
       await db.delete(DeckFavorite)
         .where(and(eq(DeckFavorite.userId, user.id), eq(DeckFavorite.deckId, input.deckId)));
       await db.update(Deck).set({ favorites: sql`${Deck.favorites} - 1` }).where(eq(Deck.deckId, input.deckId));
-    }
-    else {
+    } else {
       // Favorite
       await db.insert(DeckFavorite).values({ userId: user.id, deckId: input.deckId });
       await db.update(Deck).set({ favorites: sql`${Deck.favorites} + 1` }).where(eq(Deck.deckId, input.deckId));
@@ -597,8 +592,7 @@ const checkLegality = os
       const dc = deckCard as any;
       if (dc.category === 'commander') {
         commanderCount += dc.quantity;
-      }
-      else if (dc.category === 'main') {
+      } else if (dc.category === 'main') {
         mainDeckCount += dc.quantity;
       }
     }
@@ -625,8 +619,7 @@ const checkLegality = os
           current:  commanderCount,
         });
       }
-    }
-    else {
+    } else {
       // Other formats: at least 60 cards in main deck
       if (mainDeckCount < 60) {
         issues.push({
@@ -668,8 +661,7 @@ const checkLegality = os
           cardName: card.name,
           reason:   'banned',
         });
-      }
-      else if (legality === 'restricted') {
+      } else if (legality === 'restricted') {
         // Restricted means max 1 copy
         if ((deckCard as any).quantity > 1) {
           issues.push({
@@ -680,8 +672,7 @@ const checkLegality = os
             current:  (deckCard as any).quantity,
           });
         }
-      }
-      else if (legality === 'not_legal' || !legality) {
+      } else if (legality === 'not_legal' || !legality) {
         issues.push({
           cardId:   card.cardId,
           cardName: card.name,
@@ -774,8 +765,7 @@ const updateFromCode = os
           });
         }
       }
-    }
-    else {
+    } else {
       // MTGA format: section headers
       for (const line of lines) {
         const lowerLine = line.toLowerCase();
@@ -783,16 +773,13 @@ const updateFromCode = os
         if (lowerLine === 'commander') {
           currentCategory = 'commander';
           continue;
-        }
-        else if (lowerLine === 'companion') {
+        } else if (lowerLine === 'companion') {
           currentCategory = 'companion';
           continue;
-        }
-        else if (lowerLine === 'deck') {
+        } else if (lowerLine === 'deck') {
           currentCategory = 'main';
           continue;
-        }
-        else if (lowerLine === 'sideboard') {
+        } else if (lowerLine === 'sideboard') {
           currentCategory = 'sideboard';
           continue;
         }

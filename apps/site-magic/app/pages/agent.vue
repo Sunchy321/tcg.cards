@@ -1,113 +1,3 @@
-<script setup lang="ts">
-import { isTextUIPart, isToolUIPart, getToolName, DefaultChatTransport } from 'ai';
-import type { UIMessage } from 'ai';
-import { Chat } from '@ai-sdk/vue';
-
-definePageMeta({
-  layout: 'immersive',
-  title:  'Agent',
-});
-
-const input = ref('');
-const historyOpen = ref(false);
-
-const { list: chatList, activeChatId, save, load, remove } = useChatHistory();
-
-function createChat(messages: UIMessage[] = []) {
-  return new Chat({
-    transport: new DefaultChatTransport(),
-    messages,
-    onError(error) {
-      console.error('Chat error:', error);
-    },
-    onFinish() {
-      save(chat.id, chat.messages);
-    },
-  });
-}
-
-let chat = createChat();
-activeChatId.value = chat.id;
-
-// Version counter to trigger re-render when chat instance is swapped
-const chatVersion = ref(0);
-
-// These computed read from the Chat's own reactive state (not wrapped in shallowRef)
-// chatVersion dependency ensures they refresh after chat instance swap
-const chatMessages = computed(() => (chatVersion.value, chat.messages));
-const chatStatus = computed(() => (chatVersion.value, chat.status));
-const chatError = computed(() => (chatVersion.value, chat.error));
-
-function onSubmit() {
-  if (!input.value.trim()) return;
-
-  chat.sendMessage({ text: input.value });
-  input.value = '';
-}
-
-function swapChat(c: Chat<UIMessage>) {
-  chat = c;
-  chatVersion.value++;
-}
-
-function newChat() {
-  // Save current before switching
-  if (chat.messages.length > 0) {
-    save(chat.id, chat.messages);
-  }
-
-  const c = createChat();
-  swapChat(c);
-  activeChatId.value = c.id;
-  historyOpen.value = false;
-}
-
-function switchChat(id: string) {
-  if (id === chat.id) {
-    historyOpen.value = false;
-    return;
-  }
-
-  // Save current before switching
-  if (chat.messages.length > 0) {
-    save(chat.id, chat.messages);
-  }
-
-  const messages = load(id);
-  const c = createChat(messages);
-  // Override the generated id with the history id
-  Object.defineProperty(c, 'id', { value: id, writable: false });
-  swapChat(c);
-  activeChatId.value = id;
-  historyOpen.value = false;
-}
-
-function deleteChat(id: string) {
-  remove(id);
-  if (id === chat.id) {
-    const c = createChat();
-    swapChat(c);
-    activeChatId.value = c.id;
-  }
-}
-
-function formatTime(ts: number) {
-  const d = new Date(ts);
-  const now = new Date();
-  if (d.toDateString() === now.toDateString()) {
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  }
-  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-}
-
-const toolLabels: Record<string, string> = {
-  searchCards:     'Searching cards...',
-  getCard:         'Getting card details...',
-  getRuleSection:  'Looking up rules...',
-  getRelatedCards: 'Finding related cards...',
-};
-</script>
-
 <template>
   <div>
     <div class="relative h-[calc(100dvh-8rem)]">
@@ -224,3 +114,113 @@ const toolLabels: Record<string, string> = {
     </USlideover>
   </div>
 </template>
+
+<script setup lang="ts">
+import { isTextUIPart, isToolUIPart, getToolName, DefaultChatTransport } from 'ai';
+import type { UIMessage } from 'ai';
+import { Chat } from '@ai-sdk/vue';
+
+definePageMeta({
+  layout: 'immersive',
+  title:  'Agent',
+});
+
+const input = ref('');
+const historyOpen = ref(false);
+
+const { list: chatList, activeChatId, save, load, remove } = useChatHistory();
+
+function createChat(messages: UIMessage[] = []) {
+  return new Chat({
+    transport: new DefaultChatTransport(),
+    messages,
+    onError(error) {
+      console.error('Chat error:', error);
+    },
+    onFinish() {
+      save(chat.id, chat.messages);
+    },
+  });
+}
+
+let chat = createChat();
+activeChatId.value = chat.id;
+
+// Version counter to trigger re-render when chat instance is swapped
+const chatVersion = ref(0);
+
+// These computed read from the Chat's own reactive state (not wrapped in shallowRef)
+// chatVersion dependency ensures they refresh after chat instance swap
+const chatMessages = computed(() => (chatVersion.value, chat.messages));
+const chatStatus = computed(() => (chatVersion.value, chat.status));
+const chatError = computed(() => (chatVersion.value, chat.error));
+
+function onSubmit() {
+  if (!input.value.trim()) return;
+
+  chat.sendMessage({ text: input.value });
+  input.value = '';
+}
+
+function swapChat(c: Chat<UIMessage>) {
+  chat = c;
+  chatVersion.value++;
+}
+
+function newChat() {
+  // Save current before switching
+  if (chat.messages.length > 0) {
+    save(chat.id, chat.messages);
+  }
+
+  const c = createChat();
+  swapChat(c);
+  activeChatId.value = c.id;
+  historyOpen.value = false;
+}
+
+function switchChat(id: string) {
+  if (id === chat.id) {
+    historyOpen.value = false;
+    return;
+  }
+
+  // Save current before switching
+  if (chat.messages.length > 0) {
+    save(chat.id, chat.messages);
+  }
+
+  const messages = load(id);
+  const c = createChat(messages);
+  // Override the generated id with the history id
+  Object.defineProperty(c, 'id', { value: id, writable: false });
+  swapChat(c);
+  activeChatId.value = id;
+  historyOpen.value = false;
+}
+
+function deleteChat(id: string) {
+  remove(id);
+  if (id === chat.id) {
+    const c = createChat();
+    swapChat(c);
+    activeChatId.value = c.id;
+  }
+}
+
+function formatTime(ts: number) {
+  const d = new Date(ts);
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) {
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+const toolLabels: Record<string, string> = {
+  searchCards:     'Searching cards...',
+  getCard:         'Getting card details...',
+  getRuleSection:  'Looking up rules...',
+  getRelatedCards: 'Finding related cards...',
+};
+</script>

@@ -6,5 +6,5 @@ export interface MonacoJsonEditorRef {
 /** Validation payload emitted by the Monaco JSON editor component. */
 export interface MonacoJsonEditorValidation {
   hasErrors: boolean;
-  messages: string[];
+  messages:  string[];
 }

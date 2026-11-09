@@ -163,6 +163,82 @@ export default {
     $self: 'Hearthstone',
     $full: 'Hearthstone',
 
+    dataSources: {
+      $self: 'Data Sources',
+
+      intro: 'This site is an unofficial fan project. Card data, text, and images are all derived from the game\'s own data; we owe a great deal to the community projects that make this possible.',
+
+      sections: {
+        cardData: {
+          title: 'Card Data',
+
+          groups: {
+            cards: {
+              body: 'Card data is extracted from the card definitions shipped with the Hearthstone game client and organized by game patch. Each card page reflects one specific patch of the game.',
+            },
+            text: {
+              title: 'Text & Languages',
+              body:  'Card text is the game\'s own text, in every language the game ships. Simplified Chinese text comes straight from official game data, so what you read here matches the in-game wording.',
+            },
+          },
+        },
+        cardImages: {
+          title: 'Card Images',
+
+          groups: {
+            main: {
+              body: 'All card images on this site are rendered by the site itself from game data. Nothing is taken from third-party image sites, and each image reflects the same patch as the data it accompanies.',
+            },
+          },
+        },
+        setData: {
+          title: 'Set Data',
+
+          groups: {
+            main: {
+              body: 'Set and patch information shares the same game-data source as the card data and is organized by patch version.',
+            },
+          },
+        },
+        otherData: {
+          title: 'Other Data',
+
+          groups: {
+            announcements: {
+              title: 'Official Announcements',
+              body:  'Balance changes and gameplay announcements are curated from Blizzard\'s official announcements.',
+            },
+            freshness: {
+              title: 'Data Freshness',
+              body:  'Data is updated manually as new game patches ship. Announcements are followed as soon as practical, but real-time sync is not promised.',
+            },
+            attribution: {
+              title:      'Attribution & Legal',
+              disclaimer: 'This site is not affiliated with or endorsed by Blizzard Entertainment. Hearthstone and Blizzard Entertainment are trademarks or registered trademarks of Blizzard Entertainment, Inc. in the U.S. and/or other countries.',
+              credits:    'The HearthSim project\'s hsdata repository is credited above. Game data and images remain the property of Blizzard Entertainment; this site uses them under the terms described in the documents below.',
+            },
+          },
+        },
+      },
+
+      sources: {
+        hsdata: {
+          name: 'HearthSim hsdata',
+          desc: 'A community-maintained repository of extracted game data; this site imports card definitions from it patch by patch.',
+        },
+        blizzardNews: {
+          name: 'Blizzard',
+          desc: 'Blizzard\'s official announcement channel, and the source of this site\'s announcement pages.',
+        },
+      },
+
+      legal: {
+        legal:   'Legal Notice',
+        terms:   'Terms of Service',
+        privacy: 'Privacy Policy',
+      },
+    },
+
     home: {
       randomCard:       'Random Card',
       randomCardHint:   'Open one random card detail page',
@@ -218,6 +294,10 @@ export default {
       },
 
       'full-command': {
+        'elite-true':             'elite cards',
+        'elite-false':            'non-elite cards',
+        'in-tavern-true':         'in the tavern minion pool',
+        'in-tavern-false':        'not in the tavern minion pool',
         'raw':                    'name or card text includes {value}',
         'full-stats':             'cost is {cost}, attack is {attack}, and health is {health}',
         'stats':                  'attack is {attack} and health is {health}',
@@ -228,9 +308,13 @@ export default {
         'format-available':       'available in {format}',
         'format-with-status':     'status is {status} in {format}',
         'format-with-status-not': 'status is not {status} in {format}',
+        'collectible':            'showing {value} cards',
       },
 
       'command': {
+        'elite':             'elite',
+        'in-tavern':         'tavern minion pool',
+        'cooldown':          'cooldown',
         'lang':              'language',
         'name':              'name',
         'text':              'text',
@@ -252,6 +336,8 @@ export default {
         'mercenary-faction': 'mercenary faction',
         'rarity':            'rarity',
         'artist':            'artist',
+        'collectible':       'collectible',
+        'ambit':             'ambit',
         'change':            'change type',
         'format':            'format',
         'order':             'order',
@@ -438,6 +524,12 @@ export default {
           legendary: 'Legendary',
         },
 
+        'collectible': {
+          true:  'collectible',
+          false: 'non-collectible',
+          all:   'all',
+        },
+
         'order': {
           name:   'name',
           cost:   'cost',
@@ -495,6 +587,14 @@ export default {
       bg_trinket:      'Battlegrounds trinkets',
       bg_tavern_spell: 'Battlegrounds spells',
       bg_anomaly:      'Battlegrounds anomalies',
+      bg_buddy:        'Battlegrounds buddies',
+      bg_timewarped:   'Battlegrounds Timewarped',
+      bg_dm_prize:     'Battlegrounds Darkmoon Faire prizes',
+      quest:           'Quest cards',
+      c_thun:          'C\'Thun',
+      hero:            'Hero cards',
+      invoke:          'Invoke cards',
+      odd_even:        'Odd & even cards',
     },
 
     changeType: {
@@ -660,6 +760,64 @@ export default {
     },
 
     tag: {},
+
+    tagCatalog: {
+      title:            'Card Tags',
+      total:            '{count} tags in the catalog',
+      search:           'Search by ID, slug, or name',
+      filterProjection: 'Filter by card data',
+      filterValue:      'Filter by value type',
+      allProjections:   'All destinations',
+      allValues:        'All value types',
+      pageSize:         'Tags per page',
+      perPage:          '{count} per page',
+      id:               'ID',
+      slug:             'Slug / Name',
+      projection:       'Card Data',
+      valueType:        'Value Type',
+      purpose:          'Purpose',
+      unclassified:     'Unclassified',
+      noDescription:    'No description',
+      viewCards:        'View cards',
+      expand:           'Show more',
+      collapse:         'Show less',
+      loading:          'Loading tags…',
+      loadError:        'Could not load the card tags.',
+      retry:            'Try again',
+      empty:            'No matching tags',
+      clear:            'Clear filters',
+      range:            '{first}–{last} of {count} tags',
+      rangeSingle:      '{first} of {count} tags',
+      pagination:       'Tag pages',
+      page:             'Page number',
+      pageCount:        'of {count}',
+      jump:             'Go',
+
+      projections: {
+        field:     'Entity field',
+        mechanic:  'Mechanics',
+        relation:  'Card relation',
+        localized: 'Localized field',
+        none:      'None',
+      },
+
+      valueTypes: {
+        boolean:        'Boolean',
+        number:         'Number',
+        card_dbf_id:    'Card DBF ID',
+        card_id:        'Card ID',
+        subset_id:      'Subset ID',
+        set_id:         'Set ID',
+        deck_id:        'Deck ID',
+        entity_id:      'Match entity ID',
+        tag_id:         'Tag ID',
+        enum:           'Enum',
+        bitmask:        'Bitmask',
+        text:           'Text',
+        localized_text: 'Localized text',
+        multipurpose:   'Multipurpose',
+      },
+    },
 
     legality: {
       banned_in_card_pool: 'Banned in Card Pool',

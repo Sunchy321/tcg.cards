@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { SaxesParser, type SaxesTagPlain } from 'saxes';
 
 import {
@@ -50,17 +51,9 @@ export const normalizeHsdataXmlSource = (input: string) => {
     .replace(/\r/g, '\n');
 };
 
-function toHex(hash: Uint8Array): string {
-  let hex = '';
-  for (let i = 0; i < hash.length; i++) {
-    hex += hash[i]!.toString(16).padStart(2, '0');
-  }
-  return hex;
-}
-
 /** Computes the stable source hash used by raw import guards. */
 export const computeHsdataSourceHash = (input: string) => {
-  return toHex(Bun.SHA256.hash(input) as Uint8Array);
+  return createHash('sha256').update(input).digest('hex');
 };
 
 /** Yields normalized XML text chunks from one UTF-8 byte stream. */
@@ -543,13 +536,36 @@ export const parseHsdataXml = (xml: string): ParsedHsdata => {
   };
 };
 
+/** Merges separately parsed CardDefs part documents (base / Bacon / Lettuce)
+ *  into one import payload. All parts must carry the same build number;
+ *  duplicate card ids are allowed only when byte-identical. */
+export const mergeParsedHsdataParts = (parts: ParsedHsdataStreamResult[]): ParsedHsdata => {
+  if (parts.length === 0) {
+    throw new Error('No CardDefs part documents to merge');
+  }
+
+  const build = parts[0]!.parsed.build;
+  for (const part of parts) {
+    if (part.parsed.build !== build) {
+      throw new Error(`CardDefs part build mismatch: ${part.parsed.build} != ${build}`);
+    }
+  }
+
+  const entities = validateAndDedupeEntities(parts.flatMap(part => part.parsed.entities));
+  if (entities.length === 0) {
+    throw new Error('CardDefs must contain at least one Entity');
+  }
+
+  return { build, entities };
+};
+
 /** Parses one UTF-8 XML stream into the canonical hsdata payload and source hash. */
 export const parseHsdataXmlStream = async (
   stream: ReadableStream<Uint8Array>,
 ): Promise<ParsedHsdataStreamResult> => {
   const collector = createParsedXmlDocumentCollector();
   const parser = new SaxesParser({ xmlns: false, position: false });
-  const sourceHash = new Bun.CryptoHasher('sha256');
+  const sourceHash = createHash('sha256');
 
   parser.on('opentag', collector.handleOpenTag);
   parser.on('text', collector.handleText);
@@ -584,6 +600,6 @@ export const parseHsdataXmlStream = async (
       build,
       entities: validateAndDedupeEntities(entities),
     },
-    sourceHash: toHex(sourceHash.digest()),
+    sourceHash: sourceHash.digest('hex'),
   };
 };

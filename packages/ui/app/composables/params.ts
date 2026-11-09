@@ -13,16 +13,20 @@ export interface ParamDef {
 
 // ── Dynamic configurations (registered at runtime via setParams) ──────────────
 
+/** A labeled choice in a page header selector. */
 export interface SelectItem {
   value: string;
   label: string;
 }
 
+/** Flat choices or grouped choices separated by the select component. */
+export type SelectItems = SelectItem[] | SelectItem[][];
+
 export interface SelectParamConfig {
   id:       string;
   type:     'select';
   /** Reactive ref of available choices — set by the page (ref 1). */
-  items:    ValueRef<SelectItem[]>;
+  items:    ValueRef<SelectItems>;
   /** Reactive ref of the current value — set by the page (ref 2). */
   value:    ValueRef<string | null>;
   onChange: (val: string) => void;
@@ -104,11 +108,11 @@ export const useParams = () => {
 
   /**
    * **ref 1** — reactive map of available items for every select-type param.
-   * Keys are param ids; values are the current `SelectItem[]`.
+   * Keys are param ids; values are the current flat or grouped choices.
    * Useful for AppHeader to populate dropdowns.
    */
-  const paramItems = computed<Record<string, SelectItem[]>>(() => {
-    const result: Record<string, SelectItem[]> = {};
+  const paramItems = computed<Record<string, SelectItems>>(() => {
+    const result: Record<string, SelectItems> = {};
     for (const [id, cfg] of _configs) {
       if (cfg.type === 'select') {
         result[id] = cfg.items.value;

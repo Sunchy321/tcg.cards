@@ -6,6 +6,7 @@ import { os } from '../../orpc';
 
 import { db } from '@tcg-cards/db';
 import { Tag } from '@tcg-cards/db/schema/shared/hearthstone/tag';
+import { getDefaultTagCopy, getTagProjectTargetType } from '@tcg-cards/model/hearthstone/schema/tag';
 
 const detail = os.hearthstone.tag.detail
   .handler(async ({ input }) => {
@@ -18,7 +19,11 @@ const detail = os.hearthstone.tag.detail
       throw new ORPCError('NOT_FOUND');
     }
 
-    return row;
+    return {
+      ...row,
+      ...getDefaultTagCopy(row.localization, row.rawName),
+      projectTargetType: getTagProjectTargetType(row.projectKind),
+    };
   });
 
 export const tag = { detail };

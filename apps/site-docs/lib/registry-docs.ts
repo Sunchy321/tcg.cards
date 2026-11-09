@@ -4,21 +4,19 @@ import { registryContract } from '@tcg-cards/api';
 import { describeSchema, type SchemaNode } from './introspect';
 
 export type EndpointDoc = {
-  game:        string;
-  resource:    string;
-  name:        string;
-  path:        string[];
-  method:      string;
-  description: string;
-  tags:        string[];
-  input:       SchemaNode;
-  output:      SchemaNode;
+  game:     string;
+  resource: string;
+  name:     string;
+  path:     string[];
+  method:   string;
+  tags:     string[];
+  input:    SchemaNode;
+  output:   SchemaNode;
 };
 
 type RouteMeta = {
-  method?:      string;
-  description?: string;
-  tags?:        string[];
+  method?: string;
+  tags?:   string[];
 };
 
 /** Collects all public game procedures as stable endpoint documentation records. */
@@ -42,15 +40,14 @@ export function collectEndpoints(): EndpointDoc[] {
     const route = definition.route ?? {};
     const segments = path.filter(Boolean);
     endpoints.push({
-      game:        segments[0] ?? '',
-      resource:    segments[1] ?? 'intro',
-      name:        segments.at(-1) ?? 'intro',
-      path:        segments,
-      method:      route.method ?? 'GET',
-      description: route.description ?? '',
-      tags:        route.tags ?? [],
-      input:       describeSchema(definition.inputSchema as never),
-      output:      describeSchema(definition.outputSchema as never),
+      game:     segments[0] ?? '',
+      resource: segments[1] ?? 'intro',
+      name:     segments.at(-1) ?? 'intro',
+      path:     segments,
+      method:   route.method ?? 'GET',
+      tags:     route.tags ?? [],
+      input:    describeSchema(definition.inputSchema as never),
+      output:   describeSchema(definition.outputSchema as never),
     });
   });
 
@@ -71,10 +68,54 @@ export function groupGameEndpoints(game: string): Record<string, EndpointDoc[]> 
   return groups;
 }
 
-/** Returns display-ready metadata for each supported game. */
+/** Returns the supported games. Display names are localized via `<id>.name`. */
 export function listGames() {
   return [
-    { id: 'magic', name: 'Magic: The Gathering', icon: 'i-simple-icons-wizards-of-the-coast' },
-    { id: 'hearthstone', name: 'Hearthstone', icon: 'i-simple-icons-hearth' },
+    { id: 'magic' },
+    { id: 'hearthstone' },
   ];
+}
+
+export type EnumDoc = {
+  game:   string;
+  name:   string;
+  slug:   string;
+  values: string[];
+};
+
+/** Converts a PascalCase/camelCase identifier into a kebab-case slug. */
+export function kebab(value: string): string {
+  return value.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+}
+
+/** Collects the distinct named enums used across one game's endpoint schemas. */
+export function collectEnums(game: string): EnumDoc[] {
+  const seen = new Map<string, EnumDoc>();
+
+  for (const endpoint of collectEndpoints().filter(ep => ep.game === game)) {
+    walk(endpoint.input);
+    walk(endpoint.output);
+  }
+
+  return [...seen.values()];
+
+  function walk(node: SchemaNode | undefined): void {
+    if (node == null) {
+      return;
+    }
+    if (node.kind === 'enum' && node.name) {
+      if (!seen.has(node.name)) {
+        seen.set(node.name, { game, name: node.name, slug: kebab(node.name), values: node.values ?? [] });
+      }
+      return;
+    }
+    for (const field of node.fields ?? []) {
+      walk(field.schema);
+    }
+    walk(node.item);
+    walk(node.valueSchema);
+    for (const option of node.options ?? []) {
+      walk(option);
+    }
+  }
 }

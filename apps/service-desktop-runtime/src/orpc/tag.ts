@@ -44,7 +44,6 @@ import {
   listPushBatches,
   startTagPushJob,
   watchTagPushJob,
-  type TagPushProgressEvent,
 } from '../lib/hearthstone/tag-push-progress';
 import { z } from 'zod';
 
@@ -52,18 +51,18 @@ import { z } from 'zod';
 type FieldCommitRow = typeof FieldCommit.$inferSelect;
 
 const tagPushResult = z.strictObject({
-  stream: z.string(),
+  stream:   z.string(),
   consumer: z.string(),
-  pushed: z.array(z.strictObject({
-    localCommitId: z.string(),
-    localSequence: z.number(),
+  pushed:   z.array(z.strictObject({
+    localCommitId:    z.string(),
+    localSequence:    z.number(),
     clientMutationId: z.string(),
-    status: z.enum(['applied', 'duplicate']),
+    status:           z.enum(['applied', 'duplicate']),
   })),
   lastPushedSequence: z.number(),
-  blockedSequence: z.number().nullable(),
-  blockedReason: z.enum(['conflict', 'error']).nullable(),
-  blockedMessage: z.string().nullable(),
+  blockedSequence:    z.number().nullable(),
+  blockedReason:      z.enum(['conflict', 'error']).nullable(),
+  blockedMessage:     z.string().nullable(),
 });
 
 /** Converts one persisted timestamp into an ISO string. */
@@ -317,13 +316,13 @@ const pushToRemote = os
   });
 
 const tagPushProgressEvent = z.object({
-  phase:           z.string(),
-  message:         z.string(),
-  startedAt:       z.string(),
-  finishedAt:      z.string().nullable(),
-  totalCount:      z.number().int().nonnegative().nullable(),
-  completedCount:  z.number().int().nonnegative().nullable(),
-  pushed:          z.array(z.object({
+  phase:          z.string(),
+  message:        z.string(),
+  startedAt:      z.string(),
+  finishedAt:     z.string().nullable(),
+  totalCount:     z.number().int().nonnegative().nullable(),
+  completedCount: z.number().int().nonnegative().nullable(),
+  pushed:         z.array(z.object({
     localSequence:    z.number(),
     clientMutationId: z.string(),
     status:           z.enum(['applied', 'duplicate']),
@@ -424,7 +423,7 @@ export const tagRouter = {
   listConflicts,
   getConflict,
   getIncompletePushBatch: getIncompletePushBatchRoute,
-  listPushBatches: listPushBatchesRoute,
+  listPushBatches:        listPushBatchesRoute,
   manualUpdate,
   pushToRemote,
   pushToRemoteWithProgress,

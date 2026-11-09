@@ -29,23 +29,23 @@ export const imageImportBatchStatus = dataSchema.enum('image_import_batch_status
 export const ImageImportBatch = dataSchema.table('image_import_batches', {
   id: uuid('id').primaryKey().defaultRandom(),
 
-  source:      text('source').notNull(),
-  metadataUrl: text('metadata_url').notNull(),
+  source:       text('source').notNull(),
+  metadataUrl:  text('metadata_url').notNull(),
   metadataHash: varchar('metadata_hash', { length: 64 }),
   etag:         text('etag'),
   lastModified: text('last_modified'),
 
-  metadataRecordCount: integer('metadata_record_count').notNull().default(0),
-  eligibleCardCount:   integer('eligible_card_count').notNull().default(0),
+  metadataRecordCount:  integer('metadata_record_count').notNull().default(0),
+  eligibleCardCount:    integer('eligible_card_count').notNull().default(0),
   unavailableCardCount: integer('unavailable_card_count').notNull().default(0),
   unmatchedSourceCount: integer('unmatched_source_count').notNull().default(0),
-  addedCount:          integer('added_count').notNull().default(0),
-  updatedCount:        integer('updated_count').notNull().default(0),
-  skippedCount:        integer('skipped_count').notNull().default(0),
-  missingCount:        integer('missing_count').notNull().default(0),
-  failedCount:         integer('failed_count').notNull().default(0),
-  softDeletedCount:    integer('soft_deleted_count').notNull().default(0),
-  downloadedByteCount: bigint('downloaded_byte_count', { mode: 'number' }).notNull().default(0),
+  addedCount:           integer('added_count').notNull().default(0),
+  updatedCount:         integer('updated_count').notNull().default(0),
+  skippedCount:         integer('skipped_count').notNull().default(0),
+  missingCount:         integer('missing_count').notNull().default(0),
+  failedCount:          integer('failed_count').notNull().default(0),
+  softDeletedCount:     integer('soft_deleted_count').notNull().default(0),
+  downloadedByteCount:  bigint('downloaded_byte_count', { mode: 'number' }).notNull().default(0),
 
   status: imageImportBatchStatus('status').notNull().default('running'),
   error:  text('error'),
@@ -77,16 +77,16 @@ export const ImageImportBatch = dataSchema.table('image_import_batches', {
 export const CardImageSource = dataSchema.table('card_image_sources', {
   source:         text('source').notNull(),
   sourceRecordId: text('source_record_id').notNull(),
-  cardId: bigint('card_id', { mode: 'number' })
+  cardId:         bigint('card_id', { mode: 'number' })
     .notNull()
     .references(() => Card.id),
 
-  sourceUrl:      text('source_url').notNull(),
-  sourceMd5:      varchar('source_md5', { length: 32 }).notNull(),
-  sourceByteSize: integer('source_byte_size').notNull(),
+  sourceUrl:        text('source_url').notNull(),
+  sourceMd5:        varchar('source_md5', { length: 32 }).notNull(),
+  sourceByteSize:   integer('source_byte_size').notNull(),
   sourceModifiedAt: timestamp('source_modified_at', { withTimezone: true }).notNull(),
-  assetSha256:    varchar('asset_sha256', { length: 64 }).notNull(),
-  r2Key:          text('r2_key').notNull(),
+  assetSha256:      varchar('asset_sha256', { length: 64 }).notNull(),
+  r2Key:            text('r2_key').notNull(),
 
   firstSeenBatchId: uuid('first_seen_batch_id')
     .notNull()
@@ -134,14 +134,14 @@ export const ImageImportFailure = dataSchema.table('image_import_failures', {
 
 /** Last successful primary-image metadata snapshot retained for one source. */
 export const ImageImportState = dataSchema.table('image_import_states', {
-  source:      text('source').primaryKey(),
-  metadataUrl: text('metadata_url').notNull(),
+  source:                text('source').primaryKey(),
+  metadataUrl:           text('metadata_url').notNull(),
   lastSuccessfulBatchId: uuid('last_successful_batch_id')
     .references(() => ImageImportBatch.id),
   metadataHash: varchar('metadata_hash', { length: 64 }),
   etag:         text('etag'),
   lastModified: text('last_modified'),
-  updatedAt: timestamp('updated_at', { withTimezone: true })
+  updatedAt:    timestamp('updated_at', { withTimezone: true })
     .defaultNow()
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),

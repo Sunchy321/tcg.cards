@@ -1,5 +1,24 @@
 import z from 'zod';
 
+import { defineChangeStatusByType } from '../../game-change';
+
+export const announcementSource = z.enum([
+  'wotc',
+  'mtgcommander',
+  'canadian_highlander',
+  'duelcommander',
+  'leviathan_commander',
+  'oathbreaker',
+  'pauper_commander',
+  'conquest',
+  'tiny_leader_reborn',
+  'gladiator',
+  'eternal_central',
+  'initial',
+  'release',
+  'rotation',
+]);
+
 export const gameChangeType = z.enum([
   'card_change',
   'card_update',
@@ -7,6 +26,8 @@ export const gameChangeType = z.enum([
   'rule_change',
   'format_birth',
   'format_death',
+  'card_split',
+  'card_merge',
 ]);
 
 export const legality = z.enum([
@@ -20,7 +41,7 @@ export const legality = z.enum([
   'suspended',
   'unavailable',
   'score',
-]);
+]).describe('legality');
 
 export const changeStatus = z.enum([
   // card_update
@@ -53,6 +74,27 @@ export type Legality = z.infer<typeof legality>;
 export type ChangeStatus = z.infer<typeof changeStatus>;
 export type Legalities = Record<string, Legality>;
 
+/** Allowed statuses and the fallback status per change type (see game-change). */
+export const changeStatusByType = defineChangeStatusByType(gameChangeType.options, {
+  card_update: {
+    statuses: ['buff', 'nerf', 'tweak', 'revert', 'rework', 'text_fix', 'text_adjust', 'bugged', 'bugfix'],
+    default:  'buff',
+  },
+  card_change: {
+    statuses: [...legality.options],
+    default:  'banned',
+  },
+  set_change: {
+    statuses: [...legality.options, 'extend'],
+    default:  'legal',
+  },
+  rule_change:  { statuses: [], default: null },
+  format_birth: { statuses: [], default: null },
+  format_death: { statuses: [], default: null },
+  card_split:   { statuses: [], default: null },
+  card_merge:   { statuses: [], default: null },
+});
+
 export const linkEntry = z.strictObject({
   url:   z.string().url(),
   label: z.string().optional(),
@@ -61,6 +103,16 @@ export const linkEntry = z.strictObject({
 export const glowEntry = z.strictObject({
   part: z.string(),
   type: z.enum(['buff', 'nerf']),
+});
+
+/** One projected card with its applied status, date, and optional copy metadata. */
+export const projectionCard = z.strictObject({
+  cardId:        z.string(),
+  status:        z.string().nullable(),
+  effectiveDate: z.string().nullable(),
+  score:         z.int().min(1).nullable().optional(),
+  sourceFormat:  z.string().optional(),
+  sourceFormats: z.string().array().optional(),
 });
 
 export const announcementItem = z.strictObject({
@@ -76,6 +128,8 @@ export const announcementItem = z.strictObject({
   score:         z.int().min(1).nullish(),
   group:         z.string().nullable(),
 
+  prevVersion: z.string().nullable(),
+
   delta: z.any().nullable(),
   glow:  glowEntry.array().nullable(),
 
@@ -84,8 +138,15 @@ export const announcementItem = z.strictObject({
   ruleId:       z.string().nullable(),
   relatedCards: z.string().array(),
 
-  resolved_formats: z.string().array(),
-  resolved_cards:   z.string().array(),
+  projection: z.object({
+    formats:      z.array(z.string()),
+    cards:        z.array(projectionCard),
+    // Rotation removals are scoped because reprint availability differs by format.
+    derivedCards: z.array(projectionCard.extend({
+      formatId: z.string(),
+      group:    z.string().nullable(),
+    })).optional(),
+  }).catchall(z.unknown()),
 
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -98,7 +159,14 @@ export const announcement = z.strictObject({
   date:   z.string(),
   name:   z.string(),
 
-  effectiveDate: z.string().nullable(),
+  effectiveDate:         z.string().nullable(),
+  effectiveDateTabletop: z.string().nullable(),
+  effectiveDateOnline:   z.string().nullable(),
+  effectiveDateArena:    z.string().nullable(),
+
+  prevVersion: z.string().nullable(),
+
+  nextDate: z.string().nullable(),
 
   link: linkEntry.array(),
 
@@ -120,6 +188,7 @@ export const announcementWithItems = announcement.extend({
 
 export type LinkEntry = z.infer<typeof linkEntry>;
 export type GlowEntry = z.infer<typeof glowEntry>;
+export type AnnouncementSource = z.infer<typeof announcementSource>;
 export type AnnouncementItem = z.infer<typeof announcementItem>;
 export type Announcement = z.infer<typeof announcement>;
 export type AnnouncementProfile = z.infer<typeof announcementProfile>;

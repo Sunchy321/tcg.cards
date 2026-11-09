@@ -60,7 +60,7 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
         // --- Add game to shared GAMES list (append to end) ---
         {
           type: "modify",
-          path: "{{ turbo.paths.root }}/packages/shared/src/index.ts",
+          path: "{{ turbo.paths.root }}/packages/shared/src/games.ts",
           pattern: /\] as const;/,
           template: "  '{{ gameId }}',\n] as const;"
         },

@@ -1,0 +1,113 @@
+import { documentMeta } from '@tcg-cards/model/magic/schema/document-content';
+import { ruleFile } from '@tcg-cards/model/magic/schema/rule-api';
+import { sourceFileUrl } from '@tcg-cards/model/magic/source-file';
+import type { RuleContent, RuleIdentity, RuleMetadata, RuleVersion } from '@tcg-cards/model/magic/schema/rule-api';
+
+import { orderedNodes } from './nodes';
+
+import type { Document, DocumentStore, Release } from './store';
+
+/** Reads selected published rule metadata and bodies from the serving store. */
+export function createRuleReader(store: DocumentStore, options: { assetBaseUrl?: string } = {}) {
+  /** Selects supported rule identities without treating arbitrary articles as rules. */
+  async function document(ruleId: string): Promise<Document | undefined> {
+    if (ruleId !== 'magic-cr') return undefined;
+    const row = await store.document(ruleId);
+    return row?.origin === 'static' && row.staticKey === ruleId && row.visibility === 'public' && row.deletedAt == null ? row : undefined;
+  }
+
+  /** Orders only live public releases using the existing serving chronology. */
+  async function releases(documentId: string): Promise<Release[]> {
+    return (await store.releases(documentId)).filter(row => row.deletedAt == null)
+      .sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime() || b.versionTag.localeCompare(a.versionTag));
+  }
+
+  /** Resolves the same exact public edition and language for every read format. */
+  async function select(input: { ruleId: string, versionTag?: string, language?: string }) {
+    const row = await document(input.ruleId);
+    if (row == null) return undefined;
+    const available = await releases(row.id);
+    const release = input.versionTag == null ? available[0] : available.find(item => item.versionTag === input.versionTag);
+    if (release == null) return undefined;
+    const revisions = await store.revisions(row.id);
+    const source = revisions.find(item => item.id === release.sourceRevisionId && item.translationId == null);
+    if (source == null) return undefined;
+    let revision = source;
+    if (input.language != null && input.language !== source.language) {
+      const translation = (await store.translations(row.id)).find(item => item.language === input.language);
+      const binding = translation ? (await store.releaseTranslations(release.id)).find(item => item.translationId === translation.id) : undefined;
+      const selected = binding
+        ? revisions.find(item => item.id === binding.revisionId && item.language === input.language
+          && item.sourceRevisionId === source.id && item.translationId === translation!.id)
+        : undefined;
+      if (selected == null) return undefined;
+      revision = selected;
+    }
+    return { row, release, revision, source };
+  }
+
+  return {
+    /** Lists rulebooks with at least one published release. */
+    async list(): Promise<RuleIdentity[]> {
+      const row = await document('magic-cr');
+      if (row == null || (await releases(row.id)).length === 0) return [];
+      return [{ id: row.id, title: row.title, sourceLanguage: row.sourceLanguage }];
+    },
+    /** Lists release languages only when their selected revision exists. */
+    async versions(ruleId: string): Promise<RuleVersion[] | undefined> {
+      const row = await document(ruleId);
+      if (row == null) return undefined;
+      const revisions = new Map((await store.revisions(row.id)).map(revision => [revision.id, revision]));
+      return Promise.all((await releases(row.id)).map(async release => {
+        const source = revisions.get(release.sourceRevisionId);
+        const languages = new Set(source ? [source.language] : []);
+        for (const binding of await store.releaseTranslations(release.id)) {
+          const revision = revisions.get(binding.revisionId);
+          if (revision?.sourceRevisionId === release.sourceRevisionId && revision.translationId === binding.translationId) languages.add(revision.language);
+        }
+        return { versionTag: release.versionTag, effectiveDate: release.effectiveDate, publishedAt: release.publishedAt.toISOString(), languages: [...languages] };
+      }));
+    },
+    /** Resolves an exact selected language without the site's source-text fallback. */
+    async meta(input: { ruleId: string, versionTag?: string, language?: string }): Promise<RuleMetadata | undefined> {
+      const selected = await select(input);
+      if (selected == null) return undefined;
+      const { row, release, revision } = selected;
+      return {
+        ruleId:        row.id, title:         revision.title, versionTag:    release.versionTag, revisionId:    revision.id, language:      revision.language,
+        effectiveDate: release.effectiveDate, publishedAt:   release.publishedAt.toISOString(), meta:          documentMeta.parse(revision.meta ?? {}),
+        files:         release.files.filter(file => file.language === revision.language && (file.translationId == null || file.translationId === revision.translationId))
+          .map(file => {
+            const { storageKey: _key, ...publicFile } = file;
+            return ruleFile.parse({ ...publicFile, downloadUrl: sourceFileUrl(file, options.assetBaseUrl) });
+          }),
+      };
+    },
+    /** Reads saved text while preserving the source hierarchy for sparse translations. */
+    async content(input: { ruleId: string, versionTag?: string, language?: string }): Promise<RuleContent | undefined> {
+      const selected = await select(input);
+      if (selected == null) return undefined;
+      const { row, release, revision, source } = selected;
+      const original = await store.revision(source.id);
+      const saved = revision.id === source.id ? original : await store.revision(revision.id);
+      if (original == null || saved == null) return undefined;
+      const parents = new Map(original.nodes.map(node => [node.id, node.nodeKey]));
+      const translated = new Map(saved.nodes.map(node => [node.sourceNodeId, node]));
+      // Translation rows do not store a complete parent tree; source references own structure.
+      const nodes: RuleContent['nodes'] = [];
+      for (const node of orderedNodes(original.nodes)) {
+        const text = revision.id === source.id ? node : translated.get(node.id);
+        if (text == null) continue;
+        nodes.push({
+          nodeKey:      node.nodeKey, kind:         node.kind, anchor:       node.anchor, path:         node.path, level:        node.level,
+          parentKey:    node.parentId == null ? null : parents.get(node.parentId) ?? null,
+          siblingOrder: node.siblingOrder, order:        nodes.length, rawText:      text.rawText, markers:      text.markers,
+        });
+      }
+      return {
+        ruleId:        row.id, title:         revision.title, versionTag:    release.versionTag, revisionId:    revision.id,
+        language:      revision.language, effectiveDate: release.effectiveDate, publishedAt:   release.publishedAt.toISOString(), nodes,
+      };
+    },
+  };
+}

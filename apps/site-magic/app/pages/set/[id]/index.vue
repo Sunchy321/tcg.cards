@@ -12,7 +12,7 @@
           :key="r"
           class="flex flex-col items-center gap-1"
         >
-          <img :src="rarityIconUrl(r)" class="w-10 h-10 object-contain">
+          <img :src="rarityIconUrl(r)" class="w-10 h-10 object-contain" @error="fallIconBack">
           <span class="text-xs text-gray-500 dark:text-gray-400">{{ $t('magic.rarity.' + r) }}</span>
         </div>
         <div class="flex gap-1 ml-auto">
@@ -163,6 +163,14 @@ const rarityIconUrl = (rarity: string) => {
     : id.value;
 
   return `${assetBaseUrl}/magic/set/icon/${iconSet}/${rarity}.svg`;
+};
+
+/** Falls a rarity icon missing from the asset store back to the shared default symbol. */
+const fallIconBack = (event: Event) => {
+  const img = event.target as HTMLImageElement;
+  if (img.dataset.iconFallback !== undefined) return;
+  img.dataset.iconFallback = '';
+  img.src = `${assetBaseUrl}/magic/set/icon/default.svg`;
 };
 
 // ── Load ──────────────────────────────────────────────────────────────────────

@@ -13,6 +13,7 @@ import {
 import { createDefinition } from '#task/definition';
 import { getLocalDb } from '../../hsdata-local-db';
 import { requireHearthstonePublishTargetByIdentity } from '../../hsdata-publish-target';
+import { chunkValues } from '../../hsdata-publish';
 
 export const announcementPublishTaskType = 'hearthstone_announcement_publish';
 
@@ -23,12 +24,14 @@ const input = z.object({
 const output = z.object({
   announcementCount: z.number(),
   itemCount:         z.number(),
+  totalRowCount:     z.number(),
+  changedRowCount:   z.number(),
   dryRun:            z.boolean(),
 });
 
 const publishStreamScope = z.object({
-  publishTarget: z.string(),
-  environment:   z.string(),
+  game:   z.string(),
+  target: z.string(),
 });
 
 /** Mirrors the local announcement tables to the publish target as a full replace. */
@@ -36,7 +39,7 @@ export const announcementPublishTaskDefinition = createDefinition(announcementPu
   .scope(publishStreamScope, {
     type:    'publish_stream' as const,
     resolve: scope => ({
-      key:      `${scope.publishTarget}:${scope.environment}:announcement_data`,
+      key:      `${scope.game}:${scope.target}:announcement_data`,
       snapshot: scope,
     }),
   })
@@ -44,7 +47,7 @@ export const announcementPublishTaskDefinition = createDefinition(announcementPu
   .output(output)
   .context({
     init: (input, scope) => {
-      const target = requireHearthstonePublishTargetByIdentity(scope.publishTarget, scope.environment);
+      const target = requireHearthstonePublishTargetByIdentity(scope.game, scope.target);
       return {
         target,
         dryRun: input.dryRun ?? false,
@@ -63,23 +66,27 @@ export const announcementPublishTaskDefinition = createDefinition(announcementPu
       const remoteDb = createDb(target.connectionString);
       try {
         // Full mirror: replace the remote tables with the local rows (ids are
-        // preserved UUIDs, so existing site references stay valid).
+        // preserved UUIDs, so existing site references stay valid). Inserts are
+        // chunked so a large item set stays under the driver's parameter limit.
         await remoteDb.delete(RemoteAnnouncementItem);
         await remoteDb.delete(RemoteAnnouncement);
-        if (localAnnouncements.length > 0) {
-          await remoteDb.insert(RemoteAnnouncement).values(localAnnouncements);
+        for (const chunk of chunkValues(localAnnouncements)) {
+          await remoteDb.insert(RemoteAnnouncement).values(chunk);
         }
-        if (localItems.length > 0) {
-          await remoteDb.insert(RemoteAnnouncementItem).values(localItems);
+        for (const chunk of chunkValues(localItems)) {
+          await remoteDb.insert(RemoteAnnouncementItem).values(chunk);
         }
       } finally {
         await remoteDb.$client.end({ timeout: 1 });
       }
     }
 
+    const totalRowCount = localAnnouncements.length + localItems.length;
     return {
       announcementCount: localAnnouncements.length,
       itemCount:         localItems.length,
+      totalRowCount,
+      changedRowCount:   totalRowCount,
       dryRun,
     };
   })

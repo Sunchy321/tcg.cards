@@ -1,5 +1,7 @@
 import z from 'zod';
 
+import { AMBITS } from './ambit';
+
 export const searchError = z.object({
   type:  z.string(),
   value: z.string().optional(),
@@ -50,4 +52,8 @@ export const searchInput = z.object({
   q:        z.string().min(1).max(1000),
   page:     z.int().min(1).default(1),
   pageSize: z.int().min(1).max(100).default(100),
+
+  // The ambit scope selector's ceiling from the URL param; an ambit command in
+  // the DSL overrides it server-side, so this is only the starting ceiling.
+  ambit: z.enum(AMBITS).optional(),
 });

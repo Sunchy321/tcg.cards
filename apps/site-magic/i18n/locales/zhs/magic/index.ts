@@ -1,11 +1,191 @@
 import search from './search';
+import { announcementSourceLabels } from '@tcg-cards/ui/i18n/announcement-sources';
 
 export default {
   $self: '万智牌',
   $full: '万智牌',
 
+  changeStatus: {
+    banned_as_commander: '指挥官禁用',
+    banned_as_companion: '行侣禁用',
+    banned_in_bo1:       'BO1禁用',
+    banned:              '禁用',
+    game_changer:        '主宰牌',
+    legal:               '合法',
+    restricted:          '限制',
+    suspended:           '暂停',
+    unavailable:         '不可用',
+    score:               '计分',
+    extend:              '系列扩展',
+    buff:                '增强',
+    nerf:                '削弱',
+    tweak:               '小更新',
+    revert:              '退环境回调',
+    rework:              '重做',
+    text_fix:            '文本修复',
+    text_adjust:         '文本调整',
+    bugged:              '数据异常',
+    bugfix:              'Bug 修复',
+  },
+
+  announcement: {
+    $self:        '公告',
+    notFound:     '公告不存在',
+    noItems:      '该公告暂无条目',
+    sourceAll:    '全部来源',
+    sourceOther:  '其他来源',
+    backToList:   '返回公告列表',
+    readOriginal: '阅读原文',
+    loading:      '正在加载公告',
+    changes:      '变更内容',
+    copiedFrom:   '复制自 {format}',
+    types:        {
+      card_change:  '合法性变更',
+      card_update:  '卡牌更新',
+      set_change:   '系列变更',
+      rule_change:  '规则变更',
+      format_birth: '赛制上线',
+      format_death: '赛制下架',
+      card_split:   '卡牌分裂',
+      card_merge:   '卡牌合并',
+    },
+    sourceAnnouncement: '{source}公告',
+    sources:            announcementSourceLabels.zhs,
+    global:             '全局（所有赛制）',
+    effectiveDate:      '生效日期',
+    sentinel:           '关联卡牌明细',
+    type:               '类型',
+    status:             '状态',
+    format:             '赛制',
+  },
+
+  cardImageSource: {
+    label:   '图片来源',
+    sources: {
+      scryfall: 'Scryfall',
+      gatherer: 'Gatherer',
+      mtgch:    'mtgch',
+      mtgflame: '万智烽火',
+      hunterer: 'Hunterer',
+      manual:   '手工制作',
+    },
+  },
+
+  dataSources: {
+    $self: '数据来源',
+
+    intro: '本站是一个非官方的粉丝项目。卡牌数据、文本与卡图均来自下列公开来源，其中许多由社区志愿者维护。感谢每一个项目与贡献者。',
+
+    sections: {
+      cardData: {
+        title: '卡牌数据',
+
+        groups: {
+          prints: {
+            body: '本站卡牌数据库以 Scryfall 发布的数据为基础：系列与印刷、收藏编号、稀有度、法术力费用、颜色，以及卡牌页面上的大部分内容。',
+          },
+          text: {
+            title: '文本与翻译',
+            body:  '在本站，一张牌可以三种方式阅读：译本（本站为你所用语言准备的标准文本）、原文（以英文写就的权威文本）与印文（某张特定印刷上实际印出的文字，使用该印刷的语言）。各语言的标准文本由下列来源组装而成，印文则来自 Scryfall 记录的各语言印刷文本。当一张牌在某语言没有官方译名时，由社区翻译补位——这也是社区文本在数据中出现的唯一场合。',
+          },
+        },
+      },
+      cardImages: {
+        title: '卡牌图片',
+
+        groups: {
+          main: {
+            body: '卡图分两类：从公开图源下载的图像，以及由手工制作或社区提供的图像。来自手工与社区来源的卡图不会被批量下载覆盖。',
+          },
+        },
+      },
+      setData: {
+        title: '系列数据',
+
+        groups: {
+          main: {},
+        },
+      },
+      otherData: {
+        title: '其他数据',
+
+        groups: {
+          freshness: {
+            title: '数据新鲜度',
+            body:  '数据由本站维护者在新系列发售或上游来源更新后手动导入。因此本站可能短暂滞后于来源网站，并非实时同步。',
+          },
+          attribution: {
+            title:     '归属与声明',
+            fanPolicy: '本站为依据威世智《粉丝内容政策》许可的非官方粉丝内容，未经威世智批准，亦不代表其立场。所使用的部分素材为威世智财产。©WIZARDS OF THE COAST LLC.',
+            credits:   '感谢上文列出的 Scryfall、Gatherer、MTGCH 与 MTGJSON。卡牌数据与卡图版权归各自权利人所有；本站依下列文档所述方式使用这些内容。',
+          },
+        },
+      },
+    },
+
+    sources: {
+      scryfall: {
+        name: 'Scryfall',
+        desc: '提供数据库的骨架——系列、印刷、印刷信息、规则注释，以及多数语言的卡牌文本。',
+      },
+      mtgch: {
+        name: 'MTGCH',
+        desc: '社区维护的简中卡牌数据库。它按官方风格翻译卡牌原文，构成本站简中标准文本；从未拥有官方译名的卡牌，也由它提供社区译名与文本。',
+      },
+      scryfallImages: {
+        name: 'Scryfall',
+        desc: '各语言印刷卡图的主要下载来源。',
+      },
+      gatherer: {
+        name: 'Gatherer',
+        desc: '威世智官方卡牌数据库，部分较早印刷的卡图来源。',
+      },
+      community: {
+        name: '手工与社区图源',
+        desc: '由手工制作或社区提供的卡图（包括中文扫描图），按原样保留。',
+      },
+      mtgjson: {
+        name: 'MTGJSON',
+        desc: '在 Scryfall 骨架之上补充系列层面的信息。',
+      },
+    },
+
+    legal: {
+      legal:   '法律声明',
+      terms:   '服务条款',
+      privacy: '隐私政策',
+    },
+  },
+
   set: {
     $self: '系列',
+
+    types: {
+      core:             '核心系列',
+      expansion:        '补充系列',
+      masters:          '大师／重制系列',
+      commander:        '指挥官',
+      promo:            '赠卡',
+      token:            '衍生物',
+      funny:            '鸡飞系列',
+      memorabilia:      '纪念系列',
+      alchemy:          '炼金',
+      arsenal:          '军火库',
+      box:              '盒装系列',
+      draft_innovation: '特殊轮抽系列',
+      duel_deck:        '对决套牌',
+      from_the_vault:   '来自保险库',
+      masterpiece:      '逸品',
+      minigame:         '小游戏',
+      planechase:       '时空竞逐',
+      premium_deck:     '优质套牌',
+      spellbook:        '咒语书',
+      starter:          '入门系列',
+      treasure_chest:   '宝箱',
+      vanguard:         '先锋',
+      art_series:       '美术卡',
+      other:            '其他',
+    },
 
     booster: {
       name: {
@@ -524,20 +704,27 @@ export default {
 
     'commander':           '指挥官',
     'duelcommander':       '法禁指挥官',
-    'duelcommander_docfx': '法禁指挥官（DocFX分叉）',
-    'leviathan_commander': '海怪禁指挥官',
+    'leviathan-commander': '海怪禁指挥官',
     'commander1v1':        '指挥官1v1',
     'brawl':               '争锋',
-    'standard_brawl':      '标准争锋',
+    'standard-brawl':      '标准争锋',
 
     'pauper':               '纯普',
     'oathbreaker':          '破誓人',
     'penny':                'Penny Dreadful',
-    'canadian_highlander':  'Canadian Highlander',
-    'pauper_commander':     '纯普指挥官',
-    'pauper_duelcommander': '纯普指挥官1v1',
+    'canadian-highlander':  '加拿大高地人',
+    'pauper-commander':     '纯普指挥官',
+    'pauper-duelcommander': '纯普指挥官1v1',
+    'conquest':             '征服',
 
-    'two_head_giant': '双头巨人',
+    'tiny-leader-reborn': '小指挥官：重生',
+    'predh':              '怀旧指挥官',
+    'gladiator':          '角斗士',
+    'old-school':         '怀旧93/94',
+    'premodern':          '前摩登',
+    'competitive-brawl':  '竞技争锋',
+
+    'two-head-giant': '双头巨人',
   },
 
   rarity: {
@@ -611,39 +798,81 @@ export default {
   },
 
   document: {
+    compute_relations: '计算版本关系',
+    relations_ready:   '版本关系已计算',
+    relations_failed:  '版本关系计算失败，请重试。',
+
     $self: '文档',
     names: {
       cr: '综合规则',
     },
-    compare_versions:   '比较版本',
-    back_to_document:   '返回文档',
-    outline:            '目录',
-    copy_text:          '复制文本',
-    copy_link:          '复制链接',
-    example:            '示例',
-    load_failed:        '加载文档阅读数据失败。',
+    reading_options:     '版本与语言',
+    close_options:       '收起阅读设置',
+    download_original:   '下载原文件',
+    version:             '规则版本',
+    language:            '阅读语言',
+    compare_versions:    '比较版本',
+    back_to_document:    '返回文档',
+    outline:             '目录',
+    hide_outline:        '收起目录',
+    loading:             '正在加载…',
+    retry:               '重试',
+    copy_text:           '复制文本',
+    copy_link:           '复制链接',
+    link_to_section:     '定位此条规则',
+    example:             '示例',
+    translation_missing: '暂无译文，显示英文原文',
+    load_failed:         '加载文档阅读数据失败。',
 
     diff: {
-      $self:          '版本对比',
-      from_version:   '旧版本',
-      to_version:     '新版本',
-      old_content:    '旧',
-      new_content:    '新',
-      total_changes:  '共 {count} 条变更',
-      no_changes:     '没有匹配当前筛选的变更。',
-      load_failed:    '加载版本对比数据失败。',
-      filter_all:     '全部类型',
-      other:          '其他',
-      omitted:        '已省略 {count} 条规则',
-      type: {
+      reference_updates:      '引用更新',
+      reference_only:         '仅引用编号更新',
+      hide_reference_updates: '隐藏引用编号更新',
+
+      $self:         '版本对比',
+      from_version:  '旧版本',
+      to_version:    '新版本',
+      old_content:   '旧',
+      new_content:   '新',
+      total_changes: '共 {count} 条变更',
+      no_changes:    '没有匹配当前筛选的变更。',
+      load_failed:   '加载版本对比数据失败。',
+      filter_all:    '全部类型',
+      other:         '其他',
+      omitted:       '已省略 {count} 条规则',
+      type:          {
         added:            '新增',
         removed:          '删除',
         modified:         '修改',
         moved:            '移动',
-        renamed:          '重命名',
-        renamed_modified: '重命名并修改',
+        renamed:          '编号变化',
+        renamed_modified: '编号与内容变化',
         split:            '拆分',
+        moved_modified:   '移动并修改',
         merged:           '合并',
+      },
+    },
+
+    history: {
+      $self:        '条目历史',
+      title:        '{serial} 的历史',
+      split:        '拆分',
+      merged:       '合并',
+      compare:      '全文对比',
+      period:       '{count} 个时段',
+      lineage:      '{count} 条相关规则',
+      added:        '新增',
+      removed:      '移除',
+      renamed_from: '改号 · 原 {serial}',
+      fallback:     '英文原文',
+      latest:       '最新收录版本',
+      end:          '已显示全部收录历史',
+      not_found:    '该条目的历史不存在。',
+      load_failed:  '加载条目历史数据失败。',
+      legend:       {
+        add:    '本次新增',
+        remove: '下次删去',
+        both:   '本次新增，下次删去',
       },
     },
   },

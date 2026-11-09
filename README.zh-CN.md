@@ -38,7 +38,7 @@ apps/
   site-main/        tcg.cards 主站
   site-{game}/      单游戏公开站点（例如 `site-magic`、`site-hearthstone`）
   site-console/     低能力 Web 管理界面
-  service-internal/ 面向 app 形态客户端的高能力远端管理后端
+  service-console-api/ 面向 app 形态客户端的高能力远端管理后端
   watcher/          定时运维 Worker 运行时
 
 packages/
@@ -51,7 +51,6 @@ packages/
   eslint-config-custom/
                    共享 ESLint 配置
 
-specs/              已通过评审的设计、评审和实施计划
 references/         建模使用的本地参考资料和上游材料
 scripts/            工具脚本
 turbo/              Turborepo generator 和模板
@@ -64,7 +63,7 @@ turbo/              Turborepo generator 和模板
 | `site-main` | 主入口站点 | `3000` |
 | `site-{game}` | 单游戏公开站点。当前实例：`site-magic`（`3001`）、`site-hearthstone`（`3002`） | 按具体应用 |
 | `site-console` | 低能力 Web 管理界面 | `2999` |
-| `service-internal` | 面向 app 形态客户端的高能力远端管理后端 | `2998` |
+| `service-console-api` | 面向 app 形态客户端的高能力远端管理后端 | `2998` |
 | `service-watcher` | 定时 Cloudflare Worker | Wrangler 默认端口 |
 
 ## 快速开始
@@ -90,7 +89,7 @@ bun install
 cp apps/site-magic/.env.example apps/site-magic/.env
 cp apps/site-hearthstone/.env.example apps/site-hearthstone/.env
 cp apps/site-console/.env.example apps/site-console/.env
-cp apps/service-internal/.env.example apps/service-internal/.env
+cp apps/service-console-api/.env.example apps/service-console-api/.env
 cp apps/service-watcher/.dev.vars.example apps/service-watcher/.dev.vars
 cp packages/db/.env.example packages/db/.env
 ```
@@ -112,7 +111,7 @@ cd apps/site-magic
 bun run dev
 ```
 
-`site-main`、`site-hearthstone`、`site-console`、`service-internal` 也可以使用同样方式启动。
+`site-main`、`site-hearthstone`、`site-console`、`service-console-api` 也可以使用同样方式启动。
 
 ## 常用命令
 
@@ -176,11 +175,9 @@ bun run deploy
 
 ## 设计规格
 
-已通过评审的设计资料放在 `specs/<topic>/` 下，并使用固定文件名：
+具体需求的设计工作放在 issue tracker 中：规格为 `.scratch/<feature>/spec.md`，每个 ticket 一个文件放在 `.scratch/<feature>/issues/` 下。`.scratch/` 已被 git 忽略，属于工作过程产物，而非提交进仓库的文档。
 
-- `design.md`
-- `review.md`
-- `plan.md`
+需求之外长期留存的内容单独提交：`CONTEXT.md` 保存领域术语表，`docs/adr/` 保存难以逆转的决策。
 
 ## 参考资料
 
