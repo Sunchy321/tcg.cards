@@ -32,11 +32,12 @@ export function neuronIndexPageUrl(page: number): string {
  * Extracts the card cids of one index page, in page order, deduplicated.
  * Targets the hidden `link_value` input each card row carries — the JS
  * references to `link_value` elsewhere on the page do not match this pattern.
+ * Card URLs may include query parameters such as `iid` after the cid.
  */
 export function parseNeuronIndexCids(html: string): number[] {
   const cids: number[] = [];
   const seen = new Set<number>();
-  const re = /class="link_value" value="[^"]*ope=2&cid=(\d+)"/g;
+  const re = /class="link_value" value="[^"]*ope=2&cid=(\d+)(?=&|")/g;
   let m;
   while ((m = re.exec(html)) !== null) {
     const cid = Number(m[1]);
