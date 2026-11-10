@@ -25,6 +25,7 @@
     "lint": "turbo run lint",
     "postinstall": "turbo run postinstall",
     "typecheck": "turbo run typecheck",
+    "cloudflare:terraform": "bash scripts/cloudflare-terraform.sh",
     "gen": "sh -c 'turbo gen new-site --args \"$1\" && bun install' sh"
   },
   "workspaces": [
