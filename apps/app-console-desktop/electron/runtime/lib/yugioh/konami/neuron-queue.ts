@@ -8,7 +8,7 @@
  * Supported locales in crawl wave order: core regions first, so an interrupted
  * run leaves the most important regions complete.
  */
-export const NEURON_LOCALE_WAVE = ['ja', 'en', 'ae', 'ko', 'fr', 'de', 'it', 'es', 'pt'] as const;
+export const NEURON_LOCALE_WAVE = ['ja', 'en', 'ae', 'ko', 'cn', 'fr', 'de', 'it', 'es', 'pt'] as const;
 
 export type NeuronLocale = typeof NEURON_LOCALE_WAVE[number];
 

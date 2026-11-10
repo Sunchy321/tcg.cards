@@ -65,7 +65,7 @@ import { getDesktopTaskSnapshot, startDesktopTask } from '~/lib/orpc';
 definePageMeta({ layout: 'admin', title: 'Neuron 官方库爬取' });
 
 type KonamiLevel = 'fill' | 'refresh' | 'refresh_all' | 'force';
-type LocaleChoice = 'all' | 'ja' | 'en' | 'ae' | 'ko' | 'fr' | 'de' | 'it' | 'es' | 'pt';
+type LocaleChoice = 'all' | 'ja' | 'en' | 'ae' | 'ko' | 'cn' | 'fr' | 'de' | 'it' | 'es' | 'pt';
 
 interface NeuronForm {
   level:       KonamiLevel;
@@ -110,6 +110,7 @@ const localeItems: { label: string, value: LocaleChoice }[] = [
   { label: 'English（en）', value: 'en' },
   { label: 'English (Asia)（ae）', value: 'ae' },
   { label: '한글（ko）', value: 'ko' },
+  { label: '简体中文（cn）', value: 'cn' },
   { label: 'Français（fr）', value: 'fr' },
   { label: 'Deutsch（de）', value: 'de' },
   { label: 'Italiano（it）', value: 'it' },
