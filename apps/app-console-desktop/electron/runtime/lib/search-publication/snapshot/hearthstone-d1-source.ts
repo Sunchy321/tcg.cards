@@ -29,7 +29,12 @@ export function projectedSearchQuery(db: SourceDb) {
       'nameOrder', dense_rank() over (order by ${SearchCardLocalization.name}),
       'lang', ${SearchCardLocalization.lang},
       'renderHash', ${SearchCardLocalization.renderHash},
-      'localization', jsonb_build_object('name', ${SearchCardLocalization.name}, 'text', ${SearchCardLocalization.text}))`.as(
+      'localization', jsonb_build_object(
+        'name', ${SearchCardLocalization.name},
+        'text', ${SearchCardLocalization.text},
+        'searchTerms', ${SearchCardLocalization.searchTerms}
+      ),
+      'searchTerms', ${SearchCardLocalization.searchTerms})`.as(
         'item',
       ),
     })
@@ -43,6 +48,16 @@ export function projectedSearchQuery(db: SourceDb) {
 export function snapshotRows(rows: Array<{ item: SnapshotItem }>): SnapshotItem[] {
   return rows.map(({ item: raw }) => {
     const { idOrder, setOrder, nameOrder, ...item } = raw;
-    return { ...essentialCardSearchItem.parse(item), idOrder, setOrder, nameOrder };
+    const { searchTerms, ...publicItem } = item;
+    return {
+      ...essentialCardSearchItem.parse({
+        ...publicItem,
+        localization: { ...item.localization, searchTerms: searchTerms ?? null },
+      }),
+      searchTerms: searchTerms ?? null,
+      idOrder,
+      setOrder,
+      nameOrder,
+    };
   });
 }

@@ -43,12 +43,13 @@ export const SearchCard = schema.table('search_cards', {
 ]);
 
 export const SearchCardLocalization = schema.table('search_card_localizations', {
-  cardId:     text('card_id').notNull(),
-  lang:       locale('lang').notNull(),
-  name:       text('name').notNull(),
-  text:       text('text').notNull(),
-  renderHash: text('render_hash'),
-  createdAt:  timestamp('created_at').defaultNow().notNull(),
-  updatedAt:  timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
-  deletedAt:  timestamp('deleted_at'),
+  cardId:      text('card_id').notNull(),
+  lang:        locale('lang').notNull(),
+  name:        text('name').notNull(),
+  text:        text('text').notNull(),
+  renderHash:  text('render_hash'),
+  searchTerms: text('search_terms').array(),
+  createdAt:   timestamp('created_at').defaultNow().notNull(),
+  updatedAt:   timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+  deletedAt:   timestamp('deleted_at'),
 }, table => [primaryKey({ columns: [table.cardId, table.lang] })]);

@@ -139,6 +139,7 @@ export const entityLocalization = z.strictObject({
   howToEarnSignature: z.string().nullable(),
   howToEarnDiamond:   z.string().nullable(),
   flavorText:         z.string().nullable(),
+  searchTerms:        z.string().array().nullable(),
 
   locChangeType: changeType.default('unknown'),
 });

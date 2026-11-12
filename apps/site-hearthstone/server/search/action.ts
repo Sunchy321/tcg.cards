@@ -132,8 +132,12 @@ export const essential = as
       ...result,
       result: result.result.map(row => essentialCardSearchItem.strip().parse({
         ...row,
-        localization: { name: row.localization.name, text: row.localization.text },
-        simpleTags:   pickSimpleTags(row.mechanics),
+        localization: {
+          name:        row.localization.name,
+          text:        row.localization.text,
+          searchTerms: row.localization.searchTerms,
+        },
+        simpleTags: pickSimpleTags(row.mechanics),
       })),
     };
   }, {

@@ -155,7 +155,7 @@ describe('Hearthstone essential acceleration', () => {
     for (const key of ['version', 'revisionHash', 'localizationHash', 'mechanics', 'legacyPayload']) {
       expect(keys).not.toContain(key);
     }
-    expect(Object.keys(essentialCardSearchItem.shape.localization.shape)).toEqual(['name', 'text']);
+    expect(Object.keys(essentialCardSearchItem.shape.localization.shape)).toEqual(['name', 'text', 'searchTerms']);
   });
 
   test('falls back when tables disappear, but does not turn valid zero results into fallback', async () => {

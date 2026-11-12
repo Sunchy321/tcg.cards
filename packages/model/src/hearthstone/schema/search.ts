@@ -36,7 +36,11 @@ export const essentialCardSearchItem = cardEntityView.pick({
   colddown:         true,
 }).extend({
   simpleTags:   z.record(z.string(), z.union([z.boolean(), z.int()])),
-  localization: z.strictObject({ name: z.string(), text: z.string() }),
+  localization: z.strictObject({
+    name:        z.string(),
+    text:        z.string(),
+    searchTerms: z.string().array().nullable(),
+  }),
 }).strict();
 
 export const essentialNormalResult = createSearchNormalResult(essentialCardSearchItem).extend({

@@ -211,7 +211,11 @@ function itemSql(db: SearchDrizzle): SQL<string> {
     'simpleTags', json(${simpleTags}),
     'lang', ${SearchCardLocalization.lang},
     'renderHash', ${SearchCardLocalization.renderHash},
-    'localization', json_object('name', ${SearchCardLocalization.name}, 'text', ${SearchCardLocalization.text}))`;
+    'localization', json_object(
+      'name', ${SearchCardLocalization.name},
+      'text', ${SearchCardLocalization.text},
+      'searchTerms', json(${SearchCardLocalization.searchTerms})
+    ))`;
 }
 
 /** Selects language, ambit, page, total, and version metadata in one snapshot statement. */

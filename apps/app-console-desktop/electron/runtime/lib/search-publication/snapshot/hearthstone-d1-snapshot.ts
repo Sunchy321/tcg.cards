@@ -19,9 +19,10 @@ import type { SearchSnapshotBatch } from './snapshot-batch';
 
 /** Carries approved latest card fields and one localized row for offline snapshot generation. */
 export type SnapshotItem = EssentialCardSearchItem & {
-  idOrder:   number;
-  setOrder:  number;
-  nameOrder: number;
+  idOrder:      number;
+  setOrder:     number;
+  nameOrder:    number;
+  searchTerms?: string[] | null;
 };
 
 /** Selects one complete snapshot or one side of the layered local package. */
@@ -130,7 +131,7 @@ function buildHearthstoneSnapshot(
   }
   const safety = new Map<string, boolean>();
   for (const lang of ['all', ...locale.options]) {
-    for (const field of ['name', 'text']) {
+    for (const field of ['name', 'text', 'searchTerms']) {
       safety.set(`case_safe:${field}:${lang}`, true);
     }
   }
@@ -140,7 +141,8 @@ function buildHearthstoneSnapshot(
     if (target.kind === 'locale' && target.locale !== raw.lang) {
       continue;
     }
-    const { idOrder, setOrder, nameOrder, ...value } = raw;
+    const { idOrder, setOrder, nameOrder, searchTerms, ...value } = raw;
+    const terms = searchTerms ?? null;
     for (const rank of [idOrder, setOrder, nameOrder]) {
       if (!Number.isSafeInteger(rank) || rank < 1) {
         throw new Error('Snapshot sort keys must be positive PG-generated integers.');
@@ -172,10 +174,11 @@ function buildHearthstoneSnapshot(
       continue;
     }
     if (target.kind !== 'base') {
-      for (const field of ['name', 'text'] as const) {
-        const safe = ![...localization[field]].some(
+      for (const field of ['name', 'text', 'searchTerms'] as const) {
+        const values = field === 'searchTerms' ? (terms ?? []) : [localization[field]];
+        const safe = values.every(text => ![...text].some(
           char => char.codePointAt(0)! > 127 && /\p{Cased}/u.test(char),
-        );
+        ));
         for (const scope of ['all', lang]) {
           const key = `case_safe:${field}:${scope}`;
           safety.set(key, safety.get(key)! && safe);
@@ -245,7 +248,15 @@ function buildHearthstoneSnapshot(
         statement(
           db
             .insert(SearchCardLocalization)
-            .values({ cardId: card.cardId, lang, renderHash, nameOrder, ...localization })
+            .values({
+              cardId:      card.cardId,
+              lang,
+              name:        localization.name,
+              nameOrder,
+              text:        localization.text,
+              renderHash,
+              searchTerms: terms,
+            })
             .toSQL(),
         ),
         true,
@@ -301,7 +312,7 @@ function buildHearthstoneSnapshot(
         { key: 'sort_version', value: '1' },
         { key: 'package_role', value: 'locale' },
         { key: 'locale', value: target.locale },
-        ...(['name', 'text'] as const).flatMap(field => {
+        ...(['name', 'text', 'searchTerms'] as const).flatMap(field => {
           const safe = safety.get(`case_safe:${field}:${target.locale}`)!;
           return [
             { key: `case_safe:${field}:all`, value: safe ? '1' : '0' },

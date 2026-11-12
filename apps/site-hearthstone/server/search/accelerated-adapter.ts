@@ -104,8 +104,9 @@ const searchTable = {
   lang:         SearchCardLocalization.lang,
   renderHash:   SearchCardLocalization.renderHash,
   localization: {
-    name: SearchCardLocalization.name,
-    text: SearchCardLocalization.text,
+    name:        SearchCardLocalization.name,
+    text:        SearchCardLocalization.text,
+    searchTerms: SearchCardLocalization.searchTerms,
   },
 };
 
@@ -116,7 +117,9 @@ function itemSql(): SQL {
     'lang', ${SearchCardLocalization.lang},
     'renderHash', ${SearchCardLocalization.renderHash},
     'localization', jsonb_build_object(
-      'name', ${SearchCardLocalization.name}, 'text', ${SearchCardLocalization.text}
+      'name', ${SearchCardLocalization.name},
+      'text', ${SearchCardLocalization.text},
+      'searchTerms', ${SearchCardLocalization.searchTerms}
     ))`;
 }
 

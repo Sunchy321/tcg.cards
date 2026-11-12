@@ -517,6 +517,7 @@ function localizationManifestValue(row: typeof LocalEntityLocalization.$inferSel
     howToEarnSignature: row.howToEarnSignature,
     howToEarnDiamond:   row.howToEarnDiamond,
     flavorText:         row.flavorText,
+    searchTerms:        row.searchTerms,
     locChangeType:      row.locChangeType,
   };
 }

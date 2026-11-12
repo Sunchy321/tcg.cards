@@ -73,6 +73,7 @@ export function buildLocalizationHashPayload(row: LocalizationlessLocalizationRo
     howToEarnSignature: row.howToEarnSignature,
     howToEarnDiamond:   row.howToEarnDiamond,
     flavorText:         row.flavorText,
+    searchTerms:        row.searchTerms,
     // Empty hints preserve existing identities; nonempty hints distinguish parsing rules.
     ...(localizationHints.length > 0 ? { localizationHints: [...new Set(localizationHints)].sort() } : {}),
   };

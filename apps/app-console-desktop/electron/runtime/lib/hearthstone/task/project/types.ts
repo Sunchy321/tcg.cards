@@ -33,6 +33,7 @@ export interface LocalizationDraft {
   howToEarnSignature: string | null;
   howToEarnDiamond:   string | null;
   flavorText:         string | null;
+  searchTerms:        string[] | null;
   locChangeType:      ChangeType;
 }
 

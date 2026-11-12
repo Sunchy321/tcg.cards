@@ -80,6 +80,7 @@ function createLocalizationDraft(): LocalizationDraft {
     howToEarnSignature: null,
     howToEarnDiamond:   null,
     flavorText:         null,
+    searchTerms:        null,
     locChangeType:      'unknown',
   };
 }
@@ -306,6 +307,7 @@ function finalizeLocalizationRows(
       howToEarnSignature: localization.howToEarnSignature,
       howToEarnDiamond:   localization.howToEarnDiamond,
       flavorText:         localization.flavorText,
+      searchTerms:        localization.searchTerms,
       locChangeType:      localization.locChangeType,
     };
 
@@ -373,6 +375,7 @@ export function projectExtractedCard(
     const locale = localeMap[supportedLocaleKeys[i]!]!;
     const loc = createLocalizationDraft();
     loc.name = extractLocString(card.name, i);
+    loc.searchTerms = card.searchTerms?.[i] ?? null;
     loc.richText = extractLocString(card.textInHand, i);
     loc.flavorText = extractLocString(card.flavorText, i);
     loc.howToEarn = nullIfEmpty(extractLocString(card.howToGetCard, i));

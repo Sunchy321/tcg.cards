@@ -50,6 +50,9 @@ export const ExtractedCard = dataSchema.table('extracted_card', {
   targetArrowText:       jsonb('target_arrow_text').$type<LocString>(),
   shortName:             jsonb('short_name').$type<LocString>(),
 
+  // Raw localized terms from CARD_ADDITONAL_SEARCH_TERMS, grouped by DBF locale index.
+  searchTerms: jsonb('search_terms').$type<string[][] | null>(),
+
   projectionState: text('projection_state').notNull().default('not_projected'),
 }, table => [
   uniqueIndex('extracted_card_card_hash_uq').on(table.cardId, table.snapshotHash),

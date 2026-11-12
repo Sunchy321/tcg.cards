@@ -86,6 +86,12 @@ interface CardTagRecord {
   m_isPowerKeywordTag: number;
 }
 
+/** One localized search term attached to a card DBF id. */
+interface AdditionalSearchTermRecord {
+  m_cardId:     number;
+  m_searchTerm: { m_locValues: string[], m_locId: number };
+}
+
 const orNull = <T>(v: T) => (v === '' || v === undefined ? null : v);
 
 function hashPayload(value: unknown): string {
@@ -125,6 +131,7 @@ interface CardRow {
   howToGetDiamondCard:           { m_locValues: string[], m_locId: number } | null;
   targetArrowText:               { m_locValues: string[], m_locId: number } | null;
   shortName:                     { m_locValues: string[], m_locId: number } | null;
+  searchTerms:                   string[][] | null;
 }
 
 // Normalized CARD_TAG row inserted into extracted_card_tags.
@@ -160,6 +167,14 @@ function loadCardData(zipName: string, buildNumber: number) {
   });
   const tagData = JSON.parse(tagJson) as { Records: CardTagRecord[] };
 
+  const archiveFiles = execSync(`unzip -Z1 "${zipPath}"`, { encoding: 'utf-8' }).split(/\r?\n/);
+  const searchTermData = archiveFiles.includes('CARD_ADDITONAL_SEARCH_TERMS.json')
+    ? JSON.parse(execSync(`unzip -p "${zipPath}" "CARD_ADDITONAL_SEARCH_TERMS.json"`, {
+      encoding:  'utf-8',
+      maxBuffer: 512 * 1024 * 1024,
+    })) as { Records: AdditionalSearchTermRecord[] }
+    : { Records: [] as AdditionalSearchTermRecord[] };
+
   const eventMap = loadEventMap(zipPath);
 
   // Group tags by dbfId
@@ -170,12 +185,24 @@ function loadCardData(zipName: string, buildNumber: number) {
     tagsByDbfId.set(t.m_cardId, list);
   }
 
+  const searchTermsByDbfId = new Map<number, string[][]>();
+  for (const record of searchTermData.Records) {
+    const localized = searchTermsByDbfId.get(record.m_cardId) ?? [];
+    for (const [localeIndex, term] of record.m_searchTerm.m_locValues.entries()) {
+      const terms = localized[localeIndex] ?? [];
+      terms.push(term);
+      localized[localeIndex] = terms;
+    }
+    searchTermsByDbfId.set(record.m_cardId, localized);
+  }
+
   // Build card rows with snapshot hashes
   const cards: CardRow[] = [];
   const tags: TagInput[] = [];
 
   for (const r of cardData.Records) {
     const cardTags = tagsByDbfId.get(r.m_ID) ?? [];
+    const searchTerms = searchTermsByDbfId.get(r.m_ID) ?? null;
 
     // Resolve event IDs to names for hash computation and storage
     const resolved: Partial<CardRecord> = {};
@@ -183,7 +210,11 @@ function loadCardData(zipName: string, buildNumber: number) {
       const eventId = r[field] as number | undefined;
       (resolved as any)[field] = resolveEvent(eventId, eventMap) as any;
     }
-    const normalizedCard = { ...r, ...resolved };
+    const normalizedCard = {
+      ...r,
+      ...resolved,
+      ...(searchTerms != null && searchTerms.length > 0 ? { searchTerms } : {}),
+    };
     const snapshotHash = computeSnapshotHash(normalizedCard, cardTags);
 
     cards.push({
@@ -215,6 +246,7 @@ function loadCardData(zipName: string, buildNumber: number) {
       howToGetDiamondCard:           r.m_howToGetDiamondCard ?? null,
       targetArrowText:               r.m_targetArrowText ?? null,
       shortName:                     r.m_shortName ?? null,
+      searchTerms,
     });
   }
 

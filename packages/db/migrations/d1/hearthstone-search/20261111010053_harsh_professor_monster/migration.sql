@@ -1,0 +1,1 @@
+ALTER TABLE `hearthstone_search_card_localizations` ADD `search_terms` text;

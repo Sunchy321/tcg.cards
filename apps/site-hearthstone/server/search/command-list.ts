@@ -6,11 +6,59 @@ import { QueryError } from '#search/command/error';
 import { parseAmbitValue } from '#search/server/ambit';
 
 import { and, asc, desc, eq, inArray, not, notInArray, or, sql } from 'drizzle-orm';
+import type { SQLWrapper } from 'drizzle-orm';
 
 import { model } from '#model/hearthstone/search';
 import { classes as classSchema, types as typeSchema } from '#model/hearthstone/schema/basic';
-import { LatestCardEntityView } from '#schema/shared/hearthstone/entity';
+import { BaseEntityLocalization, LatestCardEntityView } from '#schema/shared/hearthstone/entity';
 import { TAG_SLUG, TAG_ID } from '#model/hearthstone/constant/tag';
+import { matchValueGroups, splitValueGroups } from '#search/server/command/terms';
+import { pgRegexSource } from '#search/regex';
+
+/** Supplies either the search projection field or a correlated domain-localization field. */
+type RawSearchTable = {
+  cardId:        SQLWrapper;
+  lang:          SQLWrapper;
+  revisionHash?: SQLWrapper;
+  localization:  { searchTerms?: SQLWrapper };
+};
+
+/** Keeps DBF terms private while allowing the raw command to match them in both PG paths. */
+function rawSearchTermsColumn(table: RawSearchTable): SQLWrapper {
+  if (table.localization.searchTerms != null) {
+    return table.localization.searchTerms;
+  }
+  const revisionFilter = table.revisionHash == null
+    ? undefined
+    : eq(BaseEntityLocalization.revisionHash, table.revisionHash);
+  return sql`(SELECT ${BaseEntityLocalization.searchTerms}
+    FROM ${BaseEntityLocalization}
+    WHERE ${BaseEntityLocalization.cardId} = ${table.cardId}
+      AND ${BaseEntityLocalization.lang} = ${table.lang}
+      ${revisionFilter == null ? sql`` : sql`AND ${revisionFilter}`}
+      AND ${BaseEntityLocalization.deletedAt} IS NULL
+    LIMIT 1)`;
+}
+
+/** Matches a literal against one localized DBF term without making empty entries match all cards. */
+function rawSearchTermMatch(searchTerms: SQLWrapper, term: string) {
+  if (term === '') {
+    return sql`FALSE`;
+  }
+  const escaped = term.replace(/%/g, '\\%').replace(/_/g, '\\_');
+  return sql`EXISTS (
+    SELECT 1 FROM unnest(${searchTerms}) AS search_term(value)
+    WHERE search_term.value ILIKE ${`%${escaped}%`}
+  )`;
+}
+
+/** Matches a regex against any localized DBF term for raw regular-expression queries. */
+function rawSearchTermRegexMatch(searchTerms: SQLWrapper, pattern: RegExp) {
+  return sql`EXISTS (
+    SELECT 1 FROM unnest(${searchTerms}) AS search_term(value)
+    WHERE regexp_like(search_term.value, ${pgRegexSource(pattern.source)}, 'i')
+  )`;
+}
 
 /** Orders classes by their public model order. */
 function classOrderCase(column: ReturnType<typeof sql>) {
@@ -55,6 +103,13 @@ const matchStats = (
 export const raw = cs
   .commands.raw
   .handler(({ value, argType }, { table }) => {
+    const searchTerms = rawSearchTermsColumn(table as RawSearchTable);
+    const searchTermQuery = typeof value === 'string'
+      ? matchValueGroups(
+        argType === 'id' ? splitValueGroups(value) : [[value]],
+        term => rawSearchTermMatch(searchTerms, term),
+      )
+      : rawSearchTermRegexMatch(searchTerms, value);
     return or(
       builtin.text.call({
         column: table => table.localization.name,
@@ -66,6 +121,7 @@ export const raw = cs
         args:   { value, operator: ':', qualifier: [], argType },
         ctx:    { meta: { multiline: true, caseSensitive: false }, table },
       }),
+      searchTermQuery,
     )!;
   });
 

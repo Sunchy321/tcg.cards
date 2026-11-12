@@ -102,18 +102,21 @@ export async function exportHearthstoneSearch(
             renderHash:   LatestCardEntityView.renderHash,
             mechanics:    LatestCardEntityView.mechanics,
             localization: {
-              name: sql<string>`${LatestCardEntityView.localization.name}`,
-              text: sql<string>`${LatestCardEntityView.localization.text}`,
+              name:        sql<string>`${LatestCardEntityView.localization.name}`,
+              text:        sql<string>`${LatestCardEntityView.localization.text}`,
+              searchTerms: LatestCardEntityView.localization.searchTerms,
             },
+            searchTerms: LatestCardEntityView.localization.searchTerms,
           })
           .from(LatestCardEntityView)
           .orderBy(LatestCardEntityView.cardId, LatestCardEntityView.lang);
         const rows = snapshotRows(projected);
-        const expected = source.map(row =>
-          essentialCardSearchItem
+        const expected = source.map(row => ({
+          ...essentialCardSearchItem
             .strip()
             .parse({ ...row, simpleTags: pickSimpleTags(row.mechanics) }),
-        );
+          searchTerms: row.searchTerms ?? null,
+        }));
         const items = rows.map(
           ({ idOrder: _id, setOrder: _set, nameOrder: _name, ...item }) => item,
         );

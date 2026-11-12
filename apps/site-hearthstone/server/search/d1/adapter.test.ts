@@ -22,11 +22,14 @@ let reads = 0;
 let fallbacks = 0;
 let lastSql = '';
 let reader: HearthstoneD1EssentialSearchAdapter;
+type CardFields = Partial<Omit<EssentialCardSearchItem, 'localization'>> & {
+  localization?: Partial<EssentialCardSearchItem['localization']>;
+};
 
 /** Builds known latest list data without historical identity or complete mechanics. */
 function card(
   cardId: string,
-  fields: Partial<EssentialCardSearchItem> = {},
+  fields: CardFields = {},
 ): EssentialCardSearchItem {
   return {
     cardId,
@@ -55,8 +58,12 @@ function card(
     mercenaryFaction: null,
     colddown:         null,
     simpleTags:       { 12: false, 1665: 3, 1676: 0 },
-    localization:     { name: 'Fireball', text: 'Deal 3 damage.' },
     ...fields,
+    localization:     {
+      name:        fields.localization?.name ?? 'Fireball',
+      text:        fields.localization?.text ?? 'Deal 3 damage.',
+      searchTerms: fields.localization?.searchTerms ?? null,
+    },
   };
 }
 
@@ -143,7 +150,7 @@ function insertFixture(
 ): void {
   const safety = new Map<string, boolean>();
   for (const lang of ['all', ...locale.options]) {
-    for (const field of ['name', 'text']) safety.set(`case_safe:${field}:${lang}`, true);
+    for (const field of ['name', 'text', 'searchTerms']) safety.set(`case_safe:${field}:${lang}`, true);
   }
   safety.set('case_safe:set:all', true);
   const cards = new Set<string>();
@@ -181,15 +188,16 @@ function insertFixture(
       throw new Error(`Duplicate latest localization: ${card.cardId}:${lang}`);
     }
     identities.add(`${card.cardId}:${lang}`);
-    for (const field of ['name', 'text'] as const) {
-      const safe = ![...localization[field]].some(char => char.codePointAt(0)! > 127 && /\p{Cased}/u.test(char));
+    for (const field of ['name', 'text', 'searchTerms'] as const) {
+      const values = field === 'searchTerms' ? (localization.searchTerms ?? []) : [localization[field]];
+      const safe = values.every(value => ![...value].some(char => char.codePointAt(0)! > 127 && /\p{Cased}/u.test(char)));
       for (const scope of ['all', lang]) {
         const key = `case_safe:${field}:${scope}`;
         safety.set(key, safety.get(key)! && safe);
       }
     }
     database.exec(
-      `INSERT INTO hearthstone_search_card_localizations VALUES (${literal(card.cardId)}, ${literal(lang)}, ${literal(localization.name)}, ${nameOrder}, ${literal(localization.text)}, ${literal(renderHash)})`,
+      `INSERT INTO hearthstone_search_card_localizations VALUES (${literal(card.cardId)}, ${literal(lang)}, ${literal(localization.name)}, ${nameOrder}, ${literal(localization.text)}, ${literal(renderHash)}, ${literal(localization.searchTerms ?? null)})`,
     );
     database.exec(
       `INSERT INTO hearthstone_search_text_rows VALUES (${++textId}, ${literal(card.cardId)}, ${literal(lang)}, ${literal(localization.text)})`,

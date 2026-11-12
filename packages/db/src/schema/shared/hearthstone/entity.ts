@@ -120,6 +120,7 @@ export const BaseEntityLocalization = schema.table('entity_localizations', {
   howToEarnSignature: text('how_to_earn_signature'),
   howToEarnDiamond:   text('how_to_earn_diamond'),
   flavorText:         text('flavor_text'),
+  searchTerms:        text('search_terms').array(),
 
   locChangeType: changeType('loc_change_type').notNull().default('unknown'),
 

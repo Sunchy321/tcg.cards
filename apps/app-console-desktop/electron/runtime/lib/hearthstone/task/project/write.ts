@@ -206,6 +206,7 @@ export async function copyLocalizationsIntoTable(tx: AnyTx, rows: LocalizationRo
       howToEarnSignature: r.howToEarnSignature,
       howToEarnDiamond:   r.howToEarnDiamond,
       flavorText:         r.flavorText,
+      searchTerms:        r.searchTerms,
       locChangeType:      r.locChangeType,
     })))
       .onConflictDoUpdate({
@@ -225,6 +226,7 @@ export async function copyLocalizationsIntoTable(tx: AnyTx, rows: LocalizationRo
           howToEarnSignature: sql`excluded.how_to_earn_signature`,
           howToEarnDiamond:   sql`excluded.how_to_earn_diamond`,
           flavorText:         sql`excluded.flavor_text`,
+          searchTerms:        sql`excluded.search_terms`,
           locChangeType:      sql`excluded.loc_change_type`,
           deletedAt:          sql`null`,
           updatedAt:          sql`now()`,

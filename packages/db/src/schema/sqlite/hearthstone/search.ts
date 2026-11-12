@@ -52,11 +52,12 @@ export const SearchCardLocalization = sqliteTable(
     cardId: text('card_id')
       .notNull()
       .references(() => SearchCard.cardId),
-    lang:       text('lang').$type<Locale>().notNull(),
-    name:       text('name').notNull(),
-    nameOrder:  integer('name_order').notNull(),
-    text:       text('text').notNull(),
-    renderHash: text('render_hash'),
+    lang:        text('lang').$type<Locale>().notNull(),
+    name:        text('name').notNull(),
+    nameOrder:   integer('name_order').notNull(),
+    text:        text('text').notNull(),
+    renderHash:  text('render_hash'),
+    searchTerms: text('search_terms', { mode: 'json' }).$type<string[] | null>(),
   },
   table => [primaryKey({ columns: [table.cardId, table.lang] })],
 );

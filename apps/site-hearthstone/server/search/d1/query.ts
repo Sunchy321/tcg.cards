@@ -1,4 +1,5 @@
-import { compileRegexCondition, nonAscii, regexCommands } from '#search/server/regex';
+import { compileRegexCondition, compileTextCondition, nonAscii, regexCommands } from '#search/server/regex';
+import type { TextCondition } from '#search/server/regex';
 import { and, eq, exists, gt, gte, inArray, lt, lte, ne, not, or, sql } from 'drizzle-orm';
 import type { SQL, SQLWrapper } from 'drizzle-orm';
 import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
@@ -225,7 +226,14 @@ function compileCommand(command: ResolvedCommand, db: SearchDrizzle): SQL {
       : command.commandId === 'text'
         ? [SearchCardLocalization.text]
         : [SearchCardLocalization.name, SearchCardLocalization.text];
-    return compileRegexCondition(command, columns);
+    const textMatch = compileRegexCondition(command, columns);
+    if (command.commandId !== 'raw') {
+      return textMatch;
+    }
+    const termMatch = searchTermsTextCondition(command.textCondition);
+    return command.qualifier.includes('!')
+      ? and(textMatch, not(termMatch))!
+      : or(textMatch, termMatch)!;
   }
   const value = String(command.value);
   const id = command.commandId;
@@ -256,6 +264,7 @@ function compileCommand(command: ResolvedCommand, db: SearchDrizzle): SQL {
     return or(
       grouped(term => textMatch(positive, term, false, db)),
       grouped(term => textMatch(positive, term, true, db)),
+      grouped(term => searchTermMatch(term)),
     )!;
   }
   case 'stats':
@@ -404,6 +413,26 @@ function textMatch(command: ResolvedCommand, term: string, body: boolean, db: Se
   return command.qualifier.includes('!') ? not(match) : match;
 }
 
+/** Matches one literal against the current localization's DBF term array. */
+function searchTermMatch(term: string): SQL {
+  if (term === '') {
+    return sql`0`;
+  }
+  const escaped = term.replaceAll('%', '\\%').replaceAll('_', '\\_');
+  return sql`EXISTS (
+    SELECT 1 FROM json_each(${SearchCardLocalization.searchTerms}) AS search_term
+    WHERE search_term.value LIKE ${`%${escaped}%`} ESCAPE '\\'
+  )`;
+}
+
+/** Builds a regex candidate check against one search term at a time. */
+function searchTermsTextCondition(condition: TextCondition): SQL {
+  return sql`EXISTS (
+    SELECT 1 FROM json_each(${SearchCardLocalization.searchTerms}) AS search_term
+    WHERE ${compileTextCondition(condition, sql`search_term.value`)}
+  )`;
+}
+
 /** Preserves the PG array decoder, including the existing undead rune alias spelling. */
 function arrayWords(id: string, value: string): string[] {
   const decoded = value
@@ -421,7 +450,7 @@ function validInteger(value: string): boolean {
 }
 
 /** Identifies source fields whose case-folding must be safe across the entire language scope. */
-export function textCaseFields(query: LogicalQuery | null): Array<'name' | 'text' | 'set'> {
+export function textCaseFields(query: LogicalQuery | null): Array<'name' | 'searchTerms' | 'text' | 'set'> {
   if (query == null) {
     return [];
   }
@@ -433,7 +462,7 @@ export function textCaseFields(query: LogicalQuery | null): Array<'name' | 'text
   }
   const id = query.command.commandId;
   return id === 'raw'
-    ? ['name', 'text']
+    ? ['name', 'text', 'searchTerms']
     : id === 'name'
       ? ['name']
       : id === 'text'
@@ -445,10 +474,17 @@ export function textCaseFields(query: LogicalQuery | null): Array<'name' | 'text
 
 /** Checks every regex source before relying on ASCII SQLite LIKE semantics. */
 export function hearthstoneRegexUnsafe(request: QueryRequest, allText = false): SQL {
-  const columns = regexCommands(request.filter, allText).flatMap<SQLWrapper>(command => command.commandId === 'set'
-    ? [SearchCard.set]
+  const unsafe = regexCommands(request.filter, allText).flatMap<SQL>(command => command.commandId === 'set'
+    ? [nonAscii(SearchCard.set)]
     : command.commandId === 'raw'
-      ? [SearchCardLocalization.name, SearchCardLocalization.text]
-      : [command.commandId === 'name' ? SearchCardLocalization.name : SearchCardLocalization.text]);
-  return columns.length === 0 ? sql`0` : or(...columns.map(nonAscii))!;
+      ? [
+        nonAscii(SearchCardLocalization.name),
+        nonAscii(SearchCardLocalization.text),
+        sql`EXISTS (
+          SELECT 1 FROM json_each(${SearchCardLocalization.searchTerms}) AS search_term
+          WHERE ${nonAscii(sql`search_term.value`)}
+        )`,
+      ]
+      : [nonAscii(command.commandId === 'name' ? SearchCardLocalization.name : SearchCardLocalization.text)]);
+  return unsafe.length === 0 ? sql`0` : or(...unsafe)!;
 }

@@ -60,10 +60,11 @@ export async function rebuildHearthstoneSearchData(database: SearchDb): Promise<
       ON CONFLICT (card_id) DO UPDATE SET
         ${sql.join(updates, sql`, `)}, updated_at = NOW(), deleted_at = NULL`);
 
-    const localizationColumns = ['card_id', 'lang', 'name', 'text', 'render_hash'];
+    const localizationColumns = ['card_id', 'lang', 'name', 'text', 'render_hash', 'search_terms'];
     const localizationValues: SQL[] = [
       sql`${BaseEntityLocalization.cardId}`, sql`${BaseEntityLocalization.lang}`,
-      sql`${BaseEntityLocalization.name}`, sql`${BaseEntityLocalization.text}`, sql`${BaseEntityLocalization.renderHash}`,
+      sql`${BaseEntityLocalization.name}`, sql`${BaseEntityLocalization.text}`,
+      sql`${BaseEntityLocalization.renderHash}`, sql`${BaseEntityLocalization.searchTerms}`,
     ];
     await tx.execute(sql`
       INSERT INTO ${SearchCardLocalization} (
@@ -77,7 +78,8 @@ export async function rebuildHearthstoneSearchData(database: SearchDb): Promise<
         AND ${BaseEntity.version} @> ARRAY[${buildNumber}]::int[]
         AND ${BaseEntityLocalization.version} @> ARRAY[${buildNumber}]::int[]
       ON CONFLICT (card_id, lang) DO UPDATE SET
-        name = excluded.name, text = excluded.text, render_hash = excluded.render_hash,
+        name = excluded.name, text = excluded.text,
+        render_hash = excluded.render_hash, search_terms = excluded.search_terms,
         updated_at = NOW(), deleted_at = NULL`);
     const cards = await tx.select().from(SearchCard).where(isNull(SearchCard.deletedAt))
       .orderBy(SearchCard.cardId);

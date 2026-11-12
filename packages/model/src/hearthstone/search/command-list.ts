@@ -4,7 +4,7 @@ export const raw = c
   .none
   .regex(true)
   .logical({
-    expansion: ['localization.name', 'localization.text'],
+    expansion: ['localization.name', 'localization.text', 'localization.searchTerms'],
   })
   .done();
 
