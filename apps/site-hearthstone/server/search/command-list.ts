@@ -16,6 +16,7 @@ import { TAG_SLUG, TAG_ID } from '#model/hearthstone/constant/tag';
 import { matchValueGroups, splitValueGroups } from '#search/server/command/terms';
 import { pgRegexSource } from '#search/regex';
 import { resolveHearthstoneRawCardTerm } from '../../shared/search/localized-card-terms';
+import { hearthstoneTextMatch } from './game-text';
 
 /** Supplies either the search projection field or a correlated domain-localization field. */
 type RawSearchTable = {
@@ -49,16 +50,33 @@ function rawSearchTermsColumn(table: RawSearchTable): SQLWrapper {
     LIMIT 1)`;
 }
 
-/** Matches a literal against one localized DBF term without making empty entries match all cards. */
-function rawSearchTermMatch(searchTerms: SQLWrapper, term: string) {
+/** Matches one localized DBF term with the same text fallback as card fields. */
+function rawSearchTermMatch(searchTerms: SQLWrapper, term: string, lang: Locale) {
   if (term === '') {
     return sql`FALSE`;
   }
-  const escaped = term.replace(/%/g, '\\%').replace(/_/g, '\\_');
   return sql`EXISTS (
     SELECT 1 FROM unnest(${searchTerms}) AS search_term(value)
-    WHERE search_term.value ILIKE ${`%${escaped}%`}
+    WHERE ${hearthstoneTextMatch(sql`search_term.value`, term, lang, ':')}
   )`;
+}
+
+/** Preserves text-command grouping while applying game fallbacks only to card text. */
+function gameTextCommand(
+  value: string,
+  operator: string,
+  qualifier: string[],
+  argType: string | undefined,
+  column: SQLWrapper,
+  lang: Locale,
+): SQLWrapper {
+  if (operator !== ':' && operator !== '=') {
+    throw new QueryError({ type: 'invalid-query' });
+  }
+  return matchValueGroups(
+    argType === 'id' ? splitValueGroups(value) : [[value]],
+    term => hearthstoneTextMatch(column, term, lang, operator, qualifier.includes('!')),
+  );
 }
 
 /** Matches a regex against any localized DBF term for raw regular-expression queries. */
@@ -99,11 +117,6 @@ const tagSlugToId = Object.fromEntries(
   ]),
 );
 
-const matchText = (
-  qualifier: string[],
-  ...queries: Array<ReturnType<typeof builtin.text.call>>
-) => (!qualifier.includes('!') ? or : and)(...queries)!;
-
 const matchStats = (
   qualifier: string[],
   ...queries: Array<ReturnType<typeof builtin.number.call>>
@@ -113,29 +126,33 @@ export const raw = cs
   .commands.raw
   .handler(({ value, argType }, { table, meta }) => {
     const searchTerms = rawSearchTermsColumn(table as RawSearchTable);
+    const lang = ((meta as { lang?: Locale }).lang ?? 'en') as Locale;
     const searchTermQuery = typeof value === 'string'
       ? matchValueGroups(
         argType === 'id' ? splitValueGroups(value) : [[value]],
-        term => rawSearchTermMatch(searchTerms, term),
+        term => rawSearchTermMatch(searchTerms, term, lang),
       )
       : rawSearchTermRegexMatch(searchTerms, value);
 
     const queries: SQLWrapper[] = [
-      builtin.text.call({
-        column: table => table.localization.name,
-        args:   { value, operator: ':', qualifier: [], argType },
-        ctx:    { meta: { multiline: false, caseSensitive: false }, table },
-      }),
-      builtin.text.call({
-        column: table => table.localization.text,
-        args:   { value, operator: ':', qualifier: [], argType },
-        ctx:    { meta: { multiline: true, caseSensitive: false }, table },
-      }),
+      typeof value === 'string'
+        ? gameTextCommand(value, ':', [], argType, table.localization.name, lang)
+        : builtin.text.call({
+          column: table => table.localization.name,
+          args:   { value, operator: ':', qualifier: [], argType },
+          ctx:    { meta: { multiline: false, caseSensitive: false }, table },
+        }),
+      typeof value === 'string'
+        ? gameTextCommand(value, ':', [], argType, table.localization.text, lang)
+        : builtin.text.call({
+          column: table => table.localization.text,
+          args:   { value, operator: ':', qualifier: [], argType },
+          ctx:    { meta: { multiline: true, caseSensitive: false }, table },
+        }),
       searchTermQuery,
     ];
 
     if (typeof value === 'string' && argType === 'id') {
-      const lang = ((meta as { lang?: Locale }).lang ?? 'en') as Locale;
       const cardTerm = resolveHearthstoneRawCardTerm(value, lang);
       if (cardTerm != null) {
         queries.push(rawCardTermMatch(cardTerm, table as RawSearchTable));
@@ -278,22 +295,30 @@ export const lang = cs
 
 export const name = cs
   .commands.name
-  .apply(table => table.localization.name, {
-    multiline:     false,
-    caseSensitive: false,
+  .handler(({ value, operator, qualifier, argType }, { table, meta }) => {
+    if (typeof value === 'string') {
+      const lang = ((meta as { lang?: Locale }).lang ?? 'en') as Locale;
+      return gameTextCommand(value, operator, qualifier, argType, table.localization.name, lang);
+    }
+    return builtin.text.call({
+      column: table => table.localization.name,
+      args:   { value, operator, qualifier, argType },
+      ctx:    { meta: { multiline: false, caseSensitive: false }, table },
+    });
   });
 
 export const text = cs
   .commands.text
-  .handler(({ value, operator, qualifier, argType }, { table }) => {
-    return matchText(
-      qualifier,
-      builtin.text.call({
-        column: table => table.localization.text,
-        args:   { value, operator, qualifier, argType },
-        ctx:    { meta: { multiline: true, caseSensitive: false }, table },
-      }),
-    );
+  .handler(({ value, operator, qualifier, argType }, { table, meta }) => {
+    if (typeof value === 'string') {
+      const lang = ((meta as { lang?: Locale }).lang ?? 'en') as Locale;
+      return gameTextCommand(value, operator, qualifier, argType, table.localization.text, lang);
+    }
+    return builtin.text.call({
+      column: table => table.localization.text,
+      args:   { value, operator, qualifier, argType },
+      ctx:    { meta: { multiline: true, caseSensitive: false }, table },
+    });
   });
 
 export const flavorText = cs

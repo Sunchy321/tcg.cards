@@ -13,18 +13,24 @@ import {
 } from '@tcg-cards/db/schema/sqlite/hearthstone';
 import * as schema from '@tcg-cards/db/schema/sqlite/hearthstone';
 import { classes, locale, types } from '@tcg-cards/model/hearthstone/schema/basic';
+import type { Locale } from '@tcg-cards/model/hearthstone/schema/basic';
 import { essentialCardSearchItem } from '@tcg-cards/model/hearthstone/schema/search';
 import type { EssentialNormalResult } from '@tcg-cards/model/hearthstone/schema/search';
-import type { CoveragePlan, DatasetDescriptor, QueryRequest, SearchAdapter } from '#search/logical';
+import type { CoveragePlan, DatasetDescriptor, LogicalQuery, QueryRequest, ResolvedCommand, SearchAdapter } from '#search/logical';
 import { AMBITS, detectAmbit } from '#search/ambit';
 import type { SearchOption } from '../action';
 import { detectVariant, hasLanguageCommand } from '../context';
 import { getHearthstoneSearchDataset, HearthstonePgEssentialSearchAdapter } from '../accelerated-adapter';
 import {
   ambitRank,
+  compileHearthstoneD1CandidateFilter,
+  compileHearthstoneD1Command,
   compileHearthstoneD1Filter,
+  compileHearthstoneD1RawSpecialTerm,
   findHearthstoneD1Gap,
   hearthstoneD1Descriptor,
+  isHearthstoneLiteralText,
+  matchesHearthstoneD1TextCommand,
   textCaseFields,
   hearthstoneRegexUnsafe,
 } from './query';
@@ -36,6 +42,34 @@ type OriginalReader = (
   request: QueryRequest,
   options: SearchOption,
 ) => Promise<EssentialNormalResult>;
+
+/** Holds one searchable D1 localization and the predicates needed by its DSL leaves. */
+type LiteralCandidateRow = {
+  dataVersion:   string;
+  releaseHash:   string;
+  buildNumber:   string;
+  ready:         string;
+  sortVersion:   string;
+  cardId:        string;
+  lang:          Locale;
+  name:          string;
+  text:          string;
+  searchTerms:   string[] | null;
+  ambit:         'primary' | 'additional' | 'full';
+  [key: string]: unknown;
+};
+
+/** Carries the active D1 identity through a local text scan and page hydration. */
+type SearchMetadata = {
+  dataVersion: string;
+  releaseHash: string;
+  buildNumber: string;
+  ready:       string;
+  sortVersion: string;
+};
+
+/** Keeps a card-language pair stable while matching and paging local text rows. */
+type CardLanguageKey = Pick<LiteralCandidateRow, 'cardId' | 'lang'>;
 
 /** Executes covered latest searches in one D1 statement and returns essential list fields directly. */
 export class HearthstoneD1EssentialSearchAdapter implements SearchAdapter<
@@ -76,6 +110,10 @@ export class HearthstoneD1EssentialSearchAdapter implements SearchAdapter<
     const started = performance.now();
     try {
       const db = drizzle(options.d1, { schema });
+      if (hasLiteralTextCommand(request.filter)) {
+        const result = await executeLiteralTextSearch(db, request, options, dataset, localDatabase, started);
+        return result ?? this.original(request, options);
+      }
       const rows = await queryPage(db, regexRequest(request), options);
       const metadata = rows[0];
       const current = getHearthstoneSearchDataset();
@@ -163,6 +201,285 @@ export class HearthstoneD1EssentialSearchAdapter implements SearchAdapter<
   }
 }
 
+/** Detects a query that needs the game-compatible literal matcher. */
+function hasLiteralTextCommand(query: LogicalQuery | null): boolean {
+  if (query == null) {
+    return false;
+  }
+  if (query.kind === 'leaf') {
+    return isHearthstoneLiteralText(query.command);
+  }
+  if (query.kind === 'not') {
+    return hasLiteralTextCommand(query.expr);
+  }
+  return query.exprs.some(hasLiteralTextCommand);
+}
+
+/** Evaluates literal text leaves locally, then lets D1 shape the selected page. */
+async function executeLiteralTextSearch(
+  db: SearchDrizzle,
+  request: QueryRequest,
+  options: SearchOption,
+  dataset: NonNullable<ReturnType<typeof getHearthstoneSearchDataset>>,
+  localDatabase: boolean,
+  started: number,
+): Promise<EssentialNormalResult | undefined> {
+  const before = await readSearchMetadata(db);
+  if (before == null || !metadataMatchesDataset(before, dataset, localDatabase)) {
+    return undefined;
+  }
+
+  const { rows, predicateKeys } = await queryLiteralCandidates(db, request, options);
+  const candidateMetadata = rows[0] == null ? before : rowMetadata(rows[0]);
+  if (!sameSearchMetadata(before, candidateMetadata)) {
+    return undefined;
+  }
+
+  const matching = rows.filter(
+    row => evaluateHearthstoneQuery(request.filter, row, predicateKeys, options.lang) === true,
+  );
+  const { explicit, pinned } = detectAmbit(options.dsl);
+  const start = AMBITS.indexOf(options.ambit ?? 'primary');
+  const landing = pinned != null
+    ? AMBITS.indexOf(pinned)
+    : explicit
+      ? 0
+      : matching.length === 0
+        ? 2
+        : Math.min(...matching.map(row => Math.max(AMBITS.indexOf(row.ambit), start)));
+  const visible = pinned != null
+    ? matching
+    : matching.filter(row => AMBITS.indexOf(row.ambit) <= landing);
+  const offset = (options.page - 1) * options.pageSize;
+  const pageKeys = visible.slice(offset, offset + options.pageSize).map(({ cardId, lang }) => ({ cardId, lang }));
+  const pageRequest = { ...request, filter: null };
+  const pageOptions = { ...options, page: 1, pageSize: Math.max(1, pageKeys.length) };
+  const pageRows = await queryPage(db, pageRequest, pageOptions, pageKeys);
+  const metadata = pageRows[0];
+  const current = getHearthstoneSearchDataset();
+  if (
+    metadata == null
+    || metadata.ready !== '1'
+    || Number(metadata.regexSafe) !== 1
+    || metadata.sortVersion !== '1'
+    || metadata.dataVersion !== dataset.dataVersion
+    || (!localDatabase && (dataset.manifest.releaseHash == null
+      || metadata.releaseHash !== dataset.manifest.releaseHash))
+    || Number(metadata.buildNumber) !== dataset.buildNumber
+    || !sameSearchMetadata(before, rowMetadata(metadata))
+    || current?.dataVersion !== dataset.dataVersion
+    || current.manifest.releaseHash !== dataset.manifest.releaseHash
+    || current.buildNumber !== dataset.buildNumber
+  ) {
+    return undefined;
+  }
+
+  const result = pageRows.flatMap(row =>
+    row.item == null ? [] : [essentialCardSearchItem.parse(JSON.parse(row.item))],
+  );
+  const total = visible.length;
+  return {
+    result,
+    total,
+    page:      options.page,
+    totalPage: Math.ceil(total / options.pageSize),
+    elapsed:   Math.round(performance.now() - started),
+    ambit:     AMBITS[landing]!,
+    variant:   await detectVariant(options.dsl, options.lang),
+  };
+}
+
+/** Reads all metadata keys as one D1 statement before matching candidate rows. */
+async function readSearchMetadata(db: SearchDrizzle): Promise<SearchMetadata | undefined> {
+  const [row] = await db
+    .select({
+      dataVersion: sql<string>`coalesce(max(case when ${SearchMeta.key} = 'data_version' then ${SearchMeta.value} end), '')`,
+      releaseHash: sql<string>`coalesce(max(case when ${SearchMeta.key} = 'release_hash' then ${SearchMeta.value} end), '')`,
+      buildNumber: sql<string>`coalesce(max(case when ${SearchMeta.key} = 'build_number' then ${SearchMeta.value} end), '')`,
+      ready:       sql<string>`coalesce(max(case when ${SearchMeta.key} = 'ready' then ${SearchMeta.value} end), '')`,
+      sortVersion: sql<string>`coalesce(max(case when ${SearchMeta.key} = 'sort_version' then ${SearchMeta.value} end), '')`,
+    })
+    .from(SearchMeta);
+  return row;
+}
+
+/** Selects safe candidates, original text fields, and SQL truth values for other leaves. */
+async function queryLiteralCandidates(
+  db: SearchDrizzle,
+  request: QueryRequest,
+  options: SearchOption,
+): Promise<{ rows: LiteralCandidateRow[], predicateKeys: Map<ResolvedCommand, string> }> {
+  const predicateKeys = new Map<ResolvedCommand, string>();
+  const predicates: Record<string, SQLWrapper> = {};
+  const commands = collectFilterCommands(request.filter);
+  for (const [index, command] of commands.entries()) {
+    const key = `predicate${index}`;
+    if (isHearthstoneLiteralText(command)) {
+      const special = compileHearthstoneD1RawSpecialTerm(command, db, options.lang);
+      if (special != null) {
+        predicates[key] = special;
+        predicateKeys.set(command, key);
+      }
+      continue;
+    }
+    predicates[key] = compileHearthstoneD1Command(command, db, options.lang);
+    predicateKeys.set(command, key);
+  }
+
+  const firstClass = db
+    .select({ value: SearchCardValue.value })
+    .from(SearchCardValue)
+    .where(
+      and(
+        eq(SearchCardValue.cardId, SearchCard.cardId),
+        eq(SearchCardValue.field, 'classes'),
+        eq(SearchCardValue.position, 0),
+      ),
+    );
+  const orderColumns = {
+    nameOrder:     SearchCardLocalization.nameOrder,
+    idOrder:       SearchCard.idOrder,
+    setOrder:      SearchCard.setOrder,
+    languageOrder: enumRank(SearchCardLocalization.lang, locale.options),
+    typeOrder:     enumRank(SearchCard.type, types.options),
+    classOrder:    enumRank(sql`(${firstClass})`, classes.options),
+    type:          SearchCard.type,
+    cost:          SearchCard.cost,
+    attack:        SearchCard.attack,
+    health:        SearchCard.health,
+    durability:    SearchCard.durability,
+    armor:         SearchCard.armor,
+  };
+  const scope = hasLanguageCommand(options.dsl)
+    ? undefined
+    : eq(SearchCardLocalization.lang, options.lang);
+  const rows = await db
+    .select({
+      dataVersion: sql<string>`coalesce((SELECT ${SearchMeta.value} FROM ${SearchMeta} WHERE ${SearchMeta.key} = 'data_version'), '')`,
+      releaseHash: sql<string>`coalesce((SELECT ${SearchMeta.value} FROM ${SearchMeta} WHERE ${SearchMeta.key} = 'release_hash'), '')`,
+      buildNumber: sql<string>`coalesce((SELECT ${SearchMeta.value} FROM ${SearchMeta} WHERE ${SearchMeta.key} = 'build_number'), '')`,
+      ready:       sql<string>`coalesce((SELECT ${SearchMeta.value} FROM ${SearchMeta} WHERE ${SearchMeta.key} = 'ready'), '')`,
+      sortVersion: sql<string>`coalesce((SELECT ${SearchMeta.value} FROM ${SearchMeta} WHERE ${SearchMeta.key} = 'sort_version'), '')`,
+      cardId:      SearchCard.cardId,
+      lang:        SearchCardLocalization.lang,
+      name:        SearchCardLocalization.name,
+      text:        SearchCardLocalization.text,
+      searchTerms: SearchCardLocalization.searchTerms,
+      ambit:       SearchCard.ambit,
+      ...predicates,
+    })
+    .from(SearchCard)
+    .innerJoin(SearchCardLocalization, eq(SearchCard.cardId, SearchCardLocalization.cardId))
+    .where(
+      and(
+        compileHearthstoneD1CandidateFilter(request.filter, db, options.lang),
+        ne(SearchCard.type, 'enchantment'),
+        scope,
+      ),
+    )
+    .orderBy(...compileOrder(request, orderColumns));
+  return { rows: rows as LiteralCandidateRow[], predicateKeys };
+}
+
+/** Collects filter leaves in traversal order so SQL truth values stay tied to their commands. */
+function collectFilterCommands(query: LogicalQuery | null): ResolvedCommand[] {
+  if (query == null) {
+    return [];
+  }
+  if (query.kind === 'leaf') {
+    return [query.command];
+  }
+  if (query.kind === 'not') {
+    return collectFilterCommands(query.expr);
+  }
+  return query.exprs.flatMap(collectFilterCommands);
+}
+
+/** Evaluates one SQL-style three-valued query tree over local text and D1 leaf results. */
+function evaluateHearthstoneQuery(
+  query: LogicalQuery | null,
+  row: LiteralCandidateRow,
+  predicateKeys: Map<ResolvedCommand, string>,
+  lang: Locale,
+): boolean | null {
+  if (query == null) {
+    return true;
+  }
+  if (query.kind === 'leaf') {
+    const command = query.command;
+    if (isHearthstoneLiteralText(command)) {
+      const text = matchesHearthstoneD1TextCommand(command, row, lang);
+      const key = predicateKeys.get(command);
+      return command.commandId === 'raw' && key != null
+        ? sqlOr(text, sqlTruth(row[key]))
+        : text;
+    }
+    return sqlTruth(row[predicateKeys.get(command) ?? '']);
+  }
+  if (query.kind === 'not') {
+    const value = evaluateHearthstoneQuery(query.expr, row, predicateKeys, lang);
+    return value == null ? null : !value;
+  }
+  const values = query.exprs.map(child => evaluateHearthstoneQuery(child, row, predicateKeys, lang));
+  if (query.kind === 'and') {
+    return values.includes(false) ? false : values.every(value => value === true) ? true : null;
+  }
+  return values.includes(true) ? true : values.every(value => value === false) ? false : null;
+}
+
+/** Converts SQLite integer booleans while preserving SQL NULL. */
+function sqlTruth(value: unknown): boolean | null {
+  if (value == null) {
+    return null;
+  }
+  return value === true || value === 1;
+}
+
+/** Applies SQL OR behavior to a local text result and a nullable special-card predicate. */
+function sqlOr(left: boolean | null, right: boolean | null): boolean | null {
+  if (left === true || right === true) {
+    return true;
+  }
+  if (left == null || right == null) {
+    return null;
+  }
+  return false;
+}
+
+/** Compares a metadata row with the active dataset identity. */
+function metadataMatchesDataset(
+  metadata: SearchMetadata,
+  dataset: NonNullable<ReturnType<typeof getHearthstoneSearchDataset>>,
+  localDatabase: boolean,
+): boolean {
+  return metadata.ready === '1'
+    && metadata.sortVersion === '1'
+    && metadata.dataVersion === dataset.dataVersion
+    && Number(metadata.buildNumber) === dataset.buildNumber
+    && (localDatabase
+      || (dataset.manifest.releaseHash != null && metadata.releaseHash === dataset.manifest.releaseHash));
+}
+
+/** Confirms that two reads observed the same D1 release before and after local filtering. */
+function sameSearchMetadata(left: SearchMetadata, right: SearchMetadata): boolean {
+  return left.dataVersion === right.dataVersion
+    && left.releaseHash === right.releaseHash
+    && left.buildNumber === right.buildNumber
+    && left.ready === right.ready
+    && left.sortVersion === right.sortVersion;
+}
+
+/** Extracts the release identity carried by one candidate or hydrated result row. */
+function rowMetadata(row: SearchMetadata): SearchMetadata {
+  return {
+    dataVersion: row.dataVersion,
+    releaseHash: row.releaseHash,
+    buildNumber: row.buildNumber,
+    ready:       row.ready,
+    sortVersion: row.sortVersion,
+  };
+}
+
 /** Aggregates one ordered array while preserving the source NULL/empty distinction. */
 function arraySql(
   db: SearchDrizzle,
@@ -219,7 +536,12 @@ function itemSql(db: SearchDrizzle): SQL<string> {
 }
 
 /** Selects language, ambit, page, total, and version metadata in one snapshot statement. */
-function queryPage(db: SearchDrizzle, request: QueryRequest, options: SearchOption) {
+function queryPage(
+  db: SearchDrizzle,
+  request: QueryRequest,
+  options: SearchOption,
+  pageKeys?: CardLanguageKey[],
+) {
   const scope = hasLanguageCommand(options.dsl) ? 'all' : options.lang;
   const caseKeys = textCaseFields(request.filter).map(
     field => `case_safe:${field}:${field === 'set' ? 'all' : scope}`,
@@ -296,6 +618,15 @@ function queryPage(db: SearchDrizzle, request: QueryRequest, options: SearchOpti
         and(
           compileHearthstoneD1Filter(request.filter, db, options.lang),
           ne(SearchCard.type, 'enchantment'),
+          pageKeys == null
+            ? undefined
+            : pageKeys.length === 0
+              ? sql`0 = 1`
+              : sql`EXISTS (
+                SELECT 1 FROM json_each(${JSON.stringify(pageKeys)}) AS page_key
+                WHERE json_extract(page_key.value, '$.cardId') = ${SearchCard.cardId}
+                  AND json_extract(page_key.value, '$.lang') = ${SearchCardLocalization.lang}
+              )`,
           hasLanguageCommand(options.dsl)
             ? undefined
             : eq(SearchCardLocalization.lang, options.lang),

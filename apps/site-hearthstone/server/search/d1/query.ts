@@ -31,6 +31,7 @@ import type {
 } from '#search/logical';
 import { describeLogicalCommand } from '#search/command/semantics';
 import { matchValueGroups, splitValueGroups } from '#search/server/command/terms';
+import { matchesHearthstoneText, normalizeHearthstoneQuery } from '../../../shared/search/game-text';
 import type { CommonServerCommand } from '#search/server/command';
 import * as commands from '../command-list';
 import type { SearchDrizzle } from './types';
@@ -143,6 +144,202 @@ export function compileHearthstoneD1Filter(
   return compileCommand(query.command, db, lang);
 }
 
+/** Identifies ordinary text leaves that require the locale-aware runtime matcher. */
+export function isHearthstoneLiteralText(command: ResolvedCommand): boolean {
+  return ['raw', 'name', 'text'].includes(command.commandId) && typeof command.value === 'string';
+}
+
+/** Compiles one non-text leaf for the D1 runtime text matcher and boolean evaluator. */
+export function compileHearthstoneD1Command(
+  command: ResolvedCommand,
+  db: SearchDrizzle,
+  lang: Locale,
+): SQL {
+  return compileCommand(command, db, lang);
+}
+
+/** Compiles the localized card-data predicate that accompanies a raw text leaf. */
+export function compileHearthstoneD1RawSpecialTerm(
+  command: ResolvedCommand,
+  db: SearchDrizzle,
+  lang: Locale,
+): SQL | undefined {
+  if (!isHearthstoneLiteralText(command) || command.commandId !== 'raw' || command.argType !== 'id') {
+    return undefined;
+  }
+  const term = resolveHearthstoneRawCardTerm(command.value as string, lang);
+  return term == null ? undefined : rawCardTermMatch(term, db);
+}
+
+/** Compiles a safe prefilter while leaving ordinary text decisions to Unicode matching. */
+export function compileHearthstoneD1CandidateFilter(
+  query: LogicalQuery | null,
+  db: SearchDrizzle,
+  lang: Locale = 'en',
+): SQL {
+  return compileCandidateNode(query, db, lang) ?? sql`1 = 1`;
+}
+
+/** Matches one text leaf after candidate rows have been loaded locally. */
+export function matchesHearthstoneD1TextCommand(
+  command: ResolvedCommand,
+  row: { name: string, text: string, searchTerms: string[] | null },
+  lang: Locale,
+): boolean {
+  if (!isHearthstoneLiteralText(command)) {
+    return false;
+  }
+  const value = command.value as string;
+  const groups = command.argType === 'id' ? splitValueGroups(value) : [[value]];
+  const operator: ':' | '=' = command.commandId === 'raw' || command.operator !== '=' ? ':' : '=';
+  const negated = command.commandId !== 'raw' && command.qualifier.includes('!');
+  const matchesSource = (source: string): boolean => groups.some(group => group.every(term => {
+    const matched = matchesHearthstoneText(source, term, lang, operator);
+    return negated ? !matched : matched;
+  }));
+  if (command.commandId === 'name') {
+    return matchesSource(row.name);
+  }
+  if (command.commandId === 'text') {
+    return matchesSource(row.text);
+  }
+  return matchesSource(row.name)
+    || matchesSource(row.text)
+    || groups.some(group => group.every(term =>
+      term !== '' && (row.searchTerms ?? []).some(searchTerm =>
+        matchesHearthstoneText(searchTerm, term, lang, ':')),
+    ));
+}
+
+/** Compiles one boolean node into a candidate superset, dropping unsafe negated text tests. */
+function compileCandidateNode(
+  query: LogicalQuery | null,
+  db: SearchDrizzle,
+  lang: Locale,
+): SQL | null {
+  if (query == null) {
+    return null;
+  }
+  if (query.kind === 'leaf') {
+    return isHearthstoneLiteralText(query.command)
+      ? compileTextCandidate(query.command, db, lang)
+      : compileCommand(query.command, db, lang);
+  }
+  if (query.kind === 'not') {
+    return hasLiteralText(query.expr)
+      ? null
+      : not(compileHearthstoneD1Filter(query.expr, db, lang));
+  }
+  const children = query.exprs.map(child => compileCandidateNode(child, db, lang));
+  if (query.kind === 'or' && children.some(child => child == null)) {
+    return null;
+  }
+  const constrained = children.filter((child): child is SQL => child != null);
+  if (constrained.length === 0) {
+    return null;
+  }
+  return (query.kind === 'and' ? and(...constrained) : or(...constrained))!;
+}
+
+/** Checks whether a subtree contains plain text before candidate negation is applied. */
+function hasLiteralText(query: LogicalQuery): boolean {
+  if (query.kind === 'leaf') {
+    return isHearthstoneLiteralText(query.command);
+  }
+  if (query.kind === 'not') {
+    return hasLiteralText(query.expr);
+  }
+  return query.exprs.some(hasLiteralText);
+}
+
+/** Builds candidates from base matches plus every source requiring game text fallback. */
+function compileTextCandidate(command: ResolvedCommand, db: SearchDrizzle, lang: Locale): SQL | null {
+  if (command.commandId !== 'raw' && command.qualifier.includes('!')) {
+    return null;
+  }
+  const value = command.value as string;
+  const terms = command.argType === 'id' ? splitValueGroups(value).flat() : [value];
+  const sources = command.commandId === 'name'
+    ? [SearchCardLocalization.name]
+    : command.commandId === 'text'
+      ? [SearchCardLocalization.text]
+      : [SearchCardLocalization.name, SearchCardLocalization.text];
+  const conditions: SQL[] = [];
+
+  for (const term of terms) {
+    const query = normalizeHearthstoneQuery(term, lang);
+    if (query === '' || [...query].some(char => char.codePointAt(0)! > 127 && /\p{Cased}/u.test(char))) {
+      return null;
+    }
+    const escaped = query.replaceAll('%', '\\%').replaceAll('_', '\\_');
+    const operator = command.commandId === 'raw' ? ':' : command.operator;
+    const literal = operator === '=' ? escaped : `%${escaped}%`;
+    const useFts = command.commandId !== 'name' && [...query].length >= 3;
+
+    for (const column of sources) {
+      if (column !== SearchCardLocalization.text || !useFts) {
+        conditions.push(sql`${column} LIKE ${literal} ESCAPE '\\'`);
+      }
+      conditions.push(textSourceFallback(column));
+    }
+    if (command.commandId === 'raw') {
+      conditions.push(searchTermCandidate(query));
+      conditions.push(searchTermFallback());
+    }
+    if (useFts) {
+      conditions.push(textFtsCandidate(query, db));
+    }
+  }
+
+  if (command.commandId === 'raw' && command.argType === 'id') {
+    const special = compileHearthstoneD1RawSpecialTerm(command, db, lang);
+    if (special != null) {
+      conditions.push(special);
+    }
+  }
+  return conditions.length === 0 ? null : or(...conditions)!;
+}
+
+/** Includes markup, Unicode, and whitespace variants that a literal FTS query cannot see. */
+function textSourceFallback(column: SQLWrapper): SQL {
+  return sql`${nonAscii(column)} OR instr(${column}, '<') > 0 OR ${column} GLOB '*[^ -~]*' OR instr(${column}, '  ') > 0`;
+}
+
+/** Matches ASCII-sized body literals through the existing trigram index. */
+function textFtsCandidate(term: string, db: SearchDrizzle): SQL {
+  const phrase = `"${term.replaceAll('"', '""')}"`;
+  return exists(
+    db
+      .select({ id: SearchTextRow.textId })
+      .from(SearchTextRow)
+      .where(
+        and(
+          eq(SearchTextRow.cardId, SearchCard.cardId),
+          eq(SearchTextRow.lang, SearchCardLocalization.lang),
+          sql`${SearchTextRow.textId} IN (SELECT rowid FROM ${sql.raw('hearthstone_search_text_fts')}
+        WHERE ${sql.raw('hearthstone_search_text_fts')} MATCH ${phrase})`,
+        ),
+      ),
+  );
+}
+
+/** Keeps DBF terms in the same candidate superset as names and rules text. */
+function searchTermCandidate(query: string): SQL {
+  const escaped = query.replaceAll('%', '\\%').replaceAll('_', '\\_');
+  return sql`EXISTS (
+    SELECT 1 FROM json_each(${SearchCardLocalization.searchTerms}) AS search_term
+    WHERE search_term.value LIKE ${`%${escaped}%`} ESCAPE '\\'
+  )`;
+}
+
+/** Includes raw DBF terms whose Unicode, markup, or whitespace needs query-time handling. */
+function searchTermFallback(): SQL {
+  return sql`EXISTS (
+    SELECT 1 FROM json_each(${SearchCardLocalization.searchTerms}) AS search_term
+    WHERE ${textSourceFallback(sql`search_term.value`)}
+  )`;
+}
+
 /** Finds the first literal whose SQLite interpretation is not covered. */
 function findNodeGap(query: LogicalQuery, lang: Locale): CapabilityGap | null {
   if (query.kind === 'not') {
@@ -189,21 +386,8 @@ function findNodeGap(query: LogicalQuery, lang: Locale): CapabilityGap | null {
   }
   if (['raw', 'name', 'text'].includes(id)) {
     const terms = command.argType === 'id' ? command.value.split(/[|&]/) : [command.value];
-    if (
-      terms.some(
-        term =>
-          term.includes('\\')
-          || term.includes('\0')
-          || [...term].some(char => char.codePointAt(0)! > 127 && /\p{Cased}/u.test(char)),
-      )
-    ) {
-      return gap('The text case-folding or escaping form requires PostgreSQL.');
-    }
-    const rawCardTerm = id === 'raw' && command.argType === 'id'
-      ? resolveHearthstoneRawCardTerm(command.value, lang)
-      : undefined;
-    if (id !== 'name' && rawCardTerm == null && terms.some(term => [...term].length < 3)) {
-      return gap('Short body terms cannot use the trigram candidate index.');
+    if (terms.some(term => term.includes('\\') || term.includes('\0'))) {
+      return gap('The text escaping form requires PostgreSQL.');
     }
   }
   if (id in numbers && command.value.split(/[|&]/).some(value => !validInteger(value))) {
