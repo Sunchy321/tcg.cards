@@ -36,6 +36,10 @@ import {
 } from './query';
 import type { SearchDrizzle } from './types';
 import { compileOrder } from './order';
+import {
+  hasHearthstoneRawCardTermTextFallback,
+  resolveHearthstoneRawCardTerm,
+} from '../../../shared/search/localized-card-terms';
 
 /** Falls back to the existing PG essential path when D1 is unavailable or incompatible. */
 type OriginalReader = (
@@ -408,11 +412,17 @@ function evaluateHearthstoneQuery(
   if (query.kind === 'leaf') {
     const command = query.command;
     if (isHearthstoneLiteralText(command)) {
-      const text = matchesHearthstoneD1TextCommand(command, row, lang);
       const key = predicateKeys.get(command);
-      return command.commandId === 'raw' && key != null
-        ? sqlOr(text, sqlTruth(row[key]))
-        : text;
+      if (command.commandId === 'raw' && key != null) {
+        const cardTerm = command.argType === 'id' && typeof command.value === 'string'
+          ? resolveHearthstoneRawCardTerm(command.value, lang)
+          : undefined;
+        if (cardTerm != null && !hasHearthstoneRawCardTermTextFallback(cardTerm)) {
+          return sqlTruth(row[key]);
+        }
+        return sqlOr(matchesHearthstoneD1TextCommand(command, row, lang), sqlTruth(row[key]));
+      }
+      return matchesHearthstoneD1TextCommand(command, row, lang);
     }
     return sqlTruth(row[predicateKeys.get(command) ?? '']);
   }

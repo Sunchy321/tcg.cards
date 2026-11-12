@@ -300,6 +300,7 @@ export default {
         'in-tavern-false':          'not in the tavern minion pool',
         'raw':                      'Search “{value}”',
         'raw-with-property':        'Search “{value}”, including {property}',
+        'raw-property-only':        'Search only {property}',
         'raw-property-golden':      'cards with golden versions',
         'raw-property-diamond':     'diamond cards',
         'raw-property-signature':   'signature cards',

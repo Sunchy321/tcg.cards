@@ -1,7 +1,10 @@
 import type { Locale } from '#model/hearthstone/schema/basic';
 import type { I18N } from '#search/client/command';
 
-import { resolveHearthstoneRawCardTerm } from '../../shared/search/localized-card-terms';
+import {
+  hasHearthstoneRawCardTermTextFallback,
+  resolveHearthstoneRawCardTerm,
+} from '../../shared/search/localized-card-terms';
 
 /** Translates one search explanation key with its optional named values. */
 type ExplainTranslate = (key: string, named?: Record<string, any>) => string;
@@ -20,6 +23,9 @@ export function createSearchExplainI18n(
       const cardTerm = resolveHearthstoneRawCardTerm(named.value, getSearchLang());
       if (cardTerm != null) {
         const property = translate(`$.full-command.raw-property-${cardTerm}`);
+        if (!hasHearthstoneRawCardTermTextFallback(cardTerm)) {
+          return translate('$.full-command.raw-property-only', { property });
+        }
         return translate('$.full-command.raw-with-property', { value: named.value, property });
       }
     }

@@ -36,7 +36,10 @@ import type { CommonServerCommand } from '#search/server/command';
 import * as commands from '../command-list';
 import type { SearchDrizzle } from './types';
 import { hasSupportedOrder } from './order';
-import { resolveHearthstoneRawCardTerm } from '../../../shared/search/localized-card-terms';
+import {
+  hasHearthstoneRawCardTermTextFallback,
+  resolveHearthstoneRawCardTerm,
+} from '../../../shared/search/localized-card-terms';
 
 const numbers = {
   'cost':       SearchCard.cost,
@@ -257,6 +260,10 @@ function compileTextCandidate(command: ResolvedCommand, db: SearchDrizzle, lang:
   if (command.commandId !== 'raw' && command.qualifier.includes('!')) {
     return null;
   }
+  const textExclusiveTerm = rawCardTermWithoutTextFallback(command, lang);
+  if (textExclusiveTerm != null) {
+    return rawCardTermMatch(textExclusiveTerm, db) ?? null;
+  }
   const value = command.value as string;
   const terms = command.argType === 'id' ? splitValueGroups(value).flat() : [value];
   const sources = command.commandId === 'name'
@@ -416,6 +423,10 @@ function findNodeGap(query: LogicalQuery, lang: Locale): CapabilityGap | null {
 
 /** Dispatches supported commands using the same value grouping as the PG handlers. */
 function compileCommand(command: ResolvedCommand, db: SearchDrizzle, lang: Locale): SQL {
+  const textExclusiveTerm = rawCardTermWithoutTextFallback(command, lang);
+  if (textExclusiveTerm != null) {
+    return rawCardTermMatch(textExclusiveTerm, db)!;
+  }
   if (command.textCondition != null) {
     const columns = command.commandId === 'name'
       ? [SearchCardLocalization.name]
@@ -525,6 +536,18 @@ function compileCommand(command: ResolvedCommand, db: SearchDrizzle, lang: Local
   default:
     throw new Error(`Unsupported Hearthstone D1 command: ${id}`);
   }
+}
+
+/** Resolves a raw card term whose card-data predicate replaces ordinary text matching. */
+function rawCardTermWithoutTextFallback(
+  command: ResolvedCommand,
+  lang: Locale,
+): ReturnType<typeof resolveHearthstoneRawCardTerm> {
+  if (command.commandId !== 'raw' || command.argType !== 'id' || typeof command.value !== 'string') {
+    return undefined;
+  }
+  const term = resolveHearthstoneRawCardTerm(command.value, lang);
+  return term != null && !hasHearthstoneRawCardTermTextFallback(term) ? term : undefined;
 }
 
 /** Adds the card-data predicate selected by one exact localized raw term. */

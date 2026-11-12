@@ -15,7 +15,10 @@ import { BaseEntityLocalization, LatestCardEntityView } from '#schema/shared/hea
 import { TAG_SLUG, TAG_ID } from '#model/hearthstone/constant/tag';
 import { matchValueGroups, splitValueGroups } from '#search/server/command/terms';
 import { pgRegexSource } from '#search/regex';
-import { resolveHearthstoneRawCardTerm } from '../../shared/search/localized-card-terms';
+import {
+  hasHearthstoneRawCardTermTextFallback,
+  resolveHearthstoneRawCardTerm,
+} from '../../shared/search/localized-card-terms';
 import { hearthstoneTextMatch } from './game-text';
 
 /** Supplies either the search projection field or a correlated domain-localization field. */
@@ -127,6 +130,12 @@ export const raw = cs
   .handler(({ value, argType }, { table, meta }) => {
     const searchTerms = rawSearchTermsColumn(table as RawSearchTable);
     const lang = ((meta as { lang?: Locale }).lang ?? 'en') as Locale;
+    const cardTerm = typeof value === 'string' && argType === 'id'
+      ? resolveHearthstoneRawCardTerm(value, lang)
+      : undefined;
+    if (cardTerm != null && !hasHearthstoneRawCardTermTextFallback(cardTerm)) {
+      return rawCardTermMatch(cardTerm, table as RawSearchTable);
+    }
     const searchTermQuery = typeof value === 'string'
       ? matchValueGroups(
         argType === 'id' ? splitValueGroups(value) : [[value]],
@@ -152,11 +161,8 @@ export const raw = cs
       searchTermQuery,
     ];
 
-    if (typeof value === 'string' && argType === 'id') {
-      const cardTerm = resolveHearthstoneRawCardTerm(value, lang);
-      if (cardTerm != null) {
-        queries.push(rawCardTermMatch(cardTerm, table as RawSearchTable));
-      }
+    if (cardTerm != null) {
+      queries.push(rawCardTermMatch(cardTerm, table as RawSearchTable));
     }
 
     return or(...queries)!;

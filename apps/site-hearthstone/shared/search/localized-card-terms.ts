@@ -23,6 +23,23 @@ export const hearthstoneRawCardTerms: readonly HearthstoneRawCardTerm[] = [
   'rune-unholy',
 ];
 
+/** Marks localized card terms whose special predicate also searches card text. */
+export function hasHearthstoneRawCardTermTextFallback(term: HearthstoneRawCardTerm): boolean {
+  switch (term) {
+  case 'whelp':
+  case 'imp':
+  case 'rune-blood':
+  case 'rune-frost':
+  case 'rune-unholy':
+    return true;
+  case 'golden':
+  case 'diamond':
+  case 'signature':
+    return false;
+  }
+  return false;
+}
+
 /** Holds collection-search terms from each supported locale's hsdata GLUE strings. */
 const localizedTerms: Record<Locale, Record<HearthstoneRawCardTerm, string>> = {
   en: {

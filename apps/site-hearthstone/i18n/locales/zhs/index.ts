@@ -301,6 +301,7 @@ export default {
         'in-tavern-false':          '不在酒馆随从池中',
         'raw':                      '搜索“{value}”',
         'raw-with-property':        '搜索“{value}”以及{property}',
+        'raw-property-only':        '仅搜索{property}',
         'raw-property-golden':      '有金色版本的卡牌',
         'raw-property-diamond':     '钻石卡牌',
         'raw-property-signature':   '异画卡牌',
