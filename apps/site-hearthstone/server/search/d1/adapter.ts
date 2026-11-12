@@ -106,7 +106,7 @@ export class HearthstoneD1EssentialSearchAdapter implements SearchAdapter<
         totalPage: Math.ceil(total / options.pageSize),
         elapsed:   Math.round(performance.now() - started),
         ambit:     AMBITS[Number(metadata.landing)]!,
-        variant:   await detectVariant(options.dsl),
+        variant:   await detectVariant(options.dsl, options.lang),
       };
     } catch (error) {
       console.warn('[search:d1] Hearthstone D1 search unavailable; using PostgreSQL.', error);
@@ -177,7 +177,7 @@ function arraySql(
   return sql`CASE WHEN ${count} IS NULL THEN NULL ELSE (SELECT json_group_array(value) FROM (${values})) END`;
 }
 
-/** Builds the public list object; simpleTags is copied solely for image rendering. */
+/** Builds the public list object with the projected tags needed for filtering and image rendering. */
 function itemSql(db: SearchDrizzle): SQL<string> {
   const {
     classCount,
@@ -294,7 +294,7 @@ function queryPage(db: SearchDrizzle, request: QueryRequest, options: SearchOpti
       .innerJoin(SearchCardLocalization, eq(SearchCard.cardId, SearchCardLocalization.cardId))
       .where(
         and(
-          compileHearthstoneD1Filter(request.filter, db),
+          compileHearthstoneD1Filter(request.filter, db, options.lang),
           ne(SearchCard.type, 'enchantment'),
           hasLanguageCommand(options.dsl)
             ? undefined

@@ -57,7 +57,15 @@ const essential = os
   .handler(async ({ input, context }) => {
     await refreshHearthstoneSearchDataset();
     const { q, page, pageSize, lang, orderBy, ambit } = input;
-    return search.search('essential', q, { page, pageSize, lang, orderBy, dsl: q, ambit, d1: context.searchD1 });
+    return search.search('essential', q, {
+      page,
+      pageSize,
+      lang,
+      orderBy,
+      dsl: q,
+      ambit,
+      d1:  context.searchD1,
+    });
   });
 
 export const searchTrpc = {

@@ -127,14 +127,16 @@ export class ServerModel<
 
       const commands = Object.values(this.commands);
 
-      const request = resolveQueryRequest(simplified, commands, resultOptions(options));
+      const resultOptionsValue = resultOptions(options);
+      const request = resolveQueryRequest(simplified, commands, resultOptionsValue);
 
       if (request.filter == null) {
         return { text, errors: [] };
       }
 
       const executeOriginal = async () => {
-        const translated = translateLegacy(simplified, commands, action.table);
+        const metaOverrides = resultOptionsValue.lang == null ? {} : { lang: resultOptionsValue.lang };
+        const translated = translateLegacy(simplified, commands, action.table, metaOverrides);
 
         if (translated.query == null) {
           return undefined;

@@ -730,6 +730,7 @@ import type { EssentialCardSearchItem, EssentialNormalResult as NormalResult } f
 import { locale as localeSchema } from '#model/hearthstone/schema/basic';
 
 import { explain as model } from '~/search';
+import { createSearchExplainI18n } from '~/search/explain';
 import { detectAmbit, AMBITS } from '#search/ambit';
 import type { Ambit } from '#search/ambit';
 import type { NumericOperator } from '~/composables/advanced-search';
@@ -817,14 +818,7 @@ const searchLang = computed(() =>
   localeSchema.safeParse(route.query.lang as string).data ?? 'zhs',
 );
 
-const gameLocale = useGameLocale();
-watch(gameLocale, locale => {
-  if (locale !== searchLang.value) {
-    void router.replace({ query: { ...route.query, lang: locale } });
-  }
-});
-
-const explained = computed(() => model.explain(q.value ?? '', (key: string, named?: Record<string, any>) => {
+const explainI18n = createSearchExplainI18n((key: string, named?: Record<string, any>) => {
   const realKey = key.startsWith('$.')
     ? `hearthstone.search.${key.slice(2)}`
     : key.startsWith('#.')
@@ -832,7 +826,16 @@ const explained = computed(() => model.explain(q.value ?? '', (key: string, name
       : `search.${key}`;
 
   return named != null ? i18n.t(realKey, named) : i18n.t(realKey);
-}));
+}, () => searchLang.value);
+
+const gameLocale = useGameLocale();
+watch(gameLocale, locale => {
+  if (locale !== searchLang.value) {
+    void router.replace({ query: { ...route.query, lang: locale } });
+  }
+});
+
+const explained = computed(() => model.explain(q.value ?? '', explainI18n));
 
 const explainText = computed(() => {
   if (!q.value) {
@@ -844,14 +847,7 @@ const explainText = computed(() => {
 
 const dslExplained = computed(() => {
   if (!dsl.value) return '';
-  const result = model.explain(dsl.value, (key: string, named?: Record<string, any>) => {
-    const realKey = key.startsWith('$.')
-      ? `hearthstone.search.${key.slice(2)}`
-      : key.startsWith('#.')
-        ? `hearthstone.${key.slice(2)}`
-        : `search.${key}`;
-    return named != null ? i18n.t(realKey, named) : i18n.t(realKey);
-  });
+  const result = model.explain(dsl.value, explainI18n);
   return result.text;
 });
 

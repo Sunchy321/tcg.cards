@@ -10,12 +10,12 @@ export const hearthstoneSearchManifest = z.strictObject({
 /** Carries version metadata alongside, rather than inside, search rows. */
 export type HearthstoneSearchManifest = z.infer<typeof hearthstoneSearchManifest>;
 
-/** Preserves the mechanic values needed by existing image and placeholder selection. */
+/** Preserves the small set of mechanic values needed by search filters and card images. */
 export type SimpleTags = Record<string, boolean | number>;
 
-export const SIMPLE_TAG_IDS = ['12', '1665', '1855', '1676', '4503'] as const;
+export const SIMPLE_TAG_IDS = ['12', '1665', '1855', '1676', '4503', '1932', '2589', '1965', '2355'] as const;
 
-/** Copies only approved image tags without converting their original values. */
+/** Copies only approved search and image tags without converting their original values. */
 export function pickSimpleTags(mechanics: SimpleTags): SimpleTags {
   return Object.fromEntries(SIMPLE_TAG_IDS
     .filter(id => Object.hasOwn(mechanics, id))

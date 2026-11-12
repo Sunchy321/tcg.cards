@@ -118,7 +118,7 @@ export const search = as
       page,
       totalPage,
       elapsed,
-      variant: await detectVariant(dsl),
+      variant: await detectVariant(dsl, lang),
       ambit:   landing,
     };
   });

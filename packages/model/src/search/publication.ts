@@ -5,8 +5,8 @@ import { locale as magicLocale } from '../magic/schema/basic';
 
 const sha256 = z.string().regex(/^[a-f0-9]{64}$/);
 
-/** Increment only the affected game's version when its exported SQLite layout changes. */
-export const LOCAL_SEARCH_SCHEMA_VERSIONS = { magic: 2, hearthstone: 2 } as const;
+/** Increment only the affected game's version when its exported SQLite layout or projection contract changes. */
+export const LOCAL_SEARCH_SCHEMA_VERSIONS = { magic: 2, hearthstone: 3 } as const;
 
 const objectDescriptor = z.strictObject({
   role:  z.literal('base'),

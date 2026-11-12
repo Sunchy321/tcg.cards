@@ -5,21 +5,30 @@ import * as builtin from '#search/server/command/builtin';
 import { QueryError } from '#search/command/error';
 import { parseAmbitValue } from '#search/server/ambit';
 
-import { and, asc, desc, eq, inArray, not, notInArray, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, not, notInArray, or, sql } from 'drizzle-orm';
 import type { SQLWrapper } from 'drizzle-orm';
 
 import { model } from '#model/hearthstone/search';
 import { classes as classSchema, types as typeSchema } from '#model/hearthstone/schema/basic';
+import type { Locale } from '#model/hearthstone/schema/basic';
 import { BaseEntityLocalization, LatestCardEntityView } from '#schema/shared/hearthstone/entity';
 import { TAG_SLUG, TAG_ID } from '#model/hearthstone/constant/tag';
 import { matchValueGroups, splitValueGroups } from '#search/server/command/terms';
 import { pgRegexSource } from '#search/regex';
+import { resolveHearthstoneRawCardTerm } from '../../shared/search/localized-card-terms';
 
 /** Supplies either the search projection field or a correlated domain-localization field. */
 type RawSearchTable = {
   cardId:        SQLWrapper;
   lang:          SQLWrapper;
+  set:           SQLWrapper;
+  type:          SQLWrapper;
+  techLevel:     SQLWrapper;
+  collectible:   SQLWrapper;
+  rune:          SQLWrapper;
   revisionHash?: SQLWrapper;
+  simpleTags?:   SQLWrapper;
+  mechanics?:    SQLWrapper;
   localization:  { searchTerms?: SQLWrapper };
 };
 
@@ -102,7 +111,7 @@ const matchStats = (
 
 export const raw = cs
   .commands.raw
-  .handler(({ value, argType }, { table }) => {
+  .handler(({ value, argType }, { table, meta }) => {
     const searchTerms = rawSearchTermsColumn(table as RawSearchTable);
     const searchTermQuery = typeof value === 'string'
       ? matchValueGroups(
@@ -110,7 +119,8 @@ export const raw = cs
         term => rawSearchTermMatch(searchTerms, term),
       )
       : rawSearchTermRegexMatch(searchTerms, value);
-    return or(
+
+    const queries: SQLWrapper[] = [
       builtin.text.call({
         column: table => table.localization.name,
         args:   { value, operator: ':', qualifier: [], argType },
@@ -122,8 +132,82 @@ export const raw = cs
         ctx:    { meta: { multiline: true, caseSensitive: false }, table },
       }),
       searchTermQuery,
-    )!;
+    ];
+
+    if (typeof value === 'string' && argType === 'id') {
+      const lang = ((meta as { lang?: Locale }).lang ?? 'en') as Locale;
+      const cardTerm = resolveHearthstoneRawCardTerm(value, lang);
+      if (cardTerm != null) {
+        queries.push(rawCardTermMatch(cardTerm, table as RawSearchTable));
+      }
+    }
+
+    return or(...queries)!;
   });
+
+/** Adds the card-data predicate selected by one exact localized raw term. */
+function rawCardTermMatch(
+  term: NonNullable<ReturnType<typeof resolveHearthstoneRawCardTerm>>,
+  table: RawSearchTable,
+): SQLWrapper {
+  switch (term) {
+  case 'golden':
+    return goldenImageEligibility(table);
+  case 'diamond':
+    return sql`${cardTagColumn(table)} ? ${String(TAG_ID.HAS_DIAMOND)}`;
+  case 'signature':
+    return sql`${cardTagColumn(table)} ? ${String(TAG_ID.HAS_SIGNATURE)}`;
+  case 'whelp':
+    return sql`${cardTagColumn(table)} ? ${String(TAG_ID.WHELP)}`;
+  case 'imp':
+    return sql`${cardTagColumn(table)} ? ${String(TAG_ID.IMP)}`;
+  case 'rune-blood':
+    return sql`${table.rune} @> ARRAY['blood']::text[]`;
+  case 'rune-frost':
+    return sql`${table.rune} @> ARRAY['frost']::text[]`;
+  case 'rune-unholy':
+    return sql`${table.rune} @> ARRAY['undead']::text[]`;
+  }
+}
+
+/** Reads only the projected tag data needed by localized raw terms. */
+function cardTagColumn(table: RawSearchTable): SQLWrapper {
+  const candidate = table as { simpleTags?: SQLWrapper, mechanics?: SQLWrapper };
+  const column = candidate.simpleTags ?? candidate.mechanics;
+  if (column == null) {
+    throw new Error('Localized Hearthstone raw terms require a tag projection.');
+  }
+  return column;
+}
+
+/** Mirrors the card-image selector's golden eligibility for the chosen result template. */
+function goldenImageEligibility(table: RawSearchTable): SQLWrapper {
+  const resultUsesBattlegroundsTemplate = or(
+    eq(table.set, 'bgs'),
+    inArray(table.type, ['trinket', 'anomaly']),
+    and(isNotNull(table.techLevel), eq(table.collectible, false)),
+  )!;
+  const gameHasBattlegroundsTemplate = or(eq(table.set, 'bgs'), isNotNull(table.techLevel))!;
+  const premium = enabledCardTag(table, TAG_ID.PREMIUM);
+
+  return or(
+    and(resultUsesBattlegroundsTemplate, gameHasBattlegroundsTemplate, premium),
+    and(
+      not(resultUsesBattlegroundsTemplate),
+      notInArray(table.type, ['mercenary_ability', 'enchantment']),
+    ),
+  )!;
+}
+
+/** Treats numeric zero and boolean false like the card-image eligibility helper. */
+function enabledCardTag(table: RawSearchTable, tagId: number): SQLWrapper {
+  const value = sql`${cardTagColumn(table)} -> ${String(tagId)}`;
+  return sql`CASE jsonb_typeof(${value})
+    WHEN 'boolean' THEN ${value} = 'true'::jsonb
+    WHEN 'number' THEN (${value} #>> '{}')::numeric <> 0
+    ELSE FALSE
+  END`;
+}
 
 export const fullStats = cs
   .commands.fullStats

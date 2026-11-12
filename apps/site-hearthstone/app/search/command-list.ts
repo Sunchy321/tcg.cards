@@ -14,7 +14,7 @@ const cc = create
 export const raw = cc
   .commands.raw
   .explain((args, i18n) => {
-    return i18n('$.full-command.raw', { value: args.value });
+    return i18n('$.full-command.raw', { value: args.value, argType: args.argType });
   });
 
 export const fullStats = cc

@@ -19,7 +19,7 @@ const adapter = new HearthstonePgEssentialSearchAdapter();
 const dialect = new PgDialect();
 
 /** Resolves real public DSL into the same request supplied to the adapter. */
-function request(dsl: string, orderBy = 'name+') {
+function request(dsl: string, orderBy = 'name+', lang = 'en') {
   return resolveQueryRequest(simplify(new Parser(dsl).parse()), Object.values(commands) as CommonServerCommand[], {
     sort:     [{ kind: 'request', field: 'order', value: orderBy }],
     group:    null,
@@ -27,7 +27,7 @@ function request(dsl: string, orderBy = 'name+') {
     pageSize: 20,
     total:    true,
     ambit:    null,
-    lang:     'en',
+    lang,
   });
 }
 
@@ -122,6 +122,29 @@ describe('Hearthstone essential acceleration', () => {
     expect(bare.sql).toContain('"hearthstone"."search_card_localizations"."text"');
     expect(bare.sql.toLowerCase()).toContain(' or ');
     expect(bare.sql).not.toContain(' || ');
+  });
+
+  test('applies localized exact raw terms through card data on both PostgreSQL paths', () => {
+    const dsl = '雏龙';
+    const resolved = request(dsl, 'name+', 'zhs');
+    expect(adapter.plan(resolved)).toEqual({ type: 'exact' });
+
+    const original = compileQueryRequest(resolved, Object.values(commands) as CommonServerCommand[], LatestCardEntityView);
+    const originalQuery = dialect.sqlToQuery(original.query!);
+    expect(originalQuery.params).toContain('2355');
+    expect(originalQuery.sql).toContain('mechanics');
+    expect(originalQuery.sql.toLowerCase()).toContain(' or ');
+
+    const accelerated = dialect.sqlToQuery(adapter.compile(resolved, {
+      dsl,
+      lang:     'zhs',
+      page:     1,
+      pageSize: 20,
+      orderBy:  'name+',
+    }));
+    expect(accelerated.params).toContain('2355');
+    expect(accelerated.sql).toContain('simple_tags');
+    expect(() => request('special:whelp')).toThrow();
   });
 
   test('detects parsed language aliases without matching literal text', () => {

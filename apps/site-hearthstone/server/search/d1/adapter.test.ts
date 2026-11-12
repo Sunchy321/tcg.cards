@@ -9,6 +9,7 @@ import { resolveQueryRequest } from '#search/server/logical';
 import type { CommonServerCommand } from '#search/server/command';
 import type { EssentialCardSearchItem } from '@tcg-cards/model/hearthstone/schema/search';
 import { locale } from '@tcg-cards/model/hearthstone/schema/basic';
+import type { Locale } from '@tcg-cards/model/hearthstone/schema/basic';
 import { setHearthstoneSearchDataset } from '../accelerated-adapter';
 import type { SearchOption } from '../action';
 import * as commands from '../command-list';
@@ -69,7 +70,7 @@ function card(
 
 /** Executes actual prepared D1 SQL on SQLite instead of mocking query results. */
 function binding(): HearthstoneSearchD1Database {
-  return {
+  const database = {
     prepare(query: string) {
       lastSql = query;
       let params: unknown[] = [];
@@ -88,11 +89,13 @@ function binding(): HearthstoneSearchD1Database {
         },
       };
     },
-  } as unknown as HearthstoneSearchD1Database;
+  };
+  Object.defineProperty(database, Symbol.for('@tcg-cards/search/node-sqlite-d1'), { value: true });
+  return database as unknown as HearthstoneSearchD1Database;
 }
 
 /** Resolves the public DSL using the same essential request contract. */
-function request(dsl: string, orderBy = 'id+') {
+function request(dsl: string, orderBy = 'id+', lang: Locale = 'en') {
   return resolveQueryRequest(
     simplify(new Parser(dsl).parse()),
     Object.values(commands) as CommonServerCommand[],
@@ -103,7 +106,7 @@ function request(dsl: string, orderBy = 'id+') {
       pageSize: 20,
       total:    true,
       ambit:    null,
-      lang:     'en',
+      lang,
     },
   );
 }
@@ -119,7 +122,7 @@ async function search(dsl: string, overrides: Partial<SearchOption> = {}) {
     d1:       binding(),
     ...overrides,
   };
-  return reader.execute(request(dsl, options.orderBy), options);
+  return reader.execute(request(dsl, options.orderBy, options.lang), options);
 }
 
 /** Loads one independently generated latest snapshot. */
@@ -284,6 +287,26 @@ afterEach(() => {
 });
 
 describe('Hearthstone D1 essential search', () => {
+  test('matches localized raw terms with card attributes and keeps full-text matches', async () => {
+    load([
+      card('WHELP', { simpleTags: { 12: false, 1665: 3, 1676: 0, 2355: true } }),
+      card('TEXT_EN', { localization: { name: 'Text match', text: '雏龙' } }),
+      card('TEXT', { lang: 'zhs', localization: { name: '幼龙', text: '雏龙' } }),
+      card('OTHER', { lang: 'zhs' }),
+    ]);
+
+    expect(reader.plan(request('lang:en 雏龙', 'id+', 'zhs'))).toEqual({ type: 'exact' });
+    const tagResult = await search('lang:en 雏龙', { lang: 'zhs' });
+    expect(fallbacks).toBe(0);
+    expect(tagResult.total).toBe(2);
+    expect(tagResult.result.map(row => row.cardId).sort()).toEqual(['TEXT_EN', 'WHELP']);
+
+    const textResult = await search('雏龙', { lang: 'zhs' });
+    expect(textResult.result.map(row => row.cardId)).toEqual(['TEXT']);
+    expect((await search('金卡', { lang: 'zhs' })).variant).toBe('golden');
+    expect(() => request('special:whelp')).toThrow();
+  });
+
   test('returns exact list fields and display-only tags in one statement', async () => {
     const expected = card('A');
     load([expected]);
@@ -557,7 +580,7 @@ describe('Hearthstone D1 essential search', () => {
       {
         ...original,
         renderHash:   'render-v2',
-        localization: { name: 'Updated only', text: 'Fresh translation.' },
+        localization: { name: 'Updated only', text: 'Fresh translation.', searchTerms: null },
       },
     ]);
     expect((await search('name:Updated')).result[0]?.renderHash).toBe('render-v2');

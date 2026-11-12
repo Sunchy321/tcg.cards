@@ -1,6 +1,6 @@
 import { compileRegexCondition, compileTextCondition, nonAscii, regexCommands } from '#search/server/regex';
-import type { TextCondition } from '#search/server/regex';
-import { and, eq, exists, gt, gte, inArray, lt, lte, ne, not, or, sql } from 'drizzle-orm';
+import type { TextCondition } from '#search/regex';
+import { and, eq, exists, gt, gte, inArray, isNotNull, lt, lte, ne, not, or, sql } from 'drizzle-orm';
 import type { SQL, SQLWrapper } from 'drizzle-orm';
 import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 import {
@@ -11,7 +11,9 @@ import {
   spellSchool,
   types,
 } from '@tcg-cards/model/hearthstone/schema/basic';
+import type { Locale } from '@tcg-cards/model/hearthstone/schema/basic';
 import { mercenaryFaction, mercenaryRole, rune } from '@tcg-cards/model/hearthstone/schema/entity';
+import { TAG_ID } from '@tcg-cards/model/hearthstone/constant/tag';
 
 import {
   SearchCard,
@@ -33,6 +35,7 @@ import type { CommonServerCommand } from '#search/server/command';
 import * as commands from '../command-list';
 import type { SearchDrizzle } from './types';
 import { hasSupportedOrder } from './order';
+import { resolveHearthstoneRawCardTerm } from '../../../shared/search/localized-card-terms';
 
 const numbers = {
   'cost':       SearchCard.cost,
@@ -113,35 +116,41 @@ export function findHearthstoneD1Gap(request: QueryRequest): CapabilityGap | nul
       detail: 'The sort requires fields outside the D1 projection.',
     };
   }
-  return request.filter == null ? null : findNodeGap(request.filter);
+  return request.filter == null
+    ? null
+    : findNodeGap(request.filter, (request.result.lang ?? 'en') as Locale);
 }
 
 /** Compiles boolean structure without weakening OR, NOT, or SQL NULL semantics. */
-export function compileHearthstoneD1Filter(query: LogicalQuery | null, db: SearchDrizzle): SQL {
+export function compileHearthstoneD1Filter(
+  query: LogicalQuery | null,
+  db: SearchDrizzle,
+  lang: Locale = 'en',
+): SQL {
   if (query == null) {
     return sql`1 = 1`;
   }
   if (query.kind === 'not') {
-    return not(compileHearthstoneD1Filter(query.expr, db));
+    return not(compileHearthstoneD1Filter(query.expr, db, lang));
   }
   if (query.kind === 'and' || query.kind === 'or') {
-    const children = query.exprs.map(child => compileHearthstoneD1Filter(child, db));
+    const children = query.exprs.map(child => compileHearthstoneD1Filter(child, db, lang));
     return (query.kind === 'and' ? and(...children) : or(...children))!;
   }
   if (query.kind !== 'leaf') {
     throw new Error('Unsupported logical query node.');
   }
-  return compileCommand(query.command, db);
+  return compileCommand(query.command, db, lang);
 }
 
 /** Finds the first literal whose SQLite interpretation is not covered. */
-function findNodeGap(query: LogicalQuery): CapabilityGap | null {
+function findNodeGap(query: LogicalQuery, lang: Locale): CapabilityGap | null {
   if (query.kind === 'not') {
-    return findNodeGap(query.expr);
+    return findNodeGap(query.expr, lang);
   }
   if (query.kind === 'and' || query.kind === 'or') {
     for (const child of query.exprs) {
-      const gap = findNodeGap(child);
+      const gap = findNodeGap(child, lang);
       if (gap != null) {
         return gap;
       }
@@ -190,7 +199,10 @@ function findNodeGap(query: LogicalQuery): CapabilityGap | null {
     ) {
       return gap('The text case-folding or escaping form requires PostgreSQL.');
     }
-    if (id !== 'name' && terms.some(term => [...term].length < 3)) {
+    const rawCardTerm = id === 'raw' && command.argType === 'id'
+      ? resolveHearthstoneRawCardTerm(command.value, lang)
+      : undefined;
+    if (id !== 'name' && rawCardTerm == null && terms.some(term => [...term].length < 3)) {
       return gap('Short body terms cannot use the trigram candidate index.');
     }
   }
@@ -219,7 +231,7 @@ function findNodeGap(query: LogicalQuery): CapabilityGap | null {
 }
 
 /** Dispatches supported commands using the same value grouping as the PG handlers. */
-function compileCommand(command: ResolvedCommand, db: SearchDrizzle): SQL {
+function compileCommand(command: ResolvedCommand, db: SearchDrizzle, lang: Locale): SQL {
   if (command.textCondition != null) {
     const columns = command.commandId === 'name'
       ? [SearchCardLocalization.name]
@@ -260,12 +272,17 @@ function compileCommand(command: ResolvedCommand, db: SearchDrizzle): SQL {
     return grouped(term => textMatch(command, term, id === 'text', db));
   case 'raw': {
     const positive: ResolvedCommand = { ...command, operator: ':', qualifier: [] };
+    const rawCardTerm = command.argType === 'id'
+      ? resolveHearthstoneRawCardTerm(value, lang)
+      : undefined;
     // The legacy raw handler groups each source independently, then joins with OR.
-    return or(
+    const queries = [
       grouped(term => textMatch(positive, term, false, db)),
-      grouped(term => textMatch(positive, term, true, db)),
+      grouped(term => textMatch(positive, term, true, db, rawCardTerm != null)),
       grouped(term => searchTermMatch(term)),
-    )!;
+    ];
+    const cardTerm = rawCardTermMatch(rawCardTerm, db);
+    return or(...queries, ...(cardTerm == null ? [] : [cardTerm]))!;
   }
   case 'stats':
   case 'full-stats': {
@@ -324,6 +341,87 @@ function compileCommand(command: ResolvedCommand, db: SearchDrizzle): SQL {
   default:
     throw new Error(`Unsupported Hearthstone D1 command: ${id}`);
   }
+}
+
+/** Adds the card-data predicate selected by one exact localized raw term. */
+function rawCardTermMatch(
+  term: ReturnType<typeof resolveHearthstoneRawCardTerm>,
+  db: SearchDrizzle,
+): SQL | undefined {
+  switch (term) {
+  case 'golden':
+    return goldenImageEligibility();
+  case 'diamond':
+    return hasSimpleTag(TAG_ID.HAS_DIAMOND);
+  case 'signature':
+    return hasSimpleTag(TAG_ID.HAS_SIGNATURE);
+  case 'whelp':
+    return hasSimpleTag(TAG_ID.WHELP);
+  case 'imp':
+    return hasSimpleTag(TAG_ID.IMP);
+  case 'rune-blood':
+    return runeMatch('blood', db);
+  case 'rune-frost':
+    return runeMatch('frost', db);
+  case 'rune-unholy':
+    return runeMatch('undead', db);
+  default:
+    return undefined;
+  }
+}
+
+/** Tests only whether a projected tag key exists, matching the game's HasCardTag checks. */
+function hasSimpleTag(tagId: number): SQL {
+  const path = '$.' + JSON.stringify(String(tagId));
+  return sql`json_type(${SearchCard.simpleTags}, ${path}) IS NOT NULL`;
+}
+
+/** Mirrors the image selector's template choice and golden eligibility in SQLite. */
+function goldenImageEligibility(): SQL {
+  const resultUsesBattlegroundsTemplate = or(
+    eq(SearchCard.set, 'bgs'),
+    inArray(SearchCard.type, ['trinket', 'anomaly']),
+    and(isNotNull(SearchCard.techLevel), eq(SearchCard.collectible, false)),
+  )!;
+  const gameHasBattlegroundsTemplate = or(eq(SearchCard.set, 'bgs'), isNotNull(SearchCard.techLevel))!;
+  const premium = enabledSimpleTag(TAG_ID.PREMIUM);
+
+  return or(
+    and(resultUsesBattlegroundsTemplate, gameHasBattlegroundsTemplate, premium),
+    and(
+      not(resultUsesBattlegroundsTemplate),
+      ne(SearchCard.type, 'mercenary_ability'),
+      ne(SearchCard.type, 'enchantment'),
+    ),
+  )!;
+}
+
+/** Treats numeric zero and boolean false like the card-image eligibility helper. */
+function enabledSimpleTag(tagId: number): SQL {
+  const path = '$.' + JSON.stringify(String(tagId));
+  const value = sql`json_extract(${SearchCard.simpleTags}, ${path})`;
+  return sql`CASE
+    WHEN json_type(${SearchCard.simpleTags}, ${path}) IN ('true', 'integer', 'real')
+      THEN CAST(${value} AS REAL) <> 0
+    ELSE 0
+  END`;
+}
+
+/** Preserves PostgreSQL's NULL array behavior when no rune projection exists. */
+function runeMatch(value: string, db: SearchDrizzle): SQL {
+  const contains = exists(
+    db
+      .select({ cardId: SearchCardValue.cardId })
+      .from(SearchCardValue)
+      .where(
+        and(
+          eq(SearchCardValue.cardId, SearchCard.cardId),
+          eq(SearchCardValue.field, 'rune'),
+          eq(SearchCardValue.value, value),
+        ),
+      ),
+  );
+  return sql`CASE WHEN ${SearchCard.runeCount} IS NULL THEN NULL ELSE ${contains} END`;
 }
 
 /** Preserves integer parsing and qualifier behavior from the existing numeric handler. */
@@ -387,13 +485,19 @@ function arrayMatch(command: ResolvedCommand, value: string, db: SearchDrizzle):
   return command.qualifier.includes('!') ? not(nullable) : nullable;
 }
 
-/** Uses FTS only for body candidates, then verifies the original field with exact LIKE semantics. */
-function textMatch(command: ResolvedCommand, term: string, body: boolean, db: SearchDrizzle): SQL {
+/** Uses FTS for body candidates except short localized raw terms, which need exact LIKE scans. */
+function textMatch(
+  command: ResolvedCommand,
+  term: string,
+  body: boolean,
+  db: SearchDrizzle,
+  allowShortBodyScan = false,
+): SQL {
   const column = body ? SearchCardLocalization.text : SearchCardLocalization.name;
   const escaped = term.replaceAll('%', '\\%').replaceAll('_', '\\_');
   const literal = command.operator === '=' ? escaped : `%${escaped}%`;
   let match = term === '' ? eq(column, '') : sql`${column} LIKE ${literal} ESCAPE '\\'`;
-  if (body) {
+  if (body && (!allowShortBodyScan || [...term].length >= 3)) {
     const phrase = `"${term.replaceAll('"', '""')}"`;
     const candidate = exists(
       db

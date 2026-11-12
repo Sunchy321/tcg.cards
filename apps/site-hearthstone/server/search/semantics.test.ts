@@ -24,9 +24,14 @@ function compile(q: string) {
 }
 
 /** Compiles one public query using the preserved historical translator. */
-function compileLegacy(q: string) {
+function compileLegacy(q: string, lang = 'en') {
   const expr = new Parser(q).parse();
-  const { query, post } = translateLegacy(simplify(expr), Object.values(commands) as any, LatestCardEntityView);
+  const { query, post } = translateLegacy(
+    simplify(expr),
+    Object.values(commands) as any,
+    LatestCardEntityView,
+    { lang },
+  );
 
   return {
     query: query == null ? undefined : dialect.sqlToQuery(query),
@@ -35,7 +40,7 @@ function compileLegacy(q: string) {
 }
 
 /** Compiles one request through the PostgreSQL adapter and its planner. */
-async function compileWithAdapter(q: string) {
+async function compileWithAdapter(q: string, lang = 'en') {
   const expr = simplify(new Parser(q).parse());
   const request = resolveQueryRequest(expr, Object.values(commands) as any, {
     sort:     [{ kind: 'action-default' }],
@@ -44,7 +49,7 @@ async function compileWithAdapter(q: string) {
     pageSize: 100,
     total:    true,
     ambit:    null,
-    lang:     'en',
+    lang,
   });
   const adapter = new PgSearchAdapter<any, undefined, typeof LatestCardEntityView>(
     Object.values(commands) as any,
@@ -60,10 +65,10 @@ async function compileWithAdapter(q: string) {
 }
 
 /** Asserts that one query produces the same parameterized PG output on both paths. */
-async function expectLegacyEquivalent(q: string) {
+async function expectLegacyEquivalent(q: string, lang = 'en') {
   try {
-    const current = await compileWithAdapter(q);
-    const legacy = compileLegacy(q);
+    const current = await compileWithAdapter(q, lang);
+    const legacy = compileLegacy(q, lang);
 
     if (JSON.stringify(current) !== JSON.stringify(legacy)) {
       throw new Error(`New=${JSON.stringify(current)} Legacy=${JSON.stringify(legacy)}`);
@@ -169,5 +174,11 @@ describe('hearthstone search semantics', () => {
     for (const query of queries) {
       await expectLegacyEquivalent(query);
     }
+  });
+
+  test('localized raw card terms use the selected search language on both PG paths', async () => {
+    await expectLegacyEquivalent('雏龙', 'zhs');
+    await expectLegacyEquivalent('lang:en 雏龙', 'zhs');
+    compileThrows('special:whelp');
   });
 });

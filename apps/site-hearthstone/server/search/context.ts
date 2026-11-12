@@ -3,7 +3,9 @@ import { db } from '#db/db';
 import Parser from '#search/parser';
 import { simplify } from '#search/parser/simplify';
 import type { Expression } from '#search/parser';
+import type { Locale } from '#model/hearthstone/schema/basic';
 import { Tag } from '#schema/shared/hearthstone/tag';
+import { resolveHearthstoneRawCardTerm } from '../../shared/search/localized-card-terms';
 
 let hashTagToVariantPromise: Promise<Record<string, string>> | null = null;
 
@@ -34,8 +36,8 @@ type VariantValue = 'normal' | 'golden' | 'diamond' | 'signature' | 'battlegroun
 
 const variantValues: readonly VariantValue[] = ['normal', 'golden', 'diamond', 'signature', 'battlegrounds'];
 
-/** Resolves the existing query image variant without domain reads for tag-free queries. */
-export async function detectVariant(dsl: string): Promise<VariantValue> {
+/** Resolves an image variant from query terms without domain reads for tag-free queries. */
+export async function detectVariant(dsl: string, lang: Locale = 'en'): Promise<VariantValue> {
   try {
     const expr = new Parser(dsl).parse();
     const simplified = simplify(expr);
@@ -59,6 +61,13 @@ export async function detectVariant(dsl: string): Promise<VariantValue> {
         if (node.cmd === 'set') {
           const val = node.args.toLowerCase();
           if (val === 'bgs' || val === 'battlegrounds') variants.add('battlegrounds');
+        }
+      }
+
+      if (node.type === 'raw' && node.argType === 'id') {
+        const cardTerm = resolveHearthstoneRawCardTerm(node.args, lang);
+        if (cardTerm === 'golden' || cardTerm === 'diamond' || cardTerm === 'signature') {
+          variants.add(cardTerm);
         }
       }
 

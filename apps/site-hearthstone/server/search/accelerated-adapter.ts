@@ -246,7 +246,7 @@ export class HearthstonePgEssentialSearchAdapter implements SearchAdapter<Essent
       page:      options.page,
       totalPage: Math.ceil(Number(row.total) / options.pageSize),
       elapsed:   Math.round(performance.now() - startedAt),
-      variant:   await detectVariant(options.dsl),
+      variant:   await detectVariant(options.dsl, options.lang),
     };
   }
 }

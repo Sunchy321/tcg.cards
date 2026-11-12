@@ -16,11 +16,13 @@ export type TranslatedQuery = {
   post:  PostAction[];
 };
 
+/** Compiles one command with static and request-scoped metadata. */
 function simpleTranslate<Table>(
   command: CommonServerCommand,
   expr: Expression,
   args: CommonCommandInput,
   table: Table,
+  metaOverrides: Record<string, unknown> = {},
 ): TranslatedQuery {
   const { input } = command.options;
 
@@ -35,17 +37,15 @@ function simpleTranslate<Table>(
   }
 
   try {
+    const meta = command.options.type === 'none'
+      ? { ...command.options.meta, ...metaOverrides }
+      : command.options.meta;
     const ctx = {
-      meta:  command.options.meta,
-      table: table,
+      meta,
+      table,
     };
 
     if (command.is('query')) {
-      const ctx = {
-        meta:  command.options.meta,
-        table: table,
-      };
-
       const query = command.handler(args as any, ctx) as SQL;
 
       return { query, post: [] };
@@ -69,10 +69,16 @@ function simpleTranslate<Table>(
   }
 }
 
-export function translateLegacy<Table>(expr: Expression, commands: CommonServerCommand[], table: Table): TranslatedQuery {
+/** Translates the original expression while adding request metadata to command handlers. */
+export function translateLegacy<Table>(
+  expr: Expression,
+  commands: CommonServerCommand[],
+  table: Table,
+  metaOverrides: Record<string, unknown> = {},
+): TranslatedQuery {
   // computed expression
   if (expr.type === 'logic') {
-    const value = expr.exprs.map(v => translateLegacy(v, commands, table));
+    const value = expr.exprs.map(v => translateLegacy(v, commands, table, metaOverrides));
 
     const sql: SQL[] = [];
     const post: PostAction[] = [];
@@ -97,14 +103,14 @@ export function translateLegacy<Table>(expr: Expression, commands: CommonServerC
       };
     }
   } else if (expr.type === 'not') {
-    const result = translateLegacy(expr.expr, commands, table);
+    const result = translateLegacy(expr.expr, commands, table, metaOverrides);
 
     return {
       query: result.query != undefined ? not(result.query) : undefined,
       post:  result.post,
     };
   } else if (expr.type === 'paren') {
-    return translateLegacy(expr.expr, commands, table);
+    return translateLegacy(expr.expr, commands, table, metaOverrides);
   }
 
   // value
@@ -179,7 +185,7 @@ export function translateLegacy<Table>(expr: Expression, commands: CommonServerC
     return simpleTranslate(command, expr, {
       modifier, value, operator, qualifier,
       argType: expr.argType as CommandArgType,
-    }, table);
+    }, table, metaOverrides);
   }
 
   // find patterns
@@ -210,7 +216,7 @@ export function translateLegacy<Table>(expr: Expression, commands: CommonServerC
         operator:  '',
         qualifier: expr.qual ?? [],
         argType:   'argType' in expr ? expr.argType as CommandArgType : undefined,
-      }, table);
+      }, table, metaOverrides);
     }
   }
 
@@ -225,20 +231,21 @@ export function translateLegacy<Table>(expr: Expression, commands: CommonServerC
     operator:  '',
     qualifier: expr.qual ?? [],
     argType:   'argType' in expr ? expr.argType as CommandArgType : undefined,
-  }, table);
+  }, table, metaOverrides);
 }
 
 /** Compiles a resolved logical request through the existing PostgreSQL handlers. */
 export function compileQueryRequest<Table>(request: QueryRequest, commands: CommonServerCommand[], table: Table): TranslatedQuery {
+  const metaOverrides = request.result.lang == null ? {} : { lang: request.result.lang };
   const filter = request.filter == null
     ? { query: undefined, post: [] }
-    : compileNode(request.filter, commands, table);
+    : compileNode(request.filter, commands, table, metaOverrides);
   const post = request.result.sort.flatMap(sort => {
     if (sort.kind !== 'dsl') {
       return [];
     }
 
-    return compileCommand(sort.command, commands, table).post;
+    return compileCommand(sort.command, commands, table, metaOverrides).post;
   });
 
   return {
@@ -255,13 +262,18 @@ export function translate<Table>(expr: Expression, commands: CommonServerCommand
 }
 
 /** Compiles boolean nodes while retaining the old SQL composition behavior. */
-function compileNode<Table>(query: LogicalQuery, commands: CommonServerCommand[], table: Table): TranslatedQuery {
+function compileNode<Table>(
+  query: LogicalQuery,
+  commands: CommonServerCommand[],
+  table: Table,
+  metaOverrides: Record<string, unknown>,
+): TranslatedQuery {
   if (query.kind === 'leaf') {
-    return compileCommand(query.command, commands, table);
+    return compileCommand(query.command, commands, table, metaOverrides);
   }
 
   if (query.kind === 'not') {
-    const child = compileNode(query.expr, commands, table);
+    const child = compileNode(query.expr, commands, table, metaOverrides);
 
     return {
       query: child.query == null ? undefined : not(child.query),
@@ -269,7 +281,7 @@ function compileNode<Table>(query: LogicalQuery, commands: CommonServerCommand[]
     };
   }
 
-  const children = query.exprs.map(child => compileNode(child, commands, table));
+  const children = query.exprs.map(child => compileNode(child, commands, table, metaOverrides));
   const filters = children.flatMap(child => child.query == null ? [] : [child.query]);
   const post = children.flatMap(child => child.post);
 
@@ -284,7 +296,12 @@ function compileNode<Table>(query: LogicalQuery, commands: CommonServerCommand[]
 }
 
 /** Compiles a command by its resolved identity and preserves legacy validation. */
-function compileCommand<Table>(resolved: ResolvedCommand, commands: CommonServerCommand[], table: Table): TranslatedQuery {
+function compileCommand<Table>(
+  resolved: ResolvedCommand,
+  commands: CommonServerCommand[],
+  table: Table,
+  metaOverrides: Record<string, unknown>,
+): TranslatedQuery {
   const command = commands.find(candidate => candidate.options.id === resolved.commandId);
 
   if (command == null || (resolved.action === 'order-by') !== command.is('order-by')) {
@@ -303,5 +320,5 @@ function compileCommand<Table>(resolved: ResolvedCommand, commands: CommonServer
     argType:   resolved.argType,
   } as any;
 
-  return simpleTranslate(command, { topLevel: resolved.topLevel } as Expression, args, table);
+  return simpleTranslate(command, { topLevel: resolved.topLevel } as Expression, args, table, metaOverrides);
 }

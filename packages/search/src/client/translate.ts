@@ -1,6 +1,6 @@
 import type { Expression } from '#search/parser';
 import type { I18N, CommonClientCommandOption } from './command';
-import type { CommonCommandInput, Operator, Qualifier } from '#search/command';
+import type { CommandArgType, CommonCommandInput, Operator, Qualifier } from '#search/command';
 import { QueryError } from '#search/command/error';
 
 import { matchPattern } from '#search/command/match-pattern';
@@ -207,6 +207,7 @@ export function translate(
       value,
       operator:  '',
       qualifier: [],
+      argType:   expr.argType as CommandArgType,
     } satisfies CommonCommandInput;
 
     return simpleTranslate(command, args, i18n);

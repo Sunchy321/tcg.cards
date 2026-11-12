@@ -14,7 +14,7 @@ export const SearchMeta = sqliteTable(
   table => [primaryKey({ columns: [table.key] })],
 );
 
-/** Stores latest card scalars and display-only tags; array lengths preserve NULL and empty arrays. */
+/** Stores latest card scalars and the small tag projection; array lengths preserve NULL and empty arrays. */
 export const SearchCard = sqliteTable('hearthstone_search_cards', {
   cardId:           text('card_id').primaryKey(),
   set:              text('set').notNull(),
