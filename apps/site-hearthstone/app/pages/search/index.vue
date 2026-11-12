@@ -46,9 +46,12 @@
           {{ total }}
         </span>
 
-        <span v-if="elapsed > 0" class="font-mono text-xs text-white/50 shrink-0">
-          {{ formatElapsed(elapsed) }}
-        </span>
+        <SearchTimingPopover
+          :request-elapsed="requestElapsed"
+          :timing="data?.timing"
+          :render-elapsed="renderElapsed"
+          :labels="timingLabels"
+        />
 
         <UPagination
           v-if="pageCount > 1"
@@ -735,6 +738,7 @@ import { detectAmbit, AMBITS } from '#search/ambit';
 import type { Ambit } from '#search/ambit';
 import type { NumericOperator } from '~/composables/advanced-search';
 import { useAdvancedSearch, parseIntoState } from '~/composables/advanced-search';
+import type { SearchTiming } from '#search/schema';
 
 definePageMeta({
   layout:    'main',
@@ -742,10 +746,12 @@ definePageMeta({
   actions:   [getHearthstoneActionMeta().random],
 });
 
+/** Carries the essential search response and its optional server timings. */
 type SearchResponse = {
   text?:   string;
   result?: NormalResult;
   errors?: Array<{ type?: string, payload?: Record<string, any> }>;
+  timing?: SearchTiming;
 };
 
 const { $orpc } = useNuxtApp();
@@ -801,6 +807,11 @@ onMounted(() => {
 const data = ref<SearchResponse | null>(null);
 const searching = ref(false);
 const fetchError = ref<string | null>(null);
+const requestElapsed = ref<number | null>(null);
+const renderElapsed = ref<number | null>(null);
+
+// Prevents slower responses from replacing timings for a newer search.
+let searchRequestSequence = 0;
 
 const q = computed(() => route.query.q as string | undefined);
 
@@ -853,7 +864,6 @@ const dslExplained = computed(() => {
 
 const cards = computed<EssentialCardSearchItem[]>(() => data.value?.result?.result ?? []);
 const total = computed(() => data.value?.result?.total ?? 0);
-const elapsed = computed(() => data.value?.result?.elapsed ?? 0);
 const pageCount = computed(() => data.value?.result?.totalPage ?? Math.ceil(total.value / pageSize.value));
 const resultVariant = computed(() => data.value?.result?.variant ?? 'normal');
 
@@ -984,9 +994,51 @@ const stats = (card: EssentialCardSearchItem) => {
   return null;
 };
 
-const formatElapsed = (ms: number) => {
-  if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(3)}s`;
+/** Resolves a measured search phase to localized wording without exposing its key. */
+const timingStageLabel = (key: string) => {
+  const labels: Record<string, string> = {
+    'dataset-status-check':             'datasetStatus',
+    'query-preparation':                'queryPreparation',
+    'legacy-translation':               'queryTranslation',
+    'route-selection':                  'querySelection',
+    'local-route-selection':            'querySelection',
+    'query-compilation':                'queryPreparation',
+    'database-result-query':            'matchingCards',
+    'database-count-query':             'countMatches',
+    'database-search-query':            'matchingCards',
+    'database-candidate-query':         'candidateCards',
+    'database-metadata-query':          'datasetStatus',
+    'database-literal-candidate-query': 'candidateCards',
+    'database-page-query':              'matchingCards',
+    'literal-candidate-match':          'matchCardText',
+    'candidate-id-shaping':             'prepareMatches',
+    'card-result-decoding':             'decodeCardResults',
+    'variant-detection':                'prepareResults',
+    'result-shaping':                   'prepareResults',
+    'essential-result-shaping':         'prepareResults',
+  };
+
+  return i18n.t(`hearthstone.search.timing.stages.${labels[key] ?? 'other'}`);
+};
+
+/** Supplies Hearthstone's existing localized copy to the shared timing popover. */
+const timingLabels = computed(() => ({
+  open:       t('hearthstone.search.timing.open'),
+  title:      t('hearthstone.search.timing.title'),
+  request:    t('hearthstone.search.timing.request'),
+  server:     t('hearthstone.search.timing.server'),
+  pageUpdate: t('hearthstone.search.timing.pageUpdate'),
+  stageLabel: timingStageLabel,
+}));
+
+/** Records the time Vue needs to update the result view after data arrives. */
+const measureResultUpdate = async (sequence: number, startedAt: number) => {
+  await nextTick();
+  await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+
+  if (sequence === searchRequestSequence) {
+    renderElapsed.value = performance.now() - startedAt;
+  }
 };
 
 const cleanCardText = (card: EssentialCardSearchItem) => {
@@ -1008,33 +1060,55 @@ const previewText = (card: EssentialCardSearchItem) =>
 const fullText = (card: EssentialCardSearchItem) =>
   cleanCardText(card);
 
+/** Searches the current route query and keeps only the latest request's timings. */
 const doSearch = async () => {
-  if (!q.value) {
+  const sequence = ++searchRequestSequence;
+  const query = q.value;
+
+  if (query == null || query === '') {
     data.value = null;
     fetchError.value = null;
+    requestElapsed.value = null;
+    renderElapsed.value = null;
+    searching.value = false;
     return;
   }
 
+  const requestStartedAt = import.meta.client ? performance.now() : null;
+  requestElapsed.value = null;
+  renderElapsed.value = null;
   searching.value = true;
   fetchError.value = null;
 
   try {
     const result = await $orpc.hearthstone.search.essential({
-      q:        q.value,
+      q:        query,
       lang:     searchLang.value,
       page:     page.value,
       pageSize: pageSize.value,
       ambit:    ambitLevel.value ?? undefined,
     });
 
-    if (q.value === route.query.q) {
+    if (sequence === searchRequestSequence) {
+      const receivedAt = requestStartedAt == null ? null : performance.now();
       data.value = result as SearchResponse;
+      if (requestStartedAt != null && receivedAt != null) {
+        requestElapsed.value = receivedAt - requestStartedAt;
+        void measureResultUpdate(sequence, receivedAt);
+      }
     }
   } catch {
-    data.value = null;
-    fetchError.value = i18n.t('hearthstone.search.failed');
+    if (sequence === searchRequestSequence) {
+      data.value = null;
+      fetchError.value = i18n.t('hearthstone.search.failed');
+      if (requestStartedAt != null) {
+        requestElapsed.value = performance.now() - requestStartedAt;
+      }
+    }
   } finally {
-    searching.value = false;
+    if (sequence === searchRequestSequence) {
+      searching.value = false;
+    }
   }
 };
 

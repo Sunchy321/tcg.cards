@@ -10,11 +10,13 @@ import type { CoveragePlan, DatasetDescriptor, QueryRequest, SearchAdapter } fro
 import type { Ambit } from '#search/ambit';
 import { detectAmbit } from '#search/ambit';
 import { searchWithAmbitCeiling } from '#search/server/ambit';
+import type { SearchTimingRecorder } from '#search/server/timing';
 import { getMagicSearchManifest, loadMagicSearchDetails, magicPgSearchAdapter } from '../accelerated-adapter';
 import type { MagicSearchCandidate, MagicSearchOptions } from '../accelerated-adapter';
 import { compileMagicD1Filter, findMagicD1Gap, magicD1Descriptor, magicRegexUnsafe } from './query';
 import type { MagicTextPackageSchemas } from './query';
 import type { MagicSearchDrizzle } from './types';
+import { measureMagicSearchStep, measureMagicSearchStepSync } from '../timing';
 
 /** Represents one D1 result row before nullable left-join fields are validated. */
 type D1CandidateRow = {
@@ -118,25 +120,29 @@ export class MagicD1SearchAdapter implements SearchAdapter<NormalResult, MagicSe
       return magicPgSearchAdapter.executeEssential(request, options);
     }
 
-    const result: EssentialCardSearchItem[] = page.candidates.map(candidate => ({
-      cardId:               candidate.cardId,
-      version:              candidate.version,
-      locale:               candidate.locale,
-      source:               candidate.localizationSource,
-      set:                  candidate.print.set,
-      number:               candidate.print.number,
-      lang:                 candidate.print.lang,
-      partIndex:            candidate.partIndex,
-      cardPartLocalization: {
-        name:     candidate.name,
-        rubyName: candidate.rubyName,
-      },
-      print: {
-        layout:      candidate.print.layout,
-        imageType:   candidate.print.imageType,
-        imageStatus: candidate.print.imageStatus,
-      },
-    }));
+    const result = measureMagicSearchStepSync(
+      options.timing,
+      'essential-result-shaping',
+      () => page.candidates.map(candidate => ({
+        cardId:               candidate.cardId,
+        version:              candidate.version,
+        locale:               candidate.locale,
+        source:               candidate.localizationSource,
+        set:                  candidate.print.set,
+        number:               candidate.print.number,
+        lang:                 candidate.print.lang,
+        partIndex:            candidate.partIndex,
+        cardPartLocalization: {
+          name:     candidate.name,
+          rubyName: candidate.rubyName,
+        },
+        print: {
+          layout:      candidate.print.layout,
+          imageType:   candidate.print.imageType,
+          imageStatus: candidate.print.imageStatus,
+        },
+      })),
+    );
 
     return {
       result,
@@ -240,13 +246,16 @@ export class MagicD1SearchAdapter implements SearchAdapter<NormalResult, MagicSe
     try {
       const db = drizzle(options.d1, { schema: magicSearchSchema });
       const candidate = { ...request, filter: plan.candidate };
-      const rows = await db.select({
+      const unsafe = magicRegexUnsafe(candidate, db, true);
+      const filter = compileMagicD1Filter(plan.candidate, db);
+      const statement = db.select({
         version:     sql<string>`(SELECT value FROM ${magicSearchSchema.SearchMeta} WHERE key = 'data_version')`,
         releaseHash: sql<string>`(SELECT value FROM ${magicSearchSchema.SearchMeta} WHERE key = 'release_hash')`,
-        safe:        sql<number>`NOT EXISTS ${magicSource(db).where(magicRegexUnsafe(candidate, db, true))}`,
+        safe:        sql<number>`NOT EXISTS ${magicSource(db).where(unsafe)}`,
         ids:         sql<string>`(SELECT json_group_array(card_id) FROM (${magicSource(db, true)
-          .where(compileMagicD1Filter(plan.candidate, db))}))`,
+          .where(filter)}))`,
       }).from(magicSearchSchema.SearchMeta).limit(1);
+      const rows = await measureMagicSearchStep(options.timing, 'database-candidate-query', () => statement.all());
       const row = rows[0];
       if (row?.version !== manifest.dataVersion || Number(row.safe) !== 1
         || (manifest.releaseHash != null && row.releaseHash !== manifest.releaseHash)
@@ -254,7 +263,11 @@ export class MagicD1SearchAdapter implements SearchAdapter<NormalResult, MagicSe
         || getMagicSearchManifest()?.releaseHash !== manifest.releaseHash) {
         return null;
       }
-      return { cardIds: JSON.parse(row.ids) as string[], dataVersion: manifest.dataVersion, releaseHash: row.releaseHash ?? '' };
+      return measureMagicSearchStepSync(options.timing, 'candidate-id-shaping', () => ({
+        cardIds:     JSON.parse(row.ids) as string[],
+        dataVersion: manifest.dataVersion,
+        releaseHash: row.releaseHash ?? '',
+      }));
     } catch (error) {
       console.warn('[search:d1] Magic regex candidates unavailable; using PostgreSQL.', error);
       return null;
@@ -277,15 +290,19 @@ export class MagicD1SearchAdapter implements SearchAdapter<NormalResult, MagicSe
       if (this.plan(request).type !== 'exact') {
         return null;
       }
-      const rewritten = regexRequest(request);
-      const filter = compileMagicD1Filter(rewritten.filter, db, textPackageSchemas);
+      const { rewritten, filter } = measureMagicSearchStepSync(options.timing, 'query-compilation', () => {
+        const rewritten = regexRequest(request);
+        const filter = compileMagicD1Filter(rewritten.filter, db, textPackageSchemas);
+
+        return { rewritten, filter };
+      });
       const { explicit, pinned } = detectAmbit(options.dsl);
       const searched = await searchWithAmbitCeiling({
         pinned,
         explicit,
         start: options.ambit,
         run:   async ceiling => {
-          const page = await queryPage(db, filter, options, ceiling, magicRegexUnsafe(rewritten, db));
+          const page = await queryPage(db, filter, options, ceiling, magicRegexUnsafe(rewritten, db), options.timing);
           if (page.dataVersion !== manifest.dataVersion) {
             throw new Error('D1 Magic search data version does not match the active manifest.');
           }
@@ -339,6 +356,7 @@ async function queryPage(
   options: PageOptions,
   ceiling: Ambit | null,
   regexUnsafe: SQL,
+  timing?: SearchTimingRecorder,
 ): Promise<D1QueryPage> {
   const {
     SearchCard,
@@ -421,7 +439,7 @@ async function queryPage(
     .orderBy(...order)
     .limit(options.pageSize)
     .offset((options.page - 1) * options.pageSize));
-  const rows = await db.with(metadata, ranked, filtered, totals, page)
+  const statement = db.with(metadata, ranked, filtered, totals, page)
     .select({
       regexSafe:          metadata.regexSafe,
       dataVersion:        metadata.dataVersion,
@@ -448,13 +466,17 @@ async function queryPage(
     .from(metadata)
     .crossJoin(totals)
     .leftJoin(page, sql`true`)
-    .orderBy(asc(page.position))
-    .all();
+    .orderBy(asc(page.position));
+  const rows = await measureMagicSearchStep(timing, 'database-page-query', () => statement.all());
   const first = rows[0];
   if (Number(first?.regexSafe) !== 1) {
     throw new Error('Regex sources exceed the proven ASCII case-folding subset.');
   }
-  const candidates = rows.flatMap(row => row.cardId == null ? [] : [toCandidate(row)]);
+  const candidates = measureMagicSearchStepSync(
+    timing,
+    'result-shaping',
+    () => rows.flatMap(row => row.cardId == null ? [] : [toCandidate(row)]),
+  );
 
   return {
     dataVersion: first?.dataVersion ?? '',

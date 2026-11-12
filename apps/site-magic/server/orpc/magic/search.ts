@@ -6,9 +6,11 @@ import { locale } from '#model/magic/schema/basic';
 import { devSearchResult, essentialSearchResult, searchResult } from '#model/magic/schema/search';
 
 import { searchInput } from '#search/schema';
+import { SearchTimingRecorder } from '#search/server/timing';
 
 import { search } from '~~/server/search';
 import { refreshMagicSearchManifest } from '~~/server/search/accelerated-adapter';
+import { measureMagicSearchStep } from '~~/server/search/timing';
 import type { HonoEnv } from '../hono-env';
 
 const basic = os
@@ -55,10 +57,16 @@ const essential = os
   }))
   .output(essentialSearchResult)
   .handler(async ({ input, context }) => {
-    await refreshMagicSearchManifest();
+    const serverStartedAt = performance.now();
+    const timing = new SearchTimingRecorder();
+    await measureMagicSearchStep(
+      timing,
+      'dataset-status-check',
+      refreshMagicSearchManifest,
+    );
     const { q, page, pageSize, lang, groupBy, orderBy, ambit } = input;
 
-    return search.search('essential', q, {
+    const result = await search.search('essential', q, {
       page,
       pageSize,
       lang,
@@ -67,7 +75,16 @@ const essential = os
       dsl: q,
       ambit,
       d1:  (context as unknown as HonoEnv['Variables']).searchD1,
+      timing,
     });
+
+    return {
+      ...result,
+      timing: {
+        serverTotalMs: performance.now() - serverStartedAt,
+        stages:        timing.snapshot(),
+      },
+    };
   })
   .callable();
 

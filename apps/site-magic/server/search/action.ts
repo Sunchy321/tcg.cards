@@ -11,11 +11,13 @@ import { CardEditorView, CardPrintView } from '#schema/shared/magic/print';
 import { detectAmbit } from '#search/ambit';
 import type { Ambit } from '#search/ambit';
 import { ambitCeiling, searchWithAmbitCeiling } from '#search/server/ambit';
+import type { SearchTimingRecorder } from '#search/server/timing';
 
 import { order } from './command-list';
 import { magicPgEssentialSearchAdapter, magicPgSearchAdapter } from './accelerated-adapter';
 import { magicD1EssentialSearchAdapter, magicD1SearchAdapter } from './d1/adapter';
 import type { MagicSearchD1Database } from './d1/types';
+import { measureMagicSearchStep, measureMagicSearchStepSync } from './timing';
 
 const as = create;
 
@@ -27,6 +29,7 @@ type SearchOption = {
   orderBy:  string;
   dsl:      string;
   d1?:      MagicSearchD1Database;
+  timing?:  SearchTimingRecorder;
 
   // The ambit URL param; an ambit command in the DSL overrides it, so it is
   // only the starting ceiling of the widening ladder.
@@ -72,18 +75,20 @@ export const search = as
                 END`,
         );
 
-      const result = await db
+      const resultQuery = db
         .select()
         .from(subquery.as('card_print_view'))
         .orderBy(...orderByAction)
         .limit(pageSize)
         .offset((page - 1) * pageSize);
+      const result = await measureMagicSearchStep(options.timing, 'database-result-query', () => resultQuery);
 
       // Count the total records matching the same SQL query
-      const countResult = await db
+      const countQuery = db
         .select({ count: groupByCount })
         .from(CardPrintView)
         .where(visibleQuery!);
+      const countResult = await measureMagicSearchStep(options.timing, 'database-count-query', () => countQuery);
 
       const total = Number(countResult[0]?.count || 0);
 
@@ -116,10 +121,10 @@ export const essential = as
   .table(CardPrintView)
   .handler(async (query, post, options: SearchOption) => {
     const result = await search.handler(query, post, options);
-
-    return {
-      ...result,
-      result: result.result.map(row => ({
+    const essentialRows = measureMagicSearchStepSync(
+      options.timing,
+      'essential-result-shaping',
+      () => result.result.map(row => ({
         cardId:               row.cardId,
         version:              row.version,
         locale:               row.locale,
@@ -138,6 +143,11 @@ export const essential = as
           imageStatus: row.print.imageStatus,
         },
       })),
+    );
+
+    return {
+      ...result,
+      result: essentialRows,
     };
   }, { localAdapter: magicD1EssentialSearchAdapter, acceleratedAdapter: magicPgEssentialSearchAdapter });
 

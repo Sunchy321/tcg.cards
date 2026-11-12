@@ -1,6 +1,6 @@
 import z from 'zod';
 
-import { createSearchNormalResult, createSearchResult } from '#search/schema';
+import { createSearchNormalResult, createSearchResult, searchTiming } from '#search/schema';
 
 import { imageType } from './basic';
 import { cardEditorView, cardPrintView } from './print';
@@ -36,7 +36,9 @@ export const essentialNormalResult = createSearchNormalResult(essentialCardSearc
   ambit,
 });
 
-export const essentialSearchResult = createSearchResult(essentialNormalResult);
+export const essentialSearchResult = createSearchResult(essentialNormalResult).extend({
+  timing: searchTiming.optional(),
+});
 
 export const devResult = z.object({
   result:  cardEditorView.array(),

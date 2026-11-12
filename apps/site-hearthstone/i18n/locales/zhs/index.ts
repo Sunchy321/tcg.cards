@@ -251,6 +251,28 @@ export default {
       'noResult':   '没有找到匹配的卡牌',
       'failed':     '搜索失败',
 
+      'timing': {
+        open:       '查看搜索耗时明细',
+        title:      '搜索耗时明细',
+        request:    '请求总耗时',
+        server:     '搜索处理',
+        pageUpdate: '页面更新',
+        stages:     {
+          datasetStatus:     '确认搜索数据可用',
+          queryPreparation:  '准备搜索条件',
+          queryTranslation:  '整理搜索条件',
+          querySelection:    '分析搜索条件',
+          matchingCards:     '查找匹配卡牌',
+          countMatches:      '统计匹配卡牌',
+          candidateCards:    '筛选卡牌',
+          matchCardText:     '匹配卡牌文本',
+          prepareMatches:    '整理匹配结果',
+          decodeCardResults: '整理卡牌信息',
+          prepareResults:    '整理搜索结果',
+          other:             '搜索处理',
+        },
+      },
+
       'layoutGrid':  '图片',
       'layoutList':  '列表',
       'layoutTable': '表格',

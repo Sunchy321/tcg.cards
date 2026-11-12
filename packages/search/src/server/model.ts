@@ -8,6 +8,7 @@ import type { ServerAction } from './action';
 import type { ServerActionOption, ServerActionResult } from './action/types';
 import { AcceleratedSearchFallbackError, PgSearchAdapter } from './adapter';
 import { executeLocalExactOrRemote } from './router';
+import type { SearchTimingRecorder } from './timing';
 import { resolveQueryRequest } from './logical';
 import type { QueryResultRequest, SortSpec } from '#search/logical';
 import { translateLegacy } from './translate';
@@ -100,7 +101,7 @@ export class ServerModel<
   async search<K extends string & keyof A>(
     actionKey: K,
     text: string,
-    options: ServerActionOption<A[K]>,
+    options: ServerActionOption<A[K]> & { timing?: SearchTimingRecorder },
   ): Promise<SearchResult<ServerActionResult<A[K]>>> {
     const action = this.actions[actionKey];
 
@@ -121,14 +122,20 @@ export class ServerModel<
     }
 
     try {
-      const expr = new Parser(trimmedText).parse();
+      /** Parses and resolves the submitted search into its logical request. */
+      const prepareRequest = () => {
+        const expr = new Parser(trimmedText).parse();
+        const simplified = simplify(expr);
+        const commands = Object.values(this.commands);
+        const resultOptionsValue = resultOptions(options);
+        const request = resolveQueryRequest(simplified, commands, resultOptionsValue);
 
-      const simplified = simplify(expr);
-
-      const commands = Object.values(this.commands);
-
-      const resultOptionsValue = resultOptions(options);
-      const request = resolveQueryRequest(simplified, commands, resultOptionsValue);
+        return { simplified, commands, resultOptionsValue, request };
+      };
+      const prepared = options.timing == null
+        ? prepareRequest()
+        : options.timing.measureSync('query-preparation', prepareRequest);
+      const { simplified, commands, resultOptionsValue, request } = prepared;
 
       if (request.filter == null) {
         return { text, errors: [] };
@@ -136,7 +143,11 @@ export class ServerModel<
 
       const executeOriginal = async () => {
         const metaOverrides = resultOptionsValue.lang == null ? {} : { lang: resultOptionsValue.lang };
-        const translated = translateLegacy(simplified, commands, action.table, metaOverrides);
+        /** Translates the parsed request into the original PostgreSQL command format. */
+        const translate = () => translateLegacy(simplified, commands, action.table, metaOverrides);
+        const translated = options.timing == null
+          ? translate()
+          : options.timing.measureSync('legacy-translation', translate);
 
         if (translated.query == null) {
           return undefined;
@@ -149,15 +160,24 @@ export class ServerModel<
         commands,
         action.table,
         (query, post, actionOptions: ServerActionOption<A[K]>) => action.handler(query, post, actionOptions),
+        options.timing,
       );
-      const remotePlan = remoteAdapter.plan(request);
-      const acceleratedPlan = action.acceleratedAdapter?.plan(request);
+      /** Plans the remote and accelerated routes before local execution is checked. */
+      const prepareRoutes = () => ({
+        remotePlan:      remoteAdapter.plan(request),
+        acceleratedPlan: action.acceleratedAdapter?.plan(request),
+      });
+      const routes = options.timing == null
+        ? prepareRoutes()
+        : options.timing.measureSync('route-selection', prepareRoutes);
+      const { remotePlan, acceleratedPlan } = routes;
       let result;
       try {
         result = await executeLocalExactOrRemote({
           request,
           options,
           localAdapter: action.localAdapter,
+          timing:       options.timing,
           remote: () => acceleratedPlan?.type === 'exact'
             ? action.acceleratedAdapter!.execute(request, options)
             : remotePlan.type === 'exact'

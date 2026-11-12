@@ -18,6 +18,13 @@
 
         <span v-if="data != null" class="font-mono text-sm text-white/70">{{ total }}</span>
 
+        <SearchTimingPopover
+          :request-elapsed="requestElapsed"
+          :timing="serverTiming"
+          :render-elapsed="renderElapsed"
+          :labels="timingLabels"
+        />
+
         <UPagination
           v-if="pageCount > 0"
           :page="page"
@@ -89,6 +96,10 @@ useTitle(() => i18n.t('magic.$self'));
 
 const data = ref<EssentialSearchResult | null>(null);
 const searching = ref(false);
+const requestElapsed = ref<number | null>(null);
+const renderElapsed = ref<number | null>(null);
+const serverTiming = ref<NonNullable<EssentialSearchResult['timing']> | null>(null);
+let searchRequestSequence = 0;
 
 // ── Query params ──────────────────────────────────────────────────────────────
 
@@ -149,6 +160,38 @@ const errorTexts = computed(() => (data.value?.errors ?? []).map((e: any) => {
   return i18n.te(key) ? i18n.t(key, e.payload ?? {}) : i18n.t('search.error.fallback');
 }));
 
+/** Resolves a Magic search phase to localized wording without exposing its key. */
+const timingStageLabel = (key: string) => {
+  const labels: Record<string, string> = {
+    'dataset-status-check':     'datasetStatus',
+    'query-preparation':        'queryPreparation',
+    'legacy-translation':       'queryTranslation',
+    'route-selection':          'querySelection',
+    'local-route-selection':    'querySelection',
+    'query-compilation':        'queryPreparation',
+    'database-result-query':    'matchingCards',
+    'database-count-query':     'countMatches',
+    'database-search-query':    'matchingAndCounting',
+    'database-page-query':      'matchingAndCounting',
+    'database-candidate-query': 'candidateCards',
+    'candidate-id-shaping':     'prepareMatches',
+    'result-shaping':           'prepareResults',
+    'essential-result-shaping': 'prepareResults',
+  };
+
+  return i18n.t(`magic.search.timing.stages.${labels[key] ?? 'other'}`);
+};
+
+/** Supplies Magic's localized copy to the shared timing popover. */
+const timingLabels = computed(() => ({
+  open:       i18n.t('magic.search.timing.open'),
+  title:      i18n.t('magic.search.timing.title'),
+  request:    i18n.t('magic.search.timing.request'),
+  server:     i18n.t('magic.search.timing.server'),
+  pageUpdate: i18n.t('magic.search.timing.pageUpdate'),
+  stageLabel: timingStageLabel,
+}));
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const imageLang = (card: EssentialCardSearchItem): string => {
@@ -169,13 +212,34 @@ const changePage = (newPage: number) => {
 
 // ── Search ────────────────────────────────────────────────────────────────────
 
+/** Records the Vue and browser-frame delay after a response is applied. */
+const measureResultUpdate = async (sequence: number, startedAt: number) => {
+  await nextTick();
+  await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+
+  if (sequence === searchRequestSequence) {
+    renderElapsed.value = performance.now() - startedAt;
+  }
+};
+
+/** Searches the current route query and keeps only the latest request's data and timings. */
 const doSearch = async () => {
+  const sequence = ++searchRequestSequence;
+
   if (!q.value) {
     data.value = null;
+    requestElapsed.value = null;
+    renderElapsed.value = null;
+    serverTiming.value = null;
+    searching.value = false;
     return;
   }
 
+  requestElapsed.value = null;
+  renderElapsed.value = null;
+  serverTiming.value = null;
   searching.value = true;
+  const requestStartedAt = import.meta.client ? performance.now() : null;
 
   try {
     const value = await ($orpc as any).magic.search.essential({
@@ -186,14 +250,27 @@ const doSearch = async () => {
       ambit:    ambitLevel.value ?? undefined,
     });
 
-    // Only update if query is still the same (avoid stale responses)
-    if (value.text === q.value || q.value === route.query.q) {
+    if (sequence === searchRequestSequence) {
+      const receivedAt = requestStartedAt == null ? null : performance.now();
       data.value = value;
+      serverTiming.value = value.timing ?? null;
+      if (requestStartedAt != null && receivedAt != null) {
+        requestElapsed.value = receivedAt - requestStartedAt;
+        void measureResultUpdate(sequence, receivedAt);
+      }
     }
   } catch (e) {
-    console.error('Search failed', e);
+    if (sequence === searchRequestSequence) {
+      console.error('Search failed', e);
+      serverTiming.value = null;
+      if (requestStartedAt != null) {
+        requestElapsed.value = performance.now() - requestStartedAt;
+      }
+    }
   } finally {
-    searching.value = false;
+    if (sequence === searchRequestSequence) {
+      searching.value = false;
+    }
   }
 };
 

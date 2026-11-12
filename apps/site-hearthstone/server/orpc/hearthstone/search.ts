@@ -6,9 +6,11 @@ import { locale } from '#model/hearthstone/schema/basic';
 import { essentialSearchResult, searchResult } from '#model/hearthstone/schema/search';
 
 import { searchInput } from '#search/schema';
+import { SearchTimingRecorder } from '#search/server/timing';
 
 import { search } from '~~/server/search';
 import { refreshHearthstoneSearchDataset } from '~~/server/search/accelerated-adapter';
+import { measureSearchStep } from '~~/server/search/timing';
 
 const basic = os
   .route({
@@ -55,9 +57,15 @@ const essential = os
   }))
   .output(essentialSearchResult)
   .handler(async ({ input, context }) => {
-    await refreshHearthstoneSearchDataset();
+    const serverStartedAt = performance.now();
+    const timing = new SearchTimingRecorder();
+    await measureSearchStep(
+      timing,
+      'dataset-status-check',
+      () => refreshHearthstoneSearchDataset(),
+    );
     const { q, page, pageSize, lang, orderBy, ambit } = input;
-    return search.search('essential', q, {
+    const result = await search.search('essential', q, {
       page,
       pageSize,
       lang,
@@ -65,7 +73,16 @@ const essential = os
       dsl: q,
       ambit,
       d1:  context.searchD1,
+      timing,
     });
+
+    return {
+      ...result,
+      timing: {
+        serverTotalMs: performance.now() - serverStartedAt,
+        stages:        timing.snapshot(),
+      },
+    };
   });
 
 export const searchTrpc = {

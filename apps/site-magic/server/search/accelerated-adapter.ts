@@ -6,7 +6,7 @@ import { omit } from 'lodash-es';
 import type { MagicSearchManifest, MagicSearchCandidatePrint } from '@tcg-cards/model/magic/search/manifest';
 import { magicSearchTagOwners } from '@tcg-cards/model/magic/search/manifest';
 import type { Locale } from '@tcg-cards/model/magic/schema/basic';
-import type { EssentialCardSearchItem, EssentialNormalResult, NormalResult } from '@tcg-cards/model/magic/schema/search';
+import type { EssentialNormalResult, NormalResult } from '@tcg-cards/model/magic/schema/search';
 import { Card, CardLocalization, CardPart, CardPartLocalization } from '@tcg-cards/db/schema/shared/magic/card';
 import { Print, PrintPart } from '@tcg-cards/db/schema/shared/magic/print';
 import { SearchCard, SearchCardPart, SearchCardPartLocalization, SearchCost } from '@tcg-cards/db/schema/shared/magic/search';
@@ -17,6 +17,7 @@ import type { CapabilityGap, CoveragePlan, DatasetDescriptor, LogicalQuery, Quer
 import type { MagicSearchD1Database } from './d1/types';
 import { describeLogicalCommand } from '#search/command/semantics';
 import type { CommonServerCommand } from '#search/server/command';
+import type { SearchTimingRecorder } from '#search/server/timing';
 import { compileQueryRequest } from '#search/server/translate';
 import { db } from '#db/db';
 import { AcceleratedSearchFallbackError } from '#search/server/adapter';
@@ -25,8 +26,9 @@ import type { Ambit } from '#search/ambit';
 import { ambitCeiling, searchWithAmbitCeiling } from '#search/server/ambit';
 
 import * as commands from './command-list';
+import { measureMagicSearchStep, measureMagicSearchStepSync } from './timing';
 
-/** Carries result controls and the optional per-request D1 binding. */
+/** Carries result controls and optional per-request database and timing bindings. */
 export type MagicSearchOptions = {
   page:     number;
   pageSize: number;
@@ -36,6 +38,7 @@ export type MagicSearchOptions = {
   dsl:      string;
   ambit?:   Ambit;
   d1?:      MagicSearchD1Database;
+  timing?:  SearchTimingRecorder;
 };
 
 /** Identifies one localized candidate row returned by a search projection. */
@@ -287,9 +290,12 @@ export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, MagicSe
 
   async executeEssential(request: QueryRequest, options: MagicSearchOptions, cardIds?: string[]): Promise<EssentialNormalResult> {
     const startedAt = performance.now();
-    const query = and(this.compileFilter(request), candidateCards(SearchCard.cardId, cardIds))!;
+    const query = and(
+      measureMagicSearchStepSync(options.timing, 'query-compilation', () => this.compileFilter(request)),
+      candidateCards(SearchCard.cardId, cardIds),
+    )!;
     const { landing, result } = await this.searchCandidates(query, options);
-    const rows: EssentialCardSearchItem[] = result.candidates.map(candidate => ({
+    const rows = measureMagicSearchStepSync(options.timing, 'essential-result-shaping', () => result.candidates.map(candidate => ({
       cardId:               candidate.cardId,
       version:              candidate.version,
       locale:               candidate.locale,
@@ -307,7 +313,7 @@ export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, MagicSe
         imageType:   candidate.print.imageType,
         imageStatus: candidate.print.imageStatus,
       },
-    }));
+    })));
 
     return {
       result:    rows,
@@ -418,7 +424,7 @@ export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, MagicSe
       )`;
     let rows: Array<{ total: number, candidates: MagicSearchCandidate[], publicationReady: boolean }>;
     try {
-      rows = await db.execute<{ total: number, candidates: MagicSearchCandidate[], publicationReady: boolean }>(sql`
+      const databaseQuery = sql`
       WITH filtered AS MATERIALIZED (${filtered}),
       totals AS (
         SELECT count(*)::int AS total FROM filtered
@@ -450,7 +456,9 @@ export class MagicPgSearchAdapter implements SearchAdapter<NormalResult, MagicSe
         ) AS candidates
       FROM totals
       LEFT JOIN page ON TRUE
-      GROUP BY totals.total`);
+      GROUP BY totals.total`;
+      rows = await measureMagicSearchStep(options.timing, 'database-search-query', () =>
+        db.execute<{ total: number, candidates: MagicSearchCandidate[], publicationReady: boolean }>(databaseQuery));
     } catch (error) {
       const cause = error as { code?: string, cause?: { code?: string } };
       if (cause.code === '42P01' || cause.cause?.code === '42P01') {

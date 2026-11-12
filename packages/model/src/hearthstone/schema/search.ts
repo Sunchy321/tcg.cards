@@ -1,6 +1,6 @@
 import z from 'zod';
 
-import { createSearchNormalResult, createSearchResult } from '#search/schema';
+import { createSearchNormalResult, createSearchResult, searchTiming } from '#search/schema';
 
 import { cardEntityView } from './entity';
 import { ambit } from '../../ambit';
@@ -48,7 +48,9 @@ export const essentialNormalResult = createSearchNormalResult(essentialCardSearc
   ambit,
 });
 
-export const essentialSearchResult = createSearchResult(essentialNormalResult);
+export const essentialSearchResult = createSearchResult(essentialNormalResult).extend({
+  timing: searchTiming.optional(),
+});
 
 /** Describes one essential search row without complete entity or revision data. */
 export type EssentialCardSearchItem = z.infer<typeof essentialCardSearchItem>;

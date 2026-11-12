@@ -8,6 +8,24 @@ export const searchError = z.object({
   query: z.string().optional(),
 }).or(z.any());
 
+/** Records one measured server-side search stage in fractional milliseconds. */
+export const searchTimingStage = z.strictObject({
+  key:        z.string().min(1),
+  durationMs: z.number().nonnegative(),
+});
+
+/** Carries server-side stage measurements for one search request. */
+export const searchTiming = z.strictObject({
+  serverTotalMs: z.number().nonnegative(),
+  stages:        z.array(searchTimingStage),
+});
+
+/** Describes one measured server-side search stage. */
+export type SearchTimingStage = z.infer<typeof searchTimingStage>;
+
+/** Describes the server-side timings attached to one search response. */
+export type SearchTiming = z.infer<typeof searchTiming>;
+
 export type SearchResultSchema<Z extends z.ZodType> = z.ZodObject<{
   text:   z.ZodOptional<z.ZodString>;
   result: z.ZodOptional<Z>;

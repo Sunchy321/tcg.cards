@@ -36,6 +36,7 @@ import {
 } from './query';
 import type { SearchDrizzle } from './types';
 import { compileOrder } from './order';
+import { measureSearchStep, measureSearchStepSync } from '../timing';
 import {
   hasHearthstoneRawCardTermTextFallback,
   resolveHearthstoneRawCardTerm,
@@ -118,7 +119,9 @@ export class HearthstoneD1EssentialSearchAdapter implements SearchAdapter<
         const result = await executeLiteralTextSearch(db, request, options, dataset, localDatabase, started);
         return result ?? this.original(request, options);
       }
-      const rows = await queryPage(db, regexRequest(request), options);
+      const rows = await measureSearchStep(options.timing, 'database-search-query', () =>
+        queryPage(db, regexRequest(request), options),
+      );
       const metadata = rows[0];
       const current = getHearthstoneSearchDataset();
       if (
@@ -137,19 +140,24 @@ export class HearthstoneD1EssentialSearchAdapter implements SearchAdapter<
       ) {
         return this.original(request, options);
       }
-      const result = rows.flatMap(row =>
+      const result = measureSearchStepSync(options.timing, 'result-shaping', () => rows.flatMap(row =>
         row.item == null ? [] : [essentialCardSearchItem.parse(JSON.parse(row.item))],
-      );
+      ));
       const total = Number(metadata.total);
-      return {
+      const variant = await measureSearchStep(
+        options.timing,
+        'variant-detection',
+        () => detectVariant(options.dsl, options.lang),
+      );
+      return measureSearchStepSync(options.timing, 'result-shaping', () => ({
         result,
         total,
         page:      options.page,
         totalPage: Math.ceil(total / options.pageSize),
         elapsed:   Math.round(performance.now() - started),
         ambit:     AMBITS[Number(metadata.landing)]!,
-        variant:   await detectVariant(options.dsl, options.lang),
-      };
+        variant,
+      }));
     } catch (error) {
       console.warn('[search:d1] Hearthstone D1 search unavailable; using PostgreSQL.', error);
     }
@@ -171,7 +179,7 @@ export class HearthstoneD1EssentialSearchAdapter implements SearchAdapter<
       const candidate = { ...request, filter: plan.candidate };
       const selection = db.selectDistinct({ cardId: SearchCard.cardId }).from(SearchCard)
         .innerJoin(SearchCardLocalization, eq(SearchCard.cardId, SearchCardLocalization.cardId));
-      const rows = await db.select({
+      const rows = await measureSearchStep(options.timing, 'database-candidate-query', () => db.select({
         dataVersion: sql<string>`(SELECT value FROM ${SearchMeta} WHERE key = 'data_version')`,
         buildNumber: sql<string>`(SELECT value FROM ${SearchMeta} WHERE key = 'build_number')`,
         releaseHash: sql<string>`(SELECT value FROM ${SearchMeta} WHERE key = 'release_hash')`,
@@ -180,7 +188,7 @@ export class HearthstoneD1EssentialSearchAdapter implements SearchAdapter<
         ids:         sql<string>`(SELECT json_group_array(card_id) FROM (${db.selectDistinct({ cardId: SearchCard.cardId })
           .from(SearchCard).innerJoin(SearchCardLocalization, eq(SearchCard.cardId, SearchCardLocalization.cardId))
           .where(compileHearthstoneD1Filter(plan.candidate, db))}))`,
-      }).from(SearchMeta).limit(1);
+      }).from(SearchMeta).limit(1));
       const row = rows[0];
       if (row?.dataVersion !== dataset.dataVersion || Number(row.buildNumber) !== dataset.buildNumber
         || (!localDatabase && (dataset.manifest.releaseHash == null
@@ -190,7 +198,7 @@ export class HearthstoneD1EssentialSearchAdapter implements SearchAdapter<
         || getHearthstoneSearchDataset()?.manifest.releaseHash !== dataset.manifest.releaseHash) {
         return this.original(request, options);
       }
-      ids = JSON.parse(row.ids) as string[];
+      ids = measureSearchStepSync(options.timing, 'candidate-id-shaping', () => JSON.parse(row.ids) as string[]);
     } catch (error) {
       console.warn('[search:d1] Hearthstone regex candidates unavailable; using PostgreSQL.', error);
       return this.original(request, options);
@@ -228,37 +236,45 @@ async function executeLiteralTextSearch(
   localDatabase: boolean,
   started: number,
 ): Promise<EssentialNormalResult | undefined> {
-  const before = await readSearchMetadata(db);
+  const before = await measureSearchStep(options.timing, 'database-metadata-query', () => readSearchMetadata(db));
   if (before == null || !metadataMatchesDataset(before, dataset, localDatabase)) {
     return undefined;
   }
 
-  const { rows, predicateKeys } = await queryLiteralCandidates(db, request, options);
+  const { rows, predicateKeys } = await measureSearchStep(options.timing, 'database-literal-candidate-query', () =>
+    queryLiteralCandidates(db, request, options),
+  );
   const candidateMetadata = rows[0] == null ? before : rowMetadata(rows[0]);
   if (!sameSearchMetadata(before, candidateMetadata)) {
     return undefined;
   }
 
-  const matching = rows.filter(
-    row => evaluateHearthstoneQuery(request.filter, row, predicateKeys, options.lang) === true,
-  );
-  const { explicit, pinned } = detectAmbit(options.dsl);
-  const start = AMBITS.indexOf(options.ambit ?? 'primary');
-  const landing = pinned != null
-    ? AMBITS.indexOf(pinned)
-    : explicit
-      ? 0
-      : matching.length === 0
-        ? 2
-        : Math.min(...matching.map(row => Math.max(AMBITS.indexOf(row.ambit), start)));
-  const visible = pinned != null
-    ? matching
-    : matching.filter(row => AMBITS.indexOf(row.ambit) <= landing);
-  const offset = (options.page - 1) * options.pageSize;
-  const pageKeys = visible.slice(offset, offset + options.pageSize).map(({ cardId, lang }) => ({ cardId, lang }));
+  const selection = measureSearchStepSync(options.timing, 'literal-candidate-match', () => {
+    const matching = rows.filter(
+      row => evaluateHearthstoneQuery(request.filter, row, predicateKeys, options.lang) === true,
+    );
+    const { explicit, pinned } = detectAmbit(options.dsl);
+    const start = AMBITS.indexOf(options.ambit ?? 'primary');
+    const landing = pinned != null
+      ? AMBITS.indexOf(pinned)
+      : explicit
+        ? 0
+        : matching.length === 0
+          ? 2
+          : Math.min(...matching.map(row => Math.max(AMBITS.indexOf(row.ambit), start)));
+    const visible = pinned != null
+      ? matching
+      : matching.filter(row => AMBITS.indexOf(row.ambit) <= landing);
+    const offset = (options.page - 1) * options.pageSize;
+    const pageKeys = visible.slice(offset, offset + options.pageSize).map(({ cardId, lang }) => ({ cardId, lang }));
+
+    return { visible, pageKeys, landing };
+  });
   const pageRequest = { ...request, filter: null };
-  const pageOptions = { ...options, page: 1, pageSize: Math.max(1, pageKeys.length) };
-  const pageRows = await queryPage(db, pageRequest, pageOptions, pageKeys);
+  const pageOptions = { ...options, page: 1, pageSize: Math.max(1, selection.pageKeys.length) };
+  const pageRows = await measureSearchStep(options.timing, 'database-page-query', () =>
+    queryPage(db, pageRequest, pageOptions, selection.pageKeys),
+  );
   const metadata = pageRows[0];
   const current = getHearthstoneSearchDataset();
   if (
@@ -278,19 +294,24 @@ async function executeLiteralTextSearch(
     return undefined;
   }
 
-  const result = pageRows.flatMap(row =>
+  const result = measureSearchStepSync(options.timing, 'card-result-decoding', () => pageRows.flatMap(row =>
     row.item == null ? [] : [essentialCardSearchItem.parse(JSON.parse(row.item))],
+  ));
+  const total = selection.visible.length;
+  const variant = await measureSearchStep(
+    options.timing,
+    'variant-detection',
+    () => detectVariant(options.dsl, options.lang),
   );
-  const total = visible.length;
-  return {
+  return measureSearchStepSync(options.timing, 'result-shaping', () => ({
     result,
     total,
     page:      options.page,
     totalPage: Math.ceil(total / options.pageSize),
     elapsed:   Math.round(performance.now() - started),
-    ambit:     AMBITS[landing]!,
-    variant:   await detectVariant(options.dsl, options.lang),
-  };
+    ambit:     AMBITS[selection.landing]!,
+    variant,
+  }));
 }
 
 /** Reads all metadata keys as one D1 statement before matching candidate rows. */

@@ -6,6 +6,7 @@ import type { DatasetDescriptor, QueryRequest, SearchAdapter } from '#search/log
 import { planCoverage as planLogicalCoverage } from '#search/logical';
 
 import { compileQueryRequest } from './translate';
+import type { SearchTimingRecorder } from './timing';
 
 /** Signals that an accelerated snapshot changed between planning and execution. */
 export class AcceleratedSearchFallbackError extends Error {
@@ -27,12 +28,14 @@ export class PgSearchAdapter<Result, Options, Table> implements SearchAdapter<Re
   commands: CommonServerCommand[];
   table:    Table;
   run:      PgActionRunner<Result, Options>;
+  timing?:  SearchTimingRecorder;
 
   /** Binds game commands, a query table, and the action that runs compiled SQL. */
-  constructor(commands: CommonServerCommand[], table: Table, run: PgActionRunner<Result, Options>) {
+  constructor(commands: CommonServerCommand[], table: Table, run: PgActionRunner<Result, Options>, timing?: SearchTimingRecorder) {
     this.commands = commands;
     this.table = table;
     this.run = run;
+    this.timing = timing;
   }
 
   /** Describes exactly the command bindings and result operations available to PG. */
@@ -61,7 +64,11 @@ export class PgSearchAdapter<Result, Options, Table> implements SearchAdapter<Re
 
   /** Compiles a fully covered request and forwards it to the configured search action. */
   async execute(request: QueryRequest, options: Options): Promise<Result> {
-    const compiled = compileQueryRequest(request, this.commands, this.table);
+    /** Builds the SQL and post-actions for the verified request. */
+    const compile = () => compileQueryRequest(request, this.commands, this.table);
+    const compiled = this.timing == null
+      ? compile()
+      : this.timing.measureSync('query-compilation', compile);
 
     if (compiled.query == null) {
       throw new Error('A PostgreSQL search request must include a filter.');

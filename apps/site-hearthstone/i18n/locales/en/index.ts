@@ -252,6 +252,28 @@ export default {
       'noResult':   'No cards matched your query',
       'failed':     'Search failed',
 
+      'timing': {
+        open:       'View search timing details',
+        title:      'Search timing details',
+        request:    'Total request time',
+        server:     'Search processing',
+        pageUpdate: 'Page update',
+        stages:     {
+          datasetStatus:     'Check search data',
+          queryPreparation:  'Prepare search criteria',
+          queryTranslation:  'Organize search criteria',
+          querySelection:    'Analyze search criteria',
+          matchingCards:     'Find matching cards',
+          countMatches:      'Count matching cards',
+          candidateCards:    'Filter cards',
+          matchCardText:     'Match card text',
+          prepareMatches:    'Prepare matches',
+          decodeCardResults: 'Prepare card details',
+          prepareResults:    'Prepare search results',
+          other:             'Search processing',
+        },
+      },
+
       'layoutGrid':  'Grid',
       'layoutList':  'List',
       'layoutTable': 'Table',

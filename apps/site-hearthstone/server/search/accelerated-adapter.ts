@@ -20,6 +20,7 @@ import { compileQueryRequest } from '#search/server/translate';
 
 import type { SearchOption } from './action';
 import { detectVariant, hasLanguageCommand } from './context';
+import { measureSearchStep, measureSearchStepSync } from './timing';
 import * as commands from './command-list';
 
 /** Binds a manifest to independently known dataset readiness and version metadata. */
@@ -222,7 +223,14 @@ export class HearthstonePgEssentialSearchAdapter implements SearchAdapter<Essent
     const enforcePublicationGate = getHearthstoneSearchDataset()?.pgFingerprint != null;
     let rows;
     try {
-      rows = await db.execute<Pick<EssentialNormalResult, 'result' | 'total' | 'ambit'> & { publicationReady: boolean }>(this.compile(request, options, cardIds));
+      const query = measureSearchStepSync(
+        options.timing,
+        'query-compilation',
+        () => this.compile(request, options, cardIds),
+      );
+      rows = await measureSearchStep(options.timing, 'database-search-query', () =>
+        db.execute<Pick<EssentialNormalResult, 'result' | 'total' | 'ambit'> & { publicationReady: boolean }>(query),
+      );
     } catch (error) {
       // A deployment can remove a projection after metadata was loaded. Only a
       // missing relation triggers this fallback; query or connection errors stay visible.
@@ -239,14 +247,20 @@ export class HearthstonePgEssentialSearchAdapter implements SearchAdapter<Essent
       if (this.original != null) return this.original(request, options);
       throw new AcceleratedSearchFallbackError();
     }
-    return {
+    const variant = await measureSearchStep(
+      options.timing,
+      'variant-detection',
+      () => detectVariant(options.dsl, options.lang),
+    );
+
+    return measureSearchStepSync(options.timing, 'result-shaping', () => ({
       result:    row.result,
       total:     Number(row.total),
       ambit:     row.ambit,
       page:      options.page,
       totalPage: Math.ceil(Number(row.total) / options.pageSize),
       elapsed:   Math.round(performance.now() - startedAt),
-      variant:   await detectVariant(options.dsl, options.lang),
-    };
+      variant,
+    }));
   }
 }

@@ -24,6 +24,8 @@ import { compileQueryRequest } from '#search/server/translate';
 import type { QueryRequest } from '#search/logical';
 import type { CommonServerCommand } from '#search/server/command';
 import * as commands from './command-list';
+import type { SearchTimingRecorder } from '#search/server/timing';
+import { measureSearchStep, measureSearchStepSync } from './timing';
 
 const as = create;
 
@@ -35,6 +37,7 @@ export type SearchOption = {
   orderBy:  string;
   dsl:      string;
   d1?:      HearthstoneSearchD1Database;
+  timing?:  SearchTimingRecorder;
 
   // The ambit scope selector's URL param; an ambit command in the DSL
   // overrides it, so it is only the starting ceiling of the widening ladder.
@@ -88,14 +91,14 @@ export const search = as
         .limit(pageSize)
         .offset((page - 1) * pageSize);
 
-      const result = await resultQuery;
+      const result = await measureSearchStep(options.timing, 'database-result-query', () => resultQuery);
 
       const countQuery = db
         .select({ count: sql`count(distinct (card_id, lang))`.as('count') })
         .from(LatestCardEntityView)
         .where(visibleQuery!);
 
-      const countResult = await countQuery;
+      const countResult = await measureSearchStep(options.timing, 'database-count-query', () => countQuery);
 
       const total = Number(countResult[0]?.count ?? 0);
 
@@ -112,15 +115,21 @@ export const search = as
     const totalPage = Math.ceil(result.total / pageSize);
     const elapsed = Date.now() - startTime;
 
-    return {
-      result:  result.displayedResult,
-      total:   result.total,
+    const variant = await measureSearchStep(
+      options.timing,
+      'variant-detection',
+      () => detectVariant(dsl, lang),
+    );
+
+    return measureSearchStepSync(options.timing, 'result-shaping', () => ({
+      result: result.displayedResult,
+      total:  result.total,
       page,
       totalPage,
       elapsed,
-      variant: await detectVariant(dsl, lang),
-      ambit:   landing,
-    };
+      variant,
+      ambit:  landing,
+    }));
   });
 
 /** Preserves the complete basic endpoint while exposing a separate list-only action. */
@@ -128,9 +137,10 @@ export const essential = as
   .table(LatestCardEntityView)
   .handler(async (query, post, options: SearchOption) => {
     const result = await search.handler(query, post, options);
-    return {
-      ...result,
-      result: result.result.map(row => essentialCardSearchItem.strip().parse({
+    const essentialResult = measureSearchStepSync(
+      options.timing,
+      'essential-result-shaping',
+      () => result.result.map(row => essentialCardSearchItem.strip().parse({
         ...row,
         localization: {
           name:        row.localization.name,
@@ -139,6 +149,11 @@ export const essential = as
         },
         simpleTags: pickSimpleTags(row.mechanics),
       })),
+    );
+
+    return {
+      ...result,
+      result: essentialResult,
     };
   }, {
     localAdapter:       new HearthstoneD1EssentialSearchAdapter(runPgEssential),
@@ -147,7 +162,9 @@ export const essential = as
 
 /** Recompiles the original essential path if its projected tables disappear after activation. */
 async function runOriginalEssential(request: QueryRequest, options: SearchOption): Promise<EssentialNormalResult> {
-  const compiled = compileQueryRequest(request, Object.values(commands) as CommonServerCommand[], LatestCardEntityView);
+  const compiled = measureSearchStepSync(options.timing, 'query-compilation', () =>
+    compileQueryRequest(request, Object.values(commands) as CommonServerCommand[], LatestCardEntityView),
+  );
   return essential.handler(compiled.query ?? sql`TRUE`, compiled.post, options);
 }
 

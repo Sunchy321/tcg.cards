@@ -91,6 +91,27 @@ export default {
     },
   },
 
+  'timing': {
+    open:       'View search timing details',
+    title:      'Search timing details',
+    request:    'Total request time',
+    server:     'Search processing',
+    pageUpdate: 'Page update',
+    stages:     {
+      datasetStatus:       'Check search data',
+      queryPreparation:    'Prepare search criteria',
+      queryTranslation:    'Organize search criteria',
+      querySelection:      'Analyze search method',
+      matchingCards:       'Find matching cards',
+      matchingAndCounting: 'Find and count matching cards',
+      countMatches:        'Count matching cards',
+      candidateCards:      'Filter cards',
+      prepareMatches:      'Organize matches',
+      prepareResults:      'Prepare search results',
+      other:               'Search processing',
+    },
+  },
+
   'advanced': {
     '$self':        'Advanced Search',
     'empty-query':  '(no conditions)',
