@@ -4,7 +4,7 @@ import type { I18N } from '#search/client/command';
 import {
   hasHearthstoneRawCardTermTextFallback,
   resolveHearthstoneRawCardTerm,
-} from '../../shared/search/localized-card-terms';
+} from '~~/shared/search/localized-card-terms';
 
 /** Translates one search explanation key with its optional named values. */
 type ExplainTranslate = (key: string, named?: Record<string, any>) => string;
